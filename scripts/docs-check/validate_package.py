@@ -1,17 +1,22 @@
-"""交接包自检（v2.1）：只用标准库，不联网，不安装依赖。
+"""文档自检：`make verify` 的 docs 阶段。起点是交接包 v2.1 的 tools/validate_package.py，按
+07-bootstrap/01-new-repo-bootstrap.md 3.1 改成在仓库里运行：只用标准库，不联网，不安装依赖，不写任何文件。
 
-用法：python3 tools/validate_package.py            # 打印结果并写 evidence/package-validation.json
-      python3 tools/validate_package.py --strict   # 有任何错误则退出码 1
+用法：python3 scripts/docs-check/validate_package.py            # 打印结果
+      python3 scripts/docs-check/validate_package.py --strict   # 有任何错误则退出码 1（verify 用）
+      python3 scripts/docs-check/validate_package.py --root <交接包目录>   # 检查交接包原件
 
 检查项：
-  1. Markdown：代码围栏成对、包内相对链接可达
+  1. Markdown：代码围栏成对、相对链接可达（docs/ 之外的仓库 Markdown 也查：根目录说明、tasks/、changes/、脚本说明）
   2. 编号：本包编号（F-/PG-/OP-/OUT-/DR-/BR-/AI-/ENT-/INV-/PIT-/AC-/Q-/DEC-/T-/ADR-）被引用但没有定义的清单
   3. 契约：03-data/contracts/openapi.json 与 domain-events.schema.json 可解析、$ref 不悬空、operationId 唯一
   4. 验收：05-quality/06-acceptance-scenarios.md 的 T 编号唯一；07-traceability.json 引用的 T/页面存在
-  5. AIHOT 归档：research/aihot 的 tar.gz 成员哈希与 aihot-source-manifest.json 一致（流式校验，不解压到磁盘）
+  5. AIHOT 来源：归档在交接包原件里时，tar.gz 成员哈希与 aihot-source-manifest.json 一致（流式校验）；
+     在仓库里时（归档不入库），upstream/aihot.lock.json 与清单逐文件一致
   6. 数据：data/source-targets-320.json 与 .csv 记录数一致；原表 321 条；法域字典 36 个对象
   7. 追踪表：05-quality/07-traceability.json 自带检查项（无落点功能、未定义编号等）必须为空
   8. 敏感信息：扫描疑似 IPv4、邮箱、令牌与本机用户目录路径（作为警告列出）
+相对交接包原件的改动：默认根目录是仓库的 docs/；不再写 evidence/package-validation.json；第 1 项扩到仓库
+Markdown；第 5 项增加对 upstream/aihot.lock.json 的核对。
 """
 from __future__ import annotations
 
@@ -24,12 +29,16 @@ import sys
 import tarfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+REPO = Path(__file__).resolve().parents[2]
+ROOT = Path(sys.argv[sys.argv.index("--root") + 1]).resolve() if "--root" in sys.argv else REPO / "docs"
+IN_REPO = ROOT == REPO / "docs"
+# 仓库里 docs/ 之外要查链接的 Markdown（相对仓库根目录）
+REPO_MARKDOWN = ("*.md", "tasks/*.md", "changes/*.md", "scripts/**/*.md", ".github/*.md")
 errors: list[str] = []
 warnings: list[str] = []
 counts: dict[str, int] = {}
 
-SKIP_DIRS = ("research/aihot/", "_changes/", "tools/")
+SKIP_DIRS = ("research/aihot/", "_changes/", "tools/", "acceptance/2026-10-02-M0-baseline/")
 ID_PREFIXES = r"(?:F-[A-Z]{2,4}-\d{2}|PG-\d{2}|OP-\d{2}|OUT-\d{2}|DR-\d{2,3}|BR-[A-Z]{2,4}-\d{2}|AI-\d{2}|ENT-\d{2}|INV-\d{2}|PIT-\d{3}|AC-[A-Z0-9]{2,4}-\d{2}|Q-\d{2}|DEC-\d{2}|T-\d{3}|ADR-\d{4})"
 # 外来编号（旧仓库 ADR、法规分支的 T/R/D/K、整改需求 R）带前缀，不参与本包定义检查
 ID_RE = re.compile(rf"(?<![A-Za-z0-9_\-\u65e7]){ID_PREFIXES}(?![A-Za-z0-9])")
@@ -55,6 +64,27 @@ def md_files() -> list[Path]:
             continue
         out.append(p)
     return out
+
+
+def check_repo_markdown() -> None:
+    """docs/ 之外的仓库 Markdown：只查围栏与相对链接（编号定义只看 docs/）。"""
+    if not IN_REPO:
+        return
+    seen: set[Path] = set()
+    for pattern in REPO_MARKDOWN:
+        for p in sorted(REPO.glob(pattern)):
+            if p in seen or "node_modules" in p.parts:
+                continue
+            seen.add(p)
+            rel = str(p.relative_to(REPO))
+            text = p.read_text(encoding="utf-8")
+            check(len(re.findall(r"^```", text, re.M)) % 2 == 0, f"代码围栏不成对：{rel}")
+            for raw in re.findall(r"\]\(([^)]+)\)", text):
+                target = raw.split("#")[0].strip().strip("<>")
+                if not target or "://" in target or target.startswith(("mailto:", "/")):
+                    continue
+                check((p.parent / target).exists(), f"链接不可达：{rel} → {target}")
+    counts["repo_markdown_files"] = len(seen)
 
 
 def check_markdown() -> None:
@@ -168,12 +198,38 @@ def check_acceptance() -> None:
                 check(t in known, f"追踪表引用了不存在的场景 {t}（{row.get('id')}）", warn=True)
 
 
+def check_upstream_lock(manifest: Path) -> None:
+    """仓库里没有归档：upstream/aihot.lock.json 必须与清单逐文件一致（路径、字节数、SHA-256）。"""
+    lock_path = REPO / "upstream" / "aihot.lock.json"
+    if not lock_path.exists():
+        errors.append("缺少 upstream/aihot.lock.json")
+        return
+    expected = {e["path"]: e for e in json.loads(manifest.read_text(encoding="utf-8"))["files"]}
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    got = {e["path"]: e for e in lock.get("files", [])}
+    check(set(got) == set(expected), f"upstream/aihot.lock.json 的文件集合与清单不一致（{len(got)} / {len(expected)}）")
+    for path, e in expected.items():
+        g = got.get(path)
+        if g is not None:
+            check(g.get("sha256") == e["sha256"] and g.get("bytes") == e["bytes"], f"upstream/aihot.lock.json 与清单不符：{path}")
+    man = json.loads(manifest.read_text(encoding="utf-8"))
+    check(lock.get("commit") == man.get("commit"), "upstream/aihot.lock.json 的 commit 与清单不一致")
+    check(lock.get("archive_sha256") == man.get("archive_sha256"), "upstream/aihot.lock.json 的归档哈希与清单不一致")
+    counts["aihot_lock_files_checked"] = len(got)
+
+
 def check_aihot_archive() -> None:
     adir = ROOT / "research" / "aihot"
     tars = list(adir.glob("AIHOT-*.tar.gz"))
     manifest = adir / "aihot-source-manifest.json"
-    if not tars or not manifest.exists():
-        warnings.append("research/aihot 缺少归档或清单")
+    if not manifest.exists():
+        warnings.append("research/aihot 缺少清单")
+        return
+    if IN_REPO:
+        check_upstream_lock(manifest)
+    if not tars:
+        if not IN_REPO:
+            warnings.append("research/aihot 缺少归档")
         return
     expected = {e["path"]: e["sha256"] for e in json.loads(manifest.read_text(encoding="utf-8"))["files"]}
     seen = 0
@@ -250,6 +306,7 @@ def check_traceability() -> None:
 
 def main() -> None:
     check_markdown()
+    check_repo_markdown()
     check_contracts()
     check_acceptance()
     check_aihot_archive()
@@ -257,16 +314,15 @@ def main() -> None:
     check_traceability()
     result = {
         "status": "PASS" if not errors else "FAIL",
-        "scope": "只检查交接包文档、契约与归档的自洽性；不代表产品已实现或验收",
+        "scope": "只检查文档、契约与来源登记的自洽性；不代表产品已实现或验收",
         "counts": counts,
         "errors": errors,
         "warnings": warnings,
     }
-    out = ROOT / "evidence"
-    out.mkdir(exist_ok=True)
-    (out / "package-validation.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({k: v for k, v in result.items() if k != "warnings"}, ensure_ascii=False, indent=2))
-    print(f"warnings: {len(warnings)}（详见 evidence/package-validation.json）")
+    print(f"warnings: {len(warnings)}")
+    for w in warnings:
+        print(f"  warning: {w}")
     if "--strict" in sys.argv and errors:
         sys.exit(1)
 
