@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import type { HotStripEntry } from "@aihot/contracts/site";
+import type { HotStripEntry } from "@amp/contracts/site";
 import { IconArrowRight, IconMinus, IconTrendDown, IconTrendUp } from "../../components/icons";
 
 // As on the original list: the top three in the ranking colours at the heaviest weight.

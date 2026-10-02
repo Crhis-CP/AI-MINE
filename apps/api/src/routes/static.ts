@@ -4,12 +4,12 @@ import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { SITE } from "@aihot/industry/site";
-import { CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
-import { REPO_ROOT, config } from "@aihot/backend/config";
+import { SITE } from "@amp/industry/site";
+import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
+import { REPO_ROOT, config } from "@amp/backend/config";
 import { applyPublicHeaders, sendTextWithEtag } from "../http/respond.ts";
-import { sitemapXml } from "@aihot/backend/publication/sitemap";
-import { llmsTxt, loadLlmsAvailability } from "@aihot/backend/publication/llms";
+import { sitemapXml } from "@amp/backend/publication/sitemap";
+import { llmsTxt, loadLlmsAvailability } from "@amp/backend/publication/llms";
 
 const REF = path.join(REPO_ROOT, "reference");
 const BRAND = path.join(REPO_ROOT, "industry/brand");

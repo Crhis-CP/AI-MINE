@@ -345,7 +345,7 @@
 }
 
 /* Enter/leave keyframes for components/ui/Presence.tsx; --anim-ms overrides a default length. */
-@keyframes aihot-collapse-in {
+@keyframes amp-collapse-in {
   from {
     grid-template-rows: 0fr;
     opacity: 0;
@@ -355,7 +355,7 @@
     opacity: 1;
   }
 }
-@keyframes aihot-collapse-out {
+@keyframes amp-collapse-out {
   from {
     grid-template-rows: 1fr;
     opacity: 1;
@@ -365,47 +365,47 @@
     opacity: 0;
   }
 }
-@keyframes aihot-fade-in {
+@keyframes amp-fade-in {
   from {
     opacity: 0;
   }
 }
-@keyframes aihot-fade-out {
+@keyframes amp-fade-out {
   to {
     opacity: 0;
   }
 }
-@keyframes aihot-drop-in {
+@keyframes amp-drop-in {
   from {
     opacity: 0;
     transform: translateY(-4px) scale(0.98);
   }
 }
-@keyframes aihot-drop-out {
+@keyframes amp-drop-out {
   to {
     opacity: 0;
     transform: translateY(-4px) scale(0.98);
   }
 }
-@keyframes aihot-notice-in {
+@keyframes amp-notice-in {
   from {
     opacity: 0;
     transform: translateY(-6px);
   }
 }
-@keyframes aihot-slide-in-x {
+@keyframes amp-slide-in-x {
   from {
     opacity: 0;
     transform: translateX(10px);
   }
 }
-@keyframes aihot-swap-in {
+@keyframes amp-swap-in {
   from {
     opacity: 0;
     transform: scale(0.7);
   }
 }
-@keyframes aihot-bump {
+@keyframes amp-bump {
   from {
     transform: scale(0.7);
   }
@@ -416,7 +416,7 @@
     transform: scale(1);
   }
 }
-@keyframes aihot-pop-in {
+@keyframes amp-pop-in {
   from {
     opacity: 0;
     transform: scale(0.6);
@@ -429,7 +429,7 @@
     transform: scale(1);
   }
 }
-@keyframes aihot-draw {
+@keyframes amp-draw {
   from {
     stroke-dashoffset: 1;
   }
@@ -438,41 +438,41 @@
   }
 }
 .anim-collapse-in {
-  animation: aihot-collapse-in var(--anim-ms, 240ms) var(--ease-out-quart) both;
+  animation: amp-collapse-in var(--anim-ms, 240ms) var(--ease-out-quart) both;
 }
 .anim-collapse-out {
-  animation: aihot-collapse-out var(--anim-ms, 240ms) var(--ease-out-quart) both;
+  animation: amp-collapse-out var(--anim-ms, 240ms) var(--ease-out-quart) both;
 }
 .anim-fade-in {
-  animation: aihot-fade-in var(--anim-ms, 160ms) ease-out both;
+  animation: amp-fade-in var(--anim-ms, 160ms) ease-out both;
 }
 .anim-fade-out {
-  animation: aihot-fade-out var(--anim-ms, 160ms) ease-in both;
+  animation: amp-fade-out var(--anim-ms, 160ms) ease-in both;
 }
 .anim-drop-in {
-  animation: aihot-drop-in 140ms var(--ease-out-quart) both;
+  animation: amp-drop-in 140ms var(--ease-out-quart) both;
 }
 .anim-drop-out {
-  animation: aihot-drop-out 140ms ease-in both;
+  animation: amp-drop-out 140ms ease-in both;
 }
 .anim-notice-in {
-  animation: aihot-notice-in 200ms var(--ease-out-quart) both;
+  animation: amp-notice-in 200ms var(--ease-out-quart) both;
 }
 .anim-slide-in-x {
-  animation: aihot-slide-in-x 160ms var(--ease-out-quart) both;
+  animation: amp-slide-in-x 160ms var(--ease-out-quart) both;
 }
 .anim-swap-in {
-  animation: aihot-swap-in 120ms var(--ease-out-quart) both;
+  animation: amp-swap-in 120ms var(--ease-out-quart) both;
 }
 .anim-bump {
-  animation: aihot-bump 320ms var(--ease-out-quart) both;
+  animation: amp-bump 320ms var(--ease-out-quart) both;
 }
 .anim-pop-in {
-  animation: aihot-pop-in 460ms var(--ease-out-quart) both;
+  animation: amp-pop-in 460ms var(--ease-out-quart) both;
 }
 .anim-draw {
   stroke-dasharray: 1;
-  animation: aihot-draw 900ms var(--ease-out-quart) both;
+  animation: amp-draw 900ms var(--ease-out-quart) both;
 }
 
 /* Cross-fade between pages; the theme switch fades the whole document. */

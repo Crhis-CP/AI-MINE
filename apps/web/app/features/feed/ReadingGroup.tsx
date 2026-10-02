@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { Collapse } from "../../components/ui/Presence";
-import type { Development, GroupInfo, GroupReport, TimelineFilters } from "@aihot/contracts/site";
+import type { Development, GroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
 import { IconArrowUpRight, IconChevronDown } from "../../components/icons";
 import { monthDayTime, shortSourceName } from "../../lib/format";
 import { isReload } from "./restore";
@@ -28,7 +28,7 @@ interface Saved {
   open: boolean;
   paged: Paged<unknown> & { scope: string };
 }
-const groupsCache = sessionCache<{ savedAt: number; groups: Record<string, Saved> }>("aihot:groups:", 30 * 60 * 1000);
+const groupsCache = sessionCache<{ savedAt: number; groups: Record<string, Saved> }>("amp:groups:", 30 * 60 * 1000);
 
 function stored(entry: string): Record<string, Saved> {
   return groupsCache.read(entry)?.groups ?? {};

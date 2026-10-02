@@ -7,13 +7,13 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
-import { feedbackScreenshot } from "@aihot/backend/admin/feedback";
-import { config } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { submitFeedback } from "@aihot/backend/operations/feedback";
+import { feedbackScreenshot } from "@amp/backend/admin/feedback";
+import { config } from "@amp/backend/config";
+import { closeDb, sql } from "@amp/backend/db";
+import { submitFeedback } from "@amp/backend/operations/feedback";
 
 const T = tag();
-config.dataDir = mkdtempSync(path.join(tmpdir(), "aihot-feedback-"));
+config.dataDir = mkdtempSync(path.join(tmpdir(), "amp-feedback-"));
 // Everything the internal chat needs is in place: alerts would go out.
 process.env.FEISHU_INTERNAL_ENABLED = "true";
 process.env.FEISHU_APP_ID = "test-app";

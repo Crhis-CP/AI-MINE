@@ -2,7 +2,7 @@
 // to an internal chat). Content groups use custom bot webhooks. Alerts never go to content groups, content
 // never goes to internal chats, and reader feedback goes to neither: it stays on the server (INV-27).
 // Everything outward is off unless explicitly enabled (development and parallel runs stay silent).
-import { beijingDate, beijingTime } from "@aihot/contracts/time";
+import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { config, credential } from "../config.ts";
 
 const API = "https://open.feishu.cn/open-apis";

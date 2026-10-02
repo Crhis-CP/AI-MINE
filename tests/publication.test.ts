@@ -3,25 +3,25 @@
 // withdrawn items, the hot board drops a withdrawn item at once, item pages follow the site's rule, an
 // early release keeps the selected ledger in order, a withdrawal waiting behind an unreleased item
 // leaves new snapshots at once, and snapshots answer conditional requests.
-import { MCP_TOOL_NAMES } from "@aihot/contracts/mcp";
-import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
-import { beijingDate } from "@aihot/contracts/time";
+import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
+import { CATEGORY_LABELS } from "@amp/contracts/taxonomy";
+import { beijingDate } from "@amp/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { setVisibility } from "@aihot/backend/admin/content";
-import { updateSource } from "@aihot/backend/admin/sources";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { itemUrl } from "@aihot/backend/publication/links";
-import { publishArticle, republishSource } from "@aihot/backend/publication/publish";
-import { computeHotRanking } from "@aihot/backend/events/hot";
-import { latestHotRanking } from "@aihot/backend/events/hot-read";
-import { effectiveWatermark } from "@aihot/backend/publication/v1";
-import { SITE } from "@aihot/industry/site";
+import { closeDb, sql } from "@amp/backend/db";
+import { setVisibility } from "@amp/backend/admin/content";
+import { updateSource } from "@amp/backend/admin/sources";
+import { upsertMaterial } from "@amp/backend/content/materials";
+import { stopBoss } from "@amp/backend/jobs/queue";
+import { itemUrl } from "@amp/backend/publication/links";
+import { publishArticle, republishSource } from "@amp/backend/publication/publish";
+import { computeHotRanking } from "@amp/backend/events/hot";
+import { latestHotRanking } from "@amp/backend/events/hot-read";
+import { effectiveWatermark } from "@amp/backend/publication/v1";
+import { SITE } from "@amp/industry/site";
 import { buildApp } from "../apps/api/src/app.ts";
 
 const T = tag();

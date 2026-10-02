@@ -1,6 +1,6 @@
-import { SITE, withSubject } from "@aihot/industry/site";
+import { SITE, withSubject } from "@amp/industry/site";
 import { Link, useLoaderData } from "react-router";
-import type { HotEntryView, HotResponse } from "@aihot/contracts/site";
+import type { HotEntryView, HotResponse } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { monthDayTime, shortSourceName } from "../lib/format";

@@ -1,14 +1,14 @@
 // Worker process: queues and schedules for collection, processing, events, reports and ops.
-import { closeDb } from "@aihot/backend/db";
-import { getBoss, stopBoss } from "@aihot/backend/jobs/queue";
-import { registerContentJobs } from "@aihot/backend/jobs/content";
-import { registerSourceJobs } from "@aihot/backend/jobs/sources";
-import { registerEventJobs } from "@aihot/backend/jobs/events";
-import { registerNotifyJobs } from "@aihot/backend/jobs/notify";
-import { registerPublicationJobs } from "@aihot/backend/jobs/publication";
+import { closeDb } from "@amp/backend/db";
+import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
+import { registerContentJobs } from "@amp/backend/jobs/content";
+import { registerSourceJobs } from "@amp/backend/jobs/sources";
+import { registerEventJobs } from "@amp/backend/jobs/events";
+import { registerNotifyJobs } from "@amp/backend/jobs/notify";
+import { registerPublicationJobs } from "@amp/backend/jobs/publication";
 import { registerSchedules } from "./schedules.ts";
-import { ensureContentTargets } from "@aihot/backend/notify/deliver";
-import { startHeartbeat } from "@aihot/backend/operations/heartbeat";
+import { ensureContentTargets } from "@amp/backend/notify/deliver";
+import { startHeartbeat } from "@amp/backend/operations/heartbeat";
 
 await ensureContentTargets();
 const boss = await getBoss();

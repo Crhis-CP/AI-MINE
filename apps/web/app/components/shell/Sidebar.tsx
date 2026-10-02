@@ -1,4 +1,4 @@
-import { SITE } from "@aihot/industry/site";
+import { SITE } from "@amp/industry/site";
 import { Link, useLocation } from "react-router";
 import { Wordmark } from "../Logo";
 import { SIDEBAR, tabIsActive, type NavItem } from "./nav";

@@ -3,10 +3,10 @@
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { analyzeArticle } from "@aihot/backend/editorial/analyze";
-import { stopBoss } from "@aihot/backend/jobs/queue";
+import { closeDb, sql } from "@amp/backend/db";
+import { upsertMaterial } from "@amp/backend/content/materials";
+import { analyzeArticle } from "@amp/backend/editorial/analyze";
+import { stopBoss } from "@amp/backend/jobs/queue";
 
 // Nothing chosen per step: every capability falls back to the `default` model.
 for (const name of Object.keys(process.env)) if (/_MODEL$/.test(name) && name !== "LLM_MODEL" && name !== "EMBEDDING_MODEL") delete process.env[name];

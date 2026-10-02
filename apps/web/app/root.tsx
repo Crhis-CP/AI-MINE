@@ -1,5 +1,5 @@
 import { titled } from "./lib/seo";
-import { SITE } from "@aihot/industry/site";
+import { SITE } from "@amp/industry/site";
 import {
   isRouteErrorResponse,
   Link,

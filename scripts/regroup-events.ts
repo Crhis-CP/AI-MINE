@@ -21,11 +21,11 @@
 // Every step can be repeated.
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { closeDb, sql } from "@aihot/backend/db";
-import { enqueue, getBoss, QUEUES, stopBoss } from "@aihot/backend/jobs/queue";
-import { backfillStoryHeat, computeHotRanking } from "@aihot/backend/events/hot";
-import { consolidate, warmRecallWindow } from "@aihot/backend/events/group";
-import { firmlyTied } from "@aihot/backend/events/relate";
+import { closeDb, sql } from "@amp/backend/db";
+import { enqueue, getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
+import { backfillStoryHeat, computeHotRanking } from "@amp/backend/events/hot";
+import { consolidate, warmRecallWindow } from "@amp/backend/events/group";
+import { firmlyTied } from "@amp/backend/events/relate";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,

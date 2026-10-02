@@ -3,7 +3,7 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { linkBodyImages } from "@aihot/backend/content/sanitize";
+import { linkBodyImages } from "@amp/backend/content/sanitize";
 
 const link = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
 

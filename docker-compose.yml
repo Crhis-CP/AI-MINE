@@ -1,16 +1,16 @@
 # docker compose up -d --build     → http://localhost:3000   (the admin is at /admin)
 # docker compose --profile https up -d --build   → HTTPS for SITE_DOMAIN through Caddy
-name: aihot
+name: amp
 
 x-app: &app
   build: .
-  image: aihot-app
+  image: amp-app
   env_file: .env
   restart: unless-stopped
   environment: &app-env
     NODE_ENV: production
-    DATABASE_URL: postgres://aihot:${POSTGRES_PASSWORD:-aihot}@db:5432/aihot
-    AIHOT_DATA_DIR: /data
+    DATABASE_URL: postgres://amp:${POSTGRES_PASSWORD:-amp}@db:5432/amp
+    AMP_DATA_DIR: /data
     API_BASE_URL: http://api:3001
     LOCAL_ROUTER_URL: http://web:3000
   volumes:
@@ -25,13 +25,13 @@ services:
     image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     restart: unless-stopped
     environment:
-      POSTGRES_USER: aihot
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-aihot}
-      POSTGRES_DB: aihot
+      POSTGRES_USER: amp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amp}
+      POSTGRES_DB: amp
     volumes:
       - db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aihot -d aihot"]
+      test: ["CMD-SHELL", "pg_isready -U amp -d amp"]
       interval: 5s
       timeout: 5s
       retries: 30

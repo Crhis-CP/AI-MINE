@@ -1,5 +1,5 @@
 // Reading the latest published hot ranking. The web shows heat values; machine exits only ranks.
-import type { HotStripEntry } from "@aihot/contracts/site";
+import type { HotStripEntry } from "@amp/contracts/site";
 import { sql } from "../db.ts";
 
 export interface HotEntry {

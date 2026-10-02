@@ -1,6 +1,6 @@
 // The MCP tool names, from the site's prefix (industry/site.ts): llms.txt, the agent page and the server
 // list the same names.
-import { SITE } from "@aihot/industry/site";
+import { SITE } from "@amp/industry/site";
 
 const p = SITE.mcpPrefix;
 

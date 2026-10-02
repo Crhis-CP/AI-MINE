@@ -1,23 +1,23 @@
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@aihot/contracts/taxonomy";
-import { InvalidCursorError } from "@aihot/backend/lib/cursor";
-import { loadItemDetail, siteItemDetail } from "@aihot/backend/publication/detail";
-import { loadPool, SearchBusyError } from "@aihot/backend/publication/pool";
-import { loadTimeline } from "@aihot/backend/publication/timeline";
-import { loadStoryFollowups } from "@aihot/backend/publication/followups";
-import { loadDevelopments, loadGroupReports } from "@aihot/backend/publication/groups";
-import { loadTopicTags } from "@aihot/backend/publication/topics";
-import { loadHotStrip } from "@aihot/backend/events/hot-read";
-import { loadChangelog, siteMeta } from "@aihot/backend/site/meta";
-import { loadSiteStats } from "@aihot/backend/site/stats";
-import { itemAvailability } from "@aihot/backend/publication/availability";
-import { listTopicSummaries, loadTopicPage } from "@aihot/backend/publication/topics";
+import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
+import { InvalidCursorError } from "@amp/backend/lib/cursor";
+import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail";
+import { loadPool, SearchBusyError } from "@amp/backend/publication/pool";
+import { loadTimeline } from "@amp/backend/publication/timeline";
+import { loadStoryFollowups } from "@amp/backend/publication/followups";
+import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/groups";
+import { loadTopicTags } from "@amp/backend/publication/topics";
+import { loadHotStrip } from "@amp/backend/events/hot-read";
+import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
+import { loadSiteStats } from "@amp/backend/site/stats";
+import { itemAvailability } from "@amp/backend/publication/availability";
+import { listTopicSummaries, loadTopicPage } from "@amp/backend/publication/topics";
 import { registerFeedback } from "./feedback.ts";
 
-import { loadHot, loadStoryDetail, resolveStory } from "@aihot/backend/publication/stories";
-import { listReports, loadReport, reportNavigation, loadReportNavigation, loadReportMonth, type ReportKind } from "@aihot/backend/publication/reports";
+import { loadHot, loadStoryDetail, resolveStory } from "@amp/backend/publication/stories";
+import { listReports, loadReport, reportNavigation, loadReportNavigation, loadReportMonth, type ReportKind } from "@amp/backend/publication/reports";
 import { looseQuery, sendJsonWithEtag, sendProblem } from "../http/respond.ts";
 
 type Handler = (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;

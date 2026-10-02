@@ -3,7 +3,7 @@
 
 import { sessionCache } from "./session-cache";
 
-const PREFIX = "aihot:list:";
+const PREFIX = "amp:list:";
 const MAX_AGE_MS = 30 * 60 * 1000;
 
 export interface ListSnapshot<T> {

@@ -169,13 +169,13 @@ importers:
 
   .:
     devDependencies:
-      '@aihot/backend':
+      '@amp/backend':
         specifier: workspace:*
         version: link:packages/backend
-      '@aihot/contracts':
+      '@amp/contracts':
         specifier: workspace:*
         version: link:packages/contracts
-      '@aihot/industry':
+      '@amp/industry':
         specifier: workspace:*
         version: link:industry
       '@biomejs/biome':
@@ -214,13 +214,13 @@ importers:
 
   apps/api:
     dependencies:
-      '@aihot/backend':
+      '@amp/backend':
         specifier: workspace:*
         version: link:../../packages/backend
-      '@aihot/contracts':
+      '@amp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@aihot/industry':
+      '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
       '@modelcontextprotocol/server':
@@ -244,10 +244,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@aihot/contracts':
+      '@amp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@aihot/industry':
+      '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
       '@react-router/node':
@@ -290,13 +290,13 @@ importers:
 
   apps/worker:
     dependencies:
-      '@aihot/backend':
+      '@amp/backend':
         specifier: workspace:*
         version: link:../../packages/backend
-      '@aihot/contracts':
+      '@amp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@aihot/industry':
+      '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
       pg-boss:
@@ -307,10 +307,10 @@ importers:
 
   packages/backend:
     dependencies:
-      '@aihot/contracts':
+      '@amp/contracts':
         specifier: workspace:*
         version: link:../contracts
-      '@aihot/industry':
+      '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
       '@mozilla/readability':
@@ -352,7 +352,7 @@ importers:
 
   packages/contracts:
     dependencies:
-      '@aihot/industry':
+      '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
 

@@ -1,8 +1,8 @@
-import { SITE, withSubject } from "@aihot/industry/site";
+import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import type { Route } from "./+types/item";
-import type { SiteItemDetail } from "@aihot/contracts/site";
+import type { SiteItemDetail } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { fullDateTime, relativeTime } from "../lib/format";

@@ -1,4 +1,4 @@
-import { SITE, withSubject } from "@aihot/industry/site";
+import { SITE, withSubject } from "@amp/industry/site";
 import { Fragment } from "react";
 import { Link, useLoaderData } from "react-router";
 import { apiGet } from "../lib/api.server";

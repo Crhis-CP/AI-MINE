@@ -1,13 +1,13 @@
 // Public API v1 (long-term). Field shapes follow reference/public-v1.openapi.json 2.0.0 (the paths stay /api/v1).
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { V1_CACHE_CONTROL } from "@aihot/contracts/http-policy";
-import { PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } from "@aihot/contracts/taxonomy";
-import { InvalidCursorError } from "@aihot/backend/lib/cursor";
-import { SearchBusyError } from "@aihot/backend/publication/pool";
-import { selectedChanges, selectedSnapshot, SnapshotRequiredError, v1Items } from "@aihot/backend/publication/v1";
-import { resolveStory, v1HotTopics, v1Story } from "@aihot/backend/publication/stories";
-import { v1Dailies, v1Daily } from "@aihot/backend/publication/reports";
-import { isValidDate } from "@aihot/contracts/time";
+import { V1_CACHE_CONTROL } from "@amp/contracts/http-policy";
+import { PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { InvalidCursorError } from "@amp/backend/lib/cursor";
+import { SearchBusyError } from "@amp/backend/publication/pool";
+import { selectedChanges, selectedSnapshot, SnapshotRequiredError, v1Items } from "@amp/backend/publication/v1";
+import { resolveStory, v1HotTopics, v1Story } from "@amp/backend/publication/stories";
+import { v1Dailies, v1Daily } from "@amp/backend/publication/reports";
+import { isValidDate } from "@amp/contracts/time";
 import { applyPublicHeaders, QueryError, sendJsonWithEtag, sendProblem, strictQuery } from "../http/respond.ts";
 
 type Handler = (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;

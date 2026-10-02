@@ -29,7 +29,7 @@ import { scanSecrets, type SecretScan } from "./secrets.ts";
 import { checkTasks } from "./tasks.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 
-const WEB_PACKAGE = "@aihot/web";
+const WEB_PACKAGE = "@amp/web";
 const PENDING_STAGES = [
   "contracts (TASK-0005)",
   "data-ownership, role-config (TASK-0004)",
@@ -419,7 +419,7 @@ const STAGES: Stage[] = [
         }
         const count = await capture(
           "docker",
-          ["compose", "-p", project, "exec", "-T", "db", "psql", "-U", "aihot", "-d", "aihot", "-Atc", "select count(*) from sources"],
+          ["compose", "-p", project, "exec", "-T", "db", "psql", "-U", "amp", "-d", "amp", "-Atc", "select count(*) from sources"],
           {
             log,
             env: e,

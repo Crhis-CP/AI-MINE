@@ -41,7 +41,7 @@ echo "== routes, queues, schedules"
 node scripts/baseline/capture.ts "$out" > /dev/null
 
 echo "== built site: machine outputs, smoke, MCP check"
-pnpm --filter @aihot/web build > /dev/null
+pnpm --filter @amp/web build > /dev/null
 # The site runs with collection and model calls off; the tests below use their own local stubs.
 COLLECT_ENABLED=false MODEL_CALLS_ENABLED=false node apps/api/src/main.ts > "$out/.api.log" 2>&1 &
 api_pid=$!

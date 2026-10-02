@@ -2,10 +2,10 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { after, before, test } from "node:test";
-import { sql, closeDb } from "@aihot/backend/db";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { publishArticle } from "@aihot/backend/publication/publish";
+import { sql, closeDb } from "@amp/backend/db";
+import { stopBoss } from "@amp/backend/jobs/queue";
+import { upsertMaterial } from "@amp/backend/content/materials";
+import { publishArticle } from "@amp/backend/publication/publish";
 
 const T = tag();
 const SOURCE = `test-translate-stop-${T}`;
@@ -23,9 +23,9 @@ const provider = await stub(async (_hit, req) => {
 
 function runTranslation() {
   const script = `
-    import { translatePending } from '@aihot/backend/editorial/translate';
-    import { shutdownSignal } from '@aihot/backend/jobs/queue';
-    import { closeDb } from '@aihot/backend/db';
+    import { translatePending } from '@amp/backend/editorial/translate';
+    import { shutdownSignal } from '@amp/backend/jobs/queue';
+    import { closeDb } from '@amp/backend/db';
     process.on('SIGTERM', () => { shutdownSignal.abort(); process.send({ stopped: true }); });
     try { process.send({ result: await translatePending({ limit: 1 }) }); }
     finally { await closeDb(); process.disconnect(); }
@@ -38,7 +38,7 @@ function runTranslation() {
       TRANSLATE_MODEL: "deepseek-flash",
       DEEPSEEK_BASE_URL: `${provider.url}/v1`,
       DEEPSEEK_API_KEY: "test-key",
-      AIHOT_CREDENTIALS_DIR: "/nonexistent-test-credentials",
+      AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials",
     },
     stdio: ["ignore", "pipe", "pipe", "ipc"],
   });

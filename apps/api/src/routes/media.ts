@@ -1,8 +1,8 @@
 // Signed image proxy, closed (DR-78): the api does not register it (app.ts). Registered, it answers
 // unsigned, badly signed or expired requests with 403 without any upstream fetch.
 import type { FastifyInstance } from "fastify";
-import { produceImage } from "@aihot/backend/media/images";
-import { verifyProxyRequest } from "@aihot/backend/media/imgproxy";
+import { produceImage } from "@amp/backend/media/images";
+import { verifyProxyRequest } from "@amp/backend/media/imgproxy";
 import { looseQuery } from "../http/respond.ts";
 
 export function registerMedia(app: FastifyInstance) {
@@ -12,7 +12,7 @@ export function registerMedia(app: FastifyInstance) {
     // A caching proxy (nginx auth_request) can check every request with this HEAD sub-request before it reads its image cache (keyed
     // by url and mode only): signature only, no upstream fetch. 401 = malformed query, 403 = bad or
     // expired signature; a valid answer may be cached for the rest of the signature's life.
-    if (req.method === "HEAD" && req.headers["x-aihot-img-proxy-auth"] === "1") {
+    if (req.method === "HEAD" && req.headers["x-amp-img-proxy-auth"] === "1") {
       if (!verdict.ok) {
         const malformed = verdict.reason === "missing" || verdict.reason === "bad-url";
         return reply

@@ -1,5 +1,5 @@
 {
-  "name": "@aihot/api",
+  "name": "@amp/api",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,9 +7,9 @@
     "start": "node src/main.ts"
   },
   "dependencies": {
-    "@aihot/backend": "workspace:*",
-    "@aihot/contracts": "workspace:*",
-    "@aihot/industry": "workspace:*",
+    "@amp/backend": "workspace:*",
+    "@amp/contracts": "workspace:*",
+    "@amp/industry": "workspace:*",
     "@modelcontextprotocol/server": "2.1.0",
     "@resvg/resvg-js": "2.6.2",
     "fastify": "5.12.5",

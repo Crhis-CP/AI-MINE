@@ -3,9 +3,9 @@
 // node scripts/mcp-check.ts [url]
 import { Client } from "@modelcontextprotocol/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
-import { MCP_TOOL_NAMES as T } from "@aihot/contracts/mcp";
+import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
 const url = new URL(process.argv[2] ?? "http://127.0.0.1:3001/api/mcp");
-const client = new Client({ name: "aihot-mcp-check", version: "1.0.0" });
+const client = new Client({ name: "amp-mcp-check", version: "1.0.0" });
 await client.connect(new StreamableHTTPClientTransport(url));
 const info = client.getServerVersion?.();
 console.log("server:", JSON.stringify(info));

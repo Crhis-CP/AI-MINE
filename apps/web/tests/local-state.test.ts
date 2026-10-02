@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { beijingDate, beijingTime } from "@aihot/contracts/time";
+import { beijingDate, beijingTime } from "@amp/contracts/time";
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 after(() => {
@@ -10,7 +10,7 @@ after(() => {
 
 let instance = 0;
 async function reader(stars: unknown[] = []) {
-  const values = new Map<string, string>([["aihot-starred-items", JSON.stringify(stars)]]);
+  const values = new Map<string, string>([["amp-starred-items", JSON.stringify(stars)]]);
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {

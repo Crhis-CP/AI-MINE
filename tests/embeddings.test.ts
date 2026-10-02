@@ -1,9 +1,9 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { sha256 } from "@aihot/backend/lib/ids";
-import { EMBEDDING_MODEL, ensureEmbeddings } from "@aihot/backend/providers/embeddings";
+import { closeDb, sql } from "@amp/backend/db";
+import { sha256 } from "@amp/backend/lib/ids";
+import { EMBEDDING_MODEL, ensureEmbeddings } from "@amp/backend/providers/embeddings";
 
 const T = tag();
 after(closeDb);

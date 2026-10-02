@@ -7,12 +7,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import sharp from "sharp";
 
-const dir = await mkdtemp(path.join(tmpdir(), "aihot-media-test-"));
-process.env.AIHOT_DATA_DIR = dir;
+const dir = await mkdtemp(path.join(tmpdir(), "amp-media-test-"));
+process.env.AMP_DATA_DIR = dir;
 process.env.ALLOW_PRIVATE_NETWORK_FETCH = "true";
 process.env.MODEL_CALLS_ENABLED = "false";
-const { guardedFetch } = await import("@aihot/backend/lib/http-fetch");
-const { produceImage } = await import("@aihot/backend/media/images");
+const { guardedFetch } = await import("@amp/backend/lib/http-fetch");
+const { produceImage } = await import("@amp/backend/media/images");
 const { renderOg } = await import("../apps/api/src/og/render.ts");
 
 let imageHits = 0;
@@ -52,7 +52,7 @@ const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 after(async () => {
   server.closeAllConnections();
   await new Promise<void>((resolve) => server.close(() => resolve()));
-  const { closeDb } = await import("@aihot/backend/db");
+  const { closeDb } = await import("@amp/backend/db");
   await closeDb();
   await rm(dir, { recursive: true, force: true });
 });
@@ -112,7 +112,7 @@ test("the original cache expires and evicts old entries instead of retaining eve
 });
 
 test("modern raster output preserves transparency and never flattens animation", async () => {
-  const { resizeImage } = await import("@aihot/backend/media/images");
+  const { resizeImage } = await import("@amp/backend/media/images");
   const translucent = await sharp({ create: { width: 32, height: 24, channels: 4, background: { r: 10, g: 80, b: 160, alpha: 0.25 } } })
     .png()
     .toBuffer();
@@ -137,7 +137,7 @@ test("modern raster output preserves transparency and never flattens animation",
 });
 
 test("small SVG stays vector while a large vector receives the requested browser rendition", async () => {
-  const { resizeImage } = await import("@aihot/backend/media/images");
+  const { resizeImage } = await import("@amp/backend/media/images");
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><rect width="1200" height="600" fill="#475569"/></svg>';
   const vector = await resizeImage(Buffer.from(svg), "image/svg+xml", "image-720");
   assert.equal(vector.type, "image/svg+xml");
@@ -148,7 +148,7 @@ test("small SVG stays vector while a large vector receives the requested browser
 });
 
 test("responsive URLs retain exact signatures and stable expiry", async () => {
-  const { proxiedImageSet, verifyProxyRequest } = await import("@aihot/backend/media/imgproxy");
+  const { proxiedImageSet, verifyProxyRequest } = await import("@amp/backend/media/imgproxy");
   const now = Date.parse("2026-09-28T08:00:00Z");
   const candidates = proxiedImageSet("https://example.org/image.png", "card", false, now)!;
   assert.equal(candidates, proxiedImageSet("https://example.org/image.png", "card", false, now + 1000));
@@ -166,7 +166,7 @@ test("responsive URLs retain exact signatures and stable expiry", async () => {
 test("image HTTP responses keep issued URLs valid, reject tampering before fetching and do not vary on Accept", async () => {
   const { default: Fastify } = await import("fastify");
   const { registerMedia } = await import("../apps/api/src/routes/media.ts");
-  const { signature } = await import("@aihot/backend/media/imgproxy");
+  const { signature } = await import("@amp/backend/media/imgproxy");
   const app = Fastify();
   registerMedia(app);
   const url = `${base}/http-image`;
@@ -186,7 +186,7 @@ test("image HTTP responses keep issued URLs valid, reject tampering before fetch
   const old = new URLSearchParams({ u: url, exp, sig: signature(url, "default", exp) });
   assert.equal((await app.inject({ url: `/api/img-proxy?${old}` })).statusCode, 200);
   // Current URLs carry the first 16 hex digits; a wrong short signature is refused like a long one.
-  const { proxiedImage } = await import("@aihot/backend/media/imgproxy");
+  const { proxiedImage } = await import("@amp/backend/media/imgproxy");
   const short = proxiedImage(url, "image-336")!;
   assert.match(short, /&sig=[0-9a-f]{16}$/);
   assert.equal((await app.inject({ url: short })).statusCode, 200);
@@ -195,7 +195,7 @@ test("image HTTP responses keep issued URLs valid, reject tampering before fetch
 });
 
 test("background preparation turns a cached GIF into a smaller animated WebP with every frame and its timing", async () => {
-  const { convertAnimated } = await import("@aihot/backend/media/images");
+  const { convertAnimated } = await import("@amp/backend/media/images");
   const passed = await produceImage(`${base}/anim.gif`, "image-336");
   assert.equal(passed.type, "image/gif");
   const saved = await convertAnimated(`${base}/anim.gif`, "image-336");

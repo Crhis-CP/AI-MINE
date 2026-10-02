@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { parseEnv } from "node:util";
-import { SITE } from "@aihot/industry/site";
+import { SITE } from "@amp/industry/site";
 
 export const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 
@@ -33,7 +33,7 @@ function bool(name: string, fallback: boolean): boolean {
 }
 
 export const config = {
-  databaseUrl: str("DATABASE_URL", "postgres://127.0.0.1:5432/aihot"),
+  databaseUrl: str("DATABASE_URL", "postgres://127.0.0.1:5432/amp"),
   apiPort: int("API_PORT", 3001),
   webPort: int("WEB_PORT", 3000),
   apiBaseUrl: str("API_BASE_URL", "http://127.0.0.1:3001"),
@@ -48,10 +48,10 @@ export const config = {
   indexNowKey: /^[0-9a-f]{32}$/.test(env.INDEXNOW_KEY ?? "") ? env.INDEXNOW_KEY! : null,
   imgProxyRequireSig: bool("IMG_PROXY_REQUIRE_SIG", true),
   /** Optional directory of per-group dotenv files (models.env, collectors.env, …); normally everything is in .env. */
-  credentialsDir: env.AIHOT_CREDENTIALS_DIR || null,
-  dataDir: str("AIHOT_DATA_DIR", path.join(REPO_ROOT, ".data")),
+  credentialsDir: env.AMP_CREDENTIALS_DIR || null,
+  dataDir: str("AMP_DATA_DIR", path.join(REPO_ROOT, ".data")),
   // Name of this deployment in alerts ("production" sends them without a prefix).
-  environmentName: str("AIHOT_ENVIRONMENT", isProduction ? "production" : "development"),
+  environmentName: str("AMP_ENVIRONMENT", isProduction ? "production" : "development"),
   // Model calls are live unless explicitly disabled (tests, replays).
   modelCallsEnabled: bool("MODEL_CALLS_ENABLED", true),
   devAdmin: env.DEV_AUTH_ROLE === "admin" ? { displayName: env.DEV_AUTH_DISPLAY_NAME || "Dev Admin" } : null,
@@ -72,7 +72,7 @@ export type CredentialGroup = "models" | "collectors" | "integrations" | "auth";
 const groupCache = new Map<CredentialGroup, Record<string, string>>();
 
 /**
- * Loads one credential group from an optional dotenv file (AIHOT_CREDENTIALS_DIR/<group>.env). Values
+ * Loads one credential group from an optional dotenv file (AMP_CREDENTIALS_DIR/<group>.env). Values
  * in the environment always win; a normal deployment only uses environment variables (.env).
  */
 export function credentials(group: CredentialGroup): Record<string, string> {

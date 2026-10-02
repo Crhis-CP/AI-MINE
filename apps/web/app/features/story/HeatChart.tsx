@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { HeatPoint } from "@aihot/contracts/site";
+import type { HeatPoint } from "@amp/contracts/site";
 import { monthDayTime } from "../../lib/format";
 import { useEntrance } from "../../lib/hydration";
 

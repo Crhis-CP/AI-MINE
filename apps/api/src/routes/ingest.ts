@@ -2,8 +2,8 @@
 // their own rate limit. Closed in the first version: app.ts does not register this route (F-ACQ-07).
 import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { credential } from "@aihot/backend/config";
-import { IngestError, ingestItems } from "@aihot/backend/ingest/items";
+import { credential } from "@amp/backend/config";
+import { IngestError, ingestItems } from "@amp/backend/ingest/items";
 
 const PLACEHOLDER = /^(|changeme|change-me|placeholder|xxx+|todo|test|dev|your[-_]?token.*)$/i;
 
