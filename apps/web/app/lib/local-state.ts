@@ -5,15 +5,11 @@ import { beijingDate } from "@aihot/contracts/time";
 
 export const KEYS = {
   starred: "aihot-starred-items",
-  read: "aihot-read-items",
   theme: "aihot-theme",
-  changelogSeen: "aihot-changelog-seen-version",
   feedbackDraft: "aihot-feedback-draft-v1",
 } as const;
 
 export const STARRED_LIMIT = 500;
-export const READ_LIMIT = 5000;
-export const IMPORT_MAX_CHARS = 2_000_000;
 const ID_PATTERN = /^[a-zA-Z0-9_-]{1,80}$/;
 
 export interface LocalStarredItem {
@@ -85,9 +81,7 @@ function subscribeKey(key: string) {
   };
 }
 const subscribeStarred = subscribeKey(KEYS.starred);
-const subscribeRead = subscribeKey(KEYS.read);
 const subscribeTheme = subscribeKey(KEYS.theme);
-const subscribeChangelog = subscribeKey(KEYS.changelogSeen);
 
 // Snapshot cache so useSyncExternalStore gets stable references between changes.
 const cache = new Map<string, unknown>();
@@ -107,7 +101,7 @@ function isStarredItem(v: unknown): v is LocalStarredItem {
   return typeof o.id === "string" && ID_PATTERN.test(o.id) && typeof o.title === "string";
 }
 
-/** Imported and already stored dates must be representable in the page's display timezone. */
+/** Stored dates must be representable in the page's display timezone. */
 function isDisplayableDate(value: unknown): value is string {
   if (typeof value !== "string") return false;
   try {
@@ -172,39 +166,6 @@ export function removeStar(id: string) {
   invalidate(KEYS.starred);
 }
 
-// --- read items (LRU, newest first) ---
-export function getReadIds(): string[] {
-  return cached(KEYS.read, () => {
-    const raw = readRaw(KEYS.read);
-    if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === "string" && ID_PATTERN.test(v)).slice(0, READ_LIMIT) : [];
-    } catch {
-      return [];
-    }
-  });
-}
-
-const readSetCache = { ids: null as string[] | null, set: new Set<string>() };
-export function getReadSet(): Set<string> {
-  const ids = getReadIds();
-  if (readSetCache.ids !== ids) {
-    readSetCache.ids = ids;
-    readSetCache.set = new Set(ids);
-  }
-  return readSetCache.set;
-}
-
-export function markRead(id: string) {
-  if (!ID_PATTERN.test(id)) return;
-  const ids = getReadIds();
-  if (ids[0] === id) return;
-  const next = [id, ...ids.filter((v) => v !== id)].slice(0, READ_LIMIT);
-  writeRaw(KEYS.read, JSON.stringify(next));
-  invalidate(KEYS.read);
-}
-
 // --- theme ---
 export type ThemePreference = "light" | "dark" | null;
 
@@ -233,115 +194,8 @@ export function resolvedTheme(pref: ThemePreference = getThemePreference()): "li
 /** Inline script run before paint so the first frame already has the reader's theme. */
 export const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('${KEYS.theme}');if(t==='"light"'||t==='"dark"')t=JSON.parse(t);if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
 
-// --- changelog red dot ---
-export function getChangelogSeen(): string | null {
-  const v = readRaw(KEYS.changelogSeen);
-  return v && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? v : null;
-}
-
-export function setChangelogSeen(version: string) {
-  writeRaw(KEYS.changelogSeen, version);
-  invalidate(KEYS.changelogSeen);
-}
-
-// --- export / import (version 1) ---
-export interface ExportBundle {
-  version: 1;
-  starred: LocalStarredItem[];
-  read: string[];
-  theme: "light" | "dark" | "auto" | null;
-}
-
-export function exportBundle(): ExportBundle {
-  const pref = getThemePreference();
-  return { version: 1, starred: getStarred(), read: getReadIds(), theme: pref ?? "auto" };
-}
-
-export interface ImportReport {
-  starredAdded: number;
-  starredSkipped: number;
-  readAdded: number;
-  readSkipped: number;
-  themeApplied: boolean;
-  /** The stars were saved but the read marks could not be (storage full or unavailable). */
-  readFailed: boolean;
-}
-
-/** Merge: existing stars are not overwritten, read ids are unioned, theme only if unset. */
-export function importBundle(text: string): ImportReport {
-  if (text.length > IMPORT_MAX_CHARS) throw new Error("文件过大（上限 2,000,000 字符）");
-  let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error("不是有效的 JSON 文件");
-  }
-  const d = data as Partial<ExportBundle>;
-  if (!d || typeof d !== "object" || d.version !== 1) throw new Error("文件格式不对（需要 version: 1）");
-  return mergeLocalData({
-    starred: Array.isArray(d.starred) ? d.starred : [],
-    read: Array.isArray(d.read) ? d.read : [],
-    theme: d.theme ?? null,
-  });
-}
-
-export function mergeLocalData(incoming: { starred: unknown[]; read: unknown[]; theme: unknown }): ImportReport {
-  const current = getStarred();
-  const have = new Set(current.map((s) => s.id));
-  const additions: LocalStarredItem[] = [];
-  let starredSkipped = 0;
-  for (const s of incoming.starred) {
-    if (!isStarredItem(s)) {
-      starredSkipped++;
-      continue;
-    }
-    if (have.has(s.id)) continue;
-    have.add(s.id);
-    additions.push(normalizeStarred(s as unknown as Record<string, unknown>));
-  }
-  const room = Math.max(0, STARRED_LIMIT - current.length);
-  const accepted = additions.slice(0, room);
-  starredSkipped += additions.length - accepted.length;
-  const mergedStarred = [...current, ...accepted].sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt));
-  // An import is reported only after it was written; a failure here leaves the browser as it was.
-  if (!writeRaw(KEYS.starred, JSON.stringify(mergedStarred))) throw new Error("浏览器存储已满或不可用，这次没有导入任何内容。");
-
-  const readIds = getReadIds();
-  const readHave = new Set(readIds);
-  const readAdditions: string[] = [];
-  let readSkipped = 0;
-  for (const id of incoming.read) {
-    if (typeof id !== "string" || !ID_PATTERN.test(id)) {
-      readSkipped++;
-      continue;
-    }
-    if (readHave.has(id)) continue;
-    readHave.add(id);
-    readAdditions.push(id);
-  }
-  const readRoom = Math.max(0, READ_LIMIT - readIds.length);
-  readSkipped += Math.max(0, readAdditions.length - readRoom);
-  const readFailed = !writeRaw(KEYS.read, JSON.stringify([...readIds, ...readAdditions.slice(0, readRoom)]));
-
-  let themeApplied = false;
-  if (!getThemePreference() && (incoming.theme === "light" || incoming.theme === "dark")) {
-    themeApplied = writeRaw(KEYS.theme, incoming.theme);
-  }
-  cache.clear();
-  emit();
-  return {
-    starredAdded: accepted.length,
-    starredSkipped,
-    readAdded: readFailed ? 0 : Math.min(readAdditions.length, readRoom),
-    readSkipped,
-    themeApplied,
-    readFailed,
-  };
-}
-
 // --- React hooks ---
 const EMPTY_STARRED: LocalStarredItem[] = [];
-const EMPTY_SET = new Set<string>();
 
 export function useStarred(): LocalStarredItem[] {
   return useSyncExternalStore(subscribeStarred, getStarred, () => EMPTY_STARRED);
@@ -355,14 +209,6 @@ export function useIsStarred(id: string): boolean {
   );
 }
 
-export function useReadSet(): Set<string> {
-  return useSyncExternalStore(subscribeRead, getReadSet, () => EMPTY_SET);
-}
-
 export function useThemePreference(): ThemePreference {
   return useSyncExternalStore(subscribeTheme, getThemePreference, () => null);
-}
-
-export function useChangelogSeen(): string | null {
-  return useSyncExternalStore(subscribeChangelog, getChangelogSeen, () => null);
 }

@@ -1,9 +1,8 @@
 import { SITE, withSubject } from "@aihot/industry/site";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment } from "react";
 import { Link, useLoaderData } from "react-router";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
-import { setChangelogSeen } from "../lib/local-state";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
 import { IconChevronRight } from "../components/icons";
 import { Inline, dateHeading } from "../features/changelog/text";
@@ -22,7 +21,7 @@ interface Release {
 }
 
 export async function loader({ request }: { request: Request }) {
-  return apiGet<{ latestVersion: string; releases: Release[] }>("/api/site/changelog", { signal: request.signal });
+  return apiGet<{ releases: Release[] }>("/api/site/changelog", { signal: request.signal });
 }
 
 export function meta() {
@@ -35,8 +34,6 @@ const KIND_DOT: Record<Release["kind"], string> = {
   公告: "bg-amber",
   下线: "bg-ink-4",
 };
-
-const KINDS = Object.keys(KIND_DOT) as Release["kind"][];
 
 function ReleaseBody({ lines }: { lines: string[] }) {
   const blocks: Array<string | string[]> = [];
@@ -69,10 +66,8 @@ function ReleaseBody({ lines }: { lines: string[] }) {
 
 export default function ChangelogPage() {
   const data = useLoaderData<typeof loader>();
-  useEffect(() => setChangelogSeen(data.latestVersion), [data.latestVersion]);
-  const [kind, setKind] = useState<Release["kind"] | null>(null);
   const groups = new Map<string, Release[]>();
-  for (const r of data.releases) if (!kind || r.kind === kind) groups.set(r.date, [...(groups.get(r.date) ?? []), r]);
+  for (const r of data.releases) groups.set(r.date, [...(groups.get(r.date) ?? []), r]);
   // Month → the newest date shown in it (the jump target) and how many entries it holds.
   const months = new Map<string, { first: string; count: number }>();
   for (const [date, releases] of groups) {
@@ -83,23 +78,6 @@ export default function ChangelogPage() {
 
   const aside = (
     <>
-      <AsideCard title="按类型看" className="hidden lg:block">
-        <div className="-mx-2 -mb-1">
-          {[null, ...KINDS].map((k) => (
-            <button
-              key={k ?? "all"}
-              type="button"
-              onClick={() => setKind(k)}
-              aria-pressed={kind === k}
-              className={`flex w-full items-center gap-2.5 rounded-control px-2 py-2 text-left text-[13.5px] transition-colors ${kind === k ? "bg-bg-sunk font-medium text-ink dark:bg-bg-muted/60" : "text-ink-2 hover:bg-bg-sunk hover:text-ink"}`}
-            >
-              <span className={`size-1.5 rounded-full ${k ? KIND_DOT[k] : "bg-ink-2"}`} aria-hidden="true" />
-              <span className="flex-1">{k ?? "全部"}</span>
-              <span className="num text-[12px] text-ink-4">{k ? data.releases.filter((r) => r.kind === k).length : data.releases.length}</span>
-            </button>
-          ))}
-        </div>
-      </AsideCard>
       <AsideCard title="按月份" className="hidden lg:block">
         <nav aria-label="按月份" className="-mx-2 -mb-1">
           {[...months.entries()].map(([month, m]) => {

@@ -6,7 +6,6 @@ import type { SiteItemDetail } from "@aihot/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { fullDateTime, relativeTime } from "../lib/format";
-import { markRead } from "../lib/local-state";
 import { SelectedBadge } from "../components/ui/Badge";
 import { ScoreLabel } from "../components/ui/Score";
 import { PillTabs } from "../components/ui/Tabs";
@@ -103,7 +102,6 @@ export default function ItemPage() {
   const hasTranslation = item.hasTranslation;
   const lang = item.bodyLanguage;
   const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => markRead(item.id), [item.id]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 1600);

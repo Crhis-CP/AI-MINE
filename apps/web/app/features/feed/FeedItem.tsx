@@ -14,14 +14,11 @@ export interface FeedItemProps {
   item: FeedItemSummary;
   group?: GroupInfo | null;
   filters?: TimelineFilters;
-  read?: boolean;
-  onOpen?: (id: string) => void;
   /** Show category and tags under the text (全部动态, topics, search). */
   showTags?: boolean;
 }
 
-export const FeedItem = memo(function FeedItem({ item, group, filters, read = false, onOpen, showTags = false }: FeedItemProps) {
-  const open = () => onOpen?.(item.id);
+export const FeedItem = memo(function FeedItem({ item, group, filters, showTags = false }: FeedItemProps) {
   const showSources = !!group && (group.additionalSourceCount > 0 || (group.developmentCount <= 1 && group.reportCount > 1));
   const showDevelopments = !!group?.story && group.developmentCount > 1;
   const tags = showTags ? item.tags.slice(0, 3) : [];
@@ -48,8 +45,8 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
         </span>
       </header>
 
-      <h3 className={`mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] ${read ? "text-ink-4" : "text-ink"}`}>
-        <IntentLink to={`/items/${item.id}`} onClick={open} className="after:absolute after:inset-0 after:content-['']">
+      <h3 className="mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] text-ink">
+        <IntentLink to={`/items/${item.id}`} className="after:absolute after:inset-0 after:content-['']">
           {item.title}
         </IntentLink>
       </h3>
