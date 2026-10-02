@@ -1,8 +1,8 @@
 // The judging and writing steps (editorial/analyze.ts): the prefilter decides relevance, two scores
 // against the tier threshold decide 精选, selected and near-selected items are written by the content
 // understanding and the rest by the title/summary prompts, a structure step gives the category, subjects
-// and fact. Material with only a feed summary has its page fetched first. The steps run on the models
-// AIHOT assigns them (set through the environment here); every prompt in the pack renders.
+// and fact. Material with only a feed summary has its page fetched first. The steps run on the models the
+// upstream project assigns them (set through the environment here); every prompt in the pack renders.
 import { Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -98,7 +98,8 @@ const provider = await stub((_hit, req) => {
 });
 for (const env of ["DASHSCOPE_BASE_URL", "ZHIPU_BASE_URL", "DEEPSEEK_BASE_URL"]) process.env[env] = `${provider.url}/v1`;
 for (const env of ["DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "DEEPSEEK_API_KEY"]) process.env[env] = "test-key";
-// AIHOT's own assignment of models to steps (the open-source default is one model for all of them).
+// The upstream project's own assignment of models to steps (the open-source default is one model for all
+// of them).
 Object.assign(process.env, {
   PREFILTER_MODEL: "qwen3.7-flash",
   SCORE_MODEL: "glm-5.3-flash-selection",
@@ -152,7 +153,7 @@ const row = async (id: string) =>
     SELECT selected, relevance, score, title_zh, reason_zh, category, tags, subjects, receipt_ids, output FROM analyses WHERE article_id = ${id} ORDER BY id DESC LIMIT 1`
   )[0]!;
 
-test("every prompt in the pack renders, and the site's name replaces AIHOT's", () => {
+test("every prompt in the pack renders, and carries the site's own name", () => {
   const dir = new URL("../industry/prompts/", import.meta.url);
   const files = readdirSync(dir).filter((f) => f.endsWith(".md"));
   // Every value any prompt asks for, so each renders on its own.

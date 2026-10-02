@@ -37,7 +37,7 @@ make verify TASK=TASK-0002
 
 ## 2. 阶段
 
-按顺序执行；某阶段依赖的前一阶段没通过时，它记为跳过。上游 AIHOT 的 `check.yml`（原样保存在 [`upstream-check.yml`](upstream-check.yml)）两个作业逐步翻译到了这里，“种子信源必须是 18 个”改为“种子信源数与 `industry/sources.json` 一致”。
+按顺序执行；某阶段依赖的前一阶段没通过时，它记为跳过。上游的 `check.yml`（原样保存在 [`upstream-check.yml`](upstream-check.yml)）两个作业逐步翻译到了这里，“种子信源必须是 18 个”改为“种子信源数与 `industry/sources.json` 一致”。
 
 | 阶段 | 检查什么 | 需要 | 对应上游步骤 |
 |---|---|---|---|
