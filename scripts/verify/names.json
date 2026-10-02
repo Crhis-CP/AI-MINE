@@ -2,7 +2,7 @@
   "$comment": "Patterns of the name check (scripts/verify/names.ts; TASK-0003 completion condition 1, 04-aihot-adoption.md 4.3 and 4.6 item 1). This file is exception 6, the check's own patterns: no other script or test spells them out.",
   "names": ["aihot", "ai hot"],
   "marks": ["#176b75", "#2ce2e8", "RingMark"],
-  "$comment_exceptions": "Paths (lanes.yaml syntax) where the names and marks may appear; a file listed with sameAs is covered only while it is byte-identical to that handoff template.",
+  "$comment_exceptions": "Paths (lanes.yaml syntax) where the names and marks may appear. A file listed with sameAs is covered only while it is byte-identical to that handoff template; one listed with upstream only while its SHA-256 is that upstream file's in the source manifest. tasks/INDEX.md is generated from the cards (node scripts/verify/tasks.ts --write-index).",
   "exceptions": {
     "1 source registration": ["LICENSE", "LICENSES/AIHOT-MIT.txt", "NOTICE", "UPSTREAM.md", "upstream/aihot.lock.json"],
     "2 handoff package and its write-backs": ["docs/**"],
@@ -12,12 +12,24 @@
       { "path": "CLAUDE.md", "sameAs": "docs/06-agents/templates/CLAUDE.md" },
       { "path": "tasks/_template.md", "sameAs": "docs/06-agents/templates/task-card.md" },
       "lanes.yaml",
-      "tasks/TASK-*.md"
+      "tasks/TASK-*.md",
+      "tasks/INDEX.md"
     ],
-    "5 upstream workflow kept verbatim": ["scripts/verify/upstream-check.yml"],
+    "5 upstream workflow kept verbatim": [{ "path": "scripts/verify/upstream-check.yml", "upstream": ".github/workflows/check.yml" }],
     "6 the check's own patterns": ["scripts/verify/names.json"]
   },
-  "$comment_references": "Paths and file names of the registration and handoff files (regular expressions, case-sensitive): not hits, wherever they appear.",
+  "$comment_notExceptions": "Never covered, whatever exception matches: the upstream promotional images and the upstream's own documentation, deleted by T-0002 and not part of the handoff package (TASK-0003 :126 item 2).",
+  "notExceptions": [
+    "docs/assets/**",
+    "docs/architecture.md",
+    "docs/customize.md",
+    "docs/deploy.md",
+    "docs/grouping.md",
+    "docs/leaderboard.md",
+    "docs/selection.md",
+    "docs/sources.md"
+  ],
+  "$comment_references": "Paths and file names of the registration and handoff files (regular expressions, case-sensitive): not hits in the repository, wherever they appear. The build output and the site's outputs get no such allowance.",
   "references": [
     "(?:upstream/)?aihot\\.lock\\.json",
     "(?:LICENSES/)?AIHOT-MIT\\.txt",
@@ -30,9 +42,10 @@
     "0021-aihot-first-mining-adaptation",
     "01-aihot-assessment"
   ],
+  "$comment_manifest": "The upstream source manifest: SHA-256 of every file of the imported upstream commit.",
+  "manifest": "docs/research/aihot/aihot-source-manifest.json",
   "$comment_brand": "Upstream brand assets: no file may have the SHA-256 of a manifest entry under these prefixes (no exceptions; 4.3 (a)).",
   "brand": {
-    "manifest": "docs/research/aihot/aihot-source-manifest.json",
     "prefixes": ["industry/brand/", "docs/assets/", "assets/leaderboard-sources/", "assets/model-providers/"]
   }
 }

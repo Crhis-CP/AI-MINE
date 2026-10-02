@@ -97,4 +97,5 @@ export function checkRuntime(pnpmVersion: string | null, root = ROOT): string[] 
   return problems;
 }
 
-export const trackedFiles = (root = ROOT) => git(["ls-files"], root).split("\n").filter(Boolean);
+/** Tracked paths as they are (`-z`: no quoting of non-ASCII or special characters). */
+export const trackedFiles = (root = ROOT) => git(["ls-files", "-z"], root).split("\0").filter(Boolean);

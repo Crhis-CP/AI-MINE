@@ -16,7 +16,7 @@ import { exemption, findHits, loadRules } from "./verify/names.ts";
 import { trackedFiles } from "./verify/toolchain.ts";
 
 const rules = loadRules();
-const name = rules.names[0]!.toLowerCase();
+const name = rules.names.find((n) => !/\s/.test(n))!.toLowerCase(); // the form without a space
 const NAME = name.toUpperCase();
 const TO = "amp";
 const ROOT_PACKAGE = "ai-mining-policy";
