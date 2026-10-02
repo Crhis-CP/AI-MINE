@@ -2,7 +2,6 @@
 // v1 / MCP / Skill only see ranks and counts.
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@aihot/contracts/site";
 import { sql } from "../db.ts";
-import { proxiedImage, proxiedImageSet } from "../media/imgproxy.ts";
 import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
 import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
@@ -209,59 +208,15 @@ async function sparklines(storyIds: number[], at: Date): Promise<Map<number, Arr
   return out;
 }
 
-// Pictures for a ranking change only with the ranking, so they are read once per ranking.
-type HotCoverMap = Map<number, { url: string; width: number | null; height: number | null }>;
-let coversCache: { rankingId: number; covers: HotCoverMap } | null = null;
-const coversPending = new Map<number, Promise<HotCoverMap>>();
-
-/** A picture per story from its public full-text reports, the representative first, wide enough for a card. */
-async function hotCovers(rankingId: number, entries: Array<{ storyId: number; representativeItemId: string | null }>, at: Date) {
-  if (coversCache?.rankingId === rankingId) return coversCache.covers;
-  const pending = coversPending.get(rankingId);
-  if (pending) return pending;
-  const load = queryHotCovers(entries, at);
-  coversPending.set(rankingId, load);
-  try {
-    const covers = await load;
-    coversCache = { rankingId, covers };
-    return covers;
-  } finally {
-    coversPending.delete(rankingId);
-  }
-}
-
-async function queryHotCovers(entries: Array<{ storyId: number; representativeItemId: string | null }>, at: Date) {
-  const ids = entries.map((e) => e.storyId);
-  const reps = entries.map((e) => e.representativeItemId).filter((id): id is string => !!id);
-  const rows = await sql<{ story_id: number; m: { url: string; width?: number; height?: number } }[]>`
-    SELECT DISTINCT ON (p.story_id) p.story_id, img.m
-    FROM publications p JOIN articles a ON a.id = p.article_id
-    CROSS JOIN LATERAL (
-      SELECT m FROM jsonb_array_elements(coalesce(a.media, '[]'::jsonb)) m
-      WHERE m->>'kind' = 'image' AND coalesce((m->>'width')::numeric, 800) >= 480 LIMIT 1
-    ) img
-    WHERE p.story_id = ANY(${ids}::bigint[]) AND p.visibility = 'public' AND p.eligible AND p.body_mode <> 'summary'
-      AND (NOT p.selected OR p.visible_after <= ${at})
-    ORDER BY p.story_id, (p.article_id::text = ANY(${reps}::text[])) DESC, p.first_party DESC, p.selected DESC, coalesce(p.score, 0) DESC, p.article_id`;
-  const covers = new Map(
-    rows.map((c) => [
-      Number(c.story_id),
-      { url: c.m.url, width: typeof c.m.width === "number" ? c.m.width : null, height: typeof c.m.height === "number" ? c.m.height : null },
-    ]),
-  );
-  return covers;
-}
-
 export async function loadHot(): Promise<HotResponse> {
   const ranking = await latestHotRanking();
   if (!ranking) return { computedAt: null, ruleVersion: null, windowHours: 48, entries: [] };
   const at = new Date(ranking.computedAt);
-  const [sparks, covers, extras] = await Promise.all([
+  const [sparks, extras] = await Promise.all([
     sparklines(
       ranking.entries.map((e) => e.storyId),
       at,
     ),
-    hotCovers(ranking.id, ranking.entries, at),
     rankingExtras(ranking),
   ]);
   return {
@@ -269,8 +224,6 @@ export async function loadHot(): Promise<HotResponse> {
     ruleVersion: ranking.ruleVersion,
     windowHours: 48,
     entries: ranking.entries.map((e) => {
-      const picture = covers.get(e.storyId);
-      const coverUrl = picture ? proxiedImage(picture.url, "full") : null;
       const text = extras.text(e);
       return {
         rank: e.rank,
@@ -292,10 +245,6 @@ export async function loadHot(): Promise<HotResponse> {
         spark: sparks.get(e.storyId) ?? [],
         summary: text.summary,
         latest: text.latest,
-        cover:
-          picture && coverUrl
-            ? { url: coverUrl, srcSet: proxiedImageSet(picture.url, "hero") ?? undefined, width: picture.width, height: picture.height }
-            : null,
       };
     }),
   };
