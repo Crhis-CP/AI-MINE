@@ -1647,14 +1647,9 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot",
               "original"
             ],
             "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
-              },
               "original": {
                 "type": "string",
                 "format": "uri"
@@ -1711,7 +1706,6 @@
           "id",
           "title",
           "source",
-          "links",
           "publishedAt",
           "discoveredAt",
           "category",
@@ -1733,18 +1727,6 @@
             "properties": {
               "name": {
                 "type": "string"
-              }
-            }
-          },
-          "links": {
-            "type": "object",
-            "required": [
-              "aihot"
-            ],
-            "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
               }
             }
           },
@@ -1929,14 +1911,9 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot",
               "original"
             ],
             "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
-              },
               "original": {
                 "type": "string",
                 "format": "uri"
@@ -2040,14 +2017,8 @@
           },
           "links": {
             "type": "object",
-            "required": [
-              "aihot"
-            ],
+            "required": [],
             "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
-              },
               "original": {
                 "type": "string",
                 "format": "uri"
@@ -2077,14 +2048,9 @@
           "links": {
             "type": "object",
             "required": [
-              "aihot",
               "api"
             ],
             "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
-              },
               "api": {
                 "type": "string",
                 "format": "uri"
@@ -2106,7 +2072,6 @@
           "latest",
           "digest",
           "digestUpdatedAt",
-          "links",
           "reports",
           "storyline",
           "related"
@@ -2155,18 +2120,6 @@
               "null"
             ],
             "format": "date-time"
-          },
-          "links": {
-            "type": "object",
-            "required": [
-              "aihot"
-            ],
-            "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
-              }
-            }
           },
           "reports": {
             "type": "array",
@@ -2232,8 +2185,7 @@
           "date",
           "generatedAt",
           "leadTitle",
-          "leadParagraph",
-          "links"
+          "leadParagraph"
         ],
         "properties": {
           "date": {
@@ -2256,18 +2208,6 @@
               "null"
             ]
           },
-          "links": {
-            "type": "object",
-            "required": [
-              "aihot"
-            ],
-            "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
-              }
-            }
-          },
           "attribution": {
             "$ref": "#/components/schemas/Attribution"
           }
@@ -2276,17 +2216,9 @@
       "DailyContentLinks": {
         "type": "object",
         "required": [
-          "aihot",
           "original"
         ],
         "properties": {
-          "aihot": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "uri"
-          },
           "original": {
             "type": "string",
             "format": "uri"
@@ -2300,7 +2232,6 @@
           "generatedAt",
           "windowStart",
           "windowEnd",
-          "links",
           "lead",
           "sections",
           "flashes"
@@ -2321,18 +2252,6 @@
           "windowEnd": {
             "type": "string",
             "format": "date-time"
-          },
-          "links": {
-            "type": "object",
-            "required": [
-              "aihot"
-            ],
-            "properties": {
-              "aihot": {
-                "type": "string",
-                "format": "uri"
-              }
-            }
           },
           "attribution": {
             "$ref": "#/components/schemas/Attribution"

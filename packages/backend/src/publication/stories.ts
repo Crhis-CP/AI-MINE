@@ -5,7 +5,7 @@ import { sql } from "../db.ts";
 import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
 import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
-import { itemUrl, storyApiUrl, storyUrl } from "./links.ts";
+import { storyApiUrl, storyUrl } from "./links.ts";
 import { SITE } from "@aihot/industry/site";
 
 export type StoryLookup = { kind: "found"; storyId: number; publicId: string } | { kind: "merged"; target: string } | { kind: "not_found" };
@@ -262,7 +262,6 @@ export async function v1HotTopics() {
     title: e.title,
     source: { name: e.representativeSource ?? e.sourceNames[0] ?? SITE.name },
     links: {
-      aihot: e.representativeItemId ? itemUrl(e.representativeItemId) : storyUrl(e.storyPublicId),
       original: e.representativeUrl ?? storyUrl(e.storyPublicId),
       story: storyUrl(e.storyPublicId),
     },
@@ -285,7 +284,7 @@ export async function v1Story(storyId: number) {
     publicId: r.public_id,
     title: r.title,
     relation: r.relation,
-    links: { aihot: storyUrl(r.public_id), api: storyApiUrl(r.public_id) },
+    links: { api: storyApiUrl(r.public_id) },
   }));
   return {
     schemaVersion: 1 as const,
@@ -300,14 +299,13 @@ export async function v1Story(storyId: number) {
       latest: s.latest ?? developments[0]?.title ?? s.title,
       digest: s.digest,
       digestUpdatedAt: s.digest_updated_at?.toISOString() ?? null,
-      links: { aihot: storyUrl(s.public_id) },
       reports: reports.slice(0, 50).map((r) => ({
         id: r.id,
         title: r.title,
         summary: r.summary,
         source: { name: r.source_name, firstParty: r.first_party },
         publishedAt: r.at.toISOString(),
-        links: { aihot: itemUrl(r.id), original: r.url },
+        links: { original: r.url },
       })),
       storyline: neighbors.filter((n) => n.relation === "storyline"),
       related: neighbors.filter((n) => n.relation === "related"),

@@ -73,7 +73,7 @@ export interface V1ItemPayload {
   originalTitle: string | null;
   summary: string | null;
   source: { name: string };
-  links: { aihot: string; original: string };
+  links: { original: string };
   publishedAt: string | null;
   discoveredAt: string;
   category: string | null;
@@ -121,21 +121,21 @@ export function v1Payload(p: {
   selected: boolean;
   reason: string | null;
 }): V1ItemPayload {
-  const aihot = itemUrl(p.articleId);
+  const pageUrl = itemUrl(p.articleId);
   return {
     id: p.articleId,
     title: p.title,
     originalTitle: p.originalTitle,
     summary: p.summary,
     source: { name: p.sourceName },
-    links: { aihot, original: p.url },
+    links: { original: p.url },
     publishedAt: p.publishedAt ? p.publishedAt.toISOString() : null,
     discoveredAt: p.discoveredAt.toISOString(),
     category: toPublicApiCategory(p.category),
     score: p.score === null ? null : Math.round(p.score),
     selected: p.selected,
     reason: p.selected ? p.reason : null,
-    attribution: { name: SITE.name, url: aihot },
+    attribution: { name: SITE.name, url: pageUrl },
   };
 }
 

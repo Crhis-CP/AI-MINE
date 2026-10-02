@@ -3,7 +3,6 @@
 // withdrawn items, the hot board drops a withdrawn item at once, item pages follow the site's rule, an
 // early release keeps the selected ledger in order, a withdrawal waiting behind an unreleased item
 // leaves new snapshots at once, and snapshots answer conditional requests.
-import { config } from "@aihot/backend/config";
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { beijingDate } from "@aihot/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
@@ -346,7 +345,7 @@ test("v1 story retains website content and fallback ordering without the website
       summary: r.summary,
       source: { name: r.source.name, firstParty: r.source.firstParty },
       publishedAt: r.publishedAt,
-      links: { aihot: `${config.siteUrl}/items/${r.id}`, original: r.originalUrl },
+      links: { original: r.originalUrl },
     })),
   );
   await sql`UPDATE publications SET visible_after = now() + interval '1 day' WHERE article_id = ${second}`;
@@ -436,7 +435,6 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
     category: i.category,
     score: i.score,
     selected: i.selected,
-    links: { aihot: i.links.aihot },
   });
   assert.deepEqual(minimal.items, full.items.map(project));
   assert.ok(minimal.items.some((i: any) => i.id === id));
