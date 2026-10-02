@@ -14,7 +14,6 @@ process.env.MODEL_CALLS_ENABLED = "false";
 const { guardedFetch } = await import("@aihot/backend/lib/http-fetch");
 const { produceImage } = await import("@aihot/backend/media/images");
 const { renderOg } = await import("../apps/api/src/og/render.ts");
-const { renderPoster } = await import("../apps/api/src/og/poster.ts");
 
 let imageHits = 0;
 let failureHits = 0;
@@ -81,23 +80,11 @@ test("failed originals are not retried for every mode", async () => {
   assert.equal(failureHits, 1);
 });
 
-test("concurrent cold OG and poster requests all succeed with identical cached bytes", async () => {
+test("concurrent cold OG requests all succeed with identical cached bytes", async () => {
   const card = { kicker: "AIHOT", title: "并发渲染验证", subtitle: "同一图片只生成一次" };
   const cards = await Promise.all(Array.from({ length: 6 }, () => renderOg(card)));
   for (const result of cards) assert.deepEqual(result, cards[0]);
   assert.equal((await sharp(cards[0]!.png).metadata()).width, 1200);
-  const poster = {
-    url: "https://example.com/items/test",
-    kicker: "测试",
-    title: "海报并发验证",
-    summary: null,
-    source: "测试来源",
-    date: "2026-09-28",
-    score: null,
-  };
-  const posters = await Promise.all(Array.from({ length: 4 }, () => renderPoster(poster)));
-  for (const result of posters) assert.deepEqual(result, posters[0]);
-  assert.equal((await sharp(posters[0]!.png).metadata()).width, 1080);
 });
 
 test("successive responsive candidates reuse the completed original download", async () => {

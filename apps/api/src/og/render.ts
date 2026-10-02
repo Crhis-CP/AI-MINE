@@ -18,8 +18,6 @@ export interface OgCard {
   title: string;
   subtitle?: string | null;
   meta?: string | null;
-  /** Small emphasised figure on the right (e.g. an item score). */
-  badge?: { value: string; label: string } | null;
   accent?: "teal" | "hot" | "amber";
 }
 
@@ -87,46 +85,23 @@ async function tree(card: OgCard): Promise<Node> {
         h("div", { width: 10, height: 10, borderRadius: 999, backgroundColor: accent, marginRight: 14 }),
         h("div", { display: "flex", fontSize: 28, fontWeight: 700, color: accent, letterSpacing: 1 }, clamp(card.kicker, 30)),
       ]),
-      h(
-        "div",
-        { display: "flex", flex: 1, marginTop: 22, gap: 40 },
-        [
-          h(
-            "div",
-            { display: "flex", flexDirection: "column", flex: 1 },
-            [
-              h("div", { display: "flex", fontSize: titleSize, fontWeight: 700, lineHeight: 1.25, color: "#ffffff" }, title),
-              // Long titles take three lines; the summary then gets one line so nothing reaches the footer.
-              card.subtitle
-                ? h(
-                    "div",
-                    { display: "flex", marginTop: 22, fontSize: 28, lineHeight: 1.5, color: "#b1bec0" },
-                    clamp(card.subtitle, [...title].length > 40 ? 26 : [...title].length > 24 ? 50 : 78),
-                  )
-                : null,
-            ].filter(Boolean),
-          ),
-          card.badge
-            ? h(
-                "div",
-                {
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 170,
-                  height: 170,
-                  borderRadius: 999,
-                  border: `6px solid ${accent}`,
-                },
-                [
-                  h("div", { display: "flex", fontSize: 58, fontWeight: 700, color: "#ffffff" }, card.badge.value),
-                  h("div", { display: "flex", fontSize: 22, color: "#82939a" }, card.badge.label),
-                ],
-              )
-            : null,
-        ].filter(Boolean),
-      ),
+      h("div", { display: "flex", flex: 1, marginTop: 22, gap: 40 }, [
+        h(
+          "div",
+          { display: "flex", flexDirection: "column", flex: 1 },
+          [
+            h("div", { display: "flex", fontSize: titleSize, fontWeight: 700, lineHeight: 1.25, color: "#ffffff" }, title),
+            // Long titles take three lines; the summary then gets one line so nothing reaches the footer.
+            card.subtitle
+              ? h(
+                  "div",
+                  { display: "flex", marginTop: 22, fontSize: 28, lineHeight: 1.5, color: "#b1bec0" },
+                  clamp(card.subtitle, [...title].length > 40 ? 26 : [...title].length > 24 ? 50 : 78),
+                )
+              : null,
+          ].filter(Boolean),
+        ),
+      ]),
       card.meta
         ? h("div", { display: "flex", fontSize: 24, color: "#82939a", borderTop: "1px solid rgba(230,237,237,0.12)", paddingTop: 22 }, clamp(card.meta, 70))
         : null,

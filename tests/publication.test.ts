@@ -7,7 +7,6 @@ import { config } from "@aihot/backend/config";
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { beijingDate } from "@aihot/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
-import { posterEtag } from "../apps/api/src/og/poster.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -395,13 +394,8 @@ test("share images keep detail metadata and access rules while conditional reads
     title: d.title,
     subtitle: d.summary,
     meta: `${source} · ${date}`,
-    badge: d.selected && d.score !== null ? { value: String(Math.round(d.score)), label: "精选评分" } : null,
   };
-  const poster = { url: `${config.siteUrl}/items/${id}`, kicker, title: d.title, summary: d.summary, source, date, score: d.selected ? d.score : null };
-  const paths = [
-    [`/og/items/${id}.png`, `"og-${ogEtag(card)}"`],
-    [`/og/posters/${id}.png`, `"poster-${posterEtag(poster)}"`],
-  ];
+  const paths = [[`/og/items/${id}.png`, `"og-${ogEtag(card)}"`]];
   const queries: string[] = [];
   const previous = sql.options.debug;
   sql.options.debug = (_connection, query) => {
@@ -413,7 +407,7 @@ test("share images keep detail metadata and access rules while conditional reads
       assert.equal(response.status, 304);
       assert.equal(response.etag, etag);
     }
-    assert.equal(queries.length, 2);
+    assert.equal(queries.length, 1);
     assert.ok(
       queries.every((q) => !/body_html|body_text|translations|fact_articles/.test(q)),
       "cards only load their public metadata",
