@@ -1,0 +1,9 @@
+server: {"name":"myhot","version":"2.0.0"}
+tools: myhot_get_latest, myhot_search, myhot_get_hot_topics, myhot_get_story, myhot_get_daily
+
+ProtocolError: Tool aihot_get_hot_topics not found
+  code: -32602,
+  data: undefined
+}
+
+exit 1

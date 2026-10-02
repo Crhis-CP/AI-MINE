@@ -1,0 +1,112 @@
+[
+  {
+    "name": "content.sweep",
+    "cron": "*/5 * * * *",
+    "missed": null
+  },
+  {
+    "name": "content.translate",
+    "cron": "*/5 * * * *",
+    "missed": null
+  },
+  {
+    "name": "hot.rank",
+    "cron": "*/5 * * * *",
+    "missed": null
+  },
+  {
+    "name": "hot.snapshot",
+    "cron": "2 * * * *",
+    "missed": null
+  },
+  {
+    "name": "stories.status",
+    "cron": "7 * * * *",
+    "missed": null
+  },
+  {
+    "name": "stories.links",
+    "cron": "12 * * * *",
+    "missed": null
+  },
+  {
+    "name": "reports.daily",
+    "cron": "0 8 * * *",
+    "missed": "once"
+  },
+  {
+    "name": "reports.weekly",
+    "cron": "0 10 * * 1",
+    "missed": "once"
+  },
+  {
+    "name": "reports.monthly",
+    "cron": "30 10 1 * *",
+    "missed": "once"
+  },
+  {
+    "name": "reports.catch-up",
+    "cron": "15 * * * *",
+    "missed": null
+  },
+  {
+    "name": "ops.retention",
+    "cron": "30 3 * * *",
+    "missed": "once"
+  },
+  {
+    "name": "sources.icons",
+    "cron": "40 4 * * *",
+    "missed": "once"
+  },
+  {
+    "name": "seo.indexnow",
+    "cron": "50 5 * * *",
+    "missed": "once"
+  },
+  {
+    "name": "ops.recover",
+    "cron": "*/10 * * * *",
+    "missed": null
+  },
+  {
+    "name": "ops.alerts",
+    "cron": "*/10 * * * *",
+    "missed": null
+  },
+  {
+    "name": "ops.digest",
+    "cron": "0 9 * * *",
+    "missed": "once"
+  },
+  {
+    "name": "feedback.forward",
+    "cron": "*/10 * * * *",
+    "missed": null
+  },
+  {
+    "name": "reports.source-health",
+    "cron": "0 9 * * 1",
+    "missed": "once"
+  },
+  {
+    "name": "leaderboard.round",
+    "cron": "5 2,8,14,20 * * *",
+    "missed": "once"
+  },
+  {
+    "name": "sources.schedule",
+    "cron": "* * * * *",
+    "missed": null
+  },
+  {
+    "name": "sources.adapt-intervals",
+    "cron": "20 4 * * *",
+    "missed": null
+  },
+  {
+    "name": "sources.mp-reconcile",
+    "cron": "*/15 * * * *",
+    "missed": null
+  }
+]
