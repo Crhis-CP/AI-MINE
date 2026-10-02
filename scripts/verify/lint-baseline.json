@@ -8,12 +8,6 @@
   "apps/web/app/app.css": {
     "lint/complexity/noImportantStyles": 5
   },
-  "apps/web/app/components/shell/MobileTabBar.tsx": {
-    "lint/a11y/useAriaPropsSupportedByRole": 1
-  },
-  "apps/web/app/components/shell/Sidebar.tsx": {
-    "lint/a11y/useAriaPropsSupportedByRole": 1
-  },
   "apps/web/app/components/shell/ThemeSwitch.tsx": {
     "lint/a11y/useSemanticElements": 1
   },
@@ -114,9 +108,6 @@
     "lint/correctness/noUnusedImports": 1,
     "lint/security/noDangerouslySetInnerHtml": 1
   },
-  "apps/web/app/routes/more.tsx": {
-    "lint/a11y/useAriaPropsSupportedByRole": 1
-  },
   "apps/web/app/routes/search-busy.tsx": {
     "lint/correctness/noUnusedImports": 1
   },
@@ -215,9 +206,6 @@
   },
   "tests/publication.test.ts": {
     "lint/suspicious/noExplicitAny": 7
-  },
-  "tests/sources.test.ts": {
-    "lint/suspicious/noTemplateCurlyInString": 1
   },
   "tests/translate-shutdown.test.ts": {
     "lint/suspicious/noExplicitAny": 3
