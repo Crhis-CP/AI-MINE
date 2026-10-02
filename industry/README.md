@@ -109,7 +109,7 @@
 
 下列 AI 口径写死在页面与报告代码里，没有走 `SITE.subject` 或 `withSubject()`，换行业时要逐个改：
 
-- 报告：`apps/web/app/routes/report-latest.tsx`、`features/report/ReportPaper.tsx` 的“AI 日报 / 周报 / 月报”；`features/report/format.ts` 的“这一天的 N 件 AI 大事”、数字条的“个新模型”和报头下的 `MOTTO`“人工智能 · 每日要闻 / 每周综述 / 每月盘点”（宽屏时显示，`ReportPaper.tsx:34`）；`packages/backend/src/reports/compose.ts` 按“模型发布/更新”分节计数的 `modelsReleased` 指标。
+- 报告：`apps/web/app/routes/report-latest.tsx`、`features/report/ReportPaper.tsx` 的“AI 日报 / 周报 / 月报”；`features/report/format.ts` 的“这一天的 N 件 AI 大事”、数字条的“个新模型”和报头顶行的 `MOTTO`“人工智能 · 每日要闻 / 每周综述 / 每月盘点”（在日期与版次之间，宽屏时显示，`ReportPaper.tsx:34`）；`packages/backend/src/reports/compose.ts` 按“模型发布/更新”分节计数的 `modelsReleased` 指标。
 - 页面：`routes/topics.tsx` 的页面描述、“按主题看 AI”与三组名称；`routes/hot.tsx` 的“AI 圈讨论最多”；`routes/feedback.tsx` 输入框里“搜索 OpenAI 时……”的示例；后台新建信源页 `routes/admin/source-new.tsx` 名称输入框的占位文字“OpenAI 博客”。
 - 测试：`tests/` 里有些用例用的是示例行业的分类、标签和公司（如 `ai-models`、“模型发布”、Anthropic）。改了 `taxonomy.ts` 后这些用例会失败，把例子换成新行业的对应项即可，测的规则不变。
 
