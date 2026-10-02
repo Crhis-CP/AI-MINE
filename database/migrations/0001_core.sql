@@ -30,7 +30,6 @@ CREATE TABLE sources (
   -- Successful collection position; never advanced by a failed fetch.
   cursor              jsonb,
   next_fetch_at       timestamptz,
-  icon_url            text,
   imported_from       text,
   created_at          timestamptz NOT NULL DEFAULT now(),
   updated_at          timestamptz NOT NULL DEFAULT now()
