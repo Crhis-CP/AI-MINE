@@ -272,13 +272,13 @@ AIHOT 的提示词按“文件即版本”管理（版本 = 内容哈希，改�
 | `prefilter.md` | AI-01 预筛 | 三态 PASS / BLOCK / UNKNOWN 与“BLOCK 需正面依据、缺材料时降为 UNKNOWN”沿用；“AI 相关”换成“有矿业主体、活动或影响路径”；同形词（data mining、加密货币挖矿）明确拦；获奖、参会、空预告、泛宣传的边界按 DEC-12 |
 | `selection-score.md` | AI-03 评分 | 骨架沿用（评什么：事件对读者今天的注意力价值；内容类型 → 五轴 0–10 整数 → 类型权重合成 0–100；两张清单；材料不足上限 30；评分器看不到信源分级、来源名称与门槛；输入安全边界；只输出 `attentionScore`）；读者定义、内容类型表（7 类）与五轴权重表、“必须正常评价 / 必须压住”两张清单换成矿业的（AI-03 的对照表），**均为草案，生效前须 Owner 审阅确认**（BR-SEL-09） |
 | `content-understanding.md`、`understand.md` | AI-04 完整写法（入选与接近入选） | 一次调用出标题、摘要、推荐理由的结构、禁用词、“材料只有口号时推荐理由返回空串”沿用；类型与标签白名单换成九类、国家、矿种；推荐理由的长度与三件事按 DR-17、DR-23 |
-| `summarize-article*.md`、`summarize-short-post*.md`、`summarize-long-post*.md` | AI-04 简版 | 输出格式与“原文为空时摘要留空”沿用；删去 AI 领域的参数、跑分清单，换成 DR-16 分类要素；社交帖版本只在接入官方社交账号（T1_5）后启用 |
+| `summarize-article*.md`、`summarize-short-post*.md`、`summarize-long-post*.md` | AI-04 简版 | 输出格式与“原文为空时摘要留空”沿用；删去 AI 领域的参数、跑分清单，换成 DR-16 分类要素；社交帖版本（`summarize-short-post*.md`、`summarize-long-post*.md`）随 X 删除，日后接入社交账号时另立任务重做（Q-66，2026-10-02 勘误） |
 | `rules-answer-first-summary.md`、`rules-anti-hallucination.md`、`rules-self-contained-title.md` | AI-04、AI-05 共享片段 | 结构沿用；字数按 DR-17、不沿用 AIHOT 字数；示例换矿业的主体、数字、阶段 |
 | `rules-domain.md` | AI-04、AI-05 共享片段 | **整份替换**：删去 AI 术语与 AI 公司清单，换成 DR-32、DR-33 受控译法与 DR-39～DR-41 公司名规则；数据挖掘、加密货币挖矿是必须排除的同形词 |
-| `translate-body.md`、`translate-post.md` | AI-05 翻译 | 占位符与逐段结构沿用；公司名、术语按 DR-32、DR-33、DR-39～DR-41；翻译范围按 DR-29（全部获准全文的外文稿） |
+| `translate-body.md`、`translate-post.md` | AI-05 翻译 | 占位符与逐段结构沿用；公司名、术语按 DR-32、DR-33、DR-39～DR-41；翻译范围按 DR-29（全部获准全文的外文稿）；`translate-post.md` 随 X 删除，日后接入社交账号时另立任务重做（Q-66，2026-10-02 勘误） |
 | `structure.md` | AI-02 结构化 | 沿用；分类指南、标签白名单、主体名录换成九类、国家、矿种与矿业公司词表 |
 | `identity-context.md`、`safety.md` | 全部写作能力 | 直接沿用（身份守卫 R-19、输入安全边界） |
-| `group-definitions.md`、`group-method.md`、`group-pair.md`、`group-batch.md`、`group-signal.md` | AI-08 事件关系 | 四值关系与判断法沿用，示例换矿业事件；`group-signal` 仅在接入社交讨论类来源后使用，只计热度 |
+| `group-definitions.md`、`group-method.md`、`group-pair.md`、`group-batch.md`、`group-signal.md` | AI-08 事件关系 | 四值关系与判断法沿用，示例换矿业事件；`group-signal` 用于 `hot_signal` 信源（只给标题与链接的付费墙、通讯社、聚合站等，`01-product/07-sources-and-coverage.md` 2.3），只计热度、不新建事件 |
 | `story-digest.md` | AI-09 事件综述 | 沿用；“AI 事件”换矿业事件，阶段与伤亡人数写法按 DR-58、DR-65 |
 | `report-daily-lead.md`、`report-period.md` | AI-13 报告 | 沿用；“AI 动态”换矿业动态，栏目按 DR-89；选材与出刊时间都沿用 AIHOT（精选候选、同一事实去重、版面容量，BR-RPT-02；日报 08:00、周报周一 10:00、月报 1 日 10:30，BR-TIME-09，DEC-65） |
 
@@ -1493,14 +1493,14 @@ AIHOT 原表共 7 类（顺序同上）：`model_release` 3-2-2-2-1；`product_l
 
 **R-24 热点榜（事件热度）**（events）【Owner 决定】2026-10-01 沿用 AIHOT（DEC-10、DEC-64；业务规则 BR-EVT-11、BR-SEL-05；任务 `events.compute-heat`）｜程序计算，不是模型能力
 - **定义**：按事件排名——过去 48 小时内被多个独立信源共同讨论的事件，取前 10。热度公式与衰减以 AIHOT 源码为准：`packages/backend/src/events/hot.ts`（规则版本 `heat-v1-48h-halflife24h`）、`hot-read.ts` 与 `hot_rankings` 表（实现时直接读源码，本条只写要点）。
-- **窗口与参与方**：窗口 48 小时，以来源发布时间（不是采集时间）落窗；参与方按发布方与来源族去重（AIHOT 的 `participant_key`），同一参与方在窗口内对同一事件只算一次，重复采集不加热度；转载同稿、跨语言分发不计（R-15、R-23）。
+- **窗口与参与方**：窗口 48 小时，以来源发布时间（不是采集时间）落窗；参与方按发布方与来源族去重（AIHOT 的 `participant_key`；其中讨论分组 `signal_group_id` 分支随 T-0002 删除，由 ENT-01 发布方族接替，落地前按单个信源计），同一参与方在窗口内对同一事件只算一次，重复采集不加热度；转载同稿、跨语言分发不计（R-15、R-23）。
 - **热度**：每个参与方按其窗口内最近一次出现的时间做 24 小时半衰期衰减，事件热度 = 各参与方衰减值之和；网页显示的热度值是该值 ×10、保留一位小数。
-- **入榜条件**：参与方 ≥2，且至少有 1 个“报道来源”（`editorial` 参与方；社交讨论类“氛围组”只加热度、不能单独入榜）；按热度降序、同热度按最新进展时间降序，取前 10；榜单带规则版本，历史榜单保留 30 天（AIHOT 现值）。
+- **入榜条件**：参与方 ≥2，且至少有 1 个“报道来源”（`editorial` 参与方；`hot_signal` 参与方即“氛围组”，只加热度、不能单独入榜）；按热度降序、同热度按最新进展时间降序，取前 10；榜单带规则版本，历史榜单保留 30 天（AIHOT 现值）。
 - **标记**：“新”（事件首篇报道在 6 小时内）、“上升”（较 6 小时前热度上升超过 15%）、“激增”（6 小时内新增参与方 ≥3 且占比 ≥50%）；采集落后的信源，其参与方不进“较 6 小时前”的对比（AIHOT 的“落后来源”处理）。
 - **展示**：网页显示热度值与独立来源数；机器出口（API、RSS、MCP）只给名次、不给热度值；榜单带规则版本。热度不是证据（DR-26），不进入 AI-03、AI-08、AI-20 的输入（1.6 第 7 条）。
 - **法规文书不进热点榜**（法规线隔离，DEC-62）；数据不足时如实显示空态（DR-85），不降低门槛凑数。
 - **旧参数作废**：旧“≥3 个独立来源、展示 3–5 条”（原 BR-SEL-05，v2.1 已按 AIHOT 改写）、“7 天 3 个来源”、旧ADR-0009:27@main 的“高置信度且至少 3 个独立来源”只作历史记录。
-- **实现基础**：AIHOT `hot.ts`（窗口 48 小时、半衰期 24 小时、最少 2 个参与方、前 10）；`story_heat_hourly` 每小时快照用于事件页热度走势；`group-signal.md` 判断社交帖是否在讨论某个事件，只计热度、不新建事件。矿业版不另造公式；“氛围组”只在接入社交讨论类来源后才存在。
+- **实现基础**：AIHOT `hot.ts`（窗口 48 小时、半衰期 24 小时、最少 2 个参与方、前 10）；`story_heat_hourly` 每小时快照用于事件页热度走势；`group-signal.md` 判断 `hot_signal` 信源的稿件是否在讲某个事件，只计热度、不新建事件。矿业版不另造公式；“氛围组”即 `hot_signal` 参与方（`01-product/07-sources-and-coverage.md` 2.3）。
 
 **R-25 事件重要性聚合**（events / selection）**【已废弃】** v2.1
 - 依赖旧两维评分的“重要性分”；AI-03 改为单一的事件注意力分后，这条没有了对象，**作废**。事件级展示由代表稿规则承担：一手优先，其次入选的，其次分数高的（AIHOT `hot.ts` 的代表稿排序；DR-75）；不另算“事件重要性”，也不调用模型。

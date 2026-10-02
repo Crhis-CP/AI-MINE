@@ -248,7 +248,7 @@
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `events/group.ts`（864 行） | 召回、候选描述、批量判决、复核、写入、合并、关联、讨论信号、重组清理 | 改造 | `events` | F-EVT-02、F-EVT-03；BR-POL-05 | M3 按职责拆文件；硬校验（法域不同、政策阶段不同不得判为同一事件）；跨语言用实体别名 + 确定性候选；**讨论信号（X 讨论帖）部分随 X 删除**；术语改名（正文 3.8） |
+| `events/group.ts`（864 行） | 召回、候选描述、批量判决、复核、写入、合并、关联、讨论信号、重组清理 | 改造 | `events` | F-EVT-02、F-EVT-03；BR-POL-05 | M3 按职责拆文件；硬校验（法域不同、政策阶段不同不得判为同一事件）；跨语言用实体别名 + 确定性候选；**讨论信号里 X 专属的回复与引用关联随 X 删除**，通用的 `hot_signal` 归组保留（2026-10-02 勘误）；术语改名（正文 3.8） |
 | `events/relate.ts`（176 行） | 四分类关系、schema、候选描述、纯判定规则 | 搬移 | `events`（`domain/`） | AI-08 | 注释里“370 对样本、查准 0.944、查全 0.962”是 AI 新闻域的上游自报，只作格式参考，**不作矿业目标值** |
 | `events/merge.ts`（35 行） | 合并 story、别名重定向、写审计 | 搬移 | `events` | ENT-20 | 审计经 `platform/identity` 的审计写入（接受事务句柄），投影经 outbox 事件 |
 | `events/hot.ts`（213 行） | 热度计算、小时快照、热点榜、回补 | 改造 | `events`（热度、热点榜与小时快照，ENT-27） | DEC-10；F-EVT-08；F-SEL-02；BR-EVT-11、BR-SEL-05 | **沿用 AIHOT 的公式与衰减**（48 小时窗口、24 小时半衰、至少 2 个参与者且含 1 个编辑源、前 10），`heat-v1-48h-halflife24h` 作矿业版起点；参与者改为发布方族（删 `signal_group_id` 分支）；窗口、半衰期、门槛配置化并带规则版本；法规文书不进热点榜（DEC-62） |
@@ -350,7 +350,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | AIHOT 迁移 | 内容 | 所属模块（目标 schema） | 处置 |
 |---|---|---|---|
 | `0001_core.sql` | `pg_trgm` 扩展；`sources`、`fetch_runs`；`articles`、`article_revisions`、`article_discoveries`；`translations`；`receipts`、`budgets`；`analyses`；`editorial_overrides`；`publications`、`selected_ledger`、`selected_state` | 扩展 → 基础迁移；`sources` → sources（`cursor` 列移到 acquisition 的检查点表）；`fetch_runs` → acquisition；材料三表 → content；`translations`、`analyses` → enrichment；`receipts`、`budgets` → `ai`（ai-gateway）；`editorial_overrides` → editorial；投影与账本 → publication | 改造（`site_fulltext` 缺省直接取 false，权限不来自表缺省：新信源加入时由负责人一次确认、按 `owner_declared` 建档为允许，缺权限版本记录失败关闭；0001 缺省 true、0036 才改 false 是上游自相矛盾） |
-| `0002_events_reports.sql` | `stories`、`story_aliases`、`story_links`、`story_digests`、`facts`、`fact_articles`、`story_signals`、`story_heat_hourly`、`hot_rankings`；`reports`、`report_revisions`；`topics` | 事件类 → events（含 `hot_rankings`）；报告两表 → reports；`topics` → publication | 改造（`story_signals` 随 X 删除） |
+| `0002_events_reports.sql` | `stories`、`story_aliases`、`story_links`、`story_digests`、`facts`、`fact_articles`、`story_signals`、`story_heat_hourly`、`hot_rankings`；`reports`、`report_revisions`；`topics` | 事件类 → events（含 `hot_rankings`）；报告两表 → reports；`topics` → publication | 改造（`story_signals` 保留：热度只由它算出，2026-10-02 勘误） |
 | `0003_monitor_leaderboard_notify.sql` | `monitor_posts`、`monitor_events`、`monitor_event_posts`、`monitor_state`；`lb_models`、`lb_aliases`、`lb_snapshots`、`lb_scores`、`lb_runs`、`lb_rankings`、`fx_rates`；`notify_targets`、`deliveries`、`delivery_leases` | 监控与模型榜 11 张表删除；通知三表 → `platform/ops`（告警投递与飞书内容推送共用，`purpose=content` 行与相关约束随内容推送保留，Owner 2026-10-02） | 改造（T-0002 删监控与模型榜 11 张表，文件改名 `0003_notify.sql`；通知三表留作告警与飞书内容推送投递） |
 | `0004_admin_ops.sql` | `admin_users`、`admin_sessions`、`audit_log`；`feedback`、`feedback_bans`；`ingest_events`；`settings`；`stored_files`；`job_runs` | 账号三表 → `identity`；反馈两表 → feedback（`feedback_bans` 不做封禁则删）；`ingest_events` → acquisition（外部推送关闭，暂留）；`job_runs` → `platform/ops`；`settings` 与 `stored_files` 暂留，按键和用途拆（B.7.2） | 改造 |
 | `0005_grouping_state.sql` | `articles.grouped_at`、`processing_state`、`processing_error` 与索引 | content（T-0005）；处理状态移 enrichment、归组时间移 events | 改造 |
@@ -412,7 +412,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 
 ### B.8.1 提示词（`industry/prompts/*.md`，27 个）
 
-全部**改造**，内容换成矿业、结构保留（上游 `AGENTS.md` 的要求：保留内容类型、维度加权、噪声压制、安全边界）——**X 专用的 6 个提示词删除**；目录按能力分到 `industry/prompts/<capability>/`，目录名以 `02-rules/03-ai-capabilities.md` 的能力 ID 为准，下表只给建议。
+全部**改造**，内容换成矿业、结构保留（上游 `AGENTS.md` 的要求：保留内容类型、维度加权、噪声压制、安全边界）——**X 专用的 5 个提示词删除**（`group-signal.md` 保留，2026-10-02 勘误）；目录按能力分到 `industry/prompts/<capability>/`，目录名以 `02-rules/03-ai-capabilities.md` 的能力 ID 为准，下表只给建议。
 
 | AIHOT 文件 | 现用途（调用方） | 建议新位置（能力） | 备注 |
 |---|---|---|---|
@@ -424,7 +424,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `summarize-short-post.md`、`summarize-short-post-quoted.md`、`summarize-long-post.md`、`summarize-long-post-quoted.md` | X 短帖、长帖（含引用）的标题摘要 | — | 删除（X 渠道） |
 | `structure.md` | 分类、标签、主体、事实框架 | `structure/`（AI-02） | 九类、国家、矿种、政策工具与阶段、关键日期 |
 | `group-batch.md`、`group-pair.md`、`group-definitions.md`、`group-method.md` | 归组批量判决、成对复核、关系定义 | `relate/`（AI-08） | 矿业例子；政策不同阶段不得判为同一事件 |
-| `group-signal.md` | 讨论帖挂接事件 | — | 删除（X 讨论帖） |
+| `group-signal.md` | 讨论帖挂接事件 | `relate/`（AI-08） | `hot_signal` 讨论帖只计热度、不新建事件；例子换矿业事件（原列随 X 删除，2026-10-02 勘误：`hot_signal` 信源按 `01-product/07-sources-and-coverage.md` 2.3 与 AI-08 保留） |
 | `story-digest.md` | 事件综述 | `event-digest/`（AI-09） | 单位改为事件 |
 | `report-daily-lead.md`、`report-period.md` | 日报导语、周报月报主题 | `report/`（AI-13） | 带引用约束；日报导语与周月报综述沿用并矿业化（DEC-65） |
 | `translate-body.md` | 全文翻译 | `translate/`（AI-05） | 公司名规则换 DR-39～DR-41；失败块处理改“待重译” |
@@ -464,7 +464,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `receipts.test.ts` | 复用已收答案、每次实际发送计入预算、丢失答案最多重买一次、阀门在发送前拦截 | 改造 | ai-gateway | INV-14；INV-15；ENT-41 | **先改后用**：删除“自动放行”断言，改为“未知保持隔离、仅在对账后放行”；补“预算行缺失拒绝”；上游 `c3ba0ca` 已同步修改此文件，移植时一并取 |
 | `embeddings.test.ts` | 向量精度、文本变化失效、缓存上限 | 改造 | events（存储）+ ai-gateway（调用） | AI-16 | 默认不启用向量，暂存 |
 | `events.test.ts` | 人工决定在判决期间不被覆盖、修订保留归属、显式重组、待重组不作证据等 | 搬移 | events | INV-04 同类 | 人工保护核心用例 |
-| `signals.test.ts` | 讨论帖不进分析队列、旧文排后不建事件、讨论帖重挂 | 改造 | events | INV-07 | 删 X 讨论帖用例；旧文部分保留 |
+| `signals.test.ts` | 讨论帖不进分析队列、旧文排后不建事件、讨论帖重挂 | 改造 | events | INV-07 | 只删 X 引用帖与原帖到达后重新归组（`reclaimWaiting`）的用例；`rss` 来源的 `hot_signal` 讨论帖重挂与旧文部分保留（2026-10-02 勘误） |
 | `hot-avatar-payload.test.ts` | 热点条头像与负载 | 删除 | — | PG-03 | 头像图片管线关闭、热点榜头像堆叠 `Faces.tsx` 不做（PG-03、DR-78），该测试随头像载荷一并删除；热点条与热点榜本身保留 |
 | `relation-eval.test.ts`、`relation-eval-runtime.test.ts` | 关系金标解析、抽样、指标；评测运行复用回执 | 搬移 | ai-gateway（评测运行器）+ `evals/relate/` | F-AI-05 | — |
 | `feedback.test.ts`、`feedback-upload.test.ts` | 反馈转发重试与截图处理；5 MiB 上传、畸形请求拒绝 | 改造 | feedback | ENT-47；DEC-53 | 删转发用例；截图上限改 2MB，补“伪造 MIME、SVG、GIF 被拒” |

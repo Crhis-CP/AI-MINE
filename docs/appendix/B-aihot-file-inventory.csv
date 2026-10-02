@@ -193,7 +193,7 @@ assets/og-fonts/LICENSE,702,a7325951380d909135ad5226977bac872be1364c348abb27c7d4
 assets/og-fonts/noto-sans-sc-400.ttf,3511700,32cdffca3d0f8046d132acf6bfdc0a87ef6cc610c64340a7bf047ce3348405a4,保留,,assets/og-fonts/（publication 使用）,G26；正文 2.13,T-0001、T-0002,B.11,501
 assets/og-fonts/noto-sans-sc-700.ttf,3602492,5d05345f9128c81915d641e0dcbb4e2fdb2ab24baa1e8de0df194423185d8500,保留,,assets/og-fonts/（publication 使用）,G26；正文 2.13,T-0001、T-0002,B.11,501
 database/migrations/0001_core.sql,12349,ba4cf0e345f0eaab32fac9150aab87808b398e635a0103e37d5eee2ee7c3a75d,改造,（site_fulltext 缺省直接取 false，权限不来自表缺省：新信源加入时由负责人一次确认、按 owner_declared 建档为允许，缺权限版本记录失败关闭；0001 缺省 true、0036 才改 false 是上游自相矛盾）,扩展 → 基础迁移；sources → sources（cursor 列移到 acquisition 的检查点表）；fetch_runs → acquisition；材料三表 → content；translations、analyses → enrichment；receipts、budgets → ai（ai-gateway）；editorial_overrides → editorial；投影与账本 → publication,ADR-0003；正文 3.2,,B.7.1,352
-database/migrations/0002_events_reports.sql,5879,c0263f26018628788e569893d42179df91ef08cd0134a545b535b727807b2951,改造,（story_signals 随 X 删除）,事件类 → events（含 hot_rankings）；报告两表 → reports；topics → publication,ADR-0003；正文 3.2,,B.7.1,353
+database/migrations/0002_events_reports.sql,5879,c0263f26018628788e569893d42179df91ef08cd0134a545b535b727807b2951,改造,（story_signals 保留：热度只由它算出，2026-10-02 勘误）,事件类 → events（含 hot_rankings）；报告两表 → reports；topics → publication,ADR-0003；正文 3.2,,B.7.1,353
 database/migrations/0003_monitor_leaderboard_notify.sql,7913,452070bf5615f78c47a363daf60e8508cdc1c03db7f10dea16c6772423f70209,改造,（T-0002 删监控与模型榜 11 张表，文件改名 0003_notify.sql；通知三表留作告警与飞书内容推送投递）,监控与模型榜 11 张表删除；通知三表 → platform/ops（告警投递与飞书内容推送共用，purpose=content 行与相关约束随内容推送保留，Owner 2026-10-02）,ADR-0003；正文 3.2,T-0002,B.7.1,354
 database/migrations/0004_admin_ops.sql,3511,ad435396e832f83653519b24f973ed71a7bef89688e44f3bfb2bf7fdf64bfb74,改造,,账号三表 → identity；反馈两表 → feedback（feedback_bans 不做封禁则删）；ingest_events → acquisition（外部推送关闭，暂留）；job_runs → platform/ops；settings 与 stored_files 暂留，按键和用途拆（B.7.2）,ADR-0003；正文 3.2,,B.7.1,355
 database/migrations/0005_grouping_state.sql,498,05b83d2e4af4e412d66166bd51b06e60e1e5dc97a3219a460b2eceb756d147bd,改造,,content（T-0005）；处理状态移 enrichment、归组时间移 events,ADR-0003；正文 3.2,T-0005,B.7.1,356
@@ -272,7 +272,7 @@ industry/prompts/group-batch.md,604,13a5e1fc191523888bab1eed0296d06677ca27c6a7e2
 industry/prompts/group-definitions.md,1821,b7e5aae668e8773178fea8fd96a9c0701200ed1b706f14c1aa4bd04bc7f74c48,改造,,relate/（AI-08）,AI-08,,B.8.1,426
 industry/prompts/group-method.md,311,8c51856fbfa4b66f6f26ef36bc38fbb857090d7d7d42528233dc05b0284c0e05,改造,,relate/（AI-08）,AI-08,,B.8.1,426
 industry/prompts/group-pair.md,777,ef967620b842cb4ee9aaeb4716445dabade536ff7ec42bb0eb61e536f1ea77b3,改造,,relate/（AI-08）,AI-08,,B.8.1,426
-industry/prompts/group-signal.md,701,e5f3746474e6d18bc292254109b9b3f9fbb42c51384843879f2a6899a67f79c5,删除,,—,G15；正文 4.5,T-0002,B.8.1,427
+industry/prompts/group-signal.md,701,e5f3746474e6d18bc292254109b9b3f9fbb42c51384843879f2a6899a67f79c5,改造,,relate/（AI-08）,AI-08,,B.8.1,427
 industry/prompts/identity-context.md,244,6ac2adecce61231fa8ce50685eacf2871e386983dadb58977f522674f0b0ddc7,改造,,_shared/,ADR-0007；正文 2.8,,B.8.1,422
 industry/prompts/prefilter.md,1601,bc27aaf562982f23e1b6fd93a45506073ea10f1552b68e3ea85a1697277ccce0,改造,,prefilter/（AI-01）,AI-01,,B.8.1,419
 industry/prompts/report-daily-lead.md,462,77f6576c77a19dbd25d24e1fd9b614b0acc3f3d3c23b51d1d3339854e5b10fed,改造,,report/（AI-13）,AI-13,,B.8.1,429

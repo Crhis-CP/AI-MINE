@@ -1097,7 +1097,7 @@
 | `rules-domain.md` | “歧义词默认含义 + 专名保留规则 + 数字单位原样”的结构 | 内容全部替换：删去 AI 术语与 AI 公司清单，换成 DR-32、DR-33 受控译法和 DR-39～DR-41 公司名规则；AI 语境下的 mining 多指数据挖掘，在 AI矿策 中数据挖掘、加密货币挖矿是必须排除的同形词（`01-vision-and-positioning.md` 第 4.1 节） | DR-32、DR-33、DR-39 |
 | `content-understanding.md` | 一次调用同时输出类型、作者角色、标签、中文标题、中文摘要的 JSON 结构；“本步骤不打分、不判断精选”；输入安全边界段落 | 类型换成 `taxonomy.v1.json` 的内容类型；作者角色对应“当事方 / 独立报道者 / 转述”；标签白名单换成九类分类、国家、矿种；`editorialJudgment` 换成推荐理由，且只在有资格时生成（DR-22～DR-28）；禁用词表换成 DR-25 | DR-10、DR-15、DR-22 |
 | `summarize-article.md`、`summarize-article-empty.md` | 标题加摘要的输出格式；“原文为空时摘要留空，不根据标题脑补” | 删除 AI 领域“优先保留参数、跑分”的清单，换成 DR-16 分类要素 | DR-16、DR-20 |
-| `summarize-short-post.md`、`summarize-long-post*.md`、`translate-post.md` | 社交帖子的翻译与摘要 | 只在接入官方社交账号（T1_5）时启用 | DR-29～DR-31 |
+| `summarize-short-post*.md`、`summarize-long-post*.md`、`translate-post.md` | 社交帖子的翻译与摘要 | 不借用：随 X 删除，日后接入社交账号时另立任务重做（Q-66，2026-10-02 勘误） | DR-29～DR-31 |
 | `translate-body.md` | 按片段逐条翻译、保持片段数量与顺序、保留标签与链接、占位符原样、不增删信息 | “公司名可保留英文原名”改为按 DR-39～DR-41 处理；补充 DR-31 的否定、情态、条件核对与 DR-32 受控译法 | DR-30～DR-33 |
 | `prefilter.md`、`selection-score.md`、`structure.md`、`group-*.md`、`story-digest.md`、`report-*.md` | 判断类、综述类与报告类提示词：结构与机制整体沿用 AIHOT | 内容换成矿业口径；逐文件的改造要点见 `02-rules/03-ai-capabilities.md` 1.12、AI-03、AI-08、AI-09、AI-13；其中 `selection-score.md` 的矿业版是草案，须 Owner 审阅确认（BR-SEL-09） | DR-58、DR-80、DR-89 |
 

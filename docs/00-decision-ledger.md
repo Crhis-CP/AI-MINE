@@ -4,6 +4,7 @@
 > 引用格式：`路径:行号@提交`，`@main` 指远端 main `65d3624`（PR #179），`@policy` 指法规分支 `codex/policy-upgrade-v2` 的 `6d37df8`（草稿 PR #180）。
 > **2026-10-01 更新（v2.1）**：Owner 已一次性答复全部 16 项待决问题；“需 Owner”一列原为“是”的行现为“已答复（2026-10-01）”，“裁决”列以 **Owner 2026-10-01 答复** 开头写明最终决定，答复记录见 `08-open-questions.md` 表四。答复与本表原默认不同的有六处：预算（DEC-08）、精选与热点（DEC-10）、切换（DEC-19）、信源许可（DEC-33）、合规展示（DEC-39、DEC-40）、旧数据全部不导入（DEC-20、DEC-21、DEC-42，“全重做”）；另新增总原则 DEC-64。
 > **2026-10-02 更新**：Owner 在项目对话里说「飞书推送与登录还是要保留，我也要后面接飞书的呢」。DEC-05（私有侧只用密码的具名账号）与 DEC-45（飞书内容推送是不排期的候选）的裁决不变，但 AIHOT 的飞书内容推送与飞书登录不再删除：代码保留、默认关闭，接入时另立任务；两行的裁决列已注明，答复记录见 `08-open-questions.md` 表四。
+> **2026-10-02 勘误（证据裁决，TASK-0003）**：随 X 删除的范围。① 热度证据表：`04-architecture/04-aihot-adoption.md` G15、4.5 第 1 行、4.6 与附录 B 原把 `story_signals`、`group-signal.md` 与 `events/group.ts` 的讨论信号部分列为随 X 删除，与 DEC-10（热点榜保留）、`01-product/07-sources-and-coverage.md` 2.3 与 AI-08（`hot_signal` 信源只作热度证据）冲突：热度只由 `story_signals` 算出（`events/hot.ts:53`），编辑源的报道也记在里面。按证据裁决只删 X 专属的回复与引用关联（引用帖召回、`reclaimWaiting`、`signal-native` 判决）与 `x_post`，`story_signals`、通用的 `hot_signal` 归组与 `group-signal.md` 保留，X 专用提示词因此是 5 个；`group-signal` 的适用范围统一为 `hot_signal` 信源（`02-rules/03-ai-capabilities.md` 1.12、R-24）。`signal_group_id` 分支照删，依据是 2.11 第 2 条（参与者改为发布方族，由 ENT-01 接替，R-24 已注明）。② X 帖文提示词：`02-rules/03-ai-capabilities.md` 1.12 与 `01-product/06-content-standards.md` 第 12 节原写社交帖的摘要与翻译提示词“接入官方社交账号后启用”，与 4.5 第 1 行、附录 B 和 Q-66 的“随 X 删除”不一致，改为随 X 删除，日后接入社交账号时另立任务重做（Q-66）。上述各处与附录 B 的 CSV、`upstream/aihot.lock.json` 已改。
 
 | 编号 | 主题 | A 包立场 | B 包立场 | 证据 | 裁决 | 需 Owner | 默认做法 |
 |---|---|---|---|---|---|---|---|

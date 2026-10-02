@@ -1952,7 +1952,7 @@
    "bytes": 5879,
    "sha256": "c0263f26018628788e569893d42179df91ef08cd0134a545b535b727807b2951",
    "disposition": "改造",
-   "disposition_note": "（story_signals 随 X 删除）",
+   "disposition_note": "（story_signals 保留：热度只由它算出，2026-10-02 勘误）",
    "new_location": "事件类 → events（含 hot_rankings）；报告两表 → reports；topics → publication",
    "spec_refs": "ADR-0003；正文 3.2",
    "tasks": ""
@@ -2741,11 +2741,11 @@
    "path": "industry/prompts/group-signal.md",
    "bytes": 701,
    "sha256": "e5f3746474e6d18bc292254109b9b3f9fbb42c51384843879f2a6899a67f79c5",
-   "disposition": "删除",
+   "disposition": "改造",
    "disposition_note": "",
-   "new_location": "—",
-   "spec_refs": "G15；正文 4.5",
-   "tasks": "T-0002"
+   "new_location": "relate/（AI-08）",
+   "spec_refs": "AI-08",
+   "tasks": ""
   },
   {
    "path": "industry/prompts/identity-context.md",
