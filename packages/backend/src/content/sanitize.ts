@@ -1,5 +1,6 @@
 // One body representation for the web page, Markdown export and full RSS: whitelisted HTML.
-// External HTML is never executed; images keep their original src and are signed at read time.
+// External HTML is never executed; images keep their original src and reach readers only as links
+// to the picture on the source's site (linkBodyImages).
 import * as cheerio from "cheerio";
 import sanitizeHtml from "sanitize-html";
 
@@ -228,7 +229,7 @@ const OWN_PROXY = /^(?:https?:\/\/[^/?#]+)?\/api\/img-proxy\?/i;
 /**
  * The image an address of our own image proxy stands for. Legacy bodies were saved with the proxy's
  * relative address (`/api/img-proxy?u=…&exp=…&sig=…`); resolved against the article's own site it
- * pointed nowhere. The source image is the `u` it wraps, signed again when a page is served.
+ * pointed nowhere. The source image is the `u` it wraps.
  */
 export function unwrapProxyUrl(src: string): string {
   const s = src.trim();
@@ -247,6 +248,41 @@ export function unwrapProxiedImages(html: string): string {
       return unwrapped === url ? match : `${pre}${unwrapped.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}${post}`;
     }),
   );
+}
+
+/**
+ * Body pictures as links (DR-78): a source's pictures are never fetched, re-hosted or shown here. Each
+ * <img> becomes "查看配图：{说明}" pointing at the picture on the source's site, and a video loses its
+ * poster frame. A picture with no web address of its own (an inline data URL) is dropped.
+ */
+export function linkBodyImages(html: string): string {
+  if (!/<(?:img|video)\b/i.test(html)) return html;
+  const $ = cheerio.load(html, null, false);
+  $("picture").each((_, el) => {
+    $(el).replaceWith($(el).contents());
+  });
+  $("img").each((_, el) => {
+    const img = $(el);
+    const src = (img.attr("src") ?? "").trim().replace(/^\/\//, "https://");
+    if (!/^https?:\/\//i.test(src)) {
+      img.remove();
+      return;
+    }
+    const note = (img.attr("alt") || img.attr("title") || "").replace(/\s+/g, " ").trim();
+    const link = $("<a>")
+      .attr({ href: src, target: "_blank", rel: "noopener noreferrer" })
+      .text(note ? `查看配图：${note}` : "查看配图");
+    // A linked picture: links never nest, so the picture's own link gives way to this one unless it
+    // also carries text.
+    const around = img.closest("a");
+    if (!around.length) img.replaceWith(link);
+    else if (around.text().trim()) {
+      img.remove();
+      around.after(link);
+    } else around.replaceWith(link);
+  });
+  $("video[poster]").removeAttr("poster");
+  return $.html();
 }
 
 function resolveUrl(href: string, base?: string): string {

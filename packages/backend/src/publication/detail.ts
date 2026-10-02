@@ -1,8 +1,8 @@
 // Item detail and Markdown export, both behind the same visibility and licence rules.
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@aihot/contracts/site";
 import TurndownService from "turndown";
+import { linkBodyImages } from "../content/sanitize.ts";
 import { sql } from "../db.ts";
-import { proxyBodyImages } from "../media/imgproxy.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { itemUrl } from "./links.ts";
 import { hasItemPage } from "./rules.ts";
@@ -77,8 +77,8 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   let outline: OutlineEntry[] = [];
   if (row.body_mode === "full" && row.body_html) {
     const isZh = row.language === "zh" || (/[一-鿿]/.test(row.body_text?.slice(0, 400) ?? "") && row.language !== "en");
-    const original = proxyBodyImages(row.body_html);
-    const zh = isZh ? original : row.tr_html ? proxyBodyImages(row.tr_html) : null;
+    const original = linkBodyImages(row.body_html);
+    const zh = isZh ? original : row.tr_html ? linkBodyImages(row.tr_html) : null;
     const primary = withOutline(zh ?? original);
     outline = primary.outline;
     body = {

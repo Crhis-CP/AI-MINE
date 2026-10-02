@@ -1,7 +1,8 @@
 // Public scope and sync through the real api routes: a licence revocation or a withdrawal reaches
-// every exit, reports stop quoting withdrawn items, the hot board drops a withdrawn item at once, item
-// pages follow the site's rule, an early release keeps the selected ledger in order, a withdrawal
-// waiting behind an unreleased item leaves new snapshots at once, and snapshots answer conditional requests.
+// every exit, body pictures reach the page and the full feed only as links, reports stop quoting
+// withdrawn items, the hot board drops a withdrawn item at once, item pages follow the site's rule, an
+// early release keeps the selected ledger in order, a withdrawal waiting behind an unreleased item
+// leaves new snapshots at once, and snapshots answer conditional requests.
 import { config } from "@aihot/backend/config";
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { beijingDate } from "@aihot/contracts/time";
@@ -96,6 +97,20 @@ test("site reading sends one language while exports retain both, including after
   assert.ok(md.includes("Original full body") && md.includes("中文完整正文"));
   await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   assert.equal((await get(`/api/site/items/${id}/original`)).status, 404);
+});
+
+test("the item page and the full feed give body pictures only as links to the source's own copy", async () => {
+  const id = await article();
+  const picture = `https://example.com/${T}.png?a=1&amp;b=2`;
+  const html = `<p>${BODY}</p><p><img src="${picture}" alt="Shipments by quarter" width="800" height="400"></p><video src="https://example.com/${T}.mp4" poster="https://example.com/${T}.jpg"></video>`;
+  await sql`UPDATE articles SET language = 'en', body_html = ${html} WHERE id = ${id}`;
+  await publishArticle(id, released());
+  const page = JSON.parse((await get(`/api/site/items/${id}/original`)).body).body.original as string;
+  const feed = (await get("/feed/full.xml")).body.split("<item>").find((item) => item.includes(id));
+  for (const body of [page, feed]) {
+    assert.ok(body?.includes(`<a href="${picture}" target="_blank" rel="noopener noreferrer">查看配图：Shipments by quarter</a>`), body);
+    assert.doesNotMatch(body!, /<img|img-proxy|poster=/);
+  }
 });
 
 test("revoking a source's licence takes its articles off every exit", async () => {

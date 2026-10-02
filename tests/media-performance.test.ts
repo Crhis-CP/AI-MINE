@@ -160,8 +160,8 @@ test("small SVG stays vector while a large vector receives the requested browser
   assert.equal((await sharp(raster.body).metadata()).width, 720);
 });
 
-test("responsive URLs and web body candidates retain exact signatures and stable expiry", async () => {
-  const { proxiedImageSet, proxyBodyImages, verifyProxyRequest } = await import("@aihot/backend/media/imgproxy");
+test("responsive URLs retain exact signatures and stable expiry", async () => {
+  const { proxiedImageSet, verifyProxyRequest } = await import("@aihot/backend/media/imgproxy");
   const now = Date.parse("2026-09-28T08:00:00Z");
   const candidates = proxiedImageSet("https://example.org/image.png", "card", false, now)!;
   assert.equal(candidates, proxiedImageSet("https://example.org/image.png", "card", false, now + 1000));
@@ -174,14 +174,6 @@ test("responsive URLs and web body candidates retain exact signatures and stable
     assert.equal(width, query.mode === "image-336" ? "336w" : "720w");
     assert.equal(verifyProxyRequest({ ...query, mode: "image-1600" }, now).ok, false);
   }
-  const html = '<p><img src="https://example.org/image.png?a=1&amp;b=2" width="800" height="400"></p>';
-  assert.ok(!proxyBodyImages('<img src="https://example.org/small.png" width="160" height="80">').includes("srcset="));
-  assert.ok(!proxyBodyImages('<img src="https://example.org/unknown.png">').includes("srcset="));
-  const web = proxyBodyImages(html);
-  assert.match(web, /srcset="[^"]+image-720/);
-  assert.match(web, /loading="lazy"/);
-  assert.match(web, /width="800" height="400"/);
-  assert.doesNotMatch(proxyBodyImages(html, true), /srcset=/);
 });
 
 test("image HTTP responses keep issued URLs valid, reject tampering before fetching and do not vary on Accept", async () => {
