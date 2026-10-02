@@ -7,8 +7,9 @@
     "start": "node src/main.ts"
   },
   "dependencies": {
-    "@aihot/backend": "*",
-    "@aihot/contracts": "*",
-    "@aihot/industry": "*"
+    "@aihot/backend": "workspace:*",
+    "@aihot/contracts": "workspace:*",
+    "@aihot/industry": "workspace:*",
+    "pg-boss": "12.34.0"
   }
 }

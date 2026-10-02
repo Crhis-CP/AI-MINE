@@ -1,5 +1,4 @@
-node_modules
-apps/web/node_modules
+**/node_modules
 apps/web/build
 apps/web/.react-router
 .data
@@ -8,4 +7,10 @@ apps/web/.react-router
 !.env.example
 .git
 .github
+.verify
 *.log
+# Product documents and verification evidence are not needed at runtime.
+docs
+tasks
+changes
+upstream

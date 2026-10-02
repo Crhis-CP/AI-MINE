@@ -7,9 +7,9 @@
     "start": "node src/main.ts"
   },
   "dependencies": {
-    "@aihot/backend": "*",
-    "@aihot/contracts": "*",
-    "@aihot/industry": "*",
+    "@aihot/backend": "workspace:*",
+    "@aihot/contracts": "workspace:*",
+    "@aihot/industry": "workspace:*",
     "@modelcontextprotocol/server": "2.1.0",
     "@resvg/resvg-js": "2.6.2",
     "fastify": "5.12.5",

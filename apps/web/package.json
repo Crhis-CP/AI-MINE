@@ -9,8 +9,8 @@
     "typecheck": "react-router typegen && tsc -p ."
   },
   "dependencies": {
-    "@aihot/contracts": "*",
-    "@aihot/industry": "*",
+    "@aihot/contracts": "workspace:*",
+    "@aihot/industry": "workspace:*",
     "@react-router/node": "8.4.0",
     "isbot": "5.2.2",
     "motion": "13.4.4",

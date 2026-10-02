@@ -14,3 +14,8 @@ apps/web/.react-router/
 # Font package unpacked to regenerate the report nameplates (docs/customize.md)
 package/
 fontsource-noto-sans-sc-*.tgz
+
+# Verification receipts and logs (attached to PRs, never committed: committing would change the verified SHA)
+.verify/
+# Pinned tool binaries downloaded by scripts/verify (checksum-verified)
+.tools/

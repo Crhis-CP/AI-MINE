@@ -1,29 +1,34 @@
 # One image for every role: setup (migrations and seed), api, worker and web.
 # Build arg NPM_REGISTRY switches the npm registry (e.g. https://registry.npmmirror.com in mainland China).
-FROM node:24-trixie-slim AS base
+# Base image pinned to a patch version and its digest (T-0001); bump both together.
+# Dependencies are installed with pnpm over the whole repository: `pnpm deploy` is not used, it does not
+# work with Node's TypeScript type stripping (the workspace packages export .ts sources).
+FROM node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe AS base
+ARG NPM_REGISTRY=
 WORKDIR /app
 # pg_dump for the optional database backups (Debian's client matches the PostgreSQL 17 server in compose).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends postgresql-client ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+# pnpm at the version package.json's packageManager names.
+RUN npm install -g pnpm@12.8.1 --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY}
 
 FROM base AS build
 ARG NPM_REGISTRY=
-COPY package.json package-lock.json ./
-COPY apps/api/package.json apps/api/
-COPY apps/web/package.json apps/web/
-COPY apps/worker/package.json apps/worker/
-COPY packages/backend/package.json packages/backend/
-COPY packages/contracts/package.json packages/contracts/
-COPY industry/package.json industry/
-RUN npm ci --no-audit --no-fund ${NPM_REGISTRY:+--registry=$NPM_REGISTRY}
 COPY . .
-RUN npm run build -w @aihot/web && npm prune --omit=dev --no-audit --no-fund
+RUN pnpm install --frozen-lockfile ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
+ && pnpm --filter @aihot/web build
 
 FROM base
+ARG NPM_REGISTRY=
 ENV NODE_ENV=production
-COPY --from=build --chown=node:node /app /app
-RUN mkdir -p /data && chown node:node /data
+COPY . .
+COPY --from=build /app/apps/web/build apps/web/build
+# Production dependencies only; the package store is dropped in the same layer.
+RUN pnpm install --prod --frozen-lockfile --store-dir /tmp/pnpm-store ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
+ && rm -rf /tmp/pnpm-store \
+ && chown -R node:node /app \
+ && mkdir -p /data && chown node:node /data
 USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.ts"]

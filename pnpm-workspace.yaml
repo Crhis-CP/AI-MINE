@@ -1,0 +1,15 @@
+# pnpm workspace (T-0001; docs/04-architecture/02-tech-stack.md 1.2, 7.2).
+packages:
+  - apps/*
+  - packages/*
+  - industry
+
+# A new release must have been public for a day before it can be installed (supply-chain delay, minutes).
+minimumReleaseAge: 1440
+
+# No dependency may run install scripts unless listed here with a reason (none needed so far).
+allowBuilds: {}
+
+# Security pins carried over from upstream (cf8f8d0: patched fflate for the image dependencies).
+overrides:
+  fflate: 0.7.5
