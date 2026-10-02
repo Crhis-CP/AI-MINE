@@ -194,6 +194,8 @@ export function buildMcpServer(): McpServer {
           `第 ${t.rank} 名：${t.title}`,
           `信源：${t.sourceNames.join("、")}`,
           `最新进展：${t.latestAt}`,
+          // The representative item's page, or the story's when it has none (then the topic's id is the story's).
+          `${SITE.name}：${t.id !== publicId ? itemUrl(t.id) : t.links.story}`,
           `事件 public_id：${publicId}`,
           `事件页：${t.links.story}`,
           "",

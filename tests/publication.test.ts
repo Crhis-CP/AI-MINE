@@ -3,6 +3,7 @@
 // withdrawn items, the hot board drops a withdrawn item at once, item pages follow the site's rule, an
 // early release keeps the selected ledger in order, a withdrawal waiting behind an unreleased item
 // leaves new snapshots at once, and snapshots answer conditional requests.
+import { MCP_TOOL_NAMES } from "@aihot/contracts/mcp";
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { beijingDate } from "@aihot/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
@@ -15,10 +16,12 @@ import { setVisibility } from "@aihot/backend/admin/content";
 import { updateSource } from "@aihot/backend/admin/sources";
 import { upsertMaterial } from "@aihot/backend/content/materials";
 import { stopBoss } from "@aihot/backend/jobs/queue";
+import { itemUrl } from "@aihot/backend/publication/links";
 import { publishArticle, republishSource } from "@aihot/backend/publication/publish";
 import { computeHotRanking } from "@aihot/backend/events/hot";
 import { latestHotRanking } from "@aihot/backend/events/hot-read";
 import { effectiveWatermark } from "@aihot/backend/publication/v1";
+import { SITE } from "@aihot/industry/site";
 import { buildApp } from "../apps/api/src/app.ts";
 
 const T = tag();
@@ -207,6 +210,13 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
   assert.ok(rep, "the story is on the board with a representative item");
   const exits = ["/api/v1/hot-topics", "/api/site/hot"];
   for (const url of exits) assert.ok((await get(url)).body.includes(rep!), `${url} shows the item before`);
+  const mcp = await app.inject({
+    method: "POST",
+    url: "/api/mcp",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+    payload: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: MCP_TOOL_NAMES.hot, arguments: { limit: 10 } } },
+  });
+  assert.ok(mcp.body.includes(`${SITE.name}：${itemUrl(rep!)}`), "MCP hot topics link each event's representative item on the site");
 
   await setVisibility(rep!, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   for (const url of exits) assert.ok(!(await get(url)).body.includes(rep!), `${url} still shows the withdrawn item`);

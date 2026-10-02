@@ -2017,7 +2017,6 @@
           },
           "links": {
             "type": "object",
-            "required": [],
             "properties": {
               "original": {
                 "type": "string",

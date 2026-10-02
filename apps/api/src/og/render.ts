@@ -53,7 +53,7 @@ export const h = (type: string, style: Record<string, unknown>, children?: unkno
   props: { style, children, ...extra },
 });
 
-// brand is a temporary neutral placeholder until T-0006 settles the palette (Q-67).
+// 临时 (T-0006, Q-67): brand is a neutral placeholder until the palette is settled.
 const BRAND = "#cbd5e1";
 const ACCENTS = { brand: BRAND, hot: "#ff7a5f", amber: "#e2b454" } as const;
 
@@ -77,6 +77,7 @@ async function tree(card: OgCard): Promise<Node> {
       fontFamily: "Noto Sans SC",
       color: "#e6eded",
       backgroundColor: "#0a1012",
+      // 临时 (T-0006, Q-67): the two glows use the placeholder slates.
       backgroundImage:
         "radial-gradient(circle at 88% 8%, rgba(148,163,184,0.22), rgba(10,16,18,0) 46%), radial-gradient(circle at 0% 100%, rgba(71,85,105,0.35), rgba(10,16,18,0) 50%)",
     },
