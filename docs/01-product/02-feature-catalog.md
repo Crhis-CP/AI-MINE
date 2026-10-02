@@ -269,7 +269,7 @@ OP-nn 的页面规格见 `04-private-operations.md`（本节“规格”列的 O
 
 | ID | 方向 | 来源 | 说明 | 所属模块 |
 |---|---|---|---|---|
-| F-EXT-01 | 邮件订阅与定时内容推送（飞书等） | vNext 任务书“能力即代码”示例；A:08-open-questions.md Q-22；OUT-12 | 告警推送（F-OPS-03）不属于本项 | —（候选，不排期，DEC-45） |
+| F-EXT-01 | 邮件订阅与定时内容推送（飞书等） | vNext 任务书“能力即代码”示例；A:08-open-questions.md Q-22；OUT-12 | 告警推送（F-OPS-03）不属于本项；AIHOT 的飞书内容推送代码保留、默认关闭（Owner 2026-10-02），开通仍需单独立项 | —（候选，不排期，DEC-45） |
 | F-EXT-02 | 企业监控（含原 F-POL-06 特定主体影响分析） | vNext 任务书 | 须先由 Owner 重新定义为公开通用口径或私有功能，才能立项 | —（候选，不排期，DEC-45） |
 | F-EXT-03 | 矿山项目库 | vNext 任务书 | — | —（候选，不排期，DEC-45） |
 | F-EXT-04 | 风险地图 | vNext 任务书 | — | —（候选，不排期，DEC-45） |
@@ -289,8 +289,8 @@ OP-nn 的页面规格见 `04-private-operations.md`（本节“规格”列的 O
 | 分享图 | `apps/api/src/routes/og.ts`、`packages/backend/src/publication/og.ts` | 候选 | F-PUB-05 |
 | 事件综述 | `database/migrations/0020_story_summary.sql`、`packages/backend/src/events/` | 保留，M3 | F-EVT-06 |
 | SelectBench 评测 | `packages/backend/src/admin/selectbench.ts`、`apps/web/app/routes/admin/selectbench*.tsx` | 改造为评测运行器（含精选评分校准，沿用 `scripts/eval-selection.ts`） | F-AI-05 |
-| 飞书发送 | `packages/backend/src/notify/feishu.ts` | 改造为告警推送（飞书群机器人为主、邮件为备，Owner 2026-10-01 已定；只发业务语言，不转发读者反馈） | F-OPS-03 |
-| 飞书登录 | 后台登录 | 关闭（DEC-05 password-only） | F-IAM-01 |
+| 飞书发送 | `packages/backend/src/notify/feishu.ts` | 改造为告警推送（飞书群机器人为主、邮件为备，Owner 2026-10-01 已定；只发业务语言，不转发读者反馈）；AIHOT 的飞书内容推送（`notify/selected.ts`）也经它发送，保留、默认关闭（Owner 2026-10-02），开通仍需单独立项 | F-OPS-03、F-EXT-01 |
+| 飞书登录 | 后台登录 | 保留、默认关闭（Owner 2026-10-02）：两项登录应用凭据配齐才出现入口；私有侧仍只用密码的具名账号（DEC-05 password-only），接入时另立任务 | F-IAM-01 |
 | 隐私与条款页 | `apps/web/app/routes/privacy.tsx`、`terms.tsx`、`industry/pages/*.md` | 改写 | F-RDR-19 |
 | 更新日志页 | `apps/web/app/routes/changelog.tsx` | 改造 | F-RDR-14 |
 | Agent 接入页 | `apps/web/app/routes/agent.tsx` | 改造（删 AI 专属接口说明） | F-RDR-13 |

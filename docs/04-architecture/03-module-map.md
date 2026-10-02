@@ -294,9 +294,9 @@ packages/domains/<name>/
 | `packages/backend/src/operations/`（alerts、heartbeat、backup、retention、watch、indexnow） | `platform/ops`（保留清理由各模块任务执行）；`indexnow` → `publication` | 合并 |
 | `packages/backend/src/operations/feedback.ts`、`admin/feedback.ts` | `feedback` | 合并到一个模块 |
 | `packages/backend/src/operations/reports.ts` | `reports` | 归位 |
-| `packages/backend/src/notify/`（feishu、deliver、selected） | `platform/ops`（告警推送）；精选内容推送列为不排期候选（DEC-45） | 只保留告警 |
+| `packages/backend/src/notify/`（feishu、deliver、selected） | `platform/ops`（告警推送）；精选内容推送列为不排期候选（DEC-45） | 告警改造复用；精选内容推送（`selected`）保留、默认关闭（Owner 2026-10-02） |
 | `packages/backend/src/site/` | `publication` | 保留 |
-| `packages/backend/src/media/` | `content`（`images.ts`、`imgproxy.ts`、`renditions.ts`）；分享图渲染（`apps/api/src/og/`）归 `publication` | `images.ts`、`imgproxy.ts`、`renditions.ts` **关闭**：公开页不用，仅保留给视觉理解输入（须 `external_model` 许可）与 Owner 明确授权的来源（DR-78）；`prepare.ts` **删除**（随飞书内容推送与图片预热一并删）；分享图为候选、首版不注册路由 |
+| `packages/backend/src/media/` | `content`（`images.ts`、`imgproxy.ts`、`renditions.ts`）；分享图渲染（`apps/api/src/og/`）归 `publication` | `images.ts`、`imgproxy.ts`、`renditions.ts` **关闭**：公开页不用，仅保留给视觉理解输入（须 `external_model` 许可）与 Owner 明确授权的来源（DR-78）；`prepare.ts` 的图片预热**删除**（随图片代理按 `04-aihot-adoption.md` 4.7 处理）；其中推送用的分享图预热 `warmShareImage` 随飞书内容推送保留（Owner 2026-10-02）；分享图为候选、首版不注册路由 |
 | `packages/backend/src/jobs/` | `apps/worker` 组合根 + 各模块 `jobs.ts` + `platform/queue` | 拆分；队列改为 `<lane>.<stage>` |
 | `packages/backend/src/lib/http-fetch.ts`、`url.ts` | `acquisition` 的 fetch 运行时 | 只搬 SSRF、连接时地址校验、总超时、字节上限、字符集解码；删除出网代理分流（`EGRESS_PROXY_URL`） |
 | `packages/backend/src/lib/cursor.ts`、`ids.ts`、`text.ts`、`cache.ts` | 使用方模块或 `contracts`（纯函数） | 按使用方归位，不建通用 utils |
@@ -321,7 +321,7 @@ AIHOT 的 35 个迁移、60 张表全部在默认 schema、37 处外键；公开
 
 | 阶段（里程碑骨架 M0–M5，DEC-44） | 做什么 | 不做什么 |
 |---|---|---|
-| M0 | 建仓与上游登记（T-0014：首个提交原样导入 AIHOT 固定提交，逐文件处置登记）；去品牌；删除 leaderboard/monitor（模型榜与 Codex 重置监控，明确不要）及其表与页面；关闭 AIHOT 飞书登录；切换 pnpm；统一验证入口 `make verify` 与回执；落最小边界检查（exports 白名单、前端禁止导入后端、付费调用只经网关、按角色配置校验）；连接按角色拆分（`dbFor(role)`，公开 GET 只用 `public_read`）；建立 `public-api`/`private-api` 两实例与 fetcher 进程骨架（单一内部端点，先返回录制响应）；去品牌后的 AIHOT 在本地预发用种子信源跑通“采集 → 中文标题与导读 → 公开”；完成栈兼容基准与环境与容量基准（T-0001、T-0013） | 16 包机械拆分；拆两个前端应用；建独立运营台；**合成纵向链与双 lane 公平基准（属 M1）**——M0 只搭它们所需的骨架与最小边界 |
+| M0 | 建仓与上游登记（T-0014：首个提交原样导入 AIHOT 固定提交，逐文件处置登记）；去品牌；删除 leaderboard/monitor（模型榜与 Codex 重置监控，明确不要）及其表与页面；AIHOT 的飞书内容推送与飞书登录保留、默认关闭（Owner 2026-10-02）；切换 pnpm；统一验证入口 `make verify` 与回执；落最小边界检查（exports 白名单、前端禁止导入后端、付费调用只经网关、按角色配置校验）；连接按角色拆分（`dbFor(role)`，公开 GET 只用 `public_read`）；建立 `public-api`/`private-api` 两实例与 fetcher 进程骨架（单一内部端点，先返回录制响应）；去品牌后的 AIHOT 在本地预发用种子信源跑通“采集 → 中文标题与导读 → 公开”；完成栈兼容基准与环境与容量基准（T-0001、T-0013） | 16 包机械拆分；拆两个前端应用；建独立运营台；**合成纵向链与双 lane 公平基准（属 M1）**——M0 只搭它们所需的骨架与最小边界 |
 | M1 | 冻结契约（含 `lane`、事件信封、`ProcessingPermit`、私有契约）；三泳道试点（T-0621）；**两条合成纵向链**：一条合成新闻（T-0622：来源 → 清洗 → 中文标题导读 → 事件 → 发布 → 页面）与一份含必要附件的合成政策文书（T-0623：取得 → 原件/附件/版本不可变保存 → 中文 → 发布 → 页面），均用假模型与录制响应；**双业务线公平基准与回归**（T-0614；T-137）；业务线隔离（“暂停新闻、法规继续”“法规回填、新闻实时流不受阻”） | 真实来源与真实模型调用（M2）；总览、审稿台、审计页 |
 | M1 起：资讯线 | 在 AIHOT 代码上原地演进，**绞杀式**拆分：首次改动哪个模块，就把它搬进 `packages/domains/<module>`、建自己的 schema、迁移数据（只指基线表内的开发与预发数据随表搬迁，不涉及旧站数据，DEC-20）、补契约，并从“待迁出清单”删除；`04-aihot-adoption.md` §2 的“必须继承的设计”清单作为回归清单 | 为拆分而拆分；一次改多个模块的表 |
 | M1 起：法规线与新能力 | policy、sources 的权限矩阵与按 lane 采集配置、ai-gateway 的用量账本与异常熔断（按业务线、能力、信源记账）、`platform/storage` 对象存储、`platform/queue` 的 lane×stage 调度，按新模块、新 schema、新契约直接建设 | 从 AIHOT 表结构派生 |
