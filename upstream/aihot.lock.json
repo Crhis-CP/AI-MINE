@@ -1962,8 +1962,8 @@
    "bytes": 7913,
    "sha256": "452070bf5615f78c47a363daf60e8508cdc1c03db7f10dea16c6772423f70209",
    "disposition": "改造",
-   "disposition_note": "（T-0002 删监控与模型榜 11 张表，通知三表留作告警投递）",
-   "new_location": "监控与模型榜 11 张表删除；通知三表 → platform/ops（只留告警投递，purpose=content 行与相关约束删除）",
+   "disposition_note": "（T-0002 删监控与模型榜 11 张表，文件改名 0003_notify.sql；通知三表留作告警与飞书内容推送投递）",
+   "new_location": "监控与模型榜 11 张表删除；通知三表 → platform/ops（告警投递与飞书内容推送共用，purpose=content 行与相关约束随内容推送保留，Owner 2026-10-02）",
    "spec_refs": "ADR-0003；正文 3.2",
    "tasks": "T-0002"
   },
@@ -3361,10 +3361,10 @@
    "path": "packages/backend/src/jobs/notify.ts",
    "bytes": 1384,
    "sha256": "0fa560c350302afd88071de8d0aa9fa2d1e2056c1b307de8f69076cec86ea3fc",
-   "disposition": "删除",
+   "disposition": "改造",
    "disposition_note": "",
-   "new_location": "—",
-   "spec_refs": "G15；DEC-06",
+   "new_location": "platform/ops（随 notify/）",
+   "spec_refs": "G15；DEC-06；DEC-45",
    "tasks": "T-0002"
   },
   {
@@ -3811,10 +3811,10 @@
    "path": "packages/backend/src/media/prepare.ts",
    "bytes": 2493,
    "sha256": "5c7283eba6debf0b4f1fce606c522c6ee1e0331ae5ad2aefed3e385ff34a21be",
-   "disposition": "删除",
+   "disposition": "改造",
    "disposition_note": "",
-   "new_location": "—",
-   "spec_refs": "G15",
+   "new_location": "platform/ops（随 notify/selected.ts）",
+   "spec_refs": "G15；DEC-45",
    "tasks": "T-0002"
   },
   {
@@ -3901,11 +3901,11 @@
    "path": "packages/backend/src/notify/selected.ts",
    "bytes": 4387,
    "sha256": "8f7094853a3f0d51b2c694a3a7847f4533317f53395a59dff8b80eca816a00c8",
-   "disposition": "删除",
+   "disposition": "关闭",
    "disposition_note": "",
-   "new_location": "—",
+   "new_location": "platform/ops（随 notify/）",
    "spec_refs": "G15；DEC-45",
-   "tasks": "T-0002"
+   "tasks": ""
   },
   {
    "path": "packages/backend/src/operations/alerts.ts",

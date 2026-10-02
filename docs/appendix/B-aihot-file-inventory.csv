@@ -194,7 +194,7 @@ assets/og-fonts/noto-sans-sc-400.ttf,3511700,32cdffca3d0f8046d132acf6bfdc0a87ef6
 assets/og-fonts/noto-sans-sc-700.ttf,3602492,5d05345f9128c81915d641e0dcbb4e2fdb2ab24baa1e8de0df194423185d8500,保留,,assets/og-fonts/（publication 使用）,G26；正文 2.13,T-0001、T-0002,B.11,501
 database/migrations/0001_core.sql,12349,ba4cf0e345f0eaab32fac9150aab87808b398e635a0103e37d5eee2ee7c3a75d,改造,（site_fulltext 缺省直接取 false，权限不来自表缺省：新信源加入时由负责人一次确认、按 owner_declared 建档为允许，缺权限版本记录失败关闭；0001 缺省 true、0036 才改 false 是上游自相矛盾）,扩展 → 基础迁移；sources → sources（cursor 列移到 acquisition 的检查点表）；fetch_runs → acquisition；材料三表 → content；translations、analyses → enrichment；receipts、budgets → ai（ai-gateway）；editorial_overrides → editorial；投影与账本 → publication,ADR-0003；正文 3.2,,B.7.1,352
 database/migrations/0002_events_reports.sql,5879,c0263f26018628788e569893d42179df91ef08cd0134a545b535b727807b2951,改造,（story_signals 随 X 删除）,事件类 → events（含 hot_rankings）；报告两表 → reports；topics → publication,ADR-0003；正文 3.2,,B.7.1,353
-database/migrations/0003_monitor_leaderboard_notify.sql,7913,452070bf5615f78c47a363daf60e8508cdc1c03db7f10dea16c6772423f70209,改造,（T-0002 删监控与模型榜 11 张表，通知三表留作告警投递）,监控与模型榜 11 张表删除；通知三表 → platform/ops（只留告警投递，purpose=content 行与相关约束删除）,ADR-0003；正文 3.2,T-0002,B.7.1,354
+database/migrations/0003_monitor_leaderboard_notify.sql,7913,452070bf5615f78c47a363daf60e8508cdc1c03db7f10dea16c6772423f70209,改造,（T-0002 删监控与模型榜 11 张表，文件改名 0003_notify.sql；通知三表留作告警与飞书内容推送投递）,监控与模型榜 11 张表删除；通知三表 → platform/ops（告警投递与飞书内容推送共用，purpose=content 行与相关约束随内容推送保留，Owner 2026-10-02）,ADR-0003；正文 3.2,T-0002,B.7.1,354
 database/migrations/0004_admin_ops.sql,3511,ad435396e832f83653519b24f973ed71a7bef89688e44f3bfb2bf7fdf64bfb74,改造,,账号三表 → identity；反馈两表 → feedback（feedback_bans 不做封禁则删）；ingest_events → acquisition（外部推送关闭，暂留）；job_runs → platform/ops；settings 与 stored_files 暂留，按键和用途拆（B.7.2）,ADR-0003；正文 3.2,,B.7.1,355
 database/migrations/0005_grouping_state.sql,498,05b83d2e4af4e412d66166bd51b06e60e1e5dc97a3219a460b2eceb756d147bd,改造,,content（T-0005）；处理状态移 enrichment、归组时间移 events,ADR-0003；正文 3.2,T-0005,B.7.1,356
 database/migrations/0006_embeddings.sql,959,f8ff46c206b7c2d70b0ad620f959a5c24b0f80e68e97d324a8bddf525a4566a0,改造,（默认不启用向量；pgvector 装上不建索引）,events,ADR-0003；正文 3.2,,B.7.1,357
@@ -334,7 +334,7 @@ packages/backend/src/events/relate.ts,8302,20947ca5f05b483c154b337ecfe35b5d2f3b7
 packages/backend/src/ingest/items.ts,3361,7fa66ee9d799f7803bbb81a3d8ba48df04e3e170b8adbe6cc4f42c14ceb9ac5e,关闭,,acquisition,F-ACQ-07（候选）,,B.5.8,318
 packages/backend/src/jobs/content.ts,14449,13d49b3856817a45be241c2c494aa311ce25e427278c68dfb5c4a6c19387a870,改造,（拆分）,content（queueProcessing、sweepUnprocessed、requeueFailed、failureGroupSql、正文抽取任务）+ enrichment（processArticle、registerContentJobs、settleNonEditorial）,02-rules 重试与租约参数表,,B.5.3,241
 packages/backend/src/jobs/events.ts,1815,e80cc1c5a41deed21b23e6499d22e2e7cc4544580e2e91689a7e7a648976464a,搬移,,events,—,,B.5.3,242
-packages/backend/src/jobs/notify.ts,1384,0fa560c350302afd88071de8d0aa9fa2d1e2056c1b307de8f69076cec86ea3fc,删除,,—,G15；DEC-06,T-0002,B.5.3,245
+packages/backend/src/jobs/notify.ts,1384,0fa560c350302afd88071de8d0aa9fa2d1e2056c1b307de8f69076cec86ea3fc,改造,,platform/ops（随 notify/）,G15；DEC-06；DEC-45,T-0002,B.5.3,245
 packages/backend/src/jobs/publication.ts,1592,86adf620b4a24e09d690c99585ecd085b9e3d5f0b214b5cec91bb0020f3cacb8,搬移,,publication,—,,B.5.3,243
 packages/backend/src/jobs/queue.ts,4748,14401b9add15097be6e9eb7831a3cd40e5fb8d2b2b4522b70130dfe55916ea69,改造,（拆分）,platform/queue（队列、停机信号、outbox）+ platform/ops（recordRun）+ 各模块 jobs.ts（队列定义）,ADR-0005,,B.5.3,240
 packages/backend/src/jobs/sources.ts,1548,b086456309cb1c224f31b82ff67ca6ea120e86fa3772f4e8658b1ceb32854afc,改造,,acquisition,—,,B.5.3,244
@@ -379,7 +379,7 @@ packages/backend/src/lib/text.ts,1781,e012a381f747ca210c438fd2141d3ea8e5c6f06724
 packages/backend/src/lib/url.ts,10789,e38b9979516502e1e8a4dcef577295d84a28c56ce4587fe58808afaaec7d705d,改造,（拆分）,SSRF 与内网判定、guardedLookup → acquisition（fetch 运行时）；normalizeUrl/identityKeyForUrl → content；text.ts → 使用方,R-01,,B.5.1,204
 packages/backend/src/media/images.ts,10258,c827ab40130da9af5c2c09b3296e2dcae2f8a59800d72a2d4e1348bff0af2edb,关闭,,content,DR-78；G17,,B.5.7,300
 packages/backend/src/media/imgproxy.ts,5605,408af3849997470a89c13d8e07aaf0a9fdddb603abd7fa2c172400760fb20201,关闭,,content,DR-78,,B.5.7,301
-packages/backend/src/media/prepare.ts,2493,5c7283eba6debf0b4f1fce606c522c6ee1e0331ae5ad2aefed3e385ff34a21be,删除,,—,G15,T-0002,B.5.7,303
+packages/backend/src/media/prepare.ts,2493,5c7283eba6debf0b4f1fce606c522c6ee1e0331ae5ad2aefed3e385ff34a21be,改造,,platform/ops（随 notify/selected.ts）,G15；DEC-45,T-0002,B.5.7,303
 packages/backend/src/media/renditions.ts,816,35270213432b7073748d5bc68cb36b6173d41a78eb7228e87a2518fcaf1cac4b,关闭,,content,—,,B.5.7,302
 packages/backend/src/monitor/assemble.ts,18151,67d0cc9815027e95b713552f4acb02e3df8ef237f0c2928aead1e6e55d6559f9,删除,,—,ANTI-26,T-0002,B.5.9,328
 packages/backend/src/monitor/read.ts,16709,90f8e634761d6bd146b9b9d7c62972c0cf507487748eb9683e2691512df91c36,删除,,—,ANTI-26,T-0002,B.5.9,328
@@ -388,7 +388,7 @@ packages/backend/src/monitor/scan.ts,12701,c940ec8c68fadb6f925ccbe154dcf232b9c48
 packages/backend/src/monitor/time.ts,9817,57310ca2f7aa4f5a9477c8b66c93dd69ccb00bdcda9d07397b5c49955e57307e,删除,,—,ANTI-26,T-0002,B.5.9,328
 packages/backend/src/notify/deliver.ts,6397,33c5da3ecab0431eefd7fe0c9a808ad2dd08c1885a0e24fec5b991048504f4e2,改造,,platform/ops,DEC-06；G15,,B.5.7,291
 packages/backend/src/notify/feishu.ts,10720,f3d422b5c26c165eef7c7bdcbd6417c40a355794ef8df2e3ee17ade778523f4e,改造,,platform/ops（告警推送）,DEC-06；OP-20,,B.5.7,290
-packages/backend/src/notify/selected.ts,4387,8f7094853a3f0d51b2c694a3a7847f4533317f53395a59dff8b80eca816a00c8,删除,,—,G15；DEC-45,T-0002,B.5.7,292
+packages/backend/src/notify/selected.ts,4387,8f7094853a3f0d51b2c694a3a7847f4533317f53395a59dff8b80eca816a00c8,关闭,,platform/ops（随 notify/）,G15；DEC-45,,B.5.7,292
 packages/backend/src/operations/alerts.ts,17367,f5dba5ff23fc6a4d7ec4d653166b01bca13725e05b18f34007ce29fcc6d98249,改造,,platform/ops,F-OPS-03；DEC-06,T-0002,B.5.7,293
 packages/backend/src/operations/backup.ts,7566,1fc361a8d3c72dc79be30895bc0f21ebf690907233b8d04b5ce86abc898ce358,改造,,platform/ops,F-OPS-02；旧ADR-0010:27@main；G23,,B.5.7,294
 packages/backend/src/operations/feedback.ts,4892,b1145f33e42a3a81ebb66bddc6561ffc2a78de5447864f5385fec08aca39e120,改造,,feedback,DEC-53；G24,,B.5.7,295
