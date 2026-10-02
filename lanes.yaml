@@ -12,6 +12,14 @@
 version: 1
 
 lanes:
+  architect:                       # 架构 Agent，M0 兼集成人（规则文件第 2、15 节）
+    # M0 的结构动作（去品牌、删减、最小边界、契约中心、数据库基线）都在 AIHOT 存量布局上做，那时还没有
+    # 拆出的模块目录，所以本泳道暂时拥有全仓；M1 起模块按绞杀式迁出，迁出一个就把对应路径划给模块泳道，
+    # 届时把这里改成具体路径。路径守卫把本泳道拥有的路径当作集成人区域：别的泳道要改，须卡上声明并有
+    # integration_owner。（T-0001 新增；交接包模板没有这一项。）
+    owns:
+      - "**"
+    modules: []
   contracts:                       # 架构 Agent
     owns:
       - packages/contracts/src/**  # 模块契约子目录归各模块泳道（见下方 per_module），common/** 归集成人（见 shared）
@@ -108,7 +116,7 @@ shared:
       - pnpm-workspace.yaml
       - pnpm-lock.yaml
       - tsconfig.base.json
-      - biome.json
+      - biome.jsonc                                  # 交接包写的是 biome.json；仓库用带注释的 .jsonc
       - Makefile
       - scripts/verify*
       - lanes.yaml
