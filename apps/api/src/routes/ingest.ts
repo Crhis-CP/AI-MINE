@@ -1,5 +1,5 @@
-// External collection scripts push items here (docs/sources.md). They use the ingest
-// token (never an admin session) and their own rate limit.
+// External collection scripts push items here. They use the ingest token (never an admin session) and
+// their own rate limit. Closed in the first version: app.ts does not register this route (F-ACQ-07).
 import { timingSafeEqual } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { credential } from "@aihot/backend/config";

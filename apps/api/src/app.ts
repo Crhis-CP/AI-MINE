@@ -6,7 +6,6 @@ import { registerSite } from "./routes/site.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
 import { registerAdmin } from "./routes/admin.ts";
-import { registerIngest } from "./routes/ingest.ts";
 import { registerV1, registerV1Fallbacks } from "./routes/v1.ts";
 import { registerFeeds } from "./routes/feeds.ts";
 import { registerStatic } from "./routes/static.ts";
@@ -68,11 +67,12 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerAdminAuth(app);
   registerAdmin(app);
 
-  registerIngest(app);
   registerV1(app);
-  // The signed image proxy (routes/media.ts) stays closed (DR-78): pages and feeds link to a picture
-  // on the source's site, and no source is authorised to show its pictures here (Q-68). Registering
-  // it again needs the Owner's approval.
+  // Two routes stay closed and are not registered; registering either again needs the Owner's approval.
+  // The signed image proxy (routes/media.ts, DR-78): pages and feeds link to a picture on the source's
+  // site, and no source is authorised to show its pictures here (Q-68). The external push entrance
+  // (routes/ingest.ts, F-ACQ-07, a candidate): enabling it also moves it off the public port (adoption 4.5
+  // row 7).
 
   registerFeeds(app);
   registerStatic(app);
