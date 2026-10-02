@@ -5,7 +5,6 @@ import type { DevelopmentsResponse, GroupReportsResponse } from "@aihot/contract
 import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
-import { proxiedImage } from "../media/imgproxy.ts";
 import {
   ITEM_COLUMNS,
   ITEM_FROM,
@@ -48,11 +47,10 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
       source_name: string;
       source_kind: string;
       first_party: boolean;
-      icon_url: string | null;
     }[]
   >`
     SELECT p.article_id AS id, p.title, p.summary, p.timeline_at, p.url, p.selected,
-           s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party, s.icon_url
+           s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party
     FROM publications p JOIN sources s ON s.id = p.source_id
     WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND p.eligible
       AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
@@ -82,7 +80,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
         id: m.id,
         title: m.title,
         summary: m.summary,
-        source: { id: m.source_id, name: m.source_name, kind: m.source_kind as never, firstParty: m.first_party, iconUrl: proxiedImage(m.icon_url, "avatar") },
+        source: { id: m.source_id, name: m.source_name, kind: m.source_kind as never, firstParty: m.first_party },
         timelineAt: m.timeline_at.toISOString(),
         originalUrl: m.url,
         selected: m.selected,

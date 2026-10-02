@@ -5,7 +5,6 @@ import { sweepUnprocessed } from "@aihot/backend/jobs/content";
 import { translatePending } from "@aihot/backend/editorial/translate";
 import { adaptIntervals, scheduleDueSources } from "@aihot/backend/sources/collect";
 import { scheduleMpReconcile } from "@aihot/backend/sources/mp";
-import { refreshSourceIcons } from "@aihot/backend/sources/icons";
 import { computeHotRanking, snapshotHeat } from "@aihot/backend/events/hot";
 import { refreshStoryStatuses } from "@aihot/backend/events/digest";
 import { linkRelatedStories } from "@aihot/backend/events/group";
@@ -50,7 +49,6 @@ export const SCHEDULES: Scheduled[] = [
   },
   { name: "reports.catch-up", cron: "15 * * * *", run: () => catchUpReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },
-  { name: "sources.icons", cron: "40 4 * * *", missed: "once", run: () => refreshSourceIcons() },
   // IndexNow for new indexable pages (off unless INDEXNOW_SUBMIT_ENABLED).
   { name: "seo.indexnow", cron: "50 5 * * *", missed: "once", run: () => submitIndexNow() },
   // Work a stopped process left half way becomes visible, and unknown paid requests get their one

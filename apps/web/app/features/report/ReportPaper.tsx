@@ -81,11 +81,11 @@ function Masthead({ report, index }: { report: ReportDetail; index: ReportNaviga
   );
 }
 
-/** Source face and name, and the site's 一手 mark when first-hand. */
+/** Source initial and name, and the site's 一手 mark when first-hand. */
 function Source({ c, size = 16 }: { c: ReportCitation; size?: number }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
-      <SourceAvatar name={c.sourceName} iconUrl={c.sourceIconUrl} iconSrcSet={c.sourceIconSrcSet} size={size} />
+      <SourceAvatar name={c.sourceName} size={size} />
       <span className="truncate">{shortSourceName(c.sourceName)}</span>
       {c.firstParty && <Badge tone="accent">一手</Badge>}
     </span>

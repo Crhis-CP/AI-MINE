@@ -9,8 +9,6 @@ export interface SourceRef {
   name: string;
   kind: SourceKind;
   firstParty: boolean;
-  iconUrl: string | null;
-  iconSrcSet?: string;
 }
 
 export interface StoryRef {
@@ -71,8 +69,6 @@ export interface HotStripEntry {
   trend: "up" | "down" | "flat" | "new" | "unknown";
   storyPublicId: string | null;
   itemId: string | null;
-  participants: HotParticipant[];
-  participantCount: number;
 }
 
 export interface TimelineFilters {
@@ -169,14 +165,6 @@ export interface ProblemBody {
 // Hot ranking and stories
 // ---------------------------------------------------------------------------
 
-export interface HotParticipant {
-  name: string;
-  kind: "editorial" | "signal";
-  /** The source's icon (proxied). */
-  iconUrl: string | null;
-  iconSrcSet?: string;
-}
-
 export interface HotEntryView {
   rank: number;
   story: StoryRef;
@@ -192,7 +180,6 @@ export interface HotEntryView {
   latestAt: string;
   firstReportAt: string;
   representative: { id: string; url: string; sourceName: string } | null;
-  participants: HotParticipant[];
   /** Hourly heat over the 24 hours up to the ranking, oldest first; null where no comparable snapshot exists. */
   spark: Array<number | null>;
   /** The story's AI digest, else its fact statement. */
@@ -279,8 +266,6 @@ export interface ReportCitation {
   sourceName: string;
   sourceUrl: string;
   sourceId: string | null;
-  sourceIconUrl: string | null;
-  sourceIconSrcSet?: string;
   firstParty: boolean;
   role: string | null;
   storyPublicId: string | null;

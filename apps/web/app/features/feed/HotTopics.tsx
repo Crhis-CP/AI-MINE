@@ -1,7 +1,6 @@
 import { Link } from "react-router";
 import type { HotStripEntry } from "@aihot/contracts/site";
 import { IconArrowRight, IconMinus, IconTrendDown, IconTrendUp } from "../../components/icons";
-import { Faces } from "../hot/Faces";
 
 // As on the original list: the top three in the ranking colours at the heaviest weight.
 const RANK_COLOR = ["text-[15px] font-black text-rank-1", "text-[15px] font-black text-rank-2", "text-[15px] font-black text-rank-3"];
@@ -21,8 +20,8 @@ function TrendMark({ trend }: { trend: HotStripEntry["trend"] }) {
 
 /**
  * The top of the hot ranking on the home page, kept quiet: a live dot, coloured ranks and titles, then
- * columns of fixed width so every row lines up — who is talking (精选组 faces, from sm), "N 热度" and an arrow for
- * where it is heading. The whole row lights up on hover.
+ * columns of fixed width so every row lines up — "N 热度" and an arrow for where it is heading. The whole
+ * row lights up on hover.
  */
 export function HotTopics({ entries }: { entries: HotStripEntry[] }) {
   if (entries.length === 0) return null;
@@ -48,14 +47,11 @@ export function HotTopics({ entries }: { entries: HotStripEntry[] }) {
           <li key={e.rank}>
             <Link
               to={hrefOf(e)}
-              className="group -mx-2 grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-x-3 rounded-tile px-2 py-2 transition-colors hover:bg-bg-sunk/70 sm:grid-cols-[20px_minmax(0,1fr)_120px_64px_20px] sm:gap-x-4 dark:hover:bg-bg-muted/40"
+              className="group -mx-2 grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-x-3 rounded-tile px-2 py-2 transition-colors hover:bg-bg-sunk/70 sm:grid-cols-[20px_minmax(0,1fr)_64px_20px] sm:gap-x-4 dark:hover:bg-bg-muted/40"
             >
               <span className={`num text-center leading-none ${RANK_COLOR[i] ?? "text-[14px] font-bold text-rank-rest"}`}>{e.rank}</span>
               <span className="line-clamp-2 min-w-0 text-[14px] font-semibold leading-[1.5] text-ink transition-colors group-hover:text-accent lg:line-clamp-1">
                 {e.title}
-              </span>
-              <span className="hidden justify-end sm:flex">
-                <Faces interactive={false} participants={e.participants} total={e.participantCount} size={20} />
               </span>
               <span className="flex items-center justify-end gap-2.5 sm:contents">
                 <span className="whitespace-nowrap text-right text-[12.5px] text-ink-4" title="热度指数">

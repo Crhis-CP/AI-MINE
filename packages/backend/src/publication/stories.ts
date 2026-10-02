@@ -46,7 +46,6 @@ interface ReportRow {
   source_name: string;
   source_kind: string;
   first_party: boolean;
-  icon_url: string | null;
   fact_public_id: string;
   fact_id: number;
 }
@@ -61,7 +60,7 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
   return sql<ReportRow[]>`
     SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary, p.url, p.selected,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
-      p.first_party, s.icon_url, f.public_id AS fact_public_id, f.id AS fact_id
+      p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND s.participation_mode = 'editorial'
@@ -74,7 +73,7 @@ function reportView(r: ReportRow): StoryReportView {
     id: r.id,
     title: r.title,
     summary: r.summary,
-    source: { id: r.source_id, name: r.source_name, kind: r.source_kind as never, firstParty: r.first_party, iconUrl: proxiedImage(r.icon_url, "avatar") },
+    source: { id: r.source_id, name: r.source_name, kind: r.source_kind as never, firstParty: r.first_party },
     publishedAt: r.at.toISOString(),
     originalUrl: r.url,
     selected: r.selected,
@@ -290,7 +289,6 @@ export async function loadHot(): Promise<HotResponse> {
         representative: e.representativeItemId
           ? { id: e.representativeItemId, url: e.representativeUrl ?? "", sourceName: e.representativeSource ?? "" }
           : null,
-        participants: extras.participants(e),
         spark: sparks.get(e.storyId) ?? [],
         summary: text.summary,
         latest: text.latest,

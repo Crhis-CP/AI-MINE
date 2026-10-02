@@ -23,7 +23,6 @@ interface Availability {
   available: boolean;
   firstParty: boolean;
   sourceId: string | null;
-  sourceIcon: string | null;
   storyPublicId: string | null;
   publishedAt: Date | null;
 }
@@ -38,21 +37,19 @@ async function availability(ids: string[]): Promise<Map<string, Availability>> {
       eligible: boolean;
       first_party: boolean;
       source_id: string;
-      icon_url: string | null;
       story_public_id: string | null;
       at: Date | null;
     }[]
   >`
-    SELECT p.article_id AS id, p.visibility, p.eligible, p.first_party, p.source_id, s.icon_url, st.public_id::text AS story_public_id,
+    SELECT p.article_id AS id, p.visibility, p.eligible, p.first_party, p.source_id, st.public_id::text AS story_public_id,
       coalesce(p.published_at, p.discovered_at) AS at
-    FROM publications p LEFT JOIN sources s ON s.id = p.source_id LEFT JOIN stories st ON st.id = p.story_id
+    FROM publications p LEFT JOIN stories st ON st.id = p.story_id
     WHERE p.article_id IN ${sql(ids)}`;
   for (const r of rows) {
     out.set(r.id, {
       available: r.visibility === "public" && r.eligible,
       firstParty: r.first_party,
       sourceId: r.source_id,
-      sourceIcon: r.icon_url,
       storyPublicId: r.story_public_id,
       publishedAt: r.at,
     });
@@ -137,7 +134,6 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
       sourceName: "",
       sourceUrl: "",
       sourceId: null,
-      sourceIconUrl: null,
       firstParty: false,
       role: raw.role ?? null,
       storyPublicId: null,
@@ -152,8 +148,6 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
     sourceName: String(raw.sourceName ?? raw.source?.name ?? ""),
     sourceUrl: String(raw.sourceUrl ?? raw.links?.original ?? ""),
     sourceId: raw.sourceId ?? a?.sourceId ?? null,
-    sourceIconUrl: a?.sourceIcon ? proxiedImage(a.sourceIcon, "avatar") : null,
-    ...(a?.sourceIcon && proxiedImageSet(a.sourceIcon, "avatar") ? { sourceIconSrcSet: proxiedImageSet(a.sourceIcon, "avatar")! } : {}),
     firstParty: raw.firstParty ?? a?.firstParty ?? false,
     role: raw.role ?? null,
     storyPublicId: raw.storyPublicId ?? a?.storyPublicId ?? null,

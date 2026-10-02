@@ -8,7 +8,6 @@ import { Badge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
 import { Sparkline } from "../features/hot/Sparkline";
-import { Faces } from "../features/hot/Faces";
 import { Delta } from "../features/hot/Delta";
 
 export async function loader({ request }: { request: Request }) {
@@ -146,7 +145,6 @@ function Lead({ e }: { e: HotEntryView }) {
             </p>
           )}
           <div className="flex items-center gap-3">
-            <Faces participants={e.participants} total={e.participantCount} size={24} />
             <Voices e={e} />
           </div>
         </div>
@@ -177,7 +175,6 @@ function Runner({ e }: { e: HotEntryView }) {
       {e.summary && <p className="mt-1.5 line-clamp-2 text-[13px] leading-[1.7] text-ink-3 lg:line-clamp-1">{e.summary}</p>}
       <div className="mt-auto flex items-end justify-between gap-4 pt-3">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <Faces participants={e.participants} total={e.participantCount} size={20} />
           <span className="text-[12px] text-ink-4">
             <span className="whitespace-nowrap">
               <span className="num">{e.sourceCount}</span> 个来源
@@ -215,7 +212,6 @@ function Row({ e }: { e: HotEntryView }) {
         </h3>
         {e.summary && <p className="mt-0.5 line-clamp-2 text-[13px] leading-[1.65] text-ink-4 lg:line-clamp-1">{e.summary}</p>}
         <div className="mt-2 flex items-center gap-2.5 lg:hidden">
-          <Faces participants={e.participants} total={e.participantCount} size={20} />
           <span className="text-[12px] text-ink-4">
             <span className="num">{e.sourceCount}</span> 个来源
           </span>
@@ -226,7 +222,9 @@ function Row({ e }: { e: HotEntryView }) {
         </div>
       </div>
       <div className="hidden items-center gap-2.5 lg:flex">
-        <Faces participants={e.participants} total={e.participantCount} size={20} />
+        <span className="whitespace-nowrap text-[12px] text-ink-4">
+          <span className="num">{e.sourceCount}</span> 个来源
+        </span>
       </div>
       <Sparkline values={e.spark} className="hidden h-7 w-[104px] text-accent lg:block" />
       <div className="hidden flex-col items-end gap-1 lg:flex">
