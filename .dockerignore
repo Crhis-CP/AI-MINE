@@ -8,6 +8,7 @@ apps/web/.react-router
 .git
 .github
 .verify
+.tools
 *.log
 # Product documents and verification evidence are not needed at runtime.
 docs
