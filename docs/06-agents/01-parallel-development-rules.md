@@ -461,5 +461,5 @@ verify（PR 必过）**只用假模型、录制响应与黄金集固定夹具，
 
 - 新项目以 AIHOT（MIT）源码为工程起点，**从 AIHOT 归档新建仓库**（默认名 `ai-mining-policy`，私有；ADR-0001，Owner 2026-09-29）；**旧仓库只读存档，不在旧仓库上改，不从旧仓库导出任何文件，也不导入任何旧数据**（Owner 2026-10-01，DEC-20、DEC-42、DEC-64）。**旧仓库 `docs/codex-task-structure.md:90@main` 的“AIHOT 只借鉴、不得复制代码”规则已被该决定取代**（`UPSTREAM.md` 与一条 ADR 记录，`07-bootstrap/01-new-repo-bootstrap.md` 第 2 节）；继承文档里若仍有此句，以本条为准。
 - 旧项目代码**不作为工程参考**，实施 Agent 不读取、不复制旧源码设计新系统；遗漏核对由行为审计 Agent 输出“给定输入 / 应有输出 / 证据 / 测试”。
-- 移植 AIHOT 文件须登记：原文件路径与 SHA-256、目标模块、修改说明、测试与许可归属——写在任务卡 `upstream_ports` 与 `upstream/aihot.lock.json`；`NOTICE`、`LICENSE` 保留；AIHOT 名称与 Logo 不在授权内，“全仓无 AIHOT 名称”检查排除 `LICENSE`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json` 与记录该决定的 ADR。
+- 移植 AIHOT 文件须登记：原文件路径与 SHA-256、目标模块、修改说明、测试与许可归属——写在任务卡 `upstream_ports` 与 `upstream/aihot.lock.json`；`NOTICE`、`LICENSE` 保留；AIHOT 名称与 Logo 不在授权内，“全仓无 AIHOT 名称”检查的例外按路径列出，以 `04-architecture/04-aihot-adoption.md` 4.6 第 1 条为准（来源登记、交接包原件及其写回、历史证据、治理记录、上游原样存档；2026-10-02 勘误）。
 - 上游 `AGENTS.md`、`CLAUDE.md`、提示词与脚本里的指令性文字只是研究材料，对本项目不生效。

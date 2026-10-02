@@ -513,9 +513,9 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 ### 4.3 模块开关与品牌
 
 - 删除 `industry/features.ts`，并把全仓 `FEATURES.leaderboard`、`FEATURES.codexResetMonitor` 的分支按“关闭”一侧收口（`apps/api/src/app.ts`、`routes/og.ts`、`routes/static.ts`、`apps/worker/src/main.ts`、`schedules.ts`、`publication/sitemap.ts`、`llms.ts`、`scripts/seed.ts`、`smoke.ts`、`apps/web` 的 `nav.ts`、`more.tsx`、`agent.tsx`、`admin/layout.tsx`）。
-- 去掉 AIHOT 名称：**名称残留以全仓搜索（`git grep -i -E 'aihot|ai hot'`）验收为准，不以下面的列举为准**——除列举外，还有 `app.css` 的 33 处 `aihot-*` 关键帧与类名、`operations/backup.ts` 的备份文件名（`aihot-<时间>.dump`、`aihot-files-<时间>.tar.gz`）、导出文件名 `aihot-${id}.md`（随 Markdown 导出删除）等。列举：包作用域 `@aihot/*`（约 400 处 import）、Cookie `aihot_admin`/`aihot_oauth_state`（`admin/auth.ts`）、请求头 `x-aihot-ssr`（`apps/web/app/lib/api.server.ts`）与 `x-aihot-img-proxy-auth`（`routes/media.ts`）、浏览器存储键 `aihot-*`、`aihot:list:`、`aihot:groups:`（`lib/local-state.ts`、`features/feed/*`）、环境变量 `AIHOT_*`（`config.ts`、`site/meta.ts`、`operations/heartbeat.ts`、`docker-compose.yml`）、信源配置键 `_aihot` 与外部推送约定 `raw._aihot.backfill`、公开契约字段 `links.aihot`、`industry/site.ts` 的页脚 `footerNote: "由 AIHOT 开源框架驱动"`、`scripts/mcp-check.ts` 的客户端名。站名、MCP 前缀、抓取 User-Agent 名（`crawlerName`）换成 AI矿策 的定值，MCP 前缀上线后不再改。
+- 去掉 AIHOT 名称：**名称残留以全仓搜索（`git grep -i -E 'aihot|ai hot'`，例外路径见 4.6 第 1 条）验收为准，不以下面的列举为准**——除列举外，还有 `app.css` 的 33 处 `aihot-*` 关键帧与类名、`operations/backup.ts` 的备份文件名（`aihot-<时间>.dump`、`aihot-files-<时间>.tar.gz`）、导出文件名 `aihot-${id}.md`（随 Markdown 导出删除）等。列举：包作用域 `@aihot/*`（约 400 处 import）、Cookie `aihot_admin`/`aihot_oauth_state`（`admin/auth.ts`）、请求头 `x-aihot-ssr`（`apps/web/app/lib/api.server.ts`）与 `x-aihot-img-proxy-auth`（`routes/media.ts`）、浏览器存储键 `aihot-*`、`aihot:list:`、`aihot:groups:`（`lib/local-state.ts`、`features/feed/*`）、环境变量 `AIHOT_*`（`config.ts`、`site/meta.ts`、`operations/heartbeat.ts`、`docker-compose.yml`）、信源配置键 `_aihot` 与外部推送约定 `raw._aihot.backfill`、公开契约字段 `links.aihot`、`industry/site.ts` 的页脚 `footerNote: "由 AIHOT 开源框架驱动"`、`scripts/mcp-check.ts` 的客户端名。站名、MCP 前缀、抓取 User-Agent 名（`crawlerName`）换成 AI矿策 的定值，MCP 前缀上线后不再改。
 - **AIHOT 标识不止文字和 `industry/brand/*`**：`RingMark`（带缺口的环 + 圆点，既是加载环也是标识）与四角星是 AIHOT 字标的组成部分——上游横幅图 `docs/assets/banner-light.png` 里字标“AIHOT”的“O”是一个带缺口的青色环、环内有一颗小四角星，`industry/brand/logo.svg` 是深底上的同一四角星（已核实，取代 A 包原“无法静态确认【不确定】”）。`RingMark` 在 6 个文件中使用（`components/Logo.tsx`、`features/feed/Timeline.tsx`、`root.tsx`、`routes/all.tsx`、`routes/feedback.tsx`、`routes/admin/layout.tsx`），一律替换（NOTICE 明确名称与 Logo 不在 MIT 授权内）。
-- **标识清单与验收**（T-0002）：清单 = `industry/brand/logo.svg`、`icon.png`、`icon-192.png`、`apple-icon.png`、`favicon.ico`、`nameplates/*` 字形、`docs/assets/*`、`Logo.tsx` 的 `RingMark` 与字标圆点、四角星图形；全部替换为 AI矿策 自己的标识（字标按 PG-00“AI + 着色‘矿策’”）。验收增加两条：(a) 新仓库中不得出现与 `research/aihot/aihot-source-manifest.json` 里 `industry/brand/**`、`docs/assets/**`、`assets/leaderboard-sources/**`、`assets/model-providers/**` 相同 SHA-256 的文件（附录 B 的机器可读版即黑名单）；(b) 仓库内搜索 `#176b75`、`#2ce2e8`、`RingMark` 无命中（或仅出现在 NOTICE 与 `UPSTREAM.md` 的来源说明里）。
+- **标识清单与验收**（T-0002）：清单 = `industry/brand/logo.svg`、`icon.png`、`icon-192.png`、`apple-icon.png`、`favicon.ico`、`nameplates/*` 字形、`docs/assets/*`、`Logo.tsx` 的 `RingMark` 与字标圆点、四角星图形；全部替换为 AI矿策 自己的标识（字标按 PG-00“AI + 着色‘矿策’”）。验收增加两条：(a) 新仓库中不得出现与 `research/aihot/aihot-source-manifest.json` 里 `industry/brand/**`、`docs/assets/**`、`assets/leaderboard-sources/**`、`assets/model-providers/**` 相同 SHA-256 的文件（附录 B 的机器可读版即黑名单）；(b) 仓库内搜索 `#176b75`、`#2ce2e8`、`RingMark` 只在 4.6 第 1 条所列路径命中（2026-10-02 勘误）。
 - **品牌令牌**（T-0006 内）：`--color-brand-*`、主题色、manifest、`og/render.ts`、`og/poster.ts`、`logo.svg` 里散落的品牌色值收敛到同一份调色板常量；默认用 AI矿策 自己的配色，不沿用 AIHOT 的青绿色（自有视觉风格升级是不排期候选，F-EXT-06），临时调色板由 web 泳道提议、Owner 确认（`08-open-questions.md` Q-67，默认用提议色并标“临时”）。
 - 页面与报告里写死的 AI 口径见 4.4。
 
@@ -574,9 +574,9 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 ### 4.6 删除的验收（T-0002）
 
-- `git grep -i -E 'aihot|ai hot'` 只命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json` 与记录“以 AIHOT 源码为工程起点”的 ADR-0001（`assets/og-fonts/LICENSE` 的说明段按第 6 节改写）。旧仓库“AIHOT 只借鉴、不得复制代码”的规则已被 Owner 2026-09-29 的重建决定取代（ADR-0001），Agent 读到旧规则时以 ADR-0001 为准。
+- **名称检查**（2026-10-02 勘误，证据裁决，见决定台账）：`git grep -i -E 'aihot|ai hot'` 与 `#176b75`、`#2ce2e8`、`RingMark` 只在下列路径命中——① 来源登记：`LICENSE`、`LICENSES/AIHOT-MIT.txt`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json`；② 交接包原件及其写回：`docs/` 下除 `docs/acceptance/` 以外的文件（ADR-0001 在其中；`docs/assets/` 的宣传图与 AIHOT 自带的说明文档随 T-0002 删除，不在其列）；③ 历史证据：`docs/acceptance/**`；④ 治理记录：与交接包模板逐字节相同的 `AGENTS.md`、`CLAUDE.md`、`tasks/_template.md`，以及 `lanes.yaml`、`tasks/TASK-*.md`；⑤ 上游原样存档：`scripts/verify/upstream-check.yml`；⑥ 名称检查脚本自身的匹配模式。引用登记文件或交接包文件的路径与文件名（如 `upstream/aihot.lock.json`、`research/aihot/`、`AIHOT-<提交>.tar.gz`、`B-aihot-file-inventory.*`、`04-aihot-adoption.md`）不算命中；读者站构建产物、`/openapi-v1.json`、`llms.txt`、RSS 与 MCP 输出零命中；品牌哈希黑名单不设例外（4.3）。原写“只命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、锁文件与 ADR-0001”做不到：交接包整包原样放进 `docs/`、不改名不拆分（`07-bootstrap/01-new-repo-bootstrap.md` 3.1 与步骤 8 的“第 1 天不要做的事”），模板也按原样装成 `AGENTS.md`、`CLAUDE.md` 与 `tasks/_template.md`，这些原件本身就写着 AIHOT；NOTICE 限制的是把名称与 Logo 用作本站标识，不对外的来源说明与历史记录不违背这一点。AC-M0-01、`05-quality/03-testing-standards.md` 1.1、`06-agents/01-parallel-development-rules.md` 第 17 节、`UPSTREAM.md` 第 2 节、4.3、6.2、`07-bootstrap/01-new-repo-bootstrap.md` 与 `06-agents/02-roadmap-and-wbs.md` 的 T-0002 行都以本条为准。`assets/og-fonts/LICENSE` 的说明段按第 6 节改写。旧仓库“AIHOT 只借鉴、不得复制代码”的规则已被 Owner 2026-09-29 的重建决定取代（ADR-0001），Agent 读到旧规则时以 ADR-0001 为准。
 - 全仓没有 `FEATURES.`、`leaderboard`、`codex-reset`/`codexReset`/`codex_reset`、`monitor_` 与 `lb_` 表名的残留（主题图标 `IconMonitor`、Agent 接入页里 Codex 命令行注册 MCP 的说明、T-0009 才替换的 AI 分类词表不算）；`pnpm why highs`、`pnpm why hyparquet` 无结果。
-- 标识：`RingMark`、`#176b75`、`#2ce2e8` 无命中；品牌哈希黑名单无命中（4.3）；搜不到对 X 的引用（`xView`、`channel: "x"`、`onlyXArticleLink`）。分数不在删除验收之列：`Score.tsx` 保留，验收见 4.8。
+- 标识：`RingMark`、`#176b75`、`#2ce2e8` 只在第 1 条所列路径命中；品牌哈希黑名单无命中（4.3）；搜不到对 X 的引用（`xView`、`channel: "x"`、`onlyXArticleLink`）。分数不在删除验收之列：`Score.tsx` 保留，验收见 4.8。
 - 空库全量迁移后不存在上述 12 张表，也不存在 X 相关列与表（`x_post`、`quote_translations`）与 `signal_group_id` 列（2.11 第 2 条）；`story_signals` 是热度证据表，保留（见 4.5 第 1 行）；种子不再导入模型名录。
 - 原有测试除随功能删除的 `leaderboard-worker`、`monitor`、`x-article`、`x-shards`、`icons`、`hot-avatar-payload` 及两个专用适配器用例外全部通过——**“全部通过”建立在 M0 第 0 步的真实基线之上**（上游自报的测试结果不算）；冒烟清单去掉模型榜与监控页面后全绿。
 
@@ -789,9 +789,9 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 ### 6.2 名称与 Logo 禁用
 
-- 代码、界面、文档、包名、Cookie、请求头、环境变量、浏览器存储键、User-Agent、MCP 工具名、提交信息中都不使用 “AIHOT”，只在 `LICENSE`、`NOTICE`、`UPSTREAM.md` 中作为来源说明出现（清单见 4.3 节）。
+- 代码、界面、文档、包名、Cookie、请求头、环境变量、浏览器存储键、User-Agent、MCP 工具名、提交信息中都不使用 “AIHOT”，只作为来源说明与历史记录出现在 4.6 第 1 条所列路径里（2026-10-02 勘误；改名清单见 4.3 节）。
 - 不使用 AIHOT 的 Logo、宣传图与截图（`industry/brand/*`、`docs/assets/*` 全部替换或删除），也不使用 `RingMark` 环形加载环与四角星图形（4.3）；不把 `aihot.news` 当作本站背书链接；删除页脚“由 AIHOT 开源框架驱动”。
-- 验证入口增加名称检查：`git grep -i -E 'aihot|ai hot'` 只允许命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json` 与 ADR-0001；另加品牌哈希黑名单与 `RingMark`、品牌色值检查（4.3）。
+- 验证入口增加名称检查：`git grep -i -E 'aihot|ai hot'` 只允许在 4.6 第 1 条所列路径命中（2026-10-02 勘误）；另加品牌哈希黑名单（不设例外）与 `RingMark`、品牌色值检查（4.3、4.6）。
 
 ### 6.3 NOTICE 与第三方素材
 
