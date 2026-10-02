@@ -29,7 +29,6 @@ const AIHOT_MODELS: Record<string, string> = {
   DIGEST_MODEL: "deepseek-flash",
   REPORT_MODEL: "deepseek-flash",
   TRANSLATE_MODEL: "deepseek-flash",
-  MONITOR_MODEL: "deepseek-flash",
 };
 for (const [name, model] of Object.entries(AIHOT_MODELS)) process.env[name] ??= model;
 

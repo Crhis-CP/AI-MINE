@@ -65,11 +65,6 @@
     "lint/a11y/noStaticElementInteractions": 1,
     "lint/correctness/noUnusedFunctionParameters": 1
   },
-  "apps/web/app/features/monitor/ResetCalendar.tsx": {
-    "lint/a11y/useFocusableInteractive": 2,
-    "lint/a11y/useSemanticElements": 5,
-    "lint/correctness/useExhaustiveDependencies": 1
-  },
   "apps/web/app/features/report/Halftone.tsx": {
     "lint/a11y/noAriaHiddenOnFocusable": 1
   },
@@ -109,10 +104,6 @@
     "lint/suspicious/noArrayIndexKey": 4,
     "lint/suspicious/noExplicitAny": 1
   },
-  "apps/web/app/routes/admin/monitor.tsx": {
-    "lint/suspicious/noArrayIndexKey": 2,
-    "lint/suspicious/noExplicitAny": 2
-  },
   "apps/web/app/routes/admin/runs.tsx": {
     "lint/suspicious/noExplicitAny": 1
   },
@@ -129,10 +120,6 @@
   "apps/web/app/routes/changelog.tsx": {
     "lint/correctness/noUnusedImports": 1,
     "lint/suspicious/noArrayIndexKey": 3
-  },
-  "apps/web/app/routes/codex-reset.tsx": {
-    "lint/correctness/noUnusedImports": 1,
-    "lint/correctness/useExhaustiveDependencies": 1
   },
   "apps/web/app/routes/feedback.tsx": {
     "lint/correctness/noUnusedImports": 1,
@@ -268,9 +255,6 @@
   },
   "packages/backend/src/lib/text.ts": {
     "lint/suspicious/noControlCharactersInRegex": 6
-  },
-  "packages/backend/src/monitor/read.ts": {
-    "lint/suspicious/noExplicitAny": 2
   },
   "packages/backend/src/notify/selected.ts": {
     "lint/complexity/useOptionalChain": 1

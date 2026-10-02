@@ -16,7 +16,7 @@ export async function registerSourceJobs(boss: PgBoss) {
     },
   );
   await ensureQueue(QUEUES.fetchXShard);
-  // One search per shard of X accounts; the SocialData per-minute budget is shared with the reset monitor.
+  // One search per shard of X accounts.
   await boss.work<{ key: string; sourceIds: string[] }>(QUEUES.fetchXShard, { localConcurrency: 2, pollingIntervalSeconds: 2 }, async ([job]) => {
     if (!job) return;
     return collectXShard(job.data.key, job.data.sourceIds);

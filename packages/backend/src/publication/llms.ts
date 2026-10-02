@@ -44,12 +44,6 @@ export function llmsTxt(opts: { hasDailies: boolean; hasWeekly: boolean; hasMont
   lines.push(
     `- [公开 API v1 · 事件详情](${u("/api/v1/stories/{publicId}")}): 事件报道时间线与随演化更新的综述；publicId 只来自 hot-topics 的 links.story，不要猜测`,
   );
-  if (FEATURES.codexResetMonitor) {
-    lines.push(
-      `- [公开 API v1 · Codex 重置监控（轮询用）](${u("/api/v1/codex-resets/recent")}): 最近 7 天与尚未落地的预告，结构与完整快照相同；建议每 5 分钟带 If-None-Match 轮询`,
-    );
-    lines.push(`- [公开 API v1 · Codex 重置监控（完整历史）](${u("/api/v1/codex-resets")}): 全部重置与发卡记录的日历快照`);
-  }
   if (opts.hasDailies) {
     lines.push(`- [公开 API v1 · 最新${daily}](${u("/api/v1/dailies/latest")}): 最新一期结构化${daily}`);
     lines.push(`- [公开 API v1 · ${daily}列表](${u("/api/v1/dailies")}): 历史${daily}索引；指定日期使用 /api/v1/dailies/{YYYY-MM-DD}`);
