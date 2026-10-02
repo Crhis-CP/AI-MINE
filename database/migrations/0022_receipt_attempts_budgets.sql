@@ -40,7 +40,6 @@ FROM receipts;
 -- stops a service. Existing rows are kept.
 INSERT INTO budgets (service, per_minute, per_hour, per_day, note) VALUES
   ('jina', 5, 50, 300, '正文兜底（按请求计费）'),
-  ('socialdata', 10, 100, 1000, 'X 搜索（按请求计费）'),
   ('dajiala', 5, 60, 500, '公众号列表与正文（按请求计费）'),
   ('zhipu', 100, 2000, 20000, '模型调用熔断（智谱）'),
   ('deepseek', 100, 2000, 20000, '模型调用熔断（DeepSeek）'),

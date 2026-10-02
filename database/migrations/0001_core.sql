@@ -10,14 +10,13 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE TABLE sources (
   id                  text PRIMARY KEY,
   name                text NOT NULL,
-  kind                text NOT NULL CHECK (kind IN ('rss', 'web_list', 'json_list', 'x_search', 'mp_account', 'external')),
+  kind                text NOT NULL CHECK (kind IN ('rss', 'web_list', 'json_list', 'mp_account', 'external')),
   config              jsonb NOT NULL DEFAULT '{}',
   tags                text[] NOT NULL DEFAULT '{}',
   first_party         boolean NOT NULL DEFAULT false,
   owner_entity_id     text,
   tier                text NOT NULL DEFAULT 'T2' CHECK (tier IN ('T1', 'T1_5', 'T2', 'EXCLUDE_MP')),
   participation_mode  text NOT NULL DEFAULT 'editorial' CHECK (participation_mode IN ('editorial', 'hot_signal', 'isolated')),
-  signal_group_id     text,
   interval_minutes    integer NOT NULL DEFAULT 30 CHECK (interval_minutes BETWEEN 1 AND 1440),
   -- Two separate licences: showing full text on this site, and redistributing it (full RSS).
   site_fulltext       boolean NOT NULL DEFAULT true,
@@ -81,7 +80,6 @@ CREATE TABLE articles (
   body_html          text,
   body_status        text NOT NULL DEFAULT 'pending' CHECK (body_status IN ('pending', 'ok', 'unconfirmed', 'none')),
   media              jsonb NOT NULL DEFAULT '[]',
-  x_post             jsonb,
   raw                jsonb,
   created_at         timestamptz NOT NULL DEFAULT now(),
   updated_at         timestamptz NOT NULL DEFAULT now()
@@ -224,7 +222,7 @@ CREATE TABLE publications (
   tags                text[] NOT NULL DEFAULT '{}',
   score               numeric(5, 2),
   source_id           text NOT NULL,
-  channel             text NOT NULL CHECK (channel IN ('news', 'x')),
+  channel             text NOT NULL CHECK (channel IN ('news')),
   first_party         boolean NOT NULL DEFAULT false,
   url                 text NOT NULL,
   published_at        timestamptz,
