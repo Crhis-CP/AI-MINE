@@ -1,4 +1,4 @@
-// Small site-wide facts for the web shell (e.g. the changelog red-dot anchor).
+// Small site-wide facts for the web shell, and the changelog behind the changelog page.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";

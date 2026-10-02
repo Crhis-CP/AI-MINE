@@ -113,6 +113,8 @@ test("config entries a source kind does not implement are named, not ignored", (
     }),
     ["parseMode=docusaurus_changelog", "detail.titleFoo", "contentPublic"],
   );
+  // The MiMo homepage adapter is gone too: a config still naming it is refused, not parsed as a plain list.
+  assert.deepEqual(unsupportedConfig("web_list", { url: "https://example.org/", adapter: "mimo_home" }), ["adapter"]);
   assert.deepEqual(unsupportedConfig("rss", { feedUrl: "https://example.org/feed", denyUrlPrefixes: ["https://example.org/business/"] }), []);
   assert.deepEqual(
     unsupportedConfig("mp_account", { wxid: "a", allowUrlPrefixes: ["https://example.org/"] }),
