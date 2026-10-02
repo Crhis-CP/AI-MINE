@@ -19,7 +19,8 @@
       // The imported code uses non-null assertions on purpose (rows known to exist); not a defect.
       "style": { "noNonNullAssertion": "off" },
       // Findings already present in the imported code are warnings until the module that owns them is
-      // reworked (listed in docs/acceptance/2026-10-02-M0-baseline.md); new code must not add more.
+      // reworked. make verify holds them to scripts/verify/lint-baseline.json (per file and rule): new code
+      // cannot add warnings, and the list only shrinks.
       "correctness": { "noPrecisionLoss": "warn", "useExhaustiveDependencies": "warn", "useJsxKeyInIterable": "warn" },
       "suspicious": {
         "noArrayIndexKey": "warn",
@@ -42,5 +43,28 @@
         "noAutofocus": "warn"
       }
     }
-  }
+  },
+  // Editor-time hint for the boundary that matters most; scripts/verify/boundaries.ts is the enforcement.
+  "overrides": [
+    {
+      "includes": ["apps/web/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@aihot/backend", "@aihot/backend/**", "postgres", "pg-boss"],
+                    "message": "The web app reads through the API: no backend, database driver or job queue here."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
