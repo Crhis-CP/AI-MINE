@@ -9,7 +9,7 @@ import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { test } from "node:test";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
-import { checkNames, checkOutputs, checkOutputTree, exemption, fetchSiteOutputs, loadRules, MCP_REQUESTS, SITE_OUTPUTS } from "../names.ts";
+import { checkNames, checkOutputs, checkOutputTree, exemption, fetchSiteOutputs, loadRules, mcpRequests, SITE_OUTPUTS } from "../names.ts";
 import { trackedFiles } from "../toolchain.ts";
 import { repo, scratch, write } from "./helpers.ts";
 
@@ -121,12 +121,14 @@ test("the upstream workflow is covered only while it has the upstream file's has
 test("an upstream brand asset is stopped wherever it is, and a path that names the project is stopped", () => {
   const { dir, files } = tree({
     "docs/assets/banner.svg": LOGO,
+    "docs/02-rules/logo.svg": LOGO,
     "apps/web/public/mark.svg": LOGO,
     [`apps/web/app/${N}.ts`]: "export {};\n",
   });
   assert.deepEqual(checkNames(dir, files, rules).sort(), [
     `apps/web/app/${N}.ts: the path contains "${N}"`,
     `apps/web/public/mark.svg: same bytes as the upstream brand asset ${rules.brand.prefixes[0]}logo.svg (no exceptions)`,
+    `docs/02-rules/logo.svg: same bytes as the upstream brand asset ${rules.brand.prefixes[0]}logo.svg (no exceptions)`,
     `docs/assets/banner.svg: same bytes as the upstream brand asset ${rules.brand.prefixes[0]}logo.svg (no exceptions)`,
   ]);
 });
@@ -156,7 +158,7 @@ test("the build output and the site's outputs have no exceptions, references to 
   );
 });
 
-test("the site's outputs are fetched whole with their statuses checked, the changes feed by the snapshot's cursor, every MCP tool once", async () => {
+test("the site's outputs are fetched whole with their statuses checked, the changes feed by the snapshot's cursor, every MCP tool once, and error results only where allowed", async () => {
   const called: string[] = [];
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://site");
@@ -166,7 +168,11 @@ test("the site's outputs are fetched whole with their statuses checked, the chan
       req.on("end", () => {
         const { id, params } = JSON.parse(body) as { id: number; params: { name?: string } };
         if (params.name) called.push(params.name);
-        const answer = params.name === MCP_TOOL_NAMES.story ? { error: { code: -32603, message: "failed" } } : { result: { content: [] } };
+        const failed = { isError: true, content: [{ type: "text", text: "not available" }] };
+        const answer =
+          params.name === MCP_TOOL_NAMES.story
+            ? { error: { code: -32603, message: "failed" } }
+            : { result: params.name === MCP_TOOL_NAMES.latest || params.name === MCP_TOOL_NAMES.daily ? failed : { content: [] } };
         res.writeHead(200, { "content-type": "text/event-stream" });
         res.end(`event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id, ...answer })}\n\n`);
       });
@@ -184,9 +190,10 @@ test("the site's outputs are fetched whole with their statuses checked, the chan
     const site = await fetchSiteOutputs(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
     assert.deepEqual(site.problems, [
       "/hot: HTTP 500, expected 200",
+      `MCP tools/call ${MCP_TOOL_NAMES.latest}: an error result (not available)`,
       `MCP tools/call ${MCP_TOOL_NAMES.story}: HTTP 200, error {"code":-32603,"message":"failed"}`,
     ]);
-    assert.equal(site.outputs.length, SITE_OUTPUTS.length + 1 + MCP_REQUESTS.length);
+    assert.equal(site.outputs.length, SITE_OUTPUTS.length + 1 + (await mcpRequests()).length);
     const changes = site.outputs.find((o) => o.label.startsWith("/api/v1/selected/changes"));
     assert.deepEqual(changes, { label: "/api/v1/selected/changes?cursor=<snapshot cursor> (HTTP 200)", text: "changes since c/1" });
     assert.deepEqual(called.sort(), Object.values(MCP_TOOL_NAMES).sort());

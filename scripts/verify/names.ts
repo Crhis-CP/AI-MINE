@@ -8,7 +8,6 @@
 //   node scripts/verify/names.ts --counts   lines with hits in each excepted file (for the acceptance record)
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
-import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
 import { patternRegExp, ROOT, sha256 } from "./lib.ts";
 
 /** An exception path; with `sameAs` it covers the file only while the file is byte-identical to that handoff
@@ -189,21 +188,39 @@ export const SITE_OUTPUTS: ReadonlyArray<readonly [path: string, statuses: reado
   ["/api/v1/selected/snapshot", [200]],
 ];
 
-/** The MCP handshake, the tool list, and one call of each tool; get_story asks for a story that does not exist, so
- *  its not-found answer is what gets checked. Each answer is checked whole, structured content and _meta included. */
-export const MCP_REQUESTS: ReadonlyArray<readonly [label: string, method: string, params: Record<string, unknown>]> = [
-  ["initialize", "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "verify", version: "1" } }],
-  ["tools/list", "tools/list", {}],
-  ...(
-    [
-      [T.latest, { limit: 2 }],
-      [T.search, { q: "copper", limit: 2 }],
-      [T.hot, { limit: 3 }],
-      [T.story, { public_id: "no-such-story" }],
-      [T.daily, {}],
-    ] as const
-  ).map(([name, args]) => [`tools/call ${name}`, "tools/call", { name, arguments: args }] as const),
-];
+export interface McpRequest {
+  label: string;
+  method: string;
+  params: Record<string, unknown>;
+  /** The tool must answer with a result, not an error result (`isError`). */
+  mustSucceed: boolean;
+}
+
+/** The MCP handshake, the tool list, and one call of each tool. Each answer is checked whole, structured content
+ *  and _meta included. latest, search and hot have answers on an empty database, so an error result from them
+ *  fails the stage; get_story asks for a story that does not exist and an empty database has no daily, so their
+ *  error answers are what gets checked. The tool names come from the contract, loaded here only, so that the
+ *  rename script and the other stages run without the product's packages. */
+export async function mcpRequests(): Promise<McpRequest[]> {
+  const { MCP_TOOL_NAMES: T } = await import("@amp/contracts/mcp");
+  const calls: Array<[name: string, args: Record<string, unknown>, mustSucceed: boolean]> = [
+    [T.latest, { limit: 2 }, true],
+    [T.search, { q: "copper", limit: 2 }, true],
+    [T.hot, { limit: 3 }, true],
+    [T.story, { public_id: "no-such-story" }, false],
+    [T.daily, {}, false],
+  ];
+  return [
+    {
+      label: "initialize",
+      method: "initialize",
+      params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "verify", version: "1" } },
+      mustSucceed: true,
+    },
+    { label: "tools/list", method: "tools/list", params: {}, mustSucceed: true },
+    ...calls.map(([name, args, mustSucceed]) => ({ label: `tools/call ${name}`, method: "tools/call", params: { name, arguments: args }, mustSucceed })),
+  ];
+}
 
 /** The JSON object in a response body: plain JSON, or the `data:` line of a server-sent event (MCP). */
 function jsonBody(body: string): Record<string, unknown> | null {
@@ -221,11 +238,11 @@ function jsonBody(body: string): Record<string, unknown> | null {
 
 export interface SiteOutputs {
   outputs: Array<{ label: string; text: string }>;
-  /** Unexpected statuses, a snapshot without a cursor, MCP requests without a JSON-RPC result. */
+  /** Unexpected statuses, a snapshot without a cursor, MCP requests without a JSON-RPC result or with an error result. */
   problems: string[];
 }
 
-/** The bodies of SITE_OUTPUTS, the changes feed and the MCP_REQUESTS answers, labelled by path or request. */
+/** The bodies of SITE_OUTPUTS, the changes feed and the mcpRequests() answers, labelled by path or request. */
 export async function fetchSiteOutputs(base: string): Promise<SiteOutputs> {
   const outputs: SiteOutputs["outputs"] = [];
   const problems: string[] = [];
@@ -245,7 +262,7 @@ export async function fetchSiteOutputs(base: string): Promise<SiteOutputs> {
   if (typeof cursor === "string" && cursor)
     await get(`/api/v1/selected/changes?cursor=${encodeURIComponent(cursor)}`, [200], "/api/v1/selected/changes?cursor=<snapshot cursor>");
   else problems.push("/api/v1/selected/snapshot: no cursor, so the changes feed was not fetched");
-  for (const [i, [label, method, params]] of MCP_REQUESTS.entries()) {
+  for (const [i, { label, method, params, mustSucceed }] of (await mcpRequests()).entries()) {
     const r = await fetch(`${base}/api/mcp`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
@@ -255,8 +272,11 @@ export async function fetchSiteOutputs(base: string): Promise<SiteOutputs> {
     const text = await r.text();
     outputs.push({ label: `MCP ${label} (HTTP ${r.status})`, text });
     const answer = jsonBody(text);
+    const result = answer?.result as { isError?: unknown; content?: Array<{ text?: unknown }> } | null | undefined;
     if (r.status !== 200 || !answer || !("result" in answer)) {
       problems.push(`MCP ${label}: HTTP ${r.status}, ${answer && "error" in answer ? `error ${JSON.stringify(answer.error)}` : "no JSON-RPC result"}`);
+    } else if (mustSucceed && result?.isError === true) {
+      problems.push(`MCP ${label}: an error result (${String(result.content?.[0]?.text ?? "no text").slice(0, 200)})`);
     }
   }
   return { outputs, problems };
