@@ -441,11 +441,11 @@
    "path": "apps/web/app/components/ui/Lightbox.tsx",
    "bytes": 4469,
    "sha256": "ace932c969061150be494091d1f01e78f212413171f00b64e50a56e9a36c7976",
-   "disposition": "搬移",
-   "disposition_note": "",
-   "new_location": "ui",
-   "spec_refs": "通则 17",
-   "tasks": ""
+   "disposition": "删除",
+   "disposition_note": "（随 X 图集删除，删除后没有使用方）",
+   "new_location": "—",
+   "spec_refs": "DR-78；G15",
+   "tasks": "T-0002"
   },
   {
    "path": "apps/web/app/components/ui/Menu.tsx",

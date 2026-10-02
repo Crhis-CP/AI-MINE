@@ -42,7 +42,7 @@ apps/web/app/components/ui/Badge.tsx,1113,3ee83eb6f1b0a11c587fc45e4596729dd2b28e
 apps/web/app/components/ui/Controls.tsx,2185,749ad4d76bb732b9fb351ca096df0b4c911d14a989b92254507c1b41e7b49e23,搬移,,ui,通则 17,,B.4.1,108
 apps/web/app/components/ui/IntentLink.tsx,1432,172a896879c93b5719600bf98d1074339275cdc7ccb13baaa53b305dee003cc4,搬移,,ui,通则 17,,B.4.1,108
 apps/web/app/components/ui/Kicker.tsx,485,92dc39286326aa0ac9360b91f4b519199d8a6c67d72c471a852a3bd799483033,搬移,,ui,通则 17,,B.4.1,108
-apps/web/app/components/ui/Lightbox.tsx,4469,ace932c969061150be494091d1f01e78f212413171f00b64e50a56e9a36c7976,搬移,,ui,通则 17,,B.4.1,108
+apps/web/app/components/ui/Lightbox.tsx,4469,ace932c969061150be494091d1f01e78f212413171f00b64e50a56e9a36c7976,删除,（随 X 图集删除，删除后没有使用方）,—,DR-78；G15,T-0002,B.4.1,108
 apps/web/app/components/ui/Menu.tsx,2656,05612543ba4c84258e0e0b5b3e0421b35930e32a9a915aa1bc7c8a7882f85835,搬移,,ui,通则 17,,B.4.1,108
 apps/web/app/components/ui/Page.tsx,4222,95614c7edd08512e5c95243f9c490ea4b8e2220985f2541f6da82580abf37a42,搬移,,ui,通则 17,,B.4.1,108
 apps/web/app/components/ui/Presence.tsx,2266,e6b16ff66c4ee684a6c4426222aef1cb35ca8e3ac126e3a77b2ed8bd337fb19d,搬移,,ui,通则 17,,B.4.1,108

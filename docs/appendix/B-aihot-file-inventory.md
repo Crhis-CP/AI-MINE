@@ -105,7 +105,7 @@
 | `app/components/Logo.tsx` | 站名文字标志与加载环 | 改造 | `ui` | G18；PG-00 | **`RingMark`（带缺口的环 + 圆点）与四角星是 AIHOT 标识的组成部分**（上游横幅图证实），一律替换；字标按 PG-00“AI + 着色‘矿策’”；`RingMark` 另有 5 处使用（`features/feed/Timeline.tsx`、`root.tsx`、`routes/all.tsx`、`routes/feedback.tsx`、`routes/admin/layout.tsx`）一并换 |
 | `app/components/shell/Chrome.tsx`、`MobileTabBar.tsx`、`Sidebar.tsx`、`ThemeSwitch.tsx` | 导航进度线、手机底栏、桌面侧栏、三态主题切换 | 搬移 | `ui` | PG-00 | 私有页面同样使用 `ThemeSwitch`；`Sidebar.tsx:62-64`、`routes/more.tsx:92` 读 `SITE.icp`：备案号改读运行期配置（正文 4.4） |
 | `app/components/shell/nav.ts`（69 行） | 侧栏、底栏、“更多”页的导航定义 | 改造（拆分） | 公开与私有路由组各一份 | PG-00 | 删“模型”分组与 `MORE_PATHS` 中的榜单、监控（T-0002）；“法规政策动态”紧排“矿业日报”之下，手机在“更多”（DEC-02） |
-| `app/components/ui/*`（Badge、Controls、IntentLink、Kicker、Lightbox、Menu、Page、Presence、Tabs） | 基础组件：意图预取链接、可访问灯箱、CSS 进出场、页签等 | 搬移 | `ui` | 通则 17 | `Menu` 补方向键漫游焦点；`Lightbox` 随 `MediaGallery` 删除后若无使用方，按 ADR-0015 的 Knip 触发条件处理 |
+| `app/components/ui/*`（Badge、Controls、IntentLink、Kicker、Lightbox、Menu、Page、Presence、Tabs） | 基础组件：意图预取链接、可访问灯箱、CSS 进出场、页签等 | 搬移 | `ui` | 通则 17 | `Menu` 补方向键漫游焦点；`Lightbox` 只有 X 图集（`features/feed/parts.tsx`）与 `MediaGallery` 两个使用方，两者删除后没有使用方，T-0002 一并删除（2026-10-02，CSV 与锁文件该行记为删除） |
 | `app/components/ui/Score.tsx` | 评分胶囊“AI 评分 88”（`title`/`aria-label` 都带分数） | 搬移 | `ui` | DEC-10、DEC-64；BR-SEL-07；正文 2.9、4.8 | **保留并矿业化**（原“T-0002 同批删除”作废）：有评分才显示“AI 评分 · NN”，手机只显示数字，85 分及以上暖红、70 分及以上强调色、其余灰字，**没有评分的条目什么都不显示**（不显示 0、占位、“暂无评分”）；调用处 `features/feed/FeedItem.tsx:42,45`、`routes/item.tsx:185-188,297-299` 同步保留 |
 | `app/components/ui/SourceAvatar.tsx` | 来源头像/图标（有 3 处渲染：`feed/parts.tsx:14` 的 X 作者头像、`hot/Faces.tsx:21`、`report/ReportPaper.tsx:80` 的来源图标） | 改造 | `ui` | DR-78；G17 | 只保留**着色首字母**形态；头像与网站图标抓取及其公开投影（`sources.icon_url`）删除 |
 
