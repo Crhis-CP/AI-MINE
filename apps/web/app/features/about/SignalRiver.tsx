@@ -20,7 +20,7 @@ export interface RiverSource {
 export const STAGES = [0, 0.25, 0.5, 0.75, 1] as const;
 
 const STEP = 3;
-const KIND: Record<string, string> = { x_search: "X 账号", rss: "RSS", web_list: "网页", mp_account: "公众号", json_list: "接口" };
+const KIND: Record<string, string> = { rss: "RSS", web_list: "网页", mp_account: "公众号", json_list: "接口" };
 const FLASH_MS = 900;
 const INTRO_MS = 1800;
 /** Slow in, slow out: the river starts gently, crosses, and settles. */

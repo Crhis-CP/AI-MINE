@@ -5,25 +5,20 @@
 // (placeholders) and links keep only their text and an id; a block whose answer loses or repeats any of
 // them is asked once more, then kept in the original. Each batch is a receipt, so a re-run reuses
 // answers already paid for. A translation missing any block is stored as incomplete, never as whole.
-// The post a selected X post quotes is translated too (once per quoted post, shared by every quote).
 import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import { z } from "zod";
 import { sql } from "../db.ts";
-import { sanitizeBody, textToHtml } from "../content/sanitize.ts";
+import { sanitizeBody } from "../content/sanitize.ts";
 import { chatJson } from "../providers/llm.ts";
-import { collapseWhitespace } from "../lib/text.ts";
-import { sha256 } from "../lib/ids.ts";
 import { modelFor } from "./models.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { promptText, promptVersion } from "./prompts.ts";
 
-export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body", "translate-post");
+export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
 const BATCH_CHARS = 3500;
 /** Longer bodies get their first part translated and are marked incomplete. */
 const MAX_CHARS = 60_000;
-/** X posts shorter than this carry their meaning in the Chinese title and summary. */
-const X_MIN_CHARS = 60;
 
 const BLOCK = new Set(["p", "h2", "h3", "h4", "h5", "li", "blockquote", "figcaption", "td", "th", "dt", "dd", "caption"]);
 const CONTAINER = /^(p|h[2-5]|li|blockquote|figcaption|td|th|dt|dd|caption|ul|ol|table|pre|figure|div)$/;
@@ -33,8 +28,6 @@ const Output = z.object({ t: z.array(z.string()) });
 class TranslationInterruptedError extends Error {}
 
 const SYSTEM_BODY = promptText("translate-body");
-
-const SYSTEM_POST = promptText("translate-post");
 
 export interface TranslateResult {
   articleId: string;
@@ -165,33 +158,20 @@ export async function translateArticle(articleId: string): Promise<TranslateResu
   const [row] = await sql<
     {
       revision: number;
-      channel: string;
       language: string | null;
       body_html: string | null;
       body_text: string | null;
-      x_post: { text?: string } | null;
       title: string;
       selected: boolean;
       body_mode: string;
       visibility: string;
     }[]
   >`
-    SELECT a.revision, p.channel, a.language, a.body_html, a.body_text, a.x_post, p.title, p.selected, p.body_mode, p.visibility
+    SELECT a.revision, a.language, a.body_html, a.body_text, p.title, p.selected, p.body_mode, p.visibility
     FROM publications p JOIN articles a ON a.id = p.article_id WHERE p.article_id = ${articleId}`;
   if (!row) return { articleId, status: "skipped", reason: "not published" };
   const result = (r: Omit<TranslateResult, "articleId" | "revision">): TranslateResult => ({ articleId, revision: row.revision, ...r });
   if (!row.selected || row.visibility !== "public" || row.body_mode !== "full") return result({ status: "skipped", reason: "not a selected full-text item" });
-
-  if (row.channel === "x") {
-    const text = String(row.x_post?.text ?? row.body_text ?? "").trim();
-    const meaningful = collapseWhitespace(text.replace(/https?:\/\/\S+/g, ""));
-    if (isChinese(row.language, text)) return result({ status: "skipped", reason: "already Chinese" });
-    if (meaningful.length < X_MIN_CHARS) return result({ status: "skipped", reason: "short post" });
-    const [t] = await translateAll(articleId, row.revision, [text], SYSTEM_POST);
-    if (!t) return result({ status: "skipped", reason: "translation did not line up" });
-    await store(articleId, row.revision, row.title, textToHtml(t), t, true);
-    return result({ status: "translated", segments: 1 });
-  }
 
   if (!row.body_html || isChinese(row.language, row.body_text ?? "")) return result({ status: "skipped", reason: "no foreign-language body" });
   const $ = cheerio.load(row.body_html, null, false);
@@ -253,76 +233,12 @@ async function store(articleId: string, revision: number, title: string, html: s
     WHERE translations.origin <> 'source' AND translations.revision <= EXCLUDED.revision`;
 }
 
-/** A quoted post worth translating: at least a few letters beyond its links, and not already Chinese. */
-function quoteTranslatable(text: string): boolean {
-  const words = collapseWhitespace(text.replace(/https?:\/\/\S+/g, " "));
-  return words.length >= 10 && (words.match(/\p{L}/gu) ?? []).length >= 2 && !/[一-鿿]/.test(words);
-}
-
-/**
- * The posts that selected X posts of the last `days` quote, translated once per quoted post: the
- * translation of the quoted post's own item is reused when it was collected and translated, else
- * DeepSeek (the translate model) translates it. Returns how many were stored.
- */
-export async function translateQuotes(opts: { days?: number; limit?: number; budgetMs?: number } = {}): Promise<number> {
-  const started = Date.now();
-  const rows = await sql<{ tweet_id: string; text: string; text_hash: string | null; own_zh: string | null }[]>`
-    SELECT DISTINCT ON (q.tweet_id) q.tweet_id, a.x_post->'quoted'->>'text' AS text, qt.text_hash,
-      (SELECT tr.body_text FROM articles o JOIN translations tr ON tr.article_id = o.id AND tr.lang = 'zh' AND tr.revision >= o.revision
-       WHERE o.identity_key = 'x:' || q.tweet_id AND tr.complete AND coalesce(tr.body_text, '') <> '') AS own_zh
-    FROM publications p JOIN articles a ON a.id = p.article_id
-    CROSS JOIN LATERAL (SELECT substring(a.x_post->'quoted'->>'url' from '/status/([0-9]+)') AS tweet_id) q
-    LEFT JOIN quote_translations qt ON qt.tweet_id = q.tweet_id
-    WHERE p.channel = 'x' AND p.selected AND p.visibility = 'public' AND p.body_mode = 'full'
-      AND p.discovered_at > now() - make_interval(days => ${opts.days ?? 3})
-      AND q.tweet_id IS NOT NULL AND coalesce(a.x_post->'quoted'->>'text', '') <> ''
-    ORDER BY q.tweet_id, p.discovered_at DESC`;
-  let stored = 0;
-  for (const r of rows) {
-    if (stored >= (opts.limit ?? 30) || Date.now() - started > (opts.budgetMs ?? 2 * 60_000) || shutdownSignal.signal.aborted) break;
-    const hash = sha256(r.text);
-    if (r.text_hash === hash || !quoteTranslatable(r.text)) continue;
-    let zh = r.own_zh;
-    let origin: "reused" | "model" = "reused";
-    if (!zh) {
-      origin = "model";
-      try {
-        const res = await chatJson({
-          model: await modelFor("translate"),
-          purpose: "translate_quoted",
-          subject: `quote:${r.tweet_id}`,
-          promptVersion: TRANSLATE_PROMPT_VERSION,
-          system: SYSTEM_POST,
-          user: JSON.stringify({ segments: [r.text] }),
-          schema: Output,
-          temperature: 0.2,
-          maxTokens: Math.min(4000, Math.ceil(r.text.length * 1.5) + 200),
-          timeoutMs: 120_000,
-        });
-        zh = res.data.t.length === 1 ? res.data.t[0]!.trim() : null;
-      } catch (error) {
-        // Switched-off calls or an exhausted budget stop the run; one unusable answer skips its post (its
-        // receipt is reused next time, so a retry costs nothing).
-        if (/disabled|not configured|budget/i.test((error as Error).message)) throw error;
-        continue;
-      }
-    }
-    if (!zh) continue;
-    await sql`
-      INSERT INTO quote_translations (tweet_id, text_hash, text_zh, origin) VALUES (${r.tweet_id}, ${hash}, ${zh}, ${origin})
-      ON CONFLICT (tweet_id) DO UPDATE SET text_hash = EXCLUDED.text_hash, text_zh = EXCLUDED.text_zh, origin = EXCLUDED.origin, created_at = now()`;
-    stored += 1;
-  }
-  return stored;
-}
-
 /**
  * Every few minutes: selected full-text items discovered or revised in the last three days that lack a
- * translation of their current revision, then the posts selected X posts quote. Stops after a time
- * budget. A translation of an older revision is not shown (items.ts), so a revised item is translated
- * again whatever its age.
+ * translation of their current revision. Stops after a time budget. A translation of an older revision
+ * is not shown (items.ts), so a revised item is translated again whatever its age.
  */
-export async function translatePending(opts: { limit?: number; budgetMs?: number } = {}): Promise<{ done: TranslateResult[]; quotes: number }> {
+export async function translatePending(opts: { limit?: number; budgetMs?: number } = {}): Promise<{ done: TranslateResult[] }> {
   const started = Date.now();
   const rows = await sql<{ article_id: string }[]>`
     SELECT p.article_id FROM publications p JOIN articles a ON a.id = p.article_id
@@ -367,16 +283,5 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
         attempts = CASE WHEN translation_attempts.revision = EXCLUDED.revision THEN translation_attempts.attempts + 1 ELSE 1 END,
         revision = EXCLUDED.revision, outcome = EXCLUDED.outcome, reason = EXCLUDED.reason, updated_at = now()`;
   }
-  const budgetMs = opts.budgetMs ?? 4 * 60_000;
-  let quotes = 0;
-  const left = budgetMs - (Date.now() - started);
-  if (left > 0 && !shutdownSignal.signal.aborted) {
-    try {
-      quotes = await translateQuotes({ budgetMs: left });
-    } catch (error) {
-      if (error instanceof TranslationInterruptedError || /disabled|not configured|budget/i.test((error as Error).message)) return { done, quotes };
-      throw error;
-    }
-  }
-  return { done, quotes };
+  return { done };
 }

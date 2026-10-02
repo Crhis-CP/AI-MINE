@@ -48,7 +48,7 @@ after(async () => {
 test("the migrations seed a budget for every paid service", async () => {
   const rows = await sql<{ service: string }[]>`SELECT service FROM budgets`;
   const services = new Set(rows.map((r) => r.service));
-  for (const s of ["jina", "socialdata", "dajiala", "zhipu", "deepseek", "mimo", "dashscope"]) assert.ok(services.has(s), `no budget for ${s}`);
+  for (const s of ["jina", "dajiala", "zhipu", "deepseek", "mimo", "dashscope"]) assert.ok(services.has(s), `no budget for ${s}`);
 });
 
 test("an answer already received is reused instead of bought again", async () => {
@@ -189,17 +189,15 @@ test("automatic release requeues the failed articles of all five analysis steps"
 });
 
 test("manual release resumes pending body reads and leaves unrelated article work alone", async () => {
-  for (const purpose of ["body_fallback", "x_article"]) {
-    const { articleId, receiptId } = await stoppedArticle(purpose, true);
-    const result = await releaseReceipt(receiptId, { billed: false, note: "checked the provider" }, "test");
-    assert.equal(result?.requeued, true, purpose);
-    const jobs = await sql<{ name: string }[]>`SELECT name FROM pgboss.job WHERE data->>'articleId' = ${articleId}`;
-    assert.deepEqual(
-      jobs.map((j) => j.name),
-      ["content.extract-body"],
-      "the unfinished body is fetched before analysis",
-    );
-  }
+  const body = await stoppedArticle("body_fallback", true);
+  const result = await releaseReceipt(body.receiptId, { billed: false, note: "checked the provider" }, "test");
+  assert.equal(result?.requeued, true);
+  const jobs = await sql<{ name: string }[]>`SELECT name FROM pgboss.job WHERE data->>'articleId' = ${body.articleId}`;
+  assert.deepEqual(
+    jobs.map((j) => j.name),
+    ["content.extract-body"],
+    "the unfinished body is fetched before analysis",
+  );
   const { articleId, receiptId } = await stoppedArticle("translate_body");
   assert.equal((await releaseReceipt(receiptId, { billed: false, note: "checked the provider" }, "test"))?.requeued, false);
   const [article] = await sql<{ state: string }[]>`SELECT processing_state AS state FROM articles WHERE id = ${articleId}`;

@@ -15,8 +15,6 @@ import { Menu, MenuItem } from "../components/ui/Menu";
 import { StarButton } from "../features/feed/parts";
 import { GroupSources } from "../features/feed/ReadingGroup";
 import { StoryFollowups } from "../features/item/StoryFollowups";
-import { MediaGallery } from "../features/item/MediaGallery";
-import { QuotedPost } from "../features/item/QuotedPost";
 import { IconArrowLeft, IconCopy, IconDownload, IconExternal, IconImage, IconMenu, IconShare } from "../components/icons";
 
 const PosterSheet = lazy(() => import("../features/item/PosterSheet"));
@@ -133,11 +131,10 @@ export default function ItemPage() {
       : lang === "original" && hasTranslation
         ? "正文 · 原文"
         : "正文";
-  const isX = item.channel === "x" && !!item.x;
   const publishedIso = item.publishedAt ?? item.discoveredAt;
   const summaryOnly = item.readingMode === "summary-only";
   const showOutline = item.outline.length >= 3;
-  const originalLabel = isX ? "在 X 查看原推" : "打开原文";
+  const originalLabel = "打开原文";
 
   const related = item.relatedStories.filter((s) => s.publicId !== item.story?.publicId);
 
@@ -225,8 +222,8 @@ export default function ItemPage() {
   // under the facts (or under the notes when only the right rail shows).
   const facts = (
     <RailSection title="来源">
-      <div className="text-[14px] font-semibold leading-snug text-ink">{isX ? item.x!.authorName : item.source.name}</div>
-      <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{isX ? `@${item.x!.handle} · X` : (item.author ?? hostOf(item.links.original))}</div>
+      <div className="text-[14px] font-semibold leading-snug text-ink">{item.source.name}</div>
+      <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
       <div className="mt-3 text-[12px] text-ink-4">发布时间</div>
       <time dateTime={publishedIso} className="mono mt-0.5 block text-[12.5px] text-ink-2">
         {fullDateTime(publishedIso)}
@@ -320,10 +317,9 @@ export default function ItemPage() {
       >
         <div className="hidden lg:block 2xl:hidden">{backButton}</div>
         <article className="pb-6 pt-6 lg:pt-2 2xl:pt-1">
-          <div className={`flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-3 2xl:hidden ${isX ? "" : "mb-3"}`}>
-            <span className="font-semibold text-ink-2">{isX ? item.x!.authorName : item.source.name}</span>
-            {isX && <span>· @{item.x!.handle} · X</span>}
-            {item.author && !isX && <span>· {item.author}</span>}
+          <div className="mb-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-ink-3 2xl:hidden">
+            <span className="font-semibold text-ink-2">{item.source.name}</span>
+            {item.author && <span>· {item.author}</span>}
             <span>·</span>
             <time dateTime={publishedIso} className="mono">
               {fullDateTime(publishedIso)}
@@ -340,15 +336,13 @@ export default function ItemPage() {
               </span>
             )}
           </div>
-          {!isX && (
-            <h1 className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">
-              {item.title}
-            </h1>
-          )}
-          {!isX && item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
+          <h1 className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">
+            {item.title}
+          </h1>
+          {item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
 
           {item.summary && (
-            <section className={isX ? "mt-4" : "mt-7 xl:mt-8"}>
+            <section className="mt-7 xl:mt-8">
               <div className="mb-2 text-[12px] font-semibold text-accent">{summaryOnly ? "摘要" : "AI 导读"}</div>
               <p className="text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
             </section>
@@ -397,13 +391,10 @@ export default function ItemPage() {
             </section>
           )}
 
-          {isX && item.x!.media.length > 0 && <MediaGallery media={item.x!.media} postUrl={item.links.original} />}
-          {isX && item.x!.quoted?.text && <QuotedPost quoted={item.x!.quoted} original={lang === "original"} />}
-
           <p className="mt-8 text-[13px] text-ink-4">
             来源：
             <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="text-ink-3 hover:text-accent">
-              {isX ? item.x!.authorName : item.source.name}
+              {item.source.name}
             </a>
             <span> · {hostOf(item.links.original)}</span>
           </p>

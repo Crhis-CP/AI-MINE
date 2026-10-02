@@ -33,9 +33,7 @@ interface Route {
 
 /**
  * The article's next step: its body first while none is confirmed and the source asks for full text,
- * when there is only a title or a feed summary (the analysis judges the whole article), or when an
- * X post links an X Article (fetched before judging; for a discussion post only while it is news, as
- * history adds no heat).
+ * or when there is only a title or a feed summary (the analysis judges the whole article).
  */
 async function route(articleId: string, db: Db): Promise<Route | null> {
   const [row] = await db<
@@ -51,7 +49,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       discovered_at: Date;
     }[]
   >`
-    SELECT a.body_status, s.participation_mode, s.kind, s.config, a.url, (coalesce(a.body_text, '') = '' AND a.x_post IS NULL) AS bare,
+    SELECT a.body_status, s.participation_mode, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
            a.backfill, a.published_at, a.discovered_at
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!row) return null;
@@ -60,8 +58,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const pending = row.body_status === "pending";
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
   const needsPage = !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
-  const needsXArticle = row.kind === "x_search" && (!signal || (row.participation_mode === "hot_signal" && !historical));
-  return { step: pending && (needsPage || needsXArticle) ? "extract" : "analyze", signal, historical };
+  return { step: pending && needsPage ? "extract" : "analyze", signal, historical };
 }
 
 /**

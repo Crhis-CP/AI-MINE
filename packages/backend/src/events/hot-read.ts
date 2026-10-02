@@ -83,18 +83,17 @@ async function readExtras(ranking: HotRanking): Promise<Extras> {
 async function queryExtras(ranking: HotRanking): Promise<Extras> {
   const ids = ranking.entries.map((e) => e.storyId);
   const [faces, texts] = await Promise.all([
-    // A participant's face: the source's icon, else the avatar on that account's latest post in the story.
-    sql<{ name: string; icon_url: string | null; avatar: string | null }[]>`
-      SELECT DISTINCT ON (s.id) s.name, s.icon_url, a.x_post->>'avatarUrl' AS avatar
+    // A participant's face: the source's icon.
+    sql<{ name: string; icon_url: string | null }[]>`
+      SELECT DISTINCT ON (s.id) s.name, s.icon_url
       FROM story_signals ss JOIN sources s ON s.id = ss.source_id
-      LEFT JOIN articles a ON a.id = ss.article_id AND a.x_post ? 'avatarUrl'
       WHERE ss.story_id = ANY(${ids}::bigint[])
-      ORDER BY s.id, (a.id IS NULL), a.discovered_at DESC`,
+      ORDER BY s.id`,
     sql<{ id: number; digest: string | null; summary: string | null; latest: string | null }[]>`
       SELECT id, digest, summary, latest FROM stories WHERE id = ANY(${ids}::bigint[])`,
   ]);
   const extras: Extras = {
-    faces: new Map(faces.map((f) => [f.name, f.icon_url ?? f.avatar])),
+    faces: new Map(faces.map((f) => [f.name, f.icon_url])),
     texts: new Map(texts.map((t) => [Number(t.id), { summary: t.digest ?? t.summary, latest: t.latest }])),
   };
   extrasCache = { rankingId: ranking.id, extras };

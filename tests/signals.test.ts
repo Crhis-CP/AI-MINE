@@ -1,7 +1,7 @@
 // Live news before history, and discussion posts that come before the first report: a discussion post
 // skips the analysis queue; history (a backfill that was already old when found) waits behind live
 // work and founds no event; a post that found no story is grouped again when a report founds a fact
-// close to it, or when the post it quotes arrives and joins a fact.
+// close to it.
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -16,8 +16,6 @@ const T = tag();
 const EDITORIAL = `test-sig-ed-${T}`;
 const SIGNAL = `test-sig-hs-${T}`;
 const TOPIC = `WL${T}`;
-/** Text of its own: close to nothing stored. */
-const ALONE = `ZZ${T}`;
 
 // Embeddings: texts about the topic point one way, everything else another. The judge calls the first
 // candidate the same occurrence.
@@ -29,7 +27,7 @@ const provider = await stub((_hit, req) => {
     return {
       data: body.input.map((text, index) => ({
         index,
-        embedding: Array.from({ length: 1024 }, (_v, i) => (i === (text.includes(TOPIC) ? axis : text.includes(ALONE) ? axis + 1 : 1) ? 1 : 0)),
+        embedding: Array.from({ length: 1024 }, (_v, i) => (i === (text.includes(TOPIC) ? axis : 1) ? 1 : 0)),
       })),
     };
   }
@@ -115,48 +113,4 @@ test("history waits behind live work and founds no event; a new source's post fr
   assert.equal((await job(fresh))?.priority, 0);
   assert.notEqual((await groupArticle(fresh)).verdict, "historical");
   assert.equal((await sql`SELECT 1 FROM fact_articles WHERE article_id = ${fresh}`).length, 1);
-});
-
-test("a discussion post that quotes a post not yet collected joins its story when the original arrives", async () => {
-  // Dan Shipper's "SONNET 5.5 IS OUT!" quoted Anthropic's post a minute before it was collected; the
-  // original then joined the fact a report had already founded (same-fact: no new fact, no rematch).
-  const tweetId = `9${Date.now()}`;
-  const { articleId: postId } = await upsertMaterial({
-    sourceId: SIGNAL,
-    url: `https://x.com/danshipper/status/1${Date.now()}`,
-    title: `SONNET IS OUT! ${ALONE}`,
-    via: "fetch",
-    publishedAt: new Date(),
-    xPost: {
-      tweetId: `1${Date.now()}`,
-      authorName: "Dan",
-      handle: "danshipper",
-      text: "SONNET IS OUT!",
-      quoted: { authorName: "Anthropic", handle: "AnthropicAI", text: "Introducing", url: `https://x.com/AnthropicAI/status/${tweetId}` },
-    },
-  });
-  assert.deepEqual(await settleNonEditorial(postId), { group: true });
-  assert.equal((await groupArticle(postId, { signalOnly: true })).verdict, "signal-unmatched");
-
-  const first = await groupArticle(await report("quoted-first", { title: `Anthropic 发布 ${TOPIC} Sonnet` }));
-  const { articleId: originalId } = await upsertMaterial({
-    sourceId: EDITORIAL,
-    url: `https://x.com/AnthropicAI/status/${tweetId}`,
-    title: `Introducing ${TOPIC} Sonnet`,
-    bodyText: "Introducing.",
-    bodyStatus: "ok",
-    via: "fetch",
-    publishedAt: new Date(),
-    xPost: { tweetId, authorName: "Anthropic", handle: "AnthropicAI", text: `Introducing ${TOPIC} Sonnet` },
-  });
-  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, output)
-            VALUES (${originalId}, 1, 'rule', 'pass', 'ai-models', ${`Anthropic 发布 ${TOPIC} Sonnet`}, '摘要', 80, false, ${sql.json({ fact: { title: "Sonnet" } })})`;
-  const joined = await groupArticle(originalId);
-  assert.equal(joined.verdict, "same-fact");
-  assert.equal(joined.storyId, first.storyId);
-  assert.equal(joined.reclaimed, 1);
-  assert.equal((await job(postId))?.data.signalOnly, true);
-
-  const again = await groupArticle(postId, { signalOnly: true });
-  assert.deepEqual([again.verdict, again.storyId], ["signal-native", first.storyId]);
 });

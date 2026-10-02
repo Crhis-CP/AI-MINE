@@ -18,7 +18,6 @@ export interface AnalyzeInputArticle {
   excerpt: string | null;
   /** pending: no body fetched yet; ok; unconfirmed: fetching failed; none. */
   bodyStatus?: string;
-  xPost: Record<string, any> | null;
   media: Array<Record<string, any>>;
   source: {
     name: string;
@@ -34,16 +33,6 @@ export interface AnalyzeInputArticle {
   translationZh?: string | null;
 }
 
-/**
- * The post as the judging steps read it: an X Article it published joins its text, so every step sees
- * the article rather than a bare link.
- */
-export function withXArticle(xPost: Record<string, any> | null, article: { title?: string; text?: string } | null): Record<string, any> | null {
-  if (!xPost || !article?.text) return xPost;
-  const parts = [String(xPost.text ?? "").trim(), article.title ? `【X 长文】${article.title}` : "【X 长文】", article.text];
-  return { ...xPost, text: parts.filter(Boolean).join("\n\n") };
-}
-
 export async function loadAnalyzeInput(articleId: string): Promise<AnalyzeInputArticle | null> {
   const [row] = await sql<
     {
@@ -57,8 +46,6 @@ export async function loadAnalyzeInput(articleId: string): Promise<AnalyzeInputA
       body_text: string | null;
       excerpt: string | null;
       body_status: string;
-      x_post: Record<string, any> | null;
-      x_article: { title?: string; text?: string } | null;
       media: Array<Record<string, any>>;
       source_name: string;
       source_kind: string;
@@ -70,7 +57,7 @@ export async function loadAnalyzeInput(articleId: string): Promise<AnalyzeInputA
       translation_zh: string | null;
     }[]
   >`
-    SELECT a.id, a.revision, a.title, a.url, a.author, a.published_at, a.discovered_at, a.body_text, a.excerpt, a.body_status, a.x_post, a.x_article, a.media,
+    SELECT a.id, a.revision, a.title, a.url, a.author, a.published_at, a.discovered_at, a.body_text, a.excerpt, a.body_status, a.media,
            s.name AS source_name, s.kind AS source_kind, s.tier, s.first_party, s.tags AS source_tags, s.owner_entity_id, s.config,
            tr.body_text AS translation_zh
     FROM articles a JOIN sources s ON s.id = a.source_id
@@ -88,7 +75,6 @@ export async function loadAnalyzeInput(articleId: string): Promise<AnalyzeInputA
     bodyText: row.body_text,
     excerpt: row.excerpt,
     bodyStatus: row.body_status,
-    xPost: withXArticle(row.x_post, row.x_article),
     media: row.media,
     source: {
       name: row.source_name,
@@ -107,7 +93,6 @@ const KIND_LABEL: Record<string, string> = {
   rss: "RSS",
   web_list: "网页",
   json_list: "网页接口",
-  x_search: "X 帖子",
   mp_account: "微信公众号",
   external: "外部上报",
 };
@@ -122,17 +107,10 @@ export function buildMaterial(a: AnalyzeInputArticle): string {
   lines.push("<material>");
   if (a.publishedAt) lines.push(`发布时间：${beijingDate(a.publishedAt)} ${beijingTime(a.publishedAt)}（北京时间）`);
   if (a.author) lines.push(`作者：${a.author}`);
-  if (a.xPost) {
-    lines.push(`作者：${a.xPost.authorName ?? ""} (@${a.xPost.handle ?? ""})`);
-    lines.push(`帖子：\n${truncate(String(a.xPost.text ?? a.title), 4000)}`);
-    if (a.xPost.quoted?.text) lines.push(`引用的帖子（@${a.xPost.quoted.handle ?? ""}）：\n${truncate(String(a.xPost.quoted.text), 2000)}`);
-    if (a.translationZh) lines.push(`帖子中文译文：\n${truncate(a.translationZh, 4000)}`);
-  } else {
-    lines.push(`标题：${collapseWhitespace(a.title)}`);
-    const body = a.bodyText ?? a.excerpt ?? "";
-    lines.push(body ? `正文：\n${truncate(body, 7000)}` : "正文：（无）");
-    if (a.translationZh && !a.bodyText) lines.push(`正文中文译文：\n${truncate(a.translationZh, 5000)}`);
-  }
+  lines.push(`标题：${collapseWhitespace(a.title)}`);
+  const body = a.bodyText ?? a.excerpt ?? "";
+  lines.push(body ? `正文：\n${truncate(body, 7000)}` : "正文：（无）");
+  if (a.translationZh && !a.bodyText) lines.push(`正文中文译文：\n${truncate(a.translationZh, 5000)}`);
   lines.push(`原文链接：${a.url}`);
   lines.push("</material>");
   return lines.join("\n");
@@ -141,10 +119,9 @@ export function buildMaterial(a: AnalyzeInputArticle): string {
 /**
  * The article's first image, inlined: models cannot reach most original hosts from China, so they get
  * the site's cached thumbnail (fetched through the egress route). None when it cannot be fetched.
- * A post without its own image shows the quoted post's (a reaction to a chart or a launch card).
  */
 export async function firstImagePart(a: AnalyzeInputArticle): Promise<ContentPart | null> {
-  const image = [...(a.xPost?.media ?? []), ...(a.xPost?.quoted?.media ?? []), ...(a.media ?? [])].find((m: any) => m.kind === "image" && m.url);
+  const image = (a.media ?? []).find((m: any) => m.kind === "image" && m.url);
   if (!image) return null;
   try {
     const { body, type } = await produceImage(String(image.url), "thumb");

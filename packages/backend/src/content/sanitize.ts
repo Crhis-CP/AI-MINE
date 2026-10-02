@@ -257,14 +257,3 @@ function resolveUrl(href: string, base?: string): string {
     return href;
   }
 }
-
-/** Plain paragraphs to HTML, for sources that only give text (X posts, translations). */
-export function textToHtml(text: string): string {
-  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return text
-    .split(/\n{2,}/)
-    .map((para) => para.trim())
-    .filter(Boolean)
-    .map((para) => `<p>${esc(para).replace(/\n/g, "<br>")}</p>`)
-    .join("");
-}

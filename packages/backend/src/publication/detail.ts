@@ -3,8 +3,7 @@ import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@aihot/
 import TurndownService from "turndown";
 import { sql } from "../db.ts";
 import { proxyBodyImages } from "../media/imgproxy.ts";
-import { textToHtml } from "../content/sanitize.ts";
-import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, xView, type ItemRow } from "./items.ts";
+import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { itemUrl } from "./links.ts";
 import { hasItemPage } from "./rules.ts";
 import { SITE } from "@aihot/industry/site";
@@ -50,13 +49,11 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return { kind: "not_found" };
 
   const summary = toItemSummary(row);
-  if (row.channel === "x") summary.x = xView(row, false, true);
   if (row.visibility === "summary-only") {
     const detail: ItemDetail = {
       ...summary,
       reason: null,
       tags: [],
-      x: null,
       readingMode: "summary-only",
       author: null,
       language: row.language,
@@ -78,15 +75,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
 
   let body: ItemDetail["body"] = null;
   let outline: OutlineEntry[] = [];
-  if (row.channel === "x") {
-    const text = String(row.x_post?.text ?? row.body_text ?? "");
-    body = {
-      zh: summary.x?.translation ? textToHtml(summary.x.translation) : null,
-      original: text ? textToHtml(text) : null,
-      zhKind: summary.x?.translation ? "translation" : null,
-      complete: true,
-    };
-  } else if (row.body_mode === "full" && row.body_html) {
+  if (row.body_mode === "full" && row.body_html) {
     const isZh = row.language === "zh" || (/[一-鿿]/.test(row.body_text?.slice(0, 400) ?? "") && row.language !== "en");
     const original = proxyBodyImages(row.body_html);
     const zh = isZh ? original : row.tr_html ? proxyBodyImages(row.tr_html) : null;
@@ -140,7 +129,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
 
 /**
  * Same predicate for the export button and the export route: a public page with something to export
- * (a summary, the post, or a full-text body).
+ * (a summary or a full-text body).
  */
 export function markdownAvailable(row: {
   visibility: string;
@@ -148,11 +137,9 @@ export function markdownAvailable(row: {
   summary: string | null;
   body_mode: string;
   body_html?: string | null;
-  channel: string;
-  x_post: Record<string, any> | null;
 }): boolean {
   if (row.visibility !== "public" || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return false;
-  return !!row.summary || (row.channel === "x" && !!row.x_post?.text) || (row.body_mode === "full" && !!row.body_html);
+  return !!row.summary || (row.body_mode === "full" && !!row.body_html);
 }
 
 const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-" });
@@ -169,22 +156,7 @@ export async function exportMarkdown(id: string): Promise<{ filename: string; bo
   lines.push(`- 原文：${row.url}`, "");
   if (row.summary) lines.push("## 摘要", "", row.summary, "");
   if (row.selected && row.reason) lines.push("## 推荐理由", "", row.reason, "");
-  if (row.channel === "x" && row.x_post?.text) {
-    lines.push("## 正文", "", String(row.x_post.text), "");
-    if (row.zh_text) lines.push("## 中文译文", "", row.zh_text, "");
-    const q = row.x_post.quoted as { handle?: string; text?: string; url?: string } | null | undefined;
-    if (q?.text)
-      lines.push(
-        `## 引用 @${q.handle ?? ""}`,
-        "",
-        ...String(q.text)
-          .split("\n")
-          .map((l) => `> ${l}`),
-        "",
-        ...(q.url ? [q.url, ""] : []),
-      );
-    if (q?.text && row.quoted_zh) lines.push("### 引用中文译文", "", ...row.quoted_zh.split("\n").map((l) => `> ${l}`), "");
-  } else if (row.body_mode === "full" && row.body_html) {
+  if (row.body_mode === "full" && row.body_html) {
     const isZh = row.language === "zh";
     if (!isZh && row.tr_html && row.tr_complete) lines.push("## 正文 · 中文译文", "", turndown.turndown(row.tr_html), "");
     lines.push(isZh ? "## 正文" : "## 正文 · 原文", "", turndown.turndown(row.body_html), "");
@@ -197,10 +169,8 @@ export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDe
   const hasTranslation = !!detail.body?.zh && detail.body.zhKind === "translation" && !!detail.body.original;
   const bodyLanguage = original && detail.body?.original ? "original" : detail.body?.zh ? "zh" : "original";
   const selectedHtml = bodyLanguage === "zh" ? detail.body?.zh : detail.body?.original;
-  const { text: _text, translation: _translation, ...x } = detail.x ?? ({} as NonNullable<ItemDetail["x"]>);
   return {
     ...detail,
-    x: detail.x ? x : null,
     hasTranslation,
     bodyLanguage,
     body: detail.body

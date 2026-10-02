@@ -2,7 +2,6 @@
 // title/summary prompts for everything else, the output parsing and the deterministic guards. The
 // wording lives in the industry pack (industry/prompts/); a failed guard falls back without a repair call.
 import { IDENTITY_CONTEXT_ALIASES, IDENTITY_LEXICON, PUBLISHER_DOMAINS } from "@aihot/industry/taxonomy";
-import { onlyXArticleLink } from "../sources/x.ts";
 import type { AnalyzeInputArticle } from "./input.ts";
 import { promptText } from "./prompts.ts";
 
@@ -27,13 +26,6 @@ export function looksZh(s: string): boolean {
   return true;
 }
 
-/** Short tweet: under 100 characters of Chinese, under 500 of other text. */
-export function isShortTweet(text: string): boolean {
-  if (!text) return false;
-  const cjk = (text.match(/[一-鿿]/g) || []).length;
-  return text.length < (cjk > text.length * 0.3 ? 100 : 500);
-}
-
 /** HTML, URLs (whose /2025/ paths models took for years) and entities out of article text. */
 export function cleanArticleTextForLLM(s: string): string {
   if (!s) return "";
@@ -53,34 +45,9 @@ export function cleanArticleTextForLLM(s: string): string {
     .trim();
 }
 
-function chineseDensity(s: string): number {
-  const chinese = (s.match(/[一-鿿]/g) ?? []).length;
-  const total = s.replace(/\s+/g, "").length;
-  return total === 0 ? 0 : chinese / total;
-}
-
-const stripNoise = (s: string) =>
-  s
-    .replace(/https?:\/\/\S+/g, " ")
-    .replace(/@[A-Za-z0-9_]+/g, " ")
-    .replace(/#[A-Za-z0-9_]+/g, " ");
-
-/** A short tweet in Chinese needs no translation; mixed or English ones do. */
-export function needsShortTweetTranslation(text: string): boolean {
-  const clean = stripNoise(text);
-  if (!looksZh(clean)) return true;
-  if (chineseDensity(clean) < 0.65) return true;
-  const englishRuns = clean.match(/[A-Za-z][A-Za-z0-9+.#/-]*(?:\s+[A-Za-z][A-Za-z0-9+.#/-]*)+/g) ?? [];
-  return englishRuns.some((run) => run.replace(/\s+/g, "").length >= 10);
-}
-
 // ── The material as the prefilter and the content understanding read it ─────────────────────
 
-/** The post is an X Article's link whose article could not be fetched. */
-const unfetchedXArticle = (a: AnalyzeInputArticle) => !!a.xPost && a.bodyStatus !== "ok" && onlyXArticleLink(String(a.xPost.text ?? ""));
-
 function materialQuality(a: AnalyzeInputArticle): string {
-  if (a.xPost) return "完整正文（来自 RSS / API 自带的 content 字段）";
   if (a.bodyText) return a.source.fetchesBody ? "完整正文（抓自原始网页）" : "完整正文（来自 RSS / API 自带的 content 字段）";
   if (a.excerpt) return "仅摘要（feed 未提供完整正文）";
   if (a.bodyStatus === "unconfirmed") return "抓取失败，仅标题可用";
@@ -88,36 +55,22 @@ function materialQuality(a: AnalyzeInputArticle): string {
 }
 
 /** The material as the prefilter and the content understanding read it. */
-export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: boolean } = {}): string {
+export function renderContext(a: AnalyzeInputArticle): string {
   const lines: string[] = [];
   lines.push(`【来源】${a.source.name}（${a.source.kind}，tier=${a.source.tier || "未分级"}）`);
   if (a.source.tags?.length) lines.push(`【来源标签】${a.source.tags.join(", ")}`);
-  const name = a.xPost?.authorName || a.author;
-  const handle = a.xPost?.handle;
-  if (name || handle) lines.push(`【作者】${[name, handle ? `@${handle}` : null].filter(Boolean).join(" · ")}`);
+  if (a.author) lines.push(`【作者】${a.author}`);
   if (a.publishedAt) lines.push(`【发布时间】${a.publishedAt.toISOString()}`);
-  const media = (a.xPost?.media ?? a.media ?? []) as Array<{ kind?: string }>;
+  const media = (a.media ?? []) as Array<{ kind?: string }>;
   const images = media.filter((m) => m.kind === "image").length;
   const videos = media.filter((m) => m.kind === "video").length;
-  const mediaParts = [images ? `${images} 张图` : null, videos ? `${videos} 个视频` : null, unfetchedXArticle(a) ? "含 X 长文链接（正文未抓到）" : null].filter(
-    Boolean,
-  );
+  const mediaParts = [images ? `${images} 张图` : null, videos ? `${videos} 个视频` : null].filter(Boolean);
   if (mediaParts.length) lines.push(`【媒体】${mediaParts.join(" · ")}`);
   lines.push(`【原文链接】${a.url}`);
   lines.push(`【标题】${a.title}`);
-  const quoted = a.xPost?.quoted?.text ? a.xPost.quoted : null;
-  if (quoted) {
-    const label = quoted.handle ? `@${quoted.handle}` : "原推";
-    if (opts.annotateQuoted) {
-      lines.push(`【引用 ${label}】（以下是作者转发/引用的**他人**内容，不是作者本人的产出）`);
-      lines.push(String(quoted.text));
-    } else {
-      lines.push(`【引用 ${label}】${quoted.text}`);
-    }
-  }
   lines.push("");
-  lines.push(opts.annotateQuoted && quoted ? "【正文（作者自己的内容）】" : "【正文】");
-  lines.push(capBody(a.xPost ? String(a.xPost.text ?? a.title) : (a.bodyText ?? a.excerpt ?? "(无正文)")));
+  lines.push("【正文】");
+  lines.push(capBody(a.bodyText ?? a.excerpt ?? "(无正文)"));
   lines.push("");
   lines.push(`【材料质量】${materialQuality(a)}`);
   return lines.join("\n");
@@ -128,11 +81,10 @@ export const prefilterUser = (a: AnalyzeInputArticle) => JSON.stringify(renderCo
 
 /** Nothing to judge beyond the title: the prefilter's BLOCK then means "wait for material". */
 export function missingEvidence(a: AnalyzeInputArticle): boolean {
-  return !a.bodyText?.trim() && !a.excerpt?.trim() && !String(a.xPost?.text ?? "").trim() && !String(a.xPost?.quoted?.text ?? "").trim();
+  return !a.bodyText?.trim() && !a.excerpt?.trim();
 }
 
-export const understandUser = (a: AnalyzeInputArticle) =>
-  ["请按系统规则理解以下单篇材料，一次返回全部六个字段。", renderContext(a, { annotateQuoted: true })].join("\n\n");
+export const understandUser = (a: AnalyzeInputArticle) => ["请按系统规则理解以下单篇材料，一次返回全部六个字段。", renderContext(a)].join("\n\n");
 
 // ── Identity context and guard ────────────────────────────────────────────────────────────────
 
@@ -167,26 +119,17 @@ export interface TranslateInput {
   sourceName?: string;
   documentUrl?: string;
   sourceOwnerEntityId?: string | null;
-  /** The main post of a tweet (not the quoted one), for the short/long decision. */
-  mainText?: string;
-  quotedText?: string;
-  quotedAuthor?: string;
   publishedAt?: Date;
 }
 
 export function translateInputOf(a: AnalyzeInputArticle): TranslateInput {
-  const isX = a.source.kind === "x_search" || !!a.xPost;
-  const mainText = isX ? String(a.xPost?.text ?? a.title) : undefined;
   return {
     title: a.title,
-    text: isX ? (mainText ?? "") : (a.bodyText ?? a.excerpt ?? ""),
-    sourceKind: isX ? "x_search" : a.source.kind,
+    text: a.bodyText ?? a.excerpt ?? "",
+    sourceKind: a.source.kind,
     sourceName: a.source.name,
     documentUrl: a.url,
     sourceOwnerEntityId: a.source.ownerEntityId ?? null,
-    mainText,
-    quotedText: a.xPost?.quoted?.text ? String(a.xPost.quoted.text) : undefined,
-    quotedAuthor: a.xPost?.quoted?.handle ? String(a.xPost.quoted.handle) : undefined,
     publishedAt: a.publishedAt ?? undefined,
   };
 }
@@ -194,7 +137,7 @@ export function translateInputOf(a: AnalyzeInputArticle): TranslateInput {
 function identityContext(input: TranslateInput) {
   const publisher = publisherEntityId(input.documentUrl);
   const owner = input.sourceOwnerEntityId && lexiconName(input.sourceOwnerEntityId) ? input.sourceOwnerEntityId : null;
-  const texts = [input.title, input.text, input.mainText, input.quotedText, input.sourceName];
+  const texts = [input.title, input.text, input.sourceName];
   const allowed = new Set(matchEntityIds(surfaceVariants(texts)));
   const joined = texts.filter(Boolean).join("\n");
   for (const alias of IDENTITY_CONTEXT_ALIASES) if (alias.pattern.test(joined)) allowed.add(alias.entityId);
@@ -262,7 +205,7 @@ export function compactAnswerFirstSummary(summary: string, maxChars = 190): stri
 
 function answerFirstSummaryLengthOk(summary: string, input: TranslateInput): boolean {
   const trimmed = summary.trim();
-  const sourceLength = (input.sourceKind === "x_search" ? input.text : cleanArticleTextForLLM(input.text)).trim().length;
+  const sourceLength = cleanArticleTextForLLM(input.text).trim().length;
   const sentences = trimmed
     .split(/[。！？!?]+/u)
     .map((p) => p.trim())
@@ -271,12 +214,10 @@ function answerFirstSummaryLengthOk(summary: string, input: TranslateInput): boo
   return trimmed.length <= 200 && trimmed.length >= (rich ? 80 : 50) && sentences <= 3 && (!rich || sentences >= 2);
 }
 
-export const isShortTweetInput = (input: TranslateInput) => input.sourceKind === "x_search" && isShortTweet(input.mainText || input.title);
-
 /** The length rule (compacted without another call) and the identity guard, for any writing model. */
 export function finalizeCopy(input: TranslateInput, copy: { titleZh: string; summaryZh: string }) {
   let summaryZh = copy.summaryZh;
-  if (!isShortTweetInput(input) && summaryZh && !answerFirstSummaryLengthOk(summaryZh, input)) summaryZh = compactAnswerFirstSummary(summaryZh);
+  if (summaryZh && !answerFirstSummaryLengthOk(summaryZh, input)) summaryZh = compactAnswerFirstSummary(summaryZh);
   return enforceIdentity(input, { titleZh: copy.titleZh, summaryZh });
 }
 
@@ -298,28 +239,6 @@ export function buildArticlePrompt(input: TranslateInput): string {
     title: input.title,
     body: input.text ? clampText(cleanArticleTextForLLM(input.text), 6000) : promptText("summarize-article-empty"),
   });
-}
-
-/** The quoted post's block, appended after a blank line when there is one. */
-function quotedBlock(input: TranslateInput, name: string): string {
-  if (!input.quotedText) return "";
-  return `\n\n${promptText(name, { quotedLabel: input.quotedAuthor ? `@${input.quotedAuthor}` : "引用推文", quotedText: clampText(input.quotedText, 1500) })}`;
-}
-
-export function buildShortTweetPrompt(input: TranslateInput): string {
-  const post = clampText(input.mainText || input.text || input.title, 4000);
-  return (
-    promptText("summarize-short-post", { sourceName: sourceName(input.sourceName), identity: identityPrompt(input), post }) +
-    quotedBlock(input, "summarize-short-post-quoted")
-  );
-}
-
-export function buildLongTweetPrompt(input: TranslateInput): string {
-  const post = clampText(input.mainText || input.text || input.title, 4000);
-  return (
-    promptText("summarize-long-post", { sourceName: sourceName(input.sourceName), identity: identityPrompt(input), post }) +
-    quotedBlock(input, "summarize-long-post-quoted")
-  );
 }
 
 /** Prompt lines a model sometimes repeats after its answer (来源：…, 【已核验身份上下文】…, 原始标题：…). */

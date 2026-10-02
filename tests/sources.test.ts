@@ -168,9 +168,9 @@ test("config entries a source kind does not implement are named, not ignored", (
   );
   assert.deepEqual(unsupportedConfig("rss", { feedUrl: "https://example.org/feed", denyUrlPrefixes: ["https://example.org/business/"] }), []);
   assert.deepEqual(
-    unsupportedConfig("x_search", { query: "from:a", allowUrlPrefixes: ["https://example.org/"] }),
+    unsupportedConfig("mp_account", { wxid: "a", allowUrlPrefixes: ["https://example.org/"] }),
     ["allowUrlPrefixes"],
-    "X shards apply no URL rules",
+    "WeChat accounts are not collected here and apply no URL rules",
   );
 });
 

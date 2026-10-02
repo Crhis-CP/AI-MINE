@@ -42,7 +42,7 @@
 
 | 字段 | 含义 |
 |---|---|
-| `kind` | `rss`、`web_list`（网页列表，配选择器）、`json_list`（JSON 接口）、`x_search`（X 账号，需要 SocialData）、`mp_account`（公众号，需要极致了）、`external`（外部推送） |
+| `kind` | `rss`、`web_list`（网页列表，配选择器）、`json_list`（JSON 接口）、`mp_account`（公众号，需要极致了）、`external`（外部推送） |
 | `config` | 每种信源的配置，见 [信源](sources.md) |
 | `tier` | 信源分级：`T1` 官方一手、`T1_5` 官方账号与准官方、`T2` 媒体与个人、`EXCLUDE_MP` 不参与精选。不同分级的入选门槛不同 |
 | `participation_mode` | `editorial` 进精选和全部动态；`hot_signal` 只作热度证据；`isolated` 不进任何公开页面 |

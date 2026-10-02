@@ -1,7 +1,7 @@
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
 import type { CategoryKey, ChannelKey } from "@aihot/contracts/taxonomy";
-import type { FeedItemSummary, ItemSummary, MediaView, SourceKind, XPostView } from "@aihot/contracts/site";
+import type { FeedItemSummary, ItemSummary, SourceKind } from "@aihot/contracts/site";
 import { sql, type Db } from "../db.ts";
 import { proxiedImage, proxiedImageSet } from "../media/imgproxy.ts";
 import { displayTags } from "./rules.ts";
@@ -18,7 +18,7 @@ export interface ItemRow {
   score: number | null;
   selected: boolean;
   eligible: boolean;
-  channel: "news" | "x";
+  channel: "news";
   url: string;
   published_at: Date | null;
   discovered_at: Date;
@@ -40,14 +40,10 @@ export interface ItemRow {
   /** Participation mode of the source now (editorial, hot_signal, isolated). */
   source_mode: string;
   source_icon: string | null;
-  x_post: Record<string, any> | null;
   author: string | null;
   language: string | null;
   story_public_id: string | null;
   story_title: string | null;
-  zh_text: string | null;
-  /** Chinese translation of the post an X post quotes. */
-  quoted_zh: string | null;
 }
 
 /** Columns every item listing selects. Internal judgement details never leave this layer. */
@@ -56,11 +52,10 @@ export const ITEM_COLUMNS = sql`
   p.selected, p.eligible, p.channel, p.url, p.published_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
   s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode, s.icon_url AS source_icon,
-  a.x_post, a.author, a.language,
-  st.public_id::text AS story_public_id, st.title AS story_title,
-  CASE WHEN p.channel = 'x' THEN tr.body_text END AS zh_text, qt.text_zh AS quoted_zh`;
+  a.author, a.language,
+  st.public_id::text AS story_public_id, st.title AS story_title`;
 
-/** Public API listings never render article bodies, X media or story metadata. */
+/** Public API listings never render article bodies or story metadata. */
 export type ApiItemRow = Pick<
   ItemRow,
   "id" | "title" | "original_title" | "summary" | "source_name" | "url" | "published_at" | "discovered_at" | "category" | "score" | "selected" | "reason"
@@ -76,8 +71,7 @@ export const ITEM_FROM = sql`
   JOIN sources s ON s.id = p.source_id
   JOIN articles a ON a.id = p.article_id
   LEFT JOIN stories st ON st.id = p.story_id AND st.merged_into IS NULL
-  LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision
-  LEFT JOIN quote_translations qt ON p.channel = 'x' AND qt.tweet_id = substring(a.x_post->'quoted'->>'url' from '/status/([0-9]+)')`;
+  LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision`;
 
 /** Listed items: public, and a selected item only after its release gate. */
 export function listedCondition(now: Date) {
@@ -112,55 +106,7 @@ export function topicCondition(topicTags: string[] | null | undefined) {
   return sql`AND p.tags && ${topicTags}::text[]`;
 }
 
-function mediaView(m: Record<string, any>, mode: "card" | "thumb" | "full" = "thumb", responsive = false): MediaView | null {
-  const url = proxiedImage(m.url, mode);
-  if (!url) return null;
-  return {
-    kind: m.kind === "video" ? "video" : "image",
-    url,
-    ...(responsive && mode !== "full" ? { fullUrl: proxiedImage(m.url, "full")! } : {}),
-    ...(responsive && proxiedImageSet(m.poster ?? m.url, mode === "full" ? "body" : "card")
-      ? { srcSet: proxiedImageSet(m.poster ?? m.url, mode === "full" ? "body" : "card")! }
-      : {}),
-    width: typeof m.width === "number" ? m.width : null,
-    height: typeof m.height === "number" ? m.height : null,
-    alt: m.alt ?? null,
-    poster: m.poster ? proxiedImage(m.poster, mode === "card" ? "card" : "thumb") : null,
-  };
-}
-
-export function xView(row: Pick<ItemRow, "x_post" | "zh_text"> & Partial<Pick<ItemRow, "quoted_zh">>, compact = false, responsive = compact): XPostView | null {
-  const x = row.x_post;
-  if (!x) return null;
-  const quoted =
-    x.quoted && typeof x.quoted === "object"
-      ? {
-          authorName: String(x.quoted.authorName ?? ""),
-          handle: String(x.quoted.handle ?? ""),
-          text: String(x.quoted.text ?? ""),
-          url: String(x.quoted.url ?? ""),
-          translation: row.quoted_zh && row.quoted_zh.trim() !== String(x.quoted.text ?? "").trim() ? row.quoted_zh : null,
-        }
-      : null;
-  const media = ((x.media ?? []) as Array<Record<string, any>>)
-    .map((raw) => ({ raw, view: mediaView(raw, compact || !responsive ? "thumb" : "full", responsive) }))
-    .filter((entry): entry is { raw: Record<string, any>; view: MediaView } => entry.view !== null);
-  return {
-    authorName: String(x.authorName ?? x.handle ?? ""),
-    handle: String(x.handle ?? ""),
-    avatarUrl: proxiedImage(x.avatarUrl, "avatar"),
-    ...(responsive && proxiedImageSet(x.avatarUrl, "avatar") ? { avatarSrcSet: proxiedImageSet(x.avatarUrl, "avatar")! } : {}),
-    text: String(x.text ?? ""),
-    translation: row.zh_text && row.zh_text.trim() !== String(x.text ?? "").trim() ? row.zh_text : null,
-    quoted,
-    // A multi-image list grid is 112 CSS px wide; one image can be 240 px. Keep 3x pixels for both.
-    // Detail retains full media for the lightbox; srcSet bounds the displayed image.
-    media: media.map(({ raw, view }) => (compact && media.length > 1 ? mediaView(raw, "card", responsive)! : view)),
-  };
-}
-
 export function toItemSummary(row: ItemRow): ItemSummary {
-  const x = row.channel === "x" ? xView(row, true) : null;
   return {
     id: row.id,
     revision: row.revision,
@@ -186,7 +132,6 @@ export function toItemSummary(row: ItemRow): ItemSummary {
     selected: row.selected,
     channel: row.channel,
     story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? "" } : null,
-    x,
   };
 }
 
@@ -206,18 +151,6 @@ export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
     score: item.score,
     selected: item.selected,
     channel: item.channel,
-    x: item.x
-      ? {
-          authorName: item.x.authorName,
-          handle: item.x.handle,
-          avatarUrl: item.x.avatarUrl,
-          ...(item.x.avatarSrcSet ? { avatarSrcSet: item.x.avatarSrcSet } : {}),
-          media: item.x.media,
-          quoted: item.x.quoted
-            ? { authorName: item.x.quoted.authorName, handle: item.x.quoted.handle, text: item.x.quoted.text, translation: item.x.quoted.translation }
-            : null,
-        }
-      : null,
   };
 }
 

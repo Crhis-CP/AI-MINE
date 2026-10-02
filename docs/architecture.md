@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart LR
-  S["信源<br/>RSS · 网页 · JSON · X · 公众号 · 外部推送"] --> C["采集<br/>判重 · 抓原文"]
+  S["信源<br/>RSS · 网页 · JSON · 公众号 · 外部推送"] --> C["采集<br/>判重 · 抓原文"]
   C --> J["判断与写作<br/>预筛 · 评分 · 标题摘要 · 结构化"]
   J --> G["归组<br/>事件 · 热度 · 综述"]
   J --> P["公开读取层<br/>publication/"]
@@ -25,7 +25,7 @@ flowchart LR
 
 - **一个公开读取层**：网页、RSS、API、MCP、站点地图、分享图读的都是 `packages/backend/src/publication/`，所以各个出口看到的内容一致。新增公开出口也从这里读。
 - **页面不调模型**：读者打开页面只读数据库里已经有的结果；模型只在 worker 的任务里调用。
-- **花钱的请求有回执**：每个付费请求（模型、X、公众号、Jina）先记一张回执，拿到结果先存再用。进程重启、任务重试时，复用已经付过钱的结果，不重复花钱（`providers/receipts.ts`）。结果不明的回执超过 30 分钟后自动放行一次；因它停在失败状态的文章会重新入队，继续未完成的正文提取或分析。再次结果不明时，由管理员在“运行”页核对后放行。
+- **花钱的请求有回执**：每个付费请求（模型、公众号、Jina）先记一张回执，拿到结果先存再用。进程重启、任务重试时，复用已经付过钱的结果，不重复花钱（`providers/receipts.ts`）。结果不明的回执超过 30 分钟后自动放行一次；因它停在失败状态的文章会重新入队，继续未完成的正文提取或分析。再次结果不明时，由管理员在“运行”页核对后放行。
 - **预算熔断**：每个付费服务有每分钟、每小时、每天的上限，超过就暂停（后台“设置 → 预算”）。
 - **安全阀**：`COLLECT_ENABLED`、`MODEL_CALLS_ENABLED`、`FEISHU_CONTENT_PUSH_ENABLED`、`FEISHU_INTERNAL_ENABLED`、`INDEXNOW_SUBMIT_ENABLED` 只决定“发不发出去”，不决定走哪套逻辑。开发和测试时关掉。
 - **公开内容匿名**：管理员和访客看到的一样；读者的收藏、已读存在浏览器里。后台只允许管理员。
@@ -43,7 +43,7 @@ flowchart LR
 | `packages/backend/src/events/` | 事件归组、热度、事件综述 |
 | `packages/backend/src/publication/` | 公开读取层 |
 | `packages/backend/src/reports/` | 日报、周报、月报 |
-| `packages/backend/src/providers/` | 模型、向量、X、公众号、Jina 的调用，回执与预算 |
+| `packages/backend/src/providers/` | 模型、向量、公众号、Jina 的调用，回执与预算 |
 | `packages/backend/src/notify/` | 飞书推送 |
 | `packages/backend/src/operations/` | 告警、备份、清理、IndexNow |
 | `packages/backend/src/admin/` | 后台接口 |

@@ -7,9 +7,8 @@ import type { GroupInfo, FeedItemSummary, TimelineFilters } from "@aihot/contrac
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { SelectedBadge } from "../../components/ui/Badge";
 import { ScoreLabel } from "../../components/ui/Score";
-import { MediaThumbs, SourceLine, StarButton } from "./parts";
+import { SourceLine, StarButton } from "./parts";
 import { GroupDevelopments, GroupSources, LatestDevelopment } from "./ReadingGroup";
-import { QuotedLine } from "../item/QuotedPost";
 
 export interface FeedItemProps {
   item: FeedItemSummary;
@@ -22,7 +21,6 @@ export interface FeedItemProps {
 }
 
 export const FeedItem = memo(function FeedItem({ item, group, filters, read = false, onOpen, showTags = false }: FeedItemProps) {
-  const isX = item.channel === "x" && !!item.x;
   const open = () => onOpen?.(item.id);
   const showSources = !!group && (group.additionalSourceCount > 0 || (group.developmentCount <= 1 && group.reportCount > 1));
   const showDevelopments = !!group?.story && group.developmentCount > 1;
@@ -50,25 +48,12 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
         </span>
       </header>
 
-      {isX ? (
-        <p className={`mt-2 whitespace-pre-line text-[15px] leading-[1.75] line-clamp-5 lg:line-clamp-4 ${read ? "text-ink-4" : "text-ink"}`}>
-          <IntentLink to={`/items/${item.id}`} onClick={open} className="after:absolute after:inset-0 after:content-['']">
-            {item.summary ?? item.title}
-          </IntentLink>
-        </p>
-      ) : (
-        <>
-          <h3 className={`mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] ${read ? "text-ink-4" : "text-ink"}`}>
-            <IntentLink to={`/items/${item.id}`} onClick={open} className="after:absolute after:inset-0 after:content-['']">
-              {item.title}
-            </IntentLink>
-          </h3>
-          {item.summary && <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[15px]">{item.summary}</p>}
-        </>
-      )}
-
-      {isX && item.x!.media.length > 0 && <MediaThumbs media={item.x!.media} className="mt-2.5" />}
-      {isX && item.x!.quoted?.text && <QuotedLine quoted={item.x!.quoted} />}
+      <h3 className={`mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] ${read ? "text-ink-4" : "text-ink"}`}>
+        <IntentLink to={`/items/${item.id}`} onClick={open} className="after:absolute after:inset-0 after:content-['']">
+          {item.title}
+        </IntentLink>
+      </h3>
+      {item.summary && <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[15px]">{item.summary}</p>}
 
       {(tags.length > 0 || (showTags && item.category)) && (
         <div className="relative z-10 mt-2 hidden flex-wrap gap-x-2.5 gap-y-1 text-[12px] text-ink-4 lg:flex">

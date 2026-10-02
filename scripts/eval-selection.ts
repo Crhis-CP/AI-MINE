@@ -66,7 +66,6 @@ const sample = shuffled.slice(0, Number(values.n));
 
 function toInput(r: GoldRow): AnalyzeInputArticle {
   const m = r.material;
-  const isX = r.sourceFacts.sourceKind === "x_search";
   const body = m.bodyOriginal || m.bodyZh || null;
   return {
     id: `gold-${r.caseId}`,
@@ -76,9 +75,8 @@ function toInput(r: GoldRow): AnalyzeInputArticle {
     url: "https://example.invalid/" + r.caseId,
     author: null,
     publishedAt: m.publishedAt ? new Date(m.publishedAt) : null,
-    bodyText: isX ? null : body,
+    bodyText: body,
     excerpt: null,
-    xPost: isX ? { authorName: m.sourceName, handle: "", text: body ?? m.title } : null,
     media: [],
     source: { name: m.sourceName, kind: r.sourceFacts.sourceKind, tier: r.sourceFacts.sourceTier ?? "T2", firstParty: r.sourceFacts.firstParty ?? false },
   };

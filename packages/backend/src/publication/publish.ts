@@ -9,7 +9,7 @@ import { sha256, stableJson } from "../lib/ids.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
-import { bodyModeOf, channelOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
+import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
 
 interface ArticleRow {
   id: string;
@@ -23,7 +23,6 @@ interface ArticleRow {
   backfill: boolean;
   body_status: string;
   body_text: string | null;
-  x_post: unknown;
   grouped_at: Date | null;
 }
 
@@ -156,7 +155,7 @@ export async function publishArticle(articleId: string, options: PublishOptions 
 export async function publishArticleTx(tx: Tx, articleId: string, options: PublishOptions = {}): Promise<PublishResult | null> {
   const [article] = await tx<ArticleRow[]>`
     SELECT id, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, x_post, grouped_at
+           body_text, grouped_at
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -179,10 +178,10 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
 
   const f = override?.fields ?? {};
   const isChineseTitle = article.language === "zh" || /[一-鿿]/.test(article.title);
-  // An X post carries its Chinese in the summary and translation; without a Chinese title its own
-  // text is the title, where an article would still be a half-finished card.
+  // Without a written Chinese title, a Chinese original keeps its own title; a foreign one would
+  // still be a half-finished card.
   const zhTitle = analysis?.title_zh?.trim() ? analysis.title_zh : null;
-  const title = pickString(f.title, zhTitle ?? (isChineseTitle || article.x_post ? collapseWhitespace(article.title) : null));
+  const title = pickString(f.title, zhTitle ?? (isChineseTitle ? collapseWhitespace(article.title) : null));
   const summary = pickString(f.summary, analysis?.summary_zh ?? null);
   const category = pickString(f.category, analysis?.category ?? null);
   const tags = Array.isArray(f.tags)
@@ -197,8 +196,6 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const eligible = isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary });
   const selected = isSelectable(eligible, judgedSelected, source.tier);
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ?? null) : null;
-  const hasXPost = !!article.x_post;
-  const channel = channelOf(source.kind, hasXPost);
   const bodyMode = bodyModeOf(source, article.body_status, !!article.body_text && article.body_text.length > 0);
   const syndicate = mayRedistribute(source, bodyMode);
   const originalTitle = isChineseTitle && title === collapseWhitespace(article.title) ? null : collapseWhitespace(article.title);
@@ -285,7 +282,7 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
       reason, category, tags, score, source_id, channel, first_party, url, published_at, discovered_at, timeline_at, backfill,
       selected_ready_at, visible_after, body_mode, syndicate, indexable, story_id, fact_id, search_text, sort_at, updated_at)
     VALUES (${articleId}, ${analysis?.id ?? null}, ${revision}, ${visibility}, ${eligible}, ${selected}, ${next.title},
-      ${originalTitle}, ${summary}, ${reason}, ${category}, ${tags}, ${next.score}, ${source.id}, ${channel}, ${source.first_party},
+      ${originalTitle}, ${summary}, ${reason}, ${category}, ${tags}, ${next.score}, ${source.id}, 'news', ${source.first_party},
       ${article.url}, ${article.published_at}, ${article.discovered_at}, ${article.timeline_at}, ${article.backfill},
       ${selectedReadyAt}, ${visibleAfter}, ${bodyMode}, ${syndicate}, ${indexable}, ${next.story_id}, ${next.fact_id}, ${searchText}, ${sortAt}, now())
     ON CONFLICT (article_id) DO UPDATE SET

@@ -36,7 +36,6 @@ interface Source {
   owner_entity_id: string | null;
   tier: string;
   participation_mode: string;
-  signal_group_id: string | null;
   interval_minutes: number;
   site_fulltext: boolean;
   syndicate_fulltext: boolean;
@@ -100,7 +99,7 @@ export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `${loaderD
 
 type Draft = Pick<
   Source,
-  "name" | "interval_minutes" | "tier" | "participation_mode" | "signal_group_id" | "first_party" | "owner_entity_id" | "site_fulltext" | "syndicate_fulltext"
+  "name" | "interval_minutes" | "tier" | "participation_mode" | "first_party" | "owner_entity_id" | "site_fulltext" | "syndicate_fulltext"
 > & { tags: string; config: string };
 
 function draftOf(s: Source): Draft {
@@ -109,7 +108,6 @@ function draftOf(s: Source): Draft {
     interval_minutes: s.interval_minutes,
     tier: s.tier,
     participation_mode: s.participation_mode,
-    signal_group_id: s.signal_group_id,
     first_party: s.first_party,
     owner_entity_id: s.owner_entity_id,
     site_fulltext: s.site_fulltext,
@@ -151,7 +149,6 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
         .filter(Boolean),
       config,
       interval_minutes: Number(draft.interval_minutes),
-      signal_group_id: draft.signal_group_id || null,
       owner_entity_id: draft.owner_entity_id || null,
     };
     const before = draftOf(s) as Record<string, unknown>;
@@ -274,9 +271,6 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                     </option>
                   ))}
                 </Select>
-              </Field>
-              <Field label="讨论分组 ID" hint="同一机构的多个账号共用，热度只算一次">
-                <Input value={draft.signal_group_id ?? ""} onChange={(e) => setDraft({ ...draft, signal_group_id: e.target.value })} />
               </Field>
               <Field label="运营主体 ID">
                 <Input value={draft.owner_entity_id ?? ""} onChange={(e) => setDraft({ ...draft, owner_entity_id: e.target.value })} />

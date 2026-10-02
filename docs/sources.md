@@ -2,14 +2,13 @@
 
 信源在后台“信源”页管理：新建、试抓一次看看抓到什么、改频率、启停、看失败原因和最近的条目。首次启动时，`industry/sources.json` 里的示范信源会被导入。
 
-## 六种信源
+## 五种信源
 
 | 类型 | 适合 | 需要 |
 |---|---|---|
 | `rss` | 有 RSS / Atom 的博客、媒体、Substack、公众号转 RSS 服务 | 无 |
 | `web_list` | 没有 RSS 的网页列表（新闻页、博客列表、更新日志） | 写选择器；抓不到时可以经 Jina Reader 渲染（按次计费） |
 | `json_list` | 返回 JSON 的接口（GitHub Releases 等） | 写字段路径 |
-| `x_search` | X（推特）账号 | SocialData 的 key，按请求计费 |
 | `mp_account` | 微信公众号 | 极致了（Dajiala）的 key，按请求计费 |
 | `external` | 你自己的脚本推送进来的内容 | `INGEST_TOKEN`，见下文 |
 
@@ -38,14 +37,6 @@
 - `parseMode`：`html`（默认，用选择器）、`markdown`（经 Jina 渲染后按 Markdown 读）、`docusaurus_changelog`。
 - `detail`：列表缺日期、标题或摘要时抓详情页补齐（`publishedAtSelector`、`titleSelector`、`summarySelector` 等）。
 - `allowUrlPrefixes` / `denyUrlPrefixes`：只收某些路径下的文章。
-
-### x_search
-
-```json
-{ "query": "from:SomeAccount -filter:replies" }
-```
-
-普通账号会被自动合并成一次搜索（每次最多二十几个账号），省请求数。
 
 ### mp_account
 
