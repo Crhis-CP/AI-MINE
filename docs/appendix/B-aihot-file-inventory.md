@@ -363,7 +363,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `0020_story_summary.sql`、`0024_grouping_overrides_digest_inputs.sql`、`0032_regroup_pending.sql` | story 事实说明；单独成组的人工决定与综述输入哈希；待重组标记 | events | 搬移 |
 | `0022_receipt_attempts_budgets.sql`、`0033_receipt_budget_index.sql` | 每次实际发送一行的尝试表、预算检查索引、熔断种子行 | `ai` | 搬移（熔断种子行不进基线，由网关配置取代） |
 | `0023_processing_retry.sql` | 处理入队时间、失败次数、下次重试时间 | content（T-0005）→ enrichment | 改造 |
-| `0026_source_icon_checked.sql`、`0029_source_config_content_public.sql`、`0036_open_source_defaults.sql` | 图标检查时间；清理旧配置键；`site_fulltext` 缺省改 false 与两条熔断种子 | sources（0026 只有图标检查一列，随图标功能在 T-0002 整个删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线 | 改造 |
+| `0026_source_icon_checked.sql`、`0029_source_config_content_public.sql`、`0036_open_source_defaults.sql` | 图标检查时间；清理旧配置键；`site_fulltext` 缺省改 false 与两条熔断种子 | sources（0026 只有图标检查一列，随图标功能在 T-0002 整个删除，2026-10-02 起 CSV 与锁文件该行记为删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线 | 改造 |
 | `0027_feedback_forward_error.sql` | 反馈转发失败原因 | feedback | 删除（反馈不转发） |
 | `0030_collection_url_index.sql` | `articles.url` 索引 | content | 搬移 |
 | `0034_lz4_toast.sql` | 数据库级 lz4 TOAST 缺省、`pool_search.body` 压缩 | 基础迁移 + publication | 搬移 |
