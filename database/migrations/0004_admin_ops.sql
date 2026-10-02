@@ -47,7 +47,6 @@ CREATE TABLE feedback (
   source_hash       text NOT NULL,
   status            text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'triaged', 'replied', 'resolved', 'spam')),
   note              text,
-  forwarded_at      timestamptz,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
