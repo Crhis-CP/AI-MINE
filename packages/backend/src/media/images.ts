@@ -155,8 +155,8 @@ const ANIMATION_MAX_PIXELS = 200_000_000;
 /**
  * Replaces a cached animated rendition (GIF passed through on the request path) with an animated
  * WebP at the rendition's width, keeping every frame, its timing and the loop count, when that is
- * clearly smaller. Background work only (media.prepare): decoding all frames is too heavy for a
- * request. Returns the bytes saved (0 when nothing changed).
+ * clearly smaller. Background work only: decoding all frames is too heavy for a request. Nothing calls
+ * it while public pages keep the proxy off (DR-78). Returns the bytes saved (0 when nothing changed).
  */
 export async function convertAnimated(url: string, mode: string): Promise<number> {
   const file = cacheFile(url, mode);

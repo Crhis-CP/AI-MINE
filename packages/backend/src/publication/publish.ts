@@ -327,8 +327,6 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   if (selected && !previous?.selected_ready_at && !options.releasedAt && !article.backfill && visibility === "public") {
     const at = visibleAfter && visibleAfter > now ? visibleAfter : now;
     await enqueue(QUEUES.notifySelected, { articleId }, { singletonKey: `selected:${articleId}`, startAfter: new Date(at.getTime() + 5_000) }, tx);
-    // Its images are fetched and resized now, before the release gate lets readers in.
-    await enqueue(QUEUES.prepareMedia, { articleId }, { singletonKey: `media:${articleId}` }, tx);
   }
 
   // Selected sync ledger: the public selected set is (selected AND visibility = public).

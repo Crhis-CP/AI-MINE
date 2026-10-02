@@ -230,24 +230,3 @@ test("background preparation turns a cached GIF into a smaller animated WebP wit
   assert.equal(meta.width, 160);
   assert.equal(await convertAnimated(`${base}/anim.gif`, "image-336"), 0);
 });
-
-test("preparation finds every rendition a card and a page ask for, including escaped body images", async () => {
-  const { proxiedRenditions } = await import("@aihot/backend/media/prepare");
-  const { proxiedImage, proxiedImageSet, proxyBodyImages } = await import("@aihot/backend/media/imgproxy");
-  const answers = [
-    { avatar: proxiedImage("https://example.org/a.png?x=1&y=2", "avatar-48"), srcSet: proxiedImageSet("https://example.org/c.png", "card") },
-    { html: proxyBodyImages('<img src="https://example.org/b.png?q=1&amp;r=2" width="800" height="400">') },
-  ];
-  const found = proxiedRenditions(answers)
-    .map((r) => `${r.mode} ${r.url}`)
-    .sort();
-  assert.deepEqual(found, [
-    "avatar-48 https://example.org/a.png?x=1&y=2",
-    "full https://example.org/b.png?q=1&r=2",
-    "image-1200 https://example.org/b.png?q=1&r=2",
-    "image-1600 https://example.org/b.png?q=1&r=2",
-    "image-336 https://example.org/c.png",
-    "image-720 https://example.org/b.png?q=1&r=2",
-    "image-720 https://example.org/c.png",
-  ]);
-});
