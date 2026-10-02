@@ -1,5 +1,9 @@
-AIHOT
-Copyright (c) 2026 数字生命卡兹克. The code is licensed under the MIT License (LICENSE).
+AI矿策 (AI Mining Policy)
+Copyright (c) 2026 Chirs Codex. Licensed under the MIT License (LICENSE).
+
+This project is built on AIHOT (https://github.com/KKKKhazix/AIHOT, commit 885b736).
+Portions derived from AIHOT: Copyright (c) 2026 数字生命卡兹克, licensed under the MIT License
+(LICENSES/AIHOT-MIT.txt, kept verbatim). See UPSTREAM.md.
 
 The name "AIHOT" and the AIHOT logo are not licensed under the MIT License. Please use your own name
 and logo for your site.
