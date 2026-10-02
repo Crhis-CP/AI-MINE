@@ -1,14 +1,12 @@
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link, useLoaderData } from "react-router";
 import type { SiteStats } from "@aihot/contracts/site";
 import { apiGet } from "../lib/api.server";
-import { shortSourceName } from "../lib/format";
 import { ABOUT, SITE, withSubject } from "@aihot/industry/site";
 import { organizationLd, pageMeta } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker";
 import { buttonClass } from "../components/ui/Controls";
 import { IconArrowRight } from "../components/icons";
-import { SignalRiver, type RiverSource } from "../features/about/SignalRiver";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -29,8 +27,6 @@ export function meta() {
     jsonLd: organizationLd(),
   });
 }
-
-const NO_SOURCES: RiverSource[] = [];
 
 /** 3.6 万 from ten thousand up, digits with separators below. */
 function figure(n: number): { value: string; unit: string } {
@@ -57,10 +53,7 @@ const KIND_ORDER: Array<[string, string]> = [
   ["json_list", "接口"],
 ];
 
-/**
- * The stage columns' rules: one column on phones, two by two from sm, and from lg four in a row whose
- * edges fall on the river's stage boundaries.
- */
+/** The stage columns' rules: one column on phones, two by two from sm, four in a row from lg. */
 const STAGE_CELL = [
   "sm:pr-6 lg:pr-6",
   "border-t sm:border-l sm:border-t-0 sm:pl-6 lg:px-6",
@@ -114,35 +107,9 @@ function stagesOf(stats: SiteStats | null): Stage[] {
   ];
 }
 
-/** The latest 精选 under the river's paper; it moves on each time an item reaches the paper. */
-function Latest({ item, className = "" }: { item: SiteStats["latest"][number] | undefined; className?: string }) {
-  if (!item) return null;
-  return (
-    <Link to={`/items/${item.id}`} prefetch="intent" className={`group block ${className}`}>
-      <span className="text-[11px] font-semibold tracking-[0.2em] text-accent">最近精选</span>
-      <span key={item.id} className="animate-fade-up mt-1.5 block">
-        <span className="line-clamp-2 text-[13.5px] font-semibold leading-[1.55] text-ink transition-colors group-hover:text-accent">{item.title}</span>
-        <span className="mt-1 block truncate text-[12px] text-ink-4">{shortSourceName(item.source)}</span>
-      </span>
-    </Link>
-  );
-}
-
 export default function AboutPage() {
   const { stats } = useLoaderData<typeof loader>();
-  const [focus, setFocus] = useState<number | null>(null);
-  const [at, setAt] = useState(0);
-  const shown = useRef(0);
-  const sources = useMemo(() => stats?.sampleSources ?? NO_SOURCES, [stats]);
   const stages = useMemo(() => stagesOf(stats), [stats]);
-  const latest = stats?.latest ?? [];
-  // A pulse reaches the paper every second or so; the headline under it changes at most every 2.8s.
-  const onArrive = useCallback(() => {
-    const now = Date.now();
-    if (now - shown.current < 2800 || latest.length < 2) return;
-    shown.current = now;
-    setAt((i) => (i + 1) % latest.length);
-  }, [latest.length]);
 
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-14 pt-6 lg:pt-3">
@@ -177,24 +144,9 @@ export default function AboutPage() {
         <h2 id="how" className="sr-only">
           {SITE.name} 怎么工作
         </h2>
-        <SignalRiver sources={sources} focus={focus} onArrive={onArrive} className="h-[230px] sm:h-[300px] lg:h-[360px] 2xl:h-[420px]">
-          <Latest item={latest[at]} className="absolute left-[75%] top-[calc(42%+42px)] hidden w-[25%] px-6 lg:block" />
-        </SignalRiver>
-        <p className="sr-only">
-          示意图：每条线是一个信源；线汇成一束束，代表同一件事的多篇报道；经过精选的闸门，只有少数几束通过，汇入每天的{withSubject("日报")}。
-        </p>
-        <Latest item={latest[at]} className="mt-2 border-t border-line pt-4 lg:hidden" />
-        <ol className="mt-4 grid grid-cols-1 border-t border-line-strong sm:grid-cols-2 lg:mt-0 lg:grid-cols-4">
+        <ol className="grid grid-cols-1 border-t border-line-strong sm:grid-cols-2 lg:grid-cols-4">
           {stages.map((s, i) => (
-            <li
-              key={s.no}
-              tabIndex={0}
-              onPointerEnter={() => setFocus(i)}
-              onPointerLeave={() => setFocus(null)}
-              onFocus={() => setFocus(i)}
-              onBlur={() => setFocus(null)}
-              className={`border-line py-6 outline-none transition-colors ${STAGE_CELL[i]} ${focus === i ? "bg-accent-softer" : ""}`}
-            >
+            <li key={s.no} className={`border-line py-6 ${STAGE_CELL[i]}`}>
               <div className="flex items-baseline gap-2.5">
                 <span className="num text-[12px] font-bold tracking-[0.12em] text-accent">{s.no}</span>
                 <h3 className="text-[17px] font-bold text-ink">{s.title}</h3>

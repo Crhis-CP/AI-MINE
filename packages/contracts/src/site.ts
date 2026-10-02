@@ -324,7 +324,7 @@ export interface ReportIndexEntry {
   count: number;
 }
 
-/** Figures and samples for the about page (site-only; not part of v1). */
+/** Figures for the about page (site-only; not part of v1). */
 export interface SiteStats {
   /** Sources collected from now. */
   sources: number;
@@ -338,10 +338,6 @@ export interface SiteStats {
   dailies: number;
   /** The last 24 hours: items found (heat-only sources included), and items that made 精选 (by their place on the timeline). */
   day: { collected: number; selected: number };
-  /** Enabled sources in a daily shuffle, for the about page's river: one line per source. */
-  sampleSources: Array<{ name: string; kind: string; heatOnly: boolean }>;
-  /** The latest 精选, newest first. */
-  latest: Array<{ id: string; title: string; source: string }>;
 }
 
 /** A reading page transfers one language; the canonical item retains both for exports. */
