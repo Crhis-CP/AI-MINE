@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "scope": "只检查交接包文档、契约与归档的自洽性；不代表产品已实现或验收",
+  "counts": {
+    "markdown_files": 96,
+    "ids_defined": 1216,
+    "ids_referenced": 1216,
+    "ids_referenced_without_definition": 0,
+    "http_operations": 31,
+    "dto_schemas": 46,
+    "acceptance_scenarios": 160,
+    "traceability_rows": 68,
+    "aihot_files_hash_verified": 502,
+    "aihot_archive_sha256_prefix": 3330746725,
+    "source_targets_json": 320,
+    "source_targets_csv": 320,
+    "source_records_csv": 321,
+    "jurisdiction_objects": 36,
+    "jurisdiction_subdivisions": 14,
+    "traceability_pending_cases": 2
+  },
+  "errors": [],
+  "warnings": []
+}

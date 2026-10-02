@@ -1,0 +1,90 @@
+{
+  "review_gate_id": "review-gates-v1",
+  "version": "1.0.0-rc1",
+  "state": "OFFLINE_CALIBRATION",
+  "taxonomy_version": "1.0.0-rc1",
+  "categories": [
+    {
+      "category": "policy_regulation",
+      "required_facts": ["authority", "jurisdiction", "instrument", "procedure_stage", "effective_date", "regulated_subject", "exceptions", "appeal_or_review"],
+      "controlled_terms": ["征求意见", "通过", "刊宪", "生效", "开始执法"],
+      "gates": [
+        { "gate_code": "policy_stage", "hard_gate": true, "description_zh": "必须精确区分草案、征求意见、通过、刊宪、生效和执法，不能用更晚阶段动词。", "blocking_reason_codes": ["POLICY_STAGE_UNVERIFIED", "STATUS_PRECISION_FAILURE"] },
+        { "gate_code": "policy_authority", "hard_gate": true, "description_zh": "新闻稿、评论或媒体摘要不能替代具有构成性作用的正式文书。", "blocking_reason_codes": ["POLICY_AUTHORITY_NOT_CONSTITUTIVE", "SOURCE_ATTRIBUTION_ERROR"] }
+      ]
+    },
+    {
+      "category": "company_project",
+      "required_facts": ["company", "asset", "ownership_interest", "project_stage", "baseline", "capacity", "financing", "milestone_date"],
+      "controlled_terms": ["目标", "申请", "获批", "建设", "试生产", "商业投产"],
+      "gates": [
+        { "gate_code": "project_stage", "hard_gate": true, "description_zh": "目标、申请、许可、机械完工、试生产和商业投产必须按已核验阶段表述。", "blocking_reason_codes": ["PROJECT_STAGE_OVERSTATED", "STATUS_PRECISION_FAILURE"] },
+        { "gate_code": "project_baseline", "hard_gate": true, "description_zh": "产能、资金、时间和里程碑变化必须具有可比基线和明确口径。", "blocking_reason_codes": ["PROJECT_BASELINE_MISSING", "QUANTITATIVE_CONTEXT_MISSING"] }
+      ]
+    },
+    {
+      "category": "commodity_market",
+      "required_facts": ["commodity", "venue", "benchmark", "contract", "unit", "currency", "time_window", "historical_baseline", "data_delay", "causal_source"],
+      "controlled_terms": ["价格点", "异常", "相关", "导致", "实时", "延迟"],
+      "gates": [
+        { "gate_code": "market_baseline", "hard_gate": true, "description_zh": "单个价格点只有在 benchmark、单位、币种、时间窗、延迟和历史基线完整时才能写成异常。", "blocking_reason_codes": ["MARKET_BASELINE_MISSING", "QUANTITATIVE_CONTEXT_MISSING"] },
+        { "gate_code": "market_causality", "hard_gate": true, "description_zh": "价格事实和原因推断必须拆成不同 claim，相关性或评论不能写成因果。", "blocking_reason_codes": ["MARKET_CAUSALITY_UNSUPPORTED", "CAUSALITY_UNSUPPORTED"] }
+      ]
+    },
+    {
+      "category": "capital_ma",
+      "required_facts": ["parties", "asset_or_interest", "ownership_change", "amount", "currency", "deal_stage", "conditions_precedent", "approval_status", "closing_date"],
+      "controlled_terms": ["传闻", "意向书", "MOU", "协议", "审批", "交割"],
+      "gates": [
+        { "gate_code": "deal_stage", "hard_gate": true, "description_zh": "传闻、MOU、签约、监管审批和交割必须逐项核验，不能相互替代。", "blocking_reason_codes": ["DEAL_STAGE_UNVERIFIED", "STATUS_PRECISION_FAILURE"] },
+        { "gate_code": "deal_value", "hard_gate": true, "description_zh": "企业价值、股权价值、现金对价、债务和币种必须使用准确口径。", "blocking_reason_codes": ["DEAL_VALUE_BASIS_CONFLICT", "QUANTITATIVE_CONTEXT_MISSING"] }
+      ]
+    },
+    {
+      "category": "supply_trade_controls",
+      "required_facts": ["issuing_authority", "legal_tool", "target_identifier", "product_or_hs", "territory", "effective_date", "exceptions", "license_terms", "supply_chain_path"],
+      "controlled_terms": ["调查", "拟议", "征税", "制裁", "WRO", "许可证", "禁运"],
+      "gates": [
+        { "gate_code": "entity_match", "hard_gate": true, "description_zh": "制裁、WRO 或贸易对象必须以注册号、地址、所有权或名单标识核对，禁止同名误配。", "blocking_reason_codes": ["ENTITY_MATCH_CONFLICT", "SOURCE_ATTRIBUTION_ERROR"] },
+        { "gate_code": "trade_measure_stage", "hard_gate": true, "description_zh": "调查启动、拟议措施、正式决定、生效和许可例外必须按精确阶段表述。", "blocking_reason_codes": ["TRADE_MEASURE_STAGE_UNVERIFIED", "POLICY_STAGE_UNVERIFIED"] }
+      ]
+    },
+    {
+      "category": "esg_community_labor",
+      "required_facts": ["stakeholders", "affected_people", "claim_attribution", "rights_process", "duration", "operational_effect", "responses", "counterevidence"],
+      "controlled_terms": ["声称", "指控", "确认", "咨询", "FPIC", "协议", "罢工"],
+      "gates": [
+        { "gate_code": "allegation_status", "hard_gate": true, "description_zh": "必须区分谁提出了何种指控与该事实是否已经独立证实。", "blocking_reason_codes": ["ALLEGATION_PRESENTED_AS_FACT", "ALLEGATION_ONLY"] },
+        { "gate_code": "stakeholder_balance", "hard_gate": true, "description_zh": "关键社区、工会、企业、机关立场和已知反证必须得到准确归属与披露。", "blocking_reason_codes": ["STAKEHOLDER_VIEW_MISSING", "CORE_CLAIM_CONFLICT"] }
+      ]
+    },
+    {
+      "category": "safety_incident",
+      "required_facts": ["location", "incident_time", "incident_type", "casualty_status", "rescue_status", "production_status", "investigating_authority", "incident_identity"],
+      "controlled_terms": ["初报", "已确认", "失联", "死亡", "救援", "停产", "最终原因"],
+      "gates": [
+        { "gate_code": "casualty_status", "hard_gate": true, "description_zh": "伤亡人数、身份和确认机关必须精确，未经核验的初报不得写成已确认。", "blocking_reason_codes": ["CASUALTY_STATUS_UNCONFIRMED", "ALLEGATION_PRESENTED_AS_FACT"] },
+        { "gate_code": "incident_cause", "hard_gate": true, "description_zh": "初步推测、企业说法和调查机关最终结论必须分开，不得提前归因。", "blocking_reason_codes": ["INCIDENT_CAUSE_PREMATURE", "CAUSALITY_UNSUPPORTED"] },
+        { "gate_code": "incident_identity", "hard_gate": true, "description_zh": "同一矿区不同时间或地点的事故不得因主体相同而错误合并。", "blocking_reason_codes": ["INCIDENT_IDENTITY_CONFLICT", "ORIGIN_FAMILY_UNRESOLVED"] }
+      ]
+    },
+    {
+      "category": "technology_processing",
+      "required_facts": ["technology", "feedstock", "test_conditions", "scale", "baseline", "independent_validation", "cost", "energy", "waste"],
+      "controlled_terms": ["实验室", "小试", "中试", "示范", "商业化", "相对改善"],
+      "gates": [
+        { "gate_code": "technology_scale", "hard_gate": true, "description_zh": "实验室、小试、中试、示范和商业规模必须使用受控阶段，不能暗中升级。", "blocking_reason_codes": ["TECHNOLOGY_SCALE_OVERSTATED", "STATUS_PRECISION_FAILURE"] },
+        { "gate_code": "technology_baseline", "hard_gate": true, "description_zh": "回收率、成本、能耗或废物改善必须给出绝对基线和试验条件。", "blocking_reason_codes": ["TECHNOLOGY_BASELINE_MISSING", "QUANTITATIVE_CONTEXT_MISSING"] }
+      ]
+    },
+    {
+      "category": "exploration_resource",
+      "required_facts": ["disclosure_standard", "standard_version", "qualified_person", "effective_date", "classification", "tonnage", "grade", "cutoff", "true_thickness", "study_stage"],
+      "controlled_terms": ["钻孔", "勘探靶区", "资源量", "储量", "真厚度", "QP", "CP"],
+      "gates": [
+        { "gate_code": "exploration_stage", "hard_gate": true, "description_zh": "钻探截距和靶区不得被表述为资源量或储量，资源量不得无依据升级为储量。", "blocking_reason_codes": ["DRILL_RESULT_AS_RESOURCE", "RESOURCE_AS_RESERVE"] },
+        { "gate_code": "technical_disclosure", "hard_gate": true, "description_zh": "标准、版本、有效日、分类、QP 或 CP 和关键量化口径必须完整。", "blocking_reason_codes": ["DISCLOSURE_STANDARD_MISSING", "QUALIFIED_PERSON_MISSING", "QUANTITATIVE_CONTEXT_MISSING"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "commit": "885b736dc0fd3ef3d4c9c70af2bc3a981a99ff38",
+  "files": 502,
+  "sql_migrations": 35,
+  "create_table_statements": 60,
+  "backend_test_files": 35,
+  "web_test_files": 5,
+  "largest_source_files": [
+    {
+      "path": "packages/backend/src/events/group.ts",
+      "lines": 864
+    },
+    {
+      "path": "apps/web/app/features/about/SignalRiver.tsx",
+      "lines": 579
+    },
+    {
+      "path": "packages/backend/src/leaderboard/read.ts",
+      "lines": 575
+    },
+    {
+      "path": "apps/web/app/app.css",
+      "lines": 534
+    },
+    {
+      "path": "packages/backend/src/editorial/analyze.ts",
+      "lines": 455
+    },
+    {
+      "path": "apps/web/app/routes/admin/content-item.tsx",
+      "lines": 454
+    },
+    {
+      "path": "apps/web/app/routes/story.tsx",
+      "lines": 433
+    },
+    {
+      "path": "apps/web/app/features/report/ReportPaper.tsx",
+      "lines": 421
+    },
+    {
+      "path": "apps/web/app/routes/item.tsx",
+      "lines": 404
+    },
+    {
+      "path": "apps/web/app/routes/leaderboard-model.tsx",
+      "lines": 397
+    },
+    {
+      "path": "packages/contracts/src/site.ts",
+      "lines": 389
+    },
+    {
+      "path": "tests/publication.test.ts",
+      "lines": 386
+    },
+    {
+      "path": "packages/backend/src/sources/web-list.ts",
+      "lines": 381
+    },
+    {
+      "path": "packages/backend/src/leaderboard/method/v15.ts",
+      "lines": 379
+    },
+    {
+      "path": "packages/backend/src/editorial/writing.ts",
+      "lines": 376
+    },
+    {
+      "path": "packages/backend/src/publication/reports.ts",
+      "lines": 370
+    },
+    {
+      "path": "apps/web/app/routes/admin/source.tsx",
+      "lines": 367
+    },
+    {
+      "path": "packages/backend/src/sources/collect.ts",
+      "lines": 363
+    },
+    {
+      "path": "packages/backend/src/publication/publish.ts",
+      "lines": 361
+    },
+    {
+      "path": "apps/web/app/features/admin/ui.tsx",
+      "lines": 356
+    }
+  ],
+  "verification": "archive hashes matched; static only; no install, build, run or test",
+  "hash_mismatches": []
+}

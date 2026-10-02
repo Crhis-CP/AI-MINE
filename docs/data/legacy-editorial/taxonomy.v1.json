@@ -1,0 +1,182 @@
+{
+  "taxonomy_id": "mining-editorial-taxonomy-v2",
+  "version": "1.0.0-rc1",
+  "state": "OFFLINE_CALIBRATION",
+  "editorial_categories": [
+    {
+      "code": "policy_regulation",
+      "label_zh": "政策监管",
+      "aliases_zh": ["法规政策"],
+      "definition_zh": "政府、监管机关或具有法定职能的机构对矿业权利义务、许可、税费、准入或执法作出的规则与程序变化。",
+      "include_zh": ["法律、法规、规章、正式政策和监管决定", "征求意见、立法程序、许可和执法阶段的实质变化"],
+      "exclude_zh": ["只讨论市场价格而没有规则或监管动作的内容"],
+      "second_review_ref": "review-gates-v1#policy_regulation"
+    },
+    {
+      "code": "company_project",
+      "label_zh": "企业与项目",
+      "aliases_zh": ["企业项目"],
+      "definition_zh": "矿业企业、矿山、冶炼加工资产或基础设施项目的建设、运营、产能、融资和关键里程碑。",
+      "include_zh": ["项目审批、建设、投产、扩产、停产和复产", "企业经营或资产层面的可核验重大变化"],
+      "exclude_zh": ["以股权或控制权交易为核心动作的并购事项"],
+      "second_review_ref": "review-gates-v1#company_project"
+    },
+    {
+      "code": "commodity_market",
+      "label_zh": "商品与市场",
+      "aliases_zh": ["商品市场"],
+      "definition_zh": "矿产品价格、基准、库存、供需、交易场所和市场结构的可核验变化及其有证据支持的解释。",
+      "include_zh": ["基准价格、库存、产量、需求和市场异常", "具有明确单位、币种、时间窗和数据延迟的市场数据"],
+      "exclude_zh": ["没有异常基线或矿业影响路径的普通单点价格波动"],
+      "second_review_ref": "review-gates-v1#commodity_market"
+    },
+    {
+      "code": "capital_ma",
+      "label_zh": "投资并购",
+      "aliases_zh": ["资本交易"],
+      "definition_zh": "涉及矿业企业、股权、资产、项目权益或融资控制权的投资、合资、收购、出售和交割事件。",
+      "include_zh": ["传闻、意向、协议、审批和交割等明确阶段", "股权、资产或控制权发生实质变化的交易"],
+      "exclude_zh": ["没有资本或权益交易动作的普通项目建设进展"],
+      "second_review_ref": "review-gates-v1#capital_ma"
+    },
+    {
+      "code": "supply_trade_controls",
+      "label_zh": "供应链、贸易与制裁",
+      "aliases_zh": ["供应链贸易制裁"],
+      "definition_zh": "影响矿产跨境流动、采购、运输、出口进口、制裁名单、强迫劳动管控或供应链准入的措施与中断。",
+      "include_zh": ["出口限制、关税、配额、禁运、WRO 和制裁", "关键物流、加工或采购节点的结构性中断"],
+      "exclude_zh": ["没有矿产品、主体或供应链影响路径的一般外交表态"],
+      "second_review_ref": "review-gates-v1#supply_trade_controls"
+    },
+    {
+      "code": "esg_community_labor",
+      "label_zh": "ESG、社区与劳工",
+      "aliases_zh": ["ESG社区劳工"],
+      "definition_zh": "矿业活动涉及环境、社区权利、原住民咨询、劳工关系、罢工、治理或利益相关方冲突的事项。",
+      "include_zh": ["社区、工会、NGO、企业与机关的可归属主张", "咨询、FPIC、协议、抗议、罢工和环境争议"],
+      "exclude_zh": ["没有具体矿业主体、项目或影响对象的泛化 ESG 宣传"],
+      "second_review_ref": "review-gates-v1#esg_community_labor"
+    },
+    {
+      "code": "safety_incident",
+      "label_zh": "人身与生产安全",
+      "aliases_zh": ["安全事故"],
+      "definition_zh": "矿山、选冶、运输或相关作业发生的人身伤亡、救援、重大设备失效、停产和事故调查。",
+      "include_zh": ["已确认事故、伤亡、救援和调查进展", "影响生产连续性的重大安全事件"],
+      "exclude_zh": ["无法定位、无法确认且只有病毒式传播的视频或传闻"],
+      "second_review_ref": "review-gates-v1#safety_incident"
+    },
+    {
+      "code": "technology_processing",
+      "label_zh": "技术与加工",
+      "aliases_zh": ["技术加工"],
+      "definition_zh": "采矿、选矿、冶金、回收、尾矿处理和矿产加工技术的研发、验证、放大与商业部署。",
+      "include_zh": ["实验室、中试、示范和商业化阶段的可核验变化", "对回收率、成本、能耗、排放或废物有明确基线的技术结果"],
+      "exclude_zh": ["没有试验条件、规模或基线的营销性技术宣称"],
+      "second_review_ref": "review-gates-v1#technology_processing"
+    },
+    {
+      "code": "exploration_resource",
+      "label_zh": "勘探与资源",
+      "aliases_zh": ["勘探资源"],
+      "definition_zh": "矿产勘查、钻探、靶区、资源量、储量、技术研究和合资格人士披露的变化。",
+      "include_zh": ["钻探结果、勘探目标、资源量和储量披露", "按明确标准、版本、有效日和 QP/CP 责任发布的技术报告"],
+      "exclude_zh": ["把钻孔截距直接写成资源量、储量或已融资矿山"],
+      "second_review_ref": "review-gates-v1#exploration_resource"
+    }
+  ],
+  "prescreen_dispositions": [
+    {
+      "code": "EVENT_REVIEW",
+      "priority": 5,
+      "definition_zh": "可识别的新事件或对既有事实状态产生实质改变的候选。",
+      "disposition_zh": "进入对应一级分类的类型专用二审，不自动发布。",
+      "public_eligible": true
+    },
+    {
+      "code": "REFERENCE_ROUTE",
+      "priority": 3,
+      "definition_zh": "矿业相关，但仅为报告、数据点、背景、解释、日历或观点，不能构成新事件。",
+      "disposition_zh": "进入资料或知识层，不进入事件信息流。",
+      "public_eligible": false
+    },
+    {
+      "code": "CLUSTER_ATTACH",
+      "priority": 2,
+      "definition_zh": "属于已有 Story 的转载、背景、更新、纠错、翻译或反证。",
+      "disposition_zh": "挂入原 Story；若改变阶段、重要数量、主体、资产、法域、核心证据或结论，必须重开二审。",
+      "public_eligible": true
+    },
+    {
+      "code": "VERIFY_HOLD",
+      "priority": 4,
+      "definition_zh": "疑似新事件，但主体、来源真实性、翻译、矿业关联、实体身份或证据不足。",
+      "disposition_zh": "进入私有核验队列，不公开，并记录原因码和复查时间。",
+      "public_eligible": false
+    },
+    {
+      "code": "DROP",
+      "priority": 1,
+      "definition_zh": "明确越界、垃圾、仿冒、无信息促销、非矿业同形词或禁止处理的内容。",
+      "disposition_zh": "记录闭合 reason code 后停止，不进入后续编辑链。",
+      "public_eligible": false
+    }
+  ],
+  "source_roles": [
+    { "code": "CONSTITUTIVE_AUTHORITY", "label_zh": "构成性权威", "independence_semantics_zh": "可以证明该机关自身发布、登记或决定的事实，但不自动证明机关文本之外的因果结论。" },
+    { "code": "DIRECT_WITNESS", "label_zh": "直接见证", "independence_semantics_zh": "对其亲历范围提供直接证据，身份、时间和观察边界仍须核验。" },
+    { "code": "INVOLVED_PARTY", "label_zh": "事件当事方", "independence_semantics_zh": "可证明当事方作出该声明，但利益相关立场不能冒充独立确认。" },
+    { "code": "INDEPENDENT_REPORTER", "label_zh": "独立报道者", "independence_semantics_zh": "在编辑控制和来源链独立时可提供独立佐证，转载同稿不算独立。" },
+    { "code": "ANALYSIS_REFERENCE", "label_zh": "分析参考", "independence_semantics_zh": "提供背景或解释，不自动提升决定性事实的证据等级。" },
+    { "code": "SOCIAL_SIGNAL", "label_zh": "社交线索", "independence_semantics_zh": "只触发核验，不得成为公共核心事实的唯一证据。" },
+    { "code": "DECEPTIVE_SOURCE", "label_zh": "欺骗来源", "independence_semantics_zh": "仿冒或身份冲突内容必须丢弃，其传播量不能改变任何证据结论。" }
+  ],
+  "provenance_relations": [
+    { "code": "ORIGINAL", "label_zh": "原始发布", "independent_evidence": true },
+    { "code": "INDEPENDENT_CONFIRMATION", "label_zh": "独立确认", "independent_evidence": true },
+    { "code": "REPUBLISH", "label_zh": "转载同稿", "independent_evidence": false },
+    { "code": "UPDATE", "label_zh": "实质更新", "independent_evidence": false },
+    { "code": "CORRECTION", "label_zh": "正式更正", "independent_evidence": false },
+    { "code": "TRANSLATION", "label_zh": "跨语言分发", "independent_evidence": false },
+    { "code": "COMMENTARY", "label_zh": "评论解释", "independent_evidence": false },
+    { "code": "CONTRADICTION", "label_zh": "相互冲突", "independent_evidence": true },
+    { "code": "UNRESOLVED", "label_zh": "关系未明", "independent_evidence": false }
+  ],
+  "content_types": [
+    { "code": "binding_instrument", "label_zh": "约束性文书" },
+    { "code": "official_notice", "label_zh": "官方通知" },
+    { "code": "company_release", "label_zh": "企业发布" },
+    { "code": "exchange_filing", "label_zh": "交易所申报" },
+    { "code": "market_data", "label_zh": "市场数据" },
+    { "code": "independent_report", "label_zh": "独立报道" },
+    { "code": "stakeholder_statement", "label_zh": "利益相关方声明" },
+    { "code": "technical_disclosure", "label_zh": "技术披露" },
+    { "code": "research_reference", "label_zh": "研究参考" },
+    { "code": "social_signal", "label_zh": "社交线索" },
+    { "code": "deceptive_content", "label_zh": "欺骗内容" }
+  ],
+  "axis_invariants": {
+    "item_value": {
+      "unit": "item_revision",
+      "definition_zh": "Item价值（Q）衡量当前条目作为代表条目的完整性、精确性、溯源、量化、增量和不确定性平衡。",
+      "must_not_infer_from": ["story_importance", "evidence", "heat"]
+    },
+    "story_importance": {
+      "unit": "story_revision",
+      "definition_zh": "Story重要性（I）衡量事件本身的约束力、范围、规模、持续性、时效和轨迹改变。",
+      "must_not_infer_from": ["item_value", "evidence", "heat"]
+    },
+    "evidence": {
+      "unit": "claim",
+      "definition_zh": "E 是决定性主张逐项的直接性、权威性、独立佐证和冲突状态，Story 级 E 取决定性主张最低值。",
+      "must_not_infer_from": ["item_value", "story_importance", "heat"]
+    },
+    "heat": {
+      "unit": "story_time_window",
+      "definition_zh": "H 只衡量去转载来源族后的传播速度、广度、持续性和反作弊互动，不是证据。",
+      "must_not_infer_from": ["item_value", "story_importance", "evidence"]
+    },
+    "combined_score_allowed": false,
+    "selection_is_separate": true
+  }
+}

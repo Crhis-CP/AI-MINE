@@ -1,0 +1,379 @@
+{
+  "document_version": "2026-09-29.handoff-1+v2.0-fields (2026-09-30)",
+  "purpose": "产品范围底表，不是来源运行配置或已接通证明",
+  "evidence_level": "B",
+  "authority": "2026-09-26 Owner 批准的 2026-09-24 V2.0 产品范围；本轮重新建设保留业务范围",
+  "country_count_is_cap": false,
+  "countries": [
+    {
+      "id": "CN",
+      "name_zh": "中国",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F01—F17境内材料"
+    },
+    {
+      "id": "US",
+      "name_zh": "美国",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F04、F11"
+    },
+    {
+      "id": "AU",
+      "name_zh": "澳大利亚",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划"
+    },
+    {
+      "id": "AR",
+      "name_zh": "阿根廷",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F02"
+    },
+    {
+      "id": "SR",
+      "name_zh": "苏里南",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划"
+    },
+    {
+      "id": "CO",
+      "name_zh": "哥伦比亚",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F01—F04、F08—F09"
+    },
+    {
+      "id": "GY",
+      "name_zh": "圭亚那",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划"
+    },
+    {
+      "id": "GH",
+      "name_zh": "加纳",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F01、F07"
+    },
+    {
+      "id": "ZA",
+      "name_zh": "南非",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F02—F03、F08"
+    },
+    {
+      "id": "CD",
+      "name_zh": "刚果（金）",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F02、F04、F13"
+    },
+    {
+      "id": "ZM",
+      "name_zh": "赞比亚",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F07"
+    },
+    {
+      "id": "MN",
+      "name_zh": "蒙古",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F03、F05、F09"
+    },
+    {
+      "id": "KG",
+      "name_zh": "吉尔吉斯斯坦",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F01、F04、F06"
+    },
+    {
+      "id": "TJ",
+      "name_zh": "塔吉克斯坦",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划"
+    },
+    {
+      "id": "KZ",
+      "name_zh": "哈萨克斯坦",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F03—F04"
+    },
+    {
+      "id": "RS",
+      "name_zh": "塞尔维亚",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；多期国别栏目"
+    },
+    {
+      "id": "CL",
+      "name_zh": "智利",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划；F07"
+    },
+    {
+      "id": "CA",
+      "name_zh": "加拿大",
+      "kind": "country",
+      "tier": "existing18",
+      "news_scope": true,
+      "policy_scope": true,
+      "scope_basis": "既有国家规划"
+    },
+    {
+      "id": "PE",
+      "name_zh": "秘鲁",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F01、F03国别内容"
+    },
+    {
+      "id": "RU",
+      "name_zh": "俄罗斯",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F01、F04国别内容"
+    },
+    {
+      "id": "MZ",
+      "name_zh": "莫桑比克",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F04国别内容"
+    },
+    {
+      "id": "ZW",
+      "name_zh": "津巴布韦",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F04、F07国别内容"
+    },
+    {
+      "id": "ID",
+      "name_zh": "印度尼西亚",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F04、F07国别内容"
+    },
+    {
+      "id": "TZ",
+      "name_zh": "坦桑尼亚",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F07国别内容"
+    },
+    {
+      "id": "VE",
+      "name_zh": "委内瑞拉",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F07国别内容"
+    },
+    {
+      "id": "EC",
+      "name_zh": "厄瓜多尔",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F07国别内容"
+    },
+    {
+      "id": "SG",
+      "name_zh": "新加坡",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F09国别内容"
+    },
+    {
+      "id": "UZ",
+      "name_zh": "乌兹别克斯坦",
+      "kind": "country",
+      "tier": "country_content",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F04中亚政策实质讨论"
+    },
+    {
+      "id": "GB",
+      "name_zh": "英国",
+      "kind": "country",
+      "tier": "background",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F04研究资助背景；保留来源研究记录"
+    },
+    {
+      "id": "IR",
+      "name_zh": "伊朗",
+      "kind": "country",
+      "tier": "background",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F04、F11跨境措施背景；保留来源研究记录"
+    },
+    {
+      "id": "CH",
+      "name_zh": "瑞士",
+      "kind": "country",
+      "tier": "background",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F07证书认可背景；保留来源研究记录"
+    },
+    {
+      "id": "BO",
+      "name_zh": "玻利维亚",
+      "kind": "country",
+      "tier": "background",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F07供应链背景；保留来源研究记录"
+    },
+    {
+      "id": "ML",
+      "name_zh": "马里",
+      "kind": "country",
+      "tier": "background",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "F07供应链背景；保留来源研究记录"
+    }
+  ],
+  "organizations": [
+    {
+      "id": "EU",
+      "name_zh": "欧盟",
+      "kind": "organization",
+      "tier": "organization",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "V2 附录 B.4；不计为国家"
+    },
+    {
+      "id": "UN",
+      "name_zh": "联合国",
+      "kind": "organization",
+      "tier": "organization",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "V2 附录 B.4；不计为国家"
+    },
+    {
+      "id": "OECD",
+      "name_zh": "经济合作与发展组织",
+      "kind": "organization",
+      "tier": "organization",
+      "news_scope": false,
+      "policy_scope": true,
+      "scope_basis": "V2 附录 B.4；不计为国家"
+    }
+  ],
+  "news_history_subset18": [
+    "CN",
+    "US",
+    "AU",
+    "AR",
+    "SR",
+    "CO",
+    "GY",
+    "GH",
+    "ZA",
+    "CD",
+    "ZM",
+    "MN",
+    "KG",
+    "TJ",
+    "KZ",
+    "RS",
+    "CL",
+    "CA"
+  ],
+  "authority_documents": [
+    {
+      "name": "01_产品与分阶段升级方案.md",
+      "sha256": "2d180f15e83e94064d31d4616e41d5bea62308e54c89f5a5b2a030006eb4def5"
+    },
+    {
+      "name": "02_模板分析与信源审计附录.md",
+      "sha256": "0dfbdda4d327786f06a46b2c3de00842be5500dcaacbe2d090cb47bf979bdee4"
+    },
+    {
+      "name": "03_Codex开工指令.md",
+      "sha256": "863aa6e4fc84b34f569832d70bd637a1c1911169586b593680983f35fcb75641"
+    }
+  ],
+  "evidence_note": "F01-F17为历史输入材料编号，不是本包F-001等功能ID。16份原件历史核对记录存在；F17原件缺失，不宣称已复核全部原件（Owner 2026-10-01 已承诺提供 F17 与三份 V2.0 方案原文，待收到；DEC-41）。",
+  "v2_0_note": "v2.0 合并时新增：每个对象的 tier / news_scope / policy_scope（DEC-03）；36 个对象与 B 包原文件逐项一致，与旧分支 config/policy/scope.json@6d37df8 逐项一致。运行用的完整法域字典（含中国 14 个省区下级法域、英文名、原表记录与目标数、跨国/未限定规则）见 jurisdictions-36.json；18 国历史文件见 countries-18.json。本文件保留为“范围底表 + 三份 V2.0 方案哈希”，两个文件的 tier 与标志必须一致。",
+  "tier_definitions": {
+    "existing18": "既有 18 国（旧站资讯线历史子集）：研究、取得、内容、持续运行四项都必达",
+    "country_content": "10 国（秘鲁、俄罗斯、莫桑比克、津巴布韦、印度尼西亚、坦桑尼亚、委内瑞拉、厄瓜多尔、新加坡、乌兹别克斯坦）：范围依据有国别内容；四项都必达",
+    "background": "5 国（英国、伊朗、瑞士、玻利维亚、马里）：范围依据只是背景提及、保留来源研究记录；留在研究（POL-R01～R07）分母内，首批取得/内容/持续运行验收排在其余 28 国和 3 个组织之后；不给背景提及加“发布法域”或新法标签（DEC-03；随 Q-09 答复沿用的默认做法，Owner 可改）",
+    "organization": "欧盟、联合国、OECD：单列，不计入国家数；必达；条约或组织文书不等于成员国国内法",
+    "subdivision": "下级法域（中国 14 个省区）：资讯线按原表 236 个目标接入；法规线的地方/部门来源只按发布职责纳入（BR-POL-25），不按行政区数量验收"
+  },
+  "news_scope_expansion": "资讯线 18 国起步、按实测逐步扩，不随法规线自动扩到 33 国（Owner 2026-10-01 已定，Q-09 已答复；DEC-03）"
+}

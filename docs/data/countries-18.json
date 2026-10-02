@@ -1,0 +1,157 @@
+{
+ "status": "historical_subset",
+ "superseded_by": "jurisdictions-36.json",
+ "v2_0_note": "历史子集：本文件是旧站资讯线的 18 国起步清单（A 包 v1.0 的“覆盖国家字典”）。v2.0 起覆盖范围以 jurisdictions-36.json（36 个法域对象 + 14 个省区）为准（DEC-03）；18 国在其中 news_scope=true、tier=existing18。本文件不再作为导入字典，仅保留 scope_basis、old_candidate_count、known_misidentifications 的原始记录供对照。old_candidate_count 是旧覆盖清单的引用数，跨国媒体重复计数，不等于独立发布方数或启用数；国家显示名已统一为“刚果（金）”（DR-43；原 v1.0 写“刚果金”）。",
+ "description": "AI矿策 Owner 确认的 18 国覆盖范围（2026-09-07 记录；前 16 国来自 Owner 原始信源表，智利/加拿大来自此前明确批准的接入计划）。文章国家与发布方总部国家不能混用。",
+ "minimum_initial_publishers_by_type": {
+  "media": 2,
+  "corporate": 2,
+  "government": 2
+ },
+ "qualification_requirements": [
+  "核对发布方身份、国家范围与同一机构别名",
+  "以当前服务器支持方式取得真实文章身份与日期",
+  "核实本次使用材料范围及所需处理依据（许可依据按 owner_declared 记录）",
+  "完成真实中文处理与事实核查",
+  "验证持续自动公开与来源隔离（费用按信源记账，不设月度金额上限）"
+ ],
+ "countries": [
+  {
+   "code": "CN",
+   "name_zh": "中国",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 4,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "US",
+   "name_zh": "美国",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 4,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "AU",
+   "name_zh": "澳大利亚",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 4,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "AR",
+   "name_zh": "阿根廷",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 2,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "SR",
+   "name_zh": "苏里南",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 2,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "CO",
+   "name_zh": "哥伦比亚",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 3,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "GY",
+   "name_zh": "圭亚那",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 3,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "GH",
+   "name_zh": "加纳",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 3,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "ZA",
+   "name_zh": "南非",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 5,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "CD",
+   "name_zh": "刚果（金）",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 5,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "ZM",
+   "name_zh": "赞比亚",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 3,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "MN",
+   "name_zh": "蒙古",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 2,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "KG",
+   "name_zh": "吉尔吉斯斯坦",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 2,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "TJ",
+   "name_zh": "塔吉克斯坦",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 2,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "KZ",
+   "name_zh": "哈萨克斯坦",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 3,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "RS",
+   "name_zh": "塞尔维亚",
+   "scope_basis": "owner_original_country_scope",
+   "old_candidate_count": 4,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "CL",
+   "name_zh": "智利",
+   "scope_basis": "owner_additional_approved_country_scope",
+   "old_candidate_count": 3,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  },
+  {
+   "code": "CA",
+   "name_zh": "加拿大",
+   "scope_basis": "owner_additional_approved_country_scope",
+   "old_candidate_count": 3,
+   "note": "候选范围包括直接发布方和需进一步定位的入口；是否能持续产出矿业新闻须逐项验收。"
+  }
+ ],
+ "known_misidentifications": [
+  {
+   "observation_id": "obs_e70f256b505d8c3ddafe3d3d8e",
+   "source_sheet": "境外",
+   "source_row": 62,
+   "original_country": "KZ",
+   "url": "https://www.frc.mn/#/home",
+   "reason": "原表该哈萨克斯坦条目指向蒙古frc.mn，与蒙古记录重复且有jurisdiction_mismatch。保留原档案，但不计入哈萨克斯坦的可测试候选数。",
+   "resolution": "pending_original_record_preserved"
+  }
+ ]
+}

@@ -1,0 +1,34 @@
+{
+  "version": "company-reference-v1",
+  "reviewed_at": "2026-09-08",
+  "purpose": "核实公司中文名称与简短阅读注释；不作为新闻来源接入数量或原稿事实依据",
+  "companies": [
+    {
+      "aliases": [
+        "KGHM",
+        "KGHM Polska Miedź",
+        "KGHM Polska Miedz",
+        "波兰铜业集团"
+      ],
+      "name": "波兰铜业集团",
+      "original_name": "KGHM",
+      "description": "波兰矿业集团，业务包括铜、白银等金属的开采和加工。",
+      "source_url": "https://kghm.com/en/about-us",
+      "evidence_urls": [
+        "https://kghm.com/en/about-us",
+        "https://12335.mofcom.gov.cn/gbmyzn/bolan.pdf"
+      ]
+    },
+    {
+      "aliases": ["BHP", "必和必拓"],
+      "name": "必和必拓",
+      "original_name": "BHP",
+      "description": "资源企业，业务涉及铜、铁矿石等矿产资源。",
+      "source_url": "https://www.bhp.com/about",
+      "evidence_urls": [
+        "https://www.bhp.com/about",
+        "https://www.bhp.com/privacy-policy"
+      ]
+    }
+  ]
+}

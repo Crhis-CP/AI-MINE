@@ -1,0 +1,17 @@
+{
+  "event_id": "ev_demo",
+  "event_type": "content.revision.ready",
+  "schema_version": 1,
+  "aggregate_id": "item_demo",
+  "aggregate_version": 1,
+  "occurred_at": "2026-09-29T00:00:00Z",
+  "correlation_id": "trace_demo",
+  "causation_id": null,
+  "payload": {
+    "item_id": "item_demo",
+    "revision_id": "rev_demo",
+    "content_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "policy_version": 1,
+    "lane": "news"
+  }
+}

@@ -1,0 +1,154 @@
+# lanes.yaml —— 泳道与路径所有权（新仓库根目录；本文件是 06-agents/templates/lanes.example.yaml 的落地版本）
+#
+# 取代“GitHub 团队 + CODEOWNERS”的写权方案：个人账户仓库建不出 @org/team，所有 Agent 也可能共用同一个账号，
+# 所以写权靠“仓库内声明 + make verify 的 path-guard 阶段”机器检查，不靠平台身份（规则文件第 3.1–3.4 节）。
+#
+# path-guard 的判定（读取 PR 对应任务卡 tasks/TASK-nnnn.md，以 PR base（main）上的版本为准，与本文件比对）：
+#   PR 改动的每个文件 ⊆ 任务卡 allowed_paths，
+#   且 ⊆ （该泳道 owns ∪ 该泳道在 shared 里有 append / member 权的路径 ∪ 任务卡 integration_owner 已批准的 shared 路径）；
+#   generated 列出的路径豁免。超出时：拆任务，或先合并一个只改任务卡的“计划 PR”（集成人批准）再继续。
+# 模块名是规范名（docs/04-architecture/03-module-map.md：12 个业务模块 + 6 个平台包），写死、不许别名；
+# 一个泳道 = 1–3 个模块，泳道只是把模块分给 Agent 的方式，不改变目录所有权。
+version: 1
+
+lanes:
+  contracts:                       # 架构 Agent
+    owns:
+      - packages/contracts/src/**  # 模块契约子目录归各模块泳道（见下方 per_module），common/** 归集成人（见 shared）
+      - packages/api-client/**     # 生成物，不手改
+      - tooling/**                 # 契约生成等依赖旧编译器 API 的工具（固定 TypeScript 5.9.x）
+    modules: []
+  web:
+    owns:
+      - apps/web/app/routes/(public)/**
+      - apps/web/app/features/**
+      - packages/ui/**
+    modules: []
+  private:                         # 最小私有页面（A10，不阻塞公开站）
+    owns:
+      - apps/web/app/routes/(private)/**
+      - apps/web/app/private/**
+      - packages/platform/identity/**
+      - packages/domains/feedback/**
+    modules: [identity, feedback]
+  sources:
+    owns:
+      - packages/domains/sources/**
+      - packages/domains/acquisition/**
+      - apps/fetcher/**
+    modules: [sources, acquisition]
+  content:
+    owns:
+      - packages/domains/content/**
+      - packages/platform/storage/**
+    modules: [content, storage]
+  news:                            # 资讯线加工
+    owns:
+      - packages/domains/enrichment/**
+      - packages/domains/entities/**
+      - packages/domains/events/**
+    modules: [enrichment, entities, events]
+  policy:                          # 法规线（与资讯线隔离）
+    owns:
+      - packages/domains/policy/**
+    modules: [policy]
+  publish:                         # 出口
+    owns:
+      - packages/domains/editorial/**
+      - packages/domains/publication/**
+      - packages/domains/reports/**
+    modules: [editorial, publication, reports]
+  gateway:                         # 模型与用量
+    owns:
+      - packages/domains/ai-gateway/**
+    modules: [ai-gateway]
+  runtime:                         # 运行底座
+    owns:
+      - packages/platform/queue/**
+      - packages/platform/config/**
+      - packages/platform/telemetry/**
+    modules: [queue, config, telemetry]
+  ops:
+    owns:
+      - infra/**
+      - deploy/**
+      - packages/platform/ops/**
+      - docs/runbooks/**
+    modules: [ops]
+  qa:
+    owns:
+      - e2e/**
+      - evals/_framework/**        # 评测框架；各能力的评测集 evals/<capability>/** 归能力所在泳道（见 capabilities）
+      - packages/testkit/**
+      - docs/acceptance/**
+    modules: []
+
+# 每个模块泳道自动拥有（把 <module> 换成其 modules 列表里的名字）
+per_module:
+  - packages/domains/<module>/**           # 含 tests/**
+  - database/migrations/<module>/**        # 时间戳命名，没有集中编号
+  - packages/contracts/src/<module>/**     # 追加类契约变更可自行合并；弃用与破坏类须架构 Agent 批准
+  - docs/04-architecture/adr/**            # 只可新增本泳道相关 ADR；已有 ADR 的修改归架构 Agent
+
+# AI 能力 → 泳道：industry/prompts/<capability>/** 与 evals/<capability>/** 归能力所在泳道（目录名取能力注册表里的能力代码）
+capabilities:
+  news:    [AI-01, AI-02, AI-03, AI-04, AI-05, AI-06, AI-07, AI-08, AI-09, AI-16]
+  publish: [AI-13]
+  sources: [AI-14, AI-15]
+  policy:  [AI-17, AI-18, AI-19, AI-20, AI-21, AI-22, AI-23]
+
+# 共享区：高冲突风险，特殊规则（规则文件第 3.2 节）
+shared:
+  - id: contracts-common
+    paths: ["packages/contracts/src/common/**"]     # ID、时间值类型、错误体、分页、lane 枚举
+    integrator_only: true
+  - id: root-config
+    paths:
+      - package.json
+      - pnpm-workspace.yaml
+      - pnpm-lock.yaml
+      - tsconfig.base.json
+      - biome.json
+      - Makefile
+      - scripts/verify*
+      - lanes.yaml
+      - ".github/**"                                 # PR 模板之外的文件；.github/CODEOWNERS 只保留三处
+    integrator_only: true                            # 依赖升级走“仅依赖升级”PR 通道（依赖审计阻断时）
+  - id: composition-roots
+    paths:
+      - apps/api/src/register.ts                     # 注册清单：每模块一行、字母序
+      - apps/worker/src/register.ts
+    append_only:                                     # 允许各泳道只追加“自己模块的一行”
+      rule: one-line-per-module-alphabetical
+      lanes: all
+    logic_owner: runtime                             # 清单以外的逻辑归 runtime 泳道
+  - id: ui
+    paths: ["packages/ui/**"]
+    primary: web
+    append: [private]                                # 新组件可追加；改已有组件的属性须同时修复所有使用处
+  - id: industry
+    by_file:
+      - { paths: ["industry/seed/**"], lane: sources }
+      - { paths: ["industry/jurisdictions/**", "industry/taxonomy/**"], lane: sources, change_via: spec-pr }   # 法域与分类字典：Owner 确认走规格 PR
+      - { paths: ["industry/prompts/<capability>/**"], lane: by-capability }
+      - { paths: ["industry/brand/**", "industry/site.ts", "industry/pages/**"], lane: web }
+    note: 产品参数（分类、门槛、文案）的 Owner 确认走规格 PR，不靠文件所有权；矿业版评分标准（industry/prompts/selection-score）生效前须经 Owner 审阅确认（路线图 T-0323）
+  - id: product-docs
+    paths: ["docs/01-product/**", "docs/02-rules/**"]
+    owner: Owner（内容）+ architect（结构）
+    note: 泳道可提规格修改 PR，但产品含义变化必须有 Owner 确认记录
+  - id: tasks
+    paths: ["tasks/**"]
+    owner: architect                                 # 创建任务卡；泳道只更新自己卡的“交付记录”
+    generated: ["tasks/INDEX.md"]                    # 由 verify 的 tasks 阶段在 main 上生成，不手改
+  - id: changes
+    paths: ["changes/**"]
+    lanes: all                                       # 产品更新片段，随 PR
+  - id: upstream
+    paths: ["upstream/**", UPSTREAM.md, NOTICE, LICENSE]
+    integrator_only: true                            # 修改须同步 upstream/aihot.lock.json 与 ADR-0001
+
+# 豁免 path-guard 的生成物（由命令生成，漂移检查保证与源一致）
+generated:
+  - packages/api-client/**
+  - tasks/INDEX.md

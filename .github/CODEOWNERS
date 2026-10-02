@@ -1,0 +1,15 @@
+# .github/CODEOWNERS（由交接包模板 CODEOWNERS.example 生成，Owner 账号为 Crhis-CP）。
+#
+# 只保留这三处，沿用旧仓库做法（旧仓库 .github/CODEOWNERS:1-5@main 只有指向 Owner 个人账号的几行）：
+# 不启用 require_code_owner_reviews，保持 required_approving_review_count=0 的既有基线，
+# 也不把它描述成“强制一人批准”。
+#
+# 泳道的写权不靠本文件：个人账户仓库建不出 @org/team，所有 Agent 也可能共用同一个账号。
+# 泳道 → 路径所有权写在仓库根的 lanes.yaml（示例见 lanes.example.yaml），由 make verify 的 path-guard 阶段检查；
+# “作者 ≠ 审查者”是流程规则（PR 评论里的审查结论 + 会话标识，模板 review-verdict.md），不依赖平台身份。
+# Owner 日后想要平台强制时，再单独决定是否建 GitHub 组织或机器人账号，到时再扩写本文件。
+
+*                           @Crhis-CP
+/docs/04-architecture/      @Crhis-CP
+/packages/contracts/        @Crhis-CP
+/.github/                   @Crhis-CP

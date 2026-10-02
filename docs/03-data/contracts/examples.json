@@ -1,0 +1,220 @@
+{
+  "Feed.empty": {
+    "content_version": null,
+    "generated_at": null,
+    "policy_epoch": 0,
+    "items": [],
+    "next_cursor": null,
+    "total": 0,
+    "facets": {
+      "categories": [],
+      "jurisdictions": [],
+      "minerals": [],
+      "sources": []
+    }
+  },
+  "Feed.one": {
+    "content_version": "pub_demo",
+    "generated_at": "2026-09-29T00:00:00Z",
+    "policy_epoch": 0,
+    "items": [
+      {
+        "id": "item_demo",
+        "revision": 1,
+        "title_zh": "合成矿业通知",
+        "summary_zh": "本条仅用于契约验证，不是真实新闻。",
+        "content_kind": "news",
+        "published_time": {
+          "raw": "2026-09-28",
+          "local_date": "2026-09-28",
+          "timezone": null,
+          "utc": null,
+          "precision": "date",
+          "meaning": "published",
+          "basis": "合成测试只提供日期"
+        },
+        "public_at": "2026-09-29T00:00:00Z",
+        "category": "policy_regulation",
+        "jurisdictions": [
+          "AR"
+        ],
+        "minerals": [
+          "lithium"
+        ],
+        "source": {
+          "source_id": "src_demo",
+          "publisher_name": "合成测试发布方",
+          "title_original": "Synthetic notice",
+          "original_url": "https://example.invalid/notice/1",
+          "published_time": {
+            "raw": "2026-09-28",
+            "local_date": "2026-09-28",
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "meaning": "published",
+            "basis": "合成测试只提供日期"
+          }
+        },
+        "event_ids": [
+          "event_demo"
+        ],
+        "featured": false,
+        "recommendation_reason": null
+      }
+    ],
+    "next_cursor": null,
+    "total": 1,
+    "facets": {
+      "categories": [],
+      "jurisdictions": [],
+      "minerals": [],
+      "sources": []
+    }
+  },
+  "ItemDetail.guide": {
+    "content_version": "pub_demo",
+    "policy_epoch": 0,
+    "item": {
+      "id": "item_demo",
+      "revision": 1,
+      "title_zh": "合成矿业通知",
+      "summary_zh": "本条仅用于契约验证，不是真实新闻。",
+      "content_kind": "news",
+      "published_time": {
+        "raw": "2026-09-28",
+        "local_date": "2026-09-28",
+        "timezone": null,
+        "utc": null,
+        "precision": "date",
+        "meaning": "published",
+        "basis": "合成测试只提供日期"
+      },
+      "public_at": "2026-09-29T00:00:00Z",
+      "category": "policy_regulation",
+      "jurisdictions": [
+        "AR"
+      ],
+      "minerals": [
+        "lithium"
+      ],
+      "source": {
+        "source_id": "src_demo",
+        "publisher_name": "合成测试发布方",
+        "title_original": "Synthetic notice",
+        "original_url": "https://example.invalid/notice/1",
+        "published_time": {
+          "raw": "2026-09-28",
+          "local_date": "2026-09-28",
+          "timezone": null,
+          "utc": null,
+          "precision": "date",
+          "meaning": "published",
+          "basis": "合成测试只提供日期"
+        }
+      },
+      "event_ids": [
+        "event_demo"
+      ],
+      "featured": false,
+      "recommendation_reason": null
+    },
+    "reading_zh": {
+      "mode": "guide_only",
+      "language": "zh",
+      "document_revision_id": "rev_demo",
+      "expression_id": "expr_zh_demo",
+      "completeness": "excerpt",
+      "completed_blocks": 0,
+      "total_blocks": null,
+      "blocks": [],
+      "attribution": "合成例子",
+      "limitation": "示例无全文公开许可"
+    },
+    "reading_original": {
+      "mode": "unavailable",
+      "language": "en",
+      "document_revision_id": "rev_demo",
+      "expression_id": "expr_en_demo",
+      "completeness": "unavailable",
+      "completed_blocks": 0,
+      "total_blocks": null,
+      "blocks": [],
+      "attribution": "合成例子",
+      "limitation": "示例无全文公开许可"
+    },
+    "evidence": [],
+    "timeline": [],
+    "company_notes": []
+  },
+  "Version.empty": {
+    "content_version": null,
+    "generated_at": null,
+    "policy_epoch": 0,
+    "state": "empty"
+  },
+  "CostSummary.unknown": {
+    "period": "2026-09",
+    "timezone": "Asia/Shanghai",
+    "currency": "CNY",
+    "limit": "100.00",
+    "settled": "70.00",
+    "reserved": "10.00",
+    "unknown_count": 1,
+    "remaining": "20.00"
+  },
+  "Reading.foreign": {
+    "mode": "original",
+    "language": "es",
+    "document_revision_id": "rev_demo",
+    "expression_id": "expr_es_demo",
+    "completeness": "complete",
+    "completed_blocks": 1,
+    "total_blocks": 1,
+    "blocks": [
+      {
+        "block_id": "b1",
+        "kind": "paragraph",
+        "text": "Documento sintético de prueba.",
+        "table_rows": [],
+        "evidence_ids": [],
+        "links": []
+      }
+    ],
+    "attribution": "合成例子",
+    "limitation": null
+  },
+  "TimeAssertion.deadline_date_only": {
+    "raw": "2026-09-28",
+    "local_date": "2026-09-28",
+    "timezone": null,
+    "utc": null,
+    "precision": "date",
+    "meaning": "deadline",
+    "basis": "合成测试只提供日期",
+    "local_time": null,
+    "condition_text": "合成例子：仅知截止日期"
+  },
+  "ReviewRequest.partial": {
+    "subject_id": "rev_demo",
+    "subject_type": "item_revision",
+    "expected_revision": 1,
+    "decision": "correct",
+    "reason": "合成示例更正标题",
+    "corrections": {
+      "title_zh": "合成更正标题"
+    },
+    "clear_fields": [],
+    "reviewed_fields": [
+      "title_zh"
+    ]
+  },
+  "CommandStatus.unknown": {
+    "request_id": "req_demo",
+    "idempotency_key": "key_demo",
+    "state": "unknown",
+    "job_id": "job_demo",
+    "result_ref": null,
+    "problem": null
+  }
+}
