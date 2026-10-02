@@ -4,7 +4,7 @@
 
 | 命令 | 什么时候用 | 跑什么 | 回执 |
 |---|---|---|---|
-| `pnpm check`（= `make check`） | 每次提交前 | 快速子集：toolchain、format-lint、typecheck、boundaries、test（自测；已有前端构建时加前端测试） | 无 |
+| `pnpm check`（= `make check`） | 每次提交前 | 快速子集：toolchain、format-lint、typecheck、boundaries、names、test（自测；已有前端构建时加前端测试） | 无 |
 | `make verify [TASK=TASK-nnnn] [SHA=<40 位>]` | 合并前，对 PR 的最终提交 | 全部阶段（第 2 节） | `.verify/receipts/<sha12>.json` |
 | `make release-check`、`make nightly` | — | 骨架：目前一律报“未实现”并以 2 退出，不会冒充通过（TASK-0008、TASK-0009、TASK-0012） | 无 |
 | `make tasks-index` | 集成人在合并后的 main 上 | 由任务卡生成 `tasks/INDEX.md` | 无 |
@@ -46,12 +46,13 @@ make verify TASK=TASK-0002
 | `format-lint` | `biome ci` 通过；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增 | — | — |
 | `typecheck` | `pnpm typecheck`（含 `scripts/`） | — | Typecheck |
 | `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少 | — | — |
+| `names` | 上游项目的名称、两个品牌色值与环形加载标识只在 [`names.json`](names.json) 列的例外路径里出现（TASK-0003 完成条件第 1 条；`04-aihot-adoption.md` 4.3、4.6 第 1 条）：来源登记、交接包原件及其写回、历史证据、治理记录（`AGENTS.md`、`CLAUDE.md`、`tasks/_template.md` 只在与交接包模板逐字节相同时算例外）、上游原样存档和 `names.json` 本身；引用登记文件或交接包文件的路径与文件名不算命中；二进制文件按字节查；文件路径本身也查。任何文件都不得与来源清单里的上游品牌素材 SHA-256 相同（不设例外）。`node scripts/verify/names.ts --counts` 列出例外内各文件的命中行数 | — | — |
 | `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围；任务卡与 `lanes.yaml` 从**基线提交**读取，PR 改不宽自己的路径 | 能取到基线分支 | — |
 | `secrets` | 基线到当前提交之间的每个提交：trufflehog（版本与 sha256 写在 [`tools.json`](tools.json)，首次运行下载到 `.tools/`，不联网验证，所有候选都算）+ 本项目规则（私钥块、腾讯云 SecretId、模型服务密钥、飞书应用密钥、带用户名和密码的 URL）；只报规则、文件与行号，不打印命中的内容 | 首次运行能访问 github.com 下载 | — |
 | `audit` | `pnpm audit --audit-level=high`；高危或严重即失败 | 能访问 npm 源的漏洞接口 | — |
-| `build-web` | 前端生产构建 | — | Build web |
+| `build-web` | 前端生产构建；构建产物里没有上游名称、色值、环形标识，也没有上游品牌素材（不设例外） | — | Build web |
 | `migrations` | 空库跑全部迁移 + 话题种子；另一个空库跑完整种子，信源数与 `industry/sources.json` 一致 | 数据库 | Migrate and seed topics |
-| `smoke` | 关掉采集与模型调用，起 api 与 web，等 `/api/health`，跑 `scripts/smoke.ts` | 数据库、两个空闲端口 | Smoke check of the built site |
+| `smoke` | 关掉采集与模型调用，起 api 与 web，等 `/api/health`，跑 `scripts/smoke.ts` 与 `scripts/mcp-check.ts`（每个 MCP 工具调一次）；再取页面、`llms.txt`、`/openapi-v1.json`、RSS、公开接口与 MCP 握手和工具清单，连同 MCP 检查的输出，查上游名称与标识（零命中，不设例外） | 数据库、两个空闲端口 | Smoke check of the built site |
 | `test` | 验证入口自测（故意违规用例）、前端测试、后端测试 | 后端测试要数据库 | Web tests、Backend tests |
 | `compose-smoke` | 导出这个提交（`git archive`，不带本地 `.env` 与构建产物），生成一次性 `.env`（不采集、不调模型），`docker compose up --build`，在 compose 网络里跑冒烟，核对种子信源数，最后 `down -v` | Docker 与 compose；构建时能访问 Docker Hub、`deb.debian.org`、npm 源 | `docker` 作业 |
 | `docs` | [`scripts/docs-check/validate_package.py`](../docs-check/validate_package.py) `--strict`：文档链接与围栏、编号定义、契约文件、验收场景、`upstream/aihot.lock.json` 与来源清单逐文件一致、数据文件、追踪表 | Python 3 | — |
@@ -82,7 +83,7 @@ make verify TASK=TASK-0002
 
 ## 4. 故意违规用例
 
-`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规（`toolchain.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）。契约漂移的用例随 TASK-0005 加入。
+`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规（`toolchain.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、改过的模板副本、上游品牌素材、构建产物与站点输出里的命中（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）。契约漂移的用例随 TASK-0005 加入。
 
 ## 5. 常见情况
 

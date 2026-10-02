@@ -23,12 +23,13 @@ import path from "node:path";
 import { checkBoundaries } from "./boundaries.ts";
 import { git, type Log, openLog, probe, ROOT, run, capture, sha256, sha256File, start, stop, stopAll, tryGit } from "./lib.ts";
 import { formatLint } from "./lint.ts";
+import { checkNames, checkOutputs, checkOutputTree, fetchSiteOutputs } from "./names.ts";
 import { cardFromBranch, pathGuard } from "./path-guard.ts";
 import { scanSecrets, type SecretScan } from "./secrets.ts";
 import { checkTasks } from "./tasks.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 
-const WEB_PACKAGE = "@aihot/web"; // renamed with the rest of @aihot/* in TASK-0003
+const WEB_PACKAGE = "@aihot/web";
 const PENDING_STAGES = [
   "contracts (TASK-0005)",
   "data-ownership, role-config (TASK-0004)",
@@ -254,6 +255,11 @@ const STAGES: Stage[] = [
   },
   { name: "boundaries", quick: true, run: async ({ log }) => problems(checkBoundaries(ROOT, trackedFiles()), log, "workspace graph and imports") },
   {
+    name: "names",
+    quick: true,
+    run: async ({ log }) => problems(checkNames(ROOT, trackedFiles()), log, "upstream name and marks only on the exception paths; no upstream brand asset"),
+  },
+  {
     name: "path-guard",
     run: async ({ log, base, head, task }) => {
       if (!base) return { status: "skipped", note: "no base ref to compare with (set VERIFY_BASE)" };
@@ -300,7 +306,11 @@ const STAGES: Stage[] = [
   {
     name: "build-web",
     after: ["install"],
-    run: async ({ log, env }) => fromCode(await run("pnpm", ["--filter", WEB_PACKAGE, "build"], { log, env: env(), timeoutMs: 15 * 60_000 }), "web build"),
+    run: async ({ log, env }) => {
+      const code = await run("pnpm", ["--filter", WEB_PACKAGE, "build"], { log, env: env(), timeoutMs: 15 * 60_000 });
+      if (code !== 0) return fail(`web build exited with ${code}`);
+      return problems(checkOutputTree(path.join(ROOT, "apps/web/build")), log, "no upstream name, mark or brand asset in the build output");
+    },
   },
   {
     name: "migrations",
@@ -339,9 +349,17 @@ const STAGES: Stage[] = [
       const e = env({ ...siteEnv(db!), COLLECT_ENABLED: "false", MODEL_CALLS_ENABLED: "false" });
       const api = start("node", ["apps/api/src/main.ts"], { log, env: e });
       const web = start("node", ["server.ts"], { log, env: { ...e, NODE_ENV: "production" }, cwd: path.join(ROOT, "apps/web") });
+      const base = `http://127.0.0.1:${webPort}`;
       try {
-        if (!(await waitFor(`http://127.0.0.1:${webPort}/api/health`, 60))) return fail("the site did not answer /api/health within 60 s");
-        return fromCode(await run("node", ["scripts/smoke.ts", "--base", `http://127.0.0.1:${webPort}`], { log, env: e }), "smoke check");
+        if (!(await waitFor(`${base}/api/health`, 60))) return fail("the site did not answer /api/health within 60 s");
+        if ((await run("node", ["scripts/smoke.ts", "--base", base], { log, env: e })) !== 0) return fail("smoke check failed");
+        // Every MCP tool once, then the name check on what readers and machines get (TASK-0003 :126).
+        const mcp = await capture("node", ["scripts/mcp-check.ts", `${base}/api/mcp`], { log, env: e, timeoutMs: 120_000 });
+        log.line(mcp.stdout);
+        if (mcp.code !== 0) return fail(`MCP check exited with ${mcp.code}`);
+        const outputs = [...(await fetchSiteOutputs(base)), { label: "scripts/mcp-check.ts output", text: mcp.stdout }];
+        for (const o of outputs) log.line(`name check: ${o.label}, ${o.text.length} characters`);
+        return problems(checkOutputs(outputs), log, `smoke and MCP checks; no upstream name or mark in ${outputs.length} pages and machine outputs`);
       } finally {
         stop(api);
         stop(web);

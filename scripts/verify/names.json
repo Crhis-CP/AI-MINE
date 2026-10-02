@@ -1,0 +1,38 @@
+{
+  "$comment": "Patterns of the name check (scripts/verify/names.ts; TASK-0003 completion condition 1, 04-aihot-adoption.md 4.3 and 4.6 item 1). This file is exception 6, the check's own patterns: no other script or test spells them out.",
+  "names": ["aihot", "ai hot"],
+  "marks": ["#176b75", "#2ce2e8", "RingMark"],
+  "$comment_exceptions": "Paths (lanes.yaml syntax) where the names and marks may appear; a file listed with sameAs is covered only while it is byte-identical to that handoff template.",
+  "exceptions": {
+    "1 source registration": ["LICENSE", "LICENSES/AIHOT-MIT.txt", "NOTICE", "UPSTREAM.md", "upstream/aihot.lock.json"],
+    "2 handoff package and its write-backs": ["docs/**"],
+    "3 historical evidence": ["docs/acceptance/**"],
+    "4 governance records": [
+      { "path": "AGENTS.md", "sameAs": "docs/06-agents/templates/root-AGENTS.md" },
+      { "path": "CLAUDE.md", "sameAs": "docs/06-agents/templates/CLAUDE.md" },
+      { "path": "tasks/_template.md", "sameAs": "docs/06-agents/templates/task-card.md" },
+      "lanes.yaml",
+      "tasks/TASK-*.md"
+    ],
+    "5 upstream workflow kept verbatim": ["scripts/verify/upstream-check.yml"],
+    "6 the check's own patterns": ["scripts/verify/names.json"]
+  },
+  "$comment_references": "Paths and file names of the registration and handoff files (regular expressions, case-sensitive): not hits, wherever they appear.",
+  "references": [
+    "(?:upstream/)?aihot\\.lock\\.json",
+    "(?:LICENSES/)?AIHOT-MIT\\.txt",
+    "AIHOT-[^\\s/\"'`)]*\\.tar\\.gz",
+    "research/aihot",
+    "aihot-source-manifest\\.json",
+    "B-aihot-file-inventory",
+    "04-aihot-adoption",
+    "0001-aihot-as-foundation",
+    "0021-aihot-first-mining-adaptation",
+    "01-aihot-assessment"
+  ],
+  "$comment_brand": "Upstream brand assets: no file may have the SHA-256 of a manifest entry under these prefixes (no exceptions; 4.3 (a)).",
+  "brand": {
+    "manifest": "docs/research/aihot/aihot-source-manifest.json",
+    "prefixes": ["industry/brand/", "docs/assets/", "assets/leaderboard-sources/", "assets/model-providers/"]
+  }
+}
