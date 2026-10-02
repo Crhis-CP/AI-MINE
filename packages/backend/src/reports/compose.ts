@@ -40,8 +40,7 @@ export interface Candidate extends ReportEntry {
 }
 
 function roleOf(kind: string, firstParty: boolean): string {
-  if (firstParty) return kind === "x_search" ? "X·官方" : "官方";
-  if (kind === "x_search") return "X·KOL";
+  if (firstParty) return "官方";
   if (kind === "mp_account") return "公众号";
   return "媒体";
 }

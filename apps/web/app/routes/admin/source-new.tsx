@@ -28,7 +28,6 @@ const TEMPLATES: Record<string, Record<string, unknown>> = {
     urlTemplate: "{raw:url}",
     summaryPaths: ["summary"],
   },
-  x_search: { query: "from:handle -filter:replies", searchType: "Latest" },
   mp_account: { biz: "", name: "" },
   external: {},
 };

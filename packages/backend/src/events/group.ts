@@ -1,12 +1,12 @@
 // Event grouping. A report attaches to a fact, the same real-world occurrence, and
 // facts hang on a story, an occurrence with its direct developments. Recall: the same title-and-
-// summary embedding on both sides over the reports of the last 14 days, plus the same URL and the X
-// post a post replies to or quotes. Identity: one three-way relation judgement over the candidate
-// facts with their representative reports fully described (relate.ts); a merge that is not obvious
-// from similarity is confirmed by a second vendor before it is written; a development attaches only
-// to the fact that started its story, so stories do not grow by chaining. Manual corrections are
-// never overwritten; a revision keeps its membership unless an editor asks for a regroup. When a
-// report is firmly tied to two stories, their roots are compared directly and the stories merge
+// summary embedding on both sides over the reports of the last 14 days, plus the same URL.
+// Identity: one three-way relation judgement over the candidate facts with their representative
+// reports fully described (relate.ts); a merge that is not obvious from similarity is confirmed by a
+// second vendor before it is written; a development attaches only to the fact that started its
+// story, so stories do not grow by chaining. Manual corrections are never overwritten; a revision
+// keeps its membership unless an editor asks for a regroup. When a report is firmly tied to two
+// stories, their roots are compared directly and the stories merge
 // when both models see one story (consolidate); stories that stay apart though reports keep tying
 // them list each other as related (linkRelatedStories). A story a regrouped report leaves without
 // reports merges into where it went, so its address keeps working. A report waiting for a regroup
@@ -70,10 +70,8 @@ interface ArticleRow {
   discovered_at: Date;
   grouped_at: Date | null;
   body_text: string | null;
-  x_post: { tweetId?: string; replyTo?: string | null; quoted?: { url?: string } | null } | null;
   source_id: string;
   source_name: string;
-  signal_group_id: string | null;
   first_party: boolean;
   participation_mode: string;
   regroup_pending: boolean;
@@ -94,8 +92,8 @@ interface Recalled {
   score: number;
 }
 
-export function participantKey(source: { id: string; signal_group_id: string | null }): string {
-  return source.signal_group_id ? `group:${source.signal_group_id}` : `source:${source.id}`;
+export function participantKey(source: { id: string }): string {
+  return `source:${source.id}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,11 +218,8 @@ function cosine32(a: Float32Array, b: Float32Array): number {
   return na && nb ? dot / Math.sqrt(na * nb) : 0;
 }
 
-/**
- * Facts whose reports are similar to the query text: the best report of each fact counts. Boosted
- * facts (a post the query replies to or quotes) are always included.
- */
-async function recallFacts(queryId: string, queryText: string, minScore: number, top: number, boost: PoolRow[] = []): Promise<Recalled[]> {
+/** Facts whose reports are similar to the query text: the best report of each fact counts. */
+async function recallFacts(queryId: string, queryText: string, minScore: number, top: number): Promise<Recalled[]> {
   const pool = (await recallPool()).filter((r) => r.article_id !== queryId);
   const best = new Map<number, Recalled>();
   const consider = (r: PoolRow, score: number) => {
@@ -256,7 +251,6 @@ async function recallFacts(queryId: string, queryText: string, minScore: number,
       }
     }
   }
-  for (const r of boost) consider(r, 1);
   return [...best.values()].sort((a, b) => b.score - a.score).slice(0, top);
 }
 
@@ -395,14 +389,7 @@ async function createFact(db: Db, storyId: number, title: string, frame: Record<
   return row!.id;
 }
 
-async function recordSignal(
-  db: Db,
-  storyId: number,
-  articleId: string,
-  source: { id: string; signal_group_id: string | null },
-  kind: "editorial" | "signal",
-  observedAt: Date,
-) {
+async function recordSignal(db: Db, storyId: number, articleId: string, source: { id: string }, kind: "editorial" | "signal", observedAt: Date) {
   await db`
     INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
     VALUES (${storyId}, ${articleId}, ${participantKey(source)}, ${source.id}, ${kind}, ${observedAt})
@@ -481,24 +468,14 @@ async function markGrouped(articleId: string) {
   await sql`UPDATE articles SET grouped_at = coalesce(grouped_at, now()) WHERE id = ${articleId}`;
 }
 
-/** The live fact another report of the same page, or the X post this one replies to or quotes, belongs to. */
-async function relatedPosts(a: ArticleRow): Promise<{ sameUrl: PoolRow | null; referenced: PoolRow[] }> {
+/** The live fact another report of the same page belongs to. */
+async function sameUrlFact(a: ArticleRow): Promise<PoolRow | null> {
   const [sameUrl] = await sql<PoolRow[]>`
     SELECT fa.article_id, fa.fact_id, f.story_id, f.title AS fact_title
     FROM articles b JOIN fact_articles fa ON fa.article_id = b.id AND fa.role IN ('primary', 'report')
     JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
     WHERE b.url = ${a.url} AND b.id <> ${a.id} AND ${trusted("fa")} ORDER BY fa.created_at LIMIT 1`;
-  const ids = [a.x_post?.replyTo ?? null, a.x_post?.quoted?.url ? (/\/status\/(\d+)/.exec(a.x_post.quoted.url)?.[1] ?? null) : null].filter(
-    (x): x is string => !!x,
-  );
-  const referenced = ids.length
-    ? await sql<PoolRow[]>`
-        SELECT fa.article_id, fa.fact_id, f.story_id, f.title AS fact_title
-        FROM articles b JOIN fact_articles fa ON fa.article_id = b.id AND fa.role IN ('primary', 'report')
-        JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
-        WHERE b.identity_key = ANY(${ids.map((id) => `x:${id}`)}) AND b.id <> ${a.id} AND ${trusted("fa")}`
-    : [];
-  return { sameUrl: sameUrl ?? null, referenced };
+  return sameUrl ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -704,7 +681,6 @@ export interface GroupResult {
     | "manual"
     | "skipped"
     | "signal"
-    | "signal-native"
     | "signal-unmatched"
     | "historical";
   factId?: number;
@@ -716,9 +692,6 @@ export interface GroupResult {
   redirected?: number[];
   /** Earlier discussion posts close to the fact this report founded, grouped again (rematchSignals). */
   rematched?: number;
-  /** Earlier discussion posts replying to or quoting this post, grouped again (reclaimWaiting). */
-  reclaimed?: number;
-  reclaimError?: string;
   rematchError?: string;
 }
 
@@ -739,13 +712,13 @@ export async function groupArticle(articleId: string, opts: GroupOptions = {}): 
 
 async function decide(articleId: string, opts: GroupOptions): Promise<GroupResult> {
   const [a] = await sql<ArticleRow[]>`
-    SELECT a.id, a.title, a.url, a.published_at, a.discovered_at, a.grouped_at, a.body_text, a.x_post, a.backfill,
-           s.id AS source_id, s.name AS source_name, s.signal_group_id, s.first_party, s.participation_mode,
+    SELECT a.id, a.title, a.url, a.published_at, a.discovered_at, a.grouped_at, a.body_text, a.backfill,
+           s.id AS source_id, s.name AS source_name, s.first_party, s.participation_mode,
            EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = a.id) AS regroup_pending
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!a) return { verdict: "skipped" };
   const observedAt = a.published_at ?? a.discovered_at;
-  const source = { id: a.source_id, signal_group_id: a.signal_group_id };
+  const source = { id: a.source_id };
 
   // Manual decisions win over any model decision: a manual membership, or "keep standalone".
   const manual = await manualDecision(sql, articleId);
@@ -791,7 +764,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   };
   const newTitle = String(frame?.title || title).slice(0, 60);
 
-  const { sameUrl, referenced } = await relatedPosts(a);
+  const sameUrl = await sameUrlFact(a);
   let verdict: GroupResult["verdict"] = "new-story";
   let factId: number | null = null;
   let storyId: number | null = null;
@@ -805,7 +778,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     storyId = sameUrl.story_id;
   } else {
     try {
-      cands = await candidateViews(await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS, referenced));
+      cands = await candidateViews(await recallFacts(articleId, reportText(title, an.summary_zh), RECALL_MIN_COSINE, RECALL_TOP_FACTS));
       if (cands.length) {
         const judged = await judgeBatch(articleId, query, cands);
         verdicts = judged.verdicts;
@@ -893,15 +866,6 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   }
   const redirected = await redirectEmptiedStories(articleId, left, result.storyId!);
   if (redirected.length) result.redirected = redirected;
-  // Discussion posts that reply to or quote this post and came first now have its story, whichever
-  // fact it joined (the posts waiting on an original wake when the original arrives).
-  if (a.x_post?.tweetId) {
-    try {
-      result.reclaimed = await reclaimWaiting(a.x_post.tweetId);
-    } catch (error) {
-      result.reclaimError = String(error).slice(0, 300);
-    }
-  }
   // A new fact may be what discussion posts of the last hours were about before any report came.
   if (verdict === "new-story" || verdict === "new-fact-in-story") {
     try {
@@ -915,8 +879,6 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
 
 /** How far back discussion posts that found no story get another look when a new fact appears. */
 const REMATCH_HOURS = 6;
-/** How long a discussion post waits for the post it replies to or quotes (48 hours). */
-const WAIT_HOURS = 48;
 
 /** Discussion posts not yet attached to any story (a post a person placed or detached is left alone). */
 const unattachedSignal = sql`
@@ -925,20 +887,6 @@ const unattachedSignal = sql`
   AND NOT EXISTS (SELECT 1 FROM story_signals ss WHERE ss.article_id = a.id)
   AND NOT EXISTS (SELECT 1 FROM grouping_decisions d WHERE d.article_id = a.id AND d.verdict <> 'signal-unmatched')
   AND NOT EXISTS (SELECT 1 FROM grouping_overrides o WHERE o.article_id = a.id)`;
-
-/**
- * A reaction often comes before the post it quotes is collected (Dan Shipper's "SONNET 5.5 IS OUT!"
- * a minute before Anthropic's post). When the original joins a fact, the recent unattached posts that
- * reply to or quote it are grouped again; groupSignal then attaches them through the reference.
- */
-async function reclaimWaiting(tweetId: string): Promise<number> {
-  const posts = await sql<{ id: string }[]>`
-    SELECT a.id FROM articles a JOIN sources s ON s.id = a.source_id
-    WHERE a.discovered_at > now() - make_interval(hours => ${WAIT_HOURS}) AND ${unattachedSignal}
-      AND (a.x_post->>'replyTo' = ${tweetId} OR substring(a.x_post->'quoted'->>'url' from '/status/([0-9]+)') = ${tweetId})`;
-  for (const p of posts) await enqueue(QUEUES.group, { articleId: p.id, signalOnly: true }, { singletonKey: p.id, priority: -1 });
-  return posts.length;
-}
 
 /** The text a discussion post is recalled by: its title and the start of its body. */
 const signalText = (a: { title: string; body_text: string | null }) => reportText(a.title, a.body_text?.slice(0, 300) ?? null);
@@ -968,25 +916,10 @@ async function rematchSignals(articleId: string, queryText: string): Promise<num
 }
 
 /**
- * Discussion evidence (hot_signal sources): the post the item replies to or quotes decides first;
- * otherwise clear candidates are judged, and a nearly identical report attaches without a call.
+ * Discussion evidence (hot_signal sources): clear candidates are judged, and a nearly identical
+ * report attaches without a call.
  */
-async function groupSignal(a: ArticleRow, source: { id: string; signal_group_id: string | null }, observedAt: Date): Promise<GroupResult> {
-  const { referenced } = await relatedPosts(a);
-  if (referenced.length) {
-    const target = referenced[0]!;
-    await recordSignal(sql, target.story_id, a.id, source, "signal", observedAt);
-    await recordDecision(
-      sql,
-      a.id,
-      target.fact_id,
-      target.story_id,
-      "signal-native",
-      [{ id: target.fact_id, score: 1, relation: "SAME_STORY", confidence: 1 }],
-      null,
-    );
-    return { verdict: "signal-native", storyId: target.story_id };
-  }
+async function groupSignal(a: ArticleRow, source: { id: string }, observedAt: Date): Promise<GroupResult> {
   if (!embeddingsAvailable()) return { verdict: "signal-unmatched" };
   const recalled = await recallFacts(a.id, signalText(a), SIGNAL_MIN_COSINE, SIGNAL_TOP_FACTS);
   if (recalled.length === 0) {

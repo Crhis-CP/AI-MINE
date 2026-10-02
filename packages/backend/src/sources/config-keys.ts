@@ -57,8 +57,6 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     "requireBoolean",
     "minNumeric",
   ],
-  // X accounts are mostly read in shards, which apply only these.
-  x_search: ["_aihot", "ingestNoiseFilter", "itemUrlPrefixRewrite", "query", "searchType"],
   mp_account: ["wxid", "ghid", "nickname"],
   external: [],
 };

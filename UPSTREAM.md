@@ -19,7 +19,7 @@
 ## 2. 许可安排
 
 - 根目录 `LICENSE` 是本仓库所有者的 MIT 许可（Copyright (c) 2026 Chirs Codex）。Owner 2026-10-02 要求在许可里加上自己的署名，按 `04-aihot-adoption.md` 6.1 的做法处理：AIHOT 的 MIT 原文移到 `LICENSES/AIHOT-MIT.txt`，一字不改；`NOTICE` 写明源自 AIHOT 的部分按 MIT 提供。
-- AIHOT 的名称与 Logo 不在 MIT 授权内：代码、界面、文档、包名、环境变量、存储键、User-Agent、MCP 工具名里都不使用，只在 `LICENSES/AIHOT-MIT.txt`、`NOTICE`、本文件、`upstream/aihot.lock.json` 与 ADR-0001 中作为来源说明出现（去品牌在 T-0002 完成）。
+- AIHOT 的名称与 Logo 不在 MIT 授权内：代码、界面、文档、包名、环境变量、存储键、User-Agent、MCP 工具名里都不使用，只作为来源说明与历史记录出现在 `docs/04-architecture/04-aihot-adoption.md` 4.6 第 1 条列出的路径里：`LICENSE`、`LICENSES/AIHOT-MIT.txt`、`NOTICE`、本文件与 `upstream/aihot.lock.json` 这些来源登记，原样放入 `docs/` 的交接包及其写回，`docs/acceptance/` 的历史证据，与模板逐字节相同的治理文件，以及上游检查流程的原样存档（2026-10-02 勘误；去品牌在 T-0002 完成）。
 - MIT 源码授权不等于新闻、原文全文或第三方标识授权；采集内容的展示范围由信源权限矩阵决定（ADR-0009）。
 
 ## 3. 移植记录

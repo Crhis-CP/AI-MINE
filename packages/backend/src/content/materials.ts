@@ -14,18 +14,6 @@ export interface MediaItem {
   poster?: string | null;
 }
 
-export interface XPostData {
-  tweetId: string;
-  authorName: string;
-  handle: string;
-  avatarUrl?: string | null;
-  text: string;
-  quoted?: { authorName: string; handle: string; text: string; url: string; media?: MediaItem[] } | null;
-  media?: MediaItem[];
-  lang?: string | null;
-  replyTo?: string | null;
-}
-
 export interface MaterialInput {
   sourceId: string;
   url: string;
@@ -40,7 +28,6 @@ export interface MaterialInput {
   bodyText?: string | null;
   bodyStatus?: "pending" | "ok" | "unconfirmed" | "none";
   media?: MediaItem[];
-  xPost?: XPostData | null;
   raw?: unknown;
   via: "fetch" | "ingest" | "import";
   discoveredAt?: Date;
@@ -113,7 +100,6 @@ function sameBarringLoss(a: string | null | undefined, b: string | null | undefi
 
 export function identityKeyFor(m: MaterialInput): string {
   if (m.identityKey) return m.identityKey;
-  if (m.xPost?.tweetId) return `x:${m.xPost.tweetId}`;
   const fromUrl = identityKeyForUrl(m.url);
   if (fromUrl) return fromUrl;
   return `src:${m.sourceId}:${sha256(m.url + "\u0001" + m.title).slice(0, 32)}`;
@@ -140,12 +126,12 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<MaterialResult> {
   const [inserted] = await db<{ id: string }[]>`
     INSERT INTO articles (id, source_id, identity_key, url, title, author, language, published_at, published_at_claim,
       discovered_at, source_updated_at, timeline_at, backfill, backfill_reason, revision, content_hash, excerpt,
-      body_text, body_html, body_status, media, x_post, raw)
+      body_text, body_html, body_status, media, raw)
     VALUES (${newId}, ${m.sourceId}, ${identityKey}, ${m.url}, ${title}, ${m.author ?? null}, ${m.language ?? null},
       ${t.publishedAt}, ${m.publishedAt ?? null}, ${discoveredAt}, ${m.sourceUpdatedAt ?? null}, ${t.timelineAt},
       ${t.backfill}, ${t.backfillReason}, 1, ${hash}, ${m.excerpt ?? null}, ${m.bodyText ?? null}, ${m.bodyHtml ?? null},
       ${m.bodyStatus ?? (m.bodyText ? "ok" : "pending")}, ${db.json((m.media ?? []) as never)},
-      ${m.xPost ? db.json(m.xPost as never) : null}, ${m.raw === undefined ? null : db.json(m.raw as never)})
+      ${m.raw === undefined ? null : db.json(m.raw as never)})
     ON CONFLICT (identity_key) DO NOTHING RETURNING id`;
   if (inserted) {
     await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
@@ -207,7 +193,6 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<MaterialResult> {
       body_text = coalesce(${m.bodyText ?? null}, body_text), body_html = coalesce(${m.bodyHtml ?? null}, body_html),
       body_status = CASE WHEN ${m.bodyText ?? null}::text IS NULL THEN body_status ELSE ${m.bodyStatus ?? "ok"} END,
       media = CASE WHEN ${m.media ? db.json(m.media as never) : null}::jsonb IS NULL THEN media ELSE ${m.media ? db.json(m.media as never) : null}::jsonb END,
-      x_post = coalesce(${m.xPost ? db.json(m.xPost as never) : null}, x_post),
       revision = revision + 1, content_hash = ${next}, processing_state = 'new', updated_at = now()
     WHERE id = ${existing!.id}
     RETURNING revision`;

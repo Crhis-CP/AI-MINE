@@ -42,7 +42,7 @@
 
 | 字段 | 含义 |
 |---|---|
-| `kind` | `rss`、`web_list`（网页列表，配选择器）、`json_list`（JSON 接口）、`x_search`（X 账号，需要 SocialData）、`mp_account`（公众号，需要极致了）、`external`（外部推送） |
+| `kind` | `rss`、`web_list`（网页列表，配选择器）、`json_list`（JSON 接口）、`mp_account`（公众号，需要极致了）、`external`（外部推送） |
 | `config` | 每种信源的配置，见 [信源](sources.md) |
 | `tier` | 信源分级：`T1` 官方一手、`T1_5` 官方账号与准官方、`T2` 媒体与个人、`EXCLUDE_MP` 不参与精选。不同分级的入选门槛不同 |
 | `participation_mode` | `editorial` 进精选和全部动态；`hot_signal` 只作热度证据；`isolated` 不进任何公开页面 |
@@ -81,14 +81,7 @@
 
 这一步决定了你的站“选得准不准”。
 
-## 6. 只对 AI 有意义的两个模块：`industry/features.ts`
-
-- `leaderboard`：模型榜（`/leaderboard`）。
-- `codexResetMonitor`：Codex 重置监控（`/codex-reset`）。
-
-别的行业把两项都设为 `false`：导航入口、定时任务、接口和站点地图都会跟着关掉。想彻底删掉代码，删这些目录并处理掉编译错误即可：`packages/backend/src/leaderboard/`、`packages/backend/src/monitor/`、`apps/web/app/features/leaderboard/`、`apps/web/app/features/monitor/`、`apps/web/app/routes/leaderboard*.tsx`、`apps/web/app/routes/codex-reset.tsx`、`apps/api/src/routes/leaderboard.ts`。
-
-## 7. 品牌：`industry/brand/`
+## 6. 品牌：`industry/brand/`
 
 - `logo.svg`、`icon.png`（512）、`icon-192.png`、`apple-icon.png`（180）、`favicon.ico`：站点图标。
 - `nameplates/`：日报、周报、月报页顶部的报头字（比如“AI日报”）。换了行业词以后重新生成：
@@ -101,12 +94,12 @@
 
 请不要使用 AIHOT 的名字和 Logo。
 
-## 8. 页面文案：`industry/pages/`、`industry/changelog.json`
+## 7. 页面文案：`industry/pages/`、`industry/changelog.json`
 
 - `pages/terms.md`、`pages/privacy.md`：使用规则和隐私说明。**现在是模板**，上线前按你的实际情况改写，必要时请专业人士看一下。
 - `changelog.json`：更新日志。新条目写在最前面，把 `latestVersion` 改成它的日期和时间。
 
-## 9. 模型和部署
+## 8. 模型和部署
 
 - 模型：`.env` 里的 `LLM_BASE_URL`、`LLM_API_KEY`、`LLM_MODEL`，任何 OpenAI 兼容接口都行，所有步骤默认都用它。想让某一步用别家模型，见 `.env.example`。
 - 部署：见 [部署](deploy.md)。

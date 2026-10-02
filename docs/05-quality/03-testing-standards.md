@@ -32,7 +32,7 @@
 | 扫描 | 范围 | 判定 | 守护 |
 |---|---|---|---|
 | 私有路由路径 | 公开构建的页面 HTML、静态资源（含路由与构建清单）、路由清单类端点、站点地图、robots、llms.txt；以各模块 `privateRoutes` 清单逐项检索 | 命中 0。AIHOT 的路由发现会把整张路由清单随每个公开页下发，须关闭或让公开构建的清单不含私有路径（`04-architecture/04-aihot-adoption.md` G19） | T-060；INV-25；AC-SEC-01、AC-M0-05 |
-| 去品牌与来源残留 | 全仓与构建产物：AIHOT 名称（`git grep -i aihot` 与 `git grep -i 'ai hot'`，只允许命中 LICENSE、NOTICE、UPSTREAM.md、`upstream/aihot.lock.json` 与记录工程起点的 ADR-0001）、`RingMark`、`#176b75`、`#2ce2e8`、与 `aihot-source-manifest.json` 中品牌文件 SHA-256 相同的文件 | 命中 0（NOTICE 与 UPSTREAM.md 里的来源说明除外） | AC-M0-01 |
+| 去品牌与来源残留 | 全仓与构建产物：AIHOT 名称（`git grep -i aihot` 与 `git grep -i 'ai hot'`）、`RingMark`、`#176b75`、`#2ce2e8`、与 `aihot-source-manifest.json` 中品牌文件 SHA-256 相同的文件 | 命中 0：名称、`RingMark` 与两个色值只允许在 `04-architecture/04-aihot-adoption.md` 4.6 第 1 条所列路径命中（来源登记、交接包原件及其写回、历史证据、治理记录、上游原样存档；2026-10-02 勘误）；构建产物与品牌哈希不设例外 | AC-M0-01 |
 | 分数展示规则 | 页面源码与渲染结果、分享图（启用后）、RSS、公开 API、MCP、本机存储键值中的分数字段与数值；热点榜的热度值字段 | ①有评分的条目：显示“AI 评分 · NN”小标签（手机上卡片只显示数字 NN，无障碍名称仍为“AI 评分 NN 分”），NN = 两次评分平均值向下取整；分色档位 85 分及以上暖红、70–84 分强调色、其余灰色文字（边界值 69、70、84、85 各一个断言）；精选卡片与详情必须显示，其他位置如显示须遵守同一规则；入选精选的条目另有“精选”标记（手机的列表行不显示，详情页桌面与手机都显示）；②没有评分（分数为空）的条目什么都不显示：不出现“AI 评分”字样、数字 0、占位值（“—”“N/A”等）、“暂无评分”、空标签与空角标，命中 0（以分数为空判断，不以分数为 0 判断）；人工精选而无分值的条目只有“精选”标记；③两次评分的单次分数、评分提示词版本等细目命中 0（INV-10）；④热点榜的热度值只出现在网页，API、RSS、MCP 与本机存储命中 0（只给名次）；⑤未经 Owner 审阅确认的评分标准版本所产生的评分与精选，在正式站的任何公开出口命中 0（T-160） | T-040、T-039、T-160；INV-19；AC-M0-01、AC-M2-03、AC-M2-04 |
 | 文本门禁 | `apps/`、`packages/contracts`、`industry/` 中的 AI、OpenAI、Anthropic、Codex、模型发布、大模型等词（完整正则见 `04-architecture/04-aihot-adoption.md` 4.4） | 只允许命中 AI 生成标注（“AI 导读”“AI 翻译”“AI 综述”，DR-87）与 `llms.txt` 说明 | AC-M0-07（任务包 T-0009） |
 | 密钥与敏感字段 | PR 差异、发布时整棵树、镜像层、前端产物、公开响应 | 命中 0 | INV-26；AC-SEC-05、AC-SEC-14 |

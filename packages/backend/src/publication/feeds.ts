@@ -8,8 +8,7 @@ import { sql } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
 import { proxyBodyImages } from "../media/imgproxy.ts";
 import { reportHeadline, reportIndex } from "./reports.ts";
-import { textToHtml } from "../content/sanitize.ts";
-import { categoryCondition, listedCondition, selectedCondition, xView, type ItemRow } from "./items.ts";
+import { categoryCondition, listedCondition, selectedCondition, type ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 
 interface FeedMeta {
@@ -86,7 +85,7 @@ ${items.join("\n")}
 
 type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "published_at" | "discovered_at" | "source_name"> &
   Partial<
-    Pick<ItemRow, "channel" | "x_post" | "zh_text" | "quoted_zh" | "language" | "syndicate"> & {
+    Pick<ItemRow, "language" | "syndicate"> & {
       body_html: string | null;
       tr_html: string | null;
       tr_complete: boolean | null;
@@ -97,21 +96,11 @@ type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "
 const FEED_IMAGE_SECONDS = 7 * 86400;
 
 /**
- * The body a full feed carries, in Chinese when the page has it: an X post's translation (with the post
- * it quotes, translated too), else a complete Chinese translation of the article, else the original. It
- * ends with an attribution line (also a mark on copies taken from the feed).
+ * The body a full feed carries, in Chinese when the page has it: a complete Chinese translation of the
+ * article, else the original. It ends with an attribution line (also a mark on copies taken from the feed).
  */
 function fullContent(r: FeedRow, aihot: string): string | null {
-  let html: string | null = null;
-  const x = r.channel === "x" ? xView({ x_post: r.x_post ?? null, zh_text: r.zh_text ?? null, quoted_zh: r.quoted_zh ?? null }) : null;
-  if (x?.text) {
-    html = textToHtml(x.translation ?? x.text);
-    if (x.quoted?.text) {
-      html += `<blockquote><p>引用 @${escapeXml(x.quoted.handle)}：</p>${textToHtml(x.quoted.translation ?? x.quoted.text)}${x.quoted.url ? `<p><a href="${escapeXml(x.quoted.url)}">${escapeXml(x.quoted.url)}</a></p>` : ""}</blockquote>`;
-    }
-  } else if (r.body_html) {
-    html = r.language !== "zh" && r.tr_html && r.tr_complete ? r.tr_html : r.body_html;
-  }
+  const html = r.body_html ? (r.language !== "zh" && r.tr_html && r.tr_complete ? r.tr_html : r.body_html) : null;
   if (!html) return null;
   return `${proxyBodyImages(html, true, FEED_IMAGE_SECONDS)}<p>—— 本文由 ${escapeXml(SITE.name)} 聚合整理，完整版与更多动态见 <a href="${aihot}">${aihot}</a></p>`;
 }
@@ -157,19 +146,12 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
       ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
     )
     SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name
-      ${
-        includeContent
-          ? sql`, p.channel, p.syndicate, a.language, a.x_post,
-        CASE WHEN p.channel = 'x' THEN tr.body_text END AS zh_text, qt.text_zh AS quoted_zh,
-        a.body_html, tr.body_html AS tr_html, tr.complete AS tr_complete`
-          : sql``
-      }
+      ${includeContent ? sql`, p.syndicate, a.language, a.body_html, tr.body_html AS tr_html, tr.complete AS tr_complete` : sql``}
     FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id
     ${
       includeContent
         ? sql`LEFT JOIN articles a ON a.id = p.article_id AND p.syndicate
-      LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision
-      LEFT JOIN quote_translations qt ON p.channel = 'x' AND qt.tweet_id = substring(a.x_post->'quoted'->>'url' from '/status/([0-9]+)')`
+      LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision`
         : sql``
     }
     ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`;

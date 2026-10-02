@@ -1,7 +1,7 @@
 // Text embeddings through receipts, used only for the event grouping's candidate recall. Any
 // OpenAI-compatible /embeddings endpoint (EMBEDDING_BASE_URL, EMBEDDING_API_KEY, EMBEDDING_MODEL);
 // with a DashScope key and nothing else set, Aliyun text-embedding-v4 at 1024 dimensions. Without
-// either, recall falls back to the other signals (same address, replies and quotes).
+// either, recall falls back to the other signal (the same address).
 import { config, credential } from "../config.ts";
 import { sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";

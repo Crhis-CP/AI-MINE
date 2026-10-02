@@ -22,14 +22,10 @@ import { pageFetchable } from "../content/extract.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import {
   buildArticlePrompt,
-  buildLongTweetPrompt,
-  buildShortTweetPrompt,
   finalizeCopy,
-  isShortTweetInput,
   looksZh,
   MAX_BODY_CHARS,
   missingEvidence,
-  needsShortTweetTranslation,
   parseTranslateOutput,
   PREFILTER_SYSTEM,
   prefilterUser,
@@ -47,15 +43,7 @@ export const PROMPT_VERSIONS = {
   prefilter: promptVersion("prefilter"),
   score: promptVersion("selection-score"),
   understand: promptVersion("understand"),
-  summarize: promptVersion(
-    "summarize-article",
-    "summarize-article-empty",
-    "summarize-short-post",
-    "summarize-short-post-quoted",
-    "summarize-long-post",
-    "summarize-long-post-quoted",
-    "identity-context",
-  ),
+  summarize: promptVersion("summarize-article", "summarize-article-empty", "identity-context"),
   structure: promptVersion("structure"),
 } as const;
 /** Every step's prompt, as stored on each judgement. */
@@ -114,13 +102,7 @@ export function scoreInputTime(at: Date): string {
  * original title (items are scored before any Chinese copy exists) and the whole body.
  */
 export function buildScoreInput(a: AnalyzeInputArticle): string {
-  let body: string;
-  if (a.xPost) {
-    const quoted = a.xPost.quoted?.text ? `\n\n[引用 ${a.xPost.quoted.handle ? `@${a.xPost.quoted.handle}` : "原推文"}]：${a.xPost.quoted.text}` : "";
-    body = `${String(a.xPost.text ?? "").trim()}${quoted}`.trim();
-  } else {
-    body = (a.bodyText ?? a.excerpt ?? "").trim();
-  }
+  let body = (a.bodyText ?? a.excerpt ?? "").trim();
   if (!body) body = a.title;
   const at = a.publishedAt ?? a.discoveredAt ?? null;
   return [
@@ -194,9 +176,9 @@ export interface AnalysisRun {
    * is not scored. `refused`: the model's content filter declined it, so it is not selected.
    */
   scores: { model: string; threshold: number; values: number[]; receiptIds: number[]; reused: boolean; refused?: boolean } | null;
-  /** The reader-facing copy: `understand` (selected, near-selected), `summarize`, `verbatim` (a Chinese short post), `none`. */
+  /** The reader-facing copy: `understand` (selected, near-selected), `summarize`, `none`. */
   writing: {
-    kind: "understand" | "summarize" | "verbatim" | "none";
+    kind: "understand" | "summarize" | "none";
     model: string | null;
     titleZh: string;
     summaryZh: string;
@@ -223,7 +205,7 @@ const isContentFilter = (error: unknown) => error instanceof ProviderRejectedErr
 
 /** Only a title or a feed summary, and a page to fetch: the article is judged on the page. */
 export function waitsForPage(a: AnalyzeInputArticle): boolean {
-  return a.bodyStatus === "pending" && !a.bodyText && !a.xPost && pageFetchable(a.url, a.source.kind);
+  return a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
 
 type StepOpts = { attemptTag?: string; scoreModel?: string };
@@ -399,16 +381,12 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
   };
 }
 
-/** The title/summary prompts (articles, long and short posts). */
+/** The title/summary prompt for the items the content understanding does not write. */
 async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
   const t = translateInputOf(a);
-  const isX = t.sourceKind === "x_search";
-  const short = isShortTweetInput(t);
-  const main = collapseWhitespace(t.mainText || t.title);
   const plain = { reasonZh: null, tags: null, receiptIds: [] as number[], reused: true };
-  // A short post already in Chinese is its own copy, and too little text is not written up from a title.
-  if (short && !needsShortTweetTranslation(main)) return { kind: "verbatim", model: null, titleZh: main, summaryZh: main, ...plain };
-  if (!short && t.text.trim().length < 20) return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
+  // Too little text is not written up from a title.
+  if (t.text.trim().length < 20) return { kind: "none", model: null, titleZh: looksZh(t.title) ? t.title : "", summaryZh: "", ...plain };
   const model = await modelFor("summarize");
   checkAnalysisRunning();
   const res = await chatJson({
@@ -417,7 +395,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     subject: subjectOf(a),
     promptVersion: PROMPT_VERSIONS.summarize,
     system: "",
-    user: short ? buildShortTweetPrompt(t) : isX ? buildLongTweetPrompt(t) : buildArticlePrompt(t),
+    user: buildArticlePrompt(t),
     schema: SummarizeSchema,
     json: false,
     parse: parseTranslateOutput,
@@ -426,12 +404,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     attemptTag: tagged(opts.attemptTag, "summarize"),
   });
   const p = res.data;
-  const draft = short
-    ? { titleZh: p.titleZh || (looksZh(main) ? main : ""), summaryZh: p.bodyZh || p.summaryZh }
-    : isX
-      ? { titleZh: p.titleZh, summaryZh: p.summaryZh || p.bodyZh }
-      : { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh };
-  const copy = finalizeCopy(t, draft);
+  const copy = finalizeCopy(t, { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh });
   return {
     kind: "summarize",
     model: res.model,

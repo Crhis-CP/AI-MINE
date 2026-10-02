@@ -1,20 +1,17 @@
 // Seeds a fresh site from the industry pack: the topics (industry/topics.json, updated in place), the
-// demo sources (industry/sources.json, only the ones not there yet, so admin edits are never undone) and,
-// with the leaderboard on, its model directory (only models and names not there yet).
+// demo sources (industry/sources.json, only the ones not there yet, so admin edits are never undone).
 // Re-runnable:  node --env-file=.env scripts/seed.ts   (--topics-only: just the topics, as the tests use)
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { FEATURES } from "@aihot/industry/features";
 import { REPO_ROOT } from "@aihot/backend/config";
 import { closeDb, sql } from "@aihot/backend/db";
-import { importModelDirectory } from "@aihot/backend/leaderboard/directory";
 import { seedTopics } from "@aihot/backend/publication/topics";
 import { assertSupportedConfig } from "@aihot/backend/sources/config-keys";
 
 interface SeedSource {
   id: string;
   name: string;
-  kind: "rss" | "web_list" | "json_list" | "x_search" | "mp_account" | "external";
+  kind: "rss" | "web_list" | "json_list" | "mp_account" | "external";
   config: Record<string, unknown>;
   tier?: string;
   first_party?: boolean;
@@ -46,8 +43,4 @@ for (const s of sources) {
   added += inserted.length;
 }
 console.log(`sources: ${added} added, ${sources.length - added} already there`);
-if (FEATURES.leaderboard) {
-  const { models, aliases } = await importModelDirectory();
-  console.log(`leaderboard directory: ${models} models, ${aliases} names added`);
-}
 await closeDb();

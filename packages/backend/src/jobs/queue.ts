@@ -13,7 +13,6 @@ export const QUEUES = {
   group: "events.group",
   digest: "events.digest",
   fetchSource: "sources.fetch",
-  fetchXShard: "sources.fetch-x",
   mpCheck: "sources.mp",
 
   notifySelected: "notify.selected",
@@ -32,7 +31,6 @@ export const QUEUE_OPTIONS: Record<string, QueueOptions> = {
   [QUEUES.group]: { policy: "short", retryLimit: 4, retryDelay: 20, retryBackoff: true, expireInSeconds: 600 },
   [QUEUES.digest]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 },
   [QUEUES.fetchSource]: { policy: "short", retryLimit: 0, expireInSeconds: 600 },
-  [QUEUES.fetchXShard]: { policy: "short", retryLimit: 0, expireInSeconds: 900 },
   [QUEUES.mpCheck]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
   [QUEUES.notifySelected]: { policy: "short", retryLimit: 0, expireInSeconds: 300 },
   [QUEUES.republishSource]: { policy: "short", retryLimit: 2, retryDelay: 60, expireInSeconds: 3600 },

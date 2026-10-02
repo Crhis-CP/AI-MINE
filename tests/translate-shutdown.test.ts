@@ -94,7 +94,7 @@ for (const misaligned of [false, true])
     interrupted.child.kill("SIGTERM");
     await interrupted.stopped;
     active.hold.open();
-    assert.deepEqual(await interrupted.done, { done: [], quotes: 0 });
+    assert.deepEqual(await interrupted.done, { done: [] });
     assert.equal(active.calls, 1, "no later fragment or half-batch starts after shutdown");
     const receiptRows = await sql`SELECT status,response FROM receipts WHERE purpose='translate_body' AND subject LIKE ${`article:${articleId}@1#%`}`;
     assert.equal(receiptRows.length, 1);

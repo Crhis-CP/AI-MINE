@@ -3,7 +3,6 @@ export const KIND_LABEL: Record<string, string> = {
   rss: "RSS",
   web_list: "网页列表",
   json_list: "JSON",
-  x_search: "X",
   mp_account: "公众号",
   external: "外部上报",
 };

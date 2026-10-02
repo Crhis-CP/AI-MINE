@@ -66,7 +66,7 @@
   <img src="docs/assets/cluster-light.png" alt="五个来源的报道聚成一个事件，事件进入当前热点榜" width="100%">
 </picture>
 
-同一件事，官网发一篇、媒体转十篇、X 上吵一天，读者只需要看到一次。AIHOT 把它们聚成一个**事件**：先用标题摘要的向量在最近两周里找候选，再让模型判断是同一件事、后续进展，还是两件事；拿不准的合并，换一家模型再确认一遍。
+同一件事，官网发一篇、媒体转十篇，读者只需要看到一次。AIHOT 把它们聚成一个**事件**：先用标题摘要的向量在最近两周里找候选，再让模型判断是同一件事、后续进展，还是两件事；拿不准的合并，换一家模型再确认一遍。
 
 **热度**按事件算，不按文章算：48 小时内，每个独立来源只算一次，24 小时减半。重复抓取不会多算，一家媒体发十篇也只算一次，所以排在前面的，是真正有很多人在说的事。
 
@@ -81,27 +81,21 @@
 
 | | |
 |---|---|
-| **六种信源** | RSS、网页列表、JSON 接口、X 账号、微信公众号，以及你自己脚本推送进来的内容。信源分级（官方一手 / 媒体个人），抓取频率按产出自动调整 |
+| **五种信源** | RSS、网页列表、JSON 接口、微信公众号，以及你自己脚本推送进来的内容。信源分级（官方一手 / 媒体个人），抓取频率按产出自动调整 |
 | **精选** | 预筛，同一份评分标准独立打两次分，再按信源分级的门槛决定入选。提示词和门槛全部公开，全部可以改；用你自己标注的样本在 SelectBench 里校准 |
 | **写作** | 中文标题、答案先行的摘要、推荐理由、标签，外文全文翻译；防止模型把原文没提到的公司写进标题 |
 | **聚簇** | 不同来源报道的同一件事聚成一个事件，后续进展挂在同一个事件下，事件页有综述；人工改过的归属不会被覆盖 |
-| **热点** | 按事件算热度：独立来源越多越靠前，X 上的讨论也算进来；和 6 小时前比，涨得快的标上升，新出现的标“新” |
+| **热点** | 按事件算热度：独立来源越多越靠前，只作热度证据的信源也算进来；和 6 小时前比，涨得快的标上升，新出现的标“新” |
 | **日报、周报、月报** | 每天 08:00 出日报，每周一出周报，每月 1 日出月报，按分类分节，带导语 |
 | **主题与搜索** | 公司、方向、内容形态三类主题页；标题摘要搜索和全文相关搜索 |
 | **给 Agent 用** | RSS（精选、全部、全文、日报）、公开 API、MCP、`llms.txt`，同一份内容给人看也给 Agent 用 |
 | **后台** | 信源管理与试抓、内容诊断、精选评测、每一步单独换模型、付费服务的预算熔断、运行记录与告警 |
-| **AI 专属模块** | 模型榜（汇总多家公开评测，方法公开）和 Codex 重置监控。别的行业一个开关关掉 |
 
 ## 看一眼
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/shots-dark.png">
   <img src="docs/assets/shots-light.png" alt="首页的当前热点与精选，关于页的信源河" width="100%">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/board-dark.png">
-  <img src="docs/assets/board-light.png" alt="模型榜" width="100%">
 </picture>
 
 <p align="center"><sub>截图来自用示范信源跑起来的本地站，站名是默认的 MyHOT。</sub></p>
@@ -139,7 +133,6 @@ docker compose up -d --build
 | `sources.json` | 首次启动时导入的信源 |
 | `prompts/` | 精选标准和写作要求。**你的行业 KnowHow，就写在这里** |
 | `selection.ts` | 入选门槛 |
-| `features.ts` | 模型榜、Codex 重置监控的开关 |
 | `brand/`、`pages/` | 图标、使用规则和隐私说明 |
 
 最值得花时间的是评分标准（`prompts/selection-score.md`）和门槛：拿一两百条你自己标注过的资料，用 `scripts/eval-selection.ts` 跑一遍，看它选得准不准，再回去改。怎么做写在 [精选与校准](docs/selection.md) 里。
@@ -149,12 +142,11 @@ docker compose up -d --build
 | 文档 | 内容 |
 |---|---|
 | [把它改成你的行业](docs/customize.md) | 站名、分类、信源、提示词、门槛、品牌，一步一步来 |
-| [信源](docs/sources.md) | 六种信源怎么配，分级和全文，外部推送接口 |
+| [信源](docs/sources.md) | 五种信源怎么配，分级和全文，外部推送接口 |
 | [精选与校准](docs/selection.md) | 一条资料怎么变成精选，怎么用自己的样本校准 |
 | [事件归组与关系评测](docs/grouping.md) | 事件关系怎么判断，怎么用自己的 pairwise gold set 评测 |
 | [部署](docs/deploy.md) | Docker、域名和 HTTPS、中国大陆、更新、备份、花多少钱 |
 | [架构](docs/architecture.md) | 三个进程、几条不变的规则、目录、对外出口 |
-| [模型榜与 Codex 重置监控](docs/leaderboard.md) | 两个 AI 专属模块 |
 
 技术栈：Node.js 24 · TypeScript · React Router（服务端渲染）· Fastify · PostgreSQL · pg-boss · Tailwind CSS · Docker Compose。
 

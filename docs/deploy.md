@@ -21,7 +21,7 @@ docker compose up -d --build
 
 - 构建时 npm 走国内镜像：`docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com`，然后 `docker compose up -d`。
 - 拉取 Docker 镜像慢，先给 Docker 配置镜像加速。
-- 海外信源抓不到时，在 `.env` 里设置 `EGRESS_PROXY_URL`：抓信源、图片和模型榜数据时走这个代理，调用模型接口不走。
+- 海外信源抓不到时，在 `.env` 里设置 `EGRESS_PROXY_URL`：抓信源和图片时走这个代理，调用模型接口不走。
 - 对外提供网站服务需要先完成 ICP 备案，备案号填在 `industry/site.ts` 的 `icp`。
 
 ### 配域名和 HTTPS
@@ -73,7 +73,7 @@ docker compose logs -f --tail 100 api worker web
 ## 花多少钱
 
 - **模型**：每条新资料至少预筛一次；可能入选的再评分两次，入选的还要写标题摘要、打标签、归组，另外还有日报和事件综述。我们用示范信源在本地试跑，第一次导入的 152 条资料一共用了大约 930 次模型调用。之后每天用多少，取决于你的信源每天更新多少条。后台“模型与评测”页能看到每一步的调用次数和输入输出 token 数。
-- **付费采集**（X、公众号、Jina）：按请求计费，默认不启用，填了 key 才会用。
+- **付费采集**（公众号、Jina）：按请求计费，默认不启用，填了 key 才会用。
 - 所有付费服务都有每分钟、每小时、每天的调用上限（后台“设置 → 预算”），超过就暂停，不会一夜之间刷爆账单。填 0 表示立即停用这个服务。
 
 ## 不用 Docker

@@ -168,7 +168,7 @@ PY
 ```
 
 - 新增 `UPSTREAM.md`，至少包含：上游地址与许可；导入提交 `885b736dc0fd3ef3d4c9c70af2bc3a981a99ff38`、归档 SHA-256、导入日期、导入方式（交接包内归档，不带上游 Git 历史）；“已审阅到的上游提交”（交接包编制时为 `cf8f8d0`，2026-09-30，快照后 12 个提交，差异与处置见 `04-architecture/04-aihot-adoption.md` 6.5）；路径映射指向 `docs/appendix/B-aihot-file-inventory.md`；移植记录表（日期、上游提交、内容、本仓库提交、测试）；同步策略（每周比对、只比对不合并、手工移植、安全修复立即处理）；**一条取代说明**：Owner 2026-09-29 决定以 AIHOT 源码为工程起点，取代旧仓库 `docs/codex-task-structure.md:90@main` 的“AIHOT 只借鉴、不得复制代码”规则（ADR-0001）。继承文档里若仍有那句旧规则，以本条为准。
-- 之后“全仓无 AIHOT 名称”的检查只允许命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json` 与 ADR-0001。
+- 之后“全仓无 AIHOT 名称”的检查按路径设例外，以 `04-architecture/04-aihot-adoption.md` 4.6 第 1 条为准（2026-10-02 勘误：原写只允许 `LICENSE`、`NOTICE`、`UPSTREAM.md`、锁文件与 ADR-0001 命中，但下一步整包放入的交接包与模板原件本身就写着 AIHOT）。
 
 ### 步骤 5　放入交接包与模板
 
@@ -267,7 +267,7 @@ docs/（交接包）  tasks/  changes/  upstream/aihot.lock.json
 |---|---|---|---|---|
 | 0 | T-0014 建仓、上游登记与行为基线 | 架构 | 第 2 节全部：首个提交原样导入；步骤 6 移植 `04-architecture/04-aihot-adoption.md` 6.5 的上游缺陷修复（每项独立提交）；步骤 7 在干净环境实际跑通上游测试并记基线 | 归档与 502 个文件哈希对账一致；上游缺陷修复已作独立提交移植；基线记录入档（失败项逐条登记，不当作通过）；Actions 已停用并读回 |
 | 1 | T-0001 工具链与统一验证入口 | 架构 | 见下方“check.yml 翻译对照”（workflow 文件移出 `.github/workflows` 归档）；pnpm 12 工作区（`packageManager` 固定、一份锁文件、不与 npm 锁文件并存；`pnpm import` 可由 `package-lock.json` 生成 pnpm 锁文件的起点，之后以 `pnpm install --frozen-lockfile` 复核）；Dockerfile 用“整仓复制 + `pnpm install --prod --frozen-lockfile`”、**禁用 `pnpm deploy`**、保留 `NPM_REGISTRY` 构建参数、基础镜像补丁版 + sha256 摘要；Biome 配置写明 `css.parser.tailwindDirectives: true` 与 `lineWidth` 取 140–160（T-0001 实测），**首次全仓格式化单独成一个提交**；`make verify` / `release-check` / `nightly` 骨架、回执生成、密钥扫描与依赖审计、`path-guard`、`tasks`、`docs` 阶段；栈兼容基准；不引入 Turborepo、lefthook、Renovate | 独立执行器通过并出回执；故意违规（越权路径、越界 import、提交密钥、契约漂移）各被拦一次；与 T-0014 基线一致；Actions `enabled=false` 读回；`check.yml` 已翻译成 `scripts/verify` 并移出 `.github/workflows` |
-| 2 | T-0002 去品牌与删减 | 架构 | 去品牌**用脚本一次生成并单独成 PR**；删除模型榜与 Codex 监控**单独成 PR，先删调用再删表**（Owner 2026-10-01 明确不要这两个功能：在重组时直接删除，不移植、不改造、不留开关，DEC-64）；标识清单（`industry/brand/**`、图标、`docs/assets/*`、`RingMark`、四角星、品牌色值）；`NOTICE` 改造；`@aihot/*` 与 `aihot` 字样改名；同批删除（`04-architecture/04-aihot-adoption.md` 4.5～4.7，另含 4.8 第 4 点的海报与分享图评分角标）：X（推特）采集与“资讯/X”频道、飞书内容推送与飞书登录、二维码与关于页作者块、分享图与海报里的评分角标、海报与 Markdown 导出、来源图标抓取与图片代理；**保留并矿业化**评分展示 `Score.tsx` 与 `FeedItem.tsx` 的分数标签、热点榜与事件页（`features/hot/Faces.tsx` 头像堆叠除外、仍删除，PG-03、DR-78；精选与热点的显示沿用 AIHOT，见路线图 T-0402；04-aihot-adoption 中相应的删除项以本条为准） | 全仓搜不到 AIHOT 名称（例外见第 2 节步骤 4）；与上游 `industry/brand/**`、`docs/assets/**`、`assets/leaderboard-sources/**`、`assets/model-providers/**` 同哈希的文件不存在；`#176b75`、`#2ce2e8`、`RingMark` 与品牌哈希黑名单无命中；分享图与海报已删；评分只出现在条目卡片、详情与接口的分数字段（两次评分平均值向下取整，没有评分时为空、不出现 0 或占位，BR-SEL-07）；搜不到对 X 的引用；原测试除被删功能外全绿 |
+| 2 | T-0002 去品牌与删减 | 架构 | 去品牌**用脚本一次生成并单独成 PR**；删除模型榜与 Codex 监控**单独成 PR，先删调用再删表**（Owner 2026-10-01 明确不要这两个功能：在重组时直接删除，不移植、不改造、不留开关，DEC-64）；标识清单（`industry/brand/**`、图标、`docs/assets/*`、`RingMark`、四角星、品牌色值）；`NOTICE` 改造；`@aihot/*` 与 `aihot` 字样改名；同批删除（`04-architecture/04-aihot-adoption.md` 4.5～4.7，另含 4.8 第 4 点的海报与分享图评分角标）：X（推特）采集与“资讯/X”频道、反馈转发飞书（飞书内容推送与飞书登录保留、默认关闭，Owner 2026-10-02）、二维码与关于页作者块、分享图与海报里的评分角标、海报与 Markdown 导出、来源图标抓取与图片代理；**保留并矿业化**评分展示 `Score.tsx` 与 `FeedItem.tsx` 的分数标签、热点榜与事件页（`features/hot/Faces.tsx` 头像堆叠除外、仍删除，PG-03、DR-78；精选与热点的显示沿用 AIHOT，见路线图 T-0402；04-aihot-adoption 中相应的删除项以本条为准） | 全仓搜不到 AIHOT 名称（例外见第 2 节步骤 4）；与上游 `industry/brand/**`、`docs/assets/**`、`assets/leaderboard-sources/**`、`assets/model-providers/**` 同哈希的文件不存在；`#176b75`、`#2ce2e8`、`RingMark` 只在 `04-architecture/04-aihot-adoption.md` 4.6 第 1 条所列路径命中（2026-10-02 勘误），品牌哈希黑名单无命中；分享图与海报已删；评分只出现在条目卡片、详情与接口的分数字段（两次评分平均值向下取整，没有评分时为空、不出现 0 或占位，BR-SEL-07）；搜不到对 X 的引用；原测试除被删功能外全绿 |
 | 3 | T-0003 最小边界与按角色连接 | 架构 + runtime | 包导出白名单、前端不导入后端、付费调用只经网关、web 进程不拿数据库与模型凭据；`dbFor(role)`；`public-api` / `private-api` 两实例；`apps/fetcher` 进程骨架；《待迁出清单》 | 公开 GET 路径只有 `public_read` 连接；AC-SEC-02、AC-SEC-07；故意违规被拦 |
 | 4 | T-0004 契约中心、T-0005 数据库基线 | 架构 / runtime | 契约：只为保留的响应按现状写 Zod → OpenAPI 3.1 → `api-client`（`links.aihot`、`channel` 中的 `x` 随 T-0002 删除，不进契约、不先写后删；`score` 作为精选分数字段保留并矿业化，没有评分时为空），生成放独立 `tooling/` 包固定 TypeScript 5.9.x；数据库：PostgreSQL 18.6 + pgvector（装上不建索引），基线 = 删去 AI 表后的 AIHOT 原表（默认 schema）+《待迁出清单》（只减不增）、迁移 lint、临时库模板克隆 | 干净克隆一条命令生成且与已提交版本逐字节一致；空库全量迁移通过；“改列名必须使对应 repository 测试失败” |
 | 5 | T-0006 前端路由组清理与品牌令牌 | web + private（M0 由架构兼） | 公开 / 私有路由组分离；公开构建不含私有路由清单；同批删除项按 T-0002（`Score.tsx` 保留） | 公开 HTML 不含私有路由清单；两套路由组分别构建；桌面 + 手机冒烟 |
@@ -301,7 +301,7 @@ docs/（交接包）  tasks/  changes/  upstream/aihot.lock.json
 旧项目的教训：一个 PR +108,061 行、388 个文件（PIT-075）。M0 的重组任务本身就是一次大改动，按下面拆开，否则违反“单任务有效改动 ≤400 行、只改一个模块”：
 
 1. **每个模块一个 PR**（M1 起按绞杀式迁出，M0 不做）：先 `git mv` 纯搬移并重写 import，PR 带 `move-only` 标签；`verify` 用“重命名相似度 ≥95% 且无业务文件内容变更”代替行数门；内容改动只允许 import 路径、导出入口、端口注入与注册清单；行为变化放到模块任务里。
-2. **去品牌用脚本一次生成，单独成 PR**，附“全仓搜不到 AIHOT 字样（`LICENSE`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json`、ADR-0001 除外）”检查，以及品牌哈希黑名单、`RingMark`、品牌色值检查。
+2. **去品牌用脚本一次生成，单独成 PR**，附“全仓搜不到 AIHOT 字样（例外以 `04-architecture/04-aihot-adoption.md` 4.6 第 1 条为准）”检查，以及品牌哈希黑名单、`RingMark`、品牌色值检查。
 3. **删除 AI 行业专属模块（模型榜、Codex 监控）单独成 PR**（Owner 2026-10-01 明确不要这两个功能：直接删除，不移植、不改造、不留开关；DEC-64）：先删调用（路由、任务、页面、导航、站点地图、`llms.txt`、告警、契约），再删表与种子；基线迁移一次建立后，迁移只增不破（已合并迁移不可改）。
 4. **格式化单独提交**：Biome 首次全仓格式化在 T-0001 里单独成一个提交，之后的搬移才能保持高相似度，也便于追溯与移植上游修复（此后移植补丁先按同一 Biome 配置格式化再应用）。
 5. **上游缺陷修复每项一个提交**，PR 描述引用上游提交号，不计入行为变化，先于行为基线。

@@ -15,7 +15,6 @@ const { guardedFetch } = await import("@aihot/backend/lib/http-fetch");
 const { produceImage } = await import("@aihot/backend/media/images");
 const { renderOg } = await import("../apps/api/src/og/render.ts");
 const { renderPoster } = await import("../apps/api/src/og/poster.ts");
-const { xView } = await import("@aihot/backend/publication/items");
 
 let imageHits = 0;
 let failureHits = 0;
@@ -80,21 +79,6 @@ test("failed originals are not retried for every mode", async () => {
   await assert.rejects(produceImage(`${base}/fail`, "thumb"));
   await assert.rejects(produceImage(`${base}/fail`, "full"));
   assert.equal(failureHits, 1);
-});
-
-test("site media exposes responsive previews and full lightboxes while RSS retains thumb images", () => {
-  const row = {
-    zh_text: null,
-    x_post: { media: [{ url: "https://example.org/1.png" }, { url: "https://example.org/2.png", poster: "https://example.org/poster.png" }] },
-  };
-  assert.ok(xView(row, true)!.media.every((m) => m.url.includes("mode=card") && m.fullUrl?.includes("mode=full")));
-  assert.ok(xView(row, true)!.media[1]!.poster!.includes("mode=card"));
-  assert.ok(xView(row)!.media.every((m) => m.url.includes("mode=thumb") && m.fullUrl === undefined));
-  assert.ok(xView(row, false, true)!.media.every((m) => m.url.includes("mode=full") && m.srcSet?.includes("mode=image-720")));
-  row.x_post.media[1]!.url = "javascript:invalid";
-  const single = xView(row, true)!.media;
-  assert.equal(single.length, 1);
-  assert.ok(single[0]!.url.includes("mode=thumb"));
 });
 
 test("concurrent cold OG and poster requests all succeed with identical cached bytes", async () => {

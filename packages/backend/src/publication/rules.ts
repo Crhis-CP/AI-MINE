@@ -11,10 +11,6 @@ export interface SourceFacts {
   syndicate_fulltext: boolean;
 }
 
-export function channelOf(sourceKind: string, hasXPost: boolean): "x" | "news" {
-  return sourceKind === "x_search" || hasXPost ? "x" : "news";
-}
-
 /** Public pool (/all): editorial sources, AI relevant, with a Chinese title and summary. */
 export function isPoolEligible(input: { participationMode: string; relevance: string | null; title: string | null; summary: string | null }): boolean {
   return input.participationMode === "editorial" && input.relevance === "pass" && !!input.title && !!input.summary;

@@ -10,7 +10,6 @@ import { fetchRss } from "../sources/rss.ts";
 import { assertSupportedConfig } from "../sources/config-keys.ts";
 import type { SourceRow } from "../sources/types.ts";
 import { fetchWebList } from "../sources/web-list.ts";
-import { fetchXSearch } from "../sources/x.ts";
 import { audit } from "./auth.ts";
 
 export class Conflict extends Error {
@@ -76,7 +75,6 @@ export async function previewSource(draft: Pick<SourceRow, "id" | "kind" | "conf
   if (source.kind === "rss") candidates = (await fetchRss(source, { force: true })).candidates;
   else if (source.kind === "web_list") candidates = await fetchWebList(source);
   else if (source.kind === "json_list") candidates = await fetchJsonList(source);
-  else if (source.kind === "x_search") candidates = (await fetchXSearch(source)).candidates;
   else throw new Error(`preview is not available for ${source.kind} sources`);
   return {
     ms: Date.now() - started,
@@ -94,7 +92,6 @@ const EDITABLE = z
     interval_minutes: z.number().int().min(1).max(1440),
     tier: z.enum(["T1", "T1_5", "T2", "EXCLUDE_MP"]),
     participation_mode: z.enum(["editorial", "hot_signal", "isolated"]),
-    signal_group_id: z.string().max(120).nullable(),
     first_party: z.boolean(),
     owner_entity_id: z.string().max(120).nullable(),
     site_fulltext: z.boolean(),
@@ -138,7 +135,7 @@ const CreateSchema = z
   .object({
     id: z.string().regex(/^[a-z0-9][a-z0-9-]{2,79}$/),
     name: z.string().min(1).max(200),
-    kind: z.enum(["rss", "web_list", "json_list", "x_search", "mp_account", "external"]),
+    kind: z.enum(["rss", "web_list", "json_list", "mp_account", "external"]),
     config: z.record(z.string(), z.unknown()),
     tier: z.enum(["T1", "T1_5", "T2", "EXCLUDE_MP"]).default("T2"),
     participation_mode: z.enum(["editorial", "hot_signal", "isolated"]).default("editorial"),
@@ -151,12 +148,8 @@ const CreateSchema = z
   .strict();
 
 /** The address a source collects from, used to find duplicates before creating one. */
-export function sourceIdentity(kind: string, config: Record<string, unknown>): string | null {
+export function sourceIdentity(config: Record<string, unknown>): string | null {
   const raw = (config.feedUrl ?? config.url ?? config.listUrl ?? config.endpoint ?? null) as string | null;
-  if (kind === "x_search") {
-    const m = /from:([A-Za-z0-9_]{1,15})/.exec(String(config.query ?? ""));
-    return m ? `x:${m[1]!.toLowerCase()}` : null;
-  }
   if (!raw) return null;
   try {
     return normalizeUrl(String(raw).replace(/^https:\/\/r\.jina\.ai\//, "")) ?? String(raw);
@@ -166,12 +159,12 @@ export function sourceIdentity(kind: string, config: Record<string, unknown>): s
 }
 
 export async function findDuplicateSource(kind: string, config: Record<string, unknown>) {
-  const identity = sourceIdentity(kind, config);
+  const identity = sourceIdentity(config);
   if (!identity) return null;
   const rows = await sql<
     { id: string; kind: string; config: Record<string, unknown>; name: string }[]
   >`SELECT id, kind, config, name FROM sources WHERE kind = ${kind}`;
-  return rows.find((r) => sourceIdentity(r.kind, r.config) === identity) ?? null;
+  return rows.find((r) => sourceIdentity(r.config) === identity) ?? null;
 }
 
 export async function createSource(input: unknown, actor: string) {

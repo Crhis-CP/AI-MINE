@@ -23,7 +23,7 @@
 - **新位置是目标归属，不是 M0 动作**：M0 不做 16 包机械拆分（`03-module-map.md` 第 9 节、正文 3.1）。资讯线在 AIHOT 代码上原地演进，首次动到某个模块才把该模块的文件搬进 `packages/domains/<module>`、建自己的 schema 并补契约；在此之前文件留在 AIHOT 原位置，其表登记在《待迁出清单》。
 - **规格依据**：本行处置所依据的页面、规则、功能或决定编号（PG＝读者页规格、OP＝私有页面规格、DR＝内容标准、F-/AI-/BR-/INV-＝功能/能力/规则/不变量、DEC＝裁决表）。标【Owner 决定】的带日期；其余为【设计】。**行为改造去向**写在“备注”列：改什么、在哪个任务（T-000x）或里程碑完成；凡规格写明“删除/不做/不需要”的，处置直接写“删除”，不得写“搬移”；要大改的写“改造”并引用规格的“实现基础”行。
 - 行数为该提交的 `wc -l`；“T-000x”指 `07-bootstrap/01-new-repo-bootstrap.md` 的 M0 任务；“M0～M5”指 `00-overview.md` 的里程碑骨架（M0 奠基、M1 资讯与法规双纵向骨架、M2 稳定供给与首次目标环境部署、M3 产品功能完整、M4 影子运行与全量验收、M5 全面切换，DEC-19、DEC-44），功能只分“切换前完成”与“候选（不排期）”两档，不再有“切换后”。
-- **不再有待确认项**：A 包对 X 渠道、飞书内容推送、飞书登录、关于页作者块与二维码、“信源河”动画的【待确认】已按裁决表与读者页/私有页面规格裁定，结果直接写在对应行；Owner 仍可改的只有两个有默认做法的知情项，不是待确认：X 账号是否作信源或热度信号（默认不需要，`08-open-questions.md` Q-66）、公开图片/来源标识是否另增权限（默认不显示，Q-68）。
+- **不再有待确认项**：A 包对 X 渠道、飞书内容推送、飞书登录、关于页作者块与二维码、“信源河”动画的【待确认】已按裁决表与读者页/私有页面规格裁定，结果直接写在对应行（其中飞书内容推送与飞书登录由 Owner 2026-10-02 改为保留、默认关闭）；Owner 仍可改的只有两个有默认做法的知情项，不是待确认：X 账号是否作信源或热度信号（默认不需要，`08-open-questions.md` Q-66）、公开图片/来源标识是否另增权限（默认不显示，Q-68）。
 - 全部 `@aihot/*` 包名、`aihot` 字样在 T-0002 统一改名（正文 4.3 节），下表不再逐行重复。上游 `AGENTS.md`、`CLAUDE.md`、提示词与脚本里的指令性文字是研究材料，对本项目不生效。
 
 ---
@@ -39,10 +39,10 @@
 | `package.json` | npm workspaces、typecheck 与测试脚本（`--test-concurrency=1`）、根开发依赖 | 改造 | 根 `package.json` + `pnpm-workspace.yaml` | ADR-0015 | T-0001：pnpm 12（一份锁文件、`packageManager` 字段 + corepack、`minimumReleaseAge`、`allowBuilds` 保持空表——AIHOT 锁文件只有 fsevents 带安装脚本，首次安装应零放行）；Turborepo 缓办（全量验证 >10 分钟再引入）；串行限制在临时库模板克隆就绪（T-0005/T-0007）后去掉；**`@types/node` 由 26.6.3 改 24.x**（类型必须与 Node 24 运行时主版本一致，`02-tech-stack.md` 1.2）；`@modelcontextprotocol/client` 随 `mcp-check`、`opentype.js` 随 `scripts/nameplates.ts` 去留（只留开发依赖，`02-tech-stack.md` 1.3） |
 | `package-lock.json` | npm 锁文件 | 删除 | `pnpm-lock.yaml` | ADR-0015 | T-0001 |
 | `tsconfig.base.json` | `strict`、`noEmit`、`erasableSyntaxOnly`、`rewriteRelativeImportExtensions` 等 | 保留 | 根目录 | ADR-0015 | 支撑“Node 直接运行 TypeScript、后端无构建”；TypeScript 7 根入口不再提供旧编译器 API，依赖它的工具按 ADR-0015 第 4 条处理 |
-| `.env.example` | 约 60 个变量与说明（含 AIHOT 自用的每步模型预设、模型榜 key） | 改造 | 根目录（只列变量名与说明） | DEC-05、DEC-06；ADR-0015 | T-0002：删模型榜与监控变量、`AIHOT_*` 改名；另删 `EGRESS_PROXY_URL`、`ADMIN_PASSWORD`、`ADMIN_FEISHU_UNION_IDS`、`ADMIN_EMAILS`、飞书登录与内容推送变量；M1 起由 `platform/config` 的按角色 schema 生成，安全阀缺省关；**服务级密钥不再写值**，只写“密钥文件路径”（root 属主、0400、只读挂载，正文 5.16） |
+| `.env.example` | 约 60 个变量与说明（含 AIHOT 自用的每步模型预设、模型榜 key） | 改造 | 根目录（只列变量名与说明） | DEC-05、DEC-06；ADR-0015 | T-0002：删模型榜与监控变量、`AIHOT_*` 改名；另删 `EGRESS_PROXY_URL`、`ADMIN_PASSWORD`；飞书登录与内容推送的变量（含 `ADMIN_FEISHU_UNION_IDS`、`ADMIN_EMAILS`）随两项功能保留、默认关闭（Owner 2026-10-02）；M1 起由 `platform/config` 的按角色 schema 生成，安全阀缺省关；**服务级密钥不再写值**，只写“密钥文件路径”（root 属主、0400、只读挂载，正文 5.16） |
 | `.gitignore`、`.dockerignore` | 忽略规则（含 `apps/web/build` 等路径） | 改造 | 根目录 | — | 随目录结构改路径 |
 | `Dockerfile` | 单镜像（setup/api/worker/web 共用），装与 PG17 匹配的客户端，只构建 web | 改造 | 根目录或 `deploy/` | ADR-0012、ADR-0017 | T-0008：PG18 客户端（Debian 自带的是 17，从 PGDG 安装）；所有基础镜像写“补丁版 + sha256 摘要”（现为浮动标签 `node:24-trixie-slim`）；整仓复制 + `pnpm install --prod --frozen-lockfile`，**禁用 `pnpm deploy`**（与 Node 类型剥离冲突）；镜像内带 `LICENSE`/`NOTICE`；保留国内 npm 源构建参数 `NPM_REGISTRY`；镜像在独立构建执行器上按 SHA 构建，不在生产主机构建 |
-| `docker-compose.yml` | db（PG17）、setup（迁移 + 种子）、api、worker、web、可选 caddy | 改造 | `deploy/` 下的 compose 文件 | `03-module-map.md` 第 6 节；DEC-30 | T-0008：服务为 caddy、web、public-api、private-api、worker、fetcher、postgres（+ 一次性 migrate），**没有 admin-web**；PG18 + pgvector；保留 worker 的 `stop_grace_period: 210s`；迁移改为发布步骤；去掉 `LOCAL_ROUTER_URL`（只服务飞书推送前的分享图预热）与 web 直接发布 3000 端口；**按服务分别挂载密钥文件，不用共享 `env_file`**（AIHOT 四个应用容器共用一份 env 与数据卷，web 也拿到数据库连接串） |
+| `docker-compose.yml` | db（PG17）、setup（迁移 + 种子）、api、worker、web、可选 caddy | 改造 | `deploy/` 下的 compose 文件 | `03-module-map.md` 第 6 节；DEC-30 | T-0008：服务为 caddy、web、public-api、private-api、worker、fetcher、postgres（+ 一次性 migrate），**没有 admin-web**；PG18 + pgvector；保留 worker 的 `stop_grace_period: 210s`；迁移改为发布步骤；去掉 web 直接发布 3000 端口（`LOCAL_ROUTER_URL` 只服务飞书推送前的分享图预热，随飞书内容推送保留，Owner 2026-10-02）；**按服务分别挂载密钥文件，不用共享 `env_file`**（AIHOT 四个应用容器共用一份 env 与数据卷，web 也拿到数据库连接串） |
 | `deploy/Caddyfile` | 整个域名反代到 web | 改造 | `deploy/Caddyfile` | ADR-0018；正文 3.7 | T-0008：公开域名与 `PRIVATE_HOST` 两个主机名；公开主机名访问私有路径返回 404 且剥离 `Set-Cookie`；安全响应头、代理身份改写、日志脱敏、超时与头大小限制由 Caddy 做，**限流在应用层**（标准 Caddy 没有内置限流，`06-security-and-access.md` 2.2）；私有主机名可用 `forward_auth` 复用 `/api/auth/check` 作第二道门；路径匹配由 contracts 生成；共享缓存层默认不加（正文 3.7、`07-deployment-and-ops.md` 2.4） |
 | `.github/workflows/check.yml` | typecheck、web 构建与测试、PG17 服务上的冒烟与后端测试、compose 冒烟 | 改造 | `scripts/verify`（由 `make verify` 调用） | ADR-0017；DEC-17 | T-0001：把两个 job 翻译成仓库内脚本（install → typecheck → build web → web tests → 迁移 + 种子 → 本地启动并 smoke → 后端测试 → compose smoke）；**workflow 文件移出 `.github/workflows`**（归档或依赖 Git 历史），在平台设置里停用 Actions 并读回确认；删去 `check.yml:98` 的 `count(*)=18` 断言（改为“种子信源数与 `industry` 种子文件一致”）；不保留“固定 SHA 的官方 action”；验证回执格式见 ADR-0017 第 2 条 |
 | `.claude/launch.json` | 本地预览 web 与 api | 改造 | 根目录 | — | 改为 web、public-api、private-api 三项 |
@@ -57,7 +57,7 @@
 | `apps/api/src/http/respond.ts`（126 行） | Problem JSON、弱 ETag 与 304、`cacheUntil` 截止时间、严格查询解析 | 改造 | `apps/api/src/http`（两实例共用） | DEC-47、DEC-52 | 错误体改 DEC-52；ETag 以不透明内容版本为准，不提供钉住读取 |
 | `apps/api/src/og/render.ts`（142 行） | 1200×630 分享图（satori + sharp，按内容落盘缓存） | 关闭 | `publication` | F-PUB-05（分享图为候选）；DR-78 | 首版不注册路由；保留代码与字体资产；**T-0002 删去评分角标渲染**（“精选评分 N”，与路线图 T-0002 一致；分享图若将来启用，角标按评分显示规则——有评分才显示——重新加；页面卡片的评分标签不受影响，DEC-10）；启用前先补字体缺字（B.11） |
 | `apps/api/src/og/poster.ts`（121 行） | 1080×1440 手机海报（含二维码） | 删除 | — | PG-04（删除分享海报，与评分无关） | T-0002 同批；含评分文案“精选 · N 分” |
-| `apps/api/src/routes/admin-auth.ts`（137 行） | 口令/飞书登录、登出、`adminHandler`（会话 + CSRF）、`/api/admin/me`、进程内登录限流 | 改造 | `platform/identity`（private-api 路由） | DEC-05；OP-01 | 登录名 + 密码，**删飞书登录与回调**（`/api/auth/feishu`、`/api/auth/callback`）；保留 `/api/auth/check`（`auth_request` 端点，:122）与 `adminHandler`；Argon2id、`__Host-` Cookie；登录限流改数据库计数（`auth` 角色，先限流再算口令哈希，不放 Caddy） |
+| `apps/api/src/routes/admin-auth.ts`（137 行） | 口令/飞书登录、登出、`adminHandler`（会话 + CSRF）、`/api/admin/me`、进程内登录限流 | 改造 | `platform/identity`（private-api 路由） | DEC-05；OP-01 | 登录名 + 密码；飞书登录与回调（`/api/auth/feishu`、`/api/auth/callback`）保留、默认关闭（Owner 2026-10-02），不进私有接口契约；保留 `/api/auth/check`（`auth_request` 端点，:122）与 `adminHandler`；Argon2id、`__Host-` Cookie；登录限流改数据库计数（`auth` 角色，先限流再算口令哈希，不放 Caddy） |
 | `apps/api/src/routes/admin.ts`（158 行） | 全部 `/api/admin/*`：信源、内容、反馈、运行与回执、监控、设置、模型、SelectBench、导航计数、审计（后两者在路由层直接写 SQL） | 改造（拆分） | 各模块 `privateRoutes`：sources（列表/详情/新建/修改）、acquisition（试抓）、editorial（内容下架与修订）、feedback、ai-gateway（用量与熔断、模型）、publication（站点资料）、`platform/identity`（账号） | ADR-0018 六组；OP-03～OP-17 | **只保留六组私有操作**；删监控 7 条（T-0002）、运行与投递页接口、审计列表、导航计数；SelectBench 页接口默认关闭（建设期校准工具，B.4.4）；路由层不写 SQL |
 | `apps/api/src/routes/feedback.ts`（50 行） | 公开反馈提交（截图上传、大小限制、限流） | 改造 | `feedback`（publicRoutes） | DEC-53；OP-14；G24 | 公开端口上的写入：仅持 `feedback_write` 连接；截图 PNG/JPEG/WebP 按魔数识别、≤2MB、像素上限、去 EXIF、存私有对象存储；幂等提交标识（`Idempotency-Key`）；字段改 `message`/`contact`/`page_url`/`screenshot`，返回 `201 {ok,id}`，体积上限按 2MB 截图加编码余量收紧（现为 12MB）；**不转发到飞书** |
 | `apps/api/src/routes/feeds.ts`（53 行） | RSS：精选、全文、全部、日报、分类 | 改造 | `publication`（publicRoutes） | F-PUB-02；DEC-38 | 首批只开放“全部动态”，精选与日报随其上线；条目署名、`dc:date`、AI 生成标识；全文 RSS 只对允许再分发的来源输出正文 |
@@ -76,7 +76,7 @@
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
 | `apps/worker/package.json`、`tsconfig.json` | — | 保留 | `apps/worker/` | — | — |
-| `apps/worker/src/main.ts`（44 行） | 注册内容、采集、事件、推送、发布队列与定时任务；新站首轮模型榜；心跳；停机 | 改造 | `apps/worker/src/main.ts` | ADR-0016；DEC-06 | 按字母序注册各模块 `jobs`；队列名改 `<lane>.<stage>`；删模型榜首轮（T-0002）；**删 `ensureContentTargets()`**（飞书内容群目标）与 `notify` 队列注册；`COLLECT_ENABLED` 在出网处判断、不改注册路径 |
+| `apps/worker/src/main.ts`（44 行） | 注册内容、采集、事件、推送、发布队列与定时任务；新站首轮模型榜；心跳；停机 | 改造 | `apps/worker/src/main.ts` | ADR-0016；DEC-06 | 按字母序注册各模块 `jobs`；队列名改 `<lane>.<stage>`；删模型榜首轮（T-0002）；`ensureContentTargets()`（飞书内容群目标）与 `notify` 队列注册随飞书内容推送保留、默认关闭（Owner 2026-10-02）；`COLLECT_ENABLED` 在出网处判断、不改注册路径 |
 | `apps/worker/src/schedules.ts`（112 行） | 最多 25 个北京时间 cron，每次运行记入 `job_runs` | 改造（拆分） | 各模块 `jobs.ts` | F-OPS-01；`02-rules` 重试与租约参数表 | 归属：`content.sweep` → content；`content.translate` → enrichment（死配置队列有定义无 worker，删除或接上）；`hot.rank`、`stories.status`、`stories.links` → events，`hot.snapshot`（热点榜）→ enrichment（规则初稿前不启用）；`reports.daily/weekly/monthly/catch-up` → reports（M3 改周期）；`ops.retention`、`ops.alerts`、`ops.digest`、`ops.backup`、`reports.source-health` → `platform/ops`；`seo.indexnow` → publication；`ops.recover` 拆为 ai-gateway（过期占位转未知；**自动放行删除**）与 `platform/ops`（投递核实）；**`feedback.forward` 删除**（反馈不转发）；`sources.schedule`、`sources.adapt-intervals`、`sources.mp-reconcile` → acquisition；**`sources.icons` 删除**（DR-78）；`leaderboard.round`、`monitor.tick`、`monitor.lookback` 删除（T-0002）；`recordRun` → `platform/ops` |
 
 ## B.4 `apps/web`（一个应用：公开路由组 + 私有路由组，共享 `packages/ui`）
@@ -105,7 +105,7 @@
 | `app/components/Logo.tsx` | 站名文字标志与加载环 | 改造 | `ui` | G18；PG-00 | **`RingMark`（带缺口的环 + 圆点）与四角星是 AIHOT 标识的组成部分**（上游横幅图证实），一律替换；字标按 PG-00“AI + 着色‘矿策’”；`RingMark` 另有 5 处使用（`features/feed/Timeline.tsx`、`root.tsx`、`routes/all.tsx`、`routes/feedback.tsx`、`routes/admin/layout.tsx`）一并换 |
 | `app/components/shell/Chrome.tsx`、`MobileTabBar.tsx`、`Sidebar.tsx`、`ThemeSwitch.tsx` | 导航进度线、手机底栏、桌面侧栏、三态主题切换 | 搬移 | `ui` | PG-00 | 私有页面同样使用 `ThemeSwitch`；`Sidebar.tsx:62-64`、`routes/more.tsx:92` 读 `SITE.icp`：备案号改读运行期配置（正文 4.4） |
 | `app/components/shell/nav.ts`（69 行） | 侧栏、底栏、“更多”页的导航定义 | 改造（拆分） | 公开与私有路由组各一份 | PG-00 | 删“模型”分组与 `MORE_PATHS` 中的榜单、监控（T-0002）；“法规政策动态”紧排“矿业日报”之下，手机在“更多”（DEC-02） |
-| `app/components/ui/*`（Badge、Controls、IntentLink、Kicker、Lightbox、Menu、Page、Presence、Tabs） | 基础组件：意图预取链接、可访问灯箱、CSS 进出场、页签等 | 搬移 | `ui` | 通则 17 | `Menu` 补方向键漫游焦点；`Lightbox` 随 `MediaGallery` 删除后若无使用方，按 ADR-0015 的 Knip 触发条件处理 |
+| `app/components/ui/*`（Badge、Controls、IntentLink、Kicker、Lightbox、Menu、Page、Presence、Tabs） | 基础组件：意图预取链接、可访问灯箱、CSS 进出场、页签等 | 搬移 | `ui` | 通则 17 | `Menu` 补方向键漫游焦点；`Lightbox` 只有 X 图集（`features/feed/parts.tsx`）与 `MediaGallery` 两个使用方，两者删除后没有使用方，T-0002 一并删除（2026-10-02，CSV 与锁文件该行记为删除） |
 | `app/components/ui/Score.tsx` | 评分胶囊“AI 评分 88”（`title`/`aria-label` 都带分数） | 搬移 | `ui` | DEC-10、DEC-64；BR-SEL-07；正文 2.9、4.8 | **保留并矿业化**（原“T-0002 同批删除”作废）：有评分才显示“AI 评分 · NN”，手机只显示数字，85 分及以上暖红、70 分及以上强调色、其余灰字，**没有评分的条目什么都不显示**（不显示 0、占位、“暂无评分”）；调用处 `features/feed/FeedItem.tsx:42,45`、`routes/item.tsx:185-188,297-299` 同步保留 |
 | `app/components/ui/SourceAvatar.tsx` | 来源头像/图标（有 3 处渲染：`feed/parts.tsx:14` 的 X 作者头像、`hot/Faces.tsx:21`、`report/ReportPaper.tsx:80` 的来源图标） | 改造 | `ui` | DR-78；G17 | 只保留**着色首字母**形态；头像与网站图标抓取及其公开投影（`sources.icon_url`）删除 |
 
@@ -157,7 +157,7 @@
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `routes/admin-login.tsx` | 单口令登录 + 可选飞书登录（原生表单） | 改造 | `apps/web` 私有路由组 | OP-01；DEC-05 | 登录名 + 密码；**删飞书登录块**；不留动态码入口（【Owner 决定】2026-09-06 选定 password-only，旧ADR-0031:65-71@main） |
+| `routes/admin-login.tsx` | 单口令登录 + 可选飞书登录（原生表单） | 改造 | `apps/web` 私有路由组 | OP-01；DEC-05 | 登录名 + 密码；飞书登录块保留、默认关闭（Owner 2026-10-02；两项登录应用凭据配齐才出现）；不留动态码入口（【Owner 决定】2026-09-06 选定 password-only，旧ADR-0031:65-71@main） |
 | `routes/admin/layout.tsx` | 后台外壳、导航与计数徽标、退出 | 改造 | `apps/web` 私有路由组 | OP-00 | 删“Codex 重置”导航与全部计数徽标（不设总览与待办）；加主题切换；`RingMark` 换标识；`motion` 的 `layoutId` 导航高亮改静态样式（不带 `motion`） |
 | `routes/admin/index.tsx` | `/admin` 跳到信源页 | 改造 | `apps/web` 私有路由组 | OP-00-C | 入口页，只是入口，不是总览 |
 | `routes/admin/sources.tsx`、`source-new.tsx`、`source.tsx` | 信源列表、新建与试抓、详情（设置、采集记录、修改记录） | 改造 | `apps/web` 私有路由组 | OP-03、OP-04、OP-05；DEC-33、DEC-57 | 删 JSON 原文编辑；**`source-new.tsx:30` 的“站内可展示全文”初值由勾选改为“加入信源时一次确认、九项按 `owner_declared` 建档为允许”，权限只来自带证据类型与确认人的权限版本，缺记录失败关闭**；试抓改为只排队、由 worker 执行；按业务线的采集配置；权限矩阵九项（逐源收紧）；新建默认 `enabled=false` |
@@ -237,18 +237,18 @@
 | `editorial/vocabulary.ts`（29 行） | 按行业词表规整标签、分类指南 | 改造 | `enrichment` | F-ENR-06 | 词表来自行业包与实体库 |
 | `editorial/models.ts`（65 行） | 能力清单 `CAPABILITIES` 与“后台切换 > 环境变量 > 缺省”的模型选择 | 改造 | `ai-gateway` | ENT-39、ENT-40 | 删 `monitor` 能力（T-0002）；扩展为能力注册表与模型路由表 |
 | `editorial/prompts.ts`（56 行） | 提示词加载、`{{name}}` 与 `{{> file}}`、版本即哈希 | 改造 | `ai-gateway` | ADR-0007 | 目录按能力分；启动时加载校验 |
-| `jobs/queue.ts`（106 行） | pg-boss 封装、`QUEUES`/`QUEUE_OPTIONS`、同事务入队、停机信号、`recordRun` | 改造（拆分） | `platform/queue`（队列、停机信号、outbox）+ `platform/ops`（`recordRun`）+ 各模块 `jobs.ts`（队列定义） | ADR-0005 | 队列名改 `<lane>.<stage>`；**`notifySelected`、`prepareMedia` 入队删除**；死配置 `content.translate` 队列（有定义无 worker）删除或接上；同事务入队 `enqueue(..., tx)` 作 outbox 的基础 |
+| `jobs/queue.ts`（106 行） | pg-boss 封装、`QUEUES`/`QUEUE_OPTIONS`、同事务入队、停机信号、`recordRun` | 改造（拆分） | `platform/queue`（队列、停机信号、outbox）+ `platform/ops`（`recordRun`）+ 各模块 `jobs.ts`（队列定义） | ADR-0005 | 队列名改 `<lane>.<stage>`；`notifySelected` 入队随飞书内容推送保留（Owner 2026-10-02）；**`prepareMedia` 入队删除**（随图片预热，正文 4.7）；死配置 `content.translate` 队列（有定义无 worker）删除或接上；同事务入队 `enqueue(..., tx)` 作 outbox 的基础 |
 | `jobs/content.ts`（235 行） | 内容处理编排：入队记账、正文抽取任务、分析 → 发布 → 归组、失败退避、兜底扫描、批量重排 | 改造（拆分） | `content`（`queueProcessing`、`sweepUnprocessed`、`requeueFailed`、`failureGroupSql`、正文抽取任务）+ `enrichment`（`processArticle`、`registerContentJobs`、`settleNonEditorial`） | `02-rules` 重试与租约参数表 | 以 `material.body_ready` 等事件取代直接调用；坏输出重试最多 2 次、5 分钟 |
 | `jobs/events.ts`（32 行） | 归组（并发 1）与综述任务注册 | 搬移 | `events` | — | `localConcurrency: 1` 只是单进程串行，多 worker 要靠数据库约束 |
 | `jobs/publication.ts`（29 行） | 信源变更后整源重投任务 | 搬移 | `publication` | — | — |
 | `jobs/sources.ts`（27 行） | 采集、X 分片、公众号任务注册 | 改造 | `acquisition` | — | 删 X 分片任务；公众号任务随适配器默认关闭；`:15` 与监控共享 SocialData 预算的注释删除 |
-| `jobs/notify.ts`（28 行） | 精选推送与图片预热任务注册 | 删除 | — | G15；DEC-06 | 飞书内容群推送删除；告警投递由 `platform/ops` 另行注册 |
+| `jobs/notify.ts`（28 行） | 精选推送与图片预热任务注册 | 改造 | `platform/ops`（随 `notify/`） | G15；DEC-06；DEC-45 | 精选推送任务随飞书内容推送保留、默认关闭（Owner 2026-10-02；启用条件：Owner 接飞书时另立任务）；图片预热任务随公开图片管线删除（正文 4.7，T-0002）；告警投递由 `platform/ops` 另行注册 |
 
 ### B.5.4 `events/`
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `events/group.ts`（864 行） | 召回、候选描述、批量判决、复核、写入、合并、关联、讨论信号、重组清理 | 改造 | `events` | F-EVT-02、F-EVT-03；BR-POL-05 | M3 按职责拆文件；硬校验（法域不同、政策阶段不同不得判为同一事件）；跨语言用实体别名 + 确定性候选；**讨论信号（X 讨论帖）部分随 X 删除**；术语改名（正文 3.8） |
+| `events/group.ts`（864 行） | 召回、候选描述、批量判决、复核、写入、合并、关联、讨论信号、重组清理 | 改造 | `events` | F-EVT-02、F-EVT-03；BR-POL-05 | M3 按职责拆文件；硬校验（法域不同、政策阶段不同不得判为同一事件）；跨语言用实体别名 + 确定性候选；**讨论信号里 X 专属的回复与引用关联随 X 删除**，通用的 `hot_signal` 归组保留（2026-10-02 勘误）；术语改名（正文 3.8） |
 | `events/relate.ts`（176 行） | 四分类关系、schema、候选描述、纯判定规则 | 搬移 | `events`（`domain/`） | AI-08 | 注释里“370 对样本、查准 0.944、查全 0.962”是 AI 新闻域的上游自报，只作格式参考，**不作矿业目标值** |
 | `events/merge.ts`（35 行） | 合并 story、别名重定向、写审计 | 搬移 | `events` | ENT-20 | 审计经 `platform/identity` 的审计写入（接受事务句柄），投影经 outbox 事件 |
 | `events/hot.ts`（213 行） | 热度计算、小时快照、热点榜、回补 | 改造 | `events`（热度、热点榜与小时快照，ENT-27） | DEC-10；F-EVT-08；F-SEL-02；BR-EVT-11、BR-SEL-05 | **沿用 AIHOT 的公式与衰减**（48 小时窗口、24 小时半衰、至少 2 个参与者且含 1 个编辑源、前 10），`heat-v1-48h-halflife24h` 作矿业版起点；参与者改为发布方族（删 `signal_group_id` 分支）；窗口、半衰期、门槛配置化并带规则版本；法规文书不进热点榜（DEC-62） |
@@ -259,7 +259,7 @@
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `publication/publish.ts`（361 行） | 唯一投影写入（材料 + 最新分析 + 人工覆盖 + 归组）、放行闸门、精选同步账本、v1 载荷、整源重投 | 改造 | `publication` | ADR-0004；F-PUB-01 | 多对象增量投影、不透明内容版本、下架集合先行；**全局 advisory lock（`:136-141`）保证序号即提交序，有吞吐上限，压测前不删**；**删 `:296-299` 的 `notifySelected` 入队**；`links.aihot` 不进公开投影（`score` 保留，可空）；`:285` 的检索窄表只取正文前 12,000 字，改全文分片（G14）；投影读取他模块表写成“读模型白名单” |
+| `publication/publish.ts`（361 行） | 唯一投影写入（材料 + 最新分析 + 人工覆盖 + 归组）、放行闸门、精选同步账本、v1 载荷、整源重投 | 改造 | `publication` | ADR-0004；F-PUB-01 | 多对象增量投影、不透明内容版本、下架集合先行；**全局 advisory lock（`:136-141`）保证序号即提交序，有吞吐上限，压测前不删**；`:296-299` 的 `notifySelected` 入队随飞书内容推送保留（Owner 2026-10-02），同一事务里的 `prepareMedia` 入队随图片预热删除（正文 4.7）；`links.aihot` 不进公开投影（`score` 保留，可空）；`:285` 的检索窄表只取正文前 12,000 字，改全文分片（G14）；投影读取他模块表写成“读模型白名单” |
 | `publication/rules.ts`（66 行） | 公开规则：公开池、有无详情页、可入选、全文模式、可转载、可收录 | 改造 | `publication` | 通则 18；DEC-58；G12 | **`isIndexable`（`:55-61`）由“入选或人工标记收录”改为“公开且有中文导读、且不属通则 18 列出的 noindex 类型”，人工“标记收录/取消收录”保留为覆盖**；`bodyModeOf`、`mayRedistribute` 改读九项权限矩阵；可发布门统一在此 |
 | `publication/items.ts`（203 行） | 条目级读取列、筛选条件、摘要 DTO、X 帖视图 | 改造 | `publication` | DR-78；G17；DEC-10、BR-SEL-07 | `links.aihot`、`channel` 的 `x` 不进契约（`score` 保留，可空）；**`xView` 删除**；`sources.icon_url` 公开投影（`:58,167`）删除 |
 | `publication/timeline.ts`（209 行） | 首页精选时间线（阅读组折叠）、下一次放行时刻 | 改造 | `publication` | PG-01；PG-02；DEC-10 | 首页改为全部动态；精选时间线沿用 AIHOT（随精选上线，路由 `/featured`，同一事件折叠） |
@@ -287,9 +287,9 @@
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `notify/feishu.ts`（203 行） | 飞书：告警与反馈转发的内部群、图片上传、webhook 发送；告警格式 | 改造 | `platform/ops`（告警推送） | DEC-06；OP-20 | **保留 webhook 发送与告警格式**；删图片上传（内容推送用）与反馈转发；飞书登录应用部分删除；地址由 Owner 经私有页面“告警渠道”安全录入（只写不回显、加密保存），未提供前退为邮件；开关并入 `NOTIFY_ENABLED` |
-| `notify/deliver.ts`（108 行） | 内容群投递：去重、未知不重发、启用前内容不补推 | 改造 | `platform/ops` | DEC-06；G15 | **保留“去重键 + 结果未知不重发”**，只用于告警；删内容群（`purpose=content`）与 `codex_reset` 投递类型；移植上游 #19（投递重试原子认领，正文 6.5） |
-| `notify/selected.ts`（83 行） | 精选推送（同题租约、按事实去重，旧文不推） | 删除 | — | G15；DEC-45 | 内容推送列为不排期候选；`publish.ts` 与 `jobs/queue.ts` 的入队点同批删除 |
+| `notify/feishu.ts`（203 行） | 飞书：告警与反馈转发的内部群、图片上传、webhook 发送；告警格式 | 改造 | `platform/ops`（告警推送） | DEC-06；OP-20 | **保留 webhook 发送与告警格式**；删反馈转发；图片上传（内容推送用）与飞书登录应用部分随两项功能保留、默认关闭（Owner 2026-10-02）；地址由 Owner 经私有页面“告警渠道”安全录入（只写不回显、加密保存），未提供前退为邮件；开关并入 `NOTIFY_ENABLED` |
+| `notify/deliver.ts`（108 行） | 内容群投递：去重、未知不重发、启用前内容不补推 | 改造 | `platform/ops` | DEC-06；G15 | **保留“去重键 + 结果未知不重发”**，用于告警与飞书内容推送（默认关闭，Owner 2026-10-02）；删 `codex_reset` 投递类型；移植上游 #19（投递重试原子认领，正文 6.5） |
+| `notify/selected.ts`（83 行） | 精选推送（同题租约、按事实去重，旧文不推） | 关闭 | `platform/ops`（随 `notify/`） | G15；DEC-45 | 飞书内容推送保留、默认关闭（Owner 2026-10-02：「飞书推送与登录还是要保留，我也要后面接飞书的呢」），开通仍是不排期候选；启用条件：Owner 接飞书时另立任务；`publish.ts` 与 `jobs/queue.ts` 的入队点保留 |
 | `operations/alerts.ts`（285 行） | now/today/digest 三级告警、每日摘要 | 改造 | `platform/ops` | F-OPS-03；DEC-06 | 删监控与模型榜两段（T-0002）；**告警随首次生产部署上线**；新增用量提示（月内累计每增加 100 元）、异常熔断预警（达阈值 70%）与触发、磁盘、备份失败、按业务线最老积压、发布新鲜度、质量资格与带期限证据到期、全局暂停超时、内容停更（旧站曾停更 5 天无人察觉） |
 | `operations/backup.ts`（127 行） | pg_dump + 文件备份到 COS（S3 SigV4） | 改造 | `platform/ops` | F-OPS-02；旧ADR-0010:27@main；G23 | 见正文 5.16：pg_dump custom → 客户端 age 加密 → 私有、版本化、SSE 的 COS 桶 + SHA-256 侧文件；COS 凭据用只写子账号或 STS；7 日 + 4 周（月备份可选）；RPO ≤24 小时、RTO ≤2 小时；每月恢复演练到隔离库；PG18 客户端 |
 | `operations/feedback.ts`（100 行） | 反馈提交（不可逆来源标识、封禁、限流、截图）与转发 | 改造 | `feedback` | DEC-53；G24 | 保留 HMAC 来源标识与限流；**转发删除**；截图改对象存储键（ENT-47）；限流键/哈希密钥缺失时启动失败；封禁不做（OP-14 未列） |
@@ -300,13 +300,13 @@
 | `media/images.ts`（207 行） | 图片抓取、缩放、磁盘缓存（sharp），代理与视觉分析共用 | 关闭 | `content` | DR-78；G17 | 公开页不用；仅保留给视觉理解输入（须 `external_model` 许可）与 Owner 明确授权的来源 |
 | `media/imgproxy.ts`（89 行） | 签名图片地址与校验、正文图片改写 | 关闭 | `content` | DR-78 | 正文图片改写为“查看配图：{说明}”外链；签名密钥与地址格式不再对外 |
 | `media/renditions.ts`（17 行） | 固定尺寸档位 | 关闭 | `content` | — | 随 `images.ts` |
-| `media/prepare.ts`（51 行） | 新精选的图片档位预热、推送前分享图预热 | 删除 | — | G15 | `warmShareImage` 随飞书内容推送、图片预热随公开图片管线一并删除 |
+| `media/prepare.ts`（51 行） | 新精选的图片档位预热、推送前分享图预热 | 改造 | `platform/ops`（随 `notify/selected.ts`） | G15；DEC-45 | `warmShareImage`（推送前预热分享图，经 `LOCAL_ROUTER_URL`）随飞书内容推送保留、默认关闭（Owner 2026-10-02）；新精选的图片档位预热随公开图片管线删除（正文 4.7，T-0002） |
 
 ### B.5.8 `admin/`、`ingest/`、`site/`
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `admin/auth.ts`（184 行） | 口令或飞书登录、会话（摘要存储）、CSRF、审计写入 `audit()` | 改造 | `platform/identity` | DEC-05；DEC-32；B:architecture/01 §6 第 7、10 条 | 复用会话摘要存储、`HttpOnly; SameSite=Lax`、CSRF 令牌随会话；**删飞书 OAuth 与白名单**（`:126-127` 的 `union_id` 或邮箱准入）；Argon2id、`__Host-` Cookie、权限版本；审计改为接受事务句柄、与业务变更同事务（AIHOT 部分命令先更新再调 `audit()`） |
+| `admin/auth.ts`（184 行） | 口令或飞书登录、会话（摘要存储）、CSRF、审计写入 `audit()` | 改造 | `platform/identity` | DEC-05；DEC-32；B:architecture/01 §6 第 7、10 条 | 复用会话摘要存储、`HttpOnly; SameSite=Lax`、CSRF 令牌随会话；飞书 OAuth 与白名单保留、默认关闭（Owner 2026-10-02；白名单为空时一律拒绝），`:126-127` 的 `union_id` 或邮箱准入不继承到新的具名账号体系（X-01）；Argon2id、`__Host-` Cookie、权限版本；审计改为接受事务句柄、与业务变更同事务（AIHOT 部分命令先更新再调 `audit()`） |
 | `admin/content.ts`（216 行） | 内容查找与处理链路、公开范围、收录标记、人工字段、重跑、移出事件、合并事件 | 改造（拆分） | `editorial`（查找、链路、下架与人工修订）+ `publication`（`setSeoIndexed`）+ `content`/`enrichment`（`rerun` 的各步骤） | OP-09；ADR-0011 | 公开范围拆为下架对象与人工修订；**移出事件、合并事件的命令不进私有页面**（按需才做）；下架扩展到事件、发展线、报告、法规文书 |
 | `admin/feedback.ts`（77 行） | 反馈列表、状态、封禁、删除资料 | 改造 | `feedback` | OP-14 | 三态；封禁与逐条删除不照搬 |
 | `admin/models.ts`（108 行） | 模型概览（用量、成功率、耗时、费用估算）与切换 | 改造 | `ai-gateway` | OP-12 | 用量数据改读用量账本；“接入”对象与密钥写入 |
@@ -350,8 +350,8 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | AIHOT 迁移 | 内容 | 所属模块（目标 schema） | 处置 |
 |---|---|---|---|
 | `0001_core.sql` | `pg_trgm` 扩展；`sources`、`fetch_runs`；`articles`、`article_revisions`、`article_discoveries`；`translations`；`receipts`、`budgets`；`analyses`；`editorial_overrides`；`publications`、`selected_ledger`、`selected_state` | 扩展 → 基础迁移；`sources` → sources（`cursor` 列移到 acquisition 的检查点表）；`fetch_runs` → acquisition；材料三表 → content；`translations`、`analyses` → enrichment；`receipts`、`budgets` → `ai`（ai-gateway）；`editorial_overrides` → editorial；投影与账本 → publication | 改造（`site_fulltext` 缺省直接取 false，权限不来自表缺省：新信源加入时由负责人一次确认、按 `owner_declared` 建档为允许，缺权限版本记录失败关闭；0001 缺省 true、0036 才改 false 是上游自相矛盾） |
-| `0002_events_reports.sql` | `stories`、`story_aliases`、`story_links`、`story_digests`、`facts`、`fact_articles`、`story_signals`、`story_heat_hourly`、`hot_rankings`；`reports`、`report_revisions`；`topics` | 事件类 → events（含 `hot_rankings`）；报告两表 → reports；`topics` → publication | 改造（`story_signals` 随 X 删除） |
-| `0003_monitor_leaderboard_notify.sql` | `monitor_posts`、`monitor_events`、`monitor_event_posts`、`monitor_state`；`lb_models`、`lb_aliases`、`lb_snapshots`、`lb_scores`、`lb_runs`、`lb_rankings`、`fx_rates`；`notify_targets`、`deliveries`、`delivery_leases` | 监控与模型榜 11 张表删除；通知三表 → `platform/ops`（只留告警投递，`purpose=content` 行与相关约束删除） | 改造（T-0002 删监控与模型榜 11 张表，通知三表留作告警投递） |
+| `0002_events_reports.sql` | `stories`、`story_aliases`、`story_links`、`story_digests`、`facts`、`fact_articles`、`story_signals`、`story_heat_hourly`、`hot_rankings`；`reports`、`report_revisions`；`topics` | 事件类 → events（含 `hot_rankings`）；报告两表 → reports；`topics` → publication | 改造（`story_signals` 保留：热度只由它算出，2026-10-02 勘误） |
+| `0003_monitor_leaderboard_notify.sql` | `monitor_posts`、`monitor_events`、`monitor_event_posts`、`monitor_state`；`lb_models`、`lb_aliases`、`lb_snapshots`、`lb_scores`、`lb_runs`、`lb_rankings`、`fx_rates`；`notify_targets`、`deliveries`、`delivery_leases` | 监控与模型榜 11 张表删除；通知三表 → `platform/ops`（告警投递与飞书内容推送共用，`purpose=content` 行与相关约束随内容推送保留，Owner 2026-10-02） | 改造（T-0002 删监控与模型榜 11 张表，文件改名 `0003_notify.sql`；通知三表留作告警与飞书内容推送投递） |
 | `0004_admin_ops.sql` | `admin_users`、`admin_sessions`、`audit_log`；`feedback`、`feedback_bans`；`ingest_events`；`settings`；`stored_files`；`job_runs` | 账号三表 → `identity`；反馈两表 → feedback（`feedback_bans` 不做封禁则删）；`ingest_events` → acquisition（外部推送关闭，暂留）；`job_runs` → `platform/ops`；`settings` 与 `stored_files` 暂留，按键和用途拆（B.7.2） | 改造 |
 | `0005_grouping_state.sql` | `articles.grouped_at`、`processing_state`、`processing_error` 与索引 | content（T-0005）；处理状态移 enrichment、归组时间移 events | 改造 |
 | `0006_embeddings.sql` | `embeddings`（`real[]`）、`grouping_decisions`、`facts_created_idx` | events | 改造（默认不启用向量；pgvector 装上不建索引） |
@@ -412,7 +412,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 
 ### B.8.1 提示词（`industry/prompts/*.md`，27 个）
 
-全部**改造**，内容换成矿业、结构保留（上游 `AGENTS.md` 的要求：保留内容类型、维度加权、噪声压制、安全边界）——**X 专用的 6 个提示词删除**；目录按能力分到 `industry/prompts/<capability>/`，目录名以 `02-rules/03-ai-capabilities.md` 的能力 ID 为准，下表只给建议。
+全部**改造**，内容换成矿业、结构保留（上游 `AGENTS.md` 的要求：保留内容类型、维度加权、噪声压制、安全边界）——**X 专用的 5 个提示词删除**（`group-signal.md` 保留，2026-10-02 勘误）；目录按能力分到 `industry/prompts/<capability>/`，目录名以 `02-rules/03-ai-capabilities.md` 的能力 ID 为准，下表只给建议。
 
 | AIHOT 文件 | 现用途（调用方） | 建议新位置（能力） | 备注 |
 |---|---|---|---|
@@ -424,7 +424,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `summarize-short-post.md`、`summarize-short-post-quoted.md`、`summarize-long-post.md`、`summarize-long-post-quoted.md` | X 短帖、长帖（含引用）的标题摘要 | — | 删除（X 渠道） |
 | `structure.md` | 分类、标签、主体、事实框架 | `structure/`（AI-02） | 九类、国家、矿种、政策工具与阶段、关键日期 |
 | `group-batch.md`、`group-pair.md`、`group-definitions.md`、`group-method.md` | 归组批量判决、成对复核、关系定义 | `relate/`（AI-08） | 矿业例子；政策不同阶段不得判为同一事件 |
-| `group-signal.md` | 讨论帖挂接事件 | — | 删除（X 讨论帖） |
+| `group-signal.md` | 讨论帖挂接事件 | `relate/`（AI-08） | `hot_signal` 讨论帖只计热度、不新建事件；例子换矿业事件（原列随 X 删除，2026-10-02 勘误：`hot_signal` 信源按 `01-product/07-sources-and-coverage.md` 2.3 与 AI-08 保留） |
 | `story-digest.md` | 事件综述 | `event-digest/`（AI-09） | 单位改为事件 |
 | `report-daily-lead.md`、`report-period.md` | 日报导语、周报月报主题 | `report/`（AI-13） | 带引用约束；日报导语与周月报综述沿用并矿业化（DEC-65） |
 | `translate-body.md` | 全文翻译 | `translate/`（AI-05） | 公司名规则换 DR-39～DR-41；失败块处理改“待重译” |
@@ -464,7 +464,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `receipts.test.ts` | 复用已收答案、每次实际发送计入预算、丢失答案最多重买一次、阀门在发送前拦截 | 改造 | ai-gateway | INV-14；INV-15；ENT-41 | **先改后用**：删除“自动放行”断言，改为“未知保持隔离、仅在对账后放行”；补“预算行缺失拒绝”；上游 `c3ba0ca` 已同步修改此文件，移植时一并取 |
 | `embeddings.test.ts` | 向量精度、文本变化失效、缓存上限 | 改造 | events（存储）+ ai-gateway（调用） | AI-16 | 默认不启用向量，暂存 |
 | `events.test.ts` | 人工决定在判决期间不被覆盖、修订保留归属、显式重组、待重组不作证据等 | 搬移 | events | INV-04 同类 | 人工保护核心用例 |
-| `signals.test.ts` | 讨论帖不进分析队列、旧文排后不建事件、讨论帖重挂 | 改造 | events | INV-07 | 删 X 讨论帖用例；旧文部分保留 |
+| `signals.test.ts` | 讨论帖不进分析队列、旧文排后不建事件、讨论帖重挂 | 改造 | events | INV-07 | 只删 X 引用帖与原帖到达后重新归组（`reclaimWaiting`）的用例；`rss` 来源的 `hot_signal` 讨论帖重挂与旧文部分保留（2026-10-02 勘误） |
 | `hot-avatar-payload.test.ts` | 热点条头像与负载 | 删除 | — | PG-03 | 头像图片管线关闭、热点榜头像堆叠 `Faces.tsx` 不做（PG-03、DR-78），该测试随头像载荷一并删除；热点条与热点榜本身保留 |
 | `relation-eval.test.ts`、`relation-eval-runtime.test.ts` | 关系金标解析、抽样、指标；评测运行复用回执 | 搬移 | ai-gateway（评测运行器）+ `evals/relate/` | F-AI-05 | — |
 | `feedback.test.ts`、`feedback-upload.test.ts` | 反馈转发重试与截图处理；5 MiB 上传、畸形请求拒绝 | 改造 | feedback | ENT-47；DEC-53 | 删转发用例；截图上限改 2MB，补“伪造 MIME、SVG、GIF 被拒” |
@@ -512,7 +512,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `platform/queue` | `jobs/queue.ts`（队列与停机信号） | `<lane>.<stage>` 调度与份额、outbox/inbox、长任务租约 |
 | `platform/storage` | —（`stored_files` 暂留） | 对象存储端口（COS/本地目录）、暂存前缀 |
 | `platform/identity` | `admin/auth.ts`、`apps/api/src/routes/admin-auth.ts`；表 `admin_users`、`admin_sessions`、`audit_log` | 负责人与具名管理员、Argon2id、审计写入（接受事务句柄） |
-| `platform/ops` | `operations/*`（除 `feedback.ts`、`indexnow.ts`、`reports.ts`）、`notify/feishu.ts`、`notify/deliver.ts`、`jobs/queue.ts::recordRun`、`admin/runs.ts`（投递核实）；表 `job_runs`、`notify_targets`、`deliveries`、`delivery_leases` | 告警规则与渠道、按 lane 指标、日聚合、只读运维 MCP |
+| `platform/ops` | `operations/*`（除 `feedback.ts`、`indexnow.ts`、`reports.ts`）、`notify/feishu.ts`、`notify/deliver.ts`、`notify/selected.ts` 与 `jobs/notify.ts`、`media/prepare.ts::warmShareImage`（飞书内容推送，关闭）、`jobs/queue.ts::recordRun`、`admin/runs.ts`（投递核实）；表 `job_runs`、`notify_targets`、`deliveries`、`delivery_leases` | 告警规则与渠道、按 lane 指标、日聚合、只读运维 MCP |
 | `contracts` | `packages/contracts/src/*`（拆分）、`lib/ids.ts`、`publication/links.ts` | Zod 契约、生成 OpenAPI、任务与事件 schema、端口接口、时间值类型 |
 | `ui` | `app.css` 令牌、`components/ui/*`、`components/shell/*`、`icons.tsx`、`Logo.tsx`、`CodeBlock.tsx`、`lib/hydration.ts` | 私有页面通用组件 |
 | `testkit` | `tests/setup.ts`、`scripts/smoke.ts` | 假模型服务、录制信源响应、固定时钟、临时库工具 |
