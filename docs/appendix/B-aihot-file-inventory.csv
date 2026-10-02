@@ -215,16 +215,16 @@ database/migrations/0021_seo_auto_index.sql,487,28ea4c10fef5d8fdbe40d062e46d6b4f
 database/migrations/0022_receipt_attempts_budgets.sql,2810,deb8ed2a4770f995b04639456ed842f2f9992f01a2300d08a038f3943cfc8385,搬移,（熔断种子行不进基线，由网关配置取代）,ai,ADR-0003；正文 3.2,,B.7.1,364
 database/migrations/0023_processing_retry.sql,647,4563f5bc1da41e3e33f843705fbe38bcede8cea56ee9312dbe66e6c393b3fbd9,改造,,content（T-0005）→ enrichment,ADR-0003；正文 3.2,T-0005,B.7.1,365
 database/migrations/0024_grouping_overrides_digest_inputs.sql,685,8e9510af8f5059738d29a58f726549fd0d0ea962b9c983655bfe333d6b7a2a5f,搬移,,events,ADR-0003；正文 3.2,,B.7.1,363
-database/migrations/0026_source_icon_checked.sql,204,4ed154a6ba499d8c062b66dae4a00c196cb5e9d5d86f6639a3e00841bbca8eeb,改造,,sources（0026 列随图标功能删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线,ADR-0003；正文 3.2,,B.7.1,366
+database/migrations/0026_source_icon_checked.sql,204,4ed154a6ba499d8c062b66dae4a00c196cb5e9d5d86f6639a3e00841bbca8eeb,删除,（只有图标检查一列，随图标功能删除）,—,DR-78；G17；ADR-0003；正文 3.2,T-0002,B.7.1,366
 database/migrations/0027_feedback_forward_error.sql,206,eae7d9ae326433adb86d3fbb0830a3d33b06d6350ff8de2ceaf0cb43a56a79e5,删除,（反馈不转发）,feedback,ADR-0003；正文 3.2,T-0002,B.7.1,367
 database/migrations/0028_selectbench_mean_score.sql,231,3cd1fab13375a39a34413ddd17e0f0bc26d0f4fa1216ec6e3b19934268b08f4f,改造,（泛化为 EvalRun；离线评测）,ai,ADR-0003；正文 3.2,,B.7.1,359
-database/migrations/0029_source_config_content_public.sql,306,ba55d3cb46da31b83d799fa4474426745b098045dbb70c7c733ed8b6afa1453c,改造,,sources（0026 列随图标功能删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线,ADR-0003；正文 3.2,,B.7.1,366
+database/migrations/0029_source_config_content_public.sql,306,ba55d3cb46da31b83d799fa4474426745b098045dbb70c7c733ed8b6afa1453c,改造,,sources（0026 只有图标检查一列，随图标功能在 T-0002 整个删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线,ADR-0003；正文 3.2,,B.7.1,366
 database/migrations/0030_collection_url_index.sql,330,29bdacc63c64916d86be0591308bdb9741034c6b79be5bd88b9af323e0ed0ea1,搬移,,content,ADR-0003；正文 3.2,,B.7.1,368
 database/migrations/0031_selected_ready_index.sql,336,0fe7f6996930bcafbc4391ea5e3bd21df8c13a8dc310b5c4dd8c0422fc01b273,搬移,"（含数据回填语句的部分在空库基线中省略；pool_search.body 只含前 12,000 字，改全文分片）",publication,ADR-0003；正文 3.2,,B.7.1,362
 database/migrations/0032_regroup_pending.sql,450,aa7547725e449d6a842e8bfa4888e2a368d28456bb457c1f58252a2ee97e879f,搬移,,events,ADR-0003；正文 3.2,,B.7.1,363
 database/migrations/0033_receipt_budget_index.sql,434,5374022dc798f0e53d65f1872193f8bc3012edae98e23bf950835a1d8248c567,搬移,（熔断种子行不进基线，由网关配置取代）,ai,ADR-0003；正文 3.2,,B.7.1,364
 database/migrations/0034_lz4_toast.sql,516,c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee,搬移,,基础迁移 + publication,ADR-0003；正文 3.2,,B.7.1,369
-database/migrations/0036_open_source_defaults.sql,522,5c119eab2d95997e9af067744ceb552f6078b611b2deb83396f7f8954a92e94b,改造,,sources（0026 列随图标功能删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线,ADR-0003；正文 3.2,,B.7.1,366
+database/migrations/0036_open_source_defaults.sql,522,5c119eab2d95997e9af067744ceb552f6078b611b2deb83396f7f8954a92e94b,改造,,sources（0026 只有图标检查一列，随图标功能在 T-0002 整个删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线,ADR-0003；正文 3.2,,B.7.1,366
 database/migrations/0037_x_article.sql,261,ab21cc9e6d02f4276fea6f5d824809f3a7e6afa81c0fc6c000d5edafb7e1f163,删除,（随 X 渠道，T-0002）,content、enrichment,ADR-0003；正文 3.2,T-0002,B.7.1,370
 database/migrations/0038_quote_translations.sql,536,32f9674ba2e80c6faa7e53836f6b6124f5dcdbec83539dcc3ebb21e5f36c6ebe,删除,（随 X 渠道，T-0002）,content、enrichment,ADR-0003；正文 3.2,T-0002,B.7.1,370
 database/seeds/lb-models-2026-09-29.json,493073,ee486f37bfb6715fd839c79fe40f74026a5a8c7bbbdfd25955069d7572df1a90,删除,,—,ANTI-26,T-0002,B.7.3,390
@@ -485,7 +485,7 @@ tests/receipts.test.ts,6554,49a0eb5a10d0b5f196ec2e0694a179498c1a437f8d1ef098ee15
 tests/relation-eval-runtime.test.ts,4697,6095904412e106ea4e8d222ab7f70c93274b22604d9f95f90ba318d2be04f83a,搬移,,ai-gateway（评测运行器）+ evals/relate/,F-AI-05,,B.10,469
 tests/relation-eval.test.ts,4854,2d5ad86f93712ae24688f9b3f08d22dd1d271df5459670b3404a74a0dc2d4bb1,搬移,,ai-gateway（评测运行器）+ evals/relate/,F-AI-05,,B.10,469
 tests/report-candidates.test.ts,10109,981c1e7abd0984ddcea2b5607efc290499b15ef8d139dc06bc7f8bb554d95d9b,改造,,reports,INV-21,,B.10,484
-tests/report-lead.test.ts,1289,f52493840bcf74976ccec0a2262090ffa16f40035fe439512675894572e68491,改造,,reports,INV-21,,B.10,484
+tests/report-lead.test.ts,1289,f52493840bcf74976ccec0a2262090ffa16f40035fe439512675894572e68491,删除,（随报告头版配图删除）,—,DR-78；G17,T-0002,B.10,484
 tests/rss-conditional.test.ts,5500,f54443c6eef1f7426bf2974e52eed4b395ba0e2b426cc4a36d2393a29b89983c,搬移,,acquisition,—,,B.10,475
 tests/rss-xhtml.test.ts,3464,03da792c79b7a94f47a6e2eb4f74875adcc10c2b444f15a4f406fcf949faaebe,搬移,,acquisition,—,,B.10,475
 tests/setup.ts,3663,dc27d5d63dd32a53b25b5e09f1a6e1eab4cad0aedeab03dd6ecdf55cf764e122,改造,,packages/testkit,05-quality/03-testing-standards.md,,B.10,459

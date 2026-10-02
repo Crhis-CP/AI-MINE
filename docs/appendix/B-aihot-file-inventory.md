@@ -64,7 +64,7 @@
 | `apps/api/src/routes/ingest.ts`（48 行） | 外部推送 `POST /api/ingest/items`（令牌、限流） | 关闭 | `acquisition` | F-ACQ-07（候选）；G13 | 首版不注册；启用须 Owner 点名，且**移出公开端口**，并入 `external_push` 采集方式、走许可检查、新来源默认隔离；启用时移植上游 #21、#27（正文 6.5） |
 | `apps/api/src/routes/leaderboard.ts`（53 行） | 模型榜站内接口 5 条 | 删除 | — | ANTI-26 | T-0002 |
 | `apps/api/src/routes/mcp.ts`（306 行） | 匿名只读 MCP，5 个工具，`MCP_ALLOWED_HOSTS` | 改造 | `publication`（publicRoutes） | F-PUB-04（M3）；DEC-38 | 工具前缀改定值；`links.aihot` 不进契约；再分发与 AI 标识字段；扩展矿业工具按 `03-data/02-public-api-contract.md` |
-| `apps/api/src/routes/media.ts`（40 行） | 签名图片代理 `/api/img-proxy` | 关闭 | `content` | DR-78；G17；G21 | 公开页面不再使用（正文图片只给“查看配图”外链）；仅保留给视觉理解输入（须 `external_model` 许可）与 Owner 明确授权的来源；请求头 `x-aihot-img-proxy-auth` 改名；其 `auth_request` 校验端点随之关闭 |
+| `apps/api/src/routes/media.ts`（40 行） | 签名图片代理 `/api/img-proxy` | 关闭 | `content` | DR-78；G17；G21 | 公开页面不再使用（正文图片只给“查看配图”外链）；仅保留给视觉理解输入（须 `external_model` 许可）与 Owner 明确授权的来源；请求头 `x-aihot-img-proxy-auth` 改名；其 `auth_request` 校验端点随之关闭；T-0002 起 api 不注册该路由，启用须 Owner 批准（2026-10-02） |
 | `apps/api/src/routes/og.ts`（137 行） | 分享图路由（站点、页面、条目、海报、报告、主题、事件） | 关闭 | `publication` | F-PUB-05 | 首版不注册；删模型榜、监控、海报三类页面卡（T-0002）；**删去 `:77,:94` 的评分角标**（与路线图 T-0002 一致；分享图将来启用时，角标按评分显示规则——有评分才显示——重新加） |
 | `apps/api/src/routes/site.ts`（279 行） | 站内读者接口 `/api/site/*`：时间线、全部、详情、分组展开、后续、热点、事件、报告、主题、统计、收藏可用性、Markdown 导出、更新日志、联系方式 | 改造（拆分） | `publication`（读者数据、更新日志、站点资料） | PG-04；PG-14；DEC-31 | 删 `codex-reset` 3 条（T-0002）、**Markdown 导出路由**（PG-04 不做导出）、联系二维码（Owner 2026-09-06）；T-0004 只为保留的响应写契约。20 多个站点端点按 `03-data/02-public-api-contract.md` 第 4.2 节的表处置，其中契约外的五类：`stats` 改造保留（关于页统计，PG-14，矿业口径）、`groups/:factId/reports` 改造（随事件两层结构，M3，对外并入 `/events/{id}`）、`items/:id/markdown` 删除、`img-proxy` 关闭、`codex-reset*` 删除 |
 | `apps/api/src/routes/static.ts`（175 行） | sitemap、`llms.txt`、robots、security.txt、manifest、OpenAPI 文档（运行时替换占位）、图标、IndexNow key、素材目录、联系二维码 | 改造（拆分） | `publication`（sitemap、llms、robots、manifest、OpenAPI、图标、security.txt、IndexNow key） | F-PUB-05；通则 18 | 删模型榜素材目录、监控路径裁剪、联系二维码（T-0002）；OpenAPI 改为 Zod 生成并改路径 `/openapi-v3.json`（T-0004）；sitemap 收录策略改读通则 18 页面类型表（G12），去掉共享缓存时长（现 `s-maxage=300`）；`robots.txt` 路径改 v3 |
@@ -127,7 +127,7 @@
 | `app/features/item/QuotedPost.tsx` | X 引用帖展示 | 删除 | — | G15 | 随 X 渠道删除（正文 4.5） |
 | `app/features/leaderboard/*`（7 个文件，405 行） | 模型榜组件 | 删除 | — | ANTI-26 | T-0002 |
 | `app/features/monitor/*`（PostCard、ResetCalendar、format，416 行） | Codex 监控组件 | 删除 | — | ANTI-26 | T-0002；月历的键盘交互可参考 |
-| `app/features/report/*`（Halftone、IssueDots、Nameplate、ReportLayout、ReportNav、ReportPaper、format，约 1,300 行） | 报刊版式、报头、期数点阵、归档导航 | 改造 | `apps/web` `features/report` | PG-06；PG-07；G18 | 去“新模型”等 AI 指标；`ReportPaper.tsx:42,311,345` 与 `format.ts:36-40` 的“AI ${KIND_LABEL}”“这一天的 N 件 AI 大事”改走 `withSubject()` 或矿业口径；**`format.ts` 的出刊键沿用**（日报以出刊日 D 为键、覆盖 D-1 08:00 至 D 08:00，周报、月报以所覆盖的 ISO 周、月份为键；Owner 2026-10-01“时间也学 AIHOT”，DEC-65），只改文案；出刊日期与覆盖期间分开显示（日报显示出刊日和它覆盖的窗口）；`ReportLayout` 用负边距抵消外壳内边距，拆 `ui` 时一起处理；来源图标只留首字母 |
+| `app/features/report/*`（Halftone、IssueDots、Nameplate、ReportLayout、ReportNav、ReportPaper、format，约 1,300 行） | 报刊版式、报头、期数点阵、归档导航 | 改造 | `apps/web` `features/report` | PG-06；PG-07；G18 | 去“新模型”等 AI 指标；`ReportPaper.tsx:42,311,345` 与 `format.ts:36-40` 的“AI ${KIND_LABEL}”“这一天的 N 件 AI 大事”改走 `withSubject()` 或矿业口径；**`format.ts` 的出刊键沿用**（日报以出刊日 D 为键、覆盖 D-1 08:00 至 D 08:00，周报、月报以所覆盖的 ISO 周、月份为键；Owner 2026-10-01“时间也学 AIHOT”，DEC-65），只改文案；出刊日期与覆盖期间分开显示（日报显示出刊日和它覆盖的窗口）；`ReportLayout` 用负边距抵消外壳内边距，拆 `ui` 时一起处理；来源图标只留首字母；头版配图（`ReportPaper.tsx` 的 `LeadPicture`，由 `publication/reports.ts` 经图片代理取导语所指条目的图）按 DR-78 在 T-0002 删除（2026-10-02） |
 | `app/features/story/HeatChart.tsx` | 事件热度走势图（键盘可读数） | 搬移 | `apps/web` `features/story` | PG-05；DEC-10；正文 2.11 | **保留**（原“删除”作废）：事件页沿用 AIHOT 的热度走势（数据来自每小时快照，抓取落后的小时不画），文案矿业化 |
 
 ### B.4.3 读者页面（`app/routes/*`）与页面映射
@@ -363,7 +363,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `0020_story_summary.sql`、`0024_grouping_overrides_digest_inputs.sql`、`0032_regroup_pending.sql` | story 事实说明；单独成组的人工决定与综述输入哈希；待重组标记 | events | 搬移 |
 | `0022_receipt_attempts_budgets.sql`、`0033_receipt_budget_index.sql` | 每次实际发送一行的尝试表、预算检查索引、熔断种子行 | `ai` | 搬移（熔断种子行不进基线，由网关配置取代） |
 | `0023_processing_retry.sql` | 处理入队时间、失败次数、下次重试时间 | content（T-0005）→ enrichment | 改造 |
-| `0026_source_icon_checked.sql`、`0029_source_config_content_public.sql`、`0036_open_source_defaults.sql` | 图标检查时间；清理旧配置键；`site_fulltext` 缺省改 false 与两条熔断种子 | sources（0026 列随图标功能删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线 | 改造 |
+| `0026_source_icon_checked.sql`、`0029_source_config_content_public.sql`、`0036_open_source_defaults.sql` | 图标检查时间；清理旧配置键；`site_fulltext` 缺省改 false 与两条熔断种子 | sources（0026 只有图标检查一列，随图标功能在 T-0002 整个删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线 | 改造 |
 | `0027_feedback_forward_error.sql` | 反馈转发失败原因 | feedback | 删除（反馈不转发） |
 | `0030_collection_url_index.sql` | `articles.url` 索引 | content | 搬移 |
 | `0034_lz4_toast.sql` | 数据库级 lz4 TOAST 缺省、`pool_search.body` 压缩 | 基础迁移 + publication | 搬移 |
@@ -481,7 +481,7 @@ T-0002 从导入的迁移里删除 AI 专属表（导入的迁移尚未被任何
 | `publication.test.ts`（386 行） | 许可撤销与下架到达全部出口、报告不再引用已下架、热点榜即时移除、同步账本顺序 | 搬移 | 仓库级 `tests/integration/` | INV-02；INV-03 | 核心守护，扩到对象级下架与 60 秒内全出口不可见 |
 | `mcp-shutdown.test.ts` | 关闭 API 前排空 MCP 连接 | 搬移 | publication | — | — |
 | `media-performance.test.ts` | 图片抓取超时、多档位共享原图、分享图并发冷启动 | 改造 | content + publication | — | 图片管线默认关闭后，只保留视觉输入与分享图候选的部分 |
-| `report-candidates.test.ts`、`report-lead.test.ts` | 跨 08:00 放行只进下一期一次；头版配图取自导语所指条目 | 改造 | reports | INV-21 | 沿用 08:00 边界（跨过 08:00 才确定精选公开时间的条目只进下一期一次），用例按精选候选更新 |
+| `report-candidates.test.ts`、`report-lead.test.ts` | 跨 08:00 放行只进下一期一次；头版配图取自导语所指条目 | 改造 | reports | INV-21 | 沿用 08:00 边界（跨过 08:00 才确定精选公开时间的条目只进下一期一次），用例按精选候选更新；`report-lead.test.ts` 只测头版配图取哪一条，头版配图按 DR-78 删除后它没有被测对象，T-0002 一并删除（2026-10-02，CSV 与锁文件该行记为删除） |
 | `url.test.ts`、`url-identity.test.ts` | 内网地址各种写法与 DNS 重绑定被拒；推文地址身份 | 改造 | acquisition（SSRF）+ content（身份） | INV-01 | 增加“CDN 轮换公网 IP 不误拒”（重绑定检查只拒绝非公网地址）；删推文地址身份用例 |
 | `leaderboard-worker.test.ts`、`monitor.test.ts` | 模型榜计算线程、监控组装 | 删除 | — | ANTI-26 | T-0002 |
 

@@ -2171,11 +2171,11 @@
    "path": "database/migrations/0026_source_icon_checked.sql",
    "bytes": 204,
    "sha256": "4ed154a6ba499d8c062b66dae4a00c196cb5e9d5d86f6639a3e00841bbca8eeb",
-   "disposition": "改造",
-   "disposition_note": "",
-   "new_location": "sources（0026 列随图标功能删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线",
-   "spec_refs": "ADR-0003；正文 3.2",
-   "tasks": ""
+   "disposition": "删除",
+   "disposition_note": "（只有图标检查一列，随图标功能删除）",
+   "new_location": "—",
+   "spec_refs": "DR-78；G17；ADR-0003；正文 3.2",
+   "tasks": "T-0002"
   },
   {
    "path": "database/migrations/0027_feedback_forward_error.sql",
@@ -2203,7 +2203,7 @@
    "sha256": "ba55d3cb46da31b83d799fa4474426745b098045dbb70c7c733ed8b6afa1453c",
    "disposition": "改造",
    "disposition_note": "",
-   "new_location": "sources（0026 列随图标功能删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线",
+   "new_location": "sources（0026 只有图标检查一列，随图标功能在 T-0002 整个删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线",
    "spec_refs": "ADR-0003；正文 3.2",
    "tasks": ""
   },
@@ -2263,7 +2263,7 @@
    "sha256": "5c119eab2d95997e9af067744ceb552f6078b611b2deb83396f7f8954a92e94b",
    "disposition": "改造",
    "disposition_note": "",
-   "new_location": "sources（0026 列随图标功能删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线",
+   "new_location": "sources（0026 只有图标检查一列，随图标功能在 T-0002 整个删除；0029 是数据清理，空库不需要）；0036 的缺省并入 0001、种子不进基线",
    "spec_refs": "ADR-0003；正文 3.2",
    "tasks": ""
   },
@@ -4871,11 +4871,11 @@
    "path": "tests/report-lead.test.ts",
    "bytes": 1289,
    "sha256": "f52493840bcf74976ccec0a2262090ffa16f40035fe439512675894572e68491",
-   "disposition": "改造",
-   "disposition_note": "",
-   "new_location": "reports",
-   "spec_refs": "INV-21",
-   "tasks": ""
+   "disposition": "删除",
+   "disposition_note": "（随报告头版配图删除）",
+   "new_location": "—",
+   "spec_refs": "DR-78；G17",
+   "tasks": "T-0002"
   },
   {
    "path": "tests/rss-conditional.test.ts",
