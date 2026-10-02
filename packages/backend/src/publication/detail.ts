@@ -18,6 +18,9 @@ interface DetailRow extends ItemRow {
 
 export type DetailResult = { kind: "found"; detail: ItemDetail; row: DetailRow } | { kind: "not_found" };
 
+/** A body picture's link ("查看配图…", linkBodyImages) does not name the heading it sits in. */
+const PICTURE_LINK = /<a\b(?:[^>"']|"[^"]*"|'[^']*')*>查看配图[^<]*<\/a>/g;
+
 /** Adds stable ids to h2–h4 and returns the outline. */
 function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
   const outline: OutlineEntry[] = [];
@@ -25,7 +28,10 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
   const out = html.replace(/<h([2-4])(?: id="sec-\d+")?>([\s\S]*?)<\/h\1>/gi, (_m, level: string, inner: string) => {
     n += 1;
     const id = `sec-${n}`;
-    const text = inner.replace(/<[^>]+>/g, "").trim();
+    const text = inner
+      .replace(PICTURE_LINK, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
     if (text) outline.push({ id, text: text.slice(0, 80), level: Number(level) });
     return `<h${level} id="${id}">${inner}</h${level}>`;
   });

@@ -17,26 +17,60 @@ test("a picture becomes a link named after its description", () => {
     linkBodyImages('<figure><img src="//cdn.example.org/a.png"><figcaption>Q3</figcaption></figure>'),
     `<figure>${link("https://cdn.example.org/a.png", "查看配图")}<figcaption>Q3</figcaption></figure>`,
   );
+  assert.equal(
+    linkBodyImages('<p><img src="https://example.org/1.png" alt="one"><img src="https://example.org/2.png" alt="two"></p>'),
+    `<p>${link("https://example.org/1.png", "查看配图：one")} ${link("https://example.org/2.png", "查看配图：two")}</p>`,
+  );
   const plain = "<p>No pictures here &amp; nothing to change.</p>";
   assert.equal(linkBodyImages(plain), plain);
 });
 
-test("a linked picture does not nest links", () => {
+test("pictures inside a link move out after it, in their order, and the link keeps its address", () => {
+  const one = link("https://example.org/1.png", "查看配图：one");
+  const two = link("https://example.org/2.png", "查看配图：two");
   assert.equal(
-    linkBodyImages('<p><a href="https://example.org/full.png"><img src="https://example.org/small.png" alt="Map"></a></p>'),
-    `<p>${link("https://example.org/small.png", "查看配图：Map")}</p>`,
+    linkBodyImages(
+      '<p><a href="https://example.org/post"><img src="https://example.org/1.png" alt="one">Read more<img src="https://example.org/2.png" alt="two"></a></p>',
+    ),
+    `<p><a href="https://example.org/post">Read more</a> ${one} ${two}</p>`,
+  );
+  // Nothing of the link is left to click: it shows where it led.
+  assert.equal(
+    linkBodyImages(
+      '<p><a href="https://example.org/report.pdf"><img src="https://example.org/1.png" alt="one"><img src="https://example.org/2.png" alt="two"></a></p>',
+    ),
+    `<p><a href="https://example.org/report.pdf">https://example.org/report.pdf</a> ${one} ${two}</p>`,
   );
   assert.equal(
     linkBodyImages('<p><a href="https://example.org/post">Read more <img src="https://example.org/arrow.png"></a></p>'),
-    `<p><a href="https://example.org/post">Read more </a>${link("https://example.org/arrow.png", "查看配图")}</p>`,
+    `<p><a href="https://example.org/post">Read more </a> ${link("https://example.org/arrow.png", "查看配图")}</p>`,
   );
 });
 
-test("a picture with no address of its own is dropped, and a video loses its poster frame", () => {
+test("a link that only opened its picture gives way to the picture's link", () => {
+  assert.equal(
+    linkBodyImages('<p><a href="https://example.org/full.png?w=2000"><img src="https://example.org/small.png" alt="Map"></a></p>'),
+    `<p>${link("https://example.org/full.png?w=2000", "查看配图：Map")}</p>`,
+  );
+  assert.equal(
+    linkBodyImages('<p><a href="https://example.org/image?id=7"><img src="https://example.org/image?id=7" alt="Mine"></a></p>'),
+    `<p>${link("https://example.org/image?id=7", "查看配图：Mine")}</p>`,
+  );
+});
+
+test("a picture with no web address of its own is dropped, and a video loses its poster frame", () => {
   assert.equal(linkBodyImages('<p>Before <img src="data:image/png;base64,iVBORw0KGgo=" alt="dot">after</p>'), "<p>Before after</p>");
+  assert.equal(linkBodyImages('<p>A<img src="javascript:alert(1)" alt="x">B</p>'), "<p>AB</p>");
   assert.equal(linkBodyImages('<picture><img src="https://example.org/a.png" alt="A"></picture>'), link("https://example.org/a.png", "查看配图：A"));
   assert.equal(
     linkBodyImages('<video src="https://example.org/clip.mp4" poster="https://example.org/frame.jpg" width="640"></video>'),
     '<video src="https://example.org/clip.mp4" width="640"></video>',
+  );
+});
+
+test("a description is text, never markup", () => {
+  assert.equal(
+    linkBodyImages('<p><img src="https://example.org/q.png?a=&quot;b" alt="&quot;&gt;<b>bold</b>"></p>'),
+    `<p>${link("https://example.org/q.png?a=&quot;b", '查看配图："&gt;&lt;b&gt;bold&lt;/b&gt;')}</p>`,
   );
 });

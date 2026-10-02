@@ -102,10 +102,15 @@ test("site reading sends one language while exports retain both, including after
 test("body pictures reach the item page and the full feed only as links, and the image proxy is closed", async () => {
   const id = await article();
   const picture = `https://example.com/${T}.png?a=1&amp;b=2`;
-  const html = `<p>${BODY}</p><p><img src="${picture}" alt="Shipments by quarter" width="800" height="400"></p><video src="https://example.com/${T}.mp4" poster="https://example.com/${T}.jpg"></video>`;
+  const mark = `https://example.com/${T}-mark.png`;
+  const html = `<h2><img src="${mark}" alt="mark"> Results</h2><p>${BODY}</p><p><img src="${picture}" alt="Shipments by quarter" width="800" height="400"></p><video src="https://example.com/${T}.mp4" poster="https://example.com/${T}.jpg"></video>`;
   await sql`UPDATE articles SET language = 'en', body_html = ${html} WHERE id = ${id}`;
   await publishArticle(id, released());
-  const page = JSON.parse((await get(`/api/site/items/${id}/original`)).body).body.original as string;
+  const detail = JSON.parse((await get(`/api/site/items/${id}/original`)).body);
+  const page = detail.body.original as string;
+  // A picture in a heading becomes a link there but does not name the heading in the outline.
+  assert.equal(detail.outline[0].text, "Results");
+  assert.ok(page.includes(`<h2 id="sec-1"><a href="${mark}" target="_blank" rel="noopener noreferrer">查看配图：mark</a> Results</h2>`), page);
   const feed = (await get("/feed/full.xml")).body.split("<item>").find((item) => item.includes(id));
   for (const body of [page, feed]) {
     assert.ok(body?.includes(`<a href="${picture}" target="_blank" rel="noopener noreferrer">查看配图：Shipments by quarter</a>`), body);
