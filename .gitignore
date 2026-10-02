@@ -11,7 +11,7 @@ dist/
 apps/web/build/
 apps/web/.react-router/
 
-# Font package unpacked to regenerate the report nameplates (docs/customize.md)
+# Font package unpacked to regenerate the report nameplates (industry/README.md)
 package/
 fontsource-noto-sans-sc-*.tgz
 

@@ -1,16 +1,124 @@
 # 行业包
 
-这个站和“行业”有关的一切都在这里。换一个行业，主要就是改这个文件夹，步骤见 [把它改成你的行业](../docs/customize.md)。
+`industry/` 集中放和“行业”有关的内容：站名与文案、分类与标签、主题、种子信源、提示词、精选门槛、品牌素材、页面文案、更新日志和评测样例。换行业时这里是**主要改动点，但不是唯一的改动点**：页面和报告里另有写死的 AI 口径（第 3 节），只改这个目录换不完。
+
+现在的内容仍是导入时的 AI 行业示例。换成矿业由 `tasks/TASK-0010.md`（矿业行业包 v0）完成；行业包的归属与机制以 `docs/04-architecture/04-aihot-adoption.md` 4.4 节为准，逐个文件的去向见附录 B 的 B.8 节。
+
+## 1. 文件
 
 | 文件 | 内容 |
 |---|---|
-| `site.ts` | 站名、行业词、首页文案、关于页、备案号 |
-| `taxonomy.ts` | 分类、标签、公司与机构、防止模型写错公司的词表 |
+| `site.ts` | 站点身份与读者看得到的文案 |
+| `taxonomy.ts` | 分类、内容类型、标签词表、公司与机构名录、身份词典 |
 | `topics.json` | 主题目录（`/topics`） |
-| `sources.json` | 首次启动时导入的示范信源 |
-| `prompts/` | 每一步的提示词：预筛、评分、写作、结构化、归组、综述、日报、翻译 |
-| `selection.ts` | 入选门槛 |
-| `brand/` | 图标、Logo、日报周报月报的报头字 |
-| `pages/` | 使用规则、隐私说明（模板，上线前按实际情况改写） |
-| `changelog.json` | 更新日志 |
-| `gold.example.jsonl` | 精选评测样本的格式示例 |
+| `sources.json` | 种子信源，由 `scripts/seed.ts` 导入 |
+| `prompts/` | 各处理步骤的提示词 |
+| `selection.ts` | 精选门槛 |
+| `brand/` | 站点图标、Logo，以及日报、周报、月报的报头字（`nameplates/`） |
+| `pages/` | 使用规则与隐私说明，是模板，上线前按实际情况改写并经 Owner 确认 |
+| `changelog.json` | 更新日志（`/changelog`）：新条目写在 `releases` 最前面，`latestVersion` 写它的日期和时间 |
+| `gold.example.jsonl`、`relation-gold.example.jsonl` | 精选评测与事件关系评测的样本格式示例（2.6 节） |
+
+## 2. 各文件怎么写
+
+### 2.1 `site.ts`
+
+- `name`：站名。导航、页面标题、分享图、RSS、MCP 与私有页面都用它。
+- `subject`：行业词。`withSubject()` 用它拼出“X 日报”“X 动态”这类说法，英文词后面加空格，中文词不加。
+- `homeTitle`、`description`、`tagline`：首页完整标题；一句话介绍（搜索引擎、分享卡片、RSS、`llms.txt` 用）；首页与侧边栏的一行小字。
+- `locale`：界面语言（HTML `lang`、`og:locale`）。
+- `defaultUrl`：只在没设置 `SITE_URL` 时使用。站点地址由部署时的环境变量 `SITE_URL` 决定，不写在这里。
+- `mcpPrefix`：MCP 工具名前缀（小写字母、数字、下划线），上线后冻结。
+- `contactEmail`：对外联系邮箱（选填），使用规则、`llms.txt` 与响应头会写。`organization`：结构化数据里的网站运营者。
+- `crawlerName`：抓取信源时在 User-Agent 里报的名字，不能冒用别的站名。
+- `footerNote`、`icp` 与 `ABOUT`（关于页文案，“怎么工作”四个环节各配一个站内实时统计数字）会按第 4 节拆走。
+
+### 2.2 `taxonomy.ts` 与 `topics.json`
+
+- `CATEGORIES`：首页与“全部动态”的筛选类别，也用于卡片角标和 RSS 分类订阅。`key` 出现在网址与接口里（`/all?category=`、`/feed/category/<key>.xml`），上线后冻结；`label` 是显示名；`section` 是日报里的分节标题，几个类别可以共用一节；`guide` 告诉模型怎么归类。没归上类的资料放进 `key` 为 `industry` 的类别所在的节，没有这个类别就放最后一节。
+- `ITEM_TYPES`：内容理解一步判定的内容类型。`prompts/content-understanding.md` 列出这些类型，`prompts/selection-score.md` 按类型给评分维度不同的权重，三处在同一个提交里改。`CATEGORY_BY_ITEM_TYPE`：模型漏了分类标签时，按内容类型补一个。
+- `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义词统一成词表里的写法。
+- `ENTITIES`：主要公司与机构，用于公司类主题。`IDENTITY_LEXICON`、`PUBLISHER_DOMAINS`、`IDENTITY_CONTEXT_ALIASES` 防止模型在标题和摘要里写进原文没提到的公司：核验过的身份事实经 `prompts/identity-context.md` 交给模型。
+- `topics.json`：主题目录，分 `company`（公司与机构）、`field`（方向）、`genre`（内容形态）三组。每个主题用 `tags` 或 `entityId` 决定收哪些内容；`slug` 出现在网址里，上线后冻结。
+
+### 2.3 `sources.json`
+
+| 字段 | 含义 |
+|---|---|
+| `kind` | `rss`；`web_list`（网页列表，配选择器）；`json_list`（JSON 接口）；`mp_account`（公众号，经付费的第三方接口，附录 B 定为关闭）；`external`（外部推送，推送入口首版关闭、不注册，F-ACQ-07） |
+| `config` | 各采集方式的配置。允许的键在 `packages/backend/src/sources/config-keys.ts`，种子导入和私有页面新建、修改信源时遇到不认识的键都会报错 |
+| `tier` | 信源分级，决定入选门槛：`T1` 官方一手，`T1_5` 官方账号与准官方，`T2` 媒体与个人，`EXCLUDE_MP` 不参与精选 |
+| `participation_mode` | `editorial` 进精选与全部动态；`hot_signal` 只作热度证据；`isolated` 不进任何公开页面 |
+| `first_party`、`owner_entity_id` | 是不是当事方自己发的（官网、官方账号），以及对应 `taxonomy.ts` 里的哪个主体 |
+| `interval_minutes`、`tags` | 抓取间隔（分钟）与信源标签 |
+| `site_fulltext` | 站内能否展示全文；只有在确认取到正文时才展示，否则只给摘要和原文链接 |
+| `syndicate_fulltext` | 全文 RSS 能否再分发正文，只在站内也展示全文时生效 |
+
+`site_fulltext` 的缺省并不统一：种子、私有接口和数据库列都是关（列在迁移 0001 里缺省开，0036 改成关），私有页面的新建信源表单却默认勾选。能不能展示全文以信源权限矩阵为准（ADR-0009），不以哪个缺省为准。
+
+### 2.4 `prompts/`
+
+| 文件 | 用途 |
+|---|---|
+| `prefilter.md` | 预筛：是不是本行业的事。宽召回，只拦明显无关的 |
+| `selection-score.md` | 评分标准：0–100 分，同一份标准独立打两次；含内容类型、评分维度与各类型的权重，以及必须正常评价的价值和必须压住的噪声 |
+| `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加三份共用规则组成 |
+| `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
+| `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`）、防幻觉、答案先行的摘要、自洽的标题 |
+| `identity-context.md` | 把核验过的公司身份事实交给模型 |
+| `structure.md`、`safety.md` | 分类、标签、主体与事实的结构化抽取；资料内容一律当作不可信数据 |
+| `group-*.md` | 事件归组：两篇报道的关系（成对与批量判断），以及热度信号挂到哪个事实上；关系定义在 `group-definitions.md` |
+| `story-digest.md` | 事件综述 |
+| `report-daily-lead.md`、`report-period.md` | 日报导语，周报与月报 |
+| `translate-body.md` | 全文翻译 |
+
+模板只有两种写法（`packages/backend/src/editorial/prompts.ts`）：`{{名字}}` 是调用方传入的值（另有站名 `siteName`），`{{> 文件名}}` 原样插入另一份提示词。缺值或缺文件直接报错，不会留空。提示词的版本号由名称加它读到的所有文件内容的哈希组成，回执和私有页面的模型页都记着结果出自哪一版；改一个字，版本号就变。
+
+### 2.5 `selection.ts` 与校准
+
+- `thresholds`：按信源分级的入选门槛。每篇资料独立评分两次，两次之和不低于两倍门槛才入选，页面显示两次的平均分。没有门槛的分级不参与精选。现值 T1 60、T1_5 65、T2 76 是在 AI 领域校准的，矿业版沿用作起点（4.4 节）。
+- `understandFloor`：没入选、但平均分高于它的资料也按入选的写法写（50）。
+
+换了行业或评分标准就要重新校准（BR-SEL-08）：
+
+1. 从自己的信源里挑 100–200 条资料，逐条标“该选 / 不该选 / 两可”，存成 `.data/gold.jsonl`（`.data/` 不进 Git，格式见 2.6 节）。多放差一点就该选、差一点就不该选的难例；留一部分作留出集，调提示词只看开发集。
+2. 跑 `node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl --split development --label "说明"`（另有 `--models`、`--n`、`--no-import`）。输出准确率、查准率、查全率，门槛从 40 到 90 每隔 2 分的结果，以及判错的条目；完整报告写到 `.data/eval/`，并导入私有页面的 SelectBench。评测会真实调用模型、产生费用，只在任务卡给的额度内跑。
+3. 先改评分标准，再动门槛：该选没选上，多半是标准没写清它为什么重要；不该选却选上，多半是噪声没压住；门槛只能整体移动。矿业版评分标准生效前须 Owner 审阅确认（BR-SEL-09）。
+
+### 2.6 评测样例
+
+`gold.example.jsonl`（精选，`scripts/eval-selection.ts`）每行一条：
+
+| 字段 | 说明 |
+|---|---|
+| `caseId` | 唯一编号 |
+| `material` | `title`、`originalTitle`、`publishedAt`、`sourceName`、`bodyZh`、`bodyOriginal`（两种正文有一个就行） |
+| `sourceFacts` | `sourceKind`、`sourceTier`（决定用哪个门槛）、`firstParty`、`language` |
+| `samplingContext` | 可选：`benchmarkSplit`（如 `development`、`holdout`）与 `samplingStratum`（自己的分组，用来看错在哪一类） |
+| `gold.decision` | `select`、`reject` 或 `either`（两可，不计入判定类指标） |
+
+`relation-gold.example.jsonl`（事件关系，`scripts/eval-relations.ts`）每行一对报道：`caseId`；`a`、`b` 各有 `title`、`source`、`firstParty`、`publishedAt`、`summary`，可选 `frame`（`subject`、`action`、`object`、`occurredAt`）；`samplingContext` 同上；`gold.relation` 取 `SAME_OCCURRENCE`、`SAME_STORY`、`UNRELATED`、`ROUNDUP`。它只评测成对判断，用的是生产环境的提示词，不重跑候选召回。
+
+### 2.7 `brand/`
+
+- `logo.svg`、`icon.png`（512）、`icon-192.png`、`apple-icon.png`（180）、`favicon.ico`：站点图标，由 api 在站点根路径提供。
+- `nameplates/`：报头字 SVG。换站名或行业词后用 `node scripts/nameplates.ts <字体包目录>` 重新生成，字体包的取法写在该脚本开头。
+- 网页左上角的站名字标在 `apps/web/app/components/Logo.tsx`，不在这里。
+
+## 3. 包外的硬编码
+
+下列 AI 口径写死在页面与报告代码里，没有走 `SITE.subject` 或 `withSubject()`，换行业时要逐个改：
+
+- 报告：`apps/web/app/routes/report-latest.tsx`、`features/report/ReportPaper.tsx` 的“AI 日报 / 周报 / 月报”；`features/report/format.ts` 的“这一天的 N 件 AI 大事”和数字条的“个新模型”；`packages/backend/src/reports/compose.ts` 按“模型发布/更新”分节计数的 `modelsReleased` 指标。
+- 页面：`routes/topics.tsx` 的页面描述、“按主题看 AI”与三组名称；`routes/hot.tsx` 的“AI 圈讨论最多”；`routes/feedback.tsx` 输入框里“搜索 OpenAI 时……”的示例。
+- 测试：`tests/` 里有些用例用的是示例行业的分类、标签和公司（如 `ai-models`、“模型发布”、Anthropic）。改了 `taxonomy.ts` 后这些用例会失败，把例子换成新行业的对应项即可，测的规则不变。
+
+TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、`industry/` 下搜 `\bAI\b|OpenAI|Anthropic|Codex|模型发布|大模型`，只允许命中 AI 生成标注（“AI 导读”“AI 翻译”“AI 综述”，DR-87）、评分标签“AI 评分”与 `llms.txt` 的说明。本说明为了列出这些写法也会命中，TASK-0010 改完硬编码时连同本节一起改写。
+
+## 4. 运行机制与已定的变化
+
+1. **构建期内容随发版生效**：`site.ts`、`taxonomy.ts`、`selection.ts`、`prompts/`、`pages/`、`brand/` 打进镜像，改了要重新构建、发版。契约包现在在构建时 import 本包的分类（`packages/contracts/src/taxonomy.ts`），这个方向要反转：分类键由契约定义，行业包只提供标签、说明与提示词，并按契约的 schema 校验（TASK-0005）。
+2. **上线后冻结的标识**：分类 `key`、主题 `slug`、MCP 前缀、报告周期键出现在网址、接口与 RSS 里，改动走契约的破坏性变更流程。
+3. **种子语义**：`scripts/seed.ts` 每次运行都用 `topics.json` 覆盖库里同名的主题，信源则只插入库里没有的（`ON CONFLICT DO NOTHING`）。现在 Compose 的 `setup` 容器每次 `up` 都先迁移再跑种子；种子信源缺省 `enabled=true`、`next_fetch_at=now()`，会绕过“预览通过并经负责人一次确认才启用”。矿业版改为：种子信源来自 Owner 的原始信源表（`industry/seed/`），一律 `enabled=false`、`next_fetch_at` 为空，经私有页面显式启用；主题改由分面生成（PG-08），取消覆盖式种子；迁移与种子改为发布步骤。
+4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除；`icp` 删除，ICP 备案号与公安联网备案号改读受保护的运行时配置（生产环境任一未配置则公开站不开放）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
+5. **其余去向**（附录 B 的 B.8 节）：`sources.json` 由 `industry/seed/` 取代；`changelog.json` 改为产品更新表加 `changes/*.md`；两个评测样例移到 `evals/<能力>/` 并换成矿业样例；`brand/` 换成 AI矿策 的标识，仓库里不得留下与上游品牌素材 SHA-256 相同的文件，报头字按新站名重新生成；`pages/` 补上联系方式与截图 180 天后删除的说明，上线前经 Owner 确认；分级 `EXCLUDE_MP` 改名 `EXCLUDE`。
