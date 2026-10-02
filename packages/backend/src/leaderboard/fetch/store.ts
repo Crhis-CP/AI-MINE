@@ -51,8 +51,14 @@ export function selectRepresentatives(rows: Array<ParsedRow & { modelId: string 
       const selectionReason = r.configuration.ineligible
         ? r.configuration.ineligible
         : selected
-          ? scaffolded ? REASONS.scaffoldedSelected : r.configuration.kind === "FIRST_PARTY" ? REASONS.firstParty : REASONS.sourceDefault
-          : scaffolded ? REASONS.scaffoldedLower : REASONS.lowerPriority;
+          ? scaffolded
+            ? REASONS.scaffoldedSelected
+            : r.configuration.kind === "FIRST_PARTY"
+              ? REASONS.firstParty
+              : REASONS.sourceDefault
+          : scaffolded
+            ? REASONS.scaffoldedLower
+            : REASONS.lowerPriority;
       out.push({ ...r, selected, selectionReason });
     }
   }
@@ -86,7 +92,10 @@ function firstPerConfiguration(rows: ParsedRow[]): ParsedRow[] {
   });
 }
 
-export async function resolveRows(result: FetchResult, dryRun = false): Promise<{ rows: ResolvedRow[]; newModels: Array<{ id: string; slug: string; name: string }> }> {
+export async function resolveRows(
+  result: FetchResult,
+  dryRun = false,
+): Promise<{ rows: ResolvedRow[]; newModels: Array<{ id: string; slug: string; name: string }> }> {
   const resolver = await new IdentityResolver(result.sourceKey, dryRun).load();
   const withIds: Array<ParsedRow & { modelId: string }> = [];
   for (const r of withSourceRanks(firstPerConfiguration(result.rows))) {
@@ -94,7 +103,9 @@ export async function resolveRows(result: FetchResult, dryRun = false): Promise<
     withIds.push({ ...r, modelId });
   }
   const ids = [...new Set(withIds.map((r) => r.modelId))];
-  const slugs = new Map((await sql<{ id: string; slug: string }[]>`SELECT id, slug FROM lb_models WHERE id IN ${sql(ids.length ? ids : [""])}`).map((m) => [m.id, m.slug]));
+  const slugs = new Map(
+    (await sql<{ id: string; slug: string }[]>`SELECT id, slug FROM lb_models WHERE id IN ${sql(ids.length ? ids : [""])}`).map((m) => [m.id, m.slug]),
+  );
   for (const m of resolver.newModels) slugs.set(m.id, m.slug);
   return { rows: selectRepresentatives(withIds, slugs), newModels: resolver.newModels };
 }

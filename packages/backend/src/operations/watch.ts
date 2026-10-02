@@ -49,7 +49,11 @@ export async function checkWorkerHeartbeat(): Promise<void> {
     RETURNING key`;
   if (!claimed.length) return;
   const msg = stale
-    ? formatAlert({ ...WORKER_DOWN, detail: `worker 心跳停在 ${beijingStamp(hb.updated_at)}；看 worker 的日志（docker compose logs worker）` }, hb.updated_at, Date.now())
+    ? formatAlert(
+        { ...WORKER_DOWN, detail: `worker 心跳停在 ${beijingStamp(hb.updated_at)}；看 worker 的日志（docker compose logs worker）` },
+        hb.updated_at,
+        Date.now(),
+      )
     : formatRecovery(WORKER_DOWN.title, new Date(prior?.state === "down" ? prior.since : hb.updated_at), Date.now());
   await sendAlert(msg.title, msg.lines);
 }

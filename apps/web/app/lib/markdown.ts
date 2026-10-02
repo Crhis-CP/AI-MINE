@@ -17,7 +17,10 @@ function inline(s: string, site: string): string {
     return `<a href="${h}"${external ? ' target="_blank" rel="noopener noreferrer"' : ""}>${text}</a>`;
   });
   // Bare URLs.
-  out = out.replace(/(^|[\s（(])((?:https?:\/\/)[^\s<）)]+)/g, (_m, pre: string, url: string) => `${pre}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+  out = out.replace(
+    /(^|[\s（(])((?:https?:\/\/)[^\s<）)]+)/g,
+    (_m, pre: string, url: string) => `${pre}<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`,
+  );
   return out;
 }
 
@@ -56,12 +59,17 @@ export function renderMarkdown(md: string, site: string): RenderedCopy {
     if (/^\|/.test(line)) {
       const rows: string[][] = [];
       while (i < lines.length && /^\|/.test(lines[i]!)) {
-        const cells = lines[i]!.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+        const cells = lines[i]!.trim()
+          .replace(/^\||\|$/g, "")
+          .split("|")
+          .map((c) => c.trim());
         if (!cells.every((c) => /^:?-+:?$/.test(c))) rows.push(cells);
         i++;
       }
       const [head, ...body] = rows;
-      html.push(`<table><thead><tr>${(head ?? []).map((c) => `<th>${inline(c, site)}</th>`).join("")}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${inline(c, site)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+      html.push(
+        `<table><thead><tr>${(head ?? []).map((c) => `<th>${inline(c, site)}</th>`).join("")}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${inline(c, site)}</td>`).join("")}</tr>`).join("")}</tbody></table>`,
+      );
       continue;
     }
     if (/^>\s?/.test(line)) {

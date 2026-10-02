@@ -1,6 +1,8 @@
 // History-entry caches keep same-document returns synchronous. Writes are coalesced after interaction;
 // hiding/leaving the document flushes them so a browser back/forward reload can restore the same data.
-interface Timed { savedAt: number }
+interface Timed {
+  savedAt: number;
+}
 const MAX_MEMORY_ENTRIES = 20;
 
 export function sessionCache<T extends Timed>(prefix: string, maxAge: number) {
@@ -13,7 +15,11 @@ export function sessionCache<T extends Timed>(prefix: string, maxAge: number) {
     clearTimeout(timer);
     timer = undefined;
     for (const [key, value] of dirty) {
-      try { sessionStorage.setItem(prefix + key, JSON.stringify(value)); } catch { /* memory still works */ }
+      try {
+        sessionStorage.setItem(prefix + key, JSON.stringify(value));
+      } catch {
+        /* memory still works */
+      }
     }
     dirty.clear();
   }
@@ -28,7 +34,11 @@ export function sessionCache<T extends Timed>(prefix: string, maxAge: number) {
     if (Date.now() - value.savedAt <= maxAge) return value;
     memory.delete(key);
     dirty.delete(key);
-    try { sessionStorage.removeItem(prefix + key); } catch { /* unavailable */ }
+    try {
+      sessionStorage.removeItem(prefix + key);
+    } catch {
+      /* unavailable */
+    }
     return null;
   }
   function read(key: string): T | null {
@@ -44,7 +54,9 @@ export function sessionCache<T extends Timed>(prefix: string, maxAge: number) {
       }
       remember(key, value);
       return value;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
   function set(key: string, value: T) {
     remember(key, value);
@@ -52,7 +64,9 @@ export function sessionCache<T extends Timed>(prefix: string, maxAge: number) {
     if (!listening) {
       listening = true;
       window.addEventListener("pagehide", flush);
-      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") flush();
+      });
       // Expired history entries should not occupy the session storage quota indefinitely.
       try {
         for (let i = sessionStorage.length - 1; i >= 0; i--) {
@@ -61,9 +75,13 @@ export function sessionCache<T extends Timed>(prefix: string, maxAge: number) {
           try {
             const old = JSON.parse(sessionStorage.getItem(storedKey)!);
             if (!old || !Number.isFinite(old.savedAt) || Date.now() - old.savedAt > maxAge) sessionStorage.removeItem(storedKey);
-          } catch { sessionStorage.removeItem(storedKey); }
+          } catch {
+            sessionStorage.removeItem(storedKey);
+          }
         }
-      } catch { /* unavailable */ }
+      } catch {
+        /* unavailable */
+      }
     }
     timer ??= setTimeout(flush, 50);
     // pagehide handlers may save a newer anchor after our flush handler has already run.

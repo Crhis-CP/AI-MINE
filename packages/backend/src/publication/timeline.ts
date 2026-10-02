@@ -7,7 +7,14 @@ import { beijingDate } from "@aihot/contracts/time";
 import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
-  ITEM_COLUMNS, ITEM_FROM, categoryCondition, channelCondition, selectedCondition, tagCondition, toFeedItemSummary, topicCondition,
+  ITEM_COLUMNS,
+  ITEM_FROM,
+  categoryCondition,
+  channelCondition,
+  selectedCondition,
+  tagCondition,
+  toFeedItemSummary,
+  topicCondition,
   type ItemRow,
 } from "./items.ts";
 
@@ -78,7 +85,9 @@ async function groupedAnchors(q: TimelineQuery, now: Date): Promise<Array<{ gk: 
     if (groupedCache.size >= 50) groupedCache.delete(groupedCache.keys().next().value!);
     groupedCache.set(key, { at: Date.now(), rows });
     return rows;
-  } finally { groupedPending.delete(key); }
+  } finally {
+    groupedPending.delete(key);
+  }
 }
 
 async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
@@ -131,7 +140,12 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   ]);
   const groupFactIds = [...new Set([...members.map((m) => m.fact_id), ...pool.map((r) => r.fact_id)])];
   const factInfo = new Map(
-    groupFactIds.length ? (await sql<{ id: number; public_id: string; title: string }[]>`SELECT id, public_id, title FROM facts WHERE id IN ${sql(groupFactIds)}`).map((f) => [f.id, f]) : [],
+    groupFactIds.length
+      ? (await sql<{ id: number; public_id: string; title: string }[]>`SELECT id, public_id, title FROM facts WHERE id IN ${sql(groupFactIds)}`).map((f) => [
+          f.id,
+          f,
+        ])
+      : [],
   );
   const firstSeen = (list: Member[]) => Math.min(...list.map((r) => (r.sort_at ?? r.timeline_at).getTime()));
 
@@ -174,9 +188,15 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   }
 
   // Recheck scope when hydrating: a withdrawal may commit after the narrow representative read.
-  const rows = new Map(planned.length ? (await sql<ItemRow[]>`
+  const rows = new Map(
+    planned.length
+      ? (
+          await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(planned.map((p) => p.id))}
-      AND ${selectedCondition(now)} ${filterSql(q)}`).map((row) => [row.id, row]) : []);
+      AND ${selectedCondition(now)} ${filterSql(q)}`
+        ).map((row) => [row.id, row])
+      : [],
+  );
   const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt, group }) => {
     const row = rows.get(id);
     if (!row) return [];

@@ -7,7 +7,19 @@ import { ReportArchive, ReportPhoneNav } from "./ReportNav";
  * get the kind tabs and recent issues above the page instead. The paper is centred beside the archive,
  * on white in the light theme, up to 1160px.
  */
-export function ReportLayout({ kind, index, current, today, children }: { kind: ReportKind; index: ReportNavigationEntry[]; current: string | null; today: string; children: ReactNode }) {
+export function ReportLayout({
+  kind,
+  index,
+  current,
+  today,
+  children,
+}: {
+  kind: ReportKind;
+  index: ReportNavigationEntry[];
+  current: string | null;
+  today: string;
+  children: ReactNode;
+}) {
   return (
     <div className="report-shell lg:-mx-7 lg:-mb-[72px] lg:-mt-6 lg:flex lg:min-h-dvh">
       <ReportArchive kind={kind} index={index} current={current} />

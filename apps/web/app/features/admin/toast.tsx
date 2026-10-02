@@ -21,10 +21,13 @@ export function toast(text: string, tone: Tone = "info") {
   const id = ++seq;
   items = [...items, { id, text, tone }].slice(-4);
   emit();
-  setTimeout(() => {
-    items = items.filter((i) => i.id !== id);
-    emit();
-  }, tone === "error" ? 6500 : 3200);
+  setTimeout(
+    () => {
+      items = items.filter((i) => i.id !== id);
+      emit();
+    },
+    tone === "error" ? 6500 : 3200,
+  );
 }
 
 export function Toaster() {
@@ -47,7 +50,11 @@ export function Toaster() {
             exit={{ opacity: 0, y: 6, scale: 0.98 }}
             transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
             className={`pointer-events-auto max-w-md rounded-card px-4 py-2.5 text-[13.5px] shadow-lg ring-1 backdrop-blur ${
-              t.tone === "error" ? "bg-hot text-white ring-hot/40" : t.tone === "ok" ? "bg-ink text-bg ring-line-strong" : "bg-surface text-ink ring-line-strong"
+              t.tone === "error"
+                ? "bg-hot text-white ring-hot/40"
+                : t.tone === "ok"
+                  ? "bg-ink text-bg ring-line-strong"
+                  : "bg-surface text-ink ring-line-strong"
             }`}
           >
             {t.text}

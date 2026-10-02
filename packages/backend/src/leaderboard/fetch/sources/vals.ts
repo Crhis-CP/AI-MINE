@@ -6,7 +6,11 @@ import { configurationOf } from "../configuration.ts";
 import type { Fetcher, ParsedRow } from "../types.ts";
 
 const PAGE = "https://www.vals.ai/benchmarks/fabv2";
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 interface Result {
   accuracy: number | null;
@@ -48,7 +52,7 @@ export function benchmarkView(html: string): View {
     const props = /\sprops="([^"]*)"/.exec(attrs);
     if (!props) break;
     const parsed = JSON.parse(unescapeAttribute(props[1]!)) as Record<string, unknown>;
-    return (revive(parsed.benchmarkView) as { metadata: unknown; tasks: unknown }) as View;
+    return revive(parsed.benchmarkView) as { metadata: unknown; tasks: unknown } as View;
   }
   throw new Error("vals: benchmark data not found on the page");
 }
@@ -93,23 +97,25 @@ export const vals: Fetcher = {
         },
       });
     }
-    return [{
-      sourceKey: "vals-finance-agent",
-      sourceName: "Vals Finance Agent",
-      sourceUrl: PAGE,
-      license: "官方公开结果；公开再展示保留官方署名，完整再分发授权仍以 Vals 条款为准",
-      attributionUrl: PAGE,
-      publishedAt,
-      rows,
-      metadata: {
-        valsTask: slug(view.metadata.benchmark_id),
-        benchmarkVersion: view.metadata.version,
-        upstreamPublishedAt: published,
-        upstreamModelCount: view.metadata.total_models,
-        sourceOperator: "Vals AI",
-        sourceFamily: "professional-work",
-        metricCount: 1,
+    return [
+      {
+        sourceKey: "vals-finance-agent",
+        sourceName: "Vals Finance Agent",
+        sourceUrl: PAGE,
+        license: "官方公开结果；公开再展示保留官方署名，完整再分发授权仍以 Vals 条款为准",
+        attributionUrl: PAGE,
+        publishedAt,
+        rows,
+        metadata: {
+          valsTask: slug(view.metadata.benchmark_id),
+          benchmarkVersion: view.metadata.version,
+          upstreamPublishedAt: published,
+          upstreamModelCount: view.metadata.total_models,
+          sourceOperator: "Vals AI",
+          sourceFamily: "professional-work",
+          metricCount: 1,
+        },
       },
-    }];
+    ];
   },
 };

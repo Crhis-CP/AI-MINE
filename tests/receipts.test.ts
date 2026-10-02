@@ -21,14 +21,25 @@ process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
 
 const ask = (subject: string) =>
-  chatJson({ model: "deepseek-flash", purpose: "invariant_test", subject, promptVersion: "t1", system: "s", user: `input ${subject}`, schema: z.object({ ok: z.boolean() }) });
+  chatJson({
+    model: "deepseek-flash",
+    purpose: "invariant_test",
+    subject,
+    promptVersion: "t1",
+    system: "s",
+    user: `input ${subject}`,
+    schema: z.object({ ok: z.boolean() }),
+  });
 
 let savedBudget: { per_minute: number; per_hour: number; per_day: number } | undefined;
 before(async () => {
-  [savedBudget] = await sql<{ per_minute: number; per_hour: number; per_day: number }[]>`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = 'deepseek'`;
+  [savedBudget] = await sql<
+    { per_minute: number; per_hour: number; per_day: number }[]
+  >`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = 'deepseek'`;
 });
 after(async () => {
-  if (savedBudget) await sql`UPDATE budgets SET per_minute = ${savedBudget.per_minute}, per_hour = ${savedBudget.per_hour}, per_day = ${savedBudget.per_day} WHERE service = 'deepseek'`;
+  if (savedBudget)
+    await sql`UPDATE budgets SET per_minute = ${savedBudget.per_minute}, per_hour = ${savedBudget.per_hour}, per_day = ${savedBudget.per_day} WHERE service = 'deepseek'`;
   await provider.close();
   await stopBoss();
   await closeDb();
@@ -87,7 +98,11 @@ test("retries of unusable answers stop at the budget, and every request sent is 
   const attempts = await sql<{ status: string; tokens: number }[]>`
     SELECT a.status, (a.usage->>'total_tokens')::int AS tokens
     FROM receipt_attempts a JOIN receipts r ON r.id = a.receipt_id WHERE r.subject = ${subject} ORDER BY a.attempt`;
-  assert.deepEqual(attempts.map((a) => a.tokens), [100, 100], "each attempt keeps its own usage");
+  assert.deepEqual(
+    attempts.map((a) => a.tokens),
+    [100, 100],
+    "each attempt keeps its own usage",
+  );
 });
 
 test("with the valve off nothing is sent", async () => {
@@ -137,11 +152,18 @@ async function stoppedArticle(purpose: string, needsBody = false) {
   const key = tag();
   const sourceId = `recovery-${key}`;
   await sql`INSERT INTO sources (id, name, kind, config) VALUES (${sourceId}, 'Recovery', 'rss', '{"fetchPublicContent":true}')`;
-  const { articleId } = await upsertMaterial({ sourceId, url: `https://example.com/recovery-${key}`, title: "Recovery", via: "fetch",
-    bodyStatus: needsBody ? "pending" : "ok", bodyText: needsBody ? undefined : "body" });
+  const { articleId } = await upsertMaterial({
+    sourceId,
+    url: `https://example.com/recovery-${key}`,
+    title: "Recovery",
+    via: "fetch",
+    bodyStatus: needsBody ? "pending" : "ok",
+    bodyText: needsBody ? undefined : "body",
+  });
   const subject = needsBody ? `article:${articleId}` : `article:${articleId}@1`;
-  await assert.rejects(paidRequest({ service: "invariant-unbudgeted", purpose, subject, identity: { key } },
-    () => Promise.reject(new Error("socket hang up after sending"))));
+  await assert.rejects(
+    paidRequest({ service: "invariant-unbudgeted", purpose, subject, identity: { key } }, () => Promise.reject(new Error("socket hang up after sending"))),
+  );
   await sql`UPDATE articles SET processing_state = 'failed', processing_attempts = 3,
     processing_retry_at = now() + interval '1 hour', processing_error = 'receipt outcome unknown' WHERE id = ${articleId}`;
   const [receipt] = await sql<{ id: number }[]>`SELECT id FROM receipts WHERE subject = ${subject}`;
@@ -172,7 +194,11 @@ test("manual release resumes pending body reads and leaves unrelated article wor
     const result = await releaseReceipt(receiptId, { billed: false, note: "checked the provider" }, "test");
     assert.equal(result?.requeued, true, purpose);
     const jobs = await sql<{ name: string }[]>`SELECT name FROM pgboss.job WHERE data->>'articleId' = ${articleId}`;
-    assert.deepEqual(jobs.map((j) => j.name), ["content.extract-body"], "the unfinished body is fetched before analysis");
+    assert.deepEqual(
+      jobs.map((j) => j.name),
+      ["content.extract-body"],
+      "the unfinished body is fetched before analysis",
+    );
   }
   const { articleId, receiptId } = await stoppedArticle("translate_body");
   assert.equal((await releaseReceipt(receiptId, { billed: false, note: "checked the provider" }, "test"))?.requeued, false);

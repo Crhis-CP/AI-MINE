@@ -75,7 +75,9 @@ function embeddedJson(html: string, source: SourceRow): unknown {
     if (!m) throw new FetchError(`window.${name} not found`);
     const start = m.index + m[0].length;
     // Balanced-brace scan to find the object literal's end.
-    let depth = 0, inStr: string | null = null, esc = false;
+    let depth = 0,
+      inStr: string | null = null,
+      esc = false;
     for (let i = start; i < html.length; i++) {
       const ch = html[i]!;
       if (inStr) {

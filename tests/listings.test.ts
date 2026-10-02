@@ -23,15 +23,24 @@ const item = (title: string, link: string, daysAgo: number) =>
   `<item><title>${title}</title><link>${link}</link><guid>${link}</guid><pubDate>${new Date(Date.now() - daysAgo * DAY).toUTCString()}</pubDate><description>${title} summary</description></item>`;
 const feeds: Record<string, string> = {
   // developers.openai.com lists one video twice, under two titles.
-  "/dup.xml": [item(`DevDay — optimization breakout ${T}`, `https://example.org/watch-${T}`, 0.1), item(`Balance accuracy, latency, and cost ${T}`, `https://example.org/watch-${T}`, 0.1)].join(""),
-  "/notes.xml": ["september-24", "september-23", "september-22"].map((d, i) => item(`Release notes — ${d} ${T}`, `https://example.org/notes-${T}/overview#${d}`, 0.1 + i)).join(""),
+  "/dup.xml": [
+    item(`DevDay — optimization breakout ${T}`, `https://example.org/watch-${T}`, 0.1),
+    item(`Balance accuracy, latency, and cost ${T}`, `https://example.org/watch-${T}`, 0.1),
+  ].join(""),
+  "/notes.xml": ["september-24", "september-23", "september-22"]
+    .map((d, i) => item(`Release notes — ${d} ${T}`, `https://example.org/notes-${T}/overview#${d}`, 0.1 + i))
+    .join(""),
 };
 // A feed that loses a character here and there on every load, sent as two or three U+FFFD, in titles and
 // in descriptions longer than the excerpt kept from them.
 const story = "9月25日，维多利亚的秘密上海淮海旗舰店开业，这是维密在中国市场运营十周年之际对线下门店的一次重新布局。".repeat(50);
 const lose = (s: string, at: number, n: number) => s.slice(0, at) + "\uFFFD".repeat(n) + s.slice(at + 1);
 const title = `维密重回上海淮海路，中国市场进入扩店阶段 ${T}`;
-const garbledLoads = [[title, story], [title, lose(story, 120, 3)], [lose(title, 2, 2), lose(story, 700, 2)]];
+const garbledLoads = [
+  [title, story],
+  [title, lose(story, 120, 3)],
+  [lose(title, 2, 2), lose(story, 700, 2)],
+];
 let garbledLoad = 0;
 // A trimmed copy of the DeepSeek API changelog (Docusaurus): each date heading, in either of the two
 // label styles the page uses, is followed by the update headings that belong to it.
@@ -93,14 +102,21 @@ test("sections of one page are separate articles when the source keeps fragments
   const rows = await articles(NOTES_SOURCE);
   assert.deepEqual(
     rows.map((r) => [r.url.replace(/^.*#/, "#"), r.revision]),
-    [["#september-22", 1], ["#september-23", 1], ["#september-24", 1]],
+    [
+      ["#september-22", 1],
+      ["#september-23", 1],
+      ["#september-24", 1],
+    ],
   );
 });
 
 test("a feed that garbles different characters on every load keeps one version", async () => {
   for (let run = 0; run < 3; run++) assert.equal((await collectSource(GARBLED_SOURCE, { force: true })).status, "ok");
   const rows = await articles(GARBLED_SOURCE);
-  assert.deepEqual(rows.map((r) => [r.title, r.revision]), [[title, 1]]);
+  assert.deepEqual(
+    rows.map((r) => [r.title, r.revision]),
+    [[title, 1]],
+  );
 });
 
 test("a changelog's date headings date its updates and are no articles themselves", async () => {

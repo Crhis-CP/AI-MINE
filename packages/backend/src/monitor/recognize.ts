@@ -68,8 +68,16 @@ const PropositionSchema = z.object({
       precision: z.enum(["exact", "approximate", "deadline", "date", "window"]),
       relativeHours: z.number().min(0).max(240).nullable().catch(null),
       period: z.enum(["afternoon", "evening", "tonight", "end_of_day"]).nullable().catch(null),
-      clock: z.string().regex(/^\d{2}:\d{2}$/).nullable().catch(null),
-      clockThrough: z.string().regex(/^\d{2}:\d{2}$/).nullable().catch(null),
+      clock: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .nullable()
+        .catch(null),
+      clockThrough: z
+        .string()
+        .regex(/^\d{2}:\d{2}$/)
+        .nullable()
+        .catch(null),
       dayOffset: z.number().int().min(-1).max(14).nullable().catch(null),
     })
     .nullable()
@@ -103,13 +111,21 @@ function describeTime(iso: string): string {
   return `${iso}（太平洋时间 ${p.date} ${p.hm}）`;
 }
 
-export async function recognizePost(input: { id: string; text: string; publishedAt: string; context: ContextInput[]; openEvents: OpenEventInput[] }): Promise<Recognition> {
+export async function recognizePost(input: {
+  id: string;
+  text: string;
+  publishedAt: string;
+  context: ContextInput[];
+  openEvents: OpenEventInput[];
+}): Promise<Recognition> {
   const lines = [
     `帖子 ${input.id}，发布于 ${describeTime(input.publishedAt)}：`,
     input.text,
     "",
     input.context.length ? "上下文（按关系列出）：" : "上下文：无",
-    ...input.context.map((c) => `- [${c.relation === "quote" ? "被引用" : "被回复"}] ${c.id} @${c.author}${c.publishedAt ? `，${describeTime(c.publishedAt)}` : ""}：${c.text}`),
+    ...input.context.map(
+      (c) => `- [${c.relation === "quote" ? "被引用" : "被回复"}] ${c.id} @${c.author}${c.publishedAt ? `，${describeTime(c.publishedAt)}` : ""}：${c.text}`,
+    ),
     "",
     input.openEvents.length ? "待关联事件（最近的已宣布或刚确认的事件）：" : "待关联事件：无",
     ...input.openEvents.map((e) => `- ${e.id}｜${e.kind}｜${e.status}｜首帖 ${describeTime(e.firstPostAt)}｜${e.schedule ?? "未给时间"}｜“${e.excerpt}”`),

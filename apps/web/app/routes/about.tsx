@@ -24,14 +24,22 @@ interface ContactSettings {
 
 export async function loader({ request }: { request: Request }) {
   const [contact, stats] = await Promise.all([
-    apiGet<ContactSettings>("/api/site/contact", { signal: request.signal }).catch((): ContactSettings => ({ wechatQr: null, feishuQr: null, makerAvatar: null })),
+    apiGet<ContactSettings>("/api/site/contact", { signal: request.signal }).catch(
+      (): ContactSettings => ({ wechatQr: null, feishuQr: null, makerAvatar: null }),
+    ),
     apiGet<SiteStats>("/api/site/stats", { signal: request.signal }).catch(() => null),
   ]);
   return { contact, stats };
 }
 
 export function meta() {
-  return pageMeta({ title: "关于", description: `关于 ${SITE.name}：${SITE.description}`, path: "/about", image: "/og/pages/about.png", jsonLd: organizationLd() });
+  return pageMeta({
+    title: "关于",
+    description: `关于 ${SITE.name}：${SITE.description}`,
+    path: "/about",
+    image: "/og/pages/about.png",
+    jsonLd: organizationLd(),
+  });
 }
 
 const NO_SOURCES: RiverSource[] = [];
@@ -82,7 +90,11 @@ interface Stage {
 }
 
 function stagesOf(stats: SiteStats | null): Stage[] {
-  const kinds = stats ? KIND_ORDER.filter(([k]) => stats.sourceKinds[k]).map(([k, label]) => `${label} ${stats.sourceKinds[k]}`).join(" · ") : null;
+  const kinds = stats
+    ? KIND_ORDER.filter(([k]) => stats.sourceKinds[k])
+        .map(([k, label]) => `${label} ${stats.sourceKinds[k]}`)
+        .join(" · ")
+    : null;
   return [
     {
       no: "01",
@@ -119,13 +131,29 @@ function stagesOf(stats: SiteStats | null): Stage[] {
 function MakerFace({ src }: { src: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
-  return <img src={src} alt={`${ABOUT.maker?.name ?? ""}的头像`} width={48} height={48} onError={() => setFailed(true)} className="size-11 shrink-0 rounded-full bg-bg-sunk object-cover ring-1 ring-line xl:size-12" />;
+  return (
+    <img
+      src={src}
+      alt={`${ABOUT.maker?.name ?? ""}的头像`}
+      width={48}
+      height={48}
+      onError={() => setFailed(true)}
+      className="size-11 shrink-0 rounded-full bg-bg-sunk object-cover ring-1 ring-line xl:size-12"
+    />
+  );
 }
 
 function QrCard({ src, kind, title, note }: { src: string; kind: string; title: string; note: string }) {
   return (
     <figure className="card flex items-center gap-5 p-5">
-      <img src={src} alt={`${kind}二维码`} width={112} height={112} loading="lazy" className="size-[104px] shrink-0 rounded-tile border border-line bg-white object-contain p-1.5 sm:size-[112px]" />
+      <img
+        src={src}
+        alt={`${kind}二维码`}
+        width={112}
+        height={112}
+        loading="lazy"
+        className="size-[104px] shrink-0 rounded-tile border border-line bg-white object-contain p-1.5 sm:size-[112px]"
+      />
       <figcaption className="min-w-0">
         <div className="text-[12px] text-ink-4">{kind}</div>
         <div className="mt-1 text-[16px] font-semibold leading-snug text-ink">{title}</div>
@@ -138,7 +166,9 @@ function QrCard({ src, kind, title, note }: { src: string; kind: string; title: 
 /** The optional maker block (ABOUT.maker): a greeting on the left, the contact codes that are set on the right. */
 function Maker({ maker, contact }: { maker: NonNullable<typeof ABOUT.maker>; contact: ContactSettings }) {
   const codes = [
-    contact.wechatQr && maker.wechat ? <QrCard key="wechat" src={contact.wechatQr} kind="微信公众号" title={maker.wechat.title} note={maker.wechat.note} /> : null,
+    contact.wechatQr && maker.wechat ? (
+      <QrCard key="wechat" src={contact.wechatQr} kind="微信公众号" title={maker.wechat.title} note={maker.wechat.note} />
+    ) : null,
     contact.feishuQr && maker.feishu ? <QrCard key="feishu" src={contact.feishuQr} kind="飞书群" title={maker.feishu.title} note={maker.feishu.note} /> : null,
   ].filter(Boolean);
   return (
@@ -244,7 +274,9 @@ export default function AboutPage() {
         <SignalRiver sources={sources} focus={focus} onArrive={onArrive} className="h-[230px] sm:h-[300px] lg:h-[360px] 2xl:h-[420px]">
           <Latest item={latest[at]} className="absolute left-[75%] top-[calc(42%+42px)] hidden w-[25%] px-6 lg:block" />
         </SignalRiver>
-        <p className="sr-only">示意图：每条线是一个信源；线汇成一束束，代表同一件事的多篇报道；经过精选的闸门，只有少数几束通过，汇入每天的{withSubject("日报")}。</p>
+        <p className="sr-only">
+          示意图：每条线是一个信源；线汇成一束束，代表同一件事的多篇报道；经过精选的闸门，只有少数几束通过，汇入每天的{withSubject("日报")}。
+        </p>
         <Latest item={latest[at]} className="mt-2 border-t border-line pt-4 lg:hidden" />
         <ol className="mt-4 grid grid-cols-1 border-t border-line-strong sm:grid-cols-2 lg:mt-0 lg:grid-cols-4">
           {stages.map((s, i) => (

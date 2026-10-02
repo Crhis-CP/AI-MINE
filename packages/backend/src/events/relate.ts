@@ -104,7 +104,10 @@ export function pairUser(a: ReportView, b: ReportView): string {
 }
 
 /** Verdicts by fact id; a candidate the model skipped counts as UNRELATED. */
-export function verdictsByFact(decisions: Array<{ id: string; relation: Relation; confidence: number; note?: string }>, cands: CandidateView[]): Map<number, Verdict> {
+export function verdictsByFact(
+  decisions: Array<{ id: string; relation: Relation; confidence: number; note?: string }>,
+  cands: CandidateView[],
+): Map<number, Verdict> {
   const out = new Map<number, Verdict>();
   for (const d of decisions) {
     const n = Number(String(d.id).trim().replace(/^C/i, ""));
@@ -119,7 +122,7 @@ export function verdictsByFact(decisions: Array<{ id: string; relation: Relation
 export function sameOccurrence(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView[] {
   return cands
     .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE")
-    .sort((a, b) => (verdicts.get(b.factId)!.confidence - verdicts.get(a.factId)!.confidence) || (b.score - a.score));
+    .sort((a, b) => verdicts.get(b.factId)!.confidence - verdicts.get(a.factId)!.confidence || b.score - a.score);
 }
 
 /** The story a development joins: the most similar candidate that is its story's root occurrence. */
@@ -168,7 +171,8 @@ export function lexicalSimilarity(a: string, b: string): number {
     const chars = [...s.replace(/\s+/g, "")];
     return new Set(chars.map((_c, i) => chars.slice(i, i + 2).join("")).filter((g) => g.length === 2));
   };
-  const g = grams(a), h = grams(b);
+  const g = grams(a),
+    h = grams(b);
   if (!g.size || !h.size) return 0;
   let inter = 0;
   for (const x of g) if (h.has(x)) inter++;

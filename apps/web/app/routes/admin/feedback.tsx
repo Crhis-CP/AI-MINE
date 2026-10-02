@@ -53,12 +53,26 @@ function FeedbackCard({ f }: { f: Feedback }) {
         <span className="num font-medium text-ink-2">#{f.id}</span>
         <Badge tone={TONE[f.status] ?? "muted"}>{FEEDBACK_STATUS[f.status] ?? f.status}</Badge>
         <Time at={f.created_at} />
-        {f.email && <a className="text-accent" href={`mailto:${f.email}`}>{f.email}</a>}
-        {f.page_url && <a className="max-w-[320px] truncate hover:text-accent" href={f.page_url} target="_blank" rel="noreferrer">{f.page_url}</a>}
-        {f.from_source > 1 && <Badge tone="info" title="同一来源（IP 与浏览器家族的不可逆标识）">同来源 {f.from_source} 条</Badge>}
+        {f.email && (
+          <a className="text-accent" href={`mailto:${f.email}`}>
+            {f.email}
+          </a>
+        )}
+        {f.page_url && (
+          <a className="max-w-[320px] truncate hover:text-accent" href={f.page_url} target="_blank" rel="noreferrer">
+            {f.page_url}
+          </a>
+        )}
+        {f.from_source > 1 && (
+          <Badge tone="info" title="同一来源（IP 与浏览器家族的不可逆标识）">
+            同来源 {f.from_source} 条
+          </Badge>
+        )}
         {f.banned && <Badge tone="bad">来源已封禁</Badge>}
         {!f.forwarded_at && f.status === "new" && (
-          <Badge tone="warn" title={f.forward_error && f.forward_error !== "pending" ? `还没有转发到内部飞书群：${f.forward_error}` : "还没有转发到内部飞书群"}>未转发</Badge>
+          <Badge tone="warn" title={f.forward_error && f.forward_error !== "pending" ? `还没有转发到内部飞书群：${f.forward_error}` : "还没有转发到内部飞书群"}>
+            未转发
+          </Badge>
         )}
       </div>
       <p className="mt-2.5 whitespace-pre-wrap text-[14px] leading-relaxed text-ink">{f.content}</p>
@@ -76,15 +90,28 @@ function FeedbackCard({ f }: { f: Feedback }) {
           disabled={!!pending}
           onChange={(e) => run("PATCH", base, { status: e.target.value, version }, { label: "status", success: "状态已更新" })}
         >
-          {Object.entries(FEEDBACK_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          {Object.entries(FEEDBACK_STATUS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
         </Select>
         <Textarea rows={1} className="!min-h-[38px]" placeholder="处理备注（仅内部可见）" value={note} onChange={(e) => setNote(e.target.value)} />
         <div className="flex gap-1.5">
-          <Button size="md" disabled={note === (f.note ?? "")} busy={pending === "note"} onClick={() => run("PATCH", base, { note: note || null, version }, { label: "note", success: "备注已保存" })}>
+          <Button
+            size="md"
+            disabled={note === (f.note ?? "")}
+            busy={pending === "note"}
+            onClick={() => run("PATCH", base, { note: note || null, version }, { label: "note", success: "备注已保存" })}
+          >
             保存备注
           </Button>
-          <Button tone="ghost" onClick={() => setDialog(f.banned ? null : "ban")} disabled={f.banned} title="拒绝这个来源的后续反馈">封禁来源</Button>
-          <Button tone="ghost" onClick={() => setDialog("erase")} title="按隐私说明删除提交者的资料">删除资料</Button>
+          <Button tone="ghost" onClick={() => setDialog(f.banned ? null : "ban")} disabled={f.banned} title="拒绝这个来源的后续反馈">
+            封禁来源
+          </Button>
+          <Button tone="ghost" onClick={() => setDialog("erase")} title="按隐私说明删除提交者的资料">
+            删除资料
+          </Button>
         </div>
       </div>
       <ReasonDialog
@@ -94,7 +121,9 @@ function FeedbackCard({ f }: { f: Feedback }) {
         danger
         confirmLabel="封禁"
         onClose={() => setDialog(null)}
-        onSubmit={async (reason) => (await run("POST", "/api/admin/feedback-bans", { sourceHash: f.source_hash, reason }, { label: "ban", success: "已封禁" })) !== null}
+        onSubmit={async (reason) =>
+          (await run("POST", "/api/admin/feedback-bans", { sourceHash: f.source_hash, reason }, { label: "ban", success: "已封禁" })) !== null
+        }
       />
       <ReasonDialog
         open={dialog === "erase"}
@@ -119,7 +148,10 @@ export default function FeedbackAdmin({ loaderData }: Route.ComponentProps) {
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterChips
           param="status"
-          options={[{ value: "", label: "全部", count: total }, ...Object.entries(FEEDBACK_STATUS).map(([k, v]) => ({ value: k, label: v, count: counts[k] ?? 0 }))]}
+          options={[
+            { value: "", label: "全部", count: total },
+            ...Object.entries(FEEDBACK_STATUS).map(([k, v]) => ({ value: k, label: v, count: counts[k] ?? 0 })),
+          ]}
         />
         <Form method="get" className="w-full max-w-xs">
           {sp.get("status") && <input type="hidden" name="status" value={sp.get("status")!} />}
@@ -127,7 +159,13 @@ export default function FeedbackAdmin({ loaderData }: Route.ComponentProps) {
         </Form>
       </div>
       <div className="space-y-3">
-        {rows.length ? rows.map((f) => <FeedbackCard key={`${f.id}-${f.updated_at}`} f={f} />) : <Card><Empty>没有符合条件的反馈</Empty></Card>}
+        {rows.length ? (
+          rows.map((f) => <FeedbackCard key={`${f.id}-${f.updated_at}`} f={f} />)
+        ) : (
+          <Card>
+            <Empty>没有符合条件的反馈</Empty>
+          </Card>
+        )}
       </div>
       <Pager page={page} hasMore={rows.length === 50} />
       {bans.length > 0 && (
@@ -138,7 +176,16 @@ export default function FeedbackAdmin({ loaderData }: Route.ComponentProps) {
                 <span>
                   <span className="font-mono text-[12px] text-ink-3">{b.source_hash}</span> · {b.reason} · {b.created_by} · {bj(b.created_at, true)}
                 </span>
-                <Button size="sm" tone="ghost" onClick={() => run("DELETE", `/api/admin/feedback-bans/${encodeURIComponent(b.source_hash)}`, undefined, { label: `unban-${b.source_hash}`, success: "已解除封禁" })}>
+                <Button
+                  size="sm"
+                  tone="ghost"
+                  onClick={() =>
+                    run("DELETE", `/api/admin/feedback-bans/${encodeURIComponent(b.source_hash)}`, undefined, {
+                      label: `unban-${b.source_hash}`,
+                      success: "已解除封禁",
+                    })
+                  }
+                >
                   解除
                 </Button>
               </li>

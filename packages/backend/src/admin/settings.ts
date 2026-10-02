@@ -15,7 +15,9 @@ const MAX_QR_BYTES = 2 * 1024 * 1024;
 export async function replaceContactQr(input: { slot: keyof ContactSettings; data: Buffer }, actor: string) {
   if (input.slot !== "wechatQr" && input.slot !== "feishuQr") throw new Error("unknown slot");
   if (input.data.length > MAX_QR_BYTES) throw new Error("二维码图片最大 2MB");
-  const meta = await sharp(input.data).metadata().catch(() => null);
+  const meta = await sharp(input.data)
+    .metadata()
+    .catch(() => null);
   if (!meta || !["png", "jpeg", "webp"].includes(meta.format ?? "")) throw new Error("需要 PNG、JPG 或 WebP 图片");
   if ((meta.width ?? 0) < 120 || (meta.height ?? 0) < 120) throw new Error("图片太小，二维码可能扫不出来");
   const ext = meta.format === "jpeg" ? "jpg" : meta.format!;
@@ -60,7 +62,8 @@ export async function listBudgets() {
 
 export async function updateBudget(service: string, input: { perMinute: number; perHour: number; perDay: number; reason: string }, actor: string) {
   if (!input.reason?.trim()) throw new Error("reason is required");
-  for (const v of [input.perMinute, input.perHour, input.perDay]) if (!Number.isInteger(v) || v < 0) throw new Error("budgets are non-negative integers (0 stops the service)");
+  for (const v of [input.perMinute, input.perHour, input.perDay])
+    if (!Number.isInteger(v) || v < 0) throw new Error("budgets are non-negative integers (0 stops the service)");
   const [before] = await sql`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
   const [after] = await sql`
     INSERT INTO budgets (service, per_minute, per_hour, per_day, note) VALUES (${service}, ${input.perMinute}, ${input.perHour}, ${input.perDay}, ${input.reason})

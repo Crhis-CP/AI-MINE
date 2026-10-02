@@ -16,9 +16,7 @@
       "owner_entity_id": "openai",
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
+      "tags": ["官方"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -37,9 +35,7 @@
       "owner_entity_id": "google",
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
+      "tags": ["官方"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -58,10 +54,7 @@
       "owner_entity_id": "google",
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "研究"
-      ],
+      "tags": ["官方", "研究"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -80,10 +73,7 @@
       "owner_entity_id": "hugging-face",
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "开源"
-      ],
+      "tags": ["官方", "开源"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -102,10 +92,7 @@
       "owner_entity_id": "microsoft",
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "研究"
-      ],
+      "tags": ["官方", "研究"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -124,9 +111,7 @@
       "owner_entity_id": "nvidia",
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
+      "tags": ["官方"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -145,10 +130,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方",
-        "教程"
-      ],
+      "tags": ["官方", "教程"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -167,9 +149,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
+      "tags": ["官方"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -188,9 +168,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "官方"
-      ],
+      "tags": ["官方"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -209,9 +187,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 180,
-      "tags": [
-        "研究"
-      ],
+      "tags": ["研究"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -230,9 +206,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 60,
-      "tags": [
-        "媒体"
-      ],
+      "tags": ["媒体"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -251,9 +225,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 60,
-      "tags": [
-        "媒体"
-      ],
+      "tags": ["媒体"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -272,9 +244,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 60,
-      "tags": [
-        "媒体"
-      ],
+      "tags": ["媒体"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -293,9 +263,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "媒体"
-      ],
+      "tags": ["媒体"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -314,9 +282,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 60,
-      "tags": [
-        "媒体"
-      ],
+      "tags": ["媒体"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -335,9 +301,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 120,
-      "tags": [
-        "个人"
-      ],
+      "tags": ["个人"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -356,10 +320,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 180,
-      "tags": [
-        "个人",
-        "周刊"
-      ],
+      "tags": ["个人", "周刊"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     },
@@ -378,9 +339,7 @@
       "owner_entity_id": null,
       "participation_mode": "editorial",
       "interval_minutes": 180,
-      "tags": [
-        "个人"
-      ],
+      "tags": ["个人"],
       "site_fulltext": false,
       "syndicate_fulltext": false
     }

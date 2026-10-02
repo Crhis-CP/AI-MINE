@@ -26,9 +26,18 @@ export interface V1ItemsResult {
 
 export function rowToV1(row: ApiItemRow): V1ItemPayload {
   return v1Payload({
-    articleId: row.id, title: row.title, originalTitle: row.original_title, summary: row.summary, sourceName: row.source_name,
-    url: row.url, publishedAt: row.published_at, discoveredAt: row.discovered_at, category: row.category,
-    score: row.score === null ? null : Number(row.score), selected: row.selected, reason: row.reason,
+    articleId: row.id,
+    title: row.title,
+    originalTitle: row.original_title,
+    summary: row.summary,
+    sourceName: row.source_name,
+    url: row.url,
+    publishedAt: row.published_at,
+    discoveredAt: row.discovered_at,
+    category: row.category,
+    score: row.score === null ? null : Number(row.score),
+    selected: row.selected,
+    reason: row.reason,
   });
 }
 
@@ -64,7 +73,11 @@ export async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1
   return {
     schemaVersion: 1,
     query: {
-      mode: query.mode, category: query.category, window: query.window, q: query.q, by: query.by,
+      mode: query.mode,
+      category: query.category,
+      window: query.window,
+      q: query.q,
+      by: query.by,
       ordering: query.by === "published" ? "publishedAtDesc" : "timelineDesc",
     },
     items: page.map(rowToV1),
@@ -107,8 +120,15 @@ export async function effectiveWatermark(now = new Date()): Promise<number> {
 
 function minimalOf(item: V1ItemPayload) {
   return {
-    id: item.id, title: item.title, source: item.source, publishedAt: item.publishedAt, discoveredAt: item.discoveredAt,
-    category: item.category, score: item.score, selected: item.selected, links: { aihot: item.links.aihot },
+    id: item.id,
+    title: item.title,
+    source: item.source,
+    publishedAt: item.publishedAt,
+    discoveredAt: item.discoveredAt,
+    category: item.category,
+    score: item.score,
+    selected: item.selected,
+    links: { aihot: item.links.aihot },
   };
 }
 
@@ -132,8 +152,8 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
   let asOf: string;
   if (q.page) {
     const p = decodeCursor<{ k: string; e: string; w: number; f: string; a: string; t: string }>(SYNC_PREFIX, q.page);
-    if (p.k !== "page" || p.e !== epoch || (p.f !== "default" && p.f !== "minimal") ||
-        (q.fields !== undefined && p.f !== q.fields) || typeof p.w !== "number") throw new InvalidCursorError("page token does not match this snapshot");
+    if (p.k !== "page" || p.e !== epoch || (p.f !== "default" && p.f !== "minimal") || (q.fields !== undefined && p.f !== q.fields) || typeof p.w !== "number")
+      throw new InvalidCursorError("page token does not match this snapshot");
     // Only the first page defaults to full fields; continuations inherit their original projection.
     fields = p.f;
     w = p.w;

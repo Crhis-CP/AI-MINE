@@ -64,7 +64,10 @@ async function evaluate(rows: GoldRow[], providers: { prefilter: string; score: 
       },
       timeout: 20_000,
     });
-    reportPath = stdout.split("\n").find((line) => line.startsWith("report: "))?.slice(8);
+    reportPath = stdout
+      .split("\n")
+      .find((line) => line.startsWith("report: "))
+      ?.slice(8);
     assert.ok(reportPath, stdout);
     const report = JSON.parse(readFileSync(reportPath, "utf8")) as {
       meta: { split: string; promptVersion: string };
@@ -111,7 +114,9 @@ test("default evaluation follows the production score route and shares duplicate
         usage: { prompt_tokens: 100, completion_tokens: 20 },
       };
     });
-    t.after(async () => { await Promise.all([prefilter.close(), score.close()]); });
+    t.after(async () => {
+      await Promise.all([prefilter.close(), score.close()]);
+    });
 
     const marker = tag();
     const rows = [row(`${marker}-t1`, marker, "T1", "select"), row(`${marker}-t2`, marker, "T2", "reject")];
@@ -120,7 +125,11 @@ test("default evaluation follows the production score route and shares duplicate
 
     assert.equal(cold.model, "glm-5.3-flash-selection", "no --models follows SCORE_MODEL / production routing");
     assert.deepEqual(cold.summary, warm.summary, "cold and cached evaluations keep the same coverage and metrics");
-    assert.deepEqual(cold.cases.map((item) => item.decision), ["select", "reject"], "the shared score still uses each tier's threshold");
+    assert.deepEqual(
+      cold.cases.map((item) => item.decision),
+      ["select", "reject"],
+      "the shared score still uses each tier's threshold",
+    );
     assert.deepEqual([cold.summary.decisive, cold.summary.errors, cold.summary.accuracy], [2, 0, 1]);
     assert.deepEqual([prefilter.hits(), score.hits()], [2, 2], "two per-case prefilters, two shared score calls across both runs");
     assert.deepEqual([cold.summary.tokensIn, cold.summary.tokensOut], [220, 50], "shared score receipts count once");
@@ -137,7 +146,9 @@ test("a shared unusable score fails every matching case once, then retry usage i
       choices: [{ message: { content: hit === 1 ? "not JSON" : JSON.stringify({ attentionScore: 70 }) } }],
       usage: { prompt_tokens: hit === 1 ? 100 : 300, completion_tokens: 20 },
     }));
-    t.after(async () => { await Promise.all([prefilter.close(), score.close()]); });
+    t.after(async () => {
+      await Promise.all([prefilter.close(), score.close()]);
+    });
 
     const marker = tag();
     const rows = [row(`${marker}-t1`, marker, "T1", "select"), row(`${marker}-t2`, marker, "T2", "reject")];
@@ -162,7 +173,9 @@ test("custom split names cannot escape the evaluation output directory", async (
     const score = await stub(() => {
       throw new Error("score should not run for blocked input");
     });
-    t.after(async () => { await Promise.all([prefilter.close(), score.close()]); });
+    t.after(async () => {
+      await Promise.all([prefilter.close(), score.close()]);
+    });
 
     const marker = tag();
     const split = "../../../../outside";

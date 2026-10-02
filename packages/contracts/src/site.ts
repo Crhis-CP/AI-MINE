@@ -64,11 +64,14 @@ export interface ItemSummary {
 }
 
 /** The fields rendered by a site feed card; full original text lives in the item detail. */
-export interface FeedItemSummary extends Pick<ItemSummary, "id" | "title" | "summary" | "reason" | "publishedAt" | "timelineAt" | "category" | "tags" | "score" | "selected" | "channel"> {
+export interface FeedItemSummary
+  extends Pick<ItemSummary, "id" | "title" | "summary" | "reason" | "publishedAt" | "timelineAt" | "category" | "tags" | "score" | "selected" | "channel"> {
   source: Pick<SourceRef, "name">;
-  x: (Pick<XPostView, "authorName" | "handle" | "avatarUrl" | "avatarSrcSet" | "media"> & {
-    quoted: Omit<NonNullable<XPostView["quoted"]>, "url"> | null;
-  }) | null;
+  x:
+    | (Pick<XPostView, "authorName" | "handle" | "avatarUrl" | "avatarSrcSet" | "media"> & {
+        quoted: Omit<NonNullable<XPostView["quoted"]>, "url"> | null;
+      })
+    | null;
 }
 
 export interface GroupInfo {
@@ -203,7 +206,6 @@ export interface HotParticipant {
   iconUrl: string | null;
   iconSrcSet?: string;
 }
-
 
 export interface HotEntryView {
   rank: number;
@@ -383,7 +385,14 @@ export interface StoryFollowup {
   factId: string;
   representative: { id: string; title: string; source: { name: string }; timelineAt: string };
 }
-export interface StoryFollowupsResponse { items: StoryFollowup[]; more: boolean }
+export interface StoryFollowupsResponse {
+  items: StoryFollowup[];
+  more: boolean;
+}
 
 /** All issue keys keep numbering and calendars stable; closed daily months omit their titles. */
-export interface ReportNavigationEntry { key: string; title?: string | null; count?: number }
+export interface ReportNavigationEntry {
+  key: string;
+  title?: string | null;
+  count?: number;
+}

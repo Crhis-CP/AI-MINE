@@ -34,7 +34,9 @@ export default function Content({ loaderData }: Route.ComponentProps) {
     <AdminPage title="内容诊断" subtitle="按 ID、原文链接或标题找到任何一条内容，看它从信源到公开出口的完整链路；下架、仅摘要、人工修正和重处理都在详情页。">
       <Form method="get" className="mb-5 flex max-w-2xl gap-2">
         <Input name="q" defaultValue={sp.get("q") ?? ""} placeholder="内容 ID、URL 或标题关键词" aria-label="搜索内容" autoFocus />
-        <Button type="submit" tone="primary">查找</Button>
+        <Button type="submit" tone="primary">
+          查找
+        </Button>
       </Form>
       {q && (
         <Card pad={false} title={`“${q}” 的结果`} right={<span>{rows.length === 50 ? "仅显示最近 50 条" : `${rows.length} 条`}</span>}>
@@ -49,7 +51,9 @@ export default function Content({ loaderData }: Route.ComponentProps) {
                 label: "标题",
                 render: (r) => (
                   <div className="min-w-[320px]">
-                    <Link to={`/admin/content/${r.id}`} className="font-medium text-ink hover:text-accent" onClick={(e) => e.stopPropagation()}>{r.title}</Link>
+                    <Link to={`/admin/content/${r.id}`} className="font-medium text-ink hover:text-accent" onClick={(e) => e.stopPropagation()}>
+                      {r.title}
+                    </Link>
                     <div className="font-mono text-[11.5px] text-ink-4">{r.id}</div>
                   </div>
                 ),

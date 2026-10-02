@@ -97,8 +97,26 @@ export const BOARD_COPY: Record<LeaderboardBoardKey, BoardCopy> = {
 export const BOARD_LIMIT = 30;
 
 // How each source publishes its numbers: already in percent, a 0–1 fraction, or a plain score.
-const PERCENT_SOURCES = new Set(["livebench-general", "livebench-coding", "livebench-reasoning", "livebench-writing", "mercor-apex-agents", "vals-finance-agent", "tau-banking"]);
-const PLAIN_SOURCES = new Set(["artificial-analysis", "artificial-analysis-multilingual", "arena-text", "arena-webdev", "arena-vision", "arena-creative-writing", "eq-creative", "eq-longform", "eq-emotional-v4"]);
+const PERCENT_SOURCES = new Set([
+  "livebench-general",
+  "livebench-coding",
+  "livebench-reasoning",
+  "livebench-writing",
+  "mercor-apex-agents",
+  "vals-finance-agent",
+  "tau-banking",
+]);
+const PLAIN_SOURCES = new Set([
+  "artificial-analysis",
+  "artificial-analysis-multilingual",
+  "arena-text",
+  "arena-webdev",
+  "arena-vision",
+  "arena-creative-writing",
+  "eq-creative",
+  "eq-longform",
+  "eq-emotional-v4",
+]);
 
 export function scoreFormat(sourceKey: string, sample?: number | null): LbScoreFormat {
   if (PERCENT_SOURCES.has(sourceKey)) return "percent";
@@ -150,7 +168,11 @@ const RASTER_SOURCE_MARKS = new Set(["eqbench.svg", "livebench.png", "sierra.png
 export function sourceBrand(source: RegistrySource): LbBrand {
   return {
     src: source.logo ? `/leaderboard-sources/${source.logo}` : null,
-    monogram: source.operator.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 1).toUpperCase() || "?",
+    monogram:
+      source.operator
+        .replace(/[^\p{L}\p{N}]/gu, "")
+        .slice(0, 1)
+        .toUpperCase() || "?",
     raster: source.logo ? RASTER_SOURCE_MARKS.has(source.logo) : false,
   };
 }

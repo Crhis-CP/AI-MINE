@@ -2,7 +2,17 @@
 // line rather than being drawn as zero; with fewer than three observed hours nothing is drawn. `area`
 // lays a faint wash of the line's colour under it (the lead card); the size comes from the class, and
 // `stretch` lets the line fill any box (the end dot is drawn as a round cap so it stays round).
-export function Sparkline({ values, className = "h-6 w-[88px]", area = false, stretch = false }: { values: Array<number | null>; className?: string; area?: boolean; stretch?: boolean }) {
+export function Sparkline({
+  values,
+  className = "h-6 w-[88px]",
+  area = false,
+  stretch = false,
+}: {
+  values: Array<number | null>;
+  className?: string;
+  area?: boolean;
+  stretch?: boolean;
+}) {
   const W = 104;
   const H = 32;
   const pad = 3;
@@ -26,14 +36,29 @@ export function Sparkline({ values, className = "h-6 w-[88px]", area = false, st
   while (last >= 0 && values[last] === null) last--;
   const gaps = seen.length < values.length;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio={stretch ? "none" : undefined} className={`overflow-visible ${className}`} role="img" aria-label={`近 24 小时热度走势${gaps ? "，部分时段缺少可比数据" : ""}`}>
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio={stretch ? "none" : undefined}
+      className={`overflow-visible ${className}`}
+      role="img"
+      aria-label={`近 24 小时热度走势${gaps ? "，部分时段缺少可比数据" : ""}`}
+    >
       {area &&
         runs.map((pts) => {
           const xs = pts.split(" ").map((p) => p.split(",")[0]);
           return <polygon key={`a${pts}`} points={`${xs[0]},${H} ${pts} ${xs[xs.length - 1]},${H}`} fill="currentColor" opacity="0.08" />;
         })}
       {runs.map((pts) => (
-        <polyline key={pts} points={pts} fill="none" stroke="currentColor" strokeWidth={stretch ? 2 : 1.5} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <polyline
+          key={pts}
+          points={pts}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={stretch ? 2 : 1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
       ))}
       {stretch ? (
         <>

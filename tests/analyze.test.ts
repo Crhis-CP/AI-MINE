@@ -21,15 +21,40 @@ const SOURCE = `test-analyze-${T}`;
 const X_SOURCE = `test-analyze-x-${T}`;
 
 type Step = "prefilter" | "score" | "understand" | "summarize" | "structure";
-interface Req { step: Step; marker: string; system: string; user: string; body: Record<string, any> }
+interface Req {
+  step: Step;
+  marker: string;
+  system: string;
+  user: string;
+  body: Record<string, any>;
+}
 const requests: Req[] = [];
 const MARKERS = ["CLEAR", "RESCUE", "LOW", "OFFTOPIC", "BARE", "VAGUE", "THIN", "SENSITIVE", "推文"];
-const scoreAnswers: Record<string, number[]> = { CLEAR: [78, 72], RESCUE: [56, 50], LOW: [45, 40], THIN: [70, 70], SENSITIVE: [80, 80], 推文: [40, 40], BARE: [30, 34], VAGUE: [60, 62] };
+const scoreAnswers: Record<string, number[]> = {
+  CLEAR: [78, 72],
+  RESCUE: [56, 50],
+  LOW: [45, 40],
+  THIN: [70, 70],
+  SENSITIVE: [80, 80],
+  推文: [40, 40],
+  BARE: [30, 34],
+  VAGUE: [60, 62],
+};
 
 const stepOf = (system: string, user: string): Step =>
-  system.includes("宽召回的AI相关性预筛") ? "prefilter" : system.includes("事件注意力评分器") ? "score"
-  : system.includes("内容理解编辑") ? "understand" : system.includes("资料结构化助手") ? "structure"
-  : user.includes("title_zh") ? "summarize" : (() => { throw new Error("unknown request"); })();
+  system.includes("宽召回的AI相关性预筛")
+    ? "prefilter"
+    : system.includes("事件注意力评分器")
+      ? "score"
+      : system.includes("内容理解编辑")
+        ? "understand"
+        : system.includes("资料结构化助手")
+          ? "structure"
+          : user.includes("title_zh")
+            ? "summarize"
+            : (() => {
+                throw new Error("unknown request");
+              })();
 
 // One stub stands in for DashScope (prefilter, structure), Zhipu (score, understand) and DeepSeek (summarize).
 const provider = await stub((_hit, req) => {
@@ -40,20 +65,49 @@ const provider = await stub((_hit, req) => {
   const step = stepOf(system, user);
   const marker = MARKERS.find((m) => user.includes(m)) ?? "";
   requests.push({ step, marker, system, user, body });
-  const answer = (content: unknown) => ({ id: `stub-${requests.length}`, model: "stub", choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }], usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 } });
-  if (step === "prefilter") return answer({ label: marker === "OFFTOPIC" || marker === "BARE" ? "BLOCK" : marker === "VAGUE" ? "UNKNOWN" : "PASS", reason: "测试" });
+  const answer = (content: unknown) => ({
+    id: `stub-${requests.length}`,
+    model: "stub",
+    choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) } }],
+    usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+  });
+  if (step === "prefilter")
+    return answer({ label: marker === "OFFTOPIC" || marker === "BARE" ? "BLOCK" : marker === "VAGUE" ? "UNKNOWN" : "PASS", reason: "测试" });
   if (step === "score") return answer({ attentionScore: scoreAnswers[marker]!.shift() });
   if (step === "understand") {
-    if (marker === "SENSITIVE") return new Reply(400, { contentFilter: [{ level: 1, role: "user" }], error: { code: "1301", message: "系统检测到输入或生成内容可能包含不安全或敏感内容" } });
-    return answer({ itemType: "model_release", authorRole: "principal", tags: ["模型发布", "开源", "Agent", "不存在的标签"], editorialJudgment: `理由 ${marker}`, titleZh: `理解标题 ${marker}`, summaryZh: `理解摘要 ${marker}。第二句补充一个关键数字。` });
+    if (marker === "SENSITIVE")
+      return new Reply(400, {
+        contentFilter: [{ level: 1, role: "user" }],
+        error: { code: "1301", message: "系统检测到输入或生成内容可能包含不安全或敏感内容" },
+      });
+    return answer({
+      itemType: "model_release",
+      authorRole: "principal",
+      tags: ["模型发布", "开源", "Agent", "不存在的标签"],
+      editorialJudgment: `理由 ${marker}`,
+      titleZh: `理解标题 ${marker}`,
+      summaryZh: `理解摘要 ${marker}。第二句补充一个关键数字。`,
+    });
   }
-  if (step === "structure") return answer({ category: "ai-models", tags: ["模型发布", "推理"], subjects: ["anthropic", "unknown-co"], fact: { title: `事实 ${marker}`, subject: "某公司", action: "发布", object: "模型", occurredAt: null } });
+  if (step === "structure")
+    return answer({
+      category: "ai-models",
+      tags: ["模型发布", "推理"],
+      subjects: ["anthropic", "unknown-co"],
+      fact: { title: `事实 ${marker}`, subject: "某公司", action: "发布", object: "模型", occurredAt: null },
+    });
   return answer(`title_zh: 翻译标题 ${marker}\nsummary_zh: 翻译摘要 ${marker}。第二句补充影响。`);
 });
 for (const env of ["DASHSCOPE_BASE_URL", "ZHIPU_BASE_URL", "DEEPSEEK_BASE_URL"]) process.env[env] = `${provider.url}/v1`;
 for (const env of ["DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "DEEPSEEK_API_KEY"]) process.env[env] = "test-key";
 // AIHOT's own assignment of models to steps (the open-source default is one model for all of them).
-Object.assign(process.env, { PREFILTER_MODEL: "qwen3.7-flash", SCORE_MODEL: "glm-5.3-flash-selection", UNDERSTAND_MODEL: "glm-5.3-flash", SUMMARIZE_MODEL: "deepseek-flash", STRUCTURE_MODEL: "qwen3.8-flash" });
+Object.assign(process.env, {
+  PREFILTER_MODEL: "qwen3.7-flash",
+  SCORE_MODEL: "glm-5.3-flash-selection",
+  UNDERSTAND_MODEL: "glm-5.3-flash",
+  SUMMARIZE_MODEL: "deepseek-flash",
+  STRUCTURE_MODEL: "qwen3.8-flash",
+});
 
 before(async () => {
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES
@@ -69,14 +123,37 @@ after(async () => {
 // The tag keeps each material unique: identical input would reuse an earlier run's paid answers.
 const LONG = "a lab released a model with a benchmark table and pricing details. ".repeat(8);
 const article = async (marker: string, extra: Record<string, unknown> = {}) =>
-  (await upsertMaterial({
-    sourceId: SOURCE, url: `https://example.com/${marker}-${T}`, title: `${marker} model release ${T}`, bodyText: `${marker}: ${LONG} (${T})`,
-    bodyStatus: "ok", via: "fetch", publishedAt: new Date("2026-09-28T01:02:03Z"), ...extra,
-  } as never)).articleId;
+  (
+    await upsertMaterial({
+      sourceId: SOURCE,
+      url: `https://example.com/${marker}-${T}`,
+      title: `${marker} model release ${T}`,
+      bodyText: `${marker}: ${LONG} (${T})`,
+      bodyStatus: "ok",
+      via: "fetch",
+      publishedAt: new Date("2026-09-28T01:02:03Z"),
+      ...extra,
+    } as never)
+  ).articleId;
 const calls = (marker: string) => requests.filter((r) => r.marker === marker).map((r) => r.step);
 const row = async (id: string) =>
-  (await sql<{ selected: boolean; relevance: string; score: string | null; title_zh: string; reason_zh: string | null; category: string | null; tags: string[]; subjects: string[]; receipt_ids: string[]; output: Record<string, any> }[]>`
-    SELECT selected, relevance, score, title_zh, reason_zh, category, tags, subjects, receipt_ids, output FROM analyses WHERE article_id = ${id} ORDER BY id DESC LIMIT 1`)[0]!;
+  (
+    await sql<
+      {
+        selected: boolean;
+        relevance: string;
+        score: string | null;
+        title_zh: string;
+        reason_zh: string | null;
+        category: string | null;
+        tags: string[];
+        subjects: string[];
+        receipt_ids: string[];
+        output: Record<string, any>;
+      }[]
+    >`
+    SELECT selected, relevance, score, title_zh, reason_zh, category, tags, subjects, receipt_ids, output FROM analyses WHERE article_id = ${id} ORDER BY id DESC LIMIT 1`
+  )[0]!;
 
 test("every prompt in the pack renders, and the site's name replaces AIHOT's", () => {
   const dir = new URL("../industry/prompts/", import.meta.url);
@@ -162,7 +239,11 @@ test("a short post in Chinese is its own copy; a content-filter refusal is trans
   // The tag rides as a hashtag, which the language check strips.
   const text = `推文：今天把智能体接进了工作流，效果不错。#t${T}`;
   const { articleId } = await upsertMaterial({
-    sourceId: X_SOURCE, url: `https://x.com/test/status/1${Date.now()}`, title: text, via: "fetch", publishedAt: new Date(),
+    sourceId: X_SOURCE,
+    url: `https://x.com/test/status/1${Date.now()}`,
+    title: text,
+    via: "fetch",
+    publishedAt: new Date(),
     xPost: { tweetId: `1${Date.now()}`, authorName: "测试", handle: "test", text },
   });
   const post = await analyzeArticle(articleId);
@@ -170,7 +251,10 @@ test("a short post in Chinese is its own copy; a content-filter refusal is trans
   assert.ok(!calls("推文").includes("summarize"), "no translation call");
   const sensitive = await analyzeArticle(await article("SENSITIVE"));
   assert.deepEqual([sensitive!.output!.selected, sensitive!.output!.titleZh], [true, "翻译标题 SENSITIVE"]);
-  assert.deepEqual(calls("SENSITIVE").filter((s) => s === "understand" || s === "summarize"), ["understand", "summarize"]);
+  assert.deepEqual(
+    calls("SENSITIVE").filter((s) => s === "understand" || s === "summarize"),
+    ["understand", "summarize"],
+  );
 });
 
 test("guards: a company the input does not name is not written in; long summaries are cut at sentences", () => {
@@ -183,7 +267,11 @@ test("guards: a company the input does not name is not written in; long summarie
   const long = "第一句交代了谁做了什么以及关键结果，这一句本身已经足够说明核心事件的来龙去脉。".repeat(3) + "第二句补充数字。".repeat(20);
   assert.ok(compactAnswerFirstSummary(long).length <= 190);
   assert.deepEqual(parseTranslateOutput("title_zh: 标题\nsummary_zh: 第一句。\n第二句。"), { titleZh: "标题", summaryZh: "第一句。\n第二句。", bodyZh: "" });
-  assert.equal(parseTranslateOutput("title_zh: 标题\nbody_zh: 我们懂你。\n\n来源：X：PixVerse (@PixVerse)").bodyZh, "我们懂你。", "a repeated prompt line is dropped");
+  assert.equal(
+    parseTranslateOutput("title_zh: 标题\nbody_zh: 我们懂你。\n\n来源：X：PixVerse (@PixVerse)").bodyZh,
+    "我们懂你。",
+    "a repeated prompt line is dropped",
+  );
 });
 
 test("analysing the same revision again reuses every paid answer", async () => {

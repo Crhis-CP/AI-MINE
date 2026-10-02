@@ -30,7 +30,10 @@ export function readable(html: string, url: string): ExtractedBody | null {
   } catch {
     // no head
   }
-  const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], { charThreshold: MIN_BODY_CHARS, keepClasses: false }).parse();
+  const article = new Readability(document as unknown as ConstructorParameters<typeof Readability>[0], {
+    charThreshold: MIN_BODY_CHARS,
+    keepClasses: false,
+  }).parse();
   if (!article?.content) return null;
   const clean = trimTrailingChrome(sanitizeBody(article.content, url));
   const text = stripTags(clean);
@@ -61,7 +64,11 @@ function markdownToHtml(md: string): string {
       if (/^```/.test(t)) return `<pre><code>${esc(t.replace(/^```\w*\n?|```$/g, ""))}</code></pre>`;
       const h = /^(#{1,4})\s+(.+)$/.exec(t);
       if (h) return `<h${Math.min(h[1]!.length + 1, 4)}>${inline(h[2]!)}</h${Math.min(h[1]!.length + 1, 4)}>`;
-      if (/^[-*]\s/.test(t)) return `<ul>${t.split("\n").map((l) => `<li>${inline(l.replace(/^[-*]\s+/, ""))}</li>`).join("")}</ul>`;
+      if (/^[-*]\s/.test(t))
+        return `<ul>${t
+          .split("\n")
+          .map((l) => `<li>${inline(l.replace(/^[-*]\s+/, ""))}</li>`)
+          .join("")}</ul>`;
       if (/^>\s?/.test(t)) return `<blockquote><p>${inline(t.replace(/^>\s?/gm, ""))}</p></blockquote>`;
       return `<p>${inline(t).replace(/\n/g, "<br>")}</p>`;
     })

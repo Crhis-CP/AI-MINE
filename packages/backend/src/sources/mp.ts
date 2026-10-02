@@ -38,7 +38,9 @@ interface MpSource {
 }
 
 export async function checkMpAccount(sourceId: string, reason: "schedule" | "manual") {
-  const [source] = await sql<MpSource[]>`SELECT id, name, config, cursor, enabled, participation_mode FROM sources WHERE id = ${sourceId} AND kind = 'mp_account'`;
+  const [source] = await sql<
+    MpSource[]
+  >`SELECT id, name, config, cursor, enabled, participation_mode FROM sources WHERE id = ${sourceId} AND kind = 'mp_account'`;
   if (!source) return { sourceId, status: "missing" as const };
   if (!source.enabled && reason !== "manual") return { sourceId, status: "paused" as const };
   const ghid = source.config.ghid ?? source.config.wxid;
@@ -63,19 +65,29 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
         ? await sql<{ id: string; body_status: string; discovered_at: Date; retry: { attempts: number } | null }[]>`
             SELECT id, body_status, discovered_at, raw->'dajiala'->'bodyRetry' AS retry FROM articles WHERE identity_key = ${key} LIMIT 1`
         : [];
-      const retryBody = !!known?.retry && known.body_status === "none" && known.retry.attempts < BODY_RETRIES && Date.now() - known.discovered_at.getTime() < BODY_RETRY_WINDOW_MS;
+      const retryBody =
+        !!known?.retry &&
+        known.body_status === "none" &&
+        known.retry.attempts < BODY_RETRIES &&
+        Date.now() - known.discovered_at.getTime() < BODY_RETRY_WINDOW_MS;
       if (known && !retryBody) continue;
       fetched += 1;
       // Without a body the post is listed anyway; analysis works from title and digest.
       const { body, passing } = await fetchBody(p.url, sourceId, p.sn ?? p.url);
       if (known && !body?.content) {
-        const retry = passing ? sql`jsonb_set(raw, '{dajiala,bodyRetry}', ${sql.json({ attempts: known.retry!.attempts + 1, error: passing })})` : sql`raw #- '{dajiala,bodyRetry}'`;
+        const retry = passing
+          ? sql`jsonb_set(raw, '{dajiala,bodyRetry}', ${sql.json({ attempts: known.retry!.attempts + 1, error: passing })})`
+          : sql`raw #- '{dajiala,bodyRetry}'`;
         await sql`UPDATE articles SET raw = ${retry} WHERE id = ${known.id}`;
         continue;
       }
       // Mode 1 bodies are light HTML (paragraphs and image tags).
       const html = body?.content ? sanitizeBody(body.content, p.url) : null;
-      const text = body?.content ? stripTags(body.content.replace(/<\/p>|<br\s*\/?>/gi, "\n")).replace(/\n{3,}/g, "\n\n").trim() : null;
+      const text = body?.content
+        ? stripTags(body.content.replace(/<\/p>|<br\s*\/?>/gi, "\n"))
+            .replace(/\n{3,}/g, "\n\n")
+            .trim()
+        : null;
       const res = await upsertMaterial({
         sourceId,
         url: p.url,
@@ -91,7 +103,11 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
         backfill: firstCheck ? "first-import" : null,
         raw: {
           dajiala: {
-            position: p.position, sn: p.sn ?? null, original: p.original ?? null, itemShowType: p.item_show_type ?? null, cover: p.cover_url ?? null,
+            position: p.position,
+            sn: p.sn ?? null,
+            original: p.original ?? null,
+            itemShowType: p.item_show_type ?? null,
+            cover: p.cover_url ?? null,
             ...(passing ? { bodyRetry: { attempts: 1, error: passing } } : {}),
           },
         },
@@ -103,7 +119,12 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
         await queueProcessing(res.articleId);
       }
     }
-    const cursor = { ...(source.cursor ?? {}), lastCheckedAt: new Date().toISOString(), lastPostTime: posts[0]?.post_time ?? source.cursor?.lastPostTime ?? null, remainMoney: history.remainMoney };
+    const cursor = {
+      ...(source.cursor ?? {}),
+      lastCheckedAt: new Date().toISOString(),
+      lastPostTime: posts[0]?.post_time ?? source.cursor?.lastPostTime ?? null,
+      remainMoney: history.remainMoney,
+    };
     await sql`
       UPDATE sources SET last_fetch_at = now(), last_ok_at = now(), fail_count = 0, last_error = NULL, health = 'ok', cursor = ${sql.json(cursor as never)},
         next_fetch_at = now() + make_interval(mins => interval_minutes), updated_at = now()

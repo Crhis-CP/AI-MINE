@@ -13,11 +13,17 @@ async function reader(stars: unknown[] = []) {
   const values = new Map<string, string>([["aihot-starred-items", JSON.stringify(stars)]]);
   Object.defineProperty(globalThis, "window", {
     configurable: true,
-    value: { localStorage: {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => { values.set(key, value); },
-      removeItem: (key: string) => { values.delete(key); },
-    } },
+    value: {
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          values.set(key, value);
+        },
+        removeItem: (key: string) => {
+          values.delete(key);
+        },
+      },
+    },
   });
   // A fresh module has the same empty snapshot cache as a newly opened browser tab.
   const state: typeof import("../app/lib/local-state.ts") = await import(`../app/lib/local-state.ts?test=${instance++}`);
@@ -30,9 +36,17 @@ const displayDate = (value: string) => `${beijingDate(value)} ${beijingTime(valu
 test("import normalizes invalid bookmark dates before persisting without dropping bookmarks", async () => {
   const { state, values } = await reader();
   const before = Date.now();
-  const result = state.importBundle(JSON.stringify({ version: 1, starred: invalidDates.map((value, i) => ({
-    id: `item-${i}`, title: `Title ${i}`, savedAt: value, publishedAt: value,
-  })) }));
+  const result = state.importBundle(
+    JSON.stringify({
+      version: 1,
+      starred: invalidDates.map((value, i) => ({
+        id: `item-${i}`,
+        title: `Title ${i}`,
+        savedAt: value,
+        publishedAt: value,
+      })),
+    }),
+  );
   assert.equal(result.starredAdded, invalidDates.length);
   const saved = JSON.parse(values.get(state.KEYS.starred)!);
   assert.equal(saved.length, invalidDates.length);

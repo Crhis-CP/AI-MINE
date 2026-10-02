@@ -50,13 +50,21 @@ function Masthead({ report, index }: { report: ReportDetail; index: ReportNaviga
         <div className="flex shrink-0 items-stretch well rounded-panel">
           <div className="flex w-[112px] flex-col items-center justify-center px-2 py-3 text-center @[880px]:w-[150px] @[880px]:py-4">
             {issue && <span className="text-[11px] tracking-[0.2em] text-ink-4">第 {issue} 期</span>}
-            <Halftone seed={`${report.kind}-${report.key}-date`} className="num mt-2 whitespace-nowrap text-[44px] font-black leading-[0.95] tracking-[-0.04em] text-ink @[880px]:text-[64px]">
+            <Halftone
+              seed={`${report.kind}-${report.key}-date`}
+              className="num mt-2 whitespace-nowrap text-[44px] font-black leading-[0.95] tracking-[-0.04em] text-ink @[880px]:text-[64px]"
+            >
               {mark.figure}
             </Halftone>
             <span className="mt-2 text-[11.5px] text-ink-2">{mark.top}</span>
             <span className="text-[11.5px] text-ink-4">{mark.bottom}</span>
           </div>
-          <IssueDots kind={report.kind} reportKey={report.key} index={index} className="hidden w-[176px] border-l border-line px-4 py-4 @[760px]:block @[880px]:w-[196px]" />
+          <IssueDots
+            kind={report.kind}
+            reportKey={report.key}
+            index={index}
+            className="hidden w-[176px] border-l border-line px-4 py-4 @[760px]:block @[880px]:w-[196px]"
+          />
         </div>
       </div>
 
@@ -90,7 +98,13 @@ function Source({ c, size = 16 }: { c: ReportCitation; size?: number }) {
  */
 function Original({ c, className = "" }: { c: ReportCitation; className?: string }) {
   return (
-    <a href={c.sourceUrl} target="_blank" rel="noopener noreferrer" aria-label={`阅读${shortSourceName(c.sourceName)}原文：${c.title}（新标签页）`} className={`${LINK} text-[12.5px] text-ink-3 ${className}`}>
+    <a
+      href={c.sourceUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`阅读${shortSourceName(c.sourceName)}原文：${c.title}（新标签页）`}
+      className={`${LINK} text-[12.5px] text-ink-3 ${className}`}
+    >
       原文 <IconArrowUpRight size={12} />
     </a>
   );
@@ -140,7 +154,12 @@ export function Rows<T>({ items, children }: { items: T[]; children: (item: T, c
     <div>
       {rows.map((row, r) => (
         <div key={r} className="grid border-b border-line @[760px]:grid-cols-2">
-          {row.map((item, i) => children(item, i === 0 ? "@[760px]:pr-10 @[1040px]:pr-12" : "border-t border-line @[760px]:border-l @[760px]:border-t-0 @[760px]:pl-10 @[1040px]:pl-12"))}
+          {row.map((item, i) =>
+            children(
+              item,
+              i === 0 ? "@[760px]:pr-10 @[1040px]:pr-12" : "border-t border-line @[760px]:border-l @[760px]:border-t-0 @[760px]:pl-10 @[1040px]:pl-12",
+            ),
+          )}
         </div>
       ))}
     </div>
@@ -171,13 +190,12 @@ function pagesOf(report: ReportDetail, leadStory: ReportCitation | null): Page[]
       id: `s-${i + 1}`,
       label: s.label,
       summary: s.summary,
-      items: s.items
-        .filter((c) => {
-          const k = keyOf(c);
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        }),
+      items: s.items.filter((c) => {
+        const k = keyOf(c);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      }),
     }))
     .filter((p) => p.items.length > 0);
 }
@@ -186,16 +204,39 @@ function pagesOf(report: ReportDetail, leadStory: ReportCitation | null): Page[]
  * The lead's picture; landscape pictures are cropped to between 16:10 and 2:1. A picture that is not
  * the lead's own (a weekly or monthly's, from its first highlight) is captioned with its story.
  */
-function LeadPicture({ cover, onError, priority = false, className = "" }: { cover: NonNullable<ReportDetail["cover"]>; onError: () => void; priority?: boolean; className?: string }) {
+function LeadPicture({
+  cover,
+  onError,
+  priority = false,
+  className = "",
+}: {
+  cover: NonNullable<ReportDetail["cover"]>;
+  onError: () => void;
+  priority?: boolean;
+  className?: string;
+}) {
   const ratio = cover.width && cover.height ? cover.width / cover.height : 16 / 9;
   const shown = ratio >= 1.25 ? Math.min(2, Math.max(1.6, ratio)) : Math.max(0.8, ratio);
   return (
     <figure className={className}>
       <div className="overflow-hidden well rounded-panel" style={{ aspectRatio: shown }}>
-        <img src={cover.url} srcSet={cover.srcSet}
-          sizes={priority ? "(min-width: 1700px) 780px, (min-width: 1580px) calc(100vw - 920px), (min-width: 1420px) calc(100vw - 880px), (min-width: 1024px) calc(100vw - 540px), (min-width: 640px) 608px, calc(100vw - 32px)" : "auto, (min-width: 1180px) 300px, (min-width: 640px) 608px, calc(100vw - 32px)"}
-          width={cover.width ?? undefined} height={cover.height ?? undefined}
-          alt="" loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async" onError={onError} className="size-full object-cover" />
+        <img
+          src={cover.url}
+          srcSet={cover.srcSet}
+          sizes={
+            priority
+              ? "(min-width: 1700px) 780px, (min-width: 1580px) calc(100vw - 920px), (min-width: 1420px) calc(100vw - 880px), (min-width: 1024px) calc(100vw - 540px), (min-width: 640px) 608px, calc(100vw - 32px)"
+              : "auto, (min-width: 1180px) 300px, (min-width: 640px) 608px, calc(100vw - 32px)"
+          }
+          width={cover.width ?? undefined}
+          height={cover.height ?? undefined}
+          alt=""
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+          decoding="async"
+          onError={onError}
+          className="size-full object-cover"
+        />
       </div>
       {cover.caption && <figcaption className="mt-2.5 line-clamp-2 text-[12.5px] leading-[1.6] text-ink-4">图 · {cover.caption}</figcaption>}
     </figure>
@@ -215,11 +256,17 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
   const highlights = report.highlights.filter((h) => !leadStory || keyOf(h) !== keyOf(leadStory)).slice(0, 3);
   const inPage = new Set(pages.flatMap((p) => p.items.map((c) => c.itemId)).filter(Boolean));
   const period = daily ? "今日" : report.kind === "weekly" ? "本周" : "本月";
-  const index = [...pages.map((p) => ({ id: p.id, label: p.label, n: `${p.items.length} 件` })), ...(report.flashes.length > 0 ? [{ id: "s-flash", label: "快讯", n: `${report.flashes.length} 条` }] : [])];
+  const index = [
+    ...pages.map((p) => ({ id: p.id, label: p.label, n: `${p.items.length} 件` })),
+    ...(report.flashes.length > 0 ? [{ id: "s-flash", label: "快讯", n: `${report.flashes.length} 条` }] : []),
+  ];
 
   return (
     <section aria-label="头版" className="grid @[880px]:grid-cols-[minmax(0,1fr)_300px] @[1040px]:grid-cols-[minmax(0,1fr)_340px]">
-      <div id={leadStory ? (anchorOf(leadStory) ?? undefined) : undefined} className="min-w-0 scroll-mt-6 py-7 @[880px]:border-r @[880px]:border-line @[880px]:py-10 @[880px]:pr-10">
+      <div
+        id={leadStory ? (anchorOf(leadStory) ?? undefined) : undefined}
+        className="min-w-0 scroll-mt-6 py-7 @[880px]:border-r @[880px]:border-line @[880px]:py-10 @[880px]:pr-10"
+      >
         <Kicker>{daily ? "头条" : "本期导读"}</Kicker>
         {cover && wide && <LeadPicture cover={cover} onError={() => setBroken(cover.url)} priority className="mt-5" />}
         <h2 className="mt-4 text-[32px] font-black leading-[1.28] tracking-[-0.03em] text-ink [text-wrap:balance] @[520px]:text-[40px] @[1040px]:text-[48px] @[1040px]:leading-[1.22]">
@@ -233,7 +280,9 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
         </h2>
         {dek && (
           <div className={cover && !wide ? "mt-6 grid gap-6 @[640px]:grid-cols-[minmax(0,1fr)_minmax(0,38%)] @[880px]:mt-7" : ""}>
-            <p className={`text-[16.5px] leading-[1.9] text-ink-2 @[880px]:text-[17.5px] ${cover && !wide ? "" : "mt-6 @[560px]:text-justify @[880px]:mt-7"}`}>{dek}</p>
+            <p className={`text-[16.5px] leading-[1.9] text-ink-2 @[880px]:text-[17.5px] ${cover && !wide ? "" : "mt-6 @[560px]:text-justify @[880px]:mt-7"}`}>
+              {dek}
+            </p>
             {cover && !wide && <LeadPicture cover={cover} onError={() => setBroken(cover.url)} />}
           </div>
         )}
@@ -348,7 +397,9 @@ function History({ report, index }: { report: ReportDetail; index: ReportNavigat
           <li key={e.key}>
             <Link to={reportPath(report.kind, e.key)} className="group flex items-baseline gap-4 border-b border-line py-3">
               <span className="num w-[76px] shrink-0 text-[12.5px] text-ink-4">{e.key}</span>
-              <span className="min-w-0 flex-1 truncate text-[14px] text-ink-2 transition-colors group-hover:text-accent">{e.title ?? `${SITE.name} ${KIND_LABEL[report.kind]} · ${e.key}`}</span>
+              <span className="min-w-0 flex-1 truncate text-[14px] text-ink-2 transition-colors group-hover:text-accent">
+                {e.title ?? `${SITE.name} ${KIND_LABEL[report.kind]} · ${e.key}`}
+              </span>
             </Link>
           </li>
         ))}

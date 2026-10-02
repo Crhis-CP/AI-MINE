@@ -54,13 +54,25 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
   const corrected = sameReports;
   const known = new Set(last?.article_ids ?? []);
 
-  const lines = reports.slice(-40).map((r) => `${corrected || known.has(r.id) ? "" : "【新】"}${beijingDate(r.at)} ${beijingTime(r.at)}｜${r.source_name}${r.first_party ? "（一手）" : ""}｜${r.title}｜${(r.summary ?? "").slice(0, 220)}`);
+  const lines = reports
+    .slice(-40)
+    .map(
+      (r) =>
+        `${corrected || known.has(r.id) ? "" : "【新】"}${beijingDate(r.at)} ${beijingTime(r.at)}｜${r.source_name}${r.first_party ? "（一手）" : ""}｜${r.title}｜${(r.summary ?? "").slice(0, 220)}`,
+    );
   const user = corrected
     ? `事件当前标题：${story.title}\n\n报道内容经过编辑更正。请只依据下面这些报道的当前内容重写综述，不要沿用以前版本的说法。\n报道（按时间）：\n${lines.join("\n")}`
     : `事件当前标题：${story.title}\n${story.digest ? `上一版综述：${story.digest}\n` : ""}\n报道（按时间，标【新】的是上一版之后的新报道）：\n${lines.join("\n")}`;
   const res = await chatJson({
-    model: await modelFor("digest"), purpose: "story_digest", subject: `story:${storyId}@${ids.length}`, promptVersion: DIGEST_PROMPT_VERSION,
-    system: SYSTEM, user, schema: Schema, temperature: 0.3, maxTokens: 1200,
+    model: await modelFor("digest"),
+    purpose: "story_digest",
+    subject: `story:${storyId}@${ids.length}`,
+    promptVersion: DIGEST_PROMPT_VERSION,
+    system: SYSTEM,
+    user,
+    schema: Schema,
+    temperature: 0.3,
+    maxTokens: 1200,
   });
   const version = story.version + 1;
   await sql.begin(async (tx) => {

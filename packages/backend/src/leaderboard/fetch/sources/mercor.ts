@@ -8,7 +8,11 @@ import type { Fetcher, ParsedRow } from "../types.ts";
 
 const PAGE = "https://www.mercor.com/apex/apex-agents-leaderboard/";
 const HARNESS = "loop_truncated_tools_agent";
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 interface Entry {
   model: { modelId: string; modelName: string; effort: string | null; releaseDate: string | null; provider: { name: string } | null };
@@ -46,7 +50,8 @@ export const mercor: Fetcher = {
       const pass1 = e.passScores.find((p) => p.pass === "pass-1")?.harnessScores?.find((h) => h.harness === HARNESS);
       return pass1 ? [{ e, score: pass1.score, error: pass1.error }] : [];
     });
-    if (scored.length < b.globalLeaderboard.length / 2) throw new Error(`mercor: only ${scored.length}/${b.globalLeaderboard.length} rows have ${HARNESS} pass@1`);
+    if (scored.length < b.globalLeaderboard.length / 2)
+      throw new Error(`mercor: only ${scored.length}/${b.globalLeaderboard.length} rows have ${HARNESS} pass@1`);
 
     let publishedAt: string | null = null;
     if (b.blogLink) {
@@ -59,7 +64,11 @@ export const mercor: Fetcher = {
     const rows: ParsedRow[] = scored.map(({ e, score, error }, i) => {
       const m = e.model;
       const effort = m.effort?.toLowerCase() ?? null;
-      const configuration = scaffolded(configurationOf(effort ? [effort] : []), [`harness-${slug(HARNESS)}`, `systemid-${slug(systemId)}`], [HARNESS, systemId]);
+      const configuration = scaffolded(
+        configurationOf(effort ? [effort] : []),
+        [`harness-${slug(HARNESS)}`, `systemid-${slug(systemId)}`],
+        [HARNESS, systemId],
+      );
       return {
         sourceModelName: m.modelId,
         keyName: slug(m.modelId),
@@ -79,27 +88,29 @@ export const mercor: Fetcher = {
       };
     });
 
-    return [{
-      sourceKey: "mercor-apex-agents",
-      sourceName: `Mercor ${b.displayName} ${version}`,
-      sourceUrl: PAGE,
-      license: "官方公开结果；数据与代码许可不等于榜单再分发授权",
-      attributionUrl: PAGE,
-      publishedAt,
-      rows,
-      metadata: {
-        harnesses: HARNESS,
-        statistic: "pass-1",
-        dataAtKind: "benchmark-edition-publication",
-        datasetUrl: b.dataLink,
-        dataDateSource: b.blogLink,
-        benchmarkVersion: version,
-        comparisonSubject: "CONTROLLED_SYSTEM",
-        upstreamPublishedAt: publishedAt,
-        sourceOperator: "Mercor",
-        sourceFamily: "professional-work",
-        metricCount: 1,
+    return [
+      {
+        sourceKey: "mercor-apex-agents",
+        sourceName: `Mercor ${b.displayName} ${version}`,
+        sourceUrl: PAGE,
+        license: "官方公开结果；数据与代码许可不等于榜单再分发授权",
+        attributionUrl: PAGE,
+        publishedAt,
+        rows,
+        metadata: {
+          harnesses: HARNESS,
+          statistic: "pass-1",
+          dataAtKind: "benchmark-edition-publication",
+          datasetUrl: b.dataLink,
+          dataDateSource: b.blogLink,
+          benchmarkVersion: version,
+          comparisonSubject: "CONTROLLED_SYSTEM",
+          upstreamPublishedAt: publishedAt,
+          sourceOperator: "Mercor",
+          sourceFamily: "professional-work",
+          metricCount: 1,
+        },
       },
-    }];
+    ];
   },
 };

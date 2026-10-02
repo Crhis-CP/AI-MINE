@@ -48,12 +48,18 @@ async function delivery(status = "unknown") {
   await sql`UPDATE deliveries SET payload = ${sql.json({ id: row.id })} WHERE id = ${row.id}`;
   return row.id;
 }
-const state = async (id: number) => (await sql<{ status: string; attempts: number; version: string }[]>`
-  SELECT status, attempts, updated_at::text AS version FROM deliveries WHERE id = ${id}`)[0];
-const resolve = (id: number, outcome = "resend") => app.inject({
-  method: "POST", url: `/api/admin/deliveries/${id}/resolve`, headers: { "x-csrf-token": "dev" },
-  payload: { outcome, note: "checked the group" },
-});
+const state = async (id: number) =>
+  (
+    await sql<{ status: string; attempts: number; version: string }[]>`
+  SELECT status, attempts, updated_at::text AS version FROM deliveries WHERE id = ${id}`
+  )[0];
+const resolve = (id: number, outcome = "resend") =>
+  app.inject({
+    method: "POST",
+    url: `/api/admin/deliveries/${id}/resolve`,
+    headers: { "x-csrf-token": "dev" },
+    payload: { outcome, note: "checked the group" },
+  });
 
 /** Hold writes, but allow both requests to read the same version before their updates race. */
 async function hold(id: number) {
@@ -67,7 +73,10 @@ async function hold(id: number) {
   });
   const pid = await acquired.promise;
   return {
-    release: async () => { release.open(); await done; },
+    release: async () => {
+      release.open();
+      await done;
+    },
     blocked: async (count: number) => {
       const deadline = performance.now() + 5000;
       // Include waiters queued behind the first blocked UPDATE, not just the direct lock holder.
@@ -90,7 +99,11 @@ test("two concurrent retries send once and return a conflict for the losing admi
   const pending = [resolve(id), resolve(id)];
   // Start Fastify's lazy injection promises while the row is locked.
   const done = Promise.all(pending);
-  try { await lock.blocked(2); } finally { await lock.release(); }
+  try {
+    await lock.blocked(2);
+  } finally {
+    await lock.release();
+  }
   const replies = await done;
   assert.deepEqual(replies.map((r) => r.statusCode).sort(), [200, 409]);
   assert.equal(replies.find((r) => r.statusCode === 409)!.json().code, "conflict");
@@ -112,7 +125,9 @@ test("a stale version cannot resend after a fast failure returns the delivery to
     assert.equal((await state(id)).attempts, 1);
     assert.equal((await resolve(id)).statusCode, 200, "a fresh explicit retry remains possible");
     assert.equal((await state(id)).attempts, 2);
-  } finally { answer = async () => Response.json({ code: 0 }); }
+  } finally {
+    answer = async () => Response.json({ code: 0 });
+  }
 });
 
 for (const outcome of ["sent", "drop"]) {
@@ -123,7 +138,10 @@ for (const outcome of ["sent", "drop"]) {
     const arrived = gate();
     const finish = gate();
     answer = async (sentId) => {
-      if (sentId === id) { arrived.open(); await finish.promise; }
+      if (sentId === id) {
+        arrived.open();
+        await finish.promise;
+      }
       return Response.json({ code: 0 });
     };
     const retry = resolve(id).then((r) => r);
@@ -153,11 +171,17 @@ test("disabled pushes and missing credentials leave the retry available without 
   const id = await delivery();
   const before = await state(id);
   config.feishuContentPushEnabled = false;
-  try { await assert.rejects(resendDelivery(id), /disabled/); }
-  finally { config.feishuContentPushEnabled = true; }
+  try {
+    await assert.rejects(resendDelivery(id), /disabled/);
+  } finally {
+    config.feishuContentPushEnabled = true;
+  }
   delete process.env.TEST_DELIVERY_WEBHOOK;
-  try { await assert.rejects(resendDelivery(id), /webhook not configured/); }
-  finally { process.env.TEST_DELIVERY_WEBHOOK = WEBHOOK; }
+  try {
+    await assert.rejects(resendDelivery(id), /webhook not configured/);
+  } finally {
+    process.env.TEST_DELIVERY_WEBHOOK = WEBHOOK;
+  }
   assert.deepEqual(await state(id), before);
   assert.equal(requests.filter((n) => n === id).length, 0);
 });

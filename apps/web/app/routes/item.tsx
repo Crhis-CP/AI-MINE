@@ -70,7 +70,13 @@ function ReadingProgress() {
       window.removeEventListener("resize", schedule);
     };
   }, []);
-  return <div ref={ref} aria-hidden="true" className="fixed inset-x-0 top-0 z-50 h-[2px] origin-left scale-x-0 bg-accent transition-transform duration-150 ease-out" />;
+  return (
+    <div
+      ref={ref}
+      aria-hidden="true"
+      className="fixed inset-x-0 top-0 z-50 h-[2px] origin-left scale-x-0 bg-accent transition-transform duration-150 ease-out"
+    />
+  );
 }
 
 function hostOf(url: string): string {
@@ -120,7 +126,13 @@ export default function ItemPage() {
   };
 
   const bodyHtml = lang === "zh" ? (item.body?.zh ?? item.body?.original) : (item.body?.original ?? item.body?.zh);
-  const bodyLabel = !item.body ? null : lang === "zh" && item.body.zhKind === "translation" ? "正文 · AI 翻译" : lang === "original" && hasTranslation ? "正文 · 原文" : "正文";
+  const bodyLabel = !item.body
+    ? null
+    : lang === "zh" && item.body.zhKind === "translation"
+      ? "正文 · AI 翻译"
+      : lang === "original" && hasTranslation
+        ? "正文 · 原文"
+        : "正文";
   const isX = item.channel === "x" && !!item.x;
   const publishedIso = item.publishedAt ?? item.discoveredAt;
   const summaryOnly = item.readingMode === "summary-only";
@@ -134,7 +146,11 @@ export default function ItemPage() {
     else navigate(item.selected ? "/" : "/all");
   };
   const backButton = (
-    <button type="button" onClick={back} className="-ml-1.5 inline-flex h-8 items-center gap-1.5 rounded-full px-1.5 text-[14px] text-ink-2 transition-colors hover:text-ink lg:text-[13px] lg:text-ink-3">
+    <button
+      type="button"
+      onClick={back}
+      className="-ml-1.5 inline-flex h-8 items-center gap-1.5 rounded-full px-1.5 text-[14px] text-ink-2 transition-colors hover:text-ink lg:text-[13px] lg:text-ink-3"
+    >
       <IconArrowLeft size={16} /> 返回
     </button>
   );
@@ -142,8 +158,24 @@ export default function ItemPage() {
     <Menu label="更多操作" trigger={<IconMenu size={17} />}>
       {(close) => (
         <>
-          <MenuItem icon={<IconShare size={15} />} onSelect={() => { close(); void share(); }}>分享链接</MenuItem>
-          <MenuItem icon={<IconImage size={15} />} onSelect={() => { close(); openPoster(); }}>生成分享海报</MenuItem>
+          <MenuItem
+            icon={<IconShare size={15} />}
+            onSelect={() => {
+              close();
+              void share();
+            }}
+          >
+            分享链接
+          </MenuItem>
+          <MenuItem
+            icon={<IconImage size={15} />}
+            onSelect={() => {
+              close();
+              openPoster();
+            }}
+          >
+            生成分享海报
+          </MenuItem>
           <MenuItem
             icon={<IconCopy size={15} />}
             onSelect={async () => {
@@ -194,9 +226,7 @@ export default function ItemPage() {
   const facts = (
     <RailSection title="来源">
       <div className="text-[14px] font-semibold leading-snug text-ink">{isX ? item.x!.authorName : item.source.name}</div>
-      <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">
-        {isX ? `@${item.x!.handle} · X` : item.author ?? hostOf(item.links.original)}
-      </div>
+      <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{isX ? `@${item.x!.handle} · X` : (item.author ?? hostOf(item.links.original))}</div>
       <div className="mt-3 text-[12px] text-ink-4">发布时间</div>
       <time dateTime={publishedIso} className="mono mt-0.5 block text-[12.5px] text-ink-2">
         {fullDateTime(publishedIso)}
@@ -212,7 +242,10 @@ export default function ItemPage() {
         <ol className="-ml-px space-y-0.5 border-l border-line">
           {item.outline.map((o) => (
             <li key={o.id}>
-              <a href={`#${o.id}`} className={`-ml-px block border-l border-transparent py-1 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink ${o.level > 2 ? "pl-5" : "pl-3"}`}>
+              <a
+                href={`#${o.id}`}
+                className={`-ml-px block border-l border-transparent py-1 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink ${o.level > 2 ? "pl-5" : "pl-3"}`}
+              >
                 {o.text}
               </a>
             </li>
@@ -257,7 +290,12 @@ export default function ItemPage() {
         <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 items-center gap-1 px-1.5 text-[14px] text-ink-2">
           <IconExternal size={15} /> 原文
         </a>
-        <button type="button" aria-label="分享" onClick={share} className="inline-flex size-8 items-center justify-center rounded-full text-ink-3 hover:text-ink">
+        <button
+          type="button"
+          aria-label="分享"
+          onClick={share}
+          className="inline-flex size-8 items-center justify-center rounded-full text-ink-3 hover:text-ink"
+        >
           <IconShare size={17} />
         </button>
         {moreMenu}
@@ -287,7 +325,9 @@ export default function ItemPage() {
             {isX && <span>· @{item.x!.handle} · X</span>}
             {item.author && !isX && <span>· {item.author}</span>}
             <span>·</span>
-            <time dateTime={publishedIso} className="mono">{fullDateTime(publishedIso)}</time>
+            <time dateTime={publishedIso} className="mono">
+              {fullDateTime(publishedIso)}
+            </time>
             <span suppressHydrationWarning>· {relativeTime(publishedIso)}</span>
             {item.selected && (
               <span className="ml-1 lg:hidden">
@@ -300,7 +340,11 @@ export default function ItemPage() {
               </span>
             )}
           </div>
-          {!isX && <h1 className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">{item.title}</h1>}
+          {!isX && (
+            <h1 className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">
+              {item.title}
+            </h1>
+          )}
           {!isX && item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
 
           {item.summary && (
@@ -323,7 +367,11 @@ export default function ItemPage() {
             </div>
           )}
 
-          {summaryOnly && <p className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3">应来源方要求，这里只提供摘要与原文入口。完整内容请阅读原文。</p>}
+          {summaryOnly && (
+            <p className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3">
+              应来源方要求，这里只提供摘要与原文入口。完整内容请阅读原文。
+            </p>
+          )}
 
           {item.body && bodyHtml && (
             <section className="mt-9 border-t border-line pt-4 xl:mt-10">
@@ -395,7 +443,10 @@ export default function ItemPage() {
         </Suspense>
       )}
       {toast && (
-        <div role="status" className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-[13px] text-bg shadow-[var(--shadow-pop)] lg:bottom-8">
+        <div
+          role="status"
+          className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-[13px] text-bg shadow-[var(--shadow-pop)] lg:bottom-8"
+        >
           {toast}
         </div>
       )}

@@ -36,7 +36,14 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return pageMeta({
     title: q ? `搜索：${q}` : `全部${withSubject("动态")}`,
     description: `${SITE.name} 收录的全部${withSubject("动态")}，可按类别与标签筛选，支持中英文搜索。`,
-    path: listPath("/all", { channel: f && f.channel !== "all" ? f.channel : null, category: f?.category, tag: f?.tag, q, tab: f?.tab === "relevance" ? "relevance" : null, page: page > 1 ? page : null }),
+    path: listPath("/all", {
+      channel: f && f.channel !== "all" ? f.channel : null,
+      category: f?.category,
+      tag: f?.tag,
+      q,
+      tab: f?.tab === "relevance" ? "relevance" : null,
+      page: page > 1 ? page : null,
+    }),
     noindex: !!q,
   });
 }
@@ -148,8 +155,15 @@ export function SearchBusy() {
       <h1 className="text-[20px] font-bold text-ink">搜索有点忙</h1>
       <p className="mt-2 text-[14px] leading-relaxed text-ink-3">现在搜索的人比较多，请稍等几秒再试。列表浏览不受影响。</p>
       <div className="mt-6 flex justify-center gap-2.5">
-        <Link to="/all" className="inline-flex h-9 items-center rounded-full bg-accent px-4 text-[13.5px] font-medium text-accent-contrast hover:bg-accent-ink">浏览全部动态</Link>
-        <Link to="/" className="inline-flex h-9 items-center rounded-full border border-line-strong bg-surface px-4 text-[13.5px] text-ink-2 hover:border-ink-4">回到精选</Link>
+        <Link to="/all" className="inline-flex h-9 items-center rounded-full bg-accent px-4 text-[13.5px] font-medium text-accent-contrast hover:bg-accent-ink">
+          浏览全部动态
+        </Link>
+        <Link
+          to="/"
+          className="inline-flex h-9 items-center rounded-full border border-line-strong bg-surface px-4 text-[13.5px] text-ink-2 hover:border-ink-4"
+        >
+          回到精选
+        </Link>
       </div>
     </div>
   );

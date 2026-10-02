@@ -73,9 +73,7 @@ export function resolveRedirect(pathname: string, search: string): RedirectDecis
       if (pathname !== rule.path) continue;
       location = rule.location ?? null;
     } else if (rule.match === "prefix") {
-      const inTree = rule.path.endsWith("/")
-        ? pathname.startsWith(rule.path)
-        : pathname === rule.path || pathname.startsWith(`${rule.path}/`);
+      const inTree = rule.path.endsWith("/") ? pathname.startsWith(rule.path) : pathname === rule.path || pathname.startsWith(`${rule.path}/`);
       if (!inTree) continue;
       location = rule.location ? rule.location.replace("*", pathname.slice(rule.path.length)) : null;
     } else {

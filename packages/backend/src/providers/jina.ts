@@ -13,7 +13,12 @@ export interface JinaPage {
 
 export function parseJinaText(text: string): JinaPage {
   const header = text.split(/\nMarkdown Content:\n/)[0] ?? "";
-  const body = text.includes("\nMarkdown Content:\n") ? text.split(/\nMarkdown Content:\n/).slice(1).join("\nMarkdown Content:\n") : text;
+  const body = text.includes("\nMarkdown Content:\n")
+    ? text
+        .split(/\nMarkdown Content:\n/)
+        .slice(1)
+        .join("\nMarkdown Content:\n")
+    : text;
   const field = (name: string) => new RegExp(`^${name}:\\s*(.+)$`, "m").exec(header)?.[1]?.trim() ?? null;
   return { title: field("Title"), url: field("URL Source"), publishedTime: field("Published Time"), markdown: body.trim() };
 }
@@ -31,11 +36,19 @@ export async function jinaRead(
   if (!key) throw new Error("JINA_API_KEY is not configured");
   const base = (credential("collectors", "JINA_BASE_URL") ?? "https://r.jina.ai").replace(/\/$/, "");
   // A listing whose freshness matters (xAI news) caps how old Jina's cached rendering may be.
-  const tolerance: Record<string, string> = Number.isInteger(opts.cacheToleranceSeconds) && opts.cacheToleranceSeconds! >= 0 ? { "x-cache-tolerance": String(opts.cacheToleranceSeconds) } : {};
+  const tolerance: Record<string, string> =
+    Number.isInteger(opts.cacheToleranceSeconds) && opts.cacheToleranceSeconds! >= 0 ? { "x-cache-tolerance": String(opts.cacheToleranceSeconds) } : {};
   const now = new Date().toISOString();
   const day = opts.perRead ? now : now.slice(0, 10);
   const receipt = await paidRequest(
-    { service: "jina", model: null, purpose: opts.purpose, subject: opts.subject, identity: { url: targetUrl, day, format: opts.format ?? "markdown" }, requestSummary: { url: targetUrl } },
+    {
+      service: "jina",
+      model: null,
+      purpose: opts.purpose,
+      subject: opts.subject,
+      identity: { url: targetUrl, day, format: opts.format ?? "markdown" },
+      requestSummary: { url: targetUrl },
+    },
     async () => {
       const res = await guardedFetch(`${base}/${targetUrl}`, {
         headers: { authorization: `Bearer ${key}`, "x-return-format": opts.format ?? "markdown", accept: "text/plain", ...tolerance },
@@ -51,7 +64,12 @@ export async function jinaRead(
       // header nothing is guessed.
       const tokens = Number(res.headers.get("x-usage-tokens")) || null;
       const cost = tokens ? { amount: (tokens / 1e6) * 0.36, currency: "CNY", basis: "estimated" as const } : null;
-      return { response: { text: text.slice(0, 2_000_000), status: res.status }, requestId: res.headers.get("x-request-id"), usage: { bytes: res.body.length, tokens }, cost };
+      return {
+        response: { text: text.slice(0, 2_000_000), status: res.status },
+        requestId: res.headers.get("x-request-id"),
+        usage: { bytes: res.body.length, tokens },
+        cost,
+      };
     },
   );
   const raw = String((receipt.response as { text?: string })?.text ?? "");

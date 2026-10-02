@@ -5,7 +5,12 @@ export function collapseWhitespace(s: string): string {
 export function truncate(s: string, max: number, ellipsis = "…"): string {
   const chars = [...s];
   if (chars.length <= max) return s;
-  return chars.slice(0, Math.max(0, max - ellipsis.length)).join("").trimEnd() + ellipsis;
+  return (
+    chars
+      .slice(0, Math.max(0, max - ellipsis.length))
+      .join("")
+      .trimEnd() + ellipsis
+  );
 }
 
 export function stripTags(html: string): string {
@@ -25,14 +30,16 @@ export function stripTags(html: string): string {
 }
 
 export function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;")
-    // XML 1.0 forbids most control characters.
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "");
+  return (
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;")
+      // XML 1.0 forbids most control characters.
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+  );
 }
 
 export function escapeHtml(s: string): string {

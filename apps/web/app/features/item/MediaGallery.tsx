@@ -33,7 +33,11 @@ export function MediaGallery({ media, postUrl }: { media: MediaView[]; postUrl: 
             <img
               src={m.poster ?? m.url}
               srcSet={m.srcSet}
-              sizes={single ? "auto, (min-width: 460px) 420px, calc(100vw - 32px)" : "auto, (min-width: 800px) 248px, (min-width: 640px) calc(33.333vw - 19px), calc(50vw - 24px)"}
+              sizes={
+                single
+                  ? "auto, (min-width: 460px) 420px, calc(100vw - 32px)"
+                  : "auto, (min-width: 800px) 248px, (min-width: 640px) calc(33.333vw - 19px), calc(50vw - 24px)"
+              }
               width={m.width ?? undefined}
               height={m.height ?? undefined}
               decoding="async"
@@ -49,7 +53,13 @@ export function MediaGallery({ media, postUrl }: { media: MediaView[]; postUrl: 
               <PlayMark />
             </a>
           ) : (
-            <button key={m.url} type="button" onClick={() => setOpen(images.indexOf(m))} aria-label={m.alt ? `查看大图：${m.alt}` : "查看大图"} className={`${tile} cursor-zoom-in`}>
+            <button
+              key={m.url}
+              type="button"
+              onClick={() => setOpen(images.indexOf(m))}
+              aria-label={m.alt ? `查看大图：${m.alt}` : "查看大图"}
+              className={`${tile} cursor-zoom-in`}
+            >
               {img}
             </button>
           );

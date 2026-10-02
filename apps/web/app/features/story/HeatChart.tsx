@@ -33,12 +33,12 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
   const geometry = useMemo(() => {
     const seen = series.filter((s) => s.p);
     if (seen.length < 3) return null;
-  
+
     const last = seen[seen.length - 1]!;
     const peak = seen.reduce((a, b) => (b.p!.heat > a.p!.heat ? b : a));
     const dayAgo = series.find((s) => s.t === last.t - 24 * HOUR)?.p;
     const change = dayAgo && dayAgo.heat > 0 ? Math.round(((last.p!.heat - dayAgo.heat) / dayAgo.heat) * 100) : null;
-  
+
     const step = niceStep(peak.p!.heat);
     const top = Math.max(step, Math.ceil(peak.p!.heat / step) * step);
     const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step);
@@ -47,7 +47,7 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
     const x = (t: number) => PAD.l + ((t - t0) / span) * (W - PAD.l - PAD.r);
     const y = (v: number) => PAD.t + (1 - v / top) * (H - PAD.t - PAD.b);
     const base = H - PAD.b;
-  
+
     // Runs of consecutive observed hours become separate line and area pieces.
     const runs: Array<Array<{ t: number; p: HeatPoint }>> = [];
     let run: Array<{ t: number; p: HeatPoint }> = [];
@@ -91,8 +91,7 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
         <span className="mx-1.5 text-ink-4">·</span>
         可比范围峰值 <b className="num font-semibold text-ink">{Math.round(peak.p!.heat)}</b>
         <span className="num text-ink-4">（{monthDayTime(new Date(peak.t).toISOString())}）</span>
-        <span className="mx-1.5 text-ink-4">·</span>
-        近 24 小时可比范围变化{" "}
+        <span className="mx-1.5 text-ink-4">·</span>近 24 小时可比范围变化{" "}
         <b className={`num font-semibold ${change === null ? "text-ink-4" : change > 0 ? "text-hot" : "text-ink"}`}>
           {change === null ? "–" : `${change > 0 ? "+" : ""}${change}%`}
         </b>
@@ -124,7 +123,13 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
               </text>
             </g>
           ))}
-          <path d={area} fill="var(--note)" fillOpacity={0.1} className={entrance ? "anim-fade-in" : ""} style={entrance ? { animationDuration: "500ms", animationDelay: "300ms" } : undefined} />
+          <path
+            d={area}
+            fill="var(--note)"
+            fillOpacity={0.1}
+            className={entrance ? "anim-fade-in" : ""}
+            style={entrance ? { animationDuration: "500ms", animationDelay: "300ms" } : undefined}
+          />
           <path
             d={line}
             fill="none"
@@ -150,7 +155,15 @@ export function HeatChart({ points }: { points: HeatPoint[] }) {
           {labels.map((t, i) => {
             const [d, hm] = monthDayTime(new Date(t).toISOString()).split(" ");
             return (
-              <text key={t} x={x(t)} y={base + 18} textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"} fontSize="11" fill="var(--ink-4)" className="mono">
+              <text
+                key={t}
+                x={x(t)}
+                y={base + 18}
+                textAnchor={i === 0 ? "start" : i === labels.length - 1 ? "end" : "middle"}
+                fontSize="11"
+                fill="var(--ink-4)"
+                className="mono"
+              >
                 <tspan x={x(t)}>{d}</tspan>
                 <tspan x={x(t)} dy="14">
                   {hm}

@@ -20,17 +20,7 @@ import type {
   LbStability,
 } from "@aihot/contracts/leaderboard";
 import { sql } from "../db.ts";
-import {
-  BOARD_COPY,
-  BOARD_LIMIT,
-  formatScore,
-  modelBrand,
-  registrySource,
-  scoreFormat,
-  SOURCE_GROUPS,
-  sourceBrand,
-  sourceKeyOfUnit,
-} from "./registry.ts";
+import { BOARD_COPY, BOARD_LIMIT, formatScore, modelBrand, registrySource, scoreFormat, SOURCE_GROUPS, sourceBrand, sourceKeyOfUnit } from "./registry.ts";
 
 interface ModelRow {
   id: string;
@@ -127,7 +117,9 @@ async function latestRunId(): Promise<string | null> {
 /** The latest published run, re-checked at most once a minute. */
 export async function runView(): Promise<RunView> {
   if (cached && Date.now() - cached.checkedAt < 60_000) return cached.view;
-  loading ??= refreshRunView().finally(() => { loading = null; });
+  loading ??= refreshRunView().finally(() => {
+    loading = null;
+  });
   return loading;
 }
 
@@ -196,7 +188,17 @@ async function buildRunView(runId: string): Promise<RunView> {
     for (const e of boards.get(key)?.entries ?? []) if (e.rank <= BOARD_LIMIT) pageSlugs.add(e.slug);
   }
 
-  const priceRows = await sql<{ model_id: string; currency: "CNY" | "USD"; input: number | null; output: number | null; cached_input: number | null; source_url: string | null; verified_on: Date | null }[]>`
+  const priceRows = await sql<
+    {
+      model_id: string;
+      currency: "CNY" | "USD";
+      input: number | null;
+      output: number | null;
+      cached_input: number | null;
+      source_url: string | null;
+      verified_on: Date | null;
+    }[]
+  >`
     SELECT model_id, currency, input, output, cached_input, source_url, verified_on FROM lb_prices WHERE kind = 'official' AND model_id = ANY(${modelIds})`;
   const rate = info.fx?.rate ?? null;
   const toCny = (v: number | null, currency: string) => (v == null ? null : currency === "CNY" ? v : rate ? v * rate : null);
@@ -342,7 +344,7 @@ export async function loadModel(slug: string): Promise<LbModelDetail | null> {
         FROM lb_scores WHERE model_id = ${m.id} AND snapshot_id = ANY(${[...new Set(metas.map((e) => e.snapshotId))]})`
     : [];
   const detailFor = (meta: EvidenceMeta | undefined) =>
-    meta ? details.find((d) => d.snapshot_id === meta.snapshotId && d.metadata.configurationIdentity === meta.configuration) ?? null : null;
+    meta ? (details.find((d) => d.snapshot_id === meta.snapshotId && d.metadata.configurationIdentity === meta.configuration) ?? null) : null;
 
   const itemsBySource = new Map<string, LbEvidenceItem>();
   for (const [unit] of units) {
@@ -375,7 +377,7 @@ export async function loadModel(slug: string): Promise<LbModelDetail | null> {
       measuredAt: meta?.evaluatedAt ?? null,
       carriedForward: meta?.carriedForward ?? false,
       components,
-      componentsNote: components.length ? reg?.source.components?.note ?? null : null,
+      componentsNote: components.length ? (reg?.source.components?.note ?? null) : null,
     });
   }
   const evidence: LbEvidenceGroup[] = SOURCE_GROUPS.map((g) => ({
@@ -383,10 +385,14 @@ export async function loadModel(slug: string): Promise<LbModelDetail | null> {
     name: g.name,
     items: g.sources.map((s) => itemsBySource.get(s.key)).filter((i): i is LbEvidenceItem => !!i),
   })).filter((g) => g.items.length > 0);
-  const scoredSources = new Set(overall ? Object.entries(overall.registry).filter(([, r]) => r.weight > 0).map(([u]) => sourceKeyOfUnit(u)) : []);
-  const unmeasured = [...scoredSources]
-    .filter((k) => !itemsBySource.has(k))
-    .map((k) => ({ key: k, name: registrySource(k)?.source.name ?? k }));
+  const scoredSources = new Set(
+    overall
+      ? Object.entries(overall.registry)
+          .filter(([, r]) => r.weight > 0)
+          .map(([u]) => sourceKeyOfUnit(u))
+      : [],
+  );
+  const unmeasured = [...scoredSources].filter((k) => !itemsBySource.has(k)).map((k) => ({ key: k, name: registrySource(k)?.source.name ?? k }));
 
   return {
     run: view.info,
@@ -457,7 +463,7 @@ function sourceSummary(view: RunView, key: string): LbSourceSummary | null {
     description: s.description,
     status: s.status,
     brand: sourceBrand(s),
-    budget: s.status === "ranked" || s.status === "awaiting" ? view.sourceWeights.get(s.key) ?? null : null,
+    budget: s.status === "ranked" || s.status === "awaiting" ? (view.sourceWeights.get(s.key) ?? null) : null,
   };
 }
 
@@ -490,7 +496,19 @@ export async function loadSource(key: string): Promise<LbSourceDetail | null> {
 
   let rows: LbSourceRow[] = [];
   if (showRows) {
-    const scoreRows = await sql<{ source_rank: number | null; source_model_name: string | null; raw_score: number | null; configuration_label: string | null; model_id: string; slug: string; name: string; provider: string | null; metadata: Record<string, unknown> }[]>`
+    const scoreRows = await sql<
+      {
+        source_rank: number | null;
+        source_model_name: string | null;
+        raw_score: number | null;
+        configuration_label: string | null;
+        model_id: string;
+        slug: string;
+        name: string;
+        provider: string | null;
+        metadata: Record<string, unknown>;
+      }[]
+    >`
       SELECT c.source_rank, c.source_model_name, c.raw_score, c.configuration_label, c.model_id, m.slug, m.name, m.provider, c.metadata
       FROM lb_scores c JOIN lb_models m ON m.id = c.model_id
       WHERE c.snapshot_id = ${snapshot.id} ${s.allRows ? sql`` : sql`AND c.selected_for_product`}
@@ -522,8 +540,8 @@ export async function loadSource(key: string): Promise<LbSourceDetail | null> {
       license: s.license,
       attribution: s.attribution ?? `成绩由 ${s.operator} 发布，原始分数与 ${SITE.name} 共识分使用不同尺度，不能直接相加。`,
     },
-    upstreamAt: showRows ? snapshot.published_at?.toISOString() ?? null : null,
-    syncedAt: showRows ? lastSeen ?? snapshot.fetched_at.toISOString() : null,
+    upstreamAt: showRows ? (snapshot.published_at?.toISOString() ?? null) : null,
+    syncedAt: showRows ? (lastSeen ?? snapshot.fetched_at.toISOString()) : null,
     collected: showRows,
     rows,
     systemRows: !!s.allRows,

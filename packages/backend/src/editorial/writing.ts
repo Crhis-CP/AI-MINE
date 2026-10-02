@@ -59,7 +59,11 @@ function chineseDensity(s: string): number {
   return total === 0 ? 0 : chinese / total;
 }
 
-const stripNoise = (s: string) => s.replace(/https?:\/\/\S+/g, " ").replace(/@[A-Za-z0-9_]+/g, " ").replace(/#[A-Za-z0-9_]+/g, " ");
+const stripNoise = (s: string) =>
+  s
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/@[A-Za-z0-9_]+/g, " ")
+    .replace(/#[A-Za-z0-9_]+/g, " ");
 
 /** A short tweet in Chinese needs no translation; mixed or English ones do. */
 export function needsShortTweetTranslation(text: string): boolean {
@@ -95,7 +99,9 @@ export function renderContext(a: AnalyzeInputArticle, opts: { annotateQuoted?: b
   const media = (a.xPost?.media ?? a.media ?? []) as Array<{ kind?: string }>;
   const images = media.filter((m) => m.kind === "image").length;
   const videos = media.filter((m) => m.kind === "video").length;
-  const mediaParts = [images ? `${images} 张图` : null, videos ? `${videos} 个视频` : null, unfetchedXArticle(a) ? "含 X 长文链接（正文未抓到）" : null].filter(Boolean);
+  const mediaParts = [images ? `${images} 张图` : null, videos ? `${videos} 个视频` : null, unfetchedXArticle(a) ? "含 X 长文链接（正文未抓到）" : null].filter(
+    Boolean,
+  );
   if (mediaParts.length) lines.push(`【媒体】${mediaParts.join(" · ")}`);
   lines.push(`【原文链接】${a.url}`);
   lines.push(`【标题】${a.title}`);
@@ -257,7 +263,10 @@ export function compactAnswerFirstSummary(summary: string, maxChars = 190): stri
 function answerFirstSummaryLengthOk(summary: string, input: TranslateInput): boolean {
   const trimmed = summary.trim();
   const sourceLength = (input.sourceKind === "x_search" ? input.text : cleanArticleTextForLLM(input.text)).trim().length;
-  const sentences = trimmed.split(/[。！？!?]+/u).map((p) => p.trim()).filter(Boolean).length;
+  const sentences = trimmed
+    .split(/[。！？!?]+/u)
+    .map((p) => p.trim())
+    .filter(Boolean).length;
   const rich = sourceLength >= 500;
   return trimmed.length <= 200 && trimmed.length >= (rich ? 80 : 50) && sentences <= 3 && (!rich || sentences >= 2);
 }
@@ -299,12 +308,18 @@ function quotedBlock(input: TranslateInput, name: string): string {
 
 export function buildShortTweetPrompt(input: TranslateInput): string {
   const post = clampText(input.mainText || input.text || input.title, 4000);
-  return promptText("summarize-short-post", { sourceName: sourceName(input.sourceName), identity: identityPrompt(input), post }) + quotedBlock(input, "summarize-short-post-quoted");
+  return (
+    promptText("summarize-short-post", { sourceName: sourceName(input.sourceName), identity: identityPrompt(input), post }) +
+    quotedBlock(input, "summarize-short-post-quoted")
+  );
 }
 
 export function buildLongTweetPrompt(input: TranslateInput): string {
   const post = clampText(input.mainText || input.text || input.title, 4000);
-  return promptText("summarize-long-post", { sourceName: sourceName(input.sourceName), identity: identityPrompt(input), post }) + quotedBlock(input, "summarize-long-post-quoted");
+  return (
+    promptText("summarize-long-post", { sourceName: sourceName(input.sourceName), identity: identityPrompt(input), post }) +
+    quotedBlock(input, "summarize-long-post-quoted")
+  );
 }
 
 /** Prompt lines a model sometimes repeats after its answer (来源：…, 【已核验身份上下文】…, 原始标题：…). */
@@ -329,15 +344,30 @@ export function parseTranslateOutput(text: string): { titleZh: string; summaryZh
   for (let i = 0; i < lines.length; i += 1) {
     const t = lines[i]!.trim();
     const title = t.match(/^title_zh\s*[:：]\s*(.*)$/);
-    if (title) { titleZh = title[1]!.trim(); titleLine = i; continue; }
+    if (title) {
+      titleZh = title[1]!.trim();
+      titleLine = i;
+      continue;
+    }
     const summary = t.match(/^summary_zh\s*[:：]\s*(.*)$/);
-    if (summary) { summaryZh = summary[1]!.trim(); summaryLine = i; continue; }
+    if (summary) {
+      summaryZh = summary[1]!.trim();
+      summaryLine = i;
+      continue;
+    }
     const body = t.match(/^body_zh\s*[:：]\s*(.*)$/);
-    if (body) { bodyZh = body[1]!.trim(); bodyLine = i; continue; }
+    if (body) {
+      bodyZh = body[1]!.trim();
+      bodyLine = i;
+      continue;
+    }
   }
   // A title without a labelled summary or body: the lines after it are the summary.
   if (titleZh && !summaryZh && bodyLine < 0 && titleLine >= 0) {
-    const rest = lines.slice(titleLine + 1).map((l) => l.trim()).filter(Boolean);
+    const rest = lines
+      .slice(titleLine + 1)
+      .map((l) => l.trim())
+      .filter(Boolean);
     if (rest.length) summaryZh = rest.join("\n");
   }
   // A summary split over lines: join the unlabelled lines after it.

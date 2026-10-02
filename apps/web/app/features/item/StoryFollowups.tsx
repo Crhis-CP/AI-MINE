@@ -25,27 +25,48 @@ export function StoryFollowups({ story, currentId }: { story: StoryRef; currentI
           if (!body || controller.signal.aborted) return;
           setItems(body.items.filter((d) => d.representative.id !== currentId));
           setMore(body.more);
-        }).catch(() => {});
+        })
+        .catch(() => {});
     };
-    const observer = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) { observer?.disconnect(); load(); }
-    }, { rootMargin: "500px" });
+    const observer =
+      typeof IntersectionObserver === "undefined"
+        ? null
+        : new IntersectionObserver(
+            (entries) => {
+              if (entries.some((e) => e.isIntersecting)) {
+                observer?.disconnect();
+                load();
+              }
+            },
+            { rootMargin: "500px" },
+          );
     if (observer && anchor.current) observer.observe(anchor.current);
     else load();
-    return () => { observer?.disconnect(); controller.abort(); };
+    return () => {
+      observer?.disconnect();
+      controller.abort();
+    };
   }, [story.publicId, currentId]);
-  return <div ref={anchor}>
-    <noscript><a href={`/story/${story.publicId}`}>查看事件全部后续</a></noscript>
-    {items && items.length > 0 && <Followups items={items} more={more} story={story} />}
-  </div>;
+  return (
+    <div ref={anchor}>
+      <noscript>
+        <a href={`/story/${story.publicId}`}>查看事件全部后续</a>
+      </noscript>
+      {items && items.length > 0 && <Followups items={items} more={more} story={story} />}
+    </div>
+  );
 }
 
-function Followups({items, more, story}: {items: StoryFollowup[]; more: boolean; story: StoryRef}) {
+function Followups({ items, more, story }: { items: StoryFollowup[]; more: boolean; story: StoryRef }) {
   return (
     <section className="mt-10 border-t border-line pt-5">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-[14px] font-semibold text-ink">
-          事件后续 <span className="num font-normal text-ink-4">· {items.length}{more ? "+" : ""}</span>
+          事件后续{" "}
+          <span className="num font-normal text-ink-4">
+            · {items.length}
+            {more ? "+" : ""}
+          </span>
         </h2>
         <MoreLink to={`/story/${story.publicId}`}>查看事件全部</MoreLink>
       </div>

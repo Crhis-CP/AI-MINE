@@ -40,7 +40,10 @@ export function meta({ loaderData }: Route.MetaArgs) {
       breadcrumbLd(
         board.key === "overall"
           ? [{ name: "模型榜", path: "/leaderboard" }]
-          : [{ name: "模型榜", path: "/leaderboard" }, { name: `${board.name}榜`, path }],
+          : [
+              { name: "模型榜", path: "/leaderboard" },
+              { name: `${board.name}榜`, path },
+            ],
       ),
     ],
   });
@@ -95,7 +98,8 @@ export default function LeaderboardPage() {
         <section className="card p-5">
           <h2 className="text-[14px] font-semibold text-ink">关于价格</h2>
           <p className="mt-2 text-[13px] leading-relaxed text-ink-3">
-            API 价格来自厂商官网，按每百万 Token 展示。{run.fx ? `美元报价按 ${run.fx.asOf} 汇率折算成人民币。` : ""}缓存价格指命中后的输入价格，缓存写入、存储及订阅费用另计。
+            API 价格来自厂商官网，按每百万 Token 展示。{run.fx ? `美元报价按 ${run.fx.asOf} 汇率折算成人民币。` : ""}
+            缓存价格指命中后的输入价格，缓存写入、存储及订阅费用另计。
           </p>
         </section>
       </div>

@@ -38,7 +38,8 @@ test("only a complete status id at the expected path identifies a tweet", () => 
     "https://x.com/openai/status/1234567890junk",
     "https://x.com/openai/status/",
     "https://x.com/openai/status/not-a-number",
-  ]) assert.equal(tweetIdFromUrl(url), null, url);
+  ])
+    assert.equal(tweetIdFromUrl(url), null, url);
 });
 
 test("invalid and non-HTTP URLs cannot acquire a tweet identity", () => {

@@ -30,14 +30,19 @@ async function evaluate(rows: RelationGoldRow[], providerUrl: string, concurrenc
   try {
     const gold = path.join(dir, "gold.jsonl");
     writeFileSync(gold, rows.map((item) => JSON.stringify(item)).join("\n"));
-    const { stdout } = await exec(process.execPath, [
-      "scripts/eval-relations.ts", "--gold", gold, "--models", "deepseek-flash", "--concurrency", String(concurrency),
-    ], {
-      cwd: REPO_ROOT,
-      env: { ...process.env, MODEL_CALLS_ENABLED: "true", DEEPSEEK_BASE_URL: `${providerUrl}/v1`, DEEPSEEK_API_KEY: "test-key" },
-      timeout: 15_000,
-    });
-    report = stdout.split("\n").find((line) => line.startsWith("report: "))?.slice(8);
+    const { stdout } = await exec(
+      process.execPath,
+      ["scripts/eval-relations.ts", "--gold", gold, "--models", "deepseek-flash", "--concurrency", String(concurrency)],
+      {
+        cwd: REPO_ROOT,
+        env: { ...process.env, MODEL_CALLS_ENABLED: "true", DEEPSEEK_BASE_URL: `${providerUrl}/v1`, DEEPSEEK_API_KEY: "test-key" },
+        timeout: 15_000,
+      },
+    );
+    report = stdout
+      .split("\n")
+      .find((line) => line.startsWith("report: "))
+      ?.slice(8);
     assert.ok(report, stdout);
     return (JSON.parse(readFileSync(report, "utf8")) as { models: Record<string, Result> }).models["deepseek-flash"]!;
   } finally {
@@ -65,8 +70,7 @@ test("identical pair inputs retain every gold case on both cold and cached evalu
     assert.equal(new Set(result.cases.map((item) => item.caseId)).size, 3);
   }
   assert.deepEqual(cold.confusionMatrix, warm.confusionMatrix);
-  assert.equal(cold.cases.find((item) => item.caseId === "duplicate-1")!.receiptId,
-    cold.cases.find((item) => item.caseId === "duplicate-2")!.receiptId);
+  assert.equal(cold.cases.find((item) => item.caseId === "duplicate-1")!.receiptId, cold.cases.find((item) => item.caseId === "duplicate-2")!.receiptId);
 });
 
 test("failed duplicate inputs share one attempt and a later retry retains all response usage", async (t) => {

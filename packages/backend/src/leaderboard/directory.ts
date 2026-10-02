@@ -24,10 +24,17 @@ export async function importModelDirectory(file = DIRECTORY_FILE): Promise<{ mod
   let models = 0;
   for (const chunk of chunks(dir.models, 500)) {
     const rows = chunk.map(([slug, name, provider, providerSlug, releasedOn]) => ({
-      id: createId(), slug, name, provider, provider_slug: providerSlug, released_at: releasedOn,
-      release_date_source: releasedOn ? "directory" : null, metadata_source: "directory",
+      id: createId(),
+      slug,
+      name,
+      provider,
+      provider_slug: providerSlug,
+      released_at: releasedOn,
+      release_date_source: releasedOn ? "directory" : null,
+      metadata_source: "directory",
     }));
-    const res = await sql`INSERT INTO lb_models ${sql(rows, "id", "slug", "name", "provider", "provider_slug", "released_at", "release_date_source", "metadata_source")}
+    const res =
+      await sql`INSERT INTO lb_models ${sql(rows, "id", "slug", "name", "provider", "provider_slug", "released_at", "release_date_source", "metadata_source")}
                           ON CONFLICT (slug) DO NOTHING`;
     models += res.count;
   }
@@ -35,7 +42,8 @@ export async function importModelDirectory(file = DIRECTORY_FILE): Promise<{ mod
   const aliasRows = Object.entries(dir.aliases).flatMap(([sourceKey, names]) =>
     Object.entries(names)
       .filter(([, slug]) => ids.has(slug))
-      .map(([alias, slug]) => ({ id: createId(), source_key: sourceKey, alias, normalized_alias: slug, model_id: ids.get(slug)! })));
+      .map(([alias, slug]) => ({ id: createId(), source_key: sourceKey, alias, normalized_alias: slug, model_id: ids.get(slug)! })),
+  );
   let aliases = 0;
   for (const chunk of chunks(aliasRows, 1000)) {
     const res = await sql`INSERT INTO lb_aliases ${sql(chunk, "id", "source_key", "alias", "normalized_alias", "model_id")}

@@ -15,7 +15,9 @@ export function normalizeTags(v: unknown, opts: { max?: number; fallbackCategory
   const raw = Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,，]/g) : [];
   const tags: string[] = [];
   for (const x of raw) {
-    const t = String(x ?? "").trim().replace(/^#/, "");
+    const t = String(x ?? "")
+      .trim()
+      .replace(/^#/, "");
     const tag = TAG_SYNONYMS[t] ?? TAG_SYNONYMS[t.toLowerCase()] ?? t;
     if (tag && ALLOWED_TAGS.has(tag) && !tags.includes(tag)) tags.push(tag);
   }

@@ -64,9 +64,7 @@ export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}
   // nominal 20 s image request to occupy the API for minutes.
   const signal = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
   const route = opts.route ?? "egress";
-  const check = (target: string) => withinDeadline(
-    assertPublicUrl(target, config.allowPrivateNetworkFetch, proxied(new URL(target), route)), signal,
-  );
+  const check = (target: string) => withinDeadline(assertPublicUrl(target, config.allowPrivateNetworkFetch, proxied(new URL(target), route)), signal);
   let url = await check(input);
   const maxRedirects = opts.maxRedirects ?? 5;
   const maxBytes = opts.maxBytes ?? 8 * 1024 * 1024;
@@ -111,9 +109,12 @@ async function withinDeadline<T>(work: Promise<T>, signal: AbortSignal): Promise
   signal.throwIfAborted();
   let subscription: ReturnType<typeof addAbortListener> | undefined;
   try {
-    return await Promise.race([work, new Promise<never>((_resolve, reject) => {
-      subscription = addAbortListener(signal, () => reject(signal.reason));
-    })]);
+    return await Promise.race([
+      work,
+      new Promise<never>((_resolve, reject) => {
+        subscription = addAbortListener(signal, () => reject(signal.reason));
+      }),
+    ]);
   } finally {
     subscription?.[Symbol.dispose]();
   }

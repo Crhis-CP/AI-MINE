@@ -19,18 +19,31 @@ const { xView } = await import("@aihot/backend/publication/items");
 
 let imageHits = 0;
 let failureHits = 0;
-const png = await sharp({ create: { width: 800, height: 400, channels: 3, background: "#176b75" } }).png().toBuffer();
+const png = await sharp({ create: { width: 800, height: 400, channels: 3, background: "#176b75" } })
+  .png()
+  .toBuffer();
 // Ten noisy 160×120 frames: a GIF that animated WebP clearly beats.
-const frames = await sharp({ create: { width: 160, height: 1200, channels: 3, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 40 } } }).raw().toBuffer();
-const animatedGif = await sharp(frames, { raw: { width: 160, height: 1200, channels: 3, pageHeight: 120 } }).gif({ loop: 0, delay: Array(10).fill(90) }).toBuffer();
+const frames = await sharp({ create: { width: 160, height: 1200, channels: 3, background: "#808080", noise: { type: "gaussian", mean: 128, sigma: 40 } } })
+  .raw()
+  .toBuffer();
+const animatedGif = await sharp(frames, { raw: { width: 160, height: 1200, channels: 3, pageHeight: 120 } })
+  .gif({ loop: 0, delay: Array(10).fill(90) })
+  .toBuffer();
 const server = createServer(async (req, res) => {
-  if (req.url === "/anim.gif") { res.writeHead(200, { "content-type": "image/gif" }); return res.end(animatedGif); }
+  if (req.url === "/anim.gif") {
+    res.writeHead(200, { "content-type": "image/gif" });
+    return res.end(animatedGif);
+  }
   if (req.url?.startsWith("/redirect/")) {
     await new Promise((resolve) => setTimeout(resolve, 80));
     res.writeHead(302, { location: `/redirect/${Number(req.url.split("/").pop()) + 1}` });
     return res.end();
   }
-  if (req.url === "/fail") { failureHits++; res.writeHead(502); return res.end(); }
+  if (req.url === "/fail") {
+    failureHits++;
+    res.writeHead(502);
+    return res.end();
+  }
   imageHits++;
   await new Promise((resolve) => setTimeout(resolve, 60));
   res.writeHead(200, { "content-type": "image/png" });
@@ -51,7 +64,12 @@ test("one timeout covers the complete redirect chain", async () => {
 });
 
 test("simultaneous modes share original bytes, preserve dimensions and use their disk caches", async () => {
-  const [thumb, full, avatar, card] = await Promise.all([produceImage(`${base}/image`, "thumb"), produceImage(`${base}/image`, "full"), produceImage(`${base}/image`, "avatar"), produceImage(`${base}/image`, "card")]);
+  const [thumb, full, avatar, card] = await Promise.all([
+    produceImage(`${base}/image`, "thumb"),
+    produceImage(`${base}/image`, "full"),
+    produceImage(`${base}/image`, "avatar"),
+    produceImage(`${base}/image`, "card"),
+  ]);
   assert.equal(imageHits, 1);
   assert.deepEqual(await Promise.all([thumb, full, avatar, card].map(async (image) => (await sharp(image.body).metadata()).width)), [720, 800, 96, 336]);
   assert.deepEqual(await produceImage(`${base}/image`, "thumb"), thumb);
@@ -65,7 +83,10 @@ test("failed originals are not retried for every mode", async () => {
 });
 
 test("site media exposes responsive previews and full lightboxes while RSS retains thumb images", () => {
-  const row = { zh_text: null, x_post: { media: [{ url: "https://example.org/1.png" }, { url: "https://example.org/2.png", poster: "https://example.org/poster.png" }] } };
+  const row = {
+    zh_text: null,
+    x_post: { media: [{ url: "https://example.org/1.png" }, { url: "https://example.org/2.png", poster: "https://example.org/poster.png" }] },
+  };
   assert.ok(xView(row, true)!.media.every((m) => m.url.includes("mode=card") && m.fullUrl?.includes("mode=full")));
   assert.ok(xView(row, true)!.media[1]!.poster!.includes("mode=card"));
   assert.ok(xView(row)!.media.every((m) => m.url.includes("mode=thumb") && m.fullUrl === undefined));
@@ -81,7 +102,15 @@ test("concurrent cold OG and poster requests all succeed with identical cached b
   const cards = await Promise.all(Array.from({ length: 6 }, () => renderOg(card)));
   for (const result of cards) assert.deepEqual(result, cards[0]);
   assert.equal((await sharp(cards[0]!.png).metadata()).width, 1200);
-  const poster = { url: "https://example.com/items/test", kicker: "测试", title: "海报并发验证", summary: null, source: "测试来源", date: "2026-09-28", score: null };
+  const poster = {
+    url: "https://example.com/items/test",
+    kicker: "测试",
+    title: "海报并发验证",
+    summary: null,
+    source: "测试来源",
+    date: "2026-09-28",
+    score: null,
+  };
   const posters = await Promise.all(Array.from({ length: 4 }, () => renderPoster(poster)));
   for (const result of posters) assert.deepEqual(result, posters[0]);
   assert.equal((await sharp(posters[0]!.png).metadata()).width, 1080);
@@ -113,7 +142,9 @@ test("the original cache expires and evicts old entries instead of retaining eve
 
 test("modern raster output preserves transparency and never flattens animation", async () => {
   const { resizeImage } = await import("@aihot/backend/media/images");
-  const translucent = await sharp({ create: { width: 32, height: 24, channels: 4, background: { r: 10, g: 80, b: 160, alpha: 0.25 } } }).png().toBuffer();
+  const translucent = await sharp({ create: { width: 32, height: 24, channels: 4, background: { r: 10, g: 80, b: 160, alpha: 0.25 } } })
+    .png()
+    .toBuffer();
   const rendered = await resizeImage(translucent, "image/png", "image-720");
   assert.equal(rendered.type, "image/webp");
   const meta = await sharp(rendered.body).metadata();
@@ -123,7 +154,9 @@ test("modern raster output preserves transparency and never flattens animation",
   const originalAlpha = await sharp(translucent).extractChannel("alpha").raw().toBuffer();
   assert.deepEqual(await sharp(rendered.body).extractChannel("alpha").raw().toBuffer(), originalAlpha);
   const pixels = Buffer.from([...Array(4).fill([255, 0, 0, 255]).flat(), ...Array(4).fill([0, 0, 255, 128]).flat()]);
-  const gif = await sharp(pixels, { raw: { width: 2, height: 4, pageHeight: 2, channels: 4 } }).gif({ loop: 2, delay: [80, 160] }).toBuffer();
+  const gif = await sharp(pixels, { raw: { width: 2, height: 4, pageHeight: 2, channels: 4 } })
+    .gif({ loop: 2, delay: [80, 160] })
+    .toBuffer();
   assert.equal((await sharp(gif).metadata()).pages, 2);
   const animation = await resizeImage(gif, "image/gif", "image-336");
   assert.equal(animation.type, "image/gif");
@@ -158,8 +191,8 @@ test("responsive URLs and web body candidates retain exact signatures and stable
     assert.equal(verifyProxyRequest({ ...query, mode: "image-1600" }, now).ok, false);
   }
   const html = '<p><img src="https://example.org/image.png?a=1&amp;b=2" width="800" height="400"></p>';
-  assert.ok(!proxyBodyImages('<img src="https://example.org/small.png" width="160" height="80">').includes('srcset='));
-  assert.ok(!proxyBodyImages('<img src="https://example.org/unknown.png">').includes('srcset='));
+  assert.ok(!proxyBodyImages('<img src="https://example.org/small.png" width="160" height="80">').includes("srcset="));
+  assert.ok(!proxyBodyImages('<img src="https://example.org/unknown.png">').includes("srcset="));
   const web = proxyBodyImages(html);
   assert.match(web, /srcset="[^"]+image-720/);
   assert.match(web, /loading="lazy"/);
@@ -221,7 +254,9 @@ test("preparation finds every rendition a card and a page ask for, including esc
     { avatar: proxiedImage("https://example.org/a.png?x=1&y=2", "avatar-48"), srcSet: proxiedImageSet("https://example.org/c.png", "card") },
     { html: proxyBodyImages('<img src="https://example.org/b.png?q=1&amp;r=2" width="800" height="400">') },
   ];
-  const found = proxiedRenditions(answers).map((r) => `${r.mode} ${r.url}`).sort();
+  const found = proxiedRenditions(answers)
+    .map((r) => `${r.mode} ${r.url}`)
+    .sort();
   assert.deepEqual(found, [
     "avatar-48 https://example.org/a.png?x=1&y=2",
     "full https://example.org/b.png?q=1&r=2",

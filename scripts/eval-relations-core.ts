@@ -94,9 +94,7 @@ export function parseRelationGoldJsonl(text: string): RelationGoldRow[] {
     const caseId = stringField(obj, "caseId", line);
     if (ids.has(caseId)) throw new Error(`line ${line}: duplicate caseId ${caseId}`);
     ids.add(caseId);
-    const sampling = obj.samplingContext === undefined
-      ? undefined
-      : record(obj.samplingContext, line, "samplingContext");
+    const sampling = obj.samplingContext === undefined ? undefined : record(obj.samplingContext, line, "samplingContext");
     const gold = record(obj.gold, line, "gold");
     rows.push({
       caseId,
@@ -129,13 +127,10 @@ export function toReportView(report: RelationGoldReport): ReportView {
 
 function rng(seed: number) {
   let state = seed >>> 0;
-  return () => ((state = (state * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  return () => (state = (state * 1664525 + 1013904223) >>> 0) / 2 ** 32;
 }
 
-export function sampleRelationGold(
-  rows: RelationGoldRow[],
-  opts: { split?: string; n?: number; seed?: number } = {},
-): RelationGoldRow[] {
+export function sampleRelationGold(rows: RelationGoldRow[], opts: { split?: string; n?: number; seed?: number } = {}): RelationGoldRow[] {
   const split = opts.split ?? "all";
   const n = opts.n ?? rows.length;
   const seed = opts.seed ?? 7;
@@ -150,14 +145,16 @@ export function sampleRelationGold(
 
 /** A user-supplied split may contain path separators; report names must stay inside .data/eval. */
 export function safeReportNamePart(value: string): string {
-  const safe = value.trim().replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+  const safe = value
+    .trim()
+    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
   return safe || "all";
 }
 
 function emptyMatrix(): RelationMatrix {
-  return Object.fromEntries(
-    RELATIONS.map((gold) => [gold, Object.fromEntries(RELATIONS.map((predicted) => [predicted, 0]))]),
-  ) as RelationMatrix;
+  return Object.fromEntries(RELATIONS.map((gold) => [gold, Object.fromEntries(RELATIONS.map((predicted) => [predicted, 0]))])) as RelationMatrix;
 }
 
 function round(value: number): number {
@@ -195,7 +192,10 @@ export function relationMetrics(predictions: RelationPrediction[], totalCases = 
 const STORY_POSITIVE = new Set<Relation>(["SAME_OCCURRENCE", "SAME_STORY"]);
 
 export function storyTieMetrics(predictions: RelationPrediction[], threshold: number) {
-  let tp = 0, fp = 0, fn = 0, tn = 0;
+  let tp = 0,
+    fp = 0,
+    fn = 0,
+    tn = 0;
   for (const prediction of predictions) {
     const gold = STORY_POSITIVE.has(prediction.gold);
     const predicted = STORY_POSITIVE.has(prediction.relation) && prediction.confidence >= threshold;

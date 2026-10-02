@@ -9,8 +9,27 @@ import { toast } from "../../features/admin/toast";
 
 interface Settings {
   contact: { wechatQr: string; feishuQr: string };
-  targets: Array<{ key: string; purpose: string; kind: string; enabled: boolean; enabled_at: string | null; config_ref: string | null; note: string | null; deliveries_7d: number; last_sent_at: string | null }>;
-  budgets: Array<{ service: string; per_minute: number; per_hour: number; per_day: number; note: string | null; updated_at: string; used_day: number; used_hour: number }>;
+  targets: Array<{
+    key: string;
+    purpose: string;
+    kind: string;
+    enabled: boolean;
+    enabled_at: string | null;
+    config_ref: string | null;
+    note: string | null;
+    deliveries_7d: number;
+    last_sent_at: string | null;
+  }>;
+  budgets: Array<{
+    service: string;
+    per_minute: number;
+    per_hour: number;
+    per_day: number;
+    note: string | null;
+    updated_at: string;
+    used_day: number;
+    used_hour: number;
+  }>;
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -47,7 +66,9 @@ function QrSlot({ slot, label, src }: { slot: "wechatQr" | "feishuQr"; label: st
             await run("POST", "/api/admin/settings/contact-qr", { slot, image }, { label: `qr-${slot}`, success: `${label}已更换，关于页 5 分钟内更新` });
           }}
         />
-        <Button className="mt-2" size="sm" busy={pending === `qr-${slot}`} onClick={() => input.current?.click()}>更换图片</Button>
+        <Button className="mt-2" size="sm" busy={pending === `qr-${slot}`} onClick={() => input.current?.click()}>
+          更换图片
+        </Button>
       </div>
     </div>
   );
@@ -66,9 +87,13 @@ function BudgetRow({ b }: { b: Settings["budgets"][number] }) {
           <Input type="number" min={0} className="!w-24 !py-1 text-right" value={v[k]} onChange={(e) => setV({ ...v, [k]: Number(e.target.value) })} />
         </td>
       ))}
-      <td className="num px-3 py-2 text-right text-ink-3">{num(b.used_hour)} / {num(b.used_day)}</td>
+      <td className="num px-3 py-2 text-right text-ink-3">
+        {num(b.used_hour)} / {num(b.used_day)}
+      </td>
       <td className="px-3 py-2 text-right">
-        <Button size="sm" tone="primary" disabled={!changed} onClick={() => setOpen(true)}>保存</Button>
+        <Button size="sm" tone="primary" disabled={!changed} onClick={() => setOpen(true)}>
+          保存
+        </Button>
         <ReasonDialog
           open={open}
           title={`调整 ${b.service} 的请求上限`}
@@ -76,7 +101,9 @@ function BudgetRow({ b }: { b: Settings["budgets"][number] }) {
           confirmLabel="保存"
           busy={pending === "budget"}
           onClose={() => setOpen(false)}
-          onSubmit={async (reason) => (await run("PUT", `/api/admin/budgets/${encodeURIComponent(b.service)}`, { ...v, reason }, { label: "budget", success: "上限已更新" })) !== null}
+          onSubmit={async (reason) =>
+            (await run("PUT", `/api/admin/budgets/${encodeURIComponent(b.service)}`, { ...v, reason }, { label: "budget", success: "上限已更新" })) !== null
+          }
         />
       </td>
     </tr>
@@ -88,7 +115,9 @@ function TargetToggle({ t }: { t: Settings["targets"][number] }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" tone={t.enabled ? "danger" : "primary"} onClick={() => setOpen(true)}>{t.enabled ? "停用" : "启用"}</Button>
+      <Button size="sm" tone={t.enabled ? "danger" : "primary"} onClick={() => setOpen(true)}>
+        {t.enabled ? "停用" : "启用"}
+      </Button>
       <ReasonDialog
         open={open}
         title={`${t.enabled ? "停用" : "启用"}：${t.note ?? t.key}`}
@@ -97,7 +126,14 @@ function TargetToggle({ t }: { t: Settings["targets"][number] }) {
         confirmLabel={t.enabled ? "停用" : "启用"}
         busy={pending === "target"}
         onClose={() => setOpen(false)}
-        onSubmit={async (reason) => (await run("POST", `/api/admin/notify-targets/${encodeURIComponent(t.key)}`, { enabled: !t.enabled, reason }, { label: "target", success: "已更新" })) !== null}
+        onSubmit={async (reason) =>
+          (await run(
+            "POST",
+            `/api/admin/notify-targets/${encodeURIComponent(t.key)}`,
+            { enabled: !t.enabled, reason },
+            { label: "target", success: "已更新" },
+          )) !== null
+        }
       />
     </>
   );
@@ -118,7 +154,18 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
             rows={s.targets}
             rowKey={(t) => t.key}
             columns={[
-              { key: "k", label: "目的地", render: (t) => <div><div className="font-medium text-ink">{t.note ?? t.key}</div><div className="font-mono text-[11.5px] text-ink-4">{t.key} · {t.config_ref}</div></div> },
+              {
+                key: "k",
+                label: "目的地",
+                render: (t) => (
+                  <div>
+                    <div className="font-medium text-ink">{t.note ?? t.key}</div>
+                    <div className="font-mono text-[11.5px] text-ink-4">
+                      {t.key} · {t.config_ref}
+                    </div>
+                  </div>
+                ),
+              },
               { key: "e", label: "状态", render: (t) => (t.enabled ? <Badge tone="ok">启用于 {bj(t.enabled_at)}</Badge> : <Badge>停用</Badge>) },
               { key: "d", label: "7 天投递", align: "right", render: (t) => num(t.deliveries_7d) },
               { key: "a", label: "", align: "right", render: (t) => <TargetToggle t={t} /> },
@@ -139,7 +186,11 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
                 <th />
               </tr>
             </thead>
-            <tbody>{s.budgets.map((b) => <BudgetRow key={`${b.service}-${b.updated_at}`} b={b} />)}</tbody>
+            <tbody>
+              {s.budgets.map((b) => (
+                <BudgetRow key={`${b.service}-${b.updated_at}`} b={b} />
+              ))}
+            </tbody>
           </table>
         </div>
       </Card>

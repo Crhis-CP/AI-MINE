@@ -21,14 +21,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
   { variant = "secondary", size = "md", className = "", ...rest },
   ref,
 ) {
-  return (
-    <button
-      ref={ref}
-      type="button"
-      className={`${buttonClass(variant, size)} ${className}`}
-      {...rest}
-    />
-  );
+  return <button ref={ref} type="button" className={`${buttonClass(variant, size)} ${className}`} {...rest} />;
 });
 
 /** Native select as a pill, like the site's other controls. */

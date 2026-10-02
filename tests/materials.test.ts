@@ -19,8 +19,10 @@ before(async () => {
 after(() => closeDb());
 
 const state = async (id: string) =>
-  (await sql<{ revision: number; title: string; content_hash: string | null; processing_state: string }[]>`
-    SELECT revision, title, content_hash, processing_state FROM articles WHERE id = ${id}`)[0]!;
+  (
+    await sql<{ revision: number; title: string; content_hash: string | null; processing_state: string }[]>`
+    SELECT revision, title, content_hash, processing_state FROM articles WHERE id = ${id}`
+  )[0]!;
 
 /** An article as a history import writes it: imported content, no hash, no history row, analysed. */
 async function imported(url: string) {
@@ -40,7 +42,10 @@ test("concurrent changes to one article each get a revision", async () => {
   const [article] = await sql<{ revision: number }[]>`SELECT revision FROM articles WHERE id = ${first.articleId}`;
   const history = await sql<{ revision: number }[]>`SELECT revision FROM article_revisions WHERE article_id = ${first.articleId} ORDER BY revision`;
   assert.equal(article!.revision, 7);
-  assert.deepEqual(history.map((h) => h.revision), [1, 2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(
+    history.map((h) => h.revision),
+    [1, 2, 3, 4, 5, 6, 7],
+  );
 });
 
 test("an unchanged report does not add a revision", async () => {
@@ -87,7 +92,10 @@ test("another source listing the same article records a discovery, not a revisio
   const a = await state(own.articleId);
   assert.deepEqual([a.revision, a.title], [1, "One month without AI"]);
   const found = await sql<{ source_id: string }[]>`SELECT source_id FROM article_discoveries WHERE article_id = ${own.articleId}`;
-  assert.ok(found.some((d) => d.source_id === OTHER), "the other source still counts as a discovery");
+  assert.ok(
+    found.some((d) => d.source_id === OTHER),
+    "the other source still counts as a discovery",
+  );
 });
 
 test("an article linking to a tweet is stored separately from the tweet", async () => {
@@ -95,14 +103,20 @@ test("an article linking to a tweet is stored separately from the tweet", async 
   const url = `https://x.com/openai/status/${tweetId}`;
   const tweet = await upsertMaterial({ sourceId: SOURCE, url, title: "Original tweet", via: "fetch" });
   const article = await upsertMaterial({
-    sourceId: OTHER, url: `https://example.com/report-${tag()}?related=${url}`, title: "Independent report", via: "fetch",
+    sourceId: OTHER,
+    url: `https://example.com/report-${tag()}?related=${url}`,
+    title: "Independent report",
+    via: "fetch",
   });
   assert.equal(article.created, true);
   assert.notEqual(article.articleId, tweet.articleId);
   assert.equal((await state(tweet.articleId)).title, "Original tweet");
   assert.equal((await state(article.articleId)).title, "Independent report");
   const alias = await upsertMaterial({
-    sourceId: OTHER, url: `https://twitter.com/openai/status/${tweetId}`, title: "Tweet alias", via: "fetch",
+    sourceId: OTHER,
+    url: `https://twitter.com/openai/status/${tweetId}`,
+    title: "Tweet alias",
+    via: "fetch",
   });
   assert.equal(alias.created, false);
   assert.equal(alias.articleId, tweet.articleId);

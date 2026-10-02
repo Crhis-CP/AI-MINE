@@ -5,13 +5,26 @@ import { sessionCache } from "../app/features/feed/session-cache.ts";
 // Test storage semantics at the browser boundary, including denied storage and document teardown.
 test("history cache batches writes and survives eviction, expiry and storage denial", async () => {
   const values = new Map<string, string>();
-  let reads = 0, writes = 0;
+  let reads = 0,
+    writes = 0;
   const storage = {
-    get length() { return values.size; },
-    key(index: number) { return [...values.keys()][index] ?? null; },
-    getItem(key: string) { reads++; return values.get(key) ?? null; },
-    setItem(key: string, value: string) { writes++; values.set(key, value); },
-    removeItem(key: string) { values.delete(key); },
+    get length() {
+      return values.size;
+    },
+    key(index: number) {
+      return [...values.keys()][index] ?? null;
+    },
+    getItem(key: string) {
+      reads++;
+      return values.get(key) ?? null;
+    },
+    setItem(key: string, value: string) {
+      writes++;
+      values.set(key, value);
+    },
+    removeItem(key: string) {
+      values.delete(key);
+    },
   };
   const windowTarget = new EventTarget();
   const documentTarget = Object.assign(new EventTarget(), { visibilityState: "visible" });
@@ -37,7 +50,12 @@ test("history cache batches writes and survives eviction, expiry and storage den
   assert.equal(values.has("test:expired"), false);
   values.set("test:broken", "{");
   assert.equal(cache.read("broken"), null);
-  Object.defineProperty(globalThis, "sessionStorage", { configurable: true, get() { throw new Error("denied"); } });
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    get() {
+      throw new Error("denied");
+    },
+  });
   cache.set("private", { savedAt: at, value: "memory" });
   cache.flush();
   assert.equal(cache.read("private")?.value, "memory");

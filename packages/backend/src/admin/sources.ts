@@ -52,7 +52,8 @@ export async function listSources(f: SourceListFilters) {
 export async function sourceDetail(id: string) {
   const [source] = await sql`SELECT * FROM sources WHERE id = ${id}`;
   if (!source) return null;
-  const runs = await sql`SELECT id, started_at, finished_at, status, found_count, new_count, error, detail FROM fetch_runs WHERE source_id = ${id} ORDER BY started_at DESC LIMIT 30`;
+  const runs =
+    await sql`SELECT id, started_at, finished_at, status, found_count, new_count, error, detail FROM fetch_runs WHERE source_id = ${id} ORDER BY started_at DESC LIMIT 30`;
   const items = await sql`
     SELECT a.id, a.title, a.url, a.discovered_at, a.published_at, a.processing_state, p.selected, p.visibility, p.title AS title_zh
     FROM articles a LEFT JOIN publications p ON p.article_id = a.id WHERE a.source_id = ${id} ORDER BY a.discovered_at DESC LIMIT 30`;
@@ -60,7 +61,8 @@ export async function sourceDetail(id: string) {
     SELECT count(*)::int AS total, count(*) FILTER (WHERE a.discovered_at > now() - interval '7 days')::int AS last7d,
            (SELECT count(*)::int FROM publications p WHERE p.source_id = ${id} AND p.selected) AS selected
     FROM articles a WHERE a.source_id = ${id}`;
-  const history = await sql`SELECT created_at, actor, action, reason, before, after FROM audit_log WHERE subject = ${`source:${id}`} ORDER BY created_at DESC LIMIT 20`;
+  const history =
+    await sql`SELECT created_at, actor, action, reason, before, after FROM audit_log WHERE subject = ${`source:${id}`} ORDER BY created_at DESC LIMIT 20`;
   const [republish] = await sql<{ value: Record<string, unknown> }[]>`SELECT value FROM settings WHERE key = ${republishKey(id)}`;
   return { source, runs, items, stats, history, republish: republish?.value ?? null };
 }
@@ -79,7 +81,9 @@ export async function previewSource(draft: Pick<SourceRow, "id" | "kind" | "conf
   return {
     ms: Date.now() - started,
     count: candidates.length,
-    items: candidates.slice(0, 20).map((c) => ({ title: c.title, url: c.url, publishedAt: c.publishedAt?.toISOString() ?? null, excerpt: (c.excerpt ?? c.bodyText ?? "").slice(0, 200) })),
+    items: candidates
+      .slice(0, 20)
+      .map((c) => ({ title: c.title, url: c.url, publishedAt: c.publishedAt?.toISOString() ?? null, excerpt: (c.excerpt ?? c.bodyText ?? "").slice(0, 200) })),
   };
 }
 
@@ -164,7 +168,9 @@ export function sourceIdentity(kind: string, config: Record<string, unknown>): s
 export async function findDuplicateSource(kind: string, config: Record<string, unknown>) {
   const identity = sourceIdentity(kind, config);
   if (!identity) return null;
-  const rows = await sql<{ id: string; kind: string; config: Record<string, unknown>; name: string }[]>`SELECT id, kind, config, name FROM sources WHERE kind = ${kind}`;
+  const rows = await sql<
+    { id: string; kind: string; config: Record<string, unknown>; name: string }[]
+  >`SELECT id, kind, config, name FROM sources WHERE kind = ${kind}`;
   return rows.find((r) => sourceIdentity(r.kind, r.config) === identity) ?? null;
 }
 

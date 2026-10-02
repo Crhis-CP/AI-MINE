@@ -25,9 +25,29 @@ import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { publishArticle } from "../publication/publish.ts";
 import { mergeStoryInto } from "./merge.ts";
 import {
-  BATCH_SYSTEM, BatchSchema, PAIR_SYSTEM, PairSchema, RELATE_PROMPT_VERSION, SIGNAL_SYSTEM, STORY_REVIEW_MIN_CONFIDENCE, SignalSchema, TIE_MIN_CONFIDENCE,
-  batchUser, firmlyTied, lexicalSimilarity, looksLikeRoundup, pairUser, reportText, sameOccurrence, signalTarget, storyForDevelopment, verdictsByFact,
-  type CandidateView, type Relation, type ReportView, type Verdict,
+  BATCH_SYSTEM,
+  BatchSchema,
+  PAIR_SYSTEM,
+  PairSchema,
+  RELATE_PROMPT_VERSION,
+  SIGNAL_SYSTEM,
+  STORY_REVIEW_MIN_CONFIDENCE,
+  SignalSchema,
+  TIE_MIN_CONFIDENCE,
+  batchUser,
+  firmlyTied,
+  lexicalSimilarity,
+  looksLikeRoundup,
+  pairUser,
+  reportText,
+  sameOccurrence,
+  signalTarget,
+  storyForDevelopment,
+  verdictsByFact,
+  type CandidateView,
+  type Relation,
+  type ReportView,
+  type Verdict,
 } from "./relate.ts";
 
 export const GROUP_PROMPT_VERSION = RELATE_PROMPT_VERSION;
@@ -83,8 +103,7 @@ export function participantKey(source: { id: string; signal_group_id: string | n
 // ---------------------------------------------------------------------------
 
 /** A membership is evidence unless its report waits for a regroup; a manual one always is. */
-const trusted = (alias: string) =>
-  sql`(${sql(alias)}.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = ${sql(alias)}.article_id))`;
+const trusted = (alias: string) => sql`(${sql(alias)}.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = ${sql(alias)}.article_id))`;
 
 /**
  * The fact that started a story: the one whose earliest trusted report came first. Fact ids do not
@@ -135,7 +154,10 @@ async function vectorsFor(items: Array<{ id: string; text: string }>): Promise<M
     else missing.push({ ...it, hash });
   }
   if (missing.length) {
-    const got = await ensureEmbeddings("article", missing.map((m) => ({ id: m.id, text: m.text })));
+    const got = await ensureEmbeddings(
+      "article",
+      missing.map((m) => ({ id: m.id, text: m.text })),
+    );
     for (const m of missing) {
       const v = got.get(m.id);
       if (!v) continue;
@@ -159,9 +181,12 @@ export async function warmRecallWindow(onProgress?: (done: number, total: number
   const ids = [...new Set((await recallPool(true)).map((r) => r.article_id))];
   const texts = await reportTexts(ids);
   const items = ids.map((id) => ({ id, text: texts.get(id) ?? "" })).filter((x) => x.text);
-  const stored = new Set((await sql<{ ref_id: string; text_hash: string }[]>`
-    SELECT ref_id, text_hash FROM embeddings WHERE kind = 'article' AND ref_id = ANY(${items.map((i) => i.id)})`)
-    .map((r) => `${r.ref_id}:${r.text_hash}`));
+  const stored = new Set(
+    (
+      await sql<{ ref_id: string; text_hash: string }[]>`
+    SELECT ref_id, text_hash FROM embeddings WHERE kind = 'article' AND ref_id = ANY(${items.map((i) => i.id)})`
+    ).map((r) => `${r.ref_id}:${r.text_hash}`),
+  );
   const missing = items.filter((i) => !stored.has(`${i.id}:${sha256(i.text)}`));
   let done = 0;
   for (let i = 0; i < missing.length; i += 100) {
@@ -184,7 +209,9 @@ export async function warmRecallWindow(onProgress?: (done: number, total: number
 }
 
 function cosine32(a: Float32Array, b: Float32Array): number {
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i]! * b[i]!;
     na += a[i]! * a[i]!;
@@ -239,10 +266,24 @@ async function recallFacts(queryId: string, queryText: string, minScore: number,
  */
 async function candidateViews(recalled: Recalled[]): Promise<CandidateView[]> {
   if (recalled.length === 0) return [];
-  const rows = await sql<{
-    fact_id: number; story_id: number; fact_title: string; subject: string | null; action: string | null; object: string | null; occurred_at: Date | null;
-    title: string; summary: string | null; source: string; first_party: boolean; at: Date; members: number; root_fact_id: number;
-  }[]>`
+  const rows = await sql<
+    {
+      fact_id: number;
+      story_id: number;
+      fact_title: string;
+      subject: string | null;
+      action: string | null;
+      object: string | null;
+      occurred_at: Date | null;
+      title: string;
+      summary: string | null;
+      source: string;
+      first_party: boolean;
+      at: Date;
+      members: number;
+      root_fact_id: number;
+    }[]
+  >`
     SELECT DISTINCT ON (fa.fact_id) fa.fact_id, f.story_id, f.title AS fact_title, f.subject, f.action, f.object, f.occurred_at,
            p.title, p.summary, s.name AS source, p.first_party, coalesce(p.published_at, p.discovered_at) AS at,
            (SELECT count(*) FROM fact_articles x WHERE x.fact_id = fa.fact_id AND x.role IN ('primary', 'report') AND ${trusted("x")}) AS members,
@@ -257,18 +298,29 @@ async function candidateViews(recalled: Recalled[]): Promise<CandidateView[]> {
   return recalled.flatMap((r) => {
     const row = byFact.get(r.factId);
     if (!row) return [];
-    return [{
-      factId: r.factId,
-      storyId: Number(row.story_id),
-      factTitle: row.fact_title,
-      members: Number(row.members),
-      storyRoot: Number(row.root_fact_id) === r.factId,
-      score: r.score,
-      report: {
-        title: row.title, source: row.source, firstParty: row.first_party, at: row.at, summary: row.summary,
-        frame: { subject: row.subject, action: row.action, object: row.object, occurredAt: row.occurred_at ? row.occurred_at.toISOString().slice(0, 10) : null },
+    return [
+      {
+        factId: r.factId,
+        storyId: Number(row.story_id),
+        factTitle: row.fact_title,
+        members: Number(row.members),
+        storyRoot: Number(row.root_fact_id) === r.factId,
+        score: r.score,
+        report: {
+          title: row.title,
+          source: row.source,
+          firstParty: row.first_party,
+          at: row.at,
+          summary: row.summary,
+          frame: {
+            subject: row.subject,
+            action: row.action,
+            object: row.object,
+            occurredAt: row.occurred_at ? row.occurred_at.toISOString().slice(0, 10) : null,
+          },
+        },
       },
-    }];
+    ];
   });
 }
 
@@ -278,8 +330,15 @@ async function candidateViews(recalled: Recalled[]): Promise<CandidateView[]> {
 
 async function judgeBatch(articleId: string, query: ReportView, cands: CandidateView[]): Promise<{ verdicts: Map<number, Verdict>; receiptId: number }> {
   const res = await chatJson({
-    model: await modelFor("group"), purpose: "group_article", subject: `article:${articleId}`, promptVersion: RELATE_PROMPT_VERSION,
-    system: BATCH_SYSTEM, user: batchUser(query, cands), schema: BatchSchema, temperature: 0, maxTokens: 200 + 90 * cands.length,
+    model: await modelFor("group"),
+    purpose: "group_article",
+    subject: `article:${articleId}`,
+    promptVersion: RELATE_PROMPT_VERSION,
+    system: BATCH_SYSTEM,
+    user: batchUser(query, cands),
+    schema: BatchSchema,
+    temperature: 0,
+    maxTokens: 200 + 90 * cands.length,
   });
   return { verdicts: verdictsByFact(res.data.decisions, cands), receiptId: res.receiptId };
 }
@@ -287,16 +346,30 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
 /** The review model reads both reports on their own; a merge stands only when it agrees. */
 async function confirmMerge(articleId: string, query: ReportView, cand: CandidateView): Promise<{ relation: Relation; receiptId: number }> {
   const res = await chatJson({
-    model: await modelFor("groupReview"), purpose: "group_review", subject: `article:${articleId}:fact:${cand.factId}`, promptVersion: RELATE_PROMPT_VERSION,
-    system: PAIR_SYSTEM, user: pairUser(query, cand.report), schema: PairSchema, temperature: 0, maxTokens: 400,
+    model: await modelFor("groupReview"),
+    purpose: "group_review",
+    subject: `article:${articleId}:fact:${cand.factId}`,
+    promptVersion: RELATE_PROMPT_VERSION,
+    system: PAIR_SYSTEM,
+    user: pairUser(query, cand.report),
+    schema: PairSchema,
+    temperature: 0,
+    maxTokens: 400,
   });
   return { relation: res.data.relation, receiptId: res.receiptId };
 }
 
 async function judgeSignal(articleId: string, query: ReportView, cands: CandidateView[]): Promise<{ verdicts: Map<number, Verdict>; receiptId: number }> {
   const res = await chatJson({
-    model: await modelFor("group"), purpose: "group_signal", subject: `article:${articleId}`, promptVersion: RELATE_PROMPT_VERSION,
-    system: SIGNAL_SYSTEM, user: batchUser(query, cands, "帖子"), schema: SignalSchema, temperature: 0, maxTokens: 150 + 60 * cands.length,
+    model: await modelFor("group"),
+    purpose: "group_signal",
+    subject: `article:${articleId}`,
+    promptVersion: RELATE_PROMPT_VERSION,
+    system: SIGNAL_SYSTEM,
+    user: batchUser(query, cands, "帖子"),
+    schema: SignalSchema,
+    temperature: 0,
+    maxTokens: 150 + 60 * cands.length,
   });
   return { verdicts: verdictsByFact(res.data.decisions, cands), receiptId: res.receiptId };
 }
@@ -313,7 +386,8 @@ async function createStory(db: Db, title: string, at: Date): Promise<number> {
 }
 
 async function createFact(db: Db, storyId: number, title: string, frame: Record<string, any> | null, at: Date): Promise<number> {
-  const occurred = typeof frame?.occurredAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(frame.occurredAt) ? new Date(`${frame.occurredAt}T00:00:00+08:00`) : null;
+  const occurred =
+    typeof frame?.occurredAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(frame.occurredAt) ? new Date(`${frame.occurredAt}T00:00:00+08:00`) : null;
   const [row] = await db<{ id: number }[]>`
     INSERT INTO facts (public_id, story_id, title, subject, action, object, occurred_at, created_at)
     VALUES (${`f${newShortId(8)}`}, ${storyId}, ${title}, ${frame?.subject ?? null}, ${frame?.action ?? null}, ${frame?.object ?? null}, ${occurred}, ${at})
@@ -321,7 +395,14 @@ async function createFact(db: Db, storyId: number, title: string, frame: Record<
   return row!.id;
 }
 
-async function recordSignal(db: Db, storyId: number, articleId: string, source: { id: string; signal_group_id: string | null }, kind: "editorial" | "signal", observedAt: Date) {
+async function recordSignal(
+  db: Db,
+  storyId: number,
+  articleId: string,
+  source: { id: string; signal_group_id: string | null },
+  kind: "editorial" | "signal",
+  observedAt: Date,
+) {
   await db`
     INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
     VALUES (${storyId}, ${articleId}, ${participantKey(source)}, ${source.id}, ${kind}, ${observedAt})
@@ -333,7 +414,15 @@ async function recordSignal(db: Db, storyId: number, articleId: string, source: 
 
 type DecisionCandidate = { id: number; score: number; relation?: Relation; confidence?: number };
 
-async function recordDecision(db: Db, articleId: string, factId: number | null, storyId: number | null, verdict: string, candidates: DecisionCandidate[], receiptId: number | null) {
+async function recordDecision(
+  db: Db,
+  articleId: string,
+  factId: number | null,
+  storyId: number | null,
+  verdict: string,
+  candidates: DecisionCandidate[],
+  receiptId: number | null,
+) {
   await db`INSERT INTO grouping_decisions (article_id, fact_id, story_id, verdict, candidates, receipt_id)
            VALUES (${articleId}, ${factId}, ${storyId}, ${verdict}, ${db.json(candidates as never)}, ${receiptId})`;
 }
@@ -399,7 +488,9 @@ async function relatedPosts(a: ArticleRow): Promise<{ sameUrl: PoolRow | null; r
     FROM articles b JOIN fact_articles fa ON fa.article_id = b.id AND fa.role IN ('primary', 'report')
     JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
     WHERE b.url = ${a.url} AND b.id <> ${a.id} AND ${trusted("fa")} ORDER BY fa.created_at LIMIT 1`;
-  const ids = [a.x_post?.replyTo ?? null, a.x_post?.quoted?.url ? (/\/status\/(\d+)/.exec(a.x_post.quoted.url)?.[1] ?? null) : null].filter((x): x is string => !!x);
+  const ids = [a.x_post?.replyTo ?? null, a.x_post?.quoted?.url ? (/\/status\/(\d+)/.exec(a.x_post.quoted.url)?.[1] ?? null) : null].filter(
+    (x): x is string => !!x,
+  );
   const referenced = ids.length
     ? await sql<PoolRow[]>`
         SELECT fa.article_id, fa.fact_id, f.story_id, f.title AS fact_title
@@ -424,10 +515,21 @@ interface StoryRoot {
 
 /** A story's root (rootFactOf), when it started, and the report that stands for it. */
 async function storyRoot(storyId: number): Promise<StoryRoot | null> {
-  const [row] = await sql<{
-    subject: string | null; action: string | null; object: string | null; occurred_at: Date | null;
-    title: string; summary: string | null; source: string; first_party: boolean; at: Date; started_at: Date; roundup: boolean;
-  }[]>`
+  const [row] = await sql<
+    {
+      subject: string | null;
+      action: string | null;
+      object: string | null;
+      occurred_at: Date | null;
+      title: string;
+      summary: string | null;
+      source: string;
+      first_party: boolean;
+      at: Date;
+      started_at: Date;
+      roundup: boolean;
+    }[]
+  >`
     SELECT f.subject, f.action, f.object, f.occurred_at, p.title, p.summary, s.name AS source, p.first_party,
            coalesce(p.published_at, p.discovered_at) AS at,
            (SELECT min(coalesce(q.published_at, q.discovered_at)) FROM fact_articles z JOIN publications q ON q.article_id = z.article_id
@@ -442,18 +544,35 @@ async function storyRoot(storyId: number): Promise<StoryRoot | null> {
     LIMIT 1`;
   if (!row) return null;
   return {
-    storyId, at: row.started_at, roundup: row.roundup,
+    storyId,
+    at: row.started_at,
+    roundup: row.roundup,
     report: {
-      title: row.title, source: row.source, firstParty: row.first_party, at: row.at, summary: row.summary,
+      title: row.title,
+      source: row.source,
+      firstParty: row.first_party,
+      at: row.at,
+      summary: row.summary,
       frame: { subject: row.subject, action: row.action, object: row.object, occurredAt: row.occurred_at ? row.occurred_at.toISOString().slice(0, 10) : null },
     },
   };
 }
 
-async function judgeStories(capability: "group" | "groupReview", a: StoryRoot, b: StoryRoot): Promise<{ relation: Relation; confidence: number; difference: string; receiptId: number }> {
+async function judgeStories(
+  capability: "group" | "groupReview",
+  a: StoryRoot,
+  b: StoryRoot,
+): Promise<{ relation: Relation; confidence: number; difference: string; receiptId: number }> {
   const res = await chatJson({
-    model: await modelFor(capability), purpose: capability === "group" ? "group_story" : "group_story_review", subject: `story:${a.storyId}:${b.storyId}`,
-    promptVersion: RELATE_PROMPT_VERSION, system: PAIR_SYSTEM, user: pairUser(a.report, b.report), schema: PairSchema, temperature: 0, maxTokens: 400,
+    model: await modelFor(capability),
+    purpose: capability === "group" ? "group_story" : "group_story_review",
+    subject: `story:${a.storyId}:${b.storyId}`,
+    promptVersion: RELATE_PROMPT_VERSION,
+    system: PAIR_SYSTEM,
+    user: pairUser(a.report, b.report),
+    schema: PairSchema,
+    temperature: 0,
+    maxTokens: 400,
   });
   return { relation: res.data.relation, confidence: res.data.confidence, difference: res.data.difference, receiptId: res.receiptId };
 }
@@ -512,7 +631,12 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
     await completeReceipt(sql, second.receiptId);
     const merge = firmlyTied(second.relation, second.confidence, STORY_REVIEW_MIN_CONFIDENCE);
     if (merge && !opts.dryRun) {
-      await mergeStoryInto(other.storyId, anchor.storyId, `同一事件（${first.relation}，复核 ${second.relation}）：${other.report.title}｜${anchor.report.title}`, "grouping");
+      await mergeStoryInto(
+        other.storyId,
+        anchor.storyId,
+        `同一事件（${first.relation}，复核 ${second.relation}）：${other.report.title}｜${anchor.report.title}`,
+        "grouping",
+      );
     }
     out.push({ ...base, merge, first: first.relation, second: second.relation, difference: first.difference || second.difference });
   }
@@ -570,8 +694,19 @@ export async function linkRelatedStories(): Promise<{ added: number }> {
 
 export interface GroupResult {
   verdict:
-    | "same-fact" | "same-url" | "new-fact-in-story" | "new-story" | "roundup" | "kept" | "standalone" | "manual" | "skipped"
-    | "signal" | "signal-native" | "signal-unmatched" | "historical";
+    | "same-fact"
+    | "same-url"
+    | "new-fact-in-story"
+    | "new-story"
+    | "roundup"
+    | "kept"
+    | "standalone"
+    | "manual"
+    | "skipped"
+    | "signal"
+    | "signal-native"
+    | "signal-unmatched"
+    | "historical";
   factId?: number;
   storyId?: number;
   /** Stories compared because this report tied them together (see consolidate). */
@@ -647,7 +782,11 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   }
   const title = an.title_zh || a.title;
   const query: ReportView = {
-    title, source: a.source_name, firstParty: a.first_party, at: observedAt, summary: an.summary_zh,
+    title,
+    source: a.source_name,
+    firstParty: a.first_party,
+    at: observedAt,
+    summary: an.summary_zh,
     frame: frame ? { subject: frame.subject, action: frame.action, object: frame.object, occurredAt: frame.occurredAt } : null,
   };
   const newTitle = String(frame?.title || title).slice(0, 60);
@@ -709,7 +848,10 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   }
 
   const decisionCandidates: DecisionCandidate[] = cands.map((c) => ({
-    id: c.factId, score: Math.round(c.score * 1000) / 1000, relation: verdicts.get(c.factId)?.relation, confidence: verdicts.get(c.factId)?.confidence,
+    id: c.factId,
+    score: Math.round(c.score * 1000) / 1000,
+    relation: verdicts.get(c.factId)?.relation,
+    confidence: verdicts.get(c.factId)?.confidence,
   }));
   if (sameUrl) decisionCandidates.push({ id: sameUrl.fact_id, score: 1, relation: "SAME_OCCURRENCE", confidence: 1 });
 
@@ -834,7 +976,15 @@ async function groupSignal(a: ArticleRow, source: { id: string; signal_group_id:
   if (referenced.length) {
     const target = referenced[0]!;
     await recordSignal(sql, target.story_id, a.id, source, "signal", observedAt);
-    await recordDecision(sql, a.id, target.fact_id, target.story_id, "signal-native", [{ id: target.fact_id, score: 1, relation: "SAME_STORY", confidence: 1 }], null);
+    await recordDecision(
+      sql,
+      a.id,
+      target.fact_id,
+      target.story_id,
+      "signal-native",
+      [{ id: target.fact_id, score: 1, relation: "SAME_STORY", confidence: 1 }],
+      null,
+    );
     return { verdict: "signal-native", storyId: target.story_id };
   }
   if (!embeddingsAvailable()) return { verdict: "signal-unmatched" };
@@ -846,7 +996,12 @@ async function groupSignal(a: ArticleRow, source: { id: string; signal_group_id:
   }
   const top = recalled[0]!;
   const asCandidates = (verdicts?: Map<number, Verdict>): DecisionCandidate[] =>
-    recalled.map((r) => ({ id: r.factId, score: Math.round(r.score * 1000) / 1000, relation: verdicts?.get(r.factId)?.relation, confidence: verdicts?.get(r.factId)?.confidence }));
+    recalled.map((r) => ({
+      id: r.factId,
+      score: Math.round(r.score * 1000) / 1000,
+      relation: verdicts?.get(r.factId)?.relation,
+      confidence: verdicts?.get(r.factId)?.confidence,
+    }));
   if (top.score >= SIGNAL_AUTO_COSINE) {
     await recordSignal(sql, top.storyId, a.id, source, "signal", observedAt);
     await recordDecision(sql, a.id, top.factId, top.storyId, "signal", asCandidates(), null);

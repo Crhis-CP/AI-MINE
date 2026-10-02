@@ -13,7 +13,17 @@ const TAU = Math.PI * 2;
 const INTRO_MS = 700;
 const easeOutBack = (p: number) => 1 + 2.2 * (p - 1) ** 3 + 1.2 * (p - 1) ** 2;
 
-export function IssueDots({ kind, reportKey, index, className = "" }: { kind: ReportKind; reportKey: string; index: ReportNavigationEntry[]; className?: string }) {
+export function IssueDots({
+  kind,
+  reportKey,
+  index,
+  className = "",
+}: {
+  kind: ReportKind;
+  reportKey: string;
+  index: ReportNavigationEntry[];
+  className?: string;
+}) {
   const grid = useMemo(() => periodGrid(kind, reportKey, index), [kind, reportKey, index]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const navigate = useNavigate();

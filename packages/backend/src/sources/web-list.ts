@@ -12,7 +12,15 @@ const JINA_PREFIX = "https://r.jina.ai/";
 /** A time followed by its zone: "10:00Z", "10:00:00+08:00", "10:00:00 +0000", "10:00:00 GMT". */
 const EXPLICIT_ZONE = /\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}:?\d{2}|GMT|UTC)\b/i;
 
-function atOffset(y: string | number, mo: string | number, d: string | number, h: string | number, mi: string | number, s: string | number, utcOffset: string): Date | null {
+function atOffset(
+  y: string | number,
+  mo: string | number,
+  d: string | number,
+  h: string | number,
+  mi: string | number,
+  s: string | number,
+  utcOffset: string,
+): Date | null {
   const p = (n: string | number) => String(n).padStart(2, "0");
   const t = Date.parse(`${y}-${p(mo)}-${p(d)}T${p(h)}:${p(mi)}:${p(s)}${utcOffset}`);
   return Number.isFinite(t) ? new Date(t) : null;
@@ -116,7 +124,12 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
   if (!url) throw new FetchError("url missing");
   if (url.startsWith(JINA_PREFIX)) {
     const target = url.slice(JINA_PREFIX.length);
-    const page = await jinaRead(target, { purpose: "source_listing", subject: `source:${source.id}`, cacheToleranceSeconds: source.config.cacheToleranceSeconds, perRead: true });
+    const page = await jinaRead(target, {
+      purpose: "source_listing",
+      subject: `source:${source.id}`,
+      cacheToleranceSeconds: source.config.cacheToleranceSeconds,
+      perRead: true,
+    });
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
   const res = await guardedFetch(url, { headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8" }, timeoutMs: 25_000 });
@@ -304,7 +317,7 @@ async function fromMimoHome(html: string, base: string, source: SourceRow): Prom
 
 export async function fetchWebList(source: SourceRow): Promise<Candidate[]> {
   const { text, viaJina, base } = await fetchListingText(source);
-  const mode = source.config.adapter === "mimo_home" ? "mimo_home" : source.config.parseMode ?? (viaJina ? "markdown" : "html");
+  const mode = source.config.adapter === "mimo_home" ? "mimo_home" : (source.config.parseMode ?? (viaJina ? "markdown" : "html"));
   let out: Candidate[];
   if (mode === "mimo_home") out = await fromMimoHome(text, base, source);
   else if (mode === "markdown") out = fromMarkdown(text, base, source);
@@ -328,7 +341,11 @@ export interface DetailNeed {
  * text ("Published Time: …", "# Heading"), so that paid rendering is bought only when such a rule is
  * needed; selectors and page metadata read the page's own HTML.
  */
-export async function fetchDetail(url: string, source: SourceRow, need: DetailNeed): Promise<{ publishedAt: Date | null; title: string | null; summary: string | null; body: ExtractedBody | null }> {
+export async function fetchDetail(
+  url: string,
+  source: SourceRow,
+  need: DetailNeed,
+): Promise<{ publishedAt: Date | null; title: string | null; summary: string | null; body: ExtractedBody | null }> {
   const d = source.config.detail ?? {};
   const jinaListing = String(source.config.url ?? "").startsWith(JINA_PREFIX);
   const dateInJina = need.date && jinaListing && !!d.publishedAtRegex;
@@ -341,8 +358,11 @@ export async function fetchDetail(url: string, source: SourceRow, need: DetailNe
     if (res.status === 200) {
       html = res.text();
       if (need.body && /html/.test(res.headers.get("content-type") ?? "")) {
-        try { body = readable(html, res.url); }
-        catch { /* A failed extraction must not discard the detail metadata. */ }
+        try {
+          body = readable(html, res.url);
+        } catch {
+          /* A failed extraction must not discard the detail metadata. */
+        }
       }
     }
   }

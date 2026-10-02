@@ -53,7 +53,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (decision) {
       for (const [k, v] of Object.entries(decision.headers)) reply.header(k, v);
       if (decision.location) return reply.code(decision.status).header("Location", decision.location).send();
-      return reply.code(decision.status).type("text/plain; charset=utf-8").send(decision.status === 410 ? "Gone" : "Not found");
+      return reply
+        .code(decision.status)
+        .type("text/plain; charset=utf-8")
+        .send(decision.status === 410 ? "Gone" : "Not found");
     }
   });
 

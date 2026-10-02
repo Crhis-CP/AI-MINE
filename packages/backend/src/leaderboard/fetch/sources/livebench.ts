@@ -7,11 +7,25 @@ import type { FetchResult, Fetcher, ParsedRow } from "../types.ts";
 const BOARDS = [
   { key: "livebench-general", name: "LiveBench Global Average", categories: null as string[] | null, url: "https://livebench.ai/" },
   { key: "livebench-writing", name: "LiveBench · 语言与指令", categories: ["Language", "IF"], url: "https://livebench.ai/#/?cats=Language%2CIF&ft=1" },
-  { key: "livebench-coding", name: "LiveBench · 编程综合", categories: ["Coding", "Agentic Coding"], url: "https://livebench.ai/#/?cats=Coding%2CAgentic+Coding&ft=1" },
-  { key: "livebench-reasoning", name: "LiveBench · 推理与数学", categories: ["Reasoning", "Mathematics"], url: "https://livebench.ai/#/?cats=Reasoning%2CMathematics&ft=1" },
+  {
+    key: "livebench-coding",
+    name: "LiveBench · 编程综合",
+    categories: ["Coding", "Agentic Coding"],
+    url: "https://livebench.ai/#/?cats=Coding%2CAgentic+Coding&ft=1",
+  },
+  {
+    key: "livebench-reasoning",
+    name: "LiveBench · 推理与数学",
+    categories: ["Reasoning", "Mathematics"],
+    url: "https://livebench.ai/#/?cats=Reasoning%2CMathematics&ft=1",
+  },
 ];
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
 /** The newest release date the site lists (its bundle carries the release array). */
@@ -27,7 +41,10 @@ async function latestRelease(): Promise<string> {
 }
 
 function parseCsv(text: string): string[][] {
-  return text.trim().split(/\r?\n/).map((l) => l.split(","));
+  return text
+    .trim()
+    .split(/\r?\n/)
+    .map((l) => l.split(","));
 }
 
 export const livebench: Fetcher = {
@@ -35,7 +52,10 @@ export const livebench: Fetcher = {
   async fetch() {
     const release = await latestRelease();
     const tag = release.replaceAll("-", "_");
-    const categories = JSON.parse((await guardedFetch(`https://livebench.ai/categories_${tag}.json`, { timeoutMs: 30_000 })).text()) as Record<string, string[]>;
+    const categories = JSON.parse((await guardedFetch(`https://livebench.ai/categories_${tag}.json`, { timeoutMs: 30_000 })).text()) as Record<
+      string,
+      string[]
+    >;
     const table = await guardedFetch(`https://livebench.ai/table_${tag}.csv`, { timeoutMs: 30_000 });
     if (table.status !== 200) throw new Error(`livebench table ${release} HTTP ${table.status}`);
     const upstream = table.headers.get("last-modified");
@@ -73,7 +93,13 @@ export const livebench: Fetcher = {
         attributionUrl: b.url,
         publishedAt: upstream ? new Date(upstream).toISOString() : null,
         rows,
-        metadata: { release, upstreamPublishedAt: upstream ? new Date(upstream).toISOString() : null, sourceOperator: "LiveBench", sourceFamily: "rolling-objective", metricCount: 1 },
+        metadata: {
+          release,
+          upstreamPublishedAt: upstream ? new Date(upstream).toISOString() : null,
+          sourceOperator: "LiveBench",
+          sourceFamily: "rolling-objective",
+          metricCount: 1,
+        },
       });
     }
     return out;

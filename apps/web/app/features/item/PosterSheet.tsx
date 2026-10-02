@@ -50,12 +50,19 @@ export default function PosterSheet({ id, title, open, onClose }: { id: string; 
           <span className="mb-3 h-1 w-10 rounded-full bg-line-strong sm:hidden" aria-hidden="true" />
           <div className="mb-3 flex w-full items-center justify-between">
             <span className="text-[14px] font-semibold text-ink">分享海报</span>
-            <button type="button" onClick={onClose} className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink" aria-label="关闭">
+            <button
+              type="button"
+              onClick={onClose}
+              className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
+              aria-label="关闭"
+            >
               <IconClose size={16} />
             </button>
           </div>
           <div className="relative aspect-[3/4] w-full max-w-[min(360px,calc((92dvh-190px)*0.75))] overflow-hidden rounded-card border border-line bg-bg-sunk">
-            {!loaded && !failed && <div className="absolute inset-0 animate-pulse bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%]" />}
+            {!loaded && !failed && (
+              <div className="absolute inset-0 animate-pulse bg-[linear-gradient(110deg,transparent_30%,rgba(255,255,255,0.35)_50%,transparent_70%)] bg-[length:200%_100%]" />
+            )}
             {failed ? (
               <p className="absolute inset-0 grid place-items-center px-6 text-center text-[13px] text-ink-3">海报生成失败，请稍后再试。</p>
             ) : (
@@ -78,7 +85,11 @@ export default function PosterSheet({ id, title, open, onClose }: { id: string; 
               <IconDownload size={15} /> 保存图片
             </a>
             {canShareFile && (
-              <button type="button" onClick={share} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-line-strong bg-surface text-[13.5px] font-medium text-ink transition-colors hover:border-ink-4">
+              <button
+                type="button"
+                onClick={share}
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-line-strong bg-surface text-[13.5px] font-medium text-ink transition-colors hover:border-ink-4"
+              >
                 <IconShare size={15} /> 分享
               </button>
             )}

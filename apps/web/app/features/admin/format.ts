@@ -16,10 +16,13 @@ export function ago(iso: string | Date | null | undefined, now = Date.now()): st
   const future = ms < 0;
   const a = Math.abs(ms);
   const text =
-    a < 60_000 ? `${Math.max(1, Math.round(a / 1000))} 秒`
-    : a < 3600_000 ? `${Math.round(a / 60_000)} 分钟`
-    : a < 86400_000 ? `${Math.round(a / 3600_000)} 小时`
-    : `${Math.round(a / 86400_000)} 天`;
+    a < 60_000
+      ? `${Math.max(1, Math.round(a / 1000))} 秒`
+      : a < 3600_000
+        ? `${Math.round(a / 60_000)} 分钟`
+        : a < 86400_000
+          ? `${Math.round(a / 3600_000)} 小时`
+          : `${Math.round(a / 86400_000)} 天`;
   return future ? `${text}后` : `${text}前`;
 }
 

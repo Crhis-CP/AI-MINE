@@ -67,7 +67,14 @@ function segmentsOf($: cheerio.CheerioAPI): Element[] {
   return out;
 }
 
-async function translateBatch(articleId: string, revision: number, index: number, parts: string[], system: string, attemptTag?: string): Promise<string[] | null> {
+async function translateBatch(
+  articleId: string,
+  revision: number,
+  index: number,
+  parts: string[],
+  system: string,
+  attemptTag?: string,
+): Promise<string[] | null> {
   if (shutdownSignal.signal.aborted) throw new TranslationInterruptedError("worker shutting down");
   const model = await modelFor("translate");
   if (shutdownSignal.signal.aborted) throw new TranslationInterruptedError("worker shutting down");
@@ -155,7 +162,20 @@ export function unshield(translated: string, s: Shielded): string | null {
 }
 
 export async function translateArticle(articleId: string): Promise<TranslateResult> {
-  const [row] = await sql<{ revision: number; channel: string; language: string | null; body_html: string | null; body_text: string | null; x_post: { text?: string } | null; title: string; selected: boolean; body_mode: string; visibility: string }[]>`
+  const [row] = await sql<
+    {
+      revision: number;
+      channel: string;
+      language: string | null;
+      body_html: string | null;
+      body_text: string | null;
+      x_post: { text?: string } | null;
+      title: string;
+      selected: boolean;
+      body_mode: string;
+      visibility: string;
+    }[]
+  >`
     SELECT a.revision, p.channel, a.language, a.body_html, a.body_text, a.x_post, p.title, p.selected, p.body_mode, p.visibility
     FROM publications p JOIN articles a ON a.id = p.article_id WHERE p.article_id = ${articleId}`;
   if (!row) return { articleId, status: "skipped", reason: "not published" };
@@ -188,11 +208,24 @@ export async function translateArticle(articleId: string): Promise<TranslateResu
   }
   const shielded = chosen.map((el) => shield($(el).html() ?? ""));
   const restore = (answers: Array<string | null>) => answers.map((t, i) => (t === null ? null : unshield(t, shielded[i]!)));
-  const translations = restore(await translateAll(articleId, row.revision, shielded.map((b) => b.html), SYSTEM_BODY));
+  const translations = restore(
+    await translateAll(
+      articleId,
+      row.revision,
+      shielded.map((b) => b.html),
+      SYSTEM_BODY,
+    ),
+  );
   // Blocks whose answer dropped a link or an image are asked once more, on their own receipt.
   const missing = translations.flatMap((t, i) => (t === null ? [i] : []));
   if (missing.length) {
-    const again = await translateAll(articleId, row.revision, missing.map((i) => shielded[i]!.html), SYSTEM_BODY, "retry");
+    const again = await translateAll(
+      articleId,
+      row.revision,
+      missing.map((i) => shielded[i]!.html),
+      SYSTEM_BODY,
+      "retry",
+    );
     missing.forEach((i, k) => (translations[i] = again[k] ? unshield(again[k]!, shielded[i]!) : null));
   }
   let done = 0;
@@ -255,9 +288,16 @@ export async function translateQuotes(opts: { days?: number; limit?: number; bud
       origin = "model";
       try {
         const res = await chatJson({
-          model: await modelFor("translate"), purpose: "translate_quoted", subject: `quote:${r.tweet_id}`, promptVersion: TRANSLATE_PROMPT_VERSION,
-          system: SYSTEM_POST, user: JSON.stringify({ segments: [r.text] }), schema: Output, temperature: 0.2,
-          maxTokens: Math.min(4000, Math.ceil(r.text.length * 1.5) + 200), timeoutMs: 120_000,
+          model: await modelFor("translate"),
+          purpose: "translate_quoted",
+          subject: `quote:${r.tweet_id}`,
+          promptVersion: TRANSLATE_PROMPT_VERSION,
+          system: SYSTEM_POST,
+          user: JSON.stringify({ segments: [r.text] }),
+          schema: Output,
+          temperature: 0.2,
+          maxTokens: Math.min(4000, Math.ceil(r.text.length * 1.5) + 200),
+          timeoutMs: 120_000,
         });
         zh = res.data.t.length === 1 ? res.data.t[0]!.trim() : null;
       } catch (error) {

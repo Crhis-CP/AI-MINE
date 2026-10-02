@@ -6,7 +6,11 @@ import { competitionRanks } from "../rank.ts";
 import type { Fetcher, ParsedRow } from "../types.ts";
 
 const URL_ = "https://deepswe.datacurve.ai/artifacts/v1.1/leaderboard-live.json";
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 interface Row {
   model: string;
@@ -33,7 +37,11 @@ export const deepswe: Fetcher = {
     const rank = competitionRanks(d.rows.map((r) => r.pass_rate));
     const rows: ParsedRow[] = d.rows.map((r, i) => {
       const systemId = `deepswe-v1.1:${r.harness}`;
-      const configuration = scaffolded(configurationOf(r.reasoning_effort ? [r.reasoning_effort] : []), [`harness-${slug(r.harness)}`, slug(r.config), `systemid-${slug(systemId)}`], [r.harness, systemId]);
+      const configuration = scaffolded(
+        configurationOf(r.reasoning_effort ? [r.reasoning_effort] : []),
+        [`harness-${slug(r.harness)}`, slug(r.config), `systemid-${slug(systemId)}`],
+        [r.harness, systemId],
+      );
       return {
         sourceModelName: r.model,
         baseName: r.model,
@@ -46,18 +54,36 @@ export const deepswe: Fetcher = {
         upperBound: r.ci_hi,
         sourceRank: rank[i],
         sampleSize: r.n_attempted,
-        metadata: { harness: r.harness, ciMethod: r.ci_method, runCount: r.n_runs, systemId, taskCount: r.n_tasks_attempted, meanCostUsd: r.mean_cost_usd, metricDirection: "HIGHER" },
+        metadata: {
+          harness: r.harness,
+          ciMethod: r.ci_method,
+          runCount: r.n_runs,
+          systemId,
+          taskCount: r.n_tasks_attempted,
+          meanCostUsd: r.mean_cost_usd,
+          metricDirection: "HIGHER",
+        },
       };
     });
-    return [{
-      sourceKey: "deepswe-v1-1",
-      sourceName: "DeepSWE v1.1",
-      sourceUrl: URL_,
-      license: "官方公开结构化结果；仅管理员私有观察，公开前复核许可",
-      attributionUrl: "https://deepswe.datacurve.ai/",
-      publishedAt: d.generated_at,
-      rows,
-      metadata: { harness: "mini-swe-agent", comparisonSubject: "CONTROLLED_SYSTEM", upstreamTaskCount: d.n_tasks_in_set, upstreamPublishedAt: d.generated_at, sourceOperator: "DataCurve", sourceFamily: "software-engineering", metricCount: 1 },
-    }];
+    return [
+      {
+        sourceKey: "deepswe-v1-1",
+        sourceName: "DeepSWE v1.1",
+        sourceUrl: URL_,
+        license: "官方公开结构化结果；仅管理员私有观察，公开前复核许可",
+        attributionUrl: "https://deepswe.datacurve.ai/",
+        publishedAt: d.generated_at,
+        rows,
+        metadata: {
+          harness: "mini-swe-agent",
+          comparisonSubject: "CONTROLLED_SYSTEM",
+          upstreamTaskCount: d.n_tasks_in_set,
+          upstreamPublishedAt: d.generated_at,
+          sourceOperator: "DataCurve",
+          sourceFamily: "software-engineering",
+          metricCount: 1,
+        },
+      },
+    ];
   },
 };

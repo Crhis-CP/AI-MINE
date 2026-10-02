@@ -30,7 +30,9 @@ import { firmlyTied } from "@aihot/backend/events/relate";
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
-    since: { type: "string" }, snapshot: { type: "string", multiple: true }, "signals-hours": { type: "string", default: "48" },
+    since: { type: "string" },
+    snapshot: { type: "string", multiple: true },
+    "signals-hours": { type: "string", default: "48" },
     "dry-run": { type: "boolean", default: false },
   },
 });
@@ -56,7 +58,11 @@ async function plan() {
   const since = new Date(values.since);
   // An earlier plan's jobs that have not run are superseded; the one running finishes first.
   const waiting = await regroupJobs(["created", "retry"]);
-  if (waiting.length) await (await getBoss()).cancel(QUEUES.group, waiting.map((j) => j.id));
+  if (waiting.length)
+    await (await getBoss()).cancel(
+      QUEUES.group,
+      waiting.map((j) => j.id),
+    );
   while ((await regroupJobs(["active"])).length) await new Promise((r) => setTimeout(r, 2_000));
 
   const articles = await sql<{ id: string }[]>`
@@ -74,23 +80,38 @@ async function plan() {
   const previous: Record<string, number[]> = {};
   for (const m of memberships) (previous[m.article_id] ??= []).push(Number(m.story_id));
   const signalHours = Number(values["signals-hours"]);
-  const signals = signalHours > 0
-    ? (await sql<{ id: string }[]>`
+  const signals =
+    signalHours > 0
+      ? (
+          await sql<{ id: string }[]>`
         SELECT a.id FROM articles a JOIN sources s ON s.id = a.source_id
         WHERE s.participation_mode = 'hot_signal' AND a.discovered_at >= now() - make_interval(hours => ${signalHours})
-        ORDER BY a.discovered_at, a.id`).map((r) => r.id)
-    : [];
+        ORDER BY a.discovered_at, a.id`
+        ).map((r) => r.id)
+      : [];
   const snapshot: Snapshot = { since: since.toISOString(), startedAt: new Date().toISOString(), articles: ids, signals, previous };
   writeFileSync(snapshots[0]!, JSON.stringify(snapshot));
   // Vectors for the whole recall window first, while every report still counts in it, so the serial
   // queue does not stall on them.
-  const warmed = await warmRecallWindow((done, total) => { if (done % 1000 === 0 || done === total) console.log(`embedding ${done}/${total}`); });
+  const warmed = await warmRecallWindow((done, total) => {
+    if (done % 1000 === 0 || done === total) console.log(`embedding ${done}/${total}`);
+  });
   console.log(JSON.stringify({ warmed, cancelledJobs: waiting.length }));
   await sql`INSERT INTO regroup_pending (article_id) SELECT unnest(${[...ids, ...signals]}::text[]) ON CONFLICT (article_id) DO UPDATE SET requested_at = now()`;
   let sent = 0;
   for (const id of ids) if (await enqueue(QUEUES.group, { articleId: id, force: true }, { singletonKey: `regroup:${id}`, priority: -2 })) sent++;
-  for (const id of signals) if (await enqueue(QUEUES.group, { articleId: id, signalOnly: true, force: true }, { singletonKey: `regroup:${id}`, priority: -3 })) sent++;
-  console.log(JSON.stringify({ since: snapshot.since, articles: ids.length, signals: signals.length, previousMemberships: memberships.length, jobsSent: sent, snapshot: snapshots[0] }));
+  for (const id of signals)
+    if (await enqueue(QUEUES.group, { articleId: id, signalOnly: true, force: true }, { singletonKey: `regroup:${id}`, priority: -3 })) sent++;
+  console.log(
+    JSON.stringify({
+      since: snapshot.since,
+      articles: ids.length,
+      signals: signals.length,
+      previousMemberships: memberships.length,
+      jobsSent: sent,
+      snapshot: snapshots[0],
+    }),
+  );
 }
 
 function loadSnapshots(): { previous: Record<string, number[]>; startedAt: Date } {
@@ -111,21 +132,38 @@ async function redirectEmptied(previous: Record<string, number[]>) {
     : [];
   const now = new Map<string, number>();
   for (const c of current) if (!now.has(c.article_id)) now.set(c.article_id, Number(c.story_id));
-  const waiting = new Set(ids.length ? (await sql<{ article_id: string }[]>`SELECT article_id FROM regroup_pending WHERE article_id = ANY(${ids})`).map((r) => r.article_id) : []);
+  const waiting = new Set(
+    ids.length ? (await sql<{ article_id: string }[]>`SELECT article_id FROM regroup_pending WHERE article_id = ANY(${ids})`).map((r) => r.article_id) : [],
+  );
   const oldStories = new Map<number, string[]>();
-  for (const [articleId, storyIds] of Object.entries(previous)) for (const s of new Set(storyIds)) (oldStories.get(s) ?? oldStories.set(s, []).get(s)!).push(articleId);
-  let merged = 0, kept = 0, notYet = 0;
+  for (const [articleId, storyIds] of Object.entries(previous))
+    for (const s of new Set(storyIds)) (oldStories.get(s) ?? oldStories.set(s, []).get(s)!).push(articleId);
+  let merged = 0,
+    kept = 0,
+    notYet = 0;
   for (const [oldId, articles] of oldStories) {
     const [st] = await sql<{ merged_into: number | null; public_id: string }[]>`SELECT merged_into, public_id FROM stories WHERE id = ${oldId}`;
     if (!st || st.merged_into) continue;
-    if (articles.some((a) => waiting.has(a))) { notYet++; continue; }
+    if (articles.some((a) => waiting.has(a))) {
+      notYet++;
+      continue;
+    }
     const [live] = await sql<{ n: number }[]>`
       SELECT count(*) AS n FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id WHERE f.story_id = ${oldId} AND fa.role IN ('primary', 'report')`;
-    if (Number(live?.n ?? 0) > 0) { kept++; continue; }
+    if (Number(live?.n ?? 0) > 0) {
+      kept++;
+      continue;
+    }
     const votes = new Map<number, number>();
-    for (const a of articles) { const s = now.get(a); if (s !== undefined && s !== oldId) votes.set(s, (votes.get(s) ?? 0) + 1); }
+    for (const a of articles) {
+      const s = now.get(a);
+      if (s !== undefined && s !== oldId) votes.set(s, (votes.get(s) ?? 0) + 1);
+    }
     const successor = [...votes.entries()].sort((x, y) => y[1] - x[1])[0]?.[0];
-    if (!successor) { kept++; continue; }
+    if (!successor) {
+      kept++;
+      continue;
+    }
     await sql.begin(async (tx) => {
       await tx`INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
                SELECT ${successor}, article_id, participant_key, source_id, kind, observed_at FROM story_signals WHERE story_id = ${oldId}
@@ -187,7 +225,8 @@ async function consolidateSince() {
       FROM grouping_decisions d WHERE d.created_at >= ${new Date(values.since)} ORDER BY d.article_id, d.id DESC) x
     WHERE x.verdict IN ('same-fact', 'new-fact-in-story', 'new-story') ORDER BY x.created_at`;
   const printed = new Set<string>();
-  let tiedReports = 0, merges = 0;
+  let tiedReports = 0,
+    merges = 0;
   for (const r of rows) {
     const tiedFacts = (r.candidates ?? []).filter((c) => firmlyTied(c.relation, c.confidence)).map((c) => Number(c.id));
     if (tiedFacts.length === 0) continue;
@@ -196,7 +235,10 @@ async function consolidateSince() {
         OR id IN (SELECT fact_id FROM fact_articles WHERE article_id = ${r.article_id} AND role IN ('primary', 'report')))`;
     if (stories.length < 2) continue;
     tiedReports++;
-    for (const c of await consolidate(stories.map((s) => Number(s.story_id)), { dryRun })) {
+    for (const c of await consolidate(
+      stories.map((s) => Number(s.story_id)),
+      { dryRun },
+    )) {
       const key = `${c.from}:${c.into}`;
       if (printed.has(key)) continue;
       printed.add(key);
@@ -212,7 +254,10 @@ try {
   else if (command === "redirect") await redirect();
   else if (command === "finish") await finish();
   else if (command === "consolidate") await consolidateSince();
-  else throw new Error("usage: regroup-events.ts plan --since <time> --snapshot <file> | redirect|finish --snapshot <file> [--snapshot <file> ...] | consolidate --since <time> [--dry-run]");
+  else
+    throw new Error(
+      "usage: regroup-events.ts plan --since <time> --snapshot <file> | redirect|finish --snapshot <file> [--snapshot <file> ...] | consolidate --since <time> [--dry-run]",
+    );
 } finally {
   await stopBoss();
   await closeDb();

@@ -40,18 +40,47 @@ function sorted(entries: LbBoardEntry[], key: SortKey, dir: 1 | -1) {
 function Rank({ rank }: { rank: number }) {
   const n = String(rank).padStart(2, "0");
   if (rank <= 3) {
-    return <span className="mono inline-flex h-7 w-[26px] items-center justify-center rounded-full bg-accent/[0.06] text-[13px] font-bold text-accent">{n}</span>;
+    return (
+      <span className="mono inline-flex h-7 w-[26px] items-center justify-center rounded-full bg-accent/[0.06] text-[13px] font-bold text-accent">{n}</span>
+    );
   }
   return <span className="mono text-[13px] text-ink-4">{n}</span>;
 }
 
-function SortHeader({ k, children, sort, dir, onSort, align = "left", className = "" }: { k: SortKey; children: ReactNode; sort: SortKey; dir: 1 | -1; onSort: (k: SortKey) => void; align?: "left" | "right"; className?: string }) {
+function SortHeader({
+  k,
+  children,
+  sort,
+  dir,
+  onSort,
+  align = "left",
+  className = "",
+}: {
+  k: SortKey;
+  children: ReactNode;
+  sort: SortKey;
+  dir: 1 | -1;
+  onSort: (k: SortKey) => void;
+  align?: "left" | "right";
+  className?: string;
+}) {
   const active = sort === k;
   return (
-    <th scope="col" aria-sort={active ? (dir === 1 ? "ascending" : "descending") : "none"} className={`px-3 py-2.5 font-medium ${align === "right" ? "text-right" : "text-left"} ${className}`}>
-      <button type="button" onClick={() => onSort(k)} className={`group/sort inline-flex items-start gap-1 text-left transition-colors hover:text-ink ${active ? "text-accent" : ""}`}>
+    <th
+      scope="col"
+      aria-sort={active ? (dir === 1 ? "ascending" : "descending") : "none"}
+      className={`px-3 py-2.5 font-medium ${align === "right" ? "text-right" : "text-left"} ${className}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className={`group/sort inline-flex items-start gap-1 text-left transition-colors hover:text-ink ${active ? "text-accent" : ""}`}
+      >
         <span>{children}</span>
-        <span className={`mt-[3px] text-[9px] transition ${active ? "opacity-100" : "opacity-0 group-hover/sort:opacity-40"} ${active && dir === -1 ? "rotate-180" : ""}`} aria-hidden="true">
+        <span
+          className={`mt-[3px] text-[9px] transition ${active ? "opacity-100" : "opacity-0 group-hover/sort:opacity-40"} ${active && dir === -1 ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        >
           ▲
         </span>
       </button>
@@ -78,7 +107,10 @@ export function BoardTable({ entries, board }: { entries: LbBoardEntry[]; board:
       const prev = tops.current.get(key);
       next.set(key, row.offsetTop);
       if (prev !== undefined && prev !== row.offsetTop && !reduce && row.animate) {
-        row.animate([{ transform: `translateY(${prev - row.offsetTop}px)` }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(0.25, 1, 0.5, 1)" });
+        row.animate([{ transform: `translateY(${prev - row.offsetTop}px)` }, { transform: "none" }], {
+          duration: 420,
+          easing: "cubic-bezier(0.25, 1, 0.5, 1)",
+        });
       }
     }
     tops.current = next;
@@ -104,12 +136,24 @@ export function BoardTable({ entries, board }: { entries: LbBoardEntry[]; board:
               排名
             </button>
           </th>
-          <th scope="col" className="px-2 py-2.5 text-left font-medium lg:px-3">模型</th>
-          <SortHeader k="released" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">上线日期</SortHeader>
-          <SortHeader k="coverage" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">评测证据</SortHeader>
-          <SortHeader k="cached" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">缓存价格{unit}</SortHeader>
-          <SortHeader k="input" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">输入价格{unit}</SortHeader>
-          <SortHeader k="output" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">输出价格{unit}</SortHeader>
+          <th scope="col" className="px-2 py-2.5 text-left font-medium lg:px-3">
+            模型
+          </th>
+          <SortHeader k="released" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">
+            上线日期
+          </SortHeader>
+          <SortHeader k="coverage" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">
+            评测证据
+          </SortHeader>
+          <SortHeader k="cached" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">
+            缓存价格{unit}
+          </SortHeader>
+          <SortHeader k="input" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">
+            输入价格{unit}
+          </SortHeader>
+          <SortHeader k="output" sort={sort} dir={dir} onSort={onSort} className="hidden lg:table-cell">
+            输出价格{unit}
+          </SortHeader>
           <th scope="col" className="py-2.5 pl-2 pr-4 text-right font-medium lg:pl-3 lg:pr-[22px]">
             <button
               type="button"
@@ -124,7 +168,11 @@ export function BoardTable({ entries, board }: { entries: LbBoardEntry[]; board:
       </thead>
       <tbody ref={body}>
         {rows.map((e) => (
-          <tr key={e.model.slug} data-slug={e.model.slug} className="group relative border-b border-line last:border-b-0 transition-colors hover:bg-accent-softer">
+          <tr
+            key={e.model.slug}
+            data-slug={e.model.slug}
+            className="group relative border-b border-line last:border-b-0 transition-colors hover:bg-accent-softer"
+          >
             <td className="py-3 pl-4 pr-1 align-middle lg:pl-[22px] lg:pr-3">
               <Rank rank={e.rank} />
             </td>
@@ -146,7 +194,8 @@ export function BoardTable({ entries, board }: { entries: LbBoardEntry[]; board:
                     缓存输入 <span className="num">{e.price ? yuan(e.price.cachedCny) : "—"}</span>
                   </span>
                   <span className="block">
-                    输入 <span className="num">{e.price ? yuan(e.price.inputCny) : "—"}</span> · 输出 <span className="num">{e.price ? yuan(e.price.outputCny) : "—"}</span>
+                    输入 <span className="num">{e.price ? yuan(e.price.inputCny) : "—"}</span> · 输出{" "}
+                    <span className="num">{e.price ? yuan(e.price.outputCny) : "—"}</span>
                   </span>
                 </span>
               </Link>
@@ -162,7 +211,10 @@ export function BoardTable({ entries, board }: { entries: LbBoardEntry[]; board:
             <td className="mono hidden px-3 py-3 text-[14.5px] font-medium text-ink lg:table-cell">{price(e, e.price?.inputCny)}</td>
             <td className="mono hidden px-3 py-3 text-[14.5px] font-medium text-ink lg:table-cell">{price(e, e.price?.outputCny)}</td>
             <td className="py-3 pl-2 pr-4 text-right align-middle lg:pl-3 lg:pr-[22px]">
-              <strong className={`mono inline-block text-[20px] font-semibold leading-7 tracking-[-0.02em] ${e.rank <= 3 ? "text-accent" : "text-ink"}`} aria-label={`${e.model.name} 共识指数 ${e.score.toFixed(1)}`}>
+              <strong
+                className={`mono inline-block text-[20px] font-semibold leading-7 tracking-[-0.02em] ${e.rank <= 3 ? "text-accent" : "text-ink"}`}
+                aria-label={`${e.model.name} 共识指数 ${e.score.toFixed(1)}`}
+              >
                 {e.score.toFixed(1)}
               </strong>
             </td>

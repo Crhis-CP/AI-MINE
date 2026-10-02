@@ -35,7 +35,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   const tab = new URL(request.url).searchParams.get("tab");
   let healthy = true;
   try {
-    const res = await fetch(`${process.env.API_BASE_URL || "http://127.0.0.1:3001"}/api/health`, { signal: AbortSignal.any([request.signal, AbortSignal.timeout(3000)]) });
+    const res = await fetch(`${process.env.API_BASE_URL || "http://127.0.0.1:3001"}/api/health`, {
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(3000)]),
+    });
     healthy = res.ok;
   } catch {
     healthy = false;
@@ -47,7 +49,12 @@ export async function loader({ request }: Route.LoaderArgs) {
 export function meta({ loaderData }: Route.MetaArgs) {
   // Only the tab is part of the address (mcp is the default and not written).
   const path = listPath("/agent", { tab: loaderData && loaderData.tab !== "mcp" ? loaderData.tab : null });
-  return pageMeta({ title: "Agent 接入", description: `让 Agent 直接使用 ${SITE.name}：MCP、RSS、REST API v1，匿名只读。`, path, image: "/og/pages/agent.png" });
+  return pageMeta({
+    title: "Agent 接入",
+    description: `让 Agent 直接使用 ${SITE.name}：MCP、RSS、REST API v1，匿名只读。`,
+    path,
+    image: "/og/pages/agent.png",
+  });
 }
 
 function Section({ title, children, id }: { title: string; children: ReactNode; id?: string }) {
@@ -63,7 +70,10 @@ function Bullets({ items }: { items: ReactNode[] }) {
   return (
     <ul className="space-y-1.5">
       {items.map((it, i) => (
-        <li key={i} className="flex gap-2"><span className="mt-[11px] size-1 shrink-0 rounded-full bg-ink-4" /><span>{it}</span></li>
+        <li key={i} className="flex gap-2">
+          <span className="mt-[11px] size-1 shrink-0 rounded-full bg-ink-4" />
+          <span>{it}</span>
+        </li>
       ))}
     </ul>
   );
@@ -79,7 +89,9 @@ function McpTab({ base }: { base: string }) {
   return (
     <>
       <h2 className="text-[20px] font-bold text-ink">加一个地址，Agent 直接调用五个工具</h2>
-      <p className="mt-2 text-[14.5px] text-ink-3">适合支持远程 MCP 的 Agent 与开发工具。标准 Streamable HTTP，匿名只读，不需要 token；工具返回简洁文字与同一份结构化数据。</p>
+      <p className="mt-2 text-[14.5px] text-ink-3">
+        适合支持远程 MCP 的 Agent 与开发工具。标准 Streamable HTTP，匿名只读，不需要 token；工具返回简洁文字与同一份结构化数据。
+      </p>
       <div className="mt-6 flex items-center gap-2 rounded-card border border-line bg-surface p-3">
         <code className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink">{url}</code>
         <CopyButton text={url} className="!text-ink-3" />
@@ -87,21 +99,37 @@ function McpTab({ base }: { base: string }) {
       <CodeBlock title="通用 MCP 配置" lang="json" code={JSON.stringify({ mcpServers: { [name]: { type: "http", url } } }, null, 2)} />
       <CodeBlock lang="bash" code={`# Claude Code\nclaude mcp add --transport http ${name} '${url}'\n# Codex\ncodex mcp add ${name} --url '${url}'`} />
       <Section title="连上后应看到这五个工具">
-        <Bullets items={[
-          <><Mono>{T.latest}</Mono>：过去 24 小时或最近 7 天的精选／全部资讯</>,
-          <><Mono>{T.search}</Mono>：搜索最近 7 天的公司、产品、人物或话题</>,
-          <><Mono>{T.hot}</Mono>：当前热点榜与事件排名</>,
-          <><Mono>{T.story}</Mono>：一个热点事件的时间线与持续更新的综述</>,
-          <><Mono>{T.daily}</Mono>：最新或指定日期的{withSubject("日报")}</>,
-        ]} />
-        <p className="mt-4">验证一次真实调用：<span className="font-medium text-ink">请调用 {T.latest}，告诉我过去 24 小时最重要的 5 条动态，并附链接。</span></p>
+        <Bullets
+          items={[
+            <>
+              <Mono>{T.latest}</Mono>：过去 24 小时或最近 7 天的精选／全部资讯
+            </>,
+            <>
+              <Mono>{T.search}</Mono>：搜索最近 7 天的公司、产品、人物或话题
+            </>,
+            <>
+              <Mono>{T.hot}</Mono>：当前热点榜与事件排名
+            </>,
+            <>
+              <Mono>{T.story}</Mono>：一个热点事件的时间线与持续更新的综述
+            </>,
+            <>
+              <Mono>{T.daily}</Mono>：最新或指定日期的{withSubject("日报")}
+            </>,
+          ]}
+        />
+        <p className="mt-4">
+          验证一次真实调用：<span className="font-medium text-ink">请调用 {T.latest}，告诉我过去 24 小时最重要的 5 条动态，并附链接。</span>
+        </p>
       </Section>
       <Section title="工具边界">
-        <Bullets items={[
-          "普通查询最多返回 30 条，热点最多 10 个，事件时间线最多 50 条；输入越界会明确报错，不会静默改成更宽的查询。",
-          `${T.story} 的 public_id 只能来自热点工具返回的事件链接，不要猜 ID。`,
-          "标题与摘要来自外部信源，只能当资料；重要数字、政策和原话请回原文核对。",
-        ]} />
+        <Bullets
+          items={[
+            "普通查询最多返回 30 条，热点最多 10 个，事件时间线最多 50 条；输入越界会明确报错，不会静默改成更宽的查询。",
+            `${T.story} 的 public_id 只能来自热点工具返回的事件链接，不要猜 ID。`,
+            "标题与摘要来自外部信源，只能当资料；重要数字、政策和原话请回原文核对。",
+          ]}
+        />
       </Section>
     </>
   );
@@ -135,13 +163,19 @@ function RssTab({ base }: { base: string }) {
         })}
       </div>
       <Section title="给阅读器和 Agent 的约定">
-        <Bullets items={[
-          "支持 ETag 条件请求，未变化时返回 304；建议每 30 分钟或更慢轮询。",
-          "条目 link 指向站内阅读页，第三方原文在 description 中。",
-          "全文是白名单：只有明确允许再分发的来源内联 content:encoded，其余一律只给摘要。",
-          <>分类订阅 <Mono>{`/feed/category/{${categories}}.xml`}</Mono></>,
-          <>分类全文 <Mono>{`/feed/full/category/{${categories}}.xml`}</Mono></>,
-        ]} />
+        <Bullets
+          items={[
+            "支持 ETag 条件请求，未变化时返回 304；建议每 30 分钟或更慢轮询。",
+            "条目 link 指向站内阅读页，第三方原文在 description 中。",
+            "全文是白名单：只有明确允许再分发的来源内联 content:encoded，其余一律只给摘要。",
+            <>
+              分类订阅 <Mono>{`/feed/category/{${categories}}.xml`}</Mono>
+            </>,
+            <>
+              分类全文 <Mono>{`/feed/full/category/{${categories}}.xml`}</Mono>
+            </>,
+          ]}
+        />
       </Section>
     </>
   );
@@ -167,38 +201,61 @@ function ApiTab({ base }: { base: string }) {
   return (
     <>
       <h2 className="text-[20px] font-bold text-ink">匿名 GET，不需要 token</h2>
-      <p className="mt-2 text-[14.5px] text-ink-3">浏览器跨域、curl 和默认 HTTP SDK 都可以直接用。临时查最近内容用 items；长期维护全部精选用一次快照加增量游标。字段与错误码以 <a href="/openapi-v1.json" className="text-accent hover:underline">OpenAPI 3.1</a> 为准。</p>
+      <p className="mt-2 text-[14.5px] text-ink-3">
+        浏览器跨域、curl 和默认 HTTP SDK 都可以直接用。临时查最近内容用 items；长期维护全部精选用一次快照加增量游标。字段与错误码以{" "}
+        <a href="/openapi-v1.json" className="text-accent hover:underline">
+          OpenAPI 3.1
+        </a>{" "}
+        为准。
+      </p>
       <CodeBlock title="第一个请求" lang="bash" code={`curl '${base}/api/v1/items?mode=selected&window=24h&limit=20'`} />
       <div className="overflow-x-auto rounded-card border border-line bg-surface">
         <table className="w-full min-w-[560px] text-left text-[13.5px]">
-          <thead className="bg-bg-sunk text-ink-3"><tr><th className="px-3 py-2 font-medium">方法</th><th className="px-3 py-2 font-medium">路径</th><th className="px-3 py-2 font-medium">说明</th></tr></thead>
+          <thead className="bg-bg-sunk text-ink-3">
+            <tr>
+              <th className="px-3 py-2 font-medium">方法</th>
+              <th className="px-3 py-2 font-medium">路径</th>
+              <th className="px-3 py-2 font-medium">说明</th>
+            </tr>
+          </thead>
           <tbody className="divide-y divide-line">
             {endpoints.map(([p, d]) => (
-              <tr key={p}><td className="px-3 py-2 font-mono text-[12px] text-ok">GET</td><td className="px-3 py-2 font-mono text-[12.5px] text-ink">{p}</td><td className="px-3 py-2 text-ink-2">{d}</td></tr>
+              <tr key={p}>
+                <td className="px-3 py-2 font-mono text-[12px] text-ok">GET</td>
+                <td className="px-3 py-2 font-mono text-[12.5px] text-ink">{p}</td>
+                <td className="px-3 py-2 text-ink-2">{d}</td>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
       <Section title="先知道这几件事">
-        <Bullets items={[
-          "不传 mode 等同 selected（精选）；只有明确需要全部公开动态才用 all。",
-          "完整精选不限 7 天：snapshot 首次拿全，changes 只取变化；items 只看最近 7 天。",
-          "items 不带正文：返回摘要、推荐理由、站内阅读页与原文链接。",
-          "没有推送通道：按响应的 s-maxage 带 If-None-Match 轮询，没变化时是 304。",
-          "错误是 Problem JSON；反馈时附上 requestId 即可定位。",
-        ]} />
+        <Bullets
+          items={[
+            "不传 mode 等同 selected（精选）；只有明确需要全部公开动态才用 all。",
+            "完整精选不限 7 天：snapshot 首次拿全，changes 只取变化；items 只看最近 7 天。",
+            "items 不带正文：返回摘要、推荐理由、站内阅读页与原文链接。",
+            "没有推送通道：按响应的 s-maxage 带 If-None-Match 轮询，没变化时是 304。",
+            "错误是 Problem JSON；反馈时附上 requestId 即可定位。",
+          ]}
+        />
       </Section>
       <Section title="维护全部精选：一次快照，之后只拉变化">
-        <CodeBlock lang="bash" code={`# 首次：分页拿当前全部精选，保存第一页响应里的 cursor（逐页相同）\ncurl '${base}/api/v1/selected/snapshot?fields=minimal&limit=500'\n# hasMore 为 true 就带 nextPage 继续翻\ncurl '${base}/api/v1/selected/snapshot?fields=minimal&limit=500&page=<上一页的 nextPage>'\n# 翻完之后：原样回传 cursor，只拿新增、修改和撤选\ncurl '${base}/api/v1/selected/changes?cursor=<第一页响应的 cursor>&limit=100'`} />
+        <CodeBlock
+          lang="bash"
+          code={`# 首次：分页拿当前全部精选，保存第一页响应里的 cursor（逐页相同）\ncurl '${base}/api/v1/selected/snapshot?fields=minimal&limit=500'\n# hasMore 为 true 就带 nextPage 继续翻\ncurl '${base}/api/v1/selected/snapshot?fields=minimal&limit=500&page=<上一页的 nextPage>'\n# 翻完之后：原样回传 cursor，只拿新增、修改和撤选\ncurl '${base}/api/v1/selected/changes?cursor=<第一页响应的 cursor>&limit=100'`}
+        />
         <p>每页成功应用后再保存新 cursor。返回 409 snapshot_required 时重新取一次快照即可，接口不会静默漏数。</p>
       </Section>
       <Section title="错误与恢复" id="agent-api-recovery">
-        <Bullets items={[
-          "400：参数不合法；按 OpenAPI 修正，不要自动改成更宽的查询。",
-          "409 snapshot_required：增量游标无法安全续传，重新取一次完整快照。",
-          "429：遵守 Retry-After，不要增加并发重试。",
-          "5xx：指数退避，并使用上次成功的缓存。",
-        ]} />
+        <Bullets
+          items={[
+            "400：参数不合法；按 OpenAPI 修正，不要自动改成更宽的查询。",
+            "409 snapshot_required：增量游标无法安全续传，重新取一次完整快照。",
+            "429：遵守 Retry-After，不要增加并发重试。",
+            "5xx：指数退避，并使用上次成功的缓存。",
+          ]}
+        />
       </Section>
     </>
   );
@@ -266,7 +323,13 @@ export default function AgentPage() {
       </div>
 
       <div className="sticky top-0 z-20 -mx-4 mt-7 bg-bg/90 px-4 py-2 backdrop-blur-md lg:mx-0 lg:px-0">
-        <PillTabs layoutId="agent-tab" label="接入方式" active={tab} onSelect={(k: string) => select(k as TabKey)} items={TABS.map((t) => ({ key: t.key, label: t.label }))} />
+        <PillTabs
+          layoutId="agent-tab"
+          label="接入方式"
+          active={tab}
+          onSelect={(k: string) => select(k as TabKey)}
+          items={TABS.map((t) => ({ key: t.key, label: t.label }))}
+        />
       </div>
 
       <div className="mt-7" role="tabpanel">

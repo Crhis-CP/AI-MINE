@@ -23,31 +23,46 @@ export function registerLeaderboard(app: FastifyInstance) {
   const notFound = (req: Parameters<typeof sendProblem>[0], reply: Parameters<typeof sendProblem>[1]) =>
     sendProblem(req, reply, { status: 404, code: "not_found", detail: "not found", cacheControl: "public, max-age=60" });
 
-  app.get("/api/site/leaderboard/boards/:key", guarded(async (req, reply) => {
-    const key = (req.params as { key: string }).key;
-    if (!(LEADERBOARD_PUBLIC_BOARDS as readonly string[]).includes(key)) return notFound(req, reply);
-    const body = await loadBoard(key as LeaderboardBoardKey);
-    if (!body) return notFound(req, reply);
-    return sendJsonWithEtag(req, reply, body, { etagPrefix: `lb-${key}`, cacheControl: CACHE });
-  }));
+  app.get(
+    "/api/site/leaderboard/boards/:key",
+    guarded(async (req, reply) => {
+      const key = (req.params as { key: string }).key;
+      if (!(LEADERBOARD_PUBLIC_BOARDS as readonly string[]).includes(key)) return notFound(req, reply);
+      const body = await loadBoard(key as LeaderboardBoardKey);
+      if (!body) return notFound(req, reply);
+      return sendJsonWithEtag(req, reply, body, { etagPrefix: `lb-${key}`, cacheControl: CACHE });
+    }),
+  );
 
-  app.get("/api/site/leaderboard/models/:slug", guarded(async (req, reply) => {
-    const body = await loadModel((req.params as { slug: string }).slug);
-    if (!body) return notFound(req, reply);
-    return sendJsonWithEtag(req, reply, body, { etagPrefix: "lb-model", cacheControl: CACHE });
-  }));
+  app.get(
+    "/api/site/leaderboard/models/:slug",
+    guarded(async (req, reply) => {
+      const body = await loadModel((req.params as { slug: string }).slug);
+      if (!body) return notFound(req, reply);
+      return sendJsonWithEtag(req, reply, body, { etagPrefix: "lb-model", cacheControl: CACHE });
+    }),
+  );
 
-  app.get("/api/site/leaderboard/sources", guarded(async (req, reply) => {
-    return sendJsonWithEtag(req, reply, await loadSources(), { etagPrefix: "lb-sources", cacheControl: CACHE });
-  }));
+  app.get(
+    "/api/site/leaderboard/sources",
+    guarded(async (req, reply) => {
+      return sendJsonWithEtag(req, reply, await loadSources(), { etagPrefix: "lb-sources", cacheControl: CACHE });
+    }),
+  );
 
-  app.get("/api/site/leaderboard/sources/:key", guarded(async (req, reply) => {
-    const body = await loadSource((req.params as { key: string }).key);
-    if (!body) return notFound(req, reply);
-    return sendJsonWithEtag(req, reply, body, { etagPrefix: "lb-source", cacheControl: CACHE });
-  }));
+  app.get(
+    "/api/site/leaderboard/sources/:key",
+    guarded(async (req, reply) => {
+      const body = await loadSource((req.params as { key: string }).key);
+      if (!body) return notFound(req, reply);
+      return sendJsonWithEtag(req, reply, body, { etagPrefix: "lb-source", cacheControl: CACHE });
+    }),
+  );
 
-  app.get("/api/site/leaderboard/rules", guarded(async (req, reply) => {
-    return sendJsonWithEtag(req, reply, await loadRulesData(), { etagPrefix: "lb-rules", cacheControl: CACHE });
-  }));
+  app.get(
+    "/api/site/leaderboard/rules",
+    guarded(async (req, reply) => {
+      return sendJsonWithEtag(req, reply, await loadRulesData(), { etagPrefix: "lb-rules", cacheControl: CACHE });
+    }),
+  );
 }

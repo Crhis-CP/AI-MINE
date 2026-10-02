@@ -15,5 +15,8 @@ test("a link to the site's own address becomes an in-site path", () => {
 
 test("any other address opens in a new tab", () => {
   assert.equal(link("[AIHOT](https://aihot.news/about)"), '<a href="https://aihot.news/about" target="_blank" rel="noopener noreferrer">');
-  assert.equal(link("[别的站](https://news.example.com.evil.test/about)"), '<a href="https://news.example.com.evil.test/about" target="_blank" rel="noopener noreferrer">');
+  assert.equal(
+    link("[别的站](https://news.example.com.evil.test/about)"),
+    '<a href="https://news.example.com.evil.test/about" target="_blank" rel="noopener noreferrer">',
+  );
 });

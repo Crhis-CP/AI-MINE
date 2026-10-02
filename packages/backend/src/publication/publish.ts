@@ -9,9 +9,7 @@ import { sha256, stableJson } from "../lib/ids.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
-import {
-  bodyModeOf, channelOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts,
-} from "./rules.ts";
+import { bodyModeOf, channelOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
 
 interface ArticleRow {
   id: string;
@@ -111,8 +109,18 @@ function round1(n: number | null): number | null {
 }
 
 export function v1Payload(p: {
-  articleId: string; title: string; originalTitle: string | null; summary: string | null; sourceName: string; url: string;
-  publishedAt: Date | null; discoveredAt: Date; category: string | null; score: number | null; selected: boolean; reason: string | null;
+  articleId: string;
+  title: string;
+  originalTitle: string | null;
+  summary: string | null;
+  sourceName: string;
+  url: string;
+  publishedAt: Date | null;
+  discoveredAt: Date;
+  category: string | null;
+  score: number | null;
+  selected: boolean;
+  reason: string | null;
 }): V1ItemPayload {
   const aihot = itemUrl(p.articleId);
   return {
@@ -177,10 +185,12 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const title = pickString(f.title, zhTitle ?? (isChineseTitle || article.x_post ? collapseWhitespace(article.title) : null));
   const summary = pickString(f.summary, analysis?.summary_zh ?? null);
   const category = pickString(f.category, analysis?.category ?? null);
-  const tags = Array.isArray(f.tags) ? (f.tags as string[]) : [...new Set([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)])];
-  const score = typeof f.score === "number" ? f.score : analysis?.score ?? null;
-  const relevance = typeof f.relevance === "string" ? (f.relevance as string) : analysis?.relevance ?? null;
-  const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : analysis?.selected ?? null;
+  const tags = Array.isArray(f.tags)
+    ? (f.tags as string[])
+    : [...new Set([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)])];
+  const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
+  const relevance = typeof f.relevance === "string" ? (f.relevance as string) : (analysis?.relevance ?? null);
+  const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
   // Material from an isolated source reaches no public surface at all: not even a detail page.
   const visibility = source.participation_mode === "isolated" ? "withdrawn" : (override?.visibility ?? "public");
 
@@ -214,7 +224,11 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   }
 
   const indexable = isIndexable({
-    visibility, hasSummary: !!summary, selected, seoIndexedAt: previous?.seo_indexed_at ?? null, seoExcludedAt: previous?.seo_excluded_at ?? null,
+    visibility,
+    hasSummary: !!summary,
+    selected,
+    seoIndexedAt: previous?.seo_indexed_at ?? null,
+    seoExcludedAt: previous?.seo_excluded_at ?? null,
   });
   const searchText = collapseWhitespace(
     [title, originalTitle, summary, source.name, ...displayTags(tags), ...(analysis?.subjects ?? [])].filter(Boolean).join(" "),
@@ -230,18 +244,39 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   }
 
   const next = {
-    visibility, eligible, selected, title: title ?? collapseWhitespace(article.title), original_title: originalTitle, summary, reason,
-    category, tags, score: round1(score), body_mode: bodyMode, story_id: membership?.story_id ?? null, fact_id: membership?.fact_id ?? null,
+    visibility,
+    eligible,
+    selected,
+    title: title ?? collapseWhitespace(article.title),
+    original_title: originalTitle,
+    summary,
+    reason,
+    category,
+    tags,
+    score: round1(score),
+    body_mode: bodyMode,
+    story_id: membership?.story_id ?? null,
+    fact_id: membership?.fact_id ?? null,
     indexable,
   };
   const changed =
     !previous ||
     stableJson({ ...next, tags: [...next.tags].sort() }) !==
       stableJson({
-        visibility: previous.visibility, eligible: previous.eligible, selected: previous.selected, title: previous.title,
-        original_title: previous.original_title, summary: previous.summary, reason: previous.reason, category: previous.category,
-        tags: [...previous.tags].sort(), score: previous.score === null ? null : Number(previous.score), body_mode: previous.body_mode,
-        story_id: previous.story_id, fact_id: previous.fact_id, indexable: previous.indexable,
+        visibility: previous.visibility,
+        eligible: previous.eligible,
+        selected: previous.selected,
+        title: previous.title,
+        original_title: previous.original_title,
+        summary: previous.summary,
+        reason: previous.reason,
+        category: previous.category,
+        tags: [...previous.tags].sort(),
+        score: previous.score === null ? null : Number(previous.score),
+        body_mode: previous.body_mode,
+        story_id: previous.story_id,
+        fact_id: previous.fact_id,
+        indexable: previous.indexable,
       });
   const revision = previous ? previous.revision + (changed ? 1 : 0) : 1;
 
@@ -305,8 +340,18 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   let ledger: "upsert" | "remove" | null = null;
   if (inSet) {
     const payload = v1Payload({
-      articleId, title: next.title, originalTitle, summary, sourceName: source.name, url: article.url,
-      publishedAt: article.published_at, discoveredAt: article.discovered_at, category, score: next.score, selected: true, reason,
+      articleId,
+      title: next.title,
+      originalTitle,
+      summary,
+      sourceName: source.name,
+      url: article.url,
+      publishedAt: article.published_at,
+      discoveredAt: article.discovered_at,
+      category,
+      score: next.score,
+      selected: true,
+      reason,
     });
     const payloadHash = sha256(stableJson(payload));
     if (!state || !state.in_set || state.payload_hash !== payloadHash) {
@@ -325,7 +370,8 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const wasPublic = !!previous && previous.visibility !== "withdrawn" && previous.eligible;
   const reduced =
     wasPublic &&
-    (visibility === "withdrawn" || !eligible ||
+    (visibility === "withdrawn" ||
+      !eligible ||
       (previous!.visibility === "public" && visibility !== "public") ||
       (previous!.selected && !selected) ||
       (previous!.body_mode === "full" && bodyMode !== "full"));
@@ -336,7 +382,10 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
  * Re-derives every published article of one source (after its participation, licences, tier or name
  * changed) without calling models. Runs in the worker; progress goes to the callback.
  */
-export async function republishSource(sourceId: string, onProgress?: (done: number, total: number) => Promise<void>): Promise<{ total: number; changed: number; reduced: number }> {
+export async function republishSource(
+  sourceId: string,
+  onProgress?: (done: number, total: number) => Promise<void>,
+): Promise<{ total: number; changed: number; reduced: number }> {
   const { total } = one(await sql<{ total: number }[]>`SELECT count(*)::int AS total FROM publications WHERE source_id = ${sourceId}`);
   let after = "";
   let done = 0;

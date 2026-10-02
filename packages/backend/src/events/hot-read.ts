@@ -46,7 +46,9 @@ export interface HotRanking {
 let rankingPending: Promise<HotRanking | null> | null = null;
 
 export function latestHotRanking(): Promise<HotRanking | null> {
-  rankingPending ??= queryLatestHotRanking().finally(() => { rankingPending = null; });
+  rankingPending ??= queryLatestHotRanking().finally(() => {
+    rankingPending = null;
+  });
   return rankingPending;
 }
 
@@ -71,8 +73,11 @@ async function readExtras(ranking: HotRanking): Promise<Extras> {
   if (pending) return pending;
   const load = queryExtras(ranking);
   extrasPending.set(ranking.id, load);
-  try { return await load; }
-  finally { extrasPending.delete(ranking.id); }
+  try {
+    return await load;
+  } finally {
+    extrasPending.delete(ranking.id);
+  }
 }
 
 async function queryExtras(ranking: HotRanking): Promise<Extras> {
@@ -106,7 +111,13 @@ export async function rankingExtras(ranking: HotRanking) {
     participants: (e: HotEntry): HotParticipant[] => {
       const people = e.participants
         .map((p, i) => ({ p, i, icon: faces.get(p.name) ?? null }))
-        .sort((x, y) => Number(y.p.kind === "editorial") - Number(x.p.kind === "editorial") || tierRank(x.p.tier) - tierRank(y.p.tier) || Number(!!y.icon) - Number(!!x.icon) || x.i - y.i);
+        .sort(
+          (x, y) =>
+            Number(y.p.kind === "editorial") - Number(x.p.kind === "editorial") ||
+            tierRank(x.p.tier) - tierRank(y.p.tier) ||
+            Number(!!y.icon) - Number(!!x.icon) ||
+            x.i - y.i,
+        );
       // Every name stays for the tooltip; only visible Faces need srcSet.
       return people.map(({ p, icon }, i): HotParticipant => {
         const person: HotParticipant = { name: p.name, kind: p.kind, iconUrl: proxiedImage(icon, "avatar") };

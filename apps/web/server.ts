@@ -68,7 +68,10 @@ async function serveStatic(pathname: string, res: import("node:http").ServerResp
 const server = createServer((req, res) => {
   handle(req, res).catch((error: unknown) => {
     const bad = error instanceof BadRequest || error instanceof URIError;
-    if (!bad) console.error(JSON.stringify({ level: "error", msg: "web request failed", path: (req.url ?? "").split("?")[0]!.slice(0, 200), error: String(error).slice(0, 500) }));
+    if (!bad)
+      console.error(
+        JSON.stringify({ level: "error", msg: "web request failed", path: (req.url ?? "").split("?")[0]!.slice(0, 200), error: String(error).slice(0, 500) }),
+      );
     if (res.headersSent) return res.destroy();
     res.writeHead(bad ? 400 : 500, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
     res.end(bad ? "Bad request" : "Internal error");
@@ -102,16 +105,20 @@ function pageCache(req: import("node:http").IncomingMessage, res: import("node:h
       const sharedSeconds = Number(cc.match(/(?:^|,)\s*s-maxage=(\d+)/i)?.[1] ?? 0);
       const expires = String(res.getHeader("X-Accel-Expires") ?? `@${nowSeconds + sharedSeconds}`);
       // A sibling loader may have delayed this response after the selected loader set its TTL.
-      const seconds = /(?:^|,)\s*no-cache(?:,|$)/i.test(cc) || expires === "0" ? 0
-        : Math.max(0, Math.min(sharedSeconds, Number(expires.slice(1)) - nowSeconds));
+      const seconds =
+        /(?:^|,)\s*no-cache(?:,|$)/i.test(cc) || expires === "0" ? 0 : Math.max(0, Math.min(sharedSeconds, Number(expires.slice(1)) - nowSeconds));
       res.setHeader("Date", now.toUTCString());
       res.setHeader("X-Accel-Expires", seconds > 0 ? expires : "0");
       // Reuse intent-prefetched data in the browser within the same shared-cache deadline (capped).
       // Never serve it beyond that deadline, including while revalidating or on an error.
-      const directives = cc.split(",").map((value) => value.trim()).filter((value) => !/^(?:max-age|s-maxage|stale-while-revalidate|stale-if-error|must-revalidate)(?:=|$)/i.test(value));
-      res.setHeader("Cache-Control", seconds > 0
-        ? `${directives.join(", ")}, max-age=${Math.min(seconds, BROWSER_MAX_SECONDS)}, s-maxage=${seconds}, must-revalidate`
-        : "no-cache");
+      const directives = cc
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value) => !/^(?:max-age|s-maxage|stale-while-revalidate|stale-if-error|must-revalidate)(?:=|$)/i.test(value));
+      res.setHeader(
+        "Cache-Control",
+        seconds > 0 ? `${directives.join(", ")}, max-age=${Math.min(seconds, BROWSER_MAX_SECONDS)}, s-maxage=${seconds}, must-revalidate` : "no-cache",
+      );
     }
     return typeof messageOrHeaders === "string" ? writeHead(status, messageOrHeaders) : writeHead(status);
   }) as typeof res.writeHead;
@@ -134,7 +141,10 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   if (isApiOwned(pathname)) {
     // The visitor's address, decided here: the one the trusted proxy saw (the last X-Forwarded-For
     // entry), or this connection's own. Both headers carry only that.
-    const forwarded = String(req.headers["x-forwarded-for"] ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+    const forwarded = String(req.headers["x-forwarded-for"] ?? "")
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
     const client = TRUST_PROXY && forwarded.length ? forwarded[forwarded.length - 1]! : (req.socket.remoteAddress ?? "");
     const headers = { ...req.headers, "x-forwarded-for": client, "x-real-ip": client };
     const upstream = httpRequest({ hostname: API.hostname, port: API.port, path: raw, method: req.method, headers }, (up) => {
@@ -158,7 +168,9 @@ process.on("unhandledRejection", (reason) => {
 });
 
 server.keepAliveTimeout = 65_000;
-server.listen(PORT, HOST, () => console.log(JSON.stringify({ level: "info", msg: "web started", port: (server.address() as import("node:net").AddressInfo).port, pid: process.pid })));
+server.listen(PORT, HOST, () =>
+  console.log(JSON.stringify({ level: "info", msg: "web started", port: (server.address() as import("node:net").AddressInfo).port, pid: process.pid })),
+);
 
 const shutdown = () => server.close(() => process.exit(0));
 process.on("SIGTERM", shutdown);

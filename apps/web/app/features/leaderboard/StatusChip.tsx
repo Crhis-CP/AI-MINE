@@ -11,7 +11,9 @@ const STATUS_TONE: Record<LbSourceStatus, string> = {
 
 export function StatusChip({ status, large = false }: { status: LbSourceStatus; large?: boolean }) {
   return (
-    <span className={`inline-flex shrink-0 items-center rounded-mark border font-medium ${large ? "h-7 px-2.5 text-[12.5px]" : "h-[22px] px-2 text-[11px]"} ${STATUS_TONE[status]}`}>
+    <span
+      className={`inline-flex shrink-0 items-center rounded-mark border font-medium ${large ? "h-7 px-2.5 text-[12.5px]" : "h-[22px] px-2 text-[11px]"} ${STATUS_TONE[status]}`}
+    >
       {LB_SOURCE_STATUS_LABELS[status]}
     </span>
   );

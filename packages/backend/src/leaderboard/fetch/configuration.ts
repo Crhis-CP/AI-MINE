@@ -27,10 +27,16 @@ export const REASONS = {
   special: "来源为专用系统或尚未核实的运行配置，无法归到单个公开模型。",
 } as const;
 
-const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 /** Tokens that describe how a model was run (as opposed to dates, channels or editions). */
-const CONFIG_TOKEN = /^(reasoning|non-reasoning|thinking|non-thinking|adaptive-reasoning|(x?high|medium|low|max|minimal)(-effort)?|thinking-(\d+k|minimal)|high-\d+k|default-fallback|.+-fallback|\d+|\d+-\d+)$/;
+const CONFIG_TOKEN =
+  /^(reasoning|non-reasoning|thinking|non-thinking|adaptive-reasoning|(x?high|medium|low|max|minimal)(-effort)?|thinking-(\d+k|minimal)|high-\d+k|default-fallback|.+-fallback|\d+|\d+-\d+)$/;
 
 const TIERS: Array<[RegExp, number, string]> = [
   [/^max(-effort)?$/, 600, "Max 推理"],

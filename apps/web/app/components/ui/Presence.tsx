@@ -6,7 +6,13 @@ import { cloneElement, useEffect, useRef, useState, type CSSProperties, type Rea
 
 type Animatable = ReactElement<{ className?: string; style?: CSSProperties }>;
 
-export function Presence({ show, children, enter, exit, duration }: {
+export function Presence({
+  show,
+  children,
+  enter,
+  exit,
+  duration,
+}: {
   show: boolean;
   /** One element; it receives the animation class. */
   children: Animatable;

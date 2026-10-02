@@ -23,7 +23,8 @@ export async function resolveStory(publicId: string): Promise<StoryLookup> {
   if (targetId) {
     // Follow merge chains to the surviving story.
     for (let i = 0; i < 10; i++) {
-      const rows: Array<{ id: number; public_id: string; merged_into: number | null }> = await sql`SELECT id, public_id::text, merged_into FROM stories WHERE id = ${targetId}`;
+      const rows: Array<{ id: number; public_id: string; merged_into: number | null }> =
+        await sql`SELECT id, public_id::text, merged_into FROM stories WHERE id = ${targetId}`;
       const t = rows[0];
       if (!t) return { kind: "not_found" };
       if (!t.merged_into) return { kind: "merged", target: t.public_id };
@@ -82,7 +83,18 @@ function reportView(r: ReportRow): StoryReportView {
 }
 
 async function storyContent(storyId: number, now: Date) {
-  const [s] = await sql<{ public_id: string; title: string; summary: string | null; first_report_at: Date | null; latest_at: Date | null; digest: string | null; digest_updated_at: Date | null; latest: string | null }[]>`
+  const [s] = await sql<
+    {
+      public_id: string;
+      title: string;
+      summary: string | null;
+      first_report_at: Date | null;
+      latest_at: Date | null;
+      digest: string | null;
+      digest_updated_at: Date | null;
+      latest: string | null;
+    }[]
+  >`
     SELECT public_id::text, title, summary, first_report_at, latest_at, digest, digest_updated_at, latest FROM stories WHERE id = ${storyId}`;
   if (!s) return null;
   const reports = await storyReports(storyId, now);
@@ -97,9 +109,18 @@ async function storyContent(storyId: number, now: Date) {
     .filter((f) => byFact.has(f.id))
     .map((f) => {
       const members = byFact.get(f.id)!;
-      const rep = [...members].sort((a, b) => Number(b.first_party) - Number(a.first_party) || Number(b.selected) - Number(a.selected) || a.at.getTime() - b.at.getTime())[0]!;
+      const rep = [...members].sort(
+        (a, b) => Number(b.first_party) - Number(a.first_party) || Number(b.selected) - Number(a.selected) || a.at.getTime() - b.at.getTime(),
+      )[0]!;
       const first = members.reduce((m, r) => (r.at < m ? r.at : m), members[0]!.at);
-      return { factId: f.public_id, title: f.title, occurredAt: f.occurred_at?.toISOString() ?? null, firstReportAt: first.toISOString(), reportCount: members.length, representative: rep };
+      return {
+        factId: f.public_id,
+        title: f.title,
+        occurredAt: f.occurred_at?.toISOString() ?? null,
+        firstReportAt: first.toISOString(),
+        reportCount: members.length,
+        representative: rep,
+      };
     })
     .sort((a, b) => Date.parse(b.firstReportAt) - Date.parse(a.firstReportAt));
 
@@ -159,7 +180,10 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
       heat: entry?.heat ?? null,
     },
     developments: developments.map((d) => ({ ...d, representative: reportView(d.representative) })),
-    officialReports: reports.filter((r) => r.first_party).slice(0, 12).map(reportView),
+    officialReports: reports
+      .filter((r) => r.first_party)
+      .slice(0, 12)
+      .map(reportView),
     timeline: reports.slice(0, 100).map(reportView),
     heat: heat.map((h): HeatPoint => ({ hour: h.hour.toISOString(), heat: Number(h.heat), participants: h.participants })),
     related: related.map((r) => ({ publicId: r.public_id, title: r.title, relation: r.relation, latestAt: r.latest_at?.toISOString() ?? null })),
@@ -202,7 +226,9 @@ async function hotCovers(rankingId: number, entries: Array<{ storyId: number; re
     const covers = await load;
     coversCache = { rankingId, covers };
     return covers;
-  } finally { coversPending.delete(rankingId); }
+  } finally {
+    coversPending.delete(rankingId);
+  }
 }
 
 async function queryHotCovers(entries: Array<{ storyId: number; representativeItemId: string | null }>, at: Date) {
@@ -218,7 +244,12 @@ async function queryHotCovers(entries: Array<{ storyId: number; representativeIt
     WHERE p.story_id = ANY(${ids}::bigint[]) AND p.visibility = 'public' AND p.eligible AND p.body_mode <> 'summary'
       AND (NOT p.selected OR p.visible_after <= ${at})
     ORDER BY p.story_id, (p.article_id::text = ANY(${reps}::text[])) DESC, p.first_party DESC, p.selected DESC, coalesce(p.score, 0) DESC, p.article_id`;
-  const covers = new Map(rows.map((c) => [Number(c.story_id), { url: c.m.url, width: typeof c.m.width === "number" ? c.m.width : null, height: typeof c.m.height === "number" ? c.m.height : null }]));
+  const covers = new Map(
+    rows.map((c) => [
+      Number(c.story_id),
+      { url: c.m.url, width: typeof c.m.width === "number" ? c.m.width : null, height: typeof c.m.height === "number" ? c.m.height : null },
+    ]),
+  );
   return covers;
 }
 
@@ -256,12 +287,17 @@ export async function loadHot(): Promise<HotResponse> {
         sourceNames: e.sourceNames,
         latestAt: e.latestAt,
         firstReportAt: e.firstReportAt,
-        representative: e.representativeItemId ? { id: e.representativeItemId, url: e.representativeUrl ?? "", sourceName: e.representativeSource ?? "" } : null,
+        representative: e.representativeItemId
+          ? { id: e.representativeItemId, url: e.representativeUrl ?? "", sourceName: e.representativeSource ?? "" }
+          : null,
         participants: extras.participants(e),
         spark: sparks.get(e.storyId) ?? [],
         summary: text.summary,
         latest: text.latest,
-        cover: picture && coverUrl ? { url: coverUrl, srcSet: proxiedImageSet(picture.url, "hero") ?? undefined, width: picture.width, height: picture.height } : null,
+        cover:
+          picture && coverUrl
+            ? { url: coverUrl, srcSet: proxiedImageSet(picture.url, "hero") ?? undefined, width: picture.width, height: picture.height }
+            : null,
       };
     }),
   };
@@ -298,7 +334,12 @@ export async function v1Story(storyId: number) {
   if (!content) return null;
   const { s, reports, developments } = content;
   const latestAt = s.latest_at ?? reports[0]!.at;
-  const neighbors = (await relatedStories(storyId)).map((r) => ({ publicId: r.public_id, title: r.title, relation: r.relation, links: { aihot: storyUrl(r.public_id), api: storyApiUrl(r.public_id) } }));
+  const neighbors = (await relatedStories(storyId)).map((r) => ({
+    publicId: r.public_id,
+    title: r.title,
+    relation: r.relation,
+    links: { aihot: storyUrl(r.public_id), api: storyApiUrl(r.public_id) },
+  }));
   return {
     schemaVersion: 1 as const,
     story: {

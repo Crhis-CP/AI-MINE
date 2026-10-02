@@ -58,8 +58,23 @@ export interface RunInputs {
   snapshotIds: string[];
   boards: BoardInput[];
   evidence: Record<string, EvidenceMeta>;
-  sources: Array<{ key: string; weight: number; familyKey: string; categoryKey: string | null; usedInOverall: boolean; usedInCategory: boolean; evidenceBudgetKey: string }>;
-  categories: Array<{ key: string; status: "READY" | "INSUFFICIENT"; modelCount: number; metricCount: number; sourceCount: number; sourceSnapshotIds: string[] }>;
+  sources: Array<{
+    key: string;
+    weight: number;
+    familyKey: string;
+    categoryKey: string | null;
+    usedInOverall: boolean;
+    usedInCategory: boolean;
+    evidenceBudgetKey: string;
+  }>;
+  categories: Array<{
+    key: string;
+    status: "READY" | "INSUFFICIENT";
+    modelCount: number;
+    metricCount: number;
+    sourceCount: number;
+    sourceSnapshotIds: string[];
+  }>;
 }
 
 /** Protocol string: what a score is comparable with (benchmark edition, release, index version). */

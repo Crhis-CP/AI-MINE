@@ -23,7 +23,11 @@ const POSTS = [
   { id: BASE + 101n, handle: HANDLES[0]! },
 ];
 const tweet = (p: { id: bigint; handle: string }) => ({
-  id_str: String(p.id), tweet_created_at: new Date().toISOString(), full_text: `Post ${p.id} ${T}`, lang: "en", user: { name: p.handle, screen_name: p.handle },
+  id_str: String(p.id),
+  tweet_created_at: new Date().toISOString(),
+  full_text: `Post ${p.id} ${T}`,
+  lang: "en",
+  user: { name: p.handle, screen_name: p.handle },
 });
 
 let failNext = false;
@@ -74,20 +78,42 @@ after(async () => {
 
 test("shards keep to the query length and account limits, per participation mode", () => {
   const long = Array.from({ length: 60 }, (_, i) => ({
-    id: `s${String(i).padStart(2, "0")}`, kind: "x_search" as const, participation_mode: (i % 2 ? "hot_signal" : "editorial") as "hot_signal" | "editorial",
-    config: { query: `from:handle_${String(i).padStart(8, "0")} -filter:replies` }, cursor: { lastTweetId: "1" },
+    id: `s${String(i).padStart(2, "0")}`,
+    kind: "x_search" as const,
+    participation_mode: (i % 2 ? "hot_signal" : "editorial") as "hot_signal" | "editorial",
+    config: { query: `from:handle_${String(i).padStart(8, "0")} -filter:replies` },
+    cursor: { lastTweetId: "1" },
   }));
-  const own = { id: "s99", kind: "x_search" as const, participation_mode: "editorial" as const, config: { query: "from:elonmusk -filter:replies (Grok OR xAI)" }, cursor: { lastTweetId: "1" } };
-  const fresh = { id: "s98", kind: "x_search" as const, participation_mode: "editorial" as const, config: { query: "from:newaccount -filter:replies" }, cursor: null };
+  const own = {
+    id: "s99",
+    kind: "x_search" as const,
+    participation_mode: "editorial" as const,
+    config: { query: "from:elonmusk -filter:replies (Grok OR xAI)" },
+    cursor: { lastTweetId: "1" },
+  };
+  const fresh = {
+    id: "s98",
+    kind: "x_search" as const,
+    participation_mode: "editorial" as const,
+    config: { query: "from:newaccount -filter:replies" },
+    cursor: null,
+  };
   const shards = planXShards([...long, own, fresh]);
   assert.deepEqual(shards.flatMap((s) => s.sourceIds).sort(), long.map((s) => s.id).sort(), "a query of its own and a first fetch stay out");
   for (const s of shards) {
     const handles = s.sourceIds.map((id) => /handle_\d+/.exec(long.find((l) => l.id === id)!.config.query)![0]);
     assert.ok(shardQuery(handles).length <= 470, "room is left for the since_id watermark under 512 characters");
     assert.ok(s.sourceIds.length <= 24);
-    assert.ok(s.sourceIds.every((id) => long.find((l) => l.id === id)!.participation_mode === s.mode), "modes are not mixed");
+    assert.ok(
+      s.sourceIds.every((id) => long.find((l) => l.id === id)!.participation_mode === s.mode),
+      "modes are not mixed",
+    );
   }
-  assert.deepEqual(planXShards([...long].reverse()).map((s) => s.key), shards.map((s) => s.key), "the same sources give the same shards");
+  assert.deepEqual(
+    planXShards([...long].reverse()).map((s) => s.key),
+    shards.map((s) => s.key),
+    "the same sources give the same shards",
+  );
 });
 
 test("one search reads a shard; each account gets its own posts, run and watermark", async () => {
@@ -96,14 +122,24 @@ test("one search reads a shard; each account gets its own posts, run and waterma
   assert.equal(res.status, "ok");
   const asked = queries.slice(before);
   assert.equal(asked.length, 2, "one search for three accounts (two pages of posts)");
-  for (const q of asked) assert.match(q, new RegExp(`^\\(from:${HANDLES[0]} OR from:${HANDLES[1]} OR from:${HANDLES[2]}\\) -filter:replies since_id:${WATERMARK}$`));
+  for (const q of asked)
+    assert.match(q, new RegExp(`^\\(from:${HANDLES[0]} OR from:${HANDLES[1]} OR from:${HANDLES[2]}\\) -filter:replies since_id:${WATERMARK}$`));
   const stored = await sql<{ source_id: string; n: number }[]>`SELECT source_id, count(*)::int AS n FROM articles WHERE source_id IN ${sql(IDS)} GROUP BY 1`;
   assert.deepEqual(Object.fromEntries(stored.map((r) => [r.source_id, r.n])), { [IDS[0]!]: 3, [IDS[1]!]: 1 });
   for (const id of IDS) assert.equal((await cursorOf(id)).lastTweetId, String(BASE + 104n), "every account is covered up to the newest post read");
   const runs = await sql<{ source_id: string; status: string; found_count: number; detail: { shard: string; accounts: number } }[]>`
     SELECT DISTINCT ON (source_id) source_id, status, found_count, detail FROM fetch_runs WHERE source_id IN ${sql(IDS)} ORDER BY source_id, id DESC`;
-  assert.deepEqual(runs.map((r) => [r.status, r.found_count, r.detail.accounts]), [["ok", 3, 3], ["ok", 1, 3], ["ok", 0, 3]]);
-  const [next] = await sql<{ minutes: number; interval: number }[]>`SELECT round(extract(epoch FROM next_fetch_at - now()) / 60)::int AS minutes, interval_minutes AS interval FROM sources WHERE id = ${IDS[2]!}`;
+  assert.deepEqual(
+    runs.map((r) => [r.status, r.found_count, r.detail.accounts]),
+    [
+      ["ok", 3, 3],
+      ["ok", 1, 3],
+      ["ok", 0, 3],
+    ],
+  );
+  const [next] = await sql<
+    { minutes: number; interval: number }[]
+  >`SELECT round(extract(epoch FROM next_fetch_at - now()) / 60)::int AS minutes, interval_minutes AS interval FROM sources WHERE id = ${IDS[2]!}`;
   assert.deepEqual([next!.minutes, next!.interval], [30, 30], "editorial shards are read every half hour");
 });
 
@@ -131,7 +167,7 @@ test("a quiet account's old newest post does not drag the shard's search back: i
   const before = queries.length;
   await collectXShard(`editorial:test-${T}`, IDS);
   const since = BigInt(/since_id:(\d+)/.exec(queries[before]!)![1]!);
-  const expected = (BigInt(checked - 10 * 60_000 - 1288834974657) << 22n);
+  const expected = BigInt(checked - 10 * 60_000 - 1288834974657) << 22n;
   assert.equal(since, expected > WATERMARK - 3n ? expected : WATERMARK - 3n, "bounded by the last checks, not by the quiet account's post");
 });
 
@@ -155,5 +191,8 @@ test("due accounts are scheduled by shard, not one by one", async () => {
   assert.equal(jobs.filter((j) => j.name === "sources.fetch").length, 0, "no account of a shard is fetched on its own");
   const shard = jobs.find((j) => j.name === "sources.fetch-x");
   assert.ok(shard, "the shard with the due account is enqueued");
-  assert.ok(IDS.every((id) => jobs.some((j) => j.data.sourceIds?.includes(id))), "all its accounts are read together");
+  assert.ok(
+    IDS.every((id) => jobs.some((j) => j.data.sourceIds?.includes(id))),
+    "all its accounts are read together",
+  );
 });

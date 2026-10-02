@@ -22,10 +22,38 @@ interface FeedMeta {
 }
 
 const FEEDS: Record<"selected" | "selectedFull" | "all" | "daily", FeedMeta> = {
-  selected: { id: "selected", path: "/feed.xml", title: `${SITE.name} — 精选`, description: `最新 50 条 ${SITE.name} 精选摘要，保留标题、站内阅读与原文入口；需要阅读器内全文可改订 /feed/full.xml。`, homePath: "/", pollHintMinutes: 30 },
-  selectedFull: { id: "selected-full", path: "/feed/full.xml", title: `${SITE.name} — 精选全文`, description: "与精选摘要相同的最新 50 条；仅对明确允许再分发的来源内联正文，其余仍提供摘要和阅读入口。", homePath: "/", pollHintMinutes: 30 },
-  all: { id: "all", path: "/feed/all.xml", title: `${SITE.name} — 全部动态`, description: "最近 7 天公开动态，按真实发布时间倒序；不含未审内容、低相关条目和已合并的重复条目。", homePath: "/all", pollHintMinutes: 30 },
-  daily: { id: "daily", path: "/feed/daily.xml", title: `${SITE.name} ${withSubject("日报")}`, description: `${SITE.name} 每天 08:00 北京时间发布的${withSubject("日报")}，保留最近 30 期。`, homePath: "/daily", pollHintMinutes: 30 },
+  selected: {
+    id: "selected",
+    path: "/feed.xml",
+    title: `${SITE.name} — 精选`,
+    description: `最新 50 条 ${SITE.name} 精选摘要，保留标题、站内阅读与原文入口；需要阅读器内全文可改订 /feed/full.xml。`,
+    homePath: "/",
+    pollHintMinutes: 30,
+  },
+  selectedFull: {
+    id: "selected-full",
+    path: "/feed/full.xml",
+    title: `${SITE.name} — 精选全文`,
+    description: "与精选摘要相同的最新 50 条；仅对明确允许再分发的来源内联正文，其余仍提供摘要和阅读入口。",
+    homePath: "/",
+    pollHintMinutes: 30,
+  },
+  all: {
+    id: "all",
+    path: "/feed/all.xml",
+    title: `${SITE.name} — 全部动态`,
+    description: "最近 7 天公开动态，按真实发布时间倒序；不含未审内容、低相关条目和已合并的重复条目。",
+    homePath: "/all",
+    pollHintMinutes: 30,
+  },
+  daily: {
+    id: "daily",
+    path: "/feed/daily.xml",
+    title: `${SITE.name} ${withSubject("日报")}`,
+    description: `${SITE.name} 每天 08:00 北京时间发布的${withSubject("日报")}，保留最近 30 期。`,
+    homePath: "/daily",
+    pollHintMinutes: 30,
+  },
 };
 
 /** RSS <author> needs an address; a no-reply one on the site's own domain. */
@@ -57,9 +85,13 @@ ${items.join("\n")}
 }
 
 type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "published_at" | "discovered_at" | "source_name"> &
-  Partial<Pick<ItemRow, "channel" | "x_post" | "zh_text" | "quoted_zh" | "language" | "syndicate"> & {
-    body_html: string | null; tr_html: string | null; tr_complete: boolean | null;
-  }>;
+  Partial<
+    Pick<ItemRow, "channel" | "x_post" | "zh_text" | "quoted_zh" | "language" | "syndicate"> & {
+      body_html: string | null;
+      tr_html: string | null;
+      tr_complete: boolean | null;
+    }
+  >;
 
 /** Readers keep feed items for days: body images in full RSS are signed for a week, not a day. */
 const FEED_IMAGE_SECONDS = 7 * 86400;
@@ -113,10 +145,11 @@ export type ItemFeedKind = "selected" | "selected-full" | "all";
 
 export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date()): Promise<string> {
   const includeContent = kind === "selected-full";
-  const scope = kind === "all"
-    ? sql`${listedCondition(now)} AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
+  const scope =
+    kind === "all"
+      ? sql`${listedCondition(now)} AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
         AND coalesce(p.published_at, p.discovered_at) <= ${now}`
-    : sql`${selectedCondition(now)} ${categoryCondition(category, true)}
+      : sql`${selectedCondition(now)} ${categoryCondition(category, true)}
         ${category ? sql`AND coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)}` : sql``}`;
   const rows = await sql<FeedRow[]>`
     WITH page AS MATERIALIZED (
@@ -124,13 +157,21 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
       ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
     )
     SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name
-      ${includeContent ? sql`, p.channel, p.syndicate, a.language, a.x_post,
+      ${
+        includeContent
+          ? sql`, p.channel, p.syndicate, a.language, a.x_post,
         CASE WHEN p.channel = 'x' THEN tr.body_text END AS zh_text, qt.text_zh AS quoted_zh,
-        a.body_html, tr.body_html AS tr_html, tr.complete AS tr_complete` : sql``}
+        a.body_html, tr.body_html AS tr_html, tr.complete AS tr_complete`
+          : sql``
+      }
     FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id
-    ${includeContent ? sql`LEFT JOIN articles a ON a.id = p.article_id AND p.syndicate
+    ${
+      includeContent
+        ? sql`LEFT JOIN articles a ON a.id = p.article_id AND p.syndicate
       LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision
-      LEFT JOIN quote_translations qt ON p.channel = 'x' AND qt.tweet_id = substring(a.x_post->'quoted'->>'url' from '/status/([0-9]+)')` : sql``}
+      LEFT JOIN quote_translations qt ON p.channel = 'x' AND qt.tweet_id = substring(a.x_post->'quoted'->>'url' from '/status/([0-9]+)')`
+        : sql``
+    }
     ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`;
   let meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number };
   if (category) {
@@ -148,7 +189,10 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
     const m = FEEDS[kind === "selected" ? "selected" : kind === "selected-full" ? "selectedFull" : "all"];
     meta = { title: m.title, description: m.description, homePath: m.homePath, selfPath: m.path, ttl: m.pollHintMinutes };
   }
-  return channel(meta, rows.map((r) => itemXml(r, includeContent)));
+  return channel(
+    meta,
+    rows.map((r) => itemXml(r, includeContent)),
+  );
 }
 
 export async function dailyFeed(): Promise<string> {

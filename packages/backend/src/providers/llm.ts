@@ -24,61 +24,105 @@ function extraFromEnv(value: string | undefined): Record<string, unknown> | unde
   try {
     return JSON.parse(value) as Record<string, unknown>;
   } catch {
-    throw new Error("LLM_EXTRA_JSON must be a JSON object, e.g. {\"enable_thinking\": false}");
+    throw new Error('LLM_EXTRA_JSON must be a JSON object, e.g. {"enable_thinking": false}');
   }
 }
 
 export const MODELS: Record<string, ModelSpec> = {
   // Read from the environment at call time.
   default: {
-    key: "default", service: "llm", baseUrlEnv: "LLM_BASE_URL", apiKeyEnv: "LLM_API_KEY",
-    get model() { return process.env.LLM_MODEL ?? ""; },
-    get extra() { return extraFromEnv(process.env.LLM_EXTRA_JSON); },
-    get jsonMode() { return process.env.LLM_JSON_MODE !== "false"; },
-    get vision() { return process.env.LLM_VISION === "true"; },
+    key: "default",
+    service: "llm",
+    baseUrlEnv: "LLM_BASE_URL",
+    apiKeyEnv: "LLM_API_KEY",
+    get model() {
+      return process.env.LLM_MODEL ?? "";
+    },
+    get extra() {
+      return extraFromEnv(process.env.LLM_EXTRA_JSON);
+    },
+    get jsonMode() {
+      return process.env.LLM_JSON_MODE !== "false";
+    },
+    get vision() {
+      return process.env.LLM_VISION === "true";
+    },
   },
   // Named presets (the models AIHOT itself runs on); each needs its own key.
   // GLM 5.3 Flash always reasons; the lowest effort keeps short structured tasks fast.
   "glm-5.3-flash": {
-    key: "glm-5.3-flash", service: "zhipu", model: "glm-5.3-flash",
-    baseUrlEnv: "ZHIPU_BASE_URL", apiKeyEnv: "ZHIPU_API_KEY",
-    extra: { thinking: { type: "enabled" }, reasoning_effort: "low" }, jsonMode: true,
+    key: "glm-5.3-flash",
+    service: "zhipu",
+    model: "glm-5.3-flash",
+    baseUrlEnv: "ZHIPU_BASE_URL",
+    apiKeyEnv: "ZHIPU_API_KEY",
+    extra: { thinking: { type: "enabled" }, reasoning_effort: "low" },
+    jsonMode: true,
   },
   // The scorer's parameters for glm-5.3-flash (score calls; temperature 1 is set per call).
   "glm-5.3-flash-selection": {
-    key: "glm-5.3-flash-selection", service: "zhipu", model: "glm-5.3-flash",
-    baseUrlEnv: "ZHIPU_BASE_URL", apiKeyEnv: "ZHIPU_API_KEY",
-    extra: { thinking: { type: "enabled", clear_thinking: false }, reasoning_effort: "high", top_p: 0.95 }, jsonMode: true,
+    key: "glm-5.3-flash-selection",
+    service: "zhipu",
+    model: "glm-5.3-flash",
+    baseUrlEnv: "ZHIPU_BASE_URL",
+    apiKeyEnv: "ZHIPU_API_KEY",
+    extra: { thinking: { type: "enabled", clear_thinking: false }, reasoning_effort: "high", top_p: 0.95 },
+    jsonMode: true,
   },
   // DeepSeek Flash reasons by default; structured tasks switch it off unless the -think variant is used.
   "deepseek-flash": {
-    key: "deepseek-flash", service: "deepseek", model: "deepseek-flash",
-    baseUrlEnv: "DEEPSEEK_BASE_URL", apiKeyEnv: "DEEPSEEK_API_KEY",
-    extra: { thinking: { type: "disabled" } }, jsonMode: true,
+    key: "deepseek-flash",
+    service: "deepseek",
+    model: "deepseek-flash",
+    baseUrlEnv: "DEEPSEEK_BASE_URL",
+    apiKeyEnv: "DEEPSEEK_API_KEY",
+    extra: { thinking: { type: "disabled" } },
+    jsonMode: true,
   },
   "deepseek-flash-think": {
-    key: "deepseek-flash-think", service: "deepseek", model: "deepseek-flash",
-    baseUrlEnv: "DEEPSEEK_BASE_URL", apiKeyEnv: "DEEPSEEK_API_KEY", jsonMode: true,
+    key: "deepseek-flash-think",
+    service: "deepseek",
+    model: "deepseek-flash",
+    baseUrlEnv: "DEEPSEEK_BASE_URL",
+    apiKeyEnv: "DEEPSEEK_API_KEY",
+    jsonMode: true,
   },
   "qwen3.7-flash": {
-    key: "qwen3.7-flash", service: "dashscope", model: "qwen3.7-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL", apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false }, jsonMode: true,
+    key: "qwen3.7-flash",
+    service: "dashscope",
+    model: "qwen3.7-flash",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { enable_thinking: false },
+    jsonMode: true,
   },
   "qwen3.8-flash": {
-    key: "qwen3.8-flash", service: "dashscope", model: "qwen3.8-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL", apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false }, jsonMode: true,
+    key: "qwen3.8-flash",
+    service: "dashscope",
+    model: "qwen3.8-flash",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { enable_thinking: false },
+    jsonMode: true,
   },
   "mimo-v2.6-flash": {
-    key: "mimo-v2.6-flash", service: "mimo", model: "mimo-v2.6-flash",
-    baseUrlEnv: "XIAOMI_MIMO_BASE_URL", apiKeyEnv: "XIAOMI_MIMO_API_KEY",
-    extra: { thinking: { type: "disabled" } }, jsonMode: true,
+    key: "mimo-v2.6-flash",
+    service: "mimo",
+    model: "mimo-v2.6-flash",
+    baseUrlEnv: "XIAOMI_MIMO_BASE_URL",
+    apiKeyEnv: "XIAOMI_MIMO_API_KEY",
+    extra: { thinking: { type: "disabled" } },
+    jsonMode: true,
   },
   "qwen3-vl-flash": {
-    key: "qwen3-vl-flash", service: "dashscope", model: "qwen3-vl-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL", apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false }, jsonMode: false, vision: true,
+    key: "qwen3-vl-flash",
+    service: "dashscope",
+    model: "qwen3-vl-flash",
+    baseUrlEnv: "DASHSCOPE_BASE_URL",
+    apiKeyEnv: "DASHSCOPE_API_KEY",
+    extra: { enable_thinking: false },
+    jsonMode: false,
+    vision: true,
   },
 };
 
@@ -163,7 +207,8 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
   const baseUrl = credential("models", spec.baseUrlEnv);
   const apiKey = credential("models", spec.apiKeyEnv);
-  if (!baseUrl || !apiKey || !spec.model) throw new Error(`Model ${opts.model} is not configured (${spec.baseUrlEnv}, ${spec.apiKeyEnv}${spec.key === "default" ? ", LLM_MODEL" : ""})`);
+  if (!baseUrl || !apiKey || !spec.model)
+    throw new Error(`Model ${opts.model} is not configured (${spec.baseUrlEnv}, ${spec.apiKeyEnv}${spec.key === "default" ? ", LLM_MODEL" : ""})`);
 
   const temperature = opts.temperature ?? 0.2;
   const maxTokens = Math.max(opts.maxTokens ?? 1500, 512) + (spec.key.endsWith("-think") ? 4000 : 0);
@@ -188,8 +233,23 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       model: spec.model,
       purpose: opts.purpose,
       subject: opts.subject,
-      identity: { model: spec.model, promptVersion: opts.promptVersion, system: sha256(opts.system), user: sha256(userText), temperature, maxTokens, extra: spec.extra ?? null },
-      requestSummary: { promptVersion: opts.promptVersion, systemHash: sha256(opts.system), userHash: sha256(userText), userChars: userText.length, temperature, maxTokens },
+      identity: {
+        model: spec.model,
+        promptVersion: opts.promptVersion,
+        system: sha256(opts.system),
+        user: sha256(userText),
+        temperature,
+        maxTokens,
+        extra: spec.extra ?? null,
+      },
+      requestSummary: {
+        promptVersion: opts.promptVersion,
+        systemHash: sha256(opts.system),
+        userHash: sha256(userText),
+        userChars: userText.length,
+        temperature,
+        maxTokens,
+      },
       attemptTag: opts.attemptTag,
     },
     async () => {

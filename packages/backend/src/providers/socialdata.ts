@@ -60,12 +60,21 @@ function apiBase(): string {
  * Searches recent tweets. `window` makes the receipt identity time-bucketed so a retry in the same
  * bucket reuses the stored response instead of paying again.
  */
-export async function searchTweets(query: string, opts: { purpose: string; subject: string; window: string; type?: "Latest" | "Top"; cursor?: string | null }): Promise<SearchResult> {
+export async function searchTweets(
+  query: string,
+  opts: { purpose: string; subject: string; window: string; type?: "Latest" | "Top"; cursor?: string | null },
+): Promise<SearchResult> {
   const key = credential("collectors", "SOCIALDATA_API_KEY");
   if (!key) throw new Error("SOCIALDATA_API_KEY is not configured");
   const type = opts.type ?? "Latest";
   const receipt = await paidRequest(
-    { service: "socialdata", purpose: opts.purpose, subject: opts.subject, identity: { query, type, cursor: opts.cursor ?? null, window: opts.window }, requestSummary: { query, type } },
+    {
+      service: "socialdata",
+      purpose: opts.purpose,
+      subject: opts.subject,
+      identity: { query, type, cursor: opts.cursor ?? null, window: opts.window },
+      requestSummary: { query, type },
+    },
     async () => {
       const sp = new URLSearchParams({ query, type });
       if (opts.cursor) sp.set("cursor", opts.cursor);

@@ -10,7 +10,9 @@ await sql`CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, a
 const applied = new Set((await sql<{ name: string }[]>`SELECT name FROM schema_migrations`).map((r) => r.name));
 
 let count = 0;
-for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
+for (const file of readdirSync(dir)
+  .filter((f) => f.endsWith(".sql"))
+  .sort()) {
   if (applied.has(file)) continue;
   const text = readFileSync(path.join(dir, file), "utf8");
   await sql.begin(async (tx) => {

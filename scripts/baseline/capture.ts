@@ -29,7 +29,14 @@ const { QUEUES, QUEUE_OPTIONS } = await import("@aihot/backend/jobs/queue");
 write("queues.json", JSON.stringify({ queues: QUEUES, options: QUEUE_OPTIONS }, null, 2));
 
 const { SCHEDULES } = await import("../../apps/worker/src/schedules.ts");
-write("schedules.json", JSON.stringify(SCHEDULES.map(({ name, cron, missed }) => ({ name, cron, missed: missed ?? null })), null, 2));
+write(
+  "schedules.json",
+  JSON.stringify(
+    SCHEDULES.map(({ name, cron, missed }) => ({ name, cron, missed: missed ?? null })),
+    null,
+    2,
+  ),
+);
 
 const { closeDb } = await import("@aihot/backend/db");
 await closeDb();

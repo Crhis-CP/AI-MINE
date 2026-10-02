@@ -13,7 +13,10 @@ import { Select } from "../components/ui/Controls";
 import { IconArrowLeft, IconChevronRight, IconClock, IconDoc, IconUsers } from "../components/icons";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const res = await fetch(`${process.env.API_BASE_URL || "http://127.0.0.1:3001"}/api/site/stories/${encodeURIComponent(params.publicId)}`, { redirect: "manual", signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]) });
+  const res = await fetch(`${process.env.API_BASE_URL || "http://127.0.0.1:3001"}/api/site/stories/${encodeURIComponent(params.publicId)}`, {
+    redirect: "manual",
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(15000)]),
+  });
   if (res.status === 308) {
     const target = (await res.json()) as { mergedInto: string };
     throw redirect(`/story/${target.mergedInto}`, 308);
@@ -32,7 +35,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
     path: `/story/${s.publicId}`,
     image: `/og/stories/${s.publicId}.png`,
     type: "article",
-    jsonLd: breadcrumbLd([{ name: SITE.name, path: "/" }, { name: "热点榜", path: "/hot" }, { name: s.title, path: `/story/${s.publicId}` }]),
+    jsonLd: breadcrumbLd([
+      { name: SITE.name, path: "/" },
+      { name: "热点榜", path: "/hot" },
+      { name: s.title, path: `/story/${s.publicId}` },
+    ]),
   });
 }
 
@@ -53,7 +60,21 @@ type SectionKey = keyof typeof SECTIONS;
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /** A main-column card: 17px title, 24px padding. */
-function Panel({ id, title, sub, right, children, className = "" }: { id?: string; title: ReactNode; sub?: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
+function Panel({
+  id,
+  title,
+  sub,
+  right,
+  children,
+  className = "",
+}: {
+  id?: string;
+  title: ReactNode;
+  sub?: ReactNode;
+  right?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <section id={id} className={`card scroll-mt-[64px] p-5 lg:p-6 ${className}`}>
       <div className="flex items-start justify-between gap-3">
@@ -130,7 +151,11 @@ function TimelineRow({ r }: { r: StoryReportView }) {
           <span className="min-w-0 truncate">{r.source.name.replace(/（RSS）|（网页）|（API）/g, "")}</span>
           {r.selected && <SelectedBadge />}
         </div>
-        <Link to={`/items/${r.id}`} prefetch="intent" className="mt-1 block text-[16px] font-[650] leading-[1.6] text-ink transition-colors hover:text-accent lg:text-[15.5px]">
+        <Link
+          to={`/items/${r.id}`}
+          prefetch="intent"
+          className="mt-1 block text-[16px] font-[650] leading-[1.6] text-ink transition-colors hover:text-accent lg:text-[15.5px]"
+        >
           {r.title}
         </Link>
         {r.summary && (
@@ -139,7 +164,12 @@ function TimelineRow({ r }: { r: StoryReportView }) {
               {r.summary}
             </p>
             {(clamped || open) && (
-              <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="mt-1 text-[12.5px] text-note transition-colors hover:text-accent">
+              <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                aria-expanded={open}
+                className="mt-1 text-[12.5px] text-note transition-colors hover:text-accent"
+              >
                 {open ? "收起摘要" : "展开摘要"}
               </button>
             )}
@@ -168,7 +198,9 @@ export default function StoryPage() {
   };
   const days = useMemo(() => {
     const list = story.timeline.filter((r) => (filter === "official" ? r.source.firstParty : filter === "selected" ? r.selected : true));
-    const sorted = [...list].sort((a, b) => (order === "desc" ? Date.parse(b.publishedAt) - Date.parse(a.publishedAt) : Date.parse(a.publishedAt) - Date.parse(b.publishedAt)));
+    const sorted = [...list].sort((a, b) =>
+      order === "desc" ? Date.parse(b.publishedAt) - Date.parse(a.publishedAt) : Date.parse(a.publishedAt) - Date.parse(b.publishedAt),
+    );
     const out: Array<{ day: string; rows: StoryReportView[] }> = [];
     for (const r of sorted) {
       const d = beijingDate(r.publishedAt);
@@ -279,11 +311,17 @@ export default function StoryPage() {
               <ol className="relative space-y-4 pl-5 before:absolute before:bottom-2 before:left-[3px] before:top-2 before:w-px before:bg-line">
                 {story.developments.map((d, i) => (
                   <li key={d.factId} className="relative">
-                    <span className={`absolute -left-5 top-[7px] size-[7px] rounded-full ring-4 ring-surface ${i === 0 ? "bg-accent" : "bg-line-strong"}`} aria-hidden="true" />
+                    <span
+                      className={`absolute -left-5 top-[7px] size-[7px] rounded-full ring-4 ring-surface ${i === 0 ? "bg-accent" : "bg-line-strong"}`}
+                      aria-hidden="true"
+                    />
                     <div className="num text-[12px] text-ink-4">
                       {monthDayTime(d.firstReportAt)} · {d.reportCount} 篇报道
                     </div>
-                    <Link to={`/items/${d.representative.id}`} className="mt-0.5 block text-[15px] font-semibold leading-snug text-ink transition-colors hover:text-accent">
+                    <Link
+                      to={`/items/${d.representative.id}`}
+                      className="mt-0.5 block text-[15px] font-semibold leading-snug text-ink transition-colors hover:text-accent"
+                    >
                       {d.title}
                     </Link>
                     <div className="mt-0.5 truncate text-[12.5px] text-ink-4">
@@ -391,7 +429,10 @@ export default function StoryPage() {
                 {story.officialReports.slice(0, 5).map((r) => (
                   <li key={r.id} className="py-3">
                     <div className="truncate text-[11.5px] text-ink-4">{r.source.name}</div>
-                    <Link to={`/items/${r.id}`} className="group mt-1 block text-[13.5px] font-semibold leading-[1.6] text-ink transition-colors hover:text-accent">
+                    <Link
+                      to={`/items/${r.id}`}
+                      className="group mt-1 block text-[13.5px] font-semibold leading-[1.6] text-ink transition-colors hover:text-accent"
+                    >
                       {r.title}
                       <IconChevronRight size={13} className="ml-0.5 inline -translate-y-px text-ink-4 transition-transform group-hover:translate-x-0.5" />
                     </Link>

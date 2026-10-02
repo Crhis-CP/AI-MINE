@@ -5,7 +5,7 @@
 import highsModule, { type Highs } from "highs";
 
 // The package's typings describe its CommonJS face; under ESM the default import is the loader itself.
-type Loader = (typeof import("highs"))["default"];
+type Loader = typeof import("highs")["default"];
 const loadHighs = ((highsModule as unknown as { default?: Loader }).default ?? highsModule) as Loader;
 
 let highsPromise: Promise<Highs> | null = null;

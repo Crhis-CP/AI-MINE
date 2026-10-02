@@ -112,7 +112,11 @@ export function registerStatic(app: FastifyInstance) {
   app.get("/sitemap.xml", async (req, reply) => {
     try {
       const xml = await sitemapXml();
-      return sendTextWithEtag(req, reply, xml, { etagPrefix: "sitemap", cacheControl: "public, max-age=0, s-maxage=300, must-revalidate", contentType: "application/xml" });
+      return sendTextWithEtag(req, reply, xml, {
+        etagPrefix: "sitemap",
+        cacheControl: "public, max-age=0, s-maxage=300, must-revalidate",
+        contentType: "application/xml",
+      });
     } catch (error) {
       req.log.error({ err: error }, "sitemap unavailable");
       return reply.code(503).header("Retry-After", "300").header("Cache-Control", "no-store").send("Sitemap temporarily unavailable");
@@ -122,10 +126,16 @@ export function registerStatic(app: FastifyInstance) {
   app.get("/llms.txt", async (req, reply) => {
     const text = llmsTxt(await loadLlmsAvailability());
     applyPublicHeaders(reply, { cors: false });
-    return sendTextWithEtag(req, reply, text, { etagPrefix: "llms", cacheControl: "public, s-maxage=3600, stale-while-revalidate=86400", contentType: "text/plain; charset=utf-8" });
+    return sendTextWithEtag(req, reply, text, {
+      etagPrefix: "llms",
+      cacheControl: "public, s-maxage=3600, stale-while-revalidate=86400",
+      contentType: "text/plain; charset=utf-8",
+    });
   });
 
-  app.get("/robots.txt", (req, reply) => sendTextWithEtag(req, reply, robotsTxt(), { etagPrefix: "robots", cacheControl: "public, max-age=3600", contentType: "text/plain; charset=utf-8" }));
+  app.get("/robots.txt", (req, reply) =>
+    sendTextWithEtag(req, reply, robotsTxt(), { etagPrefix: "robots", cacheControl: "public, max-age=3600", contentType: "text/plain; charset=utf-8" }),
+  );
 
   app.get("/.well-known/security.txt", (req, reply) => {
     if (!SITE.contactEmail) return reply.code(404).type("text/plain; charset=utf-8").send("Not found");
@@ -135,16 +145,31 @@ export function registerStatic(app: FastifyInstance) {
   });
 
   app.get("/manifest.webmanifest", (req, reply) =>
-    sendTextWithEtag(req, reply, JSON.stringify(manifest()), { etagPrefix: "manifest", cacheControl: "public, max-age=86400", contentType: "application/manifest+json" }));
+    sendTextWithEtag(req, reply, JSON.stringify(manifest()), {
+      etagPrefix: "manifest",
+      cacheControl: "public, max-age=86400",
+      contentType: "application/manifest+json",
+    }),
+  );
 
   app.get("/openapi-v1.json", async (req, reply) => {
     applyPublicHeaders(reply);
-    return sendTextWithEtag(req, reply, await openApiJson(), { etagPrefix: "openapi", cacheControl: "public, max-age=300, stale-while-revalidate=3600", contentType: "application/json; charset=utf-8" });
+    return sendTextWithEtag(req, reply, await openApiJson(), {
+      etagPrefix: "openapi",
+      cacheControl: "public, max-age=300, stale-while-revalidate=3600",
+      contentType: "application/json; charset=utf-8",
+    });
   });
 
   // IndexNow proves the key by a file at the site root named after it (INDEXNOW_KEY).
   if (config.indexNowKey) {
-    app.get(`/${config.indexNowKey}.txt`, (req, reply) => sendTextWithEtag(req, reply, config.indexNowKey!, { etagPrefix: "indexnow", cacheControl: "public, max-age=3600", contentType: "text/plain; charset=utf-8" }));
+    app.get(`/${config.indexNowKey}.txt`, (req, reply) =>
+      sendTextWithEtag(req, reply, config.indexNowKey!, {
+        etagPrefix: "indexnow",
+        cacheControl: "public, max-age=3600",
+        contentType: "text/plain; charset=utf-8",
+      }),
+    );
   }
 
   // Icons from the industry pack (industry/brand/).
@@ -169,7 +194,12 @@ export function registerStatic(app: FastifyInstance) {
     const hashed = /-[0-9a-f]{8}\./.test(file);
     const cacheControl = hashed ? "public, max-age=31536000, immutable" : "public, max-age=3600";
     const uploaded = path.join(config.dataDir, "uploads", file);
-    const target = (await stat(uploaded).then(() => true, () => false)) ? uploaded : path.join(BRAND, "contact", file);
+    const target = (await stat(uploaded).then(
+      () => true,
+      () => false,
+    ))
+      ? uploaded
+      : path.join(BRAND, "contact", file);
     return sendFile(req, reply, target, { cacheControl });
   });
 }

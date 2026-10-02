@@ -81,7 +81,12 @@ function etagMatches(header: string | undefined, etag: string): boolean {
  * `etagOf` names the content the tag stands for when the body also carries per-request values
  * (a snapshot's `asOf`), so unchanged content still answers 304.
  */
-export function sendJsonWithEtag(req: FastifyRequest, reply: FastifyReply, body: unknown, opts: { etagPrefix: string; cacheControl: string; contentType?: string; etagOf?: unknown }) {
+export function sendJsonWithEtag(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  body: unknown,
+  opts: { etagPrefix: string; cacheControl: string; contentType?: string; etagOf?: unknown },
+) {
   const text = opts.etagOf === undefined ? JSON.stringify(body) : undefined;
   const etag = weakEtag(opts.etagPrefix, text ?? JSON.stringify(opts.etagOf));
   reply.header("ETag", etag).header("Cache-Control", opts.cacheControl).header("Vary", "Accept-Encoding");
@@ -89,7 +94,12 @@ export function sendJsonWithEtag(req: FastifyRequest, reply: FastifyReply, body:
   return reply.header("Content-Type", opts.contentType ?? "application/json; charset=utf-8").send(text ?? JSON.stringify(body));
 }
 
-export function sendTextWithEtag(req: FastifyRequest, reply: FastifyReply, text: string, opts: { etagPrefix: string; cacheControl: string; contentType: string }) {
+export function sendTextWithEtag(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  text: string,
+  opts: { etagPrefix: string; cacheControl: string; contentType: string },
+) {
   const etag = weakEtag(opts.etagPrefix, text);
   reply.header("ETag", etag).header("Cache-Control", opts.cacheControl).header("Vary", "Accept-Encoding");
   if (etagMatches(req.headers["if-none-match"], etag)) return reply.code(304).send();

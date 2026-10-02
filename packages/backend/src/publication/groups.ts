@@ -6,7 +6,17 @@ import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
 import { proxiedImage } from "../media/imgproxy.ts";
-import { ITEM_COLUMNS, ITEM_FROM, categoryCondition, channelCondition, selectedCondition, tagCondition, toItemSummary, topicCondition, type ItemRow } from "./items.ts";
+import {
+  ITEM_COLUMNS,
+  ITEM_FROM,
+  categoryCondition,
+  channelCondition,
+  selectedCondition,
+  tagCondition,
+  toItemSummary,
+  topicCondition,
+  type ItemRow,
+} from "./items.ts";
 import { pickRepresentative } from "./timeline.ts";
 
 export interface GroupReportsQuery {
@@ -20,19 +30,27 @@ export interface GroupReportsQuery {
   revision: string | null;
 }
 
-export type GroupReportsResult =
-  | { kind: "ok"; body: GroupReportsResponse }
-  | { kind: "not_found" }
-  | { kind: "changed" };
+export type GroupReportsResult = { kind: "ok"; body: GroupReportsResponse } | { kind: "not_found" } | { kind: "changed" };
 
 export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): Promise<GroupReportsResult> {
   const [fact] = await sql<{ id: number }[]>`SELECT id FROM facts WHERE public_id = ${q.factPublicId}`;
   if (!fact) return { kind: "not_found" };
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)}`;
-  const members = await sql<{
-    id: string; title: string; summary: string | null; timeline_at: Date; url: string; selected: boolean;
-    source_id: string; source_name: string; source_kind: string; first_party: boolean; icon_url: string | null;
-  }[]>`
+  const members = await sql<
+    {
+      id: string;
+      title: string;
+      summary: string | null;
+      timeline_at: Date;
+      url: string;
+      selected: boolean;
+      source_id: string;
+      source_name: string;
+      source_kind: string;
+      first_party: boolean;
+      icon_url: string | null;
+    }[]
+  >`
     SELECT p.article_id AS id, p.title, p.summary, p.timeline_at, p.url, p.selected,
            s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party, s.icon_url
     FROM publications p JOIN sources s ON s.id = p.source_id
@@ -103,11 +121,13 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
     FROM publications p WHERE p.story_id = ${story.id} AND ${selectedCondition(now)} ${filters}`;
   if (selected.length === 0) return { kind: "not_found" };
   const counts = new Map(
-    (await sql<{ fact_id: number; n: number }[]>`
+    (
+      await sql<{ fact_id: number; n: number }[]>`
       SELECT fa.fact_id, count(DISTINCT p.article_id)::int AS n
       FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
       WHERE f.story_id = ${story.id} AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${filters}
-      GROUP BY fa.fact_id`).map((c) => [c.fact_id, c.n]),
+      GROUP BY fa.fact_id`
+    ).map((c) => [c.fact_id, c.n]),
   );
   const byFact = new Map<number, Member[]>();
   for (const r of selected) if (r.fact_id !== null) byFact.set(r.fact_id, [...(byFact.get(r.fact_id) ?? []), r]);
@@ -120,7 +140,13 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       const rep = pickRepresentative(rows);
       return {
         first: Math.min(...rows.map((r) => (r.sort_at ?? r.timeline_at).getTime())),
-        development: { factId: f.public_id, title: f.title, occurredAt: f.occurred_at?.toISOString() ?? null, representativeId: rep.id, reportCount: counts.get(f.id) ?? rows.length },
+        development: {
+          factId: f.public_id,
+          title: f.title,
+          occurredAt: f.occurred_at?.toISOString() ?? null,
+          representativeId: rep.id,
+          reportCount: counts.get(f.id) ?? rows.length,
+        },
       };
     })
     .sort((a, b) => b.first - a.first || a.development.factId.localeCompare(b.development.factId))
@@ -139,9 +165,15 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   }
   const next = offset + q.take < list.length ? encodeCursor("dv1", { o: offset + q.take, r: revision, b: binding }) : null;
   const page = list.slice(offset, offset + q.take);
-  const rows = new Map(page.length ? (await sql<ItemRow[]>`
+  const rows = new Map(
+    page.length
+      ? (
+          await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(page.map((d) => d.representativeId))}
-      AND p.story_id = ${story.id} AND ${selectedCondition(now)} ${filters}`).map((row) => [row.id, row]) : []);
+      AND p.story_id = ${story.id} AND ${selectedCondition(now)} ${filters}`
+        ).map((row) => [row.id, row])
+      : [],
+  );
   if (rows.size !== page.length) return { kind: "changed" };
   const developments = page.flatMap(({ representativeId, ...development }) => {
     const row = rows.get(representativeId);

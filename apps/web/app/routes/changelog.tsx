@@ -105,7 +105,11 @@ export default function ChangelogPage() {
           {[...months.entries()].map(([month, m]) => {
             const [y, mo] = month.split("-").map(Number) as [number, number];
             return (
-              <a key={month} href={`#d-${m.first}`} className="flex items-center justify-between rounded-control px-2 py-2 text-[13.5px] text-ink-2 transition-colors hover:bg-bg-sunk hover:text-ink">
+              <a
+                key={month}
+                href={`#d-${m.first}`}
+                className="flex items-center justify-between rounded-control px-2 py-2 text-[13.5px] text-ink-2 transition-colors hover:bg-bg-sunk hover:text-ink"
+              >
                 {y} 年 {mo} 月<span className="num text-[12px] text-ink-4">{m.count} 条</span>
               </a>
             );
@@ -143,7 +147,10 @@ export default function ChangelogPage() {
                   </h2>
                   <ol>
                     {plain.map((r) => (
-                      <li key={`${r.date}-${r.time}-${r.title}`} className="grid gap-x-8 gap-y-2 border-b border-line-soft py-5 last:border-b-0 sm:grid-cols-[88px_minmax(0,1fr)]">
+                      <li
+                        key={`${r.date}-${r.time}-${r.title}`}
+                        className="grid gap-x-8 gap-y-2 border-b border-line-soft py-5 last:border-b-0 sm:grid-cols-[88px_minmax(0,1fr)]"
+                      >
                         <div className="flex items-center gap-3 sm:block">
                           <span className="mono block text-[12.5px] text-ink-3">{r.time}</span>
                           <span className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-4 sm:mt-1.5">

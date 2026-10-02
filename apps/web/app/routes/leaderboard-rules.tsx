@@ -152,7 +152,12 @@ export default function LeaderboardRulesPage() {
             ["/leaderboard", "模型榜"],
             ["/leaderboard/sources", "每一份评测证据"],
           ].map(([to, label]) => (
-            <Link key={to} to={to!} prefetch="intent" className="flex items-center justify-between rounded-control px-2 py-2 text-[13.5px] text-ink-2 transition-colors hover:bg-bg-sunk hover:text-ink">
+            <Link
+              key={to}
+              to={to!}
+              prefetch="intent"
+              className="flex items-center justify-between rounded-control px-2 py-2 text-[13.5px] text-ink-2 transition-colors hover:bg-bg-sunk hover:text-ink"
+            >
               {label}
               <IconChevronRight size={14} className="text-ink-4" />
             </Link>
@@ -176,7 +181,9 @@ export default function LeaderboardRulesPage() {
         <p className="mono text-[44px] font-medium leading-none tracking-[-0.04em] text-accent md:text-center md:text-[52px]">0—100</p>
         <div>
           <h2 className="text-[17px] font-bold text-ink">共同的证据，清楚的顺序。</h2>
-          <p className="mt-2.5 text-[13px] leading-[1.8] text-ink-3">综合多家公开评测，在完整排名中尽量减少与已知成绩的冲突。综合榜和四类榜单都最多展示前 30 名。</p>
+          <p className="mt-2.5 text-[13px] leading-[1.8] text-ink-3">
+            综合多家公开评测，在完整排名中尽量减少与已知成绩的冲突。综合榜和四类榜单都最多展示前 30 名。
+          </p>
           <p className="mt-1.5 text-[13px] leading-[1.8] text-ink-3">
             共识指数把支持原排名的证据差异换算为 0—100，方便比较，不是正确率或能力差距的百分比。支持接近时可以同分，名次仍由完整证据决定。
           </p>
@@ -211,7 +218,8 @@ export default function LeaderboardRulesPage() {
           ))}
         </ul>
         <p className="mt-4 max-w-[64em] text-[12.5px] leading-[1.8] text-ink-3">
-          编程、推理、知识、专业办公分别寻找真实评测，分类分独立计算。视觉理解与多语言证据继续保留在综合榜；调整分类名称不会增加同一份成绩的投票权。综合分不等于分类分的算术平均。分类通常至少有两项有效评测、五个可比较型号才展示。知识目前由 Epoch 的两套评测支持，并明确说明同机构的局限。创作偏好、网页开发等证据继续用于综合榜，首版不单设审美和写作榜。
+          编程、推理、知识、专业办公分别寻找真实评测，分类分独立计算。视觉理解与多语言证据继续保留在综合榜；调整分类名称不会增加同一份成绩的投票权。综合分不等于分类分的算术平均。分类通常至少有两项有效评测、五个可比较型号才展示。知识目前由
+          Epoch 的两套评测支持，并明确说明同机构的局限。创作偏好、网页开发等证据继续用于综合榜，首版不单设审美和写作榜。
         </p>
       </section>
 
@@ -230,16 +238,24 @@ export default function LeaderboardRulesPage() {
         <Disclosure summary="查看计算细节与当前版本">
           <div className="space-y-3">
             <p>
-              方法版本：<code className="mono rounded-mark bg-bg-sunk px-1.5 py-0.5 text-[12px] text-ink-2">{run.methodologyVersion}</code>。采用加权不完整 Kemeny 排序。每对共同参评模型汇总净支持 M；目标是最小化所有被排反的净支持之和。整数优化返回最优状态和目标上下界，只有完整通过验证的结果才用于正式发布。
+              方法版本：<code className="mono rounded-mark bg-bg-sunk px-1.5 py-0.5 text-[12px] text-ink-2">{run.methodologyVersion}</code>。采用加权不完整
+              Kemeny 排序。每对共同参评模型汇总净支持
+              M；目标是最小化所有被排反的净支持之和。整数优化返回最优状态和目标上下界，只有完整通过验证的结果才用于正式发布。
             </p>
             <p>
-              双方有明确标准误时，净支持取 2Φ(分差 / 合成标准误) − 1，默认零协方差；其他比较只取原始领先方向。未知误差并非零误差，小分差按序数处理仍是局限。票权针对潜在模型对，覆盖型号多的来源会使用更多比较位置，不能把名义预算解读为最终名次的精确贡献率。
+              双方有明确标准误时，净支持取 2Φ(分差 / 合成标准误) −
+              1，默认零协方差；其他比较只取原始领先方向。未知误差并非零误差，小分差按序数处理仍是局限。票权针对潜在模型对，覆盖型号多的来源会使用更多比较位置，不能把名义预算解读为最终名次的精确贡献率。
             </p>
             <p>
-              展示指数保留原排序：逐对反转相邻模型的先后，允许其余模型重排，计算最少增加的逆向净支持。沿原排名累加这些非负支持差，再相对固定参照组用 sigmoid 映射到 0—100。替代顺序同样最优时保留零间距，显示保留一位小数，不人为设置最低分差。指数不参与反向排序；入榜集合、参照型号与证据变化仍会影响指数，分差不等于真实能力距离。同代价求解固定型号 ID 次序；整数优化使用 HiGHS 求解器（highs 1.15.3），误差换算的正态分布函数与 SciPy norm.cdf 采用同一算法；来源、协议、参评资格和每轮计算输入均保存版本。未连接到共同证据网络时不发布跨分量的假精确顺序。
+              展示指数保留原排序：逐对反转相邻模型的先后，允许其余模型重排，计算最少增加的逆向净支持。沿原排名累加这些非负支持差，再相对固定参照组用 sigmoid
+              映射到
+              0—100。替代顺序同样最优时保留零间距，显示保留一位小数，不人为设置最低分差。指数不参与反向排序；入榜集合、参照型号与证据变化仍会影响指数，分差不等于真实能力距离。同代价求解固定型号
+              ID 次序；整数优化使用 HiGHS 求解器（highs 1.15.3），误差换算的正态分布函数与 SciPy norm.cdf
+              采用同一算法；来源、协议、参评资格和每轮计算输入均保存版本。未连接到共同证据网络时不发布跨分量的假精确顺序。
             </p>
             <p>
-              固定参照型号：<span className="mono text-[12px] text-ink-2">{anchors.join("、")}</span>。参照组用于指数尺度，不指定任何厂商应排第几；不同分类的指数不直接比较。
+              固定参照型号：<span className="mono text-[12px] text-ink-2">{anchors.join("、")}</span>
+              。参照组用于指数尺度，不指定任何厂商应排第几；不同分类的指数不直接比较。
             </p>
           </div>
         </Disclosure>

@@ -14,7 +14,13 @@ export function headers() {
 }
 
 export function meta() {
-  return pageMeta({ title: "反馈", description: `告诉 ${SITE.name} 哪里可以做得更好：内容、功能、接入或来源方的更正与下架请求。`, path: "/feedback", image: "/og/pages/feedback.png", noindex: true });
+  return pageMeta({
+    title: "反馈",
+    description: `告诉 ${SITE.name} 哪里可以做得更好：内容、功能、接入或来源方的更正与下架请求。`,
+    path: "/feedback",
+    image: "/og/pages/feedback.png",
+    noindex: true,
+  });
 }
 
 interface Draft {
@@ -141,7 +147,10 @@ export default function FeedbackPage() {
           <p className="mt-2 text-[14px] text-ink-3">
             反馈编号 <span className="mono font-semibold text-ink">#{state.id}</span>，需要回复时我们会引用这个编号。
           </p>
-          <Link to="/" className="mt-8 inline-flex h-10 items-center rounded-full bg-ink px-6 text-[14px] font-medium text-bg transition-opacity hover:opacity-90">
+          <Link
+            to="/"
+            className="mt-8 inline-flex h-10 items-center rounded-full bg-ink px-6 text-[14px] font-medium text-bg transition-opacity hover:opacity-90"
+          >
             回到精选
           </Link>
         </div>
@@ -149,7 +158,8 @@ export default function FeedbackPage() {
     );
   }
 
-  const field = "w-full rounded-card bg-bg-sunk text-ink outline-none ring-1 ring-inset ring-line-soft transition-[background-color,box-shadow] placeholder:text-ink-4 hover:ring-line-strong focus:bg-surface focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:ring-accent dark:bg-bg-muted/60 dark:focus:bg-surface";
+  const field =
+    "w-full rounded-card bg-bg-sunk text-ink outline-none ring-1 ring-inset ring-line-soft transition-[background-color,box-shadow] placeholder:text-ink-4 hover:ring-line-strong focus:bg-surface focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:ring-accent dark:bg-bg-muted/60 dark:focus:bg-surface";
   const label = "mb-2 block text-[13px] font-semibold text-ink";
   const canSend = draft.content.trim().length >= 2 && state.kind !== "sending";
   return (
@@ -201,7 +211,14 @@ export default function FeedbackPage() {
             <label htmlFor="fb-email" className={label}>
               邮箱 <span className="font-normal text-ink-4">（选填）</span>
             </label>
-            <input id="fb-email" type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} placeholder="留下邮箱，我可以回信联系你" className={`${field} h-11 px-4 text-[14.5px]`} />
+            <input
+              id="fb-email"
+              type="email"
+              value={draft.email}
+              onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+              placeholder="留下邮箱，我可以回信联系你"
+              className={`${field} h-11 px-4 text-[14.5px]`}
+            />
           </div>
 
           <div>
@@ -215,7 +232,12 @@ export default function FeedbackPage() {
                   <div className="truncate text-[13px] font-medium text-ink-2">{shot.file.name}</div>
                   <div className="mono mt-0.5 text-[11.5px] text-ink-4">{(shot.file.size / 1024 / 1024).toFixed(2)} MB</div>
                 </div>
-                <button type="button" aria-label="移除截图" onClick={() => setShot(null)} className="grid size-8 shrink-0 place-items-center rounded-full text-ink-4 transition-colors hover:bg-surface hover:text-ink">
+                <button
+                  type="button"
+                  aria-label="移除截图"
+                  onClick={() => setShot(null)}
+                  className="grid size-8 shrink-0 place-items-center rounded-full text-ink-4 transition-colors hover:bg-surface hover:text-ink"
+                >
                   <IconClose size={15} />
                 </button>
               </div>
@@ -230,7 +252,9 @@ export default function FeedbackPage() {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-[13.5px] font-semibold text-ink-2">添加一张问题截图</span>
-                  <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-4">粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG 或 WebP，原图不超过 5 MB</span>
+                  <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-4">
+                    粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG 或 WebP，原图不超过 5 MB
+                  </span>
                 </span>
               </button>
             )}

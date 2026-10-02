@@ -48,7 +48,10 @@ export function nameMark(size: number, color: string, dot: string): Node {
 }
 
 export type Node = { type: string; props: Record<string, unknown> & { style?: Record<string, unknown>; children?: unknown } };
-export const h = (type: string, style: Record<string, unknown>, children?: unknown, extra: Record<string, unknown> = {}): Node => ({ type, props: { style, children, ...extra } });
+export const h = (type: string, style: Record<string, unknown>, children?: unknown, extra: Record<string, unknown> = {}): Node => ({
+  type,
+  props: { style, children, ...extra },
+});
 
 const ACCENTS = { teal: "#2ce2e8", hot: "#ff7a5f", amber: "#e2b454" } as const;
 
@@ -72,7 +75,8 @@ async function tree(card: OgCard): Promise<Node> {
       fontFamily: "Noto Sans SC",
       color: "#e6eded",
       backgroundColor: "#0a1012",
-      backgroundImage: "radial-gradient(circle at 88% 8%, rgba(44,226,232,0.28), rgba(10,16,18,0) 46%), radial-gradient(circle at 0% 100%, rgba(23,107,117,0.35), rgba(10,16,18,0) 50%)",
+      backgroundImage:
+        "radial-gradient(circle at 88% 8%, rgba(44,226,232,0.28), rgba(10,16,18,0) 46%), radial-gradient(circle at 0% 100%, rgba(23,107,117,0.35), rgba(10,16,18,0) 50%)",
     },
     [
       h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" }, [
@@ -83,20 +87,49 @@ async function tree(card: OgCard): Promise<Node> {
         h("div", { width: 10, height: 10, borderRadius: 999, backgroundColor: accent, marginRight: 14 }),
         h("div", { display: "flex", fontSize: 28, fontWeight: 700, color: accent, letterSpacing: 1 }, clamp(card.kicker, 30)),
       ]),
-      h("div", { display: "flex", flex: 1, marginTop: 22, gap: 40 }, [
-        h("div", { display: "flex", flexDirection: "column", flex: 1 }, [
-          h("div", { display: "flex", fontSize: titleSize, fontWeight: 700, lineHeight: 1.25, color: "#ffffff" }, title),
-          // Long titles take three lines; the summary then gets one line so nothing reaches the footer.
-          card.subtitle ? h("div", { display: "flex", marginTop: 22, fontSize: 28, lineHeight: 1.5, color: "#b1bec0" }, clamp(card.subtitle, [...title].length > 40 ? 26 : [...title].length > 24 ? 50 : 78)) : null,
-        ].filter(Boolean)),
-        card.badge
-          ? h("div", { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 170, height: 170, borderRadius: 999, border: `6px solid ${accent}` }, [
-              h("div", { display: "flex", fontSize: 58, fontWeight: 700, color: "#ffffff" }, card.badge.value),
-              h("div", { display: "flex", fontSize: 22, color: "#82939a" }, card.badge.label),
-            ])
-          : null,
-      ].filter(Boolean)),
-      card.meta ? h("div", { display: "flex", fontSize: 24, color: "#82939a", borderTop: "1px solid rgba(230,237,237,0.12)", paddingTop: 22 }, clamp(card.meta, 70)) : null,
+      h(
+        "div",
+        { display: "flex", flex: 1, marginTop: 22, gap: 40 },
+        [
+          h(
+            "div",
+            { display: "flex", flexDirection: "column", flex: 1 },
+            [
+              h("div", { display: "flex", fontSize: titleSize, fontWeight: 700, lineHeight: 1.25, color: "#ffffff" }, title),
+              // Long titles take three lines; the summary then gets one line so nothing reaches the footer.
+              card.subtitle
+                ? h(
+                    "div",
+                    { display: "flex", marginTop: 22, fontSize: 28, lineHeight: 1.5, color: "#b1bec0" },
+                    clamp(card.subtitle, [...title].length > 40 ? 26 : [...title].length > 24 ? 50 : 78),
+                  )
+                : null,
+            ].filter(Boolean),
+          ),
+          card.badge
+            ? h(
+                "div",
+                {
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 170,
+                  height: 170,
+                  borderRadius: 999,
+                  border: `6px solid ${accent}`,
+                },
+                [
+                  h("div", { display: "flex", fontSize: 58, fontWeight: 700, color: "#ffffff" }, card.badge.value),
+                  h("div", { display: "flex", fontSize: 22, color: "#82939a" }, card.badge.label),
+                ],
+              )
+            : null,
+        ].filter(Boolean),
+      ),
+      card.meta
+        ? h("div", { display: "flex", fontSize: 24, color: "#82939a", borderTop: "1px solid rgba(230,237,237,0.12)", paddingTop: 22 }, clamp(card.meta, 70))
+        : null,
     ].filter(Boolean),
   );
 }
@@ -132,7 +165,7 @@ async function render(card: OgCard, etag: string): Promise<{ png: Buffer; etag: 
   } catch {
     // not cached yet
   }
-  const svg = await satori(await tree(card) as never, { width: WIDTH, height: HEIGHT, fonts: await fonts() });
+  const svg = await satori((await tree(card)) as never, { width: WIDTH, height: HEIGHT, fonts: await fonts() });
   const png = await sharp(Buffer.from(svg)).png(OG_PNG).toBuffer();
   await mkdir(CACHE_DIR, { recursive: true });
   const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;

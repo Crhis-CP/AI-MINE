@@ -76,7 +76,11 @@ export async function runLeaderboardRound(opts: { at?: Date; force?: boolean } =
     await tx`INSERT INTO lb_runs (id, methodology_version, generated_at, source_snapshot_ids, summary, status, origin)
              VALUES (${runId}, ${METHOD_VERSION}, ${at}, ${inputs.snapshotIds}, ${tx.json(summary as never)}, ${status}, 'computed')`;
     if (status !== "published") return;
-    const ids = new Map((await tx<{ id: string; slug: string }[]>`SELECT id, slug FROM lb_models WHERE slug = ANY(${outputs.flatMap((o) => o.entries.map((e) => e.slug))})`).map((r) => [r.slug, r.id]));
+    const ids = new Map(
+      (await tx<{ id: string; slug: string }[]>`SELECT id, slug FROM lb_models WHERE slug = ANY(${outputs.flatMap((o) => o.entries.map((e) => e.slug))})`).map(
+        (r) => [r.slug, r.id],
+      ),
+    );
     for (const out of outputs) {
       const rows = out.entries
         .filter((e) => ids.has(e.slug))

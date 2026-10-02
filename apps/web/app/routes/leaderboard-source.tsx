@@ -93,10 +93,18 @@ export default function LeaderboardSourcePage() {
             <StatusChip status={source.status} large />
           </span>
         </div>
-        <Stat label="证据预算">{source.budget !== null ? pct(source.budget) : <span className="font-sans text-[14px] font-normal text-ink-3">不计分</span>}</Stat>
-        <Stat label="上游数据时间">{d.collected ? shortStamp(d.upstreamAt) : <span className="font-sans text-[14px] font-normal text-ink-3">待核实</span>}</Stat>
+        <Stat label="证据预算">
+          {source.budget !== null ? pct(source.budget) : <span className="font-sans text-[14px] font-normal text-ink-3">不计分</span>}
+        </Stat>
+        <Stat label="上游数据时间">
+          {d.collected ? shortStamp(d.upstreamAt) : <span className="font-sans text-[14px] font-normal text-ink-3">待核实</span>}
+        </Stat>
         <Stat label="最近成功同步">
-          {d.collected ? shortStamp(d.syncedAt) : <span className="font-sans text-[14px] font-normal text-ink-3">{source.status === "awaiting" ? "等待可比成绩" : "尚未开始采集"}</span>}
+          {d.collected ? (
+            shortStamp(d.syncedAt)
+          ) : (
+            <span className="font-sans text-[14px] font-normal text-ink-3">{source.status === "awaiting" ? "等待可比成绩" : "尚未开始采集"}</span>
+          )}
         </Stat>
       </section>
 
@@ -119,10 +127,18 @@ export default function LeaderboardSourcePage() {
             <table className="w-full min-w-[560px] text-[13.5px]">
               <thead className="bg-[rgba(28,39,51,0.04)] text-[12px] text-ink-4 dark:bg-white/[0.03]">
                 <tr className="border-b border-line">
-                  <th scope="col" className="w-24 whitespace-nowrap px-4 py-2.5 text-left font-medium lg:px-[22px]">原榜名次</th>
-                  <th scope="col" className="px-3 py-2.5 text-left font-medium">原榜型号</th>
-                  <th scope="col" className="px-3 py-2.5 text-left font-medium">原始成绩</th>
-                  <th scope="col" className="px-4 py-2.5 text-left font-medium lg:px-[22px]">{d.systemRows ? "运行配置" : "代表配置"}</th>
+                  <th scope="col" className="w-24 whitespace-nowrap px-4 py-2.5 text-left font-medium lg:px-[22px]">
+                    原榜名次
+                  </th>
+                  <th scope="col" className="px-3 py-2.5 text-left font-medium">
+                    原榜型号
+                  </th>
+                  <th scope="col" className="px-3 py-2.5 text-left font-medium">
+                    原始成绩
+                  </th>
+                  <th scope="col" className="px-4 py-2.5 text-left font-medium lg:px-[22px]">
+                    {d.systemRows ? "运行配置" : "代表配置"}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -131,7 +147,10 @@ export default function LeaderboardSourcePage() {
                     <td className="mono px-4 py-3.5 text-[13px] text-ink-4 lg:px-[22px]">{r.sourceRank ?? "—"}</td>
                     <td className="px-3 py-3.5">
                       {r.modelSlug ? (
-                        <Link to={`/leaderboard/${r.modelSlug}`} className="mono break-all text-[12.5px] font-semibold text-ink transition-colors hover:text-accent">
+                        <Link
+                          to={`/leaderboard/${r.modelSlug}`}
+                          className="mono break-all text-[12.5px] font-semibold text-ink transition-colors hover:text-accent"
+                        >
                           {r.sourceModelName}
                         </Link>
                       ) : (

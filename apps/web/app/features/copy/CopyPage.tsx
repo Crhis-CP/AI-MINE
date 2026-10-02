@@ -7,7 +7,19 @@ import { ArticleLayout, RailSection } from "../../components/ui/Page";
  * Legal and policy pages, read like articles: the document on the page in one column, its facts in the
  * left rail and its outline in the right (phones get the facts above the text and no outline).
  */
-export function CopyPage({ doc, rendered, eyebrow, footer, aside }: { doc: CopyDocument; rendered: RenderedCopy; eyebrow?: ReactNode; footer?: ReactNode; aside?: ReactNode }) {
+export function CopyPage({
+  doc,
+  rendered,
+  eyebrow,
+  footer,
+  aside,
+}: {
+  doc: CopyDocument;
+  rendered: RenderedCopy;
+  eyebrow?: ReactNode;
+  footer?: ReactNode;
+  aside?: ReactNode;
+}) {
   const facts = (["版本", "生效日期", "运营主体", "备案号"] as const).filter((k) => doc.meta[k]);
   const info = facts.length > 0 && (
     <RailSection title="文档信息">
@@ -27,7 +39,10 @@ export function CopyPage({ doc, rendered, eyebrow, footer, aside }: { doc: CopyD
         <ol className="-ml-px space-y-0.5 border-l border-line">
           {rendered.outline.map((o) => (
             <li key={o.id}>
-              <a href={`#${o.id}`} className="-ml-px block border-l border-transparent py-1 pl-3 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink">
+              <a
+                href={`#${o.id}`}
+                className="-ml-px block border-l border-transparent py-1 pl-3 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink"
+              >
                 {o.text}
               </a>
             </li>
@@ -76,7 +91,9 @@ export function LegalFooterLinks({ links, note }: { links: Array<{ to: string; l
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
       {links.map((l) => (
-        <Link key={l.to} id={l.id} to={l.to} className="text-accent hover:underline">{l.label}</Link>
+        <Link key={l.to} id={l.id} to={l.to} className="text-accent hover:underline">
+          {l.label}
+        </Link>
       ))}
       {note && <span className="text-ink-4">{note}</span>}
     </div>

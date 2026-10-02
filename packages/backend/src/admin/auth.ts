@@ -131,7 +131,9 @@ export async function completeLogin(code: string, state: string, stateCookie: st
   const [user] = existing
     ? await sql<{ id: number }[]>`UPDATE admin_users SET feishu_union_id = coalesce(feishu_union_id, ${u.union_id ?? null}), email = coalesce(email, ${email}),
         display_name = coalesce(${u.name ?? null}, display_name), last_login_at = now() WHERE id = ${existing.id} RETURNING id`
-    : await sql<{ id: number }[]>`INSERT INTO admin_users (feishu_union_id, email, display_name, last_login_at) VALUES (${u.union_id ?? null}, ${email}, ${u.name ?? null}, now()) RETURNING id`;
+    : await sql<
+        { id: number }[]
+      >`INSERT INTO admin_users (feishu_union_id, email, display_name, last_login_at) VALUES (${u.union_id ?? null}, ${email}, ${u.name ?? null}, now()) RETURNING id`;
   const token = await createSession(user!.id, userAgent);
   await audit(`admin:${user!.id}`, "auth.login", null, null, null, { union_id: u.union_id ?? null });
   return { token, returnTo, userId: user!.id };

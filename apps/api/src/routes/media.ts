@@ -14,7 +14,11 @@ export function registerMedia(app: FastifyInstance) {
     if (req.method === "HEAD" && req.headers["x-aihot-img-proxy-auth"] === "1") {
       if (!verdict.ok) {
         const malformed = verdict.reason === "missing" || verdict.reason === "bad-url";
-        return reply.code(malformed ? 401 : 403).header("Cache-Control", "no-store").header("X-Img-Proxy-Sig", verdict.reason === "expired" ? "expired" : "invalid").send();
+        return reply
+          .code(malformed ? 401 : 403)
+          .header("Cache-Control", "no-store")
+          .header("X-Img-Proxy-Sig", verdict.reason === "expired" ? "expired" : "invalid")
+          .send();
       }
       const remaining = Math.max(1, Number(q.exp) - Math.floor(Date.now() / 1000));
       return reply.code(204).header("X-Img-Proxy-Sig", "valid").header("X-Accel-Expires", String(remaining)).send();
@@ -32,7 +36,6 @@ export function registerMedia(app: FastifyInstance) {
         .header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
         .send(body);
     } catch (error) {
-
       req.log.warn({ err: String(error), host: new URL(verdict.url).hostname }, "img-proxy upstream failed");
       return reply.code(502).header("Cache-Control", "public, max-age=300").type("text/plain; charset=utf-8").send("Upstream image unavailable");
     }

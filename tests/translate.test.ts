@@ -46,8 +46,16 @@ const app = await buildApp();
 // tag keeps the text unique: identical input would reuse an earlier run's paid answer.
 const material = (price: string) =>
   upsertMaterial({
-    sourceId: SOURCE, url: URL_, title: `Price update ${T}`, language: "en", bodyText: `The price is ${price} dollars (${T}).`,
-    bodyHtml: `<p>The price is ${price} dollars (${T}).</p>`, bodyStatus: "ok", via: "fetch", publishedAt: new Date(), discoveredAt: new Date(Date.now() + 600_000),
+    sourceId: SOURCE,
+    url: URL_,
+    title: `Price update ${T}`,
+    language: "en",
+    bodyText: `The price is ${price} dollars (${T}).`,
+    bodyHtml: `<p>The price is ${price} dollars (${T}).</p>`,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+    discoveredAt: new Date(Date.now() + 600_000),
   });
 
 async function detail(id: string) {
@@ -98,11 +106,20 @@ test("a text corrected while its translation was running is translated again, an
 
 test("links and images inside a paragraph survive the translation, or the paragraph stays in the original", async () => {
   // Google's fly-brain post lost its link to the Neuroglancer docs; a GPU price post lost two charts.
-  const html = `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> in text ${T} <img src="https://example.com/chart-${T}.png" alt="B200 prices"></p>` +
+  const html =
+    `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> in text ${T} <img src="https://example.com/chart-${T}.png" alt="B200 prices"></p>` +
     `<p>A paragraph the model <a href="https://example.com/kept">never keeps</a> whole ${T}.</p>`;
   const { articleId: id } = await upsertMaterial({
-    sourceId: SOURCE, url: `${URL_}-links`, title: `Links ${T}`, language: "en", bodyText: `Explaining Neuroglancer. ${T}`, bodyHtml: html,
-    bodyStatus: "ok", via: "fetch", publishedAt: new Date(), discoveredAt: new Date(Date.now() + 1_200_000),
+    sourceId: SOURCE,
+    url: `${URL_}-links`,
+    title: `Links ${T}`,
+    language: "en",
+    bodyText: `Explaining Neuroglancer. ${T}`,
+    bodyHtml: html,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+    discoveredAt: new Date(Date.now() + 1_200_000),
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected)
             VALUES (${id}, 1, 'rule', 'pass', 'ai-models', ${`链接-${T}`}, '摘要', '理由', 90, true)`;
@@ -118,9 +135,27 @@ test("links and images inside a paragraph survive the translation, or the paragr
 test("the post a selected X post quotes is translated once and shown with the item", async () => {
   const tweetId = `7${Date.now()}`;
   const { articleId: id } = await upsertMaterial({
-    sourceId: SOURCE, url: `https://x.com/bcherny/status/8${Date.now()}`, title: `Sonnet ${T}`, language: "en", bodyText: "Try it!", bodyStatus: "ok",
-    via: "fetch", publishedAt: new Date(), discoveredAt: new Date(Date.now() + 1_800_000),
-    xPost: { tweetId: `8${Date.now()}`, authorName: "Boris", handle: "bcherny", text: "Try it!", quoted: { authorName: "Anthropic", handle: "AnthropicAI", text: `Introducing Claude Sonnet 5.5 ${T}`, url: `https://x.com/AnthropicAI/status/${tweetId}` } },
+    sourceId: SOURCE,
+    url: `https://x.com/bcherny/status/8${Date.now()}`,
+    title: `Sonnet ${T}`,
+    language: "en",
+    bodyText: "Try it!",
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+    discoveredAt: new Date(Date.now() + 1_800_000),
+    xPost: {
+      tweetId: `8${Date.now()}`,
+      authorName: "Boris",
+      handle: "bcherny",
+      text: "Try it!",
+      quoted: {
+        authorName: "Anthropic",
+        handle: "AnthropicAI",
+        text: `Introducing Claude Sonnet 5.5 ${T}`,
+        url: `https://x.com/AnthropicAI/status/${tweetId}`,
+      },
+    },
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected)
             VALUES (${id}, 1, 'rule', 'pass', 'ai-models', ${`引用-${T}`}, '摘要', '理由', 90, true)`;

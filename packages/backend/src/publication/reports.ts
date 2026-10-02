@@ -31,7 +31,18 @@ interface Availability {
 async function availability(ids: string[]): Promise<Map<string, Availability>> {
   const out = new Map<string, Availability>();
   if (ids.length === 0) return out;
-  const rows = await sql<{ id: string; visibility: string; eligible: boolean; first_party: boolean; source_id: string; icon_url: string | null; story_public_id: string | null; at: Date | null }[]>`
+  const rows = await sql<
+    {
+      id: string;
+      visibility: string;
+      eligible: boolean;
+      first_party: boolean;
+      source_id: string;
+      icon_url: string | null;
+      story_public_id: string | null;
+      at: Date | null;
+    }[]
+  >`
     SELECT p.article_id AS id, p.visibility, p.eligible, p.first_party, p.source_id, s.icon_url, st.public_id::text AS story_public_id,
       coalesce(p.published_at, p.discovered_at) AS at
     FROM publications p LEFT JOIN sources s ON s.id = p.source_id LEFT JOIN stories st ON st.id = p.story_id
@@ -80,7 +91,8 @@ export async function reportIndexRows(kind: ReportKind, limit: number) {
 export function reportHeadline(content: Record<string, any>, kind: "daily" | "periodic", gone: Set<string>): string | null {
   if (kind === "daily" && content.lead?.title) return String(content.lead.title);
   if (kind === "periodic" && periodicHeadline(content)) return periodicHeadline(content);
-  const items: Array<Record<string, any>> = kind === "daily" ? (content.sections ?? []).flatMap((s: any) => s.items ?? []) : (content.themes ?? []).flatMap((t: any) => t.storyRefs ?? []);
+  const items: Array<Record<string, any>> =
+    kind === "daily" ? (content.sections ?? []).flatMap((s: any) => s.items ?? []) : (content.themes ?? []).flatMap((t: any) => t.storyRefs ?? []);
   const first = items.find((i) => !i.itemId || !gone.has(i.itemId));
   return first?.title ?? null;
 }
@@ -95,13 +107,15 @@ function periodicHeadline(content: Record<string, any>): string | null {
 export async function unavailableHeadlineIds(rows: Array<{ content: Record<string, any> }>, kind: "daily" | "periodic"): Promise<Set<string>> {
   const reports = rows
     .filter((r) => (kind === "daily" ? !r.content.lead?.title : !periodicHeadline(r.content)))
-    .map((r): Array<{ itemId?: string | null }> => kind === "daily"
-      ? (r.content.sections ?? []).flatMap((s: any) => s.items ?? [])
-      : (r.content.themes ?? []).flatMap((t: any) => t.storyRefs ?? []));
+    .map(
+      (r): Array<{ itemId?: string | null }> =>
+        kind === "daily" ? (r.content.sections ?? []).flatMap((s: any) => s.items ?? []) : (r.content.themes ?? []).flatMap((t: any) => t.storyRefs ?? []),
+    );
   const gone = new Set<string>();
   const checked = new Set<string>();
   while (true) {
-    const candidates = reports.map((items) => items.find((i) => !i.itemId || !gone.has(i.itemId))?.itemId)
+    const candidates = reports
+      .map((items) => items.find((i) => !i.itemId || !gone.has(i.itemId))?.itemId)
       .filter((id): id is string => !!id && !checked.has(id));
     if (!candidates.length) return gone;
     for (const id of await unavailableIds(candidates)) gone.add(id);
@@ -117,8 +131,18 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
   if (!available) {
     // Withdrawn since: the reader sees a marked title; the summary and links are not sent at all.
     return {
-      itemId: id, title: String(raw.title ?? ""), summary: null, sourceName: "", sourceUrl: "", sourceId: null, sourceIconUrl: null,
-      firstParty: false, role: raw.role ?? null, storyPublicId: null, publishedAt: null, available: false,
+      itemId: id,
+      title: String(raw.title ?? ""),
+      summary: null,
+      sourceName: "",
+      sourceUrl: "",
+      sourceId: null,
+      sourceIconUrl: null,
+      firstParty: false,
+      role: raw.role ?? null,
+      storyPublicId: null,
+      publishedAt: null,
+      available: false,
     };
   }
   return {
@@ -181,7 +205,12 @@ async function leadCover(itemId: string): Promise<{ url: string; srcSet?: string
   if (!row) return null;
   const url = proxiedImage(row.m.url, "full");
   if (!url) return null;
-  return { url, ...(proxiedImageSet(row.m.url, "hero") ? { srcSet: proxiedImageSet(row.m.url, "hero")! } : {}), width: typeof row.m.width === "number" ? row.m.width : null, height: typeof row.m.height === "number" ? row.m.height : null };
+  return {
+    url,
+    ...(proxiedImageSet(row.m.url, "hero") ? { srcSet: proxiedImageSet(row.m.url, "hero")! } : {}),
+    width: typeof row.m.width === "number" ? row.m.width : null,
+    height: typeof row.m.height === "number" ? row.m.height : null,
+  };
 }
 
 function readingMinutes(text: string): number {
@@ -196,7 +225,9 @@ async function neighbors(kind: ReportKind, key: string): Promise<{ prev: string 
 }
 
 export async function loadReport(kind: ReportKind, key: string): Promise<ReportDetail | null> {
-  const [r] = await sql<ReportRow[]>`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = ${kind} AND key = ${key}`;
+  const [r] = await sql<
+    ReportRow[]
+  >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = ${kind} AND key = ${key}`;
   if (!r) return null;
   const c = r.content;
   const rawItems: Array<Record<string, any>> = [
@@ -207,10 +238,13 @@ export async function loadReport(kind: ReportKind, key: string): Promise<ReportD
   const avail = await availability([...new Set(rawItems.map((i) => i.itemId).filter(Boolean))]);
   const cite = (raw: Record<string, any>) => citationFrom(raw, avail);
 
-  const sections = kind === "daily"
-    ? (c.sections ?? []).map((s: any) => ({ label: String(s.label), summary: null, items: (s.items ?? []).map(cite) }))
-    : (c.themes ?? []).map((t: any) => ({ label: String(t.heading), summary: t.summary ?? null, items: (t.storyRefs ?? []).map(cite) }));
-  const labelled: Array<ReportCitation & { label: string }> = sections.flatMap((s: { label: string; items: ReportCitation[] }) => s.items.map((i) => ({ ...i, label: s.label })));
+  const sections =
+    kind === "daily"
+      ? (c.sections ?? []).map((s: any) => ({ label: String(s.label), summary: null, items: (s.items ?? []).map(cite) }))
+      : (c.themes ?? []).map((t: any) => ({ label: String(t.heading), summary: t.summary ?? null, items: (t.storyRefs ?? []).map(cite) }));
+  const labelled: Array<ReportCitation & { label: string }> = sections.flatMap((s: { label: string; items: ReportCitation[] }) =>
+    s.items.map((i) => ({ ...i, label: s.label })),
+  );
   // Weekly and monthly reports carry the editor's reading order across themes.
   const order: string[] = Array.isArray(c.storyOrder) ? c.storyOrder : [];
   const rank = new Map(order.map((id, i) => [id, i]));
@@ -228,7 +262,8 @@ export async function loadReport(kind: ReportKind, key: string): Promise<ReportD
   const [{ prev, next }, picture] = await Promise.all([neighbors(kind, key), leadItem?.itemId && leadItem.available ? leadCover(leadItem.itemId) : null]);
   const cover = picture && leadItem ? { ...picture, caption: kind === "daily" ? null : leadItem.title } : null;
   const headline = kind === "daily" ? null : periodicHeadline(c);
-  const title = kind === "daily" ? `${withSubject("日报")} · ${key}` : String(c.title ?? (kind === "weekly" ? `${SITE.name} 周报 · ${key}` : `${SITE.name} 月报 · ${key}`));
+  const title =
+    kind === "daily" ? `${withSubject("日报")} · ${key}` : String(c.title ?? (kind === "weekly" ? `${SITE.name} 周报 · ${key}` : `${SITE.name} 月报 · ${key}`));
   return {
     kind,
     key,
@@ -261,10 +296,13 @@ const indexes = new Map<ReportKind, Cached<{ rows: Awaited<ReturnType<typeof rep
 export function reportIndex(kind: ReportKind) {
   let entry = indexes.get(kind);
   if (!entry) {
-    entry = cached(async () => {
-      const rows = await reportIndexRows(kind, INDEX_LIMIT);
-      return { rows, gone: await unavailableHeadlineIds(rows, kind === "daily" ? "daily" : "periodic") };
-    }, { freshMs: 60_000, maxStaleMs: 10 * 60_000 });
+    entry = cached(
+      async () => {
+        const rows = await reportIndexRows(kind, INDEX_LIMIT);
+        return { rows, gone: await unavailableHeadlineIds(rows, kind === "daily" ? "daily" : "periodic") };
+      },
+      { freshMs: 60_000, maxStaleMs: 10 * 60_000 },
+    );
     indexes.set(kind, entry);
   }
   return entry.get();
@@ -276,7 +314,8 @@ export async function listReports(kind: ReportKind, limit = INDEX_LIMIT): Promis
   const shape = kind === "daily" ? "daily" : "periodic";
   const gone = index.gone;
   return rows.map((r) => {
-    const items = kind === "daily" ? (r.content.sections ?? []).flatMap((s: any) => s.items ?? []) : (r.content.themes ?? []).flatMap((t: any) => t.storyRefs ?? []);
+    const items =
+      kind === "daily" ? (r.content.sections ?? []).flatMap((s: any) => s.items ?? []) : (r.content.themes ?? []).flatMap((t: any) => t.storyRefs ?? []);
     return {
       key: r.key,
       title: reportHeadline(r.content, shape, gone),
@@ -311,9 +350,12 @@ export async function v1Dailies(limit: number) {
 }
 
 export async function v1Daily(date: string | "latest") {
-  const [r] = date === "latest"
-    ? await sql<ReportRow[]>`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = 'daily' ORDER BY key DESC LIMIT 1`
-    : await sql<ReportRow[]>`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = 'daily' AND key = ${date}`;
+  const [r] =
+    date === "latest"
+      ? await sql<
+          ReportRow[]
+        >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = 'daily' ORDER BY key DESC LIMIT 1`
+      : await sql<ReportRow[]>`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = 'daily' AND key = ${date}`;
   if (!r) return null;
   const c = r.content;
   const raw = [...(c.sections ?? []).flatMap((s: any) => s.items ?? []), ...(c.flashes ?? [])];
@@ -356,7 +398,8 @@ export { siteUrl };
 
 export function reportNavigation(kind: ReportKind, index: ReportIndexEntry[], key: string): ReportNavigationEntry[] {
   const at = index.findIndex((e) => e.key === key);
-  return index.map((entry, n) => ({ key: entry.key,
+  return index.map((entry, n) => ({
+    key: entry.key,
     ...(kind !== "daily" || entry.key.slice(0, 7) === key.slice(0, 7) || n < 3 || Math.abs(n - at) <= 1 ? { title: entry.title } : {}),
   }));
 }

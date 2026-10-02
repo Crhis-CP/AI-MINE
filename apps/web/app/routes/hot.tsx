@@ -118,7 +118,18 @@ function Lead({ e }: { e: HotEntryView }) {
         </div>
         {e.cover ? (
           <div className="order-first overflow-hidden well rounded-panel xl:order-none">
-            <img src={e.cover.url} srcSet={e.cover.srcSet} sizes="(min-width: 1280px) calc(28vw - 96px), (min-width: 1024px) calc(58vw - 180px), (min-width: 640px) 568px, calc(100vw - 74px)" width={e.cover.width ?? undefined} height={e.cover.height ?? undefined} alt="" loading="eager" fetchPriority="high" decoding="async" className="aspect-[16/9] size-full object-cover transition-transform duration-500 group-hover:scale-[1.02] xl:aspect-[16/10]" />
+            <img
+              src={e.cover.url}
+              srcSet={e.cover.srcSet}
+              sizes="(min-width: 1280px) calc(28vw - 96px), (min-width: 1024px) calc(58vw - 180px), (min-width: 640px) 568px, calc(100vw - 74px)"
+              width={e.cover.width ?? undefined}
+              height={e.cover.height ?? undefined}
+              alt=""
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              className="aspect-[16/9] size-full object-cover transition-transform duration-500 group-hover:scale-[1.02] xl:aspect-[16/10]"
+            />
           </div>
         ) : (
           panel && <HeatPanel e={e} />
@@ -168,8 +179,13 @@ function Runner({ e }: { e: HotEntryView }) {
         <div className="flex min-w-0 flex-col gap-1.5">
           <Faces participants={e.participants} total={e.participantCount} size={20} />
           <span className="text-[12px] text-ink-4">
-            <span className="whitespace-nowrap"><span className="num">{e.sourceCount}</span> 个来源</span> ·{" "}
-            <span className="whitespace-nowrap"><span className="num">{e.participantCount}</span> 位参与者</span>
+            <span className="whitespace-nowrap">
+              <span className="num">{e.sourceCount}</span> 个来源
+            </span>{" "}
+            ·{" "}
+            <span className="whitespace-nowrap">
+              <span className="num">{e.participantCount}</span> 位参与者
+            </span>
           </span>
         </div>
         <div className="flex items-end gap-3">
@@ -238,7 +254,9 @@ export default function HotPage() {
             实时热度
           </div>
           <h1 className="mt-1.5 text-[24px] font-bold leading-[1.3] tracking-[-0.01em] text-ink lg:text-[26px]">{withSubject("热点榜")}</h1>
-          <p className="mt-1.5 text-[13.5px] text-ink-3">过去 {hot.windowHours} 小时，AI 圈讨论最多的 {hot.entries.length || 10} 件事</p>
+          <p className="mt-1.5 text-[13.5px] text-ink-3">
+            过去 {hot.windowHours} 小时，AI 圈讨论最多的 {hot.entries.length || 10} 件事
+          </p>
         </div>
         {hot.computedAt && (
           <p className="text-[12px] text-ink-4">
@@ -268,7 +286,10 @@ export default function HotPage() {
             <section aria-label="其余热点" className="mt-6 lg:mt-7">
               <div className="mb-3 flex items-baseline justify-between px-1">
                 <h2 className="text-[15px] font-semibold text-ink">
-                  继续看 <span className="num font-normal text-ink-4">No.{pad(others[0]!.rank)}–{pad(others[others.length - 1]!.rank)}</span>
+                  继续看{" "}
+                  <span className="num font-normal text-ink-4">
+                    No.{pad(others[0]!.rank)}–{pad(others[others.length - 1]!.rank)}
+                  </span>
                 </h2>
                 <span className="hidden text-[12px] text-ink-4 lg:block">参与者 · 24 小时走势 · 热度指数</span>
               </div>

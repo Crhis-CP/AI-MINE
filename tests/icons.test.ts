@@ -41,7 +41,9 @@ function icoWith(entries: Array<{ size: number; data: Buffer }>): Buffer {
 }
 
 test("favicon.ico: the largest entry, PNG or 32-bit bitmap", async () => {
-  const png = await sharp({ create: { width: 48, height: 48, channels: 4, background: "#176b75" } }).png().toBuffer();
+  const png = await sharp({ create: { width: 48, height: 48, channels: 4, background: "#176b75" } })
+    .png()
+    .toBuffer();
   // A 2×2 32-bit bitmap, bottom row first: red, green / blue, white.
   const dib = Buffer.alloc(40 + 16);
   dib.writeUInt32LE(40, 0);
@@ -51,7 +53,12 @@ test("favicon.ico: the largest entry, PNG or 32-bit bitmap", async () => {
   dib.writeUInt16LE(32, 14);
   Buffer.from([0, 0, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 255, 255, 255, 255]).copy(dib, 40);
 
-  const fromPng = decodeIco(icoWith([{ size: 2, data: dib }, { size: 48, data: png }]));
+  const fromPng = decodeIco(
+    icoWith([
+      { size: 2, data: dib },
+      { size: 48, data: png },
+    ]),
+  );
   assert.ok(Buffer.isBuffer(fromPng));
   assert.equal((await sharp(fromPng).metadata()).width, 48);
 

@@ -51,10 +51,24 @@ export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
     // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
     // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
     await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    return tx<{
-      id: string; title: string; summary: string | null; url: string; category: string | null; score: number | null; first_party: boolean;
-      source_id: string; source_name: string; source_kind: string; fact_public_id: string | null; story_public_id: string | null; at: Date; backfill: boolean;
-    }[]>`
+    return tx<
+      {
+        id: string;
+        title: string;
+        summary: string | null;
+        url: string;
+        category: string | null;
+        score: number | null;
+        first_party: boolean;
+        source_id: string;
+        source_name: string;
+        source_kind: string;
+        fact_public_id: string | null;
+        story_public_id: string | null;
+        at: Date;
+        backfill: boolean;
+      }[]
+    >`
       SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
              s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
       FROM publications p JOIN sources s ON s.id = p.source_id
@@ -71,12 +85,24 @@ export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
   for (const r of rows) {
     const key = r.fact_public_id ?? `a:${r.id}`;
     const c: Candidate = {
-      itemId: r.id, factId: r.fact_public_id, storyPublicId: r.story_public_id, title: r.title, summary: r.summary ?? "",
-      sourceName: r.source_name, sourceUrl: r.url, sourceId: r.source_id, firstParty: r.first_party, role: roleOf(r.source_kind, r.first_party),
-      score: r.score === null ? null : Number(r.score), publishedAt: r.at.toISOString(), category: r.category, factKey: key,
+      itemId: r.id,
+      factId: r.fact_public_id,
+      storyPublicId: r.story_public_id,
+      title: r.title,
+      summary: r.summary ?? "",
+      sourceName: r.source_name,
+      sourceUrl: r.url,
+      sourceId: r.source_id,
+      firstParty: r.first_party,
+      role: roleOf(r.source_kind, r.first_party),
+      score: r.score === null ? null : Number(r.score),
+      publishedAt: r.at.toISOString(),
+      category: r.category,
+      factKey: key,
     };
     const prev = byFact.get(key);
-    if (!prev || Number(c.firstParty) - Number(prev.firstParty) > 0 || (c.firstParty === prev.firstParty && (c.score ?? 0) > (prev.score ?? 0))) byFact.set(key, c);
+    if (!prev || Number(c.firstParty) - Number(prev.firstParty) > 0 || (c.firstParty === prev.firstParty && (c.score ?? 0) > (prev.score ?? 0)))
+      byFact.set(key, c);
   }
   return [...byFact.values()].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }
@@ -87,11 +113,12 @@ async function recentlyCovered(kind: "daily", before: string, days = 7): Promise
     SELECT content FROM reports WHERE kind = ${kind} AND key < ${before} AND key >= ${addDays(before, -days)}`;
   const out = new Set<string>();
   for (const r of rows) {
-    for (const s of r.content.sections ?? []) for (const it of s.items ?? []) {
-      if (it.itemId) out.add(`a:${it.itemId}`);
-      if (it.factId) out.add(it.factId);
-      if (it.clusterId) out.add(`c:${it.clusterId}`);
-    }
+    for (const s of r.content.sections ?? [])
+      for (const it of s.items ?? []) {
+        if (it.itemId) out.add(`a:${it.itemId}`);
+        if (it.factId) out.add(it.factId);
+        if (it.clusterId) out.add(`c:${it.clusterId}`);
+      }
   }
   return out;
 }
@@ -99,16 +126,28 @@ async function recentlyCovered(kind: "daily", before: string, days = 7): Promise
 const LeadSchema = z.object({
   title: z.string().max(120),
   leadParagraph: z.string().max(600),
-  highlights: z.array(z.union([z.number(), z.string()])).max(6).catch([]),
+  highlights: z
+    .array(z.union([z.number(), z.string()]))
+    .max(6)
+    .catch([]),
 });
 
 async function writeLead(kind: string, key: string, entries: ReportEntry[], model: string) {
   if (entries.length === 0) return null;
-  const list = entries.slice(0, 30).map((e, i) => `${i + 1}. ${e.title}｜${e.summary.slice(0, 120)}`).join("\n");
+  const list = entries
+    .slice(0, 30)
+    .map((e, i) => `${i + 1}. ${e.title}｜${e.summary.slice(0, 120)}`)
+    .join("\n");
   const res = await chatJson({
-    model, purpose: "report_lead", subject: `report:${kind}:${key}`, promptVersion: REPORT_VERSION,
+    model,
+    purpose: "report_lead",
+    subject: `report:${kind}:${key}`,
+    promptVersion: REPORT_VERSION,
     system: promptText("report-daily-lead"),
-    user: list, schema: LeadSchema, temperature: 0.3, maxTokens: 800,
+    user: list,
+    schema: LeadSchema,
+    temperature: 0.3,
+    maxTokens: 800,
   });
   const highlights = res.data.highlights
     .map((h) => entries[Number(h) - 1])
@@ -117,7 +156,15 @@ async function writeLead(kind: string, key: string, entries: ReportEntry[], mode
   return { lead: { title: res.data.title, leadParagraph: res.data.leadParagraph }, highlights, receiptId: res.receiptId };
 }
 
-async function saveReport(kind: "daily" | "weekly" | "monthly", key: string, start: Date, end: Date, content: Record<string, unknown>, reason: string, model: string) {
+async function saveReport(
+  kind: "daily" | "weekly" | "monthly",
+  key: string,
+  start: Date,
+  end: Date,
+  content: Record<string, unknown>,
+  reason: string,
+  model: string,
+) {
   await sql.begin(async (tx) => {
     const [existing] = await tx<{ id: number; revision: number; content: unknown; generated_at: Date }[]>`
       SELECT id, revision, content, generated_at FROM reports WHERE kind = ${kind} AND key = ${key} FOR UPDATE`;
@@ -146,7 +193,8 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     const label = SECTION_OF[c.category ?? ""] ?? DEFAULT_SECTION;
     const list = perSection.get(label) ?? [];
     if (list.length < 8) list.push(c);
-    else if (flashes.length < 12) flashes.push({ itemId: c.itemId, title: c.title, sourceName: c.sourceName, sourceUrl: c.sourceUrl, publishedAt: c.publishedAt });
+    else if (flashes.length < 12)
+      flashes.push({ itemId: c.itemId, title: c.title, sourceName: c.sourceName, sourceUrl: c.sourceUrl, publishedAt: c.publishedAt });
     perSection.set(label, list);
   }
   const sections = SECTION_ORDER.filter((l) => perSection.get(l)?.length).map((label) => ({
@@ -183,7 +231,13 @@ export const PeriodSchema = z.object({
   overview: z.string().max(1500),
   themes: z
     // A theme cites at most eight entries; a model that lists more keeps its first eight rather than failing the issue.
-    .array(z.object({ heading: z.string().max(60), summary: z.string().max(800), refs: z.array(z.union([z.number(), z.string()])).transform((refs) => refs.slice(0, 8)) }))
+    .array(
+      z.object({
+        heading: z.string().max(60),
+        summary: z.string().max(800),
+        refs: z.array(z.union([z.number(), z.string()])).transform((refs) => refs.slice(0, 8)),
+      }),
+    )
     .min(1)
     .transform((themes) => themes.slice(0, 6)),
 });
@@ -202,7 +256,8 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   const end = beijingMidnight(addDays(endDateInclusive, 1));
   const all = await candidates(start, end);
   const top = all.slice(0, kind === "weekly" ? 40 : 60);
-  const dailyCount = (await sql<{ n: number }[]>`SELECT count(*) AS n FROM reports WHERE kind = 'daily' AND key >= ${startDate} AND key <= ${endDateInclusive}`)[0]?.n ?? 0;
+  const dailyCount =
+    (await sql<{ n: number }[]>`SELECT count(*) AS n FROM reports WHERE kind = 'daily' AND key >= ${startDate} AND key <= ${endDateInclusive}`)[0]?.n ?? 0;
   let themes: Array<{ heading: string; summary: string; storyRefs: ReportEntry[] }> = [];
   let headline = "";
   let overview = "";
@@ -210,8 +265,14 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   const model = await modelFor("report");
   if (top.length) {
     const res = await chatJson({
-      model, purpose: `report_${kind}`, subject: `report:${kind}:${key}`, promptVersion: REPORT_VERSION,
-      ...periodPrompt(kind, startDate, endDateInclusive, top), schema: PeriodSchema, temperature: 0.3, maxTokens: 2500,
+      model,
+      purpose: `report_${kind}`,
+      subject: `report:${kind}:${key}`,
+      promptVersion: REPORT_VERSION,
+      ...periodPrompt(kind, startDate, endDateInclusive, top),
+      schema: PeriodSchema,
+      temperature: 0.3,
+      maxTokens: 2500,
     });
     receiptId = res.receiptId;
     headline = res.data.headline.trim();
@@ -219,7 +280,10 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
     themes = res.data.themes.map((t) => ({
       heading: t.heading,
       summary: t.summary,
-      storyRefs: t.refs.map((r) => top[Number(r) - 1]).filter((e): e is Candidate => !!e).map(({ category: _c, factKey: _f, ...e }) => e),
+      storyRefs: t.refs
+        .map((r) => top[Number(r) - 1])
+        .filter((e): e is Candidate => !!e)
+        .map(({ category: _c, factKey: _f, ...e }) => e),
     }));
   }
   const content = {

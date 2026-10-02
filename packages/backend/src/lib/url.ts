@@ -2,7 +2,8 @@
 import { lookup } from "node:dns/promises";
 import net from "node:net";
 
-const TRACKING_PARAMS = /^(utm_[a-z]+|spm|from|ref|ref_src|ref_url|source|share_source|share_token|fbclid|gclid|igshid|mc_cid|mc_eid|_hsenc|_hsmi|scene|chksm|sessionid|srcid|clicktime|enterid|mkt_tok)$/i;
+const TRACKING_PARAMS =
+  /^(utm_[a-z]+|spm|from|ref|ref_src|ref_url|source|share_source|share_token|fbclid|gclid|igshid|mc_cid|mc_eid|_hsenc|_hsmi|scene|chksm|sessionid|srcid|clicktime|enterid|mkt_tok)$/i;
 
 /** Canonical form used for identity: lower-case host, no fragment, no tracking params, no trailing slash. */
 export function normalizeUrl(input: string): string | null {
@@ -65,14 +66,18 @@ export function identityKeyForUrl(url: string, opts: { keepFragment?: boolean } 
 function ipv4Blocked(o: [number, number, number, number]): boolean {
   const [a, b, c] = o;
   return (
-    a === 0 || a === 10 || a === 127 || a >= 224 || // this network, private, loopback, multicast and reserved
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    a >= 224 || // this network, private, loopback, multicast and reserved
     (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
     (a === 169 && b === 254) || // link-local, cloud metadata
     (a === 172 && b >= 16 && b <= 31) ||
     (a === 192 && b === 168) ||
     (a === 192 && b === 0 && (c === 0 || c === 2)) || // IETF protocol assignments, TEST-NET-1
     (a === 192 && b === 88 && c === 99) || // 6to4 relay anycast
-    (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113) // TEST-NET-2/3
+    (a === 198 && b === 51 && c === 100) ||
+    (a === 203 && b === 0 && c === 113) // TEST-NET-2/3
     // 198.18.0.0/15 stays allowed: fake-IP resolvers of local proxies (development machines) answer
     // from it; nothing on the production host listens there.
   );
@@ -140,7 +145,15 @@ export function isBlockedAddress(address: string): boolean {
 
 function ipv4Internal(o: [number, number, number, number]): boolean {
   const [a, b] = o;
-  return a === 0 || a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
 }
 
 /**

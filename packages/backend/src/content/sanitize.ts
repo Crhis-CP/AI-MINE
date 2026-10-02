@@ -4,9 +4,47 @@ import * as cheerio from "cheerio";
 import sanitizeHtml from "sanitize-html";
 
 const ALLOWED_TAGS = [
-  "p", "br", "hr", "h2", "h3", "h4", "h5", "ul", "ol", "li", "blockquote", "pre", "code", "table", "thead", "tbody",
-  "tfoot", "tr", "th", "td", "caption", "a", "img", "figure", "figcaption", "strong", "em", "b", "i", "u", "s", "del",
-  "sup", "sub", "mark", "span", "dl", "dt", "dd", "picture", "video",
+  "p",
+  "br",
+  "hr",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "ul",
+  "ol",
+  "li",
+  "blockquote",
+  "pre",
+  "code",
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "th",
+  "td",
+  "caption",
+  "a",
+  "img",
+  "figure",
+  "figcaption",
+  "strong",
+  "em",
+  "b",
+  "i",
+  "u",
+  "s",
+  "del",
+  "sup",
+  "sub",
+  "mark",
+  "span",
+  "dl",
+  "dt",
+  "dd",
+  "picture",
+  "video",
 ];
 
 /** A class naming a promotion block (msr-promo, promo-box …), not text such as "promotion". */
@@ -32,11 +70,41 @@ function dropPromotions(html: string): string {
  * base64 that surfaced as paragraphs.
  */
 const DROP_WHOLE = [
-  "script", "style", "noscript", "textarea", "option", "iframe", "object", "embed", "applet", "form", "input", "select",
-  "button", "label", "fieldset", "legend", "svg", "link", "meta", "base", "title", "head", "template", "audio",
-  "map", "area", "frame", "frameset", "track", "source", "param",
+  "script",
+  "style",
+  "noscript",
+  "textarea",
+  "option",
+  "iframe",
+  "object",
+  "embed",
+  "applet",
+  "form",
+  "input",
+  "select",
+  "button",
+  "label",
+  "fieldset",
+  "legend",
+  "svg",
+  "link",
+  "meta",
+  "base",
+  "title",
+  "head",
+  "template",
+  "audio",
+  "map",
+  "area",
+  "frame",
+  "frameset",
+  "track",
+  "source",
+  "param",
   // MathML is unwrapped to its text; its LaTeX source and embedded markup are not text.
-  "annotation", "annotation-xml", "mglyph",
+  "annotation",
+  "annotation-xml",
+  "mglyph",
 ];
 
 export function sanitizeBody(html: string, baseUrl?: string): string {
@@ -78,9 +146,7 @@ export function sanitizeBody(html: string, baseUrl?: string): string {
     },
     // Empty paragraphs go in normalizeBlocks, which sees nested images: a frame only knows its direct
     // children, and a paragraph holding a linked chart (<p><a><img></a></p>) looked empty here.
-    exclusiveFilter: (frame) =>
-      (frame.tag === "img" && !frame.attribs.src) ||
-      (frame.tag === "a" && !frame.text.trim() && !frame.mediaChildren?.length),
+    exclusiveFilter: (frame) => (frame.tag === "img" && !frame.attribs.src) || (frame.tag === "a" && !frame.text.trim() && !frame.mediaChildren?.length),
   });
   return normalizeBlocks(cleaned);
 }
@@ -125,10 +191,19 @@ export function normalizeBlocks(html: string): string {
  * stop, only at the very end of an extracted page, one block at a time: an article's own sentences stay.
  */
 const TRAILING_CHROME = [
-  /^topics$/i, /^tags?$/i, /^latest in [\p{L}\s&-]{1,30}$/iu, /^latest (?:news|stories)$/i, /^most (?:popular|read)$/i,
-  /^related (?:articles|posts|stories|content|reading|coverage)$/i, /^more (?:stories|articles|news)$/i, /^(?:keep reading|read next|up next)$/i,
-  /^(?:you (?:might|may) also like|recommended(?: for you)?)$/i, /^(?:subscribe|sign up)\b.{0,80}$/i, /^share (?:this|on)\b.{0,40}$/i,
-  /^follow us\b.{0,40}$/i, /^advertisement$/i,
+  /^topics$/i,
+  /^tags?$/i,
+  /^latest in [\p{L}\s&-]{1,30}$/iu,
+  /^latest (?:news|stories)$/i,
+  /^most (?:popular|read)$/i,
+  /^related (?:articles|posts|stories|content|reading|coverage)$/i,
+  /^more (?:stories|articles|news)$/i,
+  /^(?:keep reading|read next|up next)$/i,
+  /^(?:you (?:might|may) also like|recommended(?: for you)?)$/i,
+  /^(?:subscribe|sign up)\b.{0,80}$/i,
+  /^share (?:this|on)\b.{0,40}$/i,
+  /^follow us\b.{0,40}$/i,
+  /^advertisement$/i,
 ];
 
 export function trimTrailingChrome(html: string): string {

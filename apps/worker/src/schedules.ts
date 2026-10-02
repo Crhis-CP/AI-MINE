@@ -76,7 +76,14 @@ export const SCHEDULES: Scheduled[] = [
   // Four upstream checks a day; a new run is published only when the evidence changed. With collection
   // off only the computation runs, over the snapshots already stored.
   ...(FEATURES.leaderboard
-    ? [{ name: "leaderboard.round", cron: "5 2,8,14,20 * * *", missed: "once" as const, run: () => (collecting ? refreshLeaderboard() : runLeaderboardRound()) }]
+    ? [
+        {
+          name: "leaderboard.round",
+          cron: "5 2,8,14,20 * * *",
+          missed: "once" as const,
+          run: () => (collecting ? refreshLeaderboard() : runLeaderboardRound()),
+        },
+      ]
     : []),
   ...(collecting
     ? [

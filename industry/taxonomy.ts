@@ -20,19 +20,52 @@ export const CATEGORIES = [
  * 内容理解一步给每篇资料判的“内容类型”（写在 prompts/content-understanding.md 里，改了类型要同步改那份提示词）。
  * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
  */
-export const ITEM_TYPES = ["model_release", "product_launch", "tool_or_prompt", "research_paper", "industry_event", "opinion_analysis", "tutorial_explainer"] as const;
+export const ITEM_TYPES = [
+  "model_release",
+  "product_launch",
+  "tool_or_prompt",
+  "research_paper",
+  "industry_event",
+  "opinion_analysis",
+  "tutorial_explainer",
+] as const;
 
 // ── 标签词表 ────────────────────────────────────────────────────────────────────────────
 
 /** 每篇资料的第一个标签必须是这些“分类标签”之一。 */
 export const CATEGORY_TAGS = [
-  "产品更新", "模型发布", "论文/研究", "开源/仓库", "教程/实践", "现象/趋势", "大佬观点", "评测/基准", "安全/对齐", "行业动态", "政策/监管",
-  "非AI/通用工具", "其他",
+  "产品更新",
+  "模型发布",
+  "论文/研究",
+  "开源/仓库",
+  "教程/实践",
+  "现象/趋势",
+  "大佬观点",
+  "评测/基准",
+  "安全/对齐",
+  "行业动态",
+  "政策/监管",
+  "非AI/通用工具",
+  "其他",
 ] as const;
 
 /** 可选的主题标签。 */
 export const TOPIC_TAGS = [
-  "Agent", "编码", "推理", "多模态", "语音", "视频", "图像生成", "RAG", "端侧", "数据/训练", "搜索", "部署/工程", "开源生态", "具身智能", "MCP/工具调用",
+  "Agent",
+  "编码",
+  "推理",
+  "多模态",
+  "语音",
+  "视频",
+  "图像生成",
+  "RAG",
+  "端侧",
+  "数据/训练",
+  "搜索",
+  "部署/工程",
+  "开源生态",
+  "具身智能",
+  "MCP/工具调用",
 ] as const;
 
 /** 可选的实体标签（公司、机构、平台）。 */
@@ -40,21 +73,63 @@ export const ENTITY_TAGS = ["OpenAI", "Anthropic", "DeepSeek", "DeepMind", "Goog
 
 /** 模型常写的近义词，统一成词表里的写法。 */
 export const TAG_SYNONYMS: Readonly<Record<string, string>> = {
-  "教程/玩法": "教程/实践", "技巧/最佳实践": "教程/实践", "合作/生态": "行业动态", "融资/收购": "行业动态", "公司动态": "行业动态",
-  合作: "行业动态", 生态: "行业动态", 融资: "行业动态", 收购: "行业动态", 投资: "行业动态", 并购: "行业动态",
-  政策: "政策/监管", 监管: "政策/监管", 法规: "政策/监管", 安全: "安全/对齐", 对齐: "安全/对齐",
-  论文: "论文/研究", 研究: "论文/研究", paper: "论文/研究", papers: "论文/研究",
-  "open-source": "开源/仓库", 开源: "开源/仓库", 仓库: "开源/仓库", repo: "开源/仓库",
-  教程: "教程/实践", 玩法: "教程/实践", 指南: "教程/实践", 技巧: "教程/实践", 最佳实践: "教程/实践", 实践: "教程/实践",
-  产品: "产品更新", 更新: "产品更新", 发布: "模型发布", 模型: "模型发布", 趋势: "现象/趋势", 现象: "现象/趋势", 观点: "大佬观点",
-  视频生成: "视频", 非ai: "非AI/通用工具", "non-ai": "非AI/通用工具", 通用工具: "非AI/通用工具", 工程工具: "非AI/通用工具",
-  安全扫描: "非AI/通用工具", devops: "非AI/通用工具", 行业: "行业动态", 动态: "行业动态",
+  "教程/玩法": "教程/实践",
+  "技巧/最佳实践": "教程/实践",
+  "合作/生态": "行业动态",
+  "融资/收购": "行业动态",
+  公司动态: "行业动态",
+  合作: "行业动态",
+  生态: "行业动态",
+  融资: "行业动态",
+  收购: "行业动态",
+  投资: "行业动态",
+  并购: "行业动态",
+  政策: "政策/监管",
+  监管: "政策/监管",
+  法规: "政策/监管",
+  安全: "安全/对齐",
+  对齐: "安全/对齐",
+  论文: "论文/研究",
+  研究: "论文/研究",
+  paper: "论文/研究",
+  papers: "论文/研究",
+  "open-source": "开源/仓库",
+  开源: "开源/仓库",
+  仓库: "开源/仓库",
+  repo: "开源/仓库",
+  教程: "教程/实践",
+  玩法: "教程/实践",
+  指南: "教程/实践",
+  技巧: "教程/实践",
+  最佳实践: "教程/实践",
+  实践: "教程/实践",
+  产品: "产品更新",
+  更新: "产品更新",
+  发布: "模型发布",
+  模型: "模型发布",
+  趋势: "现象/趋势",
+  现象: "现象/趋势",
+  观点: "大佬观点",
+  视频生成: "视频",
+  非ai: "非AI/通用工具",
+  "non-ai": "非AI/通用工具",
+  通用工具: "非AI/通用工具",
+  工程工具: "非AI/通用工具",
+  安全扫描: "非AI/通用工具",
+  devops: "非AI/通用工具",
+  行业: "行业动态",
+  动态: "行业动态",
 };
 
 /** 模型漏了分类标签时，按内容类型补一个。 */
 export const CATEGORY_BY_ITEM_TYPE: Readonly<Record<string, string>> = {
-  model_release: "模型发布", product_launch: "产品更新", tool_or_prompt: "教程/实践", research_paper: "论文/研究",
-  industry_event: "行业动态", opinion_analysis: "大佬观点", tutorial_explainer: "教程/实践",
+  model_release: "模型发布",
+  product_launch: "产品更新",
+  tool_or_prompt: "教程/实践",
+  research_paper: "论文/研究",
+  industry_event: "行业动态",
+  opinion_analysis: "大佬观点",
+  tutorial_explainer: "教程/实践",
 };
 
 // ── 公司与主体 ──────────────────────────────────────────────────────────────────────────
@@ -84,7 +159,11 @@ export const ENTITIES: Record<string, { name: string; displayTag: string | null;
  */
 export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; patterns: RegExp[] }> = [
   { id: "openai", name: "OpenAI", patterns: [/openai|chatgpt|\bgpt-?[o\d]|\bsora\b|\bcodex\b/i] },
-  { id: "anthropic", name: "Anthropic", patterns: [/anthropic|\bclaude\b/i, /\b(?:opus|sonnet|haiku)\s*\d+(?:[.\-]\d+)*\b/i, /\bfable\s*\d+(?:[.\-]\d+)*\b|\bmythos\b/i] },
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    patterns: [/anthropic|\bclaude\b/i, /\b(?:opus|sonnet|haiku)\s*\d+(?:[.\-]\d+)*\b/i, /\bfable\s*\d+(?:[.\-]\d+)*\b|\bmythos\b/i],
+  },
   { id: "google", name: "Google / Gemini", patterns: [/google|deepmind|\bgemini\b|notebooklm|\bveo\s?\d|\bAlphaFold\b|\bAMIE\b/i] },
   { id: "deepseek", name: "DeepSeek", patterns: [/deepseek|深度求索/i] },
   { id: "xai", name: "xAI / Grok", patterns: [/\bxai\b|\bgrok\b/i] },

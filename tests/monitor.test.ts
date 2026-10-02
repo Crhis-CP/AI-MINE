@@ -21,10 +21,30 @@ async function post(text: string): Promise<string> {
 
 function confirmation(excerpt: string, count: number): Recognition {
   const p: Proposition = {
-    kind: "direct_reset", kindExplicit: true, action: "confirm", real: true, count, relatesTo: null, excerpt, excerptZh: "我们重置了额度",
-    statedTime: null, timeInferred: false, expectedLanding: null, scope: { audienceSource: null, plans: null, audienceZh: null, productsZh: null },
+    kind: "direct_reset",
+    kindExplicit: true,
+    action: "confirm",
+    real: true,
+    count,
+    relatesTo: null,
+    excerpt,
+    excerptZh: "我们重置了额度",
+    statedTime: null,
+    timeInferred: false,
+    expectedLanding: null,
+    scope: { audienceSource: null, plans: null, audienceZh: null, productsZh: null },
   };
-  return { relevant: true, translationZh: "译文", contextZh: [], outage: null, needsReview: false, propositions: [p], model: "test", promptVersion: "test", receiptId: 0 };
+  return {
+    relevant: true,
+    translationZh: "译文",
+    contextZh: [],
+    outage: null,
+    needsReview: false,
+    propositions: [p],
+    model: "test",
+    promptVersion: "test",
+    receiptId: 0,
+  };
 }
 
 const events = async (postId: string) =>
@@ -34,7 +54,10 @@ test("a confirmation of two resets nobody announced records two confirmed resets
   const id = await post("We reset Codex rate limits twice today. Both are live for every paid plan.");
   const rec = confirmation("We reset Codex rate limits twice today", 2);
   const applied = await applyRecognition(id, rec);
-  assert.deepEqual(await events(id), [{ id: `reset-${id}-1-1`, status: "confirmed" }, { id: `reset-${id}-1-2`, status: "confirmed" }]);
+  assert.deepEqual(await events(id), [
+    { id: `reset-${id}-1-1`, status: "confirmed" },
+    { id: `reset-${id}-1-2`, status: "confirmed" },
+  ]);
   assert.equal(applied.notify.length, 1, "one push for the post");
   const again = await applyRecognition(id, rec);
   assert.deepEqual([again.eventIds, again.notify], [[], []]);

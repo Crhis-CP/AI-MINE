@@ -9,7 +9,9 @@ const HOUR = 3600_000;
 export function pacificToUtc(date: string, time: string): Date {
   if (time === "24:00") {
     // "end of day": midnight at the end of that Pacific date
-    const next = new Date(Date.UTC(...(date.split("-").map(Number) as [number, number, number]).map((v, i) => (i === 1 ? v - 1 : v)) as [number, number, number]) + 36 * HOUR);
+    const next = new Date(
+      Date.UTC(...((date.split("-").map(Number) as [number, number, number]).map((v, i) => (i === 1 ? v - 1 : v)) as [number, number, number])) + 36 * HOUR,
+    );
     return pacificToUtc(next.toISOString().slice(0, 10), "00:00");
   }
   const [y, mo, d] = date.split("-").map(Number) as [number, number, number];
@@ -17,13 +19,22 @@ export function pacificToUtc(date: string, time: string): Date {
   const guess = Date.UTC(y, mo - 1, d, h + 8, mi); // PST
   for (const offset of [8, 7]) {
     const t = Date.UTC(y, mo - 1, d, h + offset, mi);
-    if (pacificParts(new Date(t)).hm === `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}` && pacificParts(new Date(t)).date === date) return new Date(t);
+    if (pacificParts(new Date(t)).hm === `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}` && pacificParts(new Date(t)).date === date)
+      return new Date(t);
   }
   return new Date(guess);
 }
 
 export function pacificParts(d: Date): { date: string; hm: string; hour: number } {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: PACIFIC, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: PACIFIC,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)!.value;
   return { date: `${get("year")}-${get("month")}-${get("day")}`, hm: `${get("hour")}:${get("minute")}`, hour: Number(get("hour")) };
 }
@@ -76,7 +87,12 @@ export function scheduleFrom(stated: StatedTime): Schedule {
   }
   // exact / window: a stated clock time lands within the hour.
   const end = stated.through ? pacificToUtc(stated.date, stated.through) : new Date(start.getTime() + HOUR);
-  return { precision: stated.precision === "exact" ? "window" : stated.precision, from: start.toISOString(), through: end.toISOString(), label: `北京时间预计 ${beijingRange(start, end)}` };
+  return {
+    precision: stated.precision === "exact" ? "window" : stated.precision,
+    from: start.toISOString(),
+    through: end.toISOString(),
+    label: `北京时间预计 ${beijingRange(start, end)}`,
+  };
 }
 
 export type EstimateBasis = "model" | "source" | "source_day" | "history";
@@ -102,7 +118,11 @@ function estimate(from: Date, through: Date, basis: EstimateBasis, reason: strin
  * is well-formed and does not contradict the stated time; otherwise the stated time (plus a
  * one-to-two-hour allowance) or his usual timing is used.
  */
-export function estimateFor(opts: { schedule: Schedule | null; announcedAt: Date; model?: { earliestPacific: string; latestPacific: string; note: string } | null }): Estimate {
+export function estimateFor(opts: {
+  schedule: Schedule | null;
+  announcedAt: Date;
+  model?: { earliestPacific: string; latestPacific: string; note: string } | null;
+}): Estimate {
   const { schedule, announcedAt, model } = opts;
   if (model) {
     const parse = (s: string) => {
@@ -174,5 +194,10 @@ export function resolveStatedTime(w: StatedWords, postAt: Date): StatedTime | nu
 export function manualSchedule(precision: SchedulePrecision, from: Date, through: Date): Schedule {
   if (precision === "deadline") return { precision, from: from.toISOString(), through: from.toISOString(), label: `北京时间预计 ${md(from)} ${hm(from)} 前` };
   if (precision === "approximate") return { precision, from: from.toISOString(), through: from.toISOString(), label: `北京时间约 ${md(from)} ${hm(from)}` };
-  return { precision: precision === "exact" ? "window" : precision, from: from.toISOString(), through: through.toISOString(), label: `北京时间预计 ${beijingRange(from, through)}` };
+  return {
+    precision: precision === "exact" ? "window" : precision,
+    from: from.toISOString(),
+    through: through.toISOString(),
+    label: `北京时间预计 ${beijingRange(from, through)}`,
+  };
 }

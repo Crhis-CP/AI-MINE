@@ -10,7 +10,9 @@ const STALE_HEARTBEAT_MS = 3 * 60_000;
 
 export async function runsOverview() {
   const [heartbeats, latest, timeline, queues, failedJobs, lagging, receipts, receiptIssues, deliveries, errors, ingest, leaderboard] = await Promise.all([
-    sql<{ key: string; value: Record<string, unknown>; updated_at: Date }[]>`SELECT key, value, updated_at FROM settings WHERE key LIKE 'heartbeat.%' ORDER BY key`,
+    sql<
+      { key: string; value: Record<string, unknown>; updated_at: Date }[]
+    >`SELECT key, value, updated_at FROM settings WHERE key LIKE 'heartbeat.%' ORDER BY key`,
     sql`
       WITH latest AS (
         SELECT DISTINCT ON (job) job, started_at, finished_at, status, left(error, 400) AS error
@@ -48,7 +50,11 @@ export async function runsOverview() {
              (array_agg(id ORDER BY discovered_at DESC))[1] AS example
       FROM articles WHERE processing_state = 'failed' AND discovered_at > now() - interval '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 20`,
     sql`SELECT client, kind, status, left(error, 200) AS error, summary, created_at FROM ingest_events ORDER BY created_at DESC LIMIT 20`,
-    sql<{ value: { at: string; sources: Record<string, { ok: boolean; at: string; lastOkAt: string | null; changed?: boolean; rows?: number; error?: string }> } }[]>`
+    sql<
+      {
+        value: { at: string; sources: Record<string, { ok: boolean; at: string; lastOkAt: string | null; changed?: boolean; rows?: number; error?: string }> };
+      }[]
+    >`
       SELECT value FROM settings WHERE key = 'leaderboard.fetch'`,
   ]);
   // Articles waiting to retry after a passing provider problem (they are not failed).
@@ -74,14 +80,20 @@ export async function runsOverview() {
     retrying: { count: retrying?.n ?? 0, next: retrying?.next ?? null },
     ingest,
     leaderboard: leaderboard[0]
-      ? { at: leaderboard[0].value.at, sources: Object.entries(leaderboard[0].value.sources).map(([key, v]) => ({ key, ...v })).sort((a, b) => Number(a.ok) - Number(b.ok) || a.key.localeCompare(b.key)) }
+      ? {
+          at: leaderboard[0].value.at,
+          sources: Object.entries(leaderboard[0].value.sources)
+            .map(([key, v]) => ({ key, ...v }))
+            .sort((a, b) => Number(a.ok) - Number(b.ok) || a.key.localeCompare(b.key)),
+        }
       : null,
   };
 }
 
 const ARTICLE_STEPS = new Set([
   ...(["prefilter", "score", "understand", "summarize", "structure"] as const).flatMap((step) => CAPABILITIES[step].purposes),
-  "body_fallback", "x_article",
+  "body_fallback",
+  "x_article",
 ]);
 
 /**
@@ -155,7 +167,8 @@ export async function resolveDelivery(id: number, input: { outcome: "sent" | "dr
   if (before.status !== "unknown" && before.status !== "failed") throw new Conflict("这条投递不需要处理");
   let status: string;
   if (input.outcome === "sent") {
-    const changed = await sql`UPDATE deliveries SET status = 'sent', sent_at = coalesce(sent_at, now()), response = ${`人工确认已送达：${input.note}`}, updated_at = now()
+    const changed =
+      await sql`UPDATE deliveries SET status = 'sent', sent_at = coalesce(sent_at, now()), response = ${`人工确认已送达：${input.note}`}, updated_at = now()
       WHERE id = ${id} AND status IN ('unknown', 'failed') AND updated_at::text = ${before.version}`;
     if (!changed.count) throw new Conflict("这条投递已被其他操作处理，请刷新后重试");
     status = "sent";

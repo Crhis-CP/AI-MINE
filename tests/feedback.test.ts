@@ -25,7 +25,8 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   const url = String(input instanceof Request ? input.url : input);
   if (!url.startsWith("https://open.feishu.cn/")) return realFetch(input, init);
   if (url.endsWith("/auth/v3/tenant_access_token/internal")) return Response.json({ code: 0, tenant_access_token: "t", expire: 7200 });
-  if (url.endsWith("/im/v1/images")) return Response.json(feishu.uploadFails ? { code: 99, msg: "upload broken" } : { code: 0, data: { image_key: `img_${T}` } });
+  if (url.endsWith("/im/v1/images"))
+    return Response.json(feishu.uploadFails ? { code: 99, msg: "upload broken" } : { code: 0, data: { image_key: `img_${T}` } });
   if (url.includes("/im/v1/messages")) {
     if (feishu.sendFails) return Response.json({ code: 99, msg: "send broken" });
     const content = JSON.parse(JSON.parse(String(init?.body)).content).zh_cn;
@@ -46,14 +47,21 @@ async function submit(): Promise<{ id: number; file: string }> {
   n += 1;
   // Submitted while forwarding is off, so the test drives every attempt itself.
   delete process.env.FEISHU_INTERNAL_ENABLED;
-  const { id } = await submitFeedback({ content: `反馈 ${T}-${n}`, screenshot: { mime: "image/png", data: Buffer.concat([PNG, Buffer.from(`${T}-${n}`)]) }, ip: `203.0.113.${n}`, userAgent: "test" });
+  const { id } = await submitFeedback({
+    content: `反馈 ${T}-${n}`,
+    screenshot: { mime: "image/png", data: Buffer.concat([PNG, Buffer.from(`${T}-${n}`)]) },
+    ip: `203.0.113.${n}`,
+    userAgent: "test",
+  });
   process.env.FEISHU_INTERNAL_ENABLED = "true";
   const [row] = await sql<{ screenshot_key: string }[]>`SELECT screenshot_key FROM feedback WHERE id = ${id}`;
   return { id, file: path.join(config.dataDir, "feedback-screenshots", row!.screenshot_key.slice("local:".length)) };
 }
 const state = async (id: number) =>
-  (await sql<{ forwarded: boolean; forward_error: string | null; screenshot_key: string | null }[]>`
-    SELECT forwarded_at IS NOT NULL AS forwarded, forward_error, screenshot_key FROM feedback WHERE id = ${id}`)[0]!;
+  (
+    await sql<{ forwarded: boolean; forward_error: string | null; screenshot_key: string | null }[]>`
+    SELECT forwarded_at IS NOT NULL AS forwarded, forward_error, screenshot_key FROM feedback WHERE id = ${id}`
+  )[0]!;
 const sentFor = (id: number) => feishu.sent.find((m) => m.title === `反馈 #${id}`);
 const olderBy = (id: number, interval: string) => sql`UPDATE feedback SET created_at = now() - ${interval}::interval WHERE id = ${id}`;
 
@@ -70,7 +78,10 @@ test("a failed screenshot upload keeps the feedback waiting, and the sweep sends
   await olderBy(id, "10 minutes");
   await forwardPendingFeedback();
   assert.deepEqual({ ...(await state(id)) }, { forwarded: true, forward_error: null, screenshot_key: `feishu:img_${T}` });
-  assert.ok(sentFor(id)?.content.some((p) => JSON.stringify(p).includes(`img_${T}`)), "the message carries the image");
+  assert.ok(
+    sentFor(id)?.content.some((p) => JSON.stringify(p).includes(`img_${T}`)),
+    "the message carries the image",
+  );
   assert.ok(!existsSync(file), "the local file is gone once uploaded");
 });
 
@@ -82,7 +93,10 @@ test("a send that fails after the upload goes out with the same image next time"
   assert.ok(!existsSync(file));
   feishu.sendFails = false;
   assert.equal(await forwardFeedbackToFeishu(id), "sent");
-  assert.ok(sentFor(id)?.content.some((p) => JSON.stringify(p).includes(`img_${T}`)), "the uploaded image is not lost");
+  assert.ok(
+    sentFor(id)?.content.some((p) => JSON.stringify(p).includes(`img_${T}`)),
+    "the uploaded image is not lost",
+  );
 });
 
 test("a screenshot that cannot be uploaded for a day is dropped, and the text still goes", async () => {

@@ -39,10 +39,21 @@ const PAGES: Record<string, OgCard> = {
 export const ARTICLE_IMAGE_CACHE = "public, max-age=3600, s-maxage=3600, stale-while-revalidate=600";
 const ARTICLE_IMAGE_ORIGIN_SECONDS = "300";
 
-async function send(req: FastifyRequest, reply: FastifyReply, card: OgCard, maxAge: number, cacheControl = `public, max-age=${maxAge}, s-maxage=${maxAge * 7}, stale-while-revalidate=86400`) {
+async function send(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  card: OgCard,
+  maxAge: number,
+  cacheControl = `public, max-age=${maxAge}, s-maxage=${maxAge * 7}, stale-while-revalidate=86400`,
+) {
   const tag = `"og-${ogEtag(card)}"`;
   reply.header("ETag", tag).header("Cache-Control", cacheControl);
-  if (String(req.headers["if-none-match"] ?? "").split(",").some((t) => t.trim().replace(/^W\//, "") === tag)) return reply.code(304).send();
+  if (
+    String(req.headers["if-none-match"] ?? "")
+      .split(",")
+      .some((t) => t.trim().replace(/^W\//, "") === tag)
+  )
+    return reply.code(304).send();
   return reply.type("image/png").send((await renderOg(card)).png);
 }
 
@@ -69,13 +80,19 @@ export function registerOg(app: FastifyInstance) {
     const d = await loadItemShare(file.slice(0, -4));
     if (!d) return notFound(reply);
     reply.header("X-Accel-Expires", ARTICLE_IMAGE_ORIGIN_SECONDS);
-    return send(req, reply, {
-      kicker: d.category ? CATEGORY_LABELS[d.category] : withSubject("动态"),
-      title: d.title,
-      subtitle: d.summary,
-      meta: `${d.source.name.replace(/（[^）]*）\s*$/, "")} · ${beijingDate(d.timelineAt)}`,
-      badge: d.selected && d.score !== null ? { value: String(Math.round(d.score)), label: "精选评分" } : null,
-    }, 3600, ARTICLE_IMAGE_CACHE);
+    return send(
+      req,
+      reply,
+      {
+        kicker: d.category ? CATEGORY_LABELS[d.category] : withSubject("动态"),
+        title: d.title,
+        subtitle: d.summary,
+        meta: `${d.source.name.replace(/（[^）]*）\s*$/, "")} · ${beijingDate(d.timelineAt)}`,
+        badge: d.selected && d.score !== null ? { value: String(Math.round(d.score)), label: "精选评分" } : null,
+      },
+      3600,
+      ARTICLE_IMAGE_CACHE,
+    );
   });
 
   // Phone share poster for an article (1080×1440), generated on first request and cached by content.
@@ -95,7 +112,12 @@ export function registerOg(app: FastifyInstance) {
     };
     const tag = `"poster-${posterEtag(poster)}"`;
     reply.header("ETag", tag).header("Cache-Control", ARTICLE_IMAGE_CACHE).header("X-Accel-Expires", ARTICLE_IMAGE_ORIGIN_SECONDS);
-    if (String(req.headers["if-none-match"] ?? "").split(",").some((t) => t.trim().replace(/^W\//, "") === tag)) return reply.code(304).send();
+    if (
+      String(req.headers["if-none-match"] ?? "")
+        .split(",")
+        .some((t) => t.trim().replace(/^W\//, "") === tag)
+    )
+      return reply.code(304).send();
     return reply.type("image/png").send((await renderPoster(poster)).png);
   });
 
@@ -104,12 +126,17 @@ export function registerOg(app: FastifyInstance) {
     if (!["daily", "weekly", "monthly"].includes(kind) || !file.endsWith(".png")) return notFound(reply);
     const r = await loadReport(kind as ReportKind, file.slice(0, -4));
     if (!r) return notFound(reply);
-    return send(req, reply, {
-      kicker: `${REPORT_NAMES[r.kind]} · ${r.key}`,
-      title: r.lead?.title ?? r.title,
-      subtitle: r.lead?.leadParagraph ?? r.overview,
-      meta: `${r.stories.length} 条核心新闻 · 约 ${r.readingMinutes} 分钟读完`,
-    }, 86400);
+    return send(
+      req,
+      reply,
+      {
+        kicker: `${REPORT_NAMES[r.kind]} · ${r.key}`,
+        title: r.lead?.title ?? r.title,
+        subtitle: r.lead?.leadParagraph ?? r.overview,
+        meta: `${r.stories.length} 条核心新闻 · 约 ${r.readingMinutes} 分钟读完`,
+      },
+      86400,
+    );
   });
 
   app.get("/og/topics/:file", async (req, reply) => {
@@ -126,12 +153,17 @@ export function registerOg(app: FastifyInstance) {
     if (found.kind !== "found") return notFound(reply);
     const s = await loadStoryDetail(found.storyId);
     if (!s) return notFound(reply);
-    return send(req, reply, {
-      kicker: s.whyHot.rank ? `热点第 ${s.whyHot.rank} · 事件` : "事件",
-      title: s.title,
-      subtitle: s.latest ?? s.digest,
-      meta: `${s.sourceCount} 个来源 · ${s.reportCount} 篇报道`,
-      accent: s.whyHot.rank ? "hot" : "teal",
-    }, 3600);
+    return send(
+      req,
+      reply,
+      {
+        kicker: s.whyHot.rank ? `热点第 ${s.whyHot.rank} · 事件` : "事件",
+        title: s.title,
+        subtitle: s.latest ?? s.digest,
+        meta: `${s.sourceCount} 个来源 · ${s.reportCount} 篇报道`,
+        accent: s.whyHot.rank ? "hot" : "teal",
+      },
+      3600,
+    );
   });
 }

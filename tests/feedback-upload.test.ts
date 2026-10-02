@@ -11,7 +11,11 @@ import { buildApp } from "../apps/api/src/app.ts";
 process.env.FEISHU_INTERNAL_ENABLED = "false";
 config.dataDir = await mkdtemp(path.join(tmpdir(), "aihot-upload-"));
 const app = await buildApp();
-after(async () => { await app.close(); await closeDb(); await rm(config.dataDir, { recursive: true }); });
+after(async () => {
+  await app.close();
+  await closeDb();
+  await rm(config.dataDir, { recursive: true });
+});
 
 async function upload(file: Buffer, ip: string) {
   const form = new FormData();
@@ -38,7 +42,12 @@ test("a 5 MiB multipart screenshot waits intact for forwarding", async () => {
 });
 
 test("malformed multipart and screenshots above the existing backend limit are rejected", async () => {
-  const bad = await app.inject({ method: "POST", url: "/api/site/feedback", headers: { "content-type": "multipart/form-data; boundary=missing" }, payload: Buffer.from("bad") });
+  const bad = await app.inject({
+    method: "POST",
+    url: "/api/site/feedback",
+    headers: { "content-type": "multipart/form-data; boundary=missing" },
+    payload: Buffer.from("bad"),
+  });
   assert.equal(bad.statusCode, 400);
   const result = await upload(Buffer.alloc(8 * 1024 * 1024 + 1), "203.0.113.212");
   assert.equal(result.statusCode, 400);
@@ -47,7 +56,12 @@ test("malformed multipart and screenshots above the existing backend limit are r
 
 test("the JSON screenshot sent by an already-open tab remains accepted", async () => {
   const file = Buffer.from("existing screenshot");
-  const result = await app.inject({ method: "POST", url: "/api/site/feedback", headers: { "x-real-ip": "203.0.113.213" }, payload: { content: "旧标签页", screenshot: { mime: "image/png", data: file.toString("base64") } } });
+  const result = await app.inject({
+    method: "POST",
+    url: "/api/site/feedback",
+    headers: { "x-real-ip": "203.0.113.213" },
+    payload: { content: "旧标签页", screenshot: { mime: "image/png", data: file.toString("base64") } },
+  });
   assert.equal(result.statusCode, 201);
   const [row] = await sql`SELECT screenshot_key FROM feedback WHERE id = ${result.json().id}`;
   assert.deepEqual(await readFile(path.join(config.dataDir, "feedback-screenshots", row!.screenshot_key.slice(6))), file);

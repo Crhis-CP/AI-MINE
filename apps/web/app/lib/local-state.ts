@@ -74,7 +74,7 @@ function onStorage(event: StorageEvent) {
 function subscribeKey(key: string) {
   return (listener: () => void) => {
     let callbacks = listeners.get(key);
-    if (!callbacks) listeners.set(key, callbacks = new Set());
+    if (!callbacks) listeners.set(key, (callbacks = new Set()));
     callbacks.add(listener);
     if (subscribers++ === 0) window.addEventListener("storage", onStorage);
     return () => {
@@ -138,7 +138,10 @@ export function getStarred(): LocalStarredItem[] {
     try {
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];
-      return parsed.filter(isStarredItem).map((v) => normalizeStarred(v as unknown as Record<string, unknown>)).slice(0, STARRED_LIMIT);
+      return parsed
+        .filter(isStarredItem)
+        .map((v) => normalizeStarred(v as unknown as Record<string, unknown>))
+        .slice(0, STARRED_LIMIT);
     } catch {
       return [];
     }
@@ -288,7 +291,10 @@ export function mergeLocalData(incoming: { starred: unknown[]; read: unknown[]; 
   const additions: LocalStarredItem[] = [];
   let starredSkipped = 0;
   for (const s of incoming.starred) {
-    if (!isStarredItem(s)) { starredSkipped++; continue; }
+    if (!isStarredItem(s)) {
+      starredSkipped++;
+      continue;
+    }
     if (have.has(s.id)) continue;
     have.add(s.id);
     additions.push(normalizeStarred(s as unknown as Record<string, unknown>));
@@ -305,7 +311,10 @@ export function mergeLocalData(incoming: { starred: unknown[]; read: unknown[]; 
   const readAdditions: string[] = [];
   let readSkipped = 0;
   for (const id of incoming.read) {
-    if (typeof id !== "string" || !ID_PATTERN.test(id)) { readSkipped++; continue; }
+    if (typeof id !== "string" || !ID_PATTERN.test(id)) {
+      readSkipped++;
+      continue;
+    }
     if (readHave.has(id)) continue;
     readHave.add(id);
     readAdditions.push(id);
@@ -320,7 +329,14 @@ export function mergeLocalData(incoming: { starred: unknown[]; read: unknown[]; 
   }
   cache.clear();
   emit();
-  return { starredAdded: accepted.length, starredSkipped, readAdded: readFailed ? 0 : Math.min(readAdditions.length, readRoom), readSkipped, themeApplied, readFailed };
+  return {
+    starredAdded: accepted.length,
+    starredSkipped,
+    readAdded: readFailed ? 0 : Math.min(readAdditions.length, readRoom),
+    readSkipped,
+    themeApplied,
+    readFailed,
+  };
 }
 
 // --- React hooks ---
@@ -332,7 +348,11 @@ export function useStarred(): LocalStarredItem[] {
 }
 
 export function useIsStarred(id: string): boolean {
-  return useSyncExternalStore(subscribeStarred, () => isStarred(id), () => false);
+  return useSyncExternalStore(
+    subscribeStarred,
+    () => isStarred(id),
+    () => false,
+  );
 }
 
 export function useReadSet(): Set<string> {

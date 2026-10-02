@@ -66,9 +66,15 @@ export default function MorePage() {
           <Group key={g.title} title={g.title}>
             {g.rows.map((r) => (
               <li key={r.to}>
-                <Link to={r.to} className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk">
+                <Link
+                  to={r.to}
+                  className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
+                >
                   <span className="text-ink-3">{r.icon}</span>
-                  <span className="flex flex-1 items-center gap-2">{r.label}{r.to === "/changelog" && changelogDot && <span className="size-1.5 rounded-full bg-hot" aria-label="有新的更新" />}</span>
+                  <span className="flex flex-1 items-center gap-2">
+                    {r.label}
+                    {r.to === "/changelog" && changelogDot && <span className="size-1.5 rounded-full bg-hot" aria-label="有新的更新" />}
+                  </span>
                   <IconChevronRight size={16} className="text-ink-4" />
                 </Link>
               </li>
@@ -86,10 +92,20 @@ export default function MorePage() {
         ))}
       </div>
       <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 text-[12px] text-ink-4">
-        <Link to="/terms" className="hover:text-ink-2">使用规则</Link>
-        <Link to="/privacy" className="hover:text-ink-2">隐私说明</Link>
-        <a href="/feed.xml" className="hover:text-ink-2">RSS</a>
-        {SITE.icp && <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-ink-2">{SITE.icp}</a>}
+        <Link to="/terms" className="hover:text-ink-2">
+          使用规则
+        </Link>
+        <Link to="/privacy" className="hover:text-ink-2">
+          隐私说明
+        </Link>
+        <a href="/feed.xml" className="hover:text-ink-2">
+          RSS
+        </a>
+        {SITE.icp && (
+          <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="hover:text-ink-2">
+            {SITE.icp}
+          </a>
+        )}
       </div>
     </div>
   );

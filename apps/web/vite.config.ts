@@ -25,13 +25,10 @@ function devEdge(): Plugin {
           return res.end();
         }
         if (!isApiOwned(pathname)) return next();
-        const upstream = httpRequest(
-          { hostname: API.hostname, port: API.port, path: raw, method: req.method, headers: req.headers },
-          (up) => {
-            res.writeHead(up.statusCode ?? 502, up.headers);
-            up.pipe(res);
-          },
-        );
+        const upstream = httpRequest({ hostname: API.hostname, port: API.port, path: raw, method: req.method, headers: req.headers }, (up) => {
+          res.writeHead(up.statusCode ?? 502, up.headers);
+          up.pipe(res);
+        });
         upstream.on("error", () => {
           res.statusCode = 502;
           res.end("api unavailable");
@@ -55,7 +52,11 @@ export default defineConfig({
         // left to the admin pages.
         codeSplitting: {
           groups: [
-            { name: "framework", test: /node_modules[\\/](?:react|react-dom|scheduler|react-router|@react-router|cookie|set-cookie-parser|turbo-stream)[\\/]/, priority: 30 },
+            {
+              name: "framework",
+              test: /node_modules[\\/](?:react|react-dom|scheduler|react-router|@react-router|cookie|set-cookie-parser|turbo-stream)[\\/]/,
+              priority: 30,
+            },
             { name: "motion", test: /node_modules[\\/](?:motion|framer-motion|motion-dom|motion-utils)[\\/]/, priority: 20 },
             { name: "shared", test: /apps[\\/]web[\\/]app[\\/](?!features[\\/]admin[\\/]|routes[\\/])/, minShareCount: 4, priority: 10 },
           ],

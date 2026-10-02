@@ -36,12 +36,14 @@ const { values } = parseArgs({
 async function pmap<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let next = 0;
-  await Promise.all(Array.from({ length: limit }, async () => {
-    while (next < items.length) {
-      const index = next++;
-      out[index] = await fn(items[index]!);
-    }
-  }));
+  await Promise.all(
+    Array.from({ length: limit }, async () => {
+      while (next < items.length) {
+        const index = next++;
+        out[index] = await fn(items[index]!);
+      }
+    }),
+  );
   return out;
 }
 
@@ -82,7 +84,10 @@ async function main() {
   if (!sample.length) throw new Error(`no cases for split ${values.split}`);
 
   const models = values.models
-    ? values.models.split(",").map((model) => model.trim()).filter(Boolean)
+    ? values.models
+        .split(",")
+        .map((model) => model.trim())
+        .filter(Boolean)
     : [await modelFor("groupReview")];
   if (!models.length) throw new Error("--models did not name any models");
   for (const model of models) if (!MODELS[model]) throw new Error(`unknown model ${model}`);
@@ -126,17 +131,19 @@ async function main() {
 
     const predictions: RelationPrediction[] = results.flatMap((result) =>
       result.out
-        ? [{
-            caseId: result.row.caseId,
-            gold: result.row.gold.relation,
-            relation: result.out.relation,
-            confidence: result.out.confidence,
-            stratum: result.row.samplingContext?.samplingStratum ?? null,
-          }]
+        ? [
+            {
+              caseId: result.row.caseId,
+              gold: result.row.gold.relation,
+              relation: result.out.relation,
+              confidence: result.out.confidence,
+              stratum: result.row.samplingContext?.samplingStratum ?? null,
+            },
+          ]
         : [],
     );
     const metrics = relationMetrics(predictions, sample.length);
-    const usage = await usageFor(results.flatMap((result) => result.receiptId === null ? [] : [result.receiptId]));
+    const usage = await usageFor(results.flatMap((result) => (result.receiptId === null ? [] : [result.receiptId])));
     const summary = {
       model,
       n: sample.length,
@@ -150,9 +157,7 @@ async function main() {
     };
     const storyThresholds = thresholds.map((threshold) => storyTieMetrics(predictions, threshold));
     console.log(JSON.stringify(summary));
-    console.log(storyThresholds.map((metric) =>
-      `  story t=${metric.threshold} P=${metric.precision} R=${metric.recall} F1=${metric.f1}`,
-    ).join("\n"));
+    console.log(storyThresholds.map((metric) => `  story t=${metric.threshold} P=${metric.precision} R=${metric.recall} F1=${metric.f1}`).join("\n"));
 
     report[model] = {
       summary,

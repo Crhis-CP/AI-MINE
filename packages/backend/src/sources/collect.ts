@@ -59,7 +59,8 @@ async function storedTitles(urls: string[]): Promise<Map<string, string>> {
 
 const DAY_MS = 86_400_000;
 /** A listing title that is no headline: a label that swallowed its summary, or a call to action. */
-const needsTitle = (title: string) => title.length > 100 || /^(read more|learn more|continue reading|more|阅读全文|阅读更多|查看详情|了解更多)$/i.test(title.trim());
+const needsTitle = (title: string) =>
+  title.length > 100 || /^(read more|learn more|continue reading|more|阅读全文|阅读更多|查看详情|了解更多)$/i.test(title.trim());
 
 async function store(sourceId: string, candidates: Candidate[], backfill: string | null): Promise<{ created: number; revised: number }> {
   let created = 0;
@@ -110,8 +111,7 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
       if (!firstImport) nextCursor.rss = rss.validator;
       else delete nextCursor.rss;
       if (rss.notModified) detail = { notModified: true, httpStatus: 304 };
-    }
-    else if (source.kind === "web_list") candidates = await fetchWebList(source);
+    } else if (source.kind === "web_list") candidates = await fetchWebList(source);
     else if (source.kind === "json_list") candidates = await fetchJsonList(source);
     else {
       const x = await fetchXSearch(source);
@@ -123,7 +123,10 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
       detail = { pages: x.pages, truncated: x.truncated, backlog: x.backlog.length, backlogPages: x.backlogPages, dropped: x.dropped };
     }
     found = candidates.length;
-    candidates = candidates.filter((c) => allowed(c.url, source)).map((c) => rewriteUrl(c, source)).filter((c) => !noiseFiltered(c, source));
+    candidates = candidates
+      .filter((c) => allowed(c.url, source))
+      .map((c) => rewriteUrl(c, source))
+      .filter((c) => !noiseFiltered(c, source));
     if (source.config.sortByPublishedAt) candidates.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0));
 
     // First import of a new source: bounded, and archived by source time (never "today", never pushed).
@@ -208,7 +211,7 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
 }
 
 /** X ids begin with their millisecond timestamp (since 2010-11-04): the smallest id of a post made at `ms`. */
-const xIdAt = (ms: number) => (BigInt(Math.max(0, ms - 1288834974657)) << 22n);
+const xIdAt = (ms: number) => BigInt(Math.max(0, ms - 1288834974657)) << 22n;
 
 /**
  * Where an account's posts are known to be read up to. A quiet account's newest post can be months
@@ -235,7 +238,10 @@ const shardMinutes = (mode: string) => X_SHARD_MINUTES[mode] ?? 60;
  * every account is covered up to the newest post the search saw, and the stretches still unread are
  * kept in each account's cursor, so they survive a change of shards.
  */
-export async function collectXShard(key: string, sourceIds: string[]): Promise<{ key: string; status: "ok" | "failed" | "skipped"; accounts: number; found: number; created: number; error?: string }> {
+export async function collectXShard(
+  key: string,
+  sourceIds: string[],
+): Promise<{ key: string; status: "ok" | "failed" | "skipped"; accounts: number; found: number; created: number; error?: string }> {
   const members = (
     await sql<SourceRow[]>`
       SELECT id, name, kind, config, tier, participation_mode, first_party, interval_minutes, enabled, cursor, fail_count
@@ -275,17 +281,36 @@ export async function collectXShard(key: string, sourceIds: string[]): Promise<{
     return { key, status: "failed", accounts: members.length, found: 0, created: 0, error: message };
   }
 
-  const detail = { shard: key, accounts: members.length, pages: read.pages, truncated: read.truncated, backlog: read.backlog.length, backlogPages: read.backlogPages, dropped: read.dropped };
+  const detail = {
+    shard: key,
+    accounts: members.length,
+    pages: read.pages,
+    truncated: read.truncated,
+    backlog: read.backlog.length,
+    backlogPages: read.backlogPages,
+    dropped: read.dropped,
+  };
   let found = 0;
   let created = 0;
   for (const m of members) {
     const handle = shardHandle(m)!.toLowerCase();
     const mine = read.tweets.filter((t) => t.user.screen_name.toLowerCase() === handle);
-    const stored = await store(m.id, mine.map(tweetToCandidate).map((c) => rewriteUrl(c, m)).filter((c) => !noiseFiltered(c, m)), null);
+    const stored = await store(
+      m.id,
+      mine
+        .map(tweetToCandidate)
+        .map((c) => rewriteUrl(c, m))
+        .filter((c) => !noiseFiltered(c, m)),
+      null,
+    );
     found += mine.length;
     created += stored.created;
     const own = String(m.cursor!.lastTweetId);
-    const cursor: Record<string, unknown> = { ...m.cursor, lastTweetId: read.lastId && BigInt(read.lastId) > BigInt(own) ? read.lastId : own, lastOkAt: new Date().toISOString() };
+    const cursor: Record<string, unknown> = {
+      ...m.cursor,
+      lastTweetId: read.lastId && BigInt(read.lastId) > BigInt(own) ? read.lastId : own,
+      lastOkAt: new Date().toISOString(),
+    };
     if (read.backlog.length) cursor.xBacklog = read.backlog;
     else delete cursor.xBacklog;
     await sql`
@@ -300,7 +325,8 @@ export async function collectXShard(key: string, sourceIds: string[]): Promise<{
 }
 
 /** X accounts read by shard: a plain query and a watermark (the first fetch of an account is its own). */
-const sharded = () => sql`kind = 'x_search' AND config->>'query' ~* ${SHARDABLE_SQL} AND coalesce(config->>'searchType', 'Latest') = 'Latest' AND cursor->>'lastTweetId' IS NOT NULL`;
+const sharded = () =>
+  sql`kind = 'x_search' AND config->>'query' ~* ${SHARDABLE_SQL} AND coalesce(config->>'searchType', 'Latest') = 'Latest' AND cursor->>'lastTweetId' IS NOT NULL`;
 
 /** Every minute: a shard is read when any of its accounts is due, all of them at once. */
 async function scheduleXShards(): Promise<number> {
@@ -355,7 +381,11 @@ export async function adaptIntervals(): Promise<{ updated: number }> {
     // Listings read through Jina are not looked at more than hourly: busy ones would outrun its daily budget.
     const min = r.paid_listing ? 60 : 15;
     // X accounts read by shard follow the shard's pace, whatever their own volume.
-    const target = shardHandle(r) ? shardMinutes(r.participation_mode) : perDay <= 0.15 ? max : Math.round(Math.min(max, Math.max(min, (24 * 60) / (perDay * 3))));
+    const target = shardHandle(r)
+      ? shardMinutes(r.participation_mode)
+      : perDay <= 0.15
+        ? max
+        : Math.round(Math.min(max, Math.max(min, (24 * 60) / (perDay * 3))));
     const res = await sql`UPDATE sources SET interval_minutes = ${target} WHERE id = ${r.id} AND interval_minutes <> ${target}`;
     updated += res.count;
   }

@@ -42,7 +42,10 @@ function parseDate(v: string): Date | null {
   const t = Date.parse(v);
   if (Number.isFinite(t)) return new Date(t);
   // RFC 822 variants with Chinese weekday or odd zones
-  const cleaned = v.replace(/星期[一二三四五六日天]/, "").replace(/\s+/g, " ").trim();
+  const cleaned = v
+    .replace(/星期[一二三四五六日天]/, "")
+    .replace(/\s+/g, " ")
+    .trim();
   const t2 = Date.parse(cleaned);
   return Number.isFinite(t2) ? new Date(t2) : null;
 }
@@ -52,7 +55,7 @@ function atomLink(links: unknown): string {
   const alt = list.find((l) => typeof l === "object" && (!l["@rel"] || l["@rel"] === "alternate"));
   if (alt && typeof alt === "object") return alt["@href"] ?? "";
   const first = list[0];
-  return typeof first === "string" ? first : first?.["@href"] ?? "";
+  return typeof first === "string" ? first : (first?.["@href"] ?? "");
 }
 
 function imagesFrom(html: string, base: string): Array<{ kind: "image"; url: string }> {
@@ -119,7 +122,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   if (!url) throw new FetchError("feedUrl missing");
   // Config changes can alter parsing/filtering even when the upstream bytes did not change.
   const configHash = sha256(stableJson(source.config));
-  const previous = !opts.force && source.cursor?.rss?.configHash === configHash ? source.cursor.rss as RssValidator : null;
+  const previous = !opts.force && source.cursor?.rss?.configHash === configHash ? (source.cursor.rss as RssValidator) : null;
   const headers: Record<string, string> = { accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8" };
   if (previous?.etag) headers["if-none-match"] = previous.etag;
   if (previous?.lastModified) headers["if-modified-since"] = previous.lastModified;
@@ -129,9 +132,10 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
     res = await guardedFetch(url, { headers: { accept: headers.accept! }, timeoutMs: 25_000 });
   }
   const validator: RssValidator = {
-    configHash, responseUrl: res.url,
-    etag: res.headers.get("etag") ?? (res.status === 304 ? previous?.etag ?? null : null),
-    lastModified: res.headers.get("last-modified") ?? (res.status === 304 ? previous?.lastModified ?? null : null),
+    configHash,
+    responseUrl: res.url,
+    etag: res.headers.get("etag") ?? (res.status === 304 ? (previous?.etag ?? null) : null),
+    lastModified: res.headers.get("last-modified") ?? (res.status === 304 ? (previous?.lastModified ?? null) : null),
   };
   if (res.status === 304 && previous && (previous.etag || previous.lastModified) && res.url === previous.responseUrl) {
     return { candidates: [], validator, notModified: true };
@@ -161,10 +165,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
       const bodyHtmlRaw = contentEncoded || (summaryIsBody ? description : "");
       const bodyHtml = bodyHtmlRaw ? sanitizeBody(bodyHtmlRaw, link) : null;
       const enclosure = arr(it.enclosure as Record<string, string> | Array<Record<string, string>>).find((e) => /^image\//.test(e?.["@type"] ?? ""));
-      const media = [
-        ...(enclosure ? [{ kind: "image" as const, url: enclosure["@url"]! }] : []),
-        ...(bodyHtmlRaw ? imagesFrom(bodyHtmlRaw, link) : []),
-      ];
+      const media = [...(enclosure ? [{ kind: "image" as const, url: enclosure["@url"]! }] : []), ...(bodyHtmlRaw ? imagesFrom(bodyHtmlRaw, link) : [])];
       out.push({
         url: link,
         ...identity(link),
@@ -173,7 +174,9 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
         publishedAt: parseDate(text(it.pubDate) || text(it["dc:date"]) || text(it.published)),
         ...feedText(bodyHtml, description, source),
         media: media.slice(0, 6),
-        categories: arr(it.category).map((c) => text(c)).filter(Boolean),
+        categories: arr(it.category)
+          .map((c) => text(c))
+          .filter(Boolean),
         raw: { guid: text(it.guid) || null },
       });
     }
@@ -199,7 +202,9 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
         sourceUpdatedAt: parseDate(text(e.updated)),
         ...feedText(bodyHtml, summary, source),
         media: content ? imagesFrom(content, link) : [],
-        categories: arr(e.category).map((c: any) => c?.["@term"] ?? text(c)).filter(Boolean),
+        categories: arr(e.category)
+          .map((c: any) => c?.["@term"] ?? text(c))
+          .filter(Boolean),
         raw: { id: text(e.id) || null },
       });
     }

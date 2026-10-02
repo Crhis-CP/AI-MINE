@@ -21,8 +21,21 @@ import { buildMaterial, firstImagePart, loadAnalyzeInput, type AnalyzeInputArtic
 import { pageFetchable } from "../content/extract.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import {
-  buildArticlePrompt, buildLongTweetPrompt, buildShortTweetPrompt, finalizeCopy, isShortTweetInput, looksZh, MAX_BODY_CHARS, missingEvidence,
-  needsShortTweetTranslation, parseTranslateOutput, PREFILTER_SYSTEM, prefilterUser, translateInputOf, UNDERSTAND_SYSTEM, understandUser,
+  buildArticlePrompt,
+  buildLongTweetPrompt,
+  buildShortTweetPrompt,
+  finalizeCopy,
+  isShortTweetInput,
+  looksZh,
+  MAX_BODY_CHARS,
+  missingEvidence,
+  needsShortTweetTranslation,
+  parseTranslateOutput,
+  PREFILTER_SYSTEM,
+  prefilterUser,
+  translateInputOf,
+  UNDERSTAND_SYSTEM,
+  understandUser,
   type IdentityGuard,
 } from "./writing.ts";
 import { CATEGORY_BY_ITEM_TYPE, CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
@@ -34,7 +47,15 @@ export const PROMPT_VERSIONS = {
   prefilter: promptVersion("prefilter"),
   score: promptVersion("selection-score"),
   understand: promptVersion("understand"),
-  summarize: promptVersion("summarize-article", "summarize-article-empty", "summarize-short-post", "summarize-short-post-quoted", "summarize-long-post", "summarize-long-post-quoted", "identity-context"),
+  summarize: promptVersion(
+    "summarize-article",
+    "summarize-article-empty",
+    "summarize-short-post",
+    "summarize-short-post-quoted",
+    "summarize-long-post",
+    "summarize-long-post-quoted",
+    "identity-context",
+  ),
   structure: promptVersion("structure"),
 } as const;
 /** Every step's prompt, as stored on each judgement. */
@@ -72,7 +93,14 @@ export const SCORE_SYSTEM = promptText("selection-score");
 export const ScoreSchema = z.object({ attentionScore: z.coerce.number().int().min(0).max(100) });
 
 const SCORE_TIME = new Intl.DateTimeFormat("sv-SE", {
-  timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  timeZone: "Asia/Shanghai",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
 });
 
 /** The score input's time: Beijing time, ISO 8601 with +08:00 (the form the prompt was tuned on). */
@@ -106,7 +134,13 @@ export function buildScoreInput(a: AnalyzeInputArticle): string {
 // ── Step outputs ──────────────────────────────────────────────────────────────────────────
 
 const PrefilterSchema = z.object({
-  label: z.preprocess((v) => String(v ?? "").trim().toUpperCase(), z.enum(["PASS", "BLOCK", "UNKNOWN"])),
+  label: z.preprocess(
+    (v) =>
+      String(v ?? "")
+        .trim()
+        .toUpperCase(),
+    z.enum(["PASS", "BLOCK", "UNKNOWN"]),
+  ),
   reason: z.string().max(200).catch(""),
 });
 
@@ -148,7 +182,9 @@ const STRUCTURE_SYSTEM = promptText("structure", {
   categoryTags: CATEGORY_TAGS.join("、"),
   topicTags: TOPIC_TAGS.join("、"),
   entityTags: ENTITY_TAGS.join("、"),
-  entities: Object.entries(ENTITIES).map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`).join("，"),
+  entities: Object.entries(ENTITIES)
+    .map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`)
+    .join("，"),
 });
 
 export interface AnalysisRun {
@@ -172,7 +208,15 @@ export interface AnalysisRun {
     receiptIds: number[];
     reused: boolean;
   } | null;
-  structure: { model: string; category: string | null; tags: string[]; subjects: string[]; fact: z.infer<typeof FactSchema>; receiptId: number; reused: boolean } | null;
+  structure: {
+    model: string;
+    category: string | null;
+    tags: string[];
+    subjects: string[];
+    fact: z.infer<typeof FactSchema>;
+    receiptId: number;
+    reused: boolean;
+  } | null;
 }
 
 const isContentFilter = (error: unknown) => error instanceof ProviderRejectedError && !error.retryable && /contentFilter|"1301"/.test(error.message);
@@ -217,11 +261,7 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
 }
 
 /** The production prefilter step, exposed separately so SelectBench can preserve partial receipt evidence. */
-export async function runSelectionPrefilter(
-  a: AnalyzeInputArticle,
-  opts: StepOpts = {},
-  onReceipt?: ReceiptObserver,
-): Promise<AnalysisRun["prefilter"]> {
+export async function runSelectionPrefilter(a: AnalyzeInputArticle, opts: StepOpts = {}, onReceipt?: ReceiptObserver): Promise<AnalysisRun["prefilter"]> {
   try {
     const result = await runPrefilter(a, opts);
     onReceipt?.(result.receiptId);
@@ -233,12 +273,7 @@ export async function runSelectionPrefilter(
   }
 }
 
-async function runScores(
-  a: AnalyzeInputArticle,
-  threshold: number,
-  opts: StepOpts,
-  onReceipt?: ReceiptObserver,
-): Promise<NonNullable<AnalysisRun["scores"]>> {
+async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOpts, onReceipt?: ReceiptObserver): Promise<NonNullable<AnalysisRun["scores"]>> {
   const model = opts.scoreModel ?? (await modelFor("score"));
   const call = scoreCall(model);
   const input = buildScoreInput(a);
@@ -250,8 +285,16 @@ async function runScores(
     checkAnalysisRunning();
     try {
       const res = await chatJson({
-        model, purpose: "score_article", subject: subjectOf(a), promptVersion: PROMPT_VERSIONS.score, system: SCORE_SYSTEM, user: input,
-        schema: ScoreSchema, temperature: call.temperature, maxTokens: call.maxTokens, timeoutMs: call.timeoutMs,
+        model,
+        purpose: "score_article",
+        subject: subjectOf(a),
+        promptVersion: PROMPT_VERSIONS.score,
+        system: SCORE_SYSTEM,
+        user: input,
+        schema: ScoreSchema,
+        temperature: call.temperature,
+        maxTokens: call.maxTokens,
+        timeoutMs: call.timeoutMs,
         // Each call is its own paid request; an explicit re-evaluation gets new ones.
         attemptTag: tagged(opts.attemptTag, `score-${i + 1}`),
       });
@@ -271,11 +314,7 @@ async function runScores(
 }
 
 /** The production score step; its threshold stays case-specific even when an evaluator shares model output. */
-export async function runSelectionScores(
-  a: AnalyzeInputArticle,
-  opts: StepOpts = {},
-  onReceipt?: ReceiptObserver,
-): Promise<AnalysisRun["scores"]> {
+export async function runSelectionScores(a: AnalyzeInputArticle, opts: StepOpts = {}, onReceipt?: ReceiptObserver): Promise<AnalysisRun["scores"]> {
   const threshold = tierThreshold(a.source.tier);
   return threshold === null ? null : runScores(a, threshold, opts, onReceipt);
 }
@@ -296,7 +335,15 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     attemptTag: tagged(opts.attemptTag, "structure"),
   });
   const subjects = [...new Set(res.data.subjects.map((s) => s.trim().toLowerCase()).filter((s) => s in ENTITIES))];
-  return { model: res.model, category: res.data.category, tags: normalizeTags(res.data.tags), subjects, fact: res.data.fact, receiptId: res.receiptId, reused: res.reused };
+  return {
+    model: res.model,
+    category: res.data.category,
+    tags: normalizeTags(res.data.tags),
+    subjects,
+    fact: res.data.fact,
+    receiptId: res.receiptId,
+    reused: res.reused,
+  };
 }
 
 /** The content understanding; null when the model's content filter declines the material. */
@@ -306,9 +353,17 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
   const call = (image: ContentPart | null) => {
     checkAnalysisRunning();
     return chatJson({
-      model, purpose: "understand_article", subject: subjectOf(a), promptVersion: PROMPT_VERSIONS.understand, system: UNDERSTAND_SYSTEM,
-      user: image ? [{ type: "text", text }, image] : text, schema: UnderstandSchema, temperature: 0.2, maxTokens: 16_384,
-      timeoutMs: 180_000, attemptTag: tagged(opts.attemptTag, "understand"),
+      model,
+      purpose: "understand_article",
+      subject: subjectOf(a),
+      promptVersion: PROMPT_VERSIONS.understand,
+      system: UNDERSTAND_SYSTEM,
+      user: image ? [{ type: "text", text }, image] : text,
+      schema: UnderstandSchema,
+      temperature: 0.2,
+      maxTokens: 16_384,
+      timeoutMs: 180_000,
+      attemptTag: tagged(opts.attemptTag, "understand"),
     });
   };
   // A model that is known not to read images gets the text only.
@@ -330,9 +385,17 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
   const d = res.data;
   const copy = finalizeCopy(translateInputOf(a), { titleZh: d.titleZh, summaryZh: d.summaryZh });
   return {
-    kind: "understand", model: res.model, titleZh: copy.titleZh, summaryZh: copy.summaryZh, reasonZh: d.editorialJudgment.trim() || null,
-    tags: normalizeTags(d.tags, { fallbackCategory: CATEGORY_BY_ITEM_TYPE[d.itemType] }), itemType: d.itemType, authorRole: d.authorRole,
-    identityGuard: copy.identityGuard, receiptIds: [res.receiptId], reused: res.reused,
+    kind: "understand",
+    model: res.model,
+    titleZh: copy.titleZh,
+    summaryZh: copy.summaryZh,
+    reasonZh: d.editorialJudgment.trim() || null,
+    tags: normalizeTags(d.tags, { fallbackCategory: CATEGORY_BY_ITEM_TYPE[d.itemType] }),
+    itemType: d.itemType,
+    authorRole: d.authorRole,
+    identityGuard: copy.identityGuard,
+    receiptIds: [res.receiptId],
+    reused: res.reused,
   };
 }
 
@@ -369,7 +432,17 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
       ? { titleZh: p.titleZh, summaryZh: p.summaryZh || p.bodyZh }
       : { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh };
   const copy = finalizeCopy(t, draft);
-  return { kind: "summarize", model: res.model, titleZh: copy.titleZh, summaryZh: copy.summaryZh, reasonZh: null, tags: null, identityGuard: copy.identityGuard, receiptIds: [res.receiptId], reused: res.reused };
+  return {
+    kind: "summarize",
+    model: res.model,
+    titleZh: copy.titleZh,
+    summaryZh: copy.summaryZh,
+    reasonZh: null,
+    tags: null,
+    identityGuard: copy.identityGuard,
+    receiptIds: [res.receiptId],
+    reused: res.reused,
+  };
 }
 
 /**
@@ -386,7 +459,10 @@ export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { sta
     return { prefilter, scores, writing: null, structure: null };
   }
   // The structure step needs nothing from the scores: it runs beside them.
-  const structure = runStructure(a, opts).then((value) => ({ value }), (error: unknown) => ({ error }));
+  const structure = runStructure(a, opts).then(
+    (value) => ({ value }),
+    (error: unknown) => ({ error }),
+  );
   try {
     const scores = await runSelectionScores(a, opts);
     const sum = scores && !scores.refused && scores.values.length === SCORE_CALLS ? scores.values.reduce((total, v) => total + v, 0) : null;
@@ -463,12 +539,18 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
   const run = await runAnalysis(input, opts);
   const out = normalizeAnalysis(run);
   const receiptIds = [
-    run.prefilter.receiptId, ...(run.scores?.receiptIds ?? []), ...(run.writing?.receiptIds ?? []), ...(run.structure ? [run.structure.receiptId] : []),
+    run.prefilter.receiptId,
+    ...(run.scores?.receiptIds ?? []),
+    ...(run.writing?.receiptIds ?? []),
+    ...(run.structure ? [run.structure.receiptId] : []),
   ];
   const w = run.writing;
   const detail = {
     prefilter: { label: run.prefilter.label, reason: run.prefilter.reason },
-    scores: out.scores, scoreModel: out.scoreModel, threshold: out.threshold, ...(out.scoreRefused ? { scoreRefused: true } : {}),
+    scores: out.scores,
+    scoreModel: out.scoreModel,
+    threshold: out.threshold,
+    ...(out.scoreRefused ? { scoreRefused: true } : {}),
     ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
     ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
     fact: out.fact,

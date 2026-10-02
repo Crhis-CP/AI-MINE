@@ -9,7 +9,10 @@ const REPO = "harbor-framework/terminal-bench";
 const DIR = "leaderboard/submissions";
 const REFERENCE_ONLY = "保留模型与 Agent 的完整系统成绩供参考，不参与综合或编程排名。";
 
-interface Display { url: string; label: string }
+interface Display {
+  url: string;
+  label: string;
+}
 interface Submission {
   source_filter: { agent: string; agent_version: string | null; model_name: string; reasoning_effort: string | null };
   metadata: { agent_display: Display; model_display: Display; model_org: Display; date: string | null; reasoning_effort: string | null };
@@ -27,10 +30,15 @@ export const terminalBench: Fetcher = {
   async fetch() {
     const head = await headCommit(REPO);
     const data = await headCommit(REPO, DIR);
-    const files = (await githubJson<Array<{ name: string; type: string }>>(`repos/${REPO}/contents/${DIR}?ref=${head.sha}`))
-      .filter((f) => f.type === "file" && f.name.endsWith(".json"));
+    const files = (await githubJson<Array<{ name: string; type: string }>>(`repos/${REPO}/contents/${DIR}?ref=${head.sha}`)).filter(
+      (f) => f.type === "file" && f.name.endsWith(".json"),
+    );
     // The dataset version and its task count are pinned in the leaderboard's own code.
-    const [board, hub, checks] = await Promise.all([raw(head.sha, "leaderboard/leaderboard.yaml"), raw(head.sha, "leaderboard/src/leaderboard/core/hub.py"), raw(head.sha, "leaderboard/src/leaderboard/ci/static_analysis.py")]);
+    const [board, hub, checks] = await Promise.all([
+      raw(head.sha, "leaderboard/leaderboard.yaml"),
+      raw(head.sha, "leaderboard/src/leaderboard/core/hub.py"),
+      raw(head.sha, "leaderboard/src/leaderboard/ci/static_analysis.py"),
+    ]);
     const version = /^name:\s*(\d+)-(\d+)-(\d+)\s*$/m.exec(board)?.slice(1, 4).join(".") ?? null;
     const datasetRef = /^DATASET_REF\s*=\s*"([^"]+)"/m.exec(hub)?.[1] ?? null;
     const taskCount = Number(/^EXPECTED_TASK_COUNT\s*=\s*(\d+)/m.exec(checks)?.[1]) || null;
@@ -83,30 +91,32 @@ export const terminalBench: Fetcher = {
         },
       });
     }
-    return [{
-      sourceKey: "terminal-bench-4",
-      sourceName: "Terminal-Bench 4 · 系统参考",
-      sourceUrl: `https://api.github.com/repos/${REPO}/contents/${DIR}`,
-      license: "Apache 2.0 · 官方 harbor-framework/terminal-bench 仓库内的成绩提交；保留署名、协议与修改说明。",
-      attributionUrl: "https://www.tbench.ai/",
-      // Scores change only through merged submissions, so the data date is the last commit touching them.
-      publishedAt: data.date,
-      rows,
-      metadata: {
-        dataAtKind: "score-data-commit",
-        dataCommit: data.sha,
-        dataRevision: head.sha,
-        datasetRef,
-        benchmarkVersion: version,
-        evaluatedAt: null,
-        attribution: "Harbor / Terminal-Bench · Apache 2.0; accuracy converted from percent to fraction; all submitted systems retained",
-        representativeMode: "CONFIGURATION_ONLY",
-        sourceDateMeaning: "metadata.date is model release date; score publication comes from changed score content",
-        upstreamPublishedAt: data.date,
-        sourceOperator: "Harbor / Terminal-Bench",
-        sourceFamily: "terminal-agent",
-        metricCount: 0,
+    return [
+      {
+        sourceKey: "terminal-bench-4",
+        sourceName: "Terminal-Bench 4 · 系统参考",
+        sourceUrl: `https://api.github.com/repos/${REPO}/contents/${DIR}`,
+        license: "Apache 2.0 · 官方 harbor-framework/terminal-bench 仓库内的成绩提交；保留署名、协议与修改说明。",
+        attributionUrl: "https://www.tbench.ai/",
+        // Scores change only through merged submissions, so the data date is the last commit touching them.
+        publishedAt: data.date,
+        rows,
+        metadata: {
+          dataAtKind: "score-data-commit",
+          dataCommit: data.sha,
+          dataRevision: head.sha,
+          datasetRef,
+          benchmarkVersion: version,
+          evaluatedAt: null,
+          attribution: "Harbor / Terminal-Bench · Apache 2.0; accuracy converted from percent to fraction; all submitted systems retained",
+          representativeMode: "CONFIGURATION_ONLY",
+          sourceDateMeaning: "metadata.date is model release date; score publication comes from changed score content",
+          upstreamPublishedAt: data.date,
+          sourceOperator: "Harbor / Terminal-Bench",
+          sourceFamily: "terminal-agent",
+          metricCount: 0,
+        },
       },
-    }];
+    ];
   },
 };

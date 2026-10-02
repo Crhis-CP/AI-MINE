@@ -46,7 +46,11 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
     <AdminPage
       title="信源"
       subtitle="列表按健康度排序：失败的在最前。点进详情可以预览抓取、手动采集、调整频率与参与方式。"
-      actions={<ButtonLink to="/admin/sources/new" tone="primary">新建信源</ButtonLink>}
+      actions={
+        <ButtonLink to="/admin/sources/new" tone="primary">
+          新建信源
+        </ButtonLink>
+      }
     >
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="全部" value={num(totals.total)} />
@@ -61,7 +65,15 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
             <Input name="q" defaultValue={sp.get("q") ?? ""} placeholder="名称、ID 或地址" aria-label="搜索信源" />
           </Form>
           <div className="flex flex-wrap items-center gap-3">
-            <FilterChips param="health" options={[{ value: "", label: "全部" }, { value: "failing", label: "失败" }, { value: "degraded", label: "不稳定" }, { value: "paused", label: "暂停" }]} />
+            <FilterChips
+              param="health"
+              options={[
+                { value: "", label: "全部" },
+                { value: "failing", label: "失败" },
+                { value: "degraded", label: "不稳定" },
+                { value: "paused", label: "暂停" },
+              ]}
+            />
             <Select
               aria-label="类型"
               className="!w-auto"
@@ -76,7 +88,9 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
             >
               <option value="">全部类型</option>
               {Object.entries(KIND_LABEL).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+                <option key={k} value={k}>
+                  {v}
+                </option>
               ))}
             </Select>
           </div>
@@ -91,7 +105,11 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
               label: "信源",
               render: (r) => (
                 <div className="min-w-[220px]">
-                  <Link to={`/admin/sources/${encodeURIComponent(r.id)}`} className="font-medium text-ink hover:text-accent" onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    to={`/admin/sources/${encodeURIComponent(r.id)}`}
+                    className="font-medium text-ink hover:text-accent"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {r.name}
                   </Link>
                   <div className="font-mono text-[11.5px] text-ink-4">{r.id}</div>
@@ -117,7 +135,7 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
               render: (r) => (
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Dot tone={r.enabled ? healthTone(r.health) : "muted"} />
-                  {r.enabled ? HEALTH_LABEL[r.health] ?? r.health : "已暂停"}
+                  {r.enabled ? (HEALTH_LABEL[r.health] ?? r.health) : "已暂停"}
                   {r.fail_count > 0 && <span className="num text-[11.5px] text-ink-4">×{r.fail_count}</span>}
                 </span>
               ),

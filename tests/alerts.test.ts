@@ -21,7 +21,13 @@ before(async () => {
   await sql`INSERT INTO sources (id, name, kind, next_fetch_at) VALUES (${SOURCE}, 'Test alerts', 'rss', '2100-01-01')`;
   // Ten new articles that have waited three hours: new content is stuck, readers see nothing new.
   for (let i = 0; i < 10; i++) {
-    const { articleId } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.com/${T}-${i}`, title: `stuck ${i}`, bodyStatus: "none", via: "fetch" } as never);
+    const { articleId } = await upsertMaterial({
+      sourceId: SOURCE,
+      url: `https://example.com/${T}-${i}`,
+      title: `stuck ${i}`,
+      bodyStatus: "none",
+      via: "fetch",
+    } as never);
     ids.push(articleId);
   }
   await sql`UPDATE articles SET discovered_at = now() - interval '3 hours', processing_state = 'new' WHERE id IN ${sql(ids)}`;
@@ -30,7 +36,8 @@ after(async () => {
   await sql`DELETE FROM articles WHERE source_id = ${SOURCE}`;
   await sql`DELETE FROM sources WHERE id = ${SOURCE}`;
   await sql`DELETE FROM settings WHERE key = 'alerts.state'`;
-  for (const s of saved) await sql`INSERT INTO settings (key, value, updated_by) VALUES (${s.key}, ${sql.json(s.value as never)}, 'test') ON CONFLICT (key) DO NOTHING`;
+  for (const s of saved)
+    await sql`INSERT INTO settings (key, value, updated_by) VALUES (${s.key}, ${sql.json(s.value as never)}, 'test') ON CONFLICT (key) DO NOTHING`;
   await stopBoss();
   await closeDb();
 });

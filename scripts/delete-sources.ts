@@ -22,9 +22,15 @@ for (const s of selected) await setVisibility(s.article_id, { visibility: "withd
 
 /** Drops array entries and clears fields that point at a deleted item. */
 function prune(node: unknown, gone: Set<string>): unknown {
-  if (Array.isArray(node)) return node.filter((x) => !(x && typeof x === "object" && gone.has((x as { itemId?: string }).itemId ?? ""))).map((x) => prune(x, gone));
+  if (Array.isArray(node))
+    return node.filter((x) => !(x && typeof x === "object" && gone.has((x as { itemId?: string }).itemId ?? ""))).map((x) => prune(x, gone));
   if (node && typeof node === "object") {
-    return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, v && typeof v === "object" && !Array.isArray(v) && gone.has((v as { itemId?: string }).itemId ?? "") ? null : prune(v, gone)]));
+    return Object.fromEntries(
+      Object.entries(node).map(([k, v]) => [
+        k,
+        v && typeof v === "object" && !Array.isArray(v) && gone.has((v as { itemId?: string }).itemId ?? "") ? null : prune(v, gone),
+      ]),
+    );
   }
   return node;
 }
@@ -42,6 +48,8 @@ await sql.begin(async (tx) => {
   await tx`DELETE FROM sources WHERE id IN ${tx(ids)}`;
 });
 for (const s of sources) await audit(ACTOR, "source.delete", `source:${s.id}`, reason, { name: s.name }, null);
-console.log(`deleted ${sources.length} sources and ${articleIds.length} articles; withdrew ${selected.length} selected first; ${reports} report(s) no longer cite them`);
+console.log(
+  `deleted ${sources.length} sources and ${articleIds.length} articles; withdrew ${selected.length} selected first; ${reports} report(s) no longer cite them`,
+);
 await stopBoss();
 await closeDb();

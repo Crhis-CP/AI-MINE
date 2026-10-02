@@ -68,7 +68,13 @@ export async function mpHistory(ghid: string, opts: { subject: string; window: s
     },
   );
   const json = receipt.response as { data?: MpPost[]; nickname?: string; remain_money?: number };
-  return { posts: json.data ?? [], nickname: json.nickname ?? null, remainMoney: json.remain_money ?? null, receiptId: receipt.receiptId, reused: receipt.reused };
+  return {
+    posts: json.data ?? [],
+    nickname: json.nickname ?? null,
+    remainMoney: json.remain_money ?? null,
+    receiptId: receipt.receiptId,
+    reused: receipt.reused,
+  };
 }
 
 /** Plain-text body of one article (mode 1: text with image markers). */
@@ -90,5 +96,12 @@ export async function mpArticle(articleUrl: string, opts: { subject: string; ide
     },
   );
   const j = receipt.response as { title?: string; content?: string; author?: string; desc?: string; pubtime?: string };
-  return { title: j.title ?? "", content: j.content ?? "", author: j.author || null, desc: j.desc || null, pubtime: j.pubtime ?? null, receiptId: receipt.receiptId };
+  return {
+    title: j.title ?? "",
+    content: j.content ?? "",
+    author: j.author || null,
+    desc: j.desc || null,
+    pubtime: j.pubtime ?? null,
+    receiptId: receipt.receiptId,
+  };
 }

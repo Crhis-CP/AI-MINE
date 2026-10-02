@@ -56,9 +56,10 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
         key: "content.process",
         level: "now",
         title: "新内容卡住了，进不了网站",
-        impact: [p!.waiting >= 10 && `${p!.waiting} 篇新文章等了 2 小时以上还没处理完`, p!.failed >= 20 && `最近 3 小时 ${p!.failed} 篇新文章处理失败`]
-          .filter(Boolean)
-          .join("；") + "，精选和热点会缺内容",
+        impact:
+          [p!.waiting >= 10 && `${p!.waiting} 篇新文章等了 2 小时以上还没处理完`, p!.failed >= 20 && `最近 3 小时 ${p!.failed} 篇新文章处理失败`]
+            .filter(Boolean)
+            .join("；") + "，精选和热点会缺内容",
         heals: p!.waiting >= 10 ? "服务恢复后会自动补处理" : "不会，需要修好后重新处理这些文章",
         action: "转给 AI 处理",
         detail: errors.map((e) => `${e.error}（${e.n}）`).join("；") || "没有记录错误",
@@ -149,7 +150,12 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
         since: new Date(b.value.at),
       });
     } else if (!b || !b.value.uploaded || age > 30 * 3600_000) {
-      out.push({ key: "backup.stale", level: "digest", title: "数据库备份超过一天没成功", detail: b ? `最近一次 ${beijingStamp(b.value.at)}${state ? `（${state}）` : ""}；看 ops.backup` : "还没有成功的备份记录" });
+      out.push({
+        key: "backup.stale",
+        level: "digest",
+        title: "数据库备份超过一天没成功",
+        detail: b ? `最近一次 ${beijingStamp(b.value.at)}${state ? `（${state}）` : ""}；看 ops.backup` : "还没有成功的备份记录",
+      });
     }
   }
 
@@ -159,9 +165,20 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
            (SELECT string_agg(DISTINCT service || '/' || purpose, '、') FROM receipts WHERE status = 'unknown') AS services,
            (SELECT count(*)::int FROM deliveries WHERE status = 'unknown') AS deliveries`;
   if (r!.receipts > 0) {
-    out.push({ key: "receipts.unknown", level: "digest", title: `${r!.receipts} 个付费请求自动重试过一次，结果仍未知`, detail: `${r!.services}；后台“运行”页核对后放行` });
+    out.push({
+      key: "receipts.unknown",
+      level: "digest",
+      title: `${r!.receipts} 个付费请求自动重试过一次，结果仍未知`,
+      detail: `${r!.services}；后台“运行”页核对后放行`,
+    });
   }
-  if (r!.deliveries > 0) out.push({ key: "deliveries.unknown", level: "digest", title: `${r!.deliveries} 条飞书内容群推送不确定是否送达`, detail: "后台“运行”页核对群里有没有，再标记或重发" });
+  if (r!.deliveries > 0)
+    out.push({
+      key: "deliveries.unknown",
+      level: "digest",
+      title: `${r!.deliveries} 条飞书内容群推送不确定是否送达`,
+      detail: "后台“运行”页核对群里有没有，再标记或重发",
+    });
 
   // Runnable jobs (deferred ones excluded) that have waited more than two hours.
   const queues = await sql<{ name: string; n: number; oldest: Date }[]>`
@@ -169,19 +186,29 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
     WHERE state IN ('created', 'retry') AND start_after <= now() AND name NOT LIKE 'cron.%' GROUP BY 1`;
   for (const q of queues) {
     if (now - q.oldest.getTime() > 2 * 3600_000) {
-      out.push({ key: `queue.${q.name}`, level: "digest", title: `后台任务排队超过 2 小时：${q.name}`, detail: `${q.n} 个等待，最早的等了 ${duration(now - q.oldest.getTime())}` });
+      out.push({
+        key: `queue.${q.name}`,
+        level: "digest",
+        title: `后台任务排队超过 2 小时：${q.name}`,
+        detail: `${q.n} 个等待，最早的等了 ${duration(now - q.oldest.getTime())}`,
+      });
     }
   }
 
   // A leaderboard source keeps its last snapshot while failing.
-  const [lb] = await sql<{ value: { sources?: Record<string, { ok: boolean; lastOkAt: string | null; error?: string }> } }[]>`SELECT value FROM settings WHERE key = 'leaderboard.fetch'`;
+  const [lb] = await sql<
+    { value: { sources?: Record<string, { ok: boolean; lastOkAt: string | null; error?: string }> } }[]
+  >`SELECT value FROM settings WHERE key = 'leaderboard.fetch'`;
   const stale = Object.entries(lb?.value.sources ?? {}).filter(([, s]) => !s.ok && s.lastOkAt && now - Date.parse(s.lastOkAt) > 26 * 3600_000);
   if (stale.length) {
     out.push({
       key: "leaderboard.fetch",
       level: "digest",
       title: `模型榜有 ${stale.length} 个评测来源超过一天没抓到，榜单暂用上一份数据`,
-      detail: stale.slice(0, 6).map(([k, s]) => `${k}：${s.error ?? "失败"}（上次成功 ${beijingStamp(s.lastOkAt!)}）`).join("；"),
+      detail: stale
+        .slice(0, 6)
+        .map(([k, s]) => `${k}：${s.error ?? "失败"}（上次成功 ${beijingStamp(s.lastOkAt!)}）`)
+        .join("；"),
     });
   }
 

@@ -10,7 +10,8 @@ export function headers() {
 
 /** Shared frame for the overall and category boards; only the board below it changes. */
 export default function LeaderboardFrame() {
-  const chip = "inline-flex h-8 items-center gap-1 rounded-full border border-line-strong bg-surface px-3.5 text-[12.5px] text-ink-2 transition-colors hover:border-ink-4 hover:text-ink";
+  const chip =
+    "inline-flex h-8 items-center gap-1 rounded-full border border-line-strong bg-surface px-3.5 text-[12.5px] text-ink-2 transition-colors hover:border-ink-4 hover:text-ink";
   return (
     <div className="pb-10">
       <header className="flex flex-col gap-3 pb-4 pt-5 sm:flex-row sm:items-end sm:justify-between lg:pt-1">

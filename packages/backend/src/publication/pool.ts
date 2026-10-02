@@ -3,7 +3,14 @@ import type { PoolResponse, TimelineFilters } from "@aihot/contracts/site";
 import { beijingDate, beijingMidnight } from "@aihot/contracts/time";
 import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import {
-  categoryCondition, channelCondition, ITEM_COLUMNS, ITEM_FROM, listedCondition, tagCondition, toFeedItemSummary, topicCondition,
+  categoryCondition,
+  channelCondition,
+  ITEM_COLUMNS,
+  ITEM_FROM,
+  listedCondition,
+  tagCondition,
+  toFeedItemSummary,
+  topicCondition,
   type ItemRow,
 } from "./items.ts";
 
@@ -99,7 +106,11 @@ async function poolCount(key: string | null, query: () => Promise<Array<{ n: num
     return n;
   })();
   countPending.set(key, load);
-  try { return await load; } finally { countPending.delete(key); }
+  try {
+    return await load;
+  } finally {
+    countPending.delete(key);
+  }
 }
 
 export interface PoolQuery extends TimelineFilters {
@@ -134,8 +145,14 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
           ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
         SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
         ORDER BY p.timeline_at DESC, p.article_id DESC`;
-      return { rows, total: await poolCount(filterKey, () => db<{ n: number }[]>`
-        SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} LIMIT ${cap}) t`) };
+      return {
+        rows,
+        total: await poolCount(
+          filterKey,
+          () => db<{ n: number }[]>`
+        SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} LIMIT ${cap}) t`,
+        ),
+      };
     }
     if (tab === "relevance") {
       // Rank narrow rows first: no article bodies or translations enter the sort/count. The public
@@ -143,15 +160,21 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
       // For an unfiltered trigram search, match each indexed field separately. OR across fields
       // can make PostgreSQL scan every toasted body instead. Keep other searches inline so short
       // terms, additional terms and selective publication filters retain their existing plans.
-      const splitFields = terms.length === 1 && /[\p{L}\p{N}]{3}/u.test(terms[0]!)
-        && (!query.channel || query.channel === "all") && !query.category && !query.tag && !query.topicTags?.length;
+      const splitFields =
+        terms.length === 1 &&
+        /[\p{L}\p{N}]{3}/u.test(terms[0]!) &&
+        (!query.channel || query.channel === "all") &&
+        !query.category &&
+        !query.tag &&
+        !query.topicTags?.length;
       const partScore = terms.reduce(
         (acc, t) => sql`${acc} + (CASE WHEN ${like(sql`ps.direct`, t)} THEN 3 ELSE 0 END) + (CASE WHEN ${like(sql`ps.body`, t)} THEN 1 ELSE 0 END)`,
         sql`0`,
       );
       const titleScore = terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`);
       const anyMatch = terms.reduce((acc, t) => sql`${acc} AND (${like(sql`ps.direct`, t)} OR ${like(sql`ps.body`, t)})`, sql`TRUE`);
-      const matches = splitFields ? sql`
+      const matches = splitFields
+        ? sql`
         SELECT coalesce(d.article_id, b.article_id) AS article_id,
           (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END) + (CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part
         FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${"%" + terms[0]! + "%"}) d
@@ -182,18 +205,22 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
       SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
       ORDER BY p.timeline_at DESC, p.article_id DESC`;
     const direct = terms.reduce((acc, t) => sql`${acc} AND ${like(sql`ps.direct`, t)}`, sql``);
-    const { n } = one(await db<{ n: number }[]>`
+    const { n } = one(
+      await db<{ n: number }[]>`
       SELECT count(*) AS n FROM (SELECT 1 FROM pool_search ps JOIN publications p ON p.article_id = ps.article_id
-        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${direct} LIMIT ${cap}) t`);
+        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${direct} LIMIT ${cap}) t`,
+    );
     return { rows, total: Number(n) };
   };
 
   const { rows, total } = q ? await withSearchCapacity(run) : await run(sql);
   const today = beijingDate(now);
-  const meta = one(await sql<{ today_count: number; updated_at: Date | null }[]>`
+  const meta = one(
+    await sql<{ today_count: number; updated_at: Date | null }[]>`
     SELECT (SELECT count(*) FROM publications p
       WHERE ${listedCondition(now)} AND p.eligible AND p.timeline_at >= ${beijingMidnight(today)} ${filters}) AS today_count,
-      (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`);
+      (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`,
+  );
 
   return {
     filters: { channel: query.channel, category: query.category, tag: query.tag, topic: query.topic ?? null, q, tab },

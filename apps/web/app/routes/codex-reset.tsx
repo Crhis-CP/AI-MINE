@@ -100,7 +100,14 @@ function Hero({ d, now }: { d: CodexResetSitePage; now: number }) {
             <PostCard
               avatar={d.authorAvatar}
               stage={`${last.posts[0].stage}原帖`}
-              post={{ id: last.posts[0].id, publishedAt: last.posts[0].publishedAt, translation: last.posts[0].fullText ?? last.posts[0].text, original: last.posts[0].fullOriginalText ?? last.posts[0].originalText, context: last.posts[0].context, url: last.posts[0].url }}
+              post={{
+                id: last.posts[0].id,
+                publishedAt: last.posts[0].publishedAt,
+                translation: last.posts[0].fullText ?? last.posts[0].text,
+                original: last.posts[0].fullOriginalText ?? last.posts[0].originalText,
+                context: last.posts[0].context,
+                url: last.posts[0].url,
+              }}
             />
           </div>
         )}
@@ -147,7 +154,8 @@ function Hero({ d, now }: { d: CodexResetSitePage; now: number }) {
           <li>适用范围：{scopeText(e)}</li>
           {outage?.publishedAt && (
             <li>
-              起因：{dayWord(bjDate(outage.publishedAt), d.today)} {bjTime(outage.publishedAt)} Tibo 确认 Codex 故障{outage.recoveredAt ? `，${bjTime(outage.recoveredAt)} 恢复` : ""}
+              起因：{dayWord(bjDate(outage.publishedAt), d.today)} {bjTime(outage.publishedAt)} Tibo 确认 Codex 故障
+              {outage.recoveredAt ? `，${bjTime(outage.recoveredAt)} 恢复` : ""}
             </li>
           )}
         </ul>
@@ -160,7 +168,14 @@ function Hero({ d, now }: { d: CodexResetSitePage; now: number }) {
           <PostCard
             avatar={d.authorAvatar}
             stage={`${post.stage}原帖`}
-            post={{ id: post.id, publishedAt: post.publishedAt, translation: post.fullText ?? post.text, original: post.fullOriginalText ?? post.originalText, context: post.context, url: post.url }}
+            post={{
+              id: post.id,
+              publishedAt: post.publishedAt,
+              translation: post.fullText ?? post.text,
+              original: post.fullOriginalText ?? post.originalText,
+              context: post.context,
+              url: post.url,
+            }}
           />
         </div>
       )}
@@ -201,10 +216,23 @@ export default function CodexResetPage() {
           <span className="text-[12px] text-ink-4">来源与规则</span>
         </summary>
         <div className="grid gap-x-8 gap-y-[18px] pb-6 pt-1.5 text-[12px] leading-[1.9] text-ink-4 md:grid-cols-2">
-          <p><strong className="font-semibold text-ink-3">有原话就按原话。</strong>Tibo 写了时间（如 “6pm PST”“next hour”“end of day”），按太平洋时间换算成北京时间，并多留一两个小时——他的确认帖通常比说的时间晚一点。只写了日期的，按他以往的习惯落在当天太平洋时间傍晚。</p>
-          <p><strong className="font-semibold text-ink-3">没写时间就按习惯。</strong>Tibo 多在太平洋时间 16:30–21:30 按下重置按钮，也就是北京时间第二天早上 07:30–12:30。{d.confirmMinutes.length ? `近 ${d.confirmMinutes.length} 次确认中有 ${d.confirmMinutes.filter(inUsual).length} 次在这个时段。` : ""}推算只是参考，以 Tibo 的确认和你 Codex 里的用量为准。</p>
-          <p><strong className="font-semibold text-ink-3">已生效、应已生效、等待中。</strong>Tibo 发帖确认才算“已生效”；预计时间过去几个小时仍没有确认帖，显示“应已生效”——他宣布过的重置以往都兑现了，只是常常不再发确认。重置卡与额度重置分开记录，发卡不代表额度已恢复。</p>
-          <p><strong className="font-semibold text-ink-3">持续跟踪 Tibo 的公开帖子。</strong>平时每 5 分钟检查一次，Tibo 确认故障或宣布重置后改为每 3 分钟。只有明确的重置或发卡消息才会推送飞书群。个人额度和重置卡余额请在 Codex 内查看。</p>
+          <p>
+            <strong className="font-semibold text-ink-3">有原话就按原话。</strong>Tibo 写了时间（如 “6pm PST”“next hour”“end of
+            day”），按太平洋时间换算成北京时间，并多留一两个小时——他的确认帖通常比说的时间晚一点。只写了日期的，按他以往的习惯落在当天太平洋时间傍晚。
+          </p>
+          <p>
+            <strong className="font-semibold text-ink-3">没写时间就按习惯。</strong>Tibo 多在太平洋时间 16:30–21:30 按下重置按钮，也就是北京时间第二天早上
+            07:30–12:30。{d.confirmMinutes.length ? `近 ${d.confirmMinutes.length} 次确认中有 ${d.confirmMinutes.filter(inUsual).length} 次在这个时段。` : ""}
+            推算只是参考，以 Tibo 的确认和你 Codex 里的用量为准。
+          </p>
+          <p>
+            <strong className="font-semibold text-ink-3">已生效、应已生效、等待中。</strong>Tibo
+            发帖确认才算“已生效”；预计时间过去几个小时仍没有确认帖，显示“应已生效”——他宣布过的重置以往都兑现了，只是常常不再发确认。重置卡与额度重置分开记录，发卡不代表额度已恢复。
+          </p>
+          <p>
+            <strong className="font-semibold text-ink-3">持续跟踪 Tibo 的公开帖子。</strong>平时每 5 分钟检查一次，Tibo 确认故障或宣布重置后改为每 3
+            分钟。只有明确的重置或发卡消息才会推送飞书群。个人额度和重置卡余额请在 Codex 内查看。
+          </p>
         </div>
       </details>
 
@@ -217,11 +245,24 @@ export default function CodexResetPage() {
               <IconChevronDown size={13} className="text-ink-4 transition-transform group-open:rotate-180" />
             </summary>
             <dl className="num mt-2 grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5 pl-4 text-[12px] text-ink-4">
-              <dt>最近尝试</dt><dd>{stamp(m.lastAttemptAt)}</dd>
-              <dt>最近采集</dt><dd>{stamp(m.lastCollectedAt)}</dd>
-              <dt>最近完整核验</dt><dd>{stamp(m.lastVerifiedAt)}</dd>
-              {m.pendingCount > 0 && <><dt>待处理帖子</dt><dd>{m.pendingCount}</dd></>}
-              {m.heldWindowCount > 0 && <><dt>待核实窗口</dt><dd>{m.heldWindowCount}</dd></>}
+              <dt>最近尝试</dt>
+              <dd>{stamp(m.lastAttemptAt)}</dd>
+              <dt>最近采集</dt>
+              <dd>{stamp(m.lastCollectedAt)}</dd>
+              <dt>最近完整核验</dt>
+              <dd>{stamp(m.lastVerifiedAt)}</dd>
+              {m.pendingCount > 0 && (
+                <>
+                  <dt>待处理帖子</dt>
+                  <dd>{m.pendingCount}</dd>
+                </>
+              )}
+              {m.heldWindowCount > 0 && (
+                <>
+                  <dt>待核实窗口</dt>
+                  <dd>{m.heldWindowCount}</dd>
+                </>
+              )}
             </dl>
           </details>
         ) : (
@@ -237,7 +278,9 @@ export default function CodexResetPage() {
 function LiveMonitor({ d }: { d: CodexResetSitePage & { serverNow: number } }) {
   const [now, setNow] = useState(d.serverNow);
   useEffect(() => {
-    const update = () => { if (document.visibilityState === "visible") setNow(Date.now()); };
+    const update = () => {
+      if (document.visibilityState === "visible") setNow(Date.now());
+    };
     update();
     const t = setInterval(update, 30_000);
     document.addEventListener("visibilitychange", update);
@@ -246,8 +289,20 @@ function LiveMonitor({ d }: { d: CodexResetSitePage & { serverNow: number } }) {
       document.removeEventListener("visibilitychange", update);
     };
   }, [d.version]);
-  return <>
-    <Hero d={d} now={now} />
-    <ResetCalendar key={d.selectedDate} selectedDate={d.selectedDate} version={d.version} marks={d.calendar} events={d.events} today={d.today} historyFrom={d.historyFrom} now={now} avatar={d.authorAvatar} />
-  </>;
+  return (
+    <>
+      <Hero d={d} now={now} />
+      <ResetCalendar
+        key={d.selectedDate}
+        selectedDate={d.selectedDate}
+        version={d.version}
+        marks={d.calendar}
+        events={d.events}
+        today={d.today}
+        historyFrom={d.historyFrom}
+        now={now}
+        avatar={d.authorAvatar}
+      />
+    </>
+  );
 }

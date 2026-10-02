@@ -78,7 +78,9 @@ export function registerAdminAuth(app: FastifyInstance) {
     return reply.header("Cache-Control", "no-store").redirect(loginPage(returnTo), 302);
   });
 
-  app.get("/api/auth/options", async (_req, reply) => reply.header("Cache-Control", "no-store").send({ password: !!config.adminPassword, feishu: feishuLoginConfigured() }));
+  app.get("/api/auth/options", async (_req, reply) =>
+    reply.header("Cache-Control", "no-store").send({ password: !!config.adminPassword, feishu: feishuLoginConfigured() }),
+  );
 
   app.post("/api/auth/password", async (req, reply) => {
     const b = (req.body ?? {}) as Record<string, string>;
@@ -109,13 +111,23 @@ export function registerAdminAuth(app: FastifyInstance) {
     const q = req.query as Record<string, string>;
     reply.header("Cache-Control", "no-store");
     try {
-      const { token, returnTo } = await completeLogin(String(q.code ?? ""), String(q.state ?? ""), parseCookies(req.headers.cookie)[STATE_COOKIE], req.headers["user-agent"]);
+      const { token, returnTo } = await completeLogin(
+        String(q.code ?? ""),
+        String(q.state ?? ""),
+        parseCookies(req.headers.cookie)[STATE_COOKIE],
+        req.headers["user-agent"],
+      );
       reply.header("Set-Cookie", [cookie(SESSION_COOKIE, token, SESSION_DAYS * 86400, secure()), cookie(STATE_COOKIE, "", 0, secure())]);
       return reply.redirect(returnTo, 302);
     } catch (error) {
       const message = error instanceof LoginRejected ? error.message : "登录失败，请稍后再试";
       if (!(error instanceof LoginRejected)) req.log.error({ err: error }, "admin login failed");
-      return reply.code(403).type("text/html; charset=utf-8").send(`<!doctype html><meta charset="utf-8"><title>登录失败</title><p style="font:16px system-ui;padding:40px">${message}。<a href="/admin/login">重新登录</a></p>`);
+      return reply
+        .code(403)
+        .type("text/html; charset=utf-8")
+        .send(
+          `<!doctype html><meta charset="utf-8"><title>登录失败</title><p style="font:16px system-ui;padding:40px">${message}。<a href="/admin/login">重新登录</a></p>`,
+        );
     }
   });
 
@@ -133,5 +145,8 @@ export function registerAdminAuth(app: FastifyInstance) {
     return reply.redirect("/", 303);
   });
 
-  app.get("/api/admin/me", adminHandler(async (_req, _reply, admin) => ({ name: admin.name, csrf: admin.csrf, dev: admin.dev })));
+  app.get(
+    "/api/admin/me",
+    adminHandler(async (_req, _reply, admin) => ({ name: admin.name, csrf: admin.csrf, dev: admin.dev })),
+  );
 }

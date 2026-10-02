@@ -22,14 +22,22 @@ interface ArenaRow {
 const BOARDS: Array<{ key: string; name: string; config: string; category: string; license?: string; attributionUrl?: string }> = [
   { key: "arena-text", name: "Arena Text Style-Controlled", config: "text_style_control", category: "overall" },
   {
-    key: "arena-creative-writing", name: "Arena Creative Writing", config: "text_style_control", category: "creative_writing",
-    license: "CC BY 4.0 · Arena 官方 Hugging Face leaderboard-dataset；保留署名、来源链接并说明聚合改动。", attributionUrl: "https://arena.ai/leaderboard/text/creative-writing",
+    key: "arena-creative-writing",
+    name: "Arena Creative Writing",
+    config: "text_style_control",
+    category: "creative_writing",
+    license: "CC BY 4.0 · Arena 官方 Hugging Face leaderboard-dataset；保留署名、来源链接并说明聚合改动。",
+    attributionUrl: "https://arena.ai/leaderboard/text/creative-writing",
   },
   { key: "arena-webdev", name: "Arena WebDev", config: "webdev", category: "overall" },
   { key: "arena-vision", name: "Arena Vision Style-Controlled", config: "vision_style_control", category: "overall" },
 ];
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 export function arenaConfiguration(modelName: string) {
   const paren = /^(.*?)\s*\(([^()]*)\)\s*$/.exec(modelName.trim());
@@ -57,7 +65,12 @@ export const arena: Fetcher = {
     for (const b of BOARDS) {
       if (!files.has(b.config)) files.set(b.config, await hfParquetRows<ArenaRow>(DATASET, revision, `${b.config}/latest-00000-of-00001.parquet`));
       const rows = files.get(b.config)!.filter((r) => r.category === b.category);
-      const published = rows.map((r) => r.leaderboard_publish_date).filter(Boolean).sort().pop() ?? null;
+      const published =
+        rows
+          .map((r) => r.leaderboard_publish_date)
+          .filter(Boolean)
+          .sort()
+          .pop() ?? null;
       const parsed: ParsedRow[] = rows.map((r) => {
         const { base, configuration } = arenaConfiguration(r.model_name);
         return {
@@ -74,7 +87,15 @@ export const arena: Fetcher = {
           sourceRank: r.rank,
           sampleSize: r.vote_count === null ? null : Math.round(r.vote_count),
           sourcePublishedAt: r.leaderboard_publish_date ? `${r.leaderboard_publish_date}T00:00:00.000Z` : null,
-          metadata: { lowerBound: r.rating_lower, upperBound: r.rating_upper, arenaConfig: b.config, arenaCategory: b.category, sourceLicense: r.license, originalSourceRank: r.rank, metricDirection: "HIGHER" },
+          metadata: {
+            lowerBound: r.rating_lower,
+            upperBound: r.rating_upper,
+            arenaConfig: b.config,
+            arenaCategory: b.category,
+            sourceLicense: r.license,
+            originalSourceRank: r.rank,
+            metricDirection: "HIGHER",
+          },
         };
       });
       out.push({
@@ -85,7 +106,14 @@ export const arena: Fetcher = {
         attributionUrl: b.attributionUrl ?? `https://huggingface.co/datasets/${DATASET}`,
         publishedAt: published ? `${published}T00:00:00.000Z` : null,
         rows: parsed,
-        metadata: { arenaConfig: b.config, arenaCategory: b.category, datasetRevision: revision, sourceOperator: "LMArena", sourceFamily: "arena-preference", metricCount: 1 },
+        metadata: {
+          arenaConfig: b.config,
+          arenaCategory: b.category,
+          datasetRevision: revision,
+          sourceOperator: "LMArena",
+          sourceFamily: "arena-preference",
+          metricCount: 1,
+        },
       });
     }
     return out;

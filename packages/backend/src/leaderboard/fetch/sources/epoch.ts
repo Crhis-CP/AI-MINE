@@ -9,8 +9,18 @@ import type { FetchResult, Fetcher, ParsedRow } from "../types.ts";
 const ARCHIVE = "https://epoch.ai/data/benchmark_data.zip";
 
 const BOARDS = [
-  { key: "epoch-frontiermath", name: "FrontierMath v2 · Tiers 1–3", file: "frontiermath_tiers_1_3_v2.csv", page: "https://epoch.ai/benchmarks/frontiermath-tiers-1-3-v2" },
-  { key: "epoch-frontiermath-tier4", name: "FrontierMath v2 · Tier 4", file: "frontiermath_tier_4_v2.csv", page: "https://epoch.ai/benchmarks/frontiermath-tier-4-v2" },
+  {
+    key: "epoch-frontiermath",
+    name: "FrontierMath v2 · Tiers 1–3",
+    file: "frontiermath_tiers_1_3_v2.csv",
+    page: "https://epoch.ai/benchmarks/frontiermath-tiers-1-3-v2",
+  },
+  {
+    key: "epoch-frontiermath-tier4",
+    name: "FrontierMath v2 · Tier 4",
+    file: "frontiermath_tier_4_v2.csv",
+    page: "https://epoch.ai/benchmarks/frontiermath-tier-4-v2",
+  },
   { key: "epoch-chess", name: "Chess Puzzles", file: "chess_puzzles.csv", page: "https://epoch.ai/benchmarks/chess-puzzles" },
   { key: "epoch-mystery", name: "Mystery Game Puzzles", file: "mystery_game_puzzles.csv", page: "https://epoch.ai/benchmarks/mystery-game-puzzles" },
   { key: "epoch-simpleqa", name: "SimpleQA Verified", file: "simpleqa_verified.csv", page: "https://epoch.ai/benchmarks/simple-qa-verified" },
@@ -23,7 +33,11 @@ const BOARDS = [
 const SPECIAL_SYSTEMS = new Set(["gdm-ai-co-mathematician"]);
 const TIER = /^(xhigh|high|medium|low|max|minimal)$/i;
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 export function epochConfiguration(version: string) {
   const i = version.lastIndexOf("_");
@@ -93,7 +107,15 @@ export const epoch: Fetcher = {
         attributionUrl: b.page,
         publishedAt: latest,
         rows,
-        metadata: { dataAtKind: "latest-evaluation", benchmarkFile: b.file, scoringField: "mean_score", upstreamPublishedAt: latest, attribution: "Epoch AI · AI Benchmarking Hub · CC BY 4.0", sourceOperator: "Epoch AI", metricCount: 1 },
+        metadata: {
+          dataAtKind: "latest-evaluation",
+          benchmarkFile: b.file,
+          scoringField: "mean_score",
+          upstreamPublishedAt: latest,
+          attribution: "Epoch AI · AI Benchmarking Hub · CC BY 4.0",
+          sourceOperator: "Epoch AI",
+          metricCount: 1,
+        },
       });
     }
     return out;

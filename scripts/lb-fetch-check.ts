@@ -72,24 +72,29 @@ for (const f of FETCHERS) {
       const detail = [
         o.configuration.label !== s.configuration_label && `label ${s.configuration_label} → ${o.configuration.label}`,
         o.metricName !== s.metric_name && `metric ${s.metric_name} → ${o.metricName}`,
-        !(near(o.lowerBound, s.lower_bound) && near(o.upperBound, s.upper_bound)) && `bounds ${s.lower_bound}–${s.upper_bound} → ${o.lowerBound}–${o.upperBound}`,
+        !(near(o.lowerBound, s.lower_bound) && near(o.upperBound, s.upper_bound)) &&
+          `bounds ${s.lower_bound}–${s.upper_bound} → ${o.lowerBound}–${o.upperBound}`,
         (o.sampleSize ?? null) !== s.sample_size && `n ${s.sample_size} → ${o.sampleSize}`,
         (o.sourceRank ?? null) !== s.source_rank && `rank ${s.source_rank} → ${o.sourceRank}`,
       ].filter(Boolean);
       if (detail.length) shown.push(`${s.slug}: ${detail.join("; ")}`);
     }
     const storedKeys = new Set(stored.map((s) => `${s.configuration_key}|${s.metric_key}`));
-    for (const [k, o] of ours) if (!storedKeys.has(k)) diffs.push(`extra ${storedConfigurationKey(o)} (${o.sourceModelName} = ${o.rawScore}${o.selected ? ", selected" : ""})`);
+    for (const [k, o] of ours)
+      if (!storedKeys.has(k)) diffs.push(`extra ${storedConfigurationKey(o)} (${o.sourceModelName} = ${o.rawScore}${o.selected ? ", selected" : ""})`);
     const snapDiff = [
       snap.source_name !== r.sourceName && `name ${snap.source_name} → ${r.sourceName}`,
       snap.source_url !== r.sourceUrl && `url ${snap.source_url} → ${r.sourceUrl}`,
       snap.license !== r.license && `license ${snap.license} → ${r.license}`,
       snap.attribution_url !== r.attributionUrl && `attribution ${snap.attribution_url} → ${r.attributionUrl}`,
-      (snap.published_at?.toISOString() ?? null) !== (r.publishedAt ? new Date(r.publishedAt).toISOString() : null) && `published ${snap.published_at?.toISOString()} → ${r.publishedAt}`,
+      (snap.published_at?.toISOString() ?? null) !== (r.publishedAt ? new Date(r.publishedAt).toISOString() : null) &&
+        `published ${snap.published_at?.toISOString()} → ${r.publishedAt}`,
     ].filter(Boolean);
 
     const storedSelected = stored.filter((s) => s.selected_for_product).length;
-    console.log(`${r.sourceKey}: rows ${same}/${stored.length} identical (representative ${selectedSame}/${storedSelected}) · ours ${rows.length} · new models ${newModels.length}`);
+    console.log(
+      `${r.sourceKey}: rows ${same}/${stored.length} identical (representative ${selectedSame}/${storedSelected}) · ours ${rows.length} · new models ${newModels.length}`,
+    );
     for (const d of diffs.slice(0, SHOW)) console.log(`  ${d}`);
     if (diffs.length > SHOW) console.log(`  … ${diffs.length} differences`);
     if (snapDiff.length) console.log(`  snapshot differs: ${snapDiff.join("; ")}`);

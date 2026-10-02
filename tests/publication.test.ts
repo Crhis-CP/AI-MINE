@@ -46,7 +46,14 @@ let n = 0;
 async function article(): Promise<string> {
   n += 1;
   const { articleId } = await upsertMaterial({
-    sourceId: SOURCE, url: `https://example.com/${T}-${n}`, title: `Test ${n}`, bodyText: BODY, bodyHtml: `<p>${BODY}</p>`, bodyStatus: "ok", via: "fetch", publishedAt: new Date(),
+    sourceId: SOURCE,
+    url: `https://example.com/${T}-${n}`,
+    title: `Test ${n}`,
+    bodyText: BODY,
+    bodyHtml: `<p>${BODY}</p>`,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected)
             VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true)`;
@@ -76,18 +83,18 @@ test("site reading sends one language while exports retain both, including after
   await publishArticle(id, released());
   const normal = JSON.parse((await get(`/api/site/items/${id}`)).body);
   const original = JSON.parse((await get(`/api/site/items/${id}/original`)).body);
-  assert.equal(normal.bodyLanguage, 'zh');
+  assert.equal(normal.bodyLanguage, "zh");
   assert.equal(normal.hasTranslation, true);
   assert.equal(normal.body.original, null);
-  assert.ok(normal.body.zh.includes('中文完整正文'));
-  assert.equal(normal.outline[0].text, '译文标题');
-  assert.equal(original.bodyLanguage, 'original');
+  assert.ok(normal.body.zh.includes("中文完整正文"));
+  assert.equal(normal.outline[0].text, "译文标题");
+  assert.equal(original.bodyLanguage, "original");
   assert.equal(original.body.zh, null);
-  assert.ok(original.body.original.includes('Original full body'));
-  assert.equal(original.outline[0].text, 'Original heading');
+  assert.ok(original.body.original.includes("Original full body"));
+  assert.equal(original.outline[0].text, "Original heading");
   const md = (await get(`/items/${id}/markdown`)).body;
-  assert.ok(md.includes('Original full body') && md.includes('中文完整正文'));
-  await setVisibility(id, { visibility: 'withdrawn', reason: 'test', version: 0 }, 'test');
+  assert.ok(md.includes("Original full body") && md.includes("中文完整正文"));
+  await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   assert.equal((await get(`/api/site/items/${id}/original`)).status, 404);
 });
 
@@ -122,7 +129,12 @@ test("a withdrawn item leaves every report exit", async () => {
   const id = await article();
   await publishArticle(id, released());
   const content = {
-    sections: [{ label: "模型", items: [{ itemId: id, title: `LEAD-${T}`, summary: `QUOTED-${T}`, sourceUrl: `https://example.com/original-${T}`, sourceName: "Test" }] }],
+    sections: [
+      {
+        label: "模型",
+        items: [{ itemId: id, title: `LEAD-${T}`, summary: `QUOTED-${T}`, sourceUrl: `https://example.com/original-${T}`, sourceName: "Test" }],
+      },
+    ],
     flashes: [],
   };
   await sql`INSERT INTO reports (kind, key, window_start, window_end, content, generated_at, origin)
@@ -188,7 +200,16 @@ test("item pages follow the live rule: unsummarised editorial items keep one, ho
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
             VALUES (${SIGNAL}, 'Test signal', 'rss', 'T1', 'hot_signal', true, false, '2100-01-01')`;
   const material = (sourceId: string, name: string) =>
-    upsertMaterial({ sourceId, url: `https://example.com/${T}-${name}`, title: `${name} ${T}`, bodyText: BODY, bodyHtml: `<p>${BODY}</p>`, bodyStatus: "ok", via: "fetch", publishedAt: new Date() });
+    upsertMaterial({
+      sourceId,
+      url: `https://example.com/${T}-${name}`,
+      title: `${name} ${T}`,
+      bodyText: BODY,
+      bodyHtml: `<p>${BODY}</p>`,
+      bodyStatus: "ok",
+      via: "fetch",
+      publishedAt: new Date(),
+    });
   // An editorial item the model never summarised, and a hot_signal item carrying an imported summary.
   const { articleId: plain } = await material(SOURCE, "plain");
   await publishArticle(plain);
@@ -206,7 +227,9 @@ test("item pages follow the live rule: unsummarised editorial items keep one, ho
   assert.equal((await get(`/items/${signal}/markdown`)).status, 404);
 
   const publicId = randomUUID();
-  const [story] = await sql<{ id: number }[]>`INSERT INTO stories (public_id, title, first_report_at, latest_at) VALUES (${publicId}, ${`事件-${T}`}, now(), now()) RETURNING id`;
+  const [story] = await sql<
+    { id: number }[]
+  >`INSERT INTO stories (public_id, title, first_report_at, latest_at) VALUES (${publicId}, ${`事件-${T}`}, now(), now()) RETURNING id`;
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`f-${T}`}, ${story!.id}, ${`事实-${T}`}) RETURNING id`;
   await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${fact!.id}, ${plain}, 'report'), (${fact!.id}, ${signal}, 'report')`;
   const storyPage = await get(`/api/site/stories/${publicId}`);
@@ -276,20 +299,48 @@ test("v1 story retains website content and fallback ordering without the website
   await sql`UPDATE stories SET first_report_at = NULL, latest_at = NULL WHERE id = ${story!.id}`;
   const site = JSON.parse((await get(`/api/site/stories/${publicId}`)).body);
   const v1 = JSON.parse((await get(`/api/v1/stories/${publicId}`)).body).story;
-  assert.deepEqual({ publicId: v1.publicId, title: v1.title, sourceCount: v1.sourceCount, reportCount: v1.reportCount,
-    firstReportAt: v1.firstReportAt, latestAt: v1.latestAt, digest: v1.digest, digestUpdatedAt: v1.digestUpdatedAt },
-  { publicId: site.publicId, title: site.title, sourceCount: site.sourceCount, reportCount: site.reportCount,
-    firstReportAt: site.firstReportAt, latestAt: site.latestAt, digest: site.digest, digestUpdatedAt: site.digestUpdatedAt });
-  assert.equal(v1.latest, 'Latest development fallback');
-  assert.deepEqual(v1.reports, site.timeline.slice(0, 50).map((r: any) => ({ id: r.id, title: r.title, summary: r.summary,
-    source: { name: r.source.name, firstParty: r.source.firstParty }, publishedAt: r.publishedAt,
-    links: { aihot: `${config.siteUrl}/items/${r.id}`, original: r.originalUrl } })));
+  assert.deepEqual(
+    {
+      publicId: v1.publicId,
+      title: v1.title,
+      sourceCount: v1.sourceCount,
+      reportCount: v1.reportCount,
+      firstReportAt: v1.firstReportAt,
+      latestAt: v1.latestAt,
+      digest: v1.digest,
+      digestUpdatedAt: v1.digestUpdatedAt,
+    },
+    {
+      publicId: site.publicId,
+      title: site.title,
+      sourceCount: site.sourceCount,
+      reportCount: site.reportCount,
+      firstReportAt: site.firstReportAt,
+      latestAt: site.latestAt,
+      digest: site.digest,
+      digestUpdatedAt: site.digestUpdatedAt,
+    },
+  );
+  assert.equal(v1.latest, "Latest development fallback");
+  assert.deepEqual(
+    v1.reports,
+    site.timeline.slice(0, 50).map((r: any) => ({
+      id: r.id,
+      title: r.title,
+      summary: r.summary,
+      source: { name: r.source.name, firstParty: r.source.firstParty },
+      publishedAt: r.publishedAt,
+      links: { aihot: `${config.siteUrl}/items/${r.id}`, original: r.originalUrl },
+    })),
+  );
   await sql`UPDATE publications SET visible_after = now() + interval '1 day' WHERE article_id = ${second}`;
   const gated = JSON.parse((await get(`/api/v1/stories/${publicId}`)).body).story;
-  assert.deepEqual(gated.reports.map((r: any) => r.id), [first]);
+  assert.deepEqual(
+    gated.reports.map((r: any) => r.id),
+    [first],
+  );
   assert.equal(gated.latest, `FACT-${T}`);
 });
-
 
 test("unchanged republishing preserves freshness, while URL-only changes still reach the projection and ledger", async () => {
   const id = await article();
@@ -300,7 +351,7 @@ test("unchanged republishing preserves freshness, while URL-only changes still r
   const unchanged = await publishArticle(id);
   assert.equal(unchanged!.changed, false);
   assert.equal(unchanged!.ledger, null);
-  assert.deepEqual({ ...await state() }, { ...before }, "no new tuple or freshness timestamp for identical content");
+  assert.deepEqual({ ...(await state()) }, { ...before }, "no new tuple or freshness timestamp for identical content");
   assert.equal((await sql`SELECT max(seq) AS seq FROM selected_ledger WHERE article_id = ${id}`)[0]!.seq, ledger!.seq);
 
   const url = `https://example.com/${T}-corrected`;
@@ -322,13 +373,23 @@ test("share images keep detail metadata and access rules while conditional reads
   const kicker = d.category ? CATEGORY_LABELS[d.category as keyof typeof CATEGORY_LABELS] : "AI 动态";
   const source = d.source.name.replace(/（[^）]*）\s*$/, "");
   const date = beijingDate(d.timelineAt);
-  const card = { kicker, title: d.title, subtitle: d.summary, meta: `${source} · ${date}`,
-    badge: d.selected && d.score !== null ? { value: String(Math.round(d.score)), label: "精选评分" } : null };
+  const card = {
+    kicker,
+    title: d.title,
+    subtitle: d.summary,
+    meta: `${source} · ${date}`,
+    badge: d.selected && d.score !== null ? { value: String(Math.round(d.score)), label: "精选评分" } : null,
+  };
   const poster = { url: `${config.siteUrl}/items/${id}`, kicker, title: d.title, summary: d.summary, source, date, score: d.selected ? d.score : null };
-  const paths = [[`/og/items/${id}.png`, `"og-${ogEtag(card)}"`], [`/og/posters/${id}.png`, `"poster-${posterEtag(poster)}"`]];
+  const paths = [
+    [`/og/items/${id}.png`, `"og-${ogEtag(card)}"`],
+    [`/og/posters/${id}.png`, `"poster-${posterEtag(poster)}"`],
+  ];
   const queries: string[] = [];
   const previous = sql.options.debug;
-  sql.options.debug = (_connection, query) => { queries.push(query); };
+  sql.options.debug = (_connection, query) => {
+    queries.push(query);
+  };
   try {
     for (const [path, etag] of paths) {
       const response = await get(path!, { "if-none-match": etag! });
@@ -336,8 +397,13 @@ test("share images keep detail metadata and access rules while conditional reads
       assert.equal(response.etag, etag);
     }
     assert.equal(queries.length, 2);
-    assert.ok(queries.every((q) => !/body_html|body_text|translations|fact_articles/.test(q)), "cards only load their public metadata");
-  } finally { sql.options.debug = previous; }
+    assert.ok(
+      queries.every((q) => !/body_html|body_text|translations|fact_articles/.test(q)),
+      "cards only load their public metadata",
+    );
+  } finally {
+    sql.options.debug = previous;
+  }
   await sql`UPDATE publications SET visibility = 'summary-only' WHERE article_id = ${id}`;
   assert.equal((await get(paths[0]![0]!, { "if-none-match": paths[0]![1]! })).status, 304, "summary-only pages keep the same allowed share summary");
   await sql`UPDATE publications SET visibility = 'withdrawn' WHERE article_id = ${id}`;
@@ -348,28 +414,41 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
   const id = await article();
   await publishArticle(id, released());
   await publishArticle(await article(), released());
-  const full = JSON.parse((await get('/api/v1/selected/snapshot?fields=default&limit=1000')).body);
-  const minimal = JSON.parse((await get('/api/v1/selected/snapshot?fields=minimal&limit=1000')).body);
-  const project = (i: any) => ({ id: i.id, title: i.title, source: i.source, publishedAt: i.publishedAt,
-    discoveredAt: i.discoveredAt, category: i.category, score: i.score, selected: i.selected, links: { aihot: i.links.aihot } });
+  const full = JSON.parse((await get("/api/v1/selected/snapshot?fields=default&limit=1000")).body);
+  const minimal = JSON.parse((await get("/api/v1/selected/snapshot?fields=minimal&limit=1000")).body);
+  const project = (i: any) => ({
+    id: i.id,
+    title: i.title,
+    source: i.source,
+    publishedAt: i.publishedAt,
+    discoveredAt: i.discoveredAt,
+    category: i.category,
+    score: i.score,
+    selected: i.selected,
+    links: { aihot: i.links.aihot },
+  });
   assert.deepEqual(minimal.items, full.items.map(project));
   assert.ok(minimal.items.some((i: any) => i.id === id));
-  for (const fields of ['default', 'minimal']) {
-    const first = JSON.parse((await get(`/api/v1/selected/snapshot?limit=1${fields === 'minimal' ? '&fields=minimal' : ''}`)).body);
+  for (const fields of ["default", "minimal"]) {
+    const first = JSON.parse((await get(`/api/v1/selected/snapshot?limit=1${fields === "minimal" ? "&fields=minimal" : ""}`)).body);
     assert.ok(first.nextPage);
     const response = await get(`/api/v1/selected/snapshot?limit=1000&page=${encodeURIComponent(first.nextPage)}`);
-    assert.equal(response.status, 200, 'continuations inherit the projection from the page token');
+    assert.equal(response.status, 200, "continuations inherit the projection from the page token");
     const next = JSON.parse(response.body);
     assert.equal(next.fields, fields);
     assert.equal(next.cursor, first.cursor);
     assert.equal(next.asOf, first.asOf);
     assert.equal(next.hasMore, false);
-    assert.deepEqual([...first.items, ...next.items], fields === 'minimal' ? minimal.items : full.items);
+    assert.deepEqual([...first.items, ...next.items], fields === "minimal" ? minimal.items : full.items);
   }
-  const firstPage = JSON.parse((await get('/api/v1/selected/snapshot?fields=minimal&limit=1')).body);
+  const firstPage = JSON.parse((await get("/api/v1/selected/snapshot?fields=minimal&limit=1")).body);
   assert.ok(firstPage.nextPage);
-  assert.equal((await get(`/api/v1/selected/snapshot?fields=default&page=${encodeURIComponent(firstPage.nextPage)}`)).status, 400, 'page tokens stay bound to the requested projection');
-  await sql`UPDATE analyses SET title_zh = 'Updated sync title', summary_zh = ${'large summary '.repeat(200)} WHERE article_id = ${id}`;
+  assert.equal(
+    (await get(`/api/v1/selected/snapshot?fields=default&page=${encodeURIComponent(firstPage.nextPage)}`)).status,
+    400,
+    "page tokens stay bound to the requested projection",
+  );
+  await sql`UPDATE analyses SET title_zh = 'Updated sync title', summary_zh = ${"large summary ".repeat(200)} WHERE article_id = ${id}`;
   await publishArticle(id, released());
   const getChanges = async (cursor: string) => {
     const response = await get(`/api/v1/selected/changes?cursor=${encodeURIComponent(cursor)}&limit=100`);
@@ -378,9 +457,12 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
   };
   const fullChanges = await getChanges(full.cursor);
   const minimalChanges = await getChanges(minimal.cursor);
-  assert.deepEqual(minimalChanges.changes, fullChanges.changes.map((c: any) => c.op === 'upsert' ? { ...c, item: project(c.item) } : c));
-  assert.equal(minimalChanges.changes.find((c: any) => c.item?.id === id)?.item.title, 'Updated sync title');
-  await setVisibility(id, { visibility: 'withdrawn', reason: 'sync test', version: 0 }, 'test');
+  assert.deepEqual(
+    minimalChanges.changes,
+    fullChanges.changes.map((c: any) => (c.op === "upsert" ? { ...c, item: project(c.item) } : c)),
+  );
+  assert.equal(minimalChanges.changes.find((c: any) => c.item?.id === id)?.item.title, "Updated sync title");
+  await setVisibility(id, { visibility: "withdrawn", reason: "sync test", version: 0 }, "test");
   const removed = await getChanges(minimalChanges.cursor);
-  assert.ok(removed.changes.some((c: any) => c.op === 'remove' && c.id === id));
+  assert.ok(removed.changes.some((c: any) => c.op === "remove" && c.id === id));
 });

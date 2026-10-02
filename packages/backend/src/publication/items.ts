@@ -61,7 +61,10 @@ export const ITEM_COLUMNS = sql`
   CASE WHEN p.channel = 'x' THEN tr.body_text END AS zh_text, qt.text_zh AS quoted_zh`;
 
 /** Public API listings never render article bodies, X media or story metadata. */
-export type ApiItemRow = Pick<ItemRow, "id" | "title" | "original_title" | "summary" | "source_name" | "url" | "published_at" | "discovered_at" | "category" | "score" | "selected" | "reason">;
+export type ApiItemRow = Pick<
+  ItemRow,
+  "id" | "title" | "original_title" | "summary" | "source_name" | "url" | "published_at" | "discovered_at" | "category" | "score" | "selected" | "reason"
+>;
 export const API_ITEM_COLUMNS = sql`
   p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,
   p.published_at, p.discovered_at, p.category, p.score, p.selected, p.reason`;
@@ -116,7 +119,9 @@ function mediaView(m: Record<string, any>, mode: "card" | "thumb" | "full" = "th
     kind: m.kind === "video" ? "video" : "image",
     url,
     ...(responsive && mode !== "full" ? { fullUrl: proxiedImage(m.url, "full")! } : {}),
-    ...(responsive && proxiedImageSet(m.poster ?? m.url, mode === "full" ? "body" : "card") ? { srcSet: proxiedImageSet(m.poster ?? m.url, mode === "full" ? "body" : "card")! } : {}),
+    ...(responsive && proxiedImageSet(m.poster ?? m.url, mode === "full" ? "body" : "card")
+      ? { srcSet: proxiedImageSet(m.poster ?? m.url, mode === "full" ? "body" : "card")! }
+      : {}),
     width: typeof m.width === "number" ? m.width : null,
     height: typeof m.height === "number" ? m.height : null,
     alt: m.alt ?? null,
@@ -127,12 +132,16 @@ function mediaView(m: Record<string, any>, mode: "card" | "thumb" | "full" = "th
 export function xView(row: Pick<ItemRow, "x_post" | "zh_text"> & Partial<Pick<ItemRow, "quoted_zh">>, compact = false, responsive = compact): XPostView | null {
   const x = row.x_post;
   if (!x) return null;
-  const quoted = x.quoted && typeof x.quoted === "object"
-    ? {
-      authorName: String(x.quoted.authorName ?? ""), handle: String(x.quoted.handle ?? ""), text: String(x.quoted.text ?? ""), url: String(x.quoted.url ?? ""),
-      translation: row.quoted_zh && row.quoted_zh.trim() !== String(x.quoted.text ?? "").trim() ? row.quoted_zh : null,
-    }
-    : null;
+  const quoted =
+    x.quoted && typeof x.quoted === "object"
+      ? {
+          authorName: String(x.quoted.authorName ?? ""),
+          handle: String(x.quoted.handle ?? ""),
+          text: String(x.quoted.text ?? ""),
+          url: String(x.quoted.url ?? ""),
+          translation: row.quoted_zh && row.quoted_zh.trim() !== String(x.quoted.text ?? "").trim() ? row.quoted_zh : null,
+        }
+      : null;
   const media = ((x.media ?? []) as Array<Record<string, any>>)
     .map((raw) => ({ raw, view: mediaView(raw, compact || !responsive ? "thumb" : "full", responsive) }))
     .filter((entry): entry is { raw: Record<string, any>; view: MediaView } => entry.view !== null);
@@ -146,7 +155,7 @@ export function xView(row: Pick<ItemRow, "x_post" | "zh_text"> & Partial<Pick<It
     quoted,
     // A multi-image list grid is 112 CSS px wide; one image can be 240 px. Keep 3x pixels for both.
     // Detail retains full media for the lightbox; srcSet bounds the displayed image.
-    media: media.map(({ raw, view }) => compact && media.length > 1 ? mediaView(raw, "card", responsive)! : view),
+    media: media.map(({ raw, view }) => (compact && media.length > 1 ? mediaView(raw, "card", responsive)! : view)),
   };
 }
 
@@ -185,14 +194,30 @@ export function toItemSummary(row: ItemRow): ItemSummary {
 export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
   const item = toItemSummary(row);
   return {
-    id: item.id, title: item.title, summary: item.summary, reason: item.reason,
-    source: { name: item.source.name }, publishedAt: item.publishedAt, timelineAt: item.timelineAt,
-    category: item.category, tags: item.tags, score: item.score, selected: item.selected, channel: item.channel,
-    x: item.x ? {
-      authorName: item.x.authorName, handle: item.x.handle, avatarUrl: item.x.avatarUrl,
-      ...(item.x.avatarSrcSet ? { avatarSrcSet: item.x.avatarSrcSet } : {}), media: item.x.media,
-      quoted: item.x.quoted ? { authorName: item.x.quoted.authorName, handle: item.x.quoted.handle, text: item.x.quoted.text, translation: item.x.quoted.translation } : null,
-    } : null,
+    id: item.id,
+    title: item.title,
+    summary: item.summary,
+    reason: item.reason,
+    source: { name: item.source.name },
+    publishedAt: item.publishedAt,
+    timelineAt: item.timelineAt,
+    category: item.category,
+    tags: item.tags,
+    score: item.score,
+    selected: item.selected,
+    channel: item.channel,
+    x: item.x
+      ? {
+          authorName: item.x.authorName,
+          handle: item.x.handle,
+          avatarUrl: item.x.avatarUrl,
+          ...(item.x.avatarSrcSet ? { avatarSrcSet: item.x.avatarSrcSet } : {}),
+          media: item.x.media,
+          quoted: item.x.quoted
+            ? { authorName: item.x.quoted.authorName, handle: item.x.quoted.handle, text: item.x.quoted.text, translation: item.x.quoted.translation }
+            : null,
+        }
+      : null,
   };
 }
 

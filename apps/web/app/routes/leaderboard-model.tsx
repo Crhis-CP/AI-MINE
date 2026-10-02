@@ -128,7 +128,11 @@ function Stability({ d }: { d: LbModelDetail }) {
         </div>
         <div className="min-w-0">
           <p className="text-[13px] leading-relaxed text-ink-3">
-            {s.unavailable > 0 ? `${s.unavailable} 个情景下参评证据不足。` : s.incomplete > 0 ? `${s.incomplete} 个对照未完成。` : "已完成的对照中均具备参评资格。"}
+            {s.unavailable > 0
+              ? `${s.unavailable} 个情景下参评证据不足。`
+              : s.incomplete > 0
+                ? `${s.incomplete} 个对照未完成。`
+                : "已完成的对照中均具备参评资格。"}
             保持原候选不变时为 {s.fixedFrom}—{s.fixedTo} 名。这个范围不是置信区间，也不包含从未公开的成绩。
           </p>
         </div>
@@ -142,7 +146,11 @@ function Stability({ d }: { d: LbModelDetail }) {
 function NetValue({ net }: { net: number }) {
   const v = Math.round(net * 100) / 100;
   if (v === 0) return <span className="text-[12px] text-ink-4">持平</span>;
-  return <span className={`mono text-[12.5px] font-semibold ${v > 0 ? "text-accent" : "text-amber-ink"}`}>{v > 0 ? `+${v.toFixed(2)}` : `−${Math.abs(v).toFixed(2)}`}</span>;
+  return (
+    <span className={`mono text-[12.5px] font-semibold ${v > 0 ? "text-accent" : "text-amber-ink"}`}>
+      {v > 0 ? `+${v.toFixed(2)}` : `−${Math.abs(v).toFixed(2)}`}
+    </span>
+  );
 }
 
 function Comparisons({ d }: { d: LbModelDetail }) {
@@ -151,14 +159,14 @@ function Comparisons({ d }: { d: LbModelDetail }) {
     <div className="border-b border-line">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center justify-between py-4 text-left">
         <span className="text-[13.5px] font-semibold text-ink">查看与附近模型的共同证据</span>
-        <span className={`text-[18px] leading-none text-ink-4 transition-transform duration-300 ${open ? "rotate-45" : ""}`}>
-          +
-        </span>
+        <span className={`text-[18px] leading-none text-ink-4 transition-transform duration-300 ${open ? "rotate-45" : ""}`}>+</span>
       </button>
       <Collapse open={open} duration={300}>
         <p className="text-[13px] text-ink-3">净支持只看双方共同参加的评测。全局排序还需处理其他模型间的冲突，因此非相邻名次可能与单独比较不同。</p>
         <ul className="-mx-3 divide-y divide-line-soft pb-3 pt-2">
-          {d.comparisons.map((c) => <ComparisonRow key={c.model.slug} c={c} name={d.model.name} />)}
+          {d.comparisons.map((c) => (
+            <ComparisonRow key={c.model.slug} c={c} name={d.model.name} />
+          ))}
         </ul>
       </Collapse>
     </div>
@@ -170,14 +178,25 @@ function ComparisonRow({ c, name }: { c: LbComparison; name: string }) {
   const favours = c.net > 1e-9 ? "共同证据支持本模型" : c.net < -1e-9 ? "共同证据支持对方" : "共同证据持平";
   return (
     <li>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-3 rounded-tile px-3 py-3 text-left transition-colors hover:bg-bg-sunk">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 rounded-tile px-3 py-3 text-left transition-colors hover:bg-bg-sunk"
+      >
         <BrandMark brand={c.model.brand} size={26} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-medium text-ink">{c.model.name} <span className="num text-[12px] text-ink-4">#{c.rank}</span></span>
-          <span className="text-[12px] text-ink-3">{c.sharedCount} 项共同评测 · {favours}</span>
+          <span className="block truncate text-[14px] font-medium text-ink">
+            {c.model.name} <span className="num text-[12px] text-ink-4">#{c.rank}</span>
+          </span>
+          <span className="text-[12px] text-ink-3">
+            {c.sharedCount} 项共同评测 · {favours}
+          </span>
         </span>
         <NetValue net={c.net} />
-        <span className={`text-ink-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`}><IconChevronDown size={15} /></span>
+        <span className={`text-ink-4 transition-transform duration-300 ${open ? "rotate-180" : ""}`}>
+          <IconChevronDown size={15} />
+        </span>
       </button>
       <Collapse open={open} duration={300}>
         <div className="px-3 pb-4">
@@ -197,7 +216,11 @@ function ComparisonRow({ c, name }: { c: LbComparison; name: string }) {
               <tbody>
                 {c.rows.map((r) => (
                   <tr key={r.sourceKey} className="border-b border-line last:border-0">
-                    <td className="py-2 pr-2"><Link to={`/leaderboard/sources/${r.sourceKey}`} className="text-ink-2 hover:text-accent">{r.sourceName}</Link></td>
+                    <td className="py-2 pr-2">
+                      <Link to={`/leaderboard/sources/${r.sourceKey}`} className="text-ink-2 hover:text-accent">
+                        {r.sourceName}
+                      </Link>
+                    </td>
                     <td className="num py-2 text-right text-ink">{r.mine}</td>
                     <td className="num py-2 text-right text-ink-2">{r.theirs}</td>
                     <td className="num py-2 text-right text-ink-4">{pctFixed(r.weight)}</td>
@@ -221,7 +244,12 @@ function EvidenceCard({ it }: { it: LbEvidenceItem }) {
   const [open, setOpen] = useState(false);
   return (
     <li className="card overflow-hidden rounded-tile">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-accent-softer lg:px-5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left transition-colors hover:bg-accent-softer lg:px-5"
+      >
         <BrandMark brand={it.brand} size={28} className="max-sm:hidden" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13.5px] font-semibold text-ink">{it.sourceName}</span>
@@ -231,7 +259,9 @@ function EvidenceCard({ it }: { it: LbEvidenceItem }) {
           <span className="mono block text-[19px] font-medium leading-tight text-ink">{it.display}</span>
           {it.displayNote && <span className="block text-[11px] text-ink-4">{it.displayNote}</span>}
         </span>
-        <span className={`grid size-6 shrink-0 place-items-center text-[17px] leading-none text-ink-4 transition-transform duration-300 ${open ? "rotate-45" : ""}`}>
+        <span
+          className={`grid size-6 shrink-0 place-items-center text-[17px] leading-none text-ink-4 transition-transform duration-300 ${open ? "rotate-45" : ""}`}
+        >
           +
         </span>
       </button>
@@ -239,7 +269,10 @@ function EvidenceCard({ it }: { it: LbEvidenceItem }) {
         <dl className="grid gap-3 border-t border-line-soft px-4 py-4 text-[12.5px] sm:grid-cols-2 lg:px-5">
           <div>
             <dt className="text-ink-4">原榜型号</dt>
-            <dd className="mt-0.5 break-all font-mono text-[12px] text-ink-2">{it.sourceModelName ?? "—"}{it.sourceRank !== null && <span className="ml-1.5 font-sans text-ink-4">原榜第 {it.sourceRank} 名</span>}</dd>
+            <dd className="mt-0.5 break-all font-mono text-[12px] text-ink-2">
+              {it.sourceModelName ?? "—"}
+              {it.sourceRank !== null && <span className="ml-1.5 font-sans text-ink-4">原榜第 {it.sourceRank} 名</span>}
+            </dd>
           </div>
           <div>
             <dt className="text-ink-4">代表配置</dt>
@@ -267,9 +300,13 @@ function EvidenceCard({ it }: { it: LbEvidenceItem }) {
             </div>
           )}
           <div className="flex gap-4 sm:col-span-2">
-            <Link to={`/leaderboard/sources/${it.sourceKey}`} className="inline-flex items-center gap-1 font-medium text-accent">查看这项评测 <IconArrowRight size={13} /></Link>
+            <Link to={`/leaderboard/sources/${it.sourceKey}`} className="inline-flex items-center gap-1 font-medium text-accent">
+              查看这项评测 <IconArrowRight size={13} />
+            </Link>
             {it.officialUrl && (
-              <a href={it.officialUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-ink-3 hover:text-accent">官方来源 <IconExternal size={12} /></a>
+              <a href={it.officialUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-ink-3 hover:text-accent">
+                官方来源 <IconExternal size={12} />
+              </a>
             )}
           </div>
         </dl>
@@ -306,7 +343,9 @@ export default function LeaderboardModelPage() {
         </div>
         <div className="sm:text-right">
           <span className="block text-[12px] text-ink-4">综合共识指数</span>
-          <strong className="mono block text-[48px] font-medium leading-[1.25] tracking-[-0.055em] text-accent lg:text-[55px]">{overall.score !== null ? overall.score.toFixed(1) : "—"}</strong>
+          <strong className="mono block text-[48px] font-medium leading-[1.25] tracking-[-0.055em] text-accent lg:text-[55px]">
+            {overall.score !== null ? overall.score.toFixed(1) : "—"}
+          </strong>
           <b className={`text-[12px] font-medium ${overall.onBoard ? "text-ink-3" : "text-ink-4"}`}>
             {overall.rank === null ? "未进入综合榜" : overall.onBoard ? `综合榜第 ${overall.rank} 名` : "综合榜前 30 名之外"}
           </b>
@@ -338,7 +377,12 @@ export default function LeaderboardModelPage() {
                   </span>
                 )}
                 {price.officialUrl && (
-                  <a href={price.officialUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-accent hover:text-accent-ink">
+                  <a
+                    href={price.officialUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 text-accent hover:text-accent-ink"
+                  >
                     厂商官方价格 <IconArrowUpRight size={12} />
                   </a>
                 )}

@@ -34,7 +34,16 @@ interface EventRow {
   display_label: string;
   schedule: { precision: string; from: string; through: string; label: string } | null;
   estimate: { from: string; through: string; basis: string; label: string; reason: string } | null;
-  presentation: { scopeKnown: boolean; scopeLabel: string | null; kindExplicit: boolean; timeInferred: boolean; audienceZh: string | null; productsZh: string | null; reportedAt: string | null; inProgress?: boolean } | null;
+  presentation: {
+    scopeKnown: boolean;
+    scopeLabel: string | null;
+    kindExplicit: boolean;
+    timeInferred: boolean;
+    audienceZh: string | null;
+    productsZh: string | null;
+    reportedAt: string | null;
+    inProgress?: boolean;
+  } | null;
   confirmed_at: Date | null;
   occurred_on: Date | null;
   confirmation_basis: "source_post" | "receipt_review" | null;
@@ -77,7 +86,13 @@ export function presentationStatus(e: Pick<EventRow, "status" | "estimate" | "sc
  * Titles follow the event's state, so an announcement that should have landed says so, and a reset
  * confirmed only by an account check does not read as Tibo's own confirmation.
  */
-export function eventTitle(type: EventRow["type"], status: EventRow["status"], shown: PresentationStatus, kindExplicit: boolean, basis: EventRow["confirmation_basis"] = null): string {
+export function eventTitle(
+  type: EventRow["type"],
+  status: EventRow["status"],
+  shown: PresentationStatus,
+  kindExplicit: boolean,
+  basis: EventRow["confirmation_basis"] = null,
+): string {
   const credit = type === "reset_credit";
   if (status === "confirmed") {
     if (credit) return "重置卡已发放";
@@ -146,7 +161,13 @@ function eventJson(e: EventRow, links: LinkRow[], posts: Map<string, PostRow>, n
       url: post.url,
     }));
   const schedule = e.schedule && { precision: e.schedule.precision, from: bjIso(e.schedule.from), through: bjIso(e.schedule.through), label: e.schedule.label };
-  const estimate = e.estimate && { from: bjIso(e.estimate.from), through: bjIso(e.estimate.through), basis: e.estimate.basis, label: e.estimate.label, reason: e.estimate.reason };
+  const estimate = e.estimate && {
+    from: bjIso(e.estimate.from),
+    through: bjIso(e.estimate.through),
+    basis: e.estimate.basis,
+    label: e.estimate.label,
+    reason: e.estimate.reason,
+  };
   return {
     id: e.id,
     type: e.type,
@@ -181,7 +202,13 @@ function monitorJson(state: Map<string, any>, counts: { pending: number; review:
   const verified = w.lastVerifiedAt ? Date.parse(w.lastVerifiedAt) : NaN;
   const held = Number(state.get("held")?.count ?? 0);
   const age = now - verified;
-  const status: CodexResetMonitor["status"] = !Number.isFinite(verified) ? "unknown" : age <= 40 * 60_000 ? "healthy" : age <= 3 * 3600_000 ? "delayed" : "attention";
+  const status: CodexResetMonitor["status"] = !Number.isFinite(verified)
+    ? "unknown"
+    : age <= 40 * 60_000
+      ? "healthy"
+      : age <= 3 * 3600_000
+        ? "delayed"
+        : "attention";
   return {
     status,
     lastAttemptAt: bjIso(w.lastAttemptAt),
@@ -280,7 +307,7 @@ export async function codexResetPage(now = Date.now()): Promise<CodexResetPageDa
     const state: CalendarMark["state"] = status === "confirmed" ? "confirmed" : status === "likely_completed" ? "likely" : "pending";
     const unclear = e.presentation ? !e.presentation.kindExplicit : false;
     const label = state === "pending" ? "待生效" : e.type === "reset_credit" ? "发重置卡" : unclear ? "重置确认" : "额度重置";
-    const day = e.occurredOn ?? (e.confirmedAt ? e.confirmedAt.slice(0, 10) : (e.estimate ?? e.schedule)?.from?.slice(0, 10) ?? e.createdAt!.slice(0, 10));
+    const day = e.occurredOn ?? (e.confirmedAt ? e.confirmedAt.slice(0, 10) : ((e.estimate ?? e.schedule)?.from?.slice(0, 10) ?? e.createdAt!.slice(0, 10)));
     return { date: day, eventId: e.id, type: e.type, state, label };
   });
   const since = addDays(today, -90);
@@ -290,7 +317,11 @@ export async function codexResetPage(now = Date.now()): Promise<CodexResetPageDa
   const recentResetDays = resetDays.filter((d) => d > since);
   const intervals = recentResetDays.slice(1).map((d, i) => Math.round((Date.parse(d) - Date.parse(recentResetDays[i]!)) / 86400_000));
   const sorted = [...intervals].sort((a, b) => a - b);
-  const median = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2]! : (sorted[sorted.length / 2 - 1]! + sorted[sorted.length / 2]!) / 2) : null;
+  const median = sorted.length
+    ? sorted.length % 2
+      ? sorted[(sorted.length - 1) / 2]!
+      : (sorted[sorted.length / 2 - 1]! + sorted[sorted.length / 2]!) / 2
+    : null;
   const pending = snap.events.find((e) => e.presentation && ["announced", "in_progress", "expired_unconfirmed"].includes(e.presentation.status));
   // Tibo's current X avatar, from his latest collected post.
   const [author] = await sql<{ avatar: string | null }[]>`
@@ -312,7 +343,10 @@ export async function codexResetPage(now = Date.now()): Promise<CodexResetPageDa
     confirmMinutes: snap.events
       .filter((e) => e.type === "direct_reset" && e.confirmedAt && e.confirmationBasis === "source_post")
       .map((e) => Number(e.confirmedAt!.slice(11, 13)) * 60 + Number(e.confirmedAt!.slice(14, 16))),
-    version: versionHash(snap.events.map((e) => [e.id, e.updatedAt, e.presentation?.status]), snap.outage?.postId ?? null),
+    version: versionHash(
+      snap.events.map((e) => [e.id, e.updatedAt, e.presentation?.status]),
+      snap.outage?.postId ?? null,
+    ),
   };
 }
 
@@ -328,7 +362,10 @@ export async function codexResetVersion(now = Date.now()) {
     sql<{ verified: string | null }[]>`SELECT value->>'lastVerifiedAt' AS verified FROM monitor_state WHERE key = 'watermarks'`,
   ]);
   return {
-    version: versionHash(events.map((e) => [e.id, bjIso(e.updated_at), e.presentation ? presentationStatus(e, now) : undefined]), outage?.id ?? null),
+    version: versionHash(
+      events.map((e) => [e.id, bjIso(e.updated_at), e.presentation ? presentationStatus(e, now) : undefined]),
+      outage?.id ?? null,
+    ),
     checkedAt: bjIso(state?.verified),
     today: beijingDate(now),
   };

@@ -40,7 +40,19 @@ function fromResponse(r: TimelineResponse): ListState {
 const WEEKDAY_SHORT = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 /** Sticky day header: a quiet row on desktop, a grey full-width bar on phones. */
-export function DayHeader({ day, today, count, collapsed, onToggle }: { day: string; today: string; count: number | null; collapsed?: boolean; onToggle?: () => void }) {
+export function DayHeader({
+  day,
+  today,
+  count,
+  collapsed,
+  onToggle,
+}: {
+  day: string;
+  today: string;
+  count: number | null;
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
   const [, m, d] = day.split("-").map(Number) as [number, number, number];
   const date = `${m}月${d}日`;
   const weekday = beijingWeekday(day);
@@ -55,7 +67,12 @@ export function DayHeader({ day, today, count, collapsed, onToggle }: { day: str
       </div>
       {/* Desktop: the date ends where the times end, the fold toggle sits on the rail. */}
       <div className="hidden h-11 grid-cols-[64px_22px_minmax(0,1fr)] items-center lg:grid">
-        <button type="button" onClick={onToggle} disabled={!onToggle} className="justify-self-end whitespace-nowrap text-right text-[18px] font-semibold leading-6 text-ink">
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={!onToggle}
+          className="justify-self-end whitespace-nowrap text-right text-[18px] font-semibold leading-6 text-ink"
+        >
           {date}
         </button>
         {onToggle ? (
@@ -89,14 +106,29 @@ export function DayHeader({ day, today, count, collapsed, onToggle }: { day: str
  * One dated slot: the time, the rail (desktop) and the item. As on the original timeline, the rail is a
  * 1px line from this node's centre to the next one's, so the day reads as one continuous thread.
  */
-export function TimelineSlot({ at, children, fresh = false, delay = 0, dataKey }: { at: string; children: React.ReactNode; fresh?: boolean; delay?: number; dataKey?: string }) {
+export function TimelineSlot({
+  at,
+  children,
+  fresh = false,
+  delay = 0,
+  dataKey,
+}: {
+  at: string;
+  children: React.ReactNode;
+  fresh?: boolean;
+  delay?: number;
+  dataKey?: string;
+}) {
   return (
     <li
       data-card-key={dataKey}
       className={`group/slot grid grid-cols-[48px_minmax(0,1fr)] border-b border-line-soft py-3.5 last:border-b-0 lg:grid-cols-[64px_22px_minmax(0,1fr)] lg:border-b-0 lg:py-0 lg:pb-3 lg:last:pb-0 ${fresh ? "animate-fade-up" : ""}`}
       style={fresh ? { animationDelay: `${delay}ms` } : undefined}
     >
-      <time dateTime={at} className="mono pt-[2px] text-[13px] leading-[18px] text-ink-4 lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3">
+      <time
+        dateTime={at}
+        className="mono pt-[2px] text-[13px] leading-[18px] text-ink-4 lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
+      >
         {beijingTime(at)}
       </time>
       <span aria-hidden="true" className="relative hidden lg:block">
@@ -245,9 +277,12 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   useEffect(() => {
     const el = sentinel.current;
     if (!el || !state.nextCursor || state.batches >= AUTO_BATCHES) return;
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) void loadMore();
-    }, { rootMargin: "900px 0px" });
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) void loadMore();
+      },
+      { rootMargin: "900px 0px" },
+    );
     io.observe(el);
     return () => io.disconnect();
   }, [state.nextCursor, state.batches, loadMore]);
@@ -283,30 +318,51 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
           <section key={day} aria-label={day} className="lg:mb-1">
             <DayHeader day={day} today={today} count={count} collapsed={collapsed} onToggle={() => toggleDay(day)} />
             <Collapse open={!collapsed}>
-                <ol className="lg:pt-1">
-                  {cards.map((c) => {
-                    const fresh = freshKeys.has(c.key);
-                    const delay = fresh ? Math.min(order++, 10) * 40 : 0;
-                    return (
-                      <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} fresh={fresh} delay={delay}>
-                        <FeedItem item={c.item} group={c.group} filters={filters} read={readSet.has(c.item.id)} onOpen={markRead} />
-                      </TimelineSlot>
-                    );
-                  })}
-                </ol>
+              <ol className="lg:pt-1">
+                {cards.map((c) => {
+                  const fresh = freshKeys.has(c.key);
+                  const delay = fresh ? Math.min(order++, 10) * 40 : 0;
+                  return (
+                    <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} fresh={fresh} delay={delay}>
+                      <FeedItem item={c.item} group={c.group} filters={filters} read={readSet.has(c.item.id)} onOpen={markRead} />
+                    </TimelineSlot>
+                  );
+                })}
+              </ol>
             </Collapse>
           </section>
         );
       })}
 
       <div ref={sentinel} aria-hidden="true" />
-      <FeedEnd loading={loadingMore} error={loadError} hasMore={!!state.nextCursor} manual={state.batches >= AUTO_BATCHES} empty={state.cards.length === 0} onMore={loadMore} />
+      <FeedEnd
+        loading={loadingMore}
+        error={loadError}
+        hasMore={!!state.nextCursor}
+        manual={state.batches >= AUTO_BATCHES}
+        empty={state.cards.length === 0}
+        onMore={loadMore}
+      />
     </div>
   );
 }
 
 /** The foot of a paged list: loading, retry, "加载更多" after a few automatic pages, or the end. */
-export function FeedEnd({ loading, error, hasMore, manual, empty, onMore }: { loading: boolean; error: boolean; hasMore: boolean; manual: boolean; empty: boolean; onMore: () => void }) {
+export function FeedEnd({
+  loading,
+  error,
+  hasMore,
+  manual,
+  empty,
+  onMore,
+}: {
+  loading: boolean;
+  error: boolean;
+  hasMore: boolean;
+  manual: boolean;
+  empty: boolean;
+  onMore: () => void;
+}) {
   return (
     <div className="flex justify-center py-6">
       {loading ? (
@@ -319,7 +375,11 @@ export function FeedEnd({ loading, error, hasMore, manual, empty, onMore }: { lo
         </button>
       ) : hasMore ? (
         manual && (
-          <button type="button" onClick={onMore} className="h-9 rounded-full border border-line-strong bg-surface px-5 text-[13px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink">
+          <button
+            type="button"
+            onClick={onMore}
+            className="h-9 rounded-full border border-line-strong bg-surface px-5 text-[13px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink"
+          >
             加载更多
           </button>
         )

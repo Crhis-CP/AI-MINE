@@ -24,10 +24,13 @@ export async function listMonitorPosts(opts: { filter?: "relevant" | "review" | 
   const page = Math.max(1, opts.page ?? 1);
   const filter = opts.filter ?? "relevant";
   const where =
-    filter === "pending" ? sql`p.processed_at IS NULL`
-    : filter === "review" ? sql`(p.recognition->>'needsReview')::boolean IS TRUE AND (p.recognition->>'reviewed')::boolean IS NOT TRUE`
-    : filter === "relevant" ? sql`(p.recognition->>'relevant')::boolean IS TRUE`
-    : sql`true`;
+    filter === "pending"
+      ? sql`p.processed_at IS NULL`
+      : filter === "review"
+        ? sql`(p.recognition->>'needsReview')::boolean IS TRUE AND (p.recognition->>'reviewed')::boolean IS NOT TRUE`
+        : filter === "relevant"
+          ? sql`(p.recognition->>'relevant')::boolean IS TRUE`
+          : sql`true`;
   const rows = await sql`
     SELECT p.id, p.published_at, p.text, p.url, p.translation, p.processed_at, p.receipt_id, p.origin,
            p.recognition->'propositions' AS propositions, (p.recognition->>'needsReview')::boolean AS needs_review,
@@ -49,7 +52,9 @@ export async function listMonitorPosts(opts: { filter?: "relevant" | "review" | 
 export async function resolveMonitorPost(id: string, input: { action: "skip" | "reviewed"; reason: string }, actor: string) {
   if (!input.reason?.trim()) throw new Error("reason is required");
   if (input.action !== "skip" && input.action !== "reviewed") throw new Error("action must be skip or reviewed");
-  const [post] = await sql<{ processed_at: Date | null; recognition: Record<string, unknown> | null }[]>`SELECT processed_at, recognition FROM monitor_posts WHERE id = ${id}`;
+  const [post] = await sql<
+    { processed_at: Date | null; recognition: Record<string, unknown> | null }[]
+  >`SELECT processed_at, recognition FROM monitor_posts WHERE id = ${id}`;
   if (!post) return null;
   if (input.action === "skip") {
     const skipped = await sql`
@@ -70,10 +75,17 @@ const Patch = z
     type: z.enum(["direct_reset", "reset_credit"]),
     status: z.enum(["announced", "confirmed"]),
     confirmedAt: z.string().datetime({ offset: true }).nullable(),
-    occurredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+    occurredOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable(),
     confirmationBasis: z.enum(["source_post", "receipt_review"]).nullable(),
     schedule: z
-      .object({ precision: z.enum(["exact", "approximate", "deadline", "date", "window"]), from: z.string().datetime({ offset: true }), through: z.string().datetime({ offset: true }) })
+      .object({
+        precision: z.enum(["exact", "approximate", "deadline", "date", "window"]),
+        from: z.string().datetime({ offset: true }),
+        through: z.string().datetime({ offset: true }),
+      })
       .nullable(),
     scope: z.string().max(200),
     scopeLabel: z.string().max(200).nullable(),
@@ -96,7 +108,12 @@ export async function updateMonitorEvent(id: string, input: { patch: unknown; re
   return sql.begin(async (tx) => {
     const before = await lockEvent(tx, id, input.version);
     if (!before) return null;
-    const schedule = patch.schedule === undefined ? undefined : patch.schedule ? manualSchedule(patch.schedule.precision, new Date(patch.schedule.from), new Date(patch.schedule.through)) : null;
+    const schedule =
+      patch.schedule === undefined
+        ? undefined
+        : patch.schedule
+          ? manualSchedule(patch.schedule.precision, new Date(patch.schedule.from), new Date(patch.schedule.through))
+          : null;
     const presentation: Record<string, unknown> = {};
     if (patch.scopeLabel !== undefined) Object.assign(presentation, { scopeLabel: patch.scopeLabel, scopeKnown: !!patch.scopeLabel });
     if (patch.audienceZh !== undefined) presentation.audienceZh = patch.audienceZh;
@@ -123,7 +140,15 @@ export async function updateMonitorEvent(id: string, input: { patch: unknown; re
 }
 
 function pick(row: Record<string, unknown>, patch: Record<string, unknown>) {
-  const cols: Record<string, string> = { type: "type", status: "status", confirmedAt: "confirmed_at", occurredOn: "occurred_on", confirmationBasis: "confirmation_basis", schedule: "schedule", scope: "scope" };
+  const cols: Record<string, string> = {
+    type: "type",
+    status: "status",
+    confirmedAt: "confirmed_at",
+    occurredOn: "occurred_on",
+    confirmationBasis: "confirmation_basis",
+    schedule: "schedule",
+    scope: "scope",
+  };
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(patch)) out[k] = cols[k] ? row[cols[k]] : (row.presentation as Record<string, unknown> | null)?.[k];
   return out;
@@ -147,7 +172,14 @@ export async function setWithdrawn(id: string, input: { withdrawn: boolean; reas
     const before = await lockEvent(tx, id, input.version);
     if (!before) return null;
     const [after] = await tx`UPDATE monitor_events SET withdrawn = ${input.withdrawn}, updated_at = now() WHERE id = ${id} RETURNING *`;
-    await audit(actor, input.withdrawn ? "monitor.withdraw" : "monitor.restore", `monitor-event:${id}`, input.reason, { withdrawn: before.withdrawn }, { withdrawn: input.withdrawn });
+    await audit(
+      actor,
+      input.withdrawn ? "monitor.withdraw" : "monitor.restore",
+      `monitor-event:${id}`,
+      input.reason,
+      { withdrawn: before.withdrawn },
+      { withdrawn: input.withdrawn },
+    );
     return after;
   });
 }

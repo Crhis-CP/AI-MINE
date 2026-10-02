@@ -120,5 +120,11 @@ export interface CodexResetPageData extends CodexResetsSnapshot {
 }
 
 /** The site sends bodies for the selected calendar day, while v1 keeps the complete snapshot. */
-export interface CodexResetSitePage extends Omit<CodexResetPageData, "activities"> { selectedDate: string }
-export interface CodexResetDay { date: string; version: string; events: CodexResetEvent[] }
+export interface CodexResetSitePage extends Omit<CodexResetPageData, "activities"> {
+  selectedDate: string;
+}
+export interface CodexResetDay {
+  date: string;
+  version: string;
+  events: CodexResetEvent[];
+}

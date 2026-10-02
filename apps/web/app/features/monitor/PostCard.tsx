@@ -40,7 +40,9 @@ export function PostCard({ post, stage, avatar, compact = false }: { post: CardP
         </span>
         {stage && <span className="rounded-full bg-[rgba(28,39,51,0.04)] px-2 py-0.5 text-[12px] text-ink-4 dark:bg-white/[0.06]">{stage}</span>}
       </header>
-      <blockquote className={`mt-3 whitespace-pre-wrap text-ink [overflow-wrap:anywhere] ${compact ? "text-[15px] leading-[1.75]" : "text-[15px] leading-[1.75] sm:text-[18px]"}`}>
+      <blockquote
+        className={`mt-3 whitespace-pre-wrap text-ink [overflow-wrap:anywhere] ${compact ? "text-[15px] leading-[1.75]" : "text-[15px] leading-[1.75] sm:text-[18px]"}`}
+      >
         {hasTranslation ? post.translation : post.original}
       </blockquote>
       {!hasTranslation && <p className="mt-1 text-[11.5px] text-ink-4">暂无核对过的完整译文，显示原文。</p>}
@@ -51,13 +53,23 @@ export function PostCard({ post, stage, avatar, compact = false }: { post: CardP
         <time className="num" dateTime={post.publishedAt ?? undefined}>
           {stamp(post.publishedAt)}
         </time>
-        <a href={post.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-accent transition-colors hover:text-accent-ink">
+        <a
+          href={post.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-0.5 text-accent transition-colors hover:text-accent-ink"
+        >
           在 X 查看 <IconArrowUpRight size={12} />
         </a>
       </footer>
       {hasTranslation && (
         <>
-          <button type="button" onClick={() => setShowOriginal((v) => !v)} aria-expanded={showOriginal} className="mt-3 flex w-full items-center gap-1 border-t border-line pt-3 text-left text-[12px] text-ink-4 transition-colors hover:text-ink-2">
+          <button
+            type="button"
+            onClick={() => setShowOriginal((v) => !v)}
+            aria-expanded={showOriginal}
+            className="mt-3 flex w-full items-center gap-1 border-t border-line pt-3 text-left text-[12px] text-ink-4 transition-colors hover:text-ink-2"
+          >
             <IconChevronRight size={12} className={`transition-transform duration-200 ${showOriginal ? "rotate-90" : ""}`} />
             英文原文
           </button>

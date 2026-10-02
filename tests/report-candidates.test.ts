@@ -136,8 +136,14 @@ for (const lock of ["article", "report snapshot"] as const) {
       assert.equal(published!.visible_after.toISOString(), "2020-01-02T00:00:10.000Z");
       assert.equal(published!.visible_at.toISOString(), published!.visible_after.toISOString());
       const boundary = new Date("2020-01-02T00:00:00Z");
-      assert.equal((await candidates(new Date("2020-01-01T00:00:00Z"), boundary)).some((c) => c.itemId === id), false);
-      assert.equal((await candidates(boundary, new Date("2020-01-03T00:00:00Z"))).some((c) => c.itemId === id), true);
+      assert.equal(
+        (await candidates(new Date("2020-01-01T00:00:00Z"), boundary)).some((c) => c.itemId === id),
+        false,
+      );
+      assert.equal(
+        (await candidates(boundary, new Date("2020-01-03T00:00:00Z"))).some((c) => c.itemId === id),
+        true,
+      );
     } finally {
       release.open();
       await Promise.allSettled([holding, publication]);

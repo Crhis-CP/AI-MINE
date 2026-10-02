@@ -31,7 +31,12 @@ export function QuotedPost({ quoted, original = false }: { quoted: Quoted; origi
         </details>
       )}
       {quoted.url && (
-        <a href={quoted.url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-0.5 text-[13px] text-accent hover:text-accent-ink">
+        <a
+          href={quoted.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-0.5 text-[13px] text-accent hover:text-accent-ink"
+        >
           在 X 查看被引用的帖子 <IconArrowUpRight size={13} />
         </a>
       )}

@@ -24,7 +24,11 @@ const WITH_ARTICLE = String(BASE + 2n);
 const WITHOUT_ARTICLE = String(BASE + 1n);
 
 const post = (id: string, articleNo: string): SdTweet => ({
-  id_str: id, tweet_created_at: new Date().toISOString(), full_text: "https://t.co/abc", lang: "zxx", user: { name: "Fei", screen_name: HANDLE },
+  id_str: id,
+  tweet_created_at: new Date().toISOString(),
+  full_text: "https://t.co/abc",
+  lang: "zxx",
+  user: { name: "Fei", screen_name: HANDLE },
   entities: { urls: [{ url: "https://t.co/abc", expanded_url: `https://x.com/i/article/${articleNo}` }] },
 });
 
@@ -36,9 +40,20 @@ const socialdata = await stub((_hit, req) => {
     articleCalls.push(article);
     // Looked up by the post's id; the post without one answers with the post alone.
     return article === WITH_ARTICLE
-      ? { id_str: article, article: { title: "To Seek a Newer World", content_state: { blocks: [
-          { type: "unstyled", text: "World Labs is joining AMD." }, { type: "atomic", text: " " }, { type: "header-two", text: "Why" }, { type: "blockquote", text: "Come, my friends" },
-        ] } } }
+      ? {
+          id_str: article,
+          article: {
+            title: "To Seek a Newer World",
+            content_state: {
+              blocks: [
+                { type: "unstyled", text: "World Labs is joining AMD." },
+                { type: "atomic", text: " " },
+                { type: "header-two", text: "Why" },
+                { type: "blockquote", text: "Come, my friends" },
+              ],
+            },
+          },
+        }
       : { id_str: article };
   }
   return { tweets: [post(WITH_ARTICLE, "777"), post(WITHOUT_ARTICLE, "888")], next_cursor: null };
@@ -69,7 +84,11 @@ test("a post that links an X Article waits for extraction, which brings the arti
   assert.equal(queued?.name, "content.extract-body", "the article comes before judging");
 
   assert.equal(await extractArticleBody(id), "ok");
-  assert.deepEqual(articleCalls.filter((c) => c === WITH_ARTICLE), [WITH_ARTICLE], "looked up by the post's own id, not the link's number");
+  assert.deepEqual(
+    articleCalls.filter((c) => c === WITH_ARTICLE),
+    [WITH_ARTICLE],
+    "looked up by the post's own id, not the link's number",
+  );
   const [a] = await sql<{ title: string; body_text: string; body_status: string; revision: number; x_article: { title: string; text: string } }[]>`
     SELECT title, body_text, body_status, revision, x_article FROM articles WHERE id = ${id}`;
   assert.equal(a!.title, "To Seek a Newer World", "a bare link takes the article's title");

@@ -24,7 +24,6 @@ function reportText(r: ImportReport): string {
   return parts.join("，");
 }
 
-
 export default function StarredPage() {
   const starred = useStarred();
   const [mounted, setMounted] = useState(false);
@@ -39,7 +38,9 @@ export default function StarredPage() {
     const controller = new AbortController();
     fetch(`/api/site/items/availability?ids=${encodeURIComponent(starredIds)}`, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : {}))
-      .then((data) => { if (!controller.signal.aborted) setAvailability(data); })
+      .then((data) => {
+        if (!controller.signal.aborted) setAvailability(data);
+      })
       .catch(() => {});
     return () => controller.abort();
   }, [mounted, starredIds]);
@@ -83,7 +84,9 @@ export default function StarredPage() {
           <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" onChange={(e) => doImport(e.target.files?.[0])} />
         </div>
       </header>
-      <p className="rounded-tile border border-line bg-surface px-4 py-2.5 text-[12.5px] text-ink-3">收藏只保存在当前浏览器；清除浏览器数据或换设备后不会同步。</p>
+      <p className="rounded-tile border border-line bg-surface px-4 py-2.5 text-[12.5px] text-ink-3">
+        收藏只保存在当前浏览器；清除浏览器数据或换设备后不会同步。
+      </p>
       <Presence show={!!notice} enter="anim-notice-in" exit="anim-fade-out" duration={160}>
         <div
           role="status"
@@ -109,14 +112,23 @@ export default function StarredPage() {
             const status = availability[s.id];
             const unavailable = status === "unavailable";
             return (
-              <li key={s.id} className={`relative border-b border-line-soft py-4 lg:card lg:px-[18px] lg:py-[15px] ${unavailable ? "opacity-70" : "lg:card-hover"}`}>
+              <li
+                key={s.id}
+                className={`relative border-b border-line-soft py-4 lg:card lg:px-[18px] lg:py-[15px] ${unavailable ? "opacity-70" : "lg:card-hover"}`}
+              >
                 <div className="flex items-center gap-2 text-[12.5px] text-ink-4">
                   <span className="min-w-0 truncate text-ink-3">{shortSourceName(s.sourceName)}</span>
                   {s.publishedAt && <span className="num shrink-0">· {fullDateTime(s.publishedAt)}</span>}
                   <span className="ml-auto hidden shrink-0 sm:inline">
                     收藏于 <span className="num">{fullDateTime(s.savedAt)}</span>
                   </span>
-                  <button type="button" aria-label="取消收藏" title="取消收藏" onClick={() => removeStar(s.id)} className="relative z-10 -my-1 ml-auto grid size-7 shrink-0 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink sm:ml-0">
+                  <button
+                    type="button"
+                    aria-label="取消收藏"
+                    title="取消收藏"
+                    onClick={() => removeStar(s.id)}
+                    className="relative z-10 -my-1 ml-auto grid size-7 shrink-0 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink sm:ml-0"
+                  >
                     <IconClose size={14} />
                   </button>
                 </div>

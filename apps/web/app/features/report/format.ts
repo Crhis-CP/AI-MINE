@@ -51,7 +51,6 @@ export function dayLabel(key: string): string {
   return `${Number(key.slice(5, 7))}月${Number(key.slice(8, 10))}日`;
 }
 
-
 export interface ArchiveGroup {
   id: string;
   label: string;
@@ -83,7 +82,8 @@ export function archiveGroups(kind: ReportKind, index: ReportNavigationEntry[]):
     return groups;
   }
   for (const e of index) {
-    if (kind === "daily") push(e.key.slice(0, 7), `${e.key.slice(0, 4)} 年 ${Number(e.key.slice(5, 7))} 月`, { ...e, short: `${Number(e.key.slice(8, 10))} 日` });
+    if (kind === "daily")
+      push(e.key.slice(0, 7), `${e.key.slice(0, 4)} 年 ${Number(e.key.slice(5, 7))} 月`, { ...e, short: `${Number(e.key.slice(8, 10))} 日` });
     else push(e.key.slice(0, 4), `${e.key.slice(0, 4)} 年`, { ...e, short: `${Number(e.key.slice(5, 7))} 月` });
   }
   return groups;
@@ -119,7 +119,11 @@ export function dateMark(kind: ReportKind, key: string): { figure: string; top: 
   if (kind === "daily") return { figure: key.slice(8, 10), top: `${key.slice(0, 4)} 年 ${Number(key.slice(5, 7))} 月`, bottom: beijingWeekday(key) };
   if (kind === "weekly") {
     const [a, b] = isoWeekRange(key);
-    return { figure: key.slice(6), top: `${key.slice(0, 4)} 年第 ${Number(key.slice(6))} 周`, bottom: `${a.slice(5).replace("-", ".")} — ${b.slice(5).replace("-", ".")}` };
+    return {
+      figure: key.slice(6),
+      top: `${key.slice(0, 4)} 年第 ${Number(key.slice(6))} 周`,
+      bottom: `${a.slice(5).replace("-", ".")} — ${b.slice(5).replace("-", ".")}`,
+    };
   }
   return { figure: key.slice(5, 7), top: `${key.slice(0, 4)} 年`, bottom: `${Number(key.slice(5, 7))} 月` };
 }
@@ -138,7 +142,10 @@ const METRICS: Array<[key: string, unit: string]> = [
   ["reportsCovered", "期日报"],
 ];
 export function metricItems(metrics: Record<string, number>): Array<{ value: number; unit: string }> {
-  return METRICS.filter(([k]) => typeof metrics[k] === "number" && (k !== "modelsReleased" || metrics[k]! > 0)).map(([k, unit]) => ({ value: metrics[k]!, unit }));
+  return METRICS.filter(([k]) => typeof metrics[k] === "number" && (k !== "modelsReleased" || metrics[k]! > 0)).map(([k, unit]) => ({
+    value: metrics[k]!,
+    unit,
+  }));
 }
 
 /** "前一日 · 9月25日", "上一期 · 第 37 周", "下一期 · 7 月". */
@@ -186,7 +193,11 @@ function isoWeek(day: string): number {
  * the weeks of its year (weeklies) or the months of its year (monthlies), each marked as this issue,
  * an issue that exists, or none.
  */
-export function periodGrid(kind: ReportKind, key: string, index: ReportNavigationEntry[]): { title: string; note: string; columns: number; heads: string[] | null; cells: PeriodCell[] } {
+export function periodGrid(
+  kind: ReportKind,
+  key: string,
+  index: ReportNavigationEntry[],
+): { title: string; note: string; columns: number; heads: string[] | null; cells: PeriodCell[] } {
   const exists = new Set(index.map((e) => e.key));
   const cell = (k: string, name: string): PeriodCell => {
     const n = issueNumber(index, k);

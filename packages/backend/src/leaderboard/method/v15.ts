@@ -42,34 +42,292 @@ export interface ScoringSource {
 }
 
 export const SCORING_SOURCES: ScoringSource[] = [
-  { key: "artificial-analysis", unit: "artificial-analysis:intelligence", weight: 0.3, family: "broad-composite", operator: "artificial-analysis", budget: "broad", category: null, scoring: true, intervalSd: null, direction: "HIGHER" },
-  { key: "artificial-analysis-multilingual", unit: "artificial-analysis-multilingual", weight: 0.06, family: "multilingual", operator: "artificial-analysis", budget: "multilingual", category: null, scoring: false, intervalSd: null, direction: "HIGHER" },
-  { key: "arena-text", unit: "arena-text", weight: 0.05, family: "arena-preference", operator: "arena", budget: "preference", category: null, scoring: true, intervalSd: 1.96, direction: "HIGHER" },
-  { key: "arena-webdev", unit: "arena-webdev", weight: 0.024, family: "arena-preference", operator: "arena", budget: "coding", category: "aesthetics", scoring: true, intervalSd: 1.96, direction: "HIGHER" },
-  { key: "mercor-apex-agents", unit: "mercor-apex-agents:loop-pass-1", weight: 0.04, family: "professional-work", operator: "mercor", budget: "tools", category: "professional", scoring: true, intervalSd: null, direction: "HIGHER" },
-  { key: "vals-finance-agent", unit: "vals-finance-agent", weight: 0.03, family: "professional-work", operator: "vals-ai", budget: "professional", category: "professional", scoring: true, intervalSd: 1, direction: "HIGHER" },
-  { key: "deepswe-v1-1", unit: "deepswe-v1-1", weight: 0.036, family: "software-engineering", operator: "datacurve", budget: "coding", category: "coding", scoring: true, intervalSd: 1.96, direction: "HIGHER" },
-  { key: "taptap-maker", unit: "taptap-maker", weight: 0.036, family: "game-development", operator: "taptap-maker", budget: "coding", category: "coding", scoring: true, intervalSd: 1.96, direction: "HIGHER" },
-  { key: "livebench-coding", unit: "livebench-coding", weight: 0.024, family: "rolling-objective", operator: "livebench", budget: "coding", category: "coding", scoring: true, intervalSd: null, direction: "HIGHER" },
-  { key: "livebench-reasoning", unit: "livebench-reasoning", weight: 0.042, family: "rolling-objective", operator: "livebench", budget: "reasoning", category: "reasoning", scoring: true, intervalSd: null, direction: "HIGHER" },
-  { key: "livebench-writing", unit: "livebench-writing", weight: 0.03, family: "rolling-objective", operator: "livebench", budget: "writing", category: null, scoring: true, intervalSd: null, direction: "HIGHER" },
-  { key: "arena-creative-writing", unit: "arena-creative-writing", weight: 0.05, family: "arena-preference", operator: "arena", budget: "preference", category: "writing", scoring: true, intervalSd: 1.96, direction: "HIGHER" },
-  { key: "arena-vision", unit: "arena-vision", weight: 0.06, family: "arena-preference", operator: "arena", budget: "vision", category: null, scoring: true, intervalSd: 1.96, direction: "HIGHER" },
-  { key: "tau-banking", unit: "tau-banking", weight: 0.02, family: "customer-service-banking", operator: "sierra", budget: "tools", category: "professional", scoring: false, intervalSd: null, direction: "HIGHER" },
-  { key: "epoch-simpleqa", unit: "epoch-simpleqa", weight: 0.04, family: "epoch-simpleqa", operator: "epoch-ai", budget: "knowledge", category: "knowledge", scoring: true, intervalSd: 1, direction: "HIGHER" },
-  { key: "epoch-gpqa", unit: "epoch-gpqa", weight: 0.02, family: "epoch-gpqa", operator: "epoch-ai", budget: "knowledge", category: "knowledge", scoring: true, intervalSd: 1, direction: "HIGHER" },
-  { key: "epoch-frontiermath", unit: "epoch-frontiermath", weight: 0.036, family: "research-mathematics", operator: "epoch-ai", budget: "reasoning", category: "reasoning", scoring: true, intervalSd: 1, direction: "HIGHER" },
-  { key: "epoch-frontiermath-tier4", unit: "epoch-frontiermath-tier4", weight: 0.012, family: "research-mathematics", operator: "epoch-ai", budget: "reasoning", category: "reasoning", scoring: true, intervalSd: 1, direction: "HIGHER" },
-  { key: "epoch-chess", unit: "epoch-chess", weight: 0.018, family: "novel-game-reasoning", operator: "epoch-ai", budget: "reasoning", category: "reasoning", scoring: true, intervalSd: 1, direction: "HIGHER" },
-  { key: "epoch-mystery", unit: "epoch-mystery", weight: 0.012, family: "novel-game-reasoning", operator: "epoch-ai", budget: "reasoning", category: "reasoning", scoring: true, intervalSd: 1, direction: "HIGHER" },
-  { key: "eq-creative", unit: "eq-creative", weight: 0.036, family: "judged-creative-writing", operator: "eq-bench", budget: "writing", category: "writing", scoring: true, intervalSd: null, direction: "HIGHER" },
-  { key: "eq-longform", unit: "eq-longform", weight: 0.024, family: "judged-creative-writing", operator: "eq-bench", budget: "writing", category: "writing", scoring: true, intervalSd: null, direction: "HIGHER" },
+  {
+    key: "artificial-analysis",
+    unit: "artificial-analysis:intelligence",
+    weight: 0.3,
+    family: "broad-composite",
+    operator: "artificial-analysis",
+    budget: "broad",
+    category: null,
+    scoring: true,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "artificial-analysis-multilingual",
+    unit: "artificial-analysis-multilingual",
+    weight: 0.06,
+    family: "multilingual",
+    operator: "artificial-analysis",
+    budget: "multilingual",
+    category: null,
+    scoring: false,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "arena-text",
+    unit: "arena-text",
+    weight: 0.05,
+    family: "arena-preference",
+    operator: "arena",
+    budget: "preference",
+    category: null,
+    scoring: true,
+    intervalSd: 1.96,
+    direction: "HIGHER",
+  },
+  {
+    key: "arena-webdev",
+    unit: "arena-webdev",
+    weight: 0.024,
+    family: "arena-preference",
+    operator: "arena",
+    budget: "coding",
+    category: "aesthetics",
+    scoring: true,
+    intervalSd: 1.96,
+    direction: "HIGHER",
+  },
+  {
+    key: "mercor-apex-agents",
+    unit: "mercor-apex-agents:loop-pass-1",
+    weight: 0.04,
+    family: "professional-work",
+    operator: "mercor",
+    budget: "tools",
+    category: "professional",
+    scoring: true,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "vals-finance-agent",
+    unit: "vals-finance-agent",
+    weight: 0.03,
+    family: "professional-work",
+    operator: "vals-ai",
+    budget: "professional",
+    category: "professional",
+    scoring: true,
+    intervalSd: 1,
+    direction: "HIGHER",
+  },
+  {
+    key: "deepswe-v1-1",
+    unit: "deepswe-v1-1",
+    weight: 0.036,
+    family: "software-engineering",
+    operator: "datacurve",
+    budget: "coding",
+    category: "coding",
+    scoring: true,
+    intervalSd: 1.96,
+    direction: "HIGHER",
+  },
+  {
+    key: "taptap-maker",
+    unit: "taptap-maker",
+    weight: 0.036,
+    family: "game-development",
+    operator: "taptap-maker",
+    budget: "coding",
+    category: "coding",
+    scoring: true,
+    intervalSd: 1.96,
+    direction: "HIGHER",
+  },
+  {
+    key: "livebench-coding",
+    unit: "livebench-coding",
+    weight: 0.024,
+    family: "rolling-objective",
+    operator: "livebench",
+    budget: "coding",
+    category: "coding",
+    scoring: true,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "livebench-reasoning",
+    unit: "livebench-reasoning",
+    weight: 0.042,
+    family: "rolling-objective",
+    operator: "livebench",
+    budget: "reasoning",
+    category: "reasoning",
+    scoring: true,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "livebench-writing",
+    unit: "livebench-writing",
+    weight: 0.03,
+    family: "rolling-objective",
+    operator: "livebench",
+    budget: "writing",
+    category: null,
+    scoring: true,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "arena-creative-writing",
+    unit: "arena-creative-writing",
+    weight: 0.05,
+    family: "arena-preference",
+    operator: "arena",
+    budget: "preference",
+    category: "writing",
+    scoring: true,
+    intervalSd: 1.96,
+    direction: "HIGHER",
+  },
+  {
+    key: "arena-vision",
+    unit: "arena-vision",
+    weight: 0.06,
+    family: "arena-preference",
+    operator: "arena",
+    budget: "vision",
+    category: null,
+    scoring: true,
+    intervalSd: 1.96,
+    direction: "HIGHER",
+  },
+  {
+    key: "tau-banking",
+    unit: "tau-banking",
+    weight: 0.02,
+    family: "customer-service-banking",
+    operator: "sierra",
+    budget: "tools",
+    category: "professional",
+    scoring: false,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "epoch-simpleqa",
+    unit: "epoch-simpleqa",
+    weight: 0.04,
+    family: "epoch-simpleqa",
+    operator: "epoch-ai",
+    budget: "knowledge",
+    category: "knowledge",
+    scoring: true,
+    intervalSd: 1,
+    direction: "HIGHER",
+  },
+  {
+    key: "epoch-gpqa",
+    unit: "epoch-gpqa",
+    weight: 0.02,
+    family: "epoch-gpqa",
+    operator: "epoch-ai",
+    budget: "knowledge",
+    category: "knowledge",
+    scoring: true,
+    intervalSd: 1,
+    direction: "HIGHER",
+  },
+  {
+    key: "epoch-frontiermath",
+    unit: "epoch-frontiermath",
+    weight: 0.036,
+    family: "research-mathematics",
+    operator: "epoch-ai",
+    budget: "reasoning",
+    category: "reasoning",
+    scoring: true,
+    intervalSd: 1,
+    direction: "HIGHER",
+  },
+  {
+    key: "epoch-frontiermath-tier4",
+    unit: "epoch-frontiermath-tier4",
+    weight: 0.012,
+    family: "research-mathematics",
+    operator: "epoch-ai",
+    budget: "reasoning",
+    category: "reasoning",
+    scoring: true,
+    intervalSd: 1,
+    direction: "HIGHER",
+  },
+  {
+    key: "epoch-chess",
+    unit: "epoch-chess",
+    weight: 0.018,
+    family: "novel-game-reasoning",
+    operator: "epoch-ai",
+    budget: "reasoning",
+    category: "reasoning",
+    scoring: true,
+    intervalSd: 1,
+    direction: "HIGHER",
+  },
+  {
+    key: "epoch-mystery",
+    unit: "epoch-mystery",
+    weight: 0.012,
+    family: "novel-game-reasoning",
+    operator: "epoch-ai",
+    budget: "reasoning",
+    category: "reasoning",
+    scoring: true,
+    intervalSd: 1,
+    direction: "HIGHER",
+  },
+  {
+    key: "eq-creative",
+    unit: "eq-creative",
+    weight: 0.036,
+    family: "judged-creative-writing",
+    operator: "eq-bench",
+    budget: "writing",
+    category: "writing",
+    scoring: true,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
+  {
+    key: "eq-longform",
+    unit: "eq-longform",
+    weight: 0.024,
+    family: "judged-creative-writing",
+    operator: "eq-bench",
+    budget: "writing",
+    category: "writing",
+    scoring: true,
+    intervalSd: null,
+    direction: "HIGHER",
+  },
 ];
 
 /** Fixed reference models for the index scale; they never decide who ranks where. */
 export const ANCHORS = [
-  "claude-fable-5", "gpt-5-6-sol", "kimi-k-3", "qwen-3-8-max", "gpt-5-4", "claude-opus-4-8", "claude-sonnet-5", "grok-4-5", "gemini-3-5-flash",
-  "glm-5-2", "claude-sonnet-4-6", "qwen-3-7-max", "kimi-k-2-6", "deepseek-v-4-pro", "qwen-3-6-plus", "minimax-m-3", "gpt-5-4-mini", "grok-4-3",
+  "claude-fable-5",
+  "gpt-5-6-sol",
+  "kimi-k-3",
+  "qwen-3-8-max",
+  "gpt-5-4",
+  "claude-opus-4-8",
+  "claude-sonnet-5",
+  "grok-4-5",
+  "gemini-3-5-flash",
+  "glm-5-2",
+  "claude-sonnet-4-6",
+  "qwen-3-7-max",
+  "kimi-k-2-6",
+  "deepseek-v-4-pro",
+  "qwen-3-6-plus",
+  "minimax-m-3",
+  "gpt-5-4-mini",
+  "grok-4-3",
 ];
 
 export const BOARD_KEYS = ["overall", "coding", "aesthetics", "reasoning", "knowledge", "writing", "professional"] as const;
@@ -182,7 +440,10 @@ function pairSupport(a: SignalRow, b: SignalRow, reg: RegistryEntry, ordinal: bo
   return se > 0 ? 2 * ndtr(diff / se) - 1 : Math.sign(diff);
 }
 
-export function netMatrix(input: Pick<BoardInput, "models" | "signals" | "registry">, opts: { weightScale?: Record<string, number>; ordinal?: boolean; units?: string[] } = {}): NetMatrix {
+export function netMatrix(
+  input: Pick<BoardInput, "models" | "signals" | "registry">,
+  opts: { weightScale?: Record<string, number>; ordinal?: boolean; units?: string[] } = {},
+): NetMatrix {
   const models = input.models;
   const index = new Map(models.map((m, i) => [m, i]));
   const n = models.length;
@@ -220,7 +481,12 @@ function subInput(input: BoardInput, models: string[]) {
 }
 
 /** Rank each model in one scenario; exact ties prefer the published base order. */
-async function scenarioRanks(input: BoardInput, models: string[], baseRank: Map<string, number>, opts: { units?: string[]; weightScale?: Record<string, number>; ordinal?: boolean }) {
+async function scenarioRanks(
+  input: BoardInput,
+  models: string[],
+  baseRank: Map<string, number>,
+  opts: { units?: string[]; weightScale?: Record<string, number>; ordinal?: boolean },
+) {
   const net = netMatrix(subInput(input, models), opts);
   const prefer = [...net.models.keys()].sort((a, b) => (baseRank.get(net.models[a]!) ?? 1e9) - (baseRank.get(net.models[b]!) ?? 1e9) || a - b);
   const r = await solveKemeny(net.M, { prefer });
@@ -238,7 +504,11 @@ function components(W: Float64Array[]): number {
     seen[s] = 1;
     while (stack.length) {
       const v = stack.pop()!;
-      for (let u = 0; u < n; u++) if (!seen[u] && W[v]![u]! > 0) { seen[u] = 1; stack.push(u); }
+      for (let u = 0; u < n; u++)
+        if (!seen[u] && W[v]![u]! > 0) {
+          seen[u] = 1;
+          stack.push(u);
+        }
     }
   }
   return count;
@@ -268,7 +538,10 @@ export async function computeBoard(input: BoardInput): Promise<BoardOutput> {
   // Index: cumulative support from the bottom, averaged logistic against the anchors on this board.
   const v = new Array<number>(n).fill(0);
   for (let i = n - 2; i >= 0; i--) v[i] = v[i + 1]! + gaps[i]!.gap;
-  const anchorValues = input.anchors.map((a) => order.findIndex((m) => models[m] === a)).filter((p) => p >= 0).map((p) => v[p]!);
+  const anchorValues = input.anchors
+    .map((a) => order.findIndex((m) => models[m] === a))
+    .filter((p) => p >= 0)
+    .map((p) => v[p]!);
   const indexOf = (p: number) => (anchorValues.length ? (100 * anchorValues.reduce((s, a) => s + logistic(v[p]! - a), 0)) / anchorValues.length : 50);
 
   const baseRank = new Map(order.map((m, p) => [models[m]!, p + 1]));
@@ -305,14 +578,25 @@ export async function computeBoard(input: BoardInput): Promise<BoardOutput> {
   const entries: BoardEntry[] = order.map((m, p) => {
     const slug = models[m]!;
     const rank = p + 1;
-    let from = rank, to = rank, fixedFrom = rank, fixedTo = rank, unavailable = 0, incomplete = 0;
+    let from = rank,
+      to = rank,
+      fixedFrom = rank,
+      fixedTo = rank,
+      unavailable = 0,
+      incomplete = 0;
     for (const s of scenarios) {
       if (!s.ok) incomplete++;
       const r = s.requal.get(slug);
       if (r === undefined) unavailable++;
-      else { from = Math.min(from, r); to = Math.max(to, r); }
+      else {
+        from = Math.min(from, r);
+        to = Math.max(to, r);
+      }
       const f = s.fixed.get(slug);
-      if (f !== undefined) { fixedFrom = Math.min(fixedFrom, f); fixedTo = Math.max(fixedTo, f); }
+      if (f !== undefined) {
+        fixedFrom = Math.min(fixedFrom, f);
+        fixedTo = Math.max(fixedTo, f);
+      }
     }
     const units = unitsOf(slug);
     const coverage = units.reduce((s, u) => s + input.registry[u]!.weight, 0);
@@ -364,7 +648,12 @@ export async function computeBoard(input: BoardInput): Promise<BoardOutput> {
   const componentCount = components(W);
   return {
     board: input.board,
-    solver: { optimal: base.optimal, lower_bound: base.lowerBound, absolute_gap: Math.max(0, base.cost - base.lowerBound), reversal_cost: reversalCost(M, order) },
+    solver: {
+      optimal: base.optimal,
+      lower_bound: base.lowerBound,
+      absolute_gap: Math.max(0, base.cost - base.lowerBound),
+      reversal_cost: reversalCost(M, order),
+    },
     display: { gaps, method: DISPLAY_METHOD, max_optimization_gap: maxOptimizationGap },
     entries,
     comparisons,

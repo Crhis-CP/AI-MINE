@@ -23,7 +23,13 @@ export function toXPost(t: SdTweet): XPostData {
     replyTo: t.in_reply_to_status_id_str ?? null,
     media: tweetMedia(t),
     quoted: q
-      ? { authorName: q.user.name, handle: q.user.screen_name, text: tweetText(q), url: `https://x.com/${q.user.screen_name}/status/${q.id_str}`, media: tweetMedia(q) }
+      ? {
+          authorName: q.user.name,
+          handle: q.user.screen_name,
+          text: tweetText(q),
+          url: `https://x.com/${q.user.screen_name}/status/${q.id_str}`,
+          media: tweetMedia(q),
+        }
       : null,
   };
 }
@@ -46,7 +52,10 @@ export function xArticleText(article: SdArticle): { title: string; text: string 
   for (const b of article.content_state?.blocks ?? []) {
     const text = (b.text ?? "").trim();
     if (!text || b.type === "atomic") continue;
-    const mark = { "header-one": "# ", "header-two": "## ", "header-three": "### ", blockquote: "> ", "unordered-list-item": "- ", "ordered-list-item": "1. " }[b.type ?? ""] ?? "";
+    const mark =
+      { "header-one": "# ", "header-two": "## ", "header-three": "### ", blockquote: "> ", "unordered-list-item": "- ", "ordered-list-item": "1. " }[
+        b.type ?? ""
+      ] ?? "";
     lines.push(mark + text);
   }
   const text = lines.join("\n\n").trim();
@@ -114,7 +123,10 @@ export interface XFetch extends Omit<XRead, "tweets"> {
  * the old watermark, so nothing in between is skipped. Without a watermark (a source's very first
  * fetch) one page is read: its import is bounded anyway.
  */
-export async function readXSearch(base: string, opts: { lastId: string | null; backlog: XBacklog[]; subject: string; type?: "Latest" | "Top" }): Promise<XRead> {
+export async function readXSearch(
+  base: string,
+  opts: { lastId: string | null; backlog: XBacklog[]; subject: string; type?: "Latest" | "Top" },
+): Promise<XRead> {
   const { lastId } = opts;
   const backlog = opts.backlog.map((b) => ({ ...b }));
   const window = windowKey();

@@ -27,7 +27,10 @@ function Thumb({ id }: { id: string }) {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (entrance && !reduce && prev && now.at - prev.at < 1000 && (prev.left !== now.left || prev.width !== now.width) && el.animate) {
       el.animate(
-        [{ transform: `translateX(${prev.left - now.left}px)`, width: `${prev.width}px` }, { transform: "translateX(0)", width: `${now.width}px` }],
+        [
+          { transform: `translateX(${prev.left - now.left}px)`, width: `${prev.width}px` },
+          { transform: "translateX(0)", width: `${now.width}px` },
+        ],
         { duration: 300, easing: "cubic-bezier(0.25, 1, 0.5, 1)" },
       );
     }
@@ -61,7 +64,14 @@ const SIZES = {
  * options evenly across the available width.
  */
 export function PillTabs({
-  items, active, onSelect, layoutId, size = "md", label, fill = false, className = "",
+  items,
+  active,
+  onSelect,
+  layoutId,
+  size = "md",
+  label,
+  fill = false,
+  className = "",
 }: {
   items: TabItem[];
   active: string;
@@ -91,7 +101,9 @@ export function PillTabs({
               {on && <Thumb id={layoutId} />}
               <span className="relative inline-flex items-center gap-1">
                 {t.label}
-                {t.count !== undefined && t.count !== null && <span className={`num text-[0.86em] font-normal ${on ? "text-ink-3" : "text-ink-4"}`}>{t.count}</span>}
+                {t.count !== undefined && t.count !== null && (
+                  <span className={`num text-[0.86em] font-normal ${on ? "text-ink-3" : "text-ink-4"}`}>{t.count}</span>
+                )}
               </span>
             </>
           );

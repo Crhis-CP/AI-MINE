@@ -30,7 +30,13 @@ export function proxyExpiry(nowMs = Date.now(), lifetimeSeconds = LIFETIME_SECON
   return Math.ceil((nowMs / 1000 + lifetimeSeconds) / WINDOW_SECONDS) * WINDOW_SECONDS;
 }
 
-export function proxiedImage(url: string | null | undefined, mode: ProxyMode, absolute = false, nowMs = Date.now(), lifetimeSeconds = LIFETIME_SECONDS): string | null {
+export function proxiedImage(
+  url: string | null | undefined,
+  mode: ProxyMode,
+  absolute = false,
+  nowMs = Date.now(),
+  lifetimeSeconds = LIFETIME_SECONDS,
+): string | null {
   if (!url) return null;
   if (url.startsWith("data:")) return url;
   if (!/^https?:\/\//i.test(url)) return null;
@@ -40,7 +46,13 @@ export function proxiedImage(url: string | null | undefined, mode: ProxyMode, ab
 }
 
 /** Browser source candidates, each independently signed with the same expiry boundary. */
-export function proxiedImageSet(url: string | null | undefined, kind: ResponsiveImageKind, absolute = false, nowMs = Date.now(), lifetimeSeconds = LIFETIME_SECONDS): string | null {
+export function proxiedImageSet(
+  url: string | null | undefined,
+  kind: ResponsiveImageKind,
+  absolute = false,
+  nowMs = Date.now(),
+  lifetimeSeconds = LIFETIME_SECONDS,
+): string | null {
   if (!url || !/^https?:\/\//i.test(url)) return null;
   return RESPONSIVE_MODES[kind].map((mode) => `${proxiedImage(url, mode, absolute, nowMs, lifetimeSeconds)} ${IMAGE_WIDTHS[mode]}w`).join(", ");
 }
@@ -78,7 +90,9 @@ export function proxyBodyImages(html: string, absolute = false, lifetimeSeconds 
       // RSS keeps its existing single signed full image.
       const width = Number(attrs.match(/\bwidth="(\d+)"/i)?.[1] ?? 0);
       const candidates = !absolute && width >= IMAGE_WIDTHS["image-720"] ? proxiedImageSet(decoded, "body", false, now, lifetimeSeconds) : null;
-      const responsive = candidates ? ` srcset="${candidates.replace(/&/g, "&amp;")}" sizes="auto, (min-width: 1536px) 760px, (min-width: 1024px) calc(100vw - 524px), (min-width: 640px) 608px, calc(100vw - 32px)"` : "";
+      const responsive = candidates
+        ? ` srcset="${candidates.replace(/&/g, "&amp;")}" sizes="auto, (min-width: 1536px) 760px, (min-width: 1024px) calc(100vw - 524px), (min-width: 640px) 608px, calc(100vw - 32px)"`
+        : "";
       const source = proxied ? ` src="${proxied.replace(/&/g, "&amp;")}"${responsive} loading="lazy" decoding="async"` : "";
       return `<img${attrs.replace(src[0], source)}>`;
     })

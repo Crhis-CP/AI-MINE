@@ -72,7 +72,9 @@ function presentationOf(p: Proposition, extra: Record<string, unknown> = {}) {
 
 async function findTarget(tx: Tx, p: Proposition, postAt: Date): Promise<EventRow | null> {
   if (p.relatesTo) {
-    const [e] = await tx<EventRow[]>`SELECT id, type, status, schedule, presentation, created_at FROM monitor_events WHERE id = ${p.relatesTo} AND NOT withdrawn`;
+    const [e] = await tx<
+      EventRow[]
+    >`SELECT id, type, status, schedule, presentation, created_at FROM monitor_events WHERE id = ${p.relatesTo} AND NOT withdrawn`;
     // A new announcement tied to one whose time long passed is a different reset.
     if (e && e.type === p.kind && (e.status !== "announced" || isOpen(e, postAt, p.action === "announce" ? 12 * HOUR : 48 * HOUR))) return e;
   }
@@ -89,7 +91,12 @@ async function findTarget(tx: Tx, p: Proposition, postAt: Date): Promise<EventRo
 
 /** Text compared loosely: case, quotes, dashes, links, emoji and spacing aside. */
 function loose(text: string): string {
-  return ` ${text.normalize("NFKC").toLowerCase().replace(/https?:\/\/\S+/g, " ").replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+  return ` ${text
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()} `;
 }
 
 /**
@@ -98,7 +105,10 @@ function loose(text: string): string {
  */
 export function quotedInPost(excerpt: string, post: string): boolean {
   const body = loose(post);
-  const parts = excerpt.split(/…|\.\.\./).map(loose).filter((part) => part.trim().length > 0);
+  const parts = excerpt
+    .split(/…|\.\.\./)
+    .map(loose)
+    .filter((part) => part.trim().length > 0);
   return parts.length > 0 && parts.every((part) => body.includes(part));
 }
 
@@ -114,7 +124,16 @@ async function link(tx: Tx, eventId: string, postId: string, p: Proposition) {
     ON CONFLICT (event_id, post_id) DO UPDATE SET stage = EXCLUDED.stage, action = EXCLUDED.action, text = EXCLUDED.text, original_text = EXCLUDED.original_text`;
 }
 
-async function createEvent(tx: Tx, p: Proposition, postId: string, index: number, postAt: Date, status: "announced" | "confirmed", extra: Record<string, unknown> = {}, nth = 1) {
+async function createEvent(
+  tx: Tx,
+  p: Proposition,
+  postId: string,
+  index: number,
+  postAt: Date,
+  status: "announced" | "confirmed",
+  extra: Record<string, unknown> = {},
+  nth = 1,
+) {
   // Event ids: <kind>-<creating post>-<proposition #>-<reset # within it> ("reset twice" makes -1-1 and -1-2).
   const id = `${p.kind === "reset_credit" ? "banked" : "reset"}-${postId}-${index + 1}-${nth}`;
   const stated = usableTime(p, postAt);
@@ -201,7 +220,9 @@ export async function applyRecognition(postId: string, rec: Recognition): Promis
       } else if (p.action === "confirm") {
         if (target && target.status === "confirmed") {
           // A fresh confirmation long after the related event completed is a different reset.
-          const [c] = await tx<{ confirmed_at: Date | null; confirmation_basis: string | null }[]>`SELECT confirmed_at, confirmation_basis FROM monitor_events WHERE id = ${target.id}`;
+          const [c] = await tx<
+            { confirmed_at: Date | null; confirmation_basis: string | null }[]
+          >`SELECT confirmed_at, confirmation_basis FROM monitor_events WHERE id = ${target.id}`;
           if (c?.confirmed_at && postAt.getTime() - c.confirmed_at.getTime() > 6 * 3600_000) {
             eventId = await createEvent(tx, p, postId, index, postAt, "confirmed");
             applied.notify.push({ eventId, action: "confirm", postId });

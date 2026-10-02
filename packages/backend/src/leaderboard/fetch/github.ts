@@ -15,7 +15,9 @@ export async function githubJson<T>(path: string): Promise<T> {
 
 /** The head commit (sha and time) of a repository, optionally for one path. */
 export async function headCommit(repo: string, filePath?: string): Promise<{ sha: string; date: string }> {
-  const list = await githubJson<Array<{ sha: string; commit: { committer: { date: string } } }>>(`repos/${repo}/commits?per_page=1${filePath ? `&path=${encodeURIComponent(filePath)}` : ""}`);
+  const list = await githubJson<Array<{ sha: string; commit: { committer: { date: string } } }>>(
+    `repos/${repo}/commits?per_page=1${filePath ? `&path=${encodeURIComponent(filePath)}` : ""}`,
+  );
   if (!list[0]) throw new Error(`no commits for ${repo}${filePath ? `/${filePath}` : ""}`);
   return { sha: list[0].sha, date: list[0].commit.committer.date };
 }

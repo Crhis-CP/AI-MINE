@@ -78,10 +78,13 @@ function usePaged<T>(url: (cursor: string | null) => string, pick: (body: Record
   const [state, setState] = useState<Paged<T> & { scope: string }>(() => (from && from.scope === scope ? { ...from, loading: false } : { ...EMPTY, scope }));
   const current: Paged<T> = state.scope === scope ? state : EMPTY;
   const request = useRef<AbortController | null>(null);
-  useEffect(() => () => {
-    request.current?.abort();
-    request.current = null;
-  }, [scope]);
+  useEffect(
+    () => () => {
+      request.current?.abort();
+      request.current = null;
+    },
+    [scope],
+  );
   const load = async (cursor: string | null): Promise<void> => {
     if (request.current) return;
     const at = scope;
@@ -99,7 +102,14 @@ function usePaged<T>(url: (cursor: string | null) => string, pick: (body: Record
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as Record<string, unknown> & { nextCursor: string | null };
       if (!active()) return;
-      setState((s) => ({ scope: at, loading: false, error: false, loaded: true, next: body.nextCursor, items: cursor && s.scope === at ? [...s.items, ...pick(body)] : pick(body) }));
+      setState((s) => ({
+        scope: at,
+        loading: false,
+        error: false,
+        loaded: true,
+        next: body.nextCursor,
+        items: cursor && s.scope === at ? [...s.items, ...pick(body)] : pick(body),
+      }));
     } catch {
       if (active()) setState((s) => ({ ...s, loading: false, error: true }));
     } finally {
@@ -138,10 +148,41 @@ function Panel({ open, children }: { open: boolean; children: ReactNode }) {
   );
 }
 
-function LoadState({ loading, error, next, onMore, onRetry, empty }: { loading: boolean; error: boolean; next: string | null; onMore: () => void; onRetry: () => void; empty: boolean }) {
-  if (loading && empty) return <div className="space-y-2 py-1">{[0, 1].map((i) => <div key={i} className="skeleton h-4" />)}</div>;
-  if (error) return <button type="button" onClick={onRetry} className="py-1 text-[12.5px] text-hot">暂时无法加载，点此重试</button>;
-  if (next && !loading) return <button type="button" onClick={onMore} className="py-1 text-[12.5px] text-accent hover:underline">加载更多</button>;
+function LoadState({
+  loading,
+  error,
+  next,
+  onMore,
+  onRetry,
+  empty,
+}: {
+  loading: boolean;
+  error: boolean;
+  next: string | null;
+  onMore: () => void;
+  onRetry: () => void;
+  empty: boolean;
+}) {
+  if (loading && empty)
+    return (
+      <div className="space-y-2 py-1">
+        {[0, 1].map((i) => (
+          <div key={i} className="skeleton h-4" />
+        ))}
+      </div>
+    );
+  if (error)
+    return (
+      <button type="button" onClick={onRetry} className="py-1 text-[12.5px] text-hot">
+        暂时无法加载，点此重试
+      </button>
+    );
+  if (next && !loading)
+    return (
+      <button type="button" onClick={onMore} className="py-1 text-[12.5px] text-accent hover:underline">
+        加载更多
+      </button>
+    );
   return null;
 }
 
@@ -179,14 +220,29 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
             </li>
           ))}
         </ul>
-        <LoadState loading={state.loading} error={state.error} next={state.next} empty={others.length === 0} onMore={() => load(state.next)} onRetry={() => load(null)} />
+        <LoadState
+          loading={state.loading}
+          error={state.error}
+          next={state.next}
+          empty={others.length === 0}
+          onMore={() => load(state.next)}
+          onRetry={() => load(null)}
+        />
       </Panel>
     </div>
   );
 }
 
 /** "展开 N 条进展": the other facts of the card's event, newest first. */
-export function GroupDevelopments({ group, filters, parentId }: { group: GroupInfo & { story: NonNullable<GroupInfo["story"]> }; filters?: TimelineFilters; parentId: string }) {
+export function GroupDevelopments({
+  group,
+  filters,
+  parentId,
+}: {
+  group: GroupInfo & { story: NonNullable<GroupInfo["story"]> };
+  filters?: TimelineFilters;
+  parentId: string;
+}) {
   const { open, setOpen, state, load } = useGroupState<Development>(
     `developments|${group.story.publicId}|${parentId}`,
     (cursor) => `/api/site/stories/${encodeURIComponent(group.story.publicId)}/developments?${filterParams(filters, cursor)}`,
@@ -207,7 +263,9 @@ export function GroupDevelopments({ group, filters, parentId }: { group: GroupIn
         <ol className="relative space-y-2 py-1 pl-3.5 before:absolute before:bottom-2 before:left-[3px] before:top-2 before:w-px before:bg-line">
           {state.items.map((d) => (
             <li key={d.factId} className="relative">
-              <span className={`absolute -left-[13.5px] top-[7px] size-[7px] rounded-full ring-2 ring-bg-sunk dark:ring-bg-muted ${d.representative.id === parentId ? "bg-accent" : "bg-line-strong"}`} />
+              <span
+                className={`absolute -left-[13.5px] top-[7px] size-[7px] rounded-full ring-2 ring-bg-sunk dark:ring-bg-muted ${d.representative.id === parentId ? "bg-accent" : "bg-line-strong"}`}
+              />
               <Link to={`/items/${d.representative.id}`} className="block text-[13px] leading-snug text-ink-2 hover:text-accent">
                 {d.title}
               </Link>
@@ -218,8 +276,18 @@ export function GroupDevelopments({ group, filters, parentId }: { group: GroupIn
             </li>
           ))}
         </ol>
-        <LoadState loading={state.loading} error={state.error} next={state.next} empty={state.items.length === 0} onMore={() => load(state.next)} onRetry={() => load(null)} />
-        <Link to={`/story/${group.story.publicId}`} className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink">
+        <LoadState
+          loading={state.loading}
+          error={state.error}
+          next={state.next}
+          empty={state.items.length === 0}
+          onMore={() => load(state.next)}
+          onRetry={() => load(null)}
+        />
+        <Link
+          to={`/story/${group.story.publicId}`}
+          className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"
+        >
           查看完整事件 <IconArrowUpRight size={12} />
         </Link>
       </Panel>

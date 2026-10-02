@@ -9,7 +9,17 @@ import { markRead, useReadSet } from "../../lib/local-state";
 import { DayHeader, TimelineSlot } from "./Timeline";
 import { FeedItem } from "./FeedItem";
 
-export function DayList({ items, todayCount = null, showTags = true, animate = false }: { items: FeedItemSummary[]; todayCount?: number | null; showTags?: boolean; animate?: boolean }) {
+export function DayList({
+  items,
+  todayCount = null,
+  showTags = true,
+  animate = false,
+}: {
+  items: FeedItemSummary[];
+  todayCount?: number | null;
+  showTags?: boolean;
+  animate?: boolean;
+}) {
   const readSet = useReadSet();
   const today = beijingDate(Date.now());
   const days = useMemo(() => {
@@ -73,4 +83,3 @@ export function Pagination({ page, pageCount, href }: { page: number; pageCount:
     </nav>
   );
 }
-

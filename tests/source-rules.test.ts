@@ -22,12 +22,22 @@ const html = (head: string, body: string) => `<html><head>${head}</head><body>${
 const pages: Record<string, (base: string) => string> = {
   "/feed.xml": () =>
     `<?xml version="1.0"?><rss version="2.0"><channel><title>t</title>` +
-    ["news/a", "business/b"].map((p) => `<item><title>Entry ${p} ${T}</title><link>https://example.org/rules-${T}/${p}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`).join("") +
+    ["news/a", "business/b"]
+      .map((p) => `<item><title>Entry ${p} ${T}</title><link>https://example.org/rules-${T}/${p}</link><pubDate>${new Date().toUTCString()}</pubDate></item>`)
+      .join("") +
     `</channel></rss>`,
-  "/list.html": () => html("", `<ul><li><a href="/p/a-${T}">Short clean title ${T}</a><time>2026-09-20</time></li><li><a href="/p/b-${T}">${LONG}</a></li></ul>`),
+  "/list.html": () =>
+    html("", `<ul><li><a href="/p/a-${T}">Short clean title ${T}</a><time>2026-09-20</time></li><li><a href="/p/b-${T}">${LONG}</a></li></ul>`),
   [`/p/a-${T}`]: () =>
-    html(`<meta name="description" content="Summary of A"><meta property="article:published_time" content="2026-01-01T00:00:00Z">`, `<h1>Detail heading A</h1><p class="byline"><time datetime="2026-09-21T08:00:00Z">Sep 21</time></p>`),
-  [`/p/b-${T}`]: () => html(`<meta name="description" content="Summary of B"><meta property="article:published_time" content="2026-01-01T00:00:00Z">`, `<article><h1>Detail heading B ${T}</h1><p>${ARTICLE_BODY}</p></article>`),
+    html(
+      `<meta name="description" content="Summary of A"><meta property="article:published_time" content="2026-01-01T00:00:00Z">`,
+      `<h1>Detail heading A</h1><p class="byline"><time datetime="2026-09-21T08:00:00Z">Sep 21</time></p>`,
+    ),
+  [`/p/b-${T}`]: () =>
+    html(
+      `<meta name="description" content="Summary of B"><meta property="article:published_time" content="2026-01-01T00:00:00Z">`,
+      `<article><h1>Detail heading B ${T}</h1><p>${ARTICLE_BODY}</p></article>`,
+    ),
   [`/j/1-${T}`]: () => html(`<meta property="article:published_time" content="2026-09-27T01:00:00Z">`, "<p>one</p>"),
   [`/j/2-${T}`]: () => html(`<meta property="article:published_time" content="2026-09-27T02:00:00Z">`, "<p>two</p>"),
 };
@@ -59,11 +69,30 @@ const SOURCES = {
   detail: {
     kind: "web_list",
     config: {
-      url: `${base}/list.html`, parseMode: "html", itemSelector: "li", linkSelector: "a", titleSelector: "a", publishedAtSelector: "time",
-      detail: { maxFetches: 10, titleSelector: "h1", summarySelector: 'meta[name="description"]', publishedAtAuthoritative: true, publishedAtSelector: ".byline time" },
+      url: `${base}/list.html`,
+      parseMode: "html",
+      itemSelector: "li",
+      linkSelector: "a",
+      titleSelector: "a",
+      publishedAtSelector: "time",
+      detail: {
+        maxFetches: 10,
+        titleSelector: "h1",
+        summarySelector: 'meta[name="description"]',
+        publishedAtAuthoritative: true,
+        publishedAtSelector: ".byline time",
+      },
     },
   },
-  jina: { kind: "web_list", config: { url: `https://r.jina.ai/${base}/jlist-${T}`, parseMode: "markdown", allowUrlPrefixes: [`${base}/j/`], detail: { maxFetches: 5, titleRegex: "^# (.+)$" } } },
+  jina: {
+    kind: "web_list",
+    config: {
+      url: `https://r.jina.ai/${base}/jlist-${T}`,
+      parseMode: "markdown",
+      allowUrlPrefixes: [`${base}/j/`],
+      detail: { maxFetches: 5, titleRegex: "^# (.+)$" },
+    },
+  },
 };
 const id = (name: keyof typeof SOURCES) => `test-rules-${name}-${T}`;
 let savedJina: Array<{ per_minute: number; per_hour: number; per_day: number }> = [];
@@ -77,7 +106,8 @@ before(async () => {
   }
 });
 after(async () => {
-  for (const b of savedJina) await sql`UPDATE budgets SET per_minute = ${b.per_minute}, per_hour = ${b.per_hour}, per_day = ${b.per_day} WHERE service = 'jina'`;
+  for (const b of savedJina)
+    await sql`UPDATE budgets SET per_minute = ${b.per_minute}, per_hour = ${b.per_hour}, per_day = ${b.per_day} WHERE service = 'jina'`;
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await stopBoss();
   await closeDb();
@@ -102,30 +132,42 @@ test("a config entry the collector does not implement fails the fetch instead of
 
 test("feed entries outside the source's URL rules are skipped", async () => {
   assert.equal((await collectSource(id("denied"), { force: true })).status, "ok");
-  assert.deepEqual((await articles(id("denied"))).map((a) => a.url), [`https://example.org/rules-${T}/news/a`]);
+  assert.deepEqual(
+    (await articles(id("denied"))).map((a) => a.url),
+    [`https://example.org/rules-${T}/news/a`],
+  );
 });
 
 test("detail rules fill what the listing lacks, and a detail title survives the next listing", async () => {
   for (let run = 0; run < 2; run++) assert.equal((await collectSource(id("detail"), { force: true })).status, "ok");
   const [a, b] = await articles(id("detail"));
-  assert.deepEqual([a!.title, a!.excerpt, a!.published_at?.toISOString(), a!.revision], [`Short clean title ${T}`, "Summary of A", "2026-09-21T08:00:00.000Z", 1],
-    "a clean listing title stays; the byline, not the listing date or page metadata, dates it");
-  assert.deepEqual([b!.title, b!.excerpt, b!.published_at, b!.revision], [`Detail heading B ${T}`, "Summary of B", null, 1],
-    "a label that swallowed its summary takes the page's heading; without a byline there is no date; the listing does not revise it back");
+  assert.deepEqual(
+    [a!.title, a!.excerpt, a!.published_at?.toISOString(), a!.revision],
+    [`Short clean title ${T}`, "Summary of A", "2026-09-21T08:00:00.000Z", 1],
+    "a clean listing title stays; the byline, not the listing date or page metadata, dates it",
+  );
+  assert.deepEqual(
+    [b!.title, b!.excerpt, b!.published_at, b!.revision],
+    [`Detail heading B ${T}`, "Summary of B", null, 1],
+    "a label that swallowed its summary takes the page's heading; without a byline there is no date; the listing does not revise it back",
+  );
 });
 
 test("a Jina listing is read on every fetch, and buys a detail rendering only where a regex rule needs it", async () => {
   assert.equal((await collectSource(id("jina"), { force: true })).status, "ok");
   const rows = await articles(id("jina"));
-  assert.deepEqual(rows.map((r) => [r.title, r.published_at?.toISOString()]), [
-    [`Short Jina title ${T}`, "2026-09-27T01:00:00.000Z"],
-    [`Heading from Jina ${T}`, "2026-09-27T02:00:00.000Z"],
-  ], "the title regex reads Jina's text; dates come from the pages' own HTML");
+  assert.deepEqual(
+    rows.map((r) => [r.title, r.published_at?.toISOString()]),
+    [
+      [`Short Jina title ${T}`, "2026-09-27T01:00:00.000Z"],
+      [`Heading from Jina ${T}`, "2026-09-27T02:00:00.000Z"],
+    ],
+    "the title regex reads Jina's text; dates come from the pages' own HTML",
+  );
   assert.equal(jinaDetailReads, 1, "one paid detail rendering: only the long title needed one");
   assert.equal((await collectSource(id("jina"), { force: true })).status, "ok");
   assert.deepEqual([jinaListingReads, jinaDetailReads], [2, 1], "every fetch reads the listing afresh; known articles buy no detail");
 });
-
 
 test("detail HTML supplies the ordinary extracted body once, while short pages keep extraction pending", async () => {
   const rows = await sql<{ id: string; url: string; body_html: string | null; body_text: string | null; body_status: string }[]>`

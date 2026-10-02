@@ -96,7 +96,9 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
   const entries: HotEntry[] = [];
   for (const r of rows) {
     if (entries.length >= 10) break;
-    const reports = await sql<{ id: string; url: string; title: string; source_name: string; first_party: boolean; selected: boolean; score: number | null; at: Date }[]>`
+    const reports = await sql<
+      { id: string; url: string; title: string; source_name: string; first_party: boolean; selected: boolean; score: number | null; at: Date }[]
+    >`
       SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.url, p.title, s.name AS source_name, p.first_party, p.selected, p.score,
              coalesce(p.published_at, p.discovered_at) AS at
       FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
@@ -104,7 +106,9 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       WHERE f.story_id = ${r.story_id} AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${at})
       ORDER BY p.article_id`;
     if (reports.length === 0) continue;
-    const rep = [...reports].sort((x, y) => Number(y.first_party) - Number(x.first_party) || Number(y.selected) - Number(x.selected) || (Number(y.score ?? 0) - Number(x.score ?? 0)))[0]!;
+    const rep = [...reports].sort(
+      (x, y) => Number(y.first_party) - Number(x.first_party) || Number(y.selected) - Number(x.selected) || Number(y.score ?? 0) - Number(x.score ?? 0),
+    )[0]!;
     const participants = await sql<{ name: string; kind: "editorial" | "signal"; tier: string; at: Date }[]>`
       SELECT DISTINCT ON (ss.participant_key) s.name, ss.kind, s.tier, ss.observed_at AS at
       FROM story_signals ss JOIN sources s ON s.id = ss.source_id
@@ -147,8 +151,11 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       representativeSource: rep.source_name,
       // Faces go to the 精选组 by tier, the most recently active first within a tier (ordered before the cap).
       participants: participants
-        .sort((x, y) => Number(y.kind === "editorial") - Number(x.kind === "editorial") || tierRank(x.tier) - tierRank(y.tier) || y.at.getTime() - x.at.getTime())
-        .slice(0, 40).map(({ name, kind, tier }) => ({ name, kind, tier })),
+        .sort(
+          (x, y) => Number(y.kind === "editorial") - Number(x.kind === "editorial") || tierRank(x.tier) - tierRank(y.tier) || y.at.getTime() - x.at.getTime(),
+        )
+        .slice(0, 40)
+        .map(({ name, kind, tier }) => ({ name, kind, tier })),
     });
   }
   const [row] = await sql<{ id: number }[]>`
@@ -194,7 +201,9 @@ export async function snapshotHeat(at = new Date()): Promise<{ stories: number; 
 
 /** Recomputes hourly snapshots for a story over its history (after imports or regrouping). */
 export async function backfillStoryHeat(storyId: number, hours = 7 * 24): Promise<number> {
-  const [s] = await sql<{ first: Date | null; last: Date | null }[]>`SELECT min(observed_at) AS first, max(observed_at) AS last FROM story_signals WHERE story_id = ${storyId}`;
+  const [s] = await sql<
+    { first: Date | null; last: Date | null }[]
+  >`SELECT min(observed_at) AS first, max(observed_at) AS last FROM story_signals WHERE story_id = ${storyId}`;
   if (!s?.first) return 0;
   const end = Math.floor(Math.min(Date.now(), (s.last?.getTime() ?? Date.now()) + WINDOW_HOURS * 3600000) / 3600000) * 3600000;
   const start = Math.max(Math.floor(s.first.getTime() / 3600000) * 3600000, end - hours * 3600000);

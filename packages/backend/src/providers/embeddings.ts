@@ -28,16 +28,29 @@ function cacheFact(id: string, textHash: string, vector: number[]) {
 
 /** Embeddings are paid model calls: MODEL_CALLS_ENABLED=false switches them off like every other call. */
 export function embeddingsAvailable(): boolean {
-  return config.modelCallsEnabled && !!(credential("models", "EMBEDDING_API_KEY") ?? credential("models", "DASHSCOPE_API_KEY")) && process.env.EMBEDDINGS_ENABLED !== "false";
+  return (
+    config.modelCallsEnabled &&
+    !!(credential("models", "EMBEDDING_API_KEY") ?? credential("models", "DASHSCOPE_API_KEY")) &&
+    process.env.EMBEDDINGS_ENABLED !== "false"
+  );
 }
 
 async function embedBatch(texts: string[], subject: string): Promise<number[][]> {
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
-  const base = own ? credential("models", "EMBEDDING_BASE_URL") ?? "https://api.openai.com/v1" : credential("models", "DASHSCOPE_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1";
+  const base = own
+    ? (credential("models", "EMBEDDING_BASE_URL") ?? "https://api.openai.com/v1")
+    : (credential("models", "DASHSCOPE_BASE_URL") ?? "https://dashscope.aliyuncs.com/compatible-mode/v1");
   const key = own ? credential("models", "EMBEDDING_API_KEY") : credential("models", "DASHSCOPE_API_KEY");
   if (!key) throw new Error("EMBEDDING_API_KEY (or DASHSCOPE_API_KEY) missing");
   const receipt = await paidRequest(
-    { service: SERVICE, model: EMBEDDING_MODEL, purpose: "embedding", subject, identity: { model: EMBEDDING_MODEL, dims: EMBEDDING_DIMS, texts: texts.map((t) => sha256(t)) }, requestSummary: { count: texts.length } },
+    {
+      service: SERVICE,
+      model: EMBEDDING_MODEL,
+      purpose: "embedding",
+      subject,
+      identity: { model: EMBEDDING_MODEL, dims: EMBEDDING_DIMS, texts: texts.map((t) => sha256(t)) },
+      requestSummary: { count: texts.length },
+    },
     async () => {
       const res = await fetch(`${base.replace(/\/$/, "")}/embeddings`, {
         method: "POST",
@@ -74,8 +87,10 @@ export async function ensureEmbeddings(kind: "fact" | "article" | "story", items
     out.set(item.id, hit.vector);
     return false;
   });
-  const rows = uncached.length ? await sql<{ ref_id: string; text_hash: string; vector: number[] }[]>`
-    SELECT ref_id, text_hash, vector FROM embeddings WHERE kind = ${kind} AND model = ${EMBEDDING_MODEL} AND ref_id IN ${sql(uncached.map((i) => i.id))}` : [];
+  const rows = uncached.length
+    ? await sql<{ ref_id: string; text_hash: string; vector: number[] }[]>`
+    SELECT ref_id, text_hash, vector FROM embeddings WHERE kind = ${kind} AND model = ${EMBEDDING_MODEL} AND ref_id IN ${sql(uncached.map((i) => i.id))}`
+    : [];
   const have = new Map(rows.map((r) => [r.ref_id, r]));
   const missing = uncached.filter((i) => {
     const h = have.get(i.id);
@@ -88,7 +103,10 @@ export async function ensureEmbeddings(kind: "fact" | "article" | "story", items
   });
   for (let i = 0; i < missing.length; i += 10) {
     const batch = missing.slice(i, i + 10);
-    const vectors = await embedBatch(batch.map((b) => b.text.slice(0, 2000)), `${kind}:${batch[0]!.id}`);
+    const vectors = await embedBatch(
+      batch.map((b) => b.text.slice(0, 2000)),
+      `${kind}:${batch[0]!.id}`,
+    );
     for (let j = 0; j < batch.length; j++) {
       const item = batch[j]!;
       const v = vectors[j]!;
@@ -103,7 +121,9 @@ export async function ensureEmbeddings(kind: "fact" | "article" | "story", items
 }
 
 export function cosine(a: number[], b: number[]): number {
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
     dot += a[i]! * b[i]!;
     na += a[i]! * a[i]!;

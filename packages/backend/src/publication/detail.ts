@@ -17,9 +17,7 @@ interface DetailRow extends ItemRow {
   tr_complete: boolean | null;
 }
 
-export type DetailResult =
-  | { kind: "found"; detail: ItemDetail; row: DetailRow }
-  | { kind: "not_found" };
+export type DetailResult = { kind: "found"; detail: ItemDetail; row: DetailRow } | { kind: "not_found" };
 
 /** Adds stable ids to h2–h4 and returns the outline. */
 function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
@@ -98,7 +96,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
       zh: zh ? primary.html : null,
       original: zh && !isZh ? withOutline(original).html : isZh ? null : primary.html,
       zhKind: isZh ? "original" : zh ? "translation" : null,
-      complete: isZh ? true : row.tr_complete ?? false,
+      complete: isZh ? true : (row.tr_complete ?? false),
     };
   }
 
@@ -145,7 +143,13 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
  * (a summary, the post, or a full-text body).
  */
 export function markdownAvailable(row: {
-  visibility: string; source_mode: string; summary: string | null; body_mode: string; body_html?: string | null; channel: string; x_post: Record<string, any> | null;
+  visibility: string;
+  source_mode: string;
+  summary: string | null;
+  body_mode: string;
+  body_html?: string | null;
+  channel: string;
+  x_post: Record<string, any> | null;
 }): boolean {
   if (row.visibility !== "public" || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return false;
   return !!row.summary || (row.channel === "x" && !!row.x_post?.text) || (row.body_mode === "full" && !!row.body_html);
@@ -169,7 +173,16 @@ export async function exportMarkdown(id: string): Promise<{ filename: string; bo
     lines.push("## 正文", "", String(row.x_post.text), "");
     if (row.zh_text) lines.push("## 中文译文", "", row.zh_text, "");
     const q = row.x_post.quoted as { handle?: string; text?: string; url?: string } | null | undefined;
-    if (q?.text) lines.push(`## 引用 @${q.handle ?? ""}`, "", ...String(q.text).split("\n").map((l) => `> ${l}`), "", ...(q.url ? [q.url, ""] : []));
+    if (q?.text)
+      lines.push(
+        `## 引用 @${q.handle ?? ""}`,
+        "",
+        ...String(q.text)
+          .split("\n")
+          .map((l) => `> ${l}`),
+        "",
+        ...(q.url ? [q.url, ""] : []),
+      );
     if (q?.text && row.quoted_zh) lines.push("### 引用中文译文", "", ...row.quoted_zh.split("\n").map((l) => `> ${l}`), "");
   } else if (row.body_mode === "full" && row.body_html) {
     const isZh = row.language === "zh";
@@ -184,9 +197,15 @@ export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDe
   const hasTranslation = !!detail.body?.zh && detail.body.zhKind === "translation" && !!detail.body.original;
   const bodyLanguage = original && detail.body?.original ? "original" : detail.body?.zh ? "zh" : "original";
   const selectedHtml = bodyLanguage === "zh" ? detail.body?.zh : detail.body?.original;
-  const { text: _text, translation: _translation, ...x } = detail.x ?? {} as NonNullable<ItemDetail["x"]>;
-  return { ...detail, x: detail.x ? x : null, hasTranslation, bodyLanguage,
-    body: detail.body ? { ...detail.body, zh: bodyLanguage === "zh" ? detail.body.zh : null, original: bodyLanguage === "original" ? detail.body.original : null } : null,
+  const { text: _text, translation: _translation, ...x } = detail.x ?? ({} as NonNullable<ItemDetail["x"]>);
+  return {
+    ...detail,
+    x: detail.x ? x : null,
+    hasTranslation,
+    bodyLanguage,
+    body: detail.body
+      ? { ...detail.body, zh: bodyLanguage === "zh" ? detail.body.zh : null, original: bodyLanguage === "original" ? detail.body.original : null }
+      : null,
     outline: selectedHtml ? withOutline(selectedHtml).outline : [],
   };
 }

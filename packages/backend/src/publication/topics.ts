@@ -18,10 +18,10 @@ export interface TopicRow {
 }
 
 type TopicCount = { slug: string; total: number; recent: number; pages: number; indexable: boolean; latest: Date | null };
-const topicsCache = cached(
-  () => sql<TopicRow[]>`SELECT slug, name, grp, entity_id, tags, definition, related, position FROM topics ORDER BY position`,
-  { freshMs: 60_000, maxStaleMs: 10 * 60_000 },
-);
+const topicsCache = cached(() => sql<TopicRow[]>`SELECT slug, name, grp, entity_id, tags, definition, related, position FROM topics ORDER BY position`, {
+  freshMs: 60_000,
+  maxStaleMs: 10 * 60_000,
+});
 // Counts may lag by about a minute, like the public directory cache; item reads always check visibility.
 const countsCache = cached(queryTopicCounts, { freshMs: 60_000, maxStaleMs: 10 * 60_000 });
 
@@ -95,7 +95,14 @@ async function queryTopicCounts(): Promise<TopicCount[]> {
       if (it.timeline_at.getTime() > recentFrom) recent += 1;
       if (!latest || it.timeline_at > latest) latest = it.timeline_at;
     }
-    return { slug: t.slug, total, recent, latest, pages: Math.max(1, Math.ceil(total / TOPIC_PAGE_SIZE)), indexable: total >= 50 || (total >= 20 && recent > 0) };
+    return {
+      slug: t.slug,
+      total,
+      recent,
+      latest,
+      pages: Math.max(1, Math.ceil(total / TOPIC_PAGE_SIZE)),
+      indexable: total >= 50 || (total >= 20 && recent > 0),
+    };
   });
 }
 
@@ -115,7 +122,16 @@ export async function listTopicSummaries(): Promise<TopicSummary[]> {
   const counts = new Map((await topicPageCounts()).map((c) => [c.slug, c]));
   return topics.map((t) => {
     const c = counts.get(t.slug);
-    return { slug: t.slug, name: t.name, group: t.grp, definition: t.definition, total: c?.total ?? 0, recent: c?.recent ?? 0, indexable: c?.indexable ?? false, latestAt: c?.latest?.toISOString() ?? null };
+    return {
+      slug: t.slug,
+      name: t.name,
+      group: t.grp,
+      definition: t.definition,
+      total: c?.total ?? 0,
+      recent: c?.recent ?? 0,
+      indexable: c?.indexable ?? false,
+      latestAt: c?.latest?.toISOString() ?? null,
+    };
   });
 }
 
@@ -143,6 +159,9 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${(page - 1) * TOPIC_PAGE_SIZE})
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
     ORDER BY p.timeline_at DESC, p.article_id DESC`;
-  const related = row.related.map((r) => topics.find((t) => t.slug === r)).filter((t): t is TopicSummary => !!t).map((t) => ({ slug: t.slug, name: t.name }));
+  const related = row.related
+    .map((r) => topics.find((t) => t.slug === r))
+    .filter((t): t is TopicSummary => !!t)
+    .map((t) => ({ slug: t.slug, name: t.name }));
   return { topic: { ...topic, related }, items: rows.map(toFeedItemSummary), page, pageCount };
 }

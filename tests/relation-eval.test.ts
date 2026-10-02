@@ -37,25 +37,20 @@ test("relation gold JSONL parses all four labels and rejects malformed rows", ()
     JSON.stringify(row("roundup", "ROUNDUP", "holdout")),
   ].join("\n");
   const parsed = parseRelationGoldJsonl(text);
-  assert.deepEqual(parsed.map((item) => item.gold.relation), ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP"]);
+  assert.deepEqual(
+    parsed.map((item) => item.gold.relation),
+    ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP"],
+  );
   assert.equal(parsed[0]!.a.firstParty, false);
 
   const duplicate = [JSON.stringify(row("x", "UNRELATED")), JSON.stringify(row("x", "ROUNDUP"))].join("\n");
   assert.throws(() => parseRelationGoldJsonl(duplicate), /duplicate caseId/);
-  assert.throws(
-    () => parseRelationGoldJsonl(JSON.stringify({ ...row("bad", "UNRELATED"), gold: { relation: "MAYBE" } })),
-    /gold\.relation/,
-  );
-  assert.throws(
-    () => parseRelationGoldJsonl(JSON.stringify({ ...row("date", "UNRELATED"), a: { ...report("a"), publishedAt: "not-a-date" } })),
-    /publishedAt/,
-  );
+  assert.throws(() => parseRelationGoldJsonl(JSON.stringify({ ...row("bad", "UNRELATED"), gold: { relation: "MAYBE" } })), /gold\.relation/);
+  assert.throws(() => parseRelationGoldJsonl(JSON.stringify({ ...row("date", "UNRELATED"), a: { ...report("a"), publishedAt: "not-a-date" } })), /publishedAt/);
 });
 
 test("sampling is deterministic and applies the split before the limit", () => {
-  const rows = Array.from({ length: 12 }, (_, index) =>
-    row(`case-${index}`, index % 2 ? "SAME_STORY" : "UNRELATED", index < 8 ? "development" : "holdout"),
-  );
+  const rows = Array.from({ length: 12 }, (_, index) => row(`case-${index}`, index % 2 ? "SAME_STORY" : "UNRELATED", index < 8 ? "development" : "holdout"));
   const one = sampleRelationGold(rows, { split: "development", n: 5, seed: 11 }).map((item) => item.caseId);
   const two = sampleRelationGold(rows, { split: "development", n: 5, seed: 11 }).map((item) => item.caseId);
   const holdout = sampleRelationGold(rows, { split: "holdout", n: 20, seed: 11 });
@@ -102,9 +97,25 @@ test("story-level threshold metrics match the production tie semantics", () => {
   ];
 
   assert.deepEqual(storyTieMetrics(predictions, 0.75), {
-    threshold: 0.75, tp: 2, fp: 1, fn: 0, tn: 1, precision: 0.667, recall: 1, f1: 0.8, accuracy: 0.75,
+    threshold: 0.75,
+    tp: 2,
+    fp: 1,
+    fn: 0,
+    tn: 1,
+    precision: 0.667,
+    recall: 1,
+    f1: 0.8,
+    accuracy: 0.75,
   });
   assert.deepEqual(storyTieMetrics(predictions, 0.8), {
-    threshold: 0.8, tp: 1, fp: 1, fn: 1, tn: 1, precision: 0.5, recall: 0.5, f1: 0.5, accuracy: 0.5,
+    threshold: 0.8,
+    tp: 1,
+    fp: 1,
+    fn: 1,
+    tn: 1,
+    precision: 0.5,
+    recall: 0.5,
+    f1: 0.5,
+    accuracy: 0.5,
   });
 });

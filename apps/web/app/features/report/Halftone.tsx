@@ -336,7 +336,11 @@ export function Halftone({ seed, className = "", children }: { seed: string; cla
       <span ref={textRef} className={`transition-opacity duration-300 ${drawn ? "opacity-0" : ""}`}>
         {children}
       </span>
-      <canvas ref={canvasRef} aria-hidden="true" className={`absolute left-0 top-0 size-0 transition-opacity duration-300 ${drawn ? "opacity-100" : "opacity-0"}`} />
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className={`absolute left-0 top-0 size-0 transition-opacity duration-300 ${drawn ? "opacity-100" : "opacity-0"}`}
+      />
     </span>
   );
 }

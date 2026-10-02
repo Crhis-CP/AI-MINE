@@ -12,7 +12,9 @@ export function computeBoardsInWorker(boards: BoardInput[]): Promise<ComputedBoa
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL("./compute-worker.ts", import.meta.url), { workerData: boards });
     let result: ComputedBoards | undefined;
-    worker.once("message", (value: ComputedBoards) => { result = value; });
+    worker.once("message", (value: ComputedBoards) => {
+      result = value;
+    });
     worker.once("error", reject);
     worker.once("exit", (code) => {
       if (code !== 0) reject(new Error(`Leaderboard computation worker exited with code ${code}`));

@@ -26,7 +26,12 @@ const provider = await stub((_hit, req) => {
   if (body.input) {
     // The topic's axis is this run's own, so stored vectors of earlier runs never match it.
     const axis = 2 + (parseInt(T.slice(-4), 36) % 1000);
-    return { data: body.input.map((text, index) => ({ index, embedding: Array.from({ length: 1024 }, (_v, i) => (i === (text.includes(TOPIC) ? axis : text.includes(ALONE) ? axis + 1 : 1) ? 1 : 0)) })) };
+    return {
+      data: body.input.map((text, index) => ({
+        index,
+        embedding: Array.from({ length: 1024 }, (_v, i) => (i === (text.includes(TOPIC) ? axis : text.includes(ALONE) ? axis + 1 : 1) ? 1 : 0)),
+      })),
+    };
   }
   const answer = { query: "收购", decisions: [{ id: "C1", relation: "SAME_OCCURRENCE", confidence: 0.95, note: "" }] };
   return { id: "stub", choices: [{ message: { content: JSON.stringify(answer) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
@@ -42,8 +47,14 @@ async function job(articleId: string) {
 
 async function report(suffix: string, opts: { title: string; backfill?: string; publishedAt?: Date }) {
   const { articleId } = await upsertMaterial({
-    sourceId: EDITORIAL, url: `https://example.com/sig-${T}-${suffix}`, title: opts.title, bodyText: "Body.", bodyStatus: "ok", via: "fetch",
-    publishedAt: opts.publishedAt ?? new Date(), backfill: opts.backfill ?? null,
+    sourceId: EDITORIAL,
+    url: `https://example.com/sig-${T}-${suffix}`,
+    title: opts.title,
+    bodyText: "Body.",
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: opts.publishedAt ?? new Date(),
+    backfill: opts.backfill ?? null,
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, output)
             VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${opts.title}, '摘要', 80, false, ${sql.json({ fact: { title: opts.title } })})`;
@@ -64,7 +75,13 @@ after(async () => {
 });
 
 test("a discussion post that came before any report is grouped again when a report founds its fact", async () => {
-  const { articleId: postId } = await upsertMaterial({ sourceId: SIGNAL, url: `https://example.com/sig-${T}-post`, title: `AMD to acquire ${TOPIC}`, via: "fetch", publishedAt: new Date() });
+  const { articleId: postId } = await upsertMaterial({
+    sourceId: SIGNAL,
+    url: `https://example.com/sig-${T}-post`,
+    title: `AMD to acquire ${TOPIC}`,
+    via: "fetch",
+    publishedAt: new Date(),
+  });
   await queueProcessing(postId);
   const queued = await job(postId);
   assert.deepEqual([queued?.name, queued?.priority, queued?.data.signalOnly], ["events.group", -1, true], "straight to grouping, behind reports");
@@ -105,16 +122,32 @@ test("a discussion post that quotes a post not yet collected joins its story whe
   // original then joined the fact a report had already founded (same-fact: no new fact, no rematch).
   const tweetId = `9${Date.now()}`;
   const { articleId: postId } = await upsertMaterial({
-    sourceId: SIGNAL, url: `https://x.com/danshipper/status/1${Date.now()}`, title: `SONNET IS OUT! ${ALONE}`, via: "fetch", publishedAt: new Date(),
-    xPost: { tweetId: `1${Date.now()}`, authorName: "Dan", handle: "danshipper", text: "SONNET IS OUT!", quoted: { authorName: "Anthropic", handle: "AnthropicAI", text: "Introducing", url: `https://x.com/AnthropicAI/status/${tweetId}` } },
+    sourceId: SIGNAL,
+    url: `https://x.com/danshipper/status/1${Date.now()}`,
+    title: `SONNET IS OUT! ${ALONE}`,
+    via: "fetch",
+    publishedAt: new Date(),
+    xPost: {
+      tweetId: `1${Date.now()}`,
+      authorName: "Dan",
+      handle: "danshipper",
+      text: "SONNET IS OUT!",
+      quoted: { authorName: "Anthropic", handle: "AnthropicAI", text: "Introducing", url: `https://x.com/AnthropicAI/status/${tweetId}` },
+    },
   });
   assert.deepEqual(await settleNonEditorial(postId), { group: true });
   assert.equal((await groupArticle(postId, { signalOnly: true })).verdict, "signal-unmatched");
 
   const first = await groupArticle(await report("quoted-first", { title: `Anthropic 发布 ${TOPIC} Sonnet` }));
   const { articleId: originalId } = await upsertMaterial({
-    sourceId: EDITORIAL, url: `https://x.com/AnthropicAI/status/${tweetId}`, title: `Introducing ${TOPIC} Sonnet`, bodyText: "Introducing.", bodyStatus: "ok",
-    via: "fetch", publishedAt: new Date(), xPost: { tweetId, authorName: "Anthropic", handle: "AnthropicAI", text: `Introducing ${TOPIC} Sonnet` },
+    sourceId: EDITORIAL,
+    url: `https://x.com/AnthropicAI/status/${tweetId}`,
+    title: `Introducing ${TOPIC} Sonnet`,
+    bodyText: "Introducing.",
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+    xPost: { tweetId, authorName: "Anthropic", handle: "AnthropicAI", text: `Introducing ${TOPIC} Sonnet` },
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, output)
             VALUES (${originalId}, 1, 'rule', 'pass', 'ai-models', ${`Anthropic 发布 ${TOPIC} Sonnet`}, '摘要', 80, false, ${sql.json({ fact: { title: "Sonnet" } })})`;

@@ -82,7 +82,12 @@ export async function refreshFx(): Promise<{ asOf: string; rate: number }> {
   return { asOf: d.date, rate };
 }
 
-export async function refreshLeaderboard(): Promise<{ sources: { ok: number; changed: string[]; failed: Array<{ key: string; error?: string }> }; fx: unknown; prices: unknown; round: Pick<RoundResult, "status" | "runId" | "reason"> }> {
+export async function refreshLeaderboard(): Promise<{
+  sources: { ok: number; changed: string[]; failed: Array<{ key: string; error?: string }> };
+  fx: unknown;
+  prices: unknown;
+  round: Pick<RoundResult, "status" | "runId" | "reason">;
+}> {
   const states = await fetchSources();
   const fx = await refreshFx().catch((e: Error) => ({ error: e.message }));
   const prices = await importOfficialPrices().catch((e: Error) => ({ error: e.message }));

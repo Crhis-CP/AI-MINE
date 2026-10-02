@@ -23,7 +23,21 @@ export function hrefWith(base: string, params: URLSearchParams, patch: Record<st
  * time: picking 一手 clears the category and picking a category clears 一手. Older 资讯 / X links
  * still filter; the row then shows 全部.
  */
-export function CategoryTabs({ base, category, channel = "all", layoutId, size = "md", className = "" }: { base: string; category: CategoryKey | null; channel?: ChannelKey; layoutId: string; size?: "md" | "sm"; className?: string }) {
+export function CategoryTabs({
+  base,
+  category,
+  channel = "all",
+  layoutId,
+  size = "md",
+  className = "",
+}: {
+  base: string;
+  category: CategoryKey | null;
+  channel?: ChannelKey;
+  layoutId: string;
+  size?: "md" | "sm";
+  className?: string;
+}) {
   const [params] = useSearchParams();
   const items = [
     { key: "all", label: "全部", to: hrefWith(base, params, { category: null, channel: null }) },
@@ -51,7 +65,19 @@ function useSlashFocus(ref: React.RefObject<HTMLInputElement | null>) {
  * Search field (GET /all?q=…). Desktop ("track"): at the end of the filter row as the same grey track,
  * at the height of md tabs, with a "/" hint. Phones ("bar"): full width with a separate 搜索 button.
  */
-export function SearchField({ action = "/all", defaultValue = "", keep = {}, variant = "track", autoFocus = false }: { action?: string; defaultValue?: string; keep?: Record<string, string | null>; variant?: "track" | "bar"; autoFocus?: boolean }) {
+export function SearchField({
+  action = "/all",
+  defaultValue = "",
+  keep = {},
+  variant = "track",
+  autoFocus = false,
+}: {
+  action?: string;
+  defaultValue?: string;
+  keep?: Record<string, string | null>;
+  variant?: "track" | "bar";
+  autoFocus?: boolean;
+}) {
   const [value, setValue] = useState(defaultValue);
   const navigation = useNavigation();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -82,12 +108,23 @@ export function SearchField({ action = "/all", defaultValue = "", keep = {}, var
             className="h-11 w-full rounded-full border border-line-strong bg-surface pl-10 pr-9 text-[15px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-4 focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]"
           />
           {value && (
-            <button type="button" aria-label="清空" onClick={() => { setValue(""); inputRef.current?.focus(); }} className="absolute right-2.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-ink-4">
+            <button
+              type="button"
+              aria-label="清空"
+              onClick={() => {
+                setValue("");
+                inputRef.current?.focus();
+              }}
+              className="absolute right-2.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-full text-ink-4"
+            >
               <IconClose size={15} />
             </button>
           )}
         </label>
-        <button type="submit" className={`h-11 shrink-0 rounded-full bg-accent px-5 text-[14.5px] font-semibold text-accent-contrast transition-[background-color,transform] active:scale-[0.98] ${searching ? "opacity-60" : ""}`}>
+        <button
+          type="submit"
+          className={`h-11 shrink-0 rounded-full bg-accent px-5 text-[14.5px] font-semibold text-accent-contrast transition-[background-color,transform] active:scale-[0.98] ${searching ? "opacity-60" : ""}`}
+        >
           搜索
         </button>
       </Form>
@@ -100,7 +137,10 @@ export function SearchField({ action = "/all", defaultValue = "", keep = {}, var
       <label htmlFor="site-search" className="sr-only">
         搜索标题、摘要与正文
       </label>
-      <IconSearch size={16} className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${searching ? "text-accent" : "text-ink-4 group-focus-within:text-ink-3"}`} />
+      <IconSearch
+        size={16}
+        className={`pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${searching ? "text-accent" : "text-ink-4 group-focus-within:text-ink-3"}`}
+      />
       <input
         ref={inputRef}
         id="site-search"
@@ -125,7 +165,9 @@ export function SearchField({ action = "/all", defaultValue = "", keep = {}, var
           <IconClose size={13} />
         </button>
       ) : (
-        <kbd className="mono pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-mark border border-line-strong bg-surface px-1.5 text-[10.5px] leading-4 text-ink-4 lg:block">/</kbd>
+        <kbd className="mono pointer-events-none absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-mark border border-line-strong bg-surface px-1.5 text-[10.5px] leading-4 text-ink-4 lg:block">
+          /
+        </kbd>
       )}
     </Form>
   );
@@ -134,7 +176,11 @@ export function SearchField({ action = "/all", defaultValue = "", keep = {}, var
 /** Mobile home: the search icon at the end of the category row opens search on 全部动态. */
 export function SearchIconLink() {
   return (
-    <Link to="/all?search=1" aria-label="搜索" className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink">
+    <Link
+      to="/all?search=1"
+      aria-label="搜索"
+      className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
+    >
       <IconSearch size={19} />
     </Link>
   );

@@ -27,7 +27,8 @@ const pages: Record<string, (cdn: string) => string> = {
     `<a href="/go/desktop">MiMo Desktop</a><a href="/#paper">Paper</a><a href="/#blog">Blog</a><a href="/#joinUs">Join Us</a><div id="blog-list">` +
     `<div class="blogRow-kPt4Cj" data-font-interactive="true"><h3 data-font-text="true">Diagnosing and Mitigating Tool-Call Repetition in MiMo-V2.6</h3></div></div></body></html>`,
   // A redesign that moved the list elsewhere.
-  "/redesigned/": (cdn) => `<html><head><script defer src="${cdn}static/js/lib-react.a6be410a.js"></script></head><body><a href="/go/desktop">MiMo Desktop</a></body></html>`,
+  "/redesigned/": (cdn) =>
+    `<html><head><script defer src="${cdn}static/js/lib-react.a6be410a.js"></script></head><body><a href="/go/desktop">MiMo Desktop</a></body></html>`,
   // The Verge's feed: a teaser that ends in "Read the full story", next to a post whose feed carries it whole.
   "/verge.xml": () =>
     `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">` +
@@ -37,7 +38,15 @@ const pages: Record<string, (cdn: string) => string> = {
     `<entry><title>A whole post</title><link rel="alternate" href="https://example.org/whole"/><published>2026-09-28T10:00:00Z</published>` +
     `<content type="html"><![CDATA[<p>${"The feed carries this post whole, paragraph after paragraph. ".repeat(30)}</p>]]></content></entry></feed>`,
   // A list API that gives calendar days as yyyymmdd.
-  "/days.json": () => JSON.stringify({ data: { list: [{ seq: 695, ttl: "MCFlow", day: "20260922" }, { seq: 1, ttl: "Bad day", day: "20260230" }] } }),
+  "/days.json": () =>
+    JSON.stringify({
+      data: {
+        list: [
+          { seq: 695, ttl: "MCFlow", day: "20260922" },
+          { seq: 1, ttl: "Bad day", day: "20260230" },
+        ],
+      },
+    }),
   // Google Developers Blog: no date in the feed or in meta tags, only in JSON-LD.
   "/ld-post": () =>
     `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Blog"},` +
@@ -80,13 +89,17 @@ after(() => new Promise<void>((resolve) => server.close(() => resolve())));
 test("Jina card links become posts with their own titles", () => {
   const md = [
     "[Skip to main content](http://example.org/blog/#main)",
-    "[![Image 1: hero](https://cdn.example.org/a.jpg) ##### 智元发布GE-Act 2.0 新闻资讯 | 2026-09-20](https://example.org/blog/220.html \"智元发布GE-Act 2.0\")",
+    '[![Image 1: hero](https://cdn.example.org/a.jpg) ##### 智元发布GE-Act 2.0 新闻资讯 | 2026-09-20](https://example.org/blog/220.html "智元发布GE-Act 2.0")',
     "[![Image 2](https://cdn.example.org/b.png) ##### 小米18 Pro Max 测评 尾巴视频](http://example.org/blog/784.html)",
     "[![Image 3](https://cdn.example.org/c.png)](https://example.org/blog/carousel.html)",
     "# [Introducing v6](http://example.org/blog/introducing-v6)",
     "[2026](http://example.org/blog/2026) [Algorithms & Theory](http://example.org/blog/label/algorithms) [Next page](http://example.org/blog/page/2)",
   ].join("\n\n");
-  const out = fromMarkdown(md, "https://example.org", source({ url: "https://r.jina.ai/http://example.org/blog/", allowUrlPrefixes: ["https://example.org/blog/"] }));
+  const out = fromMarkdown(
+    md,
+    "https://example.org",
+    source({ url: "https://r.jina.ai/http://example.org/blog/", allowUrlPrefixes: ["https://example.org/blog/"] }),
+  );
   assert.deepEqual(out, [
     { url: "https://example.org/blog/220.html", title: "智元发布GE-Act 2.0" },
     { url: "https://example.org/blog/784.html", title: "小米18 Pro Max 测评 尾巴视频" },
@@ -97,11 +110,17 @@ test("Jina card links become posts with their own titles", () => {
 test("anchors into the listing page itself are navigation, not posts", () => {
   // mimo.xiaomi.com links its own sections (#paper, #blog, #join): all one address once the fragment goes.
   const html = [
-    '<a href="/#paper">Paper</a>', '<a href="/#blog">Blog</a>', '<a href="https://example.org/#join">Join Us</a>',
-    '<a href="/">Home</a>', '<a href="/blog/mimo-v2-6-tool-call">Diagnosing Tool-Call Repetition</a>',
+    '<a href="/#paper">Paper</a>',
+    '<a href="/#blog">Blog</a>',
+    '<a href="https://example.org/#join">Join Us</a>',
+    '<a href="/">Home</a>',
+    '<a href="/blog/mimo-v2-6-tool-call">Diagnosing Tool-Call Repetition</a>',
   ].join("");
   const out = fromHtml(html, "https://example.org/", source({ url: "https://example.org/" }));
-  assert.deepEqual(out.map((c) => c.url), ["https://example.org/blog/mimo-v2-6-tool-call"]);
+  assert.deepEqual(
+    out.map((c) => c.url),
+    ["https://example.org/blog/mimo-v2-6-tool-call"],
+  );
 });
 
 test("promotions a feed rotates inside its posts are left out of the body", () => {
@@ -121,9 +140,17 @@ test("promotions a feed rotates inside its posts are left out of the body", () =
 test("the MiMo homepage lists its posts and model pages, not its menu", async () => {
   const out = await fetchWebList(source({ url: `${site}/`, adapter: "mimo_home" }));
   assert.deepEqual(out, [
-    { url: `${site}/blog/mimo-v2-6-tool-call-repetition`, title: "Diagnosing and Mitigating Tool-Call Repetition in MiMo-V2.6", excerpt: "A lesson from scaling RL: the reward blind spot in optimizing for correctness." },
+    {
+      url: `${site}/blog/mimo-v2-6-tool-call-repetition`,
+      title: "Diagnosing and Mitigating Tool-Call Repetition in MiMo-V2.6",
+      excerpt: "A lesson from scaling RL: the reward blind spot in optimizing for correctness.",
+    },
     { url: `${site}/mimo-v2-6`, title: "Introducing MiMo-V2.6 series", excerpt: "Frontier intelligence, all the modalities, built in public." },
-    { url: `${site}/blog/mimo-v2-6-material-research`, title: "How Xiaomi MiMo-V2.6-Pro Boosts Productivity in New Materials R&D", excerpt: 'From literature review to "dry-lab" experiments.' },
+    {
+      url: `${site}/blog/mimo-v2-6-material-research`,
+      title: "How Xiaomi MiMo-V2.6-Pro Boosts Productivity in New Materials R&D",
+      excerpt: 'From literature review to "dry-lab" experiments.',
+    },
     { url: `${site}/mimo-v2-5-pro/index.html`, title: "Xiaomi MiMo-V2.5-Pro", excerpt: "A leap in agentic and long horizon coherence." },
     { url: `${site}/blog/mimo-v2-flash-hss`, title: "MiMo Humanities and Social Sciences Capability Assessment", excerpt: null },
   ]);
@@ -140,7 +167,11 @@ test("config entries a source kind does not implement are named, not ignored", (
     ["adapter=site_cards", "detail.titleFoo", "contentPublic"],
   );
   assert.deepEqual(unsupportedConfig("rss", { feedUrl: "https://example.org/feed", denyUrlPrefixes: ["https://example.org/business/"] }), []);
-  assert.deepEqual(unsupportedConfig("x_search", { query: "from:a", allowUrlPrefixes: ["https://example.org/"] }), ["allowUrlPrefixes"], "X shards apply no URL rules");
+  assert.deepEqual(
+    unsupportedConfig("x_search", { query: "from:a", allowUrlPrefixes: ["https://example.org/"] }),
+    ["allowUrlPrefixes"],
+    "X shards apply no URL rules",
+  );
 });
 
 test("a listing that links other articles in its teasers takes only the links that begin a line", () => {
@@ -155,16 +186,21 @@ test("a listing that links other articles in its teasers takes only the links th
     "[Go deeper (3 min. read)](https://example.org/2026/09/25/sheeran)",
   ].join("\n\n");
   const config = { url: "https://r.jina.ai/https://example.org/technology", allowUrlPrefixes: ["https://example.org/2"], linksStartLine: true };
-  assert.deepEqual(fromMarkdown(md, "https://example.org", source(config)).map((c) => c.title), [
-    "Amodei critics target Trump with hit piece before White House dinner",
-    "Scoop: Anthropic's Dario Amodei to have White House dinner",
-    "How Ed Sheeran's U.S. tour went off the rails in 3 weeks",
-  ]);
+  assert.deepEqual(
+    fromMarkdown(md, "https://example.org", source(config)).map((c) => c.title),
+    [
+      "Amodei critics target Trump with hit piece before White House dinner",
+      "Scoop: Anthropic's Dario Amodei to have White House dinner",
+      "How Ed Sheeran's U.S. tour went off the rails in 3 weeks",
+    ],
+  );
   assert.equal(fromMarkdown(md, "https://example.org", source({ ...config, linksStartLine: undefined })).length, 5, "without the option prose links count");
 });
 
 test("feed text that only teases the article is a summary: the page is fetched before judging", async () => {
-  const read = await fetchRss({ id: "test-feed", config: { feedUrl: `${site}/verge.xml` }, participation_mode: "editorial", cursor: null } as never, { force: true });
+  const read = await fetchRss({ id: "test-feed", config: { feedUrl: `${site}/verge.xml` }, participation_mode: "editorial", cursor: null } as never, {
+    force: true,
+  });
   const [teaser, whole] = read.candidates;
   assert.equal(teaser!.bodyStatus, "pending");
   assert.equal(teaser!.bodyText, null);
@@ -172,7 +208,9 @@ test("feed text that only teases the article is a summary: the page is fetched b
   assert.equal(whole!.bodyStatus, "ok");
   assert.ok(whole!.bodyText!.length > 1200);
   // Discussion sources only need what the feed says.
-  const signal = await fetchRss({ id: "test-feed", config: { feedUrl: `${site}/verge.xml` }, participation_mode: "hot_signal", cursor: null } as never, { force: true });
+  const signal = await fetchRss({ id: "test-feed", config: { feedUrl: `${site}/verge.xml` }, participation_mode: "hot_signal", cursor: null } as never, {
+    force: true,
+  });
   assert.equal(signal.candidates[0]!.bodyStatus, "ok");
 });
 
@@ -188,7 +226,7 @@ test("hidden page parts are dropped whole, and a news page's closing blocks are 
   // A linked chart in a paragraph of its own survives, also when a translation is cleaned again.
   const chart = '<p><a href="https://example.org/chart.png"><img src="https://example.org/chart.png" alt="B200 prices"></a></p>';
   assert.ok(sanitizeBody(sanitizeBody(`<p>Prices doubled.</p>${chart}<p> </p>`)).includes('alt="B200 prices"'));
-  assert.equal(sanitizeBody("<p>Text.</p><p> <br></p><p><a href=\"https://example.org/\"></a></p>"), "<p>Text.</p>");
+  assert.equal(sanitizeBody('<p>Text.</p><p> <br></p><p><a href="https://example.org/"></a></p>'), "<p>Text.</p>");
   // TechCrunch ends every article the same way.
   const article = "<p>MongoDB’s shares dropped by more than 17%.</p><h2>Topics</h2><p>More on the deal.</p><p>Subscribe to our plan to get the API.</p>";
   assert.equal(trimTrailingChrome(`${article}<p>Topics</p><p>Subscribe for the industry’s biggest tech news</p><h2>Latest in AI</h2>`), article);
@@ -205,8 +243,27 @@ test("noise words match whatever their case", () => {
 });
 
 test("dates in yyyymmdd and in JSON-LD are read", async () => {
-  const days = await fetchJsonList({ id: "test-json", config: { url: `${site}/days.json`, itemsPath: "data.list", titlePaths: ["ttl"], urlTemplate: "https://example.org/blog/view?seq={seq}", publishedAtPath: "day", publishedAtUnit: "yyyymmdd" } } as never);
-  assert.deepEqual(days.map((c) => c.publishedAt?.toISOString() ?? null), ["2026-09-22T00:00:00.000Z", null], "February 30 is no date");
-  const got = await fetchDetail(`${site}/ld-post`, { id: "test-feed", config: { detail: { maxFetches: 20 } } } as never, { date: true, title: false, summary: false, body: false });
+  const days = await fetchJsonList({
+    id: "test-json",
+    config: {
+      url: `${site}/days.json`,
+      itemsPath: "data.list",
+      titlePaths: ["ttl"],
+      urlTemplate: "https://example.org/blog/view?seq={seq}",
+      publishedAtPath: "day",
+      publishedAtUnit: "yyyymmdd",
+    },
+  } as never);
+  assert.deepEqual(
+    days.map((c) => c.publishedAt?.toISOString() ?? null),
+    ["2026-09-22T00:00:00.000Z", null],
+    "February 30 is no date",
+  );
+  const got = await fetchDetail(`${site}/ld-post`, { id: "test-feed", config: { detail: { maxFetches: 20 } } } as never, {
+    date: true,
+    title: false,
+    summary: false,
+    body: false,
+  });
   assert.equal(got.publishedAt?.toISOString(), "2026-09-24T00:00:00.000Z");
 });

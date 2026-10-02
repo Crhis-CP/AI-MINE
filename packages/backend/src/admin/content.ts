@@ -57,9 +57,20 @@ export async function contentChain(id: string) {
     sql`SELECT target_key, dedupe_key, status, attempts, response, created_at, sent_at FROM deliveries WHERE subject_id = ${id} ORDER BY created_at DESC`,
     sql`SELECT created_at, actor, action, reason, before, after FROM audit_log WHERE subject = ${`content:${id}`} ORDER BY created_at DESC LIMIT 20`,
   ]);
-  return { article, discoveries, revisions, analyses, publication: publication[0] ?? null, override: override[0] ?? null, ledger, membership, decisions, deliveries, history };
+  return {
+    article,
+    discoveries,
+    revisions,
+    analyses,
+    publication: publication[0] ?? null,
+    override: override[0] ?? null,
+    ledger,
+    membership,
+    decisions,
+    deliveries,
+    history,
+  };
 }
-
 
 /** Whether the current hot ranking shows the article: as an event's representative or among its reports. */
 async function inHotRanking(id: string): Promise<boolean> {
@@ -73,7 +84,9 @@ async function inHotRanking(id: string): Promise<boolean> {
 const STALE = "这条内容的人工设置已被修改，请刷新后再操作";
 
 async function overrideRow(id: string) {
-  const [o] = await sql<{ fields: Record<string, unknown>; visibility: string | null; version: number }[]>`SELECT fields, visibility, version FROM editorial_overrides WHERE article_id = ${id}`;
+  const [o] = await sql<
+    { fields: Record<string, unknown>; visibility: string | null; version: number }[]
+  >`SELECT fields, visibility, version FROM editorial_overrides WHERE article_id = ${id}`;
   return o ?? { fields: {}, visibility: null, version: 0 };
 }
 
@@ -81,7 +94,11 @@ async function overrideRow(id: string) {
  * Public / summary-only / withdrawn. Applies to the site, API, RSS, MCP, the sync ledger and the
  * search index through the one publication projection; ETags change with the content.
  */
-export async function setVisibility(id: string, input: { visibility: "public" | "summary-only" | "withdrawn"; reason: string; version: number }, actor: string) {
+export async function setVisibility(
+  id: string,
+  input: { visibility: "public" | "summary-only" | "withdrawn"; reason: string; version: number },
+  actor: string,
+) {
   if (!input.reason?.trim()) throw new Error("reason is required");
   const before = await overrideRow(id);
   if (before.version !== input.version) throw new Conflict(STALE);
@@ -104,7 +121,9 @@ export async function setVisibility(id: string, input: { visibility: "public" | 
 /** Marks a detail page for search indexing (sitemap, IndexNow, robots) or removes the mark. */
 export async function setSeoIndexed(id: string, input: { indexed: boolean; reason: string }, actor: string) {
   if (!input.reason?.trim()) throw new Error("reason is required");
-  const [before] = await sql<{ seo_indexed_at: Date | null; indexable: boolean }[]>`SELECT seo_indexed_at, indexable FROM publications WHERE article_id = ${id}`;
+  const [before] = await sql<
+    { seo_indexed_at: Date | null; indexable: boolean }[]
+  >`SELECT seo_indexed_at, indexable FROM publications WHERE article_id = ${id}`;
   if (!before) return null;
   // Marking indexes the page; unmarking excludes it, so a selected page is not indexed again automatically.
   await sql`UPDATE publications SET seo_indexed_at = ${input.indexed ? (before.seo_indexed_at ?? new Date()) : null},
@@ -167,9 +186,8 @@ export async function rerun(id: string, step: "extract" | "analyze" | "group", r
   } else {
     await sql`UPDATE articles SET processing_state = 'new', processing_error = NULL, processing_attempts = 0, processing_retry_at = NULL,
                 body_status = CASE WHEN ${step === "extract"} THEN 'pending' ELSE body_status END WHERE id = ${id}`;
-    jobId = step === "analyze"
-      ? await queueProcessing(id, { step: "analyze", attemptTag: `admin:${requestId}` })
-      : await queueProcessing(id, { step: "extract" });
+    jobId =
+      step === "analyze" ? await queueProcessing(id, { step: "analyze", attemptTag: `admin:${requestId}` }) : await queueProcessing(id, { step: "extract" });
   }
   await audit(actor, `content.rerun.${step}`, `content:${id}`, null, null, { jobId, requestId }, requestId);
   return { jobId };
@@ -186,7 +204,9 @@ export async function detachFromFact(id: string, reason: string, actor: string) 
     await tx`SELECT 1 FROM articles WHERE id = ${id} FOR UPDATE`;
     const removed = await tx<{ fact_id: number }[]>`DELETE FROM fact_articles WHERE article_id = ${id} RETURNING fact_id`;
     const factIds = removed.map((r) => r.fact_id);
-    const storyRows = factIds.length ? await tx<{ story_id: number }[]>`SELECT DISTINCT story_id FROM facts WHERE id = ANY(${factIds}) AND story_id IS NOT NULL` : [];
+    const storyRows = factIds.length
+      ? await tx<{ story_id: number }[]>`SELECT DISTINCT story_id FROM facts WHERE id = ANY(${factIds}) AND story_id IS NOT NULL`
+      : [];
     const storyIds = storyRows.map((r) => r.story_id);
     if (storyIds.length) await tx`DELETE FROM story_signals WHERE article_id = ${id} AND story_id = ANY(${storyIds})`;
     await tx`INSERT INTO grouping_overrides (article_id, reason, actor) VALUES (${id}, ${reason}, ${actor})

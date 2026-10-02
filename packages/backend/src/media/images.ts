@@ -55,15 +55,18 @@ function original(url: string): Promise<GuardedResponse> {
   failures.delete(url);
   let job = originals.get(url);
   if (!job) {
-    job = fetchOriginal(url).then((res) => {
-      rememberOriginal(url, res);
-      return res;
-    }).catch((error: unknown) => {
-      // A failed original is not refetched for a minute; this also coalesces failures across signed modes.
-      failures.set(url, { until: Date.now() + 60_000, error });
-      if (failures.size > 512) failures.delete(failures.keys().next().value!);
-      throw error;
-    }).finally(() => originals.delete(url));
+    job = fetchOriginal(url)
+      .then((res) => {
+        rememberOriginal(url, res);
+        return res;
+      })
+      .catch((error: unknown) => {
+        // A failed original is not refetched for a minute; this also coalesces failures across signed modes.
+        failures.set(url, { until: Date.now() + 60_000, error });
+        if (failures.size > 512) failures.delete(failures.keys().next().value!);
+        throw error;
+      })
+      .finally(() => originals.delete(url));
     originals.set(url, job);
   }
   return job;
@@ -113,7 +116,6 @@ export function decodeIco(buf: Buffer): Buffer | { raw: Buffer; width: number; h
   }
   return null;
 }
-
 
 /** The cached rendition of an image for a mode, fetched and resized on first use. */
 export function produceImage(url: string, mode: string): Promise<{ body: Buffer; type: string }> {
@@ -186,7 +188,7 @@ export async function resizeImage(body: Buffer, upstreamType: string, mode: stri
   const avatar = mode === "avatar" || mode.startsWith("avatar-");
   const width = IMAGE_WIDTHS[mode as keyof typeof IMAGE_WIDTHS] ?? 1600;
   const raw = ico && !Buffer.isBuffer(ico) ? { raw: { width: ico.width, height: ico.height, channels: 4 as const } } : {};
-  const input = ico && !Buffer.isBuffer(ico) ? ico.raw : ico ?? body;
+  const input = ico && !Buffer.isBuffer(ico) ? ico.raw : (ico ?? body);
   const meta = await sharp(input, { ...raw, failOn: "none" }).metadata();
   // A large animation can be hundreds of frames: do not silently replace it with a still or decode
   // all its frames on an HTTP request. Keep frame timing, loop count and transparency unchanged.
@@ -194,7 +196,7 @@ export async function resizeImage(body: Buffer, upstreamType: string, mode: stri
   // Small vectors are already compact and remain sharp at every zoom level. Rasterize oversized
   // SVGs (often screenshots embedded as base64) and avatars at their actual display rendition.
   if (type === "image/svg+xml" && !avatar && body.length <= 128 * 1024) return { body, type };
-  const density = type === "image/svg+xml" && meta.width ? Math.max(72, Math.min(300, Math.ceil(width / meta.width * 72))) : 72;
+  const density = type === "image/svg+xml" && meta.width ? Math.max(72, Math.min(300, Math.ceil((width / meta.width) * 72))) : 72;
   let image = sharp(input, { ...raw, failOn: "none", density }).rotate();
   image = avatar ? image.resize(width, width, { fit: "cover" }) : image.resize({ width, withoutEnlargement: true });
   // Screenshots and transparent PNGs benefit most from modern encoding. Already lossy JPEGs

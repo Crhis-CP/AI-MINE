@@ -2,7 +2,17 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Presence } from "./Presence";
 
 /** A small dropdown anchored to a trigger; closes on outside click, Escape or choosing an entry. */
-export function Menu({ trigger, label, children, align = "right" }: { trigger: ReactNode; label: string; children: (close: () => void) => ReactNode; align?: "left" | "right" }) {
+export function Menu({
+  trigger,
+  label,
+  children,
+  align = "right",
+}: {
+  trigger: ReactNode;
+  label: string;
+  children: (close: () => void) => ReactNode;
+  align?: "left" | "right";
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -44,7 +54,19 @@ export function Menu({ trigger, label, children, align = "right" }: { trigger: R
 }
 
 /** One entry of a Menu (a button or a link). */
-export function MenuItem({ icon, children, onSelect, href, download }: { icon?: ReactNode; children: ReactNode; onSelect?: () => void; href?: string; download?: boolean }) {
+export function MenuItem({
+  icon,
+  children,
+  onSelect,
+  href,
+  download,
+}: {
+  icon?: ReactNode;
+  children: ReactNode;
+  onSelect?: () => void;
+  href?: string;
+  download?: boolean;
+}) {
   const cls = "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink-2 transition-colors hover:bg-bg-sunk hover:text-ink";
   const inner = (
     <>

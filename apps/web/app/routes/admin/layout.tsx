@@ -12,7 +12,10 @@ import { adminGet } from "../../lib/admin.server";
 type Counts = Partial<Record<"feedback" | "sources" | "runs" | "monitor", number>>;
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const [me, counts] = await Promise.all([adminGet<AdminMe>(request, "/api/admin/me"), adminGet<Counts>(request, "/api/admin/nav-counts").catch(() => ({}) as Counts)]);
+  const [me, counts] = await Promise.all([
+    adminGet<AdminMe>(request, "/api/admin/me"),
+    adminGet<Counts>(request, "/api/admin/nav-counts").catch(() => ({}) as Counts),
+  ]);
   return { me, counts };
 }
 
@@ -49,11 +52,23 @@ function NavItem({ to, label, count, tone }: { to: string; label: string; count?
   return (
     <NavLink to={to} prefetch="intent" className="group relative block">
       {({ isActive }) => (
-        <span className={`relative flex items-center justify-between rounded-control px-3 py-[7px] text-[13.5px] transition-colors ${isActive ? "font-medium text-ink" : "text-ink-3 hover:text-ink"}`}>
-          {isActive && <motion.span layoutId="admin-nav" className="absolute inset-0 rounded-control bg-surface shadow-sm ring-1 ring-line" transition={{ type: "spring", stiffness: 520, damping: 38 }} />}
+        <span
+          className={`relative flex items-center justify-between rounded-control px-3 py-[7px] text-[13.5px] transition-colors ${isActive ? "font-medium text-ink" : "text-ink-3 hover:text-ink"}`}
+        >
+          {isActive && (
+            <motion.span
+              layoutId="admin-nav"
+              className="absolute inset-0 rounded-control bg-surface shadow-sm ring-1 ring-line"
+              transition={{ type: "spring", stiffness: 520, damping: 38 }}
+            />
+          )}
           <span className="relative">{label}</span>
           {!!count && (
-            <span className={`num relative min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 ${tone === "bad" ? "bg-hot text-white" : "bg-accent-soft text-accent"}`}>{count}</span>
+            <span
+              className={`num relative min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 ${tone === "bad" ? "bg-hot text-white" : "bg-accent-soft text-accent"}`}
+            >
+              {count}
+            </span>
           )}
         </span>
       )}
@@ -92,7 +107,9 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
             {me.dev && <span className="rounded bg-amber/15 px-1.5 text-[11px] font-medium text-amber">开发</span>}
           </div>
           <form method="post" action="/api/auth/logout" className="mt-1.5">
-            <button type="submit" className="text-ink-4 hover:text-ink-2">退出登录</button>
+            <button type="submit" className="text-ink-4 hover:text-ink-2">
+              退出登录
+            </button>
           </form>
         </div>
       </aside>
@@ -108,7 +125,11 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
               const active = location.pathname === i.to || location.pathname.startsWith(`${i.to}/`);
               const n = i.count ? counts[i.count] : 0;
               return (
-                <NavLink key={i.to} to={i.to} className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[13px] ${active ? "bg-ink text-bg" : "text-ink-3"}`}>
+                <NavLink
+                  key={i.to}
+                  to={i.to}
+                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[13px] ${active ? "bg-ink text-bg" : "text-ink-3"}`}
+                >
                   {i.label}
                   {!!n && <span className="num ml-1 text-[11px] opacity-70">{n}</span>}
                 </NavLink>

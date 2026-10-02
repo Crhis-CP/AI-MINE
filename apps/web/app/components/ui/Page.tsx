@@ -9,9 +9,23 @@ import { IconChevronRight } from "../icons";
  * inside the main column.
  * On phones the aside follows the main column; the footer closes the whole frame.
  */
-export function ReadingLayout({ children, aside, footer, className = "", asideClassName = "" }: { children: ReactNode; aside?: ReactNode; footer?: ReactNode; className?: string; asideClassName?: string }) {
+export function ReadingLayout({
+  children,
+  aside,
+  footer,
+  className = "",
+  asideClassName = "",
+}: {
+  children: ReactNode;
+  aside?: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+  asideClassName?: string;
+}) {
   return (
-    <div className={`mx-auto grid max-w-[var(--page-max-reading)] gap-8 pb-14 pt-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-10 lg:pt-0 2xl:grid-cols-[minmax(0,1fr)_340px] ${className}`}>
+    <div
+      className={`mx-auto grid max-w-[var(--page-max-reading)] gap-8 pb-14 pt-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-10 lg:pt-0 2xl:grid-cols-[minmax(0,1fr)_340px] ${className}`}
+    >
       <div className="min-w-0">{children}</div>
       {aside && <aside className={`min-w-0 space-y-4 lg:sticky lg:top-6 lg:self-start ${asideClassName}`}>{aside}</aside>}
       {footer && <div className="min-w-0 lg:col-span-2">{footer}</div>}

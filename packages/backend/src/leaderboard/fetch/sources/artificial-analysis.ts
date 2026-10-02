@@ -48,18 +48,33 @@ export const artificialAnalysis: Fetcher = {
         metricKey: "artificial-analysis:intelligence",
         metricName: "Artificial Analysis Intelligence Index",
         rawScore: score,
-        metadata: { unit: "points", sourceModelId: m.id, sourceModelSlug: m.slug, evaluationField: "artificial_analysis_intelligence_index", metricDirection: "HIGHER" },
+        metadata: {
+          unit: "points",
+          sourceModelId: m.id,
+          sourceModelSlug: m.slug,
+          evaluationField: "artificial_analysis_intelligence_index",
+          metricDirection: "HIGHER",
+        },
       });
     }
-    return [{
-      sourceKey: "artificial-analysis",
-      sourceName: "Artificial Analysis Intelligence Index",
-      sourceUrl: "https://artificialanalysis.ai/api/v2/language/models/free",
-      license: "API 数据展示或分享须显著署名；再分发权与定制条款须另行取得并遵守 Terms of Use",
-      attributionUrl: "https://artificialanalysis.ai/data-api/docs",
-      publishedAt: null,
-      rows,
-      metadata: { apiTier: "free", apiAccess: "free-headline", intelligenceIndexVersion: version, sourceOperator: "Artificial Analysis", sourceFamily: "broad-composite", metricCount: 1 },
-    }];
+    return [
+      {
+        sourceKey: "artificial-analysis",
+        sourceName: "Artificial Analysis Intelligence Index",
+        sourceUrl: "https://artificialanalysis.ai/api/v2/language/models/free",
+        license: "API 数据展示或分享须显著署名；再分发权与定制条款须另行取得并遵守 Terms of Use",
+        attributionUrl: "https://artificialanalysis.ai/data-api/docs",
+        publishedAt: null,
+        rows,
+        metadata: {
+          apiTier: "free",
+          apiAccess: "free-headline",
+          intelligenceIndexVersion: version,
+          sourceOperator: "Artificial Analysis",
+          sourceFamily: "broad-composite",
+          metricCount: 1,
+        },
+      },
+    ];
   },
 };

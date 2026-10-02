@@ -245,7 +245,10 @@
     color: var(--ink-4);
     background: var(--bg-sunk);
     border: 1px solid var(--line-soft);
-    transition: color 120ms, background-color 120ms, border-color 120ms;
+    transition:
+      color 120ms,
+      background-color 120ms,
+      border-color 120ms;
   }
   a.chip:hover {
     color: var(--accent);
@@ -286,7 +289,9 @@
   .disclosure::details-content {
     block-size: 0;
     overflow: clip;
-    transition: block-size 220ms var(--ease-out-quart), content-visibility 220ms allow-discrete;
+    transition:
+      block-size 220ms var(--ease-out-quart),
+      content-visibility 220ms allow-discrete;
   }
   .disclosure[open]::details-content {
     block-size: auto;
@@ -310,7 +315,10 @@
   }
 }
 @utility card-hover {
-  transition: box-shadow 200ms var(--ease-out-quart), border-color 200ms, transform 200ms var(--ease-out-quart);
+  transition:
+    box-shadow 200ms var(--ease-out-quart),
+    border-color 200ms,
+    transform 200ms var(--ease-out-quart);
   &:hover {
     box-shadow: var(--shadow-card-hover);
     border-color: var(--line-strong);
@@ -319,17 +327,30 @@
 }
 
 @keyframes skeleton-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes spin-slow {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-fade-up {
@@ -337,38 +358,169 @@
 }
 
 /* Enter/leave keyframes for components/ui/Presence.tsx; --anim-ms overrides a default length. */
-@keyframes aihot-collapse-in { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
-@keyframes aihot-collapse-out { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
-@keyframes aihot-fade-in { from { opacity: 0; } }
-@keyframes aihot-fade-out { to { opacity: 0; } }
-@keyframes aihot-drop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
-@keyframes aihot-drop-out { to { opacity: 0; transform: translateY(-4px) scale(0.98); } }
-@keyframes aihot-notice-in { from { opacity: 0; transform: translateY(-6px); } }
-@keyframes aihot-zoom-in { from { transform: scale(0.96); } }
-@keyframes aihot-zoom-out { to { transform: scale(0.98); } }
-@keyframes aihot-sheet-in { from { transform: translateY(100%); } }
-@keyframes aihot-sheet-out { to { transform: translateY(100%); } }
-@keyframes aihot-slide-in-x { from { opacity: 0; transform: translateX(10px); } }
-@keyframes aihot-swap-in { from { opacity: 0; transform: scale(0.7); } }
-@keyframes aihot-bump { from { transform: scale(0.7); } 55% { transform: scale(1.08); } to { transform: scale(1); } }
-@keyframes aihot-pop-in { from { opacity: 0; transform: scale(0.6); } 60% { opacity: 1; transform: scale(1.05); } to { transform: scale(1); } }
-@keyframes aihot-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-.anim-collapse-in { animation: aihot-collapse-in var(--anim-ms, 240ms) var(--ease-out-quart) both; }
-.anim-collapse-out { animation: aihot-collapse-out var(--anim-ms, 240ms) var(--ease-out-quart) both; }
-.anim-fade-in { animation: aihot-fade-in var(--anim-ms, 160ms) ease-out both; }
-.anim-fade-out { animation: aihot-fade-out var(--anim-ms, 160ms) ease-in both; }
-.anim-drop-in { animation: aihot-drop-in 140ms var(--ease-out-quart) both; }
-.anim-drop-out { animation: aihot-drop-out 140ms ease-in both; }
-.anim-notice-in { animation: aihot-notice-in 200ms var(--ease-out-quart) both; }
-.anim-zoom-in { animation: aihot-zoom-in 180ms var(--ease-out-quart) both; }
-.anim-zoom-out, .anim-fade-out > .lightbox-img { animation: aihot-zoom-out 160ms ease-in both; }
-.anim-sheet-in { animation: aihot-sheet-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
-.anim-sheet-out, .anim-fade-out > .poster-sheet { animation: aihot-sheet-out 220ms cubic-bezier(0.4, 0, 1, 1) both; }
-.anim-slide-in-x { animation: aihot-slide-in-x 160ms var(--ease-out-quart) both; }
-.anim-swap-in { animation: aihot-swap-in 120ms var(--ease-out-quart) both; }
-.anim-bump { animation: aihot-bump 320ms var(--ease-out-quart) both; }
-.anim-pop-in { animation: aihot-pop-in 460ms var(--ease-out-quart) both; }
-.anim-draw { stroke-dasharray: 1; animation: aihot-draw 900ms var(--ease-out-quart) both; }
+@keyframes aihot-collapse-in {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+@keyframes aihot-collapse-out {
+  from {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@keyframes aihot-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes aihot-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes aihot-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes aihot-drop-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes aihot-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+@keyframes aihot-zoom-in {
+  from {
+    transform: scale(0.96);
+  }
+}
+@keyframes aihot-zoom-out {
+  to {
+    transform: scale(0.98);
+  }
+}
+@keyframes aihot-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes aihot-sheet-out {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes aihot-slide-in-x {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+@keyframes aihot-swap-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+@keyframes aihot-bump {
+  from {
+    transform: scale(0.7);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes aihot-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes aihot-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.anim-collapse-in {
+  animation: aihot-collapse-in var(--anim-ms, 240ms) var(--ease-out-quart) both;
+}
+.anim-collapse-out {
+  animation: aihot-collapse-out var(--anim-ms, 240ms) var(--ease-out-quart) both;
+}
+.anim-fade-in {
+  animation: aihot-fade-in var(--anim-ms, 160ms) ease-out both;
+}
+.anim-fade-out {
+  animation: aihot-fade-out var(--anim-ms, 160ms) ease-in both;
+}
+.anim-drop-in {
+  animation: aihot-drop-in 140ms var(--ease-out-quart) both;
+}
+.anim-drop-out {
+  animation: aihot-drop-out 140ms ease-in both;
+}
+.anim-notice-in {
+  animation: aihot-notice-in 200ms var(--ease-out-quart) both;
+}
+.anim-zoom-in {
+  animation: aihot-zoom-in 180ms var(--ease-out-quart) both;
+}
+.anim-zoom-out,
+.anim-fade-out > .lightbox-img {
+  animation: aihot-zoom-out 160ms ease-in both;
+}
+.anim-sheet-in {
+  animation: aihot-sheet-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-sheet-out,
+.anim-fade-out > .poster-sheet {
+  animation: aihot-sheet-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+.anim-slide-in-x {
+  animation: aihot-slide-in-x 160ms var(--ease-out-quart) both;
+}
+.anim-swap-in {
+  animation: aihot-swap-in 120ms var(--ease-out-quart) both;
+}
+.anim-bump {
+  animation: aihot-bump 320ms var(--ease-out-quart) both;
+}
+.anim-pop-in {
+  animation: aihot-pop-in 460ms var(--ease-out-quart) both;
+}
+.anim-draw {
+  stroke-dasharray: 1;
+  animation: aihot-draw 900ms var(--ease-out-quart) both;
+}
 
 /* Cross-fade between pages; the theme switch fades the whole document. */
 ::view-transition-old(root),
@@ -378,7 +530,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -406,22 +560,45 @@
   overflow-wrap: anywhere;
 }
 @media (min-width: 80rem) {
-  .prose { font-size: 18px; }
+  .prose {
+    font-size: 18px;
+  }
 }
-.prose > * + * { margin-top: 1.2em; }
-.prose p { margin: 0; }
-.prose p + p { margin-top: 1.2em; }
-.prose h2, .prose h3, .prose h4, .prose h5 {
+.prose > * + * {
+  margin-top: 1.2em;
+}
+.prose p {
+  margin: 0;
+}
+.prose p + p {
+  margin-top: 1.2em;
+}
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5 {
   color: var(--ink);
   font-weight: 650;
   line-height: 1.4;
   letter-spacing: 0;
   scroll-margin-top: 88px;
 }
-.prose h2 { font-size: 1.26em; margin-top: 2.2em; }
-.prose h3 { font-size: 1.1em; margin-top: 1.8em; }
-.prose h4, .prose h5 { font-size: 1em; margin-top: 1.5em; }
-.prose :is(h2, h3, h4, h5) + * { margin-top: 0.7em; }
+.prose h2 {
+  font-size: 1.26em;
+  margin-top: 2.2em;
+}
+.prose h3 {
+  font-size: 1.1em;
+  margin-top: 1.8em;
+}
+.prose h4,
+.prose h5 {
+  font-size: 1em;
+  margin-top: 1.5em;
+}
+.prose :is(h2, h3, h4, h5) + * {
+  margin-top: 0.7em;
+}
 .prose a {
   color: var(--accent);
   text-decoration: underline;
@@ -429,26 +606,51 @@
   text-underline-offset: 3px;
   transition: text-decoration-color 120ms;
 }
-.prose a:hover { text-decoration-color: var(--accent); }
-.prose strong, .prose b { color: var(--ink); font-weight: 650; }
-.prose ul, .prose ol { padding-left: 1.4em; }
-.prose ul { list-style: disc; }
-.prose ol { list-style: decimal; }
-.prose li + li { margin-top: 0.35em; }
-.prose li::marker { color: var(--ink-4); }
+.prose a:hover {
+  text-decoration-color: var(--accent);
+}
+.prose strong,
+.prose b {
+  color: var(--ink);
+  font-weight: 650;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.4em;
+}
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose li + li {
+  margin-top: 0.35em;
+}
+.prose li::marker {
+  color: var(--ink-4);
+}
 .prose blockquote {
   border-left: 3px solid var(--line-strong);
   padding: 0.1em 0 0.1em 1em;
   color: var(--ink-3);
 }
-.prose img, .prose video {
+.prose img,
+.prose video {
   border-radius: var(--radius-tile);
   margin-inline: auto;
   height: auto;
   background: var(--bg-sunk);
 }
-.prose figure { margin: 1.5em 0; }
-.prose figcaption { font-size: 13px; color: var(--ink-4); text-align: center; margin-top: 0.6em; }
+.prose figure {
+  margin: 1.5em 0;
+}
+.prose figcaption {
+  font-size: 13px;
+  color: var(--ink-4);
+  text-align: center;
+  margin-top: 0.6em;
+}
 .prose code {
   font-family: var(--font-mono);
   font-size: 0.86em;
@@ -468,7 +670,12 @@
   padding: 0.9em 1em;
   overflow-x: auto;
 }
-.prose pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+.prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
 .prose table {
   display: block;
   overflow-x: auto;
@@ -476,9 +683,21 @@
   font-size: 14px;
   line-height: 1.55;
 }
-.prose th, .prose td { border: 1px solid var(--line); padding: 0.5em 0.75em; text-align: left; }
-.prose th { background: var(--bg-sunk); font-weight: 600; }
-.prose hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
+.prose th,
+.prose td {
+  border: 1px solid var(--line);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.prose th {
+  background: var(--bg-sunk);
+  font-weight: 600;
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 2em 0;
+}
 
 /* Policy pages read smaller and quieter than article bodies, with numbered sections set apart. */
 .prose-compact {
@@ -487,7 +706,10 @@
   color: var(--ink-2);
 }
 @media (min-width: 80rem) {
-  .prose-compact { font-size: 16px; line-height: 1.85; }
+  .prose-compact {
+    font-size: 16px;
+    line-height: 1.85;
+  }
 }
 .prose-compact h2 {
   font-size: 18px;
@@ -530,5 +752,7 @@
   animation: cr-pulse 2s ease-in-out infinite;
 }
 @keyframes cr-pulse {
-  50% { box-shadow: 0 0 0 7px color-mix(in srgb, currentColor 6%, transparent); }
+  50% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, currentColor 6%, transparent);
+  }
 }

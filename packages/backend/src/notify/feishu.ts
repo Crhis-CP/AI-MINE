@@ -35,7 +35,12 @@ async function uploadImage(data: Buffer, filename: string): Promise<string> {
   const form = new FormData();
   form.set("image_type", "message");
   form.set("image", new Blob([new Uint8Array(data)]), filename);
-  const res = await fetch(`${API}/im/v1/images`, { method: "POST", headers: { authorization: `Bearer ${await tenantToken()}` }, body: form, signal: AbortSignal.timeout(30_000) });
+  const res = await fetch(`${API}/im/v1/images`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${await tenantToken()}` },
+    body: form,
+    signal: AbortSignal.timeout(30_000),
+  });
   const json = (await res.json()) as { code: number; data?: { image_key: string }; msg?: string };
   if (json.code !== 0 || !json.data) throw new Error(`feishu upload: ${json.msg}`);
   return json.data.image_key;
@@ -98,7 +103,12 @@ export function duration(ms: number): string {
 export function formatAlert(f: Finding, since: Date, now: number, repeat = false): { title: string; lines: string[] } {
   const level = f.level === "digest" ? "today" : f.level;
   const lasting = now - since.getTime() >= 60_000 ? `（已持续 ${duration(now - since.getTime())}）` : "";
-  const lines = [f.impact && `影响：${f.impact}`, f.heals && `会自己好吗：${f.heals}`, f.action && `你需要：${f.action}`, f.detail && `给 AI 的细节：${f.detail}`];
+  const lines = [
+    f.impact && `影响：${f.impact}`,
+    f.heals && `会自己好吗：${f.heals}`,
+    f.action && `你需要：${f.action}`,
+    f.detail && `给 AI 的细节：${f.detail}`,
+  ];
   return { title: `${MARK[level]} ${repeat ? "仍未恢复：" : ""}${f.title}${lasting}`, lines: lines.filter((l): l is string => !!l) };
 }
 
@@ -161,7 +171,9 @@ export async function forwardFeedbackToFeishu(id: number): Promise<"sent" | "dis
   if (!feishuInternalEnabled()) return "disabled";
   const chat = credential("integrations", "FEISHU_INTERNAL_CHAT_ID");
   if (!chat) return "disabled";
-  const [fb] = await sql<{ id: number; content: string; email: string | null; note: string | null; page_url: string | null; screenshot_key: string | null; created_at: Date }[]>`
+  const [fb] = await sql<
+    { id: number; content: string; email: string | null; note: string | null; page_url: string | null; screenshot_key: string | null; created_at: Date }[]
+  >`
     SELECT id, content, email, note, page_url, screenshot_key, created_at FROM feedback WHERE id = ${id} AND forwarded_at IS NULL`;
   if (!fb) return "disabled";
   try {

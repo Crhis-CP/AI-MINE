@@ -19,8 +19,11 @@ const BASE = BigInt(Date.now()) * 1000n;
 const WATERMARK = BASE + 100n;
 const POSTS = Array.from({ length: 450 }, (_, i) => BASE + 550n - BigInt(i));
 const tweet = (id: bigint) => ({
-  id_str: String(id), tweet_created_at: new Date(Date.now() - Number(BASE + 550n - id) * 60_000).toISOString(),
-  full_text: `Post ${id} ${T}`, lang: "en", user: { name: "Test account", screen_name: `acct${T}` },
+  id_str: String(id),
+  tweet_created_at: new Date(Date.now() - Number(BASE + 550n - id) * 60_000).toISOString(),
+  full_text: `Post ${id} ${T}`,
+  lang: "en",
+  user: { name: "Test account", screen_name: `acct${T}` },
 });
 const socialdata = await stub((_hit, req) => {
   const u = new URL(req.url, "http://stub");
@@ -35,7 +38,11 @@ const MP_URL = `https://mp.weixin.qq.com/s/test-${T}`;
 let bodyCalls = 0;
 const dajiala = await stub((_hit, req) => {
   if (req.url.startsWith("/fbmain/monitor/v3/post_history")) {
-    return { code: 0, data: [{ position: 1, url: MP_URL, title: `公众号文章 ${T}`, post_time: Math.floor(Date.now() / 1000) - 3600, digest: "摘要", sn: `sn-${T}` }], remain_money: 100 };
+    return {
+      code: 0,
+      data: [{ position: 1, url: MP_URL, title: `公众号文章 ${T}`, post_time: Math.floor(Date.now() / 1000) - 3600, digest: "摘要", sn: `sn-${T}` }],
+      remain_money: 100,
+    };
   }
   bodyCalls += 1;
   if (bodyCalls === 1) return new Reply(503, { error: "busy" });
@@ -59,7 +66,8 @@ before(async () => {
                     ${sql.json({ lastCheckedAt: new Date().toISOString() })}, '2100-01-01')`;
 });
 after(async () => {
-  for (const b of savedBudgets) await sql`UPDATE budgets SET per_minute = ${b.per_minute}, per_hour = ${b.per_hour}, per_day = ${b.per_day} WHERE service = ${b.service}`;
+  for (const b of savedBudgets)
+    await sql`UPDATE budgets SET per_minute = ${b.per_minute}, per_hour = ${b.per_hour}, per_day = ${b.per_day} WHERE service = ${b.service}`;
   await socialdata.close();
   await dajiala.close();
   await stopBoss();
@@ -68,14 +76,17 @@ after(async () => {
 
 test("an X search longer than one run is read to the old watermark over the next runs", async () => {
   const stored = async () => Number((await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM articles WHERE source_id = ${X_SOURCE}`)[0]!.n);
-  const cursor = async () => (await sql<{ cursor: { lastTweetId: string; xBacklog?: unknown[] } }[]>`SELECT cursor FROM sources WHERE id = ${X_SOURCE}`)[0]!.cursor;
+  const cursor = async () =>
+    (await sql<{ cursor: { lastTweetId: string; xBacklog?: unknown[] } }[]>`SELECT cursor FROM sources WHERE id = ${X_SOURCE}`)[0]!.cursor;
 
   const first = await collectSource(X_SOURCE, { force: true });
   assert.equal(first.status, "ok");
   assert.equal(await stored(), 400, "a run reads its own pages and ten more of the stretch left over");
   assert.equal((await cursor()).lastTweetId, String(BASE + 550n), "the watermark moves to the newest post");
   assert.equal((await cursor()).xBacklog?.length, 1, "the unread stretch is kept for the next run");
-  const [run] = await sql<{ detail: { truncated: boolean; backlog: number } }[]>`SELECT detail FROM fetch_runs WHERE source_id = ${X_SOURCE} ORDER BY id DESC LIMIT 1`;
+  const [run] = await sql<
+    { detail: { truncated: boolean; backlog: number } }[]
+  >`SELECT detail FROM fetch_runs WHERE source_id = ${X_SOURCE} ORDER BY id DESC LIMIT 1`;
   assert.deepEqual([run!.detail.truncated, run!.detail.backlog], [true, 1], "the admin sees the stretch still to read");
 
   const second = await collectSource(X_SOURCE, { force: true });
@@ -87,8 +98,10 @@ test("an X search longer than one run is read to the old watermark over the next
 
 test("a WeChat body that failed for a passing reason is fetched on the next check and analysed again", async () => {
   const article = async () =>
-    (await sql<{ body_status: string; revision: number; retry: { attempts: number } | null }[]>`
-      SELECT body_status, revision, raw->'dajiala'->'bodyRetry' AS retry FROM articles WHERE source_id = ${MP_SOURCE}`)[0]!;
+    (
+      await sql<{ body_status: string; revision: number; retry: { attempts: number } | null }[]>`
+      SELECT body_status, revision, raw->'dajiala'->'bodyRetry' AS retry FROM articles WHERE source_id = ${MP_SOURCE}`
+    )[0]!;
 
   const first = await checkMpAccount(MP_SOURCE, "manual");
   assert.equal(first.status, "ok");

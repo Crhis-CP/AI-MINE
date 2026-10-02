@@ -14,7 +14,15 @@ export function BrandMark({ brand, size = 28, className = "" }: { brand: LbBrand
         style={{ width: size, height: size, borderRadius: radius }}
         aria-hidden="true"
       >
-        <img src={brand.src} alt="" width={size} height={size} loading="lazy" decoding="async" className={`object-contain ${dark ? "h-[66%] w-[66%]" : "h-[64%] w-[64%]"}`} />
+        <img
+          src={brand.src}
+          alt=""
+          width={size}
+          height={size}
+          loading="lazy"
+          decoding="async"
+          className={`object-contain ${dark ? "h-[66%] w-[66%]" : "h-[64%] w-[64%]"}`}
+        />
       </span>
     );
   }

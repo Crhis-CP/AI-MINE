@@ -34,7 +34,13 @@ function store(): Store | null {
   const region = get("DB_BACKUP_STORE_REGION");
   if (!secretId || !secretKey || !bucket || !region) return null;
   const domain = get("DB_BACKUP_STORE_DOMAIN");
-  return { secretId, secretKey, bucket, region, endpoint: domain ? `https://${domain.replace(/^https?:\/\//, "")}` : `https://${bucket}.cos.${region}.myqcloud.com` };
+  return {
+    secretId,
+    secretKey,
+    bucket,
+    region,
+    endpoint: domain ? `https://${domain.replace(/^https?:\/\//, "")}` : `https://${bucket}.cos.${region}.myqcloud.com`,
+  };
 }
 
 const hex = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
@@ -42,17 +48,36 @@ const hmac = (key: Buffer | string, data: string) => createHmac("sha256", key).u
 
 /** AWS Signature V4 headers for one request (exported for the test vector check). */
 export function signV4(opts: {
-  method: string; url: URL; region: string; service?: string; accessKey: string; secretKey: string; payloadHash: string; headers?: Record<string, string>; now?: Date;
+  method: string;
+  url: URL;
+  region: string;
+  service?: string;
+  accessKey: string;
+  secretKey: string;
+  payloadHash: string;
+  headers?: Record<string, string>;
+  now?: Date;
 }): Record<string, string> {
   const now = opts.now ?? new Date();
-  const amzDate = now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const amzDate = now
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}/, "");
   const day = amzDate.slice(0, 8);
   const service = opts.service ?? "s3";
   const headers: Record<string, string> = { ...(opts.headers ?? {}), host: opts.url.host, "x-amz-content-sha256": opts.payloadHash, "x-amz-date": amzDate };
-  const names = Object.keys(headers).map((h) => h.toLowerCase()).sort();
+  const names = Object.keys(headers)
+    .map((h) => h.toLowerCase())
+    .sort();
   const lower = Object.fromEntries(Object.entries(headers).map(([k, v]) => [k.toLowerCase(), String(v).trim()]));
-  const canonicalQuery = [...opts.url.searchParams.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
-  const canonicalPath = opts.url.pathname.split("/").map((s) => encodeURIComponent(decodeURIComponent(s))).join("/");
+  const canonicalQuery = [...opts.url.searchParams.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("&");
+  const canonicalPath = opts.url.pathname
+    .split("/")
+    .map((s) => encodeURIComponent(decodeURIComponent(s)))
+    .join("/");
   const canonical = [opts.method, canonicalPath, canonicalQuery, names.map((n) => `${n}:${lower[n]}\n`).join(""), names.join(";"), opts.payloadHash].join("\n");
   const scope = `${day}/${opts.region}/${service}/aws4_request`;
   const toSign = ["AWS4-HMAC-SHA256", amzDate, scope, hex(canonical)].join("\n");
@@ -69,8 +94,22 @@ async function fileSha256(file: string): Promise<string> {
 
 async function upload(s: Store, key: string, file: string, sha: string, size: number) {
   const url = new URL(`${s.endpoint}/${key}`);
-  const headers = signV4({ method: "PUT", url, region: s.region, accessKey: s.secretId, secretKey: s.secretKey, payloadHash: sha, headers: { "content-length": String(size), "content-type": "application/octet-stream" } });
-  const res = await fetch(url, { method: "PUT", headers, body: createReadStream(file) as never, duplex: "half", signal: AbortSignal.timeout(60 * 60_000) } as RequestInit);
+  const headers = signV4({
+    method: "PUT",
+    url,
+    region: s.region,
+    accessKey: s.secretId,
+    secretKey: s.secretKey,
+    payloadHash: sha,
+    headers: { "content-length": String(size), "content-type": "application/octet-stream" },
+  });
+  const res = await fetch(url, {
+    method: "PUT",
+    headers,
+    body: createReadStream(file) as never,
+    duplex: "half",
+    signal: AbortSignal.timeout(60 * 60_000),
+  } as RequestInit);
   if (!res.ok) throw new Error(`backup upload ${key}: HTTP ${res.status} ${(await res.text()).slice(0, 300)}`);
 }
 
@@ -88,14 +127,23 @@ export async function runBackup(now = new Date()) {
   // tried once more and otherwise reported: the database dump still ships, but the run fails.
   const kept: string[] = [];
   // Feedback screenshots waiting to be forwarded are not kept: the privacy notice keeps only Feishu image keys.
-  for (const d of ["uploads"]) if (await stat(path.join(config.dataDir, d)).then((i) => i.isDirectory(), () => false)) kept.push(d);
+  for (const d of ["uploads"])
+    if (
+      await stat(path.join(config.dataDir, d)).then(
+        (i) => i.isDirectory(),
+        () => false,
+      )
+    )
+      kept.push(d);
   let filesError: string | null = null;
   if (!kept.length) await run("tar", ["-czf", files, "-T", "/dev/null"]);
   else {
     const pack = () => run("tar", ["-czf", files, "-C", config.dataDir, ...kept]);
-    await pack().catch(() => pack()).catch((error: unknown) => {
-      filesError = String(error instanceof Error ? error.message : error).slice(0, 300);
-    });
+    await pack()
+      .catch(() => pack())
+      .catch((error: unknown) => {
+        filesError = String(error instanceof Error ? error.message : error).slice(0, 300);
+      });
   }
   const out: Array<{ key: string; bytes: number; sha256: string }> = [];
   const bj = new Date(now.getTime() + 8 * 3600_000);
@@ -115,7 +163,10 @@ export async function runBackup(now = new Date()) {
   }
   // Local copies: keep the newest few of each kind.
   for (const kind of ["aihot-2", "aihot-files-"]) {
-    const list = (await readdir(dir)).filter((f) => f.startsWith(kind)).sort().reverse();
+    const list = (await readdir(dir))
+      .filter((f) => f.startsWith(kind))
+      .sort()
+      .reverse();
     for (const f of list.slice(KEEP_LOCAL)) await rm(path.join(dir, f), { force: true });
   }
   const summary = { at: now.toISOString(), uploaded: !!s && !filesError, objects: out, ...(filesError ? { filesError } : {}) };

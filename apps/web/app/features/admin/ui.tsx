@@ -20,7 +20,19 @@ export function AdminPage({ title, subtitle, actions, children }: { title: React
   );
 }
 
-export function Card({ title, right, children, className = "", pad = true }: { title?: ReactNode; right?: ReactNode; children: ReactNode; className?: string; pad?: boolean }) {
+export function Card({
+  title,
+  right,
+  children,
+  className = "",
+  pad = true,
+}: {
+  title?: ReactNode;
+  right?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  pad?: boolean;
+}) {
   return (
     <section className={`rounded-panel bg-surface ring-1 ring-line ${className}`}>
       {(title || right) && (
@@ -94,7 +106,21 @@ export interface Column<T> {
   align?: "right";
 }
 
-export function DataTable<T>({ rows, columns, rowKey, empty = "暂无数据", onRowClick, dense }: { rows: T[]; columns: Column<T>[]; rowKey: (r: T) => string | number; empty?: ReactNode; onRowClick?: (r: T) => void; dense?: boolean }) {
+export function DataTable<T>({
+  rows,
+  columns,
+  rowKey,
+  empty = "暂无数据",
+  onRowClick,
+  dense,
+}: {
+  rows: T[];
+  columns: Column<T>[];
+  rowKey: (r: T) => string | number;
+  empty?: ReactNode;
+  onRowClick?: (r: T) => void;
+  dense?: boolean;
+}) {
   if (!rows.length) return <Empty>{empty}</Empty>;
   return (
     <div className="overflow-x-auto">
@@ -116,7 +142,10 @@ export function DataTable<T>({ rows, columns, rowKey, empty = "暂无数据", on
               className={`border-b border-line/70 last:border-0 ${onRowClick ? "cursor-pointer transition-colors hover:bg-bg-sunk/60" : ""}`}
             >
               {columns.map((c) => (
-                <td key={c.key} className={`${dense ? "py-1.5" : "py-2.5"} px-3 align-top text-ink-2 ${c.align === "right" ? "num text-right" : ""} ${c.className ?? ""}`}>
+                <td
+                  key={c.key}
+                  className={`${dense ? "py-1.5" : "py-2.5"} px-3 align-top text-ink-2 ${c.align === "right" ? "num text-right" : ""} ${c.className ?? ""}`}
+                >
                   {c.render(r)}
                 </td>
               ))}
@@ -176,14 +205,17 @@ export function ButtonLink({ to, children, tone = "secondary", size = "md" }: { 
   );
 }
 
-const INPUT = "w-full rounded-control bg-surface px-3 py-2 text-[13.5px] text-ink ring-1 ring-line-strong outline-none transition-shadow placeholder:text-ink-4 focus:ring-2 focus:ring-accent";
+const INPUT =
+  "w-full rounded-control bg-surface px-3 py-2 text-[13.5px] text-ink ring-1 ring-line-strong outline-none transition-shadow placeholder:text-ink-4 focus:ring-2 focus:ring-accent";
 
 export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
   const id = useId();
   return (
     <label htmlFor={id} className="block">
       <span className="mb-1 block text-[12.5px] font-medium text-ink-2">{label}</span>
-      <span className="[&>*]:w-full" id={id}>{children}</span>
+      <span className="[&>*]:w-full" id={id}>
+        {children}
+      </span>
       {hint && <span className="mt-1 block text-[12px] text-ink-4">{hint}</span>}
     </label>
   );
@@ -199,7 +231,14 @@ export function Textarea(props: React.ComponentProps<"textarea">) {
 
 export function Select({ children, ...props }: React.ComponentProps<"select">) {
   return (
-    <select {...props} className={`${INPUT} appearance-none bg-[length:12px] bg-[right_10px_center] bg-no-repeat pr-8 ${props.className ?? ""}`} style={{ backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5l3 3 3-3' fill='none' stroke='%2366757a' stroke-width='1.4'/></svg>\")" }}>
+    <select
+      {...props}
+      className={`${INPUT} appearance-none bg-[length:12px] bg-[right_10px_center] bg-no-repeat pr-8 ${props.className ?? ""}`}
+      style={{
+        backgroundImage:
+          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M3 4.5l3 3 3-3' fill='none' stroke='%2366757a' stroke-width='1.4'/></svg>\")",
+      }}
+    >
       {children}
     </select>
   );
@@ -244,9 +283,17 @@ export function Pager({ page, hasMore }: { page: number; hasMore: boolean }) {
   if (page <= 1 && !hasMore) return null;
   return (
     <div className="mt-4 flex items-center justify-center gap-2 text-[13px]">
-      {page > 1 && <ButtonLink to={to(page - 1)} size="sm">上一页</ButtonLink>}
+      {page > 1 && (
+        <ButtonLink to={to(page - 1)} size="sm">
+          上一页
+        </ButtonLink>
+      )}
       <span className="num px-2 text-ink-3">第 {page} 页</span>
-      {hasMore && <ButtonLink to={to(page + 1)} size="sm">下一页</ButtonLink>}
+      {hasMore && (
+        <ButtonLink to={to(page + 1)} size="sm">
+          下一页
+        </ButtonLink>
+      )}
     </div>
   );
 }
@@ -304,7 +351,12 @@ export function ReasonDialog({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-[75] flex items-end justify-center p-3 sm:items-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+        <motion.div
+          className="fixed inset-0 z-[75] flex items-end justify-center p-3 sm:items-center"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
           <div className="absolute inset-0 bg-ink/30 backdrop-blur-[2px]" onClick={onClose} />
           <motion.form
             role="dialog"
@@ -330,7 +382,9 @@ export function ReasonDialog({
               </Field>
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <Button tone="ghost" onClick={onClose}>取消</Button>
+              <Button tone="ghost" onClick={onClose}>
+                取消
+              </Button>
               <Button type="submit" tone={danger ? "danger" : "primary"} busy={busy} disabled={requireReason && !reason.trim()}>
                 {confirmLabel}
               </Button>

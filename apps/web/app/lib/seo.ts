@@ -83,7 +83,16 @@ export function organizationLd() {
     name: SITE.organization.name,
     url: base,
     logo: `${base}/icon.png`,
-    ...(founder ? { founder: { "@type": "Person", name: founder.name, ...(founder.description ? { description: founder.description } : {}), ...(founder.url ? { sameAs: [founder.url] } : {}) } } : {}),
+    ...(founder
+      ? {
+          founder: {
+            "@type": "Person",
+            name: founder.name,
+            ...(founder.description ? { description: founder.description } : {}),
+            ...(founder.url ? { sameAs: [founder.url] } : {}),
+          },
+        }
+      : {}),
   };
 }
 

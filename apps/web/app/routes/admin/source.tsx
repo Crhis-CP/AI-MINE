@@ -6,7 +6,25 @@ import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
 import { bj, duration, num } from "../../features/admin/format";
 import { HEALTH_LABEL, KIND_LABEL, MODE_LABEL, TIER_LABEL, VISIBILITY_LABEL } from "../../features/admin/labels";
-import { AdminPage, Badge, Button, Card, DataTable, Dot, Empty, Field, healthTone, Input, Json, KV, ReasonDialog, Select, Stat, Textarea, Time } from "../../features/admin/ui";
+import {
+  AdminPage,
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  Dot,
+  Empty,
+  Field,
+  healthTone,
+  Input,
+  Json,
+  KV,
+  ReasonDialog,
+  Select,
+  Stat,
+  Textarea,
+  Time,
+} from "../../features/admin/ui";
 
 interface Source {
   id: string;
@@ -43,8 +61,27 @@ interface RunDetail {
 
 interface Detail {
   source: Source;
-  runs: Array<{ id: number; started_at: string; finished_at: string | null; status: string; found_count: number | null; new_count: number | null; error: string | null; detail: RunDetail | null }>;
-  items: Array<{ id: string; title: string; url: string; discovered_at: string; published_at: string | null; processing_state: string; selected: boolean | null; visibility: string | null; title_zh: string | null }>;
+  runs: Array<{
+    id: number;
+    started_at: string;
+    finished_at: string | null;
+    status: string;
+    found_count: number | null;
+    new_count: number | null;
+    error: string | null;
+    detail: RunDetail | null;
+  }>;
+  items: Array<{
+    id: string;
+    title: string;
+    url: string;
+    discovered_at: string;
+    published_at: string | null;
+    processing_state: string;
+    selected: boolean | null;
+    visibility: string | null;
+    title_zh: string | null;
+  }>;
   stats: { total: number; last7d: number; selected: number };
   history: Array<{ created_at: string; actor: string; action: string; reason: string | null; before: unknown; after: unknown }>;
 }
@@ -61,7 +98,10 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `${loaderData?.source.name ?? "信源"} · ${SITE.name} 后台` }];
 
-type Draft = Pick<Source, "name" | "interval_minutes" | "tier" | "participation_mode" | "signal_group_id" | "first_party" | "owner_entity_id" | "site_fulltext" | "syndicate_fulltext"> & { tags: string; config: string };
+type Draft = Pick<
+  Source,
+  "name" | "interval_minutes" | "tier" | "participation_mode" | "signal_group_id" | "first_party" | "owner_entity_id" | "site_fulltext" | "syndicate_fulltext"
+> & { tags: string; config: string };
 
 function draftOf(s: Source): Draft {
   return {
@@ -105,7 +145,10 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
     }
     const next: Record<string, unknown> = {
       ...draft,
-      tags: draft.tags.split(/[,，]/).map((t) => t.trim()).filter(Boolean),
+      tags: draft.tags
+        .split(/[,，]/)
+        .map((t) => t.trim())
+        .filter(Boolean),
       config,
       interval_minutes: Number(draft.interval_minutes),
       signal_group_id: draft.signal_group_id || null,
@@ -163,7 +206,7 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
           value={
             <span className="inline-flex items-center gap-2 text-[18px]">
               <Dot tone={s.enabled ? healthTone(s.health) : "muted"} />
-              {s.enabled ? HEALTH_LABEL[s.health] ?? s.health : "已暂停"}
+              {s.enabled ? (HEALTH_LABEL[s.health] ?? s.health) : "已暂停"}
             </span>
           }
           hint={s.fail_count ? `连续失败 ${s.fail_count} 次` : `上次成功 ${s.last_ok_at ? bj(s.last_ok_at) : "—"}`}
@@ -172,7 +215,9 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
         <Stat label="近 7 天" value={num(stats.last7d)} />
         <Stat label="入选精选" value={num(stats.selected)} />
       </div>
-      {s.last_error && s.health !== "ok" && <div className="mb-5 rounded-card bg-hot-soft px-4 py-3 text-[13px] text-hot ring-1 ring-hot/20">{s.last_error}</div>}
+      {s.last_error && s.health !== "ok" && (
+        <div className="mb-5 rounded-card bg-hot-soft px-4 py-3 text-[13px] text-hot ring-1 ring-hot/20">{s.last_error}</div>
+      )}
 
       {preview && (
         <Card className="mb-5" title={`预览：${preview.count} 条（${preview.ms}ms，未入库）`} right={<button onClick={() => setPreview(null)}>收起</button>}>
@@ -180,8 +225,12 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
             <ul className="space-y-2.5">
               {preview.items.map((i) => (
                 <li key={i.url} className="text-[13px]">
-                  <a href={i.url} target="_blank" rel="noreferrer" className="font-medium text-ink hover:text-accent">{i.title}</a>
-                  <div className="text-[12px] text-ink-4">{i.publishedAt ? bj(i.publishedAt, true) : "无发布时间"} · {i.url}</div>
+                  <a href={i.url} target="_blank" rel="noreferrer" className="font-medium text-ink hover:text-accent">
+                    {i.title}
+                  </a>
+                  <div className="text-[12px] text-ink-4">
+                    {i.publishedAt ? bj(i.publishedAt, true) : "无发布时间"} · {i.url}
+                  </div>
                   {i.excerpt && <div className="mt-0.5 line-clamp-2 text-[12.5px] text-ink-3">{i.excerpt}</div>}
                 </li>
               ))}
@@ -200,16 +249,30 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                 <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
               </Field>
               <Field label="采集间隔（分钟）">
-                <Input type="number" min={1} max={1440} value={draft.interval_minutes} onChange={(e) => setDraft({ ...draft, interval_minutes: Number(e.target.value) })} />
+                <Input
+                  type="number"
+                  min={1}
+                  max={1440}
+                  value={draft.interval_minutes}
+                  onChange={(e) => setDraft({ ...draft, interval_minutes: Number(e.target.value) })}
+                />
               </Field>
               <Field label="参与方式" hint="氛围只作热点讨论证据，不单独成为内容">
                 <Select value={draft.participation_mode} onChange={(e) => setDraft({ ...draft, participation_mode: e.target.value })}>
-                  {Object.entries(MODE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  {Object.entries(MODE_LABEL).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
                 </Select>
               </Field>
               <Field label="等级">
                 <Select value={draft.tier} onChange={(e) => setDraft({ ...draft, tier: e.target.value })}>
-                  {Object.entries(TIER_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  {Object.entries(TIER_LABEL).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
                 </Select>
               </Field>
               <Field label="讨论分组 ID" hint="同一机构的多个账号共用，热度只算一次">
@@ -222,13 +285,20 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                 <Input value={draft.tags} onChange={(e) => setDraft({ ...draft, tags: e.target.value })} />
               </Field>
               <div className="flex flex-col justify-end gap-2 text-[13px] text-ink-2">
-                {([
-                  ["first_party", "一手信源（官方账号或官网）"],
-                  ["site_fulltext", "站内可展示全文"],
-                  ["syndicate_fulltext", "对外接口可带全文"],
-                ] as const).map(([k, label]) => (
+                {(
+                  [
+                    ["first_party", "一手信源（官方账号或官网）"],
+                    ["site_fulltext", "站内可展示全文"],
+                    ["syndicate_fulltext", "对外接口可带全文"],
+                  ] as const
+                ).map(([k, label]) => (
                   <label key={k} className="inline-flex items-center gap-2">
-                    <input type="checkbox" className="size-4 accent-[var(--accent)]" checked={draft[k]} onChange={(e) => setDraft({ ...draft, [k]: e.target.checked })} />
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-[var(--accent)]"
+                      checked={draft[k]}
+                      onChange={(e) => setDraft({ ...draft, [k]: e.target.checked })}
+                    />
                     {label}
                   </label>
                 ))}
@@ -236,14 +306,24 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
             </div>
             <div className="mt-4">
               <Field label="采集配置（JSON）">
-                <Textarea className="font-mono !text-[12px]" rows={Math.min(18, draft.config.split("\n").length + 1)} value={draft.config} onChange={(e) => setDraft({ ...draft, config: e.target.value })} spellCheck={false} />
+                <Textarea
+                  className="font-mono !text-[12px]"
+                  rows={Math.min(18, draft.config.split("\n").length + 1)}
+                  value={draft.config}
+                  onChange={(e) => setDraft({ ...draft, config: e.target.value })}
+                  spellCheck={false}
+                />
               </Field>
               {configError && <div className="mt-1 text-[12.5px] text-hot">{configError}</div>}
             </div>
             <div className="mt-4 flex items-center justify-end gap-2">
               {changes > 0 && <span className="text-[12.5px] text-ink-3">{changes} 项改动未保存</span>}
-              <Button tone="ghost" disabled={!changes} onClick={() => setDraft(draftOf(s))}>还原</Button>
-              <Button tone="primary" disabled={!changes} onClick={() => patch() && setDialog("save")}>保存</Button>
+              <Button tone="ghost" disabled={!changes} onClick={() => setDraft(draftOf(s))}>
+                还原
+              </Button>
+              <Button tone="primary" disabled={!changes} onClick={() => patch() && setDialog("save")}>
+                保存
+              </Button>
             </div>
           </Card>
 
@@ -257,10 +337,22 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                   key: "t",
                   label: "标题",
                   render: (r) => (
-                    <Link to={`/admin/content/${r.id}`} className="line-clamp-2 min-w-[260px] text-ink hover:text-accent">{r.title_zh || r.title}</Link>
+                    <Link to={`/admin/content/${r.id}`} className="line-clamp-2 min-w-[260px] text-ink hover:text-accent">
+                      {r.title_zh || r.title}
+                    </Link>
                   ),
                 },
-                { key: "s", label: "状态", render: (r) => <span className="flex gap-1">{r.selected && <Badge tone="accent">精选</Badge>}{r.visibility && r.visibility !== "public" && <Badge tone="warn">{VISIBILITY_LABEL[r.visibility]}</Badge>}<Badge>{r.processing_state}</Badge></span> },
+                {
+                  key: "s",
+                  label: "状态",
+                  render: (r) => (
+                    <span className="flex gap-1">
+                      {r.selected && <Badge tone="accent">精选</Badge>}
+                      {r.visibility && r.visibility !== "public" && <Badge tone="warn">{VISIBILITY_LABEL[r.visibility]}</Badge>}
+                      <Badge>{r.processing_state}</Badge>
+                    </span>
+                  ),
+                },
                 { key: "d", label: "发现", render: (r) => <Time at={r.discovered_at} /> },
               ]}
             />
@@ -277,7 +369,11 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                 ["创建", bj(s.created_at, true)],
               ]}
             />
-            {s.cursor && <div className="mt-3"><Json value={s.cursor} label="游标" /></div>}
+            {s.cursor && (
+              <div className="mt-3">
+                <Json value={s.cursor} label="游标" />
+              </div>
+            )}
           </Card>
           <Card title="采集记录" pad={false}>
             <DataTable
@@ -292,9 +388,19 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                   label: "结果",
                   render: (r) => (
                     <span className="inline-flex gap-1">
-                      <Badge tone={r.status === "ok" ? "ok" : r.status === "failed" ? "bad" : "muted"} title={r.error ?? undefined}>{r.status}</Badge>
-                      {!!r.detail?.dropped && <Badge tone="bad" title="有一段更早的帖子没能读完，其中的内容可能漏采">可能漏采</Badge>}
-                      {!r.detail?.dropped && !!r.detail?.backlog && <Badge tone="warn" title="帖子多于一轮能读的页数，余下的在后面几轮接着读">续读 {r.detail.backlog} 段</Badge>}
+                      <Badge tone={r.status === "ok" ? "ok" : r.status === "failed" ? "bad" : "muted"} title={r.error ?? undefined}>
+                        {r.status}
+                      </Badge>
+                      {!!r.detail?.dropped && (
+                        <Badge tone="bad" title="有一段更早的帖子没能读完，其中的内容可能漏采">
+                          可能漏采
+                        </Badge>
+                      )}
+                      {!r.detail?.dropped && !!r.detail?.backlog && (
+                        <Badge tone="warn" title="帖子多于一轮能读的页数，余下的在后面几轮接着读">
+                          续读 {r.detail.backlog} 段
+                        </Badge>
+                      )}
                     </span>
                   ),
                 },
@@ -308,7 +414,9 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
               <ul className="space-y-3 text-[12.5px]">
                 {history.map((h, i) => (
                   <li key={i}>
-                    <div className="text-ink-2"><span className="font-medium">{h.action}</span> · {h.actor} · {bj(h.created_at)}</div>
+                    <div className="text-ink-2">
+                      <span className="font-medium">{h.action}</span> · {h.actor} · {bj(h.created_at)}
+                    </div>
                     {h.reason && <div className="text-ink-3">{h.reason}</div>}
                   </li>
                 ))}
@@ -342,7 +450,12 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
         busy={pending === "toggle"}
         onClose={() => setDialog(null)}
         onSubmit={async (reason) => {
-          const r = await run("PATCH", base, { patch: { enabled: !s.enabled }, version: new Date(s.updated_at).toISOString(), reason }, { label: "toggle", success: s.enabled ? "已暂停" : "已恢复" });
+          const r = await run(
+            "PATCH",
+            base,
+            { patch: { enabled: !s.enabled }, version: new Date(s.updated_at).toISOString(), reason },
+            { label: "toggle", success: s.enabled ? "已暂停" : "已恢复" },
+          );
           return r !== null;
         }}
       />

@@ -53,7 +53,25 @@ function statusChip(e: CodexResetEvent, now: number) {
   return { text: "已宣布 · 等待生效", tone: "text-amber-ink" };
 }
 
-export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, selectedDate, version }: { selectedDate: string; version: string; marks: CodexCalendarMark[]; events: CodexResetEvent[]; today: string; historyFrom: string | null; now: number; avatar: string | null }) {
+export function ResetCalendar({
+  marks,
+  events,
+  today,
+  historyFrom,
+  now,
+  avatar,
+  selectedDate,
+  version,
+}: {
+  selectedDate: string;
+  version: string;
+  marks: CodexCalendarMark[];
+  events: CodexResetEvent[];
+  today: string;
+  historyFrom: string | null;
+  now: number;
+  avatar: string | null;
+}) {
   const latest = useMemo(() => [...marks].sort((a, b) => (a.date < b.date ? 1 : -1))[0]?.date ?? today, [marks, today]);
   const initial = selectedDate;
   const [selected, setSelected] = useState(initial);
@@ -79,14 +97,19 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
     if (daysLoaded[selected] || !marks.some((m) => m.date === selected)) return;
     const controller = new AbortController();
     fetch(`/api/site/codex-reset/days/${selected}`, { signal: controller.signal, cache: "no-store" })
-      .then((r) => { if (!r.ok) throw new Error("day unavailable"); return r.json(); })
+      .then((r) => {
+        if (!r.ok) throw new Error("day unavailable");
+        return r.json();
+      })
       .then((data: CodexResetDay) => {
         // The page or this day may predate the latest monitor update. Do not cache either mismatch;
         // the existing date link reloads both through SSR, without an automatic retry loop.
         if (data.version !== version) throw new Error("monitor version changed");
         if (!controller.signal.aborted) setDaysLoaded((old) => ({ ...old, [selected]: data.events }));
       })
-      .catch(() => { if (!controller.signal.aborted) setFailed(true); });
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
     return () => controller.abort();
   }, [selected, version, marks, daysLoaded]);
   const inMonth = marks.filter((m) => monthOf(m.date) === month);
@@ -119,7 +142,18 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
       </h2>
       <p className="mt-1 text-[12.5px] text-ink-3">点日期查看当天的重置、发卡和 Tibo 原帖。</p>
 
-      <noscript><nav aria-label="历史重置记录">{[...new Set(marks.map((m) => m.date))].sort().reverse().map((d) => <a key={d} href={`/codex-reset/history/${d}`} className="mr-3 inline-block">{d}</a>)}</nav></noscript>
+      <noscript>
+        <nav aria-label="历史重置记录">
+          {[...new Set(marks.map((m) => m.date))]
+            .sort()
+            .reverse()
+            .map((d) => (
+              <a key={d} href={`/codex-reset/history/${d}`} className="mr-3 inline-block">
+                {d}
+              </a>
+            ))}
+        </nav>
+      </noscript>
       <div className="mt-4 overflow-hidden rounded-card border border-line-strong bg-surface lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,1fr)] xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,1fr)]">
         <div className="px-3 py-[18px] sm:p-6">
           <div className="flex items-center justify-between gap-3">
@@ -128,14 +162,30 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
             </span>
             <div className="flex items-center gap-0.5">
               {month !== monthOf(latest) && (
-                <button type="button" onClick={() => select(latest)} className="mr-1 h-8 rounded-full px-3 text-[12px] text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink">
+                <button
+                  type="button"
+                  onClick={() => select(latest)}
+                  className="mr-1 h-8 rounded-full px-3 text-[12px] text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
+                >
                   回到最近
                 </button>
               )}
-              <button type="button" onClick={() => setMonth(shiftMonth(month, -1))} disabled={month <= minMonth} aria-label="上个月" className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink disabled:opacity-35">
+              <button
+                type="button"
+                onClick={() => setMonth(shiftMonth(month, -1))}
+                disabled={month <= minMonth}
+                aria-label="上个月"
+                className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink disabled:opacity-35"
+              >
                 <IconChevronRight size={15} className="rotate-180" />
               </button>
-              <button type="button" onClick={() => setMonth(shiftMonth(month, 1))} disabled={month >= maxMonth} aria-label="下个月" className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink disabled:opacity-35">
+              <button
+                type="button"
+                onClick={() => setMonth(shiftMonth(month, 1))}
+                disabled={month >= maxMonth}
+                aria-label="下个月"
+                className="grid size-8 place-items-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink disabled:opacity-35"
+              >
                 <IconChevronRight size={15} />
               </button>
             </div>
@@ -174,13 +224,18 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
                 return (
                   <a
                     key={d}
-                    href={`/codex-reset/history/${d}` }
+                    href={`/codex-reset/history/${d}`}
                     role="gridcell"
                     data-day={d}
                     tabIndex={isSel ? 0 : -1}
                     aria-selected={isSel}
                     aria-label={`${d}${d === today ? "，今天" : ""}${ms.length ? `，${ms.map((m) => m.label).join("、")}` : ""}`}
-                    onClick={(e) => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); select(d); } }}
+                    onClick={(e) => {
+                      if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                        e.preventDefault();
+                        select(d);
+                      }
+                    }}
                     className={`relative flex min-h-[62px] flex-col items-center justify-start gap-1.5 rounded-control border px-0 pb-1.5 pt-2.5 transition-[background-color,border-color] duration-150 sm:min-h-[70px] sm:rounded-tile sm:px-0.5 ${
                       top ? CELL[top.state] : "border-transparent bg-cal-plain hover:border-line-strong hover:bg-bg-sunk"
                     } ${isSel ? "!border-[1.5px] !border-solid !border-accent shadow-[inset_0_0_0_1px_var(--surface)]" : ""} ${other ? "opacity-[0.38]" : ""}`}
@@ -190,7 +245,9 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
                       {d === today && <span className="absolute -right-2 top-0.5 size-1 rounded-full bg-accent" aria-hidden="true" />}
                     </span>
                     {top && (
-                      <span className={`max-w-full truncate rounded-full px-[3px] text-[10px] font-medium leading-4 sm:px-1.5 sm:text-[11px] ${CHIP[top.state]}`}>
+                      <span
+                        className={`max-w-full truncate rounded-full px-[3px] text-[10px] font-medium leading-4 sm:px-1.5 sm:text-[11px] ${CHIP[top.state]}`}
+                      >
                         {top.label}
                         {ms.length > 1 ? ` +${ms.length - 1}` : ""}
                       </span>
@@ -227,7 +284,17 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
           <p className="sr-only">
             已选择 {selected}，{selectedMarks.length} 条记录。
           </p>
-          {selectedMarks.length > 0 && !daysLoaded[selected] && <p className="text-[13px] text-ink-3">{failed ? <a href={`/codex-reset/history/${selected}`} className="text-accent">重新读取当天记录</a> : "正在读取当天记录…"}</p>}
+          {selectedMarks.length > 0 && !daysLoaded[selected] && (
+            <p className="text-[13px] text-ink-3">
+              {failed ? (
+                <a href={`/codex-reset/history/${selected}`} className="text-accent">
+                  重新读取当天记录
+                </a>
+              ) : (
+                "正在读取当天记录…"
+              )}
+            </p>
+          )}
           {selectedMarks.map((m, i) => {
             const e = eventById.get(m.eventId);
             if (!e) return null;
@@ -262,7 +329,19 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
                 </p>
                 {post && (
                   <div className="mb-2 mt-3">
-                    <PostCard compact avatar={avatar} stage={post.stage} post={{ id: post.id, publishedAt: post.publishedAt, translation: post.fullText ?? post.text, original: post.fullOriginalText ?? post.originalText, context: post.context, url: post.url }} />
+                    <PostCard
+                      compact
+                      avatar={avatar}
+                      stage={post.stage}
+                      post={{
+                        id: post.id,
+                        publishedAt: post.publishedAt,
+                        translation: post.fullText ?? post.text,
+                        original: post.fullOriginalText ?? post.originalText,
+                        context: post.context,
+                        url: post.url,
+                      }}
+                    />
                   </div>
                 )}
                 {e.posts.length > 1 && (
@@ -275,12 +354,24 @@ export function ResetCalendar({ marks, events, today, historyFrom, now, avatar, 
           })}
           {!selectedMarks.length && (
             <div className="flex min-h-[300px] flex-col items-start justify-center">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-ink-4 opacity-60" aria-hidden="true">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                className="text-ink-4 opacity-60"
+                aria-hidden="true"
+              >
                 <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
                 <path d="M3.5 9.5h17M8 3v4M16 3v4" />
               </svg>
               <h4 className="mt-4 text-[15px] font-semibold text-ink">这一天没有记录</h4>
-              <p className="mb-5 mt-3 max-w-[280px] text-[12px] leading-[1.8] text-ink-4">这天没有 Tibo 宣布或确认的重置，也没有发放重置卡。点日历上带标签的日期查看记录。</p>
+              <p className="mb-5 mt-3 max-w-[280px] text-[12px] leading-[1.8] text-ink-4">
+                这天没有 Tibo 宣布或确认的重置，也没有发放重置卡。点日历上带标签的日期查看记录。
+              </p>
             </div>
           )}
         </aside>

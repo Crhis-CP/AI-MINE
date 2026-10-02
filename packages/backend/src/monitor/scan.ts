@@ -45,7 +45,14 @@ export async function scanDue(now = Date.now()): Promise<boolean> {
 async function contextOf(t: SdTweet, subject: string): Promise<Array<ContextInput & { url: string }>> {
   const out: Array<ContextInput & { url: string }> = [];
   const push = (x: SdTweet, relation: "reply" | "quote") =>
-    out.push({ id: x.id_str, author: x.user.screen_name, relation, text: tweetText(x), publishedAt: new Date(x.tweet_created_at).toISOString(), url: `https://x.com/i/status/${x.id_str}` });
+    out.push({
+      id: x.id_str,
+      author: x.user.screen_name,
+      relation,
+      text: tweetText(x),
+      publishedAt: new Date(x.tweet_created_at).toISOString(),
+      url: `https://x.com/i/status/${x.id_str}`,
+    });
   if (t.quoted_status) push(t.quoted_status, "quote");
   let parentId = t.in_reply_to_status_id_str ?? null;
   for (let depth = 0; parentId && depth < 2; depth++) {
@@ -108,7 +115,9 @@ export async function collectPosts(opts: { lookbackHours?: number } = {}): Promi
 }
 
 async function openEvents(before: Date): Promise<OpenEventInput[]> {
-  const rows = await sql<{ id: string; type: OpenEventInput["kind"]; status: OpenEventInput["status"]; schedule: { label: string } | null; first_at: Date; excerpt: string }[]>`
+  const rows = await sql<
+    { id: string; type: OpenEventInput["kind"]; status: OpenEventInput["status"]; schedule: { label: string } | null; first_at: Date; excerpt: string }[]
+  >`
     SELECT e.id, e.type, e.status, e.schedule, min(p.published_at) AS first_at,
       (SELECT ep.original_text FROM monitor_event_posts ep JOIN monitor_posts pp ON pp.id = ep.post_id WHERE ep.event_id = e.id ORDER BY pp.published_at LIMIT 1) AS excerpt
     FROM monitor_events e JOIN monitor_event_posts l ON l.event_id = e.id JOIN monitor_posts p ON p.id = l.post_id
@@ -116,7 +125,14 @@ async function openEvents(before: Date): Promise<OpenEventInput[]> {
       AND ((e.status = 'announced' OR e.confirmation_basis = 'receipt_review' AND e.confirmed_at IS NULL) AND e.created_at >= ${new Date(before.getTime() - 72 * 3600_000)}
            OR e.confirmed_at >= ${new Date(before.getTime() - 48 * 3600_000)})
     GROUP BY e.id ORDER BY first_at DESC LIMIT 8`;
-  return rows.map((r) => ({ id: r.id, kind: r.type, status: r.status, firstPostAt: r.first_at.toISOString(), excerpt: r.excerpt, schedule: r.schedule?.label ?? null }));
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.type,
+    status: r.status,
+    firstPostAt: r.first_at.toISOString(),
+    excerpt: r.excerpt,
+    schedule: r.schedule?.label ?? null,
+  }));
 }
 
 function resetCard(eventId: string, action: "announce" | "confirm", snapshot: Awaited<ReturnType<typeof codexResetsSnapshot>>, postId: string) {
@@ -161,7 +177,13 @@ export async function processPending(limit = 20): Promise<{ processed: number; f
   for (const p of posts) {
     if (shutdownSignal.signal.aborted) break; // later posts wait for the next tick, in order
     try {
-      const rec = await recognizePost({ id: p.id, text: p.text, publishedAt: p.published_at.toISOString(), context: p.raw?.context ?? [], openEvents: await openEvents(p.published_at) });
+      const rec = await recognizePost({
+        id: p.id,
+        text: p.text,
+        publishedAt: p.published_at.toISOString(),
+        context: p.raw?.context ?? [],
+        openEvents: await openEvents(p.published_at),
+      });
       await applyRecognition(p.id, rec);
       processed++;
       await sql`DELETE FROM monitor_state WHERE key = ${`failures:${p.id}`}`;
@@ -197,7 +219,13 @@ export async function flushResetPushes(): Promise<number> {
   for (const o of owed) {
     const card = resetCard(o.event_id, o.action, snapshot, o.post_id);
     if (!card) continue;
-    const results = await deliverContent({ subjectKind: "codex_reset", subjectId: o.event_id, dedupeKey: `codex:${o.post_id}:${o.event_id}:${o.action}`, contentAt: o.published_at, card });
+    const results = await deliverContent({
+      subjectKind: "codex_reset",
+      subjectId: o.event_id,
+      dedupeKey: `codex:${o.post_id}:${o.event_id}:${o.action}`,
+      contentAt: o.published_at,
+      card,
+    });
     pushed += results.filter((r) => r.status === "sent").length;
   }
   return pushed;

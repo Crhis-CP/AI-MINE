@@ -6,17 +6,38 @@ import { headCommit } from "../github.ts";
 import type { FetchResult, Fetcher, ParsedRow } from "../types.ts";
 
 const BOARDS = [
-  { key: "eq-creative", name: "Creative Writing v3", file: "creative_writing.js", column: "elo_score", version: "creative-writing-v3", page: "https://eqbench.com/creative_writing.html" },
-  { key: "eq-longform", name: "Longform Writing", file: "creative_writing_longform.js", column: "overall_score_100", version: "longform-v1.11", page: "https://eqbench.com/creative_writing_longform.html" },
+  {
+    key: "eq-creative",
+    name: "Creative Writing v3",
+    file: "creative_writing.js",
+    column: "elo_score",
+    version: "creative-writing-v3",
+    page: "https://eqbench.com/creative_writing.html",
+  },
+  {
+    key: "eq-longform",
+    name: "Longform Writing",
+    file: "creative_writing_longform.js",
+    column: "overall_score_100",
+    version: "longform-v1.11",
+    page: "https://eqbench.com/creative_writing_longform.html",
+  },
 ];
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 /** First template literal holding a CSV that starts with model_name. */
 function leaderboardCsv(js: string): string[][] {
   const m = /`\s*(model_name,[^`]+)`/.exec(js);
   if (!m) throw new Error("eqbench: leaderboard CSV not found");
-  return m[1]!.trim().split(/\r?\n/).map((l) => l.split(","));
+  return m[1]!
+    .trim()
+    .split(/\r?\n/)
+    .map((l) => l.split(","));
 }
 
 export const eqbench: Fetcher = {
@@ -54,7 +75,15 @@ export const eqbench: Fetcher = {
         attributionUrl: b.page,
         publishedAt: commit.date,
         rows,
-        metadata: { dataAtKind: "score-data-commit", dataCommit: commit.sha, upstreamPublishedAt: commit.date, benchmarkVersion: b.version, sourceOperator: "EQ-Bench", sourceFamily: "judged-creative-writing", metricCount: 1 },
+        metadata: {
+          dataAtKind: "score-data-commit",
+          dataCommit: commit.sha,
+          upstreamPublishedAt: commit.date,
+          benchmarkVersion: b.version,
+          sourceOperator: "EQ-Bench",
+          sourceFamily: "judged-creative-writing",
+          metricCount: 1,
+        },
       });
     }
     return out;
