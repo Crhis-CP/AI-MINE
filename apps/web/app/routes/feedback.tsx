@@ -5,7 +5,7 @@ import { Presence } from "../components/ui/Presence";
 import { pageMeta } from "../lib/seo";
 import { KEYS } from "../lib/local-state";
 import { IconCheck, IconClose, IconImage } from "../components/icons";
-import { RingMark } from "../components/Logo";
+import { LoadingDots } from "../components/Logo";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
 
 /** Shared caches may keep this page for five minutes. */
@@ -281,7 +281,7 @@ export default function FeedbackPage() {
             disabled={!canSend}
             className="inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-full bg-accent px-6 text-[14px] font-medium text-accent-contrast transition-[background-color,opacity] hover:bg-accent-ink disabled:bg-line-strong disabled:text-ink-4 sm:self-auto"
           >
-            {state.kind === "sending" && <RingMark className="size-4" spinning />}
+            {state.kind === "sending" && <LoadingDots className="text-[14px]" />}
             发送反馈
           </button>
         </div>

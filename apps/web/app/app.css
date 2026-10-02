@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   AIHOT design tokens — the look of the original site: warm off-white paper,
-   ink text, one teal accent (cyan in dark), hairline borders, no gradients.
-   Components use the semantic names below; values change per theme only.
+   Design tokens: warm off-white paper, ink text, one accent, hairline borders,
+   no gradients. Components use the semantic names below; values change per
+   theme only. The accent is a temporary neutral placeholder (临时) until T-0006
+   settles the palette with the Owner (Q-67).
    --------------------------------------------------------------------------- */
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
@@ -11,14 +12,6 @@
 @theme {
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-
-  /* Brand (VI), fixed across themes. */
-  --color-brand-teal: #176b75;
-  --color-brand-cyan-0: #5deef0;
-  --color-brand-cyan-20: #2ce2e8;
-  --color-brand-cyan-54: #12ccd8;
-  --color-brand-cyan-82: #08abc2;
-  --color-brand-cyan-100: #078ea9;
 
   /* Semantic colours. */
   --color-bg: var(--bg);
@@ -100,10 +93,11 @@
   --line: #dfe4e1;
   --line-strong: #d1d9d5;
   --line-soft: #e9ede9;
-  --accent: #176b75;
-  --accent-ink: #145f68;
-  --accent-soft: rgba(23, 107, 117, 0.08);
-  --accent-softer: rgba(23, 107, 117, 0.05);
+  /* 临时: neutral placeholder accent until T-0006 (Q-67). */
+  --accent: #475569;
+  --accent-ink: #334155;
+  --accent-soft: rgba(71, 85, 105, 0.08);
+  --accent-softer: rgba(71, 85, 105, 0.05);
   --accent-contrast: #ffffff;
   --note: #526f72;
   --hot: #b3402a;
@@ -125,7 +119,7 @@
   --shadow-pop: 0 12px 32px rgba(28, 39, 51, 0.12);
   --prose-ink: #26323a;
   --code-bg: #f6f7f4;
-  --selection: rgba(23, 107, 117, 0.16);
+  --selection: rgba(71, 85, 105, 0.16);
 }
 
 [data-theme="dark"] {
@@ -146,10 +140,11 @@
   --line: rgba(255, 255, 255, 0.08);
   --line-strong: rgba(255, 255, 255, 0.12);
   --line-soft: rgba(255, 255, 255, 0.06);
-  --accent: #12ccd8;
-  --accent-ink: #2ce2e8;
-  --accent-soft: rgba(18, 204, 216, 0.12);
-  --accent-softer: rgba(18, 204, 216, 0.06);
+  /* 临时: neutral placeholder accent until T-0006 (Q-67). */
+  --accent: #94a3b8;
+  --accent-ink: #cbd5e1;
+  --accent-soft: rgba(148, 163, 184, 0.12);
+  --accent-softer: rgba(148, 163, 184, 0.06);
   --accent-contrast: #000000;
   --note: #8fb8a8;
   --hot: #d86a52;
@@ -171,7 +166,7 @@
   --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.45);
   --prose-ink: #d7dfdf;
   --code-bg: #10151c;
-  --selection: rgba(18, 204, 216, 0.22);
+  --selection: rgba(148, 163, 184, 0.22);
 }
 
 @layer base {
@@ -333,9 +328,15 @@
   }
 }
 
-@keyframes spin-slow {
-  to {
-    transform: rotate(360deg);
+/* The loader's dots (components/Logo.tsx LoadingDots). */
+@keyframes dot-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
   }
 }
 
