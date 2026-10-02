@@ -1,5 +1,5 @@
 {
-  "name": "@aihot/worker",
+  "name": "@amp/worker",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,9 +7,9 @@
     "start": "node src/main.ts"
   },
   "dependencies": {
-    "@aihot/backend": "workspace:*",
-    "@aihot/contracts": "workspace:*",
-    "@aihot/industry": "workspace:*",
+    "@amp/backend": "workspace:*",
+    "@amp/contracts": "workspace:*",
+    "@amp/industry": "workspace:*",
     "pg-boss": "12.34.0"
   }
 }

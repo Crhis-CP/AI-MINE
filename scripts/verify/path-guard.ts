@@ -101,7 +101,7 @@ export type GuardResult = { status: "pass" | "fail" | "skipped"; lines: string[]
 export function pathGuard(base: string, head: string, task: string | null, root = ROOT): GuardResult {
   const lanesText = tryGit(["show", `${base}:lanes.yaml`], root);
   if (lanesText === null) return { status: "skipped", lines: ["the base commit has no lanes.yaml (bootstrap: nothing to guard against yet)"] };
-  const changed = git(["diff", "--name-only", "--no-renames", base, head], root).split("\n").filter(Boolean);
+  const changed = git(["diff", "--name-only", "-z", "--no-renames", base, head], root).split("\0").filter(Boolean);
   if (!changed.length) return { status: "pass", lines: ["no changes against the base"] };
   if (!task) return { status: "fail", lines: ["no task card: name it with TASK=TASK-nnnn or use a branch agent/<lane>/TASK-nnnn-<slug>"] };
   const cardText = tryGit(["show", `${base}:tasks/${task}.md`], root);

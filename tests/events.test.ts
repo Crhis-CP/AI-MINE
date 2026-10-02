@@ -7,12 +7,12 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@aihot/backend/db";
-import { detachFromFact } from "@aihot/backend/admin/content";
-import { upsertMaterial } from "@aihot/backend/content/materials";
-import { groupArticle, linkRelatedStories } from "@aihot/backend/events/group";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { publishArticle } from "@aihot/backend/publication/publish";
+import { closeDb, sql } from "@amp/backend/db";
+import { detachFromFact } from "@amp/backend/admin/content";
+import { upsertMaterial } from "@amp/backend/content/materials";
+import { groupArticle, linkRelatedStories } from "@amp/backend/events/group";
+import { stopBoss } from "@amp/backend/jobs/queue";
+import { publishArticle } from "@amp/backend/publication/publish";
 
 const T = tag();
 const SOURCE = `test-events-${T}`;

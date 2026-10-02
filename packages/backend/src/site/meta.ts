@@ -16,7 +16,7 @@ let changelogCache: { latestVersion: string; releases: ChangelogRelease[] } | nu
 /** Changelog is published as a data file in the industry pack (industry/changelog.json), newest first. */
 export function loadChangelog() {
   if (!changelogCache) {
-    const file = process.env.AIHOT_CHANGELOG_FILE || path.join(REPO_ROOT, "industry/changelog.json");
+    const file = process.env.AMP_CHANGELOG_FILE || path.join(REPO_ROOT, "industry/changelog.json");
     const data = JSON.parse(readFileSync(file, "utf8")) as { latestVersion: string; releases: ChangelogRelease[] };
     changelogCache = data;
   }

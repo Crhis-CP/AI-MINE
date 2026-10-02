@@ -1,13 +1,13 @@
 // Share images (1200×630 PNG) for pages, items, reports, topics and events. Only public content
 // gets a card; anything else is a real 404.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
-import { beijingDate } from "@aihot/contracts/time";
-import { loadItemShare } from "@aihot/backend/publication/og";
-import { loadReport, type ReportKind } from "@aihot/backend/publication/reports";
-import { loadTopic } from "@aihot/backend/publication/topics";
-import { loadStoryDetail, resolveStory } from "@aihot/backend/publication/stories";
-import { SITE, withSubject } from "@aihot/industry/site";
+import { CATEGORY_LABELS } from "@amp/contracts/taxonomy";
+import { beijingDate } from "@amp/contracts/time";
+import { loadItemShare } from "@amp/backend/publication/og";
+import { loadReport, type ReportKind } from "@amp/backend/publication/reports";
+import { loadTopic } from "@amp/backend/publication/topics";
+import { loadStoryDetail, resolveStory } from "@amp/backend/publication/stories";
+import { SITE, withSubject } from "@amp/industry/site";
 import { ogEtag, renderOg, type OgCard } from "../og/render.ts";
 
 const S = SITE.subject;

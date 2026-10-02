@@ -1,8 +1,8 @@
 import { useMemo, type ReactNode } from "react";
 import { Link, useLoaderData } from "react-router";
-import type { SiteStats } from "@aihot/contracts/site";
+import type { SiteStats } from "@amp/contracts/site";
 import { apiGet } from "../lib/api.server";
-import { ABOUT, SITE, withSubject } from "@aihot/industry/site";
+import { ABOUT, SITE, withSubject } from "@amp/industry/site";
 import { organizationLd, pageMeta } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker";
 import { buttonClass } from "../components/ui/Controls";

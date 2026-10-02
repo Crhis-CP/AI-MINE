@@ -1,7 +1,7 @@
-import { SITE } from "@aihot/industry/site";
+import { SITE } from "@amp/industry/site";
 import { pageMeta } from "../lib/seo";
 import { prepareCopy } from "../lib/site-copy";
-import copy from "@aihot/industry/pages/terms.md?raw";
+import copy from "@amp/industry/pages/terms.md?raw";
 import { CopyPage, LegalFooterLinks } from "../features/copy/CopyPage";
 
 const TERMS = prepareCopy(copy);

@@ -1,6 +1,6 @@
 // Small building blocks shared by feed items, detail pages and lists.
 import { useState } from "react";
-import type { FeedItemSummary } from "@aihot/contracts/site";
+import type { FeedItemSummary } from "@amp/contracts/site";
 import { IconBookmark } from "../../components/icons";
 import { toggleStar, useIsStarred } from "../../lib/local-state";
 

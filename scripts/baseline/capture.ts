@@ -25,7 +25,7 @@ await app.ready();
 write("routes.txt", app.printRoutes({ commonPrefix: false }));
 await app.close();
 
-const { QUEUES, QUEUE_OPTIONS } = await import("@aihot/backend/jobs/queue");
+const { QUEUES, QUEUE_OPTIONS } = await import("@amp/backend/jobs/queue");
 write("queues.json", JSON.stringify({ queues: QUEUES, options: QUEUE_OPTIONS }, null, 2));
 
 const { SCHEDULES } = await import("../../apps/worker/src/schedules.ts");
@@ -38,6 +38,6 @@ write(
   ),
 );
 
-const { closeDb } = await import("@aihot/backend/db");
+const { closeDb } = await import("@amp/backend/db");
 await closeDb();
 console.log(`baseline: routes, queues and schedules written to ${out}`);

@@ -7,7 +7,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://openai.com/news/rss.xml",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -26,7 +26,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://deepmind.google/blog/rss.xml",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -45,7 +45,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://research.google/blog/rss/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -64,7 +64,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://huggingface.co/blog/feed.xml",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -83,7 +83,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://www.microsoft.com/en-us/research/feed/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -102,7 +102,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://blogs.nvidia.com/feed/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -121,7 +121,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://aws.amazon.com/blogs/machine-learning/feed/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -140,7 +140,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://github.blog/ai-and-ml/feed/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -159,7 +159,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://mistral.ai/rss.xml",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -178,7 +178,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://bair.berkeley.edu/blog/feed.xml",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -197,7 +197,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -216,7 +216,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://techcrunch.com/category/artificial-intelligence/feed/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -235,7 +235,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://arstechnica.com/ai/feed/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -254,7 +254,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://www.technologyreview.com/topic/artificial-intelligence/feed",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -273,7 +273,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://the-decoder.com/feed/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -292,7 +292,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://simonwillison.net/atom/everything/",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -311,7 +311,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://importai.substack.com/feed",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },
@@ -330,7 +330,7 @@
       "kind": "rss",
       "config": {
         "feedUrl": "https://www.latent.space/feed",
-        "_aihot": {
+        "_amp": {
           "initialBackfillLimit": 8
         }
       },

@@ -6,8 +6,8 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { closeDb, sql } from "@aihot/backend/db";
-import { REPO_ROOT } from "@aihot/backend/config";
+import { closeDb, sql } from "@amp/backend/db";
+import { REPO_ROOT } from "@amp/backend/config";
 
 const exec = promisify(execFile);
 

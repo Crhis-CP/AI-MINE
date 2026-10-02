@@ -1,6 +1,6 @@
-import { SITE, withSubject } from "@aihot/industry/site";
+import { SITE, withSubject } from "@amp/industry/site";
 import { Link, useLoaderData } from "react-router";
-import type { ReportIndexEntry } from "@aihot/contracts/site";
+import type { ReportIndexEntry } from "@amp/contracts/site";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { beijingDate, beijingWeekday } from "../lib/format";

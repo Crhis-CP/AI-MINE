@@ -1,4 +1,4 @@
-import { beijingDate, beijingTime, beijingWeekday } from "@aihot/contracts/time";
+import { beijingDate, beijingTime, beijingWeekday } from "@amp/contracts/time";
 
 export { beijingDate, beijingTime, beijingWeekday };
 

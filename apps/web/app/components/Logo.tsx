@@ -1,6 +1,6 @@
 // The site's wordmark (its name from industry/site.ts, set in type: a Latin lead in the text colour and
 // the rest in the accent, so "AI矿策" reads AI + 矿策, PG-00) and the dots used as the loader.
-import { SITE } from "@aihot/industry/site";
+import { SITE } from "@amp/industry/site";
 
 const [, LEAD = "", REST = ""] = /^([A-Za-z0-9]*)(.*)$/su.exec(SITE.name) ?? [];
 

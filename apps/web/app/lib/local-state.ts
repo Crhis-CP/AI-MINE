@@ -1,12 +1,12 @@
 // Reader state kept only in this browser; nothing about a reader leaves it. Storage failures degrade
 // silently. Keep the keys and formats once readers have data under them.
 import { useSyncExternalStore } from "react";
-import { beijingDate } from "@aihot/contracts/time";
+import { beijingDate } from "@amp/contracts/time";
 
 export const KEYS = {
-  starred: "aihot-starred-items",
-  theme: "aihot-theme",
-  feedbackDraft: "aihot-feedback-draft-v1",
+  starred: "amp-starred-items",
+  theme: "amp-theme",
+  feedbackDraft: "amp-feedback-draft-v1",
 } as const;
 
 export const STARRED_LIMIT = 500;

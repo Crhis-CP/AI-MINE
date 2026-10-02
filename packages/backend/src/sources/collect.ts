@@ -120,8 +120,8 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
     if (source.config.sortByPublishedAt) candidates.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0));
 
     // First import of a new source: bounded, and archived by source time (never "today", never pushed).
-    const backfillLimit = Number(source.config._aihot?.initialBackfillLimit ?? 30);
-    const backfillMonths = Number(source.config._aihot?.initialBackfillMonths ?? 12);
+    const backfillLimit = Number(source.config._amp?.initialBackfillLimit ?? 30);
+    const backfillMonths = Number(source.config._amp?.initialBackfillMonths ?? 12);
     if (firstImport) {
       const cutoff = Date.now() - backfillMonths * 30 * 86400000;
       candidates = candidates.filter((c) => !c.publishedAt || c.publishedAt.getTime() >= cutoff).slice(0, backfillLimit);

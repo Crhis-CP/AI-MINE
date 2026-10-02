@@ -1,4 +1,4 @@
-import { SITE } from "@aihot/industry/site";
+import { SITE } from "@amp/industry/site";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { pageMeta } from "../lib/seo";

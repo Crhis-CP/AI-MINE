@@ -1,5 +1,5 @@
 // Names, dates and grouping for daily, weekly and monthly reports.
-import type { ReportNavigationEntry, ReportKind } from "@aihot/contracts/site";
+import type { ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
 import { beijingWeekday } from "../../lib/format";
 
 export const KINDS: ReportKind[] = ["daily", "weekly", "monthly"];

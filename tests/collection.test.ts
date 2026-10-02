@@ -3,10 +3,10 @@
 import { Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { config } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { stopBoss } from "@aihot/backend/jobs/queue";
-import { checkMpAccount } from "@aihot/backend/sources/mp";
+import { config } from "@amp/backend/config";
+import { closeDb, sql } from "@amp/backend/db";
+import { stopBoss } from "@amp/backend/jobs/queue";
+import { checkMpAccount } from "@amp/backend/sources/mp";
 
 const T = tag();
 const MP_SOURCE = `test-mp-${T}`;

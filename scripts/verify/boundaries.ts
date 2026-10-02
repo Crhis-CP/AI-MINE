@@ -16,16 +16,16 @@ import path from "node:path";
 import { parse } from "yaml";
 
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
-  "@aihot/industry": [],
-  "@aihot/contracts": ["@aihot/industry"],
-  "@aihot/backend": ["@aihot/contracts", "@aihot/industry"],
-  "@aihot/api": ["@aihot/backend", "@aihot/contracts", "@aihot/industry"],
-  "@aihot/worker": ["@aihot/backend", "@aihot/contracts", "@aihot/industry"],
-  "@aihot/web": ["@aihot/contracts", "@aihot/industry"],
+  "@amp/industry": [],
+  "@amp/contracts": ["@amp/industry"],
+  "@amp/backend": ["@amp/contracts", "@amp/industry"],
+  "@amp/api": ["@amp/backend", "@amp/contracts", "@amp/industry"],
+  "@amp/worker": ["@amp/backend", "@amp/contracts", "@amp/industry"],
+  "@amp/web": ["@amp/contracts", "@amp/industry"],
 };
 
 /** Packages whose `exports` still has a `./*` wildcard; T-0003 replaces each with an explicit list. */
-export const PENDING_EXPORT_WILDCARDS: readonly string[] = ["@aihot/backend", "@aihot/contracts", "@aihot/industry"];
+export const PENDING_EXPORT_WILDCARDS: readonly string[] = ["@amp/backend", "@amp/contracts", "@amp/industry"];
 
 const SERVER_ONLY = [/^postgres$/, /^pg$/, /^pg-boss$/, /^pg-[\w-]+$/];
 const MODEL_SDKS = [/^openai$/, /^@anthropic-ai\//, /^@google\/(genai|generative-ai)$/, /^@mistralai\//, /^cohere-ai$/, /^groq-sdk$/, /^@ai-sdk\//, /^ai$/];
@@ -118,7 +118,7 @@ export function checkBoundaries(root: string, files: readonly string[]): string[
       if (spec.startsWith("node:")) continue;
       const pkg = packageOf(spec);
       if (names.has(pkg) && pkg !== w.name && !w.deps.has(pkg)) problems.push(`${f}: imports ${pkg}, which ${w.dir}/package.json does not declare`);
-      if (w.name === "@aihot/web" && SERVER_ONLY.some((re) => re.test(pkg)))
+      if (w.name === "@amp/web" && SERVER_ONLY.some((re) => re.test(pkg)))
         problems.push(`${f}: the web app may not import ${pkg} (no database or job queue in the front end)`);
       if (MODEL_SDKS.some((re) => re.test(pkg))) problems.push(`${f}: imports the model SDK ${pkg}; paid calls go through ai-gateway only`);
     }

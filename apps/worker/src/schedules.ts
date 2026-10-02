@@ -1,23 +1,23 @@
 // Cron-style schedules (Asia/Shanghai). Each run is recorded in job_runs; missed slots run once.
 import type { PgBoss } from "pg-boss";
-import { ensureQueue, recordRun } from "@aihot/backend/jobs/queue";
-import { sweepUnprocessed } from "@aihot/backend/jobs/content";
-import { translatePending } from "@aihot/backend/editorial/translate";
-import { adaptIntervals, scheduleDueSources } from "@aihot/backend/sources/collect";
-import { scheduleMpReconcile } from "@aihot/backend/sources/mp";
-import { computeHotRanking, snapshotHeat } from "@aihot/backend/events/hot";
-import { refreshStoryStatuses } from "@aihot/backend/events/digest";
-import { linkRelatedStories } from "@aihot/backend/events/group";
-import { catchUpReports, composeDaily, composeMonthly, composeWeekly } from "@aihot/backend/reports/compose";
-import { addDays, beijingDate, isoWeekLabel } from "@aihot/contracts/time";
-import { dailyRetention } from "@aihot/backend/operations/retention";
-import { submitIndexNow } from "@aihot/backend/operations/indexnow";
-import { checkAlerts, sendDigest } from "@aihot/backend/operations/alerts";
-import { autoReleaseUnknownReceipts } from "@aihot/backend/admin/runs";
-import { backupConfigured, runBackup } from "@aihot/backend/operations/backup";
-import { sourceHealthWeekly } from "@aihot/backend/operations/reports";
-import { markStalePendingReceipts } from "@aihot/backend/providers/receipts";
-import { markStaleDeliveries } from "@aihot/backend/notify/deliver";
+import { ensureQueue, recordRun } from "@amp/backend/jobs/queue";
+import { sweepUnprocessed } from "@amp/backend/jobs/content";
+import { translatePending } from "@amp/backend/editorial/translate";
+import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect";
+import { scheduleMpReconcile } from "@amp/backend/sources/mp";
+import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
+import { refreshStoryStatuses } from "@amp/backend/events/digest";
+import { linkRelatedStories } from "@amp/backend/events/group";
+import { catchUpReports, composeDaily, composeMonthly, composeWeekly } from "@amp/backend/reports/compose";
+import { addDays, beijingDate, isoWeekLabel } from "@amp/contracts/time";
+import { dailyRetention } from "@amp/backend/operations/retention";
+import { submitIndexNow } from "@amp/backend/operations/indexnow";
+import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
+import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
+import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
+import { sourceHealthWeekly } from "@amp/backend/operations/reports";
+import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
+import { markStaleDeliveries } from "@amp/backend/notify/deliver";
 
 interface Scheduled {
   name: string;

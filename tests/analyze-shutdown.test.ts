@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { after, before, test } from "node:test";
-import { sql, closeDb } from "@aihot/backend/db";
-import { getBoss, stopBoss } from "@aihot/backend/jobs/queue";
-import { upsertMaterial } from "@aihot/backend/content/materials";
+import { sql, closeDb } from "@amp/backend/db";
+import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
+import { upsertMaterial } from "@amp/backend/content/materials";
 
 const T = tag();
 const SOURCE = `test-analyze-stop-${T}`;
@@ -72,9 +72,9 @@ const children = new Set<ReturnType<typeof spawn>>();
 
 function worker(queue: string) {
   const script = `
-    import { getBoss, stopBoss, shutdownSignal, QUEUES } from '@aihot/backend/jobs/queue';
-    import { registerContentJobs } from '@aihot/backend/jobs/content';
-    import { closeDb } from '@aihot/backend/db';
+    import { getBoss, stopBoss, shutdownSignal, QUEUES } from '@amp/backend/jobs/queue';
+    import { registerContentJobs } from '@amp/backend/jobs/content';
+    import { closeDb } from '@amp/backend/db';
     QUEUES.analyze = process.env.TEST_ANALYZE_QUEUE;
     let stopping = false;
     process.on('SIGTERM', async () => {
@@ -93,7 +93,7 @@ function worker(queue: string) {
     ...process.env,
     TEST_ANALYZE_QUEUE: queue,
     MODEL_CALLS_ENABLED: "true",
-    AIHOT_CREDENTIALS_DIR: "/nonexistent-test-credentials",
+    AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials",
     PREFILTER_MODEL: "qwen3.7-flash",
     SCORE_MODEL: "glm-5.3-flash-selection",
     STRUCTURE_MODEL: "qwen3.8-flash",

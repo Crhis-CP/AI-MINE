@@ -3,10 +3,10 @@
 // Re-runnable:  node --env-file=.env scripts/seed.ts   (--topics-only: just the topics, as the tests use)
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { REPO_ROOT } from "@aihot/backend/config";
-import { closeDb, sql } from "@aihot/backend/db";
-import { seedTopics } from "@aihot/backend/publication/topics";
-import { assertSupportedConfig } from "@aihot/backend/sources/config-keys";
+import { REPO_ROOT } from "@amp/backend/config";
+import { closeDb, sql } from "@amp/backend/db";
+import { seedTopics } from "@amp/backend/publication/topics";
+import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
 
 interface SeedSource {
   id: string;

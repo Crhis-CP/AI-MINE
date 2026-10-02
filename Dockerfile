@@ -17,7 +17,7 @@ FROM base AS build
 ARG NPM_REGISTRY=
 COPY . .
 RUN pnpm install --frozen-lockfile ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
- && pnpm --filter @aihot/web build
+ && pnpm --filter @amp/web build
 
 FROM base
 ARG NPM_REGISTRY=
