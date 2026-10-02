@@ -57,14 +57,6 @@
     "lint/a11y/noSvgWithoutTitle": 1,
     "lint/correctness/useJsxKeyInIterable": 1
   },
-  "apps/web/app/features/leaderboard/BoardTable.tsx": {
-    "lint/a11y/useAriaPropsSupportedByRole": 1,
-    "lint/correctness/useExhaustiveDependencies": 1
-  },
-  "apps/web/app/features/leaderboard/Evidence.tsx": {
-    "lint/a11y/noStaticElementInteractions": 1,
-    "lint/correctness/noUnusedFunctionParameters": 1
-  },
   "apps/web/app/features/report/Halftone.tsx": {
     "lint/a11y/noAriaHiddenOnFocusable": 1
   },
@@ -137,26 +129,6 @@
     "lint/correctness/noUnusedImports": 1,
     "lint/security/noDangerouslySetInnerHtml": 1
   },
-  "apps/web/app/routes/leaderboard-boards.tsx": {
-    "lint/correctness/noUnusedImports": 1
-  },
-  "apps/web/app/routes/leaderboard-model.tsx": {
-    "lint/correctness/noUnusedImports": 1
-  },
-  "apps/web/app/routes/leaderboard-rules.tsx": {
-    "lint/correctness/noUnusedImports": 1
-  },
-  "apps/web/app/routes/leaderboard-source.tsx": {
-    "lint/correctness/noUnusedImports": 1,
-    "lint/suspicious/noArrayIndexKey": 1
-  },
-  "apps/web/app/routes/leaderboard-sources.tsx": {
-    "lint/correctness/noUnusedImports": 1
-  },
-  "apps/web/app/routes/leaderboard.tsx": {
-    "lint/correctness/noUnusedImports": 1,
-    "lint/suspicious/noTemplateCurlyInString": 1
-  },
   "apps/web/app/routes/more.tsx": {
     "lint/a11y/useAriaPropsSupportedByRole": 1
   },
@@ -169,39 +141,6 @@
   },
   "apps/web/app/routes/topic.tsx": {
     "lint/correctness/noUnusedImports": 1
-  },
-  "assets/leaderboard-sources/agents-last-exam.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/arena.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/artificial-analysis-purple-2026.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/deepswe.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/epoch.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/eqbench.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/llm2014.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/mercor.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/rapidata.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/taptap-maker.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
-  },
-  "assets/leaderboard-sources/vals.svg": {
-    "lint/a11y/noSvgWithoutTitle": 1
   },
   "industry/brand/logo.svg": {
     "lint/a11y/noSvgWithoutTitle": 1
@@ -233,25 +172,6 @@
   "packages/backend/src/events/group.ts": {
     "lint/complexity/useOptionalChain": 1,
     "lint/suspicious/noExplicitAny": 3
-  },
-  "packages/backend/src/leaderboard/fetch/sources/epoch.ts": {
-    "lint/suspicious/noImplicitAnyLet": 1
-  },
-  "packages/backend/src/leaderboard/fetch/store.ts": {
-    "lint/suspicious/useIterableCallbackReturn": 1
-  },
-  "packages/backend/src/leaderboard/method/kemeny.ts": {
-    "lint/suspicious/useIterableCallbackReturn": 1
-  },
-  "packages/backend/src/leaderboard/method/ndtr.ts": {
-    "lint/correctness/noPrecisionLoss": 40
-  },
-  "packages/backend/src/leaderboard/method/v15.ts": {
-    "lint/correctness/noUnusedVariables": 1
-  },
-  "packages/backend/src/leaderboard/read.ts": {
-    "lint/correctness/noUnusedFunctionParameters": 1,
-    "lint/suspicious/noExplicitAny": 6
   },
   "packages/backend/src/lib/text.ts": {
     "lint/suspicious/noControlCharactersInRegex": 6
@@ -300,9 +220,6 @@
   },
   "scripts/eval-selection.ts": {
     "lint/suspicious/noAssignInExpressions": 1
-  },
-  "scripts/lb-fetch-check.ts": {
-    "lint/suspicious/noImplicitAnyLet": 1
   },
   "scripts/mcp-check.ts": {
     "lint/suspicious/noExplicitAny": 1
