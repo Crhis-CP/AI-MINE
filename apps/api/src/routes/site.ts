@@ -11,7 +11,6 @@ import { loadDevelopments, loadGroupReports } from "@aihot/backend/publication/g
 import { loadTopicTags } from "@aihot/backend/publication/topics";
 import { loadHotStrip } from "@aihot/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@aihot/backend/site/meta";
-import { loadContact, loadMakerAvatar } from "@aihot/backend/site/contact";
 import { loadSiteStats } from "@aihot/backend/site/stats";
 import { itemAvailability } from "@aihot/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage } from "@aihot/backend/publication/topics";
@@ -182,14 +181,6 @@ export function registerSite(app: FastifyInstance) {
       if (data.kind === "changed") return sendProblem(req, reply, { status: 409, code: "group_changed", detail: "reading group changed; reload it" });
       reply.header("Cache-Control", "no-store");
       return reply.send(data.body);
-    }),
-  );
-
-  app.get(
-    "/api/site/contact",
-    siteHandler(async (req, reply) => {
-      const [contact, makerAvatar] = await Promise.all([loadContact(), loadMakerAvatar()]);
-      return sendJsonWithEtag(req, reply, { ...contact, makerAvatar }, { etagPrefix: "contact", cacheControl: "public, max-age=300, s-maxage=300" });
     }),
   );
 
