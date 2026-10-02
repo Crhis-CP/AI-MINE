@@ -17,7 +17,7 @@ const { renderOg } = await import("../apps/api/src/og/render.ts");
 
 let imageHits = 0;
 let failureHits = 0;
-const png = await sharp({ create: { width: 800, height: 400, channels: 3, background: "#176b75" } })
+const png = await sharp({ create: { width: 800, height: 400, channels: 3, background: "#475569" } })
   .png()
   .toBuffer();
 // Ten noisy 160×120 frames: a GIF that animated WebP clearly beats.
@@ -81,7 +81,7 @@ test("failed originals are not retried for every mode", async () => {
 });
 
 test("concurrent cold OG requests all succeed with identical cached bytes", async () => {
-  const card = { kicker: "AIHOT", title: "并发渲染验证", subtitle: "同一图片只生成一次" };
+  const card = { kicker: "分享图", title: "并发渲染验证", subtitle: "同一图片只生成一次" };
   const cards = await Promise.all(Array.from({ length: 6 }, () => renderOg(card)));
   for (const result of cards) assert.deepEqual(result, cards[0]);
   assert.equal((await sharp(cards[0]!.png).metadata()).width, 1200);
@@ -138,7 +138,7 @@ test("modern raster output preserves transparency and never flattens animation",
 
 test("small SVG stays vector while a large vector receives the requested browser rendition", async () => {
   const { resizeImage } = await import("@aihot/backend/media/images");
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><rect width="1200" height="600" fill="#176b75"/></svg>';
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600"><rect width="1200" height="600" fill="#475569"/></svg>';
   const vector = await resizeImage(Buffer.from(svg), "image/svg+xml", "image-720");
   assert.equal(vector.type, "image/svg+xml");
   const large = Buffer.from(svg.replace("</svg>", `<!--${"padding".repeat(20_000)}--></svg>`));

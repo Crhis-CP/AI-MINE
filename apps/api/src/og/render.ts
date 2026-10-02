@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { SITE } from "@aihot/industry/site";
 import { config, REPO_ROOT } from "@aihot/backend/config";
 
-export const OG_TEMPLATE_VERSION = "og-2026-09-29.1";
+export const OG_TEMPLATE_VERSION = "og-2026-10-02.1";
 const WIDTH = 1200;
 const HEIGHT = 630;
 const CACHE_DIR = path.join(config.dataDir, "ogcache");
@@ -18,7 +18,7 @@ export interface OgCard {
   title: string;
   subtitle?: string | null;
   meta?: string | null;
-  accent?: "teal" | "hot" | "amber";
+  accent?: "brand" | "hot" | "amber";
 }
 
 let fontsPromise: Promise<Array<{ name: string; data: Buffer; weight: 400 | 700; style: "normal" }>> | null = null;
@@ -37,11 +37,13 @@ export function fonts() {
 /** The site's host as shown on cards. */
 export const SITE_HOST = new URL(config.siteUrl).host;
 
-/** The site name as a wordmark: bold, with the accent dot the cards use. */
-export function nameMark(size: number, color: string, dot: string): Node {
-  return h("div", { display: "flex", alignItems: "center" }, [
-    h("div", { width: size * 0.36, height: size * 0.36, borderRadius: 999, backgroundColor: dot, marginRight: size * 0.28 }),
-    h("div", { display: "flex", fontSize: size, fontWeight: 700, color, letterSpacing: 0.5 }, SITE.name),
+const [, NAME_LEAD = "", NAME_REST = ""] = /^([A-Za-z0-9]*)(.*)$/su.exec(SITE.name) ?? [];
+
+/** The site name as a wordmark, as on the site: the Latin lead in the text colour, the rest in the accent (PG-00). */
+export function nameMark(size: number, color: string, accent: string): Node {
+  return h("div", { display: "flex", alignItems: "center", fontSize: size, fontWeight: 700, letterSpacing: 0.5 }, [
+    h("div", { display: "flex", color }, NAME_LEAD),
+    h("div", { display: "flex", color: accent }, NAME_REST),
   ]);
 }
 
@@ -51,7 +53,9 @@ export const h = (type: string, style: Record<string, unknown>, children?: unkno
   props: { style, children, ...extra },
 });
 
-const ACCENTS = { teal: "#2ce2e8", hot: "#ff7a5f", amber: "#e2b454" } as const;
+// 临时 (T-0006, Q-67): brand is a neutral placeholder until the palette is settled.
+const BRAND = "#cbd5e1";
+const ACCENTS = { brand: BRAND, hot: "#ff7a5f", amber: "#e2b454" } as const;
 
 function clamp(text: string, max: number) {
   const chars = [...text.replace(/\s+/g, " ").trim()];
@@ -59,7 +63,7 @@ function clamp(text: string, max: number) {
 }
 
 async function tree(card: OgCard): Promise<Node> {
-  const accent = ACCENTS[card.accent ?? "teal"];
+  const accent = ACCENTS[card.accent ?? "brand"];
   const title = clamp(card.title, 64);
   const titleSize = [...title].length > 40 ? 50 : [...title].length > 24 ? 58 : 66;
   return h(
@@ -73,12 +77,13 @@ async function tree(card: OgCard): Promise<Node> {
       fontFamily: "Noto Sans SC",
       color: "#e6eded",
       backgroundColor: "#0a1012",
+      // 临时 (T-0006, Q-67): the two glows use the placeholder slates.
       backgroundImage:
-        "radial-gradient(circle at 88% 8%, rgba(44,226,232,0.28), rgba(10,16,18,0) 46%), radial-gradient(circle at 0% 100%, rgba(23,107,117,0.35), rgba(10,16,18,0) 50%)",
+        "radial-gradient(circle at 88% 8%, rgba(148,163,184,0.22), rgba(10,16,18,0) 46%), radial-gradient(circle at 0% 100%, rgba(71,85,105,0.35), rgba(10,16,18,0) 50%)",
     },
     [
       h("div", { display: "flex", alignItems: "center", justifyContent: "space-between" }, [
-        nameMark(34, "#e6eded", "#2ce2e8"),
+        nameMark(34, "#e6eded", BRAND),
         h("div", { display: "flex", fontSize: 24, color: "#82939a" }, SITE_HOST),
       ]),
       h("div", { display: "flex", marginTop: 56, alignItems: "center" }, [

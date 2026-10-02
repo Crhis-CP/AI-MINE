@@ -28,10 +28,10 @@
 - `homeTitle`、`description`、`tagline`：首页完整标题；一句话介绍（搜索引擎、分享卡片、RSS、`llms.txt` 用）；首页与侧边栏的一行小字。
 - `locale`：界面语言（HTML `lang`、`og:locale`）。
 - `defaultUrl`：只在没设置 `SITE_URL` 时使用。站点地址由部署时的环境变量 `SITE_URL` 决定，不写在这里。
-- `mcpPrefix`：MCP 工具名前缀（小写字母、数字、下划线），上线后冻结。
+- `mcpPrefix`：MCP 工具名前缀（小写字母、数字、下划线），上线后冻结。现在是 `aiminingpolicy`，取域名 `aiminingpolicy.com` 的主体，工具名如 `aiminingpolicy_get_latest`。
 - `contactEmail`：对外联系邮箱（选填），使用规则、`llms.txt` 与响应头会写。`organization`：结构化数据里的网站运营者。
-- `crawlerName`：抓取信源时在 User-Agent 里报的名字，不能冒用别的站名。
-- `footerNote`、`icp` 与 `ABOUT`（关于页文案，“怎么工作”四个环节各配一个站内实时统计数字）会按第 4 节拆走。
+- `crawlerName`：抓取信源时在 User-Agent 里报的名字，不能冒用别的站名。现在是 `AIMiningPolicyBot`。
+- `icp` 与 `ABOUT`（关于页文案，“怎么工作”四个环节各配一个站内实时统计数字）会按第 4 节拆走；页脚小字 `footerNote` 已删除。
 
 ### 2.2 `taxonomy.ts` 与 `topics.json`
 
@@ -101,9 +101,10 @@
 
 ### 2.7 `brand/`
 
-- `logo.svg`、`icon.png`（512）、`icon-192.png`、`apple-icon.png`（180）、`favicon.ico`：站点图标，由 api 在站点根路径提供。
-- `nameplates/`：报头字 SVG。换站名或行业词后用 `node scripts/nameplates.ts <字体包目录>` 重新生成，字体包的取法写在该脚本开头。
-- 网页左上角的站名字标在 `apps/web/app/components/Logo.tsx`，不在这里。
+- `logo.svg`、`icon.png`（512）、`icon-192.png`、`apple-icon.png`（180）、`favicon.ico`：站点图标，由 api 在站点根路径提供。图案是站名里的第一个汉字（“矿”）；换站名后用 `node scripts/brand-icons.ts <字体包目录>` 重新生成。底色是中性的临时色，由 T-0006 与 Owner 定配色（Q-67）后重画。
+- `nameplates/`：报头字 SVG。换站名或行业词后用 `node scripts/nameplates.ts <字体包目录> [行业词]` 重新生成。现在的报头字是“矿业日报”“矿业周报”“矿业月报”与“日报合订本”：行业词用 PG-06 的报告名“矿业”，先于 `site.ts` 的 `subject`（它由 TASK-0010 改）。
+- 两个脚本用同一个字体包，取法写在脚本开头；画出的是 Noto Sans SC Black 的字形轮廓（SIL OFL 1.1，见根目录 `NOTICE`）。
+- 网页左上角的站名字标在 `apps/web/app/components/Logo.tsx`，不在这里：用文字排出站名，前面的拉丁字母用正文色，其余用强调色。
 
 ## 3. 包外的硬编码
 
@@ -120,5 +121,5 @@ TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、
 1. **构建期内容随发版生效**：`site.ts`、`taxonomy.ts`、`selection.ts`、`prompts/`、`pages/`、`brand/` 打进镜像，改了要重新构建、发版。契约包现在在构建时 import 本包的分类（`packages/contracts/src/taxonomy.ts`），这个方向要反转：分类键由契约定义，行业包只提供标签、说明与提示词，并按契约的 schema 校验（TASK-0005）。
 2. **上线后冻结的标识**：分类 `key`、主题 `slug`、MCP 前缀、报告周期键出现在网址、接口与 RSS 里，改动走契约的破坏性变更流程。
 3. **种子语义**：`scripts/seed.ts` 每次运行都用 `topics.json` 覆盖库里同名的主题，信源则只插入库里没有的（`ON CONFLICT DO NOTHING`）。现在 Compose 的 `setup` 容器每次 `up` 都先迁移再跑种子；种子信源缺省 `enabled=true`、`next_fetch_at=now()`，会绕过“预览通过并经负责人一次确认才启用”。矿业版改为：种子信源来自 Owner 的原始信源表（`industry/seed/`），一律 `enabled=false`、`next_fetch_at` 为空，经私有页面显式启用；主题改由分面生成（PG-08），取消覆盖式种子；迁移与种子改为发布步骤。
-4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除；`icp` 删除，ICP 备案号与公安联网备案号改读受保护的运行时配置（生产环境任一未配置则公开站不开放）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
-5. **其余去向**（附录 B 的 B.8 节）：`sources.json` 由 `industry/seed/` 取代；`changelog.json` 改为产品更新表加 `changes/*.md`；两个评测样例移到 `evals/<能力>/` 并换成矿业样例；`brand/` 换成 AI矿策 的标识，仓库里不得留下与上游品牌素材 SHA-256 相同的文件，报头字按新站名重新生成；`pages/` 补上联系方式与截图 180 天后删除的说明，上线前经 Owner 确认；分级 `EXCLUDE_MP` 改名 `EXCLUDE`。
+4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除（已随 T-0002 删）；`icp` 删除，ICP 备案号与公安联网备案号改读受保护的运行时配置（生产环境任一未配置则公开站不开放）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
+5. **其余去向**（附录 B 的 B.8 节）：`sources.json` 由 `industry/seed/` 取代；`changelog.json` 改为产品更新表加 `changes/*.md`；两个评测样例移到 `evals/<能力>/` 并换成矿业样例；`brand/` 换成 AI矿策 的标识，仓库里不得留下与上游品牌素材 SHA-256 相同的文件，报头字按新站名重新生成（已随 T-0002 换）；`pages/` 补上联系方式与截图 180 天后删除的说明，上线前经 Owner 确认；分级 `EXCLUDE_MP` 改名 `EXCLUDE`。

@@ -48,7 +48,7 @@ export const MODELS: Record<string, ModelSpec> = {
       return process.env.LLM_VISION === "true";
     },
   },
-  // Named presets (the models AIHOT itself runs on); each needs its own key.
+  // Named presets (the models the upstream project itself runs on); each needs its own key.
   // GLM 5.3 Flash always reasons; the lowest effort keeps short structured tasks fast.
   "glm-5.3-flash": {
     key: "glm-5.3-flash",

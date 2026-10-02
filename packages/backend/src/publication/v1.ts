@@ -128,14 +128,13 @@ function minimalOf(item: V1ItemPayload) {
     category: item.category,
     score: item.score,
     selected: item.selected,
-    links: { aihot: item.links.aihot },
   };
 }
 
 // Drop unused wide fields before crossing the database connection; minimalOf remains the output
 // whitelist, preserving its omission of absent keys and all existing null values.
 function ledgerPayload(minimal: boolean, payload = sql`payload`) {
-  return minimal ? sql`(${payload} - ARRAY['originalTitle', 'summary', 'reason', 'attribution']::text[]) #- '{links,original}'` : payload;
+  return minimal ? sql`${payload} - ARRAY['originalTitle', 'summary', 'reason', 'attribution', 'links']::text[]` : payload;
 }
 
 export interface SnapshotQuery {

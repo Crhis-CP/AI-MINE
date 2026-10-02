@@ -118,7 +118,7 @@ export function toItemSummary(row: ItemRow): ItemSummary {
       kind: row.source_kind,
       firstParty: row.first_party,
     },
-    links: { aihot: `/items/${row.id}`, original: row.url },
+    links: { original: row.url },
     publishedAt: row.published_at?.toISOString() ?? null,
     discoveredAt: row.discovered_at.toISOString(),
     timelineAt: row.timeline_at.toISOString(),

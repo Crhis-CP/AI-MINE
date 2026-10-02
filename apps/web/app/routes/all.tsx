@@ -9,7 +9,7 @@ import { CategoryTabs, SearchField } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState } from "../components/ui/Page";
-import { RingMark } from "../components/Logo";
+import { LoadingDots } from "../components/Logo";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
@@ -151,7 +151,7 @@ export default function AllPage() {
 export function SearchBusy() {
   return (
     <div className="mx-auto max-w-sm py-24 text-center">
-      <RingMark className="mx-auto mb-5 size-10 text-accent" spinning />
+      <LoadingDots className="mb-5 text-[32px] text-accent" />
       <h1 className="text-[20px] font-bold text-ink">搜索有点忙</h1>
       <p className="mt-2 text-[14px] leading-relaxed text-ink-3">现在搜索的人比较多，请稍等几秒再试。列表浏览不受影响。</p>
       <div className="mt-6 flex justify-center gap-2.5">

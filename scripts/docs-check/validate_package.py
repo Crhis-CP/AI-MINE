@@ -10,13 +10,14 @@
   2. 编号：本包编号（F-/PG-/OP-/OUT-/DR-/BR-/AI-/ENT-/INV-/PIT-/AC-/Q-/DEC-/T-/ADR-）被引用但没有定义的清单
   3. 契约：03-data/contracts/openapi.json 与 domain-events.schema.json 可解析、$ref 不悬空、operationId 唯一
   4. 验收：05-quality/06-acceptance-scenarios.md 的 T 编号唯一；07-traceability.json 引用的 T/页面存在
-  5. AIHOT 来源：归档在交接包原件里时，tar.gz 成员哈希与 aihot-source-manifest.json 一致（流式校验）；
+  5. 上游来源：归档在交接包原件里时，tar.gz 成员哈希与 aihot-source-manifest.json 一致（流式校验）；
      在仓库里时（归档不入库），upstream/aihot.lock.json 与清单逐文件一致
   6. 数据：data/source-targets-320.json 与 .csv 记录数一致；原表 321 条；法域字典 36 个对象
   7. 追踪表：05-quality/07-traceability.json 自带检查项（无落点功能、未定义编号等）必须为空
   8. 敏感信息：扫描疑似 IPv4、邮箱、令牌与本机用户目录路径（作为警告列出）
 相对交接包原件的改动：默认根目录是仓库的 docs/；不再写 evidence/package-validation.json；第 1 项扩到仓库
-Markdown；第 5 项增加对 upstream/aihot.lock.json 的核对。
+Markdown；第 5 项增加对 upstream/aihot.lock.json 的核对；函数名、提示文字与计数键不带上游名称（交接包原件
+的 evidence 里同一组计数键带上游名称前缀）。
 """
 from __future__ import annotations
 
@@ -200,7 +201,7 @@ def check_acceptance() -> None:
 
 def check_upstream_lock(manifest: Path) -> None:
     """仓库里没有归档：upstream/aihot.lock.json 必须与清单逐文件一致（路径、字节数、SHA-256）。"""
-    lock_path = REPO / "upstream" / "aihot.lock.json"
+    lock_path = REPO / "upstream/aihot.lock.json"
     if not lock_path.exists():
         errors.append("缺少 upstream/aihot.lock.json")
         return
@@ -215,11 +216,11 @@ def check_upstream_lock(manifest: Path) -> None:
     man = json.loads(manifest.read_text(encoding="utf-8"))
     check(lock.get("commit") == man.get("commit"), "upstream/aihot.lock.json 的 commit 与清单不一致")
     check(lock.get("archive_sha256") == man.get("archive_sha256"), "upstream/aihot.lock.json 的归档哈希与清单不一致")
-    counts["aihot_lock_files_checked"] = len(got)
+    counts["upstream_lock_files_checked"] = len(got)
 
 
-def check_aihot_archive() -> None:
-    adir = ROOT / "research" / "aihot"
+def check_upstream_archive() -> None:
+    adir = ROOT / "research/aihot"
     tars = list(adir.glob("AIHOT-*.tar.gz"))
     manifest = adir / "aihot-source-manifest.json"
     if not manifest.exists():
@@ -242,11 +243,11 @@ def check_aihot_archive() -> None:
                 continue
             f = tf.extractfile(m)
             h = hashlib.sha256(f.read()).hexdigest() if f else ""
-            check(h == expected[name], f"AIHOT 归档成员哈希不符：{name}")
+            check(h == expected[name], f"上游归档成员哈希不符：{name}")
             seen += 1
-    counts["aihot_files_hash_verified"] = seen
-    check(seen == len(expected), f"AIHOT 归档成员数 {seen} 与清单 {len(expected)} 不一致")
-    counts["aihot_archive_sha256_prefix"] = int(hashlib.sha256(tars[0].read_bytes()).hexdigest()[:8], 16)
+    counts["upstream_files_hash_verified"] = seen
+    check(seen == len(expected), f"上游归档成员数 {seen} 与清单 {len(expected)} 不一致")
+    counts["upstream_archive_sha256_prefix"] = int(hashlib.sha256(tars[0].read_bytes()).hexdigest()[:8], 16)
 
 
 def check_data() -> None:
@@ -309,7 +310,7 @@ def main() -> None:
     check_repo_markdown()
     check_contracts()
     check_acceptance()
-    check_aihot_archive()
+    check_upstream_archive()
     check_data()
     check_traceability()
     result = {

@@ -15,10 +15,10 @@ process.env.IMG_PROXY_SIGN_SECRET ??= "test-img-secret-0123456789";
 process.env.FEISHU_CONTENT_PUSH_ENABLED = "false";
 process.env.INDEXNOW_SUBMIT_ENABLED = "false";
 process.env.LOG_LEVEL ??= "error";
-// The tests were written against the named model presets AIHOT assigns to each step (each provider is
-// pointed at a local stub by the test that needs it). The open-source default is one model for every
-// step, which tests/default-model.test.ts covers.
-const AIHOT_MODELS: Record<string, string> = {
+// The tests were written against the named model presets the upstream project assigns to each step
+// (each provider is pointed at a local stub by the test that needs it). The open-source default is one
+// model for every step, which tests/default-model.test.ts covers.
+const PRESET_MODELS: Record<string, string> = {
   PREFILTER_MODEL: "qwen3.7-flash",
   SCORE_MODEL: "glm-5.3-flash-selection",
   UNDERSTAND_MODEL: "glm-5.3-flash",
@@ -30,7 +30,7 @@ const AIHOT_MODELS: Record<string, string> = {
   REPORT_MODEL: "deepseek-flash",
   TRANSLATE_MODEL: "deepseek-flash",
 };
-for (const [name, model] of Object.entries(AIHOT_MODELS)) process.env[name] ??= model;
+for (const [name, model] of Object.entries(PRESET_MODELS)) process.env[name] ??= model;
 
 /**
  * A local HTTP stub standing in for a paid provider; `answer` builds every response from the request
