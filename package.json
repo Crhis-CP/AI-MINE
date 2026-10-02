@@ -11,7 +11,7 @@
     "dev:api": "pnpm --filter @aihot/api dev",
     "dev:worker": "pnpm --filter @aihot/worker dev",
     "dev:web": "pnpm --filter @aihot/web dev",
-    "typecheck": "tsc -p packages/contracts && tsc -p packages/backend && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && pnpm --filter @aihot/web typecheck",
+    "typecheck": "tsc -p packages/contracts && tsc -p packages/backend && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && tsc -p scripts && pnpm --filter @aihot/web typecheck",
     "test": "node --test --test-concurrency=1 --test-timeout=120000 \"tests/*.test.ts\""
   },
   "devDependencies": {
@@ -28,6 +28,7 @@
     "sharp": "0.35.4",
     "typescript": "7.0.2",
     "undici": "8.11.2",
+    "yaml": "2.9.1",
     "zod": "4.6.5"
   }
 }

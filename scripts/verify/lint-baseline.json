@@ -1,0 +1,348 @@
+{
+  "apps/api/src/routes/mcp.ts": {
+    "lint/suspicious/useIterableCallbackReturn": 2
+  },
+  "apps/api/src/routes/static.ts": {
+    "lint/suspicious/noImplicitAnyLet": 1
+  },
+  "apps/web/app/app.css": {
+    "lint/complexity/noImportantStyles": 5
+  },
+  "apps/web/app/components/shell/MobileTabBar.tsx": {
+    "lint/a11y/useAriaPropsSupportedByRole": 1
+  },
+  "apps/web/app/components/shell/Sidebar.tsx": {
+    "lint/a11y/useAriaPropsSupportedByRole": 1
+  },
+  "apps/web/app/components/shell/ThemeSwitch.tsx": {
+    "lint/a11y/useSemanticElements": 1
+  },
+  "apps/web/app/components/ui/IntentLink.tsx": {
+    "lint/correctness/useExhaustiveDependencies": 3
+  },
+  "apps/web/app/components/ui/Lightbox.tsx": {
+    "lint/a11y/useKeyWithClickEvents": 1
+  },
+  "apps/web/app/components/ui/Score.tsx": {
+    "lint/a11y/useAriaPropsSupportedByRole": 1
+  },
+  "apps/web/app/features/about/SignalRiver.tsx": {
+    "lint/a11y/noAriaHiddenOnFocusable": 1,
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/features/admin/charts.tsx": {
+    "lint/a11y/noStaticElementInteractions": 1,
+    "lint/a11y/noSvgWithoutTitle": 2,
+    "lint/suspicious/noArrayIndexKey": 2
+  },
+  "apps/web/app/features/admin/ui.tsx": {
+    "lint/a11y/noStaticElementInteractions": 1,
+    "lint/a11y/useKeyWithClickEvents": 1,
+    "lint/suspicious/noArrayIndexKey": 1,
+    "lint/suspicious/noConfusingVoidType": 1
+  },
+  "apps/web/app/features/changelog/text.tsx": {
+    "lint/suspicious/noArrayIndexKey": 1
+  },
+  "apps/web/app/features/copy/CopyPage.tsx": {
+    "lint/security/noDangerouslySetInnerHtml": 1
+  },
+  "apps/web/app/features/feed/ReadingGroup.tsx": {
+    "lint/correctness/useExhaustiveDependencies": 3
+  },
+  "apps/web/app/features/feed/parts.tsx": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "apps/web/app/features/item/MediaGallery.tsx": {
+    "lint/a11y/noSvgWithoutTitle": 1,
+    "lint/correctness/useJsxKeyInIterable": 1
+  },
+  "apps/web/app/features/leaderboard/BoardTable.tsx": {
+    "lint/a11y/useAriaPropsSupportedByRole": 1,
+    "lint/correctness/useExhaustiveDependencies": 1
+  },
+  "apps/web/app/features/leaderboard/Evidence.tsx": {
+    "lint/a11y/noStaticElementInteractions": 1,
+    "lint/correctness/noUnusedFunctionParameters": 1
+  },
+  "apps/web/app/features/monitor/ResetCalendar.tsx": {
+    "lint/a11y/useFocusableInteractive": 2,
+    "lint/a11y/useSemanticElements": 5,
+    "lint/correctness/useExhaustiveDependencies": 1
+  },
+  "apps/web/app/features/report/Halftone.tsx": {
+    "lint/a11y/noAriaHiddenOnFocusable": 1
+  },
+  "apps/web/app/features/report/IssueDots.tsx": {
+    "lint/a11y/noAriaHiddenOnFocusable": 1
+  },
+  "apps/web/app/features/report/ReportNav.tsx": {
+    "lint/correctness/useExhaustiveDependencies": 1
+  },
+  "apps/web/app/features/report/ReportPaper.tsx": {
+    "lint/suspicious/noArrayIndexKey": 2
+  },
+  "apps/web/app/features/story/HeatChart.tsx": {
+    "lint/a11y/noNoninteractiveTabindex": 1
+  },
+  "apps/web/app/lib/api.server.ts": {
+    "lint/suspicious/useIterableCallbackReturn": 1
+  },
+  "apps/web/app/lib/local-state.ts": {
+    "lint/suspicious/noAssignInExpressions": 1
+  },
+  "apps/web/app/lib/markdown.ts": {
+    "lint/correctness/noUnusedFunctionParameters": 1
+  },
+  "apps/web/app/root.tsx": {
+    "lint/security/noDangerouslySetInnerHtml": 1
+  },
+  "apps/web/app/routes/about.tsx": {
+    "lint/a11y/noNoninteractiveTabindex": 1,
+    "lint/suspicious/noArrayIndexKey": 1
+  },
+  "apps/web/app/routes/admin-login.tsx": {
+    "lint/a11y/noAutofocus": 1
+  },
+  "apps/web/app/routes/admin/content-item.tsx": {
+    "lint/correctness/useJsxKeyInIterable": 1,
+    "lint/suspicious/noArrayIndexKey": 4,
+    "lint/suspicious/noExplicitAny": 1
+  },
+  "apps/web/app/routes/admin/monitor.tsx": {
+    "lint/suspicious/noArrayIndexKey": 2,
+    "lint/suspicious/noExplicitAny": 2
+  },
+  "apps/web/app/routes/admin/runs.tsx": {
+    "lint/suspicious/noExplicitAny": 1
+  },
+  "apps/web/app/routes/admin/selectbench-run.tsx": {
+    "lint/a11y/useButtonType": 1
+  },
+  "apps/web/app/routes/admin/source.tsx": {
+    "lint/a11y/useButtonType": 1,
+    "lint/suspicious/noArrayIndexKey": 1
+  },
+  "apps/web/app/routes/agent.tsx": {
+    "lint/suspicious/noArrayIndexKey": 1
+  },
+  "apps/web/app/routes/changelog.tsx": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/suspicious/noArrayIndexKey": 3
+  },
+  "apps/web/app/routes/codex-reset.tsx": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/correctness/useExhaustiveDependencies": 1
+  },
+  "apps/web/app/routes/feedback.tsx": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/correctness/useExhaustiveDependencies": 2
+  },
+  "apps/web/app/routes/home.tsx": {
+    "lint/complexity/useOptionalChain": 1,
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/routes/hot.tsx": {
+    "lint/a11y/useAriaPropsSupportedByRole": 1,
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/routes/item.tsx": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/security/noDangerouslySetInnerHtml": 1
+  },
+  "apps/web/app/routes/leaderboard-boards.tsx": {
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/routes/leaderboard-model.tsx": {
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/routes/leaderboard-rules.tsx": {
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/routes/leaderboard-source.tsx": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/suspicious/noArrayIndexKey": 1
+  },
+  "apps/web/app/routes/leaderboard-sources.tsx": {
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/routes/leaderboard.tsx": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/suspicious/noTemplateCurlyInString": 1
+  },
+  "apps/web/app/routes/more.tsx": {
+    "lint/a11y/useAriaPropsSupportedByRole": 1
+  },
+  "apps/web/app/routes/search-busy.tsx": {
+    "lint/correctness/noUnusedImports": 1
+  },
+  "apps/web/app/routes/story.tsx": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/correctness/useExhaustiveDependencies": 5
+  },
+  "apps/web/app/routes/topic.tsx": {
+    "lint/correctness/noUnusedImports": 1
+  },
+  "assets/leaderboard-sources/agents-last-exam.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/arena.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/artificial-analysis-purple-2026.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/deepswe.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/epoch.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/eqbench.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/llm2014.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/mercor.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/rapidata.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/taptap-maker.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "assets/leaderboard-sources/vals.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "industry/brand/logo.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "industry/brand/nameplates/archive.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "industry/brand/nameplates/daily.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "industry/brand/nameplates/monthly.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "industry/brand/nameplates/weekly.svg": {
+    "lint/a11y/noSvgWithoutTitle": 1
+  },
+  "packages/backend/src/admin/sources.ts": {
+    "lint/suspicious/noImplicitAnyLet": 1
+  },
+  "packages/backend/src/content/sanitize.ts": {
+    "lint/correctness/noUnusedFunctionParameters": 1
+  },
+  "packages/backend/src/editorial/input.ts": {
+    "lint/suspicious/noExplicitAny": 8
+  },
+  "packages/backend/src/editorial/translate.ts": {
+    "lint/suspicious/useIterableCallbackReturn": 2
+  },
+  "packages/backend/src/events/group.ts": {
+    "lint/complexity/useOptionalChain": 1,
+    "lint/suspicious/noExplicitAny": 3
+  },
+  "packages/backend/src/leaderboard/fetch/sources/epoch.ts": {
+    "lint/suspicious/noImplicitAnyLet": 1
+  },
+  "packages/backend/src/leaderboard/fetch/store.ts": {
+    "lint/suspicious/useIterableCallbackReturn": 1
+  },
+  "packages/backend/src/leaderboard/method/kemeny.ts": {
+    "lint/suspicious/useIterableCallbackReturn": 1
+  },
+  "packages/backend/src/leaderboard/method/ndtr.ts": {
+    "lint/correctness/noPrecisionLoss": 40
+  },
+  "packages/backend/src/leaderboard/method/v15.ts": {
+    "lint/correctness/noUnusedVariables": 1
+  },
+  "packages/backend/src/leaderboard/read.ts": {
+    "lint/correctness/noUnusedFunctionParameters": 1,
+    "lint/suspicious/noExplicitAny": 6
+  },
+  "packages/backend/src/lib/text.ts": {
+    "lint/suspicious/noControlCharactersInRegex": 6
+  },
+  "packages/backend/src/monitor/read.ts": {
+    "lint/suspicious/noExplicitAny": 2
+  },
+  "packages/backend/src/notify/selected.ts": {
+    "lint/complexity/useOptionalChain": 1
+  },
+  "packages/backend/src/operations/alerts.ts": {
+    "lint/complexity/useOptionalChain": 1
+  },
+  "packages/backend/src/providers/socialdata.ts": {
+    "lint/correctness/noUnusedVariables": 1
+  },
+  "packages/backend/src/publication/detail.ts": {
+    "lint/suspicious/noExplicitAny": 1
+  },
+  "packages/backend/src/publication/feeds.ts": {
+    "lint/suspicious/noControlCharactersInRegex": 6
+  },
+  "packages/backend/src/publication/items.ts": {
+    "lint/suspicious/noExplicitAny": 4
+  },
+  "packages/backend/src/publication/publish.ts": {
+    "lint/complexity/useOptionalChain": 1
+  },
+  "packages/backend/src/publication/reports.ts": {
+    "lint/suspicious/noExplicitAny": 26
+  },
+  "packages/backend/src/publication/v1.ts": {
+    "lint/suspicious/noAssignInExpressions": 2
+  },
+  "packages/backend/src/reports/compose.ts": {
+    "lint/suspicious/noExplicitAny": 1
+  },
+  "packages/backend/src/sources/collect.ts": {
+    "lint/style/useConst": 1
+  },
+  "packages/backend/src/sources/rss.ts": {
+    "lint/suspicious/noExplicitAny": 2
+  },
+  "packages/backend/src/sources/types.ts": {
+    "lint/suspicious/noExplicitAny": 2
+  },
+  "scripts/eval-relations-core.ts": {
+    "lint/suspicious/noAssignInExpressions": 1
+  },
+  "scripts/eval-selection.ts": {
+    "lint/suspicious/noAssignInExpressions": 1
+  },
+  "scripts/lb-fetch-check.ts": {
+    "lint/suspicious/noImplicitAnyLet": 1
+  },
+  "scripts/mcp-check.ts": {
+    "lint/suspicious/noExplicitAny": 1
+  },
+  "scripts/regroup-events.ts": {
+    "lint/suspicious/noAssignInExpressions": 2
+  },
+  "tests/analyze-shutdown.test.ts": {
+    "lint/suspicious/noExplicitAny": 1
+  },
+  "tests/analyze.test.ts": {
+    "lint/correctness/noUnusedImports": 1,
+    "lint/suspicious/noExplicitAny": 3
+  },
+  "tests/events.test.ts": {
+    "lint/style/useConst": 1
+  },
+  "tests/publication.test.ts": {
+    "lint/suspicious/noExplicitAny": 7
+  },
+  "tests/sources.test.ts": {
+    "lint/suspicious/noTemplateCurlyInString": 1
+  },
+  "tests/translate-shutdown.test.ts": {
+    "lint/suspicious/noExplicitAny": 3
+  }
+}
