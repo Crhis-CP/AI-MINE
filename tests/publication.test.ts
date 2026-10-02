@@ -1,7 +1,8 @@
 // Public scope and sync through the real api routes: a licence revocation or a withdrawal reaches
-// every exit, reports stop quoting withdrawn items, the hot board drops a withdrawn item at once, item
-// pages follow the site's rule, an early release keeps the selected ledger in order, a withdrawal
-// waiting behind an unreleased item leaves new snapshots at once, and snapshots answer conditional requests.
+// every exit, body pictures reach the page and the full feed only as links, reports stop quoting
+// withdrawn items, the hot board drops a withdrawn item at once, item pages follow the site's rule, an
+// early release keeps the selected ledger in order, a withdrawal waiting behind an unreleased item
+// leaves new snapshots at once, and snapshots answer conditional requests.
 import { config } from "@aihot/backend/config";
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { beijingDate } from "@aihot/contracts/time";
@@ -96,6 +97,27 @@ test("site reading sends one language while exports retain both, including after
   assert.ok(md.includes("Original full body") && md.includes("中文完整正文"));
   await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   assert.equal((await get(`/api/site/items/${id}/original`)).status, 404);
+});
+
+test("body pictures reach the item page and the full feed only as links, and the image proxy is closed", async () => {
+  const id = await article();
+  const picture = `https://example.com/${T}.png?a=1&amp;b=2`;
+  const mark = `https://example.com/${T}-mark.png`;
+  const html = `<h2><img src="${mark}" alt="mark"> Results</h2><p>${BODY}</p><p><img src="${picture}" alt="Shipments by quarter" width="800" height="400"></p><video src="https://example.com/${T}.mp4" poster="https://example.com/${T}.jpg"></video>`;
+  await sql`UPDATE articles SET language = 'en', body_html = ${html} WHERE id = ${id}`;
+  await publishArticle(id, released());
+  const detail = JSON.parse((await get(`/api/site/items/${id}/original`)).body);
+  const page = detail.body.original as string;
+  // A picture in a heading becomes a link there but does not name the heading in the outline.
+  assert.equal(detail.outline[0].text, "Results");
+  assert.ok(page.includes(`<h2 id="sec-1"><a href="${mark}" target="_blank" rel="noopener noreferrer">查看配图：mark</a> Results</h2>`), page);
+  const feed = (await get("/feed/full.xml")).body.split("<item>").find((item) => item.includes(id));
+  for (const body of [page, feed]) {
+    assert.ok(body?.includes(`<a href="${picture}" target="_blank" rel="noopener noreferrer">查看配图：Shipments by quarter</a>`), body);
+    assert.doesNotMatch(body!, /<img|img-proxy|poster=/);
+  }
+  // The proxy itself is closed: the api does not serve it.
+  assert.equal((await get(`/api/img-proxy?u=${encodeURIComponent(`https://example.com/${T}.png`)}&mode=full`)).status, 404);
 });
 
 test("revoking a source's licence takes its articles off every exit", async () => {

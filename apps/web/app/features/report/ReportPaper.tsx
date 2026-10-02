@@ -6,7 +6,7 @@
 // and the neighbours; line parts stories, columns and list rows. Nothing is set in solid ink. Stories
 // sit in rows of two whose rules run across the page, each story as tall as its neighbour.
 import { SITE } from "@aihot/industry/site";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { ReportCitation, ReportDetail, ReportNavigationEntry } from "@aihot/contracts/site";
 import { shortSourceName } from "../../lib/format";
@@ -81,11 +81,11 @@ function Masthead({ report, index }: { report: ReportDetail; index: ReportNaviga
   );
 }
 
-/** Source face and name, and the site's 一手 mark when first-hand. */
+/** Source initial and name, and the site's 一手 mark when first-hand. */
 function Source({ c, size = 16 }: { c: ReportCitation; size?: number }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1.5">
-      <SourceAvatar name={c.sourceName} iconUrl={c.sourceIconUrl} iconSrcSet={c.sourceIconSrcSet} size={size} />
+      <SourceAvatar name={c.sourceName} size={size} />
       <span className="truncate">{shortSourceName(c.sourceName)}</span>
       {c.firstParty && <Badge tone="accent">一手</Badge>}
     </span>
@@ -200,57 +200,9 @@ function pagesOf(report: ReportDetail, leadStory: ReportCitation | null): Page[]
     .filter((p) => p.items.length > 0);
 }
 
-/**
- * The lead's picture; landscape pictures are cropped to between 16:10 and 2:1. A picture that is not
- * the lead's own (a weekly or monthly's, from its first highlight) is captioned with its story.
- */
-function LeadPicture({
-  cover,
-  onError,
-  priority = false,
-  className = "",
-}: {
-  cover: NonNullable<ReportDetail["cover"]>;
-  onError: () => void;
-  priority?: boolean;
-  className?: string;
-}) {
-  const ratio = cover.width && cover.height ? cover.width / cover.height : 16 / 9;
-  const shown = ratio >= 1.25 ? Math.min(2, Math.max(1.6, ratio)) : Math.max(0.8, ratio);
-  return (
-    <figure className={className}>
-      <div className="overflow-hidden well rounded-panel" style={{ aspectRatio: shown }}>
-        <img
-          src={cover.url}
-          srcSet={cover.srcSet}
-          sizes={
-            priority
-              ? "(min-width: 1700px) 780px, (min-width: 1580px) calc(100vw - 920px), (min-width: 1420px) calc(100vw - 880px), (min-width: 1024px) calc(100vw - 540px), (min-width: 640px) 608px, calc(100vw - 32px)"
-              : "auto, (min-width: 1180px) 300px, (min-width: 640px) 608px, calc(100vw - 32px)"
-          }
-          width={cover.width ?? undefined}
-          height={cover.height ?? undefined}
-          alt=""
-          loading={priority ? "eager" : "lazy"}
-          fetchPriority={priority ? "high" : "auto"}
-          decoding="async"
-          onError={onError}
-          className="size-full object-cover"
-        />
-      </div>
-      {cover.caption && <figcaption className="mt-2.5 line-clamp-2 text-[12.5px] leading-[1.6] text-ink-4">图 · {cover.caption}</figcaption>}
-    </figure>
-  );
-}
-
 /** The front page: the lead beside a column of today's highlights and the index of pages. */
 function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; pages: Page[]; leadStory: ReportCitation | null; count: number }) {
   const daily = report.kind === "daily";
-  // A picture that fails to load is dropped, and the lead is set as if it had none.
-  const [broken, setBroken] = useState<string | null>(null);
-  const cover = report.cover && report.cover.url !== broken ? report.cover : null;
-  // A landscape picture opens the lead above its headline; a squarer one sits beside the paragraph.
-  const wide = !cover?.width || !cover.height || cover.width / cover.height >= 1.25;
   const title = report.lead?.title ?? leadStory?.title ?? headline(report.kind, report.key, count);
   const dek = report.lead?.leadParagraph ?? leadStory?.summary ?? report.overview;
   const highlights = report.highlights.filter((h) => !leadStory || keyOf(h) !== keyOf(leadStory)).slice(0, 3);
@@ -268,7 +220,6 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
         className="min-w-0 scroll-mt-6 py-7 @[880px]:border-r @[880px]:border-line @[880px]:py-10 @[880px]:pr-10"
       >
         <Kicker>{daily ? "头条" : "本期导读"}</Kicker>
-        {cover && wide && <LeadPicture cover={cover} onError={() => setBroken(cover.url)} priority className="mt-5" />}
         <h2 className="mt-4 text-[32px] font-black leading-[1.28] tracking-[-0.03em] text-ink [text-wrap:balance] @[520px]:text-[40px] @[1040px]:text-[48px] @[1040px]:leading-[1.22]">
           {leadStory?.itemId ? (
             <Link to={`/items/${leadStory.itemId}`} prefetch="intent" className="transition-colors hover:text-accent">
@@ -278,14 +229,7 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
             title
           )}
         </h2>
-        {dek && (
-          <div className={cover && !wide ? "mt-6 grid gap-6 @[640px]:grid-cols-[minmax(0,1fr)_minmax(0,38%)] @[880px]:mt-7" : ""}>
-            <p className={`text-[16.5px] leading-[1.9] text-ink-2 @[880px]:text-[17.5px] ${cover && !wide ? "" : "mt-6 @[560px]:text-justify @[880px]:mt-7"}`}>
-              {dek}
-            </p>
-            {cover && !wide && <LeadPicture cover={cover} onError={() => setBroken(cover.url)} />}
-          </div>
-        )}
+        {dek && <p className="mt-6 text-[16.5px] leading-[1.9] text-ink-2 @[560px]:text-justify @[880px]:mt-7 @[880px]:text-[17.5px]">{dek}</p>}
         {leadStory && (
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-3">
             <Source c={leadStory} size={18} />

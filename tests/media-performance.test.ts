@@ -160,8 +160,8 @@ test("small SVG stays vector while a large vector receives the requested browser
   assert.equal((await sharp(raster.body).metadata()).width, 720);
 });
 
-test("responsive URLs and web body candidates retain exact signatures and stable expiry", async () => {
-  const { proxiedImageSet, proxyBodyImages, verifyProxyRequest } = await import("@aihot/backend/media/imgproxy");
+test("responsive URLs retain exact signatures and stable expiry", async () => {
+  const { proxiedImageSet, verifyProxyRequest } = await import("@aihot/backend/media/imgproxy");
   const now = Date.parse("2026-09-28T08:00:00Z");
   const candidates = proxiedImageSet("https://example.org/image.png", "card", false, now)!;
   assert.equal(candidates, proxiedImageSet("https://example.org/image.png", "card", false, now + 1000));
@@ -174,14 +174,6 @@ test("responsive URLs and web body candidates retain exact signatures and stable
     assert.equal(width, query.mode === "image-336" ? "336w" : "720w");
     assert.equal(verifyProxyRequest({ ...query, mode: "image-1600" }, now).ok, false);
   }
-  const html = '<p><img src="https://example.org/image.png?a=1&amp;b=2" width="800" height="400"></p>';
-  assert.ok(!proxyBodyImages('<img src="https://example.org/small.png" width="160" height="80">').includes("srcset="));
-  assert.ok(!proxyBodyImages('<img src="https://example.org/unknown.png">').includes("srcset="));
-  const web = proxyBodyImages(html);
-  assert.match(web, /srcset="[^"]+image-720/);
-  assert.match(web, /loading="lazy"/);
-  assert.match(web, /width="800" height="400"/);
-  assert.doesNotMatch(proxyBodyImages(html, true), /srcset=/);
 });
 
 test("image HTTP responses keep issued URLs valid, reject tampering before fetching and do not vary on Accept", async () => {
@@ -229,25 +221,4 @@ test("background preparation turns a cached GIF into a smaller animated WebP wit
   assert.deepEqual(meta.delay, Array(10).fill(90));
   assert.equal(meta.width, 160);
   assert.equal(await convertAnimated(`${base}/anim.gif`, "image-336"), 0);
-});
-
-test("preparation finds every rendition a card and a page ask for, including escaped body images", async () => {
-  const { proxiedRenditions } = await import("@aihot/backend/media/prepare");
-  const { proxiedImage, proxiedImageSet, proxyBodyImages } = await import("@aihot/backend/media/imgproxy");
-  const answers = [
-    { avatar: proxiedImage("https://example.org/a.png?x=1&y=2", "avatar-48"), srcSet: proxiedImageSet("https://example.org/c.png", "card") },
-    { html: proxyBodyImages('<img src="https://example.org/b.png?q=1&amp;r=2" width="800" height="400">') },
-  ];
-  const found = proxiedRenditions(answers)
-    .map((r) => `${r.mode} ${r.url}`)
-    .sort();
-  assert.deepEqual(found, [
-    "avatar-48 https://example.org/a.png?x=1&y=2",
-    "full https://example.org/b.png?q=1&r=2",
-    "image-1200 https://example.org/b.png?q=1&r=2",
-    "image-1600 https://example.org/b.png?q=1&r=2",
-    "image-336 https://example.org/c.png",
-    "image-720 https://example.org/b.png?q=1&r=2",
-    "image-720 https://example.org/c.png",
-  ]);
 });

@@ -1,6 +1,8 @@
 // One body representation for the web page, Markdown export and full RSS: whitelisted HTML.
-// External HTML is never executed; images keep their original src and are signed at read time.
+// External HTML is never executed; images keep their original src and reach readers only as links
+// to the picture on the source's site (linkBodyImages).
 import * as cheerio from "cheerio";
+import { type Element, isTag } from "domhandler";
 import sanitizeHtml from "sanitize-html";
 
 const ALLOWED_TAGS = [
@@ -228,7 +230,7 @@ const OWN_PROXY = /^(?:https?:\/\/[^/?#]+)?\/api\/img-proxy\?/i;
 /**
  * The image an address of our own image proxy stands for. Legacy bodies were saved with the proxy's
  * relative address (`/api/img-proxy?u=…&exp=…&sig=…`); resolved against the article's own site it
- * pointed nowhere. The source image is the `u` it wraps, signed again when a page is served.
+ * pointed nowhere. The source image is the `u` it wraps.
  */
 export function unwrapProxyUrl(src: string): string {
   const s = src.trim();
@@ -247,6 +249,81 @@ export function unwrapProxiedImages(html: string): string {
       return unwrapped === url ? match : `${pre}${unwrapped.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}${post}`;
     }),
   );
+}
+
+/** A link's address that is itself a picture: often the larger copy a thumbnail opens. */
+const PICTURE_PATH = /\.(?:avif|bmp|gif|jpe?g|png|svg|tiff?|webp)$/i;
+
+function webAddress(value: string | undefined): string {
+  return (value ?? "").trim().replace(/^\/\//, "https://");
+}
+
+function isPictureAddress(href: string): boolean {
+  try {
+    return PICTURE_PATH.test(new URL(href).pathname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Body pictures as links (DR-78): a source's pictures are never fetched, re-hosted or shown here. Each
+ * <img> becomes "查看配图：{说明}" pointing at the picture on the source's site, and a video loses its
+ * poster frame. A picture with no web address of its own (an inline data URL) is dropped.
+ *
+ * Links never nest, so the pictures inside a link move to just after it, in their order. A link left
+ * with nothing to click shows its address, so where it led is not lost; one that only opened its
+ * picture (often a larger copy) gives way to the picture's link, which takes its address.
+ */
+export function linkBodyImages(html: string): string {
+  if (!/<(?:img|video)\b/i.test(html)) return html;
+  const $ = cheerio.load(html, null, false);
+  $("picture").each((_, el) => {
+    $(el).replaceWith($(el).contents());
+  });
+  const made = new Set<Element>();
+  const pictureLink = (img: Element): Element | null => {
+    const src = webAddress($(img).attr("src"));
+    if (!/^https?:\/\//i.test(src)) return null;
+    const note = ($(img).attr("alt") || $(img).attr("title") || "").replace(/\s+/g, " ").trim();
+    const link = $("<a>")
+      .attr({ href: src, target: "_blank", rel: "noopener noreferrer" })
+      .text(note ? `查看配图：${note}` : "查看配图")
+      .get(0) as Element;
+    made.add(link);
+    return link;
+  };
+  $("a").each((_, el) => {
+    const around = $(el);
+    const pictures = around.find("img");
+    if (!pictures.length) return;
+    const links = pictures.toArray().flatMap((img) => pictureLink(img) ?? []);
+    pictures.remove();
+    if (!around.text().trim()) {
+      const href = webAddress(around.attr("href"));
+      const only = links.length === 1 ? links[0] : undefined;
+      if (only && (href === $(only).attr("href") || isPictureAddress(href))) {
+        $(only).attr("href", href);
+        around.replaceWith(only);
+        return;
+      }
+      if (!/^https?:\/\//i.test(href)) {
+        around.replaceWith(links);
+        return;
+      }
+      around.text(href);
+    }
+    around.after(links);
+  });
+  $("img").each((_, el) => {
+    const link = pictureLink(el);
+    if (link) $(el).replaceWith(link);
+    else $(el).remove();
+  });
+  // A picture link right after another link would run into it: a space parts them.
+  for (const link of made) if (link.prev && isTag(link.prev) && link.prev.name === "a") $(link).before(" ");
+  $("video[poster]").removeAttr("poster");
+  return $.html();
 }
 
 function resolveUrl(href: string, base?: string): string {

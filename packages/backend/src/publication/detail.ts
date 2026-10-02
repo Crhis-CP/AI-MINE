@@ -1,8 +1,8 @@
 // Item detail and Markdown export, both behind the same visibility and licence rules.
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@aihot/contracts/site";
 import TurndownService from "turndown";
+import { linkBodyImages } from "../content/sanitize.ts";
 import { sql } from "../db.ts";
-import { proxyBodyImages } from "../media/imgproxy.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { itemUrl } from "./links.ts";
 import { hasItemPage } from "./rules.ts";
@@ -18,6 +18,9 @@ interface DetailRow extends ItemRow {
 
 export type DetailResult = { kind: "found"; detail: ItemDetail; row: DetailRow } | { kind: "not_found" };
 
+/** A body picture's link ("查看配图…", linkBodyImages) does not name the heading it sits in. */
+const PICTURE_LINK = /<a\b(?:[^>"']|"[^"]*"|'[^']*')*>查看配图[^<]*<\/a>/g;
+
 /** Adds stable ids to h2–h4 and returns the outline. */
 function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
   const outline: OutlineEntry[] = [];
@@ -25,7 +28,10 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
   const out = html.replace(/<h([2-4])(?: id="sec-\d+")?>([\s\S]*?)<\/h\1>/gi, (_m, level: string, inner: string) => {
     n += 1;
     const id = `sec-${n}`;
-    const text = inner.replace(/<[^>]+>/g, "").trim();
+    const text = inner
+      .replace(PICTURE_LINK, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
     if (text) outline.push({ id, text: text.slice(0, 80), level: Number(level) });
     return `<h${level} id="${id}">${inner}</h${level}>`;
   });
@@ -77,8 +83,8 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   let outline: OutlineEntry[] = [];
   if (row.body_mode === "full" && row.body_html) {
     const isZh = row.language === "zh" || (/[一-鿿]/.test(row.body_text?.slice(0, 400) ?? "") && row.language !== "en");
-    const original = proxyBodyImages(row.body_html);
-    const zh = isZh ? original : row.tr_html ? proxyBodyImages(row.tr_html) : null;
+    const original = linkBodyImages(row.body_html);
+    const zh = isZh ? original : row.tr_html ? linkBodyImages(row.tr_html) : null;
     const primary = withOutline(zh ?? original);
     outline = primary.outline;
     body = {

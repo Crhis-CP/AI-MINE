@@ -149,7 +149,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       representativeItemId: rep.id,
       representativeUrl: rep.url,
       representativeSource: rep.source_name,
-      // Faces go to the 精选组 by tier, the most recently active first within a tier (ordered before the cap).
+      // 精选组 first by tier, the most recently active first within a tier (ordered before the cap).
       participants: participants
         .sort(
           (x, y) => Number(y.kind === "editorial") - Number(x.kind === "editorial") || tierRank(x.tier) - tierRank(y.tier) || y.at.getTime() - x.at.getTime(),

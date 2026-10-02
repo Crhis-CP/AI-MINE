@@ -1,5 +1,5 @@
-// Signed image proxy URLs. The address format and signing key stay stable, so proxy URLs
-// already cached in full RSS and readers keep working: /api/img-proxy?u=&mode=&exp=&sig=
+// Signed image proxy URLs: /api/img-proxy?u=&mode=&exp=&sig=. Off for public pages and feeds, which
+// link to a picture on the source's site instead (DR-78); kept for sources the Owner authorises.
 // sig = hex(HMAC-SHA256(IMG_PROXY_SIGN_SECRET, `${u}|${mode}|${exp}`)), sent as its first 16 hex
 // digits (64 bits): the random digits cannot be compressed, and the full 64 made up about a tenth
 // of a compressed list page. A full-length signature from an older URL is still accepted.
@@ -71,33 +71,4 @@ export function verifyProxyRequest(params: { u?: string; mode?: string; exp?: st
   const expected = Buffer.from(signature(u, mode ?? "default", exp), "hex").subarray(0, given.length);
   if (given.length === 0 || !timingSafeEqual(given, expected)) return { ok: false, reason: "bad-signature" };
   return { ok: true, url: u, mode: mode ?? "full" };
-}
-
-/**
- * Rewrites <img>/<video poster> sources in whitelisted body HTML to signed proxy URLs. Feed readers keep
- * items for days, so full RSS asks for a longer signature than a page.
- */
-export function proxyBodyImages(html: string, absolute = false, lifetimeSeconds = LIFETIME_SECONDS): string {
-  const now = Date.now();
-  return html
-    .replace(/<img\b([^>]*)>/gi, (tag: string, attrs: string) => {
-      const src = attrs.match(/\ssrc="([^"]+)"/i);
-      if (!src) return tag;
-      const decoded = src[1]!.replace(/&amp;/g, "&");
-      const proxied = proxiedImage(decoded, "full", absolute, now, lifetimeSeconds);
-      // Width descriptors change an image's natural CSS size. Only use them for a body image with
-      // an explicit display width: unknown and small pictures must retain their intrinsic size.
-      // RSS keeps its existing single signed full image.
-      const width = Number(attrs.match(/\bwidth="(\d+)"/i)?.[1] ?? 0);
-      const candidates = !absolute && width >= IMAGE_WIDTHS["image-720"] ? proxiedImageSet(decoded, "body", false, now, lifetimeSeconds) : null;
-      const responsive = candidates
-        ? ` srcset="${candidates.replace(/&/g, "&amp;")}" sizes="auto, (min-width: 1536px) 760px, (min-width: 1024px) calc(100vw - 524px), (min-width: 640px) 608px, calc(100vw - 32px)"`
-        : "";
-      const source = proxied ? ` src="${proxied.replace(/&/g, "&amp;")}"${responsive} loading="lazy" decoding="async"` : "";
-      return `<img${attrs.replace(src[0], source)}>`;
-    })
-    .replace(/<video\b([^>]*?)\sposter="([^"]+)"/gi, (_m, pre: string, src: string) => {
-      const proxied = proxiedImage(src.replace(/&amp;/g, "&"), "thumb", absolute, now, lifetimeSeconds);
-      return proxied ? `<video${pre} poster="${proxied.replace(/&/g, "&amp;")}"` : `<video${pre}`;
-    });
 }

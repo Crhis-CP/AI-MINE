@@ -1,26 +1,10 @@
-import { useState } from "react";
 import { sourceInitial } from "../../lib/format";
 
-/** Round source icon; a tinted initial when there is no image. */
-export function SourceAvatar({ name, iconUrl, iconSrcSet, size = 18 }: { name: string; iconUrl?: string | null; iconSrcSet?: string; size?: number }) {
-  const [failed, setFailed] = useState(false);
-  if (iconUrl && !failed) {
-    return (
-      <img
-        src={iconUrl}
-        srcSet={iconSrcSet}
-        sizes={`${size}px`}
-        decoding="async"
-        alt=""
-        width={size}
-        height={size}
-        loading="lazy"
-        onError={() => setFailed(true)}
-        className="shrink-0 rounded-full bg-bg-sunk object-cover"
-        style={{ width: size, height: size }}
-      />
-    );
-  }
+/**
+ * A source's mark: its initial on a tint taken from the name. Source logos, site icons and account
+ * pictures are never fetched or shown (DR-78), so this is the only form.
+ */
+export function SourceAvatar({ name, size = 18 }: { name: string; size?: number }) {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return (

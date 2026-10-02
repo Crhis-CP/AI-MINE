@@ -8,7 +8,6 @@ import { config } from "@aihot/backend/config";
 import { closeDb, sql } from "@aihot/backend/db";
 import { buildApp } from "../apps/api/src/app.ts";
 
-process.env.FEISHU_INTERNAL_ENABLED = "false";
 config.dataDir = await mkdtemp(path.join(tmpdir(), "aihot-upload-"));
 const app = await buildApp();
 after(async () => {
@@ -28,16 +27,15 @@ async function upload(file: Buffer, ip: string) {
   return app.inject({ method: "POST", url: "/api/site/feedback", headers: { "content-type": request.headers.get("content-type")!, "x-real-ip": ip }, payload });
 }
 
-test("a 5 MiB multipart screenshot waits intact for forwarding", async () => {
+test("a 5 MiB multipart screenshot is stored intact", async () => {
   const file = Buffer.alloc(5 * 1024 * 1024, 137);
   const result = await upload(file, "203.0.113.211");
   assert.equal(result.statusCode, 201, result.body);
   assert.equal(result.headers["cache-control"], "no-store");
-  const [row] = await sql`SELECT content,email,page_url,screenshot_key,forward_error FROM feedback WHERE id = ${result.json().id}`;
+  const [row] = await sql`SELECT content,email,page_url,screenshot_key FROM feedback WHERE id = ${result.json().id}`;
   assert.equal(row!.content, "手机截图反馈，文字保持不变");
   assert.equal(row!.email, "reader@example.com");
   assert.equal(row!.page_url, "/daily");
-  assert.equal(row!.forward_error, "pending");
   assert.deepEqual(await readFile(path.join(config.dataDir, "feedback-screenshots", row!.screenshot_key.slice(6))), file);
 });
 

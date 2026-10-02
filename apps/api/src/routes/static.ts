@@ -1,5 +1,5 @@
 // Discovery and static files: sitemap, llms.txt, robots, security.txt, the web manifest, the OpenAPI
-// document, icons, the IndexNow key and the about page's contact codes.
+// document, icons and the IndexNow key.
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -173,20 +173,4 @@ export function registerStatic(app: FastifyInstance) {
   for (const icon of ["favicon.ico", "icon.png", "icon-192.png", "apple-icon.png", "logo.svg"]) {
     app.get(`/${icon}`, (req, reply) => sendFile(req, reply, path.join(BRAND, icon), { cacheControl: "public, max-age=86400, stale-while-revalidate=604800" }));
   }
-
-  // Contact codes on the about page: uploaded in the admin (content-hashed names), or shipped in the pack.
-  app.get("/contact/:file", async (req, reply) => {
-    const file = (req.params as { file: string }).file;
-    if (!/^[\w.-]+\.(png|jpg|jpeg|webp)$/.test(file)) return reply.code(404).send();
-    const hashed = /-[0-9a-f]{8}\./.test(file);
-    const cacheControl = hashed ? "public, max-age=31536000, immutable" : "public, max-age=3600";
-    const uploaded = path.join(config.dataDir, "uploads", file);
-    const target = (await stat(uploaded).then(
-      () => true,
-      () => false,
-    ))
-      ? uploaded
-      : path.join(BRAND, "contact", file);
-    return sendFile(req, reply, target, { cacheControl });
-  });
 }

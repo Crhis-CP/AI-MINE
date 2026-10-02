@@ -4,9 +4,9 @@
 import { CATEGORY_LABELS, PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } from "@aihot/contracts/taxonomy";
 import { SITE, withSubject } from "@aihot/industry/site";
 import { config } from "../config.ts";
+import { linkBodyImages } from "../content/sanitize.ts";
 import { sql } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
-import { proxyBodyImages } from "../media/imgproxy.ts";
 import { reportHeadline, reportIndex } from "./reports.ts";
 import { categoryCondition, listedCondition, selectedCondition, type ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
@@ -92,9 +92,6 @@ type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "
     }
   >;
 
-/** Readers keep feed items for days: body images in full RSS are signed for a week, not a day. */
-const FEED_IMAGE_SECONDS = 7 * 86400;
-
 /**
  * The body a full feed carries, in Chinese when the page has it: a complete Chinese translation of the
  * article, else the original. It ends with an attribution line (also a mark on copies taken from the feed).
@@ -102,7 +99,7 @@ const FEED_IMAGE_SECONDS = 7 * 86400;
 function fullContent(r: FeedRow, aihot: string): string | null {
   const html = r.body_html ? (r.language !== "zh" && r.tr_html && r.tr_complete ? r.tr_html : r.body_html) : null;
   if (!html) return null;
-  return `${proxyBodyImages(html, true, FEED_IMAGE_SECONDS)}<p>—— 本文由 ${escapeXml(SITE.name)} 聚合整理，完整版与更多动态见 <a href="${aihot}">${aihot}</a></p>`;
+  return `${linkBodyImages(html)}<p>—— 本文由 ${escapeXml(SITE.name)} 聚合整理，完整版与更多动态见 <a href="${aihot}">${aihot}</a></p>`;
 }
 
 function itemXml(r: FeedRow, includeContent: boolean): string {

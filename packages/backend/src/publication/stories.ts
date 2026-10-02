@@ -2,7 +2,6 @@
 // v1 / MCP / Skill only see ranks and counts.
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@aihot/contracts/site";
 import { sql } from "../db.ts";
-import { proxiedImage, proxiedImageSet } from "../media/imgproxy.ts";
 import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
 import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
@@ -46,7 +45,6 @@ interface ReportRow {
   source_name: string;
   source_kind: string;
   first_party: boolean;
-  icon_url: string | null;
   fact_public_id: string;
   fact_id: number;
 }
@@ -61,7 +59,7 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
   return sql<ReportRow[]>`
     SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary, p.url, p.selected,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
-      p.first_party, s.icon_url, f.public_id AS fact_public_id, f.id AS fact_id
+      p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND s.participation_mode = 'editorial'
@@ -74,7 +72,7 @@ function reportView(r: ReportRow): StoryReportView {
     id: r.id,
     title: r.title,
     summary: r.summary,
-    source: { id: r.source_id, name: r.source_name, kind: r.source_kind as never, firstParty: r.first_party, iconUrl: proxiedImage(r.icon_url, "avatar") },
+    source: { id: r.source_id, name: r.source_name, kind: r.source_kind as never, firstParty: r.first_party },
     publishedAt: r.at.toISOString(),
     originalUrl: r.url,
     selected: r.selected,
@@ -210,59 +208,15 @@ async function sparklines(storyIds: number[], at: Date): Promise<Map<number, Arr
   return out;
 }
 
-// Pictures for a ranking change only with the ranking, so they are read once per ranking.
-type HotCoverMap = Map<number, { url: string; width: number | null; height: number | null }>;
-let coversCache: { rankingId: number; covers: HotCoverMap } | null = null;
-const coversPending = new Map<number, Promise<HotCoverMap>>();
-
-/** A picture per story from its public full-text reports, the representative first, wide enough for a card. */
-async function hotCovers(rankingId: number, entries: Array<{ storyId: number; representativeItemId: string | null }>, at: Date) {
-  if (coversCache?.rankingId === rankingId) return coversCache.covers;
-  const pending = coversPending.get(rankingId);
-  if (pending) return pending;
-  const load = queryHotCovers(entries, at);
-  coversPending.set(rankingId, load);
-  try {
-    const covers = await load;
-    coversCache = { rankingId, covers };
-    return covers;
-  } finally {
-    coversPending.delete(rankingId);
-  }
-}
-
-async function queryHotCovers(entries: Array<{ storyId: number; representativeItemId: string | null }>, at: Date) {
-  const ids = entries.map((e) => e.storyId);
-  const reps = entries.map((e) => e.representativeItemId).filter((id): id is string => !!id);
-  const rows = await sql<{ story_id: number; m: { url: string; width?: number; height?: number } }[]>`
-    SELECT DISTINCT ON (p.story_id) p.story_id, img.m
-    FROM publications p JOIN articles a ON a.id = p.article_id
-    CROSS JOIN LATERAL (
-      SELECT m FROM jsonb_array_elements(coalesce(a.media, '[]'::jsonb)) m
-      WHERE m->>'kind' = 'image' AND coalesce((m->>'width')::numeric, 800) >= 480 LIMIT 1
-    ) img
-    WHERE p.story_id = ANY(${ids}::bigint[]) AND p.visibility = 'public' AND p.eligible AND p.body_mode <> 'summary'
-      AND (NOT p.selected OR p.visible_after <= ${at})
-    ORDER BY p.story_id, (p.article_id::text = ANY(${reps}::text[])) DESC, p.first_party DESC, p.selected DESC, coalesce(p.score, 0) DESC, p.article_id`;
-  const covers = new Map(
-    rows.map((c) => [
-      Number(c.story_id),
-      { url: c.m.url, width: typeof c.m.width === "number" ? c.m.width : null, height: typeof c.m.height === "number" ? c.m.height : null },
-    ]),
-  );
-  return covers;
-}
-
 export async function loadHot(): Promise<HotResponse> {
   const ranking = await latestHotRanking();
   if (!ranking) return { computedAt: null, ruleVersion: null, windowHours: 48, entries: [] };
   const at = new Date(ranking.computedAt);
-  const [sparks, covers, extras] = await Promise.all([
+  const [sparks, extras] = await Promise.all([
     sparklines(
       ranking.entries.map((e) => e.storyId),
       at,
     ),
-    hotCovers(ranking.id, ranking.entries, at),
     rankingExtras(ranking),
   ]);
   return {
@@ -270,8 +224,6 @@ export async function loadHot(): Promise<HotResponse> {
     ruleVersion: ranking.ruleVersion,
     windowHours: 48,
     entries: ranking.entries.map((e) => {
-      const picture = covers.get(e.storyId);
-      const coverUrl = picture ? proxiedImage(picture.url, "full") : null;
       const text = extras.text(e);
       return {
         rank: e.rank,
@@ -290,14 +242,9 @@ export async function loadHot(): Promise<HotResponse> {
         representative: e.representativeItemId
           ? { id: e.representativeItemId, url: e.representativeUrl ?? "", sourceName: e.representativeSource ?? "" }
           : null,
-        participants: extras.participants(e),
         spark: sparks.get(e.storyId) ?? [],
         summary: text.summary,
         latest: text.latest,
-        cover:
-          picture && coverUrl
-            ? { url: coverUrl, srcSet: proxiedImageSet(picture.url, "hero") ?? undefined, width: picture.width, height: picture.height }
-            : null,
       };
     }),
   };

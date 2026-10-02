@@ -8,7 +8,6 @@ import { registerAdminAuth } from "./routes/admin-auth.ts";
 import { registerAdmin } from "./routes/admin.ts";
 import { registerIngest } from "./routes/ingest.ts";
 import { registerV1, registerV1Fallbacks } from "./routes/v1.ts";
-import { registerMedia } from "./routes/media.ts";
 import { registerFeeds } from "./routes/feeds.ts";
 import { registerStatic } from "./routes/static.ts";
 import { registerMcp } from "./routes/mcp.ts";
@@ -71,7 +70,9 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   registerIngest(app);
   registerV1(app);
-  registerMedia(app);
+  // The signed image proxy (routes/media.ts) stays closed (DR-78): pages and feeds link to a picture
+  // on the source's site, and no source is authorised to show its pictures here (Q-68). Registering
+  // it again needs the Owner's approval.
 
   registerFeeds(app);
   registerStatic(app);

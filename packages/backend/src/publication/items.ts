@@ -3,7 +3,6 @@
 import type { CategoryKey, ChannelKey } from "@aihot/contracts/taxonomy";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@aihot/contracts/site";
 import { sql, type Db } from "../db.ts";
-import { proxiedImage, proxiedImageSet } from "../media/imgproxy.ts";
 import { displayTags } from "./rules.ts";
 
 export interface ItemRow {
@@ -39,7 +38,6 @@ export interface ItemRow {
   source_kind: SourceKind;
   /** Participation mode of the source now (editorial, hot_signal, isolated). */
   source_mode: string;
-  source_icon: string | null;
   author: string | null;
   language: string | null;
   story_public_id: string | null;
@@ -51,7 +49,7 @@ export const ITEM_COLUMNS = sql`
   p.article_id AS id, p.revision, p.title, p.original_title, p.summary, p.reason, p.category, p.tags, p.score,
   p.selected, p.eligible, p.channel, p.url, p.published_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
-  s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode, s.icon_url AS source_icon,
+  s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,
   a.author, a.language,
   st.public_id::text AS story_public_id, st.title AS story_title`;
 
@@ -119,8 +117,6 @@ export function toItemSummary(row: ItemRow): ItemSummary {
       name: row.source_name,
       kind: row.source_kind,
       firstParty: row.first_party,
-      iconUrl: proxiedImage(row.source_icon, "avatar"),
-      ...(proxiedImageSet(row.source_icon, "avatar") ? { iconSrcSet: proxiedImageSet(row.source_icon, "avatar")! } : {}),
     },
     links: { aihot: `/items/${row.id}`, original: row.url },
     publishedAt: row.published_at?.toISOString() ?? null,

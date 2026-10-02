@@ -1,7 +1,6 @@
 // Reading the latest published hot ranking. The web shows heat values; machine exits only ranks.
-import type { HotParticipant, HotStripEntry } from "@aihot/contracts/site";
+import type { HotStripEntry } from "@aihot/contracts/site";
 import { sql } from "../db.ts";
-import { proxiedImage, proxiedImageSet } from "../media/imgproxy.ts";
 
 export interface HotEntry {
   rank: number;
@@ -27,8 +26,7 @@ export interface HotEntry {
   participants: Array<{ name: string; kind: "editorial" | "signal"; tier?: string }>;
 }
 
-/** Faces are the 精选组 sources, T1 before T1.5 before T2; the rest (and 氛围组) count in "+N". */
-const MAX_FACES = 6;
+/** 精选组 sources are listed T1 before T1.5 before T2. */
 const TIER_ORDER = ["T1", "T1_5", "T2"];
 export function tierRank(tier: string | undefined): number {
   const i = TIER_ORDER.indexOf(tier ?? "");
@@ -59,9 +57,8 @@ async function queryLatestHotRanking(): Promise<HotRanking | null> {
   return { id: row.id, computedAt: row.computed_at.toISOString(), ruleVersion: row.rule_version, entries: row.entries, coverage: row.evidence };
 }
 
-// Faces and words change only with the ranking, so they are read once per ranking.
+// The words change only with the ranking, so they are read once per ranking.
 interface Extras {
-  faces: Map<string, string | null>;
   texts: Map<number, { summary: string | null; latest: string | null }>;
 }
 let extrasCache: { rankingId: number; extras: Extras } | null = null;
@@ -82,49 +79,19 @@ async function readExtras(ranking: HotRanking): Promise<Extras> {
 
 async function queryExtras(ranking: HotRanking): Promise<Extras> {
   const ids = ranking.entries.map((e) => e.storyId);
-  const [faces, texts] = await Promise.all([
-    // A participant's face: the source's icon.
-    sql<{ name: string; icon_url: string | null }[]>`
-      SELECT DISTINCT ON (s.id) s.name, s.icon_url
-      FROM story_signals ss JOIN sources s ON s.id = ss.source_id
-      WHERE ss.story_id = ANY(${ids}::bigint[])
-      ORDER BY s.id`,
-    sql<{ id: number; digest: string | null; summary: string | null; latest: string | null }[]>`
-      SELECT id, digest, summary, latest FROM stories WHERE id = ANY(${ids}::bigint[])`,
-  ]);
+  const texts = await sql<{ id: number; digest: string | null; summary: string | null; latest: string | null }[]>`
+    SELECT id, digest, summary, latest FROM stories WHERE id = ANY(${ids}::bigint[])`;
   const extras: Extras = {
-    faces: new Map(faces.map((f) => [f.name, f.icon_url])),
     texts: new Map(texts.map((t) => [Number(t.id), { summary: t.digest ?? t.summary, latest: t.latest }])),
   };
   extrasCache = { rankingId: ranking.id, extras };
   return extras;
 }
 
-/**
- * What the web adds to a ranking entry: participants with proxied faces in the order Faces shows them
- * (精选组 by tier, a real face before an initial within a tier, then 氛围组), the digest and the latest turn.
- */
+/** What the web adds to a ranking entry: the digest and the latest turn. */
 export async function rankingExtras(ranking: HotRanking) {
-  const { faces, texts } = await readExtras(ranking);
+  const { texts } = await readExtras(ranking);
   return {
-    participants: (e: HotEntry): HotParticipant[] => {
-      const people = e.participants
-        .map((p, i) => ({ p, i, icon: faces.get(p.name) ?? null }))
-        .sort(
-          (x, y) =>
-            Number(y.p.kind === "editorial") - Number(x.p.kind === "editorial") ||
-            tierRank(x.p.tier) - tierRank(y.p.tier) ||
-            Number(!!y.icon) - Number(!!x.icon) ||
-            x.i - y.i,
-        );
-      // Every name stays for the tooltip; only visible Faces need srcSet.
-      return people.map(({ p, icon }, i): HotParticipant => {
-        const person: HotParticipant = { name: p.name, kind: p.kind, iconUrl: proxiedImage(icon, "avatar") };
-        const srcSet = p.kind === "editorial" && i < MAX_FACES ? proxiedImageSet(icon, "avatar") : undefined;
-        if (srcSet) person.iconSrcSet = srcSet;
-        return person;
-      });
-    },
     text: (e: HotEntry) => texts.get(e.storyId) ?? { summary: null, latest: null },
   };
 }
@@ -133,7 +100,6 @@ export async function rankingExtras(ranking: HotRanking) {
 export async function loadHotStrip(): Promise<HotStripEntry[] | null> {
   const ranking = await latestHotRanking();
   if (!ranking || ranking.entries.length < 3) return null;
-  const extras = await rankingExtras(ranking);
   return ranking.entries.slice(0, 5).map((e) => ({
     rank: e.rank,
     title: e.title,
@@ -141,7 +107,5 @@ export async function loadHotStrip(): Promise<HotStripEntry[] | null> {
     trend: e.trend,
     storyPublicId: e.storyPublicId,
     itemId: e.representativeItemId,
-    participants: extras.participants(e),
-    participantCount: e.participantCount,
   }));
 }

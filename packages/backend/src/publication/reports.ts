@@ -3,7 +3,6 @@
 import type { ReportCitation, ReportDetail, ReportIndexEntry, ReportNavigationEntry, ReportKind } from "@aihot/contracts/site";
 import { sql } from "../db.ts";
 import { cached, type Cached } from "../lib/cache.ts";
-import { proxiedImage, proxiedImageSet } from "../media/imgproxy.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { SITE, withSubject } from "@aihot/industry/site";
 
@@ -23,7 +22,6 @@ interface Availability {
   available: boolean;
   firstParty: boolean;
   sourceId: string | null;
-  sourceIcon: string | null;
   storyPublicId: string | null;
   publishedAt: Date | null;
 }
@@ -38,21 +36,19 @@ async function availability(ids: string[]): Promise<Map<string, Availability>> {
       eligible: boolean;
       first_party: boolean;
       source_id: string;
-      icon_url: string | null;
       story_public_id: string | null;
       at: Date | null;
     }[]
   >`
-    SELECT p.article_id AS id, p.visibility, p.eligible, p.first_party, p.source_id, s.icon_url, st.public_id::text AS story_public_id,
+    SELECT p.article_id AS id, p.visibility, p.eligible, p.first_party, p.source_id, st.public_id::text AS story_public_id,
       coalesce(p.published_at, p.discovered_at) AS at
-    FROM publications p LEFT JOIN sources s ON s.id = p.source_id LEFT JOIN stories st ON st.id = p.story_id
+    FROM publications p LEFT JOIN stories st ON st.id = p.story_id
     WHERE p.article_id IN ${sql(ids)}`;
   for (const r of rows) {
     out.set(r.id, {
       available: r.visibility === "public" && r.eligible,
       firstParty: r.first_party,
       sourceId: r.source_id,
-      sourceIcon: r.icon_url,
       storyPublicId: r.story_public_id,
       publishedAt: r.at,
     });
@@ -137,7 +133,6 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
       sourceName: "",
       sourceUrl: "",
       sourceId: null,
-      sourceIconUrl: null,
       firstParty: false,
       role: raw.role ?? null,
       storyPublicId: null,
@@ -152,64 +147,11 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
     sourceName: String(raw.sourceName ?? raw.source?.name ?? ""),
     sourceUrl: String(raw.sourceUrl ?? raw.links?.original ?? ""),
     sourceId: raw.sourceId ?? a?.sourceId ?? null,
-    sourceIconUrl: a?.sourceIcon ? proxiedImage(a.sourceIcon, "avatar") : null,
-    ...(a?.sourceIcon && proxiedImageSet(a.sourceIcon, "avatar") ? { sourceIconSrcSet: proxiedImageSet(a.sourceIcon, "avatar")! } : {}),
     firstParty: raw.firstParty ?? a?.firstParty ?? false,
     role: raw.role ?? null,
     storyPublicId: raw.storyPublicId ?? a?.storyPublicId ?? null,
     publishedAt: a?.publishedAt?.toISOString() ?? null,
     available,
-  };
-}
-
-const bigrams = (text: string) => {
-  const chars = [...text.toLowerCase().replace(/[\s\p{P}]/gu, "")];
-  return new Set(chars.slice(1).map((ch, i) => chars[i] + ch));
-};
-
-/**
- * The item a daily's front page leads with. Without an editors' lead it is the first highlight (else
- * the first story), as the page sets it. The editors' lead is written about one of the items, so it is
- * the item whose title shares most of the lead's character pairs, if most of them are shared; a lead
- * that matches no item clearly has none.
- */
-export function leadItemOf(leadTitle: string | undefined, highlights: ReportCitation[], all: ReportCitation[]): ReportCitation | undefined {
-  if (!leadTitle) return highlights[0] ?? all[0];
-  const want = bigrams(leadTitle);
-  if (want.size === 0) return undefined;
-  let best: { c: ReportCitation; share: number } | undefined;
-  for (const c of all) {
-    const have = bigrams(c.title);
-    const share = [...want].filter((b) => have.has(b)).length / want.size;
-    if (!best || share > best.share) best = { c, share };
-  }
-  return best && best.share >= 0.5 ? best.c : undefined;
-}
-
-/**
- * A picture for the front page's lead item: its own first sizeable image, else one from another public
- * report of the same event (first-hand first). Items shown as summaries only lend no pictures.
- */
-async function leadCover(itemId: string): Promise<{ url: string; srcSet?: string; width: number | null; height: number | null } | null> {
-  const [row] = await sql<{ m: { url: string; width?: number; height?: number } }[]>`
-    SELECT img.m
-    FROM publications p JOIN articles a ON a.id = p.article_id
-    CROSS JOIN LATERAL (
-      SELECT m FROM jsonb_array_elements(coalesce(a.media, '[]'::jsonb)) m
-      WHERE m->>'kind' = 'image' AND coalesce((m->>'width')::numeric, 800) >= 480 LIMIT 1
-    ) img
-    WHERE (p.article_id = ${itemId} OR p.story_id = (SELECT story_id FROM publications WHERE article_id = ${itemId}))
-      AND p.visibility = 'public' AND p.eligible AND p.body_mode <> 'summary'
-    ORDER BY (p.article_id = ${itemId}) DESC, p.first_party DESC, coalesce(p.score, 0) DESC, p.article_id
-    LIMIT 1`;
-  if (!row) return null;
-  const url = proxiedImage(row.m.url, "full");
-  if (!url) return null;
-  return {
-    url,
-    ...(proxiedImageSet(row.m.url, "hero") ? { srcSet: proxiedImageSet(row.m.url, "hero")! } : {}),
-    width: typeof row.m.width === "number" ? row.m.width : null,
-    height: typeof row.m.height === "number" ? row.m.height : null,
   };
 }
 
@@ -257,10 +199,7 @@ export async function loadReport(kind: ReportKind, key: string): Promise<ReportD
     ? highlightIds.map((id) => all.find((x: ReportCitation) => x.itemId === id)).filter((x): x is ReportCitation => !!x)
     : all.slice(0, 3);
   const text = [c.lead?.leadParagraph ?? "", c.overview ?? "", ...all.map((i: ReportCitation) => `${i.title}${i.summary ?? ""}`)].join("");
-  // A weekly or monthly's picture comes from its first highlight and is captioned with that story.
-  const leadItem = kind === "daily" ? leadItemOf(c.lead?.title, highlights, all) : (highlights[0] ?? all[0]);
-  const [{ prev, next }, picture] = await Promise.all([neighbors(kind, key), leadItem?.itemId && leadItem.available ? leadCover(leadItem.itemId) : null]);
-  const cover = picture && leadItem ? { ...picture, caption: kind === "daily" ? null : leadItem.title } : null;
+  const { prev, next } = await neighbors(kind, key);
   const headline = kind === "daily" ? null : periodicHeadline(c);
   const title =
     kind === "daily" ? `${withSubject("日报")} · ${key}` : String(c.title ?? (kind === "weekly" ? `${SITE.name} 周报 · ${key}` : `${SITE.name} 月报 · ${key}`));
@@ -278,7 +217,6 @@ export async function loadReport(kind: ReportKind, key: string): Promise<ReportD
     sections,
     stories,
     flashes: (c.flashes ?? []).map(cite),
-    cover,
     metrics: c.metrics ?? {},
     readingMinutes: readingMinutes(text),
     prev,

@@ -15,7 +15,7 @@ export async function listFeedback(f: { status?: string; q?: string; page?: numb
   const q = f.q?.trim() ? `%${f.q.trim()}%` : null;
   const rows = await sql`
     SELECT fb.id, fb.content, fb.email, fb.page_url, split_part(fb.screenshot_key, ':', 1) AS screenshot, fb.source_hash, fb.status, fb.note,
-           fb.forwarded_at, fb.forward_error, fb.created_at, fb.updated_at,
+           fb.created_at, fb.updated_at,
            EXISTS (SELECT 1 FROM feedback_bans b WHERE b.source_hash = fb.source_hash) AS banned,
            (SELECT count(*)::int FROM feedback o WHERE o.source_hash = fb.source_hash) AS from_source
     FROM feedback fb

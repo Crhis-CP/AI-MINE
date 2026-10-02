@@ -8,7 +8,6 @@ import { Badge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
 import { Sparkline } from "../features/hot/Sparkline";
-import { Faces } from "../features/hot/Faces";
 import { Delta } from "../features/hot/Delta";
 
 export async function loader({ request }: { request: Request }) {
@@ -74,8 +73,8 @@ function StoryLink({ e, className }: { e: HotEntryView; className: string }) {
 }
 
 /**
- * The lead card's picture slot when the story has no picture of its own: its day of heat, drawn large
- * on a faint wash, with where it peaked. Without enough comparable hours the text takes the width.
+ * The lead card's side panel: the story's day of heat, drawn large on a faint wash, with where it
+ * peaked. Without enough comparable hours the text takes the width.
  */
 function HeatPanel({ e }: { e: HotEntryView }) {
   const seen = e.spark.filter((v): v is number => v !== null);
@@ -99,9 +98,9 @@ function HeatPanel({ e }: { e: HotEntryView }) {
   );
 }
 
-/** No. 1: the event people are talking about most, with its picture, digest, latest turn and day of heat. */
+/** No. 1: the event people are talking about most, with its digest, latest turn and day of heat. */
 function Lead({ e }: { e: HotEntryView }) {
-  const panel = !e.cover && e.spark.filter((v) => v !== null).length >= 3;
+  const panel = e.spark.filter((v) => v !== null).length >= 3;
   return (
     <article className="card card-hover group relative flex flex-col overflow-hidden p-5 sm:p-6">
       <div className="flex items-center gap-2.5">
@@ -109,31 +108,14 @@ function Lead({ e }: { e: HotEntryView }) {
         <Badges e={e} />
         <Delta trend={e.trend} pct={e.trendPct} className="ml-auto" />
       </div>
-      <div className={`mt-4 grid gap-5 ${e.cover || panel ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)] xl:gap-7" : ""}`}>
+      <div className={`mt-4 grid gap-5 ${panel ? "xl:grid-cols-[minmax(0,1fr)_minmax(0,0.72fr)] xl:gap-7" : ""}`}>
         <div className="min-w-0">
           <h2 className="text-[21px] font-bold leading-[1.4] tracking-[-0.01em] text-ink sm:text-[23px] lg:text-[25px] lg:leading-[1.38]">
             <StoryLink e={e} className="group-hover:text-accent" />
           </h2>
           {e.summary && <p className="mt-3 line-clamp-3 text-[14px] leading-[1.75] text-ink-3">{e.summary}</p>}
         </div>
-        {e.cover ? (
-          <div className="order-first overflow-hidden well rounded-panel xl:order-none">
-            <img
-              src={e.cover.url}
-              srcSet={e.cover.srcSet}
-              sizes="(min-width: 1280px) calc(28vw - 96px), (min-width: 1024px) calc(58vw - 180px), (min-width: 640px) 568px, calc(100vw - 74px)"
-              width={e.cover.width ?? undefined}
-              height={e.cover.height ?? undefined}
-              alt=""
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              className="aspect-[16/9] size-full object-cover transition-transform duration-500 group-hover:scale-[1.02] xl:aspect-[16/10]"
-            />
-          </div>
-        ) : (
-          panel && <HeatPanel e={e} />
-        )}
+        {panel && <HeatPanel e={e} />}
       </div>
       {/* Side by side while the card is wide enough; on a narrow card the day of heat and the index
           move under the voices, to the right, instead of squeezing them into a column. */}
@@ -146,7 +128,6 @@ function Lead({ e }: { e: HotEntryView }) {
             </p>
           )}
           <div className="flex items-center gap-3">
-            <Faces participants={e.participants} total={e.participantCount} size={24} />
             <Voices e={e} />
           </div>
         </div>
@@ -162,7 +143,7 @@ function Lead({ e }: { e: HotEntryView }) {
   );
 }
 
-/** No. 2 and 3: the same card, smaller, without the picture. */
+/** No. 2 and 3: the same card, smaller, without the side panel. */
 function Runner({ e }: { e: HotEntryView }) {
   return (
     <article className="card card-hover group relative flex flex-col px-5 py-4">
@@ -177,7 +158,6 @@ function Runner({ e }: { e: HotEntryView }) {
       {e.summary && <p className="mt-1.5 line-clamp-2 text-[13px] leading-[1.7] text-ink-3 lg:line-clamp-1">{e.summary}</p>}
       <div className="mt-auto flex items-end justify-between gap-4 pt-3">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <Faces participants={e.participants} total={e.participantCount} size={20} />
           <span className="text-[12px] text-ink-4">
             <span className="whitespace-nowrap">
               <span className="num">{e.sourceCount}</span> 个来源
@@ -197,7 +177,7 @@ function Runner({ e }: { e: HotEntryView }) {
   );
 }
 
-/** No. 4–10: a row each, with a line of the digest, faces, the day of heat and the index. */
+/** No. 4–10: a row each, with a line of the digest, the source count, the day of heat and the index. */
 function Row({ e }: { e: HotEntryView }) {
   return (
     <li className="group relative grid grid-cols-[30px_minmax(0,1fr)] items-start gap-x-3 px-4 py-3 transition-colors hover:bg-bg-sunk/70 sm:px-5 lg:grid-cols-[44px_minmax(0,1fr)_auto_104px_76px] lg:items-center lg:gap-x-6 lg:px-6 lg:py-3.5 dark:hover:bg-bg-muted/40">
@@ -215,7 +195,6 @@ function Row({ e }: { e: HotEntryView }) {
         </h3>
         {e.summary && <p className="mt-0.5 line-clamp-2 text-[13px] leading-[1.65] text-ink-4 lg:line-clamp-1">{e.summary}</p>}
         <div className="mt-2 flex items-center gap-2.5 lg:hidden">
-          <Faces participants={e.participants} total={e.participantCount} size={20} />
           <span className="text-[12px] text-ink-4">
             <span className="num">{e.sourceCount}</span> 个来源
           </span>
@@ -226,7 +205,9 @@ function Row({ e }: { e: HotEntryView }) {
         </div>
       </div>
       <div className="hidden items-center gap-2.5 lg:flex">
-        <Faces participants={e.participants} total={e.participantCount} size={20} />
+        <span className="whitespace-nowrap text-[12px] text-ink-4">
+          <span className="num">{e.sourceCount}</span> 个来源
+        </span>
       </div>
       <Sparkline values={e.spark} className="hidden h-7 w-[104px] text-accent lg:block" />
       <div className="hidden flex-col items-end gap-1 lg:flex">

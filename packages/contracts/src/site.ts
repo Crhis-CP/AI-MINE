@@ -9,8 +9,6 @@ export interface SourceRef {
   name: string;
   kind: SourceKind;
   firstParty: boolean;
-  iconUrl: string | null;
-  iconSrcSet?: string;
 }
 
 export interface StoryRef {
@@ -71,8 +69,6 @@ export interface HotStripEntry {
   trend: "up" | "down" | "flat" | "new" | "unknown";
   storyPublicId: string | null;
   itemId: string | null;
-  participants: HotParticipant[];
-  participantCount: number;
 }
 
 export interface TimelineFilters {
@@ -169,14 +165,6 @@ export interface ProblemBody {
 // Hot ranking and stories
 // ---------------------------------------------------------------------------
 
-export interface HotParticipant {
-  name: string;
-  kind: "editorial" | "signal";
-  /** The source's icon (proxied). */
-  iconUrl: string | null;
-  iconSrcSet?: string;
-}
-
 export interface HotEntryView {
   rank: number;
   story: StoryRef;
@@ -192,15 +180,12 @@ export interface HotEntryView {
   latestAt: string;
   firstReportAt: string;
   representative: { id: string; url: string; sourceName: string } | null;
-  participants: HotParticipant[];
   /** Hourly heat over the 24 hours up to the ranking, oldest first; null where no comparable snapshot exists. */
   spark: Array<number | null>;
   /** The story's AI digest, else its fact statement. */
   summary: string | null;
   /** The latest development, one line. */
   latest: string | null;
-  /** A picture from the story's public reports (the representative first), for the leading cards. */
-  cover: { url: string; srcSet?: string; width: number | null; height: number | null } | null;
 }
 
 export interface HotResponse {
@@ -279,8 +264,6 @@ export interface ReportCitation {
   sourceName: string;
   sourceUrl: string;
   sourceId: string | null;
-  sourceIconUrl: string | null;
-  sourceIconSrcSet?: string;
   firstParty: boolean;
   role: string | null;
   storyPublicId: string | null;
@@ -306,11 +289,6 @@ export interface ReportDetail {
   /** Reading order: every section item once, labelled with its section. */
   stories: Array<ReportCitation & { label: string }>;
   flashes: ReportCitation[];
-  /**
-   * The front page's picture: from the lead item (a daily's lead, a weekly or monthly's first highlight),
-   * else from another public report of that event. Captioned with the story when it is not the lead's own.
-   */
-  cover: { url: string; srcSet?: string; width: number | null; height: number | null; caption: string | null } | null;
   metrics: Record<string, number>;
   readingMinutes: number;
   prev: string | null;
@@ -324,7 +302,7 @@ export interface ReportIndexEntry {
   count: number;
 }
 
-/** Figures and samples for the about page (site-only; not part of v1). */
+/** Figures for the about page (site-only; not part of v1). */
 export interface SiteStats {
   /** Sources collected from now. */
   sources: number;
@@ -338,10 +316,6 @@ export interface SiteStats {
   dailies: number;
   /** The last 24 hours: items found (heat-only sources included), and items that made 精选 (by their place on the timeline). */
   day: { collected: number; selected: number };
-  /** Enabled sources in a daily shuffle, for the about page's river: one line per source. */
-  sampleSources: Array<{ name: string; kind: string; heatOnly: boolean }>;
-  /** The latest 精选, newest first. */
-  latest: Array<{ id: string; title: string; source: string }>;
 }
 
 /** A reading page transfers one language; the canonical item retains both for exports. */
