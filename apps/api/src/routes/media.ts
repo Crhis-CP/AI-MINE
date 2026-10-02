@@ -1,4 +1,5 @@
-// Signed image proxy. Unsigned, badly signed or expired requests are 403 without any upstream fetch.
+// Signed image proxy, closed (DR-78): the api does not register it (app.ts). Registered, it answers
+// unsigned, badly signed or expired requests with 403 without any upstream fetch.
 import type { FastifyInstance } from "fastify";
 import { produceImage } from "@aihot/backend/media/images";
 import { verifyProxyRequest } from "@aihot/backend/media/imgproxy";

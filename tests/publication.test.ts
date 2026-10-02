@@ -99,7 +99,7 @@ test("site reading sends one language while exports retain both, including after
   assert.equal((await get(`/api/site/items/${id}/original`)).status, 404);
 });
 
-test("the item page and the full feed give body pictures only as links to the source's own copy", async () => {
+test("body pictures reach the item page and the full feed only as links, and the image proxy is closed", async () => {
   const id = await article();
   const picture = `https://example.com/${T}.png?a=1&amp;b=2`;
   const html = `<p>${BODY}</p><p><img src="${picture}" alt="Shipments by quarter" width="800" height="400"></p><video src="https://example.com/${T}.mp4" poster="https://example.com/${T}.jpg"></video>`;
@@ -111,6 +111,8 @@ test("the item page and the full feed give body pictures only as links to the so
     assert.ok(body?.includes(`<a href="${picture}" target="_blank" rel="noopener noreferrer">查看配图：Shipments by quarter</a>`), body);
     assert.doesNotMatch(body!, /<img|img-proxy|poster=/);
   }
+  // The proxy itself is closed: the api does not serve it.
+  assert.equal((await get(`/api/img-proxy?u=${encodeURIComponent(`https://example.com/${T}.png`)}&mode=full`)).status, 404);
 });
 
 test("revoking a source's licence takes its articles off every exit", async () => {
