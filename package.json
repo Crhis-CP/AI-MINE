@@ -12,7 +12,8 @@
     "dev:worker": "pnpm --filter @aihot/worker dev",
     "dev:web": "pnpm --filter @aihot/web dev",
     "typecheck": "tsc -p packages/contracts && tsc -p packages/backend && tsc -p apps/api && tsc -p apps/worker && tsc -p tests && tsc -p scripts && pnpm --filter @aihot/web typecheck",
-    "test": "node --test --test-concurrency=1 --test-timeout=120000 \"tests/*.test.ts\""
+    "test": "node --test --test-concurrency=1 --test-timeout=120000 \"tests/*.test.ts\"",
+    "check": "node scripts/verify/run.ts --quick"
   },
   "devDependencies": {
     "@aihot/backend": "workspace:*",
