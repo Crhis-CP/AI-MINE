@@ -82,11 +82,6 @@ export const IconBookmark = (p: P & { filled?: boolean }) => {
     </Svg>
   );
 };
-export const IconChart = (p: P) => (
-  <Svg {...p}>
-    <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-  </Svg>
-);
 export const IconClock = (p: P) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="8.5" />
@@ -168,11 +163,6 @@ export const IconExternal = (p: P) => (
   <Svg {...p}>
     <path d="M14 4h6v6M20 4l-9 9" />
     <path d="M19 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1h5" />
-  </Svg>
-);
-export const IconDownload = (p: P) => (
-  <Svg {...p}>
-    <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
   </Svg>
 );
 export const IconImage = (p: P) => (

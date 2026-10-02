@@ -112,7 +112,6 @@ export const API_OWNED_PATTERNS: RegExp[] = [
   /^\/(favicon\.ico|icon\.png|icon-192\.png|apple-icon\.png|logo\.svg)$/,
   /^\/og\//,
   /^\/[0-9a-f]{32}\.txt$/,
-  /^\/items\/[^/]+\/markdown$/,
 ];
 
 export function isApiOwned(pathname: string): boolean {

@@ -7,7 +7,6 @@ import { config } from "@aihot/backend/config";
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { beijingDate } from "@aihot/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
-import { posterEtag } from "../apps/api/src/og/poster.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -77,7 +76,7 @@ async function get(url: string, headers: Record<string, string> = {}) {
   return { status: res.statusCode, body: res.body, etag: res.headers.etag as string | undefined };
 }
 
-test("site reading sends one language while exports retain both, including after withdrawal", async () => {
+test("site reading sends one language per page, and the original page goes with a withdrawal", async () => {
   const id = await article();
   await sql`UPDATE articles SET language = 'en', body_html = '<h2>Original heading</h2><p>Original full body</p>' WHERE id = ${id}`;
   await sql`INSERT INTO translations (article_id, revision, body_html, body_text, origin) VALUES (${id}, 1, '<h2>译文标题</h2><p>中文完整正文</p>', '中文完整正文', 'source')`;
@@ -93,8 +92,6 @@ test("site reading sends one language while exports retain both, including after
   assert.equal(original.body.zh, null);
   assert.ok(original.body.original.includes("Original full body"));
   assert.equal(original.outline[0].text, "Original heading");
-  const md = (await get(`/items/${id}/markdown`)).body;
-  assert.ok(md.includes("Original full body") && md.includes("中文完整正文"));
   await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   assert.equal((await get(`/api/site/items/${id}/original`)).status, 404);
 });
@@ -138,7 +135,6 @@ test("revoking a source's licence takes its articles off every exit", async () =
   const result = await republishSource(SOURCE); // what the queued job runs
   assert.ok(result.reduced >= 1);
   assert.equal((await get(`/api/site/items/${id}`)).status, 404);
-  assert.equal((await get(`/items/${id}/markdown`)).status, 404);
   assert.equal((await get(`/api/site/stories/${story}`)).status, 404, "the story drops an isolated source's last report");
   assert.equal((await get(`/api/v1/stories/${story}`)).status, 404);
   assert.ok(!(await get("/feed/full.xml")).body.includes(`FULLTEXT-${T}`), "full feed drops the body");
@@ -242,11 +238,9 @@ test("item pages follow the live rule: unsummarised editorial items keep one, ho
 
   const page = await get(`/api/site/items/${plain}`);
   assert.equal(page.status, 200, "an unsummarised editorial item keeps its page");
-  const detail = JSON.parse(page.body) as { summary: string | null; indexable: boolean; markdownAvailable: boolean };
-  assert.deepEqual([detail.summary, detail.indexable, detail.markdownAvailable], [null, false, true], "noindex, with its body for export");
-  assert.equal((await get(`/items/${plain}/markdown`)).status, 200);
+  const detail = JSON.parse(page.body) as { summary: string | null; indexable: boolean };
+  assert.deepEqual([detail.summary, detail.indexable], [null, false], "noindex");
   assert.equal((await get(`/api/site/items/${signal}`)).status, 404, "hot_signal material has no page");
-  assert.equal((await get(`/items/${signal}/markdown`)).status, 404);
 
   const publicId = randomUUID();
   const [story] = await sql<
@@ -400,13 +394,8 @@ test("share images keep detail metadata and access rules while conditional reads
     title: d.title,
     subtitle: d.summary,
     meta: `${source} · ${date}`,
-    badge: d.selected && d.score !== null ? { value: String(Math.round(d.score)), label: "精选评分" } : null,
   };
-  const poster = { url: `${config.siteUrl}/items/${id}`, kicker, title: d.title, summary: d.summary, source, date, score: d.selected ? d.score : null };
-  const paths = [
-    [`/og/items/${id}.png`, `"og-${ogEtag(card)}"`],
-    [`/og/posters/${id}.png`, `"poster-${posterEtag(poster)}"`],
-  ];
+  const paths = [[`/og/items/${id}.png`, `"og-${ogEtag(card)}"`]];
   const queries: string[] = [];
   const previous = sql.options.debug;
   sql.options.debug = (_connection, query) => {
@@ -418,7 +407,7 @@ test("share images keep detail metadata and access rules while conditional reads
       assert.equal(response.status, 304);
       assert.equal(response.etag, etag);
     }
-    assert.equal(queries.length, 2);
+    assert.equal(queries.length, 1);
     assert.ok(
       queries.every((q) => !/body_html|body_text|translations|fact_articles/.test(q)),
       "cards only load their public metadata",

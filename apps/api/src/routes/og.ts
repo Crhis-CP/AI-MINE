@@ -8,9 +8,7 @@ import { loadReport, type ReportKind } from "@aihot/backend/publication/reports"
 import { loadTopic } from "@aihot/backend/publication/topics";
 import { loadStoryDetail, resolveStory } from "@aihot/backend/publication/stories";
 import { SITE, withSubject } from "@aihot/industry/site";
-import { config } from "@aihot/backend/config";
 import { ogEtag, renderOg, type OgCard } from "../og/render.ts";
-import { posterEtag, renderPoster, type Poster } from "../og/poster.ts";
 
 const S = SITE.subject;
 const PAGES: Record<string, OgCard> = {
@@ -84,37 +82,10 @@ export function registerOg(app: FastifyInstance) {
         title: d.title,
         subtitle: d.summary,
         meta: `${d.source.name.replace(/（[^）]*）\s*$/, "")} · ${beijingDate(d.timelineAt)}`,
-        badge: d.selected && d.score !== null ? { value: String(Math.round(d.score)), label: "精选评分" } : null,
       },
       3600,
       ARTICLE_IMAGE_CACHE,
     );
-  });
-
-  // Phone share poster for an article (1080×1440), generated on first request and cached by content.
-  app.get("/og/posters/:file", async (req, reply) => {
-    const file = (req.params as { file: string }).file;
-    if (!file.endsWith(".png")) return notFound(reply);
-    const d = await loadItemShare(file.slice(0, -4));
-    if (!d) return notFound(reply);
-    const poster: Poster = {
-      url: `${config.siteUrl}/items/${d.id}`,
-      kicker: d.category ? CATEGORY_LABELS[d.category] : withSubject("动态"),
-      title: d.title,
-      summary: d.summary,
-      source: d.source.name.replace(/（[^）]*）\s*$/, ""),
-      date: beijingDate(d.timelineAt),
-      score: d.selected ? d.score : null,
-    };
-    const tag = `"poster-${posterEtag(poster)}"`;
-    reply.header("ETag", tag).header("Cache-Control", ARTICLE_IMAGE_CACHE).header("X-Accel-Expires", ARTICLE_IMAGE_ORIGIN_SECONDS);
-    if (
-      String(req.headers["if-none-match"] ?? "")
-        .split(",")
-        .some((t) => t.trim().replace(/^W\//, "") === tag)
-    )
-      return reply.code(304).send();
-    return reply.type("image/png").send((await renderPoster(poster)).png);
   });
 
   app.get("/og/reports/:kind/:file", async (req, reply) => {

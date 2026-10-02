@@ -22,7 +22,6 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     "url",
     "baseUrl",
     "parseMode",
-    "adapter",
     "cacheToleranceSeconds",
     "linksStartLine",
     "preserveUrlFragment",
@@ -83,11 +82,10 @@ const NESTED: Record<string, string[]> = {
 };
 
 const VALUES: Record<string, string[]> = {
-  adapter: ["mimo_home"],
-  parseMode: ["html", "markdown", "docusaurus_changelog"],
+  parseMode: ["html", "markdown"],
 };
 
-/** The config entries a source of this kind would ignore or cannot run, e.g. ["adapter=site_cards", "detail.titleFoo"]. */
+/** The config entries a source of this kind would ignore or cannot run, e.g. ["parseMode=site_cards", "detail.titleFoo"]. */
 export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string, unknown>): string[] {
   const allowed = new Set(KEYS[kind] ?? []);
   const out: string[] = [];

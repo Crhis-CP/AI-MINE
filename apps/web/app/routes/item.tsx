@@ -1,12 +1,11 @@
 import { SITE, withSubject } from "@aihot/industry/site";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate } from "react-router";
 import type { Route } from "./+types/item";
 import type { SiteItemDetail } from "@aihot/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { fullDateTime, relativeTime } from "../lib/format";
-import { markRead } from "../lib/local-state";
 import { SelectedBadge } from "../components/ui/Badge";
 import { ScoreLabel } from "../components/ui/Score";
 import { PillTabs } from "../components/ui/Tabs";
@@ -15,9 +14,7 @@ import { Menu, MenuItem } from "../components/ui/Menu";
 import { StarButton } from "../features/feed/parts";
 import { GroupSources } from "../features/feed/ReadingGroup";
 import { StoryFollowups } from "../features/item/StoryFollowups";
-import { IconArrowLeft, IconCopy, IconDownload, IconExternal, IconImage, IconMenu, IconShare } from "../components/icons";
-
-const PosterSheet = lazy(() => import("../features/item/PosterSheet"));
+import { IconArrowLeft, IconCopy, IconExternal, IconMenu, IconShare } from "../components/icons";
 
 export async function loader({ params, request }: Route.LoaderArgs) {
   const item = await loadOr404<SiteItemDetail>(`/api/site/items/${encodeURIComponent(params.id)}`, { signal: request.signal });
@@ -104,20 +101,12 @@ export default function ItemPage() {
   const navigate = useNavigate();
   const hasTranslation = item.hasTranslation;
   const lang = item.bodyLanguage;
-  const [posterRequested, setPosterRequested] = useState(false);
-  const [posterOpen, setPosterOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => markRead(item.id), [item.id]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 1600);
     return () => clearTimeout(t);
   }, [toast]);
-  const closePoster = useCallback(() => setPosterOpen(false), []);
-  const openPoster = () => {
-    setPosterRequested(true);
-    setPosterOpen(true);
-  };
   const share = async () => {
     const r = await shareOrCopy(item);
     if (r === "copied") setToast("链接已复制");
@@ -165,15 +154,6 @@ export default function ItemPage() {
             分享链接
           </MenuItem>
           <MenuItem
-            icon={<IconImage size={15} />}
-            onSelect={() => {
-              close();
-              openPoster();
-            }}
-          >
-            生成分享海报
-          </MenuItem>
-          <MenuItem
             icon={<IconCopy size={15} />}
             onSelect={async () => {
               close();
@@ -187,11 +167,6 @@ export default function ItemPage() {
           >
             复制链接
           </MenuItem>
-          {item.markdownAvailable && (
-            <MenuItem icon={<IconDownload size={15} />} href={`/items/${item.id}/markdown`} download onSelect={close}>
-              导出 Markdown
-            </MenuItem>
-          )}
         </>
       )}
     </Menu>
@@ -427,12 +402,6 @@ export default function ItemPage() {
           )}
         </article>
       </ArticleLayout>
-
-      {posterRequested && (
-        <Suspense fallback={null}>
-          <PosterSheet id={item.id} title={item.title} open={posterOpen} onClose={closePoster} />
-        </Suspense>
-      )}
       {toast && (
         <div
           role="status"

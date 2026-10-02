@@ -3,7 +3,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@aihot/contracts/taxonomy";
 import { InvalidCursorError } from "@aihot/backend/lib/cursor";
-import { exportMarkdown, loadItemDetail, siteItemDetail } from "@aihot/backend/publication/detail";
+import { loadItemDetail, siteItemDetail } from "@aihot/backend/publication/detail";
 import { loadPool, SearchBusyError } from "@aihot/backend/publication/pool";
 import { loadTimeline } from "@aihot/backend/publication/timeline";
 import { loadStoryFollowups } from "@aihot/backend/publication/followups";
@@ -321,23 +321,6 @@ export function registerSite(app: FastifyInstance) {
       const data = await loadReport(kind as ReportKind, key);
       if (!data) return sendProblem(req, reply, { status: 404, code: "not_found", detail: "report not found", cacheControl: "public, max-age=60" });
       return sendJsonWithEtag(req, reply, data, { etagPrefix: "report", cacheControl: "public, max-age=120, s-maxage=120" });
-    }),
-  );
-
-  // Markdown export: attachment, 404 when there is nothing to export (same predicate as the button).
-  app.get(
-    "/items/:id/markdown",
-    siteHandler(async (req, reply) => {
-      const id = (req.params as { id: string }).id;
-      if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id)) return reply.code(404).type("text/plain; charset=utf-8").send("Not found");
-      const md = await exportMarkdown(id);
-      if (!md) return reply.code(404).header("Cache-Control", "public, max-age=60").type("text/plain; charset=utf-8").send("Not found");
-      return reply
-        .header("Content-Type", "text/markdown; charset=utf-8")
-        .header("Content-Disposition", `attachment; filename="${md.filename}"`)
-        .header("Cache-Control", "public, max-age=300, s-maxage=300")
-        .header("X-Robots-Tag", "noindex")
-        .send(md.body);
     }),
   );
 }

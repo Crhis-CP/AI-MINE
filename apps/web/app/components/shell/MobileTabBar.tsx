@@ -1,11 +1,9 @@
 import { Link, useLocation } from "react-router";
 import { TABBAR, tabIsActive } from "./nav";
-import { useChangelogDot } from "./Sidebar";
 
 /** Bottom tab bar of the mobile shell (up to 960px), as on the original site. */
-export function MobileTabBar({ changelogVersion }: { changelogVersion: string | null }) {
+export function MobileTabBar() {
   const { pathname } = useLocation();
-  const dot = useChangelogDot(changelogVersion);
   return (
     <nav
       aria-label="底部导航"
@@ -25,7 +23,6 @@ export function MobileTabBar({ changelogVersion }: { changelogVersion: string | 
             >
               <Icon size={21} />
               <span>{t.label}</span>
-              {dot && t.changelog && <span className="absolute right-[calc(50%-17px)] top-2 size-1.5 rounded-full bg-hot" aria-label="有新的更新" />}
             </Link>
           );
         })}

@@ -1,9 +1,8 @@
-// Web list pages: HTML with selectors, Markdown through Jina Reader, and Docusaurus changelogs.
+// Web list pages: HTML with selectors, and Markdown through Jina Reader.
 import * as cheerio from "cheerio";
 import { guardedFetch } from "../lib/http-fetch.ts";
-import { collapseWhitespace, stripTags } from "../lib/text.ts";
+import { collapseWhitespace } from "../lib/text.ts";
 import { readable, type ExtractedBody } from "../content/extract.ts";
-import { sanitizeBody } from "../content/sanitize.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 
@@ -197,132 +196,10 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
   return out;
 }
 
-/** A changelog heading that is only a date, bare or after a short label: "时间: 2026-09-10", "时间：2024-05-17". */
-const DATE_HEADING = /^(?:[^\d:：]{1,12}[:：])?\s*(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})日?$/;
-
-/** The day a date heading names, at midnight in the source's offset (Date.parse would read "时间: …" in the host's zone). */
-function headingDate(title: string, utcOffset = "+08:00"): Date | null | undefined {
-  const m = DATE_HEADING.exec(title);
-  if (!m) return undefined;
-  const t = Date.parse(`${m[1]}-${m[2]!.padStart(2, "0")}-${m[3]!.padStart(2, "0")}T00:00:00${utcOffset}`);
-  return Number.isFinite(t) ? new Date(t) : null;
-}
-
-function fromDocusaurusChangelog(html: string, base: string, source: SourceRow): Candidate[] {
-  const $ = cheerio.load(html);
-  const out: Candidate[] = [];
-  // A date heading is no update itself: it dates the updates under it, up to the next h2.
-  let sectionDate: Date | null = null;
-  $("article h2[id], article h3[id], .markdown h2[id], .markdown h3[id]").each((_i, h) => {
-    const head = $(h);
-    const id = head.attr("id")!;
-    const title = collapseWhitespace(head.text().replace(/​/g, "").replace(/#$/, ""));
-    const date = headingDate(title, source.config.publishedAtUtcOffset);
-    if (date !== undefined) {
-      sectionDate = date;
-      return;
-    }
-    if (head.is("h2")) sectionDate = null;
-    const parts: string[] = [];
-    let n = head.next();
-    while (n.length && !n.is("h2, h3")) {
-      parts.push($.html(n));
-      n = n.next();
-    }
-    const bodyHtml = sanitizeBody(parts.join(""), base);
-    const url = `${base.replace(/#.*$/, "")}#${id}`;
-    if (!allowed(url.replace(/#.*$/, ""), source)) return;
-    out.push({
-      url,
-      identityKey: `url:${url}`,
-      title,
-      publishedAt: parseLooseDate(title) ?? sectionDate ?? parseLooseDate(stripTags(bodyHtml).slice(0, 80)),
-      bodyHtml,
-      bodyText: stripTags(bodyHtml),
-      bodyStatus: "ok",
-    });
-  });
-  return out;
-}
-
-async function fetchScript(url: string): Promise<string> {
-  const res = await guardedFetch(url, { timeoutMs: 25_000 });
-  if (res.status !== 200) throw new FetchError(`HTTP ${res.status} for ${url}`, res.status);
-  return res.text();
-}
-
-/** A double-quoted string literal in minified script. */
-const SCRIPT_STRING = String.raw`"(?:[^"\\]|\\.)*"`;
-function scriptString(literal: string): string {
-  try {
-    return JSON.parse(literal.replace(/\\x([0-9a-f]{2})/gi, "\\u00$1").replace(/\\'/g, "'"));
-  } catch {
-    return literal.slice(1, -1);
-  }
-}
-
-/**
- * mimo.xiaomi.com (config.adapter "mimo_home"). The homepage's post rows navigate by script: its HTML has
- * their titles but no links, so the generic parse found only the menu (MiMo Desktop, 简体中文, #paper).
- * The rows are a prop of the homepage's own chunk, `sectionTitle:"Blog", … blogs:[{title:"…",
- * link:"/blog/…", desc:"…"}, …]`; the site's route table names the chunks of path "/" and the runtime's
- * chunk map their files, both in the scripts the homepage loads. A homepage that no longer looks like
- * this fails the fetch instead of falling back to the menu.
- */
-async function fromMimoHome(html: string, base: string, source: SourceRow): Promise<Candidate[]> {
-  let routeChunks: string[] = [];
-  let chunkFile: ((id: string) => string | null) | null = null;
-  // Entry scripts come last; the libraries loaded before them hold neither table.
-  const scripts = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/gi)].map((m) => absolute(m[1], base)).filter((u) => u !== null);
-  for (const src of scripts.reverse()) {
-    if (routeChunks.length && chunkFile) break;
-    const js = await fetchScript(src);
-    const route = /\{path:"\/",[^{}]*\}/.exec(js)?.[0];
-    if (route) routeChunks = [...route.matchAll(/\.e\("([^"]+)"\)/g)].map((m) => m[1]!);
-    const map = /"(static\/js\/async\/)"\+\w+\+"\."\+\(?\{([^}]*)\}\)?\[\w+\]\+"\.js"/.exec(js);
-    const publicPath = /\b\w+\.p="([^"]*)"/.exec(js)?.[1];
-    if (map && publicPath !== undefined) {
-      const names = new Map([...map[2]!.matchAll(/"?(\w+)"?:"(\w+)"/g)].map((m) => [m[1]!, m[2]!]));
-      const root = new URL(publicPath, src);
-      chunkFile = (id) => (names.has(id) ? new URL(`${map[1]}${id}.${names.get(id)}.js`, root).toString() : null);
-    }
-  }
-  if (!routeChunks.length || !chunkFile) throw new FetchError("mimo_home: no route table or chunk map in the homepage scripts");
-  const listing = String(source.config.url ?? base);
-  // The page's own chunk is the last one its route loads.
-  for (const id of routeChunks.reverse()) {
-    const file = chunkFile(id);
-    if (!file) continue;
-    const js = await fetchScript(file);
-    const at = js.indexOf('sectionTitle:"Blog"');
-    if (at < 0) continue;
-    const next = js.indexOf("sectionTitle:", at + 1);
-    const section = js.slice(at, next < 0 ? undefined : next);
-    const out: Candidate[] = [];
-    for (const [row] of section.matchAll(new RegExp(String.raw`\{(?:[^{}"]|${SCRIPT_STRING})*\}`, "g"))) {
-      const field = (name: string) => {
-        const m = new RegExp(String.raw`\b${name}:(${SCRIPT_STRING})`).exec(row);
-        return m ? collapseWhitespace(scriptString(m[1]!)) : "";
-      };
-      const url = absolute(field("link"), base);
-      const title = field("title");
-      if (!url || !title || out.some((c) => c.url === url) || !allowed(url, source) || listingItself(url, listing)) continue;
-      const desc = field("desc");
-      out.push({ url, title, excerpt: desc && desc !== title ? desc : null });
-    }
-    return out;
-  }
-  throw new FetchError("mimo_home: no Blog list in the homepage's chunks");
-}
-
 export async function fetchWebList(source: SourceRow): Promise<Candidate[]> {
   const { text, viaJina, base } = await fetchListingText(source);
-  const mode = source.config.adapter === "mimo_home" ? "mimo_home" : (source.config.parseMode ?? (viaJina ? "markdown" : "html"));
-  let out: Candidate[];
-  if (mode === "mimo_home") out = await fromMimoHome(text, base, source);
-  else if (mode === "markdown") out = fromMarkdown(text, base, source);
-  else if (mode === "docusaurus_changelog") out = fromDocusaurusChangelog(text, base, source);
-  else out = fromHtml(text, base, source);
+  const mode = source.config.parseMode ?? (viaJina ? "markdown" : "html");
+  const out = mode === "markdown" ? fromMarkdown(text, base, source) : fromHtml(text, base, source);
   if (out.length === 0) throw new FetchError(`no items matched (${mode})`);
   return out;
 }

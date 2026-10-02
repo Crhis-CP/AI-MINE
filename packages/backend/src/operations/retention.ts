@@ -4,7 +4,7 @@ import path from "node:path";
 import { config } from "../config.ts";
 import { sql } from "../db.ts";
 
-/** Derived caches (proxied images, share cards and posters) are rebuilt on demand; drop ones older than a month. */
+/** Derived caches (proxied images and share cards) are rebuilt on demand; drop ones older than a month. */
 async function pruneCache(dir: string, maxAgeMs: number, now: number): Promise<number> {
   let removed = 0;
   const walk = async (d: string): Promise<void> => {

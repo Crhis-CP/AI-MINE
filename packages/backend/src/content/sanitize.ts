@@ -1,4 +1,4 @@
-// One body representation for the web page, Markdown export and full RSS: whitelisted HTML.
+// One body representation for the web page and full RSS: whitelisted HTML.
 // External HTML is never executed; images keep their original src and reach readers only as links
 // to the picture on the source's site (linkBodyImages).
 import * as cheerio from "cheerio";

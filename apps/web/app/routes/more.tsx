@@ -1,8 +1,6 @@
 import { SITE } from "@aihot/industry/site";
 import type { ReactNode } from "react";
-import { Link, useRouteLoaderData } from "react-router";
-import type { loader as rootLoader } from "../root";
-import { useChangelogDot } from "../components/shell/Sidebar";
+import { Link } from "react-router";
 import { pageMeta } from "../lib/seo";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
 import { IconBookmark, IconChevronRight, IconFlame, IconGrid, IconHeart, IconHistory, IconMessage, IconMoon, IconPlug } from "../components/icons";
@@ -53,8 +51,6 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function MorePage() {
-  const root = useRouteLoaderData<typeof rootLoader>("root");
-  const changelogDot = useChangelogDot(root?.changelogVersion ?? null);
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
       <h1 className="pb-4 pt-5 text-[22px] font-bold text-ink lg:pt-1">更多</h1>
@@ -68,10 +64,7 @@ export default function MorePage() {
                   className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
                 >
                   <span className="text-ink-3">{r.icon}</span>
-                  <span className="flex flex-1 items-center gap-2">
-                    {r.label}
-                    {r.to === "/changelog" && changelogDot && <span className="size-1.5 rounded-full bg-hot" aria-label="有新的更新" />}
-                  </span>
+                  <span className="flex flex-1 items-center gap-2">{r.label}</span>
                   <IconChevronRight size={16} className="text-ink-4" />
                 </Link>
               </li>

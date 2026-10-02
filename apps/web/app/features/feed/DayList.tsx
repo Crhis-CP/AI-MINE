@@ -5,7 +5,6 @@ import { Link } from "react-router";
 import type { FeedItemSummary } from "@aihot/contracts/site";
 import { IconChevronRight } from "../../components/icons";
 import { beijingDate } from "../../lib/format";
-import { markRead, useReadSet } from "../../lib/local-state";
 import { DayHeader, TimelineSlot } from "./Timeline";
 import { FeedItem } from "./FeedItem";
 
@@ -20,7 +19,6 @@ export function DayList({
   showTags?: boolean;
   animate?: boolean;
 }) {
-  const readSet = useReadSet();
   const today = beijingDate(Date.now());
   const days = useMemo(() => {
     const out: Array<{ day: string; items: FeedItemSummary[] }> = [];
@@ -41,7 +39,7 @@ export function DayList({
           <ol className="lg:pt-1">
             {list.map((it) => (
               <TimelineSlot key={it.id} at={it.timelineAt} fresh={animate} delay={animate ? Math.min(order++, 12) * 25 : 0}>
-                <FeedItem item={it} read={readSet.has(it.id)} onOpen={markRead} showTags={showTags} />
+                <FeedItem item={it} showTags={showTags} />
               </TimelineSlot>
             ))}
           </ol>
