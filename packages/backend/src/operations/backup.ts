@@ -126,7 +126,7 @@ export async function runBackup(now = new Date()) {
   // An empty archive only when there is nothing to keep. A failure to read or pack existing files is
   // tried once more and otherwise reported: the database dump still ships, but the run fails.
   const kept: string[] = [];
-  // Feedback screenshots waiting to be forwarded are not kept: the privacy notice keeps only Feishu image keys.
+  // Feedback screenshots stay out of backups, so erasing one (admin/feedback.ts) leaves no copy behind.
   for (const d of ["uploads"])
     if (
       await stat(path.join(config.dataDir, d)).then(

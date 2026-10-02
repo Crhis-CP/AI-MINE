@@ -13,13 +13,11 @@ interface Feedback {
   content: string;
   email: string | null;
   page_url: string | null;
-  /** local (viewable here until forwarded), feishu (in the internal chat), gone (could not be forwarded), or null. */
-  screenshot: "local" | "feishu" | "gone" | null;
+  /** local (viewable here), or null. */
+  screenshot: "local" | null;
   source_hash: string;
   status: string;
   note: string | null;
-  forwarded_at: string | null;
-  forward_error: string | null;
   created_at: string;
   updated_at: string;
   banned: boolean;
@@ -69,11 +67,6 @@ function FeedbackCard({ f }: { f: Feedback }) {
           </Badge>
         )}
         {f.banned && <Badge tone="bad">来源已封禁</Badge>}
-        {!f.forwarded_at && f.status === "new" && (
-          <Badge tone="warn" title={f.forward_error && f.forward_error !== "pending" ? `还没有转发到内部飞书群：${f.forward_error}` : "还没有转发到内部飞书群"}>
-            未转发
-          </Badge>
-        )}
       </div>
       <p className="mt-2.5 whitespace-pre-wrap text-[14px] leading-relaxed text-ink">{f.content}</p>
       {f.screenshot === "local" && (
@@ -81,8 +74,6 @@ function FeedbackCard({ f }: { f: Feedback }) {
           <img src={`${base}/screenshot`} alt="反馈截图" loading="lazy" className="max-h-48 rounded-control ring-1 ring-line" />
         </a>
       )}
-      {f.screenshot === "feishu" && <p className="mt-2 text-[12.5px] text-ink-4">截图已随反馈转到内部飞书群。</p>}
-      {f.screenshot === "gone" && <p className="mt-2 text-[12.5px] text-ink-4">截图未能转到飞书，已删除。</p>}
       <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto] sm:items-start">
         <Select
           aria-label="处理状态"
