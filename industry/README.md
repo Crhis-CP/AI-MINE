@@ -62,7 +62,7 @@
 |---|---|
 | `prefilter.md` | 预筛：是不是本行业的事。宽召回，只拦明显无关的 |
 | `selection-score.md` | 评分标准：0–100 分，同一份标准独立打两次；含内容类型、评分维度与各类型的权重，以及必须正常评价的价值和必须压住的噪声 |
-| `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加三份共用规则组成 |
+| `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加四份共用规则（`rules-domain.md`、`rules-anti-hallucination.md`、`rules-self-contained-title.md`、`rules-answer-first-summary.md`）组成 |
 | `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
 | `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`）、防幻觉、答案先行的摘要、自洽的标题 |
 | `identity-context.md` | 把核验过的公司身份事实交给模型 |
@@ -109,11 +109,11 @@
 
 下列 AI 口径写死在页面与报告代码里，没有走 `SITE.subject` 或 `withSubject()`，换行业时要逐个改：
 
-- 报告：`apps/web/app/routes/report-latest.tsx`、`features/report/ReportPaper.tsx` 的“AI 日报 / 周报 / 月报”；`features/report/format.ts` 的“这一天的 N 件 AI 大事”和数字条的“个新模型”；`packages/backend/src/reports/compose.ts` 按“模型发布/更新”分节计数的 `modelsReleased` 指标。
-- 页面：`routes/topics.tsx` 的页面描述、“按主题看 AI”与三组名称；`routes/hot.tsx` 的“AI 圈讨论最多”；`routes/feedback.tsx` 输入框里“搜索 OpenAI 时……”的示例。
+- 报告：`apps/web/app/routes/report-latest.tsx`、`features/report/ReportPaper.tsx` 的“AI 日报 / 周报 / 月报”；`features/report/format.ts` 的“这一天的 N 件 AI 大事”、数字条的“个新模型”和报头下的 `MOTTO`“人工智能 · 每日要闻 / 每周综述 / 每月盘点”（宽屏时显示，`ReportPaper.tsx:34`）；`packages/backend/src/reports/compose.ts` 按“模型发布/更新”分节计数的 `modelsReleased` 指标。
+- 页面：`routes/topics.tsx` 的页面描述、“按主题看 AI”与三组名称；`routes/hot.tsx` 的“AI 圈讨论最多”；`routes/feedback.tsx` 输入框里“搜索 OpenAI 时……”的示例；后台新建信源页 `routes/admin/source-new.tsx` 名称输入框的占位文字“OpenAI 博客”。
 - 测试：`tests/` 里有些用例用的是示例行业的分类、标签和公司（如 `ai-models`、“模型发布”、Anthropic）。改了 `taxonomy.ts` 后这些用例会失败，把例子换成新行业的对应项即可，测的规则不变。
 
-TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、`industry/` 下搜 `\bAI\b|OpenAI|Anthropic|Codex|模型发布|大模型`，只允许命中 AI 生成标注（“AI 导读”“AI 翻译”“AI 综述”，DR-87）、评分标签“AI 评分”与 `llms.txt` 的说明。本说明为了列出这些写法也会命中，TASK-0010 改完硬编码时连同本节一起改写。
+TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、`industry/` 下搜 `\bAI\b|OpenAI|Anthropic|Codex|模型发布|大模型`，只允许命中 AI 生成标注（“AI 导读”“AI 翻译”“AI 综述”，DR-87）、评分标签“AI 评分”与 `llms.txt` 的说明。这道门禁搜不到“人工智能”，报告报头的 `MOTTO` 只能靠上面的清单找到，建议 TASK-0010 把这个词也加进搜索词。本说明为了列出这些写法也会命中，TASK-0010 改完硬编码时连同本节一起改写。
 
 ## 4. 运行机制与已定的变化
 
