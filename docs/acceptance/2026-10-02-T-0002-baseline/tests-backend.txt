@@ -1,0 +1,148 @@
+✔ an outage is announced once, repeated hourly, and closed with one recovery
+✔ SIGTERM during the final paid writing call still commits the complete analysis and publication
+✔ SIGTERM during successful first score drains slower structure and leaves a retryable job
+✔ SIGTERM during failed first score drains slower structure and leaves a retryable job
+✔ every prompt in the pack renders, and carries the site's own name
+✔ a selected item: prefilter, two scores, the content understanding and the structure
+✔ a near-selected item is written like a selected one; below the floor it is translated
+✔ the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS
+✔ a feed summary alone: the article page is fetched first, then the whole article is judged
+✔ a content-filter refusal of the content understanding is translated instead
+✔ guards: a company the input does not name is not written in; long summaries are cut at sentences
+✔ analysing the same revision again reuses every paid answer
+✔ Feishu sign-in is offered only when both login-app credentials are set
+✔ a picture becomes a link named after its description
+✔ pictures inside a link move out after it, in their order, and the link keeps its address
+✔ a link that only opened its picture gives way to the picture's link
+✔ a picture with no web address of its own is dropped, and a video loses its poster frame
+✔ a description is text, never markup
+✔ a WeChat body that failed for a passing reason is fetched on the next check and analysed again
+✔ one model runs the prefilter, both scores, the writing and the structure
+✔ two concurrent retries send once and return a conflict for the losing admin request
+✔ a stale version cannot resend after a fast failure returns the delivery to failed
+✔ a stale sent cannot overwrite a retry in flight; another delivery remains independent
+✔ a stale drop cannot overwrite a retry in flight; another delivery remains independent
+✔ disabled pushes and missing credentials leave the retry available without sending
+✔ fact recall keeps stored vector precision and invalidates changed fact or story text
+✔ a same-text stored-vector repair is picked up after bounded cache expiry
+✔ fact cache evicts beyond its bounded window
+✔ a detach made while the model is deciding the report's fact stands
+✔ a report joins the fact the model names, and a revision keeps that membership without asking again
+✔ an explicit regroup drops the automatic membership and decides again
+✔ a report waiting for a regroup is not evidence for others, and its own turn decides it again
+✔ a development attaches to the story's earliest fact that still holds reports
+✔ a story's root is the fact reported first, not the one with the lowest number
+✔ two stories a report ties together merge when both models see one story in their roots
+✔ two stories stay apart when their roots are different events, whatever the report ties them with
+✔ a story whose reports all moved away keeps its address: it redirects to where the last one went
+✔ stories that reports keep tying together without merging list each other as related
+✔ a 5 MiB multipart screenshot is stored intact
+✔ malformed multipart and screenshots above the existing backend limit are rejected
+✔ the JSON screenshot sent by an already-open tab remains accepted
+✔ feedback with a screenshot is kept here and nothing goes to Feishu
+✔ the external push entrance is not served, even with the ingest token
+✔ an article a feed lists twice is stored once and stays put across fetches
+✔ sections of one page are separate articles when the source keeps fragments
+✔ a feed that garbles different characters on every load keeps one version
+✔ concurrent changes to one article each get a revision
+✔ an unchanged report does not add a revision
+✔ an imported article's first report records a baseline, not a revision
+✔ simultaneous first reports of one URL create one article
+✔ another source listing the same article records a discovery, not a revision
+✔ an article linking to a tweet is stored separately from the tweet
+✔ another source reporting an imported article first does not set its baseline
+✔ a return to an earlier version is not a revision
+✔ an imported article that returns to its baseline is not revised again
+✔ characters lost in transit are no revision, lost or restored
+✔ closing the API drains a live MCP subscription before closing HTTP
+✔ one timeout covers the complete redirect chain
+✔ simultaneous modes share original bytes, preserve dimensions and use their disk caches
+✔ failed originals are not retried for every mode
+✔ concurrent cold OG requests all succeed with identical cached bytes
+✔ successive responsive candidates reuse the completed original download
+✔ the original cache expires and evicts old entries instead of retaining every source
+✔ modern raster output preserves transparency and never flattens animation
+✔ small SVG stays vector while a large vector receives the requested browser rendition
+✔ responsive URLs retain exact signatures and stable expiry
+✔ image HTTP responses keep issued URLs valid, reject tampering before fetching and do not vary on Accept
+✔ background preparation turns a cached GIF into a smaller animated WebP with every frame and its timing
+✔ site reading sends one language per page, and the original page goes with a withdrawal
+✔ body pictures reach the item page and the full feed only as links, and the image proxy is closed
+✔ revoking a source's licence takes its articles off every exit
+✔ a withdrawn item leaves every report exit
+✔ a withdrawal takes down only the stories citing it, including secondary memberships
+✔ a withdrawn item leaves the hot board and the hot APIs at once, not at the next ranking
+✔ item pages follow the live rule: unsummarised editorial items keep one, hot_signal items have none
+✔ an early release keeps the selected ledger in order
+✔ a withdrawal waiting behind an unreleased item leaves new snapshots at once, and changes still carry both
+✔ snapshots answer 304 to their own ETag
+✔ v1 story retains website content and fallback ordering without the website-only heat reads
+✔ unchanged republishing preserves freshness, while URL-only changes still reach the projection and ledger
+✔ share images keep detail metadata and access rules while conditional reads avoid body hydration
+✔ minimal sync projection preserves snapshot fields, pagination bindings and ordered changes
+✔ the migrations seed a budget for every paid service
+✔ an answer already received is reused instead of bought again
+✔ retries of unusable answers stop at the budget, and every request sent is counted
+✔ with the valve off nothing is sent
+✔ an unknown outcome is released automatically once, so a lost answer costs at most one repeat
+✔ automatic release requeues the failed articles of all five analysis steps
+✔ manual release resumes pending body reads and leaves unrelated article work alone
+✔ identical pair inputs retain every gold case on both cold and cached evaluations
+✔ failed duplicate inputs share one attempt and a later retry retains all response usage
+✔ relation gold JSONL parses all four labels and rejects malformed rows
+✔ sampling is deterministic and applies the split before the limit
+✔ custom split names are made safe before they enter report filenames
+✔ multiclass metrics expose the confusion matrix, per-class scores, macro-F1, and errors
+✔ story-level threshold metrics match the production tie semantics
+✔ reports assign delayed and boundary releases to the period readers first see them
+✔ a release waiting for the article lock uses the time after the cutoff
+✔ a release waiting for the report snapshot lock uses the time after the cutoff
+✔ daily composition waits for a pre-cutoff release to commit instead of losing it between issues
+✔ RSS first backfill, ordinary window, 304, revision and config edits preserve collection behavior
+✔ Last-Modified works without ETag and changing redirect targets cannot accept an unrelated 304
+✔ Atom XHTML titles and summaries keep the article and its text in order
+✔ Atom XHTML bodies match escaped HTML and CDATA without losing mixed-content order
+✔ Atom XHTML still passes through HTML sanitization without decoding escaped markup twice
+✔ default evaluation follows the production score route and shares duplicate score inputs without changing tier decisions
+✔ a shared unusable score fails every matching case once, then retry usage includes every provider attempt
+✔ custom split names cannot escape the evaluation output directory
+✔ a discussion post that came before any report is grouped again when a report founds its fact
+✔ history waits behind live work and founds no event; a new source's post from today is news
+✔ a config entry the collector does not implement fails the fetch instead of being ignored
+✔ feed entries outside the source's URL rules are skipped
+✔ detail rules fill what the listing lacks, and a detail title survives the next listing
+✔ a Jina listing is read on every fetch, and buys a detail rendering only where a regex rule needs it
+✔ detail HTML supplies the ordinary extracted body once, while short pages keep extraction pending
+✔ Jina card links become posts with their own titles
+✔ anchors into the listing page itself are navigation, not posts
+✔ promotions a feed rotates inside its posts are left out of the body
+✔ config entries a source kind does not implement are named, not ignored
+✔ a listing that links other articles in its teasers takes only the links that begin a line
+✔ feed text that only teases the article is a summary: the page is fetched before judging
+✔ hidden page parts are dropped whole, and a news page's closing blocks are trimmed
+✔ noise words match whatever their case
+✔ dates in yyyymmdd and in JSON-LD are read
+✔ SIGTERM finishes the sent normal batch and resumes from its receipt
+✔ SIGTERM finishes the sent misaligned batch and resumes from its receipt
+✔ a text corrected while its translation was running is translated again, and the old translation is not shown
+✔ links and images inside a paragraph survive the translation, or the paragraph stays in the original
+✔ X and Twitter status URL variants keep the same material identity
+✔ other sites containing a tweet URL keep their own material identity
+✔ only a complete status id at the expected path identifies a tweet
+✔ invalid and non-HTTP URLs cannot acquire a tweet identity
+✔ internal and reserved addresses are blocked in every spelling
+✔ URL literals that embed a loopback address are refused before any request
+✔ a name resolving to an internal address is refused at connect time
+✔ through the egress proxy only internal answers refuse a name; literals keep the full check
+✔ a date and time without a zone is in the source's offset, not the server's
+✔ a bare date is midnight in the source's offset; an ISO date alone stays UTC midnight
+✔ a date that carries its zone keeps it
+✔ no date at all is null
+ℹ tests 140
+ℹ suites 0
+ℹ pass 140
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+exit 0

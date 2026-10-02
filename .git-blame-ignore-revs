@@ -1,6 +1,14 @@
-# Commits that only reformat code; `git blame` skips them when run with
+# Commits that reformat code or rename identifiers by script; `git blame` skips them when run with
 #   git config blame.ignoreRevsFile .git-blame-ignore-revs
 # (GitHub reads this file by default).
 
 # Biome: first repository-wide formatting (T-0001).
 5118b5db38223fd172bd8f919e8254e356c0ddd8
+
+# Scripted rename of the identifiers that carried the upstream project's name (T-0002, PR #8: scripts/debrand.ts
+# changed 183 files). The squash also holds that PR's hand-written changes: the name check (names.ts, names.json,
+# its tests and the verify README rows), scripts/debrand.ts itself, the names and smoke stages in run.ts, the file
+# listing in toolchain.ts and path-guard.ts, the task card and two spec write-backs. Blame still shows this
+# commit on the files that PR added; in files that existed before, it may put the hand-written lines on older
+# commits, and `git blame --ignore-revs-file=""` shows them on this commit.
+f2629cb324a771c42abbac46981d7d39a914c54a
