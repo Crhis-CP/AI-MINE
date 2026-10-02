@@ -1,5 +1,4 @@
 // Worker process: queues and schedules for collection, processing, events, reports and ops.
-import { assertProductionSecrets } from "@aihot/backend/config";
 import { closeDb } from "@aihot/backend/db";
 import { getBoss, stopBoss } from "@aihot/backend/jobs/queue";
 import { registerContentJobs } from "@aihot/backend/jobs/content";
@@ -10,8 +9,6 @@ import { registerPublicationJobs } from "@aihot/backend/jobs/publication";
 import { registerSchedules } from "./schedules.ts";
 import { ensureContentTargets } from "@aihot/backend/notify/deliver";
 import { startHeartbeat } from "@aihot/backend/operations/heartbeat";
-
-assertProductionSecrets([["auth", "IMG_PROXY_SIGN_SECRET"]]);
 
 await ensureContentTargets();
 const boss = await getBoss();

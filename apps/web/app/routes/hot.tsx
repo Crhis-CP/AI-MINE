@@ -177,7 +177,7 @@ function Runner({ e }: { e: HotEntryView }) {
   );
 }
 
-/** No. 4–10: a row each, with a line of the digest, faces, the day of heat and the index. */
+/** No. 4–10: a row each, with a line of the digest, the source count, the day of heat and the index. */
 function Row({ e }: { e: HotEntryView }) {
   return (
     <li className="group relative grid grid-cols-[30px_minmax(0,1fr)] items-start gap-x-3 px-4 py-3 transition-colors hover:bg-bg-sunk/70 sm:px-5 lg:grid-cols-[44px_minmax(0,1fr)_auto_104px_76px] lg:items-center lg:gap-x-6 lg:px-6 lg:py-3.5 dark:hover:bg-bg-muted/40">
