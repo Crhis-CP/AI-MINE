@@ -17,7 +17,7 @@ export function isPoolEligible(input: { participationMode: string; relevance: st
 }
 
 /**
- * Item detail page (and its Markdown export): every unwithdrawn item from an editorial source has one,
+ * Item detail page: every unwithdrawn item from an editorial source has one,
  * with or without a Chinese summary (noindex unless indexable). hot_signal material is heat evidence
  * only and has none. A paused source keeps its pages.
  */

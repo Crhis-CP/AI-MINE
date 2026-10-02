@@ -15,7 +15,7 @@ import { Menu, MenuItem } from "../components/ui/Menu";
 import { StarButton } from "../features/feed/parts";
 import { GroupSources } from "../features/feed/ReadingGroup";
 import { StoryFollowups } from "../features/item/StoryFollowups";
-import { IconArrowLeft, IconCopy, IconDownload, IconExternal, IconImage, IconMenu, IconShare } from "../components/icons";
+import { IconArrowLeft, IconCopy, IconExternal, IconImage, IconMenu, IconShare } from "../components/icons";
 
 const PosterSheet = lazy(() => import("../features/item/PosterSheet"));
 
@@ -187,11 +187,6 @@ export default function ItemPage() {
           >
             复制链接
           </MenuItem>
-          {item.markdownAvailable && (
-            <MenuItem icon={<IconDownload size={15} />} href={`/items/${item.id}/markdown`} download onSelect={close}>
-              导出 Markdown
-            </MenuItem>
-          )}
         </>
       )}
     </Menu>

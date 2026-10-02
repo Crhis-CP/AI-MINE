@@ -115,7 +115,6 @@ export interface ItemDetail extends ItemSummary {
   outline: OutlineEntry[];
   relatedStories: StoryRef[];
   indexable: boolean;
-  markdownAvailable: boolean;
   group: GroupInfo | null;
 }
 

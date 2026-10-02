@@ -1,12 +1,9 @@
-// Item detail and Markdown export, both behind the same visibility and licence rules.
+// Item detail, behind the visibility and licence rules every public output shares.
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@aihot/contracts/site";
-import TurndownService from "turndown";
 import { linkBodyImages } from "../content/sanitize.ts";
 import { sql } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
-import { itemUrl } from "./links.ts";
 import { hasItemPage } from "./rules.ts";
-import { SITE } from "@aihot/industry/site";
 
 interface DetailRow extends ItemRow {
   body_html: string | null;
@@ -67,7 +64,6 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
       outline: [],
       relatedStories: [],
       indexable: false,
-      markdownAvailable: false,
       group: null,
     };
     return { kind: "found", detail, row };
@@ -127,47 +123,9 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
     outline,
     relatedStories: related,
     indexable: row.indexable,
-    markdownAvailable: markdownAvailable(row),
     group,
   };
   return { kind: "found", detail, row };
-}
-
-/**
- * Same predicate for the export button and the export route: a public page with something to export
- * (a summary or a full-text body).
- */
-export function markdownAvailable(row: {
-  visibility: string;
-  source_mode: string;
-  summary: string | null;
-  body_mode: string;
-  body_html?: string | null;
-}): boolean {
-  if (row.visibility !== "public" || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return false;
-  return !!row.summary || (row.body_mode === "full" && !!row.body_html);
-}
-
-const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced", bulletListMarker: "-" });
-
-export async function exportMarkdown(id: string): Promise<{ filename: string; body: string } | null> {
-  const row = await loadRow(id);
-  if (!row || !markdownAvailable(row)) return null;
-  const lines: string[] = [];
-  lines.push(`# ${row.title}`, "");
-  if (row.original_title) lines.push(`> 原标题：${row.original_title}`, "");
-  lines.push(`- 来源：${row.source_name}`);
-  lines.push(`- 发布时间：${(row.published_at ?? row.discovered_at).toISOString()}`);
-  lines.push(`- ${SITE.name}：${itemUrl(row.id)}`);
-  lines.push(`- 原文：${row.url}`, "");
-  if (row.summary) lines.push("## 摘要", "", row.summary, "");
-  if (row.selected && row.reason) lines.push("## 推荐理由", "", row.reason, "");
-  if (row.body_mode === "full" && row.body_html) {
-    const isZh = row.language === "zh";
-    if (!isZh && row.tr_html && row.tr_complete) lines.push("## 正文 · 中文译文", "", turndown.turndown(row.tr_html), "");
-    lines.push(isZh ? "## 正文" : "## 正文 · 原文", "", turndown.turndown(row.body_html), "");
-  }
-  return { filename: `aihot-${row.id}.md`, body: lines.join("\n").replace(/\n{3,}/g, "\n\n") };
 }
 
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */
