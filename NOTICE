@@ -5,12 +5,17 @@ This project is built on AIHOT (https://github.com/KKKKhazix/AIHOT, commit 885b7
 Portions derived from AIHOT: Copyright (c) 2026 数字生命卡兹克, licensed under the MIT License
 (LICENSES/AIHOT-MIT.txt, kept verbatim). See UPSTREAM.md.
 
-The name "AIHOT" and the AIHOT logo are not licensed under the MIT License. Please use your own name
-and logo for your site.
+The name "AIHOT" and the AIHOT logo are not licensed under the MIT License. This project does not
+use them as its name or marks.
 
 This repository also contains third-party material under its own terms:
 
-- assets/og-fonts/: Noto Sans SC, SIL Open Font License 1.1 (assets/og-fonts/LICENSE).
+- assets/og-fonts/: subsets of Noto Sans CJK SC, Copyright 2014-2021 Adobe, SIL Open Font License 1.1
+  (full text in assets/og-fonts/LICENSE).
+- industry/brand/: the logo, the icons and the nameplates are drawn from glyph outlines of Noto Sans SC
+  Black (@fontsource/noto-sans-sc 5.3.0), Copyright 2014-2021 Adobe, SIL Open Font License 1.1. They
+  are pictures made with the font, not font files (scripts/brand-icons.ts, scripts/nameplates.ts).
 
-The demo sources in industry/sources.json are public feeds of their publishers. Their content belongs
-to them; by default the site shows only a summary and a link to the original.
+The MIT License covers the code only. Content collected from sources belongs to its original
+publishers; what the site shows of it is set by the source permission matrix
+(docs/04-architecture/adr/0009-source-permission-matrix.md).
