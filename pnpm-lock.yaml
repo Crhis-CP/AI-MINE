@@ -311,6 +311,9 @@ importers:
 
   packages/backend:
     dependencies:
+      '@amp/config':
+        specifier: workspace:*
+        version: link:../platform/config
       '@amp/contracts':
         specifier: workspace:*
         version: link:../contracts

@@ -28,7 +28,7 @@ export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": [],
   "@amp/contracts": ["@amp/industry"],
-  "@amp/backend": ["@amp/contracts", "@amp/industry"],
+  "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config"],
   "@amp/api": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
   "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),
