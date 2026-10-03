@@ -43,9 +43,10 @@ const ensured = new Set<string>();
 
 export async function getBoss(): Promise<PgBoss> {
   const connection = queueConnection();
-  if (stopping) throw new Error("Job queue is stopping");
   if (owner && owner !== connection) throw new Error("Job queue belongs to a different database root; stop it before reuse");
+  // Graceful stop still lets an in-flight handler settle its receipt and enqueue its follow-up.
   if (boss) return boss;
+  if (stopping) throw new Error("Job queue is stopping");
   starting ??= (async () => {
     owner = connection;
     const attempt = ++generation;
