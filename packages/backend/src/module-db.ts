@@ -16,23 +16,32 @@ function unwrap(value: unknown): unknown {
 }
 
 /** A query/identifier/JSON helper can be constructed before injection, but cannot execute before it. */
-function lazy(build: () => unknown): object {
+function lazy(build: () => unknown, connection: () => Db): object {
   let resolved = false;
   let value: unknown;
+  let owner: Db;
   const materialize = () => {
+    const current = connection();
+    if (resolved && current !== owner) throw new Error("Database binding changed for a prepared query");
     if (!resolved) {
       value = build();
+      owner = current;
       resolved = true;
     }
     return value;
   };
-  const proxy = new Proxy(
+  const proxy: object = new Proxy(
     {},
     {
       get(_target, key) {
         const actual = materialize();
         const member = Reflect.get(Object(actual), key);
-        return typeof member === "function" ? member.bind(actual) : member;
+        if (typeof member !== "function") return member;
+        return (...args: unknown[]) => {
+          materialize();
+          const result = Reflect.apply(member, actual, args);
+          return result === actual ? proxy : result;
+        };
       },
     },
   );
@@ -41,7 +50,7 @@ function lazy(build: () => unknown): object {
 }
 
 function wrap(resolve: () => Db): Sql {
-  const call = (...args: unknown[]) => lazy(() => Reflect.apply(resolve(), undefined, args.map(unwrap)));
+  const call = (...args: unknown[]) => lazy(() => Reflect.apply(resolve(), undefined, args.map(unwrap)), resolve);
   return new Proxy(call, {
     get(_target, key) {
       if (key === "json" || key === "array" || key === "unsafe") {
@@ -49,12 +58,13 @@ function wrap(resolve: () => Db): Sql {
           lazy(() => {
             const sql = resolve();
             return Reflect.apply(Reflect.get(sql, key), sql, args.map(unwrap));
-          });
+          }, resolve);
       }
       const sql = resolve();
       const member = Reflect.get(sql, key);
       if (typeof member !== "function") return member;
       return (...args: unknown[]) => {
+        if (resolve() !== sql) throw new Error("Database binding changed for a saved method");
         const values = args.map(unwrap);
         if (key === "begin" || key === "savepoint") {
           const callback = values.at(-1);

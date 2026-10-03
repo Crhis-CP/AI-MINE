@@ -58,6 +58,27 @@ test("import-time fragments, builders and JSON work after injection, including i
   }
 });
 
+test("a prepared or chained query cannot outlive its injection or switch to another connection", async () => {
+  const access = createDatabaseAccess("test", { DATABASE_URL: "postgres://postgres@127.0.0.1:1/handle_test" }, () => {});
+  const replacement = createDatabaseAccess("test", { DATABASE_URL: "postgres://postgres@127.0.0.1:1/replacement_test" }, () => {});
+  const sql = dbOf("handle-disposed");
+  const dispose = injectDb({ "handle-disposed": access.dbFor("worker") });
+  const query = sql`SELECT 1`.simple(); // A driver query now exists, but has not executed.
+  const transaction = sql.begin;
+  dispose();
+  await assert.rejects(Promise.resolve(query), /not injected/);
+  assert.throws(() => transaction(async () => 1), /not injected/);
+  const removeReplacement = injectDb({ "handle-disposed": replacement.dbFor("worker") });
+  try {
+    await assert.rejects(Promise.resolve(query), /binding changed/);
+    assert.throws(() => transaction(async () => 1), /binding changed/);
+  } finally {
+    removeReplacement();
+    await access.close();
+    await replacement.close();
+  }
+});
+
 test("wrapped transactions roll back failed work", async (t) => {
   if (!process.env.DATABASE_URL) return t.skip("needs the isolated verify database");
   const access = createDatabaseAccess("test", { DATABASE_URL: process.env.DATABASE_URL }, () => {});
