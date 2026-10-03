@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { finished } from "node:stream/promises";
 import { after, test, type TestContext } from "node:test";
 import { createDatabaseAccess } from "@amp/config";
 import { closeDb, dbOf, initializeDb, injectDb } from "@amp/backend/db";
@@ -15,11 +16,23 @@ function fixture(t: TestContext, name: string) {
   const raw = access.dbFor("worker");
   const sql = dbOf(name);
   const dispose = injectDb({ [name]: raw });
+  const cleanups: (() => unknown)[] = [];
   t.after(async () => {
     dispose();
-    await access.close();
+    try {
+      for (const cleanup of cleanups.reverse()) await cleanup();
+    } finally {
+      await access.close();
+    }
   });
-  return { raw, sql, dispose };
+  return {
+    raw,
+    sql,
+    dispose,
+    cleanup: (fn: () => unknown) => {
+      cleanups.push(fn);
+    },
+  };
 }
 
 test("pure SQL fragments and builders compose in new roots while old pending queries stay revoked", async () => {
@@ -77,9 +90,9 @@ test("file queries and saved file factories are revoked; an existing query can s
 });
 
 test("reserved connections and saved methods are revoked while release remains safe and idempotent", async (t) => {
-  const { raw, sql, dispose } = fixture(t, "reserve-lifecycle");
+  const { raw, sql, dispose, cleanup } = fixture(t, "reserve-lifecycle");
   const reserved = await sql.reserve();
-  t.after(() => reserved.release());
+  cleanup(() => reserved.release());
   assert.equal((await reserved`SELECT 7::int AS answer`)[0].answer, 7);
   const query = reserved`SELECT 8::int AS answer`;
   const unsafe = reserved.unsafe;
@@ -115,14 +128,12 @@ test("a reservation finishing after disposal releases its connection instead of 
 
 test("cursor iterators and saved next methods cannot start or continue after disposal; return cleans up", async (t) => {
   for (const started of [false, true]) {
-    const { raw, sql, dispose } = fixture(t, `cursor-lifecycle-${started}`);
+    const { raw, sql, dispose, cleanup } = fixture(t, `cursor-lifecycle-${started}`);
     const iterable = sql`SELECT generate_series(1, 2) AS answer`.cursor(1);
     const iterator = iterable[Symbol.asyncIterator]();
     const next = iterator.next;
     const finish = iterator.return!;
-    t.after(() => {
-      finish();
-    });
+    cleanup(() => finish());
     if (started) assert.equal((await next()).value[0].answer, 1);
     dispose();
     assert.throws(() => iterable[Symbol.asyncIterator](), /not injected/);
@@ -130,4 +141,69 @@ test("cursor iterators and saved next methods cannot start or continue after dis
     await finish();
     assert.equal((await raw`SELECT 4::int AS answer`)[0].answer, 4);
   }
+});
+
+async function largeFixture(t: TestContext, name: string) {
+  const state = fixture(t, name);
+  const [{ oid }] = await state.raw<{ oid: number }[]>`SELECT lo_create(0) AS oid`;
+  state.cleanup(() => state.raw`SELECT lo_unlink(${oid!})`);
+  return { ...state, oid: oid! };
+}
+
+test("large-object queries and saved methods are revoked; close remains idempotent and releases the transaction", async (t) => {
+  const { raw, sql, dispose, cleanup, oid } = await largeFixture(t, "large-object-methods");
+  const object = await sql.largeObject(oid);
+  cleanup(() => object.close());
+  await object.write(Buffer.from("before"));
+  const pending = object.write(Buffer.from("forbidden"));
+  const write = object.write;
+  dispose();
+  for (const operation of [() => pending, () => write(Buffer.from("after")), () => object.read(2), () => object.seek(0)])
+    await assert.rejects(async () => operation(), /not injected/);
+  await object.close();
+  await object.close();
+  assert.equal((await raw`SELECT lo_get(${oid}) AS value`)[0].value.toString(), "before");
+});
+
+test("large-object streams retain normal read/write behavior and cannot be used after close", async (t) => {
+  const { sql, cleanup, oid } = await largeFixture(t, "large-object-streams-normal");
+  const object = await sql.largeObject(oid);
+  cleanup(() => object.close());
+  const writable = await object.writable();
+  const written = finished(writable);
+  writable.end(Buffer.from("stream fixture"));
+  await written;
+  await object.seek(0);
+  const readable = await object.readable();
+  assert.equal(Buffer.concat(await readable.toArray()).toString(), "stream fixture");
+  await object.close();
+  await assert.rejects(async () => object.write(Buffer.from("closed")), /large object closed/);
+  await assert.rejects(object.readable(), /large object closed/);
+});
+
+test("retained large-object streams reject future chunks after disposal without unhandled async errors", async (t) => {
+  const { raw, sql, dispose, cleanup, oid } = await largeFixture(t, "large-object-streams-revoked");
+  const object = await sql.largeObject(oid);
+  cleanup(() => object.close());
+  await object.write(Buffer.from("before"));
+  await object.seek(0);
+  const readable = await object.readable();
+  const writable = await object.writable();
+  dispose();
+  const written = finished(writable);
+  writable.end(Buffer.from("after"));
+  await assert.rejects(written, /not injected/);
+  await assert.rejects(readable.toArray(), /not injected/);
+  await object.close();
+  assert.equal((await raw`SELECT lo_get(${oid}) AS value`)[0].value.toString(), "before");
+});
+
+test("large-object creation finishing after disposal closes the native transaction", async (t) => {
+  const { raw, sql, dispose, oid } = await largeFixture(t, "late-large-object");
+  const occupied = await raw.reserve();
+  const pending = sql.largeObject(oid);
+  dispose();
+  occupied.release();
+  await assert.rejects(pending, /not injected/);
+  assert.equal((await raw`SELECT 5::int AS answer`)[0].answer, 5);
 });
