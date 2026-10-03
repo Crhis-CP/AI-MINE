@@ -59,6 +59,10 @@ test("a dependency against the graph, a model SDK, a new wildcard export and an 
 
 test("import specifiers are read from code, not from SQL that says FROM", () => {
   assert.deepEqual(importsOf("import a from \"x\";\nconst b = await import('y/z?raw');\nsql`substring(u from '/status/([0-9]+)')`"), ["x", "y/z"]);
+  assert.deepEqual(
+    importsOf('import x from /* note */ "postgres"; export { x } from /* note */ "pg-native"; import(/* note */ "pg"); require(// note\n "openai");'),
+    ["postgres", "pg-native", "pg", "openai"],
+  );
 });
 
 test("wildcards, private export aliases and new backend exports are rejected", () => {
@@ -114,16 +118,18 @@ test("database drivers stay in stores or config/queue, model SDKs stay in the ga
   const { dir, files } = workspace({
     "packages/domains/content/package.json": pkg("@amp/content", ["postgres"]),
     "packages/domains/content/src/store/query.ts": 'import postgres from "postgres";',
-    "packages/domains/content/src/logic.ts": 'import postgres from "postgres";',
+    "packages/domains/content/src/logic.ts": 'import postgres from /* annotation */ "postgres";',
     "packages/platform/config/package.json": pkg("@amp/config", ["postgres"]),
     "packages/platform/config/src/db.ts": 'import postgres from "postgres";',
     "packages/domains/ai-gateway/package.json": pkg("@amp/ai-gateway", ["openai"]),
     "packages/domains/ai-gateway/src/providers/openai.ts": 'import OpenAI from "openai";',
+    "packages/domains/ai-gateway/src/index.ts": 'import OpenAI from "openai";',
     "packages/domains/policy/package.json": pkg("@amp/policy", ["openai"]),
     "packages/domains/policy/src/index.ts": 'import OpenAI from "openai";',
   });
   const problems = checkBoundaries(dir, files);
-  assert.equal(problems.length, 3);
+  assert.equal(problems.length, 4);
+  assert.ok(problems.some((p) => p.includes("ai-gateway/src/index.ts: imports the model SDK")));
   assert.ok(problems.some((p) => p.includes("content/src/logic.ts: database driver")));
   assert.ok(problems.some((p) => p.includes("policy/package.json: model SDK")));
   assert.ok(problems.some((p) => p.includes("policy/src/index.ts: imports the model SDK")));
@@ -138,4 +144,21 @@ test("fetcher can use only acquisition's fetch-runtime entry", () => {
   assert.deepEqual(checkBoundaries(good.dir, good.files), []);
   const bad = workspace({ ...common, "apps/fetcher/src/main.ts": 'import "@amp/acquisition";' });
   assert.ok(checkBoundaries(bad.dir, bad.files).some((p) => p.includes("fetcher may only import")));
+});
+
+test("fetch-runtime cannot reach a store directly or through a helper and workspace re-export", () => {
+  const common = {
+    "packages/domains/acquisition/package.json": pkg("@amp/acquisition", ["@amp/content"], { "./fetch-runtime": "./src/fetch-runtime.ts" }),
+    "packages/domains/acquisition/src/helper.ts": 'import "@amp/content";',
+    "packages/domains/content/package.json": pkg("@amp/content", ["postgres"]),
+    "packages/domains/content/src/index.ts": 'export { query } from "./store/query.ts";',
+    "packages/domains/content/src/store/query.ts": 'import postgres from "postgres";',
+    "packages/domains/acquisition/src/store/query.ts": "export const query = 1;",
+  };
+  for (const source of ['import "./store/query.ts";', 'import "./helper.ts";']) {
+    const bad = workspace({ ...common, "packages/domains/acquisition/src/fetch-runtime.ts": source });
+    assert.ok(checkBoundaries(bad.dir, bad.files).some((p) => p.includes("store/ is reachable")));
+  }
+  const good = workspace({ ...common, "packages/domains/acquisition/src/fetch-runtime.ts": "export const fetch = () => null;" });
+  assert.deepEqual(checkBoundaries(good.dir, good.files), []);
 });

@@ -43,11 +43,13 @@ const DRIVERS = [/^postgres$/, /^pg$/, /^pg-(?!boss$)[\w-]+$/];
 const MODEL_SDKS = [/^openai$/, /^@anthropic-ai\//, /^@google\/(genai|generative-ai)$/, /^@mistralai\//, /^cohere-ai$/, /^groq-sdk$/, /^@ai-sdk\//, /^ai$/];
 
 const SOURCE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
+// Comments are valid whitespace in import/export declarations and dynamic import/require calls.
+const GAP = String.raw`(?:\s|/\*[\s\S]*?\*/|//[^\n]*(?:\n|$))*`;
 const SPECIFIERS = [
-  /\bfrom\s+["']([^"'\n]+)["']/g,
-  /\bimport\s+["']([^"'\n]+)["']/g,
-  /\bimport\s*\(\s*["']([^"'\n]+)["']\s*[,)]/g,
-  /\brequire\s*\(\s*["']([^"'\n]+)["']\s*\)/g,
+  new RegExp(String.raw`\bfrom${GAP}["']([^"'\n]+)["']`, "g"),
+  new RegExp(String.raw`\bimport${GAP}["']([^"'\n]+)["']`, "g"),
+  new RegExp(String.raw`\bimport${GAP}\(${GAP}["']([^"'\n]+)["']${GAP}[,)]`, "g"),
+  new RegExp(String.raw`\brequire${GAP}\(${GAP}["']([^"'\n]+)["']${GAP}\)`, "g"),
 ];
 
 interface Workspace {
@@ -71,6 +73,7 @@ const publicEntries = (v: unknown): Record<string, unknown> => {
 };
 const driverAllowed = (w: Workspace, f: string) =>
   ["@amp/backend", "@amp/config", "@amp/queue"].includes(w.name) || (DOMAINS.includes(w.name) && f.startsWith(`${w.dir}/src/store/`));
+const providerAllowed = (w: Workspace, f: string) => w.name === "@amp/ai-gateway" && /^src\/(providers|adapters)\//.test(f.slice(w.dir.length + 1));
 
 /** Module specifiers a source file imports (bare and relative), without Vite's `?raw`-style suffixes. */
 export function importsOf(text: string): string[] {
@@ -172,8 +175,37 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
       if (w.name === "@amp/web" && (DRIVERS.some((re) => re.test(pkg)) || pkg === "pg-boss"))
         problems.push(`${f}: the web app may not import ${pkg} (no database or job queue in the front end)`);
       else if (DRIVERS.some((re) => re.test(pkg)) && !driverAllowed(w, f)) problems.push(`${f}: database driver ${pkg} belongs in a module's store/`);
-      if (MODEL_SDKS.some((re) => re.test(pkg)) && w.name !== "@amp/ai-gateway")
+      if (MODEL_SDKS.some((re) => re.test(pkg)) && !providerAllowed(w, f))
         problems.push(`${f}: imports the model SDK ${pkg}; paid calls go through ai-gateway only`);
+    }
+  }
+  // Follow the complete local/workspace import closure: a helper must not smuggle a store into fetch-runtime.
+  const sourceFiles = new Set(files.filter((f) => SOURCE.test(f)));
+  const resolveFile = (target: string): string[] => {
+    const names = [target, target.replace(/\.js$/, ".ts"), `${target}.ts`, `${target}.tsx`, `${target}/index.ts`];
+    const found = names.find((name) => sourceFiles.has(name));
+    return found ? [found] : [];
+  };
+  const resolveImport = (from: string, spec: string): string[] => {
+    if (spec.startsWith(".")) return resolveFile(path.posix.normalize(path.posix.join(path.posix.dirname(from), spec)));
+    const target = spaces.find((space) => space.name === packageOf(spec));
+    if (!target) return [];
+    const entry = spec === target.name ? "." : `.${spec.slice(target.name.length)}`;
+    return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, file)));
+  };
+  const acquisition = spaces.find((space) => space.name === "@amp/acquisition");
+  if (acquisition) {
+    const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) => resolveFile(path.posix.join(acquisition.dir, file)));
+    const visited = new Set<string>();
+    while (pending.length) {
+      const file = pending.pop()!;
+      if (visited.has(file)) continue;
+      visited.add(file);
+      if (/(^|\/)store\//.test(file)) problems.push(`${file}: store/ is reachable from acquisition's fetch-runtime`);
+      for (const spec of importsOf(readFileSync(path.join(root, file), "utf8"))) {
+        if ([...DRIVERS, ...MODEL_SDKS].some((re) => re.test(packageOf(spec)))) problems.push(`${file}: fetch-runtime reaches forbidden dependency ${spec}`);
+        pending.push(...resolveImport(file, spec));
+      }
     }
   }
   return problems;
