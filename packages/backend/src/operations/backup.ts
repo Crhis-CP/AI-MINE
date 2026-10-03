@@ -9,6 +9,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { config, credential } from "../config.ts";
 import { dbOf } from "../db.ts";
+import { backupDatabaseUrl } from "../db-bootstrap.ts";
 
 const sql = dbOf("ops");
 
@@ -121,7 +122,7 @@ export async function runBackup(now = new Date()) {
   await mkdir(dir, { recursive: true });
   const stamp = now.toISOString().slice(0, 16).replace(/[-:T]/g, "");
   const dump = path.join(dir, `amp-${stamp}.dump`);
-  await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", dump, config.databaseUrl], { maxBuffer: 16 * 1024 * 1024 });
+  await run("pg_dump", ["--format=custom", "--compress=6", "--no-owner", "--file", dump, backupDatabaseUrl()], { maxBuffer: 16 * 1024 * 1024 });
   // Verify before shipping: the archive must list cleanly.
   await run("pg_restore", ["--list", dump], { maxBuffer: 64 * 1024 * 1024 });
   const files = path.join(dir, `amp-files-${stamp}.tar.gz`);

@@ -1,6 +1,6 @@
 // Job queue on PostgreSQL (pg-boss). Business code enqueues by name; the worker process owns handlers.
 import { PgBoss, type SendOptions } from "pg-boss";
-import { config } from "../config.ts";
+import { queueConnection } from "../db-bootstrap.ts";
 import { dbOf, type Db } from "../db.ts";
 
 const sql = dbOf("queue");
@@ -41,7 +41,7 @@ const ensured = new Set<string>();
 export async function getBoss(): Promise<PgBoss> {
   if (boss) return boss;
   starting ??= (async () => {
-    const b = new PgBoss({ connectionString: config.databaseUrl, max: 4, schema: "pgboss", application_name: "amp-jobs" });
+    const b = new PgBoss({ ...queueConnection(), max: 4, schema: "pgboss", application_name: "amp-jobs" });
     b.on("error", (err) => console.error("[pg-boss]", err));
     await b.start();
     boss = b;

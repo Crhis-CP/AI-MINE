@@ -1,6 +1,6 @@
 // Worker process: queues and schedules for collection, processing, events, reports and ops.
 import { closeDb, initializeDb } from "@amp/backend/db";
-import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
+import { ensureQueue, getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { registerContentJobs } from "@amp/backend/jobs/content";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { registerEventJobs } from "@amp/backend/jobs/events";
@@ -14,6 +14,7 @@ await initializeDb("worker");
 
 await ensureContentTargets();
 const boss = await getBoss();
+for (const queue of Object.values(QUEUES)) await ensureQueue(queue);
 await registerContentJobs(boss);
 if (process.env.COLLECT_ENABLED !== "false") await registerSourceJobs(boss);
 await registerEventJobs(boss);
