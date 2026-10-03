@@ -15,10 +15,23 @@ export function modulePath(spec: string): string {
   return spec.startsWith("#") ? spec : decodeURIComponent(spec.replace(/[?#].*$/, "")).replace(/\\/g, "/");
 }
 
-function literal(node: ast.Node | undefined): string | undefined {
+function unwrap(node: ast.Node | undefined): ast.Node | undefined {
+  while (
+    node &&
+    (ast.isParenthesizedExpression(node) ||
+      ast.isAsExpression(node) ||
+      ast.isTypeAssertion(node) ||
+      ast.isNonNullExpression(node) ||
+      ast.isSatisfiesExpression(node))
+  )
+    node = node.expression;
+  return node;
+}
+
+function literal(input: ast.Node | undefined): string | undefined {
+  const node = unwrap(input);
   if (!node) return;
   if (ast.isStringLiteral(node) || ast.isNoSubstitutionTemplateLiteral(node)) return node.text;
-  if (ast.isParenthesizedExpression(node)) return literal(node.expression);
   if (ast.isBinaryExpression(node) && node.operatorToken.kind === ast.SyntaxKind.PlusToken) {
     const left = literal(node.left);
     const right = literal(node.right);
@@ -42,6 +55,8 @@ function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
   const modules = new Set(["module"]);
   const paths = new Set<string>();
   const requireNames = new Set(["require"]);
+  const bindings = { module: modules, path: paths, creator: creators, require: requireNames };
+  type Kind = keyof typeof bindings;
   const walk = (node: ast.Node, visit: (node: ast.Node) => void) => {
     visit(node);
     node.forEachChild((child) => walk(child, visit));
@@ -58,17 +73,53 @@ function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
     if (names === modules && bindings && ast.isNamedImports(bindings))
       for (const entry of bindings.elements) if ((entry.propertyName ?? entry.name).text === "createRequire") creators.add(entry.name.text);
   });
-  const member = (node: ast.Node, name: string, owners: Set<string>) =>
-    ast.isPropertyAccessExpression(node) && node.name.text === name && ast.isIdentifier(node.expression) && owners.has(node.expression.text);
-  const factory = (node: ast.Node) =>
-    ast.isCallExpression(node) &&
-    ((ast.isIdentifier(node.expression) && creators.has(node.expression.text)) || member(node.expression, "createRequire", modules));
-  walk(source, (node) => {
-    if (ast.isVariableDeclaration(node) && ast.isIdentifier(node.name) && node.initializer) {
-      if (factory(node.initializer) || (ast.isIdentifier(node.initializer) && requireNames.has(node.initializer.text))) requireNames.add(node.name.text);
+  const property = (input: ast.Node) => {
+    const node = unwrap(input)!;
+    if (ast.isPropertyAccessExpression(node)) return { owner: node.expression, name: node.name.text };
+    if (ast.isElementAccessExpression(node)) return { owner: node.expression, name: literal(node.argumentExpression) };
+  };
+  const moduleMember = (name: string | undefined, kind: Kind) =>
+    (kind === "creator" && name === "createRequire") || (kind === "require" && name === "require") || (kind === "module" && name === "default");
+  const known = (input: ast.Node, kind: Kind): boolean => {
+    const node = unwrap(input)!;
+    if (ast.isIdentifier(node)) return bindings[kind].has(node.text);
+    if (ast.isAwaitExpression(node)) return known(node.expression, kind);
+    const access = property(node);
+    if (access) return moduleMember(access.name, kind) && known(access.owner, "module");
+    if (!ast.isCallExpression(node)) return false;
+    if (kind === "require") return known(node.expression, "creator");
+    if ((kind === "module" || kind === "path") && (node.expression.kind === ast.SyntaxKind.ImportKeyword || known(node.expression, "require"))) {
+      const spec = literal(node.arguments[0]);
+      return spec === kind || spec === `node:${kind}`;
     }
+    return false;
+  };
+  // Propagate aliases to a fixed point, including forward references in function bodies.
+  const declarations: ast.VariableDeclaration[] = [];
+  walk(source, (node) => {
+    if (ast.isVariableDeclaration(node) && node.initializer) declarations.push(node);
   });
-  const isRequire = (node: ast.Node) => (ast.isIdentifier(node) && requireNames.has(node.text)) || member(node, "require", modules) || factory(node);
+  const size = () => Object.values(bindings).reduce((sum, names) => sum + names.size, 0);
+  let previous = -1;
+  while (previous !== size()) {
+    previous = size();
+    for (const declaration of declarations) {
+      for (const kind of Object.keys(bindings) as Kind[]) {
+        if (ast.isIdentifier(declaration.name) && known(declaration.initializer!, kind)) bindings[kind].add(declaration.name.text);
+        if (ast.isObjectBindingPattern(declaration.name) && known(declaration.initializer!, "module"))
+          for (const element of declaration.name.elements) {
+            const key = element.propertyName ?? element.name;
+            if (!key || !element.name) continue;
+            const name = ast.isIdentifier(key) ? key.text : literal(ast.isComputedPropertyName(key) ? key.expression : key);
+            if (!element.dotDotDotToken && ast.isIdentifier(element.name) && moduleMember(name, kind)) bindings[kind].add(element.name.text);
+          }
+      }
+    }
+  }
+  const member = (node: ast.Node, name: string, kind: Kind) => {
+    const access = property(node);
+    return access?.name === name && known(access.owner, kind);
+  };
   const compiledEntries = new Set<ast.Node>();
   // One existing runtime import loads the web build, relative to this root; it cannot choose another package.
   if (file === "apps/web/server.ts")
@@ -79,7 +130,7 @@ function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
         const call = init && ast.isAwaitExpression(init) ? init.expression : init;
         if (!call || !ast.isCallExpression(call) || call.expression.kind !== ast.SyntaxKind.ImportKeyword) continue;
         const arg = call.arguments[0];
-        if (!arg || !ast.isCallExpression(arg) || !member(arg.expression, "resolve", paths) || arg.arguments.length !== 2) continue;
+        if (!arg || !ast.isCallExpression(arg) || !member(arg.expression, "resolve", "path") || arg.arguments.length !== 2) continue;
         const dir = arg.arguments[0];
         if (
           dir &&
@@ -94,6 +145,7 @@ function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
     }
   const add = (argument: ast.Node | undefined, call?: ast.Node) => {
     if (call && compiledEntries.has(call)) return void imports.add("./build/server/index.js");
+    argument = unwrap(argument);
     let spec = literal(argument);
     // Cache-busting in the query does not change the imported module's path.
     if (spec === undefined && argument && ast.isTemplateExpression(argument) && /[?#]/.test(argument.head.text)) spec = argument.head.text.split(/[?#]/, 1)[0];
@@ -115,7 +167,8 @@ function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
       if (node.moduleSpecifier) add(node.moduleSpecifier);
     } else if (ast.isImportEqualsDeclaration(node) && ast.isExternalModuleReference(node.moduleReference)) add(node.moduleReference.expression);
     else if (ast.isImportTypeNode(node) && ast.isLiteralTypeNode(node.argument)) add(node.argument.literal);
-    else if (ast.isCallExpression(node) && (node.expression.kind === ast.SyntaxKind.ImportKeyword || isRequire(node.expression))) add(node.arguments[0], node);
+    else if (ast.isCallExpression(node) && (node.expression.kind === ast.SyntaxKind.ImportKeyword || known(node.expression, "require")))
+      add(node.arguments[0], node);
   });
   return { imports: [...imports], problems };
 }

@@ -191,9 +191,11 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
   // Follow the complete local/workspace import closure: a helper must not smuggle a store into fetch-runtime.
   const sourceFiles = new Set(files.filter((f) => SOURCE.test(f)));
   const resolveFile = (target: string): string[] => {
-    const names = [target, target.replace(/\.js$/, ".ts"), `${target}.ts`, `${target}.tsx`, `${target}/index.ts`];
-    const found = names.find((name) => sourceFiles.has(name));
-    return found ? [found] : [];
+    const extensions = ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
+    const names = [target, target.replace(/\.([mc]?)js$/, ".$1ts"), target.replace(/\.jsx?$/, ".tsx")];
+    if (!path.posix.extname(target)) names.push(...extensions.flatMap((ext) => [`${target}.${ext}`, `${target}/index.${ext}`]));
+    // Follow every plausible source: a TS counterpart must not hide a runtime JS/CJS dependency.
+    return [...new Set(names)].filter((name) => sourceFiles.has(name));
   };
   const resolveImport = (from: string, spec: string): string[] => {
     if (spec.startsWith(".")) return resolveFile(path.posix.normalize(path.posix.join(path.posix.dirname(from), spec)));
