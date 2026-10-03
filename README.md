@@ -52,6 +52,7 @@ AI矿策没有账号，不用注册，也不用登录。收藏、深浅色和阅
 - **电脑**：左侧栏“内容”一组依次是 **精选、全部矿业动态、矿业热点榜、矿业日报（日报、周报、月报）、法规政策动态、主题、收藏、金属价格**；“更多”一组是 **Agent 接入、关于 AI矿策、更新日志、反馈**。侧栏底部可以切换深色、跟随系统、浅色。
 - **手机**：底栏五项是 **精选 / 全部 / 热点榜 / 日报 / 更多**，法规政策动态、主题、收藏、金属价格和深浅色切换都在“更多”里。看文章、事件、报告和法规时，顶部换成“返回、收藏、原文”工具条。
 - 网站首页默认就是“全部矿业动态”。
+- 想订阅更新：把 RSS 地址加进你常用的 RSS 阅读器，全部矿业动态、精选、日报、法规政策动态各有一个，地址见[对外接口](#对外接口)。
 
 ### 每个栏目怎么用
 
@@ -123,7 +124,7 @@ AI矿策没有账号，不用注册，也不用登录。收藏、深浅色和阅
 - **找不到的地址**：旧站的链接和不存在的地址都显示“页面不存在”，带回到首页和搜索的入口。
 - **页脚**：每个页面的页脚都有 ICP 备案号和公安联网备案号，页脚和关于页还有互联网新闻信息服务许可证编号；首页、各列表页和 Agent 接入页的页脚写着“公开内容更新于 YYYY-MM-DD HH:mm（北京时间）”，一眼就能看出网站在持续更新。
 
-规格出处：[读者页面](docs/01-product/03-reader-pages.md)、[功能全集](docs/01-product/02-feature-catalog.md)（报告 F-RPT-01～F-RPT-04）、[内容标准](docs/01-product/06-content-standards.md)、[时间规则](docs/02-rules/04-time-semantics.md)、[法规政策服务](docs/01-product/10-policy-service.md)。
+规格出处：[读者页面](docs/01-product/03-reader-pages.md)、[功能全集](docs/01-product/02-feature-catalog.md)（报告 F-RPT-01～F-RPT-04）、[内容标准](docs/01-product/06-content-standards.md)、[时间规则](docs/02-rules/04-time-semantics.md)、[法规政策服务](docs/01-product/10-policy-service.md)、[对外接口](docs/01-product/05-external-interfaces.md)（RSS：OUT-02、OUT-03）。
 
 ## 对外接口
 
