@@ -4,6 +4,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
+import { modulePath, readModuleSyntax } from "./boundary-imports.ts";
 
 const amp = (names: readonly string[]) => names.map((name) => `@amp/${name}`);
 const PLATFORM = amp(["identity", "ops", "queue", "storage", "config", "telemetry"]);
@@ -43,14 +44,6 @@ const DRIVERS = [/^postgres$/, /^pg$/, /^pg-(?!boss$)[\w-]+$/];
 const MODEL_SDKS = [/^openai$/, /^@anthropic-ai\//, /^@google\/(genai|generative-ai)$/, /^@mistralai\//, /^cohere-ai$/, /^groq-sdk$/, /^@ai-sdk\//, /^ai$/];
 
 const SOURCE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
-// Comments are valid whitespace in import/export declarations and dynamic import/require calls.
-const GAP = String.raw`(?:\s|/\*[\s\S]*?\*/|//[^\n]*(?:\n|$))*`;
-const SPECIFIERS = [
-  new RegExp(String.raw`\bfrom${GAP}["']([^"'\n]+)["']`, "g"),
-  new RegExp(String.raw`\bimport${GAP}["']([^"'\n]+)["']`, "g"),
-  new RegExp(String.raw`\bimport${GAP}\(${GAP}["']([^"'\n]+)["']${GAP}[,)]`, "g"),
-  new RegExp(String.raw`\brequire${GAP}\(${GAP}["']([^"'\n]+)["']${GAP}\)`, "g"),
-];
 
 interface Workspace {
   dir: string;
@@ -77,14 +70,9 @@ const providerAllowed = (w: Workspace, f: string) => w.name === "@amp/ai-gateway
 
 /** Module specifiers a source file imports (bare and relative), without Vite's `?raw`-style suffixes. */
 export function importsOf(text: string): string[] {
-  const out = new Set<string>();
-  for (const re of SPECIFIERS) {
-    for (const m of text.matchAll(re)) {
-      // Only strings shaped like a module path (SQL such as `substring(x from '/status/…')` also says "from").
-      if (/^(\.{1,2}(\/|$)|node:|@?[a-z0-9])/i.test(m[1])) out.add(m[1].replace(/\?.*$/, ""));
-    }
-  }
-  return [...out];
+  const result = readModuleSyntax({ "source.ts": text }).get("source.ts")!;
+  if (result.problems.length) throw new Error(result.problems.join("; "));
+  return result.imports;
 }
 
 /** The package a bare specifier names: `@scope/name/sub` → `@scope/name`, `name/sub` → `name`. */
@@ -117,6 +105,21 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
   const problems: string[] = [];
   const spaces = workspaces(root, files);
   const names = new Set(spaces.map((w) => w.name));
+  const exportPath = (value: string) => {
+    try {
+      return modulePath(value);
+    } catch {
+      problems.push("package export has invalid module path encoding");
+      return "";
+    }
+  };
+  const syntax = readModuleSyntax(
+    Object.fromEntries(
+      files
+        .filter((f) => SOURCE.test(f) && !f.includes("/node_modules/") && spaces.some((w) => f.startsWith(`${w.dir}/`)))
+        .map((f) => [f, readFileSync(path.join(root, f), "utf8")]),
+    ),
+  );
 
   for (const w of spaces) {
     const allowed = ALLOWED_EDGES[w.name];
@@ -134,7 +137,8 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     if (wildcard) problems.push(`${w.dir}/package.json: exports may not use a wildcard; list each public entry`);
     const entries = publicEntries(w.exports);
     for (const [entry, target] of Object.entries(entries)) {
-      if (privatePath(entry) || strings(target).some(privatePath)) problems.push(`${w.dir}/package.json: ${entry} exposes internal/ or store/`);
+      if (privatePath(exportPath(entry)) || strings(target).some((file) => privatePath(exportPath(file))))
+        problems.push(`${w.dir}/package.json: ${entry} exposes internal/ or store/`);
     }
     if (w.name === "@amp/backend") {
       const snapshot = JSON.parse(readFileSync(path.join(root, "scripts/verify/backend-exports.json"), "utf8")) as Record<string, string>;
@@ -154,8 +158,13 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     if (!SOURCE.test(f) || f.includes("/node_modules/")) continue;
     const w = spaces.find((s) => f.startsWith(`${s.dir}/`));
     if (!w) continue;
-    const text = readFileSync(path.join(root, f), "utf8");
-    for (const spec of importsOf(text)) {
+    const parsed = syntax.get(f)!;
+    problems.push(...parsed.problems.map((problem) => `${f}: ${problem}`));
+    for (const spec of parsed.imports) {
+      if (spec.startsWith("#") || ((spec.startsWith("/") || /^[a-z][a-z\d+.-]*:/i.test(spec)) && !spec.startsWith("node:"))) {
+        problems.push(`${f}: module URLs, absolute paths and package-import aliases are not public workspace entries`);
+        continue;
+      }
       if (spec.startsWith(".")) {
         const target = path.posix.normalize(path.posix.join(path.posix.dirname(f), spec));
         if (!target.startsWith(`${w.dir}/`)) problems.push(`${f}: imports ${spec}, outside ${w.dir}; use the other package's public entry`);
@@ -182,27 +191,31 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
   // Follow the complete local/workspace import closure: a helper must not smuggle a store into fetch-runtime.
   const sourceFiles = new Set(files.filter((f) => SOURCE.test(f)));
   const resolveFile = (target: string): string[] => {
-    const names = [target, target.replace(/\.js$/, ".ts"), `${target}.ts`, `${target}.tsx`, `${target}/index.ts`];
-    const found = names.find((name) => sourceFiles.has(name));
-    return found ? [found] : [];
+    const extensions = ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"];
+    const names = [target, target.replace(/\.([mc]?)js$/, ".$1ts"), target.replace(/\.jsx?$/, ".tsx")];
+    if (!path.posix.extname(target)) names.push(...extensions.flatMap((ext) => [`${target}.${ext}`, `${target}/index.${ext}`]));
+    // Follow every plausible source: a TS counterpart must not hide a runtime JS/CJS dependency.
+    return [...new Set(names)].filter((name) => sourceFiles.has(name));
   };
   const resolveImport = (from: string, spec: string): string[] => {
     if (spec.startsWith(".")) return resolveFile(path.posix.normalize(path.posix.join(path.posix.dirname(from), spec)));
     const target = spaces.find((space) => space.name === packageOf(spec));
     if (!target) return [];
     const entry = spec === target.name ? "." : `.${spec.slice(target.name.length)}`;
-    return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, file)));
+    return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, exportPath(file))));
   };
   const acquisition = spaces.find((space) => space.name === "@amp/acquisition");
   if (acquisition) {
-    const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) => resolveFile(path.posix.join(acquisition.dir, file)));
+    const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) =>
+      resolveFile(path.posix.join(acquisition.dir, exportPath(file))),
+    );
     const visited = new Set<string>();
     while (pending.length) {
       const file = pending.pop()!;
       if (visited.has(file)) continue;
       visited.add(file);
       if (/(^|\/)store\//.test(file)) problems.push(`${file}: store/ is reachable from acquisition's fetch-runtime`);
-      for (const spec of importsOf(readFileSync(path.join(root, file), "utf8"))) {
+      for (const spec of syntax.get(file)?.imports ?? []) {
         if ([...DRIVERS, ...MODEL_SDKS].some((re) => re.test(packageOf(spec)))) problems.push(`${file}: fetch-runtime reaches forbidden dependency ${spec}`);
         pending.push(...resolveImport(file, spec));
       }

@@ -65,6 +65,80 @@ test("import specifiers are read from code, not from SQL that says FROM", () => 
   );
 });
 
+test("template, escaped and constant-composed imports cannot cross the web boundary", () => {
+  for (const expression of [
+    "`../../packages/backend/src/db.ts`",
+    '"\\u002e\\u002e/../../packages/backend/src/db.ts"',
+    '"../../packages/" + "backend/src/db.ts"',
+    '"./%2e%2e/%2e%2e/packages/backend/src/db.ts#cached"',
+    JSON.stringify("./..\\..\\packages/backend/src/db.ts"),
+    `\`../../packages/\${"backend"}/src/db.ts\``,
+  ]) {
+    const { dir, files } = workspace({ "apps/web/probe.ts": `export const load = () => import(${expression});` });
+    assert.ok(
+      checkBoundaries(dir, files).some((p) => p.includes("outside apps/web")),
+      expression,
+    );
+  }
+  const aliases = workspace({
+    "apps/web/probe.ts": 'import { createRequire as make } from "node:module"; const load = make(import.meta.url); load(`postgres`);',
+  });
+  assert.ok(checkBoundaries(aliases.dir, aliases.files).some((p) => p.includes("may not import postgres")));
+});
+
+test("unresolved module paths fail closed; query-only interpolation keeps a fixed module identity", () => {
+  for (const expression of ["target", `\`./\${name}.ts\``, '"./" + name']) {
+    const { dir, files } = workspace({ "apps/web/probe.ts": `const loaded = import(${expression});` });
+    assert.ok(checkBoundaries(dir, files).some((p) => p.includes("must be statically known")));
+  }
+  assert.deepEqual(importsOf(`const state = import(\`./state.ts?test=\${instance++}\`);`), ["./state.ts"]);
+  assert.deepEqual(importsOf('export * from "./helper.ts#version";'), ["./helper.ts"]);
+  assert.throws(() => importsOf('import "./bad%zz.ts";'), /invalid encoding/);
+  assert.deepEqual(importsOf('/* import "postgres" */ const s = "from \\"pg\\""; sql`from "openai"`;'), []);
+  const jsx = workspace({ "apps/web/probe.tsx": '<span>from "postgres"</span>;' });
+  assert.deepEqual(checkBoundaries(jsx.dir, jsx.files), []);
+  const malformed = workspace({ "apps/web/probe.ts": 'import { broken from "postgres";' });
+  assert.ok(checkBoundaries(malformed.dir, malformed.files).some((p) => p.includes("cannot parse module syntax")));
+});
+
+test("transparent TS wrappers and static module/loader aliases preserve dependency identity", () => {
+  for (const expression of ['("./local.ts")', '"./local.ts" as const', '<string>"./local.ts"', '"./local.ts"!', '"./local.ts" satisfies string'])
+    assert.deepEqual(importsOf(`import(${expression});`), ["./local.ts"], expression);
+  for (const source of [
+    'import { createRequire } from "node:module"; const load = createRequire(import.meta.url); (load)("postgres");',
+    'import { createRequire } from "node:module"; const factory = createRequire; const load = factory(import.meta.url); load("postgres");',
+    'import * as module from "node:module"; const alias = module; alias["createRequire"](import.meta.url)("postgres");',
+    'import module from "node:module"; const { createRequire: factory } = module; factory(import.meta.url)("postgres");',
+    'const { ["createRequire"]: factory } = require("node:module"); const load = factory(import.meta.url); load("postgres");',
+    'const module = await import("node:module"); const factory = (module.createRequire as Function)!; factory(import.meta.url)("postgres");',
+    'const { require: load } = module; (load as Function)("postgres");',
+  ]) {
+    const { dir, files } = workspace({ "apps/web/probe.ts": source });
+    assert.ok(
+      checkBoundaries(dir, files).some((p) => p.includes("may not import postgres")),
+      source,
+    );
+  }
+});
+
+test("only the existing top-level web build import can use the fixed path resolver", () => {
+  const source = 'import path from "node:path"; const build = await import(path.resolve(import.meta.dirname, "build/server/index.js"));';
+  const valid = workspace({ "apps/web/server.ts": source });
+  assert.deepEqual(checkBoundaries(valid.dir, valid.files), []);
+  for (const [file, text] of [
+    ["apps/web/other.ts", source],
+    ["apps/web/server.ts", source.replace("build/server/index.js", "../../packages/backend/src/db.ts")],
+    ["apps/web/server.ts", source.replace("const build = await", "async function nested(path: any) { return await").concat("}")],
+  ]) {
+    const invalid = workspace({ [file!]: text! });
+    assert.ok(checkBoundaries(invalid.dir, invalid.files).some((p) => p.includes("must be statically known")));
+  }
+  for (const spec of ["file:///tmp/backend.ts", "/tmp/backend.ts", "data:text/javascript,export default 1", "#backend"]) {
+    const invalid = workspace({ "apps/web/probe.ts": `import ${JSON.stringify(spec)};` });
+    assert.ok(checkBoundaries(invalid.dir, invalid.files).some((p) => p.includes("not public workspace entries")));
+  }
+});
+
 test("wildcards, private export aliases and new backend exports are rejected", () => {
   const { dir, files } = workspace({
     "packages/backend/package.json": pkg("@amp/backend", [], { "./new": "./src/new.ts" }),
@@ -161,4 +235,21 @@ test("fetch-runtime cannot reach a store directly or through a helper and worksp
   }
   const good = workspace({ ...common, "packages/domains/acquisition/src/fetch-runtime.ts": "export const fetch = () => null;" });
   assert.deepEqual(checkBoundaries(good.dir, good.files), []);
+});
+
+test("fetch-runtime traverses extensionless CJS and directory entries, including a coexisting TS counterpart", () => {
+  for (const suffix of [".js", ".cjs", ".mjs", "/index.js", "/index.cjs", "/index.mjs"]) {
+    const { dir, files } = workspace({
+      "packages/domains/acquisition/package.json": pkg("@amp/acquisition", ["@amp/config"], { "./fetch-runtime": "./src/fetch-runtime.cjs" }),
+      "packages/domains/acquisition/src/fetch-runtime.cjs": 'require("@amp/config");',
+      "packages/platform/config/package.json": pkg("@amp/config", ["postgres"], { ".": "./src/index.cjs" }),
+      "packages/platform/config/src/index.cjs": 'require("./driver");',
+      "packages/platform/config/src/driver.ts": "export const harmless = 1;",
+      [`packages/platform/config/src/driver${suffix}`]: 'require("postgres");',
+    });
+    assert.ok(
+      checkBoundaries(dir, files).some((p) => p.includes("fetch-runtime reaches forbidden dependency postgres")),
+      suffix,
+    );
+  }
 });

@@ -149,3 +149,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 - **Actions 用不了时**：
   - M0 期间：沿用 08-owner-voice DEC-24 ② 的做法。云端容器的 focused 回执通过、独立审查没有阻断项，就可以合并，合并后在项目对话里说一声；PR 评论写明缺 `compose-smoke`、原因是 Actions 不可用。Actions 恢复后，在 main 的头上手动运行一次，补出 `scope: full` 的回执，记进 T-0001 验收记录。期限是 M0 退出前。
   - M0 之后：没有这个例外，等 Actions 恢复；focused 回执照旧不能用来合并（规则文件 8.3）。要不要另备一个不依赖 GitHub、能跑 `compose-smoke` 的执行器，M0 退出前写 Q 卡片请 Owner 定。
+
+### 模块语法检查
+
+`boundaries` 使用当前固定 TypeScript 版本的原生 AST，在只含待查源码的虚拟文件系统中解析，不执行源码。字符串、反引号、转义、静态拼接与 createRequire 别名进入同一模块图；无法确定的动态模块路径、模块URL/绝对路径/未建模的包内别名被拒绝。仅查询串变化保留固定模块身份；web顶层的固定build/server/index.js载入单独核对，不允许改为任意目录。SQL、注释与JSX文本中的类似字样不会被当作导入。该检查验证源码模块依赖，不是对任意动态执行代码的运行时沙箱。
