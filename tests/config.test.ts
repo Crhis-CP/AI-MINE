@@ -50,10 +50,31 @@ test("invalid or empty role URLs never silently fall back, and diagnostics do no
     assert.throws(() => databaseConfig(name, { DATABASE_URL_WORKER: url }), /must not hold/);
   }
   assert.throws(() => databaseConfig("test", { DATABASE_URL: "postgres://localhost/production" }), /ending in _test or _ci/);
+  for (const param of ["database", "%64atabase", "user", "dbname", "options"]) {
+    assert.throws(() => databaseConfig("test", { DATABASE_URL: `${url}?${param}=production` }), /must be a PostgreSQL URL/);
+  }
   assert.throws(() => databaseConfig("unknown" as ProcessRole, {}), /Unknown process role/);
   for (const value of ["", "0", "-1", "2.5", "NaN", "Infinity"]) {
     assert.throws(() => databaseConfig("migrate", { DATABASE_URL: url, DATABASE_POOL_MAX: value }), /positive integer/);
   }
+});
+
+test("driver construction errors are redacted while ordinary SSL parameters remain supported", async () => {
+  const access = createDatabaseAccess("migrate", { DATABASE_URL: `${url}?target_session_attrs=PRIVATE_MARKER` }, () => {});
+  assert.throws(
+    () => access.dbFor("migrate"),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(error.message, "Invalid PostgreSQL connection configuration");
+      assert.equal(error.cause, undefined);
+      return true;
+    },
+  );
+  await access.close();
+  const ssl = createDatabaseAccess("migrate", { DATABASE_URL: `${url}?sslmode=require&application_name=fixture` }, () => {});
+  assert.equal(ssl.dbFor("migrate").options.ssl, "require");
+  assert.equal(ssl.dbFor("migrate").options.connection.application_name, "fixture");
+  await ssl.close();
 });
 
 test("shared fallback reuses one pool, denies backup as a query role, and closes permanently", async () => {

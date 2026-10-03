@@ -22,6 +22,11 @@ function validateUrl(value: string, key: string, processRole: ProcessRole): stri
   try {
     const url = new URL(value);
     if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || url.pathname.length <= 1) throw new Error();
+    // postgres.js forwards unrecognised DSN parameters as startup fields, including database/user.
+    // Keep connection identity in the URL authority/path so the test-database guard checks the actual target.
+    for (const name of url.searchParams.keys()) {
+      if (!["sslmode", "target_session_attrs", "application_name"].includes(name)) throw new Error();
+    }
     if (processRole === "test" && !/_(test|ci)$/.test(decodeURIComponent(url.pathname))) throw new Error();
   } catch {
     throw new Error(`${key} must be a PostgreSQL URL with a database${processRole === "test" ? " ending in _test or _ci" : ""}`);
@@ -89,7 +94,12 @@ export function createDatabaseAccess(processRole: ProcessRole, env: Environment 
       const url = config.urlFor(role);
       let sql = pools.get(url);
       if (!sql) {
-        sql = connection(url, config.poolMax);
+        try {
+          sql = connection(url, config.poolMax);
+        } catch {
+          // Driver option errors can echo raw URL/PG* values. Do not retain the error as a cause either.
+          throw new Error("Invalid PostgreSQL connection configuration");
+        }
         pools.set(url, sql);
       }
       return sql;
