@@ -65,6 +65,56 @@ test("import specifiers are read from code, not from SQL that says FROM", () => 
   );
 });
 
+test("template, escaped and constant-composed imports cannot cross the web boundary", () => {
+  for (const expression of [
+    "`../../packages/backend/src/db.ts`",
+    '"\\u002e\\u002e/../../packages/backend/src/db.ts"',
+    '"../../packages/" + "backend/src/db.ts"',
+    `\`../../packages/\${"backend"}/src/db.ts\``,
+  ]) {
+    const { dir, files } = workspace({ "apps/web/probe.ts": `export const load = () => import(${expression});` });
+    assert.ok(
+      checkBoundaries(dir, files).some((p) => p.includes("outside apps/web")),
+      expression,
+    );
+  }
+  const aliases = workspace({
+    "apps/web/probe.ts": 'import { createRequire as make } from "node:module"; const load = make(import.meta.url); load(`postgres`);',
+  });
+  assert.ok(checkBoundaries(aliases.dir, aliases.files).some((p) => p.includes("may not import postgres")));
+});
+
+test("unresolved module paths fail closed; query-only interpolation keeps a fixed module identity", () => {
+  for (const expression of ["target", `\`./\${name}.ts\``, '"./" + name']) {
+    const { dir, files } = workspace({ "apps/web/probe.ts": `const loaded = import(${expression});` });
+    assert.ok(checkBoundaries(dir, files).some((p) => p.includes("must be statically known")));
+  }
+  assert.deepEqual(importsOf(`const state = import(\`./state.ts?test=\${instance++}\`);`), ["./state.ts"]);
+  assert.deepEqual(importsOf('/* import "postgres" */ const s = "from \\"pg\\""; sql`from "openai"`;'), []);
+  const jsx = workspace({ "apps/web/probe.tsx": '<span>from "postgres"</span>;' });
+  assert.deepEqual(checkBoundaries(jsx.dir, jsx.files), []);
+  const malformed = workspace({ "apps/web/probe.ts": 'import { broken from "postgres";' });
+  assert.ok(checkBoundaries(malformed.dir, malformed.files).some((p) => p.includes("cannot parse module syntax")));
+});
+
+test("only the existing top-level web build import can use the fixed path resolver", () => {
+  const source = 'import path from "node:path"; const build = await import(path.resolve(import.meta.dirname, "build/server/index.js"));';
+  const valid = workspace({ "apps/web/server.ts": source });
+  assert.deepEqual(checkBoundaries(valid.dir, valid.files), []);
+  for (const [file, text] of [
+    ["apps/web/other.ts", source],
+    ["apps/web/server.ts", source.replace("build/server/index.js", "../../packages/backend/src/db.ts")],
+    ["apps/web/server.ts", source.replace("const build = await", "async function nested(path: any) { return await") + "}"],
+  ]) {
+    const invalid = workspace({ [file!]: text! });
+    assert.ok(checkBoundaries(invalid.dir, invalid.files).some((p) => p.includes("must be statically known")));
+  }
+  for (const spec of ["file:///tmp/backend.ts", "/tmp/backend.ts", "data:text/javascript,export default 1", "#backend"]) {
+    const invalid = workspace({ "apps/web/probe.ts": `import ${JSON.stringify(spec)};` });
+    assert.ok(checkBoundaries(invalid.dir, invalid.files).some((p) => p.includes("not public workspace entries")));
+  }
+});
+
 test("wildcards, private export aliases and new backend exports are rejected", () => {
   const { dir, files } = workspace({
     "packages/backend/package.json": pkg("@amp/backend", [], { "./new": "./src/new.ts" }),
