@@ -73,8 +73,14 @@ export async function privateProducerFixture(t: TestContext) {
     "/api/admin/private-producer-fixture",
     adminHandler(async (req) => {
       try {
-        const { key, transaction, name = queue } = req.body as { key?: string; transaction?: boolean; name?: string };
-        const send = (tx?: Db) => enqueue(name, { fixture: true }, key ? { singletonKey: key } : {}, tx);
+        const { key, transaction, name = queue } = req.body as { key?: string; transaction?: boolean | "options.db"; name?: string };
+        const send = (tx?: Db) => {
+          const db =
+            transaction === "options.db" && tx
+              ? { executeSql: async (text: string, values?: unknown[]) => ({ rows: await tx.unsafe(text, (values ?? []) as never[]) }) }
+              : undefined;
+          return enqueue(name, { fixture: true }, { ...(key ? { singletonKey: key } : {}), ...(db ? { db } : {}) }, db ? undefined : tx);
+        };
         return { id: transaction ? await dbOf("queue").begin(send) : await send() };
       } catch (error) {
         lastError = error;
@@ -117,7 +123,7 @@ export async function privateProducerFixture(t: TestContext) {
     install,
     password,
     error: () => lastError,
-    request: (key?: string, transaction = false, name = queue) =>
+    request: (key?: string, transaction: boolean | "options.db" = false, name = queue) =>
       app!.inject({ method: "POST", url: "/api/admin/private-producer-fixture", headers: { "x-csrf-token": "dev" }, payload: { key, transaction, name } }),
   };
 }
@@ -158,4 +164,118 @@ export async function holdProducerConnection(db: Sql, database: string, producer
     await release();
     throw error;
   }
+}
+
+/** Pause one real metadata read at its return boundary; the caller controls when it can finish. */
+export function pauseQueueRead(producer: Awaited<ReturnType<typeof import("@amp/backend/jobs/queue").getBoss>>, name: string) {
+  const read = producer.getQueue.bind(producer);
+  const entered = Promise.withResolvers<void>();
+  const proceed = Promise.withResolvers<void>();
+  producer.getQueue = async (queue) => {
+    const row = await read(queue);
+    if (queue === name) {
+      entered.resolve();
+      await proceed.promise;
+    }
+    return row;
+  };
+  return {
+    entered: entered.promise,
+    release: () => proceed.resolve(),
+    restore: () => {
+      producer.getQueue = read;
+    },
+  };
+}
+
+/** Invoke the original HTTP handler inside a caller transaction that blocks one producer connection. */
+export async function prepareLockedTransaction(f: Awaited<ReturnType<typeof privateProducerFixture>>, run: (tx: Db) => Promise<unknown>) {
+  const { dbOf } = await import("@amp/backend/db");
+  const { getBoss } = await import("@amp/backend/jobs/queue");
+  const { adminHandler } = await import("../apps/api/src/routes/admin-auth.ts");
+  const producer = await getBoss();
+  const key = process.pid + 1;
+  let blocked: Promise<unknown> | undefined;
+  f.app.post(
+    "/api/admin/locked-transaction-fixture",
+    adminHandler(async () =>
+      dbOf("queue").begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(${key})`;
+        blocked = producer
+          .getDb()
+          .executeSql("SELECT pg_advisory_xact_lock($1)", [key])
+          .catch((error) => {
+            if (error.code !== "57014") throw error;
+          });
+        await until(
+          async () =>
+            (
+              await f.db`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=${f.database} AND application_name='amp-jobs' AND wait_event='advisory'`
+            )[0].n > 0,
+        );
+        return run(tx);
+      }),
+    ),
+  );
+  return async () => {
+    const pending = f.app.inject({ method: "POST", url: "/api/admin/locked-transaction-fixture", headers: { "x-csrf-token": "dev" }, payload: {} });
+    const response = await Promise.race([pending, delay(1000).then(() => null)]);
+    if (!response)
+      await f.db`SELECT pg_cancel_backend(pid) FROM pg_stat_activity WHERE datname=${f.database} AND application_name='amp-jobs' AND wait_event='advisory'`;
+    const final = response ?? (await pending);
+    await blocked;
+    return { selfWait: response === null, response: final };
+  };
+}
+
+/** Force one unrelated SQL failure through the original handler and count actual execution attempts. */
+export async function installSqlFailure(f: Awaited<ReturnType<typeof privateProducerFixture>>) {
+  const { enqueue } = await import("@amp/backend/jobs/queue");
+  const { adminHandler } = await import("../apps/api/src/routes/admin-auth.ts");
+  let attempts = 0;
+  f.app.post(
+    "/api/admin/unrelated-sql-fixture",
+    adminHandler(async () =>
+      f.db.begin(async (tx) => {
+        const broken = new Proxy(tx, {
+          get(target, key) {
+            if (key === "unsafe")
+              return () => {
+                attempts++;
+                return target.unsafe("SELECT * FROM unrelated_missing_fixture");
+              };
+            return Reflect.get(target, key, target);
+          },
+        });
+        return enqueue(f.queue, {}, {}, broken);
+      }),
+    ),
+  );
+  return {
+    attempts: () => attempts,
+    request: () => f.app.inject({ method: "POST", url: "/api/admin/unrelated-sql-fixture", headers: { "x-csrf-token": "dev" }, payload: {} }),
+  };
+}
+
+export function queueExpired(producer: Awaited<ReturnType<typeof import("@amp/backend/jobs/queue").getBoss>>) {
+  try {
+    producer.getDb();
+    return false;
+  } catch (error) {
+    assert.match((error as Error).message, /instance expired/);
+    return true;
+  }
+}
+
+/** Shared HTTP contract assertion; no dependency on a not-yet-merged queue exception type. */
+export function assertUnavailable(
+  response: { statusCode: number; headers: Record<string, unknown>; body: string; json(): { code: string; retryAfter: number; detail: string } },
+  detail: string,
+) {
+  assert.equal(response.statusCode, 503, response.body);
+  assert.equal(response.headers["retry-after"], "30");
+  assert.equal(response.json().code, "temporarily_unavailable");
+  assert.equal(response.json().retryAfter, 30);
+  assert.equal(response.json().detail, detail);
+  assert.doesNotMatch(response.body, /pgboss|42P01|23514/);
 }
