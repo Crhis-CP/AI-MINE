@@ -79,6 +79,11 @@ test("split roles use their assigned addresses without connecting during constru
   assert.equal(access.backupUrl(), `${url}_backup`);
   assert.equal(access.dbFor("worker"), access.dbFor("worker"));
   await access.close();
+  const publicAccess = createDatabaseAccess("public-api", { DATABASE_URL_PUBLIC_READ: url, DATABASE_URL_FEEDBACK_WRITE: `${url}_feedback` });
+  assert.notEqual(publicAccess.dbFor("public_read"), publicAccess.dbFor("feedback_write"));
+  assert.equal(publicAccess.dbFor("public_read").options.database, "config_test");
+  assert.equal(publicAccess.dbFor("feedback_write").options.database, "config_test_feedback");
+  await publicAccess.close();
 });
 
 test("role-selected connections preserve numeric decoding and support real transactions", async (t) => {
