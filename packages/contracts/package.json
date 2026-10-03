@@ -4,7 +4,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./*": "./src/*.ts"
+    "./http-policy": "./src/http-policy.ts",
+    "./index": "./src/index.ts",
+    "./mcp": "./src/mcp.ts",
+    "./site": "./src/site.ts",
+    "./taxonomy": "./src/taxonomy.ts",
+    "./time": "./src/time.ts"
   },
   "dependencies": {
     "@amp/industry": "workspace:*"

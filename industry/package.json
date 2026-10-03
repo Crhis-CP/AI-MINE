@@ -3,8 +3,20 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./pages/*": "./pages/*",
-    "./brand/*": "./brand/*",
-    "./*": "./*.ts"
+    "./selection": "./selection.ts",
+    "./site": "./site.ts",
+    "./taxonomy": "./taxonomy.ts",
+    "./pages/privacy.md": "./pages/privacy.md",
+    "./pages/terms.md": "./pages/terms.md",
+    "./brand/apple-icon.png": "./brand/apple-icon.png",
+    "./brand/favicon.ico": "./brand/favicon.ico",
+    "./brand/icon-192.png": "./brand/icon-192.png",
+    "./brand/icon.png": "./brand/icon.png",
+    "./brand/logo.svg": "./brand/logo.svg",
+    "./brand/nameplates/archive.svg": "./brand/nameplates/archive.svg",
+    "./brand/nameplates/daily.svg": "./brand/nameplates/daily.svg",
+    "./brand/nameplates/index.json": "./brand/nameplates/index.json",
+    "./brand/nameplates/monthly.svg": "./brand/nameplates/monthly.svg",
+    "./brand/nameplates/weekly.svg": "./brand/nameplates/weekly.svg"
   }
 }

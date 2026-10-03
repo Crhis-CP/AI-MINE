@@ -1,41 +1,55 @@
-// Stage `boundaries`, first cut (T-0001; docs/06-agents/01-parallel-development-rules.md §4, ADR-0015):
-// the workspace dependency graph and the imports that would get around it.
-//   1. Every workspace package is listed below with the workspace packages it may depend on; its
-//      package.json may declare only those (the graph only points down: apps → backend → contracts → industry).
-//   2. Every import of a workspace package is declared in the importer's package.json. pnpm's strict layout
-//      does not catch this on its own: Node also finds packages in the root node_modules.
-//   3. No relative import leaves its workspace package (`../../packages/...`): go through the package.
-//   4. The web app imports no database driver or job queue; nothing imports a model provider SDK (paid calls
-//      will go through ai-gateway only, which does not exist yet).
-//   5. package.json `exports` has no wildcard, except the packages T-0003 still has to narrow (listed below;
-//      the list can only shrink).
-// Root `tests/` and `scripts/` are integration code outside the workspace packages and are not checked.
-// T-0003 adds the module edges of 03-module-map.md §3, `dbFor(role)` and the per-process configuration checks.
+// TASK-0004 PR1: explicit public entries, module-map §3 edges, and driver / SDK ownership.
+// The six existing packages retain their transitional edges (TASK-0004 D10). New domain packages follow
+// the map. Root tests/ and scripts/ are integration code outside workspace packages.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
 
+const amp = (names: readonly string[]) => names.map((name) => `@amp/${name}`);
+const PLATFORM = amp(["identity", "ops", "queue", "storage", "config", "telemetry"]);
+const L0 = ["@amp/contracts", ...PLATFORM];
+const DOMAIN_EDGES: Record<string, readonly string[]> = {
+  "ai-gateway": [],
+  sources: ["ai-gateway"],
+  content: ["sources", "ai-gateway"],
+  acquisition: ["sources", "content"],
+  entities: ["content", "ai-gateway"],
+  enrichment: ["content", "entities", "sources", "ai-gateway"],
+  policy: ["content", "entities", "sources", "ai-gateway"],
+  events: ["content", "enrichment", "entities", "policy", "ai-gateway"],
+  editorial: ["content", "enrichment", "events", "policy"],
+  publication: ["sources", "content", "enrichment", "entities", "events", "policy", "editorial"],
+  reports: ["publication", "events", "policy", "enrichment", "ai-gateway"],
+  feedback: ["publication"],
+};
+const DOMAINS = amp(Object.keys(DOMAIN_EDGES));
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
+  ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
+  ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": [],
   "@amp/contracts": ["@amp/industry"],
   "@amp/backend": ["@amp/contracts", "@amp/industry"],
-  "@amp/api": ["@amp/backend", "@amp/contracts", "@amp/industry"],
-  "@amp/worker": ["@amp/backend", "@amp/contracts", "@amp/industry"],
-  "@amp/web": ["@amp/contracts", "@amp/industry"],
+  "@amp/api": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
+  "@amp/worker": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
+  "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),
+  "@amp/web": amp(["contracts", "industry", "api-client", "ui"]),
+  "@amp/api-client": ["@amp/contracts"],
+  "@amp/ui": ["@amp/contracts"],
+  "@amp/testkit": L0,
+  "@amp/tooling": ["@amp/contracts"],
 };
 
-/** Packages whose `exports` still has a `./*` wildcard; T-0003 replaces each with an explicit list. */
-export const PENDING_EXPORT_WILDCARDS: readonly string[] = ["@amp/backend", "@amp/contracts", "@amp/industry"];
-
-const SERVER_ONLY = [/^postgres$/, /^pg$/, /^pg-boss$/, /^pg-[\w-]+$/];
+const DRIVERS = [/^postgres$/, /^pg$/, /^pg-(?!boss$)[\w-]+$/];
 const MODEL_SDKS = [/^openai$/, /^@anthropic-ai\//, /^@google\/(genai|generative-ai)$/, /^@mistralai\//, /^cohere-ai$/, /^groq-sdk$/, /^@ai-sdk\//, /^ai$/];
 
 const SOURCE = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
+// Comments are valid whitespace in import/export declarations and dynamic import/require calls.
+const GAP = String.raw`(?:\s|/\*[\s\S]*?\*/|//[^\n]*(?:\n|$))*`;
 const SPECIFIERS = [
-  /\bfrom\s+["']([^"'\n]+)["']/g,
-  /\bimport\s+["']([^"'\n]+)["']/g,
-  /\bimport\s*\(\s*["']([^"'\n]+)["']\s*[,)]/g,
-  /\brequire\s*\(\s*["']([^"'\n]+)["']\s*\)/g,
+  new RegExp(String.raw`\bfrom${GAP}["']([^"'\n]+)["']`, "g"),
+  new RegExp(String.raw`\bimport${GAP}["']([^"'\n]+)["']`, "g"),
+  new RegExp(String.raw`\bimport${GAP}\(${GAP}["']([^"'\n]+)["']${GAP}[,)]`, "g"),
+  new RegExp(String.raw`\brequire${GAP}\(${GAP}["']([^"'\n]+)["']${GAP}\)`, "g"),
 ];
 
 interface Workspace {
@@ -44,6 +58,22 @@ interface Workspace {
   deps: Set<string>;
   exports: unknown;
 }
+export interface BackendBaseline {
+  snapshot: Record<string, string>;
+  exports: Record<string, string>;
+}
+
+const privatePath = (s: string) => /(^|\/)(internal|store)(\/|$)/.test(path.posix.normalize(s));
+const strings = (v: unknown): string[] => (typeof v === "string" ? [v] : v && typeof v === "object" ? Object.values(v).flatMap(strings) : []);
+const publicEntries = (v: unknown): Record<string, unknown> => {
+  if (v == null) return {};
+  if (typeof v === "object" && !Array.isArray(v) && (!Object.keys(v).length || Object.keys(v).some((key) => key.startsWith("."))))
+    return v as Record<string, unknown>;
+  return { ".": v };
+};
+const driverAllowed = (w: Workspace, f: string) =>
+  ["@amp/backend", "@amp/config", "@amp/queue"].includes(w.name) || (DOMAINS.includes(w.name) && f.startsWith(`${w.dir}/src/store/`));
+const providerAllowed = (w: Workspace, f: string) => w.name === "@amp/ai-gateway" && /^src\/(providers|adapters)\//.test(f.slice(w.dir.length + 1));
 
 /** Module specifiers a source file imports (bare and relative), without Vite's `?raw`-style suffixes. */
 export function importsOf(text: string): string[] {
@@ -83,7 +113,7 @@ function workspaces(root: string, files: readonly string[]): Workspace[] {
 }
 
 /** Boundary problems in the tracked `files` under `root`. */
-export function checkBoundaries(root: string, files: readonly string[]): string[] {
+export function checkBoundaries(root: string, files: readonly string[], backendBaseline?: BackendBaseline): string[] {
   const problems: string[] = [];
   const spaces = workspaces(root, files);
   const names = new Set(spaces.map((w) => w.name));
@@ -95,12 +125,28 @@ export function checkBoundaries(root: string, files: readonly string[]): string[
       continue;
     }
     for (const d of w.deps) {
-      if (names.has(d) && !allowed.includes(d)) problems.push(`${w.dir}/package.json: ${w.name} may not depend on ${d}`);
+      if (d.startsWith("@amp/") && !allowed.includes(d)) problems.push(`${w.dir}/package.json: ${w.name} may not depend on ${d}`);
+      if (MODEL_SDKS.some((re) => re.test(d)) && w.name !== "@amp/ai-gateway") problems.push(`${w.dir}/package.json: model SDK ${d} belongs to ai-gateway`);
+      if (DRIVERS.some((re) => re.test(d)) && !driverAllowed(w, `${w.dir}/src/store/index.ts`))
+        problems.push(`${w.dir}/package.json: database driver ${d} is not allowed in ${w.name}`);
     }
     const wildcard = JSON.stringify(w.exports ?? {}).includes("*");
-    if (wildcard && !PENDING_EXPORT_WILDCARDS.includes(w.name)) problems.push(`${w.dir}/package.json: exports may not use a wildcard; list each public entry`);
-    if (!wildcard && PENDING_EXPORT_WILDCARDS.includes(w.name)) {
-      problems.push(`${w.name} no longer exports a wildcard: remove it from PENDING_EXPORT_WILDCARDS in scripts/verify/boundaries.ts`);
+    if (wildcard) problems.push(`${w.dir}/package.json: exports may not use a wildcard; list each public entry`);
+    const entries = publicEntries(w.exports);
+    for (const [entry, target] of Object.entries(entries)) {
+      if (privatePath(entry) || strings(target).some(privatePath)) problems.push(`${w.dir}/package.json: ${entry} exposes internal/ or store/`);
+    }
+    if (w.name === "@amp/backend") {
+      const snapshot = JSON.parse(readFileSync(path.join(root, "scripts/verify/backend-exports.json"), "utf8")) as Record<string, string>;
+      if (backendBaseline) {
+        for (const [entry, target] of Object.entries(snapshot)) {
+          if (backendBaseline.snapshot[entry] !== target) problems.push(`scripts/verify/backend-exports.json: ${entry} expands or retargets the base snapshot`);
+        }
+      }
+      for (const [entry, target] of Object.entries(entries)) {
+        if (snapshot[entry] !== target || (backendBaseline && backendBaseline.exports[entry] !== target))
+          problems.push(`${w.dir}/package.json: ${entry} is not an unchanged backend export; new code belongs in a module`);
+      }
     }
   }
 
@@ -118,9 +164,48 @@ export function checkBoundaries(root: string, files: readonly string[]): string[
       if (spec.startsWith("node:")) continue;
       const pkg = packageOf(spec);
       if (names.has(pkg) && pkg !== w.name && !w.deps.has(pkg)) problems.push(`${f}: imports ${pkg}, which ${w.dir}/package.json does not declare`);
-      if (w.name === "@amp/web" && SERVER_ONLY.some((re) => re.test(pkg)))
+      if (pkg.startsWith("@amp/") && pkg !== w.name) {
+        const target = spaces.find((s) => s.name === pkg);
+        const entry = spec === pkg ? "." : `.${spec.slice(pkg.length)}`;
+        if (privatePath(entry)) problems.push(`${f}: imports ${spec}, a private internal/ or store/ path`);
+        else if (!target || !strings(publicEntries(target.exports)[entry]).length) problems.push(`${f}: ${spec} is not an explicit public export`);
+        if (w.name === "@amp/fetcher" && pkg === "@amp/acquisition" && entry !== "./fetch-runtime")
+          problems.push(`${f}: fetcher may only import @amp/acquisition/fetch-runtime`);
+      }
+      if (w.name === "@amp/web" && (DRIVERS.some((re) => re.test(pkg)) || pkg === "pg-boss"))
         problems.push(`${f}: the web app may not import ${pkg} (no database or job queue in the front end)`);
-      if (MODEL_SDKS.some((re) => re.test(pkg))) problems.push(`${f}: imports the model SDK ${pkg}; paid calls go through ai-gateway only`);
+      else if (DRIVERS.some((re) => re.test(pkg)) && !driverAllowed(w, f)) problems.push(`${f}: database driver ${pkg} belongs in a module's store/`);
+      if (MODEL_SDKS.some((re) => re.test(pkg)) && !providerAllowed(w, f))
+        problems.push(`${f}: imports the model SDK ${pkg}; paid calls go through ai-gateway only`);
+    }
+  }
+  // Follow the complete local/workspace import closure: a helper must not smuggle a store into fetch-runtime.
+  const sourceFiles = new Set(files.filter((f) => SOURCE.test(f)));
+  const resolveFile = (target: string): string[] => {
+    const names = [target, target.replace(/\.js$/, ".ts"), `${target}.ts`, `${target}.tsx`, `${target}/index.ts`];
+    const found = names.find((name) => sourceFiles.has(name));
+    return found ? [found] : [];
+  };
+  const resolveImport = (from: string, spec: string): string[] => {
+    if (spec.startsWith(".")) return resolveFile(path.posix.normalize(path.posix.join(path.posix.dirname(from), spec)));
+    const target = spaces.find((space) => space.name === packageOf(spec));
+    if (!target) return [];
+    const entry = spec === target.name ? "." : `.${spec.slice(target.name.length)}`;
+    return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, file)));
+  };
+  const acquisition = spaces.find((space) => space.name === "@amp/acquisition");
+  if (acquisition) {
+    const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) => resolveFile(path.posix.join(acquisition.dir, file)));
+    const visited = new Set<string>();
+    while (pending.length) {
+      const file = pending.pop()!;
+      if (visited.has(file)) continue;
+      visited.add(file);
+      if (/(^|\/)store\//.test(file)) problems.push(`${file}: store/ is reachable from acquisition's fetch-runtime`);
+      for (const spec of importsOf(readFileSync(path.join(root, file), "utf8"))) {
+        if ([...DRIVERS, ...MODEL_SDKS].some((re) => re.test(packageOf(spec)))) problems.push(`${file}: fetch-runtime reaches forbidden dependency ${spec}`);
+        pending.push(...resolveImport(file, spec));
+      }
     }
   }
   return problems;

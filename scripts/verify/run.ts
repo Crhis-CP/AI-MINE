@@ -254,7 +254,16 @@ const STAGES: Stage[] = [
     after: ["install"],
     run: async ({ log, env }) => fromCode(await run("pnpm", ["typecheck"], { log, env: env() }), "pnpm typecheck"),
   },
-  { name: "boundaries", quick: true, run: async ({ log }) => problems(checkBoundaries(ROOT, trackedFiles()), log, "workspace graph and imports") },
+  {
+    name: "boundaries",
+    quick: true,
+    run: async ({ log, base }) => {
+      const snapshot = base ? tryGit(["show", `${base}:scripts/verify/backend-exports.json`]) : null;
+      const backend = snapshot && base ? JSON.parse(git(["show", `${base}:packages/backend/package.json`])) : null;
+      const baseline = snapshot ? { snapshot: JSON.parse(snapshot), exports: backend.exports } : undefined;
+      return problems(checkBoundaries(ROOT, trackedFiles(), baseline), log, "workspace graph and imports");
+    },
+  },
   {
     name: "names",
     quick: true,
@@ -517,7 +526,7 @@ const db = quick ? null : databaseFromEnv();
 const onMain = baseHead === head;
 
 const runId = `${onMain ? "main-" : ""}${head.slice(0, 12)}`;
-const logDir = path.join(ROOT, ".verify", "logs", runId);
+const logDir = path.join(ROOT, ".verify", quick ? "check-logs" : "logs", runId);
 rmSync(logDir, { recursive: true, force: true });
 mkdirSync(logDir, { recursive: true });
 
