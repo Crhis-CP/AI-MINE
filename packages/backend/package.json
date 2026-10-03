@@ -79,6 +79,7 @@
     "./sources/web-list": "./src/sources/web-list.ts"
   },
   "dependencies": {
+    "@amp/config": "workspace:*",
     "@amp/contracts": "workspace:*",
     "@amp/industry": "workspace:*",
     "@mozilla/readability": "0.6.0",

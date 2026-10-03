@@ -1,7 +1,9 @@
 import postgres from "postgres";
 import { config } from "./config.ts";
+import { closeProcessDb } from "./db-bootstrap.ts";
 
 export { dbOf, injectDb } from "./module-db.ts";
+export { initializeDb, DB_MODULES } from "./db-bootstrap.ts";
 
 // int8 and numeric come back as numbers: ids and scores in this schema stay far below 2^53.
 const numberType = (oid: number) => ({
@@ -44,7 +46,7 @@ export function withCustomPlans<T>(fn: (db: Tx) => Promise<T>): Promise<T> {
 }
 
 export async function closeDb(): Promise<void> {
-  await sql.end({ timeout: 5 });
+  await Promise.all([closeProcessDb(), sql.end({ timeout: 5 })]);
 }
 
 /** First row of a query that always returns one (aggregates). */
