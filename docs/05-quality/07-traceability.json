@@ -14690,7 +14690,7 @@
     "T-149"
    ],
    "rem_ids": [],
-   "refs": "DEC-19；AC-MIG-12、AC-MIG-13；AC-OPS-09；03-data/04-legacy-migration.md（切换与回退步骤）"
+   "refs": "DEC-19；AC-MIG-13；AC-OPS-09；03-data/04-legacy-migration.md（切换步骤与旧站下线）"
   }
  ],
  "specialized_acceptance": [
@@ -15327,7 +15327,7 @@
   },
   {
    "id": "AC-OPS-03",
-   "subject": "旧库存档备份（不导入，只作回退与存档）",
+   "subject": "旧库存档备份（不导入；存档，兼作切换窗口内的兜底）",
    "first_gate": "M5",
    "recheck_gate": null,
    "defined_in": "同上",
@@ -15412,7 +15412,7 @@
   },
   {
    "id": "AC-OPS-09",
-   "subject": "入口层切换演练（预发；撤回公开入口与回切旧栈各一次，回切不回写数据）",
+   "subject": "入口层切换演练（预发；撤回公开入口与窗口内中止切换各一次，都不回写数据）",
    "first_gate": "M4",
    "recheck_gate": "M5",
    "defined_in": "同上",
@@ -15661,8 +15661,8 @@
   },
   {
    "id": "AC-MIG-12",
-   "subject": "回切演练：入口切回旧站再切回新站，不回写数据",
-   "first_gate": "M5",
+   "subject": "【已废弃】回切演练：入口切回旧站再切回新站（Owner 2026-10-03：旧站只读不保留，新站上线当天旧站停止服务、不切回旧站；切换前的演练由 AC-OPS-09 的“窗口内中止切换”承接）",
+   "first_gate": "—",
    "recheck_gate": null,
    "defined_in": "同上",
    "decisions": [],
@@ -15673,7 +15673,7 @@
   },
   {
    "id": "AC-MIG-13",
-   "subject": "切换前旧站可作回退：旧站价格表已续期或旧站已确认停用（Q-56）；旧站只读保留 7 天后下线",
+   "subject": "切换前旧站可作中止切换的兜底：旧站价格表已续期或旧站已确认停用（Q-56）；旧站未停用时，窗口内中止切换能原样启动旧栈；新站上线当天旧站停止服务",
    "first_gate": "M5",
    "recheck_gate": null,
    "defined_in": "同上",

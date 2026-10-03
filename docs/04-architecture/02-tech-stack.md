@@ -469,7 +469,7 @@ M0 最小工具集（全部由 `make verify` 调用；与 ADR-0015 第 4 条一�
 ### 8.3 数据与备份
 
 - PostgreSQL 18 数据卷；**每日 custom dump（`pg_dump` 客户端 18）经 age 客户端加密后上传私有、版本化的 COS 独立桶**，与原件分桶、分权限，默认保留 7 日 + 4 周（月备份可选）。加密做法沿用旧仓库：age 加密、短期 STS 凭据或只写子账号（`docs/runbooks/production-deployment.md:509-510@main`；脚本 `infra/tencent-cloud/scripts/backup_postgres.sh`、`restore_postgres.sh`@main，校验项要改成现行 live/public 表）。机制、RPO/RTO 默认值（24 小时 / 2 小时，需 Owner，Q-59）与恢复演练见 `07-deployment-and-ops.md` 第 5 节。
-- **切换前的存档备份（不导入）**：旧站数据一概不迁移（DEC-20）；但旧生产库没有经验证的异地备份（COS 未就绪，见 4.5），旧站停用或同机切换前，建议对旧生产库做一次加密全量备份并在隔离库校验，只作回退与存档用途，不导入新系统；默认至少保留到旧站退役后 30 天，是否保留及保留多久由 Owner 决定（`07-deployment-and-ops.md` 4.2 与 AC-OPS-03）。
+- **切换前的存档备份（不导入）**：旧站数据一概不迁移（DEC-20）；但旧生产库没有经验证的异地备份（COS 未就绪，见 4.5），旧站停用或同机切换前，建议对旧生产库做一次加密全量备份并在隔离库校验，用于存档，兼作切换窗口内中止切换的兜底，不导入新系统，切换完成后不再用于恢复旧站服务；默认至少保留到旧站退役后 30 天，是否保留及保留多久由 Owner 决定（`07-deployment-and-ops.md` 4.2 与 AC-OPS-03）。
 - 时间点恢复（pgBackRest 2.59.2 或 WAL-G 3.0.9）是升级选项，不是 M1 验收：触发条件是数据库 >12GB、恢复 >2 小时或 Owner 提高要求（`07-deployment-and-ops.md` 5.1）；不再写“M2 评估”。
 
 ### 8.4 明确不默认引入的基础设施（移植自 B:architecture/03-stack-decisions.md 第 3 节）
