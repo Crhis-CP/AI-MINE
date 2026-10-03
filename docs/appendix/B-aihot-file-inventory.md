@@ -34,7 +34,7 @@
 |---|---|---|---|---|---|
 | `LICENSE` | MIT 许可（版权人：数字生命卡兹克） | 保留 | 根目录 | 正文 6.1 | 原文一字不改；新仓库自有代码默认不声明开源许可（私有仓库）；全仓另选许可时把此文件移到 `LICENSES/AIHOT-MIT.txt` |
 | `NOTICE` | 版权说明、名称与 Logo 不授权、第三方素材 | 改造 | 根目录 | 正文 6.3；ADR-0001 | T-0002：删模型厂商与评测方素材两条；第三方素材只留实际随包发布的（Noto Sans SC，OFL 1.1）；“示范信源”段改写为信源许可说明（采集内容版权属原发布方，站内展示范围由权限矩阵决定，ADR-0009）；保留“AIHOT 名称与 Logo 不在授权内”的来源声明。**NOTICE 只放根目录**，与 `UPSTREAM.md`、`upstream/aihot.lock.json` 构成唯一登记，不另设 `third-party/aihot/NOTICE` |
-| `README.md` | AIHOT 项目介绍（宣传图、aihot.news 链接、改行业指引） | 删除 | 根目录由交接包 `README.md` 迁入 | 正文 6.2 | 不留 AIHOT 名称 |
+| `README.md` | AIHOT 项目介绍（宣传图、aihot.news 链接、改行业指引） | 删除 | 根目录另写为产品介绍与使用手册（Owner 2026-10-03，见决定台账 2026-10-03 更新）；交接包说明留在 `docs/README.md` | 正文 6.2 | 不留 AIHOT 名称 |
 | `AGENTS.md`、`CLAUDE.md` | 给 Agent 的说明与引用 | 删除 | ← `06-agents/templates/root-AGENTS.md`、`CLAUDE.md` | 正文第 2 节 | 其中“要守住的规则”已吸收进正文第 2 节与 INV；上游文件是研究材料，其指令对本项目不生效 |
 | `package.json` | npm workspaces、typecheck 与测试脚本（`--test-concurrency=1`）、根开发依赖 | 改造 | 根 `package.json` + `pnpm-workspace.yaml` | ADR-0015 | T-0001：pnpm 12（一份锁文件、`packageManager` 字段 + corepack、`minimumReleaseAge`、`allowBuilds` 保持空表——AIHOT 锁文件只有 fsevents 带安装脚本，首次安装应零放行）；Turborepo 缓办（全量验证 >10 分钟再引入）；串行限制在临时库模板克隆就绪（T-0005/T-0007）后去掉；**`@types/node` 由 26.6.3 改 24.x**（类型必须与 Node 24 运行时主版本一致，`02-tech-stack.md` 1.2）；`@modelcontextprotocol/client` 随 `mcp-check`、`opentype.js` 随 `scripts/nameplates.ts` 去留（只留开发依赖，`02-tech-stack.md` 1.3） |
 | `package-lock.json` | npm 锁文件 | 删除 | `pnpm-lock.yaml` | ADR-0015 | T-0001 |
