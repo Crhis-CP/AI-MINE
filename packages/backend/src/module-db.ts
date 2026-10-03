@@ -81,12 +81,15 @@ function wrap(bind: () => () => Db): Sql {
           const callback = values.at(-1);
           if (typeof callback === "function")
             values[values.length - 1] = async (tx: Db) => {
-              const result = await callback(
+              const returned = callback(
                 wrap(() => () => {
                   resolve();
                   return tx;
                 }),
               );
+              // postgres.js recognises synchronous arrays before awaiting a callback's return value.
+              // Our async validity check must preserve that eager Promise.all behaviour.
+              const result = await (Array.isArray(returned) ? Promise.all(returned) : returned);
               resolve();
               return result;
             };

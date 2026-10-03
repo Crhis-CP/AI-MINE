@@ -50,6 +50,16 @@ test("import-time fragments, builders and JSON work after injection, including i
       return selected;
     });
     assert.equal(rows[0].answer, 42);
+    const batch = await sql.begin((tx) => [tx`SELECT 1 AS answer`, tx`SELECT 2 AS answer`]);
+    assert.deepEqual(
+      batch.map((part) => part[0].answer),
+      [1, 2],
+    );
+    const nestedBatch = await sql.begin((tx) => tx.savepoint((nested) => [nested`SELECT 3 AS answer`, nested`SELECT 4 AS answer`]));
+    assert.deepEqual(
+      nestedBatch.map((part) => part[0].answer),
+      [3, 4],
+    );
     const query = sql`SELECT 1 AS answer`;
     assert.equal(await query, await query, "awaiting one query again reuses the driver's result");
   } finally {
