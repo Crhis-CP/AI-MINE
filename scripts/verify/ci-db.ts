@@ -4,7 +4,8 @@
 // 127.0.0.1:5432 with trust authentication and no password, then waited for with the runner's pg_isready over
 // TCP: on its first start the image runs a temporary server on the socket only, so a TCP answer means the real
 // server. make verify then names a *_ci database there (VERIFY_DATABASE_URL in the workflow).
-//   node scripts/verify/ci-db.ts      prints the image, starts the container amp-ci-db, waits up to 120 s
+//   node scripts/verify/ci-db.ts      prints the image, starts the container amp-ci-db, waits up to 120 s, then
+//                                     prints the runner's psql version (make verify uses that client; README §7)
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -30,7 +31,8 @@ if (import.meta.main) {
   if (started.status !== 0) process.exit(started.status ?? 1);
   for (let second = 0; second < 120; second++) {
     if (spawnSync("pg_isready", ["-h", "127.0.0.1", "-p", "5432", "-U", "postgres"], { stdio: "ignore" }).status === 0) {
-      console.log("database ready on 127.0.0.1:5432");
+      const client = spawnSync("psql", ["--version"], { encoding: "utf8" }).stdout?.trim() || "not found";
+      console.log(`database ready on 127.0.0.1:5432; the runner's psql client: ${client}`);
       process.exit(0);
     }
     await sleep(1000);

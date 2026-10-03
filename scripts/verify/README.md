@@ -115,7 +115,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 - **环境**：
   - `ubuntu-24.04` 托管 runner，Node 24；pnpm 照 `Dockerfile` 的装法，`npm install -g pnpm@<packageManager 的版本>`；不用任何缓存。
   - 先装一次依赖，再由 [`ci-db.ts`](ci-db.ts) 起数据库：它从 `docker-compose.yml` 读出 `db` 服务那个按摘要锁定的镜像，用 `docker run` 起在 `127.0.0.1:5432`，信任认证、不设口令，等到能连上。库名 `amp_ci`。镜像只写在 compose 一处，换数据库镜像的卡只改 compose，不用改工作流。
-  - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端；第一次运行后在这里记下。
+  - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端。`ci-db.ts` 在数据库就绪时打出客户端版本，第一次运行后在这里记下。
   - 执行器编号 `github-actions`。
 - **任务卡号**：[`pr-task.ts`](pr-task.ts) 从事件文件读，不经 `${{ }}` 插进脚本。
   - PR 取描述里“任务卡”那一行的第一个 `TASK-nnnn`。那一行指 PR 模板里的“- 任务卡：”一行；HTML 注释不读，模板开头的说明注释也提到“任务卡”；
