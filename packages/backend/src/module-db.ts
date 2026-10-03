@@ -63,7 +63,12 @@ function lazy(build: (resolve: () => Db) => unknown, connection: () => Db, compo
     {},
     {
       get(_target, key) {
-        if (key === "cancel" && resolved) return () => Reflect.apply(Reflect.get(Object(value), key), value, []);
+        if (key === "cancel" && resolved)
+          return () => {
+            // Observe cancellation without Query.then/catch, which would start a still-pending query.
+            if (value instanceof Promise) Promise.prototype.then.call(value, undefined, () => {});
+            return Reflect.apply(Reflect.get(Object(value), key), value, []);
+          };
         const actual = materialize();
         const member = Reflect.get(Object(actual), key);
         if (typeof member !== "function") return member;
