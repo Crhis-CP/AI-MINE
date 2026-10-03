@@ -7,6 +7,9 @@ import { createServer, request as httpRequest } from "node:http";
 import path from "node:path";
 import { createRequestListener } from "@react-router/node";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
+import { assertWebEnvironment } from "./runtime-env.ts";
+
+assertWebEnvironment();
 
 const PORT = Number(process.env.WEB_PORT || process.env.PORT || 3000);
 const HOST = process.env.WEB_HOST || "127.0.0.1";

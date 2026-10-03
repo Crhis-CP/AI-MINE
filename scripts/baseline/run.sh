@@ -45,7 +45,7 @@ pnpm --filter @amp/web build > /dev/null
 # The site runs with collection and model calls off; the tests below use their own local stubs.
 COLLECT_ENABLED=false MODEL_CALLS_ENABLED=false node apps/api/src/main.ts > "$out/.api.log" 2>&1 &
 api_pid=$!
-(cd apps/web && COLLECT_ENABLED=false MODEL_CALLS_ENABLED=false NODE_ENV=production exec node server.ts) > "$out/.web.log" 2>&1 &
+(cd apps/web && exec env -i PATH="$PATH" HOME="$HOME" TZ="${TZ:-UTC}" NODE_ENV=production SITE_URL="$SITE_URL" API_BASE_URL="$API_BASE_URL" PRIVATE_API_BASE_URL="${PRIVATE_API_BASE_URL:-$API_BASE_URL}" WEB_PORT="${WEB_PORT:-3000}" WEB_HOST="${WEB_HOST:-127.0.0.1}" TRUST_PROXY="${TRUST_PROXY:-false}" node server.ts) > "$out/.web.log" 2>&1 &
 web_pid=$!
 trap 'kill $api_pid $web_pid 2>/dev/null || true' EXIT
 for _ in $(seq 1 60); do curl -fsS -o /dev/null "$SITE_URL/api/health" 2>/dev/null && break; sleep 1; done
@@ -66,7 +66,7 @@ rm -f "$out/.api.log" "$out/.web.log"
 
 echo "== tests"
 set +e
-node --test apps/web/tests/*.test.ts 2>&1 | strip_timings > "$out/tests-web.txt"
+env -i PATH="$PATH" HOME="$HOME" TZ="${TZ:-UTC}" node --test apps/web/tests/*.test.ts 2>&1 | strip_timings > "$out/tests-web.txt"
 echo "exit ${PIPESTATUS[0]}" >> "$out/tests-web.txt"
 pnpm test 2>&1 | strip_timings > "$out/tests-backend.txt"
 echo "exit ${PIPESTATUS[0]}" >> "$out/tests-backend.txt"

@@ -18,6 +18,29 @@ export type ProcessRole = keyof typeof PROCESS_DATABASE_ROLES;
 type Environment = Readonly<Record<string, string | undefined>>;
 const variable = (role: DatabaseRole) => `DATABASE_URL_${role.toUpperCase()}`;
 
+/** Startup diagnostics contain variable names only; worker credentials stay allowed during M0. */
+export function environmentProblems(role: ProcessRole, env: Environment = process.env): string[] {
+  const isolated = role === "web" || role === "fetcher";
+  const production = env.NODE_ENV === "production";
+  return Object.keys(env)
+    .filter((name) => {
+      if (env[name] === undefined) return false;
+      const credential =
+        /^(DATABASE_URL|PG|POSTGRES_)/.test(name) || /_(KEY|SECRET|SECRET_ID|TOKEN|PASSWORD|WEBHOOK_URL)$/.test(name) || name === "AMP_CREDENTIALS_DIR";
+      const unsafe =
+        /^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|EGRESS_PROXY_URL)$/i.test(name) ||
+        name.startsWith("DEV_AUTH_") ||
+        (name === "ALLOW_PRIVATE_NETWORK_FETCH" && /^(1|true)$/i.test(env[name]!));
+      return (isolated && credential) || (production && unsafe);
+    })
+    .sort();
+}
+
+export function assertProcessEnvironment(role: ProcessRole, env?: Environment): void {
+  const problems = environmentProblems(role, env);
+  if (problems.length) throw new Error(`${role} must not hold ${problems.join(", ")}`);
+}
+
 function validateUrl(value: string, key: string, processRole: ProcessRole): string {
   try {
     const url = new URL(value);
@@ -37,6 +60,7 @@ function validateUrl(value: string, key: string, processRole: ProcessRole): stri
 /** Read only this process's role addresses; partial role configuration never falls back to a shared URL. */
 export function databaseConfig(processRole: ProcessRole, env: Environment = process.env) {
   if (!Object.hasOwn(PROCESS_DATABASE_ROLES, processRole)) throw new Error("Unknown process role");
+  assertProcessEnvironment(processRole, env);
   const allowed: readonly DatabaseRole[] = PROCESS_DATABASE_ROLES[processRole];
   const keys = Object.keys(env).filter((key) => key.startsWith("DATABASE_URL_") && env[key] !== undefined);
   for (const key of keys) {

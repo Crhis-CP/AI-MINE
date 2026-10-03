@@ -1,4 +1,4 @@
-import { assertProductionSecrets, config } from "@amp/backend/config";
+import { assertProductionSecrets, config, isProduction } from "@amp/backend/config";
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { startHeartbeat } from "@amp/backend/operations/heartbeat";
 import { startWorkerWatchdog } from "@amp/backend/operations/watch";
@@ -11,7 +11,7 @@ assertProductionSecrets([
   ["auth", "IMG_PROXY_SIGN_SECRET"],
 ]);
 // Somebody must be able to sign in to the admin.
-if (config.environmentName === "production" && !(config.adminPassword && config.adminPassword.length >= 12) && !process.env.FEISHU_LOGIN_APP_ID) {
+if (isProduction && !(config.adminPassword && config.adminPassword.length >= 12) && !process.env.FEISHU_LOGIN_APP_ID) {
   throw new Error("Refusing to start in production: set ADMIN_PASSWORD (at least 12 characters) or configure Feishu sign-in");
 }
 

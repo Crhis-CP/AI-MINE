@@ -8,6 +8,7 @@
 
 | 接口 | 调用者与含义 |
 |---|---|
+| `environmentProblems(role, env)`、`assertProcessEnvironment(role, env)` | 进程启动检查；前者只返回违规变量名，后者拒绝不合格环境；`databaseConfig` 自动执行 |
 | `databaseConfig(processRole, env)` | 组合根读取并校验配置；`urlFor` 拒绝越权角色 |
 | `createDatabaseAccess(processRole, env, warn)` | 每个组合根创建一次；模块只取得其 `dbFor(role)` 返回的连接 |
 | `processRole`、`split` | 当前访问对象已校验的进程角色及是否采用按角色地址 |
@@ -20,6 +21,8 @@
 所有按角色地址都未提供时才使用单一 DATABASE_URL，并输出不含地址的过渡提示；只提供一部分角色地址则拒绝启动，不退回单一地址。创建配置与连接句柄均不执行 SQL；收到查询后驱动才连接。
 
 队列和备份地址从初始化时的配置取得，不重新读取环境。关闭访问对象后，`dbFor`、`queueUrl` 和 `backupUrl` 均拒绝调用。
+
+web/fetcher 在任何环境都拒绝数据库与凭据变量（包括空值）；仅 `NODE_ENV=production` 启用生产检查，拒绝出网代理、`DEV_AUTH_*` 和已启用的 `ALLOW_PRIVATE_NETWORK_FETCH`。`AMP_ENVIRONMENT` 不影响判断；worker 的模型和备份凭据在 M0 过渡期仍允许。诊断不包含变量值。
 
 URL 查询参数只接受 sslmode、target_session_attrs、application_name；禁止通过 database、user 等启动参数覆盖连接身份。驱动构造期异常统一脱敏，不附原始异常或 cause。
 
