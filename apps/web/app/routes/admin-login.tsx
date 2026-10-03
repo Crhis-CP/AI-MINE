@@ -4,6 +4,7 @@ import { useLoaderData } from "react-router";
 import type { Route } from "./+types/admin-login";
 import { SITE } from "@amp/industry/site";
 import { apiGet } from "../lib/api.server";
+import { apiBaseFor, privateHostHeaders } from "../../api-target.ts";
 import { Wordmark } from "../components/Logo";
 import { buttonClass } from "../components/ui/Controls";
 
@@ -16,7 +17,11 @@ const ERRORS: Record<string, string> = {
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
   const returnTo = url.searchParams.get("return") ?? "/admin";
-  const options = await apiGet<{ password: boolean; feishu: boolean }>("/api/auth/options", { signal: request.signal }).catch(() => ({
+  const options = await apiGet<{ password: boolean; feishu: boolean }>("/api/auth/options", {
+    signal: request.signal,
+    baseUrl: apiBaseFor("/api/auth/options"),
+    headers: privateHostHeaders("/api/auth/options", request.headers.get("host")),
+  }).catch(() => ({
     password: true,
     feishu: false,
   }));

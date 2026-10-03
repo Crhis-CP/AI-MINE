@@ -8,12 +8,12 @@ import path from "node:path";
 import { createRequestListener } from "@react-router/node";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
+import { apiBaseFor, privateHostHeaders } from "./api-target.ts";
 
 assertWebEnvironment();
 
 const PORT = Number(process.env.WEB_PORT || process.env.PORT || 3000);
 const HOST = process.env.WEB_HOST || "127.0.0.1";
-const API = new URL(process.env.API_BASE_URL || "http://127.0.0.1:3001");
 /**
  * Whether a reverse proxy in front (Caddy, nginx) records the visitor in X-Forwarded-For. Without one
  * the header is never believed: a visitor could name any address and slip past the api's per-visitor
@@ -149,8 +149,9 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
       .map((v) => v.trim())
       .filter(Boolean);
     const client = TRUST_PROXY && forwarded.length ? forwarded[forwarded.length - 1]! : (req.socket.remoteAddress ?? "");
-    const headers = { ...req.headers, "x-forwarded-for": client, "x-real-ip": client };
-    const upstream = httpRequest({ hostname: API.hostname, port: API.port, path: raw, method: req.method, headers }, (up) => {
+    const target = new URL(apiBaseFor(raw));
+    const headers = { ...req.headers, ...privateHostHeaders(raw, req.headers.host), "x-forwarded-for": client, "x-real-ip": client };
+    const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
     });

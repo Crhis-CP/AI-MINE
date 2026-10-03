@@ -4,15 +4,14 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
-
-const API = new URL(process.env.API_BASE_URL || "http://127.0.0.1:3001");
+import { apiBaseFor, privateHostHeaders } from "./api-target.ts";
 
 /** Development stand-in for the production web server: the shared redirect table and api-owned path routing. */
-function devEdge(): Plugin {
+export function devEdge(env: Readonly<Record<string, string | undefined>> = process.env): Plugin {
   return {
     name: "amp-dev-edge",
     configureServer(server) {
-      assertWebEnvironment();
+      assertWebEnvironment(env);
       server.middlewares.use((req, res, next) => {
         const raw = req.url ?? "/";
         const qi = raw.indexOf("?");
@@ -27,7 +26,9 @@ function devEdge(): Plugin {
           return res.end();
         }
         if (!isApiOwned(pathname)) return next();
-        const upstream = httpRequest({ hostname: API.hostname, port: API.port, path: raw, method: req.method, headers: req.headers }, (up) => {
+        const target = new URL(apiBaseFor(raw, env));
+        const headers = { ...req.headers, ...privateHostHeaders(raw, req.headers.host) };
+        const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
           res.writeHead(up.statusCode ?? 502, up.headers);
           up.pipe(res);
         });
