@@ -176,6 +176,9 @@ importers:
         specifier: workspace:*
         version: link:industry
     devDependencies:
+      '@amp/config':
+        specifier: workspace:*
+        version: link:packages/platform/config
       '@amp/contracts':
         specifier: workspace:*
         version: link:packages/contracts
@@ -356,6 +359,12 @@ importers:
       '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
+
+  packages/platform/config:
+    dependencies:
+      postgres:
+        specifier: 3.4.9
+        version: 3.4.9
 
 packages:
 
