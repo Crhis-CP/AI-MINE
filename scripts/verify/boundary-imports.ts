@@ -10,6 +10,11 @@ export interface ModuleSyntax {
   problems: string[];
 }
 
+/** URL suffixes affect module cache identity, not the source path; decode escaped path segments once. */
+export function modulePath(spec: string): string {
+  return spec.startsWith("#") ? spec : decodeURIComponent(spec.replace(/[?#].*$/, "")).replace(/\\/g, "/");
+}
+
 function literal(node: ast.Node | undefined): string | undefined {
   if (!node) return;
   if (ast.isStringLiteral(node) || ast.isNoSubstitutionTemplateLiteral(node)) return node.text;
@@ -91,11 +96,19 @@ function inspect(source: ast.SourceFile, file: string): ModuleSyntax {
     if (call && compiledEntries.has(call)) return void imports.add("./build/server/index.js");
     let spec = literal(argument);
     // Cache-busting in the query does not change the imported module's path.
-    if (spec === undefined && argument && ast.isTemplateExpression(argument) && argument.head.text.includes("?")) spec = argument.head.text.split("?", 1)[0];
+    if (spec === undefined && argument && ast.isTemplateExpression(argument) && /[?#]/.test(argument.head.text)) spec = argument.head.text.split(/[?#]/, 1)[0];
     if (spec === undefined) {
       const line = source.text.slice(0, (argument ?? call)?.pos ?? 0).split("\n").length;
       problems.push(`line ${line}: module path must be statically known`);
-    } else imports.add(spec.replace(/\?.*$/, ""));
+    } else {
+      try {
+        const name = modulePath(spec);
+        if (!name || name.includes("\0")) throw new Error();
+        imports.add(name);
+      } catch {
+        problems.push("module path has invalid encoding or is empty");
+      }
+    }
   };
   walk(source, (node) => {
     if (ast.isImportDeclaration(node) || ast.isExportDeclaration(node)) {

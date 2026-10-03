@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
-import { readModuleSyntax } from "./boundary-imports.ts";
+import { modulePath, readModuleSyntax } from "./boundary-imports.ts";
 
 const amp = (names: readonly string[]) => names.map((name) => `@amp/${name}`);
 const PLATFORM = amp(["identity", "ops", "queue", "storage", "config", "telemetry"]);
@@ -105,6 +105,14 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
   const problems: string[] = [];
   const spaces = workspaces(root, files);
   const names = new Set(spaces.map((w) => w.name));
+  const exportPath = (value: string) => {
+    try {
+      return modulePath(value);
+    } catch {
+      problems.push("package export has invalid module path encoding");
+      return "";
+    }
+  };
   const syntax = readModuleSyntax(
     Object.fromEntries(
       files
@@ -129,7 +137,8 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     if (wildcard) problems.push(`${w.dir}/package.json: exports may not use a wildcard; list each public entry`);
     const entries = publicEntries(w.exports);
     for (const [entry, target] of Object.entries(entries)) {
-      if (privatePath(entry) || strings(target).some(privatePath)) problems.push(`${w.dir}/package.json: ${entry} exposes internal/ or store/`);
+      if (privatePath(exportPath(entry)) || strings(target).some((file) => privatePath(exportPath(file))))
+        problems.push(`${w.dir}/package.json: ${entry} exposes internal/ or store/`);
     }
     if (w.name === "@amp/backend") {
       const snapshot = JSON.parse(readFileSync(path.join(root, "scripts/verify/backend-exports.json"), "utf8")) as Record<string, string>;
@@ -191,11 +200,13 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     const target = spaces.find((space) => space.name === packageOf(spec));
     if (!target) return [];
     const entry = spec === target.name ? "." : `.${spec.slice(target.name.length)}`;
-    return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, file)));
+    return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, exportPath(file))));
   };
   const acquisition = spaces.find((space) => space.name === "@amp/acquisition");
   if (acquisition) {
-    const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) => resolveFile(path.posix.join(acquisition.dir, file)));
+    const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) =>
+      resolveFile(path.posix.join(acquisition.dir, exportPath(file))),
+    );
     const visited = new Set<string>();
     while (pending.length) {
       const file = pending.pop()!;

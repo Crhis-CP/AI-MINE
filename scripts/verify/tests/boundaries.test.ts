@@ -70,6 +70,8 @@ test("template, escaped and constant-composed imports cannot cross the web bound
     "`../../packages/backend/src/db.ts`",
     '"\\u002e\\u002e/../../packages/backend/src/db.ts"',
     '"../../packages/" + "backend/src/db.ts"',
+    '"./%2e%2e/%2e%2e/packages/backend/src/db.ts#cached"',
+    JSON.stringify("./..\\..\\packages/backend/src/db.ts"),
     `\`../../packages/\${"backend"}/src/db.ts\``,
   ]) {
     const { dir, files } = workspace({ "apps/web/probe.ts": `export const load = () => import(${expression});` });
@@ -90,6 +92,8 @@ test("unresolved module paths fail closed; query-only interpolation keeps a fixe
     assert.ok(checkBoundaries(dir, files).some((p) => p.includes("must be statically known")));
   }
   assert.deepEqual(importsOf(`const state = import(\`./state.ts?test=\${instance++}\`);`), ["./state.ts"]);
+  assert.deepEqual(importsOf('export * from "./helper.ts#version";'), ["./helper.ts"]);
+  assert.throws(() => importsOf('import "./bad%zz.ts";'), /invalid encoding/);
   assert.deepEqual(importsOf('/* import "postgres" */ const s = "from \\"pg\\""; sql`from "openai"`;'), []);
   const jsx = workspace({ "apps/web/probe.tsx": '<span>from "postgres"</span>;' });
   assert.deepEqual(checkBoundaries(jsx.dir, jsx.files), []);
@@ -104,7 +108,7 @@ test("only the existing top-level web build import can use the fixed path resolv
   for (const [file, text] of [
     ["apps/web/other.ts", source],
     ["apps/web/server.ts", source.replace("build/server/index.js", "../../packages/backend/src/db.ts")],
-    ["apps/web/server.ts", source.replace("const build = await", "async function nested(path: any) { return await") + "}"],
+    ["apps/web/server.ts", source.replace("const build = await", "async function nested(path: any) { return await").concat("}")],
   ]) {
     const invalid = workspace({ [file!]: text! });
     assert.ok(checkBoundaries(invalid.dir, invalid.files).some((p) => p.includes("must be statically known")));
