@@ -120,18 +120,41 @@ function bindQueue(raw: PgBoss, connection: ReturnType<typeof queueConnection>):
     return Object.freeze(db);
   };
   const callbacks = new WeakMap<object, Callback>();
-  const callback = (fn: Callback): Callback => {
-    let wrapped = callbacks.get(fn);
+  const listeners = new WeakMap<object, Callback>();
+  const listenerOriginals = new WeakMap<object, Callback>();
+  const rawViews = new WeakMap<Callback, Callback>();
+  const rawTargets = new WeakMap<Callback, Callback>();
+  const callback = (fn: Callback, work = false): Callback => {
+    const cache = work ? callbacks : listeners;
+    let wrapped = cache.get(fn);
     if (!wrapped) {
       wrapped = (...args) =>
         Reflect.apply(
           fn,
           instance.view,
-          args.map((arg) => (arg && typeof arg === "object" && "executeSql" in arg && typeof arg.executeSql === "function" ? bindDb(arg as QueueDb) : arg)),
+          work
+            ? args.map((arg) => (arg && typeof arg === "object" && "executeSql" in arg && typeof arg.executeSql === "function" ? bindDb(arg as QueueDb) : arg))
+            : args,
         );
-      callbacks.set(fn, wrapped);
+      cache.set(fn, wrapped);
+      if (!work) listenerOriginals.set(wrapped, fn);
     }
     return wrapped;
+  };
+  const listenerView = (fn: Callback, raw: boolean): Callback => {
+    const original = listenerOriginals.get(fn);
+    if (original) return original;
+    const listener = Reflect.get(fn, "listener");
+    const once = listener && listenerOriginals.get(listener);
+    if (!raw || !once) return fn;
+    let view = rawViews.get(fn);
+    if (!view) {
+      view = (...args) => Reflect.apply(fn, instance.view, args);
+      Object.defineProperty(view, "listener", { value: once });
+      rawViews.set(fn, view);
+      rawTargets.set(view, fn);
+    }
+    return view;
   };
   const methods = new Map<PropertyKey, { native: unknown; wrapped: Callback }>();
   instance.view = new Proxy(Object.create(PgBoss.prototype) as PgBoss, {
@@ -150,18 +173,33 @@ function bindQueue(raw: PgBoss, connection: ReturnType<typeof queueConnection>):
       if (!method || method.native !== native) {
         const wrapped = (...args: unknown[]) => {
           instance.check();
-          const prepared = args.map((arg) => {
+          const prepared = args.map((arg, index) => {
+            if (typeof arg === "function") {
+              if (/^(work|on|once|addListener|prependListener|prependOnceListener)$/.test(key)) return callback(arg as Callback, key === "work");
+              if (/^(removeListener|off|listenerCount)$/.test(key)) return rawTargets.get(arg as Callback) ?? listeners.get(arg) ?? arg;
+            }
+            // Only these settlement options need native tx identity for pg-boss's claim accounting.
+            const dbIndex = key === "complete" || key === "fail" ? 3 : key === "cancel" || key === "deleteJob" ? 2 : -1;
             if (
-              typeof arg === "function" &&
-              /^(work|on|once|addListener|prependListener|prependOnceListener|removeListener|off|listenerCount)$/.test(String(key))
+              !overridden &&
+              index === dbIndex &&
+              arg &&
+              typeof arg === "object" &&
+              "db" in arg &&
+              arg.db &&
+              typeof arg.db === "object" &&
+              originals.has(arg.db)
             )
-              return callback(arg as Callback);
-            if (arg && typeof arg === "object" && "db" in arg && arg.db && typeof arg.db === "object" && originals.has(arg.db))
               return { ...arg, db: originals.get(arg.db) };
             return arg;
           });
           const value = Reflect.apply(native, overridden ? receiver : raw, prepared);
-          const result = (value: unknown) => (value === raw ? instance.view : value);
+          const result = (value: unknown) => {
+            if (value === raw) return instance.view;
+            return (key === "listeners" || key === "rawListeners") && Array.isArray(value)
+              ? value.map((fn) => listenerView(fn, key === "rawListeners"))
+              : value;
+          };
           return value instanceof Promise ? value.then(result) : result(value);
         };
         method = { native, wrapped };

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { EventEmitter } from "node:events";
 import { after, test } from "node:test";
 import { createDatabaseAccess } from "@amp/config";
 import { closeDb, initializeDb } from "@amp/backend/db";
@@ -45,6 +46,43 @@ test("retained queue, saved methods and database capabilities are revoked with t
     );
     boss.emit("stopped");
     assert.equal(receiver, boss, "event callbacks cannot expose a native receiver");
+    const events = boss as unknown as EventEmitter;
+    for (const mode of ["on", "once", "prependListener", "prependOnceListener"] as const) {
+      for (const raw of [false, true]) {
+        let calls = 0;
+        const listener = () => {
+          calls++;
+        };
+        events[mode]("listener-fixture", listener);
+        assert.equal(events.listeners("listener-fixture")[0], listener);
+        assert.equal(events.listenerCount("listener-fixture", listener), 1);
+        const visible = (raw ? events.rawListeners("listener-fixture") : events.listeners("listener-fixture"))[0] as () => void;
+        if (raw && mode.toLowerCase().includes("once")) assert.equal(Reflect.get(visible, "listener"), listener);
+        if (raw) events.removeListener("listener-fixture", visible);
+        else events.off("listener-fixture", visible);
+        assert.equal(events.listenerCount("listener-fixture"), 0);
+        events.emit("listener-fixture");
+        assert.equal(calls, 0);
+      }
+    }
+    let onceCalls = 0;
+    events.once("once-manual", () => {
+      onceCalls++;
+    });
+    const once = events.rawListeners("once-manual")[0]!;
+    once();
+    once();
+    assert.equal(onceCalls, 1);
+    assert.equal(events.listenerCount("once-manual"), 0);
+    let received: unknown;
+    events.on("db-payload", (payload) => {
+      received = payload;
+    });
+    const payload = { db };
+    events.emit("db-payload", payload);
+    assert.equal(received, payload, "event data is opaque and retains its guarded db");
+    events.emit("db-payload", db);
+    assert.equal(received, db, "a direct event payload is not adapted as a work transaction");
     await closeDb();
     await initializeDb("public-api", { DATABASE_URL: url });
     for (const call of [
@@ -56,6 +94,7 @@ test("retained queue, saved methods and database capabilities are revoked with t
       () => boss.getDb(),
       () => getDb(),
       () => boss.start(),
+      () => payload.db.executeSql("SELECT 23"),
     ]) {
       await assert.rejects(async () => call(), expired);
     }
