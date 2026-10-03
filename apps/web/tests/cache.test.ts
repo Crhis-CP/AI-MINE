@@ -17,6 +17,15 @@ let deadline: number;
 let refreshAt: string;
 let metaDelayMs = 0;
 const apiCookies: Array<string | undefined> = [];
+const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
+const privateApi = createServer((req, res) => {
+  privateCalls.push({ path: req.url!, forwarded: req.headers["x-forwarded-host"] as string | undefined });
+  res.setHeader("Content-Type", "application/json");
+  if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
+  if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
+  res.statusCode = 401;
+  res.end(JSON.stringify({ code: "unauthorized" }));
+});
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   apiCookies.push(req.headers.cookie);
@@ -32,6 +41,7 @@ const api = createServer((req, res) => {
     return res.end(JSON.stringify({ filters, cards: [], nextCursor: null, refreshAt, dayCounts: [], hot: null, generatedAt: "2026-09-28T00:00:00Z" }));
   }
   if (url.pathname === "/api/site/hot") return res.end(JSON.stringify({ entries: [] }));
+  if (url.pathname === "/api/site/echo-routing") return res.end(JSON.stringify({ target: "public", path: req.url }));
   if (url.pathname === "/api/site/echo-client") return res.end(JSON.stringify({ forwarded: req.headers["x-forwarded-for"], real: req.headers["x-real-ip"] }));
   if (url.pathname === "/api/site/items/long-lived") return res.end(JSON.stringify({ id: "long-lived", title: "t" }));
   if (url.pathname === "/api/site/stories/merged") {
@@ -47,8 +57,16 @@ before(async () => {
   refreshAt = new Date((deadline + 5) * 1000).toISOString();
   api.listen(0, "127.0.0.1");
   await once(api, "listening");
+  privateApi.listen(0, "127.0.0.1");
+  await once(privateApi, "listening");
   web = spawn(process.execPath, [fileURLToPath(new URL("../server.ts", import.meta.url))], {
-    env: webEnvironment({ ...process.env, WEB_PORT: "0", TRUST_PROXY: "false", API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}` }),
+    env: webEnvironment({
+      ...process.env,
+      WEB_PORT: "0",
+      TRUST_PROXY: "false",
+      API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
+      PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
+    }),
     stdio: ["ignore", "pipe", "pipe"],
   });
   await new Promise<void>((resolve, reject) => {
@@ -77,8 +95,10 @@ after(async () => {
     web.kill("SIGTERM");
     await once(web, "exit");
   }
-  api.closeAllConnections();
-  await new Promise<void>((resolve) => api.close(() => resolve()));
+  for (const server of [api, privateApi]) {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 });
 
 test("public route subsets produce the same complete navigation data; filters still differ", async () => {
@@ -231,4 +251,23 @@ test("browser caching preserves noindex and private sign-in responses", async ()
 test("a visitor cannot name its own address to the api without a trusted proxy in front", async () => {
   const res = await fetch(`${origin}/api/site/echo-client`, { headers: { "X-Forwarded-For": "6.6.6.6", "X-Real-IP": "6.6.6.6" } });
   assert.deepEqual(await res.json(), { forwarded: "127.0.0.1", real: "127.0.0.1" });
+});
+
+test("private proxy and login SSR use the private API, preserve raw queries, and replace a spoofed host", async () => {
+  const headers = { "X-Forwarded-Host": "spoofed.invalid" };
+  const direct = await fetch(`${origin}/api/auth/options?from=a%2Fb&from=`, { headers });
+  assert.deepEqual(await direct.json(), { password: false, feishu: true });
+  assert.deepEqual(privateCalls.at(-1), { path: "/api/auth/options?from=a%2Fb&from=", forwarded: new URL(origin).host });
+  const echo = await fetch(`${origin}/api/admin/echo?a=%2F&a=&b=2`, { headers });
+  assert.deepEqual(await echo.json(), { target: "private", path: "/api/admin/echo?a=%2F&a=&b=2", forwarded: new URL(origin).host });
+  const before = privateCalls.length;
+  const login = await fetch(`${origin}/admin/login`, { headers });
+  const html = await login.text();
+  assert.equal(login.status, 200);
+  assert.match(html, /用飞书登录/);
+  assert.match(html, /还没有设置管理员密码/);
+  assert.ok(privateCalls.slice(before).some((call) => call.path === "/api/auth/options" && call.forwarded === new URL(origin).host));
+  assert.equal(login.headers.get("Cache-Control"), "private, no-store");
+  const reader = await fetch(`${origin}/api/site/echo-routing?q=/api/auth/options`);
+  assert.deepEqual(await reader.json(), { target: "public", path: "/api/site/echo-routing?q=/api/auth/options" });
 });
