@@ -22,7 +22,7 @@ test("the private root assigns identity its own login and leaves business module
   await initializeDb("private-api", { DATABASE_URL_PRIVATE_OPS: address("operations"), DATABASE_URL_AUTH: address("identity") });
   try {
     for (const module of DB_MODULES) assert.equal(dbOf(module).options.user, module === "identity" ? "identity" : "operations");
-    assert.deepEqual(queueConnection(), { connectionString: address("operations") });
+    assert.deepEqual(queueConnection(), { connectionString: address("operations"), createSchema: false, migrate: false, supervise: false, schedule: false });
     assert.throws(() => backupDatabaseUrl(), /cannot use database role backup/);
   } finally {
     await closeDb();
