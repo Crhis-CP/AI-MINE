@@ -246,6 +246,12 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
+  apps/fetcher:
+    dependencies:
+      '@amp/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
+
   apps/web:
     dependencies:
       '@amp/contracts':

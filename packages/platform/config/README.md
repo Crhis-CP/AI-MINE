@@ -9,6 +9,7 @@
 | 接口 | 调用者与含义 |
 |---|---|
 | `environmentProblems(role, env)`、`assertProcessEnvironment(role, env)` | 进程启动检查；前者只返回违规变量名，后者拒绝不合格环境；`databaseConfig` 自动执行 |
+| `fetcherConfig(env)` | 检查 fetcher 凭据边界并读取监听配置；默认 127.0.0.1:3003，端口 1–65535，主机为 IP 或 localhost，不创建数据库访问 |
 | `databaseConfig(processRole, env)` | 组合根读取并校验配置；`urlFor` 拒绝越权角色 |
 | `createDatabaseAccess(processRole, env, warn)` | 每个组合根创建一次；模块只取得其 `dbFor(role)` 返回的连接 |
 | `processRole`、`split` | 当前访问对象已校验的进程角色及是否采用按角色地址 |
