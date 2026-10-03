@@ -67,11 +67,13 @@ test("file queries and saved file factories are revoked; an existing query can s
   writeFileSync(filename, "SELECT 7::int AS answer");
   assert.equal((await sql.file(filename))[0].answer, 7);
   const query = sql.file(filename).simple();
+  const savedCancel = sql.file(filename).cancel;
   const file = sql.file;
   dispose();
   await assert.rejects(async () => query, /not injected/);
   await assert.rejects(async () => file(filename), /not injected/);
   query.cancel();
+  savedCancel();
 });
 
 test("reserved connections and saved methods are revoked while release remains safe and idempotent", async (t) => {
