@@ -1,6 +1,10 @@
 // tasks and format-lint: a task card with missing or invalid fields is stopped; lint warnings above the
 // baseline are stopped, and so are counts below it until the baseline is rewritten.
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { compareWarnings } from "../lint.ts";
 import { checkCard, known } from "../tasks.ts";
@@ -61,4 +65,39 @@ test("lint warnings may only go down, and the baseline follows", () => {
   assert.deepEqual(compareWarnings({ "a.ts": { "lint/x": 1 } }, baseline), [
     "a.ts: lint/x down from 2 to 1 — rewrite the list: node scripts/verify/lint.ts --write",
   ]);
+});
+
+test("environment reads are warned only in the approved backend scope", () => {
+  const directory = mkdtempSync(path.join(os.tmpdir(), "aimine-lint-scope-"));
+  const cases = [
+    ["packages/backend/src/config.ts", true],
+    ["apps/api/src/main.ts", true],
+    ["apps/worker/src/main.ts", true],
+    ["apps/fetcher/src/main.ts", true],
+    ["packages/platform/config/src/index.ts", false],
+    ["apps/web/server.ts", false],
+    ["scripts/migrate.ts", false],
+    ["tests/config.test.ts", false],
+  ] as const;
+  try {
+    copyFileSync("biome.jsonc", path.join(directory, "biome.jsonc"));
+    for (const [file] of cases) {
+      mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
+      writeFileSync(path.join(directory, file), "export const value = process.env.EXAMPLE;\n");
+    }
+    const result = spawnSync("pnpm", ["exec", "biome", "lint", `--config-path=${directory}`, "--vcs-enabled=false", "--reporter=json", directory], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const diagnostics = JSON.parse(result.stdout).diagnostics as { category: string; location: { path: string } }[];
+    for (const [file, warned] of cases) {
+      assert.equal(
+        diagnostics.some((d) => d.category === "lint/style/noProcessEnv" && d.location.path.endsWith(file)),
+        warned,
+        file,
+      );
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });

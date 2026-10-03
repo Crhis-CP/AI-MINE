@@ -47,6 +47,14 @@
   // Editor-time hint for the boundary that matters most; scripts/verify/boundaries.ts is the enforcement.
   "overrides": [
     {
+      "includes": ["packages/**", "apps/api/**", "apps/worker/**", "apps/fetcher/**"],
+      "linter": { "rules": { "style": { "noProcessEnv": "warn" } } }
+    },
+    {
+      "includes": ["packages/platform/config/**"],
+      "linter": { "rules": { "style": { "noProcessEnv": "off" } } }
+    },
+    {
       "includes": ["apps/web/**"],
       "linter": {
         "rules": {

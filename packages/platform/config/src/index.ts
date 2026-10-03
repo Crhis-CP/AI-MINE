@@ -87,6 +87,7 @@ export function createDatabaseAccess(processRole: ProcessRole, env: Environment 
   let closed = false;
   if (!config.split && PROCESS_DATABASE_ROLES[processRole].length) warn("没有按角色分登录：当前使用单一 DATABASE_URL（过渡配置）");
   return {
+    processRole: config.processRole,
     split: config.split,
     dbFor(role: QueryRole): Database {
       if (closed) throw new Error("Database access is closed");
@@ -103,6 +104,19 @@ export function createDatabaseAccess(processRole: ProcessRole, env: Environment 
         pools.set(url, sql);
       }
       return sql;
+    },
+    queueUrl(): string {
+      if (closed) throw new Error("Database access is closed");
+      switch (config.processRole) {
+        case "worker":
+        case "test":
+          return config.urlFor("worker");
+        case "api":
+        case "private-api":
+          return config.urlFor("private_ops");
+        default:
+          throw new Error(`${config.processRole} cannot use the job queue`);
+      }
     },
     backupUrl(): string {
       if (closed) throw new Error("Database access is closed");

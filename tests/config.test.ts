@@ -107,6 +107,32 @@ test("split roles use their assigned addresses without connecting during constru
   await publicAccess.close();
 });
 
+test("queue access follows the process role and keeps the validated addresses until closed", async () => {
+  for (const processRole of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[]) {
+    const env = PROCESS_DATABASE_ROLES[processRole].length ? { DATABASE_URL: url } : {};
+    const access = createDatabaseAccess(processRole, env, () => {});
+    try {
+      assert.equal(access.processRole, processRole);
+      if (["worker", "test", "api", "private-api"].includes(processRole)) assert.equal(access.queueUrl(), url);
+      else assert.throws(() => access.queueUrl(), /cannot use the job queue/);
+    } finally {
+      await access.close();
+    }
+    assert.throws(() => access.queueUrl(), /closed/);
+    assert.throws(() => access.backupUrl(), /closed/);
+  }
+  const env = { DATABASE_URL_WORKER: url, DATABASE_URL_BACKUP: `${url}_backup` };
+  const access = createDatabaseAccess("worker", env);
+  env.DATABASE_URL_WORKER = `${url}_changed`;
+  env.DATABASE_URL_BACKUP = `${url}_changed_backup`;
+  try {
+    assert.equal(access.queueUrl(), url);
+    assert.equal(access.backupUrl(), `${url}_backup`);
+  } finally {
+    await access.close();
+  }
+});
+
 test("role-selected connections preserve numeric decoding and support real transactions", async (t) => {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) return t.skip("needs the isolated verify database");

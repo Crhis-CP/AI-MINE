@@ -1,5 +1,12 @@
 {
+  "apps/api/src/app.ts": {
+    "lint/style/noProcessEnv": 2
+  },
+  "apps/api/src/main.ts": {
+    "lint/style/noProcessEnv": 2
+  },
   "apps/api/src/routes/mcp.ts": {
+    "lint/style/noProcessEnv": 1,
     "lint/suspicious/useIterableCallbackReturn": 2
   },
   "apps/api/src/routes/static.ts": {
@@ -118,6 +125,12 @@
   "apps/web/app/routes/topic.tsx": {
     "lint/correctness/noUnusedImports": 1
   },
+  "apps/worker/src/main.ts": {
+    "lint/style/noProcessEnv": 1
+  },
+  "apps/worker/src/schedules.ts": {
+    "lint/style/noProcessEnv": 1
+  },
   "industry/brand/logo.svg": {
     "lint/a11y/noSvgWithoutTitle": 1
   },
@@ -136,11 +149,20 @@
   "packages/backend/src/admin/sources.ts": {
     "lint/suspicious/noImplicitAnyLet": 1
   },
+  "packages/backend/src/config.ts": {
+    "lint/style/noProcessEnv": 1
+  },
+  "packages/backend/src/content/extract.ts": {
+    "lint/style/noProcessEnv": 1
+  },
   "packages/backend/src/content/sanitize.ts": {
     "lint/correctness/noUnusedFunctionParameters": 1
   },
   "packages/backend/src/editorial/input.ts": {
     "lint/suspicious/noExplicitAny": 4
+  },
+  "packages/backend/src/editorial/models.ts": {
+    "lint/style/noProcessEnv": 4
   },
   "packages/backend/src/editorial/translate.ts": {
     "lint/suspicious/useIterableCallbackReturn": 2
@@ -149,17 +171,45 @@
     "lint/complexity/useOptionalChain": 1,
     "lint/suspicious/noExplicitAny": 3
   },
+  "packages/backend/src/jobs/content.ts": {
+    "lint/style/noProcessEnv": 1
+  },
+  "packages/backend/src/jobs/sources.ts": {
+    "lint/style/noProcessEnv": 1
+  },
   "packages/backend/src/lib/text.ts": {
     "lint/suspicious/noControlCharactersInRegex": 6
+  },
+  "packages/backend/src/media/prepare.ts": {
+    "lint/style/noProcessEnv": 1
+  },
+  "packages/backend/src/notify/feishu.ts": {
+    "lint/style/noProcessEnv": 1
   },
   "packages/backend/src/notify/selected.ts": {
     "lint/complexity/useOptionalChain": 1
   },
   "packages/backend/src/operations/alerts.ts": {
-    "lint/complexity/useOptionalChain": 1
+    "lint/complexity/useOptionalChain": 1,
+    "lint/style/noProcessEnv": 3
+  },
+  "packages/backend/src/operations/backup.ts": {
+    "lint/style/noProcessEnv": 1
+  },
+  "packages/backend/src/operations/heartbeat.ts": {
+    "lint/style/noProcessEnv": 1
+  },
+  "packages/backend/src/providers/embeddings.ts": {
+    "lint/style/noProcessEnv": 3
+  },
+  "packages/backend/src/providers/llm.ts": {
+    "lint/style/noProcessEnv": 4
   },
   "packages/backend/src/publication/feeds.ts": {
     "lint/suspicious/noControlCharactersInRegex": 6
+  },
+  "packages/backend/src/publication/pool.ts": {
+    "lint/style/noProcessEnv": 2
   },
   "packages/backend/src/publication/publish.ts": {
     "lint/complexity/useOptionalChain": 1
@@ -173,7 +223,11 @@
   "packages/backend/src/reports/compose.ts": {
     "lint/suspicious/noExplicitAny": 1
   },
+  "packages/backend/src/site/meta.ts": {
+    "lint/style/noProcessEnv": 1
+  },
   "packages/backend/src/sources/collect.ts": {
+    "lint/style/noProcessEnv": 3,
     "lint/style/useConst": 1
   },
   "packages/backend/src/sources/rss.ts": {

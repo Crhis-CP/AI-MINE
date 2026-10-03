@@ -24,7 +24,8 @@ export const DB_MODULES = Object.freeze([
 ] as const);
 export type DatabaseProcess = Exclude<ProcessRole, "web" | "fetcher">;
 type Access = ReturnType<typeof createDatabaseAccess>;
-let active: { access: Access; dispose: () => void; closing?: Promise<void> } | undefined;
+type QueueConnection = Readonly<{ connectionString: string; createSchema?: false }>;
+let active: { access: Access; dispose: () => void; closing?: Promise<void>; queue?: QueueConnection } | undefined;
 
 function roleFor(process: DatabaseProcess, module: string): QueryRole {
   switch (process) {
@@ -46,7 +47,7 @@ function roleFor(process: DatabaseProcess, module: string): QueryRole {
 }
 
 /** Called once by an app, CLI entry point or test setup, never implicitly by an imported module. */
-export async function initializeDb(process: DatabaseProcess, env: Readonly<Record<string, string | undefined>> = globalThis.process.env): Promise<void> {
+export async function initializeDb(process: DatabaseProcess, env?: Readonly<Record<string, string | undefined>>): Promise<void> {
   if (active) throw new Error("Module databases already initialized or closing");
   roleFor(process, "publication");
   const access = createDatabaseAccess(process, env);
@@ -57,6 +58,26 @@ export async function initializeDb(process: DatabaseProcess, env: Readonly<Recor
     await access.close();
     throw error;
   }
+}
+
+function currentAccess(): Access {
+  if (!active || active.closing) throw new Error("Module databases not initialized or closing");
+  return active.access;
+}
+
+/** Only a split worker installs pg-boss into a schema already owned by its database role. */
+export function queueConnection(): QueueConnection {
+  const access = currentAccess();
+  active!.queue ??= Object.freeze({
+    connectionString: access.queueUrl(),
+    ...(access.processRole === "worker" && access.split ? { createSchema: false as const } : {}),
+  });
+  return active!.queue;
+}
+
+/** Reserved for the worker's pg_dump invocation, never a module query connection. */
+export function backupDatabaseUrl(): string {
+  return currentAccess().backupUrl();
 }
 
 /** Revoke this root's registrations before closing its pools. Concurrent close calls share one result. */

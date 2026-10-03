@@ -1,12 +1,15 @@
 // Job queue on PostgreSQL (pg-boss). Business code enqueues by name; the worker process owns handlers.
 import { PgBoss, type SendOptions } from "pg-boss";
-import { config } from "../config.ts";
+import { queueConnection } from "../db-bootstrap.ts";
 import { dbOf, type Db } from "../db.ts";
 
 const sql = dbOf("queue");
 
 let boss: PgBoss | null = null;
 let starting: Promise<PgBoss> | null = null;
+let stopping: Promise<void> | null = null;
+let owner: ReturnType<typeof queueConnection> | null = null;
+let generation = 0;
 
 export const QUEUES = {
   analyze: "content.analyze",
@@ -39,13 +42,25 @@ export const QUEUE_OPTIONS: Record<string, QueueOptions> = {
 const ensured = new Set<string>();
 
 export async function getBoss(): Promise<PgBoss> {
+  const connection = queueConnection();
+  if (owner && owner !== connection) throw new Error("Job queue belongs to a different database root; stop it before reuse");
+  // Graceful stop still lets an in-flight handler settle its receipt and enqueue its follow-up.
   if (boss) return boss;
+  if (stopping) throw new Error("Job queue is stopping");
   starting ??= (async () => {
-    const b = new PgBoss({ connectionString: config.databaseUrl, max: 4, schema: "pgboss", application_name: "amp-jobs" });
+    owner = connection;
+    const attempt = ++generation;
+    const b = new PgBoss({ ...connection, max: 4, schema: "pgboss", application_name: "amp-jobs" });
     b.on("error", (err) => console.error("[pg-boss]", err));
-    await b.start();
-    boss = b;
-    return b;
+    try {
+      await b.start();
+      if (attempt !== generation || queueConnection() !== connection) throw new Error("Job queue database root changed during startup");
+      boss = b;
+      return b;
+    } catch (error) {
+      await b.stop({ graceful: false }).catch(() => {});
+      throw error;
+    }
   })();
   return starting;
 }
@@ -59,15 +74,30 @@ export const shutdownSignal = new AbortController();
 export const STOP_TIMEOUT_MS = 195_000;
 
 export async function stopBoss(): Promise<void> {
+  if (stopping) return stopping;
   shutdownSignal.abort();
-  if (boss) await boss.stop({ graceful: true, timeout: STOP_TIMEOUT_MS });
-  boss = null;
-  starting = null;
+  generation += 1;
+  stopping = (async () => {
+    try {
+      await starting?.catch(() => {});
+      if (boss) await boss.stop({ graceful: true, timeout: STOP_TIMEOUT_MS });
+    } finally {
+      boss = null;
+      starting = null;
+      owner = null;
+      ensured.clear();
+    }
+  })();
+  try {
+    await stopping;
+  } finally {
+    stopping = null;
+  }
 }
 
 export async function ensureQueue(name: string, options: QueueOptions = QUEUE_OPTIONS[name] ?? {}): Promise<void> {
-  if (ensured.has(name)) return;
   const b = await getBoss();
+  if (ensured.has(name)) return;
   const existing = await b.getQueue(name);
   if (!existing) await b.createQueue(name, options);
   ensured.add(name);
