@@ -19,6 +19,27 @@ let stopping: Promise<void> | null = null;
 let owner: ReturnType<typeof queueConnection> | null = null;
 let generation = 0;
 
+const QUEUE_UNAVAILABLE = {
+  not_installed: "Task queue is not installed yet.",
+  schema_mismatch: "Task queue schema version is not ready.",
+  queue_missing: "The requested task queue is not ready.",
+} as const;
+export class QueueUnavailableError extends Error {
+  readonly reason: keyof typeof QUEUE_UNAVAILABLE;
+  constructor(reason: keyof typeof QUEUE_UNAVAILABLE) {
+    super(QUEUE_UNAVAILABLE[reason]);
+    this.name = "QueueUnavailableError";
+    this.reason = reason;
+  }
+}
+function producerError(error: unknown): unknown {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "pg-boss is not installed") return new QueueUnavailableError("not_installed");
+  if (message === "pg-boss database requires migrations") return new QueueUnavailableError("schema_mismatch");
+  if (/^Queue .+ does not exist$/.test(message)) return new QueueUnavailableError("queue_missing");
+  return error;
+}
+
 export const QUEUES = {
   analyze: "content.analyze",
   translate: "content.translate",
@@ -34,7 +55,7 @@ export const QUEUES = {
 
 type QueueOptions = NonNullable<Parameters<PgBoss["createQueue"]>[1]>;
 
-/** Queue definitions in one place; created on first use by any process. */
+/** Worker/transitional processes create definitions; private-api only checks their existence. */
 export const QUEUE_OPTIONS: Record<string, QueueOptions> = {
   [QUEUES.analyze]: { policy: "short", retryLimit: 4, retryDelay: 30, retryBackoff: true, expireInSeconds: 600 },
   [QUEUES.translate]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 900 },
@@ -228,6 +249,16 @@ export async function getBoss(): Promise<PgBoss> {
       boss = bindQueue(b, connection);
       return boss.view;
     } catch (error) {
+      if (connection.migrate === false) {
+        try {
+          await b.stop({ graceful: false });
+        } catch {
+          throw new Error("Task queue startup cleanup failed");
+        }
+        // Release only this failed attempt, after its connections and timers have been closed.
+        if (attempt === generation && owner === connection) starting = null;
+        throw producerError(error);
+      }
       await b.stop({ graceful: false }).catch(() => {});
       throw error;
     }
@@ -270,25 +301,33 @@ export async function ensureQueue(name: string, options: QueueOptions = QUEUE_OP
   const instance = boss;
   if (!instance || instance.view !== b) throw new Error("Job queue instance expired");
   instance.check();
-  if (instance.ensured.has(name)) return;
+  const producerOnly = instance.connection.migrate === false;
+  if (!producerOnly && instance.ensured.has(name)) return;
   const existing = await b.getQueue(name);
   instance.check();
-  if (!existing) await b.createQueue(name, options);
+  if (!existing) {
+    if (producerOnly) throw new QueueUnavailableError("queue_missing");
+    await b.createQueue(name, options);
+  }
   instance.check();
-  instance.ensured.add(name);
+  if (!producerOnly) instance.ensured.add(name);
 }
 
 /** Enqueues a job. With `tx`, the job commits atomically with the caller's business write. */
 export async function enqueue(name: string, data: object, options: SendOptions = {}, tx?: Db): Promise<string | null> {
   const connection = queueConnection();
-  await ensureQueue(name);
-  if (queueConnection() !== connection) throw new Error("Job queue database root changed");
-  const b = await getBoss();
-  if (tx) {
-    const db = { executeSql: async (text: string, values?: unknown[]) => ({ rows: await tx.unsafe(text, (values ?? []) as never[]) }) };
-    return b.send(name, data, { ...options, db });
+  try {
+    await ensureQueue(name);
+    if (queueConnection() !== connection) throw new Error("Job queue database root changed");
+    const b = await getBoss();
+    if (tx) {
+      const db = { executeSql: async (text: string, values?: unknown[]) => ({ rows: await tx.unsafe(text, (values ?? []) as never[]) }) };
+      return await b.send(name, data, { ...options, db });
+    }
+    return await b.send(name, data, options);
+  } catch (error) {
+    throw connection.migrate === false ? producerError(error) : error;
   }
-  return b.send(name, data, options);
 }
 
 // ---------------------------------------------------------------------------

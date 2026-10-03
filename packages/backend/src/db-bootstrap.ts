@@ -24,7 +24,7 @@ export const DB_MODULES = Object.freeze([
 ] as const);
 export type DatabaseProcess = Exclude<ProcessRole, "web" | "fetcher">;
 type Access = ReturnType<typeof createDatabaseAccess>;
-type QueueConnection = Readonly<{ connectionString: string; createSchema?: false }>;
+type QueueConnection = Readonly<{ connectionString: string; createSchema?: false; migrate?: false; supervise?: false; schedule?: false }>;
 let active: { access: Access; dispose: () => void; closing?: Promise<void>; queue?: QueueConnection } | undefined;
 
 function roleFor(process: DatabaseProcess, module: string): QueryRole {
@@ -65,12 +65,15 @@ function currentAccess(): Access {
   return active.access;
 }
 
-/** Only a split worker installs pg-boss into a schema already owned by its database role. */
+/** The worker owns installation; private-api only sends to existing queues. */
 export function queueConnection(): QueueConnection {
   const access = currentAccess();
   active!.queue ??= Object.freeze({
     connectionString: access.queueUrl(),
     ...(access.processRole === "worker" && access.split ? { createSchema: false as const } : {}),
+    ...(access.processRole === "private-api"
+      ? { createSchema: false as const, migrate: false as const, supervise: false as const, schedule: false as const }
+      : {}),
   });
   return active!.queue;
 }
