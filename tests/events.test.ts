@@ -11,6 +11,7 @@ import { closeDb, sql } from "@amp/backend/db";
 import { detachFromFact } from "@amp/backend/admin/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle, linkRelatedStories } from "@amp/backend/events/group";
+import { lexicalSimilarity, reportText } from "@amp/backend/events/relate";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 
@@ -47,7 +48,10 @@ process.env.GROUP_REVIEW_MODEL = "deepseek-flash";
 let storyId: number;
 let factId: number;
 
-const randomText = () => Array.from({ length: 16 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join("");
+// Text no other report shares. Recall is lexical here (shared character bigrams; a candidate from 0.25, events/group.ts)
+// and the test database may keep rows of earlier runs: 16 characters of the CJK block share next to no bigram, where 16
+// capital letters now and then did and tied unrelated stories together (PIT-070).
+const randomText = () => Array.from({ length: 16 }, () => String.fromCharCode(0x4e00 + Math.floor(Math.random() * (0x9fa5 - 0x4e00 + 1)))).join("");
 
 async function report(suffix: string, title = FACT_TITLE, summary = "摘要", publishedAt = new Date()) {
   const { articleId } = await upsertMaterial({
@@ -154,7 +158,7 @@ test("a report waiting for a regroup is not evidence for others, and its own tur
   hold = gate();
   hold.open();
   // Text no other report shares (the test database may keep rows of earlier runs; recall is lexical here).
-  const text = Array.from({ length: 16 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join("");
+  const text = randomText();
   const waiting = await report("waiting", text, text);
   const [story] = await sql<
     { id: number }[]
@@ -187,7 +191,7 @@ test("a report waiting for a regroup is not evidence for others, and its own tur
 test("a development attaches to the story's earliest fact that still holds reports", async () => {
   hold = gate();
   hold.open();
-  const text = Array.from({ length: 16 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join("");
+  const text = randomText();
   // A story whose first fact was emptied (a regroup, a detach, or a merge carried it over).
   const [story] = await sql<
     { id: number }[]
@@ -354,5 +358,20 @@ test("stories that reports keep tying together without merging list each other a
     relation = "SAME_OCCURRENCE";
     pairRelation = null;
     answerAll = false;
+  }
+});
+
+test("random texts do not look alike to the lexical recall", () => {
+  // Report texts as the tests above write them (title and summary alike). With 16 capital letters about 12 of these
+  // 44 850 pairs reached the recall threshold (PIT-070); drawn from the CJK block, none does.
+  const texts = Array.from({ length: 300 }, () => {
+    const text = randomText();
+    return reportText(text, text);
+  });
+  for (let i = 0; i < texts.length; i++) {
+    for (let j = i + 1; j < texts.length; j++) {
+      const similarity = lexicalSimilarity(texts[i]!, texts[j]!);
+      if (similarity >= 0.25) assert.fail(`${texts[i]} and ${texts[j]} look alike (${similarity.toFixed(2)})`);
+    }
   }
 });
