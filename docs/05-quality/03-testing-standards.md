@@ -22,7 +22,7 @@
 
 - L1–L4 不访问外部网络与真实模型；L5 只在声明了样本范围与调用次数（`budget.model_calls`）的显式评测任务中访问真实模型；L6 的结论只来自真实环境，不能用 L1–L5 的结果代替。
 - 验证入口（`make verify`）= L1 + L2 + L3 + L4 冒烟集 + 文档与编号检查，**不含 L5、L6**。
-- 本机缺 Docker、PostgreSQL、浏览器或固定版本工具时继续失败关闭，不安装或修复全局工具；只能出具 `scope: focused` 的回执，标为补充（supplemental），**不得用于合并，也不得宣称完整通过**（旧 `docs/testing-strategy.md:17@main`；旧分支最近一次本地全门禁正是 `blocked_docker_unavailable`，`docs/policy-upgrade/acceptance/ci-20260926.json:12@policy`）。执行器不可用时换执行器，不跳过检查（ADR-0017）。
+- 本机缺 Docker、PostgreSQL、浏览器或固定版本工具时继续失败关闭，不安装或修复全局工具；只能出具 `scope: focused` 的回执，标为补充（supplemental），**不得用于合并，也不得宣称完整通过**（旧 `docs/testing-strategy.md:17@main`；旧分支最近一次本地全门禁正是 `blocked_docker_unavailable`，`docs/policy-upgrade/acceptance/ci-20260926.json:12@policy`）。执行器不可用时换执行器，不跳过检查（ADR-0017）。“不得用于合并”在 M0 期间有一个例外，见 ADR-0017 的 2026-10-03 更新（08-owner-voice DEC-24 ②）。
 - 每个场景的层、级与 INV 见 `06-acceptance-scenarios.md`；每条 INV 的主守护层见 `01-invariants.md` §4。
 
 ### 1.1 公开产物与仓库的扫描清单（L3，每个 PR）
@@ -126,7 +126,7 @@ Owner 已批准验证与交付不依赖 GitHub Actions（旧ADR-0038，2026-09-2
 
 - 必含：完整提交 SHA、tree、锁文件哈希、各阶段结果、退出状态、失败阶段、操作系统与架构与工具版本、起止时间、`scope`（`full` 或 `focused`）、`secret_scan`（工具、版本、范围、命中数）、`audit`（工具、数据源、日期）、私有日志摘要。
 - **缺 `secret_scan` 或 `audit` 项的回执视为未通过**；首尾校验 HEAD、tree、已跟踪与未跟踪文件状态和锁文件，拒绝替换对象、隐藏修改、错误提交、中断与漂移；不含环境变量、凭据、个人路径、主机名；不得把假目标或部分检查记成完整通过；不手工填写成功。
-- **无签名回执只是执行记录，不构成生产信任**；`scope: focused` 不得用于合并。
+- **无签名回执只是执行记录，不构成生产信任**；`scope: focused` 不得用于合并（M0 期间的例外见 ADR-0017 的 2026-10-03 更新，08-owner-voice DEC-24 ②）。
 - 每个 INV 与每个 T 的结果按 `06-acceptance-scenarios.md` §1 的证据字段记录（回执的补充），存入 `docs/acceptance/`。
 
 ### 5.3 可信制品（`make release-check`，由 T-085、AC-M0-08、AC-OPS-06 验收）
