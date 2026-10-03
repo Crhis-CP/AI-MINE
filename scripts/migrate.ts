@@ -2,7 +2,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+
+await initializeDb("migrate");
+
+const sql = dbOf("config");
 
 const dir = path.join(REPO_ROOT, "database/migrations");
 

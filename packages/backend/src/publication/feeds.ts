@@ -5,11 +5,13 @@ import { CATEGORY_LABELS, PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } 
 import { SITE, withSubject } from "@amp/industry/site";
 import { config } from "../config.ts";
 import { linkBodyImages } from "../content/sanitize.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
 import { reportHeadline, reportIndex } from "./reports.ts";
 import { categoryCondition, listedCondition, selectedCondition, type ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
+
+const sql = dbOf("publication");
 
 interface FeedMeta {
   id: string;

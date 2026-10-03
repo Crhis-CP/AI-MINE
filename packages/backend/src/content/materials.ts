@@ -1,9 +1,11 @@
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
-import { sql, type Db } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { newArticleId, sha256 } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
+
+const sql = dbOf("content");
 
 export interface MediaItem {
   kind: "image" | "video";

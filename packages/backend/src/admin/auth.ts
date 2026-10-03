@@ -3,8 +3,10 @@
 // Development may impersonate an admin with DEV_AUTH_ROLE=admin; production refuses to start with it.
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config, credential } from "../config.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
+
+const sql = dbOf("identity");
 
 export const SESSION_COOKIE = "amp_admin";
 export const STATE_COOKIE = "amp_oauth_state";

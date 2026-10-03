@@ -1,11 +1,13 @@
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
 import type { PublicApiCategoryKey } from "@amp/contracts/taxonomy";
-import { sql, type Db } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { newShortId } from "../lib/ids.ts";
 import { categoryCondition, API_ITEM_COLUMNS, API_ITEM_FROM, listedCondition, selectedCondition, type ApiItemRow } from "./items.ts";
 import { publicMatchCondition, searchTerms, withSearchCapacity } from "./pool.ts";
 import { v1Payload, type V1ItemPayload } from "./publish.ts";
+
+const sql = dbOf("publication");
 
 export interface V1ItemsQuery {
   mode: "selected" | "all";

@@ -12,7 +12,7 @@ import { z } from "zod";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { CATEGORIES } from "@amp/industry/taxonomy";
 import { SELECTION } from "@amp/industry/selection";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { collapseWhitespace } from "../lib/text.ts";
@@ -36,6 +36,8 @@ import {
 } from "./writing.ts";
 import { CATEGORY_BY_ITEM_TYPE, CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
 import { promptText, promptVersion } from "./prompts.ts";
+
+const sql = dbOf("enrichment");
 
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 

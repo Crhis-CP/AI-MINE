@@ -7,13 +7,15 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { detachFromFact } from "@amp/backend/admin/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle, linkRelatedStories } from "@amp/backend/events/group";
 import { lexicalSimilarity, reportText } from "@amp/backend/events/relate";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
+
+const sql = dbOf("events");
 
 const T = tag();
 const SOURCE = `test-events-${T}`;

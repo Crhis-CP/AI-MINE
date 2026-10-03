@@ -8,7 +8,9 @@ import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { config, credential } from "../config.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
+
+const sql = dbOf("ops");
 
 const run = promisify(execFile);
 const KEEP_LOCAL = 3;

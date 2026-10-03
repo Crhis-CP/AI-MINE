@@ -4,9 +4,13 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { seedTopics } from "@amp/backend/publication/topics";
 import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
+
+await initializeDb("migrate");
+
+const sql = dbOf("sources");
 
 interface SeedSource {
   id: string;

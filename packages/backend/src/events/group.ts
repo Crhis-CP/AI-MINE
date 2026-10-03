@@ -15,7 +15,7 @@
 // look when a report founds a fact close to them (rematchSignals); history (isHistorical) founds no
 // event. Runs serially (queue concurrency 1).
 import { modelFor } from "../editorial/models.ts";
-import { sql, type Db } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { newShortId, newUuid, sha256 } from "../lib/ids.ts";
 import { chatJson } from "../providers/llm.ts";
 import { BudgetExceededError, ReceiptBusyError, completeReceipt } from "../providers/receipts.ts";
@@ -49,6 +49,8 @@ import {
   type ReportView,
   type Verdict,
 } from "./relate.ts";
+
+const sql = dbOf("events");
 
 export const GROUP_PROMPT_VERSION = RELATE_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */

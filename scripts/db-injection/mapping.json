@@ -1,0 +1,438 @@
+{
+  "base_sha": "38e680efd9448bf639f7ea8e83bf3a340e5e3418",
+  "files": {
+    "apps/api/src/app.ts": {
+      "module": "publication",
+      "basis": "API health is a public read; TASK-0004 D2/D6"
+    },
+    "apps/api/src/routes/admin.ts": {
+      "module": "sources",
+      "basis": "appendix B B.2 line 61: 各模块 privateRoutes：sources（列表/详情/新建/修改）、acquisition（试抓）、editorial（内容下架与修订）、feedback、ai-gateway（预算与模型）、publication（站点资料）、platform/identity（账号）"
+    },
+    "packages/backend/src/admin/auth.ts": {
+      "module": "identity",
+      "basis": "appendix B B.5.8 line 309: platform/identity"
+    },
+    "packages/backend/src/admin/content.ts": {
+      "module": "editorial",
+      "basis": "appendix B B.5.8 line 310: editorial（查找、链路、下架与人工修订）+ publication（setSeoIndexed）+ content/enrichment（rerun 的各步骤）"
+    },
+    "packages/backend/src/admin/feedback.ts": {
+      "module": "feedback",
+      "basis": "appendix B B.5.8 line 311: feedback"
+    },
+    "packages/backend/src/admin/models.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.5.8 line 312: ai-gateway"
+    },
+    "packages/backend/src/admin/runs.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.8 line 313: platform/ops（投递核实）+ ai-gateway（回执核对）+ content（失败重排）"
+    },
+    "packages/backend/src/admin/selectbench.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.5.8 line 314: ai-gateway（评测运行器，离线）"
+    },
+    "packages/backend/src/admin/settings.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.5.8 line 315: ai-gateway（用量与熔断配置）+ platform/ops（告警渠道）"
+    },
+    "packages/backend/src/admin/sources.ts": {
+      "module": "sources",
+      "basis": "appendix B B.5.8 line 316: sources（列表、详情、修改、判重、新建）+ acquisition（试抓、立即采集）"
+    },
+    "packages/backend/src/content/extract.ts": {
+      "module": "content",
+      "basis": "appendix B B.5.3 line 231: content"
+    },
+    "packages/backend/src/content/materials.ts": {
+      "module": "content",
+      "basis": "appendix B B.5.3 line 230: content"
+    },
+    "packages/backend/src/editorial/analyze.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.5.3 line 233: enrichment"
+    },
+    "packages/backend/src/editorial/input.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.5.3 line 234: enrichment"
+    },
+    "packages/backend/src/editorial/models.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.5.3 line 238: ai-gateway"
+    },
+    "packages/backend/src/editorial/translate.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.5.3 line 236: enrichment（分段存储在 content）"
+    },
+    "packages/backend/src/events/digest.ts": {
+      "module": "events",
+      "basis": "appendix B B.5.4 line 256: events"
+    },
+    "packages/backend/src/events/group.ts": {
+      "module": "events",
+      "basis": "appendix B B.5.4 line 251: events"
+    },
+    "packages/backend/src/events/hot-read.ts": {
+      "module": "events",
+      "basis": "appendix B B.5.4 line 255: events（热点榜读取；publication 投影，机器出口只给名次）"
+    },
+    "packages/backend/src/events/hot.ts": {
+      "module": "events",
+      "basis": "appendix B B.5.4 line 254: events（热度、热点榜与小时快照，ENT-27）"
+    },
+    "packages/backend/src/events/merge.ts": {
+      "module": "events",
+      "basis": "appendix B B.5.4 line 253: events"
+    },
+    "packages/backend/src/ingest/items.ts": {
+      "module": "acquisition",
+      "basis": "appendix B B.5.8 line 318: acquisition"
+    },
+    "packages/backend/src/jobs/content.ts": {
+      "module": "content",
+      "basis": "appendix B B.5.3 line 241: content（queueProcessing、sweepUnprocessed、requeueFailed、failureGroupSql、正文抽取任务）+ enrichment（processArticle、registerContentJobs、settleNonEditorial）"
+    },
+    "packages/backend/src/jobs/publication.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.3 line 243: publication"
+    },
+    "packages/backend/src/jobs/queue.ts": {
+      "module": "queue",
+      "basis": "appendix B B.5.3 line 240: platform/queue（队列、停机信号、outbox）+ platform/ops（recordRun）+ 各模块 jobs.ts（队列定义）"
+    },
+    "packages/backend/src/notify/deliver.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.7 line 291: platform/ops"
+    },
+    "packages/backend/src/notify/selected.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.7 line 292: platform/ops（随 notify/）"
+    },
+    "packages/backend/src/operations/alerts.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.7 line 293: platform/ops"
+    },
+    "packages/backend/src/operations/backup.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.7 line 294: platform/ops"
+    },
+    "packages/backend/src/operations/feedback.ts": {
+      "module": "feedback",
+      "basis": "appendix B B.5.7 line 295: feedback"
+    },
+    "packages/backend/src/operations/heartbeat.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.7 line 296: platform/ops"
+    },
+    "packages/backend/src/operations/indexnow.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.7 line 297: publication"
+    },
+    "packages/backend/src/operations/reports.ts": {
+      "module": "reports",
+      "basis": "appendix B B.5.7 line 298: reports"
+    },
+    "packages/backend/src/operations/retention.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.7 line 299: 各模块自己的定时任务（platform/ops 只调度汇总）"
+    },
+    "packages/backend/src/operations/watch.ts": {
+      "module": "ops",
+      "basis": "appendix B B.5.7 line 296: platform/ops"
+    },
+    "packages/backend/src/providers/embeddings.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.5.1 line 207: ai-gateway（调用）+ events（存储与召回）"
+    },
+    "packages/backend/src/providers/llm.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.5.1 line 206: ai-gateway"
+    },
+    "packages/backend/src/providers/receipts.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.5.1 line 205: ai-gateway"
+    },
+    "packages/backend/src/publication/availability.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 276: publication"
+    },
+    "packages/backend/src/publication/detail.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 267: publication"
+    },
+    "packages/backend/src/publication/feeds.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 272: publication"
+    },
+    "packages/backend/src/publication/groups.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 268: publication"
+    },
+    "packages/backend/src/publication/items.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 264: publication"
+    },
+    "packages/backend/src/publication/llms.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 274: publication"
+    },
+    "packages/backend/src/publication/og.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 276: publication"
+    },
+    "packages/backend/src/publication/pool.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 266: publication"
+    },
+    "packages/backend/src/publication/publish.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 262: publication"
+    },
+    "packages/backend/src/publication/reports.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 270: publication"
+    },
+    "packages/backend/src/publication/sitemap.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 273: publication"
+    },
+    "packages/backend/src/publication/stories.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 269: publication"
+    },
+    "packages/backend/src/publication/timeline.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 265: publication"
+    },
+    "packages/backend/src/publication/topics.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 271: publication"
+    },
+    "packages/backend/src/publication/v1.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.5 line 275: publication"
+    },
+    "packages/backend/src/reports/compose.ts": {
+      "module": "reports",
+      "basis": "appendix B B.5.6 line 284: reports"
+    },
+    "packages/backend/src/site/stats.ts": {
+      "module": "publication",
+      "basis": "appendix B B.5.8 line 321: publication"
+    },
+    "packages/backend/src/sources/collect.ts": {
+      "module": "acquisition",
+      "basis": "appendix B B.5.2 line 216: acquisition"
+    },
+    "packages/backend/src/sources/mp.ts": {
+      "module": "acquisition",
+      "basis": "appendix B B.5.2 line 221: acquisition（wechat_mp）"
+    },
+    "scripts/delete-sources.ts": {
+      "module": "sources",
+      "basis": "appendix B B.9 line 446: sources 的运维命令"
+    },
+    "scripts/enqueue-analysis.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.9 line 445: enrichment 的命令行包装"
+    },
+    "scripts/eval-relations.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.9 line 449: evals/relate/ + ai-gateway 评测运行器"
+    },
+    "scripts/eval-selection.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.9 line 448: evals/ + ai-gateway 评测运行器"
+    },
+    "scripts/migrate.ts": {
+      "module": "config",
+      "basis": "migration composition root; TASK-0004 D2"
+    },
+    "scripts/regroup-events.ts": {
+      "module": "events",
+      "basis": "appendix B B.9 line 447: events 的运维命令"
+    },
+    "scripts/seed.ts": {
+      "module": "sources",
+      "basis": "seed composition root; TASK-0004 D2"
+    },
+    "tests/alerts.test.ts": {
+      "module": "ops",
+      "basis": "appendix B B.10 line 461: platform/ops"
+    },
+    "tests/analyze-shutdown.test.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.10 line 462: enrichment"
+    },
+    "tests/analyze.test.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.10 line 462: enrichment"
+    },
+    "tests/collection.test.ts": {
+      "module": "acquisition",
+      "basis": "appendix B B.10 line 478: acquisition"
+    },
+    "tests/default-model.test.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.10 line 463: ai-gateway"
+    },
+    "tests/deliveries.test.ts": {
+      "module": "ops",
+      "basis": "Current test exercises notify/deliver; appendix B.5.7 assigns notify to platform/ops."
+    },
+    "tests/embeddings.test.ts": {
+      "module": "events",
+      "basis": "appendix B B.10 line 465: events（存储）+ ai-gateway（调用）"
+    },
+    "tests/events.test.ts": {
+      "module": "events",
+      "basis": "appendix B B.10 line 466: events"
+    },
+    "tests/feedback-upload.test.ts": {
+      "module": "feedback",
+      "basis": "appendix B B.10 line 470: feedback"
+    },
+    "tests/feedback.test.ts": {
+      "module": "feedback",
+      "basis": "appendix B B.10 line 470: feedback"
+    },
+    "tests/listings.test.ts": {
+      "module": "acquisition",
+      "basis": "appendix B B.10 line 472: acquisition + content"
+    },
+    "tests/materials.test.ts": {
+      "module": "content",
+      "basis": "appendix B B.10 line 471: content"
+    },
+    "tests/publication.test.ts": {
+      "module": "publication",
+      "basis": "cross-exit integration fixture; appendix B.10"
+    },
+    "tests/receipts.test.ts": {
+      "module": "ai-gateway",
+      "basis": "appendix B B.10 line 464: ai-gateway"
+    },
+    "tests/report-candidates.test.ts": {
+      "module": "reports",
+      "basis": "appendix B B.10 line 484: reports"
+    },
+    "tests/rss-conditional.test.ts": {
+      "module": "acquisition",
+      "basis": "appendix B B.10 line 475: acquisition"
+    },
+    "tests/selection-eval-runtime.test.ts": {
+      "module": "ai-gateway",
+      "basis": "Current test exercises admin/selectbench; appendix B.5.8 assigns this evaluation runtime to ai-gateway."
+    },
+    "tests/signals.test.ts": {
+      "module": "events",
+      "basis": "appendix B B.10 line 467: events"
+    },
+    "tests/source-rules.test.ts": {
+      "module": "acquisition",
+      "basis": "appendix B B.10 line 474: acquisition + sources"
+    },
+    "tests/translate-shutdown.test.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.10 line 480: enrichment"
+    },
+    "tests/translate.test.ts": {
+      "module": "enrichment",
+      "basis": "appendix B B.10 line 480: enrichment"
+    }
+  },
+  "inputs": {
+    "apps/api/src/app.ts": "a0ec61804f69bdb334f30d9616357b8997706fb38efcb077c1c911875bb66740",
+    "apps/api/src/main.ts": "48848e617823cfcf5795c1c2a3b7702be8ee5389058e34220d694d40e714cec3",
+    "apps/api/src/routes/admin.ts": "3c2a996a8c1750d0794a967c746c20b17e3428a070c69da507942381d59c14ef",
+    "apps/worker/src/main.ts": "ad674ccb5d6ed57fc73d15f3ee2c39f5067f4926e0106d28a23e2cf8e81942c8",
+    "packages/backend/src/admin/auth.ts": "1592b7bfbe73b869e3b151fa12c16b15d613ff97ebb1b5299504ef481891ddbe",
+    "packages/backend/src/admin/content.ts": "d430a9a58705b914f1aac94a265dbce564d41236c6bfd75ee43a4692753fea25",
+    "packages/backend/src/admin/feedback.ts": "01b378e5304a707ea9e9fbae683a033862d735f38fd7eb2ecca97fad1f03ad58",
+    "packages/backend/src/admin/models.ts": "090f84d3a77858b1a7713cad5100f7a4fd6b5b4c302868e786de0f4e6b867b30",
+    "packages/backend/src/admin/runs.ts": "a36f5623f9f8823f71c73aa804574b2eda95064483bcb9a680d7cde0249b8ab4",
+    "packages/backend/src/admin/selectbench.ts": "f81039a14caac9b7513654fe129825793fa9e49bdde3fc3727379d6960c0776c",
+    "packages/backend/src/admin/settings.ts": "c220723f8aff44712ad1762dac67adbf9e98d29e08ba6ea8739290cc1b6394fa",
+    "packages/backend/src/admin/sources.ts": "5ba0fd897b78f07c9c97fc6771228bb983d60751b385aa57946c76f0a09f424e",
+    "packages/backend/src/content/extract.ts": "75369d192cfe2e4e0c8bfe0ed25f8217bab6476930d69dd016bc9598d7926fa1",
+    "packages/backend/src/content/materials.ts": "04743c9956f7e650f9eefc7ca06a7ab3ced2840a6a2f26583ea338c62560acba",
+    "packages/backend/src/db.ts": "04cde7441e4d76ad16f6854087ac6042df567992728559146578fe180c08d18a",
+    "packages/backend/src/editorial/analyze.ts": "515c0604251f97b16920ff0dbfcad033bf6d4d91f7d53df2309f58ee7e4e5813",
+    "packages/backend/src/editorial/input.ts": "1ea4c6a02c194ae228d084aad6cb14e8949f362171953e4ceb953f9ca652b4e3",
+    "packages/backend/src/editorial/models.ts": "fce7d3440eb1a8e03c0412f29755c997200d07d8d69af3c151404ed7ba420dce",
+    "packages/backend/src/editorial/translate.ts": "c02284d8a796b6fb3e029f5f15ce1f257d4cd082229dd88af9d4df8e919fb5e1",
+    "packages/backend/src/events/digest.ts": "59d892d5b3b717ab173b7eeef3f0cd0bfdb87f218376be543d8ade80fc56cfaa",
+    "packages/backend/src/events/group.ts": "57d609fefd40ac7e2ee6cf65764055d8834052139dc6fedec393b00130060d9c",
+    "packages/backend/src/events/hot-read.ts": "33b6a8d56c8e24de7c97b349d6c484f250f6a9ce6ceab9a119aeee1bfb66a757",
+    "packages/backend/src/events/hot.ts": "9512df10f472ac73b9983f241c97235f60960a0b4aef3cd13fedd8f3220c9598",
+    "packages/backend/src/events/merge.ts": "6cc7f71c0f8c4f96cd718dad9d7cd4b9f5054aec844a4748775d09bde4ceb6c8",
+    "packages/backend/src/ingest/items.ts": "f36921fc17601136aa9f9fc70950ea9d1d943e54f7bb38ca6db1bded2a0e6f00",
+    "packages/backend/src/jobs/content.ts": "a881e49acbab5f42ae29b5df7b477f94ad6ed417eaf819416b5d9a631ba01639",
+    "packages/backend/src/jobs/publication.ts": "86adf620b4a24e09d690c99585ecd085b9e3d5f0b214b5cec91bb0020f3cacb8",
+    "packages/backend/src/jobs/queue.ts": "c829912e86bbde13122a88bde750d5b47375a7152249d8cefadce5ed526480fb",
+    "packages/backend/src/notify/deliver.ts": "04581bf352c69d0e3fdd3f3a6ec5598fd83751220026532dd68d284df73065d7",
+    "packages/backend/src/notify/selected.ts": "66a210644e8b0c38abaf73dd387971f4a677988a643c8468f2fbd0c4a4334ec3",
+    "packages/backend/src/operations/alerts.ts": "4738ecfbb0a31adfd9545f7310e39e3184a9058ec676ceb3feb74f9589652c86",
+    "packages/backend/src/operations/backup.ts": "69cee76fa08ccd64ca8ccc2b5576b693f7bdebd0a8aac958e058a5ca30b774d4",
+    "packages/backend/src/operations/feedback.ts": "0ccd87cdded96acea48aa175fbccacd28b16663aea92efd33c8bc0475c136860",
+    "packages/backend/src/operations/heartbeat.ts": "81827098bfebb917c52f1bca56f2a0738f988bf3f37b8595b32df32c6fd60cef",
+    "packages/backend/src/operations/indexnow.ts": "6ed20c019c72dc43805b874fdfa41fe8fc61db0e3b94a0bcee4849518076f7e6",
+    "packages/backend/src/operations/reports.ts": "fa9c86c321d683fa10be87d270095f7f47f695178be19e6b662155fb148d8528",
+    "packages/backend/src/operations/retention.ts": "217bcebe815501c45f7231237df9e6f4690916eb6943a7b8dca0c8e9221bd3de",
+    "packages/backend/src/operations/watch.ts": "8c0a7fa477ab1e84cb9484a5a2fa818b348ae4dd1e64c19593d4d72cd3a96c60",
+    "packages/backend/src/providers/embeddings.ts": "2c71efe35e8cc3ad4df6500be8943beff6a80968e1f9ca0745024c3b6f7ea371",
+    "packages/backend/src/providers/llm.ts": "41c5fd7e7929be8dc6250515a03ffdf3f2a34751b1575e3c433039fa11b926e3",
+    "packages/backend/src/providers/receipts.ts": "5690837b1e114094a948e2828ae9d6bf58b259662bb0c8298cf84b7bc19b641f",
+    "packages/backend/src/publication/availability.ts": "78aaacf9b81da4b26aa0826b7f4396c2bc50deefa4c98b53c4b54c4d15a5c75b",
+    "packages/backend/src/publication/detail.ts": "bcf5d995ca70e6b7ec2efde9b338da23500ff98a160efaa28a10ee847d95da48",
+    "packages/backend/src/publication/feeds.ts": "22d4f8a793f69cf0e00864d193b99ded73c89433985f65d527336744977f9335",
+    "packages/backend/src/publication/groups.ts": "bf44c4c82e5b53fd723f3c25bc003d19901f3e6757bc303b430d81508f9ef812",
+    "packages/backend/src/publication/items.ts": "229f5b3d52956f36d74bb3cad8c180c488734eeed2172282232cbc5c6d29da04",
+    "packages/backend/src/publication/llms.ts": "36d5651c7e583d9c2f66f4037f9730155f5e2e6f8dc73cbc88e0c8d4d7cf4aff",
+    "packages/backend/src/publication/og.ts": "e6b9943affb8a6b684a90050fc246a18972ab7587c2def5fcfcf1751a222059c",
+    "packages/backend/src/publication/pool.ts": "11a72b8f0bcb3fbaed7a5a73b0557509b4b395d6f37ddfb58219fef9b14b671f",
+    "packages/backend/src/publication/publish.ts": "3ba8916acb327ffd850c9b20204f78b762018f56ccbfb641bcc91330e631d0dd",
+    "packages/backend/src/publication/reports.ts": "f01eb77f7500ba96f532259f1d16609c1d287f1e7324e51d021703cca6f1a2de",
+    "packages/backend/src/publication/sitemap.ts": "8629332810ebdc6c4097b5da46db844959c4c37cbed7c5199f4cd4cfc8cc03d1",
+    "packages/backend/src/publication/stories.ts": "bf54752035079f47358e9f83b3d442562712f063eafa644b50f365818e389043",
+    "packages/backend/src/publication/timeline.ts": "fcce61dfa57de9c04ba69438c37bcfe56e74f7b5e5453718e708d5b24978d294",
+    "packages/backend/src/publication/topics.ts": "96597d14a0daef0e0485810bf19aa06dd189e6715a90899903f7d7cdbee4293c",
+    "packages/backend/src/publication/v1.ts": "05f033f033c6e8039c67310ea32565ff086c16acc151fc065f51370eb7e6b247",
+    "packages/backend/src/reports/compose.ts": "d0ef858c4203ed86c630ac0109e304285a008b949c4a813d8b4d7014a31b1f15",
+    "packages/backend/src/site/stats.ts": "f9d186dee87e9a3b4153208194dc3d41f2091abe557341858a7e070377aaf96a",
+    "packages/backend/src/sources/collect.ts": "3d030409df20bd97c5d868b812d2ed1f772020d6cefff791b0bdcea292d860e0",
+    "packages/backend/src/sources/mp.ts": "4155bcee99006c7db6409580292e037ed6633a7e60729fce73875f1f89967730",
+    "scripts/baseline/capture.ts": "0be36256646135cea1c35d2cf0af9e65ada3209d7148c19459566dba6ea466f2",
+    "scripts/collect.ts": "67a68dcc2c2b0cfcfb06474c627351df7cccd7240adb74e3936bede53c3c9cde",
+    "scripts/delete-sources.ts": "1d4fbe09328c89836c405ce3e29f462697256dee2863a3a306fbe8e025e56c6c",
+    "scripts/enqueue-analysis.ts": "3d77deab5f71d9d9d09f33b08f6912e4c81c3e2086658d11959b035598876198",
+    "scripts/eval-relations.ts": "50e9ad349678cea66d7c28dcf9d926ca5e6888159587284d23162e201b2cf570",
+    "scripts/eval-selection.ts": "6c37e7853e3f6648090a9db787fb8f0ac387013f0a4cdb922b0aa38e35fc12b2",
+    "scripts/migrate.ts": "01090db0d15567d7ec5bfd5fbc6853deb985af621572cde5e50b933b1bb66704",
+    "scripts/regroup-events.ts": "f32e04a66a84483e61e64c620436a6609eb707e41123f24531e840d505fd89f7",
+    "scripts/seed.ts": "615c238a912fa6010e6cc883c745d019db02ac6b140d1ba17e888d9658c7c9b5",
+    "tests/alerts.test.ts": "084713c07b2e2dfcd33879909983f85486f6667df8a984ea929447ba7207b45e",
+    "tests/analyze-shutdown.test.ts": "04c08d8afd5abce65fa407e8785dae1153b3d7bc854bc1ca9d5c5c086543b88c",
+    "tests/analyze.test.ts": "36e1cb68ee77bba5c26fcc004fb784d51aa723ec80cf67f5dbbcde90148b236e",
+    "tests/collection.test.ts": "a7bcc7edf49242cf902c454bd2530c38571913166766c82d1614713fc2048be1",
+    "tests/default-model.test.ts": "195c625a9e5c3f56a13017fb0f24745d0a3340c3c5727b344a6df98da92c9226",
+    "tests/deliveries.test.ts": "01dce37ed2968b152fd30aaac48317f11d1999310c0874b27c9d012cc39a91f8",
+    "tests/embeddings.test.ts": "7c024a10b48909896e2cf33b750423b7497ff964c4b8f6d33d665ae6629ea442",
+    "tests/events.test.ts": "fc1ebb63d873067122efb5277870e2429e68fcd1442c8f938db68474b937e0a3",
+    "tests/feedback-upload.test.ts": "b2275000a66e4dba4c997870b06252fa9d156ede126606e6e043df2c95f4c336",
+    "tests/feedback.test.ts": "15fa25528595ea6dcd19cf1fc136bbff820a8555e5216b8c0c8782aea2582688",
+    "tests/listings.test.ts": "7826332729a9ddf654d90cfdbe01ea82aea115439614431ebcbb68b2ace5d239",
+    "tests/materials.test.ts": "96813fb907bae0f6a3a44ea9fcb2a79cde44e540c26d7ab3d5f9b1194614dada",
+    "tests/publication.test.ts": "f8ce2bde10c5b4e207013beae8e3f443a8f58c3655c6299dc29cf055b80a6090",
+    "tests/receipts.test.ts": "691c1928819185a9e703998877b45fa47cb4feb75be20f85985002e6e06c8b0e",
+    "tests/report-candidates.test.ts": "2980360040967b2e013911f9a7171013a7469e9fa5e663ab799bce51d8c25d95",
+    "tests/rss-conditional.test.ts": "0f933284053cddb0b61590de9b14c14cda08a6832798e32cf15a145235333470",
+    "tests/selection-eval-runtime.test.ts": "746a429b83fe2b1fe25a739e3a23c8cbae77c6af0a0dc16001755562ff598e65",
+    "tests/setup.ts": "bbc91abd605b71f79603b7fc77c6f1defda2575ad39f6517faae4adfc56141df",
+    "tests/signals.test.ts": "6578f3c85b05be3ae955d248482fee0c2b14adab0fb14d761949552bbbe774aa",
+    "tests/source-rules.test.ts": "8d01bea26c5964d89160dc44c103d301de07edc9f3e758525c4e3e4fdf36fda8",
+    "tests/translate-shutdown.test.ts": "66026dd9b8b99c731448d749e594c0ad81c87e0a5285dfe01c2d06ed56469617",
+    "tests/translate.test.ts": "e1a7f90e7512c60699296e763f81a37f4be677abdb4904b533c520dc3eba7f71"
+  }
+}

@@ -6,13 +6,15 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { z } from "zod";
 import { config } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
 import { BudgetExceededError, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
+
+const sql = dbOf("ai-gateway");
 
 const usage = { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 };
 let answer: (hit: number) => string = () => '{"ok":true}';

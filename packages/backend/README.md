@@ -23,4 +23,4 @@ dispose();
 await access.close();
 ```
 
-`sql`、withCustomPlans 与 closeDb 的现有调用暂时保持原样，PR3 才替换调用点。本增量不建立 PostgreSQL 登录或授予权限；真实登录矩阵仍归 PR8/PR9。测试在 tests/db-handles.test.ts，包含未注入拒绝、注册原子性、真实 SQL 片段/JSON/事务/savepoint 与回滚。
+全局 sql 已删除；API/worker、CLI 与测试公共夹具显式初始化。withCustomPlans 使用 publication 的注入连接，closeDb 关闭本组合根拥有的池。85 处归属及机械改写见 scripts/db-injection/mapping.json 与 rewrite.py，可在记录的基点重放。本阶段不建立 PostgreSQL 登录或授予权限；真实登录矩阵仍归 PR8/PR9。

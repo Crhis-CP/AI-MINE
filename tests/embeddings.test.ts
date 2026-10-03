@@ -1,9 +1,11 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { EMBEDDING_MODEL, ensureEmbeddings } from "@amp/backend/providers/embeddings";
+
+const sql = dbOf("events");
 
 const T = tag();
 after(closeDb);

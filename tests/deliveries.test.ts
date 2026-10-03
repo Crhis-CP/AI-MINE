@@ -4,9 +4,11 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { config } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { resendDelivery } from "@amp/backend/notify/deliver";
 import { buildApp } from "../apps/api/src/app.ts";
+
+const sql = dbOf("ops");
 
 const T = tag();
 const TARGET = `test-delivery-${T}`;

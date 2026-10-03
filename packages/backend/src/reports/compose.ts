@@ -7,10 +7,12 @@ import { CATEGORIES } from "@amp/industry/taxonomy";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 import { modelFor } from "../editorial/models.ts";
 import { addDays, beijingDate, beijingMidnight, isoWeekLabel, isoWeekRange } from "@amp/contracts/time";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
+
+const sql = dbOf("reports");
 
 export const REPORT_VERSION = promptVersion("report-daily-lead", "report-period");
 

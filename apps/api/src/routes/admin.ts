@@ -12,9 +12,11 @@ import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource
 import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
 import { listBudgets, listTargets, setTargetEnabled, updateBudget } from "@amp/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
-import { sql } from "@amp/backend/db";
+import { dbOf } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
+
+const sql = dbOf("sources");
 
 type Q = Record<string, string | undefined>;
 const q = (req: FastifyRequest) => req.query as Q;

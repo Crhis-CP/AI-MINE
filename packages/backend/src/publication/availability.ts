@@ -1,7 +1,9 @@
 // Starred items live in the browser; this tells the page which ones are still public. A starred item
 // stays available as long as its page does (rules.hasItemPage), whether or not it is in the lists.
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { hasItemPage } from "./rules.ts";
+
+const sql = dbOf("publication");
 
 export async function itemAvailability(ids: string[]): Promise<Record<string, "public" | "summary-only" | "unavailable">> {
   const clean = [...new Set(ids.filter((id) => /^[a-zA-Z0-9_-]{1,80}$/.test(id)))].slice(0, 500);

@@ -1,8 +1,10 @@
 // Daily IndexNow submission of newly indexable URLs. INDEXNOW_SUBMIT_ENABLED is the safety valve: off
 // (the default) the list is computed and recorded but nothing is sent. Needs INDEXNOW_KEY.
 import { config } from "../config.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { siteUrl } from "../publication/links.ts";
+
+const sql = dbOf("publication");
 
 const MAX_URLS = 10_000;
 

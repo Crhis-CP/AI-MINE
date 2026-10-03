@@ -1,8 +1,10 @@
 // Hot ranking: attention over the last 48 hours from independent participants.
 // Each participant counts once per window (repeat collection does not add heat), decays with a
 // 24-hour half-life, and the source time (not collection time) places evidence in the window.
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { tierRank, type HotEntry } from "./hot-read.ts";
+
+const sql = dbOf("events");
 
 export const HOT_RULE_VERSION = "heat-v1-48h-halflife24h";
 const WINDOW_HOURS = 48;
