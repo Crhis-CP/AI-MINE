@@ -1,7 +1,7 @@
 // TASK-0004 D1: import-time SQL fragments are lazy; only composition roots register connections.
 import type { Db, Sql } from "./db.ts";
 
-const connections = new Map<string, Sql>();
+const connections = new Map<string, { sql: Sql }>();
 const handles = new Map<string, Sql>();
 const deferred = new WeakMap<object, () => unknown>();
 
@@ -49,17 +49,28 @@ function lazy(build: () => unknown, connection: () => Db): object {
   return proxy;
 }
 
-function wrap(resolve: () => Db): Sql {
-  const call = (...args: unknown[]) => lazy(() => Reflect.apply(resolve(), undefined, args.map(unwrap)), resolve);
+function wrap(bind: () => () => Db): Sql {
+  const call = (...args: unknown[]) => {
+    const resolve = bind();
+    return lazy(() => Reflect.apply(resolve(), undefined, args.map(unwrap)), resolve);
+  };
   return new Proxy(call, {
     get(_target, key) {
       if (key === "json" || key === "array" || key === "unsafe") {
-        return (...args: unknown[]) =>
-          lazy(() => {
+        const method = bind();
+        return (...args: unknown[]) => {
+          const call = bind();
+          const resolve = () => {
+            method();
+            return call();
+          };
+          return lazy(() => {
             const sql = resolve();
             return Reflect.apply(Reflect.get(sql, key), sql, args.map(unwrap));
           }, resolve);
+        };
       }
+      const resolve = bind();
       const sql = resolve();
       const member = Reflect.get(sql, key);
       if (typeof member !== "function") return member;
@@ -68,7 +79,17 @@ function wrap(resolve: () => Db): Sql {
         const values = args.map(unwrap);
         if (key === "begin" || key === "savepoint") {
           const callback = values.at(-1);
-          if (typeof callback === "function") values[values.length - 1] = (tx: Db) => callback(wrap(() => tx));
+          if (typeof callback === "function")
+            values[values.length - 1] = async (tx: Db) => {
+              const result = await callback(
+                wrap(() => () => {
+                  resolve();
+                  return tx;
+                }),
+              );
+              resolve();
+              return result;
+            };
         }
         return Reflect.apply(member, sql, values);
       };
@@ -82,9 +103,16 @@ export function dbOf(module: string): Sql {
   let handle = handles.get(module);
   if (!handle) {
     handle = wrap(() => {
-      const sql = connections.get(module);
-      if (!sql) throw new Error(`Database connection not injected for module ${module}`);
-      return sql;
+      // No registration yet is valid for import-time fragments. Otherwise pin this generation now,
+      // not when the query is first awaited; even reinjecting the same Sql starts a new lifetime.
+      let owner = connections.get(module);
+      return () => {
+        const current = connections.get(module);
+        if (!current) throw new Error(`Database connection not injected for module ${module}`);
+        if (owner && owner !== current) throw new Error(`Database binding changed for module ${module}`);
+        owner ??= current;
+        return current.sql;
+      };
     });
     handles.set(module, handle);
   }
@@ -98,11 +126,12 @@ export function injectDb(bindings: Readonly<Record<string, Sql>>): () => void {
     if (!module || module.trim() !== module || typeof sql !== "function") throw new Error("Invalid database binding");
     if (connections.has(module)) throw new Error(`Database connection already injected for module ${module}`);
   }
-  for (const [module, sql] of entries) connections.set(module, sql);
+  const registrations = entries.map(([module, sql]) => ({ module, binding: { sql } }));
+  for (const { module, binding } of registrations) connections.set(module, binding);
   let disposed = false;
   return () => {
     if (disposed) return;
     disposed = true;
-    for (const [module, sql] of entries) if (connections.get(module) === sql) connections.delete(module);
+    for (const { module, binding } of registrations) if (connections.get(module) === binding) connections.delete(module);
   };
 }

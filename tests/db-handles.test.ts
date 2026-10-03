@@ -64,18 +64,65 @@ test("a prepared or chained query cannot outlive its injection or switch to anot
   const sql = dbOf("handle-disposed");
   const dispose = injectDb({ "handle-disposed": access.dbFor("worker") });
   const query = sql`SELECT 1`.simple(); // A driver query now exists, but has not executed.
+  const plain = sql`SELECT 1`;
+  const unsafe = sql.unsafe;
   const transaction = sql.begin;
   dispose();
   await assert.rejects(Promise.resolve(query), /not injected/);
+  await assert.rejects(Promise.resolve(plain), /not injected/);
+  await assert.rejects(Promise.resolve(unsafe("SELECT 1")), /not injected/);
   assert.throws(() => transaction(async () => 1), /not injected/);
   const removeReplacement = injectDb({ "handle-disposed": replacement.dbFor("worker") });
   try {
     await assert.rejects(Promise.resolve(query), /binding changed/);
+    await assert.rejects(Promise.resolve(plain), /binding changed/);
+    await assert.rejects(Promise.resolve(unsafe("SELECT 1")), /binding changed/);
     assert.throws(() => transaction(async () => 1), /binding changed/);
   } finally {
     removeReplacement();
     await access.close();
     await replacement.close();
+  }
+});
+
+test("a transaction or savepoint waiting at a gate rolls back when its root registration expires", async (t) => {
+  if (!process.env.DATABASE_URL) return t.skip("needs the isolated verify database");
+  for (const nested of [false, true]) {
+    for (const rebind of [false, true]) {
+      const access = createDatabaseAccess("test", { DATABASE_URL: process.env.DATABASE_URL, DATABASE_POOL_MAX: "1" }, () => {});
+      const raw = access.dbFor("worker");
+      const module = `handle-gate-${nested}-${rebind}`;
+      const sql = dbOf(module);
+      const dispose = injectDb({ [module]: raw });
+      const entered = Promise.withResolvers<void>();
+      const resume = Promise.withResolvers<void>();
+      let removeReplacement = () => {};
+      try {
+        const pending = sql.begin(async (tx) => {
+          await tx`CREATE TEMP TABLE handle_gate (value int)`;
+          const work = async (connection: typeof tx) => {
+            const held = connection`INSERT INTO handle_gate VALUES (1)`;
+            entered.resolve();
+            await resume.promise;
+            await held;
+          };
+          if (nested) await tx.savepoint(work);
+          else await work(tx);
+        });
+        await Promise.race([entered.promise, pending.then(() => assert.fail("transaction finished before its gate"))]);
+        dispose();
+        // Same connection object, new registration: pointer equality alone must not keep the lease valid.
+        if (rebind) removeReplacement = injectDb({ [module]: raw });
+        resume.resolve();
+        await assert.rejects(pending, /not injected|binding changed/);
+        assert.equal((await raw`SELECT to_regclass('pg_temp.handle_gate') AS relation`)[0].relation, null);
+      } finally {
+        resume.resolve();
+        dispose();
+        removeReplacement();
+        await access.close();
+      }
+    }
   }
 });
 
