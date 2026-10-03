@@ -4,7 +4,8 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { ensureQueue, getBoss, stopBoss } from "@amp/backend/jobs/queue";
 
 const sql = dbOf("queue");
 const run = promisify(execFile);
@@ -96,5 +97,37 @@ test("the real worker creates every application queue with collection disabled a
     assert.ok(stdout.includes("QUEUE_BOOTSTRAP_PASSED"));
   } finally {
     await sql`DROP DATABASE ${sql(database)} WITH (FORCE)`;
+  }
+});
+
+test("cached and starting queues cannot survive a closed or replaced database root", async () => {
+  const address = process.env.DATABASE_URL!;
+  const name = `test.root-lifecycle-${process.pid}`;
+  try {
+    const first = await getBoss();
+    await ensureQueue(name);
+    await closeDb();
+    await assert.rejects(getBoss(), /not initialized or closing/);
+    await assert.rejects(ensureQueue(name), /not initialized or closing/);
+    await initializeDb("public-api", { DATABASE_URL: address });
+    await assert.rejects(getBoss(), /cannot use the job queue/);
+    await assert.rejects(ensureQueue(name), /cannot use the job queue/);
+    await closeDb();
+    await initializeDb("worker", { DATABASE_URL: address });
+    await assert.rejects(getBoss(), /different database root/);
+    await stopBoss();
+    const second = await getBoss();
+    assert.notEqual(second, first);
+    await second.deleteQueue(name);
+    await ensureQueue(name);
+    assert.ok(await second.getQueue(name), "stop must also clear the queue existence cache");
+    await stopBoss();
+    const starting = getBoss();
+    const rejected = assert.rejects(starting, /not initialized or closing|changed during startup/);
+    await closeDb();
+    await rejected;
+  } finally {
+    await stopBoss();
+    await closeDb();
   }
 });
