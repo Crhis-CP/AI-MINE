@@ -1846,6 +1846,7 @@
     "INV-22"
    ],
    "br_ids": [
+    "BR-ENR-01",
     "BR-ENR-15",
     "BR-EVT-11",
     "BR-SEL-01",
@@ -10276,7 +10277,7 @@
   },
   {
    "id": "T-041",
-   "title": "一套后续正式认可的版本化评分规则及固定输入",
+   "title": "版本化评分规则：范围 UNKNOWN 与评分未知分开",
    "layer": "L1；L2",
    "level": "I/N",
    "f_ids": [
@@ -10294,13 +10295,15 @@
     "AC-OUT-23"
    ],
    "br_ids": [
+    "BR-ENR-01",
     "BR-ENR-15",
+    "BR-SEL-01",
     "BR-SEL-02",
     "BR-SEL-03",
     "BR-SEL-07",
     "BR-SEL-09"
    ],
-   "rules": "BR-SEL-02、BR-SEL-03、BR-SEL-09；DEC-10；AC-OUT-23",
+   "rules": "BR-ENR-01；BR-SEL-01；BR-SEL-02、BR-SEL-03、BR-SEL-09；DEC-10；AC-OUT-23",
    "scope": "feature"
   },
   {
@@ -18636,7 +18639,8 @@
    "file": "02-rules/01-business-rules.md",
    "status": "covered",
    "t_ids": [
-    "T-024"
+    "T-024",
+    "T-041"
    ],
    "inv_ids": [
     "INV-22"
@@ -20464,7 +20468,8 @@
    "status": "covered",
    "t_ids": [
     "T-024",
-    "T-040"
+    "T-040",
+    "T-041"
    ],
    "inv_ids": [
     "INV-19"

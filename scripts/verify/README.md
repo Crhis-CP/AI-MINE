@@ -46,7 +46,7 @@ make verify TASK=TASK-0002
 | `format-lint` | `biome ci` 通过；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增 | — | — |
 | `typecheck` | `pnpm typecheck`（含 `scripts/`） | — | Typecheck |
 | `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少 | — | — |
-| `role-config` | 进程凭据与生产代理拒绝矩阵、web规则一致性、Compose合并锚点后的web环境隔离；数据库真实授权随PR8加入 | — | — |
+| `role-config` | 进程凭据与生产代理拒绝矩阵、web规则一致性、Compose合并锚点后的web环境隔离；`ALLOW_PRIVATE_NETWORK_FETCH` 的未展开插值与null/裸继承值保守拒绝，不读取环境或秘密展开，明确false/0/显式空值及未配置仍可通过；数据库真实授权随PR8加入 | — | — |
 | `names` | 上游项目的名称（含带空格的写法，不分大小写）、两个品牌色值与环形加载标识只在 [`names.json`](names.json) 列的例外路径里出现（TASK-0003 完成条件第 1 条；`04-aihot-adoption.md` 4.3、4.6 第 1 条）：来源登记；交接包原件及其写回（上游的宣传图 `docs/assets/` 和上游自带的 7 份说明文档不算）；历史证据；治理记录（`AGENTS.md`、`CLAUDE.md`、`tasks/_template.md` 只在与交接包模板逐字节相同时算例外，由任务卡生成的 `tasks/INDEX.md` 也在内）；上游原样存档（只在与来源清单里的上游原件哈希相同时算例外）；`names.json` 本身。引用登记文件或交接包文件的路径与文件名不算命中。文件清单取自 `git ls-files -z`，中文等非 ASCII 路径照原样查；文件路径本身也查；二进制文件按字节查；符号链接查它存的目标路径；读不了的文件记为问题。任何文件都不得与来源清单里的上游品牌素材 SHA-256 相同（不设例外）。`node scripts/verify/names.ts --counts` 列出例外内各文件的命中行数。带空格的写法不看词边界：以 ai 结尾的英文词后面跟以 hot 开头的词（比如上海、迪拜的英文名后接 hotel）也会命中，以后用真实新闻数据查输出时要预期这种误报。规则文件 §8.2 与测试标准 1.1 放在 `pit-checks`（TASK-0011）里的“去品牌残留”扫描就是这个阶段，TASK-0011 复用它，不再另写 | — | — |
 | `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围；任务卡与 `lanes.yaml` 从**基线提交**读取，PR 改不宽自己的路径。例外是计划 PR（规则文件 3.3）：点名的卡还不在基线上、本 PR 新增了这张卡、改动全在 `tasks/` 下，就放行；夹带 `tasks/` 以外的文件，或卡既不在基线上也不是本 PR 新增的，仍然失败 | 能取到基线分支 | — |
 | `secrets` | 基线到当前提交之间的每个提交：trufflehog（版本与 sha256 写在 [`tools.json`](tools.json)，首次运行下载到 `.tools/`，不联网验证，所有候选都算）+ 本项目规则（私钥块、腾讯云 SecretId、模型服务密钥、飞书应用密钥、带用户名和密码的 URL）；只报规则、文件与行号，不打印命中的内容 | 首次运行能访问 github.com 下载 | — |

@@ -56,7 +56,7 @@ export function checkRoleConfig(root = ROOT): string[] {
   if (Object.hasOwn(web, "env_file")) problems.push("docker-compose.yml: web must not use env_file");
   const raw = web.environment === undefined ? {} : web.environment;
   const entries = Array.isArray(raw)
-    ? raw.map((entry) => (typeof entry === "string" ? [entry.split("=", 1)[0], entry.includes("=") ? entry.slice(entry.indexOf("=") + 1) : ""] : ["", entry]))
+    ? raw.map((entry) => (typeof entry === "string" ? [entry.split("=", 1)[0], entry.includes("=") ? entry.slice(entry.indexOf("=") + 1) : null] : ["", entry]))
     : mapping(raw)
       ? Object.entries(raw)
       : [["", raw]];
@@ -68,6 +68,12 @@ export function checkRoleConfig(root = ROOT): string[] {
   )
     return [...problems, "docker-compose.yml: web environment must be a scalar mapping or a string list"];
   const env = Object.fromEntries(entries.map(([key, value]) => [key, value === null ? "" : String(value)]));
+  const privateFetch = entries.findLast(([key]) => key === "ALLOW_PRIVATE_NETWORK_FETCH")?.[1];
+  // Compose resolves inherited values and substitutions later. Treat uncertainty as enabled without
+  // reading the host environment; an escaped $$ is literal, not a substitution. Last list entry wins.
+  if (privateFetch === null || (typeof privateFetch === "string" && /\$(?:\{|[A-Za-z_])/.test(privateFetch.replace(/\$\$/g, "")))) {
+    env.ALLOW_PRIVATE_NETWORK_FETCH = "true";
+  }
   // This is the production Compose template; unresolved interpolation must not disable its static guard.
   for (const key of webEnvironmentProblems({ ...env, NODE_ENV: "production" })) problems.push(`docker-compose.yml: web must not hold ${key}`);
   return problems;

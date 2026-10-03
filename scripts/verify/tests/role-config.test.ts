@@ -63,3 +63,33 @@ test("unknown YAML tags fail without emitting the original configuration line", 
     process.emitWarning = emitWarning;
   }
 });
+
+test("private-network access must be statically disabled without expanding Compose variables", () => {
+  // biome-ignore lint/suspicious/noTemplateCurlyInString: Compose expressions are unexpanded input fixtures
+  const uncertain = ["${PRIVATE_FETCH:-true}", "${PRIVATE_FETCH:-false}", "${PRIVATE_FETCH}", "$PRIVATE_FETCH", "${OUTER:-${INNER:-false}}"];
+  for (const value of uncertain) {
+    for (const environment of [`{ALLOW_PRIVATE_NETWORK_FETCH: '${value}'}`, `["ALLOW_PRIVATE_NETWORK_FETCH=${value}"]`]) {
+      const problems = inspect(`services:\n  web:\n    environment: ${environment}\n`);
+      assert.deepEqual(problems, ["docker-compose.yml: web must not hold ALLOW_PRIVATE_NETWORK_FETCH"]);
+      assert.ok(!problems.join().includes(value));
+    }
+  }
+  for (const environment of ["{ALLOW_PRIVATE_NETWORK_FETCH: null}", "[ALLOW_PRIVATE_NETWORK_FETCH]"]) {
+    assert.deepEqual(inspect(`services:\n  web:\n    environment: ${environment}\n`), ["docker-compose.yml: web must not hold ALLOW_PRIVATE_NETWORK_FETCH"]);
+  }
+  assert.deepEqual(inspect("services: {web: {environment: [ALLOW_PRIVATE_NETWORK_FETCH=false, ALLOW_PRIVATE_NETWORK_FETCH]}}"), [
+    "docker-compose.yml: web must not hold ALLOW_PRIVATE_NETWORK_FETCH",
+  ]);
+  assert.deepEqual(inspect("services: {web: {environment: [ALLOW_PRIVATE_NETWORK_FETCH, ALLOW_PRIVATE_NETWORK_FETCH=false]}}"), []);
+});
+
+test("known disabled literals and absent flags keep passing, including escaped dollars", () => {
+  for (const value of ["false", "FALSE", "0", "", "$${PRIVATE_FETCH}"]) {
+    for (const environment of [`{ALLOW_PRIVATE_NETWORK_FETCH: '${value}'}`, `["ALLOW_PRIVATE_NETWORK_FETCH=${value}"]`]) {
+      assert.deepEqual(inspect(`services:\n  web:\n    environment: ${environment}\n`), []);
+    }
+  }
+  assert.deepEqual(inspect("services: {web: {environment: {ALLOW_PRIVATE_NETWORK_FETCH: false}}}"), []);
+  assert.deepEqual(inspect("services: {web: {environment: {ALLOW_PRIVATE_NETWORK_FETCH: 0}}}"), []);
+  assert.deepEqual(inspect("services: {web: {environment: {PATH: null}}}"), []);
+});
