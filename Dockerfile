@@ -24,16 +24,10 @@ ARG NPM_REGISTRY=
 ENV NODE_ENV=production
 COPY . .
 COPY --from=build /app/apps/web/build apps/web/build
-# Production dependencies only; the package store is dropped in the same layer.
-# The root scripts this image runs (setup's migrate and seed, verify's smoke) import @amp/backend and
-# @amp/industry, which the root package.json lists only under devDependencies, so --prod leaves them out
-# (first compose-smoke run, 2026-10-03). Until TASK-0002 lists them under dependencies, the two links are
-# made here as pnpm makes them; `ln -T` fails once pnpm makes them itself, so they go with that fix.
+# Production dependencies only; the package store is dropped in the same layer. The root scripts this image
+# runs (setup's migrate and seed, verify's smoke) find their imports through the root package.json's dependencies.
 RUN pnpm install --prod --frozen-lockfile --store-dir /tmp/pnpm-store ${NPM_REGISTRY:+--registry=$NPM_REGISTRY} \
  && rm -rf /tmp/pnpm-store \
- && mkdir -p node_modules/@amp \
- && ln -sT ../../packages/backend node_modules/@amp/backend \
- && ln -sT ../../industry node_modules/@amp/industry \
  && chown -R node:node /app \
  && mkdir -p /data && chown node:node /data
 USER node
