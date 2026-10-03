@@ -2,10 +2,10 @@
 
 - 状态：【Owner 决定】已接受——承接旧ADR-0038（Owner 2026-09-26 批准：“GitHub Actions 如果不是必须，以后不用”；PR-only、线性历史、版本绑定、可信制品、授权和回退不取消；`docs/architecture/decisions/0038-provider-independent-delivery.md:3-47@policy`）。验证入口、回执、信任根与部署授权的具体做法为【设计】工程基线（裁决 DEC-17；D12-architecture-011、D15-secops-004）。
 - 2026-10-03 更新（GitHub Actions；08-owner-voice DEC-25 ③，TASK-0015）：
-  - Owner 决定使用 GitHub Actions：新仓库是公开仓库（2026-10-03 读回），GitHub 托管的 runner 对公开仓库不计费。按“推翻条件”，它只作为第 3 条里的一个执行者：工作流 `.github/workflows/verify.yml` 跑的就是 `make verify`，同一套阶段、同一份回执，形状由 `make verify` 的 `toolchain` 阶段核对；其余条款不变，生产照旧不依赖 Actions（第 10 条）。
+  - Owner 决定使用 GitHub Actions：新仓库是公开仓库（2026-10-03 读回），GitHub 托管的 runner 对公开仓库不计费。按“推翻条件”，它只作为第 3 条里的一个执行者：工作流 `.github/workflows/verify.yml` 跑的就是 `make verify`，同一套阶段、同一份回执，形状由 `make verify` 的 `toolchain` 阶段核对；其余条款不变（M0 期间有一个例外，见下面“Actions 不可用时”），生产照旧不依赖 Actions（第 10 条）。
   - 第 9 条“启用 GitHub Actions”的授权，范围与前提：公开仓库、不计费、只此一个工作流、不设必过检查（分支保护仍是 `06-agents/01-parallel-development-rules.md` 8.5 的 A 阶段，合并核对回执）。注册 runner、检查发布用的 GitHub App、别的工作流仍须 Owner 逐项授权。确认记录：Owner 的原话登记在 08-owner-voice DEC-25 ③ 与 `08-open-questions.md` 表四“Q-13 追加”，TASK-0015 的交付记录引用它。
   - 前提失效时：改仓库可见性之前先问 Owner；改成私有后作业自动跳过（作业带“只在公开仓库上跑”的条件），这个工作流不再算已授权的执行者，直到 Owner 重新确认。
-  - Actions 不可用时：M0 期间，云端容器的 `scope: focused` 回执通过、独立审查没有阻断项即可合并，PR 评论写明缺 `compose-smoke` 及原因，Actions 恢复后在 main 的头上补出 `scope: full` 回执；M0 之后没有这个例外，等 Actions 恢复。要不要另备一个不依赖 GitHub、能跑 `compose-smoke` 的执行器，M0 退出前以 Q 卡片请 Owner 定（TASK-0015“退路”一节）。
+  - Actions 不可用时：M0 期间沿用 08-owner-voice DEC-24 ②（Owner 2026-10-02 选“你直接合并”，提问时已说明回执缺容器整站检查）：云端容器的 `scope: focused` 回执通过、独立审查没有阻断项即可合并，PR 评论写明缺 `compose-smoke` 及原因，Actions 恢复后在 main 的头上补出 `scope: full` 回执。这是第 3 条“不跳过检查”与规则文件 8.3、AC-M0-08“`scope: focused` 回执不得用于合并”在 M0 期间的例外；M0 之后没有这个例外，等 Actions 恢复。要不要另备一个不依赖 GitHub、能跑 `compose-smoke` 的执行器，M0 退出前以 Q 卡片请 Owner 定（TASK-0015“退路”一节）。
   - 第 2 条的“私有日志”：在公开仓库的 Actions 上跑时，运行日志随仓库公开，失败阶段的整段日志也一样（`scripts/verify/README.md` 第 7 节）。工作流不用任何密钥，`make verify` 的各阶段拿不到真实凭据；回执里照旧只放日志摘要。
 - 类别：Owner 决定（产品层）+ 工程落地
 - 取代：ADR-0012 原第 2 条（构建执行器）；A 包 `06-agents/01-parallel-development-rules.md` §6/§8 中“合并队列、常驻 CI、合并后自动部署”的执行假设

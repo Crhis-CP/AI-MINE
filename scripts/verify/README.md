@@ -136,7 +136,7 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
   4. 权限只在工作流级写一次 `contents: read`；
   5. 只用按完整 SHA 锁定的 `actions/checkout` 与 `actions/setup-node`，不调用可复用工作流；
   6. 检出设 `persist-credentials: false`；
-  7. 不读密钥与令牌：每个 `${{ … }}` 照 GitHub 的读法整段核对，`secrets` 怎么写都拦，`github` 只许取 `token` 以外的属性（`toJSON(github)`、`github['token']` 都算令牌）。`if:` 里不写 `${{ }}` 的条件不在其列：条件里本来用不了 `secrets`，令牌在条件里只能决定某一步跑不跑，传不出去；
+  7. 不读密钥与令牌：每个 `${{ … }}` 照 GitHub 的读法整段核对，`secrets` 怎么写都拦，`github` 只许取 `token` 以外的属性（`toJSON(github)`、`github['token']` 都算令牌）。`if:` 里不写 `${{ }}` 的条件不在其列：条件里本来用不了 `secrets`；令牌在条件里只能决定某一步跑不跑，哪一步跑了在公开日志里看得见，理论上可以一位一位地漏出去，但它只读（`contents: read`）、作业结束就失效，漏出去也用不上；
   8. `run` 里不插 `${{ }}`，值经环境变量传入；
   9. 不许 `continue-on-error`，不设部署环境；
   10. 每个作业有超时，运行器写明版本；
