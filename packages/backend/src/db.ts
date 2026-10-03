@@ -1,6 +1,8 @@
 import postgres from "postgres";
 import { config } from "./config.ts";
 
+export { dbOf, injectDb } from "./module-db.ts";
+
 // int8 and numeric come back as numbers: ids and scores in this schema stay far below 2^53.
 const numberType = (oid: number) => ({
   to: oid,
