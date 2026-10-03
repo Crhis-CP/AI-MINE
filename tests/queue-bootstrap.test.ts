@@ -22,7 +22,7 @@ test("epoch migration inserts once, preserves an existing value and permits the 
       assert.match(initial!.value.epoch, /^[A-Za-z0-9_-]{8}$/);
       await tx.unsafe(migration);
       assert.deepEqual((await tx`SELECT value, updated_at FROM settings WHERE key = 'selected_ledger_epoch'`)[0], initial);
-      await tx`UPDATE settings SET value = '{"epoch":"existing-epoch"}', updated_at = '2020-01-01' WHERE key = 'selected_ledger_epoch'`;
+      await tx`UPDATE settings SET value = '{"epoch":"existing-epoch"}', updated_at = '2020-01-01T00:00:00+00' WHERE key = 'selected_ledger_epoch'`;
       await tx.unsafe(migration);
       const [kept] = await tx`SELECT value, updated_at FROM settings WHERE key = 'selected_ledger_epoch'`;
       assert.equal(kept!.value.epoch, "existing-epoch");
