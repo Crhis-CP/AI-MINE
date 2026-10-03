@@ -113,7 +113,7 @@
    "sha256": "3e2891ae37fbae8fd4cea3b6f93b72b16b030916311dd687a2df5cf1a8d0b705",
    "disposition": "删除",
    "disposition_note": "",
-   "new_location": "根目录由交接包 README.md 迁入",
+   "new_location": "根目录另写为产品介绍与使用手册（Owner 2026-10-03，见决定台账 2026-10-03 更新）；交接包说明留在 docs/README.md",
    "spec_refs": "正文 6.2",
    "tasks": "T-0002"
   },

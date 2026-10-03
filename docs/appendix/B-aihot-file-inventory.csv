@@ -9,7 +9,7 @@ CLAUDE.md,11,336cc4fbf19beaada7ccf9986414fa91851a8d7a07dfb3ccbe800a69eed0ab49,�
 Dockerfile,1158,2b1672f7e465fa62d9032f31fef10168c43d99950b1b86db37a255d5b6327a6d,改造,,根目录或 deploy/,ADR-0012、ADR-0017,T-0008,B.1,44
 LICENSE,1078,b7f53d07ea4ae2eef26a4f8b28cb7d4df95586e2aa713df408f1ffde9f5a0fea,保留,,根目录,正文 6.1,T-0001、T-0002,B.1,35
 NOTICE,930,eacc8a589ba389506648a5614c7bd5115942294fe7730b6418da6f7831a903f3,改造,,根目录,正文 6.3；ADR-0001,T-0002,B.1,36
-README.md,10882,3e2891ae37fbae8fd4cea3b6f93b72b16b030916311dd687a2df5cf1a8d0b705,删除,,根目录由交接包 README.md 迁入,正文 6.2,T-0002,B.1,37
+README.md,10882,3e2891ae37fbae8fd4cea3b6f93b72b16b030916311dd687a2df5cf1a8d0b705,删除,,根目录另写为产品介绍与使用手册（Owner 2026-10-03，见决定台账 2026-10-03 更新）；交接包说明留在 docs/README.md,正文 6.2,T-0002,B.1,37
 apps/api/package.json,486,3f30135461c5973e80955870d60393108a991ca988c236cb6c712a9f69ba0306,改造,,apps/api/package.json,F-PUB-05,,B.2,54
 apps/api/src/app.ts,4261,86a62e0d3f7d8ad7eda6958a7bca6763a077bad61dbc03a6f1156710fa4037b3,改造,,apps/api/src/app.ts,DEC-52；B:architecture/01 §6 第 11 条,T-0002,B.2,56
 apps/api/src/http/respond.ts,4969,c457710f0eb03138f53ebae95e2b1995b603a87e66e993f67c2c9966a4833b04,改造,,apps/api/src/http（两实例共用）,DEC-47、DEC-52,,B.2,57
