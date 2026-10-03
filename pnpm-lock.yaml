@@ -168,16 +168,17 @@ overrides:
 importers:
 
   .:
-    devDependencies:
+    dependencies:
       '@amp/backend':
         specifier: workspace:*
         version: link:packages/backend
-      '@amp/contracts':
-        specifier: workspace:*
-        version: link:packages/contracts
       '@amp/industry':
         specifier: workspace:*
         version: link:industry
+    devDependencies:
+      '@amp/contracts':
+        specifier: workspace:*
+        version: link:packages/contracts
       '@biomejs/biome':
         specifier: 2.5.15
         version: 2.5.15
