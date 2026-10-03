@@ -85,7 +85,7 @@
 
 ### 3.3 允许修改的路径（任务卡 `allowed_paths` 与路径守卫）
 
-每张任务卡必须列出 `allowed_paths`。`make verify` 的 **path guard** 阶段读取 PR 对应任务卡（按分支名 `agent/<lane>/TASK-<编号>-<slug>` 或 PR 描述里的卡号定位）与 `lanes.yaml`，要求：**PR 改动的每个文件 ⊆ 任务卡 `allowed_paths`，且 ⊆（该泳道拥有的路径 ∪ 该泳道在共享区有追加权的路径 ∪ 卡上声明并已获集成人批准的共享区）**；生成文件（`lanes.yaml` 的 `generated:` 列表）除外。超出时：要么拆任务，要么先合并一个只改任务卡的“计划 PR”（由集成人批准），再继续原 PR。**路径守卫读取的任务卡以 PR 的 base（main）版本为准**，避免作者在同一 PR 里放宽自己的路径。
+每张任务卡必须列出 `allowed_paths`。`make verify` 的 **path guard** 阶段读取 PR 对应任务卡（按分支名 `agent/<lane>/TASK-<编号>-<slug>` 或 PR 描述里的卡号定位）与 `lanes.yaml`，要求：**PR 改动的每个文件 ⊆ 任务卡 `allowed_paths`，且 ⊆（该泳道拥有的路径 ∪ 该泳道在共享区有追加权的路径 ∪ 卡上声明并已获集成人批准的共享区）**；生成文件（`lanes.yaml` 的 `generated:` 列表）除外。超出时：要么拆任务，要么先合并一个只改任务卡的“计划 PR”（由集成人批准），再继续原 PR。**路径守卫读取的任务卡以 PR 的 base（main）版本为准**，避免作者在同一 PR 里放宽自己的路径。计划 PR 本身的卡还不在 base 上：点名的卡由本 PR 新增、改动全在 `tasks/` 下时，路径守卫按计划 PR 放行；夹带 `tasks/` 以外的文件仍然失败（TASK-0015）。
 
 ### 3.4 `.github/CODEOWNERS`
 

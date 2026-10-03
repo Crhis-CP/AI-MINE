@@ -1,6 +1,6 @@
 # 统一验证入口：`make verify`
 
-合并前唯一的检查入口（规则文件 [`docs/06-agents/01-parallel-development-rules.md`](../../docs/06-agents/01-parallel-development-rules.md) 第 8 节；[ADR-0017](../../docs/04-architecture/adr/0017-provider-independent-delivery.md)）。所有不需要真实模型的检查都写在仓库里，在一份干净检出上对**一个提交**运行，最后写一份绑定该提交完整 SHA 的回执。不依赖 GitHub Actions：任何满足第 6 节要求的执行器跑出的结果都一样。
+合并前唯一的检查入口（规则文件 [`docs/06-agents/01-parallel-development-rules.md`](../../docs/06-agents/01-parallel-development-rules.md) 第 8 节；[ADR-0017](../../docs/04-architecture/adr/0017-provider-independent-delivery.md)）。所有不需要真实模型的检查都写在仓库里，在一份干净检出上对**一个提交**运行，最后写一份绑定该提交完整 SHA 的回执。不依赖 GitHub Actions：任何满足第 6 节要求的执行器跑出的结果都一样；GitHub Actions 上的工作流只是其中一个执行者（第 7 节）。
 
 | 命令 | 什么时候用 | 跑什么 | 回执 |
 |---|---|---|---|
@@ -42,12 +42,12 @@ make verify TASK=TASK-0002
 | 阶段 | 检查什么 | 需要 | 对应上游步骤 |
 |---|---|---|---|
 | `install` | `pnpm install --frozen-lockfile`，且锁文件不被改动 | 能访问 npm 源 | Install |
-| `toolchain` | `packageManager` 写死 pnpm 版本；只有一份根锁文件，没有 npm/yarn/bun 锁文件；没有 `.github/workflows/`；`minimumReleaseAge` ≥ 1 天、声明了 `allowBuilds`；Dockerfile 不用 `pnpm deploy`、安装带 `--frozen-lockfile`、保留 `NPM_REGISTRY`；基础镜像与 compose 镜像写到补丁版本加 sha256；本机 Node、pnpm 与声明一致 | — | — |
+| `toolchain` | `packageManager` 写死 pnpm 版本；只有一份根锁文件，没有 npm/yarn/bun 锁文件；`.github/workflows/` 下只有 `verify.yml`，且是第 7 节写的形状（没有这个文件也通过）；`minimumReleaseAge` ≥ 1 天、声明了 `allowBuilds`；Dockerfile 不用 `pnpm deploy`、安装带 `--frozen-lockfile`、保留 `NPM_REGISTRY`；基础镜像与 compose 镜像写到补丁版本加 sha256；本机 Node、pnpm 与声明一致 | — | — |
 | `format-lint` | `biome ci` 通过；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增 | — | — |
 | `typecheck` | `pnpm typecheck`（含 `scripts/`） | — | Typecheck |
 | `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少 | — | — |
 | `names` | 上游项目的名称（含带空格的写法，不分大小写）、两个品牌色值与环形加载标识只在 [`names.json`](names.json) 列的例外路径里出现（TASK-0003 完成条件第 1 条；`04-aihot-adoption.md` 4.3、4.6 第 1 条）：来源登记；交接包原件及其写回（上游的宣传图 `docs/assets/` 和上游自带的 7 份说明文档不算）；历史证据；治理记录（`AGENTS.md`、`CLAUDE.md`、`tasks/_template.md` 只在与交接包模板逐字节相同时算例外，由任务卡生成的 `tasks/INDEX.md` 也在内）；上游原样存档（只在与来源清单里的上游原件哈希相同时算例外）；`names.json` 本身。引用登记文件或交接包文件的路径与文件名不算命中。文件清单取自 `git ls-files -z`，中文等非 ASCII 路径照原样查；文件路径本身也查；二进制文件按字节查；符号链接查它存的目标路径；读不了的文件记为问题。任何文件都不得与来源清单里的上游品牌素材 SHA-256 相同（不设例外）。`node scripts/verify/names.ts --counts` 列出例外内各文件的命中行数。带空格的写法不看词边界：以 ai 结尾的英文词后面跟以 hot 开头的词（比如上海、迪拜的英文名后接 hotel）也会命中，以后用真实新闻数据查输出时要预期这种误报。规则文件 §8.2 与测试标准 1.1 放在 `pit-checks`（TASK-0011）里的“去品牌残留”扫描就是这个阶段，TASK-0011 复用它，不再另写 | — | — |
-| `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围；任务卡与 `lanes.yaml` 从**基线提交**读取，PR 改不宽自己的路径 | 能取到基线分支 | — |
+| `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围；任务卡与 `lanes.yaml` 从**基线提交**读取，PR 改不宽自己的路径。例外是计划 PR（规则文件 3.3）：点名的卡还不在基线上、本 PR 新增了这张卡、改动全在 `tasks/` 下，就放行；夹带 `tasks/` 以外的文件，或卡既不在基线上也不是本 PR 新增的，仍然失败 | 能取到基线分支 | — |
 | `secrets` | 基线到当前提交之间的每个提交：trufflehog（版本与 sha256 写在 [`tools.json`](tools.json)，首次运行下载到 `.tools/`，不联网验证，所有候选都算）+ 本项目规则（私钥块、腾讯云 SecretId、模型服务密钥、飞书应用密钥、带用户名和密码的 URL）；只报规则、文件与行号，不打印命中的内容 | 首次运行能访问 github.com 下载 | — |
 | `audit` | `pnpm audit --audit-level=high`；高危或严重即失败 | 能访问 npm 源的漏洞接口 | — |
 | `build-web` | 前端生产构建；构建产物里没有上游名称、色值、环形标识，也没有上游品牌素材（不设例外） | — | Build web |
@@ -83,7 +83,7 @@ make verify TASK=TASK-0002
 
 ## 4. 故意违规用例
 
-`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规（`toolchain.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）。契约漂移的用例随 TASK-0005 加入。
+`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规与工作流形状的 13 条规则（`toolchain.test.ts`，27 个违规用例）、计划 PR 的放行与拦截（`path-guard.test.ts`）、任务卡号只从“任务卡”一行或手动输入取（`pr-task.test.ts`）、数据库镜像只从 compose 读（`ci-db.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）。契约漂移的用例随 TASK-0005 加入。
 
 ## 5. 常见情况
 
@@ -99,3 +99,48 @@ make verify TASK=TASK-0002
 - 网络：npm 源、Docker Hub、`deb.debian.org`（镜像构建装 `postgresql-client`）、github.com（首次下载 trufflehog）。测试本身不访问外网、不调真实模型。
 - **不放任何生产凭据，不是生产主机**；每次在干净检出上运行。
 - 执行器可以替换：同一提交在任何合格执行器上应得到相同的阶段结果。
+- GitHub 托管 runner（`ubuntu-24.04`）满足以上要求：有 Docker 与外网，能跑 `compose-smoke`，回执可以是 `scope: full`（第 7 节）。
+
+## 7. 在 GitHub Actions 上跑
+
+Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不计费（08-owner-voice DEC-25 ③；TASK-0015）。按 ADR-0017 的“推翻条件”，它只是又一个执行者：[`.github/workflows/verify.yml`](../../.github/workflows/verify.yml) 跑的就是 `make verify`，阶段与回执和别处完全一样。
+
+- **什么时候跑**：
+  - PR 打开、有新推送、重新打开、改了描述（任务卡号取自描述，改了要重跑）；
+  - 推送到 main，也就是每次合并；
+  - 在 Actions 页面手动运行，可以填任务卡号 `task`。
+- **并发**：同一 PR 有新运行时取消旧的。推送 main 的运行按提交分组，不取消，也不会被下一次合并替换：每次合并都有自己的 `main-<sha12>` 回执。
+- **只在公开仓库上跑**：作业条件是 `github.event.repository.visibility == 'public'`。仓库改成私有，作业直接跳过，不计费；这时它不再算已授权的执行者，直到 Owner 重新确认。改可见性之前先问 Owner。
+- **跑哪个提交**：PR 的最终提交，不是 GitHub 合成的合并提交，带完整历史，用来与 main 比较。这个 SHA 经环境变量传给 `make verify SHA=…`，检出错了直接拒绝运行；回执绑定的就是它。
+- **环境**：
+  - `ubuntu-24.04` 托管 runner，Node 24；pnpm 照 `Dockerfile` 的装法，`npm install -g pnpm@<packageManager 的版本>`；不用任何缓存。
+  - 先装一次依赖，再由 [`ci-db.ts`](ci-db.ts) 起数据库：它从 `docker-compose.yml` 读出 `db` 服务那个按摘要锁定的镜像，用 `docker run` 起在 `127.0.0.1:5432`，信任认证、不设口令，等到能连上。库名 `amp_ci`。镜像只写在 compose 一处，换数据库镜像的卡只改 compose，不用改工作流。
+  - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端；第一次运行后在这里记下。
+  - 执行器编号 `github-actions`。
+- **任务卡号**：[`pr-task.ts`](pr-task.ts) 从事件文件读，不经 `${{ }}` 插进脚本。
+  - PR 取描述里“任务卡”那一行的第一个 `TASK-nnnn`。那一行指 PR 模板里的“- 任务卡：”一行；HTML 注释不读，模板开头的说明注释也提到“任务卡”；
+  - 手动运行取输入 `task`；
+  - 推送 main 不需要。
+  - 取不到时不设，`path-guard` 照常报“没有任务卡”。计划 PR 的“任务卡”一行照常写本 PR 新增的卡，`path-guard` 按计划 PR 放行（第 2 节）。
+- **回执在哪**：写在运行日志和运行摘要页里，集成人照旧贴到 PR 评论。
+- **它不是什么**：
+  - 不是必过检查：分支保护按规则文件 8.5 的 A 阶段，不设“必须通过检查”，免得 Actions 不可用时谁也合并不了（PIT-055）；
+  - 不构建、签名或推送发布镜像，不部署，不定时运行；
+  - 只有 `contents: read` 权限，不用任何密钥，检出不留凭据。
+- **形状由 `toolchain` 阶段核对**，13 条，每条至少一个违规用例：
+  1. `.github/workflows/` 下只有 `verify.yml`；
+  2. 只有上面三种触发；
+  3. 推送 main 的运行不被取消或替换；
+  4. 权限只在工作流级写一次 `contents: read`；
+  5. 只用按完整 SHA 锁定的 `actions/checkout` 与 `actions/setup-node`，不调用可复用工作流；
+  6. 检出设 `persist-credentials: false`；
+  7. 不读密钥与令牌；
+  8. `run` 里不插 `${{ }}`，值经环境变量传入；
+  9. 不许 `continue-on-error`，不设部署环境；
+  10. 每个作业有超时，运行器写明版本；
+  11. 每个作业带“只在公开仓库上跑”的条件；
+  12. 不设服务容器与作业容器，数据库由 `ci-db.ts` 起；
+  13. 有一步跑 `make verify`。
+- **Actions 用不了时**：
+  - M0 期间：沿用 08-owner-voice DEC-24 ② 的做法。云端容器的 focused 回执通过、独立审查没有阻断项，就可以合并，合并后在项目对话里说一声；PR 评论写明缺 `compose-smoke`、原因是 Actions 不可用。Actions 恢复后，在 main 的头上手动运行一次，补出 `scope: full` 的回执，记进 T-0001 验收记录。期限是 M0 退出前。
+  - M0 之后：没有这个例外，等 Actions 恢复；focused 回执照旧不能用来合并（规则文件 8.3）。要不要另备一个不依赖 GitHub、能跑 `compose-smoke` 的执行器，M0 退出前写 Q 卡片请 Owner 定。

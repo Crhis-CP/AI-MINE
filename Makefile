@@ -1,5 +1,6 @@
 # Entry points (docs/06-agents/01-parallel-development-rules.md §8.1; ADR-0017). Commit after `pnpm check`;
-# merge on a `make verify` receipt for the PR's final commit. No hosted CI is involved.
+# merge on a `make verify` receipt for the PR's final commit, from any executor. A hosted CI is only one of
+# them: GitHub Actions runs this same target (.github/workflows/verify.yml; TASK-0015), never as a required check.
 #   make verify [TASK=TASK-nnnn] [SHA=<40 hex>]    every check, a receipt in .verify/receipts/
 #   make check                                     the fast subset (same as pnpm check), no receipt
 #   make release-check / make nightly              skeletons: they fail until their stages exist

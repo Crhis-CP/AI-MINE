@@ -53,3 +53,27 @@ test("the task card is found from the branch name", () => {
   assert.equal(cardFromBranch("agent/sources/TASK-0012-rss-fixtures"), "TASK-0012");
   assert.equal(cardFromBranch("feature/whatever"), null);
 });
+
+test("a plan PR passes when it adds the card it names and changes only tasks/ (TASK-0015)", () => {
+  const dir = scratch();
+  const plan = card(["apps/web/app/features/**"]).replace("TASK-0042", "TASK-0077");
+  const [base, head] = repo(dir, [{ "lanes.yaml": lanes, "tasks/TASK-0042.md": card(["apps/web/**"]) }, { "tasks/TASK-0077.md": plan }]);
+  const r = pathGuard(base, head, "TASK-0077", dir);
+  assert.deepEqual(r, { status: "pass", lines: ["plan PR: adds tasks/TASK-0077.md and changes only task cards (1 files)"] });
+});
+
+test("a plan PR that also changes a file outside tasks/ is stopped", () => {
+  const dir = scratch();
+  const plan = card(["apps/web/app/features/**"]).replace("TASK-0042", "TASK-0077");
+  const [base, head] = repo(dir, [{ "lanes.yaml": lanes }, { "tasks/TASK-0077.md": plan, "apps/web/app/features/feed.tsx": "export {};\n" }]);
+  const r = pathGuard(base, head, "TASK-0077", dir);
+  assert.deepEqual(r, { status: "fail", lines: ["apps/web/app/features/feed.tsx: a plan PR (tasks/TASK-0077.md is new) may change only tasks/"] });
+});
+
+test("a card that is neither on the base nor added by the PR still fails (a mistyped card number)", () => {
+  const dir = scratch();
+  const plan = card(["apps/web/app/features/**"]).replace("TASK-0042", "TASK-0077");
+  const [base, head] = repo(dir, [{ "lanes.yaml": lanes }, { "tasks/TASK-0077.md": plan }]);
+  const r = pathGuard(base, head, "TASK-0078", dir);
+  assert.deepEqual(r, { status: "fail", lines: ["tasks/TASK-0078.md is not on the base commit; merge the plan PR with the card first"] });
+});

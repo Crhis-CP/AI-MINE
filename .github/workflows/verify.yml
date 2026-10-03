@@ -1,0 +1,70 @@
+# make verify on a GitHub-hosted runner (TASK-0015). The Owner kept GitHub Actions on for this public
+# repository (2026-10-03, 08-owner-voice DEC-25 ③). By ADR-0017's reversal clause it is one more executor of
+# the same entry point: same stages, same receipt. It is not a required check (rules file 8.5, stage A):
+# merging rests on the receipt for the pull request's final commit, from this executor or another one.
+# Read-only, no secrets, two GitHub-owned actions pinned to a full commit SHA; it builds, signs and deploys
+# nothing. The toolchain stage (scripts/verify/toolchain.ts, workflowProblems) holds this file to that shape.
+name: make verify (GitHub Actions)
+
+on:
+  pull_request:
+    # edited: the task card comes from the description, so editing it runs the check again.
+    types: [opened, synchronize, reopened, edited]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Task card to check the commit against (TASK-nnnn); leave empty on main
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# A pull request's newer run cancels its older one. A run pushed to main gets a group of its own, its commit,
+# so it is neither cancelled nor replaced by the next merge: every merge gets its main-<sha12> receipt.
+concurrency:
+  group: verify-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  make-verify:
+    # Hosted runners are free for public repositories only; a private repository skips the job (DEC-25 ③).
+    if: github.event.repository.visibility == 'public'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      VERIFY_DATABASE_URL: postgres://postgres@127.0.0.1:5432/amp_ci
+      VERIFY_EXECUTOR_ID: github-actions
+    steps:
+      # The pull request's own final commit, not the merge commit GitHub makes, with the history to compare it with main.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: pnpm at the version package.json pins, installed as the Dockerfile does
+        run: npm install --global --no-audit --no-fund "pnpm@$(node -p 'require("./package.json").packageManager.split("@")[1]')"
+      - name: Dependencies (the database script reads docker-compose.yml with them)
+        run: pnpm install --frozen-lockfile
+      - name: Database from docker-compose.yml's image
+        run: node scripts/verify/ci-db.ts
+      - name: Task card named by the event
+        run: node scripts/verify/pr-task.ts
+      - name: make verify
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: make verify SHA="$HEAD_SHA"
+      - name: Receipt
+        if: always()
+        run: |
+          for f in .verify/receipts/*.json; do
+            [ -e "$f" ] || continue
+            cat "$f"
+            { printf '### %s\n\n```json\n' "$f"; cat "$f"; printf '```\n'; } >> "$GITHUB_STEP_SUMMARY"
+          done

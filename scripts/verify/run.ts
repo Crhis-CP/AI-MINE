@@ -1,8 +1,9 @@
 // make verify (docs/06-agents/01-parallel-development-rules.md §8; ADR-0017): every check that needs no real
 // model, run on a clean checkout of one commit, ending in a receipt bound to that commit. Any executor can run
-// it; no hosted CI is involved. The two jobs of the upstream workflow (scripts/verify/upstream-check.yml) are
-// translated step by step: install, typecheck, build-web, web tests, migrations, smoke, backend tests,
-// compose-smoke.
+// it; a hosted CI is only one of them (.github/workflows/verify.yml runs this same command on GitHub-hosted
+// runners, TASK-0015; ADR-0017's reversal clause). The two jobs of the upstream workflow
+// (scripts/verify/upstream-check.yml) are translated step by step: install, typecheck, build-web, web tests,
+// migrations, smoke, backend tests, compose-smoke.
 //   node scripts/verify/run.ts [--task TASK-nnnn] [--sha <40 hex>] [--only a,b] [--skip a,b] [--allow-dirty]
 //   node scripts/verify/run.ts --quick          pnpm check: the fast subset, no receipt
 // Environment (nothing else from the caller's environment reaches the checks, see childEnv):
@@ -239,7 +240,7 @@ const STAGES: Stage[] = [
     name: "toolchain",
     quick: true,
     run: async ({ log }) =>
-      problems([...checkToolchain(ROOT, trackedFiles()), ...checkRuntime(probe("pnpm", ["--version"]))], log, "pins, lockfile, images, no workflows"),
+      problems([...checkToolchain(ROOT, trackedFiles()), ...checkRuntime(probe("pnpm", ["--version"]))], log, "pins, lockfile, images, workflow shape"),
   },
   {
     name: "format-lint",
