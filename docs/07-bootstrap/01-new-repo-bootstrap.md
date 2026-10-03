@@ -3,7 +3,7 @@
 > 读者：架构 Agent（即 B 包的“总控 Agent”，执行）与 Owner（只在标注“Owner”的步骤知情、回复或授权）。
 > 目标：一周左右（M0）得到一个“以 AIHOT 为基础、已去品牌、验证入口生效、最小边界就位、可以分派泳道并行开发”的新仓库。**不是**把 AIHOT 机械拆成 16 个包，也**不依赖 GitHub Actions**。
 > v2.0 相对 v1.0 的改动（依据见 `00-decision-ledger.md`）：Owner 前置事项由 4 项补成 13 项并全部带默认（第 0 节）；合并 B 的“总控 Agent 启动指令”（第 1 节）；建仓改为**从交接包内的 AIHOT 归档逐文件校验哈希后导入**，不再 `git clone` 上游（第 2 节）；T-0001 由“CI 骨架”改为“统一验证入口 + 把 AIHOT 的 `check.yml` 翻译成仓库内脚本 + 停用 Actions”；T-0003 由“16 包机械拆分”改为“最小边界与按角色连接”（绞杀式，DEC-17、DEC-44、D12-architecture-004）；T-0010 曾拆为 a（不连生产）与 b（M4、需 Owner 授权），v2.1 起 a、b 均已废弃；新增重组任务的拆分约定（第 5 节）与每日安排（第 6 节）。
-> **v2.1（Owner 2026-10-01 答复）**：新仓库**从 AIHOT 归档新建**（默认名 `ai-mining-policy`，私有），旧仓库只读存档，不在旧仓库上改（DEC-64）；**删去从旧仓库导出文件的一切步骤**——T-0012 已废弃、`legacy-export-pointers.json` 已删除、旧数据一概不导入（DEC-20、DEC-42）；第 0 节由“13 项前置事项、每项带默认”改为“知情与授权事项 + Owner 需提供的材料”（16 项待决问题已答复，不再是前置问题）；总控 Agent 启动指令（第 1 节）加入总原则五条（DEC-64）与“全部功能完成后一次性全面切换”；**模型榜与 Codex 重置监控在重组时直接删除、不移植**（第 4、5 节）。
+> **v2.1（Owner 2026-10-01 答复）**：新仓库**从 AIHOT 归档新建**（默认名 `ai-mining-policy`，私有〔2026-10-03 读回为公开；改可见性前先问 Owner，ADR-0017 的 2026-10-03 更新〕），旧仓库只读存档，不在旧仓库上改（DEC-64）；**删去从旧仓库导出文件的一切步骤**——T-0012 已废弃、`legacy-export-pointers.json` 已删除、旧数据一概不导入（DEC-20、DEC-42）；第 0 节由“13 项前置事项、每项带默认”改为“知情与授权事项 + Owner 需提供的材料”（16 项待决问题已答复，不再是前置问题）；总控 Agent 启动指令（第 1 节）加入总原则五条（DEC-64）与“全部功能完成后一次性全面切换”；**模型榜与 Codex 重置监控在重组时直接删除、不移植**（第 4、5 节）。
 
 ---
 
@@ -15,11 +15,11 @@
 
 | # | 事项 | 现状（已定的结论；未定的写默认做法） | 最晚时点 | 类型 | 依据 |
 |---|---|---|---|---|---|
-| 1 | 新仓库名称与可见性 | **从 AIHOT 归档新建仓库**（不是旧仓库的分支或复制），默认名 `ai-mining-policy`，**私有**；不用带 next 的临时名；**旧仓库只读存档，不在旧仓库上改**，也不从旧仓库导出任何文件（Owner 2026-10-01，DEC-64） | 建仓日 | 知情 | DEC-28、DEC-64 |
+| 1 | 新仓库名称与可见性 | **从 AIHOT 归档新建仓库**（不是旧仓库的分支或复制），默认名 `ai-mining-policy`，**私有**（2026-10-03 读回为公开；改可见性前先问 Owner，ADR-0017 的 2026-10-03 更新）；不用带 next 的临时名；**旧仓库只读存档，不在旧仓库上改**，也不从旧仓库导出任何文件（Owner 2026-10-01，DEC-64） | 建仓日 | 知情 | DEC-28、DEC-64 |
 | 2 | 预发载体 | 先在**开发机用 Compose 做本地预发**，不动生产主机；需要公网预发时再请示采购或子域（新子域或新主机涉及备案与解析） | 需要公网预发时 | 知情；公网预发需授权 | DEC-18；Q-65；旧 `docs/runbooks/infrastructure.md:179@main` |
 | 3 | 验证执行器与必过检查来源 | **开发机上的隔离 Linux 虚拟机**运行 `make verify`，回执随 PR 附上、合并前由集成人核对（**流程约束，不是平台强制**）；不开启“必须通过检查才可合并”的平台保护；待你同意后再注册仅限本仓库的最小 GitHub 应用并切成平台强制；需要按量租用云主机时先请示费用，**不使用生产服务器** | T-0001（第 3 天） | 回复（可不回复） | ADR-0017；Q-65；D18-delivery-003 |
 | 4 | GitHub 身份 | **沿用你现有的个人账号**，不建组织；泳道写权由仓库内 `lanes.yaml` + 路径守卫检查，不用 CODEOWNERS 团队；机器人账号或组织以后可选 | 建仓日 | 知情 | Q-65；D18-delivery-006 |
-| 5 | 是否启用 GitHub Actions | **停用**：新仓库建好后、第一次推送前，在平台设置里停用并读回确认；不为 Actions 追加费用；启用 Actions 或注册 runner 须你逐项授权 | 建仓日 | 知情；启用需授权 | ADR-0017；旧ADR-0038 |
+| 5 | 是否启用 GitHub Actions | **只跑 verify 工作流**（2026-10-03 改，08-owner-voice DEC-25 ③，TASK-0015）：仓库公开，托管 runner 不计费；`.github/workflows/` 下只放 `verify.yml`，跑的就是 `make verify`，形状由 `toolchain` 阶段核对，不设必过检查。原定的“建仓后、第一次推送前在平台设置里停用并读回”作废。注册 runner、检查发布用的 GitHub App、别的工作流仍须你逐项授权 | 建仓日 | 知情；verify 工作流已授权，其余需授权 | ADR-0017（2026-10-03 更新）；旧ADR-0038 |
 | 6 | 模型账号与密钥 | **不设月度金额上限**（Owner 2026-10-01：预算无上限，但是不要浪费）；开发期只用假模型与录制夹具；沿用你已开通的 DeepSeek，**模型密钥由你经私有页面安全录入**；M1 末的**首个真实模型验收**（100–200 篇真实材料）与首次真实评测前，发 Q 卡片说明样本范围与调用次数（不是金额）；任何新供应商（含 embedding）按新付费依赖处理，须基准证明必要，仍须你开通账号并录入密钥（不再以预算为由拒绝） | M1 末 | Owner 提供（安全录入） | DEC-08、DEC-29；BR-COST-15、BR-COST-17；Q-05（已答复） |
 | 7 | 【已废弃】授权读取旧生产库的时点与方式 | **不再需要**：不迁移旧站任何生产数据（Owner 2026-10-01：全重做，DEC-20），M0 不连生产，M4 也不读取旧生产库；T-0010a、T-0010b 已废弃。只有旧站存档备份与退役才另行请你授权（T-0233、T-0809） | — | 已废弃 | DEC-20；Q-57（已废弃）；`03-data/04-legacy-migration.md` |
 | 8 | 云资源、签名信任根与备份密钥 | **M0 内**由你批准创建私有、版本化、加密的 COS 桶与只写子账号（T-0013 的前缀权限实测与备份演练需要）；其余首次生产部署前完成：发布签名密钥由你生成、私钥离线保管、公钥指纹经受保护通道装到主机；云角色由你创建、最小权限、只用短期凭据；备份加密的公私钥对由你生成、私钥离线保管；**不创建长期云密钥** | COS 桶 M0 内；其余首次生产部署前 | **授权** | ADR-0017 第 6、7 条；`04-architecture/07-deployment-and-ops.md` 3.1、5.2、第 11 节；Q-60、Q-61 |
@@ -46,7 +46,7 @@
 | 在真实公网与手机上逐项看过新站，并亲自完成两次演练（按应急手册“判断网站是否正常更新”“临时撤下站点并恢复”） | 全面切换门槛之一 | M5 切换前 | 不得全面切换 | 表三 I-15 |
 | 【可选，不阻塞】保留来源许可依据（合同、邮件、条款截图）备查 | 来源方提出异议或监管问询时举证；不参与信源建档 | 无 | 无影响：全部信源仍按 `owner_declared` 建档 | DEC-33；表三 I-01 |
 
-> 第 5 项的读回命令（在你授权的会话里执行）：`gh api repos/<账号>/<仓库名>/actions/permissions --jq .enabled`，结果必须是 `false`。第 3、4 项涉及分支保护：见第 2 节步骤 8 的账号计划说明。
+> 第 5 项原有的读回命令（`gh api repos/<账号>/<仓库名>/actions/permissions --jq .enabled`，结果须为 `false`）2026-10-03 起作废（TASK-0015）：改为由 `make verify` 的 `toolchain` 阶段核对 `.github/workflows/` 下只有 `verify.yml`，分支保护读回没有必过检查。第 3、4 项涉及分支保护：见第 2 节步骤 8 的账号计划说明。
 
 ---
 
@@ -86,7 +86,7 @@
 
 ### 步骤 1　创建私有空仓库，并**先停用 Actions**
 
-Owner（或 Owner 授权的 Agent）在 GitHub 创建私有空仓库 `ai-mining-policy`（**新仓库，从 AIHOT 归档新建**，不是旧仓库的分支或复制；旧仓库只读存档，不在旧仓库上改，Owner 2026-10-01，DEC-64）：不勾选自动生成 README、LICENSE、`.gitignore`。**立刻停用 Actions 并读回**（第 0 节第 5 项）。**顺序不能反**：AIHOT 的 `.github/workflows/check.yml` 会随首个提交进入仓库，Actions 默认开启时一推送就会在托管机上运行并消耗额度，与旧ADR-0038 相反。
+Owner（或 Owner 授权的 Agent）在 GitHub 创建私有空仓库 `ai-mining-policy`（**新仓库，从 AIHOT 归档新建**，不是旧仓库的分支或复制；旧仓库只读存档，不在旧仓库上改，Owner 2026-10-01，DEC-64）：不勾选自动生成 README、LICENSE、`.gitignore`。**立刻停用 Actions 并读回**（第 0 节第 5 项）。**顺序不能反**：AIHOT 的 `.github/workflows/check.yml` 会随首个提交进入仓库，Actions 默认开启时一推送就会在托管机上运行并消耗额度，与旧ADR-0038 相反。**2026-10-03 补注（TASK-0015）**：本步骤是建仓时的计划，原文保留。实际情况：建仓会话没有仓库设置权限，Actions 没有停用，改由仓库里不放工作流文件、`toolchain` 阶段拦截；Owner 2026-10-03 决定使用 Actions（仓库公开、不计费，08-owner-voice DEC-25 ③），现在只跑 `.github/workflows/verify.yml` 一个工作流，不设必过检查（ADR-0017 的 2026-10-03 更新）。仓库 2026-10-03 读回为公开；改可见性前先问 Owner。
 
 ### 步骤 2　校验 AIHOT 归档（不 clone 上游，不联网）
 
@@ -265,8 +265,8 @@ docs/（交接包）  tasks/  changes/  upstream/aihot.lock.json
 
 | 顺序 | 任务 | 泳道 | 命令级要点 | 通过标准 |
 |---|---|---|---|---|
-| 0 | T-0014 建仓、上游登记与行为基线 | 架构 | 第 2 节全部：首个提交原样导入；步骤 6 移植 `04-architecture/04-aihot-adoption.md` 6.5 的上游缺陷修复（每项独立提交）；步骤 7 在干净环境实际跑通上游测试并记基线 | 归档与 502 个文件哈希对账一致；上游缺陷修复已作独立提交移植；基线记录入档（失败项逐条登记，不当作通过）；Actions 已停用并读回 |
-| 1 | T-0001 工具链与统一验证入口 | 架构 | 见下方“check.yml 翻译对照”（workflow 文件移出 `.github/workflows` 归档）；pnpm 12 工作区（`packageManager` 固定、一份锁文件、不与 npm 锁文件并存；`pnpm import` 可由 `package-lock.json` 生成 pnpm 锁文件的起点，之后以 `pnpm install --frozen-lockfile` 复核）；Dockerfile 用“整仓复制 + `pnpm install --prod --frozen-lockfile`”、**禁用 `pnpm deploy`**、保留 `NPM_REGISTRY` 构建参数、基础镜像补丁版 + sha256 摘要；Biome 配置写明 `css.parser.tailwindDirectives: true` 与 `lineWidth` 取 140–160（T-0001 实测），**首次全仓格式化单独成一个提交**；`make verify` / `release-check` / `nightly` 骨架、回执生成、密钥扫描与依赖审计、`path-guard`、`tasks`、`docs` 阶段；栈兼容基准；不引入 Turborepo、lefthook、Renovate | 独立执行器通过并出回执；故意违规（越权路径、越界 import、提交密钥、契约漂移）各被拦一次；与 T-0014 基线一致；Actions `enabled=false` 读回；`check.yml` 已翻译成 `scripts/verify` 并移出 `.github/workflows` |
+| 0 | T-0014 建仓、上游登记与行为基线 | 架构 | 第 2 节全部：首个提交原样导入；步骤 6 移植 `04-architecture/04-aihot-adoption.md` 6.5 的上游缺陷修复（每项独立提交）；步骤 7 在干净环境实际跑通上游测试并记基线 | 归档与 502 个文件哈希对账一致；上游缺陷修复已作独立提交移植；基线记录入档（失败项逐条登记，不当作通过）；除 verify 工作流外没有别的工作流（原为“Actions 已停用并读回”，2026-10-03 改，08-owner-voice DEC-25 ③，TASK-0015） |
+| 1 | T-0001 工具链与统一验证入口 | 架构 | 见下方“check.yml 翻译对照”（workflow 文件移出 `.github/workflows` 归档）；pnpm 12 工作区（`packageManager` 固定、一份锁文件、不与 npm 锁文件并存；`pnpm import` 可由 `package-lock.json` 生成 pnpm 锁文件的起点，之后以 `pnpm install --frozen-lockfile` 复核）；Dockerfile 用“整仓复制 + `pnpm install --prod --frozen-lockfile`”、**禁用 `pnpm deploy`**、保留 `NPM_REGISTRY` 构建参数、基础镜像补丁版 + sha256 摘要；Biome 配置写明 `css.parser.tailwindDirectives: true` 与 `lineWidth` 取 140–160（T-0001 实测），**首次全仓格式化单独成一个提交**；`make verify` / `release-check` / `nightly` 骨架、回执生成、密钥扫描与依赖审计、`path-guard`、`tasks`、`docs` 阶段；栈兼容基准；不引入 Turborepo、lefthook、Renovate | 独立执行器通过并出回执；故意违规（越权路径、越界 import、提交密钥、契约漂移）各被拦一次；与 T-0014 基线一致；除 verify 工作流外没有别的工作流，形状由 `toolchain` 阶段核对（2026-10-03 改，TASK-0015）；`check.yml` 已翻译成 `scripts/verify` 并移出 `.github/workflows` |
 | 2 | T-0002 去品牌与删减 | 架构 | 去品牌**用脚本一次生成并单独成 PR**；删除模型榜与 Codex 监控**单独成 PR，先删调用再删表**（Owner 2026-10-01 明确不要这两个功能：在重组时直接删除，不移植、不改造、不留开关，DEC-64）；标识清单（`industry/brand/**`、图标、`docs/assets/*`、`RingMark`、四角星、品牌色值）；`NOTICE` 改造；`@aihot/*` 与 `aihot` 字样改名；同批删除（`04-architecture/04-aihot-adoption.md` 4.5～4.7，另含 4.8 第 4 点的海报与分享图评分角标）：X（推特）采集与“资讯/X”频道、反馈转发飞书（飞书内容推送与飞书登录保留、默认关闭，Owner 2026-10-02）、二维码与关于页作者块、分享图与海报里的评分角标、海报与 Markdown 导出、来源图标抓取与图片代理；**保留并矿业化**评分展示 `Score.tsx` 与 `FeedItem.tsx` 的分数标签、热点榜与事件页（`features/hot/Faces.tsx` 头像堆叠除外、仍删除，PG-03、DR-78；精选与热点的显示沿用 AIHOT，见路线图 T-0402；04-aihot-adoption 中相应的删除项以本条为准） | 全仓搜不到 AIHOT 名称（例外见第 2 节步骤 4）；与上游 `industry/brand/**`、`docs/assets/**`、`assets/leaderboard-sources/**`、`assets/model-providers/**` 同哈希的文件不存在；`#176b75`、`#2ce2e8`、`RingMark` 只在 `04-architecture/04-aihot-adoption.md` 4.6 第 1 条所列路径命中（2026-10-02 勘误），品牌哈希黑名单无命中；分享图与海报已删；评分只出现在条目卡片、详情与接口的分数字段（两次评分平均值向下取整，没有评分时为空、不出现 0 或占位，BR-SEL-07）；搜不到对 X 的引用；原测试除被删功能外全绿 |
 | 3 | T-0003 最小边界与按角色连接 | 架构 + runtime | 包导出白名单、前端不导入后端、付费调用只经网关、web 进程不拿数据库与模型凭据；`dbFor(role)`；`public-api` / `private-api` 两实例；`apps/fetcher` 进程骨架；《待迁出清单》 | 公开 GET 路径只有 `public_read` 连接；AC-SEC-02、AC-SEC-07；故意违规被拦 |
 | 4 | T-0004 契约中心、T-0005 数据库基线 | 架构 / runtime | 契约：只为保留的响应按现状写 Zod → OpenAPI 3.1 → `api-client`（`links.aihot`、`channel` 中的 `x` 随 T-0002 删除，不进契约、不先写后删；`score` 作为精选分数字段保留并矿业化，没有评分时为空），生成放独立 `tooling/` 包固定 TypeScript 5.9.x；数据库：PostgreSQL 18.6 + pgvector（装上不建索引），基线 = 删去 AI 表后的 AIHOT 原表（默认 schema）+《待迁出清单》（只减不增）、迁移 lint、临时库模板克隆 | 干净克隆一条命令生成且与已提交版本逐字节一致；空库全量迁移通过；“改列名必须使对应 repository 测试失败” |
@@ -337,7 +337,7 @@ docs/（交接包）  tasks/  changes/  upstream/aihot.lock.json
 |---|---|---|---|
 | ① | 新仓库已从 AIHOT 归档新建（旧仓库只读存档，未从旧仓库导出任何文件）；AIHOT 归档整包与 502 个文件哈希校验通过；首个提交原样导入；`upstream/aihot.lock.json` 与 `UPSTREAM.md` 就位；取代“只借鉴”规则的说明已入库 | AC-M0-01 | 校验输出；提交记录；`upstream/aihot.lock.json` |
 | ② | `make verify` 在独立执行器上通过并出回执；越权路径、越界 import、提交密钥、契约漂移各被拦一次；回执缺 `secret_scan` 或 `audit` 项视为未通过；回执含 `contracts` 与 `migrations` 阶段（契约中心与迁移体系随 T-0004、T-0005 并入 verify） | AC-M0-08；AC-M0-03、AC-M0-04 | 回执 JSON；故意违规用例的失败记录 |
-| ③ | GitHub Actions 已停用并读回为 `enabled=false`；分支保护按第 2 节步骤 8 设置并读回（不生效如实标注“非平台强制”） | AC-M0-08 | 读回输出 |
+| ③ | 除 verify 工作流外没有别的工作流，形状由 `toolchain` 阶段核对，不设必过检查（2026-10-03 改，原为 Actions 停用并读回；08-owner-voice DEC-25 ③，TASK-0015）；分支保护按第 2 节步骤 8 设置并读回（不生效如实标注“非平台强制”） | AC-M0-08 | 回执与读回输出 |
 | ④ | 上游原有离线测试的基线结果（含失败项）已记录；上游缺陷修复已作独立提交移植 | AC-M0-09 | `docs/acceptance/<日期>-M0-baseline.md` |
 | ⑤ | 最小边界检查生效：导出白名单、前端不导入后端、付费调用只经网关、web 进程不拿数据库与模型凭据、连接按角色；两个 api 实例与 fetcher 骨架可启动 | AC-M0-02、AC-M0-05；AC-SEC-02、AC-SEC-07 | verify 阶段记录 |
 | ⑥ | 去品牌后的 AIHOT 在本地预发用种子信源跑通“采集 → 中文标题与导读 → 公开”，信源经私有页面显式启用；健康检查失败能自动回滚且回滚后重验 | AC-M0-06、AC-M0-07 | 业务验收记录（Owner 看到的页面）；回滚演练记录 |
