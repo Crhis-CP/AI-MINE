@@ -25,6 +25,9 @@ const HOSTED_UBUNTU = /^ubuntu-\d+\.\d+$/;
 const PUBLIC_ONLY = "github.event.repository.visibility == 'public'";
 // biome-ignore lint/suspicious/noTemplateCurlyInString: a GitHub Actions expression, compared as text
 const CANCEL_PULL_REQUESTS_ONLY = "${{ github.event_name == 'pull_request' }}";
+// biome-ignore lint/suspicious/noTemplateCurlyInString: a GitHub Actions expression, compared as text
+const GROUP = "verify-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}";
+const VERIFY_STEP = 'make verify SHA="$HEAD_SHA"';
 const OTHER_LOCKFILES = new Set(["package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "bun.lockb"]);
 const MIN_RELEASE_AGE_MINUTES = 1440;
 
@@ -107,10 +110,11 @@ const isMapping = (v: unknown) => Boolean(v) && typeof v === "object" && !Array.
  * (opened, synchronize, reopened, edited), pushes to main and by hand; (3) a run pushed to main is never
  * cancelled or replaced; (4) read-only for the whole run; (5) only actions/checkout and actions/setup-node,
  * pinned to a full commit SHA, and no reusable workflow; (6) checkout keeps no credentials; (7) no secrets
- * and no token; (8) no `${{ }}` inside a script; (9) nothing allowed to fail quietly, no deployment
- * environment; (10) a time limit and a GitHub-hosted Ubuntu image of a named version; (11) public repository
- * only; (12) no service or job container: the database comes from scripts/verify/ci-db.ts, whose image is
- * docker-compose.yml's; (13) a step runs make verify. Rule 1 (no other workflow file) is in checkToolchain.
+ * and no token, however an expression is written; (8) no `${{ }}` inside a script; (9) nothing allowed to fail
+ * quietly, no deployment environment; (10) a time limit and a GitHub-hosted Ubuntu image of a named version;
+ * (11) public repository only; (12) no service or job container: the database comes from
+ * scripts/verify/ci-db.ts, whose image is docker-compose.yml's; (13) a step runs make verify, alone and
+ * unconditionally. Rule 1 (no other workflow file) is in checkToolchain.
  */
 export function workflowProblems(f: string, text: string): string[] {
   const out: string[] = [];
@@ -151,15 +155,18 @@ export function workflowProblems(f: string, text: string): string[] {
     if (cancel !== undefined && cancel !== false && cancel !== CANCEL_PULL_REQUESTS_ONLY) {
       bad(`${at}cancel-in-progress may cancel a run pushed to main; use ${CANCEL_PULL_REQUESTS_ONLY}`);
     }
-    if (!String(c.group ?? "").includes("github.sha")) bad(`${at}the concurrency group must name github.sha, so a run pushed to main is never replaced`);
+    if (c.group !== GROUP) bad(`${at}the concurrency group must be ${GROUP}, so a run pushed to main is never replaced`);
   };
   concurrency("", doc.concurrency);
 
   // (4)
   if (JSON.stringify(doc.permissions) !== JSON.stringify({ contents: "read" })) bad("permissions must be exactly { contents: read }");
-  // (7)
-  if (/\$\{\{[^}]*\bsecrets\b/.test(text)) bad("reads secrets; the verify workflow has none");
-  if (/\$\{\{[^}]*\bgithub\.token\b/.test(text)) bad("passes the GitHub token on; the verify workflow needs none");
+  // (7) Every expression in the file's strings, keys included, string literals left out.
+  const code = strings(doc)
+    .flatMap(expressions)
+    .map((e) => e.replace(/'(?:[^']|'')*'/g, "''"));
+  if (code.some((e) => /\bsecrets\b/i.test(e))) bad("reads secrets; the verify workflow has none");
+  if (code.some(readsToken)) bad("passes the GitHub token on; the verify workflow needs none");
 
   let runsDatabase = false;
   let runsVerify = false;
@@ -198,14 +205,44 @@ export function workflowProblems(f: string, text: string): string[] {
       if (typeof step.run === "string") {
         if (step.run.includes("${{")) bad(`${label}\${{ … }} inside run; pass the value through env`); // (8)
         if (/(^|[\s;&|(])node scripts\/verify\/ci-db\.ts(\s|$)/m.test(step.run)) runsDatabase = true;
-        if (/(^|[\s;&|(])make verify(\s|$)/m.test(step.run)) runsVerify = true;
+        if (step.run.trim() === VERIFY_STEP && !("if" in step)) runsVerify = true; // (13): nothing masks or skips it
       }
     }
   }
   if (!runsDatabase) bad("no step runs node scripts/verify/ci-db.ts (the database image comes from docker-compose.yml)"); // (12)
-  if (!runsVerify) bad("no step runs make verify (the workflow is an executor of make verify and nothing else)"); // (13)
+  if (!runsVerify) bad(`no step runs ${VERIFY_STEP} alone and unconditionally (the workflow is an executor of make verify and nothing else)`); // (13)
   return out;
 }
+
+/** Every string in a parsed YAML value, mapping keys included. */
+function strings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(strings);
+  return isMapping(value) ? Object.entries(mapping(value)).flatMap(([k, v]) => [k, ...strings(v)]) : [];
+}
+
+/** The `${{ … }}` expressions in a string, found as GitHub finds them: each ends at the first `}}` outside a '…' literal. */
+function expressions(s: string): string[] {
+  const out: string[] = [];
+  for (let at = s.indexOf("${{"); at !== -1; ) {
+    let inLiteral = false;
+    let end = s.length;
+    for (let i = at + 3; i < s.length - 1; i++) {
+      if (s[i] === "'") inLiteral = !inLiteral;
+      else if (!inLiteral && s[i] === "}" && s[i + 1] === "}") {
+        end = i;
+        break;
+      }
+    }
+    out.push(s.slice(at + 3, end));
+    at = s.indexOf("${{", end + 2);
+  }
+  return out;
+}
+
+/** `github` other than as github.<a property other than token>: github.token, github['token'] and the whole context
+ * (toJSON(github), github.*: the token is one of its properties) all hand the token on. Names match in any case. */
+const readsToken = (code: string) => [...code.matchAll(/\bgithub\b(?:\s*\.\s*([A-Za-z_][\w-]*))?/gi)].some((m) => !m[1] || m[1].toLowerCase() === "token");
 
 /** Problems with the tools this run uses: Node within package.json's engines, pnpm at packageManager. */
 export function checkRuntime(pnpmVersion: string | null, root = ROOT): string[] {

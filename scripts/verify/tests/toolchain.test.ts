@@ -105,6 +105,8 @@ function edit(from: string, to: string): string {
 }
 const job = (what: string) => `${WORKFLOW}: job make-verify: ${what}`;
 const STEP_SLOTS = "      - run: node scripts/verify/ci-db.ts\n";
+const GROUP_PROBLEM = `${WORKFLOW}: the concurrency group must be verify-\${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.sha }}, so a run pushed to main is never replaced`;
+const VERIFY_PROBLEM = `${WORKFLOW}: no step runs make verify SHA="$HEAD_SHA" alone and unconditionally (the workflow is an executor of make verify and nothing else)`;
 
 test("the verify workflow in its shape passes, and so does a repository without one", () => {
   assert.deepEqual(workflowProblems(WORKFLOW, WORKFLOW_TEXT), []);
@@ -145,12 +147,7 @@ test("each of the 13 workflow rules stops its violations", () => {
       edit("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", "cancel-in-progress: true"),
       `${WORKFLOW}: cancel-in-progress may cancel a run pushed to main; use \${{ github.event_name == 'pull_request' }}`,
     ],
-    [
-      3,
-      "pushes to main share a group",
-      edit("|| github.sha }}", "|| github.ref }}"),
-      `${WORKFLOW}: the concurrency group must name github.sha, so a run pushed to main is never replaced`,
-    ],
+    [3, "pushes to main share a group", edit("|| github.sha }}", "|| github.ref }}"), GROUP_PROBLEM],
     [4, "write permission", edit("contents: read", "contents: write"), `${WORKFLOW}: permissions must be exactly { contents: read }`],
     [
       4,
@@ -250,12 +247,7 @@ test("each of the 13 workflow rules stops its violations", () => {
       edit(STEP_SLOTS, ""),
       `${WORKFLOW}: no step runs node scripts/verify/ci-db.ts (the database image comes from docker-compose.yml)`,
     ],
-    [
-      13,
-      "no step runs make verify",
-      edit('run: make verify SHA="$HEAD_SHA"', "run: make check"),
-      `${WORKFLOW}: no step runs make verify (the workflow is an executor of make verify and nothing else)`,
-    ],
+    [13, "no step runs make verify", edit('run: make verify SHA="$HEAD_SHA"', "run: make check"), VERIFY_PROBLEM],
   ];
   for (const [rule, what, text, problem] of cases) {
     assert.deepEqual(workflowProblems(WORKFLOW, text), [problem], `rule ${rule}: ${what}`);
@@ -269,4 +261,39 @@ test("each of the 13 workflow rules stops its violations", () => {
     [...new Set(cases.map(([rule]) => rule)), 1].sort((a, b) => a - b),
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13],
   );
+});
+
+test("rules 3, 7 and 13 hold however the workflow is written", () => {
+  const SECRETS = `${WORKFLOW}: reads secrets; the verify workflow has none`;
+  const TOKEN = `${WORKFLOW}: passes the GitHub token on; the verify workflow needs none`;
+  const env = (value: string) => edit("      VERIFY_EXECUTOR_ID: github-actions\n", `      VERIFY_EXECUTOR_ID: github-actions\n      VALUE: ${value}\n`);
+  const cases: Array<[rule: number, what: string, text: string, problem: string]> = [
+    // GitHub reads an expression up to the first }} outside a '…' literal, so a } inside one does not end it.
+    [7, "a secret inside format()", env("${{ format('Bearer {0}', secrets.X) }}"), SECRETS],
+    [7, "the token inside format()", env("${{ format('{0}', github.token) }}"), TOKEN],
+    [7, "the whole github context", env("${{ toJSON(github) }}"), TOKEN],
+    [7, "the token by index", env("${{ github['token'] }}"), TOKEN],
+    [7, "}} inside a literal", env("${{ format('}}{0}', secrets.X) }}"), SECRETS],
+    [7, "an expression over two lines", env("|-\n        ${{ format('{0}',\n        secrets.X) }}"), SECRETS],
+    [7, "names in another case", env("${{ GitHub.Token }}"), TOKEN],
+    [7, "spaces around the dot", env("${{ github . token }}"), TOKEN],
+    [
+      3,
+      "a group that names github.sha and still puts every push in one",
+      edit("github.event_name == 'pull_request' && github.event.pull_request.number || github.sha", "github.event_name == 'push' && 'main' || github.sha"),
+      GROUP_PROBLEM,
+    ],
+    [13, "make verify whose failure is masked", edit('run: make verify SHA="$HEAD_SHA"', 'run: make verify SHA="$HEAD_SHA" || true'), VERIFY_PROBLEM],
+    [
+      13,
+      "make verify under a condition",
+      edit('        run: make verify SHA="$HEAD_SHA"\n', '        if: false\n        run: make verify SHA="$HEAD_SHA"\n'),
+      VERIFY_PROBLEM,
+    ],
+  ];
+  for (const [rule, what, text, problem] of cases) {
+    assert.deepEqual(workflowProblems(WORKFLOW, text), [problem], `rule ${rule}: ${what}`);
+  }
+  // A literal is text: secrets and github named inside one are not read.
+  assert.deepEqual(workflowProblems(WORKFLOW, env("${{ format('no secrets, no github token {0}', github.sha) }}")), []);
 });

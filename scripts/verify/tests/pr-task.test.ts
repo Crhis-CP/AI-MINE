@@ -36,6 +36,15 @@ test("only the 任务卡 label line counts: prose that mentions a card is not it
   assert.equal(taskFromEvent("pull_request", pr("- 任务卡：TASK-<编号>（`tasks/` 下的卡已在 main 上）\n- 依赖 TASK-0002")), null);
 });
 
+test("without the 任务卡 line, the branch name agent/<lane>/TASK-nnnn-<slug> names the card, as in a local run", () => {
+  const event = (body: string, ref: unknown) => ({ pull_request: { body, head: { ref } } });
+  assert.equal(taskFromEvent("pull_request", event("Fixes the build", "agent/sources/TASK-0012-rss-fixtures")), "TASK-0012");
+  assert.equal(taskFromEvent("pull_request", event("- 任务卡：TASK-0015", "agent/sources/TASK-0012-rss-fixtures")), "TASK-0015");
+  assert.equal(taskFromEvent("pull_request", event("Fixes the build", "claude/rewrite-ai-mine-74ztnn")), null);
+  assert.equal(taskFromEvent("pull_request", event("Fixes the build", "agent/x/TASK-0012;echo hi")), null);
+  assert.equal(taskFromEvent("pull_request", event("Fixes the build", 12)), null);
+});
+
 test("a manual run takes the input task, and nothing that is not a card number", () => {
   assert.equal(taskFromEvent("workflow_dispatch", { inputs: { task: " TASK-0015 " } }), "TASK-0015");
   assert.equal(taskFromEvent("workflow_dispatch", { inputs: { task: "TASK-0015; echo hi" } }), null);

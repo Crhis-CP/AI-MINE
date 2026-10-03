@@ -83,7 +83,7 @@ make verify TASK=TASK-0002
 
 ## 4. 故意违规用例
 
-`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规与工作流形状的 13 条规则（`toolchain.test.ts`，27 个违规用例）、计划 PR 的放行与拦截（`path-guard.test.ts`）、任务卡号只从“任务卡”一行或手动输入取（`pr-task.test.ts`）、数据库镜像只从 compose 读（`ci-db.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）。契约漂移的用例随 TASK-0005 加入。
+`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规与工作流形状的 13 条规则（`toolchain.test.ts`，27 个违规用例，另有 11 个换写法绕过规则 3、7、13 的用例）、计划 PR 的放行与拦截（`path-guard.test.ts`）、任务卡号只从“任务卡”一行、分支名或手动输入取（`pr-task.test.ts`）、数据库镜像只从 compose 读（`ci-db.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）。契约漂移的用例随 TASK-0005 加入。
 
 ## 5. 常见情况
 
@@ -115,14 +115,16 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 - **环境**：
   - `ubuntu-24.04` 托管 runner，Node 24；pnpm 照 `Dockerfile` 的装法，`npm install -g pnpm@<packageManager 的版本>`；不用任何缓存。
   - 先装一次依赖，再由 [`ci-db.ts`](ci-db.ts) 起数据库：它从 `docker-compose.yml` 读出 `db` 服务那个按摘要锁定的镜像，用 `docker run` 起在 `127.0.0.1:5432`，信任认证、不设口令，等到能连上。库名 `amp_ci`。镜像只写在 compose 一处，换数据库镜像的卡只改 compose，不用改工作流。
-  - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端。`ci-db.ts` 在数据库就绪时打出客户端版本，第一次运行后在这里记下。
+  - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端。`ci-db.ts` 在数据库就绪时打出客户端版本。2026-10-03 第一次通过的[运行](https://github.com/Crhis-CP/AI-MINE/actions/runs/37105388171)（runner 镜像 `ubuntu-24.04`，版本 20260927.320.1）是客户端 16.15、服务端 17.11；这两处只建库删库、计数和读服务端版本，照常可用。
   - 执行器编号 `github-actions`。
 - **任务卡号**：[`pr-task.ts`](pr-task.ts) 从事件文件读，不经 `${{ }}` 插进脚本。
   - PR 取描述里“任务卡”那一行的第一个 `TASK-nnnn`。那一行指 PR 模板里的“- 任务卡：”一行；HTML 注释不读，模板开头的说明注释也提到“任务卡”；
+  - 描述里没有这一行时，按 PR 的分支名 `agent/<lane>/TASK-nnnn-<slug>` 取，与本地运行一样（规则文件 3.3）。Actions 检出的是提交，不在分支上，所以分支名从事件文件读；
   - 手动运行取输入 `task`；
   - 推送 main 不需要。
   - 取不到时不设，`path-guard` 照常报“没有任务卡”。计划 PR 的“任务卡”一行照常写本 PR 新增的卡，`path-guard` 按计划 PR 放行（第 2 节）。
 - **回执在哪**：写在运行日志和运行摘要页里，集成人照旧贴到 PR 评论。有阶段失败时，运行日志里接着打出这个阶段的完整日志：控制台只显示最后 25 行，运行结束后 runner 上的文件也不在了。打出的日志只当文字，不当工作流命令。
+- **日志是公开的**：仓库公开，运行日志谁都能看，失败阶段的整段日志也一样。工作流不用任何密钥，runner 上没有真实凭据；`compose-smoke` 的日志里会有一次性站点的临时管理员口令，站点随即删掉，无害。以后加阶段或改脚本，输出里也不能出现真实凭据。
 - **它不是什么**：
   - 不是必过检查：分支保护按规则文件 8.5 的 A 阶段，不设“必须通过检查”，免得 Actions 不可用时谁也合并不了（PIT-055）；
   - 不构建、签名或推送发布镜像，不部署，不定时运行；
@@ -130,17 +132,17 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 - **形状由 `toolchain` 阶段核对**，13 条，每条至少一个违规用例：
   1. `.github/workflows/` 下只有 `verify.yml`；
   2. 只有上面三种触发；
-  3. 推送 main 的运行不被取消或替换；
+  3. 推送 main 的运行不被取消或替换（并发组逐字核对）；
   4. 权限只在工作流级写一次 `contents: read`；
   5. 只用按完整 SHA 锁定的 `actions/checkout` 与 `actions/setup-node`，不调用可复用工作流；
   6. 检出设 `persist-credentials: false`；
-  7. 不读密钥与令牌；
+  7. 不读密钥与令牌：每个 `${{ … }}` 照 GitHub 的读法整段核对，`secrets` 怎么写都拦，`github` 只许取 `token` 以外的属性（`toJSON(github)`、`github['token']` 都算令牌）；
   8. `run` 里不插 `${{ }}`，值经环境变量传入；
   9. 不许 `continue-on-error`，不设部署环境；
   10. 每个作业有超时，运行器写明版本；
   11. 每个作业带“只在公开仓库上跑”的条件；
   12. 不设服务容器与作业容器，数据库由 `ci-db.ts` 起；
-  13. 有一步跑 `make verify`。
+  13. 有一步只跑 `make verify SHA="$HEAD_SHA"`，不接别的命令、不带条件，它的失败就是整个运行的失败。
 - **Actions 用不了时**：
   - M0 期间：沿用 08-owner-voice DEC-24 ② 的做法。云端容器的 focused 回执通过、独立审查没有阻断项，就可以合并，合并后在项目对话里说一声；PR 评论写明缺 `compose-smoke`、原因是 Actions 不可用。Actions 恢复后，在 main 的头上手动运行一次，补出 `scope: full` 的回执，记进 T-0001 验收记录。期限是 M0 退出前。
   - M0 之后：没有这个例外，等 Actions 恢复；focused 回执照旧不能用来合并（规则文件 8.3）。要不要另备一个不依赖 GitHub、能跑 `compose-smoke` 的执行器，M0 退出前写 Q 卡片请 Owner 定。

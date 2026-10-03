@@ -2,8 +2,9 @@
 # repository (2026-10-03, 08-owner-voice DEC-25 ③). By ADR-0017's reversal clause it is one more executor of
 # the same entry point: same stages, same receipt. It is not a required check (rules file 8.5, stage A):
 # merging rests on the receipt for the pull request's final commit, from this executor or another one.
-# Read-only, no secrets, two GitHub-owned actions pinned to a full commit SHA; it builds, signs and deploys
-# nothing. The toolchain stage (scripts/verify/toolchain.ts, workflowProblems) holds this file to that shape.
+# Read-only, no secrets, two GitHub-owned actions pinned to a full commit SHA. It builds no release image (what
+# build-web and compose-smoke build goes with the runner), signs and pushes nothing, deploys nothing. The
+# toolchain stage (scripts/verify/toolchain.ts, workflowProblems) holds this file to that shape.
 name: make verify (GitHub Actions)
 
 on:
