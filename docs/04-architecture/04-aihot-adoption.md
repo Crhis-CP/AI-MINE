@@ -850,7 +850,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 | 步 | 任务 | 内容 | 允许的行为变化 | 通过标准 |
 |---|---|---|---|---|
 | 0 | 建仓 | 首个提交原样导入 `885b736`；保留 `LICENSE`、`NOTICE`，新增 `UPSTREAM.md` 与 `upstream/aihot.lock.json`；移植 6.5 的缺陷修复（独立提交）；**在干净环境实际跑通上游测试（typecheck、后端测试、web 测试、冒烟、MCP 检查），记录失败项**，生成行为基线 | 无（移植的缺陷修复除外） | 上游测试在干净环境跑通，或失败项已逐条记录 |
-| 1 | T-0001 工具链与统一验证入口 | pnpm 12、Biome（格式化单独提交）、`scripts/verify`（`make verify`，由 `check.yml` 翻译，workflow 归档、平台设置里停用 Actions 并读回）、验证回执、密钥扫描；Turborepo、lefthook、Renovate 按触发条件缓办（ADR-0015、ADR-0017） | 无 | 与基线一致 |
+| 1 | T-0001 工具链与统一验证入口 | pnpm 12、Biome（格式化单独提交）、`scripts/verify`（`make verify`，由 `check.yml` 翻译，workflow 归档；“平台设置里停用 Actions 并读回”由 TASK-0015 取代：Owner 2026-10-03 决定使用 Actions，只跑 verify 工作流，08-owner-voice DEC-25 ③）、验证回执、密钥扫描；Turborepo、lefthook、Renovate 按触发条件缓办（ADR-0015、ADR-0017） | 无 | 与基线一致 |
 | 2 | T-0002 去品牌与删减 | 第 4.1～4.8 节中的删除项与改名（4.4 的行业内容除外，它们属于 T-0009）；含 X、反馈转发飞书、二维码、海报、分享图与海报里的评分角标、导出、图标抓取与图片代理（页面卡片与详情的评分标签保留，4.8；飞书内容推送与飞书登录保留、默认关闭，Owner 2026-10-02） | 只有删除与改名 | 4.6 节验收；其余与基线一致 |
 | 3 | T-0003 最小边界与按角色连接 | exports 白名单、前端不得导入后端、付费调用只经网关、web 无数据库与模型凭据、`dbFor(role)`、边界脚本、`public-api`/`private-api` 两个角色入口、《待迁出清单》（3.1、7.4） | 连接注入方式（行为不变） | 7.3 节的等价性检查通过；公开 GET 路径的连接只有 `public_read` |
 | 4 | T-0004 契约中心 | 只为保留的响应按现状写 Zod，生成 OpenAPI 与 api-client；漂移检查进验证入口；`score`、`links.aihot`、`channel` 中的 `x` 不进契约 | 无（只新增契约测试） | 保留的响应全部通过契约校验 |
