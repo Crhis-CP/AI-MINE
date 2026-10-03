@@ -7,7 +7,9 @@
 //   - integrator areas (integrator_only shared paths, and paths that only the architect lane owns or that no
 //     lane owns) only when the card names an integration_owner.
 // Paths under `generated:` are exempt. The card and lanes.yaml are read from the base commit, so a PR cannot
-// widen its own paths.
+// widen its own paths. One exception, the plan PR (§3.3: a PR that only changes task cards, merged before the
+// work): the card it names is new, so it is not on the base yet; such a PR passes when it adds that card and
+// every file it changes is under tasks/ (TASK-0015).
 import { parse } from "yaml";
 import { git, matchesAny, ROOT, tryGit } from "./lib.ts";
 
@@ -90,6 +92,17 @@ export function judge(file: string, card: Card, lanes: Lanes): string | null {
   return approved ? null : "integrator territory (no lane owns it): the card needs an integration_owner";
 }
 
+/** A PR whose card is not on the base: a plan PR when it adds that card and changes nothing outside tasks/. */
+function planPr(changed: string[], head: string, task: string, root: string): GuardResult {
+  const card = `tasks/${task}.md`;
+  if (!changed.includes(card) || tryGit(["cat-file", "-e", `${head}:${card}`], root) === null) {
+    return { status: "fail", lines: [`${card} is not on the base commit; merge the plan PR with the card first`] };
+  }
+  const outside = changed.filter((f) => !f.startsWith("tasks/"));
+  if (outside.length) return { status: "fail", lines: outside.map((f) => `${f}: a plan PR (${card} is new) may change only tasks/`) };
+  return { status: "pass", lines: [`plan PR: adds ${card} and changes only task cards (${changed.length} files)`] };
+}
+
 /** The task card named by the branch (`agent/<lane>/TASK-nnnn-<slug>`), or null. */
 export function cardFromBranch(branch: string): string | null {
   return branch.match(/^agent\/[\w-]+\/(TASK-\d{4})(?:-|$)/)?.[1] ?? null;
@@ -105,7 +118,7 @@ export function pathGuard(base: string, head: string, task: string | null, root 
   if (!changed.length) return { status: "pass", lines: ["no changes against the base"] };
   if (!task) return { status: "fail", lines: ["no task card: name it with TASK=TASK-nnnn or use a branch agent/<lane>/TASK-nnnn-<slug>"] };
   const cardText = tryGit(["show", `${base}:tasks/${task}.md`], root);
-  if (cardText === null) return { status: "fail", lines: [`tasks/${task}.md is not on the base commit; merge the plan PR with the card first`] };
+  if (cardText === null) return planPr(changed, head, task, root);
   const lanes = parse(lanesText) as Lanes;
   const raw = parseCard(cardText);
   const card: Card = {
