@@ -4,6 +4,35 @@ import type { Db, Sql } from "./db.ts";
 const connections = new Map<string, { sql: Sql }>();
 const handles = new Map<string, Sql>();
 const deferred = new WeakMap<object, () => unknown>();
+type Binding = { get: () => Db; compose: () => Db; construct: () => void };
+
+function scoped(sql: Db, check: () => void): Binding {
+  const get = () => {
+    check();
+    return sql;
+  };
+  return { get, compose: get, construct: check };
+}
+
+/** Cursor iteration can execute SQL; return remains available to close an already opened cursor. */
+function cursor(target: unknown, check: () => void): object {
+  if (!target || typeof target !== "object") throw new Error("Invalid database cursor");
+  return new Proxy(
+    {},
+    {
+      get(_target, key) {
+        if (key !== "return") check();
+        const member = Reflect.get(target, key);
+        if (typeof member !== "function") return member;
+        return (...args: unknown[]) => {
+          if (key !== "return") check();
+          const result = Reflect.apply(member, target, args);
+          return key === Symbol.asyncIterator ? cursor(result, check) : result;
+        };
+      },
+    },
+  );
+}
 
 /** Resolve our fragments before handing them to postgres.js, including fragments nested in builders. */
 function unwrap(value: unknown): unknown {
@@ -16,7 +45,7 @@ function unwrap(value: unknown): unknown {
 }
 
 /** A query/identifier/JSON helper can be constructed before injection, but cannot execute before it. */
-function lazy(build: () => unknown, connection: () => Db): object {
+function lazy(build: (resolve: () => Db) => unknown, connection: () => Db, compose = connection): object {
   let resolved = false;
   let value: unknown;
   let owner: Db;
@@ -24,7 +53,7 @@ function lazy(build: () => unknown, connection: () => Db): object {
     const current = connection();
     if (resolved && current !== owner) throw new Error("Database binding changed for a prepared query");
     if (!resolved) {
-      value = build();
+      value = build(connection);
       owner = current;
       resolved = true;
     }
@@ -34,58 +63,100 @@ function lazy(build: () => unknown, connection: () => Db): object {
     {},
     {
       get(_target, key) {
+        if (key === "cancel") {
+          const actual = resolved ? value : materialize();
+          return () => {
+            // Observe cancellation without Query.then/catch, which would start a still-pending query.
+            if (actual instanceof Promise) Promise.prototype.then.call(actual, undefined, () => {});
+            return Reflect.apply(Reflect.get(Object(actual), key), actual, []);
+          };
+        }
         const actual = materialize();
         const member = Reflect.get(Object(actual), key);
         if (typeof member !== "function") return member;
         return (...args: unknown[]) => {
           materialize();
           const result = Reflect.apply(member, actual, args);
-          return result === actual ? proxy : result;
+          return result === actual ? proxy : key === "cursor" ? cursor(result, materialize) : result;
         };
       },
     },
   );
-  deferred.set(proxy, materialize);
+  // Interpolation builds a new query in the current root. Observing/executing this object instead
+  // pins its original lifetime; it must never silently become a query on a replacement root.
+  deferred.set(proxy, () => (resolved ? materialize() : build(compose)));
   return proxy;
 }
 
-function wrap(bind: () => () => Db): Sql {
+function wrap(bind: () => Binding, release?: () => void): Sql {
   const call = (...args: unknown[]) => {
-    const resolve = bind();
-    return lazy(() => Reflect.apply(resolve(), undefined, args.map(unwrap)), resolve);
+    const binding = bind();
+    return lazy((resolve) => Reflect.apply(resolve(), undefined, args.map(unwrap)), binding.get, binding.compose);
   };
   return new Proxy(call, {
     get(_target, key) {
-      if (key === "json" || key === "array" || key === "unsafe") {
+      if (key === "release" && release) return release;
+      if (key === "json" || key === "array" || key === "unsafe" || key === "file") {
         const method = bind();
         return (...args: unknown[]) => {
+          method.construct();
           const call = bind();
           const resolve = () => {
-            method();
-            return call();
+            method.get();
+            return call.get();
           };
-          return lazy(() => {
-            const sql = resolve();
-            return Reflect.apply(Reflect.get(sql, key), sql, args.map(unwrap));
-          }, resolve);
+          return lazy(
+            (current) => {
+              const sql = current();
+              return Reflect.apply(Reflect.get(sql, key), sql, args.map(unwrap));
+            },
+            resolve,
+            key === "file" ? resolve : call.compose,
+          );
         };
       }
-      const resolve = bind();
+      const resolve = bind().get;
       const sql = resolve();
       const member = Reflect.get(sql, key);
       if (typeof member !== "function") return member;
       return (...args: unknown[]) => {
         if (resolve() !== sql) throw new Error("Database binding changed for a saved method");
         const values = args.map(unwrap);
+        if (key === "reserve")
+          return (async () => {
+            const reserved = (await Reflect.apply(member, sql, values)) as Db & { release: () => void };
+            let released = false;
+            const release = () => {
+              if (!released) {
+                released = true;
+                reserved.release();
+              }
+            };
+            try {
+              resolve();
+            } catch (error) {
+              release();
+              throw error;
+            }
+            return wrap(
+              () =>
+                scoped(reserved, () => {
+                  resolve();
+                  if (released) throw new Error("Reserved database connection released");
+                }),
+              release,
+            );
+          })();
         if (key === "begin" || key === "savepoint") {
           const callback = values.at(-1);
           if (typeof callback === "function")
             values[values.length - 1] = async (tx: Db) => {
               const returned = callback(
-                wrap(() => () => {
-                  resolve();
-                  return tx;
-                }),
+                wrap(() =>
+                  scoped(tx, () => {
+                    resolve();
+                  }),
+                ),
               );
               // postgres.js recognises synchronous arrays before awaiting a callback's return value.
               // Our async validity check must preserve that eager Promise.all behaviour.
@@ -109,12 +180,23 @@ export function dbOf(module: string): Sql {
       // No registration yet is valid for import-time fragments. Otherwise pin this generation now,
       // not when the query is first awaited; even reinjecting the same Sql starts a new lifetime.
       let owner = connections.get(module);
-      return () => {
+      const current = () => {
         const current = connections.get(module);
         if (!current) throw new Error(`Database connection not injected for module ${module}`);
-        if (owner && owner !== current) throw new Error(`Database binding changed for module ${module}`);
-        owner ??= current;
-        return current.sql;
+        return current;
+      };
+      const get = () => {
+        const registration = current();
+        if (owner && owner !== registration) throw new Error(`Database binding changed for module ${module}`);
+        owner ??= registration;
+        return registration.sql;
+      };
+      return {
+        get,
+        compose: () => current().sql,
+        construct: () => {
+          if (owner || connections.has(module)) get();
+        },
       };
     });
     handles.set(module, handle);

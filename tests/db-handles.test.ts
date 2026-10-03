@@ -80,13 +80,13 @@ test("a prepared or chained query cannot outlive its injection or switch to anot
   dispose();
   await assert.rejects(Promise.resolve(query), /not injected/);
   await assert.rejects(Promise.resolve(plain), /not injected/);
-  await assert.rejects(Promise.resolve(unsafe("SELECT 1")), /not injected/);
+  await assert.rejects(async () => unsafe("SELECT 1"), /not injected/);
   assert.throws(() => transaction(async () => 1), /not injected/);
   const removeReplacement = injectDb({ "handle-disposed": replacement.dbFor("worker") });
   try {
     await assert.rejects(Promise.resolve(query), /binding changed/);
     await assert.rejects(Promise.resolve(plain), /binding changed/);
-    await assert.rejects(Promise.resolve(unsafe("SELECT 1")), /binding changed/);
+    await assert.rejects(async () => unsafe("SELECT 1"), /binding changed/);
     assert.throws(() => transaction(async () => 1), /binding changed/);
   } finally {
     removeReplacement();
