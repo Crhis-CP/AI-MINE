@@ -9,8 +9,10 @@ import path from "node:path";
 import { after, test } from "node:test";
 import { feedbackScreenshot } from "@amp/backend/admin/feedback";
 import { config } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { submitFeedback } from "@amp/backend/operations/feedback";
+
+const sql = dbOf("feedback");
 
 const T = tag();
 config.dataDir = mkdtempSync(path.join(tmpdir(), "amp-feedback-"));

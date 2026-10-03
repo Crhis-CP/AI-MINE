@@ -2,10 +2,12 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { after, before, test } from "node:test";
-import { sql, closeDb } from "@amp/backend/db";
+import { dbOf, closeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
+
+const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-translate-stop-${T}`;
@@ -25,7 +27,8 @@ function runTranslation() {
   const script = `
     import { translatePending } from '@amp/backend/editorial/translate';
     import { shutdownSignal } from '@amp/backend/jobs/queue';
-    import { closeDb } from '@amp/backend/db';
+    import { closeDb, initializeDb } from '@amp/backend/db';
+    await initializeDb('test');
     process.on('SIGTERM', () => { shutdownSignal.abort(); process.send({ stopped: true }); });
     try { process.send({ result: await translatePending({ limit: 1 }) }); }
     finally { await closeDb(); process.disconnect(); }

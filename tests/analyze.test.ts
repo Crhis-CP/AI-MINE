@@ -7,7 +7,7 @@ import { Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@amp/backend/editorial/analyze";
 import { queueProcessing } from "@amp/backend/jobs/content";
@@ -15,6 +15,8 @@ import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
 import { promptText } from "@amp/backend/editorial/prompts";
 import { SITE } from "@amp/industry/site";
+
+const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-analyze-${T}`;

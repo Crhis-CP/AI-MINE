@@ -2,8 +2,10 @@
 import { SITE, withSubject } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { siteUrl } from "./links.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { MCP_TOOLS } from "@amp/contracts/mcp";
+
+const sql = dbOf("publication");
 
 /** Discovery only needs to know whether an entry exists, not count its entire history. */
 export async function loadLlmsAvailability() {

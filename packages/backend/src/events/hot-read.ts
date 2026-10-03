@@ -1,6 +1,8 @@
 // Reading the latest published hot ranking. The web shows heat values; machine exits only ranks.
 import type { HotStripEntry } from "@amp/contracts/site";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
+
+const sql = dbOf("events");
 
 export interface HotEntry {
   rank: number;

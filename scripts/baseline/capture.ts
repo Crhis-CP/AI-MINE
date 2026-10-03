@@ -5,6 +5,7 @@
 // DATABASE_URL must point at a throwaway *_ci or *_test database; nothing is written to it.
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { initializeDb } from "@amp/backend/db";
 
 const out = process.argv[2];
 if (!out) {
@@ -19,6 +20,7 @@ if (!/_(ci|test)$/.test(dbName)) {
 mkdirSync(out, { recursive: true });
 const write = (name: string, text: string) => writeFileSync(path.join(out, name), text.endsWith("\n") ? text : `${text}\n`);
 
+await initializeDb("test");
 const { buildApp } = await import("../../apps/api/src/app.ts");
 const app = await buildApp();
 await app.ready();

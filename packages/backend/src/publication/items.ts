@@ -2,8 +2,10 @@
 // items through these functions; visibility, release gate and body licences are applied here.
 import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
-import { sql, type Db } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { displayTags } from "./rules.ts";
+
+const sql = dbOf("publication");
 
 export interface ItemRow {
   id: string;

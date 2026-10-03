@@ -1,8 +1,10 @@
 import { assertProductionSecrets, config } from "@amp/backend/config";
-import { closeDb } from "@amp/backend/db";
+import { closeDb, initializeDb } from "@amp/backend/db";
 import { startHeartbeat } from "@amp/backend/operations/heartbeat";
 import { startWorkerWatchdog } from "@amp/backend/operations/watch";
 import { buildApp } from "./app.ts";
+
+await initializeDb("api");
 
 assertProductionSecrets([
   ["auth", "SESSION_SECRET"],

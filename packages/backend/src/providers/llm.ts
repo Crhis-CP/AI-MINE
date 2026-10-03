@@ -5,7 +5,9 @@ import type { z } from "zod";
 import { config, credential } from "../config.ts";
 import { sha256 } from "../lib/ids.ts";
 import { completeReceipt, paidRequest, ProviderRejectedError, rejectReceivedResponse } from "./receipts.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
+
+const sql = dbOf("ai-gateway");
 
 export interface ModelSpec {
   key: string;

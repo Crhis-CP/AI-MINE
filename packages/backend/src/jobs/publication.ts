@@ -1,10 +1,12 @@
 // Publication jobs: re-deriving a whole source after an admin change.
 import type { PgBoss } from "pg-boss";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 
 import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
+
+const sql = dbOf("publication");
 
 export const republishKey = (sourceId: string) => `republish.source:${sourceId}`;
 

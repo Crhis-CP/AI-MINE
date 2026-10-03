@@ -3,9 +3,11 @@
 // with a DashScope key and nothing else set, Aliyun text-embedding-v4 at 1024 dimensions. Without
 // either, recall falls back to the other signal (the same address).
 import { config, credential } from "../config.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { paidRequest, ProviderRejectedError } from "./receipts.ts";
+
+const sql = dbOf("ai-gateway");
 
 const own = !!credential("models", "EMBEDDING_API_KEY");
 export const EMBEDDING_MODEL = process.env.EMBEDDING_MODEL || (own ? "text-embedding-3-small" : "text-embedding-v4");

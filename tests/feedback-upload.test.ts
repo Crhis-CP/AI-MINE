@@ -5,8 +5,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { buildApp } from "../apps/api/src/app.ts";
+
+const sql = dbOf("feedback");
 
 config.dataDir = await mkdtemp(path.join(tmpdir(), "amp-upload-"));
 const app = await buildApp();

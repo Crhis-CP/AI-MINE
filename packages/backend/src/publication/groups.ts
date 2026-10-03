@@ -2,7 +2,7 @@
 // "展开 N 条进展". Members must pass the same visibility, pool eligibility and parent-page filters.
 import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";
 import type { DevelopmentsResponse, GroupReportsResponse } from "@amp/contracts/site";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
 import {
@@ -17,6 +17,8 @@ import {
   type ItemRow,
 } from "./items.ts";
 import { pickRepresentative } from "./timeline.ts";
+
+const sql = dbOf("publication");
 
 export interface GroupReportsQuery {
   factPublicId: string;

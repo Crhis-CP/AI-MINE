@@ -21,11 +21,15 @@
 // Every step can be repeated.
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { enqueue, getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { backfillStoryHeat, computeHotRanking } from "@amp/backend/events/hot";
 import { consolidate, warmRecallWindow } from "@amp/backend/events/group";
 import { firmlyTied } from "@amp/backend/events/relate";
+
+await initializeDb("worker");
+
+const sql = dbOf("events");
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,

@@ -8,12 +8,14 @@
 import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import { z } from "zod";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { chatJson } from "../providers/llm.ts";
 import { modelFor } from "./models.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { promptText, promptVersion } from "./prompts.ts";
+
+const sql = dbOf("enrichment");
 
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
 const BATCH_CHARS = 3500;

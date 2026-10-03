@@ -1,9 +1,11 @@
 // Item detail, behind the visibility and licence rules every public output shares.
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
 import { linkBodyImages } from "../content/sanitize.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { hasItemPage } from "./rules.ts";
+
+const sql = dbOf("publication");
 
 interface DetailRow extends ItemRow {
   body_html: string | null;

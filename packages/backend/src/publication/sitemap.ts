@@ -5,11 +5,13 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../config.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { cached } from "../lib/cache.ts";
 import { escapeXml } from "../lib/text.ts";
 import { siteUrl } from "./links.ts";
 import { topicPageCounts } from "./topics.ts";
+
+const sql = dbOf("publication");
 
 const MAX_URLS = 45_000;
 const TTL_MS = 5 * 60 * 1000;

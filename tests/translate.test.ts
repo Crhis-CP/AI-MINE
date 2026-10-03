@@ -4,12 +4,14 @@
 import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { translatePending } from "@amp/backend/editorial/translate";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { buildApp } from "../apps/api/src/app.ts";
+
+const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-translate-${T}`;

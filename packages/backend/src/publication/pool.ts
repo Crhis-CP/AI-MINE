@@ -1,7 +1,7 @@
 // Public pool (/all) with numeric pages, and search in its two orderings.
 import type { PoolResponse, TimelineFilters } from "@amp/contracts/site";
 import { beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { one, sql, withCustomPlans, type Db } from "../db.ts";
+import { one, dbOf, withCustomPlans, type Db } from "../db.ts";
 import {
   categoryCondition,
   channelCondition,
@@ -13,6 +13,8 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
+
+const sql = dbOf("publication");
 
 export const POOL_PAGE_SIZE = 40;
 export const POOL_MAX_PAGES = 50;

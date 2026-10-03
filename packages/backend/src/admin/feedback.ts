@@ -3,9 +3,11 @@
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../config.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
+
+const sql = dbOf("feedback");
 
 export const FEEDBACK_STATUSES = ["new", "triaged", "replied", "resolved", "spam"] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];

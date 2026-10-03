@@ -7,9 +7,11 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource } from "@amp/backend/sources/collect";
+
+const sql = dbOf("acquisition");
 
 const T = tag();
 const DUP_SOURCE = `test-rss-dup-${T}`;

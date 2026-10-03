@@ -4,10 +4,12 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { checkAlerts } from "@amp/backend/operations/alerts";
+
+const sql = dbOf("ops");
 
 const T = tag();
 const SOURCE = `test-alerts-${T}`;

@@ -1,5 +1,5 @@
 // Worker process: queues and schedules for collection, processing, events, reports and ops.
-import { closeDb } from "@amp/backend/db";
+import { closeDb, initializeDb } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { registerContentJobs } from "@amp/backend/jobs/content";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
@@ -9,6 +9,8 @@ import { registerPublicationJobs } from "@amp/backend/jobs/publication";
 import { registerSchedules } from "./schedules.ts";
 import { ensureContentTargets } from "@amp/backend/notify/deliver";
 import { startHeartbeat } from "@amp/backend/operations/heartbeat";
+
+await initializeDb("worker");
 
 await ensureContentTargets();
 const boss = await getBoss();

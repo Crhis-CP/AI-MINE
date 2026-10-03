@@ -1,8 +1,12 @@
 // Enqueues analysis for articles (development helper). By default only editorial articles that have
 // no live model analysis yet; --all re-runs everything (receipts make repeats free).
 import { parseArgs } from "node:util";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { enqueue, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
+
+await initializeDb("worker");
+
+const sql = dbOf("enrichment");
 
 const { values } = parseArgs({ options: { all: { type: "boolean", default: false }, limit: { type: "string", default: "1000" } } });
 const rows = await sql<{ id: string }[]>`

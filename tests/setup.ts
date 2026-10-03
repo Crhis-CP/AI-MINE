@@ -4,6 +4,7 @@
 // local stubs by the tests that need them, and the push valves stay off. The files share
 // one database and its paid-service budgets, so they run one at a time (package.json).
 import http from "node:http";
+import { initializeDb } from "@amp/backend/db";
 
 const database = new URL(process.env.DATABASE_URL ?? "postgres://unset/unset").pathname.slice(1);
 if (!/_(test|ci)$/.test(database)) {
@@ -31,6 +32,7 @@ const PRESET_MODELS: Record<string, string> = {
   TRANSLATE_MODEL: "deepseek-flash",
 };
 for (const [name, model] of Object.entries(PRESET_MODELS)) process.env[name] ??= model;
+await initializeDb("test");
 
 /**
  * A local HTTP stub standing in for a paid provider; `answer` builds every response from the request

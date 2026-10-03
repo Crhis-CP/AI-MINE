@@ -5,8 +5,10 @@ import { createHmac } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config, credential } from "../config.ts";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
+
+const sql = dbOf("feedback");
 
 export class FeedbackRejected extends Error {
   readonly status: number;

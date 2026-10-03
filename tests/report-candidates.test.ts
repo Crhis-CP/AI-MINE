@@ -3,11 +3,13 @@ import { gate, stub, tag } from "./setup.ts";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, publishArticleTx } from "@amp/backend/publication/publish";
 import { candidates, composeDaily } from "@amp/backend/reports/compose";
+
+const sql = dbOf("reports");
 
 const T = tag();
 const SOURCE = `test-report-boundary-${T}`;

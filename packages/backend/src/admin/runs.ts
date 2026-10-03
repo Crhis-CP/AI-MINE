@@ -1,10 +1,12 @@
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
+
+const sql = dbOf("ops");
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 

@@ -1,9 +1,11 @@
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
 import { beijingDate, beijingTime } from "@amp/contracts/time";
-import { sql } from "../db.ts";
+import { dbOf } from "../db.ts";
 import { collapseWhitespace, truncate } from "../lib/text.ts";
 import { produceImage } from "../media/images.ts";
 import type { ContentPart } from "../providers/llm.ts";
+
+const sql = dbOf("enrichment");
 
 export interface AnalyzeInputArticle {
   id: string;

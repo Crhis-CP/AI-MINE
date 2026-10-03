@@ -1,7 +1,9 @@
 // Job queue on PostgreSQL (pg-boss). Business code enqueues by name; the worker process owns handlers.
 import { PgBoss, type SendOptions } from "pg-boss";
 import { config } from "../config.ts";
-import { sql, type Db } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
+
+const sql = dbOf("queue");
 
 let boss: PgBoss | null = null;
 let starting: Promise<PgBoss> | null = null;

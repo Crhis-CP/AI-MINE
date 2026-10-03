@@ -5,12 +5,14 @@
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, sql } from "@amp/backend/db";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle } from "@amp/backend/events/group";
 import { queueProcessing, settleNonEditorial } from "@amp/backend/jobs/content";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
+
+const sql = dbOf("events");
 
 const T = tag();
 const EDITORIAL = `test-sig-ed-${T}`;

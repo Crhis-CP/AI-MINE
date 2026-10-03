@@ -6,8 +6,10 @@
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
 //    caller. ops.recover releases it once after 30 minutes (admin/runs.ts), so a lost answer costs at
 //    most one repeat; after that it waits for the admin.
-import { sql, type Db } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+
+const sql = dbOf("ai-gateway");
 
 export class BudgetExceededError extends Error {
   readonly service: string;
