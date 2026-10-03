@@ -1,5 +1,6 @@
 // TASK-0004 D1: import-time SQL fragments are lazy; only composition roots register connections.
 import type { Db, Sql } from "./db.ts";
+import type { Readable, Writable } from "node:stream";
 
 const connections = new Map<string, { sql: Sql }>();
 const handles = new Map<string, Sql>();
@@ -32,6 +33,72 @@ function cursor(target: unknown, check: () => void): object {
       },
     },
   );
+}
+
+/** Driver streams defer I/O until read/write; guard each chunk and route async failures to the stream. */
+function guardedStream(stream: Readable | Writable, writing: boolean, check: () => void): typeof stream {
+  const key = writing ? "_write" : "_read";
+  const operation = Reflect.get(stream, key);
+  Reflect.set(stream, key, (...args: unknown[]) => {
+    const fail = (error: unknown) => {
+      const cause = error instanceof Error ? error : new Error("Database stream failed");
+      const callback = writing && args.at(-1);
+      if (typeof callback === "function") callback(cause);
+      else stream.destroy(cause);
+    };
+    try {
+      check();
+      const pending = Reflect.apply(operation, stream, args);
+      if (pending instanceof Promise) pending.catch(fail);
+    } catch (error) {
+      fail(error);
+    }
+  });
+  return stream;
+}
+
+async function largeObject(object: Awaited<ReturnType<Sql["largeObject"]>>, connection: () => Db): Promise<typeof object> {
+  const originalClose = object.close.bind(object);
+  let closing: Promise<void> | undefined;
+  let closed = false;
+  const resolve = () => {
+    const sql = connection();
+    if (closed) throw new Error("Database large object closed");
+    return sql;
+  };
+  object.close = () => {
+    closed = true;
+    closing ??= originalClose();
+    return closing;
+  };
+  try {
+    resolve();
+  } catch (error) {
+    await object.close();
+    throw error;
+  }
+  // The driver's stream closures use this same object, so their internal read/write/seek also check.
+  for (const [key, operation] of Object.entries(object)) {
+    if (key === "close" || typeof operation !== "function") continue;
+    Reflect.set(
+      object,
+      key,
+      key === "readable" || key === "writable"
+        ? async (...args: unknown[]) => {
+            resolve();
+            const stream = (await Reflect.apply(operation, object, args)) as Readable | Writable;
+            try {
+              resolve();
+            } catch (error) {
+              stream.destroy();
+              throw error;
+            }
+            return guardedStream(stream, key === "writable", resolve);
+          }
+        : (...args: unknown[]) => lazy(() => Reflect.apply(operation, object, args), resolve),
+    );
+  }
+  return object;
 }
 
 /** Resolve our fragments before handing them to postgres.js, including fragments nested in builders. */
@@ -122,6 +189,8 @@ function wrap(bind: () => Binding, release?: () => void): Sql {
       return (...args: unknown[]) => {
         if (resolve() !== sql) throw new Error("Database binding changed for a saved method");
         const values = args.map(unwrap);
+        if (key === "largeObject")
+          return (async () => largeObject((await Reflect.apply(member, sql, values)) as Awaited<ReturnType<Sql["largeObject"]>>, resolve))();
         if (key === "reserve")
           return (async () => {
             const reserved = (await Reflect.apply(member, sql, values)) as Db & { release: () => void };
