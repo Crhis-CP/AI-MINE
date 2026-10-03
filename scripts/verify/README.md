@@ -61,7 +61,7 @@ make verify TASK=TASK-0002
 
 还没接入的阶段写在回执的 `pending_stages` 里：`contracts`（TASK-0005）、`data-ownership`（TASK-0004）；`role-config` 的真实数据库授权矩阵仍待 PR8、`e2e-smoke`（TASK-0008）、`pit-checks`（TASK-0011）、`product-update`。
 
-`role-config` 当前验证进程凭据/代理拒绝、web与平台规则一致性、展开Compose锚点后的web环境隔离。fetcher启动与回放随PR5b接入，真实数据库授权矩阵随PR8接入；阶段通过不代表这些余项已完成。
+`role-config` 当前验证进程凭据/代理拒绝、web与平台规则一致性、展开Compose锚点后的web环境隔离。fetcher启动与合成回放由后端测试阶段验证，正式FetchPort与取得链仍归TASK-0005/M1；真实数据库授权矩阵随PR8接入，阶段通过不代表这些余项已完成。
 
 ## 3. 回执
 

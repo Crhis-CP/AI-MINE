@@ -1,0 +1,11 @@
+{
+  "name": "@amp/fetcher",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.ts"
+  },
+  "dependencies": {
+    "@amp/config": "workspace:*"
+  }
+}

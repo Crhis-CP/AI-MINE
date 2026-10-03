@@ -1,4 +1,5 @@
 // TASK-0004 D2/D3: process-owned database access. Construction validates configuration but does not connect.
+import { isIP } from "node:net";
 import postgres from "postgres";
 
 export const DATABASE_ROLES = ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup"] as const;
@@ -39,6 +40,16 @@ export function environmentProblems(role: ProcessRole, env: Environment = proces
 export function assertProcessEnvironment(role: ProcessRole, env?: Environment): void {
   const problems = environmentProblems(role, env);
   if (problems.length) throw new Error(`${role} must not hold ${problems.join(", ")}`);
+}
+
+/** M0 recording-server settings; no database access is created for this process. */
+export function fetcherConfig(env: Environment = process.env): { host: string; port: number } {
+  assertProcessEnvironment("fetcher", env);
+  const port = Number(env.FETCHER_PORT ?? 3003);
+  const host = env.FETCHER_HOST ?? "127.0.0.1";
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("FETCHER_PORT must be an integer between 1 and 65535");
+  if (host !== "localhost" && !isIP(host)) throw new Error("FETCHER_HOST must be an IP address or localhost");
+  return { host, port };
 }
 
 function validateUrl(value: string, key: string, processRole: ProcessRole): string {
