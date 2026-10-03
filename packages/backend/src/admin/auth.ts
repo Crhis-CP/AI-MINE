@@ -2,7 +2,7 @@
 // union_ids / emails; opaque sessions stored hashed, and an audit trail for every manual change.
 // Development may impersonate an admin with DEV_AUTH_ROLE=admin; production refuses to start with it.
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { config, credential } from "../config.ts";
+import { config, credential, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 
@@ -167,7 +167,7 @@ export async function sessionPrincipal(cookieHeader: string | undefined): Promis
       WHERE s.id_hash = ${sha256(token)} AND s.expires_at > now()`;
     if (row) return { userId: row.user_id, name: row.name ?? row.email ?? `admin:${row.user_id}`, csrf: row.csrf_token, dev: false };
   }
-  if (config.devAdmin && config.environmentName !== "production") return { userId: null, name: config.devAdmin.displayName, csrf: "dev", dev: true };
+  if (config.devAdmin && !isProduction) return { userId: null, name: config.devAdmin.displayName, csrf: "dev", dev: true };
   return null;
 }
 

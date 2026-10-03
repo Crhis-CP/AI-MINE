@@ -3,6 +3,7 @@ import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
+import { assertWebEnvironment } from "./runtime-env.ts";
 
 const API = new URL(process.env.API_BASE_URL || "http://127.0.0.1:3001");
 
@@ -11,6 +12,7 @@ function devEdge(): Plugin {
   return {
     name: "amp-dev-edge",
     configureServer(server) {
+      assertWebEnvironment();
       server.middlewares.use((req, res, next) => {
         const raw = req.url ?? "/";
         const qi = raw.indexOf("?");

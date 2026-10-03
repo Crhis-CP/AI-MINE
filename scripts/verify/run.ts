@@ -28,12 +28,14 @@ import { checkNames, checkOutputs, checkOutputTree, fetchSiteOutputs } from "./n
 import { cardFromBranch, pathGuard } from "./path-guard.ts";
 import { scanSecrets, type SecretScan } from "./secrets.ts";
 import { checkTasks } from "./tasks.ts";
+import { checkRoleConfig } from "./role-config.ts";
+import { webEnvironment } from "../../apps/web/runtime-env.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 
 const WEB_PACKAGE = "@amp/web";
 const PENDING_STAGES = [
   "contracts (TASK-0005)",
-  "data-ownership, role-config (TASK-0004)",
+  "data-ownership; role-config real database grants (TASK-0004 PR8)",
   "e2e-smoke (TASK-0008)",
   "product-update",
   "pit-checks (TASK-0011)",
@@ -270,6 +272,11 @@ const STAGES: Stage[] = [
     run: async ({ log }) => problems(checkNames(ROOT, trackedFiles()), log, "upstream name and marks only on the exception paths; no upstream brand asset"),
   },
   {
+    name: "role-config",
+    quick: true,
+    run: async ({ log }) => problems(checkRoleConfig(ROOT), log, "process environment guards and compose web isolation; database grants follow in PR8"),
+  },
+  {
     name: "path-guard",
     run: async ({ log, base, head, task }) => {
       if (!base) return { status: "skipped", note: "no base ref to compare with (set VERIFY_BASE)" };
@@ -358,7 +365,7 @@ const STAGES: Stage[] = [
       // The site runs with collection and model calls off, as in the upstream workflow.
       const e = env({ ...siteEnv(db!), COLLECT_ENABLED: "false", MODEL_CALLS_ENABLED: "false" });
       const api = start("node", ["apps/api/src/main.ts"], { log, env: e });
-      const web = start("node", ["server.ts"], { log, env: { ...e, NODE_ENV: "production" }, cwd: path.join(ROOT, "apps/web") });
+      const web = start("node", ["server.ts"], { log, env: webEnvironment({ ...e, NODE_ENV: "production" }), cwd: path.join(ROOT, "apps/web") });
       const base = `http://127.0.0.1:${webPort}`;
       try {
         if (!(await waitFor(`${base}/api/health`, 60))) return fail("the site did not answer /api/health within 60 s");
@@ -393,7 +400,7 @@ const STAGES: Stage[] = [
       if ((await run("node", ["--test", "scripts/verify/tests/*.test.ts"], { log, env: env() })) !== 0) failed.push("verify self-tests");
       // The web tests start the production server, so they need the build (pnpm check runs them when it exists).
       const webTests = !quick || existsSync(path.join(ROOT, "apps/web/build"));
-      if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: env() })) !== 0) failed.push("web tests");
+      if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: webEnvironment(env()) })) !== 0) failed.push("web tests");
       // After the smoke check, which reads an empty database: the backend tests write their own rows.
       if (!quick && db && (await run("pnpm", ["test"], { log, env: env(siteEnv(db)), timeoutMs: 30 * 60_000 })) !== 0) failed.push("backend tests");
       if (failed.length) return fail(`${failed.join(", ")} failed`);

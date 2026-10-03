@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createDatabaseAccess, databaseConfig, DATABASE_ROLES, PROCESS_DATABASE_ROLES, type ProcessRole, type QueryRole } from "@amp/config";
+import {
+  assertProcessEnvironment,
+  environmentProblems,
+  createDatabaseAccess,
+  databaseConfig,
+  DATABASE_ROLES,
+  PROCESS_DATABASE_ROLES,
+  type ProcessRole,
+  type QueryRole,
+} from "@amp/config";
 
 const url = "postgres://postgres@127.0.0.1:1/config_test";
 const key = (role: string) => `DATABASE_URL_${role.toUpperCase()}`;
@@ -131,6 +140,50 @@ test("queue access follows the process role and keeps the validated addresses un
   } finally {
     await access.close();
   }
+});
+
+test("web and fetcher reject credential names even with empty values, without disclosing values", () => {
+  const names = ["DATABASE_URL", "DATABASE_URL_FUTURE", "PGHOST", "POSTGRES_PASSWORD", "AMP_CREDENTIALS_DIR"];
+  names.push(...["KEY", "API_KEY", "SECRET", "SECRET_ID", "TOKEN", "PASSWORD", "WEBHOOK_URL"].map((suffix) => `NEW_SERVICE_${suffix}`));
+  for (const role of ["web", "fetcher"] as const)
+    for (const NODE_ENV of ["development", "production"])
+      for (const name of names) {
+        for (const value of ["", "PRIVATE_MARKER"]) {
+          const env = { NODE_ENV, [name]: value };
+          assert.deepEqual(environmentProblems(role, env), [name]);
+          assert.throws(() => assertProcessEnvironment(role, env), { message: `${role} must not hold ${name}` });
+          assert.throws(() => databaseConfig(role, env), { message: `${role} must not hold ${name}` });
+        }
+        assert.deepEqual(environmentProblems(role, { NODE_ENV, [name]: undefined }), []);
+      }
+});
+
+test("only NODE_ENV enables production proxy and development-bypass checks for every role", () => {
+  const proxies = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "EGRESS_PROXY_URL"].flatMap((name) => [name, name.toLowerCase()]);
+  for (const role of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[]) {
+    for (const name of [...proxies, "DEV_AUTH_ROLE", "DEV_AUTH_DISPLAY_NAME"])
+      for (const value of ["", "PRIVATE_MARKER"]) {
+        const env = { NODE_ENV: "production", AMP_ENVIRONMENT: "development", [name]: value };
+        assert.deepEqual(environmentProblems(role, env), [name]);
+        assert.deepEqual(environmentProblems(role, { ...env, NODE_ENV: "development", AMP_ENVIRONMENT: "production" }), []);
+        assert.deepEqual(environmentProblems(role, { ...env, [name]: undefined }), []);
+      }
+    for (const value of [undefined, "", "false", "0", "true", "TRUE", "1"]) {
+      const env = { NODE_ENV: "production", ALLOW_PRIVATE_NETWORK_FETCH: value };
+      assert.deepEqual(environmentProblems(role, env), ["true", "TRUE", "1"].includes(value ?? "") ? ["ALLOW_PRIVATE_NETWORK_FETCH"] : []);
+      assert.deepEqual(environmentProblems(role, { ...env, NODE_ENV: "development" }), []);
+    }
+  }
+  const worker = {
+    NODE_ENV: "production",
+    DATABASE_URL: url,
+    LLM_API_KEY: "PRIVATE_MARKER",
+    DB_BACKUP_STORE_SECRET_ID: "PRIVATE_MARKER",
+    DB_BACKUP_STORE_SECRET_KEY: "PRIVATE_MARKER",
+  };
+  assert.deepEqual(environmentProblems("worker", worker), []);
+  assert.equal(databaseConfig("worker", worker).urlFor("backup"), url);
+  assert.throws(() => databaseConfig("worker", { ...worker, https_proxy: "PRIVATE_MARKER" }), { message: "worker must not hold https_proxy" });
 });
 
 test("role-selected connections preserve numeric decoding and support real transactions", async (t) => {
