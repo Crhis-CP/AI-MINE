@@ -47,3 +47,19 @@ test("missing services, invalid environment shapes and parse errors fail without
     assert.ok(inspect(compose).some((p) => p.startsWith("docker-compose.yml:") && !p.includes("do-not-print")));
   assert.match(checkRoleConfig(scratch()).join(), /cannot read or parse/);
 });
+
+test("unknown YAML tags fail without emitting the original configuration line", () => {
+  const emitWarning = process.emitWarning;
+  const warnings: string[] = [];
+  process.emitWarning = (warning) => {
+    warnings.push(String(warning));
+  };
+  try {
+    const problems = inspect("services: {web: {environment: {FUTURE_TOKEN: !secret PRIVATE_MARKER}}}");
+    assert.deepEqual(problems, ["docker-compose.yml: cannot read or parse configuration"]);
+    assert.deepEqual(warnings, []);
+    assert.ok(!problems.join().includes("PRIVATE_MARKER"));
+  } finally {
+    process.emitWarning = emitWarning;
+  }
+});

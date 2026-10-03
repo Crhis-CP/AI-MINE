@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { environmentProblems, PROCESS_DATABASE_ROLES, type ProcessRole } from "@amp/config";
-import { parse } from "yaml";
+import { parseDocument } from "yaml";
 import { webEnvironmentProblems } from "../../apps/web/runtime-env.ts";
 import { ROOT } from "./lib.ts";
 
@@ -45,7 +45,9 @@ export function checkRoleConfig(root = ROOT): string[] {
   }
   let doc: unknown;
   try {
-    doc = parse(readFileSync(path.join(root, "docker-compose.yml"), "utf8"), { merge: true });
+    const parsed = parseDocument(readFileSync(path.join(root, "docker-compose.yml"), "utf8"), { merge: true, logLevel: "silent" });
+    if (parsed.errors.length || parsed.warnings.length) throw new Error("Invalid Compose configuration");
+    doc = parsed.toJS();
   } catch {
     return [...problems, "docker-compose.yml: cannot read or parse configuration"];
   }
