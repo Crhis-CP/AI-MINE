@@ -46,8 +46,6 @@
     "[\"packages/backend/src/admin/runs.ts\",\"release\",\"platform/ops\",\"public.receipt_attempts\",\"write\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/runs.ts\",\"release/[a]\",\"platform/ops\",\"public.articles\",\"write\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/runs.ts\",\"releaseReceipt/[row]\",\"platform/ops\",\"public.receipts\",\"read\",\"split-debt\"]": 1,
-    "[\"packages/backend/src/admin/runs.ts\",\"autoReleaseUnknownReceipts/rows\",\"platform/ops\",\"public.receipts\",\"read\",\"split-debt\"]": 1,
-    "[\"packages/backend/src/admin/runs.ts\",\"autoReleaseUnknownReceipts/rows\",\"platform/ops\",\"public.receipt_attempts\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/settings.ts\",\"listTargets\",\"ai-gateway\",\"public.deliveries\",\"read\",\"split-debt\"]": 2,
     "[\"packages/backend/src/admin/settings.ts\",\"listTargets\",\"ai-gateway\",\"public.notify_targets\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/settings.ts\",\"setTargetEnabled/[before]\",\"ai-gateway\",\"public.notify_targets\",\"read\",\"split-debt\"]": 1,

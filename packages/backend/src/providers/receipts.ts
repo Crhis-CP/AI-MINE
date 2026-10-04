@@ -4,8 +4,7 @@
 // 2. Before calling, a placeholder row and an attempt row are persisted; budgets count attempts.
 // 3. The raw response is saved before any business write; recovery reuses a received response.
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
-//    caller. ops.recover releases it once after 30 minutes (admin/runs.ts), so a lost answer costs at
-//    most one repeat; after that it waits for the admin.
+//    caller or a timer. Only evidence that it was not billed can permit another paid attempt.
 import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
@@ -144,7 +143,10 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   if (claimed.kind === "reuse") return { receiptId: claimed.row.id, response: claimed.row.response, reused: true };
   if (claimed.kind === "busy") throw new ReceiptBusyError(`Receipt ${claimed.row.id} is in flight`);
   if (claimed.kind === "unknown") {
-    throw new ReceiptUnknownError(claimed.row.id, `Receipt ${claimed.row.id} has an unknown outcome; it is released once automatically, then from the admin`);
+    throw new ReceiptUnknownError(
+      claimed.row.id,
+      `Receipt ${claimed.row.id} has an unknown outcome; confirmation that it was not billed is required before retry`,
+    );
   }
 
   const { id: receiptId, attemptId } = claimed;
@@ -194,18 +196,22 @@ async function startAttempt(tx: Db, receiptId: number, attempt: number, req: Rec
 }
 
 async function markUnknown(tx: Db, receiptId: number, reason: string) {
-  await tx`UPDATE receipts SET status = 'unknown', error = ${reason}, updated_at = now() WHERE id = ${receiptId}`;
+  const changed = await tx`UPDATE receipts SET status = 'unknown', error = ${reason}, updated_at = now() WHERE id = ${receiptId} AND status = 'pending'`;
+  if (!changed.count) return;
   await tx`UPDATE receipt_attempts SET status = 'unknown', error = ${reason}, finished_at = now() WHERE receipt_id = ${receiptId} AND status = 'pending'`;
 }
 
 /**
  * Placeholders left behind by a process that stopped mid-request (crash, kill) become "unknown", so
- * they are released like any other unknown outcome even when nothing retries them.
+ * the unresolved attempt stays visible even when no caller retries it; elapsed time never releases it.
  */
 export async function markStalePendingReceipts(): Promise<number> {
-  const stale = await sql<{ id: number }[]>`SELECT id FROM receipts WHERE status = 'pending' AND updated_at < ${new Date(Date.now() - PENDING_STALE_MS)}`;
-  for (const r of stale) await sql.begin((tx) => markUnknown(tx, r.id, "placeholder went stale without a recorded result"));
-  return stale.length;
+  return sql.begin(async (tx) => {
+    const stale = await tx<{ id: number }[]>`SELECT id FROM receipts WHERE status = 'pending'
+      AND updated_at < ${new Date(Date.now() - PENDING_STALE_MS)} FOR UPDATE SKIP LOCKED`;
+    for (const r of stale) await markUnknown(tx, r.id, "placeholder went stale without a recorded result");
+    return stale.length;
+  });
 }
 
 export async function completeReceipt(db: Db, receiptId: number): Promise<void> {

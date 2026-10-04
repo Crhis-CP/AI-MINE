@@ -1,15 +1,18 @@
 // Paid requests: an answer already received is reused, every request actually sent counts against the
-// budget (retries of one logical request included), a lost answer is bought again at most once, and the
+// budget (retries of one logical request included), an unresolved answer is never bought again, and the
 // valve stops calls before they are sent.
-import { stub, tag } from "./setup.ts";
+import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { z } from "zod";
+import { createDatabaseAccess } from "@amp/config";
+import { SCHEDULES } from "../apps/worker/src/schedules.ts";
+import { buildApp } from "../apps/api/src/app.ts";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
-import { BudgetExceededError, completeReceipt, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
+import { BudgetExceededError, completeReceipt, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { hasPrefilterReceipt } from "../packages/backend/src/providers/receipt-evidence.ts";
@@ -122,33 +125,40 @@ test("with the valve off nothing is sent", async () => {
   }
 });
 
-test("an unknown outcome is released automatically once, so a lost answer costs at most one repeat", async () => {
-  // A service without a budget row: the budget tests above may have used up deepseek's.
+test("a sent request timing out stays unknown beyond 30 minutes and cannot be bought again", async () => {
   const req = { service: "invariant-unbudgeted", purpose: "invariant_test", subject: `lost-${tag()}`, identity: { lost: tag() } };
-  let sent = 0;
-  const lost = () => {
-    sent += 1;
-    return Promise.reject(new Error("socket hang up after sending"));
-  };
-  const status = async () => (await sql<{ status: string }[]>`SELECT status FROM receipts WHERE subject = ${req.subject}`)[0]!.status;
-  const age = () => sql`UPDATE receipts SET updated_at = now() - interval '31 minutes' WHERE subject = ${req.subject}`;
-
-  await assert.rejects(paidRequest(req, lost));
-  assert.equal(await status(), "unknown");
-  await autoReleaseUnknownReceipts();
-  assert.equal(await status(), "unknown", "not within half an hour");
-
-  await age();
-  await autoReleaseUnknownReceipts();
-  assert.equal(await status(), "failed");
-  await assert.rejects(paidRequest(req, lost));
-  assert.equal(sent, 2, "one repeat after the release");
-
-  await age();
-  await autoReleaseUnknownReceipts();
-  assert.equal(await status(), "unknown", "a second loss waits for the admin");
-  await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
-  assert.equal(sent, 2);
+  const started = gate(),
+    finish = gate(),
+    abort = new AbortController();
+  const remote = await stub(async () => {
+    started.open();
+    await finish.promise;
+    return { ok: true };
+  });
+  const lost = async () => ({ response: await (await fetch(remote.url, { signal: abort.signal })).json() });
+  try {
+    const first = assert.rejects(paidRequest(req, lost), /timeout/);
+    await started.promise;
+    abort.abort(new Error("fixture timeout after sending"));
+    await first;
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${req.subject}`;
+    for (const now of [Date.now(), Date.now() + 32 * 86400_000]) {
+      assert.deepEqual(await autoReleaseUnknownReceipts(now), { released: 0, requeued: 0 });
+      await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
+    }
+    const recovery = (await SCHEDULES.find((schedule) => schedule.name === "ops.recover")!.run()) as { released: { released: number; requeued: number } };
+    assert.deepEqual(recovery.released, { released: 0, requeued: 0 });
+    const rows =
+      await sql`SELECT r.status, a.status AS attempt, a.cost FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.subject=${req.subject}`;
+    assert.deepEqual(
+      rows.map((row) => ({ ...row })),
+      [{ status: "unknown", attempt: "unknown", cost: null }],
+    );
+    assert.equal(remote.hits(), 1);
+  } finally {
+    finish.open();
+    await remote.close();
+  }
 });
 
 async function stoppedArticle(purpose: string, needsBody = false) {
@@ -164,23 +174,24 @@ async function stoppedArticle(purpose: string, needsBody = false) {
     bodyText: needsBody ? undefined : "body",
   });
   const subject = needsBody ? `article:${articleId}` : `article:${articleId}@1`;
-  await assert.rejects(
-    paidRequest({ service: "invariant-unbudgeted", purpose, subject, identity: { key } }, () => Promise.reject(new Error("socket hang up after sending"))),
-  );
+  const request = { service: "invariant-unbudgeted", purpose, subject, identity: { key } };
+  await assert.rejects(paidRequest(request, () => Promise.reject(new Error("socket hang up after sending"))));
   await sql`UPDATE articles SET processing_state = 'failed', processing_attempts = 3,
     processing_retry_at = now() + interval '1 hour', processing_error = 'receipt outcome unknown' WHERE id = ${articleId}`;
   const [receipt] = await sql<{ id: number }[]>`SELECT id FROM receipts WHERE subject = ${subject}`;
-  return { articleId, receiptId: receipt!.id };
+  return { articleId, receiptId: receipt!.id, request };
 }
 
-test("automatic release requeues the failed articles of all five analysis steps", async () => {
+test("only documented non-billing requeues the failed articles of all five analysis steps", async () => {
   const ids: string[] = [];
   for (const purpose of ["prefilter_article", "score_article", "understand_article", "summarize_article", "structure_article"]) {
     const { articleId, receiptId } = await stoppedArticle(purpose);
     ids.push(articleId);
     await sql`UPDATE receipts SET updated_at = now() - interval '31 minutes' WHERE id = ${receiptId}`;
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+    assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${articleId}`)[0].processing_state, "failed");
+    assert.equal((await releaseReceipt(receiptId, { billed: false, note: "provider console confirms no charge" }, "test"))?.requeued, true);
   }
-  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 5, requeued: 5 });
   const rows = await sql<{ state: string; attempts: number; retry: Date | null; error: string | null }[]>`
     SELECT processing_state AS state, processing_attempts AS attempts, processing_retry_at AS retry, processing_error AS error
     FROM articles WHERE id = ANY(${ids}::text[])`;
@@ -219,4 +230,112 @@ test("applied prefilter proof reuses parsed evidence without making a provider c
   assert.equal(await hasPrefilterReceipt([receipt.receiptId], { ...expected, userHash: "different" }), false);
   await sql`UPDATE receipts SET purpose = 'score_article' WHERE id = ${receipt.receiptId}`;
   assert.equal(await hasPrefilterReceipt([receipt.receiptId], expected), false);
+});
+
+test("manual HTTP resolution rejects billed/invalid inputs and commits audit, receipt and one queue job atomically", async () => {
+  const stopped = await stoppedArticle("prefilter_article");
+  const saved = { host: config.privateHost, admin: config.devAdmin };
+  config.privateHost = "private.receipt.test";
+  config.devAdmin = { displayName: "Receipt test" };
+  const app = await buildApp("private-api");
+  const post = (payload: object) =>
+    app.inject({
+      method: "POST",
+      url: `/api/admin/receipts/${stopped.receiptId}/release`,
+      headers: { "x-forwarded-host": "private.receipt.test", "x-csrf-token": "dev" },
+      payload,
+    });
+  const state = async () => (await sql`SELECT status FROM receipts WHERE id=${stopped.receiptId}`)[0].status;
+  try {
+    const billed = await post({ billed: true, note: "provider console shows charge; amount is unresolved" });
+    assert.equal(billed.statusCode, 409);
+    assert.equal(billed.json().code, "conflict");
+    for (const payload of [{}, { billed: false, note: " " }, { billed: "false", note: "not a boolean" }]) {
+      const response = await post(payload);
+      assert.equal(response.statusCode, 400);
+      assert.equal(response.json().code, "invalid_request");
+    }
+    assert.equal(await state(), "unknown");
+    await sql.unsafe(`CREATE FUNCTION fail_receipt_audit() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'fixture audit failure'; END$$;
+      CREATE TRIGGER fail_receipt_audit BEFORE INSERT ON audit_log FOR EACH ROW WHEN (NEW.action='receipt.release') EXECUTE FUNCTION fail_receipt_audit()`);
+    try {
+      assert.equal((await post({ billed: false, note: "provider confirms no charge" })).statusCode, 500);
+      assert.equal(await state(), "unknown");
+      assert.equal((await sql`SELECT status FROM receipt_attempts WHERE receipt_id=${stopped.receiptId}`)[0].status, "unknown");
+      assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${stopped.articleId}`)[0].processing_state, "failed");
+      assert.equal((await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE data->>'articleId'=${stopped.articleId}`)[0].n, 0);
+    } finally {
+      await sql.unsafe("DROP TRIGGER fail_receipt_audit ON audit_log; DROP FUNCTION fail_receipt_audit()");
+    }
+    const responses = await Promise.all([
+      post({ billed: false, note: "provider confirms no charge" }),
+      post({ billed: false, note: "provider confirms no charge" }),
+    ]);
+    assert.deepEqual(responses.map((r) => r.statusCode).sort(), [200, 409]);
+    assert.equal(responses.find((r) => r.statusCode === 200)!.json().requeued, true);
+    assert.equal((await sql`SELECT count(*)::int AS n FROM audit_log WHERE action='receipt.release' AND subject=${`receipt:${stopped.receiptId}`}`)[0].n, 1);
+    assert.equal((await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE data->>'articleId'=${stopped.articleId}`)[0].n, 1);
+    let sent = 0;
+    const call = async () => {
+      sent++;
+      return { response: { ok: true } };
+    };
+    assert.equal((await paidRequest(stopped.request, call)).reused, false);
+    assert.equal((await paidRequest(stopped.request, call)).reused, true);
+    assert.equal(sent, 1, "one new paid attempt only after confirmed non-billing; then reuse");
+  } finally {
+    await app.close();
+    config.privateHost = saved.host;
+    config.devAdmin = saved.admin;
+  }
+});
+
+test("stale recovery keeps unresolved attempts but never overwrites a concurrently saved response", async () => {
+  const req = { service: "invariant-unbudgeted", purpose: "invariant_test", subject: `stale-${tag()}`, identity: { stale: tag() } };
+  const started = gate(),
+    answerReady = gate();
+  const calling = paidRequest(req, async () => {
+    started.open();
+    await answerReady.promise;
+    return { response: { late: true } };
+  });
+  await started.promise;
+  await sql`UPDATE receipts SET updated_at=now()-interval '11 minutes' WHERE subject=${req.subject}`;
+  await markStalePendingReceipts();
+  assert.equal((await sql`SELECT status FROM receipts WHERE subject=${req.subject}`)[0].status, "unknown");
+  assert.deepEqual(await autoReleaseUnknownReceipts(Date.now() + 3600_000), { released: 0, requeued: 0 });
+  answerReady.open();
+  await calling;
+  assert.equal(
+    (
+      await paidRequest(req, async () => {
+        throw new Error("must reuse");
+      })
+    ).reused,
+    true,
+  );
+  await sql`UPDATE receipts SET status='pending', updated_at=now()-interval '11 minutes' WHERE subject=${req.subject}`;
+  const access = createDatabaseAccess("test", { DATABASE_URL: process.env.DATABASE_URL!, DATABASE_POOL_MAX: "1" }, () => {});
+  const locked = gate(),
+    unlock = gate();
+  const writer = access.dbFor("worker").begin(async (tx) => {
+    await tx`UPDATE receipts SET status='received', updated_at=now() WHERE subject=${req.subject}`;
+    locked.open();
+    await unlock.promise;
+  });
+  try {
+    await locked.promise;
+    const recovered = markStalePendingReceipts();
+    const timeout = Symbol("blocked");
+    const result = await Promise.race([recovered, new Promise((resolve) => setTimeout(() => resolve(timeout), 1000))]);
+    unlock.open();
+    await writer;
+    await recovered;
+    assert.notEqual(result, timeout, "recovery skips a result writer's row lock");
+    assert.equal((await sql`SELECT status FROM receipts WHERE subject=${req.subject}`)[0].status, "received");
+  } finally {
+    unlock.open();
+    await writer;
+    await access.close();
+  }
 });
