@@ -11,13 +11,15 @@
     "dev:api": "pnpm --filter @amp/api dev",
     "dev:worker": "pnpm --filter @amp/worker dev",
     "dev:web": "pnpm --filter @amp/web dev",
-    "typecheck": "tsc -p packages/platform/config && tsc -p packages/contracts && tsc -p packages/api-client && tsc -p packages/backend && tsc -p packages/ui && tsc -p apps/api && tsc -p apps/worker && tsc -p apps/fetcher && tsc -p tests && tsc -p scripts && pnpm --filter @amp/web typecheck",
+    "typecheck": "tsc -p packages/platform/config && tsc -p packages/contracts && tsc -p packages/api-client && tsc -p packages/backend && tsc -p packages/ui && tsc -p apps/api && tsc -p apps/worker && tsc -p apps/fetcher && tsc -p tests && tsc -p scripts && tsc -p e2e && pnpm --filter @amp/web typecheck",
     "test": "node scripts/verify/test-files.ts",
     "check": "node scripts/verify/run.ts --quick",
     "dev:private-api": "pnpm --filter @amp/api dev:private",
     "contracts:gen": "pnpm --filter @amp/tooling generate",
     "contracts:check": "pnpm --filter @amp/tooling check && node --test scripts/verify/contract-tests.ts",
-    "check:data-ownership": "node scripts/verify/data-ownership.ts"
+    "check:data-ownership": "node scripts/verify/data-ownership.ts",
+    "e2e": "pnpm --filter @amp/web build && pnpm e2e:smoke",
+    "e2e:smoke": "playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
     "@amp/backend": "workspace:*",
@@ -27,8 +29,10 @@
   "devDependencies": {
     "@amp/config": "workspace:*",
     "@amp/contracts": "workspace:*",
+    "@axe-core/playwright": "4.13.0",
     "@biomejs/biome": "2.5.15",
     "@modelcontextprotocol/client": "2.1.0",
+    "@playwright/test": "1.63.0",
     "@types/node": "24.19.0",
     "@types/sanitize-html": "2.16.1",
     "fastify": "5.12.5",

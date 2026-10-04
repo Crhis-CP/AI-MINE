@@ -39,7 +39,7 @@ import { webEnvironment } from "../../apps/web/runtime-env.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 
 const WEB_PACKAGE = "@amp/web";
-const PENDING_STAGES = ["contracts (TASK-0005)", "e2e-smoke (TASK-0008)", "product-update", "pit-checks (TASK-0011)"];
+const PENDING_STAGES = ["contracts (TASK-0005)", "product-update", "pit-checks (TASK-0011)"];
 const PASS_ENV = [
   "PATH",
   "HOME",
@@ -63,6 +63,8 @@ const PASS_ENV = [
   "XDG_CONFIG_HOME",
   "XDG_DATA_HOME",
   "PNPM_HOME",
+  "E2E_BROWSER_PATH",
+  "PLAYWRIGHT_BROWSERS_PATH",
   "npm_config_registry",
 ];
 
@@ -345,6 +347,19 @@ const STAGES: Stage[] = [
       if (code !== 0) return fail(`web build exited with ${code}`);
       return problems([...checkOutputTree(path.join(ROOT, "apps/web/build")), ...checkWebSplit(ROOT)], log, "brand output and public/private build isolation");
     },
+  },
+  {
+    name: "e2e-smoke",
+    after: ["build-web"],
+    run: async ({ log, env }) =>
+      fromCode(
+        await run("pnpm", ["e2e:smoke"], {
+          log,
+          env: env({ PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" }),
+          timeoutMs: 5 * 60_000,
+        }),
+        "production browser and axe smoke",
+      ),
   },
   {
     name: "migrations",
