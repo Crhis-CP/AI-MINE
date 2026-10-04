@@ -1,6 +1,7 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import { loadMigrationInventory } from "../migrations/inventory.ts";
 import { ROOT } from "./lib.ts";
 import { digest, extractOwnership } from "./ts-ownership.ts";
 import { sqlOwnership } from "./sql-ownership.ts";
@@ -170,17 +171,15 @@ export function checkCatalogue(map: OwnershipMap, catalogue: { tables: Record<st
   return errors;
 }
 
+/** Preserve migration budget identities while sharing the executor's validated, ordered inventory. */
+export function migrationOwnership(root = ROOT) {
+  return loadMigrationInventory(root).map(({ name, sha256, text }) => ({ file: name, hash: sha256, ...sqlOwnership(text) }));
+}
+
 export function buildOwnershipReport(root = ROOT, map = read<OwnershipMap>(root, OWNERSHIP_MAP)) {
+  const migrations = migrationOwnership(root);
   const sqlLock = sqlLockFingerprint(readFileSync(path.join(root, "pnpm-lock.yaml"), "utf8"));
   const report = ownershipReport(extractOwnership(root), map, sqlLock.fingerprint);
-  // M0's current flat migration runner; TASK-0006 owns future module migration topology.
-  const migrations = readdirSync(path.join(root, "database/migrations"))
-    .filter((file) => file.endsWith(".sql"))
-    .sort()
-    .map((file) => {
-      const text = readFileSync(path.join(root, "database/migrations", file), "utf8");
-      return { file, hash: digest(text), ...sqlOwnership(text) };
-    });
   for (const file of migrations) if (file.unknown.length) add(report.baseline.unknown, `migration:${file.file}:${file.hash}`);
   return { ...report, migrations, sqlLock };
 }
