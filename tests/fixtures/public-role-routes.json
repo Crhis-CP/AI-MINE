@@ -1,0 +1,735 @@
+[
+  {
+    "route": "GET /.well-known/security.txt",
+    "cases": [
+      {
+        "url": "/.well-known/security.txt",
+        "status": 404,
+        "contains": ["Not found"]
+      }
+    ],
+    "noDataReason": "静态安全联系配置；此固定输入 contactEmail 为空，明确返回404"
+  },
+  {
+    "route": "GET /1234567890abcdef1234567890abcdef.txt",
+    "noDataReason": "合成IndexNow验证文件，静态条件注册，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/1234567890abcdef1234567890abcdef.txt",
+        "status": 200,
+        "contains": ["1234567890abcdef1234567890abcdef"]
+      }
+    ]
+  },
+  {
+    "route": "GET /api/health",
+    "cases": [
+      {
+        "url": "/api/health",
+        "status": 200,
+        "equals": {
+          "ok": true,
+          "db": "ok"
+        }
+      }
+    ],
+    "noDataReason": "数据库存活探针只执行SELECT1，无业务行分支"
+  },
+  {
+    "route": "GET /api/mcp",
+    "cases": [
+      {
+        "url": "/api/mcp",
+        "status": 405,
+        "contains": ["Method not allowed"],
+        "accept": "text/event-stream"
+      }
+    ],
+    "noDataReason": "协议入口；stateless legacy GET 返回405，真实数据查询另由只读tools/call POST验证"
+  },
+  {
+    "route": "GET /api/site/changelog",
+    "cases": [
+      {
+        "url": "/api/site/changelog",
+        "status": 200,
+        "array": "releases"
+      }
+    ],
+    "noDataReason": "industry/changelog.json 静态发布记录，无数据库夹具分支"
+  },
+  {
+    "route": "GET /api/site/groups/:factId/reports",
+    "fixture": "facts.pr9-fact-1包含pr9-editorial-public-full与pr9-second-report两个独立来源的报道",
+    "cases": [
+      {
+        "url": "/api/site/groups/pr9-fact-1/reports",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "reports"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/hot",
+    "fixture": "hot_rankings中story9101的完整HotEntry、stories摘要与两条story_heat_hourly观测",
+    "cases": [
+      {
+        "url": "/api/site/hot",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "entries"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/items/:id",
+    "fixture": "直接SQL夹具：publications/articles/translations",
+    "cases": [
+      {
+        "url": "/api/site/items/pr9-editorial-public-full",
+        "status": 200,
+        "equals": {
+          "id": "pr9-editorial-public-full"
+        },
+        "contains": ["TRANSLATED_BODY_pr9-editorial-public-full"]
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/items/:id/original",
+    "fixture": "直接SQL夹具：publications/articles/translations",
+    "cases": [
+      {
+        "url": "/api/site/items/pr9-editorial-public-full/original",
+        "status": 200,
+        "equals": {
+          "id": "pr9-editorial-public-full"
+        },
+        "contains": ["ORIGINAL_BODY_pr9-editorial-public-full"]
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/items/availability",
+    "fixture": "直接SQL夹具：publications/articles/translations",
+    "cases": [
+      {
+        "url": "/api/site/items/availability?ids=pr9-editorial-public-full,pr9-editorial-withdrawn-full,pr9-candidate",
+        "status": 200,
+        "equals": {
+          "pr9-editorial-public-full": "public",
+          "pr9-editorial-withdrawn-full": "unavailable",
+          "pr9-candidate": "unavailable"
+        }
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/meta",
+    "cases": [
+      {
+        "url": "/api/site/meta",
+        "status": 200,
+        "contains": ["changelogVersion"]
+      }
+    ],
+    "noDataReason": "行业静态配置与版本，无数据库内容分支"
+  },
+  {
+    "route": "GET /api/site/pool",
+    "fixture": "公开eligible投影及联表正文/译文；body-only关键词uniquebodyneedle强制读取pool_search",
+    "cases": [
+      {
+        "url": "/api/site/pool",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      },
+      {
+        "url": "/api/site/pool?q=uniquebodyneedle&tab=relevance",
+        "status": 200,
+        "array": "items",
+        "contains": ["pr9-editorial-public-full"]
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/reports/:kind",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/site/reports/daily",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      },
+      {
+        "url": "/api/site/reports/weekly",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      },
+      {
+        "url": "/api/site/reports/monthly",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/reports/:kind/:key",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/site/reports/daily/$DAILY",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "sections"
+      },
+      {
+        "url": "/api/site/reports/weekly/$WEEKLY",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "sections"
+      },
+      {
+        "url": "/api/site/reports/monthly/$MONTHLY",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "sections"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/reports/:kind/latest-page",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/site/reports/daily/latest-page",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "index"
+      },
+      {
+        "url": "/api/site/reports/weekly/latest-page",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "index"
+      },
+      {
+        "url": "/api/site/reports/monthly/latest-page",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "index"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/reports/:kind/navigation/:key",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/site/reports/daily/navigation/$DAILY",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      },
+      {
+        "url": "/api/site/reports/weekly/navigation/$WEEKLY",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      },
+      {
+        "url": "/api/site/reports/monthly/navigation/$MONTHLY",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/reports/daily/months/:month",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/site/reports/daily/months/$MONTH",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/stats",
+    "fixture": "五个来源、非空投影和三份日报",
+    "cases": [
+      {
+        "url": "/api/site/stats",
+        "status": 200,
+        "positive": ["sources", "items", "dailies"]
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/stories/:publicId",
+    "fixture": "直接SQL夹具：事件/事实/热度/关联与别名",
+    "cases": [
+      {
+        "url": "/api/site/stories/$STORY",
+        "status": 200,
+        "contains": ["PR9", "22222222-2222-4222-8222-222222222222"],
+        "array": "timeline"
+      },
+      {
+        "url": "/api/site/stories/$ALIAS",
+        "status": 308,
+        "location": "/api/site/stories/$STORY"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/stories/:publicId/developments",
+    "fixture": "直接SQL夹具：事件/事实/热度/关联与别名",
+    "cases": [
+      {
+        "url": "/api/site/stories/$STORY/developments",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "developments"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/stories/:publicId/followups",
+    "fixture": "直接SQL夹具：事件/事实/热度/关联与别名",
+    "cases": [
+      {
+        "url": "/api/site/stories/$STORY/followups",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/timeline",
+    "fixture": "story9101的两个事实、三个精选报道与已发布独立条目，命中聚合卡片",
+    "cases": [
+      {
+        "url": "/api/site/timeline",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "cards"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/topics",
+    "fixture": "topics.pr9-mining，PR9标签匹配多条公开投影，统计total/recent均有数据",
+    "cases": [
+      {
+        "url": "/api/site/topics",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "topics"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/site/topics/:slug",
+    "fixture": "pr9-mining专题及其PR9标签投影列表",
+    "cases": [
+      {
+        "url": "/api/site/topics/pr9-mining",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1",
+    "cases": [
+      {
+        "url": "/api/v1",
+        "status": 404,
+        "contains": ["not_found"]
+      }
+    ],
+    "noDataReason": "固定v1根目录兜底，无数据操作"
+  },
+  {
+    "route": "GET /api/v1/*",
+    "cases": [
+      {
+        "url": "/api/v1/pr9-undefined",
+        "status": 404,
+        "contains": ["not_found"]
+      }
+    ],
+    "noDataReason": "未定义v1操作兜底，无数据操作"
+  },
+  {
+    "route": "GET /api/v1/dailies",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/v1/dailies",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1/dailies/:date",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/v1/dailies/$DAILY",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "report.sections"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1/dailies/latest",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/api/v1/dailies/latest",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "report.sections"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1/hot-topics",
+    "fixture": "直接SQL夹具：事件/事实/热度/关联与别名",
+    "cases": [
+      {
+        "url": "/api/v1/hot-topics",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1/items",
+    "fixture": "直接SQL夹具：publications/articles/translations",
+    "cases": [
+      {
+        "url": "/api/v1/items",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      },
+      {
+        "url": "/api/v1/items?q=uniquebodyneedle",
+        "status": 200,
+        "array": "items",
+        "contains": ["pr9-editorial-public-full"]
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1/selected/snapshot",
+    "fixture": "两条已生效upsert、已remove条目与未来未生效upsert；真实分页游标",
+    "cases": [
+      {
+        "url": "/api/v1/selected/snapshot",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "items"
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1/stories/:publicId",
+    "fixture": "直接SQL夹具：事件/事实/热度/关联与别名",
+    "cases": [
+      {
+        "url": "/api/v1/stories/$STORY",
+        "status": 200,
+        "contains": ["PR9", "22222222-2222-4222-8222-222222222222"],
+        "array": "story.reports"
+      },
+      {
+        "url": "/api/v1/stories/$ALIAS",
+        "status": 308,
+        "location": "/api/v1/stories/$STORY"
+      }
+    ]
+  },
+  {
+    "route": "GET /apple-icon.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/apple-icon.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /favicon.ico",
+    "noDataReason": "静态品牌资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/favicon.ico",
+        "status": 200,
+        "image": "asset"
+      }
+    ]
+  },
+  {
+    "route": "GET /feed.xml",
+    "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
+    "cases": [
+      {
+        "url": "/feed.xml",
+        "status": 200,
+        "contains": ["<item>", "PR9"]
+      }
+    ]
+  },
+  {
+    "route": "GET /feed/all.xml",
+    "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
+    "cases": [
+      {
+        "url": "/feed/all.xml",
+        "status": 200,
+        "contains": ["<item>", "PR9"]
+      }
+    ]
+  },
+  {
+    "route": "GET /feed/category/:file",
+    "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
+    "cases": [
+      {
+        "url": "/feed/category/industry.xml",
+        "status": 200,
+        "contains": ["<item>", "PR9"]
+      }
+    ]
+  },
+  {
+    "route": "GET /feed/daily.xml",
+    "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
+    "cases": [
+      {
+        "url": "/feed/daily.xml",
+        "status": 200,
+        "contains": ["<item>", "PR9"]
+      }
+    ]
+  },
+  {
+    "route": "GET /feed/full.xml",
+    "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
+    "cases": [
+      {
+        "url": "/feed/full.xml",
+        "status": 200,
+        "contains": ["<item>", "PR9", "TRANSLATED_BODY_pr9-editorial-public-full", "ORIGINAL_BODY_pr9-second-report"]
+      }
+    ]
+  },
+  {
+    "route": "GET /feed/full/category/:file",
+    "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
+    "cases": [
+      {
+        "url": "/feed/full/category/industry.xml",
+        "status": 200,
+        "contains": ["<item>", "PR9", "TRANSLATED_BODY_pr9-editorial-public-full", "ORIGINAL_BODY_pr9-second-report"]
+      }
+    ]
+  },
+  {
+    "route": "GET /icon-192.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/icon-192.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /icon.png",
+    "noDataReason": "静态品牌PNG资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/icon.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /llms.txt",
+    "fixture": "daily/weekly/monthly三种报告实际存在，触发可用资源分支",
+    "cases": [
+      {
+        "url": "/llms.txt",
+        "status": 200,
+        "contains": ["/api/v1/dailies/latest", "/weekly", "/monthly"]
+      }
+    ]
+  },
+  {
+    "route": "GET /logo.svg",
+    "noDataReason": "静态品牌资源，无数据库内容分支",
+    "cases": [
+      {
+        "url": "/logo.svg",
+        "status": 200,
+        "image": "asset"
+      }
+    ]
+  },
+  {
+    "route": "GET /manifest.webmanifest",
+    "cases": [
+      {
+        "url": "/manifest.webmanifest",
+        "status": 200,
+        "contains": ["start_url", "icons"]
+      }
+    ],
+    "noDataReason": "静态Web manifest，无数据库内容分支"
+  },
+  {
+    "route": "GET /og/items/:file",
+    "fixture": "直接SQL夹具：publications/articles/translations",
+    "cases": [
+      {
+        "url": "/og/items/pr9-editorial-public-full.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /og/pages/:file",
+    "cases": [
+      {
+        "url": "/og/pages/about.png",
+        "status": 200,
+        "image": "png"
+      }
+    ],
+    "noDataReason": "静态页面分享卡，使用about.png，无数据库内容分支"
+  },
+  {
+    "route": "GET /og/reports/:kind/:file",
+    "fixture": "直接SQL夹具：报告及公开引用",
+    "cases": [
+      {
+        "url": "/og/reports/daily/$DAILY.png",
+        "status": 200,
+        "image": "png"
+      },
+      {
+        "url": "/og/reports/weekly/$WEEKLY.png",
+        "status": 200,
+        "image": "png"
+      },
+      {
+        "url": "/og/reports/monthly/$MONTHLY.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /og/site.png",
+    "cases": [
+      {
+        "url": "/og/site.png",
+        "status": 200,
+        "image": "png"
+      }
+    ],
+    "noDataReason": "静态站点分享卡，无数据库内容分支"
+  },
+  {
+    "route": "GET /og/stories/:file",
+    "fixture": "直接SQL夹具：事件/事实/热度/关联与别名",
+    "cases": [
+      {
+        "url": "/og/stories/$STORY.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /og/topics/:file",
+    "fixture": "存在的pr9-mining专题分享图；使用专题名称与定义",
+    "cases": [
+      {
+        "url": "/og/topics/pr9-mining.png",
+        "status": 200,
+        "image": "png"
+      }
+    ]
+  },
+  {
+    "route": "GET /openapi-v1.json",
+    "cases": [
+      {
+        "url": "/openapi-v1.json",
+        "status": 200,
+        "contains": ["openapi", "/api/v1/items"]
+      }
+    ],
+    "noDataReason": "静态OpenAPI模板及行业枚举，无数据库内容分支"
+  },
+  {
+    "route": "GET /robots.txt",
+    "cases": [
+      {
+        "url": "/robots.txt",
+        "status": 200,
+        "contains": ["User-agent", "Sitemap:"]
+      }
+    ],
+    "noDataReason": "静态爬虫规则，无数据库内容分支"
+  },
+  {
+    "route": "GET /sitemap.xml",
+    "fixture": "可索引条目、有报道事件及报告的实际URL",
+    "cases": [
+      {
+        "url": "/sitemap.xml",
+        "status": 200,
+        "contains": ["pr9-editorial-public-full", "$STORY", "/daily/$DAILY"]
+      }
+    ]
+  },
+  {
+    "route": "GET /api/v1/selected/changes",
+    "fixture": "真实snapshot cursor；控制夹具释放未来upsert并追加remove，响应必须含两种变更",
+    "cases": [
+      {
+        "url": "/api/v1/selected/changes?cursor=$CURSOR",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "changes",
+        "prepare": "advance-ledger"
+      }
+    ]
+  }
+]
