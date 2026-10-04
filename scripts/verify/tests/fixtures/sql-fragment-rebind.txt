@@ -1,0 +1,14 @@
+import {dbOf} from './module-db.ts';
+const sql = dbOf('publication');
+/** @param {string} q */
+function f(q) { return sql`true`; }
+({f}={f:sql.unsafe});
+export function shorthand() { return sql`SELECT 1 FROM publications WHERE ${f('EXISTS (SELECT 1 FROM receipts)')}`; }
+/** @param {string} q */
+function g(q) { return sql`true`; }
+for ({g} of [{g:sql.unsafe}]) {}
+export function forOf() { return sql`SELECT 1 FROM publications WHERE ${g('EXISTS (SELECT 1 FROM receipts)')}`; }
+/** @param {string} q */
+function h(q) { return sql`true`; }
+({value:h}={value:sql.unsafe});
+export function explicit() { return sql`SELECT 1 FROM publications WHERE ${h('EXISTS (SELECT 1 FROM receipts)')}`; }

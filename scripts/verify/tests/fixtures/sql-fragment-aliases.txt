@@ -1,0 +1,20 @@
+import type postgres from 'postgres';
+import {dbOf} from './module-db.ts';
+const sql=dbOf('publication');
+type Part = postgres.PendingQuery<postgres.Row[]>;
+type Both = Part | number;
+function aliasFragment(p:Part) { return sql`${p}`; }
+function unionFragment(p:Both) { return sql`${p}`; }
+function directFragment(p:postgres.PendingQuery<postgres.Row[]>) { return sql`${p}`; }
+export function aliasParameter(p:Part) { return sql`SELECT 1 FROM publications WHERE ${aliasFragment(p)}`; }
+export function unionParameter(p:Both) { return sql`SELECT 1 FROM publications WHERE ${unionFragment(p)}`; }
+export function directParameter(p:postgres.PendingQuery<postgres.Row[]>) { return sql`SELECT 1 FROM publications WHERE ${directFragment(p)}`; }
+export function literalControl(n:number) { return sql`SELECT 1 FROM publications WHERE ${numericFragment(n)}`; }
+function numericFragment(n:number) { return sql`p.id = ${n}`; }
+function compound(q:{part:Part}) { return sql`${q.part}`; }
+export function compoundParameter(q:{part:Part}) { return sql`SELECT 1 FROM publications WHERE ${compound(q)}`; }
+
+
+type Parts=Part[];
+function arrayFragment(p:Parts){return sql`${p}`;}
+export function arrayParameter(p:Parts){return sql`SELECT 1 FROM publications WHERE ${arrayFragment(p)}`;}

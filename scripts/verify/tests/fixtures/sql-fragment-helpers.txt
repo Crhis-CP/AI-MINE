@@ -1,0 +1,71 @@
+import type postgres from "postgres";
+import { dbOf } from "./module-db.ts";
+const sql = dbOf("publication");
+throw new Error("The compiler must never execute this module");
+export const columns = sql`p.id, coalesce(p.summary, p.title) AS summary`;
+export function published(now: Date) {
+  return sql`p.visibility = 'public' AND p.published_at <= ${now}`;
+}
+export function category(category: string | null, grouped = false) {
+  if (!category) return sql``;
+  if (grouped && category === "a") return sql`AND p.category IN ('a', 'b')`;
+  return sql`AND p.category = ${category}`;
+}
+export function tags(tags: string[] | null) {
+  if (!tags || tags.length === 0) return sql``;
+  return sql`AND p.tags && ${tags}::text[]`;
+}
+export function combined(q: { category: string | null; tags: string[] | null }) {
+  return sql`${category(q.category)} ${tags(q.tags)}`;
+}
+export const field = (flag: boolean) => flag ? sql`p.title` : sql`coalesce(p.title, p.summary)`;
+export function sideEffect(now: Date) {
+  console.log("The compiler must not execute a function body");
+  return sql`p.published_at <= ${now}`;
+}
+declare function observe(): boolean;
+export function effectCondition() {
+  if (observe()) return sql`true`;
+  return sql`false`;
+}
+export function mutating(n: number) {
+  return sql`p.rank = ${n++}`;
+}
+export function raw() {
+  return sql.unsafe("EXISTS (SELECT 1 FROM receipts)");
+}
+export function relation() {
+  return sql`EXISTS (SELECT 1 FROM receipts)`;
+}
+export function relationBranch(flag: boolean) {
+  return flag ? sql`true` : sql`EXISTS (SELECT 1 FROM receipts)`;
+}
+export const tablePart = sql`FROM receipts`;
+export function nestedRelation() {
+  return sql`EXISTS (SELECT 1 ${tablePart})`;
+}
+export function recursive(): postgres.PendingQuery<postgres.Row[]> {
+  return recursive();
+}
+export function partial(flag: boolean) {
+  if (flag) return sql`true`;
+}
+export function takeFragment(part: postgres.PendingQuery<postgres.Row[]>) {
+  return sql`${part}`;
+}
+export function identifier() {
+  return sql("receipts");
+}
+export function column() {
+  return sql`receipts`;
+}
+export function commaProjection() { return sql`p, receipts`; }
+export function functionName() { return sql`read_secrets`; }
+export function suffix() { return sql`cations`; }
+export function tableChoice(flag: boolean) { return flag ? sql`publications` : sql`receipts`; }
+declare function effectTag(): postgres.Sql;
+export function calledTag() { return effectTag()`p.id`; }
+export function rebound() { return sql`true`; }
+rebound = () => sql`EXISTS (SELECT 1 FROM receipts)`;
+export const alias = published;
+export declare function opaque(): postgres.PendingQuery<postgres.Row[]>;
