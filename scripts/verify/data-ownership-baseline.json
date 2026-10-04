@@ -3,10 +3,6 @@
   "baseMain": "68e6bb26d6d1e8239bbf888df47483ede9192cd8",
   "sqlDependencyFingerprint": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028",
   "debt": {
-    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<closure@226:18>/[c]\",\"sources\",\"public.feedback\",\"read\",\"split-debt\"]": 1,
-    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<closure@226:18>/[c]\",\"sources\",\"public.receipts\",\"read\",\"split-debt\"]": 1,
-    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<closure@226:18>/[c]\",\"sources\",\"public.deliveries\",\"read\",\"split-debt\"]": 1,
-    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<closure@238:18>/rows\",\"sources\",\"public.audit_log\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/content.ts\",\"searchContent\",\"editorial\",\"public.articles\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/content.ts\",\"searchContent\",\"editorial\",\"public.sources\",\"read\",\"split-debt\"]": 1,
     "[\"packages/backend/src/admin/content.ts\",\"searchContent\",\"editorial\",\"public.publications\",\"read\",\"split-debt\"]": 1,
@@ -141,7 +137,11 @@
     "[\"packages/backend/src/sources/mp.ts\",\"checkMpAccount/[known]\",\"acquisition\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/sources/mp.ts\",\"checkMpAccount\",\"acquisition\",\"public.articles\",\"write\",\"cross-debt\"]": 2,
     "[\"packages/backend/src/sources/mp.ts\",\"checkMpAccount\",\"acquisition\",\"public.sources\",\"write\",\"cross-debt\"]": 2,
-    "[\"packages/backend/src/sources/mp.ts\",\"scheduleMpReconcile/rows\",\"acquisition\",\"public.sources\",\"read\",\"cross-debt\"]": 1
+    "[\"packages/backend/src/sources/mp.ts\",\"scheduleMpReconcile/rows\",\"acquisition\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
+    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.feedback\",\"read\",\"split-debt\"]": 1,
+    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.receipts\",\"read\",\"split-debt\"]": 1,
+    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.deliveries\",\"read\",\"split-debt\"]": 1,
+    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/audit>/rows\",\"sources\",\"public.audit_log\",\"read\",\"split-debt\"]": 1
   },
   "unknown": {
     "packages/backend/src/admin/feedback.ts:updateFeedback/<closure@34:20>/[after]:179077aeccce37d07bb13a60bf8c6c6ccb3c96366f6bf833c38041ad9d014385": 1,

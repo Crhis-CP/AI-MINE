@@ -8,6 +8,7 @@ import { sqlOwnership } from "./sql-ownership.ts";
 import { sqlLockFingerprint } from "./sql-lock.ts";
 import { rekeyUnknownBudget, unknownRekeysSchema, type UnknownRekey } from "./unknown-rekeys.ts";
 import { publicationProjectionBudget, publicationProjectionSchema, type PublicationProjection } from "./publication-projection.ts";
+import { stableRouteDebt } from "./route-identities.ts";
 
 export const OWNERSHIP_MAP = "scripts/verify/data-ownership-map.json";
 export const OWNERSHIP_BASELINE = "scripts/verify/data-ownership-baseline.json";
@@ -201,6 +202,9 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
     ...compareOwnership(report.baseline, baseline),
   ];
   if (previous) {
+    const routes = stableRouteDebt(baseline.debt, previous.baseline.debt, report, (file, before) =>
+      before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8"),
+    );
     const rekeyed = rekeyUnknownBudget(baseline.unknown, previous.baseline.unknown, baseline.unknownRekeys, (file, before) =>
       before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8"),
     );
@@ -212,7 +216,12 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
       report.sqlLock.fingerprint,
       (file, before) => (before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8")),
     );
-    errors.push(...rekeyed.errors, ...projection.errors, ...compareOwnership(baseline, { ...previous.baseline, unknown: projection.budget }, false));
+    errors.push(
+      ...routes.errors,
+      ...rekeyed.errors,
+      ...projection.errors,
+      ...compareOwnership(baseline, { ...previous.baseline, debt: routes.budget, unknown: projection.budget }, false),
+    );
     for (const [file, tables] of Object.entries(map.readModels))
       for (const table of tables) if (!previous.map.readModels[file]?.includes(table)) errors.push(`read-model allowlist increased: ${file} ${table}`);
     for (const file of Object.keys(map.splitFiles)) if (!previous.map.splitFiles[file]) errors.push(`split-file allowlist increased: ${file}`);
