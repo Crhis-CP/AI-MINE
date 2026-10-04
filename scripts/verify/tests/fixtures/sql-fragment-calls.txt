@@ -1,0 +1,44 @@
+import { dbOf } from "./module-db.ts";
+import { columns, published, category, combined, field, sideEffect, effectCondition, mutating, raw, relation,
+  relationBranch, nestedRelation, recursive, partial, takeFragment, identifier, column, alias, opaque,
+  commaProjection, functionName, suffix, tableChoice, calledTag, rebound } from "./helpers.ts";
+const sql = dbOf("publication");
+export function good(now: Date, q: {category: string | null; tags: string[] | null}, flag: boolean) {
+  return sql`SELECT ${columns}, ${field(flag)} AS shown FROM publications p WHERE ${published(now)} ${combined(q)}`;
+}
+export function inline(flag: boolean) {
+  return sql`SELECT ${flag ? sql`p.id` : sql`p.title`} FROM publications p`;
+}
+export function nativeDate(q: {now?: Date; category: string | null}) {
+  const now = q.now ?? new Date();
+  return sql`SELECT 1 FROM publications WHERE ${published(now)} ${q.category ? sql`AND p.at >= ${new Date(now.getTime() - 7 * 86400_000)}` : sql``}`;
+}
+export function fakeDate(Date: new () => Date) { return sql`SELECT 1 FROM publications WHERE ${published(new Date())}`; }
+export function fakeTime(now: {getTime(): number}) {
+  return sql`SELECT 1 FROM publications WHERE ${published(new Date(now.getTime()))}`;
+}
+export function sideEffectUse(now: Date) { return sql`SELECT 1 FROM publications WHERE ${sideEffect(now)}`; }
+export function effectConditionUse() { return sql`SELECT 1 FROM publications WHERE ${effectCondition()}`; }
+export function mutatingUse(n: number) { return sql`SELECT 1 FROM publications WHERE ${mutating(n)}`; }
+export function rawUse() { return sql`SELECT 1 FROM publications WHERE ${raw()}`; }
+export function relationUse() { return sql`SELECT 1 FROM publications WHERE ${relation()}`; }
+export function relationBranchUse(flag: boolean) { return sql`SELECT 1 FROM publications WHERE ${relationBranch(flag)}`; }
+export function nestedRelationUse() { return sql`SELECT 1 FROM publications WHERE ${nestedRelation()}`; }
+export function recursiveUse() { return sql`SELECT 1 FROM publications WHERE ${recursive()}`; }
+export function partialUse(flag: boolean) { return sql`SELECT 1 FROM publications WHERE ${partial(flag)}`; }
+export function argumentUse() { return sql`SELECT 1 FROM publications WHERE ${takeFragment(sql`EXISTS (SELECT 1 FROM receipts)`)}`; }
+export function identifierUse() { return sql`SELECT 1 FROM ${identifier()}`; }
+export function expressionAsRelation() { return sql`SELECT 1 FROM ${column()}`; }
+export function commaRelation() { return sql`SELECT 1 FROM publications ${commaProjection()}`; }
+export function composedFunction() { return sql`SELECT ${functionName()}()`; }
+export function composedIdentifier() { return sql`SELECT 1 FROM publi${suffix()}`; }
+export function differentRelations(flag: boolean) { return sql`SELECT 1 FROM ${tableChoice(flag)}`; }
+export function calledTagUse() { return sql`SELECT ${calledTag()} FROM publications`; }
+export function reboundUse() { return sql`SELECT 1 FROM publications WHERE ${rebound()}`; }
+export function capped(flag: boolean) {
+  return sql`SELECT ${field(flag)}, ${field(flag)}, ${field(flag)}, ${field(flag)},
+    ${field(flag)}, ${field(flag)}, ${field(flag)}, ${field(flag)} FROM publications`;
+}
+export function aliasUse(now: Date) { return sql`SELECT 1 FROM publications WHERE ${alias(now)}`; }
+export function opaqueUse() { return sql`SELECT 1 FROM publications WHERE ${opaque()}`; }
+export function mixed(now: Date) { return sql`SELECT 1 FROM publications WHERE ${published(now)} AND ${opaque()}`; }

@@ -4,6 +4,7 @@ import path from "node:path";
 import { API, SignatureKind, SymbolFlags, type Checker, type Type } from "typescript/unstable/sync";
 import * as ts from "typescript/unstable/ast";
 import { sqlOwnership, type Hole } from "./sql-ownership.ts";
+import { fragmentProduct, sqlExpressionFragment } from "./sql-fragments.ts";
 
 export const digest = (text: string) => createHash("sha256").update(text).digest("hex");
 export function ownershipFiles(root: string): string[] {
@@ -107,7 +108,7 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
         const point = source.getLineAndCharacterOfPosition(node.getStart());
         return { line: point.line + 1, column: point.character + 1 };
       };
-      const inspect = (node: ts.Node, kind: string, input: ts.Node, raw = false) => {
+      const inspect = (node: ts.Node, kind: string, input: ts.Node, raw = false, prove = true): void => {
         const names: string[] = [];
         const binding = (item: ts.Node) =>
           ts.isVariableDeclaration(item) ||
@@ -167,12 +168,18 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
           }
           return undefined;
         };
-        const renderTemplate = (template: ts.TemplateLiteral): string =>
-          ts.isNoSubstitutionTemplateLiteral(template)
-            ? template.text
-            : template.head.text + template.templateSpans.map((span) => render(span.expression) + span.literal.text).join("");
-        const render = (item: ts.Node): string => {
-          if (seen.has(item)) return hole({ kind: "sql" });
+        const renderTemplate = (template: ts.TemplateLiteral): string[] => {
+          if (ts.isNoSubstitutionTemplateLiteral(template)) return [template.text];
+          let texts = [template.head.text];
+          for (const span of template.templateSpans) {
+            const next = fragmentProduct(texts, render(span.expression), span.literal.text);
+            if (!next) return [hole({ kind: "sql" })];
+            texts = next;
+          }
+          return texts;
+        };
+        const render = (item: ts.Node): string[] => {
+          if (seen.has(item)) return [hole({ kind: "sql" })];
           if (ts.isTaggedTemplateExpression(item) && postgresTag(checker, item.tag)) {
             seen.add(item);
             remember(item);
@@ -191,7 +198,20 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
             }
           }
           if (ts.isCallExpression(item) && postgresTag(checker, item.expression))
-            return hole({ kind: "identifier", value: item.arguments[0] && constant(item.arguments[0]) });
+            return [hole({ kind: "identifier", value: item.arguments[0] && constant(item.arguments[0]) })];
+          const fragments =
+            prove &&
+            sqlExpressionFragment(
+              checker,
+              item,
+              (part) => declaration(checker, part),
+              (tag) => postgresTag(checker, tag),
+              remember,
+            );
+          if (fragments) {
+            if (item === input && kind === "unresolved-call") reasons.shift();
+            return fragments;
+          }
           const type = checker.getTypeAtLocation(item),
             name = type && checker.typeToString(type);
           // Only the compiler's resolved type chooses SQL vs parameter; source spelling is irrelevant.
@@ -199,21 +219,34 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
             const declared = declaration(checker, ts.isCallExpression(item) ? item.expression : item);
             if (declared) remember(declared);
             reasons.push(`opaque interpolation: ${item.getText()}`);
-            return hole({ kind: "sql" });
+            return [hole({ kind: "sql" })];
           }
-          return hole({ kind: "value", value: constant(item) });
+          return [hole({ kind: "value", value: constant(item) })];
         };
         remember(node);
-        const text = raw ? constant(input, new Set(), false) : render(input);
+        const texts = raw ? [constant(input, new Set(), false)] : render(input);
         if (kind.startsWith("unresolved-")) {
           const target = ts.isCallExpression(node) ? node.expression : ts.isTaggedTemplateExpression(node) ? node.tag : node;
           databaseCallable(checker, target, remember);
         }
-        const parsed =
+        const variants = texts.map((text) =>
           kind.endsWith("file") || text === undefined
             ? { relations: [], unknown: [kind.endsWith("file") ? "external SQL file" : "dynamic raw SQL"], shape: kind }
-            : sqlOwnership(text, holes);
+            : sqlOwnership(text, holes),
+        );
+        const parsed = {
+          ...variants[0]!,
+          unknown: variants.flatMap((variant) => variant.unknown),
+          shape: variants.map((variant) => variant.shape).join(" || "),
+        };
+        if (variants.some((variant) => JSON.stringify(variant.relations) !== JSON.stringify(parsed.relations)))
+          parsed.unknown.push("conditional SQL relationships differ");
         const unknown = [...new Set([...parsed.unknown, ...reasons])];
+        // Partial proof must not rewrite the identity or dependencies of retained UNKNOWN debt.
+        if (prove && unknown.length) {
+          inspect(node, kind, input, raw, false);
+          return;
+        }
         // Opaque input stays pinned to every visited local source file, never certified by a zero count.
         sites.push({ ...location(node), scopeName, kind, sourceHash: digest(node.getText()), dependencies, ...parsed, unknown });
       };
