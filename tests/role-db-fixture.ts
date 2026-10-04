@@ -7,6 +7,7 @@ import path from "node:path";
 import type { TestContext } from "node:test";
 import { promisify } from "node:util";
 import { createDatabaseAccess, type Database, type DatabaseRole } from "@amp/config";
+import { createTestDatabase, recordResources, resourcePrefix } from "./test-resources.ts";
 import { quote, roleNames } from "../scripts/db-roles/grants.ts";
 
 /** Only fresh *_test databases and a collision-checked random role prefix; no test root is injected. */
@@ -15,7 +16,7 @@ export async function roleFixture(t: TestContext) {
   assert.match(base.pathname, /_(test|ci)$/);
   const access = createDatabaseAccess("test", { DATABASE_URL: base.toString(), DATABASE_POOL_MAX: "1" }, () => {});
   const control = access.dbFor("worker");
-  const prefix = `rg_${randomBytes(6).toString("hex")}`,
+  const prefix = resourcePrefix(`rg_${randomBytes(6).toString("hex")}`),
     roles = roleNames(prefix),
     database = `${prefix}_test`;
   let ownPrefix = false;
@@ -39,9 +40,10 @@ export async function roleFixture(t: TestContext) {
     if (failures.length) throw new AggregateError(failures, "Isolated role fixture cleanup failed");
   });
   assert.equal((await control`SELECT count(*)::int AS n FROM pg_roles WHERE rolname=ANY(${Object.values(roles)}::text[])`)[0].n, 0);
+  recordResources("role", Object.values(roles));
   ownPrefix = true;
   const createDatabase = async (name: string) => {
-    await control.unsafe(`CREATE DATABASE ${quote(name)}`);
+    await createTestDatabase(control, name);
     databases.push(name);
   };
   await createDatabase(database);

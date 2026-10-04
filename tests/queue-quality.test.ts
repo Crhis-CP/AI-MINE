@@ -1,3 +1,4 @@
+import { createTestDatabase, resourcePrefix } from "./test-resources.ts";
 import assert from "node:assert/strict";
 import type { EventEmitter } from "node:events";
 import { after, test } from "node:test";
@@ -111,12 +112,12 @@ test("retained queue, saved methods and database capabilities are revoked with t
 });
 
 test("an old ensure completion cannot populate the next instance's queue cache", async () => {
-  const database = `queue_quality_${process.pid}_${Date.now()}_test`;
+  const database = `${resourcePrefix(`queue_quality_${process.pid}_${Date.now()}`)}_test`;
   const next = new URL(url);
   next.pathname = `/${database}`;
   const entered = Promise.withResolvers<void>();
   const resume = Promise.withResolvers<void>();
-  await control`CREATE DATABASE ${control(database)}`;
+  await createTestDatabase(control, database);
   try {
     await initializeDb("worker", { DATABASE_URL: url });
     const old = await getBoss();

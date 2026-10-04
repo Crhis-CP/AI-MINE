@@ -1,3 +1,4 @@
+import { createTestDatabase, resourcePrefix } from "./test-resources.ts";
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
@@ -51,7 +52,7 @@ test("epoch migration inserts once, preserves an existing value and permits the 
 });
 
 test("the real worker creates every application queue with collection disabled and leaves source jobs unhandled", async () => {
-  const database = `queue_bootstrap_${process.pid}_${Date.now()}_test`;
+  const database = `${resourcePrefix(`queue_bootstrap_${process.pid}_${Date.now()}`)}_test`;
   const address = new URL(process.env.DATABASE_URL!);
   address.pathname = `/${database}`;
   const env = {
@@ -65,7 +66,7 @@ test("the real worker creates every application queue with collection disabled a
     LOG_LEVEL: "error",
     NODE_ENV: "test",
   };
-  await sql`CREATE DATABASE ${sql(database)}`;
+  await createTestDatabase(sql, database);
   try {
     await run(process.execPath, ["scripts/migrate.ts"], { env, timeout: 30_000 });
     const { stdout } = await run(
