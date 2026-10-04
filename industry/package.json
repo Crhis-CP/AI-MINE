@@ -17,6 +17,7 @@
     "./brand/nameplates/daily.svg": "./brand/nameplates/daily.svg",
     "./brand/nameplates/index.json": "./brand/nameplates/index.json",
     "./brand/nameplates/monthly.svg": "./brand/nameplates/monthly.svg",
-    "./brand/nameplates/weekly.svg": "./brand/nameplates/weekly.svg"
+    "./brand/nameplates/weekly.svg": "./brand/nameplates/weekly.svg",
+    "./jurisdictions": "./jurisdictions/index.ts"
   }
 }
