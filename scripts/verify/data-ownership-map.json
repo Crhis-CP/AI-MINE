@@ -1,0 +1,378 @@
+{
+  "version": 1,
+  "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
+  "grantCatalogueSha256": "79bbb769f05e46bc665f65ce2feb8380d24586ca8add4bf7813e5ad9042c33ed",
+  "moduleAliases": {
+    "identity": "platform/identity",
+    "ops": "platform/ops",
+    "queue": "platform/queue",
+    "config": "platform/config",
+    "storage": "platform/storage"
+  },
+  "tables": {
+    "public.admin_sessions": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "public.admin_users": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "public.analyses": {
+      "module": "enrichment",
+      "access": "business"
+    },
+    "public.article_discoveries": {
+      "module": "content",
+      "access": "business"
+    },
+    "public.article_revisions": {
+      "module": "content",
+      "access": "business"
+    },
+    "public.articles": {
+      "module": "content",
+      "access": "business"
+    },
+    "public.audit_log": {
+      "module": "platform/identity",
+      "access": "audit"
+    },
+    "public.budgets": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "public.deliveries": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "public.delivery_leases": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "public.editorial_overrides": {
+      "module": "editorial",
+      "access": "business"
+    },
+    "public.embeddings": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.fact_articles": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.facts": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.feedback": {
+      "module": "feedback",
+      "access": "business"
+    },
+    "public.feedback_bans": {
+      "module": "feedback",
+      "access": "business"
+    },
+    "public.fetch_runs": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "public.grouping_decisions": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.grouping_overrides": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.hot_rankings": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.ingest_events": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "public.job_runs": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "public.notify_targets": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "public.pool_search": {
+      "module": "publication",
+      "access": "business"
+    },
+    "public.publications": {
+      "module": "publication",
+      "access": "business"
+    },
+    "public.receipt_attempts": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "public.receipts": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "public.regroup_pending": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.report_revisions": {
+      "module": "reports",
+      "access": "business"
+    },
+    "public.reports": {
+      "module": "reports",
+      "access": "business"
+    },
+    "public.schema_migrations": {
+      "module": "platform/config",
+      "access": "migration"
+    },
+    "public.selectbench_results": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "public.selectbench_runs": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "public.selected_ledger": {
+      "module": "publication",
+      "access": "business"
+    },
+    "public.selected_state": {
+      "module": "publication",
+      "access": "business"
+    },
+    "public.service_prices": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "public.settings": {
+      "module": "shared/settings",
+      "access": "business"
+    },
+    "public.sources": {
+      "module": "sources",
+      "access": "business"
+    },
+    "public.stored_files": {
+      "module": "platform/storage",
+      "access": "business"
+    },
+    "public.stories": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.story_aliases": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.story_digests": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.story_heat_hourly": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.story_links": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.story_signals": {
+      "module": "events",
+      "access": "business"
+    },
+    "public.topics": {
+      "module": "publication",
+      "access": "business"
+    },
+    "public.translation_attempts": {
+      "module": "enrichment",
+      "access": "business"
+    },
+    "public.translations": {
+      "module": "enrichment",
+      "access": "business"
+    }
+  },
+  "externalTables": {
+    "pgboss.job": {
+      "module": "platform/queue",
+      "access": "queue"
+    },
+    "pgboss.queue": {
+      "module": "platform/queue",
+      "access": "queue"
+    }
+  },
+  "settings": {
+    "models.*": "ai-gateway",
+    "heartbeat.*": "platform/ops",
+    "alerts.state": "platform/ops",
+    "backup.last": "platform/ops",
+    "watchdog.worker": "platform/ops",
+    "indexnow.watermark": "publication",
+    "selected_ledger_epoch": "publication",
+    "republish.source:*": "publication"
+  },
+  "retiredSettings": ["contact_qr", "leaderboard.fetch", "leaderboard.last_check"],
+  "storedFiles": {
+    "module": "platform/storage",
+    "status": "T-0613 deletion candidate; only retention DELETE remains; no restored historical usage"
+  },
+  "readModels": {
+    "packages/backend/src/operations/indexnow.ts": ["public.reports", "public.stories"],
+    "packages/backend/src/publication/availability.ts": ["public.sources"],
+    "packages/backend/src/publication/detail.ts": [
+      "public.articles",
+      "public.fact_articles",
+      "public.facts",
+      "public.sources",
+      "public.stories",
+      "public.translations"
+    ],
+    "packages/backend/src/publication/feeds.ts": ["public.articles", "public.sources", "public.translations"],
+    "packages/backend/src/publication/groups.ts": [
+      "public.articles",
+      "public.fact_articles",
+      "public.facts",
+      "public.sources",
+      "public.stories",
+      "public.translations"
+    ],
+    "packages/backend/src/publication/items.ts": ["public.articles", "public.sources", "public.stories", "public.translations"],
+    "packages/backend/src/publication/llms.ts": ["public.reports"],
+    "packages/backend/src/publication/og.ts": ["public.sources"],
+    "packages/backend/src/publication/pool.ts": ["public.articles", "public.sources", "public.stories", "public.translations"],
+    "packages/backend/src/publication/publish.ts": [
+      "public.analyses",
+      "public.articles",
+      "public.editorial_overrides",
+      "public.fact_articles",
+      "public.facts",
+      "public.sources",
+      "public.stories"
+    ],
+    "packages/backend/src/publication/reports.ts": ["public.reports", "public.stories"],
+    "packages/backend/src/publication/sitemap.ts": ["public.fact_articles", "public.facts", "public.reports", "public.stories"],
+    "packages/backend/src/publication/stories.ts": [
+      "public.fact_articles",
+      "public.facts",
+      "public.sources",
+      "public.stories",
+      "public.story_aliases",
+      "public.story_heat_hourly",
+      "public.story_links",
+      "public.story_signals"
+    ],
+    "packages/backend/src/publication/timeline.ts": [
+      "public.articles",
+      "public.fact_articles",
+      "public.facts",
+      "public.sources",
+      "public.stories",
+      "public.translations"
+    ],
+    "packages/backend/src/publication/topics.ts": ["public.articles", "public.sources", "public.stories", "public.translations"],
+    "packages/backend/src/publication/v1.ts": ["public.sources"],
+    "packages/backend/src/site/stats.ts": ["public.reports", "public.sources"]
+  },
+  "splitFiles": {
+    "apps/api/src/routes/admin.ts": {
+      "target": "各模块 privateRoutes：sources（列表/详情/新建/修改）、acquisition（试抓）、editorial（内容下架与修订）、feedback、ai-gateway（预算与模型）、publication（站点资料）、platform/identity（账号）",
+      "appendixLine": 61
+    },
+    "apps/api/src/routes/site.ts": {
+      "target": "publication（读者数据、更新日志、站点资料）",
+      "appendixLine": 69
+    },
+    "apps/api/src/routes/static.ts": {
+      "target": "publication（sitemap、llms、robots、manifest、OpenAPI、图标、security.txt、IndexNow key）",
+      "appendixLine": 70
+    },
+    "apps/web/app/app.css": {
+      "target": "ui（令牌、基础样式）+ 各 feature",
+      "appendixLine": 96
+    },
+    "apps/web/app/components/shell/nav.ts": {
+      "target": "公开与私有路由组各一份",
+      "appendixLine": 107
+    },
+    "apps/web/app/root.tsx": {
+      "target": "公开根与私有路由组根",
+      "appendixLine": 94
+    },
+    "apps/web/app/routes.ts": {
+      "target": "公开/私有路由组各一份清单 + app/features/<f>/routes.ts",
+      "appendixLine": 95
+    },
+    "apps/web/app/routes/admin/settings.tsx": {
+      "target": "用量与熔断 → OP-13；告警渠道 → OP-20；网站资料 → OP-17",
+      "appendixLine": 168
+    },
+    "apps/web/tests/cache.test.ts": {
+      "target": "apps/web（公开缓存部分 + 私有路由组 no-store 部分）",
+      "appendixLine": 178
+    },
+    "apps/web/tests/request-cancellation.test.ts": {
+      "target": "apps/web（公开、私有两部分）",
+      "appendixLine": 181
+    },
+    "apps/worker/src/schedules.ts": {
+      "target": "各模块 jobs.ts",
+      "appendixLine": 80
+    },
+    "packages/backend/src/admin/content.ts": {
+      "target": "editorial（查找、链路、下架与人工修订）+ publication（setSeoIndexed）+ content/enrichment（rerun 的各步骤）",
+      "appendixLine": 310
+    },
+    "packages/backend/src/admin/runs.ts": {
+      "target": "platform/ops（投递核实）+ ai-gateway（回执核对）+ content（失败重排）",
+      "appendixLine": 313
+    },
+    "packages/backend/src/admin/settings.ts": {
+      "target": "ai-gateway（用量与熔断配置）+ platform/ops（告警渠道）",
+      "appendixLine": 315
+    },
+    "packages/backend/src/admin/sources.ts": {
+      "target": "sources（列表、详情、修改、判重、新建）+ acquisition（试抓、立即采集）",
+      "appendixLine": 316
+    },
+    "packages/backend/src/jobs/content.ts": {
+      "target": "content（queueProcessing、sweepUnprocessed、requeueFailed、failureGroupSql、正文抽取任务）+ enrichment（processArticle、registerContentJobs、settleNonEditorial）",
+      "appendixLine": 241
+    },
+    "packages/backend/src/jobs/queue.ts": {
+      "target": "platform/queue（队列、停机信号、outbox）+ platform/ops（recordRun）+ 各模块 jobs.ts（队列定义）",
+      "appendixLine": 240
+    },
+    "packages/backend/src/lib/text.ts": {
+      "target": "SSRF 与内网判定、guardedLookup → acquisition（fetch 运行时）；normalizeUrl/identityKeyForUrl → content；text.ts → 使用方",
+      "appendixLine": 204
+    },
+    "packages/backend/src/lib/url.ts": {
+      "target": "SSRF 与内网判定、guardedLookup → acquisition（fetch 运行时）；normalizeUrl/identityKeyForUrl → content；text.ts → 使用方",
+      "appendixLine": 204
+    },
+    "packages/backend/src/providers/embeddings.ts": {
+      "target": "ai-gateway（调用）+ events（存储与召回）",
+      "appendixLine": 207
+    },
+    "packages/backend/src/sources/types.ts": {
+      "target": "sources（信源类型）+ acquisition（候选与抓取错误）",
+      "appendixLine": 224
+    },
+    "packages/contracts/src/site.ts": {
+      "target": "packages/contracts/src/<module>/（Zod）",
+      "appendixLine": 336
+    }
+  }
+}

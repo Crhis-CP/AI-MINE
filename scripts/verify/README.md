@@ -4,7 +4,7 @@
 
 | 命令 | 什么时候用 | 跑什么 | 回执 |
 |---|---|---|---|
-| `pnpm check`（= `make check`） | 每次提交前 | 快速子集：toolchain、format-lint、typecheck、boundaries、names、role-config、test（自测；已有前端构建时加前端测试） | 无 |
+| `pnpm check`（= `make check`） | 每次提交前 | 快速子集：toolchain、format-lint、typecheck、boundaries、names、role-config、data-ownership、test（自测；已有前端构建时加前端测试） | 无 |
 | `make verify [TASK=TASK-nnnn] [SHA=<40 位>]` | 合并前，对 PR 的最终提交 | 全部阶段（第 2 节） | `.verify/receipts/<sha12>.json` |
 | `make release-check`、`make nightly` | — | 骨架：目前一律报“未实现”并以 2 退出，不会冒充通过（TASK-0008、TASK-0009、TASK-0012） | 无 |
 | `make tasks-index` | 集成人在合并后的 main 上 | 由任务卡生成 `tasks/INDEX.md` | 无 |
@@ -46,7 +46,8 @@ make verify TASK=TASK-0002
 | `format-lint` | `biome ci` 通过；已有告警按文件与规则锁在 [`lint-baseline.json`](lint-baseline.json)，只减不增 | — | — |
 | `typecheck` | `pnpm typecheck`（含 `scripts/`） | — | Typecheck |
 | `boundaries` | 包之间只按允许的方向依赖；前端不导入后端包、数据库驱动与任务队列；模型 SDK 不出现在网关之外；仍导出整包的包只能从清单里减少 | — | — |
-| `role-config` | 进程凭据与生产代理拒绝矩阵、web规则一致性、Compose合并锚点后的web环境隔离；`ALLOW_PRIVATE_NETWORK_FETCH` 的未展开插值与null/裸继承值保守拒绝，不读取环境或秘密展开，明确false/0/显式空值及未配置仍可通过；数据库真实授权随PR8加入 | — | — |
+| `data-ownership` | 表归属与授权分类一致；跨模块 SQL 分位置只减不增；publication 显式读模型、附录拆分文件与未知位置分别记账 | — | — |
+| `role-config` | 进程凭据与生产代理拒绝矩阵、web规则一致性、Compose合并锚点后的web环境隔离；`ALLOW_PRIVATE_NETWORK_FETCH` 的未展开插值与null/裸继承值保守拒绝，不读取环境或秘密展开，明确false/0/显式空值及未配置仍可通过；quick只做静态/纯规划，full在迁移后执行真实授权与公开HTTP矩阵 | — | — |
 | `names` | 上游项目的名称（含带空格的写法，不分大小写）、两个品牌色值与环形加载标识只在 [`names.json`](names.json) 列的例外路径里出现（TASK-0003 完成条件第 1 条；`04-aihot-adoption.md` 4.3、4.6 第 1 条）：来源登记；交接包原件及其写回（上游的宣传图 `docs/assets/` 和上游自带的 7 份说明文档不算）；历史证据；治理记录（`AGENTS.md`、`CLAUDE.md`、`tasks/_template.md` 只在与交接包模板逐字节相同时算例外，由任务卡生成的 `tasks/INDEX.md` 也在内）；上游原样存档（只在与来源清单里的上游原件哈希相同时算例外）；`names.json` 本身。引用登记文件或交接包文件的路径与文件名不算命中。文件清单取自 `git ls-files -z`，中文等非 ASCII 路径照原样查；文件路径本身也查；二进制文件按字节查；符号链接查它存的目标路径；读不了的文件记为问题。任何文件都不得与来源清单里的上游品牌素材 SHA-256 相同（不设例外）。`node scripts/verify/names.ts --counts` 列出例外内各文件的命中行数。带空格的写法不看词边界：以 ai 结尾的英文词后面跟以 hot 开头的词（比如上海、迪拜的英文名后接 hotel）也会命中，以后用真实新闻数据查输出时要预期这种误报。规则文件 §8.2 与测试标准 1.1 放在 `pit-checks`（TASK-0011）里的“去品牌残留”扫描就是这个阶段，TASK-0011 复用它，不再另写 | — | — |
 | `path-guard` | 改动的每个文件都在任务卡 `allowed_paths` 内、且属于该泳道或共享区规则允许的范围；任务卡与 `lanes.yaml` 从**基线提交**读取，PR 改不宽自己的路径。例外是计划 PR（规则文件 3.3）：点名的卡还不在基线上、本 PR 新增了这张卡、改动全在 `tasks/` 下，就放行；夹带 `tasks/` 以外的文件，或卡既不在基线上也不是本 PR 新增的，仍然失败 | 能取到基线分支 | — |
 | `secrets` | 基线到当前提交之间的每个提交：trufflehog（版本与 sha256 写在 [`tools.json`](tools.json)，首次运行下载到 `.tools/`，不联网验证，所有候选都算）+ 本项目规则（私钥块、腾讯云 SecretId、模型服务密钥、飞书应用密钥、带用户名和密码的 URL）；只报规则、文件与行号，不打印命中的内容 | 首次运行能访问 github.com 下载 | — |
@@ -59,9 +60,9 @@ make verify TASK=TASK-0002
 | `docs` | [`scripts/docs-check/validate_package.py`](../docs-check/validate_package.py) `--strict`：文档链接与围栏、编号定义、契约文件、验收场景、`upstream/aihot.lock.json` 与来源清单逐文件一致、数据文件、追踪表 | Python 3 | — |
 | `tasks` | 每张任务卡字段齐全、取值合法，泳道、任务包与规格编号都真实存在 | — | — |
 
-还没接入的阶段写在回执的 `pending_stages` 里：`contracts`（TASK-0005）、`data-ownership`（TASK-0004）；`role-config` 的真实数据库授权矩阵仍待 PR8、`e2e-smoke`（TASK-0008）、`pit-checks`（TASK-0011）、`product-update`。
+还没接入的阶段写在回执的 `pending_stages` 里：`contracts`（TASK-0005）、`e2e-smoke`（TASK-0008）、`pit-checks`（TASK-0011）、`product-update`。
 
-`role-config` 当前验证进程凭据/代理拒绝、web与平台规则一致性、展开Compose锚点后的web环境隔离。fetcher启动与合成回放由后端测试阶段验证，正式FetchPort与取得链仍归TASK-0005/M1；真实数据库授权矩阵随PR8接入，阶段通过不代表这些余项已完成。
+`role-config` 当前验证进程凭据/代理拒绝、web与平台规则一致性、展开Compose锚点后的web环境隔离。fetcher启动与合成回放由后端测试阶段验证，正式FetchPort与取得链仍归TASK-0005/M1；真实数据库授权矩阵已经进入full的role-config阶段；quick结果不能代替真实矩阵。
 
 ## 3. 回执
 
@@ -159,3 +160,23 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 双API冒烟分别以隔离的合成环境启动public-api、private-api与web；检查两端health、正反路由和经web的真实登录选项，退出时等待三个进程清理。生产Compose静态检查同时要求web和public-api满足各自凭据边界，缺少public-api会失败。
 
 `role-config` 在完整验证中于迁移之后执行真实角色、授权和公开路由矩阵；缺数据库只会记录 skipped，不能产生 full 通过。快速检查只做静态配置和纯授权规划。角色测试清单与其余后端测试互斥且覆盖全集，同一完整运行不重复执行；单独运行 `pnpm test` 仍包含全部后端测试。
+
+## 数据归属与待迁出清单（TASK-0004 D13）
+
+`pnpm check:data-ownership` 检查当前清单；完整 `verify` 的同名阶段还与基点比较，禁止提高存量预算、扩大读模型或拆分文件例外、改写既有归属来绕过检查。表目录与 `database/roles/table-grants.json` 逐表核对，该目录和真实角色矩阵已由 PR8/9 交付。`data-ownership-map.json` 记录附录 B.7.1 的表归属、B.7.2 的 settings 键归属及来源；`stored_files` 按 D13 归 platform/storage，仍是 T-0613 的删除候选，没有恢复已删除用途。
+
+生成全部位置和数量（不执行项目 SQL，不读取环境配置）：
+
+```sh
+node scripts/verify/data-ownership.ts --report > .verify/data-ownership.json
+```
+
+输出含文件的 `dbOf` 模块、每处 SQL 的行列/所在函数、表及读写方向、展开依据和 unresolved 列表。数量是静态 SQL 位置与表引用次数：片段定义和实际使用处分别计数，不能当作运行次数。scripts/tests 完整列出，独立于生产源码的归属预算；附录中的全部拆分文件登记在 map，当前有 SQL 的部分另计。publication 白名单是具体文件与表的只读配对，不给同文件的写入放行。
+
+提取使用锁定版本 TypeScript 的语法树与解析后的 Postgres 类型，覆盖 `Sql`/`TransactionSql`/`Db`、导入别名、常量片段和 raw SQL 方法。SQL 词法分析区分注释、字符串、带引号标识符、CTE 作用域、写目标及子查询。它不是完整 PostgreSQL 语法验证器：动态队列语句、外部 SQL 文件、无法展开的返回片段、不能确定的 settings 键、未支持的 SQL 函数/DDL 都保留为 UNKNOWN，既不推测目标表，也不算已证明没有越界。没有解析为数据库类型的普通标签也在报告中列出。
+
+`data-ownership-baseline.json` 的普通/拆分预算按文件、函数、表和方向固定；减少后必须删掉旧预算，避免留下可复用额度。UNKNOWN 单独绑定 SQL 身份、访问到的源码依赖及 SQL/解析库的锁定子图；变化会失败，须先补足静态解析或明确查清变化，不能用总数相同来放行。动态输入及任意调用链的运行时效果不由本检查证明；数据库真实授权仍由 role-config 验证。迁移中的未解析 DDL 同样冻结哈希，新增表必须同时有归属与授权分类。
+
+预算两侧（含previous.baseline）都先校验为非负有限整数；错误值、缺失的预算字典或数组冒充字典、错误读模型列表或所属模块字段直接失败，不参与JavaScript隐式数值比较。迁移发现范围与当前M0执行器一致，仅平铺的`database/migrations/*.sql`和migrate.ts；TASK-0006再统一模块迁移拓扑，不把本检查声称为未来目录的全覆盖。
+
+锁定子图只从backend importer的postgres、pg-boss与根目录实际TypeScript 7出发，包含全部传递/可选依赖及已解析peer的package和snapshot完整条目（包括integrity）；用现有yaml的parseAllDocuments读取pnpm12多文档，缺节点或不支持的解析直接失败。B原始报告仍保留完整锁文件哈希作溯源，预算用相关子图指纹替换它：无关tooling依赖不消耗UNKNOWN预算，相关SQL库/解析依赖的锁项变化仍被拒绝；不推断其他JavaScript依赖。
