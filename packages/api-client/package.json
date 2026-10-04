@@ -1,0 +1,13 @@
+{
+  "name": "@amp/api-client",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./public": "./src/public.ts",
+    "./private": "./src/private.ts"
+  },
+  "dependencies": {
+    "@amp/contracts": "workspace:*",
+    "openapi-fetch": "0.17.0"
+  }
+}

@@ -77,3 +77,14 @@ export function releaseBoundCache(refreshAt: string | null, maxSeconds: number, 
     "X-Accel-Expires": seconds > 0 ? `@${deadline}` : "0",
   };
 }
+
+/** Adapt generated client results without losing the existing HTTP error semantics. */
+export function contractResult<T>(result: { response: Response; data?: unknown; error?: unknown }, schema: { parse: (value: unknown) => T }): T {
+  const { response, data: body, error } = result;
+  if (!response.ok) {
+    const code = error && typeof error === "object" && "code" in error && typeof error.code === "string" ? error.code : null;
+    const retry = response.headers.get("retry-after");
+    throw new ApiError(response.status, code, retry ? Number(retry) : null);
+  }
+  return schema.parse(body);
+}

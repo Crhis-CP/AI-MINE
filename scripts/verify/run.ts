@@ -259,6 +259,12 @@ const STAGES: Stage[] = [
     run: async ({ log, env }) => fromCode(await run("pnpm", ["typecheck"], { log, env: env() }), "pnpm typecheck"),
   },
   {
+    name: "contracts",
+    quick: true,
+    after: ["install"],
+    run: async ({ log, env }) => fromCode(await run("pnpm", ["contracts:check"], { log, env: env() }), "generated contracts and migrated route examples"),
+  },
+  {
     name: "boundaries",
     quick: true,
     run: async ({ log, base }) => {

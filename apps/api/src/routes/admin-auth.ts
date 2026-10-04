@@ -1,3 +1,4 @@
+import { routes as contracts } from "@amp/contracts/http/private";
 // Admin sign-in and the /api/admin guard. Public routes never read the session.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { config } from "@amp/backend/config";
@@ -81,7 +82,7 @@ export function registerAdminAuth(app: FastifyInstance) {
     return reply.header("Cache-Control", "no-store").redirect(loginPage(returnTo), 302);
   });
 
-  app.get("/api/auth/options", async (_req, reply) =>
+  app.get(contracts.loginOptions.url, contracts.loginOptions, async (_req, reply) =>
     reply.header("Cache-Control", "no-store").send({ password: !!config.adminPassword, feishu: feishuLoginConfigured() }),
   );
 

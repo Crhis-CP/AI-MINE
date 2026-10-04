@@ -1,4 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { randomUUID } from "node:crypto";
 import { OAUTH_PROBE_PATHS, resolveRedirect } from "@amp/contracts/http-policy";
 import { config } from "@amp/backend/config";
@@ -40,6 +41,9 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     bodyLimit: 10 * 1024 * 1024,
     routerOptions: { ignoreTrailingSlash: false, maxParamLength: 300 },
   });
+
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
 
   app.addHook("onRequest", async (req) => {
     req.requestId = req.id;
