@@ -29,6 +29,7 @@ import { cardFromBranch, pathGuard } from "./path-guard.ts";
 import { scanSecrets, type SecretScan } from "./secrets.ts";
 import { checkTasks } from "./tasks.ts";
 import { checkRoleConfig } from "./role-config.ts";
+import { backendTestGroups, runRoleTests } from "./role-tests.ts";
 import { siteChildEnvironments } from "./api-harness.ts";
 import { checkApiSplit } from "./api-split.ts";
 import { stopSiteProcesses } from "./site-processes.ts";
@@ -36,13 +37,7 @@ import { webEnvironment } from "../../apps/web/runtime-env.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 
 const WEB_PACKAGE = "@amp/web";
-const PENDING_STAGES = [
-  "contracts (TASK-0005)",
-  "data-ownership; full role and public-route matrix (TASK-0004 PR9)",
-  "e2e-smoke (TASK-0008)",
-  "product-update",
-  "pit-checks (TASK-0011)",
-];
+const PENDING_STAGES = ["contracts (TASK-0005)", "data-ownership (TASK-0004 PR10)", "e2e-smoke (TASK-0008)", "product-update", "pit-checks (TASK-0011)"];
 const PASS_ENV = [
   "PATH",
   "HOME",
@@ -278,12 +273,6 @@ const STAGES: Stage[] = [
     run: async ({ log }) => problems(checkNames(ROOT, trackedFiles()), log, "upstream name and marks only on the exception paths; no upstream brand asset"),
   },
   {
-    name: "role-config",
-    quick: true,
-    run: async ({ log }) =>
-      problems(checkRoleConfig(ROOT), log, "process environment guards and compose web isolation; real database grants run in backend-tests"),
-  },
-  {
     name: "path-guard",
     run: async ({ log, base, head, task }) => {
       if (!base) return { status: "skipped", note: "no base ref to compare with (set VERIFY_BASE)" };
@@ -364,6 +353,26 @@ const STAGES: Stage[] = [
     },
   },
   {
+    name: "role-config",
+    quick: true,
+    after: ["install", "migrations"],
+    run: async ({ log, env, db, quick }) => {
+      const invalid = checkRoleConfig(ROOT);
+      if (invalid.length) return problems(invalid, log, "role configuration");
+      backendTestGroups(ROOT);
+      return runRoleTests({
+        quick,
+        hasDatabase: db !== null,
+        execute: (files) =>
+          run("node", ["--test", "--test-concurrency=1", "--test-timeout=120000", ...files], {
+            log,
+            env: env(!quick && db ? siteEnv(db) : {}),
+            timeoutMs: 30 * 60_000,
+          }),
+      });
+    },
+  },
+  {
     name: "smoke",
     after: ["build-web", "migrations"],
     needsDb: true,
@@ -414,7 +423,16 @@ const STAGES: Stage[] = [
       const webTests = !quick || existsSync(path.join(ROOT, "apps/web/build"));
       if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: webEnvironment(env()) })) !== 0) failed.push("web tests");
       // After the smoke check, which reads an empty database: the backend tests write their own rows.
-      if (!quick && db && (await run("pnpm", ["test"], { log, env: env(siteEnv(db)), timeoutMs: 30 * 60_000 })) !== 0) failed.push("backend tests");
+      if (
+        !quick &&
+        db &&
+        (await run("node", ["--test", "--test-concurrency=1", "--test-timeout=120000", ...backendTestGroups(ROOT).backend], {
+          log,
+          env: env(siteEnv(db)),
+          timeoutMs: 30 * 60_000,
+        })) !== 0
+      )
+        failed.push("backend tests");
       if (failed.length) return fail(`${failed.join(", ")} failed`);
       if (quick) return pass(webTests ? "verify self-tests and web tests" : "verify self-tests (no web build, web tests not run)");
       return db

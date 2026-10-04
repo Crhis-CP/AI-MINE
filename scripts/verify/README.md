@@ -157,3 +157,5 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
 `boundaries` 使用当前固定 TypeScript 版本的原生 AST，在只含待查源码的虚拟文件系统中解析，不执行源码。字符串、反引号、转义、静态拼接与 createRequire 别名进入同一模块图；无法确定的动态模块路径、模块URL/绝对路径/未建模的包内别名被拒绝。仅查询串变化保留固定模块身份；web顶层的固定build/server/index.js载入单独核对，不允许改为任意目录。SQL、注释与JSX文本中的类似字样不会被当作导入。该检查验证源码模块依赖，不是对任意动态执行代码的运行时沙箱。
 
 双API冒烟分别以隔离的合成环境启动public-api、private-api与web；检查两端health、正反路由和经web的真实登录选项，退出时等待三个进程清理。生产Compose静态检查同时要求web和public-api满足各自凭据边界，缺少public-api会失败。
+
+`role-config` 在完整验证中于迁移之后执行真实角色、授权和公开路由矩阵；缺数据库只会记录 skipped，不能产生 full 通过。快速检查只做静态配置和纯授权规划。角色测试清单与其余后端测试互斥且覆盖全集，同一完整运行不重复执行；单独运行 `pnpm test` 仍包含全部后端测试。
