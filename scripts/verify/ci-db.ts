@@ -7,12 +7,13 @@
 //   node scripts/verify/ci-db.ts      prints the image, starts the container amp-ci-db, waits up to 120 s, then
 //                                     prints the runner's psql version (make verify uses that client; README §7)
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { parse } from "yaml";
 import { ROOT } from "./lib.ts";
 import { PINNED_IMAGE } from "./toolchain.ts";
+import { installPgTools } from "./pg-tools.ts";
 
 /** The image of the compose file's `db` service, which must name a patch version and its sha256 digest. */
 export function composeDbImage(text: string): string {
@@ -33,6 +34,9 @@ if (import.meta.main) {
     if (spawnSync("pg_isready", ["-h", "127.0.0.1", "-p", "5432", "-U", "postgres"], { stdio: "ignore" }).status === 0) {
       const client = spawnSync("psql", ["--version"], { encoding: "utf8" }).stdout?.trim() || "not found";
       console.log(`database ready on 127.0.0.1:5432; the runner's psql client: ${client}`);
+      const bin = installPgTools("amp-ci-db", 5432, image, path.join(ROOT, ".verify", "pg-tools", "bin"));
+      if (process.env.GITHUB_PATH) appendFileSync(process.env.GITHUB_PATH, `${bin}\n`);
+      console.log(`matching pg_dump/pg_restore for this test container: ${bin}`);
       process.exit(0);
     }
     await sleep(1000);

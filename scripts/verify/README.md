@@ -119,6 +119,8 @@ Owner 2026-10-03 决定使用 GitHub Actions：仓库公开，托管 runner 不�
   - `ubuntu-24.04` 托管 runner，Node 24；pnpm 照 `Dockerfile` 的装法，`npm install -g pnpm@<packageManager 的版本>`；不用任何缓存。
   - 先装一次依赖，再由 [`ci-db.ts`](ci-db.ts) 起数据库：它从 `docker-compose.yml` 读出 `db` 服务那个按摘要锁定的镜像，用 `docker run` 起在 `127.0.0.1:5432`，信任认证、不设口令，等到能连上。库名 `amp_ci`。镜像只写在 compose 一处，换数据库镜像的卡只改 compose，不用改工作流。
   - `migrations` 阶段与回执用运行器自带的 `psql`，客户端版本可能低于服务端。`ci-db.ts` 在数据库就绪时打出客户端版本。2026-10-03 第一次通过的[运行](https://github.com/Crhis-CP/AI-MINE/actions/runs/37105388171)（runner 镜像 `ubuntu-24.04`，版本 20260927.320.1）是客户端 16.15、服务端 17.11；这两处只建库删库、计数和读服务端版本，照常可用。
+  - dump/restore 必须与服务端匹配：`ci-db.ts` 把绑定本次容器 ID 的两个适配器写入 `.verify/pg-tools/bin`，通过 `GITHUB_PATH` 只供后续验证步骤使用，不替换系统工具。VM 可在自己的检出里运行 `node scripts/verify/pg-tools.ts install <测试容器> <主机端口> <固定摘要镜像> <私有bin目录>`，只给本次验证的 PATH 加上返回目录。
+  - 适配器只接受这两个 PostgreSQL 工具、loopback 上绑定端口的 `*_test`/`*_ci` URL；只改 URL 端口为容器内 5432，不记录连接信息。支持现有 schema/stdout、custom dump 的 `--file`、restore 的 `--list`/`--dbname` 与主机归档或 stdin；主机文件经描述符传输，Docker 不接收主机归档路径。工具 stdout/stderr 和退出状态直接保留，适配器自身校验/主机文件错误返回 2。其他连接/文件选项不作为通用代理支持。
   - 执行器编号 `github-actions`。
 - **任务卡号**：[`pr-task.ts`](pr-task.ts) 从事件文件读，不经 `${{ }}` 插进脚本。
   - PR 取描述里“任务卡”那一行的第一个 `TASK-nnnn`。那一行指 PR 模板里的“- 任务卡：”一行；HTML 注释不读，模板开头的说明注释也提到“任务卡”；
