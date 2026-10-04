@@ -6,7 +6,7 @@ import { scratch, write } from "./helpers.ts";
 const inspect = (compose: string) => {
   const dir = scratch();
   write(dir, { "docker-compose.yml": compose });
-  return checkRoleConfig(dir);
+  return checkRoleConfig(dir, ["web"]);
 };
 test("role matrices and clean Compose mapping/list environments agree", () => {
   for (const environment of [
