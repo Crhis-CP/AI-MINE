@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@amp/backend": "workspace:*",
+    "@amp/config": "workspace:*",
     "@amp/contracts": "workspace:*",
     "@amp/industry": "workspace:*",
     "@modelcontextprotocol/server": "2.1.0",
