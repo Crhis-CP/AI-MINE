@@ -10,14 +10,19 @@ import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@amp/backend/editorial/analyze";
-import { queueProcessing } from "@amp/backend/jobs/content";
+import { processArticle, queueProcessing } from "@amp/backend/jobs/content";
 import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
 import { promptText } from "@amp/backend/editorial/prompts";
+import { config } from "@amp/backend/config";
+import { publishArticle } from "@amp/backend/publication/publish";
+import { setVisibility } from "@amp/backend/admin/content";
+import { buildApp } from "../apps/api/src/app.ts";
 import { SITE } from "@amp/industry/site";
 
 const sql = dbOf("enrichment");
 
+const publicApp = await buildApp("public-api");
 const T = tag();
 const SOURCE = `test-analyze-${T}`;
 
@@ -30,7 +35,36 @@ interface Req {
   body: Record<string, any>;
 }
 const requests: Req[] = [];
-const MARKERS = ["CLEAR", "RESCUE", "LOW", "OFFTOPIC", "BARE", "VAGUE", "THIN", "SENSITIVE"];
+// Prescribed fake labels test the admission plumbing, not the model's mining judgement quality.
+const mining = [
+  ["COPPER", "铜矿产量公告", "PASS"],
+  ["FERRUM", "铁矿项目建设进展", "PASS"],
+  ["ALUMINUM", "铝矿资源调查", "PASS"],
+  ["SALTLAKE", "盐湖卤水提锂扩建", "PASS"],
+  ["ORELITHIUM", "锂矿石选矿试验", "PASS"],
+  ["MIXEDCOAL", "煤炭集团铜矿项目投产", "PASS"],
+  ["LAW", "适用于金属矿山的通用安全规定", "PASS"],
+  ["COAL", "独立煤矿生产公告", "BLOCK"],
+  ["URANIUM", "独立铀矿勘探公告", "BLOCK"],
+  ["GRAVEL", "独立砂石开采公告", "BLOCK"],
+  ["UNCERTAIN", "矿企一般活动，缺少经营信息", "UNKNOWN"],
+] as const;
+const MARKERS = [
+  "CLEAR",
+  "RESCUE",
+  "LOW",
+  "OFFTOPIC",
+  "BARE",
+  "VAGUE",
+  "THIN",
+  "SENSITIVE",
+  "SCFAIL",
+  "SCREFUSED",
+  "TITLEONLY",
+  "EMPTYCASE",
+  "TRIMMED",
+  ...mining.map(([m]) => m),
+];
 const scoreAnswers: Record<string, number[]> = {
   CLEAR: [78, 72],
   RESCUE: [56, 50],
@@ -39,10 +73,11 @@ const scoreAnswers: Record<string, number[]> = {
   SENSITIVE: [80, 80],
   BARE: [30, 34],
   VAGUE: [60, 62],
+  TITLEONLY: [80, 80],
 };
 
 const stepOf = (system: string, user: string): Step =>
-  system.includes("宽召回的AI相关性预筛")
+  system.includes("宽召回的金属矿业范围预筛")
     ? "prefilter"
     : system.includes("事件注意力评分器")
       ? "score"
@@ -72,8 +107,19 @@ const provider = await stub((_hit, req) => {
     usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
   });
   if (step === "prefilter")
-    return answer({ label: marker === "OFFTOPIC" || marker === "BARE" ? "BLOCK" : marker === "VAGUE" ? "UNKNOWN" : "PASS", reason: "测试" });
-  if (step === "score") return answer({ attentionScore: scoreAnswers[marker]!.shift() });
+    return answer({
+      label:
+        marker === "TRIMMED"
+          ? " pass "
+          : (mining.find(([m]) => m === marker)?.[2] ?? (marker === "OFFTOPIC" || marker === "BARE" ? "BLOCK" : marker === "VAGUE" ? "UNKNOWN" : "PASS")),
+      reason: "合成预筛",
+    });
+  if (step === "score") {
+    if (marker === "SCFAIL") return new Reply(503, { error: { message: "synthetic score outage" } });
+    if (marker === "SCREFUSED")
+      return new Reply(400, { contentFilter: [{ level: 1, role: "user" }], error: { code: "1301", message: "synthetic content refusal" } });
+    return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
+  }
   if (step === "understand") {
     if (marker === "SENSITIVE")
       return new Reply(400, {
@@ -115,6 +161,7 @@ before(async () => {
     (${SOURCE}, 'Test analyze source', 'rss', 'T1', 'editorial', '2100-01-01')`;
 });
 after(async () => {
+  await publicApp.close();
   await provider.close();
   await stopBoss();
   await closeDb();
@@ -165,7 +212,7 @@ test("every prompt in the pack renders, and carries the site's own name", () => 
     const text = promptText(file.slice(0, -3), values);
     assert.ok(text.length > 20 && !/\{\{/.test(text), file);
   }
-  assert.ok(PREFILTER_SYSTEM.startsWith(`为${SITE.name}做宽召回的AI相关性预筛`));
+  assert.ok(PREFILTER_SYSTEM.startsWith(`为${SITE.name}做宽召回的金属矿业范围预筛`));
 });
 
 test("a selected item: prefilter, two scores, the content understanding and the structure", async () => {
@@ -202,15 +249,17 @@ test("a near-selected item is written like a selected one; below the floor it is
   assert.deepEqual((await row(lowId)).tags, ["模型发布", "推理", "Anthropic"], "structure tags");
 });
 
-test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async () => {
+test("the prefilter's BLOCK stops everything; UNKNOWN stays private after high scores and writing", async () => {
   const off = await analyzeArticle(await article("OFFTOPIC"));
   assert.deepEqual([off!.output!.relevance, off!.output!.selected], ["block", false]);
   assert.deepEqual(calls("OFFTOPIC"), ["prefilter"]);
-  // An UNKNOWN with material is judged and written like a PASS, up to 精选 (60 + 62 ≥ 2 × 60).
+  // Even 60 + 62 >= 2 x 60 and usable copy cannot settle the missing scope evidence.
   const vagueId = await article("VAGUE");
   const vague = await analyzeArticle(vagueId);
-  assert.deepEqual([vague!.output!.relevance, vague!.output!.selected, vague!.output!.titleZh], ["pass", true, "理解标题 VAGUE"]);
+  assert.deepEqual([vague!.output!.relevance, vague!.output!.selected, vague!.output!.titleZh], ["unknown", false, "理解标题 VAGUE"]);
   assert.equal((await row(vagueId)).output.prefilter.label, "UNKNOWN", "the prefilter's own answer stays on record");
+  await publishArticle(vagueId);
+  assert.equal((await publicApp.inject(`/api/site/items/${vagueId}`)).statusCode, 404);
   // Nothing but a title and no page to fetch: the BLOCK counts as UNKNOWN and is scored, but the
   // translation writes nothing from a bare title, so it waits for material instead of being published.
   const bare = await analyzeArticle(await article("BARE", { bodyText: null, excerpt: null, bodyStatus: "none" }));
@@ -270,4 +319,165 @@ test("analysing the same revision again reuses every paid answer", async () => {
   const again = await analyzeArticle(id);
   assert.equal(provider.hits(), hits, "no new requests");
   assert.deepEqual([again!.reused, again!.receiptIds], [true, first!.receiptIds]);
+  const complete = await row(id);
+  await sql`UPDATE receipts SET status = 'unknown' WHERE id = ${again!.receiptIds[1]!}`;
+  await assert.rejects(analyzeArticle(id), /unknown outcome/);
+  assert.deepEqual(await row(id), complete, "a same-receipt checkpoint must not hide complete analysis when scoring stops");
+  assert.equal(provider.hits(), hits, "unknown score is not resent and prefilter evidence is reused");
+});
+
+const projection = async (id: string) =>
+  (await sql`SELECT visibility, eligible, selected, score, summary, source_excerpt FROM publications WHERE article_id = ${id}`)[0]!;
+
+test("mining labels control public admission independently of source tier, keywords or manual visibility", async () => {
+  for (const [marker, title, label] of mining) {
+    const id = await article(marker, { title, language: "zh", bodyText: `${marker}：${title}，附原始条件与数据，供核对。`.repeat(4) });
+    await analyzeArticle(id);
+    await publishArticle(id);
+    const p = await projection(id);
+    assert.deepEqual([p.visibility, p.eligible, p.selected], label === "PASS" ? ["public", true, false] : ["withdrawn", false, false], marker);
+    assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, label === "PASS" ? 200 : 404, marker);
+    if (label !== "PASS") {
+      await setVisibility(id, { visibility: "public", reason: "synthetic override", version: 0 }, "test");
+      assert.equal((await projection(id)).visibility, "withdrawn", "a visibility override cannot manufacture admission");
+    }
+  }
+});
+
+test("confirmed Chinese scope survives score failure; missing, stale or unlicensed evidence does not", async () => {
+  const body = "铜矿扩大产能的原始公告，附产量、地点和建设条件，供读者核对。".repeat(8);
+  await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
+  const id = await article("SCFAIL", { title: "铜矿扩产公告", language: "zh", bodyText: `SCFAIL：${body} (${T})` });
+  await assert.rejects(processArticle(id), /synthetic score outage/);
+  const p = await projection(id);
+  assert.deepEqual([p.visibility, p.eligible, p.selected, p.score], ["public", true, false, null]);
+  assert.ok(p.source_excerpt.startsWith("来源摘录：SCFAIL：") && p.source_excerpt.includes("根据来源正文整理"));
+  assert.equal(p.summary, null, "source text is not an authored or machine-exported summary");
+  const detail = await publicApp.inject(`/api/site/items/${id}`);
+  assert.equal(detail.statusCode, 200);
+  assert.equal(JSON.parse(detail.body).summary, p.source_excerpt);
+  for (const url of ["/feed/all.xml", "/api/v1/items?mode=all"]) {
+    const exported = await publicApp.inject(url);
+    assert.equal(exported.statusCode, 200);
+    assert.ok(!exported.body.includes(body), "the normal failed-score path cannot syndicate its full source text: " + url);
+  }
+  const [receipt] = await sql`SELECT r.status FROM analyses a JOIN receipts r ON r.id = a.receipt_ids[1] WHERE a.article_id = ${id}`;
+  assert.equal(receipt!.status, "completed", "the scope receipt is applied even though scoring failed");
+  await sql`UPDATE receipts SET status = 'unknown' WHERE subject = ${`article:${id}@1`} AND purpose = 'score_article'`;
+  assert.equal((await processArticle(id)).state, "unknown-receipt");
+  assert.equal((await projection(id)).visibility, "public", "unknown billing/score is not unknown scope");
+  assert.equal((await sql`SELECT status FROM receipts WHERE subject = ${`article:${id}@1`} AND purpose = 'score_article'`)[0]!.status, "unknown");
+  const refused = await article("SCREFUSED", { title: `钼矿公告 ${T}`, language: "zh", bodyText: `SCREFUSED：${body} (${T})` });
+  await processArticle(refused);
+  const refusal = await projection(refused);
+  assert.deepEqual([refusal.visibility, refusal.selected, refusal.score], ["public", false, null], "score refusal does not exclude confirmed scope");
+  const titleOnly = await article("TITLEONLY", { title: `TITLEONLY 铁矿许可 ${T}`, language: "zh", bodyText: null, excerpt: null, bodyStatus: "none" });
+  await analyzeArticle(titleOnly);
+  await publishArticle(titleOnly);
+  assert.equal((await projection(titleOnly)).visibility, "withdrawn", "high scores and generated copy cannot publish title-only input");
+  const before = provider.hits();
+  const wasEnabled = config.modelCallsEnabled;
+  config.modelCallsEnabled = false;
+  try {
+    await assert.rejects(processArticle(id), /disabled/i);
+    assert.equal((await projection(id)).visibility, "public", "a current scope cache survives the model stop");
+    const unknown = await article("UNKNOWN-NO-MODEL", { title: "铜矿标题", language: "zh", bodyText: body });
+    await assert.rejects(processArticle(unknown), /disabled/i);
+    assert.equal((await projection(unknown)).visibility, "withdrawn", "Chinese text and plausible terms are not scope evidence");
+    assert.equal(provider.hits(), before);
+  } finally {
+    config.modelCallsEnabled = wasEnabled;
+  }
+  await sql`UPDATE sources SET site_fulltext = false WHERE id = ${SOURCE}`;
+  await publishArticle(id);
+  assert.equal((await projection(id)).visibility, "withdrawn", "no unlicensed source-text fallback");
+  await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
+  await sql`UPDATE analyses SET prompt_version = 'prefilter@old-scope' WHERE article_id = ${id}`;
+  await publishArticle(id);
+  assert.equal((await projection(id)).visibility, "withdrawn", "old scope wording is not reusable");
+  const known = await article("CURRENT-REVISION", { title: "锂矿公告", language: "zh", bodyText: body });
+  await analyzeArticle(known);
+  await publishArticle(known);
+  assert.equal((await projection(known)).visibility, "public");
+  await sql`UPDATE articles SET body_text = NULL, excerpt = NULL WHERE id = ${known}`;
+  await publishArticle(known);
+  assert.equal((await projection(known)).visibility, "withdrawn", "a title plus model copy cannot stand in for source material");
+  await sql`UPDATE articles SET body_text = ${body}, revision = revision + 1 WHERE id = ${known}`;
+  await publishArticle(known);
+  assert.equal((await projection(known)).visibility, "withdrawn", "old material evidence cannot admit a new revision");
+});
+
+test("empty and punctuation-only source text cannot be replaced by high-score model writing", async () => {
+  for (const [i, text] of [null, " \n\t", "。！？……", "产能10万吨"].entries()) {
+    const id = await article(`empty-${i}`, { title: `EMPTYCASE 铜矿建设公告 ${T}-${i}`, bodyText: text, excerpt: null, language: "zh", bodyStatus: "none" });
+    const analyzed = await analyzeArticle(id);
+    assert.equal(analyzed!.output!.score, 80, "the fake scorer still gives both 80s");
+    assert.ok(analyzed!.output!.summaryZh, "the fake writer supplied copy");
+    await publishArticle(id);
+    assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, i === 3 ? 200 : 404);
+  }
+});
+
+test("publication requires an applied prefilter receipt bound to the current model input and scope wording", async () => {
+  const id = await article("TRIMMED", { title: `TRIMMED 铜矿许可 ${T}`, language: "zh" });
+  await analyzeArticle(id);
+  const [analysis] = await sql`SELECT id, receipt_ids FROM analyses WHERE article_id = ${id} ORDER BY id DESC LIMIT 1`;
+  const receiptId = analysis!.receipt_ids[0];
+  const [receipt] = await sql`SELECT request, response FROM receipts WHERE id = ${receiptId}`;
+  const status = async () => {
+    await publishArticle(id);
+    return (await publicApp.inject(`/api/site/items/${id}`)).statusCode;
+  };
+  const hits = provider.hits();
+  assert.equal(await status(), 200, "the real parser and receipt proof both accept a trimmed lowercase PASS");
+  for (const ids of [[], analysis!.receipt_ids.slice(1)]) {
+    await sql`UPDATE analyses SET receipt_ids = ${ids} WHERE id = ${analysis!.id}`;
+    assert.equal(await status(), 404, "missing or non-prefilter receipts are not evidence");
+  }
+  await sql`UPDATE analyses SET receipt_ids = ${analysis!.receipt_ids} WHERE id = ${analysis!.id}`;
+  for (const state of ["pending", "received", "failed", "unknown"]) {
+    await sql`UPDATE receipts SET status = ${state} WHERE id = ${receiptId}`;
+    assert.equal(await status(), 404, state);
+  }
+  await sql`UPDATE receipts SET status = 'completed' WHERE id = ${receiptId}`;
+  for (const field of ["promptVersion", "systemHash", "userHash"]) {
+    await sql`UPDATE receipts SET request = ${sql.json({ ...receipt!.request, [field]: "wrong" })} WHERE id = ${receiptId}`;
+    assert.equal(await status(), 404, field);
+  }
+  await sql`UPDATE receipts SET request = ${sql.json(receipt!.request)} WHERE id = ${receiptId}`;
+  for (const label of ["BLOCK", "UNKNOWN"]) {
+    await sql`UPDATE receipts SET response = ${sql.json({ choices: [{ message: { content: JSON.stringify({ label }) } }] })} WHERE id = ${receiptId}`;
+    assert.equal(await status(), 404, label);
+  }
+  await sql`UPDATE receipts SET response = ${sql.json(receipt!.response)}, subject = 'first-cache-owner' WHERE id = ${receiptId}`;
+  assert.equal(await status(), 200, "subject is diagnostic; identical hashed input is reusable");
+  assert.equal(provider.hits(), hits, "all validation is read-only and starts no model call");
+});
+
+test("current input metadata keeps its new scope receipt after score failure", async () => {
+  await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
+  const id = await article("SCFAIL", {
+    url: `https://example.com/SCFAIL-metadata-${T}`,
+    title: "铜矿扩产公告",
+    language: "zh",
+    bodyText: `SCFAIL：铜矿项目扩大产能，公告说明地点、产量和原始条件。${T}`.repeat(4),
+  });
+  await assert.rejects(processArticle(id), /synthetic score outage/);
+  assert.equal((await projection(id)).visibility, "public");
+  try {
+    await sql`UPDATE sources SET name = '来源名称已核正' WHERE id = ${SOURCE}`;
+    await assert.rejects(processArticle(id), /synthetic score outage/);
+    const [material] = await sql`SELECT revision FROM articles WHERE id = ${id}`;
+    const receipts = await sql`SELECT id, status, request->>'userHash' AS input_hash FROM receipts
+      WHERE purpose = 'prefilter_article' AND subject = ${`article:${id}@1`} ORDER BY id`;
+    assert.equal(material!.revision, 1);
+    assert.equal(receipts.length, 2);
+    assert.notEqual(receipts[0]!.input_hash, receipts[1]!.input_hash);
+    assert.ok(receipts.every((receipt) => receipt.status === "completed"));
+    assert.ok((await row(id)).receipt_ids.includes(receipts[1]!.id));
+    const current = await projection(id);
+    assert.deepEqual([current.visibility, current.selected, current.score], ["public", false, null]);
+  } finally {
+    await sql`UPDATE sources SET name = 'Test analyze source' WHERE id = ${SOURCE}`;
+  }
 });

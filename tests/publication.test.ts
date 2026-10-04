@@ -1,3 +1,4 @@
+import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 // Public scope and sync through the real api routes: a licence revocation or a withdrawal reaches
 // every exit, body pictures reach the page and the full feed only as links, reports stop quoting
 // withdrawn items, the hot board drops a withdrawn item at once, item pages follow the site's rule, an
@@ -60,8 +61,8 @@ async function article(body = BODY, language?: string): Promise<string> {
     via: "fetch",
     publishedAt: new Date(),
   });
-  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true)`;
+  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
+            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
   return articleId;
 }
 
@@ -225,7 +226,7 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
   for (const url of exits) assert.ok(!(await get(url)).body.includes(rep!), `${url} still shows the withdrawn item`);
 });
 
-test("item pages follow the live rule: unsummarised editorial items keep one, hot_signal items have none", async () => {
+test("items without scope evidence and hot_signal items have no public page", async () => {
   const SIGNAL = `${SOURCE}-signal`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
             VALUES (${SIGNAL}, 'Test signal', 'rss', 'T1', 'hot_signal', true, false, '2100-01-01')`;
@@ -249,9 +250,7 @@ test("item pages follow the live rule: unsummarised editorial items keep one, ho
   await publishArticle(signal);
 
   const page = await get(`/api/site/items/${plain}`);
-  assert.equal(page.status, 200, "an unsummarised editorial item keeps its page");
-  const detail = JSON.parse(page.body) as { summary: string | null; indexable: boolean };
-  assert.deepEqual([detail.summary, detail.indexable], [null, false], "noindex");
+  assert.equal(page.status, 404, "an unconfirmed editorial item cannot gain a detail page");
   assert.equal((await get(`/api/site/items/${signal}`)).status, 404, "hot_signal material has no page");
 
   const publicId = randomUUID();
@@ -261,8 +260,7 @@ test("item pages follow the live rule: unsummarised editorial items keep one, ho
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`f-${T}`}, ${story!.id}, ${`事实-${T}`}) RETURNING id`;
   await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${fact!.id}, ${plain}, 'report'), (${fact!.id}, ${signal}, 'report')`;
   const storyPage = await get(`/api/site/stories/${publicId}`);
-  assert.equal(storyPage.status, 200, "a story whose only page is unsummarised still has a page");
-  assert.ok(storyPage.body.includes(plain), "it lists the unsummarised editorial report");
+  assert.equal(storyPage.status, 404, "an event with no admitted reports cannot expose the material");
   assert.ok(!storyPage.body.includes(signal) && !storyPage.body.includes(`SIGNAL-SUMMARY-${T}`), "and not the hot_signal one");
 });
 
@@ -384,6 +382,8 @@ test("unchanged republishing preserves freshness, while URL-only changes still r
 
   const url = `https://example.com/${T}-corrected`;
   await sql`UPDATE articles SET url = ${url} WHERE id = ${id}`;
+  // The prefilter sees the source URL too; this fixture records successful evidence for that input.
+  await sql`UPDATE analyses SET receipt_ids = ${[await scopeReceipt(id)]} WHERE article_id = ${id}`;
   const result = await publishArticle(id);
   assert.equal(result!.changed, false, "URL is deliberately outside the presentation fingerprint");
   assert.equal(result!.ledger, "upsert", "the public URL change is still recorded for sync clients");
