@@ -2,9 +2,10 @@
 import { data, redirect } from "react-router";
 
 import { apiBaseFor, privateHostHeaders } from "../../api-target.ts";
+import { adminBody, adminResponse, type AdminSend } from "./admin-response.ts";
 
-export async function adminGet<T>(request: Request, path: string): Promise<T> {
-  const res = await fetch(`${apiBaseFor(path)}${path}`, {
+export async function adminGet<T>(request: Request, path: string, send: AdminSend = fetch): Promise<T> {
+  const result = await send(`${apiBaseFor(path)}${path}`, {
     headers: {
       accept: "application/json",
       cookie: request.headers.get("cookie") ?? "",
@@ -13,6 +14,7 @@ export async function adminGet<T>(request: Request, path: string): Promise<T> {
     },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(30_000)]),
   });
+  const res = adminResponse(result);
   if (res.status === 401) {
     const url = new URL(request.url);
     throw redirect(`/admin/login?${new URLSearchParams({ return: url.pathname + url.search })}`);
@@ -21,11 +23,11 @@ export async function adminGet<T>(request: Request, path: string): Promise<T> {
   if (!res.ok) {
     let detail = `api ${res.status}`;
     try {
-      detail = ((await res.json()) as { detail?: string }).detail ?? detail;
+      detail = ((await adminBody(result)) as { detail?: string }).detail ?? detail;
     } catch {
       // not JSON
     }
     throw data({ message: detail }, { status: res.status >= 500 ? 503 : res.status });
   }
-  return (await res.json()) as T;
+  return (await adminBody(result)) as T;
 }

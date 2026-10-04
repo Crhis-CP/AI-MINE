@@ -62,3 +62,9 @@ export function currentPrefilter(analysis: { input_revision: number; prompt_vers
   const label = output?.prefilter?.label;
   return label === "PASS" || label === "BLOCK" || label === "UNKNOWN" ? label : null;
 }
+
+/** Version only the rendered configuration actually consumed by this prompt, not unused parameters. */
+export function configuredPromptVersion(name: string, values: Record<string, string> = {}): string {
+  const hash = createHash("sha256").update(promptText(name, values)).digest("hex").slice(0, 10);
+  return `${name}@${hash}`;
+}
