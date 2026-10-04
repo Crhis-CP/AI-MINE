@@ -1,9 +1,10 @@
 import { SITE, withSubject } from "@amp/industry/site";
 import { data as withHeaders, redirect, useLoaderData } from "react-router";
 import type { Route } from "./+types/home";
-import type { TimelineResponse } from "@amp/contracts/site";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { apiBaseFor } from "../../api-target.ts";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
-import { loadOr404, queryString, releaseBoundCache } from "../lib/api.server";
+import { contractResult, loadOr404, queryString, releaseBoundCache } from "../lib/api.server";
 import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Wordmark } from "../components/Logo";
 import { Timeline } from "../features/feed/Timeline";
@@ -22,10 +23,25 @@ export async function loader({ request }: Route.LoaderArgs) {
   const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
   const tag = url.searchParams.get("tag")?.trim() || null;
   const upstream = new Headers();
-  const data = await loadOr404<TimelineResponse>(`/api/site/timeline${queryString({ channel: channel === "all" ? null : channel, category, tag })}`, {
-    responseHeaders: upstream,
-    signal: request.signal,
-  });
+  const query = { channel: channel === "all" ? undefined : channel, category: category ?? undefined, tag: tag ?? undefined };
+  const data = await loadOr404(
+    () =>
+      createPublicClient({ baseUrl: apiBaseFor("/api/site/timeline") })
+        .GET("/api/site/timeline", {
+          params: { query },
+          querySerializer: () => queryString(query).slice(1),
+          headers: { accept: "application/json", "x-amp-ssr": "1" },
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        })
+        .then((result) => {
+          const body = contractResult(result, publicSchemas.TimelineResponse);
+          result.response.headers.forEach((value, name) => {
+            upstream.set(name, value);
+          });
+          return body;
+        }),
+    { signal: request.signal },
+  );
   return withHeaders({ data, filters: { channel, category, tag, topic: null } }, { headers: releaseBoundCache(data.refreshAt, 60, Date.now(), upstream) });
 }
 

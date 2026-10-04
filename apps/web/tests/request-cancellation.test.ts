@@ -32,38 +32,44 @@ test("public and admin loaders forward cancellation without turning it into a 50
 
 test("generated-client loader callback preserves its abort and 15-second timeout", async () => {
   const originalTimeout = AbortSignal.timeout;
-  const timeout = new AbortController();
-  AbortSignal.timeout = (ms) => {
-    assert.equal(ms, 15_000);
-    return timeout.signal;
-  };
   try {
-    for (const timedOut of [false, true]) {
-      const controller = new AbortController();
-      const client = createPublicClient({
-        baseUrl: "http://127.0.0.1:1",
-        fetch: async (request) =>
-          new Promise<Response>((_resolve, reject) => {
-            if (request.signal.aborted) reject(request.signal.reason);
-            else request.signal.addEventListener("abort", () => reject(request.signal.reason), { once: true });
-          }),
-      });
-      const pending = loadOr404(
-        () =>
-          client
-            .GET("/api/site/pool", {
-              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
-            })
-            .then((result) => contractResult(result, publicSchemas.PoolResponse)),
-        { signal: controller.signal },
-      );
-      if (timedOut) timeout.abort(new DOMException("fixture timeout", "TimeoutError"));
-      else controller.abort();
-      await assert.rejects(pending, (error: unknown) =>
-        timedOut
-          ? !!error && typeof error === "object" && "init" in error && (error.init as { status?: number }).status === 503
-          : error === controller.signal.reason,
-      );
+    for (const path of ["/api/site/pool", "/api/site/timeline"] as const) {
+      const timeout = new AbortController();
+      AbortSignal.timeout = (ms) => {
+        assert.equal(ms, 15_000);
+        return timeout.signal;
+      };
+      for (const timedOut of [false, true]) {
+        const controller = new AbortController();
+        const client = createPublicClient({
+          baseUrl: "http://127.0.0.1:1",
+          fetch: async (request) =>
+            new Promise<Response>((_resolve, reject) => {
+              if (request.signal.aborted) reject(request.signal.reason);
+              else request.signal.addEventListener("abort", () => reject(request.signal.reason), { once: true });
+            }),
+        });
+        const pending = loadOr404(
+          () =>
+            client
+              .GET(path, {
+                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+              })
+              .then((result) =>
+                contractResult(result, {
+                  parse: (value) => (path.endsWith("timeline") ? publicSchemas.TimelineResponse : publicSchemas.PoolResponse).parse(value),
+                }),
+              ),
+          { signal: controller.signal },
+        );
+        if (timedOut) timeout.abort(new DOMException("fixture timeout", "TimeoutError"));
+        else controller.abort();
+        await assert.rejects(pending, (error: unknown) =>
+          timedOut
+            ? !!error && typeof error === "object" && "init" in error && (error.init as { status?: number }).status === 503
+            : error === controller.signal.reason,
+        );
+      }
     }
   } finally {
     AbortSignal.timeout = originalTimeout;

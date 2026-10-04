@@ -1,0 +1,77 @@
+{
+  "filters": {
+    "channel": "all",
+    "category": null,
+    "tag": null,
+    "topic": null
+  },
+  "cards": [
+    {
+      "key": "fact:fixture",
+      "anchorAt": "2026-10-04T00:00:00.000Z",
+      "item": {
+        "id": "timeline-fixture",
+        "title": "真实精选消费者",
+        "summary": null,
+        "reason": null,
+        "publishedAt": null,
+        "timelineAt": "2026-10-04T00:00:00.000Z",
+        "category": null,
+        "tags": [],
+        "score": null,
+        "selected": true,
+        "channel": "news",
+        "source": {
+          "name": "合成来源"
+        }
+      },
+      "group": {
+        "factId": "fact-fixture",
+        "story": {
+          "publicId": "story-fixture",
+          "title": "合成进展"
+        },
+        "additionalSourceCount": 1,
+        "reportCount": 2,
+        "developmentCount": 2,
+        "latestDevelopment": {
+          "factId": "fact-later",
+          "title": "后续进展",
+          "at": "2026-10-04T00:00:00.000Z"
+        }
+      }
+    }
+  ],
+  "nextCursor": "opaque+/cursor=",
+  "refreshAt": null,
+  "hot": [
+    {
+      "rank": 1,
+      "title": "合成热点1",
+      "heat": 2.5,
+      "trend": "unknown",
+      "storyPublicId": "story-fixture",
+      "itemId": null
+    },
+    {
+      "rank": 2,
+      "title": "合成热点2",
+      "heat": 2.5,
+      "trend": "unknown",
+      "storyPublicId": "story-fixture",
+      "itemId": null
+    },
+    {
+      "rank": 3,
+      "title": "合成热点3",
+      "heat": 2.5,
+      "trend": "unknown",
+      "storyPublicId": "story-fixture",
+      "itemId": null
+    }
+  ],
+  "dayCounts": {
+    "2026-10-04": 1
+  },
+  "generatedAt": "2026-10-04T00:00:00.000Z"
+}

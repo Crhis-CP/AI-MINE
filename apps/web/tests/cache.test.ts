@@ -2,10 +2,12 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { publicSchemas } from "@amp/api-client/public";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { releaseBoundCache } from "../app/lib/api.server.ts";
 import { webEnvironment } from "../runtime-env.ts";
@@ -17,6 +19,11 @@ let deadline: number;
 let refreshAt: string;
 let metaDelayMs = 0;
 let poolMode: "ok" | "busy" | "bad" | "missing" = "ok";
+let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
+const timelineCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
+const timeline = publicSchemas.TimelineResponse.parse(
+  JSON.parse(readFileSync(new URL("../../../scripts/verify/tests/fixtures/timeline-response.json", import.meta.url), "utf8")),
+);
 const poolCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
 const apiCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
@@ -37,10 +44,32 @@ const api = createServer((req, res) => {
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
   }
   if (url.pathname === "/api/site/timeline") {
-    const filters = { channel: "all", category: url.searchParams.get("category"), tag: null, topic: null };
+    timelineCalls.push({ path: req.url!, accept: req.headers.accept, ssr: req.headers["x-amp-ssr"] as string | undefined });
+    if (["busy", "missing", "invalid"].includes(timelineMode)) {
+      res.statusCode = timelineMode === "busy" ? 503 : timelineMode === "missing" ? 404 : 400;
+      res.setHeader("Content-Type", "application/problem+json");
+      res.setHeader("Retry-After", "17");
+      return res.end(JSON.stringify({ code: timelineMode === "invalid" ? "invalid_cursor" : "not_found" }));
+    }
+    const filters = {
+      channel: url.searchParams.get("channel") ?? "all",
+      category: url.searchParams.get("category"),
+      tag: url.searchParams.get("tag"),
+      topic: null,
+    };
     res.setHeader("X-Accel-Expires", `@${deadline}`);
     res.setHeader("Cache-Control", "public, max-age=30, s-maxage=30");
-    return res.end(JSON.stringify({ filters, cards: [], nextCursor: null, refreshAt, dayCounts: [], hot: null, generatedAt: "2026-09-28T00:00:00Z" }));
+    const cards = timelineMode === "empty" ? [] : timeline.cards;
+    return res.end(
+      JSON.stringify({
+        ...timeline,
+        filters,
+        cards,
+        refreshAt: timelineMode === "bad" ? "invalid-date" : refreshAt,
+        hot: null,
+        dayCounts: timelineMode === "empty" ? {} : timeline.dayCounts,
+      }),
+    );
   }
   if (url.pathname === "/api/site/pool") {
     poolCalls.push({ path: req.url!, accept: req.headers.accept, ssr: req.headers["x-amp-ssr"] as string | undefined });
@@ -335,5 +364,43 @@ test("the real /all page consumes its generated pool contract and preserves erro
     await busy.text();
   } finally {
     poolMode = "ok";
+  }
+});
+
+test("home consumes the timeline contract, preserves query/cache headers and keeps failures uncached", async () => {
+  try {
+    timelineMode = "ok";
+    const category = CATEGORY_KEYS.at(-1)!;
+    const response = await fetch(`${origin}/?channel=news&category=${category}&tag=%E9%93%9C+%E9%87%91`);
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /真实精选消费者/);
+    assert.deepEqual(timelineCalls.at(-1), {
+      path: `/api/site/timeline?channel=news&category=${category}&tag=%E9%93%9C+%E9%87%91`,
+      accept: "application/json",
+      ssr: "1",
+    });
+    assert.equal(response.headers.get("X-Accel-Expires"), `@${deadline}`);
+    for (const [mode, status] of [
+      ["bad", 503],
+      ["busy", 503],
+      ["missing", 404],
+      ["invalid", 400],
+    ] as const) {
+      timelineMode = mode;
+      const failed = await fetch(`${origin}/`);
+      assert.equal(failed.status, status, mode);
+      assert.equal(failed.headers.get("Cache-Control"), "private, no-store");
+      await failed.text();
+    }
+    timelineMode = "empty";
+    const empty = await fetch(origin);
+    assert.equal(empty.status, 200);
+    assert.match(await empty.text(), /这个筛选下还没有精选内容/);
+    const search = await fetch(`${origin}/?q=test`, { redirect: "manual" });
+    assert.equal(search.status, 302);
+    assert.equal(search.headers.get("Location"), "/all?q=test");
+    await search.text();
+  } finally {
+    timelineMode = "empty";
   }
 });

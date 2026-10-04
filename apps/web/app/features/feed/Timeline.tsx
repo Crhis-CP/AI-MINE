@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
 import { Collapse } from "../../components/ui/Presence";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { FeedItem } from "./FeedItem";
 import { IconChevronDown } from "../../components/icons";
@@ -238,15 +239,30 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
     setLoadingMore(true);
     setLoadError(false);
     try {
-      const res = await fetch(`/api/site/timeline?${filterQuery(filters, { cursor: s.nextCursor })}`, { signal: controller.signal });
-      if (res.status === 400) {
+      const client = createPublicClient({ baseUrl: window.location.origin });
+      const read = (cursor?: string) =>
+        client.GET("/api/site/timeline", {
+          params: {
+            query: {
+              channel: filters.channel,
+              category: filters.category ?? undefined,
+              tag: filters.tag ?? undefined,
+              topic: filters.topic ?? undefined,
+              cursor,
+            },
+          },
+          querySerializer: () => filterQuery(filters, { cursor }),
+          signal: controller.signal,
+        });
+      const res = await read(s.nextCursor);
+      if (res.response.status === 400) {
         // Cursor no longer fits: start over from the head.
-        const head = await fetch(`/api/site/timeline?${key}`, { signal: controller.signal });
-        if (head.ok && current()) setState(fromResponse((await head.json()) as TimelineResponse));
+        const head = await read();
+        if (head.response.ok && current()) setState(fromResponse(publicSchemas.TimelineResponse.parse(head.data)));
         return;
       }
-      if (!res.ok) throw new Error(String(res.status));
-      const page = (await res.json()) as TimelineResponse;
+      if (!res.response.ok) throw new Error(String(res.response.status));
+      const page = publicSchemas.TimelineResponse.parse(res.data);
       if (!current()) return;
       setState((prev) => {
         const seen = new Set(prev.cards.map((c) => c.key));
