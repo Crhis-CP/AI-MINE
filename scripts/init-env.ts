@@ -13,6 +13,7 @@ const llmKey = keyAt > 0 ? (process.argv[keyAt + 1] ?? "") : "";
 const text = readFileSync(".env.example", "utf8")
   .replace(/^ADMIN_PASSWORD=$/m, `ADMIN_PASSWORD=${password}`)
   .replace(/^SESSION_SECRET=$/m, `SESSION_SECRET=${randomBytes(32).toString("hex")}`)
+  .replace(/^PUBLIC_RATE_LIMIT_SECRET=$/m, `PUBLIC_RATE_LIMIT_SECRET=${randomBytes(32).toString("hex")}`)
   .replace(/^IMG_PROXY_SIGN_SECRET=$/m, `IMG_PROXY_SIGN_SECRET=${randomBytes(32).toString("hex")}`)
   .replace(/^POSTGRES_PASSWORD=$/m, `POSTGRES_PASSWORD=${randomBytes(18).toString("hex")}`)
   .replace(/^LLM_API_KEY=$/m, `LLM_API_KEY=${llmKey}`);
