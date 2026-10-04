@@ -1,0 +1,309 @@
+✔ an outage is announced once, repeated hourly, and closed with one recovery
+✔ SIGTERM during the final paid writing call still commits the complete analysis and publication
+✔ SIGTERM during successful first score drains slower structure and leaves a retryable job
+✔ SIGTERM during failed first score drains slower structure and leaves a retryable job
+✔ every prompt in the pack renders, and carries the site's own name
+✔ a selected item: prefilter, two scores, the content understanding and the structure
+✔ a near-selected item is written like a selected one; below the floor it is translated
+✔ the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS
+✔ a feed summary alone: the article page is fetched first, then the whole article is judged
+✔ a content-filter refusal of the content understanding is translated instead
+✔ guards: a company the input does not name is not written in; long summaries are cut at sentences
+✔ analysing the same revision again reuses every paid answer
+✔ API_ROLE parsing accepts only the two explicit roles and never includes rejected values
+✔ D7 detects every declared credential family, including empty values, and returns names in stable order
+✔ explicit public validation rejects in production and warns once per call in other modes without values
+✔ the helper does not broaden D7 or impose required-key and private/worker policies
+✔ public production credentials are enforced without extending private or worker policy
+✔ public route families and feedback belong only to the public root
+✔ auth and admin are private and an explicit role is mandatory
+✔ private root accepts one matching forwarded hostname, with case and optional port normalization
+✔ missing, forged, multiple and malformed forwarded authorities fail before redirects or authentication
+✔ health works on both roots regardless of forwarded hostname; public redirects remain public
+✔ a matching private host reaches the real password/session guard without bypassing login
+✔ an unset private host keeps local development usable; a malformed configured authority fails closed
+✔ API runtime rejects a different environment source before backend configuration can disagree
+✔ the explicit API runtime rejects missing roles and credentials before database access
+✔ a public production process serves readers and feedback without private secrets or runtime writes
+✔ a private production process logs in without public/image secrets and closes its connections
+✔ development public startup warns using names while accepting shared synthetic configuration
+✔ Feishu sign-in is offered only when both login-app credentials are set
+✔ route normalization retains relative suffixes, multiple methods and explicitly resolved wildcards
+✔ unrecognized data, indentation gaps, malformed trees and duplicate routes are never silently dropped
+✔ wildcard mapping is mandatory, fully consumed and can resolve a parent only once
+✔ a picture becomes a link named after its description
+✔ pictures inside a link move out after it, in their order, and the link keeps its address
+✔ a link that only opened its picture gives way to the picture's link
+✔ a picture with no web address of its own is dropped, and a video loses its poster frame
+✔ a description is text, never markup
+✔ a WeChat body that failed for a passing reason is fetched on the next check and analysed again
+✔ each process can select only its database roles, even in single-URL transition
+✔ split addresses must be complete for this process and must not include another process's roles
+✔ invalid or empty role URLs never silently fall back, and diagnostics do not print values
+✔ driver construction errors are redacted while ordinary SSL parameters remain supported
+✔ shared fallback reuses one pool, denies backup as a query role, and closes permanently
+✔ split roles use their assigned addresses without connecting during construction
+✔ queue access follows the process role and keeps the validated addresses until closed
+✔ web and fetcher reject credential names even with empty values, without disclosing values
+✔ only NODE_ENV enables production proxy and development-bypass checks for every role
+✔ role-selected connections preserve numeric decoding and support real transactions
+✔ the public root assigns feedback a separate role and all other modules the read role
+✔ the private root assigns identity its own login and leaves business modules on private_ops
+✔ queue and backup capabilities use the active root and are revoked when closing starts
+✔ worker, migration and test roots use their declared roles; invalid setup can be retried
+✔ module queries and transactions fail closed without injection, even with a global database configured
+✔ registration is atomic and cannot silently replace an existing binding
+✔ import-time fragments, builders and JSON work after injection, including inside transactions
+✔ a prepared or chained query cannot outlive its injection or switch to another connection
+✔ a transaction or savepoint waiting at a gate rolls back when its root registration expires
+✔ wrapped transactions roll back failed work
+✔ pure SQL fragments and builders compose in new roots while old pending queries stay revoked
+✔ the real publication query survives close and reinitialize without reimporting its SQL constants
+✔ file queries and saved file factories are revoked; an existing query can still be cancelled
+✔ reserved connections and saved methods are revoked while release remains safe and idempotent
+✔ release also revokes a reserved handle while the module remains live
+✔ a reservation finishing after disposal releases its connection instead of leaking a capability
+✔ cursor iterators and saved next methods cannot start or continue after disposal; return cleans up
+✔ large-object queries and saved methods are revoked; close remains idempotent and releases the transaction
+✔ large-object streams retain normal read/write behavior and cannot be used after close
+✔ retained large-object streams reject future chunks after disposal without unhandled async errors
+✔ large-object creation finishing after disposal closes the native transaction
+✔ seven real logins enforce grants, install worker-owned queues and round-trip a full backup
+✔ every real role has exactly the approved table, column, sequence and cross-role privileges
+✔ all current migration tables and serial sequences have one explicit classification
+✔ the plan separates seven identities, column reads, append-only audit, owners and worker defaults
+✔ planning refuses unknown table before any SQL executes
+✔ planning refuses missing table before any SQL executes
+✔ planning refuses duplicate table before any SQL executes
+✔ planning refuses unknown sequence before any SQL executes
+✔ planning refuses wrong sequence dependency before any SQL executes
+✔ planning refuses missing public column before any SQL executes
+✔ planning refuses wrong database owner before any SQL executes
+✔ planning refuses wrong table owner before any SQL executes
+✔ planning refuses wrong queue owner before any SQL executes
+✔ planning refuses wrong queue object owner before any SQL executes
+✔ planning refuses unplanned policy before any SQL executes
+✔ planning refuses cross-role membership before any SQL executes
+✔ planning refuses outside ACL before any SQL executes
+✔ planning refuses global worker default before any SQL executes
+✔ planning refuses future public read default before any SQL executes
+✔ planning refuses non-superuser executor before any SQL executes
+✔ unsafe prefixes, limits and existing privileged roles cannot be adopted
+✔ one model runs the prefilter, both scores, the writing and the structure
+✔ two concurrent retries send once and return a conflict for the losing admin request
+✔ a stale version cannot resend after a fast failure returns the delivery to failed
+✔ a stale sent cannot overwrite a retry in flight; another delivery remains independent
+✔ a stale drop cannot overwrite a retry in flight; another delivery remains independent
+✔ disabled pushes and missing credentials leave the retry available without sending
+✔ fact recall keeps stored vector precision and invalidates changed fact or story text
+✔ a same-text stored-vector repair is picked up after bounded cache expiry
+✔ fact cache evicts beyond its bounded window
+✔ a detach made while the model is deciding the report's fact stands
+✔ a report joins the fact the model names, and a revision keeps that membership without asking again
+✔ an explicit regroup drops the automatic membership and decides again
+✔ a report waiting for a regroup is not evidence for others, and its own turn decides it again
+✔ a development attaches to the story's earliest fact that still holds reports
+✔ a story's root is the fact reported first, not the one with the lowest number
+✔ two stories a report ties together merge when both models see one story in their roots
+✔ two stories stay apart when their roots are different events, whatever the report ties them with
+✔ a story whose reports all moved away keeps its address: it redirects to where the last one went
+✔ stories that reports keep tying together without merging list each other as related
+✔ random texts do not look alike to the lexical recall
+✔ feedback identity depends on the public key and is unchanged by session-key rotation
+✔ missing or empty production public keys never fall back to the private key or a constant
+✔ the public production entrypoint requires its key before listening
+✔ missing development public keys use the stable existing fallback and warn once with the key name
+✔ a 5 MiB multipart screenshot is stored intact
+✔ malformed multipart and screenshots above the existing backend limit are rejected
+✔ the JSON screenshot sent by an already-open tab remains accepted
+✔ feedback with a screenshot is kept here and nothing goes to Feishu
+✔ fetcher configuration validates its bind address without database access
+✔ the recording server replays fixtures and rejects absent, malformed and oversized requests
+✔ fetcher refuses database and model credentials before it listens
+✔ the external push entrance is not served, even with the ingest token
+✔ init-env creates an independent public secret only in fresh temporary directories and refuses overwrite
+✔ an article a feed lists twice is stored once and stays put across fetches
+✔ sections of one page are separate articles when the source keeps fragments
+✔ a feed that garbles different characters on every load keeps one version
+✔ concurrent changes to one article each get a revision
+✔ an unchanged report does not add a revision
+✔ an imported article's first report records a baseline, not a revision
+✔ simultaneous first reports of one URL create one article
+✔ another source listing the same article records a discovery, not a revision
+✔ an article linking to a tweet is stored separately from the tweet
+✔ another source reporting an imported article first does not set its baseline
+✔ a return to an earlier version is not a revision
+✔ an imported article that returns to its baseline is not revised again
+✔ characters lost in transit are no revision, lost or restored
+✔ closing the API drains a live MCP subscription before closing HTTP
+✔ one timeout covers the complete redirect chain
+✔ simultaneous modes share original bytes, preserve dimensions and use their disk caches
+✔ failed originals are not retried for every mode
+✔ concurrent cold OG requests all succeed with identical cached bytes
+✔ successive responsive candidates reuse the completed original download
+✔ the original cache expires and evicts old entries instead of retaining every source
+✔ modern raster output preserves transparency and never flattens animation
+✔ small SVG stays vector while a large vector receives the requested browser rendition
+✔ responsive URLs retain exact signatures and stable expiry
+✔ image HTTP responses keep issued URLs valid, reject tampering before fetching and do not vary on Accept
+✔ background preparation turns a cached GIF into a smaller animated WebP with every frame and its timing
+✔ private producer reports not_installed as 503 and recovers in the same process
+✔ private producer reports schema_mismatch as 503 and recovers in the same process
+✔ private producer reports queue_missing as 503 and recovers in the same process
+✔ warm shared deletion is 503 and a different rebuilt shape recovers
+✔ warm partition deletion is 503 and a different rebuilt shape recovers
+✔ stable singleton dedupe stays 200/null and unrelated SQL errors are not reclassified or retried
+✔ first send to a preloaded shared queue recovers after another worker replaces it
+✔ first send to a preloaded partition queue recovers after another worker replaces it
+✔ tx never waits for producer cleanup while holding its transaction lock
+✔ options.db never waits for producer cleanup while holding its transaction lock
+✔ web rejects polluted environments before loading SSR or listening
+✔ development login and production login requirements depend on NODE_ENV, not the deployment label
+✔ every registered public GET reaches its documented data fixture or explicit non-data branch with no feedback identity
+ℹ {"route":"GET /.well-known/security.txt","examples":["/.well-known/security.txt"],"reason":"静态安全联系配置；此固定输入 contactEmail 为空，明确返回404"}
+ℹ {"route":"GET /1234567890abcdef1234567890abcdef.txt","examples":["/1234567890abcdef1234567890abcdef.txt"],"reason":"合成IndexNow验证文件，静态条件注册，无数据库内容分支"}
+ℹ {"route":"GET /api/health","examples":["/api/health"],"reason":"数据库存活探针只执行SELECT1，无业务行分支"}
+ℹ {"route":"GET /api/mcp","examples":["/api/mcp"],"reason":"协议入口；stateless legacy GET 返回405，真实数据查询另由只读tools/call POST验证"}
+ℹ {"route":"GET /api/site/changelog","examples":["/api/site/changelog"],"reason":"industry/changelog.json 静态发布记录，无数据库夹具分支"}
+ℹ {"route":"GET /api/site/groups/:factId/reports","examples":["/api/site/groups/pr9-fact-1/reports"],"fixture":"facts.pr9-fact-1包含pr9-editorial-public-full与pr9-second-report两个独立来源的报道"}
+ℹ {"route":"GET /api/site/hot","examples":["/api/site/hot"],"fixture":"hot_rankings中story9101的完整HotEntry、stories摘要与两条story_heat_hourly观测"}
+ℹ {"route":"GET /api/site/items/:id","examples":["/api/site/items/pr9-editorial-public-full"],"fixture":"直接SQL夹具：publications/articles/translations"}
+ℹ {"route":"GET /api/site/items/:id/original","examples":["/api/site/items/pr9-editorial-public-full/original"],"fixture":"直接SQL夹具：publications/articles/translations"}
+ℹ {"route":"GET /api/site/items/availability","examples":["/api/site/items/availability?ids=pr9-editorial-public-full,pr9-editorial-withdrawn-full,pr9-candidate"],"fixture":"直接SQL夹具：publications/articles/translations"}
+ℹ {"route":"GET /api/site/meta","examples":["/api/site/meta"],"reason":"行业静态配置与版本，无数据库内容分支"}
+ℹ {"route":"GET /api/site/pool","examples":["/api/site/pool","/api/site/pool?q=uniquebodyneedle&tab=relevance"],"fixture":"公开eligible投影及联表正文/译文；body-only关键词uniquebodyneedle强制读取pool_search"}
+ℹ {"route":"GET /api/site/reports/:kind","examples":["/api/site/reports/daily","/api/site/reports/weekly","/api/site/reports/monthly"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/site/reports/:kind/:key","examples":["/api/site/reports/daily/2026-10-04","/api/site/reports/weekly/2026-W40","/api/site/reports/monthly/2026-10"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/site/reports/:kind/latest-page","examples":["/api/site/reports/daily/latest-page","/api/site/reports/weekly/latest-page","/api/site/reports/monthly/latest-page"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/site/reports/:kind/navigation/:key","examples":["/api/site/reports/daily/navigation/2026-10-04","/api/site/reports/weekly/navigation/2026-W40","/api/site/reports/monthly/navigation/2026-10"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/site/reports/daily/months/:month","examples":["/api/site/reports/daily/months/2026-10"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/site/stats","examples":["/api/site/stats"],"fixture":"五个来源、非空投影和三份日报"}
+ℹ {"route":"GET /api/site/stories/:publicId","examples":["/api/site/stories/11111111-1111-4111-8111-111111111111","/api/site/stories/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],"fixture":"直接SQL夹具：事件/事实/热度/关联与别名"}
+ℹ {"route":"GET /api/site/stories/:publicId/developments","examples":["/api/site/stories/11111111-1111-4111-8111-111111111111/developments"],"fixture":"直接SQL夹具：事件/事实/热度/关联与别名"}
+ℹ {"route":"GET /api/site/stories/:publicId/followups","examples":["/api/site/stories/11111111-1111-4111-8111-111111111111/followups"],"fixture":"直接SQL夹具：事件/事实/热度/关联与别名"}
+ℹ {"route":"GET /api/site/timeline","examples":["/api/site/timeline"],"fixture":"story9101的两个事实、三个精选报道与已发布独立条目，命中聚合卡片"}
+ℹ {"route":"GET /api/site/topics","examples":["/api/site/topics"],"fixture":"topics.pr9-mining，PR9标签匹配多条公开投影，统计total/recent均有数据"}
+ℹ {"route":"GET /api/site/topics/:slug","examples":["/api/site/topics/pr9-mining"],"fixture":"pr9-mining专题及其PR9标签投影列表"}
+ℹ {"route":"GET /api/v1","examples":["/api/v1"],"reason":"固定v1根目录兜底，无数据操作"}
+ℹ {"route":"GET /api/v1/*","examples":["/api/v1/pr9-undefined"],"reason":"未定义v1操作兜底，无数据操作"}
+ℹ {"route":"GET /api/v1/dailies","examples":["/api/v1/dailies"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/v1/dailies/:date","examples":["/api/v1/dailies/2026-10-04"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/v1/dailies/latest","examples":["/api/v1/dailies/latest"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /api/v1/hot-topics","examples":["/api/v1/hot-topics"],"fixture":"直接SQL夹具：事件/事实/热度/关联与别名"}
+ℹ {"route":"GET /api/v1/items","examples":["/api/v1/items","/api/v1/items?q=uniquebodyneedle"],"fixture":"直接SQL夹具：publications/articles/translations"}
+ℹ {"route":"GET /api/v1/selected/snapshot","examples":["/api/v1/selected/snapshot"],"fixture":"两条已生效upsert、已remove条目与未来未生效upsert；真实分页游标"}
+ℹ {"route":"GET /api/v1/stories/:publicId","examples":["/api/v1/stories/11111111-1111-4111-8111-111111111111","/api/v1/stories/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],"fixture":"直接SQL夹具：事件/事实/热度/关联与别名"}
+ℹ {"route":"GET /apple-icon.png","examples":["/apple-icon.png"],"reason":"静态品牌PNG资源，无数据库内容分支"}
+ℹ {"route":"GET /favicon.ico","examples":["/favicon.ico"],"reason":"静态品牌资源，无数据库内容分支"}
+ℹ {"route":"GET /feed.xml","examples":["/feed.xml"],"fixture":"当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用"}
+ℹ {"route":"GET /feed/all.xml","examples":["/feed/all.xml"],"fixture":"当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用"}
+ℹ {"route":"GET /feed/category/:file","examples":["/feed/category/industry.xml"],"fixture":"当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用"}
+ℹ {"route":"GET /feed/daily.xml","examples":["/feed/daily.xml"],"fixture":"当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用"}
+ℹ {"route":"GET /feed/full.xml","examples":["/feed/full.xml"],"fixture":"当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用"}
+ℹ {"route":"GET /feed/full/category/:file","examples":["/feed/full/category/industry.xml"],"fixture":"当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用"}
+ℹ {"route":"GET /icon-192.png","examples":["/icon-192.png"],"reason":"静态品牌PNG资源，无数据库内容分支"}
+ℹ {"route":"GET /icon.png","examples":["/icon.png"],"reason":"静态品牌PNG资源，无数据库内容分支"}
+ℹ {"route":"GET /llms.txt","examples":["/llms.txt"],"fixture":"daily/weekly/monthly三种报告实际存在，触发可用资源分支"}
+ℹ {"route":"GET /logo.svg","examples":["/logo.svg"],"reason":"静态品牌资源，无数据库内容分支"}
+ℹ {"route":"GET /manifest.webmanifest","examples":["/manifest.webmanifest"],"reason":"静态Web manifest，无数据库内容分支"}
+ℹ {"route":"GET /og/items/:file","examples":["/og/items/pr9-editorial-public-full.png"],"fixture":"直接SQL夹具：publications/articles/translations"}
+ℹ {"route":"GET /og/pages/:file","examples":["/og/pages/about.png"],"reason":"静态页面分享卡，使用about.png，无数据库内容分支"}
+ℹ {"route":"GET /og/reports/:kind/:file","examples":["/og/reports/daily/2026-10-04.png","/og/reports/weekly/2026-W40.png","/og/reports/monthly/2026-10.png"],"fixture":"直接SQL夹具：报告及公开引用"}
+ℹ {"route":"GET /og/site.png","examples":["/og/site.png"],"reason":"静态站点分享卡，无数据库内容分支"}
+ℹ {"route":"GET /og/stories/:file","examples":["/og/stories/11111111-1111-4111-8111-111111111111.png"],"fixture":"直接SQL夹具：事件/事实/热度/关联与别名"}
+ℹ {"route":"GET /og/topics/:file","examples":["/og/topics/pr9-mining.png"],"fixture":"存在的pr9-mining专题分享图；使用专题名称与定义"}
+ℹ {"route":"GET /openapi-v1.json","examples":["/openapi-v1.json"],"reason":"静态OpenAPI模板及行业枚举，无数据库内容分支"}
+ℹ {"route":"GET /robots.txt","examples":["/robots.txt"],"reason":"静态爬虫规则，无数据库内容分支"}
+ℹ {"route":"GET /sitemap.xml","examples":["/sitemap.xml"],"fixture":"可索引条目、有报道事件及报告的实际URL"}
+ℹ {"route":"GET /api/v1/selected/changes","examples":["/api/v1/selected/changes?cursor=ax1.eyJrIjoic3luYyIsImUiOiJ4V29sVnVoRyIsInciOjMsImYiOiJkZWZhdWx0In0"],"fixture":"真实snapshot cursor；控制夹具释放未来upsert并追加remove，响应必须含两种变更"}
+ℹ {"GET":56,"connections":{"public_read":1,"feedback_write":0}}
+✔ public HTTP enforces visibility/source/body modes while the documented M0 database residual stays explicit
+ℹ {"visibilitySourceBodyCases":18,"M0BodyResidual":["pr9-hot_signal-public-full","pr9-isolated-public-full","pr9-editorial-summary-only-full","pr9-editorial-withdrawn-full","pr9-no-license","pr9-low-relevance"]}
+✔ feedback uses only feedback_write in a fresh public process
+ℹ {"feedback":{"public_read":0,"feedback_write":1}}
+✔ site reading sends one language per page, and the original page goes with a withdrawal
+✔ body pictures reach the item page and the full feed only as links, and the image proxy is closed
+✔ revoking a source's licence takes its articles off every exit
+✔ a withdrawn item leaves every report exit
+✔ a withdrawal takes down only the stories citing it, including secondary memberships
+✔ a withdrawn item leaves the hot board and the hot APIs at once, not at the next ranking
+✔ item pages follow the live rule: unsummarised editorial items keep one, hot_signal items have none
+✔ an early release keeps the selected ledger in order
+✔ a withdrawal waiting behind an unreleased item leaves new snapshots at once, and changes still carry both
+✔ snapshots answer 304 to their own ETag
+✔ v1 story retains website content and fallback ordering without the website-only heat reads
+✔ unchanged republishing preserves freshness, while URL-only changes still reach the projection and ledger
+✔ share images keep detail metadata and access rules while conditional reads avoid body hydration
+✔ minimal sync projection preserves snapshot fields, pagination bindings and ordered changes
+✔ epoch migration inserts once, preserves an existing value and permits the first read on a read-only connection
+✔ the real worker creates every application queue with collection disabled and leaves source jobs unhandled
+✔ cached and starting queues cannot survive a closed or replaced database root
+✔ retained queue, saved methods and database capabilities are revoked with their root
+✔ an old ensure completion cannot populate the next instance's queue cache
+✔ same-root graceful drain lets a handler settle and enqueue its follow-up
+✔ the migrations seed a budget for every paid service
+✔ an answer already received is reused instead of bought again
+✔ retries of unusable answers stop at the budget, and every request sent is counted
+✔ with the valve off nothing is sent
+✔ an unknown outcome is released automatically once, so a lost answer costs at most one repeat
+✔ automatic release requeues the failed articles of all five analysis steps
+✔ manual release resumes pending body reads and leaves unrelated article work alone
+✔ identical pair inputs retain every gold case on both cold and cached evaluations
+✔ failed duplicate inputs share one attempt and a later retry retains all response usage
+✔ relation gold JSONL parses all four labels and rejects malformed rows
+✔ sampling is deterministic and applies the split before the limit
+✔ custom split names are made safe before they enter report filenames
+✔ multiclass metrics expose the confusion matrix, per-class scores, macro-F1, and errors
+✔ story-level threshold metrics match the production tie semantics
+✔ reports assign delayed and boundary releases to the period readers first see them
+✔ a release waiting for the article lock uses the time after the cutoff
+✔ a release waiting for the report snapshot lock uses the time after the cutoff
+✔ daily composition waits for a pre-cutoff release to commit instead of losing it between issues
+✔ RSS first backfill, ordinary window, 304, revision and config edits preserve collection behavior
+✔ Last-Modified works without ETag and changing redirect targets cannot accept an unrelated 304
+✔ Atom XHTML titles and summaries keep the article and its text in order
+✔ Atom XHTML bodies match escaped HTML and CDATA without losing mixed-content order
+✔ Atom XHTML still passes through HTML sanitization without decoding escaped markup twice
+✔ default evaluation follows the production score route and shares duplicate score inputs without changing tier decisions
+✔ a shared unusable score fails every matching case once, then retry usage includes every provider attempt
+✔ custom split names cannot escape the evaluation output directory
+✔ a discussion post that came before any report is grouped again when a report founds its fact
+✔ history waits behind live work and founds no event; a new source's post from today is news
+✔ a config entry the collector does not implement fails the fetch instead of being ignored
+✔ feed entries outside the source's URL rules are skipped
+✔ detail rules fill what the listing lacks, and a detail title survives the next listing
+✔ a Jina listing is read on every fetch, and buys a detail rendering only where a regex rule needs it
+✔ detail HTML supplies the ordinary extracted body once, while short pages keep extraction pending
+✔ Jina card links become posts with their own titles
+✔ anchors into the listing page itself are navigation, not posts
+✔ promotions a feed rotates inside its posts are left out of the body
+✔ config entries a source kind does not implement are named, not ignored
+✔ a listing that links other articles in its teasers takes only the links that begin a line
+✔ feed text that only teases the article is a summary: the page is fetched before judging
+✔ hidden page parts are dropped whole, and a news page's closing blocks are trimmed
+✔ noise words match whatever their case
+✔ dates in yyyymmdd and in JSON-LD are read
+✔ SIGTERM finishes the sent normal batch and resumes from its receipt
+✔ SIGTERM finishes the sent misaligned batch and resumes from its receipt
+✔ a text corrected while its translation was running is translated again, and the old translation is not shown
+✔ links and images inside a paragraph survive the translation, or the paragraph stays in the original
+✔ X and Twitter status URL variants keep the same material identity
+✔ other sites containing a tweet URL keep their own material identity
+✔ only a complete status id at the expected path identifies a tweet
+✔ invalid and non-HTTP URLs cannot acquire a tweet identity
+✔ internal and reserved addresses are blocked in every spelling
+✔ URL literals that embed a loopback address are refused before any request
+✔ a name resolving to an internal address is refused at connect time
+✔ through the egress proxy only internal answers refuse a name; literals keep the full check
+✔ a date and time without a zone is in the source's offset, not the server's
+✔ a bare date is midnight in the source's offset; an ISO date alone stays UTC midnight
+✔ a date that carries its zone keeps it
+✔ no date at all is null
+ℹ tests 242
+ℹ suites 0
+ℹ pass 242
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+exit 0

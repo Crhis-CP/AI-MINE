@@ -1,0 +1,72 @@
+{
+  "queues": {
+    "analyze": "content.analyze",
+    "translate": "content.translate",
+    "extractBody": "content.extract-body",
+    "group": "events.group",
+    "digest": "events.digest",
+    "fetchSource": "sources.fetch",
+    "mpCheck": "sources.mp",
+    "notifySelected": "notify.selected",
+    "republishSource": "publication.republish-source"
+  },
+  "options": {
+    "content.analyze": {
+      "policy": "short",
+      "retryLimit": 4,
+      "retryDelay": 30,
+      "retryBackoff": true,
+      "expireInSeconds": 600
+    },
+    "content.translate": {
+      "policy": "short",
+      "retryLimit": 3,
+      "retryDelay": 60,
+      "retryBackoff": true,
+      "expireInSeconds": 900
+    },
+    "content.extract-body": {
+      "policy": "short",
+      "retryLimit": 2,
+      "retryDelay": 120,
+      "expireInSeconds": 300
+    },
+    "events.group": {
+      "policy": "short",
+      "retryLimit": 4,
+      "retryDelay": 20,
+      "retryBackoff": true,
+      "expireInSeconds": 600
+    },
+    "events.digest": {
+      "policy": "short",
+      "retryLimit": 3,
+      "retryDelay": 60,
+      "retryBackoff": true,
+      "expireInSeconds": 900
+    },
+    "sources.fetch": {
+      "policy": "short",
+      "retryLimit": 0,
+      "expireInSeconds": 600
+    },
+    "sources.mp": {
+      "policy": "short",
+      "retryLimit": 3,
+      "retryDelay": 60,
+      "retryBackoff": true,
+      "expireInSeconds": 600
+    },
+    "notify.selected": {
+      "policy": "short",
+      "retryLimit": 0,
+      "expireInSeconds": 300
+    },
+    "publication.republish-source": {
+      "policy": "short",
+      "retryLimit": 2,
+      "retryDelay": 60,
+      "expireInSeconds": 3600
+    }
+  }
+}

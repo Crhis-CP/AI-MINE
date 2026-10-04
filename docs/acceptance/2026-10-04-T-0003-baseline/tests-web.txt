@@ -1,0 +1,29 @@
+✔ web dev and start commands supply the private API default and preserve an explicit target
+✔ private path trees are distinct from lookalikes and query text; fallback never resolves the incoming host
+✔ admin loader uses inbound Host, not a spoofed forwarded header or Request URL
+✔ Vite devEdge forwards to two local APIs using the same path and Host rules
+✔ public route subsets produce the same complete navigation data; filters still differ
+✔ HTML and navigation share freshness; cookies do not personalize public results
+✔ missing routes cannot be hidden by a root-only request; errors and redirects stay uncached
+✔ admin data and actions never become public cache entries
+✔ an elapsed release deadline cannot be extended by a fresh page/data response
+✔ browser freshness shares the selected deadline, including slow sibling loaders
+✔ the edge may keep a page longer than browsers, which a withdrawal purge cannot reach
+✔ browser caching preserves noindex and private sign-in responses
+✔ a visitor cannot name its own address to the api without a trusted proxy in front
+✔ private proxy and login SSR use the private API, preserve raw queries, and replace a spoofed host
+✔ reading normalizes every kind of invalid bookmark date without dropping bookmarks
+✔ existing invalid dates are readable and removable after reopening the page
+✔ valid dates on existing bookmarks survive reopening the page unchanged
+✔ a link to the site's own address becomes an in-site path
+✔ any other address opens in a new tab
+✔ public and admin loaders forward cancellation without turning it into a 503
+✔ history cache batches writes and survives eviction, expiry and storage denial
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+exit 0

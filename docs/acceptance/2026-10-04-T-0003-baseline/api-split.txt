@@ -1,0 +1,1 @@
+API split: both health checks, public/private routes and web login options verified

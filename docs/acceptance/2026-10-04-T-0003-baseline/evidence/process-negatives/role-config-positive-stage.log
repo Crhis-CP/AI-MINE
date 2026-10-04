@@ -1,0 +1,29 @@
+$ node --test --test-concurrency=1 --test-timeout=120000 tests/db-role-plan.test.ts
+✔ all current migration tables and serial sequences have one explicit classification (3.558458ms)
+✔ the plan separates seven identities, column reads, append-only audit, owners and worker defaults (1.825833ms)
+✔ planning refuses unknown table before any SQL executes (0.245709ms)
+✔ planning refuses missing table before any SQL executes (0.130791ms)
+✔ planning refuses duplicate table before any SQL executes (0.237083ms)
+✔ planning refuses unknown sequence before any SQL executes (0.149125ms)
+✔ planning refuses wrong sequence dependency before any SQL executes (0.133375ms)
+✔ planning refuses missing public column before any SQL executes (0.11725ms)
+✔ planning refuses wrong database owner before any SQL executes (0.152125ms)
+✔ planning refuses wrong table owner before any SQL executes (0.168125ms)
+✔ planning refuses wrong queue owner before any SQL executes (0.12325ms)
+✔ planning refuses wrong queue object owner before any SQL executes (0.134292ms)
+✔ planning refuses unplanned policy before any SQL executes (0.479209ms)
+✔ planning refuses cross-role membership before any SQL executes (0.117458ms)
+✔ planning refuses outside ACL before any SQL executes (0.101458ms)
+✔ planning refuses global worker default before any SQL executes (0.0985ms)
+✔ planning refuses future public read default before any SQL executes (0.092875ms)
+✔ planning refuses non-superuser executor before any SQL executes (0.090542ms)
+✔ unsafe prefixes, limits and existing privileged roles cannot be adopted (0.337459ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 93.673958
+== role-config: pass — environment/configuration and pure grant plans; no database matrix in quick mode

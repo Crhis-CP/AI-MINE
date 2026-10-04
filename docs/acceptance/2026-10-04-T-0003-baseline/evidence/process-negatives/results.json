@@ -1,0 +1,50 @@
+{
+  "sourceSha": "620f7e086786bdcd0c4288914f73f96bff92482c",
+  "sourceTree": "1a6a25012da7e9f49dd3896e1a01b164768ee40e",
+  "scope": "real quick --only dispatch; focused negative evidence, not a full merge receipt",
+  "results": [
+    {
+      "case": "boundaries-positive",
+      "stage": "boundaries",
+      "exit": 0,
+      "expected": 0,
+      "evidence": "boundaries-positive-stage.log",
+      "logSha256": "7b7eb3bf4561cc75a3c776aea2d90e3330a49b0ce09c80ff2c0cc6b6e6d39ef4"
+    },
+    {
+      "case": "role-config-positive",
+      "stage": "role-config",
+      "exit": 0,
+      "expected": 0,
+      "evidence": "role-config-positive-stage.log",
+      "logSha256": "db9c826e86b75eab1837023b5c831c4b70a2a78377f877a137c9390bec33a97c"
+    },
+    {
+      "case": "boundaries-forbidden-backend-import",
+      "stage": "boundaries",
+      "exit": 1,
+      "expected": 1,
+      "evidence": "boundaries-forbidden-backend-import-stage.log",
+      "logSha256": "3b24d9038ccb7dc282ef1ccb2750cf7136f5f2342ff7c0fef72a94da8cbe691f"
+    },
+    {
+      "case": "role-config-web-database-env",
+      "stage": "role-config",
+      "exit": 1,
+      "expected": 1,
+      "evidence": "role-config-web-database-env-stage.log",
+      "logSha256": "de2392b50bdd35cfa4f2ae36afd363c36d4ea6c28a26da3a8d95dda4d6f39e2f"
+    }
+  ],
+  "restoredTrackedTreeClean": true,
+  "databaseOrModelCalls": false,
+  "checkerSourceHashes": {
+    "scripts/verify/boundaries.ts": "3d4be1dc79b34200b1425cbc4e4a01dae97343a33a09b81541360a4bf4898907",
+    "scripts/verify/role-config.ts": "4a57fcd36a0e472d7ce96393edfc640726a40da5571e2486cc63a9588b47b0cd",
+    "scripts/verify/compose-environment.ts": "a8b7e5d837a0b1c172ad4bb2c910e1f507334ead61e3dcd5c07eb9004459495a",
+    "scripts/verify/run.ts": "534d020aaa563fa7cc0b41379fb939016fd942ee6072772fb948cb36866f09e3",
+    "packages/platform/config/src/index.ts": "bd986b67fe11ec46553d1e426a37a29eb8823bcd4263bf3d87535b187a7ff4de",
+    "apps/web/runtime-env.ts": "ec27add203bd268b7cf97038afdcb1915e0f7ae006e074bd2f9169f1e57b9e45"
+  },
+  "temporaryCloneRemoved": true
+}

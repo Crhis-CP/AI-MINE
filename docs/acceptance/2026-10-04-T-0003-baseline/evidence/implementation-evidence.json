@@ -1,0 +1,34 @@
+{
+  "main": "28e633c57d448e3cff3673d413574cac850025b7",
+  "tree": "1a39472c2f9358827d6183472869f47e8a33ea30",
+  "fullRun": 37179852021,
+  "stages": 18,
+  "fullReceipt": ".verify/handoff/pr58-main-receipt.json",
+  "baselineArchiveSha256": "19bdaf0fed3029c73d390a5d88a681c9a53ed5a085f9f13e292f91dc3a22fa1e",
+  "runtimeReportSha256": "590245890ee701aebfeb2144e272be2eacdb1915da4ca768e1f04375c83d727e",
+  "inventory": {
+    "runtime.sqlFiles": 57,
+    "runtime.sqlSites": 552,
+    "runtime.splitFilesWithSQL": 8,
+    "runtime.own": 327,
+    "runtime.split-debt": 73,
+    "runtime.unknownSites": 132,
+    "runtime.cross-debt": 81,
+    "runtime.read-model": 103,
+    "runtime.unknown": 2,
+    "scripts.sqlFiles": 9,
+    "scripts.sqlSites": 49,
+    "scripts.unknownSites": 15,
+    "scripts.non-runtime": 80,
+    "tests.sqlFiles": 35,
+    "tests.sqlSites": 408,
+    "tests.non-runtime": 305,
+    "tests.unknownSites": 197
+  },
+  "negativeEvidence": [
+    ".verify/task0004-stage-negatives/results.json",
+    ".verify/task0004-ownership-gate-negative/results.json"
+  ],
+  "baselineComparison": "exact approved main31 baseline; only diagnostic cursor epoch normalized; T0002 Task10 copy differences individually recorded",
+  "productionOrModelCalls": 0
+}

@@ -1,0 +1,28 @@
+{
+  "sha": "87011e5c629b9d0754fb03eaa438a70c01f70709",
+  "base": "87011e5c629b9d0754fb03eaa438a70c01f70709",
+  "scope": "actual unchanged verify --quick --only dispatch with frozen source and one added runtime query; focused evidence only",
+  "results": [
+    {
+      "name": "positive",
+      "exit": 0,
+      "expected": 0,
+      "logSha256": "e5929c192c38dd438f643ca79973535a646024d404f94e9573b17b1f2faa255d"
+    },
+    {
+      "name": "new-cross-module-query",
+      "exit": 1,
+      "expected": 1,
+      "logSha256": "1990c40b819261799300c52e423a5290799486dda7cc7962c7f4b90ae40910fa"
+    }
+  ],
+  "restoredClean": true,
+  "databaseAndModelCalls": 0,
+  "sourceHashes": {
+    "scripts/verify/run.ts": "46f1825ffae2f329524e31c793fbeac6b2017c254b9d6768941cea9dbfdd9e7e",
+    "scripts/verify/data-ownership.ts": "b0b6b21913e0b73292861fabad95ab551211c426065265e7d21dc80337ebd2c3",
+    "scripts/verify/ts-ownership.ts": "9a3fe6d7578a3f30fed2c310a300710127ef05909f33f4cd9bed37d81a3dad13",
+    "scripts/verify/sql-ownership.ts": "83a31a59c574dc366f7456b8f895650961a0b4d78c3e75d32451eeb125c79e3c",
+    "scripts/verify/sql-lock.ts": "200001043772019866989590b80fd26650a9ce4b969a37ccce6c80e19c6a970d"
+  }
+}
