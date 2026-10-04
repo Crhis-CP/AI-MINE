@@ -5,10 +5,18 @@ import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
+import { ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
+import { sha256, stableJson } from "../lib/ids.ts";
 
 const sql = dbOf("ops");
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
+
+/** Exact database text only: no Date/epoch conversion, I/O, or authentication semantics. */
+export function receiptObservedVersion(input: ReceiptVersionFields): string {
+  const { receiptId, attempts, updatedAtUtc } = ReceiptVersionInput.parse(input);
+  return `rv1:${sha256(stableJson(["receipt-observation-v1", receiptId, attempts, updatedAtUtc]))}`;
+}
 
 export async function runsOverview() {
   const [heartbeats, latest, timeline, queues, failedJobs, lagging, receipts, receiptIssues, deliveries, errors, ingest] = await Promise.all([
