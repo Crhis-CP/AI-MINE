@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { setVisibility } from "@amp/backend/admin/content";
+import { overrideFields, setVisibility } from "@amp/backend/admin/content";
 import { updateSource } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -47,14 +47,15 @@ after(async () => {
 
 let n = 0;
 /** A selected article with full text and a summary. */
-async function article(): Promise<string> {
+async function article(body = BODY, language?: string): Promise<string> {
   n += 1;
   const { articleId } = await upsertMaterial({
     sourceId: SOURCE,
     url: `https://example.com/${T}-${n}`,
     title: `Test ${n}`,
-    bodyText: BODY,
-    bodyHtml: `<p>${BODY}</p>`,
+    bodyText: body,
+    bodyHtml: `<p>${body}</p>`,
+    language,
     bodyStatus: "ok",
     via: "fetch",
     publishedAt: new Date(),
@@ -486,4 +487,85 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
   await setVisibility(id, { visibility: "withdrawn", reason: "sync test", version: 0 }, "test");
   const removed = await getChanges(minimalChanges.cursor);
   assert.ok(removed.changes.some((c: any) => c.op === "remove" && c.id === id));
+});
+
+test("site-only source excerpts stay out of machine summaries and historical sync payloads", async () => {
+  await sql`UPDATE sources SET syndicate_fulltext = false WHERE id = ${SOURCE}`;
+  const cursor = JSON.parse((await get("/api/v1/selected/snapshot?limit=1000")).body).cursor;
+  const id = await article();
+  const story = await storyFor(id);
+  await publishArticle(id, released());
+  const excerpt = `SOURCE-EXCERPT-${T}：铜矿项目原始短文。`.repeat(4);
+  await sql`UPDATE publications SET summary = NULL, source_excerpt = ${excerpt} WHERE article_id = ${id}`;
+  const [fact] = await sql`SELECT f.public_id FROM facts f JOIN stories s ON s.id=f.story_id WHERE s.public_id=${story}`;
+  for (const url of [
+    `/api/site/items/${id}`,
+    "/api/site/timeline",
+    "/api/site/pool",
+    `/api/site/groups/${fact!.public_id}/reports`,
+    `/api/site/stories/${story}`,
+  ]) {
+    const r = await get(url);
+    assert.equal(r.status, 200, url);
+    assert.ok(r.body.includes(excerpt), url);
+  }
+  const machine = [
+    "/api/v1/items?mode=all",
+    `/api/v1/stories/${story}`,
+    "/feed/all.xml",
+    "/feed.xml",
+    "/feed/full.xml",
+    "/api/v1/selected/snapshot?limit=1000",
+    `/api/v1/selected/changes?cursor=${encodeURIComponent(cursor)}&limit=100`,
+  ];
+  for (const url of machine) {
+    const r = await get(url);
+    assert.equal(r.status, 200, url);
+    assert.ok(r.body.includes(id), "the item remains available: " + url);
+    assert.ok(!r.body.includes("SOURCE-EXCERPT"), url);
+  }
+  const item = JSON.parse((await get("/api/v1/items?mode=all")).body).items.find((r: { id: string }) => r.id === id);
+  assert.equal(item.summary, null, "the existing nullable field stays present");
+  for (const [name, args] of [
+    [MCP_TOOL_NAMES.latest, { mode: "all", window: "24h" }],
+    [MCP_TOOL_NAMES.story, { public_id: story }],
+  ] as const) {
+    const r = await app.inject({
+      method: "POST",
+      url: "/api/mcp",
+      headers: { "content-type": "application/json", accept: "application/json, text/event-stream" },
+      payload: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
+    });
+    assert.equal(r.statusCode, 200);
+    assert.ok(r.body.includes(id) && !r.body.includes("SOURCE-EXCERPT"));
+  }
+  await sql`UPDATE sources SET site_fulltext = false WHERE id = ${SOURCE}`;
+  assert.equal(JSON.parse((await get(`/api/site/items/${id}`)).body).summary, null, "source excerpt obeys the current site permission");
+  await sql`UPDATE sources SET site_fulltext = true, syndicate_fulltext = true WHERE id = ${SOURCE}`;
+});
+
+test("summary-only never falls back to source text after clearing a manual introduction", async () => {
+  for (const size of [150, 1800]) {
+    const body = "铜矿项目建设公告，列明产量、许可和原始条件。".repeat(90).slice(0, size);
+    const id = await article(body, "zh");
+    await sql`UPDATE analyses SET summary_zh = NULL WHERE article_id = ${id}`;
+    await publishArticle(id, released());
+    // The preparation stage has no automatic writer yet; install its explicit read-model fixture.
+    // In the activated pipeline publishArticle also derives this field from the confirmed source.
+    await sql`UPDATE publications SET source_excerpt = ${`来源摘录：${body.slice(0, 400)}`} WHERE article_id = ${id}`;
+    const manual = `人工导读 ${size} ${T}`;
+    await overrideFields(id, { fields: { summary: manual }, reason: "fixture introduction", version: 0 }, "test");
+    await overrideFields(id, { fields: {}, clear: ["summary"], reason: "fixture clear", version: 1 }, "test");
+    const before = JSON.parse((await get(`/api/site/items/${id}`)).body);
+    assert.ok(before.summary.includes(body.slice(0, 80)), "public reading retains its permitted source excerpt");
+    await setVisibility(id, { visibility: "summary-only", reason: "fixture limitation", version: 2 }, "test");
+    const limited = await get(`/api/site/items/${id}`);
+    assert.equal(limited.status, 200);
+    const detail = JSON.parse(limited.body);
+    assert.deepEqual([detail.readingMode, detail.body, detail.summary], ["summary-only", null, null], `source length ${size}`);
+    assert.ok(!limited.body.includes(body.slice(0, 80)), "source text does not escape through metadata");
+    await overrideFields(id, { fields: { summary: manual }, reason: "fixture authored summary", version: 3 }, "test");
+    const authored = JSON.parse((await get(`/api/site/items/${id}`)).body);
+    assert.deepEqual([authored.readingMode, authored.body, authored.summary], ["summary-only", null, manual]);
+  }
 });

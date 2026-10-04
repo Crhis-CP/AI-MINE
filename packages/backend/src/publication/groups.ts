@@ -51,7 +51,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
       first_party: boolean;
     }[]
   >`
-    SELECT p.article_id AS id, p.title, p.summary, p.timeline_at, p.url, p.selected,
+    SELECT p.article_id AS id, p.title, coalesce(p.summary, CASE WHEN s.site_fulltext THEN p.source_excerpt END) AS summary, p.timeline_at, p.url, p.selected,
            s.id AS source_id, s.name AS source_name, s.kind AS source_kind, p.first_party
     FROM publications p JOIN sources s ON s.id = p.source_id
     WHERE p.article_id IN (SELECT article_id FROM fact_articles WHERE fact_id = ${fact.id}) AND p.visibility = 'public' AND p.eligible

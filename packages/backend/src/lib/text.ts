@@ -1,3 +1,14 @@
+/** The existing prefilter coercion, shared by live parsing and persisted-response verification. */
+export const normalizedUppercase = (value: unknown): string =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase();
+
+/** Source text needs letters or numbers; punctuation/spacing is not article material. */
+export function usableSourceText(...texts: Array<string | null | undefined>): string {
+  return texts.find((text) => text && /[\p{L}\p{N}]/u.test(text)) ?? "";
+}
+
 export function collapseWhitespace(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }

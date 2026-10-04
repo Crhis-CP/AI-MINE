@@ -15,7 +15,7 @@ import { SELECTION } from "@amp/industry/selection";
 import { dbOf } from "../db.ts";
 import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
-import { collapseWhitespace } from "../lib/text.ts";
+import { collapseWhitespace, normalizedUppercase } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
 import { buildMaterial, firstImagePart, loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
 import { pageFetchable } from "../content/extract.ts";
@@ -119,13 +119,7 @@ export function buildScoreInput(a: AnalyzeInputArticle): string {
 // ── Step outputs ──────────────────────────────────────────────────────────────────────────
 
 const PrefilterSchema = z.object({
-  label: z.preprocess(
-    (v) =>
-      String(v ?? "")
-        .trim()
-        .toUpperCase(),
-    z.enum(["PASS", "BLOCK", "UNKNOWN"]),
-  ),
+  label: z.preprocess(normalizedUppercase, z.enum(["PASS", "BLOCK", "UNKNOWN"])),
   reason: z.string().max(200).catch(""),
 });
 
