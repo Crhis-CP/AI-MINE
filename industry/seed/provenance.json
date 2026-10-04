@@ -1,0 +1,36 @@
+{
+  "purpose": "owner-input-mirrors-and-jurisdiction-projection",
+  "inputs": {
+    "docs/data/jurisdictions-36.json": "964967223be303f9b95bbf5f7a40cb0ed63b41107333b902f751f5b2405c91d7",
+    "docs/data/jurisdiction-scope.json": "3d331058600199c2e75e21966fb4c488448ec6554995af3094660b48c6df266c",
+    "docs/data/source-targets-320.json": "3274a82bf221a71fdee7b6bb0ff1875904545acb6934d749d8ad97fffbb61cc6",
+    "docs/data/source-records-321.csv": "be7e4c3dc8a3cd32806be82f3bbcab00950aef11d9a782212d921e43ec2d0c22",
+    "docs/data/source-targets-320.csv": "3c931ce69cd6629717c2757b4fa84207b99c03079e8814e7c34a565dc95f2648"
+  },
+  "dictionary_fields": [
+    "id",
+    "kind",
+    "name_zh",
+    "name_en",
+    "id_system",
+    "parent",
+    "tier",
+    "news_scope",
+    "policy_scope",
+    "policy_first_batch_required",
+    "policy_local_sources",
+    "scope_basis",
+    "news_scope_basis",
+    "workbook_sheet_code",
+    "workbook_sheet"
+  ],
+  "mirrors": {
+    "records": "source-records-321.csv",
+    "targets": "source-targets-320.csv"
+  },
+  "records": 321,
+  "targets": 320,
+  "auto_load": false,
+  "enabled_by_default": false,
+  "note": "原始需求输入，不是已接通信源；old_*、候选入口、历史权限与运行状态不作为新系统配置或状态。"
+}

@@ -123,3 +123,7 @@ TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、
 3. **种子语义**：`scripts/seed.ts` 每次运行都用 `topics.json` 覆盖库里同名的主题，信源则只插入库里没有的（`ON CONFLICT DO NOTHING`）。现在 Compose 的 `setup` 容器每次 `up` 都先迁移再跑种子；种子信源缺省 `enabled=true`、`next_fetch_at=now()`，会绕过“预览通过并经负责人一次确认才启用”。矿业版改为：种子信源来自 Owner 的原始信源表（`industry/seed/`），一律 `enabled=false`、`next_fetch_at` 为空，经私有页面显式启用；主题改由分面生成（PG-08），取消覆盖式种子；迁移与种子改为发布步骤。
 4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除（已随 T-0002 删）；`icp` 删除，ICP 备案号与公安联网备案号改读受保护的运行时配置（生产环境任一未配置则公开站不开放）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
 5. **其余去向**（附录 B 的 B.8 节）：`sources.json` 由 `industry/seed/` 取代；`changelog.json` 改为产品更新表加 `changes/*.md`；两个评测样例移到 `evals/<能力>/` 并换成矿业样例；`brand/` 换成 AI矿策 的标识，仓库里不得留下与上游品牌素材 SHA-256 相同的文件，报头字按新站名重新生成（已随 T-0002 换）；`pages/` 补上联系方式与截图 180 天后删除的说明，上线前经 Owner 确认；分级 `EXCLUDE_MP` 改名 `EXCLUDE`。
+
+## 法域与原始来源输入
+
+`@amp/industry/jurisdictions` 提供 33 国、3 个组织及中国 14 个下级法域的纯数据；资讯起点国家单独导出为 `NEWS_COUNTRIES`。来源、字段与验证见 `jurisdictions/README.md`。`seed/` 保存 321 条原始记录/320 个目标的字节镜像及哈希，属于待接入的业务输入；当前运行源仍由 `sources.json` 控制，镜像不会自动启用或替换它。
