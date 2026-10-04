@@ -1,8 +1,8 @@
 // Shared setup for the invariant tests (node --test tests/). They write rows, so they refuse to run
 // unless DATABASE_URL names a throwaway database ending in _test or _ci (CI: a freshly migrated one).
 // Secrets are test values set here, never real credentials; paid providers are pointed at
-// local stubs by the tests that need them, and the push valves stay off. The files share
-// one database and its paid-service budgets, so they run one at a time (package.json).
+// local stubs by the tests that need them, and the push valves stay off. The parent test-files runner
+// gives every file its own cloned database, process and temporary directory before this import.
 import http from "node:http";
 import { initializeDb } from "@amp/backend/db";
 

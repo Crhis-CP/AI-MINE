@@ -82,7 +82,7 @@ echo "== tests"
 set +e
 env -i PATH="$PATH" HOME="$HOME" TZ="${TZ:-UTC}" node --test apps/web/tests/*.test.ts 2>&1 | strip_timings > "$out/tests-web.txt"
 echo "exit ${PIPESTATUS[0]}" >> "$out/tests-web.txt"
-pnpm test 2>&1 | strip_timings > "$out/tests-backend.txt"
+node scripts/verify/test-files.ts 2>&1 | strip_timings > "$out/tests-backend.txt"
 echo "exit ${PIPESTATUS[0]}" >> "$out/tests-backend.txt"
 set -e
 

@@ -385,10 +385,11 @@ const STAGES: Stage[] = [
         quick,
         hasDatabase: db !== null,
         execute: (files) =>
-          run("node", ["--test", "--test-concurrency=1", "--test-timeout=120000", ...files], {
+          run("node", [...(quick ? ["--test", "--test-timeout=120000"] : ["scripts/verify/test-files.ts"]), ...files], {
             log,
             env: env(!quick && db ? siteEnv(db) : {}),
             timeoutMs: 30 * 60_000,
+            shutdownMs: 15_000,
           }),
       });
     },
@@ -452,10 +453,11 @@ const STAGES: Stage[] = [
       if (
         !quick &&
         db &&
-        (await run("node", ["--test", "--test-concurrency=1", "--test-timeout=120000", ...backendTestGroups(ROOT).backend], {
+        (await run("node", ["scripts/verify/test-files.ts", ...backendTestGroups(ROOT).backend], {
           log,
           env: env(siteEnv(db)),
           timeoutMs: 30 * 60_000,
+          shutdownMs: 15_000,
         })) !== 0
       )
         failed.push("backend tests");
@@ -663,11 +665,15 @@ function writeReceipt(exitStatus: number, failedStage: string | null, endState: 
   return path.relative(ROOT, file);
 }
 
-process.on("SIGINT", () => {
-  stopAll();
-  if (!quick) console.error(`interrupted; receipt ${writeReceipt(130, `${current || "start"} (interrupted)`, null)}`);
-  process.exit(130);
-});
+let interruption: Promise<never> | undefined;
+const interrupt = () => {
+  interruption ??= (async () => {
+    await stopAll();
+    if (!quick) console.error(`interrupted; receipt ${writeReceipt(130, `${current || "start"} (interrupted)`, null)}`);
+    process.exit(130);
+  })();
+};
+process.on("SIGINT", interrupt).on("SIGTERM", interrupt);
 
 console.log(
   `${quick ? "pnpm check" : "make verify"} on ${head.slice(0, 12)}${base ? ` (base ${base.slice(0, 12)} from ${baseRef})` : ""}${task ? `, ${task}` : ""}`,
@@ -688,6 +694,7 @@ for (const [i, stage] of selected.entries()) {
       outcome = fail((e as Error).message);
     }
   }
+  if (interruption) await interruption;
   const duration = Math.round((performance.now() - t0) / 100) / 10;
   log.line(`== ${stage.name}: ${outcome.status}${outcome.note ? ` — ${outcome.note}` : ""}`);
   results.push({ name: stage.name, status: outcome.status, duration_s: duration, ...(outcome.note ? { note: outcome.note } : {}) });
