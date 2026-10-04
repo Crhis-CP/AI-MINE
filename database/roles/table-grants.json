@@ -1,0 +1,262 @@
+{
+  "roles": ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup"],
+  "tables": {
+    "admin_sessions": {
+      "module": "identity",
+      "access": "identity",
+      "publicColumns": []
+    },
+    "admin_users": {
+      "module": "identity",
+      "access": "identity",
+      "publicColumns": []
+    },
+    "analyses": {
+      "module": "enrichment",
+      "access": "business",
+      "publicColumns": []
+    },
+    "article_discoveries": {
+      "module": "content",
+      "access": "business",
+      "publicColumns": []
+    },
+    "article_revisions": {
+      "module": "content",
+      "access": "business",
+      "publicColumns": []
+    },
+    "articles": {
+      "module": "content",
+      "access": "business",
+      "publicColumns": ["id", "revision", "author", "language", "body_html", "body_text", "body_status"]
+    },
+    "audit_log": {
+      "module": "identity",
+      "access": "audit",
+      "publicColumns": []
+    },
+    "budgets": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": []
+    },
+    "deliveries": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": []
+    },
+    "delivery_leases": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": []
+    },
+    "editorial_overrides": {
+      "module": "editorial",
+      "access": "business",
+      "publicColumns": []
+    },
+    "embeddings": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": []
+    },
+    "fact_articles": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "facts": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "feedback": {
+      "module": "feedback",
+      "access": "business",
+      "publicColumns": []
+    },
+    "feedback_bans": {
+      "module": "feedback",
+      "access": "business",
+      "publicColumns": []
+    },
+    "fetch_runs": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": []
+    },
+    "grouping_decisions": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": []
+    },
+    "grouping_overrides": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": []
+    },
+    "hot_rankings": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "ingest_events": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": []
+    },
+    "job_runs": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": []
+    },
+    "notify_targets": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": []
+    },
+    "pool_search": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "publications": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "receipt_attempts": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": []
+    },
+    "receipts": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": []
+    },
+    "regroup_pending": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": []
+    },
+    "report_revisions": {
+      "module": "reports",
+      "access": "business",
+      "publicColumns": []
+    },
+    "reports": {
+      "module": "reports",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "schema_migrations": {
+      "module": "platform/config",
+      "access": "migration",
+      "publicColumns": []
+    },
+    "selectbench_results": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": []
+    },
+    "selectbench_runs": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": []
+    },
+    "selected_ledger": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "selected_state": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "service_prices": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": []
+    },
+    "settings": {
+      "module": "shared/settings",
+      "access": "business",
+      "publicColumns": ["key", "value"]
+    },
+    "sources": {
+      "module": "sources",
+      "access": "business",
+      "publicColumns": ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes"]
+    },
+    "stored_files": {
+      "module": "platform/storage",
+      "access": "business",
+      "publicColumns": []
+    },
+    "stories": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "story_aliases": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "story_digests": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": []
+    },
+    "story_heat_hourly": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "story_links": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "story_signals": {
+      "module": "events",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "topics": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["*"]
+    },
+    "translation_attempts": {
+      "module": "enrichment",
+      "access": "business",
+      "publicColumns": []
+    },
+    "translations": {
+      "module": "enrichment",
+      "access": "business",
+      "publicColumns": ["article_id", "lang", "revision", "body_html", "complete"]
+    }
+  },
+  "sequences": {
+    "admin_users_id_seq": "admin_users",
+    "analyses_id_seq": "analyses",
+    "audit_log_id_seq": "audit_log",
+    "deliveries_id_seq": "deliveries",
+    "facts_id_seq": "facts",
+    "feedback_id_seq": "feedback",
+    "fetch_runs_id_seq": "fetch_runs",
+    "grouping_decisions_id_seq": "grouping_decisions",
+    "hot_rankings_id_seq": "hot_rankings",
+    "ingest_events_id_seq": "ingest_events",
+    "job_runs_id_seq": "job_runs",
+    "receipt_attempts_id_seq": "receipt_attempts",
+    "receipts_id_seq": "receipts",
+    "reports_id_seq": "reports",
+    "stories_id_seq": "stories"
+  }
+}
