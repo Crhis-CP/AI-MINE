@@ -1,5 +1,5 @@
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
-import type { PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
 import { dbOf, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { newShortId } from "../lib/ids.ts";
@@ -127,7 +127,7 @@ function minimalOf(item: V1ItemPayload) {
     source: item.source,
     publishedAt: item.publishedAt,
     discoveredAt: item.discoveredAt,
-    category: item.category,
+    category: toPublicApiCategory(item.category),
     score: item.score,
     selected: item.selected,
   };
@@ -188,7 +188,7 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
     count: page.length,
     hasMore,
     nextPage: hasMore && last ? encodeCursor(SYNC_PREFIX, { k: "page", e: epoch, w, f: fields, a: last.article_id, t: asOf }) : null,
-    items: page.map((r) => (fields === "minimal" ? minimalOf(r.payload) : r.payload)),
+    items: page.map((r) => (fields === "minimal" ? minimalOf(r.payload) : { ...r.payload, category: toPublicApiCategory(r.payload.category) })),
   };
 }
 
@@ -224,7 +224,11 @@ export async function selectedChanges(q: { cursor: string; limit: number }, now 
     changes: page.map((r) =>
       r.op === "remove"
         ? { op: "remove" as const, changedAt: r.changed_at.toISOString(), id: r.article_id }
-        : { op: "upsert" as const, changedAt: r.changed_at.toISOString(), item: c.f === "minimal" ? minimalOf(r.payload!) : r.payload! },
+        : {
+            op: "upsert" as const,
+            changedAt: r.changed_at.toISOString(),
+            item: c.f === "minimal" ? minimalOf(r.payload!) : { ...r.payload!, category: toPublicApiCategory(r.payload!.category) },
+          },
     ),
   };
 }

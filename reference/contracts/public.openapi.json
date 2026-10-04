@@ -8,12 +8,15 @@
             "anyOf": [
               {
                 "enum": [
-                  "ai-models",
-                  "ai-products",
-                  "industry",
-                  "paper",
-                  "tip",
-                  "opinion"
+                  "policy_regulation",
+                  "company_project",
+                  "commodity_market",
+                  "capital_ma",
+                  "supply_trade_controls",
+                  "esg_community_labor",
+                  "safety_incident",
+                  "technology_processing",
+                  "exploration_resource"
                 ],
                 "type": "string"
               },
@@ -112,12 +115,15 @@
             "anyOf": [
               {
                 "enum": [
-                  "ai-models",
-                  "ai-products",
-                  "industry",
-                  "paper",
-                  "tip",
-                  "opinion"
+                  "policy_regulation",
+                  "company_project",
+                  "commodity_market",
+                  "capital_ma",
+                  "supply_trade_controls",
+                  "esg_community_labor",
+                  "safety_incident",
+                  "technology_processing",
+                  "exploration_resource"
                 ],
                 "type": "string"
               },
@@ -437,12 +443,15 @@
                 "anyOf": [
                   {
                     "enum": [
-                      "ai-models",
-                      "ai-products",
-                      "industry",
-                      "paper",
-                      "tip",
-                      "opinion"
+                      "policy_regulation",
+                      "company_project",
+                      "commodity_market",
+                      "capital_ma",
+                      "supply_trade_controls",
+                      "esg_community_labor",
+                      "safety_incident",
+                      "technology_processing",
+                      "exploration_resource"
                     ],
                     "type": "string"
                   },
@@ -545,12 +554,15 @@
                 "anyOf": [
                   {
                     "enum": [
-                      "ai-models",
-                      "ai-products",
-                      "industry",
-                      "paper",
-                      "tip",
-                      "opinion"
+                      "policy_regulation",
+                      "company_project",
+                      "commodity_market",
+                      "capital_ma",
+                      "supply_trade_controls",
+                      "esg_community_labor",
+                      "safety_incident",
+                      "technology_processing",
+                      "exploration_resource"
                     ],
                     "type": "string"
                   },
@@ -720,12 +732,15 @@
             "anyOf": [
               {
                 "enum": [
-                  "ai-models",
-                  "ai-products",
-                  "industry",
-                  "paper",
-                  "tip",
-                  "opinion"
+                  "policy_regulation",
+                  "company_project",
+                  "commodity_market",
+                  "capital_ma",
+                  "supply_trade_controls",
+                  "esg_community_labor",
+                  "safety_incident",
+                  "technology_processing",
+                  "exploration_resource"
                 ],
                 "type": "string"
               },
@@ -769,12 +784,15 @@
             "anyOf": [
               {
                 "enum": [
-                  "ai-models",
-                  "ai-products",
-                  "industry",
-                  "paper",
-                  "tip",
-                  "opinion"
+                  "policy_regulation",
+                  "company_project",
+                  "commodity_market",
+                  "capital_ma",
+                  "supply_trade_controls",
+                  "esg_community_labor",
+                  "safety_incident",
+                  "technology_processing",
+                  "exploration_resource"
                 ],
                 "type": "string"
               },
@@ -1161,7 +1179,7 @@
   },
   "info": {
     "title": "AI矿策 public",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -1188,12 +1206,15 @@
             "required": false,
             "schema": {
               "enum": [
-                "ai-models",
-                "ai-products",
-                "industry",
-                "paper",
-                "tip",
-                "opinion"
+                "policy_regulation",
+                "company_project",
+                "commodity_market",
+                "capital_ma",
+                "supply_trade_controls",
+                "esg_community_labor",
+                "safety_incident",
+                "technology_processing",
+                "exploration_resource"
               ],
               "type": "string"
             }
@@ -1333,12 +1354,15 @@
             "required": false,
             "schema": {
               "enum": [
-                "ai-models",
-                "ai-products",
-                "industry",
-                "paper",
-                "tip",
-                "opinion"
+                "policy_regulation",
+                "company_project",
+                "commodity_market",
+                "capital_ma",
+                "supply_trade_controls",
+                "esg_community_labor",
+                "safety_incident",
+                "technology_processing",
+                "exploration_resource"
               ],
               "type": "string"
             }

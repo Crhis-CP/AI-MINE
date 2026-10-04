@@ -5,9 +5,16 @@ import { IDENTITY_CONTEXT_ALIASES, IDENTITY_LEXICON, PUBLISHER_DOMAINS } from "@
 import { usableSourceText } from "../lib/text.ts";
 import type { AnalyzeInputArticle } from "./input.ts";
 import { promptText } from "./prompts.ts";
+import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITY_TAGS, TOPIC_TAGS } from "./vocabulary.ts";
 
 export const PREFILTER_SYSTEM = promptText("prefilter");
-export const UNDERSTAND_SYSTEM = promptText("understand");
+export const UNDERSTAND_CONFIG = {
+  categoryGuide: CATEGORY_GUIDE,
+  categoryTags: CATEGORY_TAGS.join("、"),
+  topicTags: TOPIC_TAGS.join("、"),
+  entityTags: ENTITY_TAGS.join("、"),
+};
+export const UNDERSTAND_SYSTEM = promptText("understand", UNDERSTAND_CONFIG);
 
 /** A body longer than this is cut (whole bodies are sent; a few run past the context). */
 export const MAX_BODY_CHARS = 60_000;

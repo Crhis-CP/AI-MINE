@@ -20,7 +20,7 @@
 
 优先级：发了模型选 model_release；发了工具选 product_launch；发了 Prompt 或方法选 tool_or_prompt；论文优先 research_paper；评测选 tutorial_explainer。
 
-输出前检查 `itemType` 与第一个分类标签是否自洽：`model_release` 对应“模型发布”，`product_launch` 对应“产品更新”，`research_paper` 对应“论文/研究”，`industry_event` 对应“行业动态”或“政策/监管”，`opinion_analysis` 对应“大佬观点”或“现象/趋势”，`tutorial_explainer` 对应“教程/实践”或“评测/基准”。如果二者冲突，按当前材料的核心事件修正后再输出。
+内容类型用于现有评分与写作，和矿业主类别相互独立，不从 itemType 推断主类别。
 
 ## 作者角色
 
@@ -32,14 +32,13 @@
 
 ## 标签
 
-`tags` 输出 1–6 个字符串。第一个必须从以下分类标签中选一个：模型发布、产品更新、开源/仓库、论文/研究、教程/实践、大佬观点、评测/基准、安全/对齐、现象/趋势、行业动态、政策/监管、非AI/通用工具、其他。
+`tags` 输出 0–6 个字符串；明确属于某类别时，使用以下定义对应的分类标签：{{categoryTags}}。无法稳定归类时不补分类标签，不使用“其他”或“待定”。
+{{categoryGuide}}
+写作标签不能覆盖独立结构化步骤确定的主类别。
 
-其后可选 0–5 个适用标签，并且只能来自以下两个白名单：
-
-- 主题：Agent、编码、推理、多模态、语音、视频、图像生成、RAG、端侧、数据/训练、搜索、部署/工程、开源生态、具身智能、MCP/工具调用
-- 实体：OpenAI、Anthropic、DeepSeek、DeepMind、Google、Meta、Microsoft、xAI、Hugging Face、GitHub、arXiv
-
-正文中即使明确出现了 NVIDIA、Apple、阿里等其他实体，也不要把它们放进 `tags`。不要创造白名单之外的标签。没有适用的主题或实体时，只返回第一个分类标签；例如学校限制 AI 使用的监管新闻，不需要强行归到“编码”或“推理”。
+其余标签只能来自以下白名单，且须有当前材料证据；无适用项时不凑标签：
+- 主题：{{topicTags}}
+- 实体：{{entityTags}}
 
 ## 候选阅读价值
 
@@ -59,4 +58,4 @@
 
 只返回合法 JSON，不要 Markdown，不要解释。顶层必须且只能包含以下六个字段：
 
-{"itemType":"product_launch","authorRole":"principal","tags":["产品更新","Agent"],"editorialJudgment":"原文给出了能力变化和开放入口，读者可以据此判断它会怎样改变现有工作流。","titleZh":"某产品发布智能体功能","summaryZh":"某产品发布新的智能体功能，给出了开放入口和主要能力变化。"}
+{"itemType":"industry_event","authorRole":"principal","tags":["企业与项目"],"editorialJudgment":"原文列出了扩建范围与计划产能，可据此了解项目的建设进度。","titleZh":"某铜矿公布扩建进度","summaryZh":"某铜矿公布扩建范围、计划产能与施工进度。"}

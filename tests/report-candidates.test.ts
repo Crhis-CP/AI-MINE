@@ -46,7 +46,7 @@ async function analyzed(label: string, timelineAt: string): Promise<string> {
   });
   assert.equal(backfill, false);
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${`标题 ${label}`}, ${`摘要 ${label}`}, 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题 ${label}`}, ${`摘要 ${label}`}, 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
   return articleId;
 }
 
@@ -186,4 +186,13 @@ test("daily composition waits for a pre-cutoff release to commit instead of losi
     commit.open();
     await Promise.allSettled([publication, report]);
   }
+});
+
+test("unknown category keeps a selected report item without assigning a thematic section", async () => {
+  const id = await selected("unknown-category", "2020-02-01T12:00:00Z", "2020-02-01T12:00:00Z");
+  await sql`UPDATE publications SET category = NULL WHERE article_id = ${id}`;
+  await composeDaily("2020-02-02");
+  const [report] = await sql`SELECT content FROM reports WHERE kind='daily' AND key='2020-02-02'`;
+  assert.deepEqual(report!.content.sections, []);
+  assert.equal(report!.content.flashes[0].itemId, id);
 });

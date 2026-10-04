@@ -9,8 +9,8 @@
 //      topics and the event grouping need; it runs beside the scoring.
 // Material with only a title or a feed summary has its article page fetched before it is judged.
 import { z } from "zod";
-import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
-import { CATEGORIES } from "@amp/industry/taxonomy";
+import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
+import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SELECTION } from "@amp/industry/selection";
 import { dbOf } from "../db.ts";
 import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
@@ -32,22 +32,38 @@ import {
   prefilterUser,
   translateInputOf,
   UNDERSTAND_SYSTEM,
+  UNDERSTAND_CONFIG,
   understandUser,
   type IdentityGuard,
 } from "./writing.ts";
-import { CATEGORY_BY_ITEM_TYPE, CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
-import { currentPrefilter, promptText, promptVersion } from "./prompts.ts";
+import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
+import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } from "./prompts.ts";
 
 const sql = dbOf("enrichment");
 
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 
+const ZH_COUNT = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
+
+/** The structure step's prompt (it writes nothing a reader sees), filled from the pack's vocabulary. */
+const STRUCTURE_CONFIG = {
+  categoryCount: ZH_COUNT[CATEGORIES.length] ?? String(CATEGORIES.length),
+  categoryGuide: CATEGORY_GUIDE,
+  categoryTags: CATEGORY_TAGS.join("、"),
+  topicTags: TOPIC_TAGS.join("、"),
+  entityTags: ENTITY_TAGS.join("、"),
+  entities: Object.entries(ENTITIES)
+    .map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`)
+    .join("，"),
+};
+const STRUCTURE_SYSTEM = promptText("structure", STRUCTURE_CONFIG);
+
 export const PROMPT_VERSIONS = {
   prefilter: promptVersion("prefilter"),
   score: promptVersion("selection-score"),
-  understand: promptVersion("understand"),
+  understand: configuredPromptVersion("understand", UNDERSTAND_CONFIG),
   summarize: promptVersion("summarize-article", "summarize-article-empty", "identity-context"),
-  structure: promptVersion("structure"),
+  structure: configuredPromptVersion("structure", STRUCTURE_CONFIG),
 } as const;
 /** Every step's prompt, as stored on each judgement. */
 export const SELECTION_PROMPT_VERSION = [PROMPT_VERSIONS.prefilter, PROMPT_VERSIONS.score].join("+");
@@ -151,20 +167,6 @@ const UnderstandSchema = z.object({
 });
 
 const SummarizeSchema = z.object({ titleZh: z.string(), summaryZh: z.string(), bodyZh: z.string() });
-
-const ZH_COUNT = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
-
-/** The structure step's prompt (it writes nothing a reader sees), filled from the pack's vocabulary. */
-const STRUCTURE_SYSTEM = promptText("structure", {
-  categoryCount: ZH_COUNT[CATEGORIES.length] ?? String(CATEGORIES.length),
-  categoryGuide: CATEGORY_GUIDE,
-  categoryTags: CATEGORY_TAGS.join("、"),
-  topicTags: TOPIC_TAGS.join("、"),
-  entityTags: ENTITY_TAGS.join("、"),
-  entities: Object.entries(ENTITIES)
-    .map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`)
-    .join("，"),
-});
 
 export interface AnalysisRun {
   prefilter: { label: "PASS" | "BLOCK" | "UNKNOWN"; reason: string; model: string; receiptId: number; reused: boolean };
@@ -369,7 +371,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
     titleZh: copy.titleZh,
     summaryZh: copy.summaryZh,
     reasonZh: d.editorialJudgment.trim() || null,
-    tags: normalizeTags(d.tags, { fallbackCategory: CATEGORY_BY_ITEM_TYPE[d.itemType] }),
+    tags: normalizeTags(d.tags),
     itemType: d.itemType,
     authorRole: d.authorRole,
     identityGuard: copy.identityGuard,
@@ -471,7 +473,9 @@ export function normalizeAnalysis(run: AnalysisRun) {
   const threshold = run.scores?.threshold ?? null;
   const selected = relevance === "pass" && sum !== null && threshold !== null && sum >= threshold * SCORE_CALLS;
   const subjects = run.structure?.subjects ?? [];
-  const tags = [...(run.writing?.tags ?? run.structure?.tags ?? [])];
+  const category = toPublicApiCategory(run.structure?.category ?? null);
+  const tags = normalizeTags(run.writing?.tags ?? run.structure?.tags ?? []).filter((t) => !(CATEGORY_TAGS as readonly string[]).includes(t));
+  if (category) tags.unshift(CATEGORY_LABELS[category]);
   for (const s of subjects) {
     const display = ENTITIES[s]?.displayTag;
     if (display && !tags.includes(display)) tags.push(display);
@@ -484,7 +488,7 @@ export function normalizeAnalysis(run: AnalysisRun) {
     scoreModel: run.scores?.model ?? null,
     scoreRefused: run.scores?.refused ?? false,
     threshold,
-    category: run.structure?.category ?? null,
+    category,
     tags,
     subjects,
     titleZh,
