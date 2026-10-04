@@ -40,7 +40,9 @@ test("every real role has exactly the approved table, column, sequence and cross
   assert.equal(catalog.tables.length, 48);
   for (const role of DATABASE_ROLES) {
     const sql = sessions[role];
-    for (const table of catalog.tables) {
+    for (const row of catalog.tables) {
+      assert.match(row.name, /^public\./, "this independent oracle covers the 48 legacy public tables");
+      const table = { ...row, name: row.name.slice(7) };
       const name = `public.${quote(table.name)}`;
       const read =
         role === "public_read" && PUBLIC_COLUMNS[table.name]
@@ -68,7 +70,10 @@ test("every real role has exactly the approved table, column, sequence and cross
       if (role === "feedback_write" && table.name === "feedback")
         for (const column of table.columns.filter((name) => name !== "id")) await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
     }
-    for (const sequence of catalog.sequences) {
+    for (const row of catalog.sequences) {
+      assert.match(row.name, /^public\./);
+      assert.match(row.table!, /^public\./);
+      const sequence = { ...row, name: row.name.slice(7), table: row.table!.slice(7) };
       const ordinary = !IDENTITY.has(sequence.table!) && sequence.table !== "audit_log";
       const use =
         role === "migrate" ||
