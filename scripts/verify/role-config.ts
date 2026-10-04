@@ -4,6 +4,7 @@ import { environmentProblems, PROCESS_DATABASE_ROLES, type ProcessRole } from "@
 import { parseDocument } from "yaml";
 import { webEnvironmentProblems } from "../../apps/web/runtime-env.ts";
 import { ROOT } from "./lib.ts";
+import { composeEnvironmentProblems } from "./compose-environment.ts";
 
 const CREDENTIALS = [
   "DATABASE_URL",
@@ -23,10 +24,9 @@ const CREDENTIALS = [
   "AMP_CREDENTIALS_DIR",
 ];
 const PROXIES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "EGRESS_PROXY_URL"].flatMap((key) => [key, key.toLowerCase()]);
-const mapping = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
 
 /** D8 parity and Compose checks. Diagnostics contain variable names, never configuration values. */
-export function checkRoleConfig(root = ROOT): string[] {
+export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public-api")[] = ["web"]): string[] {
   const problems: string[] = [];
   const check = (role: ProcessRole, env: Record<string, string | undefined>, expected: string[]) => {
     const results = [environmentProblems(role, env), ...(role === "web" ? [webEnvironmentProblems(env)] : [])];
@@ -51,30 +51,5 @@ export function checkRoleConfig(root = ROOT): string[] {
   } catch {
     return [...problems, "docker-compose.yml: cannot read or parse configuration"];
   }
-  const web = mapping(doc) && mapping(doc.services) ? doc.services.web : null;
-  if (!mapping(web)) return [...problems, "docker-compose.yml: web service is missing or invalid"];
-  if (Object.hasOwn(web, "env_file")) problems.push("docker-compose.yml: web must not use env_file");
-  const raw = web.environment === undefined ? {} : web.environment;
-  const entries = Array.isArray(raw)
-    ? raw.map((entry) => (typeof entry === "string" ? [entry.split("=", 1)[0], entry.includes("=") ? entry.slice(entry.indexOf("=") + 1) : null] : ["", entry]))
-    : mapping(raw)
-      ? Object.entries(raw)
-      : [["", raw]];
-  if (
-    entries.some(
-      ([key, value]) =>
-        typeof key !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || (value !== null && !["string", "number", "boolean"].includes(typeof value)),
-    )
-  )
-    return [...problems, "docker-compose.yml: web environment must be a scalar mapping or a string list"];
-  const env = Object.fromEntries(entries.map(([key, value]) => [key, value === null ? "" : String(value)]));
-  const privateFetch = entries.findLast(([key]) => key === "ALLOW_PRIVATE_NETWORK_FETCH")?.[1];
-  // Compose resolves inherited values and substitutions later. Treat uncertainty as enabled without
-  // reading the host environment; an escaped $$ is literal, not a substitution. Last list entry wins.
-  if (privateFetch === null || (typeof privateFetch === "string" && /\$(?:\{|[A-Za-z_])/.test(privateFetch.replace(/\$\$/g, "")))) {
-    env.ALLOW_PRIVATE_NETWORK_FETCH = "true";
-  }
-  // This is the production Compose template; unresolved interpolation must not disable its static guard.
-  for (const key of webEnvironmentProblems({ ...env, NODE_ENV: "production" })) problems.push(`docker-compose.yml: web must not hold ${key}`);
-  return problems;
+  return [...problems, ...services.flatMap((name) => composeEnvironmentProblems(doc, name))];
 }
