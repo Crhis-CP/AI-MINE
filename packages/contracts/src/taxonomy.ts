@@ -1,12 +1,7 @@
-// Public vocabularies shared by the website, the API and the worker. The categories themselves belong to
-// the industry pack (industry/taxonomy.ts); their keys are external identities (URLs, API, RSS).
-import { CATEGORIES } from "@amp/industry/taxonomy";
-
-export type CategoryKey = (typeof CATEGORIES)[number]["key"];
-export const CATEGORY_KEYS = CATEGORIES.map((c) => c.key) as unknown as readonly [CategoryKey, ...CategoryKey[]];
-
-/** Website tab labels. */
-export const CATEGORY_LABELS = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label])) as Record<CategoryKey, string>;
+// Stable public identities for URLs, API, RSS and MCP. Display labels belong to industry.
+// Changing a key or its order is a contract change, independent of the industry vocabulary.
+export const CATEGORY_KEYS = ["ai-models", "ai-products", "industry", "paper", "tip", "opinion"] as const;
+export type CategoryKey = (typeof CATEGORY_KEYS)[number];
 
 /** The public API, RSS and MCP use the same categories as the website. */
 export const PUBLIC_API_CATEGORY_KEYS = CATEGORY_KEYS;
@@ -22,12 +17,6 @@ export function isCategoryKey(value: unknown): value is CategoryKey {
 
 export const CHANNEL_KEYS = ["all", "news", "firstParty"] as const;
 export type ChannelKey = (typeof CHANNEL_KEYS)[number];
-
-export const CHANNEL_LABELS: Record<ChannelKey, string> = {
-  all: "全部",
-  news: "资讯",
-  firstParty: "一手",
-};
 
 export function isChannelKey(value: unknown): value is ChannelKey {
   return typeof value === "string" && (CHANNEL_KEYS as readonly string[]).includes(value);

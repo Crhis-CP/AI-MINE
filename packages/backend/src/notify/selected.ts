@@ -4,7 +4,8 @@
 import { dbOf } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { itemUrl } from "../publication/links.ts";
-import { CATEGORY_LABELS, type CategoryKey } from "@amp/contracts/taxonomy";
+import type { CategoryKey } from "@amp/contracts/taxonomy";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { deliverContent } from "./deliver.ts";
 import { SITE } from "@amp/industry/site";
 

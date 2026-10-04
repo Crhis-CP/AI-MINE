@@ -13,7 +13,7 @@ function workspace(files: Record<string, string>): { dir: string; files: string[
   const all: Record<string, string> = {
     "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - packages/domains/*\n  - packages/platform/*\n  - industry\n",
     "industry/package.json": pkg("@amp/industry", [], { "./site": "./site.ts" }),
-    "packages/contracts/package.json": pkg("@amp/contracts", ["@amp/industry"]),
+    "packages/contracts/package.json": pkg("@amp/contracts"),
     "packages/backend/package.json": pkg("@amp/backend", ["@amp/contracts", "@amp/industry"], { "./db": "./src/db.ts" }),
     "scripts/verify/backend-exports.json": JSON.stringify({ "./db": "./src/db.ts" }),
     "apps/web/package.json": pkg("@amp/web", ["@amp/contracts", "@amp/industry"]),
@@ -55,6 +55,18 @@ test("a dependency against the graph, a model SDK, a new wildcard export and an 
   assert.ok(problems.includes("packages/backend/src/llm.ts: imports the model SDK openai; paid calls go through ai-gateway only"));
   assert.ok(problems.includes("apps/web/package.json: exports may not use a wildcard; list each public entry"));
   assert.ok(problems.some((p) => p.startsWith("packages/extra/package.json: @amp/extra is not in the boundaries table")));
+});
+
+test("contracts and industry reject dependencies in either direction", () => {
+  for (const [file, name, dependency] of [
+    ["packages/contracts/package.json", "@amp/contracts", "@amp/industry"],
+    ["industry/package.json", "@amp/industry", "@amp/contracts"],
+  ]) {
+    const fixture = workspace({ [file!]: pkg(name!, [dependency!]) });
+    assert.ok(checkBoundaries(fixture.dir, fixture.files).includes(`${file}: ${name} may not depend on ${dependency}`));
+  }
+  const source = workspace({ "packages/contracts/src/taxonomy.ts": 'export { SITE } from "@amp/industry/site";' });
+  assert.ok(checkBoundaries(source.dir, source.files).some((problem) => problem.includes("imports @amp/industry") && problem.includes("does not declare")));
 });
 
 test("import specifiers are read from code, not from SQL that says FROM", () => {

@@ -1,7 +1,8 @@
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { CATEGORY_KEYS, CATEGORY_LABELS } from "@amp/contracts/taxonomy";
+import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import type { Route } from "./+types/content-item";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";

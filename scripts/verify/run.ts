@@ -285,7 +285,10 @@ const STAGES: Stage[] = [
     run: async ({ log, base }) => {
       const baseline = base ? tryGit(["show", `${base}:${OWNERSHIP_BASELINE}`]) : null;
       const map = base ? tryGit(["show", `${base}:${OWNERSHIP_MAP}`]) : null;
-      const previous = baseline && map ? { baseline: JSON.parse(baseline), map: JSON.parse(map) } : undefined;
+      const previous =
+        baseline && map
+          ? { baseline: JSON.parse(baseline), map: JSON.parse(map), readSource: (file: string) => tryGit(["show", `${base}:${file}`], ROOT, false) }
+          : undefined;
       return problems(checkDataOwnership(ROOT, previous), log, "table owners, role catalogue and no-growth SQL inventory; retained UNKNOWN sites are unproved");
     },
   },
