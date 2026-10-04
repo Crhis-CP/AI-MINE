@@ -1,6 +1,6 @@
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
@@ -92,58 +92,53 @@ const ARTICLE_STEPS = new Set([
 ]);
 
 /**
- * A receipt whose outcome is unknown is not re-sent by the request that lost it. Releasing it marks it
- * failed, so the next attempt calls again; an article that stopped on it goes straight back to
- * processing (one action, not two). Only an unknown receipt is released, once.
+ * Confirmed non-billing permits another attempt. Receipt, attempt, audit and any processing job
+ * commit together; concurrent confirmations cannot release or queue the same receipt twice.
  */
-async function release(id: number, error: string, actor: string, note: string, billed: boolean | null) {
-  const [before] = await sql<{ subject: string | null; purpose: string }[]>`
-    UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown' RETURNING subject, purpose`;
-  if (!before) return null;
-  await sql`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
+type ReceiptVersion = { attempts: number; version: string };
+
+async function release(id: number, error: string, actor: string, note: string, billed: false, db: Db, observed: ReceiptVersion) {
+  const [before] = await db<{ subject: string | null; purpose: string }[]>`
+    UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown'
+      AND attempts = ${observed.attempts} AND updated_at::text = ${observed.version} RETURNING subject, purpose`;
+  if (!before) throw new Conflict("这条回执已被其他操作处理，请刷新后重试");
+  await db`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
   const article = ARTICLE_STEPS.has(before.purpose) ? /^article:([^@:#]+)/.exec(before.subject ?? "")?.[1] : undefined;
   let requeued = false;
   if (article) {
-    const [a] = await sql`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
+    const [a] = await db`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
                           WHERE id = ${article} AND processing_state = 'failed' RETURNING id`;
-    if (a) requeued = !!(await queueProcessing(article));
+    if (a) requeued = !!(await queueProcessing(article, { db }));
   }
-  await audit(actor, "receipt.release", `receipt:${id}`, note, { status: "unknown" }, { status: "failed", billed, requeued });
+  await audit(
+    actor,
+    "receipt.release",
+    `receipt:${id}`,
+    note,
+    { status: "unknown", attempts: observed.attempts, updatedAt: observed.version },
+    { status: "failed", billed, requeued },
+    undefined,
+    db,
+  );
   return { id, status: "failed", subject: before.subject, purpose: before.purpose, requeued };
 }
 
-/** Admin, after checking the provider's console: records whether it was billed and releases it. */
+/** Existing endpoint can confirm non-billing; billed reconciliation needs the separate amount contract. */
 export async function releaseReceipt(id: number, input: { billed: boolean; note: string }, actor: string) {
-  if (!input.note?.trim()) throw new Error("note is required");
-  const [row] = await sql<{ status: string }[]>`SELECT status FROM receipts WHERE id = ${id}`;
+  if (!input || typeof input.billed !== "boolean" || typeof input.note !== "string" || !input.note.trim())
+    throw Object.assign(new Error("请明确核对是否计费，并填写供应商账单或控制台记录的依据"), { statusCode: 400 });
+  const [row] = await sql<(ReceiptVersion & { status: string })[]>`SELECT status, attempts, updated_at::text AS version FROM receipts WHERE id = ${id}`;
   if (!row) return null;
   if (row.status !== "unknown") throw new Conflict("只有结果未知的回执需要人工核对");
-  const error = `人工核对：${input.billed ? "供应商已计费但结果未取回" : "供应商未计费"}。${input.note}`;
-  return release(id, error, actor, input.note, input.billed);
+  if (input.billed) throw new Conflict("已计费但结果未取回：须完成金额核销，当前不能放行或重新发起付费调用");
+  const note = input.note.trim();
+  const error = `人工核对：供应商未计费。${note}`;
+  return sql.begin((tx) => release(id, error, actor, note, false, tx, row));
 }
 
-const AUTO_RELEASE_AFTER_MS = 30 * 60_000;
-const AUTO_RELEASE_NOTE = "自动放行：结果未知超过 30 分钟，未核对是否计费";
-
-/**
- * Every 10 minutes (ops.recover): unknown receipts older than half an hour are released
- * without checking the provider's bill. A lost answer costs at most one repeat: a request released this
- * way once and unknown again stays for the admin (the daily ops digest lists it).
- */
-export async function autoReleaseUnknownReceipts(now = Date.now()) {
-  const rows = await sql<{ id: number }[]>`
-    SELECT r.id FROM receipts r
-    WHERE r.status = 'unknown' AND r.updated_at < ${new Date(now - AUTO_RELEASE_AFTER_MS)}
-      AND NOT EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id = r.id AND a.error LIKE ${AUTO_RELEASE_NOTE + "%"})
-    ORDER BY r.id LIMIT 200`;
-  let released = 0;
-  let requeued = 0;
-  for (const r of rows) {
-    const done = await release(r.id, AUTO_RELEASE_NOTE, "ops.recover", "结果未知，自动放行一次", null);
-    if (done) released += 1;
-    if (done?.requeued) requeued += 1;
-  }
-  return { released, requeued };
+/** Compatibility hook for ops.recover: elapsed time is not evidence of non-billing. */
+export async function autoReleaseUnknownReceipts(_now = Date.now()) {
+  return { released: 0, requeued: 0 };
 }
 
 /** Failed articles (one failure group, or all of the last 30 days) back into processing. */
