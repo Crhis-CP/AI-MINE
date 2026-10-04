@@ -2,7 +2,7 @@
 
 `industry/` 集中放和“行业”有关的内容：站名与文案、分类与标签、主题、种子信源、提示词、精选门槛、品牌素材、页面文案、更新日志和评测样例。换行业时这里是**主要改动点，但不是唯一的改动点**：页面和报告里另有写死的 AI 口径（第 3 节），只改这个目录换不完。
 
-站点身份与读者介绍已开始矿业化；分类、主题、信源和处理提示词仍含导入时的 AI 行业示例，尚未完成整包替换。矿业化由 `tasks/TASK-0010.md`（矿业行业包 v0）完成；行业包的归属与机制以 `docs/04-architecture/04-aihot-adoption.md` 4.4 节为准，逐个文件的去向见附录 B 的 B.8 节。
+站点身份与读者介绍已开始矿业化；分类、主题和处理提示词仍含导入时的 AI 行业示例，尚未完成整包替换。矿业化由 `tasks/TASK-0010.md`（矿业行业包 v0）完成；行业包的归属与机制以 `docs/04-architecture/04-aihot-adoption.md` 4.4 节为准，逐个文件的去向见附录 B 的 B.8 节。
 
 ## 1. 文件
 
@@ -11,7 +11,7 @@
 | `site.ts` | 站点身份与读者看得到的文案 |
 | `taxonomy.ts` | 分类、内容类型、标签词表、公司与机构名录、身份词典 |
 | `topics.json` | 主题目录（`/topics`） |
-| `sources.json` | 种子信源，由 `scripts/seed.ts` 导入 |
+| `sources.json` | 经核实的采集配置种子；当前为空，AI行业示范来源已移除，新导入一律停用 |
 | `prompts/` | 各处理步骤的提示词 |
 | `selection.ts` | 精选门槛 |
 | `brand/` | 站点图标、Logo，以及日报、周报、月报的报头字（`nameplates/`） |
@@ -121,7 +121,7 @@ TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、
 
 1. **构建期内容随发版生效**：`site.ts`、`taxonomy.ts`、`selection.ts`、`prompts/`、`pages/`、`brand/` 打进镜像，改了要重新构建、发版。契约包现在在构建时 import 本包的分类（`packages/contracts/src/taxonomy.ts`），这个方向要反转：分类键由契约定义，行业包只提供标签、说明与提示词，并按契约的 schema 校验（TASK-0005）。
 2. **上线后冻结的标识**：分类 `key`、主题 `slug`、MCP 前缀、报告周期键出现在网址、接口与 RSS 里，改动走契约的破坏性变更流程。
-3. **种子语义**：`scripts/seed.ts` 每次运行都用 `topics.json` 覆盖库里同名的主题，信源则只插入库里没有的（`ON CONFLICT DO NOTHING`）。现在 Compose 的 `setup` 容器每次 `up` 都先迁移再跑种子；种子信源缺省 `enabled=true`、`next_fetch_at=now()`，会绕过“预览通过并经负责人一次确认才启用”。矿业版改为：种子信源来自 Owner 的原始信源表（`industry/seed/`），一律 `enabled=false`、`next_fetch_at` 为空，经私有页面显式启用；主题改由分面生成（PG-08），取消覆盖式种子；迁移与种子改为发布步骤。
+3. **种子语义**：`scripts/seed.ts` 每次运行都用 `topics.json` 覆盖库里同名的主题，信源则只插入库里没有的（`ON CONFLICT DO NOTHING`）。现在 Compose 的 `setup` 容器每次 `up` 都先迁移再跑种子；初始化已改为新信源一律 `enabled=false`、`next_fetch_at` 为空，不接受种子内的启用标记；已有来源不覆盖。AI行业示范来源已移除，当前采集配置种子为空；Owner原始信源表（`industry/seed/`）仍是待研究目标，不能直接变成采集配置。后续逐源核实配置、通过预览和权限确认后经私有页面显式启用；主题改由分面生成（PG-08），取消覆盖式种子；迁移与种子改为发布步骤。
 4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除（已随 T-0002 删）；`icp` 删除，ICP 备案号与公安联网备案号改读受保护的运行时配置（生产环境任一未配置则公开站不开放）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
 5. **其余去向**（附录 B 的 B.8 节）：`sources.json` 由 `industry/seed/` 取代；`changelog.json` 改为产品更新表加 `changes/*.md`；两个评测样例移到 `evals/<能力>/` 并换成矿业样例；`brand/` 换成 AI矿策 的标识，仓库里不得留下与上游品牌素材 SHA-256 相同的文件，报头字按新站名重新生成（已随 T-0002 换）；`pages/` 补上联系方式与截图 180 天后删除的说明，上线前经 Owner 确认；分级 `EXCLUDE_MP` 改名 `EXCLUDE`。
 
