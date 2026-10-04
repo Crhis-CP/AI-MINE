@@ -40,7 +40,7 @@ interface Result {
   meta: { split: string; promptVersion: string };
   model: string;
   reportPath: string;
-  summary: { decisive: number; errors: number; accuracy: number; tokensIn: number; tokensOut: number };
+  summary: { decisive: number; errors: number; accuracy: number; tokensIn: number; tokensOut: number; wallSeconds: number };
   cases: Array<{ caseId: string; decision: string | null; error: string | null }>;
 }
 
@@ -126,7 +126,11 @@ test("default evaluation follows the production score route and shares duplicate
     const warm = await evaluate(rows, { prefilter: prefilter.url, score: score.url });
 
     assert.equal(cold.model, "glm-5.3-flash-selection", "no --models follows SCORE_MODEL / production routing");
-    assert.deepEqual(cold.summary, warm.summary, "cold and cached evaluations keep the same coverage and metrics");
+    const { wallSeconds: coldWallSeconds, ...coldMetrics } = cold.summary;
+    const { wallSeconds: warmWallSeconds, ...warmMetrics } = warm.summary;
+    assert.ok(Number.isInteger(coldWallSeconds) && coldWallSeconds >= 0);
+    assert.ok(Number.isInteger(warmWallSeconds) && warmWallSeconds >= 0);
+    assert.deepEqual(coldMetrics, warmMetrics, "cold and cached evaluations keep the same coverage and receipt metrics");
     assert.deepEqual(
       cold.cases.map((item) => item.decision),
       ["select", "reject"],
