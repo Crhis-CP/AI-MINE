@@ -15,3 +15,5 @@
 D4的M0余项保持原样：公开DB登录仍能读到有projection的summary-only、withdrawn、hot_signal、isolated、无正文许可和低相关度材料正文；没有projection的候选不可读。HTTP详情/原文、报告引用和全文RSS按现有输出规则过滤。这里不宣称数据库已经只读公开投影。
 
 运行：`node --test --test-concurrency=1 --test-timeout=120000 tests/db-role-matrix.test.ts tests/public-role-routes.test.ts`，DATABASE_URL须为允许建临时库/角色的隔离测试连接。完整verify的D12分组接线由集成人后续处理；本地通过不代表full verify、PG16.14基线或上线。
+
+TASK-0005九类接线后，分类RSS正例使用company_project及对应当前publication夹具，继续断言有条目和正文；旧industry两个路径明确404。selected ledger仍保留旧industry值，以覆盖旧账本只在公开读取时归null；没有批量改账本或放宽角色断言。

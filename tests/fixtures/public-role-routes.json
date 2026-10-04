@@ -516,9 +516,13 @@
     "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
     "cases": [
       {
-        "url": "/feed/category/industry.xml",
+        "url": "/feed/category/company_project.xml",
         "status": 200,
         "contains": ["<item>", "PR9"]
+      },
+      {
+        "url": "/feed/category/industry.xml",
+        "status": 404
       }
     ]
   },
@@ -549,9 +553,13 @@
     "fixture": "当前窗口的精选/全部/分类条目；全文许可和完整译文；日报引用",
     "cases": [
       {
-        "url": "/feed/full/category/industry.xml",
+        "url": "/feed/full/category/company_project.xml",
         "status": 200,
         "contains": ["<item>", "PR9", "TRANSLATED_BODY_pr9-editorial-public-full", "ORIGINAL_BODY_pr9-second-report"]
+      },
+      {
+        "url": "/feed/full/category/industry.xml",
+        "status": 404
       }
     ]
   },
