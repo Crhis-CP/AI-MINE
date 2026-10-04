@@ -1,0 +1,214 @@
+[
+  {
+    "name": "CTE UPDATE target",
+    "sql": "WITH articles AS (SELECT 1) UPDATE articles SET title='changed'",
+    "tables": ["write:public.articles"],
+    "unknown": false
+  },
+  {
+    "name": "CTE INSERT target",
+    "sql": "WITH articles AS (SELECT 1) INSERT INTO articles(id,title) VALUES(2,'created')",
+    "tables": ["write:public.articles"],
+    "unknown": false
+  },
+  {
+    "name": "CTE DELETE target",
+    "sql": "WITH articles AS (SELECT 1) DELETE FROM articles WHERE id=2",
+    "tables": ["write:public.articles"],
+    "unknown": false
+  },
+  {
+    "name": "qualified CTE write control",
+    "sql": "WITH articles AS (SELECT 1) UPDATE public.articles SET title='changed'",
+    "tables": ["write:public.articles"],
+    "unknown": false
+  },
+  {
+    "name": "CTE read control",
+    "sql": "WITH articles AS (SELECT 1) SELECT * FROM articles",
+    "tables": [],
+    "unknown": false
+  },
+  {
+    "name": "multiple truncate targets",
+    "sql": "TRUNCATE articles, receipts",
+    "unknown": true
+  },
+  {
+    "name": "multiple drop targets",
+    "sql": "DROP TABLE articles, receipts",
+    "unknown": true
+  },
+  {
+    "name": "SELECT INTO target",
+    "sql": "SELECT id INTO receipts_copy FROM articles",
+    "unknown": true
+  },
+  {
+    "name": "TABLE shorthand",
+    "sql": "TABLE receipts",
+    "unknown": true
+  },
+  {
+    "name": "opaque quoted function",
+    "sql": "SELECT \"select\"()",
+    "unknown": true
+  },
+  {
+    "name": "opaque qualified quoted function",
+    "sql": "SELECT public.\"select\"()",
+    "unknown": true
+  },
+  {
+    "name": "quoted builtin is conservative",
+    "sql": "SELECT \"count\"(*) FROM articles",
+    "unknown": true
+  },
+  {
+    "name": "opaque ordinary function control",
+    "sql": "SELECT domain_mutator()",
+    "unknown": true
+  },
+  {
+    "name": "qualified dynamic identifier",
+    "sql": "SELECT * FROM public.\u00a70\u00a7",
+    "holes": [
+      {
+        "kind": "identifier"
+      }
+    ],
+    "tables": [],
+    "unknown": true
+  },
+  {
+    "name": "qualified fixed identifier",
+    "sql": "SELECT * FROM public.\u00a70\u00a7",
+    "holes": [
+      {
+        "kind": "identifier",
+        "value": "articles"
+      }
+    ],
+    "tables": [],
+    "unknown": true
+  },
+  {
+    "name": "identifier schema with suffix",
+    "sql": "SELECT * FROM \u00a70\u00a7.articles",
+    "holes": [
+      {
+        "kind": "identifier",
+        "value": "public"
+      }
+    ],
+    "tables": [],
+    "unknown": true
+  },
+  {
+    "name": "settings INSERT SELECT misattribution",
+    "sql": "INSERT INTO settings(key,value) SELECT 'backup.last','{}'::jsonb FROM settings WHERE key='models.chat'",
+    "keys": [["*"], ["models.chat"]],
+    "unknown": true
+  },
+  {
+    "name": "settings identifier evidence misattribution",
+    "sql": "SELECT s.* FROM settings s JOIN (VALUES('backup.last')) AS models(chat) ON s.key=\u00a70\u00a7",
+    "holes": [
+      {
+        "kind": "identifier",
+        "value": "models.chat"
+      }
+    ],
+    "keys": [["*"]],
+    "unknown": true
+  },
+  {
+    "name": "settings key literal control",
+    "sql": "SELECT * FROM settings WHERE key=\u00a70\u00a7",
+    "holes": [
+      {
+        "kind": "value",
+        "value": "models.chat"
+      }
+    ],
+    "keys": [["models.chat"]],
+    "unknown": false
+  },
+  {
+    "name": "quoted relation keyword",
+    "sql": "SELECT * FROM \"only\" articles",
+    "tables": ["read:public.only"],
+    "unknown": false
+  },
+  {
+    "name": "quoted SELECT expression is not DELETE",
+    "sql": "SELECT \"delete\" FROM articles",
+    "tables": ["read:public.articles"],
+    "unknown": false
+  },
+  {
+    "name": "quoted SET write target",
+    "sql": "UPDATE \"set\" SET value=1",
+    "tables": ["write:public.set"],
+    "unknown": false
+  },
+  {
+    "name": "quoted TABLE truncate target",
+    "sql": "TRUNCATE \"table\"",
+    "tables": ["write:public.table"],
+    "unknown": true
+  },
+  {
+    "name": "search path modifier",
+    "sql": "SET search_path TO private; SELECT * FROM articles",
+    "tables": [],
+    "unknown": true
+  },
+  {
+    "name": "upsert key rewrite cannot retain insert ownership",
+    "sql": "INSERT INTO settings(key,value) VALUES ('models.chat','{}'::jsonb) ON CONFLICT(key) DO UPDATE SET key='backup.last' RETURNING key",
+    "unknown": true
+  },
+  {
+    "name": "ordinary value upsert control",
+    "sql": "INSERT INTO settings(key,value) VALUES ('models.chat','{}'::jsonb) ON CONFLICT(key) DO UPDATE SET value=excluded.value RETURNING key",
+    "keys": [["models.chat"]],
+    "unknown": false
+  },
+  {
+    "name": "ORDER equality is not a row restriction",
+    "sql": "SELECT key FROM settings ORDER BY key='models.chat'",
+    "keys": [["*"]],
+    "unknown": true
+  },
+  {
+    "name": "DELETE RETURNING equality is not a row restriction",
+    "sql": "DELETE FROM settings RETURNING key,key='models.chat'",
+    "keys": [["*"]],
+    "unknown": true
+  },
+  {
+    "name": "UPDATE key assignment is not a row restriction",
+    "sql": "UPDATE settings SET key='models.chat' RETURNING key",
+    "keys": [["*"]],
+    "unknown": true
+  },
+  {
+    "name": "outer join ON equality is not a row restriction",
+    "sql": "SELECT s.key FROM settings s LEFT JOIN (VALUES(1)) AS v(id) ON s.key='models.chat'",
+    "keys": [["*"]],
+    "unknown": true
+  },
+  {
+    "name": "quoted search path modifier",
+    "sql": "SET \"search_path\" TO private; SELECT id FROM articles",
+    "tables": [],
+    "unknown": true
+  },
+  {
+    "name": "existing custom plan SET control",
+    "sql": "SET LOCAL plan_cache_mode = force_custom_plan",
+    "tables": [],
+    "unknown": false
+  }
+]
