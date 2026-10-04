@@ -3,8 +3,6 @@ import { type RouteConfig, index, layout, route } from "@react-router/dev/routes
 const publicRoutes = [
   index("routes/home.tsx"),
   route("all", "routes/all.tsx"),
-  route("all/search-busy", "routes/search-busy.tsx", { id: "all-search-busy" }),
-  route("search-busy", "routes/search-busy.tsx", { id: "search-busy" }),
   route("items/:id", "routes/item.tsx"),
   route("items/:id/original", "routes/item-original.tsx", { id: "item-original" }),
   route("hot", "routes/hot.tsx"),
@@ -42,10 +40,7 @@ const privateRoutes = [
     route("admin/feedback", "routes/admin/feedback.tsx"),
     route("admin/runs", "routes/admin/runs.tsx"),
     route("admin/models", "routes/admin/models.tsx"),
-    route("admin/selectbench", "routes/admin/selectbench.tsx"),
-    route("admin/selectbench/:runId", "routes/admin/selectbench-run.tsx"),
     route("admin/settings", "routes/admin/settings.tsx"),
-    route("admin/audit", "routes/admin/audit.tsx"),
   ]),
 ] satisfies RouteConfig;
 

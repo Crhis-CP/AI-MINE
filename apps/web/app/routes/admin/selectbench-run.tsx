@@ -2,7 +2,7 @@ import { SITE } from "@amp/industry/site";
 import { Fragment, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
-import type { Route } from "./+types/selectbench-run";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { adminGet } from "../../lib/admin.server";
 import { bj, num, pct } from "../../features/admin/format";
 import { AdminPage, Badge, Card, Empty, FilterChips, Select } from "../../features/admin/ui";
@@ -31,11 +31,12 @@ interface Data {
   strata: Array<{ stratum: string | null; n: number }>;
 }
 
-export async function loader({ request, params }: Route.LoaderArgs) {
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  if (!params.runId) throw new Response("Not found", { status: 404 });
   return adminGet<Data>(request, `/api/admin/selectbench/${encodeURIComponent(params.runId)}${new URL(request.url).search}`);
 }
 
-export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `${loaderData?.run.label ?? "SelectBench"} · ${SITE.name} 后台` }];
+export const meta: MetaFunction<typeof loader> = ({ loaderData }) => [{ title: `${loaderData?.run.label ?? "SelectBench"} · ${SITE.name} 后台` }];
 
 const GOLD: Record<string, [string, "accent" | "muted" | "info"]> = { select: ["应入选", "accent"], reject: ["不选", "muted"], either: ["两可", "info"] };
 
@@ -56,7 +57,7 @@ function verdict(d: Decision | undefined, gold: string) {
   );
 }
 
-export default function SelectBenchRun({ loaderData: d }: Route.ComponentProps) {
+export default function SelectBenchRun({ loaderData: d }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
   const [sp] = useSearchParams();
   const navigate = useNavigate();
   const [open, setOpen] = useState<string | null>(null);

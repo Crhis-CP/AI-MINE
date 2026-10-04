@@ -115,9 +115,6 @@
     "lint/correctness/noUnusedImports": 1,
     "lint/security/noDangerouslySetInnerHtml": 1
   },
-  "apps/web/app/routes/search-busy.tsx": {
-    "lint/correctness/noUnusedImports": 1
-  },
   "apps/web/app/routes/story.tsx": {
     "lint/correctness/noUnusedImports": 1,
     "lint/correctness/useExhaustiveDependencies": 5

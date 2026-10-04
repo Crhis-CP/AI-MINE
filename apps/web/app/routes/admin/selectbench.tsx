@@ -1,7 +1,7 @@
 import { SITE } from "@amp/industry/site";
 import { useRef } from "react";
 import { Link } from "react-router";
-import type { Route } from "./+types/selectbench";
+import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
 import { bj, num, pct } from "../../features/admin/format";
@@ -21,13 +21,13 @@ interface RunRow {
   cases: number;
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   return adminGet<{ runs: RunRow[] }>(request, "/api/admin/selectbench");
 }
 
-export const meta: Route.MetaFunction = () => [{ title: `SelectBench · ${SITE.name} 后台` }];
+export const meta: MetaFunction<typeof loader> = () => [{ title: `SelectBench · ${SITE.name} 后台` }];
 
-export default function SelectBench({ loaderData }: Route.ComponentProps) {
+export default function SelectBench({ loaderData }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
   const { run, pending } = useAdminAction();
   const file = useRef<HTMLInputElement>(null);
   return (

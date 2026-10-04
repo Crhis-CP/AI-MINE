@@ -1,6 +1,5 @@
 import { SITE } from "@amp/industry/site";
 import { useState } from "react";
-import { Link } from "react-router";
 import type { Route } from "./+types/models";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
@@ -44,7 +43,6 @@ interface Models {
     before: { model: string; source: string } | null;
     after: { model: string; source: string } | null;
   }>;
-  benches: Array<{ id: string; label: string; sample_size: number; prompt_version: string | null; models: string[]; created_at: string }>;
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -66,7 +64,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   return (
     <AdminPage
       title="模型与评测"
-      subtitle="每项能力当前用哪个模型、来自哪里（后台切换 > 环境变量 > 代码默认），以及近期的成功率、耗时与费用。切换只影响之后的新任务，已有结果不重算；换精选模型前先看 SelectBench 同批对比。"
+      subtitle="每项能力当前用哪个模型、来自哪里（后台切换 > 环境变量 > 代码默认），以及近期的成功率、耗时与费用。切换只影响之后的新任务，已有结果不重算。"
       actions={
         <FilterChips
           param="days"
@@ -199,39 +197,6 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
             />
           ) : (
             <Empty>还没有在后台切换过模型</Empty>
-          )}
-        </Card>
-        <Card
-          title="同批样本对比（SelectBench）"
-          right={
-            <Link to="/admin/selectbench" className="text-accent">
-              全部运行
-            </Link>
-          }
-          pad={false}
-        >
-          {m.benches.length ? (
-            <DataTable
-              dense
-              rows={m.benches}
-              rowKey={(b) => b.id}
-              columns={[
-                {
-                  key: "l",
-                  label: "运行",
-                  render: (b) => (
-                    <Link to={`/admin/selectbench/${b.id}`} className="text-ink hover:text-accent">
-                      {b.label}
-                    </Link>
-                  ),
-                },
-                { key: "m", label: "模型", render: (b) => <span className="font-mono text-[11.5px] text-ink-3">{b.models.join("、")}</span> },
-                { key: "n", label: "样本", align: "right", render: (b) => num(b.sample_size) },
-                { key: "at", label: "时间", render: (b) => <span className="num whitespace-nowrap">{bj(b.created_at)}</span> },
-              ]}
-            />
-          ) : (
-            <Empty>还没有导入对比运行</Empty>
           )}
         </Card>
       </div>

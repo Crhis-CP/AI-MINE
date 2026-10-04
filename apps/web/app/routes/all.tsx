@@ -10,7 +10,6 @@ import { CategoryTabs, SearchField } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState } from "../components/ui/Page";
-import { LoadingDots } from "../components/Logo";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url);
@@ -41,7 +40,7 @@ export async function loader({ request }: Route.LoaderArgs) {
           signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
         })
         .then((result) => contractResult(result, publicSchemas.PoolResponse)),
-    { signal: request.signal, busyRedirect: "/all/search-busy" },
+    { signal: request.signal },
   );
   return { data };
 }
@@ -161,27 +160,6 @@ export default function AllPage() {
       </div>
       <Pagination page={data.page} pageCount={data.pageCount} href={(p) => pageHref(params, p)} />
       {data.page >= 50 && <p className="mt-4 text-center text-[12px] text-ink-4">最多提供 50 页，更早的内容请使用搜索或主题页。</p>}
-    </div>
-  );
-}
-
-export function SearchBusy() {
-  return (
-    <div className="mx-auto max-w-sm py-24 text-center">
-      <LoadingDots className="mb-5 text-[32px] text-accent" />
-      <h1 className="text-[20px] font-bold text-ink">搜索有点忙</h1>
-      <p className="mt-2 text-[14px] leading-relaxed text-ink-3">现在搜索的人比较多，请稍等几秒再试。列表浏览不受影响。</p>
-      <div className="mt-6 flex justify-center gap-2.5">
-        <Link to="/all" className="inline-flex h-9 items-center rounded-full bg-accent px-4 text-[13.5px] font-medium text-accent-contrast hover:bg-accent-ink">
-          浏览全部动态
-        </Link>
-        <Link
-          to="/"
-          className="inline-flex h-9 items-center rounded-full border border-line-strong bg-surface px-4 text-[13.5px] text-ink-2 hover:border-ink-4"
-        >
-          回到精选
-        </Link>
-      </div>
     </div>
   );
 }

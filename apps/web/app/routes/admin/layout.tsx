@@ -9,45 +9,37 @@ import type { AdminMe } from "../../features/admin/action";
 import { Toaster } from "../../features/admin/toast";
 import { adminGet } from "../../lib/admin.server";
 
-type Counts = Partial<Record<"feedback" | "sources" | "runs", number>>;
-
 export async function loader({ request }: Route.LoaderArgs) {
-  const [me, counts] = await Promise.all([
-    adminGet<AdminMe>(request, "/api/admin/me"),
-    adminGet<Counts>(request, "/api/admin/nav-counts").catch(() => ({}) as Counts),
-  ]);
-  return { me, counts };
+  return { me: await adminGet<AdminMe>(request, "/api/admin/me") };
 }
 
-// Counts follow every navigation and command; the identity does not change.
+// Keep identity revalidation after navigation and commands.
 export const shouldRevalidate: ShouldRevalidateFunction = () => true;
 
 export const meta: Route.MetaFunction = () => [{ title: `${SITE.name} 后台` }, { name: "robots", content: "noindex, nofollow" }];
 
 export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
 
-const NAV: Array<{ group: string; items: Array<{ to: string; label: string; count?: keyof Counts; tone?: "bad" | "accent" }> }> = [
+const NAV: Array<{ group: string; items: Array<{ to: string; label: string }> }> = [
   {
     group: "内容",
     items: [
       { to: "/admin/content", label: "内容诊断" },
-      { to: "/admin/sources", label: "信源", count: "sources", tone: "bad" },
-      { to: "/admin/feedback", label: "反馈", count: "feedback", tone: "accent" },
+      { to: "/admin/sources", label: "信源" },
+      { to: "/admin/feedback", label: "反馈" },
     ],
   },
   {
     group: "系统",
     items: [
-      { to: "/admin/runs", label: "运行", count: "runs", tone: "bad" },
+      { to: "/admin/runs", label: "运行" },
       { to: "/admin/models", label: "模型与评测" },
-      { to: "/admin/selectbench", label: "SelectBench" },
       { to: "/admin/settings", label: "设置" },
-      { to: "/admin/audit", label: "审计记录" },
     ],
   },
 ];
 
-function NavItem({ to, label, count, tone }: { to: string; label: string; count?: number; tone?: "bad" | "accent" }) {
+function NavItem({ to, label }: { to: string; label: string }) {
   return (
     <NavLink to={to} prefetch="intent" className="group relative block">
       {({ isActive }) => (
@@ -62,13 +54,6 @@ function NavItem({ to, label, count, tone }: { to: string; label: string; count?
             />
           )}
           <span className="relative">{label}</span>
-          {!!count && (
-            <span
-              className={`num relative min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 ${tone === "bad" ? "bg-hot text-white" : "bg-accent-soft text-accent"}`}
-            >
-              {count}
-            </span>
-          )}
         </span>
       )}
     </NavLink>
@@ -76,7 +61,7 @@ function NavItem({ to, label, count, tone }: { to: string; label: string; count?
 }
 
 export default function AdminLayout({ loaderData }: Route.ComponentProps) {
-  const { me, counts } = loaderData;
+  const { me } = loaderData;
   const navigation = useNavigation();
   const location = useLocation();
   const flat = NAV.flatMap((g) => g.items);
@@ -94,7 +79,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
               <div className="mb-1 px-3 text-[11.5px] font-medium tracking-wide text-ink-4">{g.group}</div>
               <div className="space-y-0.5">
                 {g.items.map((i) => (
-                  <NavItem key={i.to} to={i.to} label={i.label} count={i.count ? counts[i.count] : undefined} tone={i.tone} />
+                  <NavItem key={i.to} to={i.to} label={i.label} />
                 ))}
               </div>
             </div>
@@ -124,7 +109,6 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
           <nav className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
             {flat.map((i) => {
               const active = location.pathname === i.to || location.pathname.startsWith(`${i.to}/`);
-              const n = i.count ? counts[i.count] : 0;
               return (
                 <NavLink
                   key={i.to}
@@ -132,7 +116,6 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
                   className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[13px] ${active ? "bg-ink text-bg" : "text-ink-3"}`}
                 >
                   {i.label}
-                  {!!n && <span className="num ml-1 text-[11px] opacity-70">{n}</span>}
                 </NavLink>
               );
             })}
