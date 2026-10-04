@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { test } from "node:test";
 import { DATABASE_ROLES } from "@amp/config";
-import { catalogProblems, planRoleGrants, roleNames, roleState, TABLE_GRANTS, SEQUENCES, type Catalog } from "../scripts/db-roles/grants.ts";
+import {
+  catalogProblems,
+  planRoleGrants,
+  roleNames,
+  roleState,
+  TABLE_GRANTS,
+  SEQUENCES,
+  relationIdentity,
+  quoteRelation,
+  type Catalog,
+} from "../scripts/db-roles/grants.ts";
 
 function catalog(): Catalog {
   return {
@@ -129,4 +139,14 @@ test("unsafe prefixes, limits and existing privileged roles cannot be adopted", 
     c.roles = [{ ...roleState("fixture_public_read", "public_read"), [property]: true }];
     assert.throws(() => planRoleGrants(c, "fixture"));
   }
+});
+
+test("controlled relation identities distinguish module schemas and reject ambiguous SQL names", () => {
+  assert.deepEqual(relationIdentity("sources"), { name: "public.sources", schema: "public", local: "sources", module: null });
+  assert.equal(quoteRelation("public.sources"), 'public."sources"');
+  assert.deepEqual(relationIdentity("ai.reservations"), { name: "ai.reservations", schema: "ai", local: "reservations", module: "ai-gateway" });
+  assert.equal(relationIdentity("audit.entries").module, "platform/identity");
+  assert.equal(quoteRelation("ai.reservations"), '"ai"."reservations"');
+  for (const name of ["", "unknown.data", "pg_catalog.pg_roles", "public.sources.extra", "ai.x;DROP SCHEMA ai", 'ai."x"', `ai.${"x".repeat(64)}`])
+    assert.throws(() => relationIdentity(name));
 });

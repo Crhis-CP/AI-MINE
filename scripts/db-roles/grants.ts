@@ -1,5 +1,6 @@
 // TASK-0004 D4/D5: pure, explicit grants. This module never connects or executes the plan.
 import type { DatabaseRole } from "@amp/config";
+import { MODULE_SCHEMAS } from "../migrations/inventory.ts";
 import manifest from "../../database/roles/table-grants.json" with { type: "json" };
 
 const DATABASE_ROLES = manifest.roles as DatabaseRole[];
@@ -33,6 +34,26 @@ export interface Catalog {
 }
 export class GrantPlanError extends Error {}
 export const quote = (value: string) => `"${value.replaceAll('"', '""')}"`;
+/** Schema identity comes from the approved module map, without discovering files or opening a database. */
+export const SCHEMA_MODULES: Readonly<Record<string, string>> = Object.freeze(
+  Object.fromEntries(Object.entries(MODULE_SCHEMAS).flatMap(([module, schemas]) => schemas.map((schema) => [schema, module]))),
+);
+
+/** Bare names identify legacy public objects only; module objects must name their controlled schema. */
+export function relationIdentity(value: string) {
+  const parts = value.split(".");
+  if (parts.length === 1) parts.unshift("public");
+  if (parts.length !== 2 || parts.some((part) => !/^[a-z_][a-z0-9_]{0,62}$/.test(part))) throw new GrantPlanError(`Invalid relation name: ${value}`);
+  const [schema, local] = parts as [string, string];
+  if (schema !== "public" && !Object.hasOwn(SCHEMA_MODULES, schema)) throw new GrantPlanError(`Unclassified schema: ${schema}`);
+  return { name: `${schema}.${local}`, schema, local, module: schema === "public" ? null : SCHEMA_MODULES[schema]! };
+}
+
+export function quoteRelation(value: string): string {
+  const { schema, local } = relationIdentity(value);
+  return `${schema === "public" ? "public" : quote(schema)}.${quote(local)}`;
+}
+
 export function roleNames(prefix = "amp"): Record<DatabaseRole, string> {
   if (!/^[a-z][a-z0-9_]{0,30}$/.test(prefix)) throw new GrantPlanError("Role prefix must match [a-z][a-z0-9_]{0,30}");
   return Object.fromEntries(DATABASE_ROLES.map((role) => [role, `${prefix}_${role}`])) as Record<DatabaseRole, string>;

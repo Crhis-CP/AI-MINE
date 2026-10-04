@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { loadMigrationInventory } from "../migrations/inventory.ts";
+import { relationIdentity } from "../db-roles/grants.ts";
 import { ROOT } from "./lib.ts";
 import { digest, extractOwnership } from "./ts-ownership.ts";
 import { sqlOwnership } from "./sql-ownership.ts";
@@ -162,9 +163,20 @@ export function compareOwnership(now: Baseline, baseline: Baseline, requirePrune
 export function checkCatalogue(map: OwnershipMap, catalogue: { tables: Record<string, Owner> }, created: string[]): string[] {
   const errors = [...invalid(mapSchema, map, "ownership map"), ...invalid(catalogueSchema, catalogue, "role catalogue")];
   if (errors.length) return errors;
-  for (const table of new Set([...created, ...Object.keys(map.tables), ...Object.keys(catalogue.tables).map((name) => `public.${name}`)])) {
+  const grants = new Map<string, Owner>();
+  for (const [name, grant] of Object.entries(catalogue.tables)) {
+    try {
+      const identity = relationIdentity(name);
+      if (grants.has(identity.name)) errors.push(`duplicate role catalogue identity: ${identity.name}`);
+      if (identity.module && normalize(grant.module, map) !== identity.module) errors.push(`table owner does not match schema: ${identity.name}`);
+      grants.set(identity.name, grant);
+    } catch (error) {
+      errors.push(`role catalogue: ${(error as Error).message}`);
+    }
+  }
+  for (const table of new Set([...created, ...Object.keys(map.tables), ...grants.keys()])) {
     const owner = map.tables[table],
-      grant = catalogue.tables[table.replace(/^public\./, "")];
+      grant = grants.get(table);
     if (!owner?.module || !owner.access || !grant || owner.module !== normalize(grant.module, map) || owner.access !== grant.access)
       errors.push(`table ownership/grant classification missing or inconsistent: ${table}`);
     if (!created.includes(table)) errors.push(`table not found in static migrations: ${table}`);

@@ -28,3 +28,7 @@ node scripts/db-roles.ts --prefix amp --public-connections 10 --apply
 新登录不设口令，部署再经受控渠道发放。本次真实登录测试仅为随机前缀临时角色签发内存中的合成口令，未读取现有秘密；测试失败也先关闭连接、删除自己创建的库，再逐个删除该前缀角色。
 
 `tests/db-role-plan.test.ts` 是无数据库规划检查；`tests/db-role-grants.test.ts` 在full verify的backend-tests中，以七个真实session_user连接测试读写/DDL/继承边界、worker首次安装、私有投递、未来分区和序列权限、默认pg_dump及还原行数。备份不加enable-row-security；去掉BYPASSRLS或序列SELECT的反例必须失败。恢复测试使用no-owner/no-acl检验全部表数据，角色/ACL恢复流程仍属部署任务。PR9再覆盖全部公开路由和完整角色矩阵。
+
+## 模块对象身份准备（TASK-0006 D1）
+
+`relationIdentity` 从唯一迁移目录的既定模块/schema映射验证对象名：旧裸名明确归public，模块对象保留schema-qualified身份，未知schema、歧义名字与重复的裸名/qualified别名拒绝。C核对schema与模块归属，不猜成public。此准备片未改48表授权、元目录查询或SQL规划；非public表的真实目录、逐角色权限和schema授权须在后续接线，不把名字解析当作已授权，也不移除模块迁移执行限制。
