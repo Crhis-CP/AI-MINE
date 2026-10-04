@@ -129,3 +129,23 @@ test("ownership metadata rejects non-record containers and invalid field shapes"
     assert.throws(() => ownershipReport(fixture(), { ...map, ...patch } as OwnershipMap), /invalid JSON/);
   assert.match(checkCatalogue(map, { tables: [] } as never, []).join(), /invalid JSON/);
 });
+
+test("role catalogue identities accept explicit module schemas without public prefixing or owner guessing", () => {
+  const own = { module: "ai-gateway", access: "business" };
+  const scoped = { ...map, tables: { "ai.reservations": own } };
+  assert.deepEqual(checkCatalogue(scoped, { tables: { "ai.reservations": own } }, ["ai.reservations"]), []);
+  assert.match(
+    checkCatalogue(
+      { ...scoped, tables: { "ai.reservations": { ...own, module: "sources" } } },
+      { tables: { "ai.reservations": { ...own, module: "sources" } } },
+      ["ai.reservations"],
+    ).join(),
+    /does not match schema/,
+  );
+  const legacy = { module: "content", access: "business" };
+  assert.match(
+    checkCatalogue({ ...map, tables: { "public.articles": legacy } }, { tables: { articles: legacy, "public.articles": legacy } }, ["public.articles"]).join(),
+    /duplicate role catalogue/,
+  );
+  assert.match(checkCatalogue(scoped, { tables: { "unknown.reservations": own } }, ["ai.reservations"]).join(), /Unclassified schema/);
+});
