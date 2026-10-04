@@ -10,6 +10,7 @@ import { modelsOverview, switchModel } from "@amp/backend/admin/models";
 import { contentChain, detachFromFact, mergeStories, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@amp/backend/admin/content";
 import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
 import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
+import { routes as contracts, ReceiptReconciliationResponse, ReceiptReleaseResponse } from "@amp/contracts/http/private";
 import { listBudgets, listTargets, setTargetEnabled, updateBudget } from "@amp/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
@@ -150,12 +151,17 @@ export function registerAdmin(app: FastifyInstance) {
 
   // Runs (F20)
   app.get(
-    "/api/admin/runs",
-    adminHandler(async () => runsOverview()),
+    contracts.receiptReview.url,
+    { schema: contracts.receiptReview.schema },
+    adminHandler(async () => ReceiptReconciliationResponse.parse(JSON.parse(JSON.stringify(await runsOverview())))),
   );
   app.post(
-    "/api/admin/receipts/:id/release",
-    adminHandler(async (req, reply, admin) => orNotFound(req, reply, await releaseReceipt(Number(param(req, "id")), body(req) as never, actorOf(admin)))),
+    contracts.releaseReceipt.url,
+    { schema: { operationId: contracts.releaseReceipt.schema.operationId, response: contracts.releaseReceipt.schema.response } },
+    adminHandler(async (req, reply, admin) => {
+      const result = await releaseReceipt(Number(param(req, "id")), body(req), actorOf(admin));
+      return orNotFound(req, reply, result === null ? null : ReceiptReleaseResponse.parse(result));
+    }),
   );
   app.post(
     "/api/admin/deliveries/:id/resolve",

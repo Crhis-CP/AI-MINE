@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useFetcher } from "react-router";
 import { useEffect } from "react";
 import type { Route } from "./+types/runs";
-import { adminGet } from "../../lib/admin.server";
+import { loadReconciliation } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
 import { UsageReconciliation, type ReconciliationData } from "../../features/admin/reconciliation";
 import { ago, bj, duration, num } from "../../features/admin/format";
@@ -26,7 +26,7 @@ interface Runs {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  return adminGet<Runs>(request, "/api/admin/runs");
+  return loadReconciliation<Runs>(request);
 }
 
 export const meta: Route.MetaFunction = () => [{ title: `运行 · ${SITE.name} 后台` }];
