@@ -1,6 +1,6 @@
 // TASK-0004 PR1: explicit public entries, module-map §3 edges, and driver / SDK ownership.
-// The six existing packages retain their transitional edges (TASK-0004 D10). New domain packages follow
-// the map. Root tests/ and scripts/ are integration code outside workspace packages.
+// TASK-0005 closes the contracts-to-industry edge; the other transitional edges remain recorded.
+// New domains follow the module map. Root tests/ and scripts/ are integration code outside workspaces.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
@@ -28,7 +28,7 @@ export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": [],
-  "@amp/contracts": ["@amp/industry"],
+  "@amp/contracts": [],
   "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config"],
   "@amp/api": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],

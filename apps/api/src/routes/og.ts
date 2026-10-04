@@ -1,7 +1,7 @@
 // Share images (1200×630 PNG) for pages, items, reports, topics and events. Only public content
 // gets a card; anything else is a real 404.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { CATEGORY_LABELS } from "@amp/contracts/taxonomy";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { beijingDate } from "@amp/contracts/time";
 import { loadItemShare } from "@amp/backend/publication/og";
 import { loadReport, type ReportKind } from "@amp/backend/publication/reports";

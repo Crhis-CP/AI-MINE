@@ -1,7 +1,8 @@
 // RSS feeds. GUID = article id (isPermaLink=false), <link> = the site's page, pubDate = source
 // publication time. Summary feeds never carry content:encoded; full feeds inline bodies only for
 // sources that explicitly allow redistribution. Titles come from the site's name and categories.
-import { CATEGORY_LABELS, PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { PUBLIC_API_CATEGORY_KEYS, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
+import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SITE, withSubject } from "@amp/industry/site";
 import { config } from "../config.ts";
 import { linkBodyImages } from "../content/sanitize.ts";

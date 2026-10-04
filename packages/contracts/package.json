@@ -15,7 +15,6 @@
     "./http/private": "./src/http/private.ts"
   },
   "dependencies": {
-    "@amp/industry": "workspace:*",
     "zod": "4.6.5"
   }
 }
