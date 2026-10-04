@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { chmodSync, readFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { spawn, spawnSync } from "node:child_process";
 import { test } from "node:test";
@@ -57,6 +58,8 @@ test("the three-process fixture uses distinct local endpoints and never adopts c
   assert.equal(envs["public-api"].API_PORT, "3101");
   assert.equal(envs["private-api"].API_PORT, "3102");
   assert.equal(envs.web.WEB_PORT, "3100");
+  assert.equal(envs.web.PRIVATE_HOST, "private.localhost");
+  assert.equal(envs["private-api"].PRIVATE_HOST, envs.web.PRIVATE_HOST);
   assert.equal(envs.web.PRIVATE_API_BASE_URL, "http://127.0.0.1:3102");
   assert.notEqual(envs["private-api"].SESSION_SECRET, input.SESSION_SECRET);
   assert.notEqual(envs["public-api"].PUBLIC_RATE_LIMIT_SECRET, input.PUBLIC_RATE_LIMIT_SECRET);
@@ -127,7 +130,7 @@ test("the shared HTTP probe checks actual positive and reverse routes, health JS
     ["public", "private", "web"].map(async (role) => {
       const server = createServer((req, res) => {
         const health = req.url === "/api/health" && role !== "web";
-        const auth = req.url === "/api/auth/options" && role !== "public";
+        const auth = req.url === "/api/auth/options" && (role === "private" || (role === "web" && req.headers.host === "private.example.test"));
         const reader = req.url === "/api/site/meta" && role === "public";
         if (auth) seen.push(String(role === "web" ? req.headers.host : req.headers["x-forwarded-host"]));
         res.writeHead(health || auth || reader ? 200 : 404, { "content-type": "application/json" });
@@ -146,4 +149,27 @@ test("the shared HTTP probe checks actual positive and reverse routes, health JS
   assert.ok((await checkApiSplit(targets)).some((p) => p.includes("invalid fixture login options")));
   const wrong = await checkApiSplit({ ...targets, privateUrl: targets.publicUrl });
   assert.ok(wrong.some((p) => p.startsWith("private auth")) && wrong.some((p) => p.startsWith("private reader absent")));
+});
+
+test("Caddy startup strips only the optional configured port using safe Compose shell arguments", () => {
+  const document = parseDocument(readFileSync(`${ROOT}/docker-compose.yml`, "utf8")).toJS();
+  const [program, ...args] = document.services.caddy.command as string[];
+  const dir = scratch();
+  write(dir, { caddy: '#!/bin/sh\nprintf "%s\\n" "$PRIVATE_HOSTNAME"\n' });
+  chmodSync(`${dir}/caddy`, 0o700);
+  for (const [authority, expected] of [
+    ["private.test", "private.test"],
+    ["PRIVATE.test:8443", "PRIVATE.test"],
+    ["[::1]", "[::1]"],
+    ["[::1]:8443", "[::1]"],
+    ["private.test:$(exit 9)", "private.test"],
+  ]) {
+    const result = spawnSync(
+      program!,
+      args.map((value) => value.replaceAll("$$", "$")),
+      { env: { PATH: dir, PRIVATE_HOST: authority }, encoding: "utf8" },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), expected);
+  }
 });

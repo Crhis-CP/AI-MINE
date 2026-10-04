@@ -75,6 +75,7 @@ export function siteChildEnvironments(input: Environment) {
     ...pick(input, RUNTIME),
     NODE_ENV: "production",
     SITE_URL: site.origin,
+    PRIVATE_HOST: input.PRIVATE_HOST || "private.localhost",
     PUBLIC_RATE_LIMIT_SECRET: "verify-public-key-0123456789abcdef",
     SESSION_SECRET: "verify-session-key-0123456789abcdef",
     ADMIN_PASSWORD: "verify-admin-password-0123456789",

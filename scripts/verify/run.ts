@@ -410,7 +410,12 @@ const STAGES: Stage[] = [
         children.push(start("node", ["server.ts"], { log, env: childEnvs.web, cwd: path.join(ROOT, "apps/web") }));
         for (const origin of [base, e.API_BASE_URL!, e.PRIVATE_API_BASE_URL!])
           if (!(await waitFor(`${origin}/api/health`, 60))) return fail("an API did not answer /api/health within 60 s");
-        const splitProblems = await checkApiSplit({ webUrl: base, publicUrl: e.API_BASE_URL!, privateUrl: e.PRIVATE_API_BASE_URL! });
+        const splitProblems = await checkApiSplit({
+          webUrl: base,
+          publicUrl: e.API_BASE_URL!,
+          privateUrl: e.PRIVATE_API_BASE_URL!,
+          privateHost: childEnvs.web.PRIVATE_HOST,
+        });
         if (splitProblems.length) return problems(splitProblems, log, "API split");
         if ((await run("node", ["scripts/smoke.ts", "--base", base], { log, env: e })) !== 0) return fail("smoke check failed");
         // The official MCP client (it calls get_story only when the hot list has a story, so not on this empty

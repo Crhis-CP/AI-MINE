@@ -9,8 +9,10 @@ import { createRequestListener } from "@react-router/node";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, privateHostHeaders } from "./api-target.ts";
+import { webHostPolicy } from "./host-policy.ts";
 
 assertWebEnvironment();
+const hostPolicy = webHostPolicy();
 
 const PORT = Number(process.env.WEB_PORT || process.env.PORT || 3000);
 const HOST = process.env.WEB_HOST || "127.0.0.1";
@@ -128,6 +130,7 @@ function pageCache(req: import("node:http").IncomingMessage, res: import("node:h
 }
 
 async function handle(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) {
+  if (!hostPolicy(req, res)) return;
   const raw = req.url ?? "/";
   const qi = raw.indexOf("?");
   const pathname = qi >= 0 ? raw.slice(0, qi) : raw;

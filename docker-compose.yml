@@ -1,4 +1,4 @@
-# docker compose up -d --build     → http://localhost:3000   (the admin is at /admin)
+# docker compose up -d --build → public localhost:3000; private private.localhost:3000/admin
 # docker compose --profile https up -d --build   → HTTPS for SITE_DOMAIN through Caddy
 name: amp
 
@@ -74,6 +74,7 @@ services:
       API_ROLE: private-api
       API_HOST: 0.0.0.0
       API_PORT: "3002"
+      PRIVATE_HOST: ${PRIVATE_HOST:-private.localhost}
     depends_on:
       setup:
         condition: service_completed_successfully
@@ -98,6 +99,7 @@ services:
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       API_BASE_URL: http://public-api:3001
       PRIVATE_API_BASE_URL: http://private-api:3002
+      PRIVATE_HOST: ${PRIVATE_HOST:-private.localhost}
       TRUST_PROXY: ${TRUST_PROXY:-false}
       WEB_HOST: 0.0.0.0
       WEB_PORT: "3000"
@@ -112,12 +114,23 @@ services:
   caddy:
     image: caddy:2.11.4-alpine@sha256:6aeddd44c3078b0f9a35206472a11420648a79c184603ef95957d0a20044cb2b
     profiles: ["https"]
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        case "$$PRIVATE_HOST" in
+          \[*\]) PRIVATE_HOSTNAME="$$PRIVATE_HOST" ;;
+          *) PRIVATE_HOSTNAME="$${PRIVATE_HOST%:*}" ;;
+        esac
+        export PRIVATE_HOSTNAME
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:-localhost}
+      PRIVATE_HOST: ${PRIVATE_HOST:-private.localhost}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy:/data
