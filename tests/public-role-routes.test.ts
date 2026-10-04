@@ -255,3 +255,23 @@ test("feedback uses only feedback_write in a fresh public process", async (t) =>
     await app.stop();
   }
 });
+
+test("public_read checks the current source excerpt permission without rewriting the cached projection", async (t) => {
+  const f = await publicRoleFixture(t),
+    app = await publicServer(t, f);
+  try {
+    const id = "pr9-editorial-public-full";
+    await f.admin`UPDATE publications SET summary=NULL, source_excerpt='PR74 source excerpt' WHERE article_id=${id}`;
+    for (const allowed of [true, false, true]) {
+      await f.admin`UPDATE sources SET site_fulltext=${allowed} WHERE id='pr9-editorial'`;
+      const response = await app.request(`/api/site/items/${id}`);
+      assert.equal(response.status, 200);
+      const item = (await response.json()) as { summary: string | null };
+      assert.equal(item.summary, allowed ? "PR74 source excerpt" : null);
+      assert.equal((await f.admin`SELECT body_mode FROM publications WHERE article_id=${id}`)[0].body_mode, "full");
+    }
+    assert.equal((await roleConnections(f)).feedback_write, 0);
+  } finally {
+    await app.stop();
+  }
+});

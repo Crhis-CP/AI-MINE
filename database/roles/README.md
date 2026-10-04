@@ -8,6 +8,8 @@ public_read默认连接上限10，与当前默认单池上限一致；规划时�
 
 公开列与三张RLS表沿用批准范围：articles/translations只要求存在publications行，settings只露selected_ledger_epoch。已处理但摘要、撤下、隔离等正文仍可能被数据库公开登录读取；这是移交M1/T-0151的已知边界，不能称为AC-SEC-02全量达成。
 
+公开来源列额外包含 `site_fulltext` 布尔值，供站内摘录投影检查来源当前许可；这只是列级SELECT，`config`、`cursor`、sources整表SELECT及写入仍禁止，不以缓存的body_mode替代当前许可。
+
 private_ops/worker读写业务表且审计只追加；auth只管账号/会话及追加审计；feedback_write只插入反馈并读取返回id。backup读所有表和序列，不授nextval/setval。worker独占pgboss所有权；private_ops/backup同时获得其现存和worker将来创建对象的精确权限。私有API只发送队列由PR7客户端行为保证，不能把其DML权限说成数据库只允许追加job。
 
 迁移文件保持不变。新增表、序列、公开列或角色权限须先更新此清单与对应正反例。
