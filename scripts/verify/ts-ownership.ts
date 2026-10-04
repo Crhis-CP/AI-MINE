@@ -5,6 +5,7 @@ import { API, SignatureKind, SymbolFlags, type Checker, type Type } from "typesc
 import * as ts from "typescript/unstable/ast";
 import { sqlOwnership, type Hole } from "./sql-ownership.ts";
 import { fragmentProduct, sqlExpressionFragment } from "./sql-fragments.ts";
+import { stableRouteClosure } from "./route-identities.ts";
 
 export const digest = (text: string) => createHash("sha256").update(text).digest("hex");
 export function ownershipFiles(root: string): string[] {
@@ -96,6 +97,7 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
         line: number;
         column: number;
         scopeName: string;
+        legacyScopeName?: string;
         kind: string;
         sourceHash: string;
         dependencies: Record<string, string>;
@@ -109,7 +111,12 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
         return { line: point.line + 1, column: point.character + 1 };
       };
       const inspect = (node: ts.Node, kind: string, input: ts.Node, raw = false, prove = true): void => {
-        const names: string[] = [];
+        const names: string[] = [],
+          legacyNames: string[] = [];
+        const prepend = (name: string, legacy = name) => {
+          names.unshift(name);
+          legacyNames.unshift(legacy);
+        };
         const binding = (item: ts.Node) =>
           ts.isVariableDeclaration(item) ||
           ts.isPropertyAssignment(item) ||
@@ -118,14 +125,16 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
           ts.isGetAccessorDeclaration(item) ||
           ts.isSetAccessorDeclaration(item);
         for (let parent: ts.Node | undefined = node.parent; parent; parent = parent.parent) {
-          if ((ts.isFunctionDeclaration(parent) || ts.isClassDeclaration(parent)) && parent.name) names.unshift(parent.name.text);
-          else if (binding(parent)) names.unshift(parent.name.getText());
+          if ((ts.isFunctionDeclaration(parent) || ts.isClassDeclaration(parent)) && parent.name) prepend(parent.name.text);
+          else if (binding(parent)) prepend(parent.name.getText());
           else if ((ts.isArrowFunction(parent) || ts.isFunctionExpression(parent)) && (!parent.parent || !binding(parent.parent))) {
             const at = location(parent);
-            names.unshift((ts.isFunctionExpression(parent) && parent.name?.text) || `<closure@${at.line}:${at.column}>`);
+            const legacy = (ts.isFunctionExpression(parent) && parent.name?.text) || `<closure@${at.line}:${at.column}>`;
+            prepend(stableRouteClosure(file, parent) ?? legacy, legacy);
           }
         }
         const scopeName = names.join("/") || "<module>";
+        const legacyScopeName = legacyNames.join("/") || "<module>";
         const holes: Hole[] = [],
           dependencies: Record<string, string> = lockHash ? { "pnpm-lock.yaml": lockHash } : {},
           reasons: string[] = [];
@@ -248,7 +257,16 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
           return;
         }
         // Opaque input stays pinned to every visited local source file, never certified by a zero count.
-        sites.push({ ...location(node), scopeName, kind, sourceHash: digest(node.getText()), dependencies, ...parsed, unknown });
+        sites.push({
+          ...location(node),
+          scopeName: unknown.length ? legacyScopeName : scopeName,
+          ...(scopeName !== legacyScopeName && !unknown.length ? { legacyScopeName } : {}),
+          kind,
+          sourceHash: digest(node.getText()),
+          dependencies,
+          ...parsed,
+          unknown,
+        });
       };
       const walk = (node: ts.Node): void => {
         if (ts.isCallExpression(node)) {
