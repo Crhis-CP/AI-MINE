@@ -5,6 +5,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import type { Db, Sql } from "@amp/backend/db";
 
+import { createTestDatabase, resourcePrefix } from "./test-resources.ts";
+
 let serial = 0;
 /** No imports of backend configuration, environment changes, connections or child processes until called. */
 export async function privateProducerFixture(t: TestContext) {
@@ -24,7 +26,7 @@ export async function privateProducerFixture(t: TestContext) {
   config.devAdmin = { displayName: "Private producer fixture" };
   const access = createDatabaseAccess("test", { DATABASE_URL: url.toString() }, () => {});
   const control = access.dbFor("worker");
-  const database = `private_producer_${process.pid}_${++serial}_test`;
+  const database = `${resourcePrefix(`private_producer_${process.pid}_${++serial}`)}_test`;
   const queue = `fixture.private-${serial}`;
   let created = false;
   let app: Awaited<ReturnType<typeof buildApp>> | undefined;
@@ -47,7 +49,7 @@ export async function privateProducerFixture(t: TestContext) {
     }
     if (errors.length) throw new AggregateError(errors, "Private producer fixture cleanup failed");
   });
-  await control`CREATE DATABASE ${control(database)}`;
+  await createTestDatabase(control, database);
   created = true;
   url.pathname = `/${database}`;
   const env = {
