@@ -10,6 +10,9 @@
 |---|---|
 | `environmentProblems(role, env)`、`assertProcessEnvironment(role, env)` | 进程启动检查；前者只返回违规变量名，后者拒绝不合格环境；`databaseConfig` 自动执行 |
 | `fetcherConfig(env)` | 检查 fetcher 凭据边界并读取监听配置；默认 127.0.0.1:3003，端口 1–65535，主机为 IP 或 localhost，不创建数据库访问 |
+| `apiRoleFromEnv(env)` | 显式解析必填 API_ROLE，只接受 public-api/private-api；错误不输出输入值 |
+| `publicApiCredentialNames(env)` | 按 TASK-0004 D7 返回公共 API 不应持有的凭据变量名，空值也算存在 |
+| `assertPublicApiCredentials(env, warn)` | 显式调用时，NODE_ENV=production 拒绝上述凭据；其他环境只警告变量名，不检查必需密钥 |
 | `databaseConfig(processRole, env)` | 组合根读取并校验配置；`urlFor` 拒绝越权角色 |
 | `createDatabaseAccess(processRole, env, warn)` | 每个组合根创建一次；模块只取得其 `dbFor(role)` 返回的连接 |
 | `processRole`、`split` | 当前访问对象已校验的进程角色及是否采用按角色地址 |
@@ -18,6 +21,8 @@
 | `close()` | 关闭本对象创建的全部连接池；关闭后拒绝继续取得连接 |
 
 进程角色和地址权限见 `PROCESS_DATABASE_ROLES`。公开 API 只取得 public_read/feedback_write；私有 API 只取得 private_ops/auth；worker 取得 worker，另有 backup；迁移取得 migrate；web/fetcher 不持有数据库地址。`api` 是拆分前的临时角色，`test` 只允许一次性 `_test`/`_ci` 数据库。
+
+这三个 API 助手是 PR7c 的准备，尚未接入 main、environmentProblems 或数据库创建路径；现行 api 角色与单 API 默认行为保持。PUBLIC_RATE_LIMIT_SECRET/INDEXNOW_KEY 合法，IMG_PROXY_SIGN_SECRET 不新增禁项；private/worker 的非数据库凭据拒绝仍留部署任务。
 
 所有按角色地址都未提供时才使用单一 DATABASE_URL，并输出不含地址的过渡提示；只提供一部分角色地址则拒绝启动，不退回单一地址。创建配置与连接句柄均不执行 SQL；收到查询后驱动才连接。
 

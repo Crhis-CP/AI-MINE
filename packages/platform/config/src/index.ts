@@ -19,6 +19,48 @@ export type ProcessRole = keyof typeof PROCESS_DATABASE_ROLES;
 type Environment = Readonly<Record<string, string | undefined>>;
 const variable = (role: DatabaseRole) => `DATABASE_URL_${role.toUpperCase()}`;
 
+export type ApiRole = "public-api" | "private-api";
+
+/** Explicit preparation for PR7c: existing entry points do not call these helpers yet. */
+export function apiRoleFromEnv(env: Environment): ApiRole {
+  if (env.API_ROLE === "public-api" || env.API_ROLE === "private-api") return env.API_ROLE;
+  throw new Error("API_ROLE must be public-api or private-api");
+}
+
+const PUBLIC_API_FORBIDDEN = new Set([
+  "SESSION_SECRET",
+  "ADMIN_PASSWORD",
+  "ADMIN_FEISHU_UNION_IDS",
+  "ADMIN_EMAILS",
+  "INGEST_TOKEN",
+  "AMP_CREDENTIALS_DIR",
+  "DAJIALA_KEY",
+  "FEISHU_PUSH_WEBHOOK_URL",
+  "FEISHU_PUSH_MIRROR_WEBHOOK_URL",
+  "DB_BACKUP_STORE_SECRET_ID",
+  "DB_BACKUP_STORE_SECRET_KEY",
+]);
+
+/** TASK-0004 D7's exact public credential boundary, independent of required-key checks and D8. */
+export function publicApiCredentialNames(env: Environment): string[] {
+  return Object.keys(env)
+    .filter(
+      (name) =>
+        env[name] !== undefined &&
+        (PUBLIC_API_FORBIDDEN.has(name) || name.endsWith("_API_KEY") || /^FEISHU_(LOGIN_|APP_)/.test(name) || /^FEISHU_.*_CHAT_ID$/.test(name)),
+    )
+    .sort();
+}
+
+/** Call only at the public API composition root: production rejects; development warns without values. */
+export function assertPublicApiCredentials(env: Environment, warn: (message: string) => void = console.warn): void {
+  const names = publicApiCredentialNames(env);
+  if (!names.length) return;
+  const message = `public-api must not hold ${names.join(", ")}`;
+  if (env.NODE_ENV === "production") throw new Error(message);
+  warn(message);
+}
+
 /** Startup diagnostics contain variable names only; worker credentials stay allowed during M0. */
 export function environmentProblems(role: ProcessRole, env: Environment = process.env): string[] {
   const isolated = role === "web" || role === "fetcher";
