@@ -1,13 +1,40 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { once } from "node:events";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { apiBaseFor, isPrivateApiPath, privateHostHeaders } from "../api-target.ts";
 import { adminGet } from "../app/lib/admin.server.ts";
 import { devEdge } from "../vite.config.ts";
 
 const env = { API_BASE_URL: "http://public.test:3001", PRIVATE_API_BASE_URL: "http://private.test:3002" };
+
+test("web dev and start commands supply the private API default and preserve an explicit target", (t) => {
+  const scripts = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).scripts as Record<string, string>;
+  const bin = mkdtempSync(path.join(tmpdir(), "amp-web-command-"));
+  t.after(() => rmSync(bin, { recursive: true, force: true }));
+  // Observe the environment actually delivered by each package command, without starting a second web server.
+  const probe = `#!/bin/sh\nexec "$FIXTURE_NODE" -e 'process.stdout.write(JSON.stringify({API_BASE_URL:process.env.API_BASE_URL,PRIVATE_API_BASE_URL:process.env.PRIVATE_API_BASE_URL}))'\n`;
+  for (const name of ["react-router", "node"]) writeFileSync(path.join(bin, name), probe, { mode: 0o700 });
+  for (const name of ["dev", "start"]) {
+    for (const target of [undefined, "http://127.0.0.1:49002"]) {
+      const result = spawnSync("/bin/sh", ["-c", scripts[name]!], {
+        env: { PATH: bin, FIXTURE_NODE: process.execPath, API_BASE_URL: env.API_BASE_URL, ...(target ? { PRIVATE_API_BASE_URL: target } : {}) },
+        encoding: "utf8",
+        timeout: 10_000,
+      });
+      assert.equal(result.error, undefined);
+      assert.equal(result.status, 0, result.stderr);
+      const supplied = JSON.parse(result.stdout);
+      assert.equal(apiBaseFor("/api/auth/options", supplied), target ?? "http://127.0.0.1:3002");
+      assert.equal(apiBaseFor("/api/site/items", supplied), env.API_BASE_URL);
+    }
+  }
+});
 
 test("private path trees are distinct from lookalikes and query text; fallback never resolves the incoming host", () => {
   for (const path of ["/api/admin", "/api/admin?x=1", "/api/admin/sources?q=a%2Fb&q=", "/api/auth/options"])

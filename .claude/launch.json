@@ -3,15 +3,21 @@
   "configurations": [
     {
       "name": "web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "-w", "@amp/web"],
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@amp/web", "dev"],
       "port": 3000
     },
     {
-      "name": "api",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["--env-file=.env", "apps/api/src/main.ts"],
+      "name": "public-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:api"],
       "port": 3001
+    },
+    {
+      "name": "private-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:private-api"],
+      "port": 3002
     }
   ]
 }

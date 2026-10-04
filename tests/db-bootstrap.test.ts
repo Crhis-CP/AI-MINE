@@ -50,18 +50,18 @@ test("queue and backup capabilities use the active root and are revoked when clo
 });
 
 test("worker, migration and test roots use their declared roles; invalid setup can be retried", async () => {
+  await assert.rejects(initializeDb("api" as never, {}), /cannot initialize/);
   await assert.rejects(initializeDb("public-api", { DATABASE_URL_PUBLIC_READ: address("reader") }), /Missing/);
   for (const [role, env, user] of [
     ["worker", { DATABASE_URL_WORKER: address("worker"), DATABASE_URL_BACKUP: address("backup") }, "worker"],
     ["migrate", { DATABASE_URL_MIGRATE: address("migrator") }, "migrator"],
     ["test", { DATABASE_URL: address("fixture") }, "fixture"],
-    ["api", { DATABASE_URL: address("transitional") }, "transitional"],
   ] as const) {
     await initializeDb(role, env);
     try {
       for (const module of DB_MODULES) assert.equal(dbOf(module).options.user, user);
       if (role === "migrate") assert.throws(() => queueConnection(), /cannot use the job queue/);
-      if (role === "api" || role === "test") assert.deepEqual(queueConnection(), { connectionString: address(user) });
+      if (role === "test") assert.deepEqual(queueConnection(), { connectionString: address(user) });
     } finally {
       await closeDb();
     }

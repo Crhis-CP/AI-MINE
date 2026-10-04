@@ -37,8 +37,6 @@ function roleFor(process: DatabaseProcess, module: string): QueryRole {
       return "worker";
     case "migrate":
       return "migrate";
-    case "api":
-      return "private_ops";
     case "test":
       return "worker";
     default:
