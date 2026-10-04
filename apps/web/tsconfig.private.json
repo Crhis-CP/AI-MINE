@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["*.ts", "tests/**/*.ts", "app/root.tsx", "app/routes/admin/**/*.tsx", "app/routes/admin-login.tsx", ".react-router/types/**/*"]
+}

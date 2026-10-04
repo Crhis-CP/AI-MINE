@@ -21,9 +21,9 @@ test("web dev and start commands supply the private API default and preserve an 
   const bin = mkdtempSync(path.join(tmpdir(), "amp-web-command-"));
   t.after(() => rmSync(bin, { recursive: true, force: true }));
   // Observe the environment actually delivered by each package command, without starting a second web server.
-  const probe = `#!/bin/sh\nexec "$FIXTURE_NODE" -e 'process.stdout.write(JSON.stringify({API_BASE_URL:process.env.API_BASE_URL,PRIVATE_API_BASE_URL:process.env.PRIVATE_API_BASE_URL}))'\n`;
+  const probe = `#!/bin/sh\nexec "$FIXTURE_NODE" -e 'process.stdout.write(JSON.stringify({API_BASE_URL:process.env.API_BASE_URL,PRIVATE_API_BASE_URL:process.env.PRIVATE_API_BASE_URL,WEB_ROUTE_GROUP:process.env.WEB_ROUTE_GROUP}))'\n`;
   for (const name of ["react-router", "node"]) writeFileSync(path.join(bin, name), probe, { mode: 0o700 });
-  for (const name of ["dev", "start"]) {
+  for (const name of ["dev", "dev:private", "start"]) {
     for (const target of [undefined, "http://127.0.0.1:49002"]) {
       const result = spawnSync("/bin/sh", ["-c", scripts[name]!], {
         env: { PATH: bin, FIXTURE_NODE: process.execPath, API_BASE_URL: env.API_BASE_URL, ...(target ? { PRIVATE_API_BASE_URL: target } : {}) },
@@ -33,6 +33,7 @@ test("web dev and start commands supply the private API default and preserve an 
       assert.equal(result.error, undefined);
       assert.equal(result.status, 0, result.stderr);
       const supplied = JSON.parse(result.stdout);
+      assert.equal(supplied.WEB_ROUTE_GROUP, name === "start" ? undefined : name === "dev" ? "public" : "private");
       assert.equal(apiBaseFor("/api/auth/options", supplied), target ?? "http://127.0.0.1:3002");
       assert.equal(apiBaseFor("/api/site/items", supplied), env.API_BASE_URL);
     }

@@ -1,3 +1,4 @@
+import { checkWebSplit } from "./web-split.ts";
 // make verify (docs/06-agents/01-parallel-development-rules.md §8; ADR-0017): every check that needs no real
 // model, run on a clean checkout of one commit, ending in a receipt bound to that commit. Any executor can run
 // it; a hosted CI is only one of them (.github/workflows/verify.yml runs this same command on GitHub-hosted
@@ -342,7 +343,7 @@ const STAGES: Stage[] = [
     run: async ({ log, env }) => {
       const code = await run("pnpm", ["--filter", WEB_PACKAGE, "build"], { log, env: env(), timeoutMs: 15 * 60_000 });
       if (code !== 0) return fail(`web build exited with ${code}`);
-      return problems(checkOutputTree(path.join(ROOT, "apps/web/build")), log, "no upstream name, mark or brand asset in the build output");
+      return problems([...checkOutputTree(path.join(ROOT, "apps/web/build")), ...checkWebSplit(ROOT)], log, "brand output and public/private build isolation");
     },
   },
   {

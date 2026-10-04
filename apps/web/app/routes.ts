@@ -1,6 +1,6 @@
 import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
 
-export default [
+const publicRoutes = [
   index("routes/home.tsx"),
   route("all", "routes/all.tsx"),
   route("all/search-busy", "routes/search-busy.tsx", { id: "all-search-busy" }),
@@ -27,6 +27,10 @@ export default [
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
+  route("*", "routes/not-found.tsx"),
+] satisfies RouteConfig;
+
+const privateRoutes = [
   route("admin/login", "routes/admin-login.tsx"),
   layout("routes/admin/layout.tsx", { id: "admin-layout" }, [
     route("admin", "routes/admin/index.tsx"),
@@ -44,3 +48,5 @@ export default [
     route("admin/audit", "routes/admin/audit.tsx"),
   ]),
 ] satisfies RouteConfig;
+
+export default process.env.WEB_ROUTE_GROUP === "private" ? privateRoutes : [layout("routes/public-layout.tsx", { id: "public-layout" }, publicRoutes)];

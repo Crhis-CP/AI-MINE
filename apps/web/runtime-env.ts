@@ -41,6 +41,7 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "API_BASE_URL",
     "PRIVATE_API_BASE_URL",
     "PRIVATE_HOST",
+    "WEB_ROUTE_GROUP",
     "TRUST_PROXY",
   ];
   return Object.fromEntries(allowed.filter((name) => env[name] !== undefined).map((name) => [name, env[name]!]));
