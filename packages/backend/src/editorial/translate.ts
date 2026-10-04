@@ -14,6 +14,8 @@ import { chatJson } from "../providers/llm.ts";
 import { modelFor } from "./models.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { promptText, promptVersion } from "./prompts.ts";
+import { shield, unshield } from "./translation-readiness.ts";
+export { shield, unshield } from "./translation-readiness.ts";
 
 const sql = dbOf("enrichment");
 
@@ -110,50 +112,6 @@ async function translateAll(articleId: string, revision: number, parts: string[]
     start = end;
   }
   return out;
-}
-
-/** A block as the model sees it: media and inline code as ⟦n⟧, links as <a id="Ln"> with their attributes kept here. */
-interface Shielded {
-  html: string;
-  tokens: string[];
-  links: Array<Record<string, string>>;
-}
-
-export function shield(inner: string): Shielded {
-  const $ = cheerio.load(inner, null, false);
-  const tokens: string[] = [];
-  for (const node of $("picture, video, img, code").toArray()) {
-    if ($(node).parents("picture, video, code").length) continue;
-    tokens.push($.html(node));
-    $(node).replaceWith(`⟦${tokens.length - 1}⟧`);
-  }
-  const links: Shielded["links"] = [];
-  $("a").each((i, a) => {
-    links.push({ ...(a as Element).attribs });
-    (a as Element).attribs = { id: `L${i}` };
-  });
-  return { html: $.html(), tokens, links };
-}
-
-/** The translated block with its media, code and links put back; null when the answer lost or repeated any. */
-export function unshield(translated: string, s: Shielded): string | null {
-  const counts = new Map<number, number>();
-  for (const m of translated.matchAll(/⟦(\d+)⟧/g)) counts.set(Number(m[1]), (counts.get(Number(m[1])) ?? 0) + 1);
-  if (counts.size !== s.tokens.length || s.tokens.some((_t, i) => counts.get(i) !== 1)) return null;
-  const $ = cheerio.load(translated, null, false);
-  const seen = new Set<number>();
-  let intact = true;
-  $("a").each((_i, a) => {
-    const n = /^L(\d+)$/.exec((a as Element).attribs.id ?? "")?.[1];
-    const attribs = n === undefined ? undefined : s.links[Number(n)];
-    if (!attribs || seen.has(Number(n))) intact = false;
-    else {
-      seen.add(Number(n));
-      (a as Element).attribs = attribs;
-    }
-  });
-  if (!intact || seen.size !== s.links.length) return null;
-  return $.html().replace(/⟦(\d+)⟧/g, (_m, n: string) => s.tokens[Number(n)]!);
 }
 
 export async function translateArticle(articleId: string): Promise<TranslateResult> {
