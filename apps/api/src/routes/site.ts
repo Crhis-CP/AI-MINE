@@ -1,6 +1,6 @@
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
-import { routes as contracts, PoolResponse, SiteStats } from "@amp/contracts/http/public";
+import { routes as contracts, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
@@ -82,7 +82,8 @@ export function registerSite(app: FastifyInstance) {
   );
 
   app.get(
-    "/api/site/timeline",
+    contracts.siteTimeline.url,
+    { schema: { operationId: contracts.siteTimeline.schema.operationId, response: contracts.siteTimeline.schema.response } },
     siteHandler(async (req, reply) => {
       const q = looseQuery(req);
       const filters = await parseFilters(q);
@@ -90,6 +91,7 @@ export function registerSite(app: FastifyInstance) {
       const unfiltered = filters.channel === "all" && !filters.category && !filters.tag && !filters.topic && !q.cursor;
       const [data, hot] = await Promise.all([loadTimeline({ ...filters, cursor: q.cursor || null, limit }), unfiltered ? loadHotStrip() : null]);
       const body = { ...data, hot, generatedAt: new Date().toISOString() };
+      TimelineResponse.parse(JSON.parse(JSON.stringify(body)));
       const cc = cacheUntil(reply, 60, data.refreshAt);
       return sendJsonWithEtag(req, reply, body, { etagPrefix: "tl", cacheControl: cc, etagOf: { ...data, hot } });
     }),

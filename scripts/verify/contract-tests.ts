@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createPublicClient, publicSchemas } from "../../packages/api-client/src/public.ts";
 import { privateSchemas } from "../../packages/api-client/src/private.ts";
-import type { PoolResponse, FeedItemSummary, ItemSummary, SourceRef } from "../../packages/contracts/src/site.ts";
+import type { PoolResponse, FeedItemSummary, ItemSummary, SourceRef, TimelineResponse } from "../../packages/contracts/src/site.ts";
 import type { components } from "../../packages/api-client/src/public.types.ts";
 import { ApiError, contractResult } from "../../apps/web/app/lib/api.server.ts";
 
@@ -41,6 +41,9 @@ const pool: PoolResponse = {
   freshness: "2026-10-04T00:00:00.000Z",
   generatedAt: "2026-10-04T00:00:00.000Z",
 };
+const timeline = publicSchemas.TimelineResponse.parse(JSON.parse(readFileSync(new URL("./tests/fixtures/timeline-response.json", import.meta.url), "utf8")));
+const timelineShape: Same<TimelineResponse, components["schemas"]["TimelineResponse"]> = true;
+void timelineShape;
 type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 type PriorFeed = Pick<
   ItemSummary,
@@ -49,15 +52,42 @@ type PriorFeed = Pick<
 const shapeProof: [Same<PoolResponse, components["schemas"]["PoolResponse"]>, Same<FeedItemSummary, PriorFeed>] = [true, true];
 void shapeProof;
 if (process.argv.includes("--routes")) {
-  const state = globalThis as typeof globalThis & { contractStats: unknown; contractPool: unknown; poolMode: string; poolQueries: unknown[] };
+  const state = globalThis as typeof globalThis & {
+    contractStats: unknown;
+    contractPool: unknown;
+    poolMode: string;
+    poolQueries: unknown[];
+    contractTimeline: unknown;
+    timelineQueries: unknown[];
+    timelineError: Error;
+  };
   state.contractStats = stats;
   state.contractPool = { ...pool, generatedAt: new Date(pool.generatedAt) };
   state.poolMode = "ok";
   state.poolQueries = [];
+  state.contractTimeline = timeline;
+  state.timelineQueries = [];
+  const { InvalidCursorError } = await import("@amp/backend/lib/cursor");
+  state.timelineError = new InvalidCursorError("fixture cursor");
   registerHooks({
     resolve(specifier, context, next) {
       if (specifier === "@amp/backend/site/stats")
         return { url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats}", shortCircuit: true };
+      if (specifier === "@amp/backend/events/hot-read")
+        return { url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot}", shortCircuit: true };
+      if (specifier === "@amp/backend/publication/timeline")
+        return {
+          url:
+            "data:text/javascript," +
+            encodeURIComponent(`
+            export async function loadTimeline(query) {
+              globalThis.timelineQueries.push(query);
+              if (query.cursor === "invalid") throw globalThis.timelineError;
+              const { hot, generatedAt, ...data } = globalThis.contractTimeline;
+              return data;
+            }`),
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/publication/pool")
         return {
           url:
@@ -110,6 +140,29 @@ if (process.argv.includes("--routes")) {
     const badPool = await app.inject("/api/site/pool");
     assert.equal(badPool.statusCode, 503);
     assert.equal(badPool.headers["content-type"], "application/problem+json");
+    const soon = new Date(Date.now() + 20_000).toISOString();
+    state.contractTimeline = { ...timeline, refreshAt: soon };
+    const tl = await app.inject("/api/site/timeline?limit=2&limit=9&ignored=yes");
+    assert.equal(tl.statusCode, 200);
+    const { hot, generatedAt: _generatedAt, ...content } = timeline;
+    assert.equal(tl.body, JSON.stringify({ ...content, refreshAt: soon, hot, generatedAt: tl.json().generatedAt }));
+    assert.equal(tl.headers["content-type"], "application/json; charset=utf-8");
+    assert.ok(Number(String(tl.headers["x-accel-expires"]).slice(1)) <= Math.floor(Date.parse(soon) / 1000));
+    assert.deepEqual(state.timelineQueries[0], { channel: "all", category: null, tag: null, topic: null, topicTags: null, cursor: null, limit: 2 });
+    const tl304 = await app.inject({ url: "/api/site/timeline?limit=2", headers: { "if-none-match": tl.headers.etag! } });
+    assert.equal(tl304.statusCode, 304);
+    assert.equal(tl304.body, "");
+    state.contractTimeline = { ...timeline, refreshAt: soon, cards: [{ ...timeline.cards[0], item: { ...timeline.cards[0]!.item, score: "wrong" } }] };
+    const tlInvalid = await app.inject({ url: "/api/site/timeline", headers: { "if-none-match": tl.headers.etag! } });
+    assert.equal(tlInvalid.statusCode, 503);
+    assert.equal(tlInvalid.headers["content-type"], "application/problem+json");
+    state.contractTimeline = { ...timeline, cards: [], dayCounts: {}, hot: null, nextCursor: null };
+    assert.deepEqual(publicSchemas.TimelineResponse.parse((await app.inject("/api/site/timeline")).json()).cards, []);
+    const cursorError = await app.inject("/api/site/timeline?cursor=invalid");
+    assert.equal(cursorError.statusCode, 400);
+    assert.equal(cursorError.json().code, "invalid_cursor");
+    assert.equal((await app.inject("/api/site/timeline?category=unapproved")).statusCode, 400);
+    assert.equal((await privateApp.inject({ url: "/api/site/timeline", headers: { "x-forwarded-host": "private.invalid" } })).statusCode, 404);
     state.poolMode = "busy";
     const busyPool = await app.inject("/api/site/pool");
     assert.equal(busyPool.statusCode, 503);
@@ -126,7 +179,7 @@ if (process.argv.includes("--routes")) {
     await Promise.all([app.close(), privateApp.close()]);
   }
 } else {
-  test("existing stats, pool and private options routes retain wire, query, ETag and host behavior", () => {
+  test("existing stats, pool, timeline and private options routes retain wire, query, ETag and host behavior", () => {
     execFileSync(process.execPath, [fileURLToPath(import.meta.url), "--routes"], {
       env: {
         NODE_ENV: "test",
@@ -184,9 +237,31 @@ if (process.argv.includes("--routes")) {
     controller.abort();
     await assert.rejects(client.GET("/api/site/pool", { params: { query: { page: 2 } }, signal: controller.signal }), { name: "AbortError" });
   });
+  test("timeline client preserves opaque cursors and validates nullable nested cards", async () => {
+    const controller = new AbortController();
+    const client = createPublicClient({
+      baseUrl: "https://fixture.invalid",
+      fetch: async (request) => {
+        assert.equal(new URL(request.url).searchParams.get("cursor"), timeline.nextCursor);
+        request.signal.throwIfAborted();
+        return Response.json(timeline);
+      },
+    });
+    const query = { cursor: timeline.nextCursor!, limit: 2 };
+    const result = await client.GET("/api/site/timeline", { params: { query }, signal: controller.signal });
+    assert.deepEqual(contractResult(result, publicSchemas.TimelineResponse), timeline);
+    for (const invalid of [
+      { ...timeline, refreshAt: "not-a-date" },
+      { ...timeline, dayCounts: [] },
+      { ...timeline, cards: [{ ...timeline.cards[0], group: {} }] },
+    ])
+      assert.throws(() => publicSchemas.TimelineResponse.parse(invalid));
+    controller.abort();
+    await assert.rejects(client.GET("/api/site/timeline", { params: { query }, signal: controller.signal }), { name: "AbortError" });
+  });
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [
-      ["public", ["/api/site/pool", "/api/site/stats"], "LoginOptions"],
+      ["public", ["/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
       ["private", ["/api/auth/options"], "PoolResponse"],
     ] as const) {
       const json = readFileSync(new URL(`../../reference/contracts/${audience}.openapi.json`, import.meta.url), "utf8");

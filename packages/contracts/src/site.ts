@@ -11,10 +11,7 @@ export interface SourceRef {
   firstParty: boolean;
 }
 
-export interface StoryRef {
-  publicId: string;
-  title: string;
-}
+export type StoryRef = import("zod").infer<typeof import("./http/public.ts").StoryRef>;
 
 export interface ItemSummary {
   id: string;
@@ -39,47 +36,12 @@ export interface ItemSummary {
 /** The fields rendered by a site feed card; full original text lives in the item detail. */
 export type FeedItemSummary = import("zod").infer<typeof import("./http/public.ts").FeedItemSummary>;
 
-export interface GroupInfo {
-  factId: string;
-  story: StoryRef | null;
-  /** Other public sources of the fact the card represents (same set as the expandable reports). */
-  additionalSourceCount: number;
-  /** Distinct public reports across the group's facts. */
-  reportCount: number;
-  /** Facts of the group (the card's own included) with at least one selected item under the current filters. */
-  developmentCount: number;
-  /** The newest development when it is not the card's own fact: why the card sits where it does. */
-  latestDevelopment?: { factId: string; title: string; at: string } | null;
-}
-
-export interface TimelineCard {
-  key: string;
-  anchorAt: string;
-  item: FeedItemSummary;
-  group: GroupInfo | null;
-}
-
-export interface HotStripEntry {
-  rank: number;
-  title: string;
-  heat: number;
-  trend: "up" | "down" | "flat" | "new" | "unknown";
-  storyPublicId: string | null;
-  itemId: string | null;
-}
-
+/** Reading-group counts and optional newest development, from the same wire schema. */
+export type GroupInfo = import("zod").infer<typeof import("./http/public.ts").GroupInfo>;
+export type TimelineCard = import("zod").infer<typeof import("./http/public.ts").TimelineCard>;
+export type HotStripEntry = import("zod").infer<typeof import("./http/public.ts").HotStripEntry>;
 export type TimelineFilters = import("zod").infer<typeof import("./http/public.ts").SiteFilters>;
-
-export interface TimelineResponse {
-  filters: TimelineFilters;
-  cards: TimelineCard[];
-  nextCursor: string | null;
-  /** Absolute time when a pending item in this scope becomes visible; the page re-checks then. */
-  refreshAt: string | null;
-  hot: HotStripEntry[] | null;
-  dayCounts: Record<string, number>;
-  generatedAt: string;
-}
+export type TimelineResponse = import("zod").infer<typeof import("./http/public.ts").TimelineResponse>;
 
 export type PoolResponse = import("zod").infer<typeof import("./http/public.ts").PoolResponse>;
 

@@ -53,8 +53,61 @@ export const PoolQuery = z.object({
   tab: z.enum(["time", "relevance"]).optional(),
   page: z.number().optional(),
 });
-export const schemas = { SiteStats, SiteFilters, FeedItemSummary, PoolResponse, Problem };
+export const StoryRef = z.strictObject({ publicId: z.string(), title: z.string() });
+export const GroupInfo = z.strictObject({
+  factId: z.string(),
+  story: StoryRef.nullable(),
+  /** Other public sources of the represented fact, matching the expandable reports. */
+  additionalSourceCount: z.number(),
+  /** Distinct public reports across the group's facts. */
+  reportCount: z.number(),
+  /** Facts with at least one selected item under the current filters. */
+  developmentCount: z.number(),
+  /** Newest development when it differs from the represented fact. */
+  latestDevelopment: z
+    .strictObject({ factId: z.string(), title: z.string(), at: z.iso.datetime({ offset: true }) })
+    .nullable()
+    .optional(),
+});
+export const TimelineCard = z.strictObject({
+  key: z.string(),
+  anchorAt: z.iso.datetime({ offset: true }),
+  item: FeedItemSummary,
+  group: GroupInfo.nullable(),
+});
+export const HotStripEntry = z.strictObject({
+  rank: z.number(),
+  title: z.string(),
+  heat: z.number(),
+  trend: z.enum(["up", "down", "flat", "new", "unknown"]),
+  storyPublicId: z.string().nullable(),
+  itemId: z.string().nullable(),
+});
+export const TimelineResponse = z.strictObject({
+  filters: SiteFilters,
+  cards: z.array(TimelineCard),
+  nextCursor: z.string().nullable(),
+  /** Absolute time when a pending item in this scope becomes visible. */
+  refreshAt: z.iso.datetime({ offset: true }).nullable(),
+  hot: z.array(HotStripEntry).nullable(),
+  dayCounts: z.record(z.string(), z.number()),
+  generatedAt: z.iso.datetime({ offset: true }),
+});
+export const TimelineQuery = PoolQuery.pick({ channel: true, category: true, tag: true, topic: true }).extend({
+  cursor: z.string().optional(),
+  limit: z.number().optional(),
+});
+export const schemas = { SiteStats, SiteFilters, FeedItemSummary, PoolResponse, StoryRef, GroupInfo, TimelineCard, HotStripEntry, TimelineResponse, Problem };
 export const routes = {
+  siteTimeline: {
+    method: "GET" as const,
+    url: "/api/site/timeline",
+    schema: {
+      operationId: "siteTimeline",
+      querystring: TimelineQuery,
+      response: { 200: TimelineResponse, 304: z.undefined(), 400: ProblemResponse, 503: ProblemResponse },
+    },
+  },
   sitePool: {
     method: "GET" as const,
     url: "/api/site/pool",
