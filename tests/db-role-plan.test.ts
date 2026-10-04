@@ -32,6 +32,7 @@ function catalog(): Catalog {
     roles: [],
     memberships: [],
     queueOwners: [],
+    unsupportedObjects: [],
     grants: [],
     defaults: [],
   };
@@ -44,13 +45,13 @@ test("all current migration tables and serial sequences have one explicit classi
     .map((f) => readFileSync(new URL(f, dir), "utf8"))
     .join("\n");
   const tables = [...sql.matchAll(/CREATE TABLE (\w+)/g)].map((m) => m[1]).concat("schema_migrations");
-  assert.deepEqual(Object.keys(TABLE_GRANTS).sort(), tables.sort());
+  assert.deepEqual(Object.keys(TABLE_GRANTS).sort(), tables.map((name) => `public.${name}`).sort());
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
-  assert.deepEqual(Object.keys(SEQUENCES).sort(), serials.sort());
+  assert.deepEqual(Object.keys(SEQUENCES).sort(), serials.map((name) => `public.${name}`).sort());
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
   assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 18);
-  assert.deepEqual(TABLE_GRANTS.settings.publicColumns, ["key", "value"]);
+  assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
 });
 
 test("the plan separates seven identities, column reads, append-only audit, owners and worker defaults", () => {
@@ -76,6 +77,7 @@ test("the plan separates seven identities, column reads, append-only audit, owne
 });
 
 const mutations: [string, (c: Catalog) => void][] = [
+  ["unsupported data-schema object", (c) => c.unsupportedObjects.push("type ai.unregistered")],
   ["unknown table", (c) => c.tables.push({ name: "unclassified", owner: c.actor, columns: ["id"], rls: false })],
   ["missing table", (c) => c.tables.pop()],
   ["duplicate table", (c) => c.tables.push(c.tables[0])],
@@ -89,7 +91,7 @@ const mutations: [string, (c: Catalog) => void][] = [
   [
     "missing public column",
     (c) => {
-      c.tables.find((t) => t.name === "sources")!.columns = [];
+      c.tables.find((t) => t.name === "public.sources")!.columns = [];
     },
   ],
   [

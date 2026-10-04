@@ -32,3 +32,13 @@ node scripts/db-roles.ts --prefix amp --public-connections 10 --apply
 ## 模块对象身份准备（TASK-0006 D1）
 
 `relationIdentity` 从唯一迁移目录的既定模块/schema映射验证对象名：旧裸名明确归public，模块对象保留schema-qualified身份，未知schema、歧义名字与重复的裸名/qualified别名拒绝。C核对schema与模块归属，不猜成public。此准备片未改48表授权、元目录查询或SQL规划；非public表的真实目录、逐角色权限和schema授权须在后续接线，不把名字解析当作已授权，也不移除模块迁移执行限制。
+
+## Qualified目录与授权接线（TASK-0006 D1）
+
+元目录返回schema-qualified表、序列及策略名，并读取非系统schema；不读取迁移文件。现有裸名JSON只作为public历史身份兼容，内部规范化后规划SQL，48表、15序列、公开列、三张RLS表和pgboss策略保持。未登记schema/表/序列、跨schema序列归属、异常owner、未计划RLS和危险默认ACL仍拒绝。
+
+未来非public表须以qualified键明确登记，module匹配既定schema映射，并提供permissions对象；没有隐式business CRUD回退。对象权限仍受access上限约束：business只给private_ops/worker，identity只给auth，audit只给private_ops/worker/auth的SELECT/INSERT，migration不给应用角色；新identity/audit分类只允许相应的身份模块schema。空permissions表示不授应用角色，不新增feedback_write通用整表通道。migrate为owner，backup只有读取；public_read仍仅由publicColumns授予，非public公开列只允许publication schema。历史public表不能借permissions改权。
+
+每个已登记数据schema只给实际需要的角色USAGE，只有migrate有CREATE。新schema中序列只给有INSERT权限的应用角色USAGE，backup保留SELECT；migrate将来创建的对象默认不向应用或backup自动开放，须登记并重新授权。pgboss的worker所有权、私有DML和备份现存/未来对象规则原样保留。
+
+此片不增加正式表或授权项，migrate仍拒绝模块迁移。首个真实模块表须连同生产清单、C的模块DDL归属、独立权限oracle及执行器一起交付；非public、非pgboss数据schema中的函数及自定义类型明确拒绝；只按pg_class.reltype/pg_type.typarray身份保留合法表自动生成的行类型及其数组，不按名称或前缀猜测。原public扩展和pgboss专用处理不变。新增RLS及非public反馈表的列级写入通道仍不提供通用支持。测试仅在独占临时制品里增加合成ai目录，真实CLI代码逐字复制，没有生产跳过校验参数。
