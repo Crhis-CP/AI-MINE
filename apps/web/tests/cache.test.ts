@@ -22,6 +22,7 @@ let deadline: number;
 let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
+let privatePageFixtures = false;
 let poolMode: "ok" | "busy" | "bad" | "missing" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
 const timelineCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
@@ -36,6 +37,12 @@ const privateApi = createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
   if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
+  if (privatePageFixtures) {
+    if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false }));
+    if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 888, feedback: 888, runs: 888 }));
+    if (req.url?.startsWith("/api/admin/models?"))
+      return res.end(JSON.stringify({ days: 7, capabilities: [], choices: [], history: [], benches: [{ id: "old-bench", label: "旧对比记录" }] }));
+  }
   res.statusCode = 401;
   res.end(JSON.stringify({ code: "unauthorized" }));
 });
@@ -364,10 +371,15 @@ test("the real /all page consumes its generated pool contract and preserves erro
       await response.text();
     }
     poolMode = "busy";
-    const busy = await fetch(`${origin}/all`, { redirect: "manual" });
-    assert.equal(busy.status, 302);
-    assert.equal(busy.headers.get("Location"), "/all/search-busy");
-    await busy.text();
+    for (const path of ["/all?q=%E9%93%9C+%E9%87%91&page=2", "/all.data?q=%E9%93%9C+%E9%87%91&page=2"]) {
+      const busy = await fetch(origin + path, { redirect: "manual" });
+      assert.equal(busy.status, 503);
+      assert.equal(busy.headers.get("Location"), null);
+      assert.equal(busy.headers.get("Cache-Control"), "private, no-store");
+      assert.equal(busy.url, origin + path);
+      assert.equal(poolCalls.at(-1)!.path, "/api/site/pool?q=%E9%93%9C+%E9%87%91&page=2");
+      await busy.text();
+    }
   } finally {
     poolMode = "ok";
   }
@@ -553,4 +565,38 @@ test("existing private preview links redirect only to the configured public orig
   const unknown = await fetchWithHost(origin + "//attacker.invalid", PRIVATE_HOST);
   assert.equal(unknown.status, 404);
   assert.equal(unknown.headers.get("Location"), null);
+});
+
+test("retired daily pages are absent and private navigation no longer requests counts or links construction tools", async () => {
+  const before = privateCalls.length;
+  privatePageFixtures = true;
+  try {
+    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/selectbench", "/admin/selectbench/example"]) {
+      for (const suffix of ["", ".data?_routes=root"]) {
+        for (const method of ["GET", "HEAD"]) {
+          const response = path.startsWith("/admin")
+            ? await fetchWithHost(origin + path + suffix, PRIVATE_HOST, { method })
+            : await fetch(origin + path + suffix, { method });
+          assert.equal(response.status, 404, path + suffix);
+          assert.equal(response.headers.get("Location"), null);
+          assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+          assert.equal(response.headers.get("Set-Cookie"), null);
+          await response.arrayBuffer();
+        }
+      }
+    }
+    const response = await fetchWithHost(origin + "/admin/models", PRIVATE_HOST);
+    assert.equal(response.status, 200);
+    const html = await response.text();
+    assert.match(html, /合成管理员/);
+    assert.match(html, /模型与评测/);
+    assert.doesNotMatch(html, /\/admin\/(?:selectbench|audit)|同批样本对比|888/);
+    assert.ok(privateCalls.slice(before).every(({ path }) => path === "/api/admin/me" || path.startsWith("/api/admin/models?")));
+    for (const group of ["public", "private"]) {
+      const modules = readFileSync(new URL(`../build/${group}/modules.json`, import.meta.url), "utf8");
+      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|selectbench))/);
+    }
+  } finally {
+    privatePageFixtures = false;
+  }
 });
