@@ -1,0 +1,13 @@
+import { dbOf } from "./module-db.ts";
+const sql = dbOf("content");
+const first = function() { return sql`SELECT id FROM receipts`; };
+const second = function() { return sql`SELECT id FROM receipts`; };
+const object = {
+  first: () => sql`SELECT id FROM receipts`,
+  second: () => sql`SELECT id FROM receipts`,
+};
+class Store {
+  first() { return sql`SELECT id FROM receipts`; }
+  second() { return sql`SELECT id FROM receipts`; }
+}
+const callbacks = [() => sql`SELECT id FROM receipts`, () => sql`SELECT id FROM receipts`];
