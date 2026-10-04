@@ -5,8 +5,6 @@ import { loadMigrationInventory, validateAppliedMigrations } from "./migrations/
 
 export async function migrate(root = REPO_ROOT): Promise<void> {
   const inventory = loadMigrationInventory(root);
-  // Enable only alongside schema-qualified C and the role catalogue, with the first module migration.
-  if (inventory.some((entry) => entry.module !== null)) throw new Error("Module migrations await schema-aware ownership and role support");
   try {
     await initializeDb("migrate");
     const reserved = await dbOf("config").reserve();
@@ -29,8 +27,9 @@ export async function migrate(root = REPO_ROOT): Promise<void> {
         const rows = await tx<{ name: string; sha256: string | null }[]>`SELECT name, sha256 FROM public.schema_migrations`;
         validateAppliedMigrations(inventory, rows);
         for (const row of rows.filter((row) => row.sha256 === null)) {
-          const hash = inventory.find((entry) => entry.name === row.name)!.sha256;
-          await tx`UPDATE public.schema_migrations SET sha256=${hash} WHERE name=${row.name}`;
+          const entry = inventory.find((entry) => entry.name === row.name)!;
+          if (entry.module) throw new Error(`Applied module migration hash missing: ${row.name}`);
+          await tx`UPDATE public.schema_migrations SET sha256=${entry.sha256} WHERE name=${row.name}`;
         }
         return rows.map((row) => row.name);
       });

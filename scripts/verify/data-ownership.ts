@@ -189,7 +189,18 @@ export function checkCatalogue(map: OwnershipMap, catalogue: { tables: Record<st
 
 /** Preserve migration budget identities while sharing the executor's validated, ordered inventory. */
 export function migrationOwnership(root = ROOT) {
-  return loadMigrationInventory(root).map(({ name, sha256, text }) => ({ file: name, hash: sha256, ...sqlOwnership(text) }));
+  return loadMigrationInventory(root).map(({ name, module, sha256, text }) => {
+    const parsed = sqlOwnership(text);
+    if (module) {
+      const map = read<OwnershipMap>(root, OWNERSHIP_MAP);
+      for (const relation of parsed.relations.filter((relation) => relation.mode !== "read")) {
+        const owner = map.tables[relation.table]?.module;
+        if (!owner || normalize(owner, map) !== module)
+          throw new Error(`Module migration ${name} ${relation.mode}s ${relation.table} owned by ${owner ?? "unclassified"}`);
+      }
+    }
+    return { file: name, hash: sha256, ...(module ? { module } : {}), ...parsed };
+  });
 }
 
 export function buildOwnershipReport(root = ROOT, map = read<OwnershipMap>(root, OWNERSHIP_MAP)) {

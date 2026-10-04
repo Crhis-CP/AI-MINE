@@ -239,7 +239,16 @@
     "translations": {
       "module": "enrichment",
       "access": "business",
-      "publicColumns": ["article_id", "lang", "revision", "body_html", "complete"]
+      "publicColumns": ["article_id", "lang", "revision", "body_html", "complete", "recipe", "source_hash", "manifest"]
+    },
+    "enrichment.translation_segments": {
+      "module": "enrichment",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
     }
   },
   "sequences": {

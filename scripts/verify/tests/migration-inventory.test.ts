@@ -16,6 +16,8 @@ function fixture() {
   };
   for (const entry of manifest.legacy)
     write(root, { [`database/migrations/${entry.name}`]: readFileSync(path.join(ROOT, "database/migrations", entry.name), "utf8") });
+  // Synthetic topology starts from the fixed legacy baseline; each test registers its own modules.
+  manifest.migrations = [];
   const save = () => write(root, { "database/migration-inventory.json": JSON.stringify(manifest) });
   const add = (name: string, dependsOn: string[] = []) => {
     manifest.migrations.push({ name, dependsOn });
@@ -27,7 +29,19 @@ function fixture() {
 }
 
 test("all 30 frozen originals keep their identities and hashes; applied history fails closed", () => {
-  const entries = loadMigrationInventory(ROOT);
+  const inventory = loadMigrationInventory(ROOT),
+    entries = inventory.filter((entry) => entry.module === null);
+  assert.deepEqual(
+    inventory.filter((entry) => entry.module !== null).map(({ name, module, schemas, dependsOn }) => ({ name, module, schemas, dependsOn })),
+    [
+      {
+        name: "enrichment/202610042100_translation_readiness.sql",
+        module: "enrichment",
+        schemas: ["enrichment"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+    ],
+  );
   assert.equal(entries.length, 30);
   assert.equal(entries[0]!.name, "0001_core.sql");
   assert.equal(entries.at(-1)!.name, "0038_publication_source_excerpt.sql");

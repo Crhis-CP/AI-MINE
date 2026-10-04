@@ -123,5 +123,10 @@
       "sha256": "170f9cf21cb1dbfa5f538806ef30d206b43a86b6d9ec21d2a2bbaba7845e6d68"
     }
   ],
-  "migrations": []
+  "migrations": [
+    {
+      "name": "enrichment/202610042100_translation_readiness.sql",
+      "dependsOn": []
+    }
+  ]
 }
