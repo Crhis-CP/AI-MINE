@@ -221,6 +221,9 @@ importers:
       '@amp/backend':
         specifier: workspace:*
         version: link:../../packages/backend
+      '@amp/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@amp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

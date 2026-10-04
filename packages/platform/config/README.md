@@ -24,7 +24,7 @@
 
 反馈来源哈希已改用独立 PUBLIC_RATE_LIMIT_SECRET：生产缺失拒绝启动，开发缺失警告并使用既有开发常量；SESSION_SECRET 仅用于私有认证，不再决定反馈哈希。
 
-这三个 API 助手是 PR7c 的准备，尚未接入 main、environmentProblems 或数据库创建路径；现行 api 角色与单 API 默认行为保持。PUBLIC_RATE_LIMIT_SECRET/INDEXNOW_KEY 合法，IMG_PROXY_SIGN_SECRET 不新增禁项；private/worker 的非数据库凭据拒绝仍留部署任务。
+apps/api/src/runtime.ts 的 startApi(env) 只接受当前进程的实际环境对象（复制或替代对象会在加载后端前被拒绝），该显式启动器已调用这些检查，并按角色管理监听、私有心跳/看门狗及退出清理；导入该模块不会启动资源。现行 main、environmentProblems 仍保持过渡入口，现行 api 角色与单 API 默认行为保持。PUBLIC_RATE_LIMIT_SECRET/INDEXNOW_KEY 合法，IMG_PROXY_SIGN_SECRET 不新增禁项；private/worker 的非数据库凭据拒绝仍留部署任务。
 
 所有按角色地址都未提供时才使用单一 DATABASE_URL，并输出不含地址的过渡提示；只提供一部分角色地址则拒绝启动，不退回单一地址。创建配置与连接句柄均不执行 SQL；收到查询后驱动才连接。
 

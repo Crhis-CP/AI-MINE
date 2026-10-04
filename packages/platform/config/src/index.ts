@@ -27,6 +27,11 @@ export function apiRoleFromEnv(env: Environment): ApiRole {
   throw new Error("API_ROLE must be public-api or private-api");
 }
 
+/** Backend configuration still reads the process environment; API startup must use that same source. */
+export function assertProcessEnvironmentSource(env: Environment): void {
+  if (env !== process.env) throw new Error("API startup requires the current process environment");
+}
+
 const PUBLIC_API_FORBIDDEN = new Set([
   "SESSION_SECRET",
   "ADMIN_PASSWORD",
