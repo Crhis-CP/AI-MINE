@@ -1,0 +1,2 @@
+apps/web/app/root.tsx: imports @amp/backend, which apps/web/package.json does not declare
+== boundaries: fail — apps/web/app/root.tsx: imports @amp/backend, which apps/web/package.json does not declare

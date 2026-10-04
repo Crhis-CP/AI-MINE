@@ -1,0 +1,167 @@
+{
+  "receipt_version": 1,
+  "command": "make verify",
+  "verify_revision": "d9be29d6b8f175a6321b8519a3f7c781af07020aaf0821dd25ad3890bdda491a",
+  "scope": "full",
+  "git": {
+    "sha": "28e633c57d448e3cff3673d413574cac850025b7",
+    "tree": "1a39472c2f9358827d6183472869f47e8a33ea30",
+    "base_ref": "origin/main",
+    "base": "28e633c57d448e3cff3673d413574cac850025b7",
+    "main_head_at_start": "28e633c57d448e3cff3673d413574cac850025b7",
+    "lockfile_sha256": "fad7c73bed774fadd397cf12cd5ca0c0681c73367e1100b1e7544c373c784007",
+    "tracked_and_untracked_clean_at_start": true,
+    "tracked_and_untracked_clean_at_end": true
+  },
+  "task_card": null,
+  "executor": {
+    "id": "github-actions",
+    "os": "linux",
+    "arch": "amd64",
+    "docker": "28.0.4",
+    "node": "24.21.0",
+    "pnpm": "12.8.1",
+    "postgres": "17.11"
+  },
+  "started_at": "2026-10-04T05:26:05.357Z",
+  "finished_at": "2026-10-04T05:28:53.524Z",
+  "stages": [
+    {
+      "name": "install",
+      "status": "pass",
+      "duration_s": 0.3
+    },
+    {
+      "name": "toolchain",
+      "status": "pass",
+      "duration_s": 0,
+      "note": "pins, lockfile, images, workflow shape"
+    },
+    {
+      "name": "format-lint",
+      "status": "pass",
+      "duration_s": 1.5,
+      "note": "biome ci; warnings at baseline"
+    },
+    {
+      "name": "typecheck",
+      "status": "pass",
+      "duration_s": 5.4
+    },
+    {
+      "name": "boundaries",
+      "status": "pass",
+      "duration_s": 0.4,
+      "note": "workspace graph and imports"
+    },
+    {
+      "name": "names",
+      "status": "pass",
+      "duration_s": 0.1,
+      "note": "upstream name and marks only on the exception paths; no upstream brand asset"
+    },
+    {
+      "name": "data-ownership",
+      "status": "pass",
+      "duration_s": 11.1,
+      "note": "table owners, role catalogue and no-growth SQL inventory; retained UNKNOWN sites are unproved"
+    },
+    {
+      "name": "path-guard",
+      "status": "pass",
+      "duration_s": 0,
+      "note": "no changes against the base"
+    },
+    {
+      "name": "secrets",
+      "status": "pass",
+      "duration_s": 4,
+      "note": "175907f0d5d3..28e633c57d44: 0 findings"
+    },
+    {
+      "name": "audit",
+      "status": "pass",
+      "duration_s": 0.3,
+      "note": "0 high or critical (0 moderate, 0 low)"
+    },
+    {
+      "name": "build-web",
+      "status": "pass",
+      "duration_s": 2.5,
+      "note": "no upstream name, mark or brand asset in the build output"
+    },
+    {
+      "name": "migrations",
+      "status": "pass",
+      "duration_s": 1.5,
+      "note": "empty-database migrations; 18 seed sources"
+    },
+    {
+      "name": "role-config",
+      "status": "pass",
+      "duration_s": 15.5,
+      "note": "environment/configuration, real role grants and complete public-route/feedback matrix"
+    },
+    {
+      "name": "smoke",
+      "status": "pass",
+      "duration_s": 3.4,
+      "note": "smoke and MCP checks; no upstream name or mark in 40 pages and machine outputs"
+    },
+    {
+      "name": "test",
+      "status": "pass",
+      "duration_s": 84.7,
+      "note": "verify self-tests, web and backend tests"
+    },
+    {
+      "name": "compose-smoke",
+      "status": "pass",
+      "duration_s": 36.7,
+      "note": "compose up, smoke, 18 seed sources"
+    },
+    {
+      "name": "docs",
+      "status": "pass",
+      "duration_s": 0.5
+    },
+    {
+      "name": "tasks",
+      "status": "pass",
+      "duration_s": 0.1,
+      "note": "19 task cards"
+    }
+  ],
+  "pending_stages": [
+    "contracts (TASK-0005)",
+    "e2e-smoke (TASK-0008)",
+    "product-update",
+    "pit-checks (TASK-0011)"
+  ],
+  "exit_status": 0,
+  "failed_stage": null,
+  "secret_scan": {
+    "tool": "trufflehog + project rules (scripts/verify/secrets.ts)",
+    "version": "3.97.9",
+    "range": "175907f0d5d3..28e633c57d44",
+    "findings": 0,
+    "scanners": {
+      "trufflehog": 0,
+      "project_rules": 0
+    }
+  },
+  "audit": {
+    "tool": "pnpm audit --audit-level=high",
+    "version": "12.8.1",
+    "datasource": "https://registry.npmjs.org/ (bulk advisory endpoint)",
+    "date": "2026-10-04",
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0
+    }
+  },
+  "log_digest": "sha256:29a5158f1ad6700e7d4cce5eb0ff4aee0b0866fba4f0c90a63a85bbfd18ff324"
+}

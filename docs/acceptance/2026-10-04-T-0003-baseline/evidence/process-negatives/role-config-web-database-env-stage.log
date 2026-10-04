@@ -1,0 +1,2 @@
+docker-compose.yml: web must not hold DATABASE_URL
+== role-config: fail — docker-compose.yml: web must not hold DATABASE_URL

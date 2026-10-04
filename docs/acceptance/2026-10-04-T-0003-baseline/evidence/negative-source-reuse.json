@@ -1,0 +1,19 @@
+{
+  "finalSha": "28e633c57d448e3cff3673d413574cac850025b7",
+  "processNegativeSha": "620f7e086786bdcd0c4288914f73f96bff92482c",
+  "identicalCheckerAndConfigHashes": {
+    "scripts/verify/boundaries.ts": "3d4be1dc79b34200b1425cbc4e4a01dae97343a33a09b81541360a4bf4898907",
+    "scripts/verify/role-config.ts": "4a57fcd36a0e472d7ce96393edfc640726a40da5571e2486cc63a9588b47b0cd",
+    "scripts/verify/compose-environment.ts": "a8b7e5d837a0b1c172ad4bb2c910e1f507334ead61e3dcd5c07eb9004459495a",
+    "packages/platform/config/src/index.ts": "bd986b67fe11ec46553d1e426a37a29eb8823bcd4263bf3d87535b187a7ff4de",
+    "apps/web/runtime-env.ts": "ec27add203bd268b7cf97038afdcb1915e0f7ae006e074bd2f9169f1e57b9e45"
+  },
+  "wholeRunTsChanged": true,
+  "identicalStageHandlerHashes": {
+    "boundaries": "50e1540266e7bc7b363e8130ab9f577139e364c345366a4a1251c9d54844ba86",
+    "role-config": "831c2c3d5daaeb9723f2bb5255ddd286bc504aa1f1d0c312e6bc67c8b015c293"
+  },
+  "ownershipNegativeSha": "87011e5c629b9d0754fb03eaa438a70c01f70709",
+  "identicalGitTree": "1a39472c2f9358827d6183472869f47e8a33ea30",
+  "newNegativeRunsPerformed": false
+}

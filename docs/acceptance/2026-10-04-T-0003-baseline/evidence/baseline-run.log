@@ -1,0 +1,50 @@
+Scope: all 9 workspace projects
+✓ Lockfile passes supply-chain policies (verified 4h ago)
+Lockfile is up to date, resolution step is skipped
+Packages are copied from the content-addressable store to the virtual store.
+  Content-addressable store is at: /home/liangchen.guest/.local/share/pnpm/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Packages: +279
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 279, reused 279, downloaded 0, added 279, done
+
+dependencies:
++ @amp/backend link:packages/backend
++ @amp/industry link:industry
+
+devDependencies:
++ @amp/config link:packages/platform/config
++ @amp/contracts link:packages/contracts
++ @biomejs/biome 2.5.15
++ @modelcontextprotocol/client 2.1.0
++ @types/node 24.19.0
++ @types/sanitize-html 2.16.1
++ fastify 5.12.5
++ opentype.js 1.3.4
++ sharp 0.35.4
++ typescript 7.0.2
++ undici 8.11.2
++ yaml 2.9.1
++ zod 4.6.5
+
+Done in 225ms using pnpm v12.8.1
+/tmp/aimine-baseline-28e633c57d44/.verify/pg-tools/bin
+== fresh database aimine_baseline_test
+没有按角色分登录：当前使用单一 DATABASE_URL（过渡配置）
+没有按角色分登录：当前使用单一 DATABASE_URL（过渡配置）
+== schema
+== routes, queues, schedules
+没有按角色分登录：当前使用单一 DATABASE_URL（过渡配置）
+(node:547722) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:547722) [FSTDEP023] FastifyDeprecation: disableRequestLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in `fastify@6`.
+== built site: machine outputs, smoke, MCP check
+$ react-router build
+== tests
+results: smoke, mcp-check, web tests, backend tests -> exit 0 exit 0 exit 0 exit 0
+baseline written to /tmp/aimine-baseline-28e633c57d44/.verify/baseline
+Complete normalized routes PASS: {"equal":true,"total":209,"public":147,"private":64}
+PASS: all runtime baseline files match approved main31; only the validated eight-character fresh-database cursor epoch is normalized in diagnostic output. Raw differences: ['tests-backend.txt']
+ℹ tests 242
+ℹ pass 242
+ℹ fail 0

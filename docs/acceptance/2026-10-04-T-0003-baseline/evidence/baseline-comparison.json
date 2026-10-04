@@ -1,0 +1,228 @@
+{
+  "implementation": "28e633c57d448e3cff3673d413574cac850025b7",
+  "rawArchiveSha256": "19bdaf0fed3029c73d390a5d88a681c9a53ed5a085f9f13e292f91dc3a22fa1e",
+  "baselineFiles": {
+    "routes-private-api.txt": "e8bea63431c584cbc08395fd602c297c8b4a40513534c9be39e293d9698f9c26",
+    "api-split.txt": "62179906a44a015d8693b1c45888a4db1553ca03eaeecaf28b5127bac2bfffc9",
+    "routes-comparison.json": "09583478b7db0198e13096b48891843a39e29c0a46f553509b94a8bda0cb19ed",
+    "outputs/manifest.webmanifest": "ac444e3acbc353f817762e6b63bc6ac333e51a1458e48ee0172ae56a35a3dac2",
+    "outputs/llms.txt": "04c0fc5dac267093f41b8ebdd9e9c058916d59acfec41eb3fb053d114f59959e",
+    "outputs/robots.txt": "6b9be28e934a3462ca40eec96e6b6f5a1dac408acee2fac40beb9e67f85dc6ab",
+    "outputs/openapi-v1.json": "b9afa4acf462859f4b125f4e086af8682f3b0e4185eaaf05c2cd0015a47d49fa",
+    "tests-backend.txt": "c0342f120ddb8f8d9e838bc5e6f72d57b5dcb38d716685eac89388ad46e9add0",
+    "schedules.json": "6d4042c1dd8e90033f2ca1deb68189282462c484aecb6d0d9eb8b463ce138479",
+    "mcp-check.txt": "3c5f9e2403f926a695cf00a56744a585c65decb2e4653f0c4ff679eb2dbbbb39",
+    "queues.json": "53f206a016f4bc7789135d7116ff3092303daab4f908750b32406d46387c74e9",
+    "tests-web.txt": "536ddbd6cdf44a27c1cece7e48f84081b83c1b25d4a5c44aa438123581268136",
+    "migrate.txt": "7882b6a2f53eca5728b779e9d9a244bb05c2a31412bf6c60297401cfaea56354",
+    "routes.txt": "f5fd1a697eaad876e5805ea479ba6284a2afc09bc43c660a49b854af349601cb",
+    "schema.sql": "ceba1f08f6f90100fcd26b3b48ae21e576ffd1454551c62ee9a1601d5a614a9b",
+    "outputs.sha256": "c546568393f032061850f912a4c71040014e8f8ef852a58a5f015ce01245edec",
+    "smoke.txt": "b5329888c05561d53fa308259f0767590a8f7330b4d11f62f99d1ea6d53a8b46",
+    "routes-public-api.txt": "7e87559b75e821724263d07204005af75018fb4b4ec862d7be593b1e67f71250"
+  },
+  "T0002files": {
+    "routes-private-api.txt": {
+      "comparison": "added",
+      "oldSha256": null
+    },
+    "api-split.txt": {
+      "comparison": "added",
+      "oldSha256": null
+    },
+    "routes-comparison.json": {
+      "comparison": "added",
+      "oldSha256": null
+    },
+    "outputs/manifest.webmanifest": {
+      "comparison": "changed",
+      "oldSha256": "e95a60594659e260bdb42408ca47114fdb82279b455e487f0c7e29a1fd9751b1"
+    },
+    "outputs/llms.txt": {
+      "comparison": "changed",
+      "oldSha256": "3826dbd237be792f79850b20be6d925045cea35505b0264b8040a3c8520bfc25"
+    },
+    "outputs/robots.txt": {
+      "comparison": "same",
+      "oldSha256": "6b9be28e934a3462ca40eec96e6b6f5a1dac408acee2fac40beb9e67f85dc6ab"
+    },
+    "outputs/openapi-v1.json": {
+      "comparison": "same",
+      "oldSha256": "b9afa4acf462859f4b125f4e086af8682f3b0e4185eaaf05c2cd0015a47d49fa"
+    },
+    "tests-backend.txt": {
+      "comparison": "changed",
+      "oldSha256": "95c92f0de84004fd0f489d9fe4e4ad716a299ed58f94b325eb5a53bc2f3f46f7"
+    },
+    "schedules.json": {
+      "comparison": "same",
+      "oldSha256": "6d4042c1dd8e90033f2ca1deb68189282462c484aecb6d0d9eb8b463ce138479"
+    },
+    "mcp-check.txt": {
+      "comparison": "changed",
+      "oldSha256": "60114b6d10b6eec1abb36073cda3d7370f5eb4ffe5ee7f0e8a6b123b5b6a5ab4"
+    },
+    "queues.json": {
+      "comparison": "same",
+      "oldSha256": "53f206a016f4bc7789135d7116ff3092303daab4f908750b32406d46387c74e9"
+    },
+    "tests-web.txt": {
+      "comparison": "changed",
+      "oldSha256": "ecfe37acc272486d2f244686bc09241d7dc5d27363888858de52ffcc53717797"
+    },
+    "migrate.txt": {
+      "comparison": "changed",
+      "oldSha256": "e3be00cab359cd652a5c0eb18a114c53098e543f057ef3fc87607c333d8d7850"
+    },
+    "routes.txt": {
+      "comparison": "changed",
+      "oldSha256": "b65103ed78648b0b71c7a89d87a632d642cb39d5a8f049caab469235ada56685"
+    },
+    "schema.sql": {
+      "comparison": "same",
+      "oldSha256": "ceba1f08f6f90100fcd26b3b48ae21e576ffd1454551c62ee9a1601d5a614a9b"
+    },
+    "outputs.sha256": {
+      "comparison": "changed",
+      "oldSha256": "4eba59fc879b549c9ff0c612b58625a5d52ce95eac9fd9004ab449cbc12470e7"
+    },
+    "smoke.txt": {
+      "comparison": "same",
+      "oldSha256": "b5329888c05561d53fa308259f0767590a8f7330b4d11f62f99d1ea6d53a8b46"
+    },
+    "routes-public-api.txt": {
+      "comparison": "added",
+      "oldSha256": null
+    }
+  },
+  "tests": {
+    "tests-backend.txt": {
+      "before": 140,
+      "after": 242,
+      "removed": [],
+      "added": [
+        "✔ API runtime rejects a different environment source before backend configuration can disagree",
+        "✔ API_ROLE parsing accepts only the two explicit roles and never includes rejected values",
+        "✔ D7 detects every declared credential family, including empty values, and returns names in stable order",
+        "✔ a matching private host reaches the real password/session guard without bypassing login",
+        "✔ a prepared or chained query cannot outlive its injection or switch to another connection",
+        "✔ a private production process logs in without public/image secrets and closes its connections",
+        "✔ a public production process serves readers and feedback without private secrets or runtime writes",
+        "✔ a reservation finishing after disposal releases its connection instead of leaking a capability",
+        "✔ a transaction or savepoint waiting at a gate rolls back when its root registration expires",
+        "✔ all current migration tables and serial sequences have one explicit classification",
+        "✔ an old ensure completion cannot populate the next instance's queue cache",
+        "✔ an unset private host keeps local development usable; a malformed configured authority fails closed",
+        "✔ auth and admin are private and an explicit role is mandatory",
+        "✔ cached and starting queues cannot survive a closed or replaced database root",
+        "✔ cursor iterators and saved next methods cannot start or continue after disposal; return cleans up",
+        "✔ development login and production login requirements depend on NODE_ENV, not the deployment label",
+        "✔ development public startup warns using names while accepting shared synthetic configuration",
+        "✔ driver construction errors are redacted while ordinary SSL parameters remain supported",
+        "✔ each process can select only its database roles, even in single-URL transition",
+        "✔ epoch migration inserts once, preserves an existing value and permits the first read on a read-only connection",
+        "✔ every real role has exactly the approved table, column, sequence and cross-role privileges",
+        "✔ every registered public GET reaches its documented data fixture or explicit non-data branch with no feedback identity",
+        "✔ explicit public validation rejects in production and warns once per call in other modes without values",
+        "✔ feedback identity depends on the public key and is unchanged by session-key rotation",
+        "✔ feedback uses only feedback_write in a fresh public process",
+        "✔ fetcher configuration validates its bind address without database access",
+        "✔ fetcher refuses database and model credentials before it listens",
+        "✔ file queries and saved file factories are revoked; an existing query can still be cancelled",
+        "✔ first send to a preloaded partition queue recovers after another worker replaces it",
+        "✔ first send to a preloaded shared queue recovers after another worker replaces it",
+        "✔ health works on both roots regardless of forwarded hostname; public redirects remain public",
+        "✔ import-time fragments, builders and JSON work after injection, including inside transactions",
+        "✔ init-env creates an independent public secret only in fresh temporary directories and refuses overwrite",
+        "✔ invalid or empty role URLs never silently fall back, and diagnostics do not print values",
+        "✔ large-object creation finishing after disposal closes the native transaction",
+        "✔ large-object queries and saved methods are revoked; close remains idempotent and releases the transaction",
+        "✔ large-object streams retain normal read/write behavior and cannot be used after close",
+        "✔ missing development public keys use the stable existing fallback and warn once with the key name",
+        "✔ missing or empty production public keys never fall back to the private key or a constant",
+        "✔ missing, forged, multiple and malformed forwarded authorities fail before redirects or authentication",
+        "✔ module queries and transactions fail closed without injection, even with a global database configured",
+        "✔ only NODE_ENV enables production proxy and development-bypass checks for every role",
+        "✔ options.db never waits for producer cleanup while holding its transaction lock",
+        "✔ planning refuses cross-role membership before any SQL executes",
+        "✔ planning refuses duplicate table before any SQL executes",
+        "✔ planning refuses future public read default before any SQL executes",
+        "✔ planning refuses global worker default before any SQL executes",
+        "✔ planning refuses missing public column before any SQL executes",
+        "✔ planning refuses missing table before any SQL executes",
+        "✔ planning refuses non-superuser executor before any SQL executes",
+        "✔ planning refuses outside ACL before any SQL executes",
+        "✔ planning refuses unknown sequence before any SQL executes",
+        "✔ planning refuses unknown table before any SQL executes",
+        "✔ planning refuses unplanned policy before any SQL executes",
+        "✔ planning refuses wrong database owner before any SQL executes",
+        "✔ planning refuses wrong queue object owner before any SQL executes",
+        "✔ planning refuses wrong queue owner before any SQL executes",
+        "✔ planning refuses wrong sequence dependency before any SQL executes",
+        "✔ planning refuses wrong table owner before any SQL executes",
+        "✔ private producer reports not_installed as 503 and recovers in the same process",
+        "✔ private producer reports queue_missing as 503 and recovers in the same process",
+        "✔ private producer reports schema_mismatch as 503 and recovers in the same process",
+        "✔ private root accepts one matching forwarded hostname, with case and optional port normalization",
+        "✔ public HTTP enforces visibility/source/body modes while the documented M0 database residual stays explicit",
+        "✔ public production credentials are enforced without extending private or worker policy",
+        "✔ public route families and feedback belong only to the public root",
+        "✔ pure SQL fragments and builders compose in new roots while old pending queries stay revoked",
+        "✔ queue access follows the process role and keeps the validated addresses until closed",
+        "✔ queue and backup capabilities use the active root and are revoked when closing starts",
+        "✔ random texts do not look alike to the lexical recall",
+        "✔ registration is atomic and cannot silently replace an existing binding",
+        "✔ release also revokes a reserved handle while the module remains live",
+        "✔ reserved connections and saved methods are revoked while release remains safe and idempotent",
+        "✔ retained large-object streams reject future chunks after disposal without unhandled async errors",
+        "✔ retained queue, saved methods and database capabilities are revoked with their root",
+        "✔ role-selected connections preserve numeric decoding and support real transactions",
+        "✔ route normalization retains relative suffixes, multiple methods and explicitly resolved wildcards",
+        "✔ same-root graceful drain lets a handler settle and enqueue its follow-up",
+        "✔ seven real logins enforce grants, install worker-owned queues and round-trip a full backup",
+        "✔ shared fallback reuses one pool, denies backup as a query role, and closes permanently",
+        "✔ split addresses must be complete for this process and must not include another process's roles",
+        "✔ split roles use their assigned addresses without connecting during construction",
+        "✔ stable singleton dedupe stays 200/null and unrelated SQL errors are not reclassified or retried",
+        "✔ the explicit API runtime rejects missing roles and credentials before database access",
+        "✔ the helper does not broaden D7 or impose required-key and private/worker policies",
+        "✔ the plan separates seven identities, column reads, append-only audit, owners and worker defaults",
+        "✔ the private root assigns identity its own login and leaves business modules on private_ops",
+        "✔ the public production entrypoint requires its key before listening",
+        "✔ the public root assigns feedback a separate role and all other modules the read role",
+        "✔ the real publication query survives close and reinitialize without reimporting its SQL constants",
+        "✔ the real worker creates every application queue with collection disabled and leaves source jobs unhandled",
+        "✔ the recording server replays fixtures and rejects absent, malformed and oversized requests",
+        "✔ tx never waits for producer cleanup while holding its transaction lock",
+        "✔ unrecognized data, indentation gaps, malformed trees and duplicate routes are never silently dropped",
+        "✔ unsafe prefixes, limits and existing privileged roles cannot be adopted",
+        "✔ warm partition deletion is 503 and a different rebuilt shape recovers",
+        "✔ warm shared deletion is 503 and a different rebuilt shape recovers",
+        "✔ web and fetcher reject credential names even with empty values, without disclosing values",
+        "✔ web rejects polluted environments before loading SSR or listening",
+        "✔ wildcard mapping is mandatory, fully consumed and can resolve a parent only once",
+        "✔ worker, migration and test roots use their declared roles; invalid setup can be retried",
+        "✔ wrapped transactions roll back failed work"
+      ]
+    },
+    "tests-web.txt": {
+      "before": 16,
+      "after": 21,
+      "removed": [],
+      "added": [
+        "✔ Vite devEdge forwards to two local APIs using the same path and Host rules",
+        "✔ admin loader uses inbound Host, not a spoofed forwarded header or Request URL",
+        "✔ private path trees are distinct from lookalikes and query text; fallback never resolves the incoming host",
+        "✔ private proxy and login SSR use the private API, preserve raw queries, and replace a spoofed host",
+        "✔ web dev and start commands supply the private API default and preserve an explicit target"
+      ]
+    }
+  },
+  "routes": {
+    "equal": true,
+    "total": 209,
+    "public": 147,
+    "private": 64
+  },
+  "rawCursorEpochPreserved": true
+}
