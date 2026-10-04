@@ -5,8 +5,9 @@ import { useEffect } from "react";
 import type { Route } from "./+types/runs";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
+import { UsageReconciliation, type ReconciliationData } from "../../features/admin/reconciliation";
 import { ago, bj, duration, num } from "../../features/admin/format";
-import { AdminPage, Badge, Button, Card, DataTable, Dot, Empty, Field, Json, ReasonDialog, Select, Stat, Time } from "../../features/admin/ui";
+import { AdminPage, Badge, Button, Card, DataTable, Dot, Empty, Json, ReasonDialog, Stat, Time } from "../../features/admin/ui";
 
 type Row = Record<string, any>;
 interface Runs {
@@ -17,8 +18,8 @@ interface Runs {
   queues: Array<{ name: string; state: string; n: number; oldest: string }>;
   failedJobs: Row[];
   lagging: Row[];
-  receipts: { counts: Record<string, number>; issues: Row[] };
-  deliveries: Row[];
+  receipts: ReconciliationData["receipts"];
+  deliveries: ReconciliationData["deliveries"];
   errors: Row[];
   retrying: { count: number; next: string | null };
   ingest: Row[];
@@ -35,11 +36,8 @@ const STATE_LABEL: Record<string, string> = { created: "排队", retry: "等待�
 export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
   const refresh = useFetcher<typeof loader>();
   const r = refresh.data ?? loaderData;
-  const { run, pending } = useAdminAction();
-  const [receipt, setReceipt] = useState<Row | null>(null);
-  const [billed, setBilled] = useState("false");
-  const [delivery, setDelivery] = useState<Row | null>(null);
-  const [outcome, setOutcome] = useState<"sent" | "drop" | "resend">("sent");
+  const actions = useAdminAction();
+  const { run, pending } = actions;
   // Failure group to put back into processing ("" = every failure of the last 30 days).
   const [requeue, setRequeue] = useState<string | null>(null);
 
@@ -155,105 +153,7 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
         </Card>
       )}
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-2">
-        <Card
-          title="需要核对的付费回执"
-          right={
-            <span>
-              {Object.entries(r.receipts.counts)
-                .map(([k, v]) => `${k} ${v}`)
-                .join(" · ")}
-            </span>
-          }
-          pad={false}
-        >
-          <DataTable
-            dense
-            rows={r.receipts.issues}
-            rowKey={(x) => x.id}
-            empty="没有待处理的回执"
-            columns={[
-              { key: "id", label: "回执", render: (x) => <span className="num">#{x.id}</span> },
-              { key: "s", label: "状态", render: (x) => <Badge tone={x.status === "unknown" ? "bad" : "warn"}>{x.status}</Badge> },
-              {
-                key: "w",
-                label: "服务",
-                render: (x) => (
-                  <span className="whitespace-nowrap">
-                    {x.service}
-                    {x.model ? ` · ${x.model}` : ""}
-                  </span>
-                ),
-              },
-              {
-                key: "p",
-                label: "用途",
-                render: (x) =>
-                  x.subject && /^[\w-]{10,}$/.test(x.subject) && x.purpose.includes("analy") ? (
-                    <Link className="text-accent" to={`/admin/content/${x.subject}`}>
-                      {x.purpose}
-                    </Link>
-                  ) : (
-                    x.purpose
-                  ),
-              },
-              {
-                key: "e",
-                label: "错误",
-                render: (x) => (
-                  <span className="line-clamp-2 text-[12px] text-ink-3" title={x.error ?? ""}>
-                    {x.error}
-                  </span>
-                ),
-              },
-              {
-                key: "a",
-                label: "",
-                render: (x) =>
-                  x.status === "unknown" ? (
-                    <Button size="sm" onClick={() => setReceipt(x)}>
-                      核对
-                    </Button>
-                  ) : null,
-              },
-            ]}
-          />
-        </Card>
-        <Card title="需要核实的投递" pad={false}>
-          <DataTable
-            dense
-            rows={r.deliveries}
-            rowKey={(d) => d.id}
-            empty="没有待核实的投递"
-            columns={[
-              { key: "t", label: "目标", render: (d) => d.target_key },
-              { key: "s", label: "状态", render: (d) => <Badge tone={d.status === "unknown" ? "bad" : "warn"}>{d.status}</Badge> },
-              {
-                key: "sub",
-                label: "内容",
-                render: (d) =>
-                  d.subject_kind === "selected" ? (
-                    <Link className="text-accent" to={`/admin/content/${d.subject_id}`}>
-                      {d.subject_id}
-                    </Link>
-                  ) : (
-                    `${d.subject_kind} ${d.subject_id}`
-                  ),
-              },
-              { key: "at", label: "时间", render: (d) => <Time at={d.updated_at} /> },
-              {
-                key: "a",
-                label: "",
-                render: (d) => (
-                  <Button size="sm" onClick={() => setDelivery(d)}>
-                    处理
-                  </Button>
-                ),
-              },
-            ]}
-          />
-        </Card>
-      </div>
+      <UsageReconciliation data={{ receipts: r.receipts, deliveries: r.deliveries }} actions={actions} />
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <Card
@@ -419,25 +319,6 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
       )}
 
       <ReasonDialog
-        open={!!receipt}
-        title={`核对回执 #${receipt?.id ?? ""}`}
-        description="结果未知的请求不会自动重发。先到供应商控制台确认这次请求有没有计费，再放行：放行后下一次处理会重新发起调用。"
-        confirmLabel="记录并放行"
-        busy={pending === "release"}
-        onClose={() => setReceipt(null)}
-        onSubmit={async (note) =>
-          (await run("POST", `/api/admin/receipts/${receipt!.id}/release`, { billed: billed === "true", note }, { label: "release", success: "已放行" })) !==
-          null
-        }
-      >
-        <Field label="供应商是否计费">
-          <Select value={billed} onChange={(e) => setBilled(e.target.value)}>
-            <option value="false">未计费（请求没有被接受）</option>
-            <option value="true">已计费（结果没有取回）</option>
-          </Select>
-        </Field>
-      </ReasonDialog>
-      <ReasonDialog
         open={requeue !== null}
         title={requeue ? "重新处理这一类失败" : "重新处理全部失败"}
         description="这些文章会重新进入处理队列（正文、判断、发布）。模型调用会重新计费；供应商拒绝的内容可能再次失败。"
@@ -448,26 +329,6 @@ export default function RunsAdmin({ loaderData }: Route.ComponentProps) {
           (await run("POST", "/api/admin/processing/requeue", { group: requeue || null, reason }, { label: "requeue", success: "已重新排队" })) !== null
         }
       />
-      <ReasonDialog
-        open={!!delivery}
-        title="处理投递"
-        description="先到对应飞书群确认有没有收到。确认没收到再重发；开发环境不会真的发出。"
-        confirmLabel="确认"
-        danger={outcome === "resend"}
-        busy={pending === "delivery"}
-        onClose={() => setDelivery(null)}
-        onSubmit={async (note) =>
-          (await run("POST", `/api/admin/deliveries/${delivery!.id}/resolve`, { outcome, note }, { label: "delivery", success: "已处理" })) !== null
-        }
-      >
-        <Field label="结果">
-          <Select value={outcome} onChange={(e) => setOutcome(e.target.value as typeof outcome)}>
-            <option value="sent">群里已收到，标记为已送达</option>
-            <option value="drop">不再发送</option>
-            <option value="resend">群里没有，重新发送</option>
-          </Select>
-        </Field>
-      </ReasonDialog>
     </AdminPage>
   );
 }

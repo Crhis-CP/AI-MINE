@@ -34,6 +34,7 @@ const NAV: Array<{ group: string; items: Array<{ to: string; label: string }> }>
     items: [
       { to: "/admin/runs", label: "运行" },
       { to: "/admin/models", label: "模型与评测" },
+      { to: "/admin/usage-models/reconciliation", label: "费用与投递核对" },
       { to: "/admin/settings", label: "设置" },
     ],
   },
