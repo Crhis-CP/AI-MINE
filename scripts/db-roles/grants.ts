@@ -70,7 +70,7 @@ function qualified<T>(values: Record<string, T>): Record<string, T> {
   }
   return result;
 }
-export const TABLE_GRANTS = qualified<TableGrant>(manifest.tables);
+export const TABLE_GRANTS = qualified<TableGrant>(manifest.tables as Record<string, TableGrant>);
 export const SEQUENCES = qualified(Object.fromEntries(Object.entries(manifest.sequences).map(([name, table]) => [name, relationIdentity(table).name])));
 const dataSchemas = [...new Set(Object.keys(TABLE_GRANTS).map((name) => relationIdentity(name).schema))];
 function applicationGrants(name: string, spec: TableGrant): [DatabaseRole, string][] {

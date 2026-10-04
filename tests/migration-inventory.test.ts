@@ -19,9 +19,16 @@ test("real migration entry preserves legacy records, serializes fresh runs and r
     initial.map((row) => row.sha256),
     inventory.map((entry) => entry.sha256),
   );
-  await f.admin`ALTER TABLE schema_migrations DROP COLUMN sha256`;
+  const legacyNames = inventory.filter((entry) => entry.module === null).map((entry) => entry.name);
+  await f.admin`UPDATE schema_migrations SET sha256=NULL WHERE name=ANY(${legacyNames}::text[])`;
   assert.match((await run()).stdout, /database is up to date/);
   assert.deepEqual(await records(), initial, "backfill preserves names and applied_at, without replaying SQL");
+  const module = inventory.find((entry) => entry.module !== null)!;
+  for (const hash of [null, "0".repeat(64)]) {
+    await f.admin`UPDATE schema_migrations SET sha256=${hash} WHERE name=${module.name}`;
+    await assert.rejects(run(), hash === null ? /Applied module migration hash missing/ : /Applied migration hash mismatch/);
+  }
+  await f.admin`UPDATE schema_migrations SET sha256=${module.sha256} WHERE name=${module.name}`;
   const first = inventory[0]!;
   await f.admin`UPDATE schema_migrations SET sha256=${"0".repeat(64)} WHERE name=${first.name}`;
   await assert.rejects(run(), /Applied migration hash mismatch/);
@@ -43,7 +50,7 @@ test("real migration entry preserves legacy records, serializes fresh runs and r
     inventory.map((entry) => entry.name),
   );
   assert.equal(outputs.filter((output) => output.stdout.includes("database is up to date")).length, 1);
-  const last = inventory.at(-1)!;
+  const last = inventory.find((entry) => entry.name === "0038_publication_source_excerpt.sql")!;
   await f.admin`ALTER TABLE publications DROP COLUMN source_excerpt`;
   await f.admin`DELETE FROM schema_migrations WHERE name=${last.name}`;
   await f.admin.unsafe(`CREATE FUNCTION fail_migration_record() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'fixture migration record failure'; END$$;
@@ -60,13 +67,16 @@ test("real migration entry preserves legacy records, serializes fresh runs and r
     directory = path.join(root, "database/migrations");
   mkdirSync(directory, { recursive: true });
   const manifest = JSON.parse(readFileSync("database/migration-inventory.json", "utf8"));
-  for (const entry of inventory) writeFileSync(path.join(directory, entry.name), entry.text);
-  manifest.migrations.push({ name: "sources/202610041000_new.sql", dependsOn: [] });
+  for (const entry of inventory) {
+    const file = path.join(directory, entry.name);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, entry.text);
+  }
   mkdirSync(path.join(directory, "sources"));
-  writeFileSync(path.join(directory, manifest.migrations[0]!.name), "CREATE SCHEMA sources;");
+  writeFileSync(path.join(directory, "sources/202610041000_new.sql"), "CREATE SCHEMA sources;");
   writeFileSync(path.join(root, "database/migration-inventory.json"), JSON.stringify(manifest));
   const args = ["--input-type=module", "-e", "import {migrate} from './scripts/migrate.ts'; await migrate(process.argv[1]);", root];
-  await assert.rejects(run(f.urlFor(), args), /Module migrations await/);
+  await assert.rejects(run(f.urlFor(), args), /Unregistered migration/);
   assert.equal((await f.admin`SELECT count(*)::int AS n FROM pg_namespace WHERE nspname='sources'`)[0].n, 0);
   assert.match((await run()).stdout, /database is up to date/);
 });

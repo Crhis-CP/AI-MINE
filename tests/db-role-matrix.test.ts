@@ -10,7 +10,7 @@ import { denied } from "./role-db-fixture.ts";
 const PUBLIC_COLUMNS: Record<string, string[]> = {
   sources: ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext"],
   articles: ["id", "revision", "author", "language", "body_html", "body_text", "body_status"],
-  translations: ["article_id", "lang", "revision", "body_html", "complete"],
+  translations: ["article_id", "lang", "revision", "body_html", "complete", "recipe", "source_hash", "manifest"],
   settings: ["key", "value"],
 };
 const PUBLIC_TABLES = new Set(
@@ -37,10 +37,15 @@ test("every real role has exactly the approved table, column, sequence and cross
   const f = await publicRoleFixture(t),
     sessions = await f.login();
   const catalog = await readRoleCatalog(f.admin, f.prefix);
-  assert.equal(catalog.tables.length, 48);
+  const legacy = catalog.tables.filter((row) => row.name.startsWith("public."));
+  assert.equal(legacy.length, 48);
+  assert.deepEqual(
+    catalog.tables.filter((row) => !row.name.startsWith("public.")).map((row) => row.name),
+    ["enrichment.translation_segments"],
+  );
   for (const role of DATABASE_ROLES) {
     const sql = sessions[role];
-    for (const row of catalog.tables) {
+    for (const row of legacy) {
       assert.match(row.name, /^public\./, "this independent oracle covers the 48 legacy public tables");
       const table = { ...row, name: row.name.slice(7) };
       const name = `public.${quote(table.name)}`;
@@ -69,6 +74,19 @@ test("every real role has exactly the approved table, column, sequence and cross
           await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
       if (role === "feedback_write" && table.name === "feedback")
         for (const column of table.columns.filter((name) => name !== "id")) await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
+    }
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const allowed = role === "migrate" || role === "worker" || (operation === "SELECT" && (role === "private_ops" || role === "backup"));
+      const table = '"enrichment"."translation_segments"';
+      const statement =
+        operation === "SELECT"
+          ? `SELECT * FROM ${table} LIMIT 1`
+          : operation === "INSERT"
+            ? `INSERT INTO ${table} SELECT * FROM ${table} WHERE false RETURNING 1`
+            : operation === "UPDATE"
+              ? `UPDATE ${table} SET state=state WHERE false RETURNING 1`
+              : `DELETE FROM ${table} WHERE false RETURNING 1`;
+      await permission(sql, statement, allowed, `${role} ${operation} translation_segments`);
     }
     for (const row of catalog.sequences) {
       assert.match(row.name, /^public\./);

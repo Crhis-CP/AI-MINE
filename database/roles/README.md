@@ -1,16 +1,16 @@
 # PostgreSQL 角色授权（TASK-0004 D4/D5）
 
-`table-grants.json` 分类全部48张 public 表、15个序列及其属表；18张表支撑现有公开读取。目录有未知/缺少的表、序列或错误依赖即拒绝规划，不把未来新表自动授权。
+`table-grants.json` 分类全部48张 public 表、1张 enrichment 段检查点表、15个序列及其属表；18张表支撑现有公开读取。目录有未知/缺少的表、序列或错误依赖即拒绝规划，不把未来新表自动授权。
 
 `scripts/db-roles/grants.ts` 的规划器是纯函数：输入目录快照，输出七个前缀登录及SQL语句，自己不连接、不执行。现有角色有额外权限属性/继承成员关系、对象属主或授权来源不明、未知RLS策略、危险默认授权时拒绝。执行器只读取目录元信息，不读取角色口令或业务数据；全部校验完成后才执行授权。
 
-public_read默认连接上限10，与当前默认单池上限一致；规划时可显式给正整数，部署须按实际池和实例数配置。所有新登录无口令、无跨角色成员身份；仅backup有BYPASSRLS。migrate是业务表/序列/public schema/目标数据库属主；后者用于既有0034迁移中的ALTER DATABASE。
+public_read默认连接上限10，与当前默认单池上限一致；规划时可显式给正整数，部署须按实际池和实例数配置。所有新登录无口令、无跨角色成员身份；仅backup有BYPASSRLS。migrate是业务表/序列/已登记数据schema/目标数据库属主；后者用于既有0034迁移中的ALTER DATABASE。
 
 公开列与三张RLS表沿用批准范围：articles/translations只要求存在publications行，settings只露selected_ledger_epoch。已处理但摘要、撤下、隔离等正文仍可能被数据库公开登录读取；这是移交M1/T-0151的已知边界，不能称为AC-SEC-02全量达成。
 
 公开来源列额外包含 `site_fulltext` 布尔值，供站内摘录投影检查来源当前许可；这只是列级SELECT，`config`、`cursor`、sources整表SELECT及写入仍禁止，不以缓存的body_mode替代当前许可。
 
-private_ops/worker读写业务表且审计只追加；auth只管账号/会话及追加审计；feedback_write只插入反馈并读取返回id。backup读所有表和序列，不授nextval/setval。worker独占pgboss所有权；private_ops/backup同时获得其现存和worker将来创建对象的精确权限。私有API只发送队列由PR7客户端行为保证，不能把其DML权限说成数据库只允许追加job。
+private_ops/worker读写历史public业务表且审计只追加；auth只管账号/会话及追加审计；feedback_write只插入反馈并读取返回id。backup读所有表和序列，不授nextval/setval。worker独占pgboss所有权；private_ops/backup同时获得其现存和worker将来创建对象的精确权限。私有API只发送队列由PR7客户端行为保证，不能把其DML权限说成数据库只允许追加job。
 
 迁移文件保持不变。新增表、序列、公开列或角色权限须先更新此清单与对应正反例。
 
@@ -41,4 +41,11 @@ node scripts/db-roles.ts --prefix amp --public-connections 10 --apply
 
 每个已登记数据schema只给实际需要的角色USAGE，只有migrate有CREATE。新schema中序列只给有INSERT权限的应用角色USAGE，backup保留SELECT；migrate将来创建的对象默认不向应用或backup自动开放，须登记并重新授权。pgboss的worker所有权、私有DML和备份现存/未来对象规则原样保留。
 
-此片不增加正式表或授权项，migrate仍拒绝模块迁移。首个真实模块表须连同生产清单、C的模块DDL归属、独立权限oracle及执行器一起交付；非public、非pgboss数据schema中的函数及自定义类型明确拒绝；只按pg_class.reltype/pg_type.typarray身份保留合法表自动生成的行类型及其数组，不按名称或前缀猜测。原public扩展和pgboss专用处理不变。新增RLS及非public反馈表的列级写入通道仍不提供通用支持。测试仅在独占临时制品里增加合成ai目录，真实CLI代码逐字复制，没有生产跳过校验参数。
+此前目录准备阶段未增加正式表或授权项；现由下节首个真实模块迁移连同清单、C的模块DDL归属、独立权限oracle及执行器启用执行。非public、非pgboss数据schema中的函数及自定义类型明确拒绝；只按pg_class.reltype/pg_type.typarray身份保留合法表自动生成的行类型及其数组，不按名称或前缀猜测。原public扩展和pgboss专用处理不变。新增RLS及非public反馈表的列级写入通道仍不提供通用支持。测试仅在独占临时制品里增加合成ai目录，真实CLI代码逐字复制，没有生产跳过校验参数。
+
+
+## 首个模块迁移：翻译段检查点（TASK-0020）
+
+`enrichment.translation_segments` 按材料、修订、配方、全文hash和段序号区分检查点，分别保存原始模型text与按来源占位恢复后的HTML及hash。worker读写；private_ops只读以便诊断；migrate持有对象，backup只读。public_read/auth/feedback_write不获此schema使用权或段表权限，应用角色不能创建未登记对象。
+
+现有public.translations只增加可空recipe/source_hash/manifest三个身份列，公开角色仅多读这三列，不获receipt_id或整表SELECT。旧记录保持null；新列和检查点表本身不能证明译文完整或回执可信，实际逐段写回和公开就绪门仍由后续运行接线验收。此次以真实enrichment迁移连同唯一inventory、模块写入归属检查及执行器解除旧fence，既有30份迁移、顺序、账本名与RLS规则不变。无hash的历史行仅在固定原件核验后补齐；已应用模块行缺hash直接拒绝，不以当前文件补造身份。
