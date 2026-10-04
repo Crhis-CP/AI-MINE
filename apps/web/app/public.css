@@ -1,5 +1,12 @@
 @import "./app.css";
 @source "./components";
+@source "./features/changelog";
+@source "./features/copy";
+@source "./features/feed";
+@source "./features/hot";
+@source "./features/item";
+@source "./features/report";
+@source "./features/story";
 @source "./lib";
 @source "./root.tsx";
 @source "./routes/*.tsx";

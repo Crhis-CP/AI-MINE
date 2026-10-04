@@ -517,6 +517,8 @@ test("two builds keep the private manifest, JavaScript and CSS off the public Ho
       .join("");
   assert.ok(css("private").includes(".w-\\[216px\\]"), "private layout utility is generated");
   assert.ok(!css("public").includes(".w-\\[216px\\]"), "private-only classes are excluded from the public scan");
+  assert.ok(css("public").includes(".lg\\:w-60"), "reader search width must survive the public feature scan");
+  assert.ok(css("public").includes(".h-\\[42px\\]"), "reader search height must survive the public feature scan");
   const before = privateCalls.length;
   for (const file of privateOnly) {
     for (const method of ["GET", "HEAD"]) {
