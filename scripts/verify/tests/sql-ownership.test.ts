@@ -82,3 +82,12 @@ test("incomplete, opaque and unsupported input is never reported as fully parsed
   assert.ok(sqlOwnership("SELECT domain_mutator()").unknown.includes("opaque SQL function domain_mutator"));
   assert.deepEqual(relations("CREATE UNLOGGED TABLE new_table (id int)"), ["create:public.new_table"]);
 });
+
+test("only explicit unquoted pg_catalog.to_char is a known scalar formatter", () => {
+  const query = (name: string) => `SELECT ${name}(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM receipts`;
+  assert.deepEqual(sqlOwnership(query("pg_catalog.to_char")).unknown, []);
+  assert.deepEqual(relations(query("pg_catalog.to_char")), ["read:public.receipts"]);
+  for (const name of ["to_char", "public.to_char", 'pg_catalog."to_char"', '"pg_catalog".to_char', "other.pg_catalog.to_char"])
+    assert.ok(sqlOwnership(query(name)).unknown.length, name);
+  assert.ok(sqlOwnership("SELECT pg_catalog.to_char(custom_mutator(), 'x') FROM receipts").unknown.includes("opaque SQL function custom_mutator"));
+});

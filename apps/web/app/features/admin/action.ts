@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useRevalidator, useRouteLoaderData } from "react-router";
 import { toast } from "./toast";
+import { adminBody, adminResponse, type AdminSend } from "../../lib/admin-response.ts";
 
 export interface AdminMe {
   name: string;
@@ -37,7 +38,14 @@ export function useAdminAction() {
       method: "POST" | "PATCH" | "PUT" | "DELETE",
       path: string,
       body?: unknown,
-      opts: { success?: string; label?: string; revalidate?: boolean } = {},
+      opts: {
+        success?: string;
+        label?: string;
+        revalidate?: boolean;
+        send?: AdminSend;
+        parse?: (value: unknown) => T;
+        onConflict?: () => void;
+      } = {},
     ): Promise<T | null> => {
       const label = opts.label ?? `${method} ${path}`;
       // The same command retried after a failure keeps its key, so paid work is not repeated.
@@ -45,27 +53,33 @@ export function useAdminAction() {
       keys.current.set(label, key);
       setPending(label);
       try {
-        const res = await fetch(path, {
+        const result = await (opts.send ?? fetch)(path, {
           method,
           credentials: "same-origin",
           headers: { "content-type": "application/json", "x-csrf-token": me.csrf, "idempotency-key": key },
           body: body === undefined ? undefined : JSON.stringify(body),
         });
+        const res = adminResponse(result);
         if (res.status === 401) {
           window.location.href = `/api/auth/login?return=${encodeURIComponent(window.location.pathname)}`;
           return null;
         }
-        const text = await res.text();
-        const json = text ? JSON.parse(text) : null;
-        if (!res.ok) throw new AdminError(res.status, json?.detail ?? `请求失败（${res.status}）`);
+        const json = await adminBody(result, true);
+        if (!res.ok) throw new AdminError(res.status, (json as { detail?: string } | null)?.detail ?? `请求失败（${res.status}）`);
+        const value = opts.parse ? opts.parse(json) : (json ?? {});
         keys.current.delete(label);
         if (opts.success) toast(opts.success, "ok");
         if (opts.revalidate !== false) revalidator.revalidate();
         // null means failure to callers; an empty success (204) is an empty object.
-        return (json ?? {}) as T;
+        return value as T;
       } catch (error) {
         const message = error instanceof AdminError ? error.message : "网络错误，请稍后再试";
         toast(error instanceof AdminError && error.status === 409 ? `${message}` : message, "error");
+        if (error instanceof AdminError && error.status === 409 && opts.onConflict) {
+          keys.current.delete(label);
+          opts.onConflict();
+          revalidator.revalidate();
+        }
         return null;
       } finally {
         setPending(null);

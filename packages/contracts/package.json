@@ -12,7 +12,8 @@
     "./time": "./src/time.ts",
     "./http/common": "./src/http/common.ts",
     "./http/public": "./src/http/public.ts",
-    "./http/private": "./src/http/private.ts"
+    "./http/private": "./src/http/private.ts",
+    "./mining-taxonomy": "./src/mining-taxonomy.ts"
   },
   "dependencies": {
     "zod": "4.6.5"
