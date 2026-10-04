@@ -38,10 +38,13 @@ export async function apiGet<T>(
   return (await res.json()) as T;
 }
 
-/** Maps API failures to route responses: real 404s, search-busy page, otherwise 503. */
-export async function loadOr404<T>(path: string, opts: { busyRedirect?: string; responseHeaders?: Headers; signal?: AbortSignal } = {}): Promise<T> {
+/** Maps API failures to route responses. A supplied loader owns parsing and any response-header copying. */
+export async function loadOr404<T>(
+  path: string | (() => Promise<T>),
+  opts: { busyRedirect?: string; responseHeaders?: Headers; signal?: AbortSignal } = {},
+): Promise<T> {
   try {
-    return await apiGet<T>(path, { responseHeaders: opts.responseHeaders, signal: opts.signal });
+    return typeof path === "function" ? await path() : await apiGet<T>(path, { responseHeaders: opts.responseHeaders, signal: opts.signal });
   } catch (error) {
     if (opts.signal?.aborted) throw error;
     if (error instanceof ApiError) {

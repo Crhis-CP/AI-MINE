@@ -1,6 +1,6 @@
 // First-party site API (/api/site/*). Not a public API: it may evolve with the website,
 // but it is served from the same public read layer as v1, RSS and MCP.
-import type { CategoryKey, ChannelKey } from "./taxonomy.ts";
+import type { CategoryKey } from "./taxonomy.ts";
 
 export type SourceKind = "rss" | "web_list" | "json_list" | "mp_account" | "external";
 
@@ -37,10 +37,7 @@ export interface ItemSummary {
 }
 
 /** The fields rendered by a site feed card; full original text lives in the item detail. */
-export interface FeedItemSummary
-  extends Pick<ItemSummary, "id" | "title" | "summary" | "reason" | "publishedAt" | "timelineAt" | "category" | "tags" | "score" | "selected" | "channel"> {
-  source: Pick<SourceRef, "name">;
-}
+export type FeedItemSummary = import("zod").infer<typeof import("./http/public.ts").FeedItemSummary>;
 
 export interface GroupInfo {
   factId: string;
@@ -71,12 +68,7 @@ export interface HotStripEntry {
   itemId: string | null;
 }
 
-export interface TimelineFilters {
-  channel: ChannelKey;
-  category: CategoryKey | null;
-  tag: string | null;
-  topic?: string | null;
-}
+export type TimelineFilters = import("zod").infer<typeof import("./http/public.ts").SiteFilters>;
 
 export interface TimelineResponse {
   filters: TimelineFilters;
@@ -89,16 +81,7 @@ export interface TimelineResponse {
   generatedAt: string;
 }
 
-export interface PoolResponse {
-  filters: TimelineFilters & { q: string | null; tab: "time" | "relevance" };
-  items: FeedItemSummary[];
-  page: number;
-  pageCount: number;
-  total: number;
-  todayCount: number;
-  freshness: string;
-  generatedAt: string;
-}
+export type PoolResponse = import("zod").infer<typeof import("./http/public.ts").PoolResponse>;
 
 export interface OutlineEntry {
   id: string;

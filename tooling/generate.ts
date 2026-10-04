@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import swagger from "@fastify/swagger";
-import { createJsonSchemaTransform, createJsonSchemaTransformObject, serializerCompiler } from "fastify-type-provider-zod";
+import { createJsonSchemaTransform, createJsonSchemaTransformObject, serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import openapiTS, { astToString } from "openapi-typescript";
 import { z } from "zod";
 import * as publicContracts from "@amp/contracts/http/public";
@@ -33,6 +33,7 @@ for (const [audience, contracts] of [
   for (const [id, schema] of Object.entries(contracts.schemas)) registry.add(schema, { id });
   const app = Fastify({ logger: false });
   app.setSerializerCompiler(serializerCompiler);
+  app.setValidatorCompiler(validatorCompiler);
   try {
     await app.register(swagger, {
       openapi: { openapi: "3.1.0", info: { title: `AI矿策 ${audience}`, version: "0.1.0" } },

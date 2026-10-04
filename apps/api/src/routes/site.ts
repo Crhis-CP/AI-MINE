@@ -1,6 +1,6 @@
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
-import { routes as contracts, SiteStats } from "@amp/contracts/http/public";
+import { routes as contracts, PoolResponse, SiteStats } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
@@ -96,7 +96,9 @@ export function registerSite(app: FastifyInstance) {
   );
 
   app.get(
-    "/api/site/pool",
+    contracts.sitePool.url,
+    // Request schema is documentation-only: unknown queries and repeated keys keep first-value semantics.
+    { schema: { operationId: contracts.sitePool.schema.operationId, response: contracts.sitePool.schema.response } },
     siteHandler(async (req, reply) => {
       const q = looseQuery(req);
       const filters = await parseFilters(q);
@@ -104,6 +106,7 @@ export function registerSite(app: FastifyInstance) {
       const search = q.q?.trim() ? q.q.trim().slice(0, 200) : null;
       const tab = q.tab === "relevance" ? "relevance" : "time";
       const data = await loadPool({ ...filters, q: search, tab, page });
+      PoolResponse.parse(JSON.parse(JSON.stringify(data))); // Validate wire values without changing the original bytes.
       const { generatedAt: _, ...content } = data;
       return sendJsonWithEtag(req, reply, data, { etagPrefix: "pool", cacheControl: "public, max-age=60, s-maxage=60", etagOf: content });
     }),

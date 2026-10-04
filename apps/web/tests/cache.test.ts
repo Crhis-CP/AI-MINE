@@ -16,6 +16,8 @@ let logs = "";
 let deadline: number;
 let refreshAt: string;
 let metaDelayMs = 0;
+let poolMode: "ok" | "busy" | "bad" | "missing" = "ok";
+const poolCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
 const apiCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
 const privateApi = createServer((req, res) => {
@@ -39,6 +41,42 @@ const api = createServer((req, res) => {
     res.setHeader("X-Accel-Expires", `@${deadline}`);
     res.setHeader("Cache-Control", "public, max-age=30, s-maxage=30");
     return res.end(JSON.stringify({ filters, cards: [], nextCursor: null, refreshAt, dayCounts: [], hot: null, generatedAt: "2026-09-28T00:00:00Z" }));
+  }
+  if (url.pathname === "/api/site/pool") {
+    poolCalls.push({ path: req.url!, accept: req.headers.accept, ssr: req.headers["x-amp-ssr"] as string | undefined });
+    if (poolMode === "busy" || poolMode === "missing") {
+      res.statusCode = poolMode === "busy" ? 503 : 404;
+      res.setHeader("Content-Type", "application/problem+json");
+      res.setHeader("Retry-After", "17");
+      return res.end(JSON.stringify({ code: poolMode === "busy" ? "temporarily_unavailable" : "not_found" }));
+    }
+    return res.end(
+      JSON.stringify({
+        filters: { channel: "all", category: null, tag: null, topic: null, q: url.searchParams.get("q"), tab: "time" },
+        items: [
+          {
+            id: "pool-fixture",
+            title: "真实列表消费者",
+            summary: null,
+            reason: null,
+            source: { name: "合成来源" },
+            publishedAt: null,
+            timelineAt: "2026-10-04T00:00:00Z",
+            category: null,
+            tags: [],
+            score: poolMode === "bad" ? "invalid" : null,
+            selected: false,
+            channel: "news",
+          },
+        ],
+        page: Number(url.searchParams.get("page") || 1),
+        pageCount: 3,
+        total: 81,
+        todayCount: 1,
+        freshness: "2026-10-04T00:00:00Z",
+        generatedAt: "2026-10-04T00:00:00Z",
+      }),
+    );
   }
   if (url.pathname === "/api/site/hot") return res.end(JSON.stringify({ entries: [] }));
   if (url.pathname === "/api/site/echo-routing") return res.end(JSON.stringify({ target: "public", path: req.url }));
@@ -270,4 +308,32 @@ test("private proxy and login SSR use the private API, preserve raw queries, and
   assert.equal(login.headers.get("Cache-Control"), "private, no-store");
   const reader = await fetch(`${origin}/api/site/echo-routing?q=/api/auth/options`);
   assert.deepEqual(await reader.json(), { target: "public", path: "/api/site/echo-routing?q=/api/auth/options" });
+});
+
+test("the real /all page consumes its generated pool contract and preserves error routing", async () => {
+  try {
+    const page = await fetch(`${origin}/all?q=%E9%93%9C+%E9%87%91&page=2`, { headers: { cookie: "admin_session=private" } });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /真实列表消费者/);
+    assert.deepEqual(poolCalls.at(-1), { path: "/api/site/pool?q=%E9%93%9C+%E9%87%91&page=2", accept: "application/json", ssr: "1" });
+    assert.equal(page.headers.get("Cache-Control"), "public, max-age=60, s-maxage=60, must-revalidate");
+    assert.ok(apiCookies.every((cookie) => !cookie));
+    for (const [mode, status] of [
+      ["bad", 503],
+      ["missing", 404],
+    ] as const) {
+      poolMode = mode;
+      const response = await fetch(`${origin}/all`);
+      assert.equal(response.status, status, mode);
+      assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+      await response.text();
+    }
+    poolMode = "busy";
+    const busy = await fetch(`${origin}/all`, { redirect: "manual" });
+    assert.equal(busy.status, 302);
+    assert.equal(busy.headers.get("Location"), "/all/search-busy");
+    await busy.text();
+  } finally {
+    poolMode = "ok";
+  }
 });
