@@ -10,7 +10,10 @@ import { test } from "node:test";
 import { apiBaseFor, isPrivateApiPath, privateHostHeaders } from "../api-target.ts";
 import { adminGet } from "../app/lib/admin.server.ts";
 import { devEdge } from "../vite.config.ts";
+import { privateWebHostname } from "../host-policy.ts";
+import { fetchWithHost } from "../http-probe.ts";
 
+const PRIVATE_HOST = "private.localhost:8443";
 const env = { API_BASE_URL: "http://public.test:3001", PRIVATE_API_BASE_URL: "http://private.test:3002" };
 
 test("web dev and start commands supply the private API default and preserve an explicit target", (t) => {
@@ -88,7 +91,7 @@ test("Vite devEdge forwards to two local APIs using the same path and Host rules
   }
   const local = apis.map((api) => `http://127.0.0.1:${(api.address() as AddressInfo).port}`);
   let middleware!: (req: IncomingMessage, res: ServerResponse, next: () => void) => void;
-  const configure = devEdge({ API_BASE_URL: local[0], PRIVATE_API_BASE_URL: local[1] }).configureServer;
+  const configure = devEdge({ API_BASE_URL: local[0], PRIVATE_API_BASE_URL: local[1], PRIVATE_HOST: "private.localhost" }).configureServer;
   assert.equal(typeof configure, "function");
   await (configure as (server: unknown) => void)({
     middlewares: {
@@ -113,9 +116,22 @@ test("Vite devEdge forwards to two local APIs using the same path and Host rules
   await once(edge, "listening");
   const origin = `http://127.0.0.1:${(edge.address() as AddressInfo).port}`;
   for (const path of ["/api/auth/options?a=%2F&a=", "/api/admin/sources?x=1"]) {
-    const response = await fetch(origin + path, { headers: { "X-Forwarded-Host": "spoofed.invalid" } });
-    assert.deepEqual(await response.json(), { target: "private", path, forwarded: new URL(origin).host });
+    const response = await fetchWithHost(origin + path, PRIVATE_HOST, { headers: { "X-Forwarded-Host": "spoofed.invalid" } });
+    assert.deepEqual(await response.json(), { target: "private", path, forwarded: PRIVATE_HOST });
+  }
+  for (const path of ["/api/auth/options", "/admin/login", "/%61dmin/login.data", "/sources/old"]) {
+    const response = await fetch(origin + path, { redirect: "manual", headers: { "X-Forwarded-Host": PRIVATE_HOST } });
+    assert.equal(response.status, 404, path);
+    assert.equal(response.headers.get("Set-Cookie"), null);
+    await response.text();
   }
   const path = "/api/site/items?q=/api/auth/options";
   assert.deepEqual(await (await fetch(origin + path)).json(), { target: "public", path, forwarded: null });
+});
+
+test("private Host configuration shares API normalization and cannot identify the public site", () => {
+  assert.equal(privateWebHostname({ SITE_URL: "https://public.test", PRIVATE_HOST: "PRIVATE.test:8443" }), "private.test");
+  assert.equal(privateWebHostname({ SITE_URL: "https://public.test", PRIVATE_HOST: "[::1]:8443" }), "[::1]");
+  for (const value of ["public.test:8443", "private.test,public.test", "user@private.test", "https://private.test", "private%2etest"])
+    assert.throws(() => privateWebHostname({ SITE_URL: "https://public.test", PRIVATE_HOST: value }), /PRIVATE_HOST/);
 });

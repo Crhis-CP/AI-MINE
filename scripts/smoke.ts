@@ -2,6 +2,7 @@
 // deploy, and CI's check of the built site on an empty database.
 //   node scripts/smoke.ts [--base http://localhost:3000]
 import { SITE } from "@amp/industry/site";
+import { fetchWithHost } from "./verify/api-split.ts";
 
 const at = process.argv.indexOf("--base");
 const base = (at > 0 ? process.argv[at + 1] : process.env.SITE_URL) ?? "http://localhost:3000";
@@ -21,7 +22,6 @@ const PAGES = [
   "/terms",
   "/privacy",
   "/more",
-  "/admin/login",
 ];
 const MACHINE: Array<[path: string, type: RegExp]> = [
   ["/api/health", /json/],
@@ -41,11 +41,13 @@ const MACHINE: Array<[path: string, type: RegExp]> = [
 ];
 
 let failed = 0;
-async function check(path: string, expect: (res: Response, body: string) => string | null) {
+async function check(path: string, expect: (res: Response, body: string) => string | null, status = 200, headers?: Record<string, string>) {
   try {
-    const res = await fetch(base + path, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
+    const res = headers?.Host
+      ? await fetchWithHost(base + path, headers.Host)
+      : await fetch(base + path, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
     const body = res.headers.get("content-type")?.startsWith("image/") ? "" : await res.text();
-    const problem = res.status !== 200 ? `HTTP ${res.status}` : expect(res, body);
+    const problem = res.status !== status ? `HTTP ${res.status}` : expect(res, body);
     console.log(`${problem ? "✗" : "✓"} ${path}${problem ? `  ${problem}` : ""}`);
     if (problem) failed += 1;
   } catch (error) {
@@ -55,6 +57,10 @@ async function check(path: string, expect: (res: Response, body: string) => stri
 }
 
 for (const path of PAGES) await check(path, (_res, body) => (body.includes(SITE.name) ? null : `the page does not name ${SITE.name}`));
+await check("/admin/login", (res) => (res.headers.has("set-cookie") ? "public rejection set a cookie" : null), 404);
+await check("/admin/login", (_res, body) => (body.includes(SITE.name) ? null : "private login missing"), 200, {
+  Host: process.env.PRIVATE_HOST || "private.localhost",
+});
 for (const [path, type] of MACHINE)
   await check(path, (res) => (type.test(res.headers.get("content-type") ?? "") ? null : `content-type ${res.headers.get("content-type")}`));
 // MCP: the handshake answers with the site's server name.

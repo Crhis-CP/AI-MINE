@@ -11,7 +11,10 @@ import { publicSchemas } from "@amp/api-client/public";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { releaseBoundCache } from "../app/lib/api.server.ts";
 import { webEnvironment } from "../runtime-env.ts";
+import { fetchWithHost } from "../http-probe.ts";
 
+const PRIVATE_HOST = "private.localhost:8443";
+const privateHeaders = { Host: PRIVATE_HOST };
 let web: ChildProcess;
 let origin: string;
 let logs = "";
@@ -130,6 +133,7 @@ before(async () => {
     env: webEnvironment({
       ...process.env,
       WEB_PORT: "0",
+      PRIVATE_HOST: "private.localhost",
       TRUST_PROXY: "false",
       API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
       PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
@@ -225,7 +229,7 @@ test("missing routes cannot be hidden by a root-only request; errors and redirec
 });
 
 test("admin data and actions never become public cache entries", async () => {
-  const admin = await fetch(`${origin}/admin/sources.data?_routes=admin-layout`);
+  const admin = await fetchWithHost(`${origin}/admin/sources.data?_routes=admin-layout`, PRIVATE_HOST);
   assert.equal(admin.status, 202);
   assert.equal(admin.headers.get("Cache-Control"), "private, no-store");
   assert.equal(admin.headers.get("X-Accel-Expires"), "0");
@@ -308,7 +312,7 @@ test("browser caching preserves noindex and private sign-in responses", async ()
   assert.equal(feedback.status, 200);
   assert.match(await feedback.text(), /name="robots" content="noindex/);
   assert.equal(feedback.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
-  const login = await fetch(origin + "/admin/login");
+  const login = await fetchWithHost(origin + "/admin/login", PRIVATE_HOST);
   assert.equal(login.status, 200);
   assert.equal(login.headers.get("Cache-Control"), "private, no-store");
   assert.equal(login.headers.get("X-Robots-Tag"), "noindex, nofollow");
@@ -321,19 +325,19 @@ test("a visitor cannot name its own address to the api without a trusted proxy i
 });
 
 test("private proxy and login SSR use the private API, preserve raw queries, and replace a spoofed host", async () => {
-  const headers = { "X-Forwarded-Host": "spoofed.invalid" };
-  const direct = await fetch(`${origin}/api/auth/options?from=a%2Fb&from=`, { headers });
+  const headers = { ...privateHeaders, "X-Forwarded-Host": "spoofed.invalid" };
+  const direct = await fetchWithHost(`${origin}/api/auth/options?from=a%2Fb&from=`, PRIVATE_HOST, { headers });
   assert.deepEqual(await direct.json(), { password: false, feishu: true });
-  assert.deepEqual(privateCalls.at(-1), { path: "/api/auth/options?from=a%2Fb&from=", forwarded: new URL(origin).host });
-  const echo = await fetch(`${origin}/api/admin/echo?a=%2F&a=&b=2`, { headers });
-  assert.deepEqual(await echo.json(), { target: "private", path: "/api/admin/echo?a=%2F&a=&b=2", forwarded: new URL(origin).host });
+  assert.deepEqual(privateCalls.at(-1), { path: "/api/auth/options?from=a%2Fb&from=", forwarded: PRIVATE_HOST });
+  const echo = await fetchWithHost(`${origin}/api/admin/echo?a=%2F&a=&b=2`, PRIVATE_HOST, { headers });
+  assert.deepEqual(await echo.json(), { target: "private", path: "/api/admin/echo?a=%2F&a=&b=2", forwarded: PRIVATE_HOST });
   const before = privateCalls.length;
-  const login = await fetch(`${origin}/admin/login`, { headers });
+  const login = await fetchWithHost(`${origin}/admin/login`, PRIVATE_HOST, { headers });
   const html = await login.text();
   assert.equal(login.status, 200);
   assert.match(html, /用飞书登录/);
   assert.match(html, /还没有设置管理员密码/);
-  assert.ok(privateCalls.slice(before).some((call) => call.path === "/api/auth/options" && call.forwarded === new URL(origin).host));
+  assert.ok(privateCalls.slice(before).some((call) => call.path === "/api/auth/options" && call.forwarded === PRIVATE_HOST));
   assert.equal(login.headers.get("Cache-Control"), "private, no-store");
   const reader = await fetch(`${origin}/api/site/echo-routing?q=/api/auth/options`);
   assert.deepEqual(await reader.json(), { target: "public", path: "/api/site/echo-routing?q=/api/auth/options" });
@@ -403,4 +407,92 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
   } finally {
     timelineMode = "empty";
   }
+});
+
+test("public Host rejects private pages, data, API and redirect aliases before any private work", async () => {
+  const before = privateCalls.length;
+  for (const method of ["GET", "HEAD"]) {
+    for (const pathname of [
+      "/admin/login",
+      "/ADMIN/login",
+      "/%61dmin/login",
+      "/admin/sources.data?_routes=root",
+      "/sources/x",
+      "/api/auth/options",
+      "/api/%61dmin/me",
+    ]) {
+      const response = await fetch(origin + pathname, { method, redirect: "manual", headers: { "X-Forwarded-Host": PRIVATE_HOST } });
+      assert.equal(response.status, 404, method + " " + pathname);
+      assert.equal(response.headers.get("Set-Cookie"), null);
+      assert.equal(response.headers.get("Location"), null);
+      assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+      await response.arrayBuffer();
+    }
+  }
+  assert.equal(privateCalls.length, before, "neither private proxy nor SSR loader ran");
+  const redirect = await fetchWithHost(origin + "/sources/x", PRIVATE_HOST);
+  assert.equal(redirect.status, 302);
+  assert.equal(redirect.headers.get("Location"), "/admin/sources/x");
+  assert.equal(redirect.headers.get("Cache-Control"), "private, no-store");
+  const login = await fetchWithHost(origin + "/admin/login", "PRIVATE.LOCALHOST:443");
+  assert.equal(login.status, 200);
+  const html = await login.text();
+  const asset = html.match(/(?:src|href)="(\/assets\/[^"<>]+\.js)"/)?.[1];
+  assert.ok(asset, "built private login loads actual client JavaScript");
+  const response = await fetchWithHost(origin + asset, PRIVATE_HOST);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+  await response.arrayBuffer();
+});
+
+test("actual Vite SSR admits only the configured private Host for login", async (t) => {
+  const holder = createServer().listen(0, "127.0.0.1");
+  await once(holder, "listening");
+  const port = (holder.address() as AddressInfo).port;
+  await new Promise<void>((resolve) => holder.close(() => resolve()));
+  const dev = spawn(process.execPath, ["node_modules/@react-router/dev/bin.cjs", "dev", "--host", "127.0.0.1", "--port", String(port)], {
+    cwd: fileURLToPath(new URL("..", import.meta.url)),
+    env: webEnvironment({
+      ...process.env,
+      NODE_ENV: "development",
+      SITE_URL: "http://public.preview.test",
+      PRIVATE_HOST: "private.preview.test",
+      API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
+      PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
+    }),
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const exited = once(dev, "exit");
+  t.after(async () => {
+    if (dev.exitCode === null) dev.kill("SIGTERM");
+    await exited;
+  });
+  let output = "";
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(output || "Vite startup timeout")), 30_000);
+    dev.once("exit", () => {
+      clearTimeout(timeout);
+      reject(new Error(output));
+    });
+    const read = (chunk: Buffer) => {
+      output += String(chunk);
+      if (output.includes(`http://127.0.0.1:${port}`)) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    };
+    dev.stdout!.on("data", read);
+    dev.stderr!.on("data", read);
+  });
+  const base = `http://127.0.0.1:${port}`;
+  const before = privateCalls.length;
+  const denied = await fetchWithHost(base + "/admin/login", "public.preview.test", { headers: { "X-Forwarded-Host": "private.preview.test" } });
+  assert.equal(denied.status, 404);
+  assert.equal(denied.headers.get("Set-Cookie"), null);
+  await denied.text();
+  assert.equal(privateCalls.length, before);
+  const login = await fetchWithHost(base + "/admin/login", "private.preview.test");
+  assert.equal(login.status, 200);
+  assert.equal(login.headers.get("Cache-Control"), "private, no-store");
+  assert.match(await login.text(), /用飞书登录/);
 });

@@ -5,6 +5,7 @@ import { defineConfig, type Plugin } from "vite";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
 import { apiBaseFor, privateHostHeaders } from "./api-target.ts";
+import { privateWebHostname, webHostPolicy } from "./host-policy.ts";
 
 /** Development stand-in for the production web server: the shared redirect table and api-owned path routing. */
 export function devEdge(env: Readonly<Record<string, string | undefined>> = process.env): Plugin {
@@ -12,7 +13,9 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
     name: "amp-dev-edge",
     configureServer(server) {
       assertWebEnvironment(env);
+      const hostPolicy = webHostPolicy(env);
       server.middlewares.use((req, res, next) => {
+        if (!hostPolicy(req, res)) return;
         const raw = req.url ?? "/";
         const qi = raw.indexOf("?");
         const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
@@ -44,7 +47,7 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
 
 export default defineConfig({
   plugins: [devEdge(), tailwindcss(), reactRouter()],
-  server: { port: 3000, strictPort: true },
+  server: { port: 3000, strictPort: true, allowedHosts: [privateWebHostname(), new URL(process.env.SITE_URL || "http://localhost:3000").hostname] },
   build: {
     rolldownOptions: {
       output: {
