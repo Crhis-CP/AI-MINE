@@ -44,7 +44,8 @@ export function openLog(file: string): Log {
   return { file, line: (text) => appendFileSync(file, text.endsWith("\n") ? text : `${text}\n`) };
 }
 
-const running = new Set<ChildProcess>();
+const running = new Map<ChildProcess, number>();
+let stopping = false;
 
 /** Stops a child and everything it started (each child runs in its own process group). */
 export function stop(child: ChildProcess, signal: NodeJS.Signals = "SIGTERM"): void {
@@ -57,8 +58,22 @@ export function stop(child: ChildProcess, signal: NodeJS.Signals = "SIGTERM"): v
 }
 
 /** Stops every child still running (on interrupt). */
-export function stopAll(): void {
-  for (const child of running) stop(child, "SIGKILL");
+async function shutdown(child: ChildProcess): Promise<void> {
+  const grace = running.get(child);
+  if (grace === undefined) return;
+  const finished = new Promise<void>((resolve) => child.once("close", () => resolve()));
+  stop(child, grace ? "SIGTERM" : "SIGKILL");
+  const timer = setTimeout(() => stop(child, "SIGKILL"), grace);
+  try {
+    await finished;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function stopAll(): Promise<void> {
+  stopping = true;
+  await Promise.all([...running.keys()].map(shutdown));
 }
 
 export interface RunOptions {
@@ -66,6 +81,7 @@ export interface RunOptions {
   env: NodeJS.ProcessEnv;
   cwd?: string;
   timeoutMs?: number;
+  shutdownMs?: number;
 }
 
 /** A command line for the log, with any password in a URL masked. */
@@ -73,11 +89,12 @@ export const shown = (cmd: string, args: string[]) => [cmd, ...args].join(" ").r
 
 /** Starts a command in the background with stdout and stderr appended to the log. */
 export function start(cmd: string, args: string[], opts: RunOptions): ChildProcess {
+  if (stopping) throw new Error("Verification interrupted");
   opts.log.line(`$ ${shown(cmd, args)}`);
   const fd = openSync(opts.log.file, "a");
   const child = spawn(cmd, args, { cwd: opts.cwd ?? ROOT, env: opts.env, stdio: ["ignore", fd, fd], detached: true });
   closeSync(fd);
-  running.add(child);
+  running.set(child, opts.shutdownMs ?? 0);
   child.on("close", () => running.delete(child));
   return child;
 }
@@ -91,7 +108,7 @@ export function run(cmd: string, args: string[], opts: RunOptions): Promise<numb
       ? setTimeout(() => {
           timedOut = true;
           opts.log.line(`timed out after ${Math.round(opts.timeoutMs! / 1000)} s`);
-          stop(child, "SIGKILL");
+          void shutdown(child);
         }, opts.timeoutMs)
       : null;
     child.on("error", (e) => opts.log.line(`cannot start ${cmd}: ${e.message}`));
@@ -104,15 +121,16 @@ export function run(cmd: string, args: string[], opts: RunOptions): Promise<numb
 
 /** Runs a command and returns its stdout; stderr goes to the log. For output the stage has to read. */
 export function capture(cmd: string, args: string[], opts: RunOptions): Promise<{ code: number; stdout: string }> {
+  if (stopping) return Promise.reject(new Error("Verification interrupted"));
   opts.log.line(`$ ${shown(cmd, args)}`);
   return new Promise((resolve) => {
     const fd = openSync(opts.log.file, "a");
     const child = spawn(cmd, args, { cwd: opts.cwd ?? ROOT, env: opts.env, stdio: ["ignore", "pipe", fd], detached: true });
     closeSync(fd);
-    running.add(child);
+    running.set(child, opts.shutdownMs ?? 0);
     const chunks: Buffer[] = [];
     child.stdout!.on("data", (b: Buffer) => chunks.push(b));
-    const timer = opts.timeoutMs ? setTimeout(() => stop(child, "SIGKILL"), opts.timeoutMs) : null;
+    const timer = opts.timeoutMs ? setTimeout(() => void shutdown(child), opts.timeoutMs) : null;
     child.on("error", (e) => opts.log.line(`cannot start ${cmd}: ${e.message}`));
     child.on("close", (code) => {
       running.delete(child);
