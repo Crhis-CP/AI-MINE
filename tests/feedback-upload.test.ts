@@ -11,7 +11,7 @@ import { buildApp } from "../apps/api/src/app.ts";
 const sql = dbOf("feedback");
 
 config.dataDir = await mkdtemp(path.join(tmpdir(), "amp-upload-"));
-const app = await buildApp();
+const app = await buildApp("public-api");
 after(async () => {
   await app.close();
   await closeDb();

@@ -8,7 +8,7 @@ import { buildApp } from "../apps/api/src/app.ts";
 
 const TOKEN = "closed-entrance-check-0123456789";
 process.env.INGEST_TOKEN = TOKEN;
-const app = await buildApp();
+const app = await buildApp("public-api");
 after(async () => {
   delete process.env.INGEST_TOKEN;
   await app.close();

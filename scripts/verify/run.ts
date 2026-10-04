@@ -217,6 +217,7 @@ function siteEnv(db: Db): Record<string, string> {
     WEB_PORT: String(webPort),
     API_PORT: String(apiPort),
     SESSION_SECRET: randomBytes(24).toString("hex"),
+    PUBLIC_RATE_LIMIT_SECRET: randomBytes(24).toString("hex"),
     IMG_PROXY_SIGN_SECRET: randomBytes(24).toString("hex"),
   };
 }

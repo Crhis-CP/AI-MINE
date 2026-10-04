@@ -8,6 +8,7 @@ await initializeDb("api");
 
 assertProductionSecrets([
   ["auth", "SESSION_SECRET"],
+  ["auth", "PUBLIC_RATE_LIMIT_SECRET"],
   ["auth", "IMG_PROXY_SIGN_SECRET"],
 ]);
 // Somebody must be able to sign in to the admin.

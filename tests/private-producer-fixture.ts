@@ -67,7 +67,7 @@ export async function privateProducerFixture(t: TestContext) {
   await stopBoss();
   await closeDb();
   await initializeDb("private-api", { DATABASE_URL: url.toString(), DATABASE_POOL_MAX: "1" });
-  app = await buildApp();
+  app = await buildApp("private-api");
   let lastError: unknown;
   app.post(
     "/api/admin/private-producer-fixture",

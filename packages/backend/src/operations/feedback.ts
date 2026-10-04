@@ -4,11 +4,12 @@
 import { createHmac } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { config, credential } from "../config.ts";
+import { config, credential, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 
 const sql = dbOf("feedback");
+let warnedMissingPublicSecret = false;
 
 export class FeedbackRejected extends Error {
   readonly status: number;
@@ -23,7 +24,13 @@ export class FeedbackRejected extends Error {
 }
 
 export function feedbackSourceHash(ip: string, userAgent: string): string {
-  const secret = credential("auth", "SESSION_SECRET") ?? "dev-feedback-secret";
+  const configured = credential("auth", "PUBLIC_RATE_LIMIT_SECRET");
+  if (!configured && isProduction) throw new Error("PUBLIC_RATE_LIMIT_SECRET is required in production");
+  if (!configured && !warnedMissingPublicSecret) {
+    console.warn("PUBLIC_RATE_LIMIT_SECRET is missing; using the development feedback secret");
+    warnedMissingPublicSecret = true;
+  }
+  const secret = configured ?? "dev-feedback-secret";
   const uaFamily = (userAgent.match(/(Chrome|Safari|Firefox|Edg|MicroMessenger|Mobile|Android|iPhone|iPad|Mac OS X|Windows)/g) ?? []).slice(0, 4).join("/");
   return createHmac("sha256", secret).update(`${ip}|${uaFamily}`).digest("base64url").slice(0, 24);
 }

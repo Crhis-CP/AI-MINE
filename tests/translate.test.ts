@@ -41,7 +41,7 @@ const provider = await stub(async (_hit, req) => {
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
-const app = await buildApp();
+const app = await buildApp("public-api");
 
 // Discovered "later" than anything else in the test database, so a one-item run takes this article. The
 // tag keeps the text unique: identical input would reuse an earlier run's paid answer.
