@@ -6,7 +6,7 @@
 
 通过 `@amp/backend/db` 使用 `dbOf(module)` 与 `injectDb(bindings)`。包的显式导出清单不变；不要直接导入 module-db.ts。
 
-组合根也可以显式 `await initializeDb(processRole)`，按任务卡 D2 将 `DB_MODULES` 分配到正确角色：public-api 的反馈单独写入，private-api 的身份模块单独使用 auth；worker、migrate 和 test 各用自己的连接。它不会在 import 时运行，web/fetcher 不能调用；重复初始化会失败。closeDb 同时撤销这些注册并关闭连接池。该辅助入口属于过渡后端，随模块迁出由相应组合根接收。
+组合根也可以显式 `await initializeDb(processRole)`，按任务卡 D2 将 `DB_MODULES` 分配到正确角色：public-api 的反馈单独写入，private-api 的身份模块单独使用 auth；worker、migrate 和 test 各用自己的连接。它不会在 import 时运行，web/fetcher 不能调用；相同role及同一env引用的重入返回现有根，不同声明仍须先关闭。closeDb 同时撤销这些注册并关闭连接池。该辅助入口属于过渡后端，随模块迁出由相应组合根接收。
 
 - `dbOf(module)` 返回稳定句柄；加载模块时可以声明 SQL 片段、标识符或 JSON 辅助对象。
 - 只有组合根调用 `injectDb`，给每个模块分配 `@amp/config` 的 dbFor(role) 连接。未注入时执行查询或事务会失败，没有默认连接回退。
@@ -34,3 +34,7 @@ await access.close();
 
 
 翻译的逐段存储准备由enrichment独占：`translation_segments` 区分材料修订、配方、原文hash和段序号，原始模型text与恢复后HTML分别留hash；公开读取不读该明细表。`translations` 新增的recipe/source_hash/manifest保持旧记录为null，不补造完整度或回执依据。本次只交付可执行迁移与权限，严格逐段调用、事务写回及首次公开门另行接通，不能把schema存在当作完整中文验收。
+
+TASK-0021生命周期前置：initializeDb返回本根AbortSignal；同role与同env引用重入复用，不同声明仍须先关闭。closeProcessDb先登记共享关闭Promise，再撤销注册和signal，监听器同步重入不能打开新根或使用旧能力；新根独立，未改队列正常drain的时点。signal不包含控制器、连接或URL；生命周期本身不代表许可存储或网关强制已激活。
+
+未激活的sources/permissions与providers/permissions提供显式Ed25519签发/校验工厂：私钥只在sources闭包，验证端固定公钥/issuer/root。当前许可查询、可信完整输入重建、根signal与时钟必须由组合根提供，无默认allow。现有应用尚未调用工厂；合成端口测试不是数据库权限接线，模型/cache/写回仍待原子接通。

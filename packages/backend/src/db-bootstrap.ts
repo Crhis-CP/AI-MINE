@@ -25,7 +25,16 @@ export const DB_MODULES = Object.freeze([
 export type DatabaseProcess = Exclude<ProcessRole, "web" | "fetcher">;
 type Access = ReturnType<typeof createDatabaseAccess>;
 type QueueConnection = Readonly<{ connectionString: string; createSchema?: false; migrate?: false; supervise?: false; schedule?: false }>;
-let active: { access: Access; dispose: () => void; closing?: Promise<void>; queue?: QueueConnection } | undefined;
+let active:
+  | {
+      access: Access;
+      dispose: () => void;
+      closing?: Promise<void>;
+      queue?: QueueConnection;
+      lifetime: AbortController;
+      environment?: Readonly<Record<string, string | undefined>>;
+    }
+  | undefined;
 
 function roleFor(process: DatabaseProcess, module: string): QueryRole {
   switch (process) {
@@ -45,15 +54,23 @@ function roleFor(process: DatabaseProcess, module: string): QueryRole {
 }
 
 /** Called once by an app, CLI entry point or test setup, never implicitly by an imported module. */
-export async function initializeDb(process: DatabaseProcess, env?: Readonly<Record<string, string | undefined>>): Promise<void> {
-  if (active) throw new Error("Module databases already initialized or closing");
-  roleFor(process, "publication");
-  const access = createDatabaseAccess(process, env);
+export async function initializeDb(process: DatabaseProcess, env?: Readonly<Record<string, string | undefined>>): Promise<AbortSignal> {
+  if (active) {
+    if (!active.closing && active.access.processRole === process && active.environment === env) return active.lifetime.signal;
+    throw new Error("Module databases already initialized or closing");
+  }
+  const lifetime = new AbortController();
+  let access: Access | undefined;
   try {
-    const bindings = Object.fromEntries(DB_MODULES.map((module) => [module, access.dbFor(roleFor(process, module))]));
-    active = { access, dispose: injectDb(bindings) };
+    roleFor(process, "publication");
+    const created = createDatabaseAccess(process, env);
+    access = created;
+    const bindings = Object.fromEntries(DB_MODULES.map((module) => [module, created.dbFor(roleFor(process, module))]));
+    active = { access, dispose: injectDb(bindings), lifetime, environment: env };
+    return lifetime.signal;
   } catch (error) {
-    await access.close();
+    lifetime.abort();
+    await access?.close();
     throw error;
   }
 }
@@ -82,14 +99,33 @@ export function backupDatabaseUrl(): string {
 }
 
 /** Revoke this root's registrations before closing its pools. Concurrent close calls share one result. */
-export async function closeProcessDb(): Promise<void> {
+export function closeProcessDb(): Promise<void> {
   const current = active;
-  if (!current) return;
+  if (!current) return Promise.resolve();
   if (!current.closing) {
-    current.dispose();
-    current.closing = current.access.close().finally(() => {
-      if (active === current) active = undefined;
-    });
+    const completion = Promise.withResolvers<void>();
+    current.closing = completion.promise;
+    const cleanup = async () => {
+      try {
+        current.dispose();
+      } finally {
+        try {
+          current.lifetime.abort();
+        } finally {
+          await current.access.close();
+        }
+      }
+    };
+    void cleanup().then(
+      () => {
+        if (active === current) active = undefined;
+        completion.resolve();
+      },
+      (error) => {
+        if (active === current) active = undefined;
+        completion.reject(error);
+      },
+    );
   }
-  await current.closing;
+  return current.closing;
 }
