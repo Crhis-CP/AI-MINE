@@ -16,14 +16,6 @@ export const CATEGORIES = [
   { key: "opinion", label: "观点", section: "技巧与观点", guide: "人物观点、评论、分析、访谈、现象与趋势讨论" },
 ] as const;
 
-/** Display labels stay in the industry pack; integration checks bind their keys to contracts. */
-export const CATEGORY_LABELS = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label])) as Record<(typeof CATEGORIES)[number]["key"], string>;
-export const CHANNEL_LABELS: Record<"all" | "news" | "firstParty", string> = {
-  all: "全部",
-  news: "资讯",
-  firstParty: "一手",
-};
-
 /**
  * 内容理解一步给每篇资料判的“内容类型”（写在 prompts/content-understanding.md 里，改了类型要同步改那份提示词）。
  * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
@@ -170,7 +162,7 @@ export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; pattern
   {
     id: "anthropic",
     name: "Anthropic",
-    patterns: [/anthropic|\bclaude\b/i, /\b(?:opus|sonnet|haiku)\s*\d+(?:[.-]\d+)*\b/i, /\bfable\s*\d+(?:[.-]\d+)*\b|\bmythos\b/i],
+    patterns: [/anthropic|\bclaude\b/i, /\b(?:opus|sonnet|haiku)\s*\d+(?:[.\-]\d+)*\b/i, /\bfable\s*\d+(?:[.\-]\d+)*\b|\bmythos\b/i],
   },
   { id: "google", name: "Google / Gemini", patterns: [/google|deepmind|\bgemini\b|notebooklm|\bveo\s?\d|\bAlphaFold\b|\bAMIE\b/i] },
   { id: "deepseek", name: "DeepSeek", patterns: [/deepseek|深度求索/i] },

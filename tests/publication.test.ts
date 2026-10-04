@@ -4,7 +4,7 @@
 // early release keeps the selected ledger in order, a withdrawal waiting behind an unreleased item
 // leaves new snapshots at once, and snapshots answer conditional requests.
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { CATEGORY_LABELS } from "@amp/contracts/taxonomy";
 import { beijingDate } from "@amp/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
 import { tag } from "./setup.ts";

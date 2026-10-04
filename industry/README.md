@@ -28,14 +28,13 @@
 - `homeTitle`、`description`、`tagline`：首页完整标题；一句话介绍（搜索引擎、分享卡片、RSS、`llms.txt` 用）；首页与侧边栏的一行小字。
 - `locale`：界面语言（HTML `lang`、`og:locale`）。
 - `defaultUrl`：只在没设置 `SITE_URL` 时使用。站点地址由部署时的环境变量 `SITE_URL` 决定，不写在这里。
-- `mcpPrefix`：MCP 站点前缀，现值 `aiminingpolicy`。5个工具名在 contracts 固定，集成测试保证与此前缀一致；修改站点显示配置不会静默重命名工具。
+- `mcpPrefix`：MCP 工具名前缀（小写字母、数字、下划线），上线后冻结。现在是 `aiminingpolicy`，取域名 `aiminingpolicy.com` 的主体，工具名如 `aiminingpolicy_get_latest`。
 - `contactEmail`：对外联系邮箱（选填），使用规则、`llms.txt` 与响应头会写。`organization`：结构化数据里的网站运营者。
 - `crawlerName`：抓取信源时在 User-Agent 里报的名字，不能冒用别的站名。现在是 `AIMiningPolicyBot`。
 - `icp` 与 `ABOUT`（关于页文案，“怎么工作”四个环节各配一个站内实时统计数字）会按第 4 节拆走；页脚小字 `footerNote` 已删除。
 
 ### 2.2 `taxonomy.ts` 与 `topics.json`
 
-- `CATEGORY_LABELS`、`CHANNEL_LABELS`：显示标签的公开出口；分类/栏目 keys 与顺序在 contracts 固定，离线集成测试逐项对齐，industry 不反向依赖 contracts。
 - `CATEGORIES`：首页与“全部动态”的筛选类别，也用于卡片角标和 RSS 分类订阅。`key` 出现在网址与接口里（`/all?category=`、`/feed/category/<key>.xml`），上线后冻结；`label` 是显示名；`section` 是日报里的分节标题，几个类别可以共用一节；`guide` 告诉模型怎么归类。没归上类的资料放进 `key` 为 `industry` 的类别所在的节，没有这个类别就放最后一节。
 - `ITEM_TYPES`：内容理解一步判定的内容类型。`prompts/content-understanding.md` 列出这些类型，`prompts/selection-score.md` 按类型给评分维度不同的权重，三处在同一个提交里改。`CATEGORY_BY_ITEM_TYPE`：模型漏了分类标签时，按内容类型补一个。
 - `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义词统一成词表里的写法。

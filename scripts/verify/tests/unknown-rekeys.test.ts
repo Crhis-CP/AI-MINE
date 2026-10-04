@@ -4,8 +4,8 @@ import { digest } from "../ts-ownership.ts";
 import { importsOnly, rekeyUnknownBudget, unknownRekeyKeys, type UnknownRekey } from "../unknown-rekeys.ts";
 
 const file = "packages/backend/src/publication/feeds.ts";
-const before = "import { LABEL } from 'old';\nconst table = () => 'items';\nexport const query = sql.unsafe(table());\n";
-const after = before.replace("'old'", "'new'");
+const before = "import { CATEGORY_LABELS } from '@amp/contracts/taxonomy';\nconst table = () => 'items';\nexport const query = sql.unsafe(table());\n";
+const after = before.replace("@amp/contracts/taxonomy", "@amp/industry/taxonomy");
 const expression = "sql.unsafe(table())";
 const entry: UnknownRekey = {
   file,
@@ -98,4 +98,30 @@ test("budgets cannot be copied, increased, double-spent or manufactured", () => 
     assert.ok(rekeyUnknownBudget(now, prior, [...entries], read).errors.length);
   assert.ok(rekeyUnknownBudget(current, previous, [{ ...entry, sourceHash: "not-a-hash" }], read).errors.length);
   assert.ok(rekeyUnknownBudget(current, previous, [{ ...entry, file: "packages/../../outside.ts" }], read).errors.length);
+});
+
+test("same-file SQL helper aliases or modules cannot be swapped behind unchanged call text", () => {
+  const original = "import { listedCondition, selectedCondition } from './items.ts';\nconst scope = selectedCondition(now);\n";
+  const aliased = original.replace("listedCondition, selectedCondition", "selectedCondition as listedCondition, listedCondition as selectedCondition");
+  assert.equal(importsOnly(original, aliased), false);
+  assert.equal(importsOnly(original, original.replace("./items.ts", "./other-items.ts")), false);
+  const rekey = {
+    ...entry,
+    sourceHash: digest("selectedCondition(now)"),
+    before: { ...entry.before, [file]: digest(original) },
+    after: { ...entry.after, [file]: digest(aliased) },
+  };
+  const ids = unknownRekeyKeys(rekey);
+  assert.ok(rekeyUnknownBudget({ [ids.after]: 1 }, { [ids.before]: 1 }, [rekey], (_file, old) => (old ? original : aliased)).errors.length);
+});
+
+test("the label split preserves type-only bindings and rejects unapproved import changes", () => {
+  const original = "import { CATEGORY_LABELS, type CategoryKey } from '@amp/contracts/taxonomy';\nconst x: CategoryKey = 'research';";
+  const moved =
+    "import { CATEGORY_LABELS } from '@amp/industry/taxonomy';\nimport type { CategoryKey } from '@amp/contracts/taxonomy';\nconst x: CategoryKey = 'research';";
+  assert.equal(importsOnly(original, moved), true);
+  assert.equal(importsOnly(original, moved.replace("type { CategoryKey }", "{ CategoryKey }")), false);
+  assert.equal(importsOnly("import value from 'a';", "import value from 'b';"), false);
+  assert.equal(importsOnly("import * as values from 'a';", "import * as values from 'b';"), false);
+  assert.equal(importsOnly("import 'a';", "import 'b';"), false);
 });

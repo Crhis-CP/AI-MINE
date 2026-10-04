@@ -1,10 +1,15 @@
-// Public MCP tool identities are fixed contracts; site presentation does not rename them.
+// The MCP tool names, from the site's prefix (industry/site.ts): llms.txt, the agent page and the server
+// list the same names.
+import { SITE } from "@amp/industry/site";
+
+const p = SITE.mcpPrefix;
+
 export const MCP_TOOL_NAMES = {
-  latest: "aiminingpolicy_get_latest",
-  search: "aiminingpolicy_search",
-  hot: "aiminingpolicy_get_hot_topics",
-  story: "aiminingpolicy_get_story",
-  daily: "aiminingpolicy_get_daily",
+  latest: `${p}_get_latest`,
+  search: `${p}_search`,
+  hot: `${p}_get_hot_topics`,
+  story: `${p}_get_story`,
+  daily: `${p}_get_daily`,
 } as const;
 
 export const MCP_TOOLS = Object.values(MCP_TOOL_NAMES).map((name) => ({ name }));

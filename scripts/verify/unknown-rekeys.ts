@@ -31,7 +31,7 @@ export function unknownRekeyKeys(rekey: UnknownRekey): { before: string; after: 
   return { before: key(rekey.before), after: key(rekey.after) };
 }
 
-/** Compare real compiler statements, so strings/comments cannot disguise an import or helper edit. */
+/** Only the approved label move may change a runtime binding; all non-import statements stay identical. */
 export function importsOnly(before: string, after: string, extension = ".ts"): boolean {
   const dir = mkdtempSync(path.join(tmpdir(), "amp-import-rekey-"));
   const files = [path.join(dir, "before" + extension), path.join(dir, "after" + extension)];
@@ -44,13 +44,52 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
         const project = snapshot.getDefaultProjectForFile(file),
           source = project?.program.getSourceFile(file);
         if (!project || !source || project.program.getSyntacticDiagnostics(file).length) throw new Error("unparseable rekey source");
-        const body: string[] = [];
+        const body: string[] = [],
+          bindings = new Map<string, string[]>();
         source.forEachChild((node) => {
-          if (!ts.isImportDeclaration(node)) body.push(node.getText());
+          if (!ts.isImportDeclaration(node)) {
+            body.push(node.getText());
+            return;
+          }
+          if (!ts.isStringLiteral(node.moduleSpecifier)) throw new Error("nonliteral import");
+          const module = node.moduleSpecifier.text,
+            clause = node.importClause;
+          const add = (local: string, imported: string, typeOnly = false) => {
+            if (bindings.has(local)) throw new Error("ambiguous import binding");
+            bindings.set(local, [
+              module,
+              imported,
+              String(typeOnly || clause?.phaseModifier === ts.SyntaxKind.TypeKeyword),
+              String(clause?.phaseModifier === ts.SyntaxKind.TypeKeyword ? "" : (clause?.phaseModifier ?? "")),
+              node.attributes?.getText() ?? "",
+            ]);
+          };
+          if (!clause) {
+            add("side-effect:" + module, "");
+            return;
+          }
+          if (clause.name) add(clause.name.text, "default");
+          const named = clause.namedBindings;
+          if (named && ts.isNamespaceImport(named)) add(named.name.text, "*");
+          else if (named) for (const item of named.elements) add(item.name.text, item.propertyName?.text ?? item.name.text, item.isTypeOnly);
         });
-        return JSON.stringify(body);
+        return { body: JSON.stringify(body), bindings };
       });
-      return bodies[0] === bodies[1];
+      const [left, right] = bodies;
+      if (left!.body !== right!.body || left!.bindings.size !== right!.bindings.size) return false;
+      return [...left!.bindings].every(([local, prior]) => {
+        const next = right!.bindings.get(local);
+        if (!next) return false;
+        if (JSON.stringify(prior) === JSON.stringify(next)) return true;
+        return (
+          ["CATEGORY_LABELS", "CHANNEL_LABELS"].includes(local) &&
+          prior[1] === local &&
+          next[1] === local &&
+          prior[0] === "@amp/contracts/taxonomy" &&
+          next[0] === "@amp/industry/taxonomy" &&
+          JSON.stringify(prior.slice(2)) === JSON.stringify(next.slice(2))
+        );
+      });
     } finally {
       snapshot.dispose();
     }

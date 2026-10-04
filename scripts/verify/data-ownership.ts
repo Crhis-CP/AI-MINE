@@ -5,7 +5,6 @@ import { ROOT } from "./lib.ts";
 import { digest, extractOwnership } from "./ts-ownership.ts";
 import { sqlOwnership } from "./sql-ownership.ts";
 import { sqlLockFingerprint } from "./sql-lock.ts";
-import { rekeyUnknownBudget, unknownRekeysSchema, type UnknownRekey } from "./unknown-rekeys.ts";
 
 export const OWNERSHIP_MAP = "scripts/verify/data-ownership-map.json";
 export const OWNERSHIP_BASELINE = "scripts/verify/data-ownership-baseline.json";
@@ -20,7 +19,7 @@ export type OwnershipMap = {
   splitFiles: Record<string, unknown>;
 };
 type Inventory = ReturnType<typeof extractOwnership>;
-export type Baseline = { debt: Record<string, number>; unknown: Record<string, number>; unknownRekeys?: UnknownRekey[] };
+export type Baseline = { debt: Record<string, number>; unknown: Record<string, number> };
 const read = <T>(root: string, file: string): T => JSON.parse(readFileSync(path.join(root, file), "utf8")) as T;
 const normalize = (name: string, map: OwnershipMap) => map.moduleAliases[name] ?? name;
 const add = (counts: Record<string, number>, key: string) => {
@@ -30,7 +29,7 @@ const text = z.string().min(1);
 const strings = z.record(z.string(), text);
 const owners = z.record(z.string(), z.object({ module: text, access: text }));
 const counts = z.record(z.string(), z.number().finite().int().nonnegative());
-const budgetSchema = z.object({ debt: counts, unknown: counts, unknownRekeys: unknownRekeysSchema.optional() });
+const budgetSchema = z.object({ debt: counts, unknown: counts });
 const mapSchema = z.object({
   moduleAliases: strings,
   tables: owners,
@@ -174,7 +173,7 @@ export function buildOwnershipReport(root = ROOT, map = read<OwnershipMap>(root,
   return { ...report, migrations, sqlLock };
 }
 
-export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline; map: OwnershipMap; readSource?: (file: string) => string | null }): string[] {
+export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline; map: OwnershipMap }): string[] {
   const map = read<OwnershipMap>(root, OWNERSHIP_MAP),
     baseline = read<Baseline>(root, OWNERSHIP_BASELINE);
   const malformed = [...invalid(mapSchema, map, "ownership map"), ...invalid(budgetSchema, baseline, "baseline budget")];
@@ -191,10 +190,7 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
     ...compareOwnership(report.baseline, baseline),
   ];
   if (previous) {
-    const rekeyed = rekeyUnknownBudget(baseline.unknown, previous.baseline.unknown, baseline.unknownRekeys, (file, before) =>
-      before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8"),
-    );
-    errors.push(...rekeyed.errors, ...compareOwnership(baseline, { ...previous.baseline, unknown: rekeyed.budget }, false));
+    errors.push(...compareOwnership(baseline, previous.baseline, false));
     for (const [file, tables] of Object.entries(map.readModels))
       for (const table of tables) if (!previous.map.readModels[file]?.includes(table)) errors.push(`read-model allowlist increased: ${file} ${table}`);
     for (const file of Object.keys(map.splitFiles)) if (!previous.map.splitFiles[file]) errors.push(`split-file allowlist increased: ${file}`);

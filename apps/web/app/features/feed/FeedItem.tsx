@@ -4,7 +4,7 @@ import { memo } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
 import type { GroupInfo, FeedItemSummary, TimelineFilters } from "@amp/contracts/site";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { CATEGORY_LABELS } from "@amp/contracts/taxonomy";
 import { SelectedBadge } from "../../components/ui/Badge";
 import { ScoreLabel } from "../../components/ui/Score";
 import { SourceLine, StarButton } from "./parts";

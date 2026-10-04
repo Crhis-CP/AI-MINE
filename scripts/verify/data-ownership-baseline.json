@@ -180,12 +180,12 @@
     "packages/backend/src/operations/watch.ts:writeSetting:419783821353008d1f1209471e54b8b751c0927221323ef3c7c106b31df64e28": 1,
     "packages/backend/src/publication/detail.ts:loadItemDetail/[dev]:046fbf2891daae4d95d7cdaa30ac0eeb5187246e976854a328fe04ac0e4090d8": 1,
     "packages/backend/src/publication/detail.ts:loadItemDetail/[dev]:3670c40d4f164fcb290b3a3c4844b4ba8894e87fba68aa30dc4a785054dbd88d": 1,
-    "packages/backend/src/publication/feeds.ts:itemFeed/scope:bd5bf1cf353c3c58817e964601f8bd836a573d005e046a7264b9567bfb867f5f": 1,
-    "packages/backend/src/publication/feeds.ts:itemFeed/scope:63d28321664773bf98f74179fe45e5d744a3dd1f54b26d0a0b4962f1a2fb4fd4": 1,
-    "packages/backend/src/publication/feeds.ts:itemFeed/scope:aa6ac5b18e6db8a1b3bb8033ec1a47a19002d05a36683ec6d5dcc8256d7e2b98": 1,
-    "packages/backend/src/publication/feeds.ts:itemFeed/scope:e67cf3867b6adf1d913f16169e37f7b5ef6746226e32a36206b62144a495fa22": 1,
-    "packages/backend/src/publication/feeds.ts:itemFeed/scope:b4f51442e9ed5f18e07dbb75b901b84d4908efb074f3990f4df212b0ff5897ea": 1,
-    "packages/backend/src/publication/feeds.ts:itemFeed/rows:d448218f734de696b582773fee73da549f0e71f077e86d0cc818de9e220e6984": 1,
+    "packages/backend/src/publication/feeds.ts:itemFeed/scope:3448c0543cd8bb08edb041fb9396b786f9602dda2dac70afff67729ac9044015": 1,
+    "packages/backend/src/publication/feeds.ts:itemFeed/scope:499241a2cffddc80cb53338d4379c462f047949a9e43b34c955c354c82e76b40": 1,
+    "packages/backend/src/publication/feeds.ts:itemFeed/scope:8d854766be92594cb09c2a5c6c39501f2d7dca09bc36222b9369d7e8606dafb6": 1,
+    "packages/backend/src/publication/feeds.ts:itemFeed/scope:94ea7946f2f2be59c66fbd9dacc66fb17b09b43f0166d2555259489c6527f284": 1,
+    "packages/backend/src/publication/feeds.ts:itemFeed/scope:eb0ebac2151771438901dc7bbe5679bdc21928ca7d7a68645989a09e08acce39": 1,
+    "packages/backend/src/publication/feeds.ts:itemFeed/rows:efdaf286d5c4eefea0d75d91034a211f1a9c6a3f6179f66b3ce14d6784d2b17f": 1,
     "packages/backend/src/publication/groups.ts:loadGroupReports/filters:18347181c21f22b1e03776c7d9fca2cb5ddb6692f291f2290534c96a6f090b1c": 1,
     "packages/backend/src/publication/groups.ts:loadGroupReports/filters:89af9ac21f8433315fe3d64aaadb11a59d225b55ce0a1bd49d807f39f173d5a3": 1,
     "packages/backend/src/publication/groups.ts:loadGroupReports/filters:e1db584f01221b62644a8e198a45f86f7fa5ccbf5a4a33699a0323558c2d8e52": 1,
@@ -281,111 +281,5 @@
   "extractors": {
     "sql": "2479d891d78d004f23a2d10fcb7ef62f0520a319d69f011d0a48da8833b54f53",
     "typescript": "93e260a2cc5a2d3f250f762202fdd83fd523bf851fda1b2b01a235c0796fd5e7"
-  },
-  "unknownRekeys": [
-    {
-      "file": "packages/backend/src/publication/feeds.ts",
-      "scopeName": "itemFeed/scope",
-      "sourceHash": "3949d622e9efe8114835dd3497f9779348cb9d6bdcc113bff2d3c76f7d430fc8",
-      "reasons": ["unexpanded SQL fragment", "opaque interpolation: listedCondition(now)"],
-      "before": {
-        "packages/backend/src/publication/feeds.ts": "59753b19a88243fecfc6e887876a9e13e976afda0168bd0c46c72a10396d3b8f",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      },
-      "after": {
-        "packages/backend/src/publication/feeds.ts": "e6096c21f92547570f2201312f9ff11385f187b326cc52db4c855c1e970bdf53",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      }
-    },
-    {
-      "file": "packages/backend/src/publication/feeds.ts",
-      "scopeName": "itemFeed/scope",
-      "sourceHash": "6b1e1bd885c6e077ec1287f2c96bbfa0f96c620904cd7ae300c3421b0444a034",
-      "reasons": ["unexpanded SQL fragment", "unresolved database operation type", "opaque interpolation: listedCondition(now)"],
-      "before": {
-        "packages/backend/src/publication/feeds.ts": "59753b19a88243fecfc6e887876a9e13e976afda0168bd0c46c72a10396d3b8f",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      },
-      "after": {
-        "packages/backend/src/publication/feeds.ts": "e6096c21f92547570f2201312f9ff11385f187b326cc52db4c855c1e970bdf53",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      }
-    },
-    {
-      "file": "packages/backend/src/publication/feeds.ts",
-      "scopeName": "itemFeed/scope",
-      "sourceHash": "26860870858880e280a061ea339ce0132070ebb5937e787be28188e01f33c138",
-      "reasons": [
-        "unexpanded SQL fragment",
-        "opaque interpolation: selectedCondition(now)",
-        "opaque interpolation: categoryCondition(category, true)",
-        "opaque interpolation: category ? sql`AND coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)}` : sql``"
-      ],
-      "before": {
-        "packages/backend/src/publication/feeds.ts": "59753b19a88243fecfc6e887876a9e13e976afda0168bd0c46c72a10396d3b8f",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      },
-      "after": {
-        "packages/backend/src/publication/feeds.ts": "e6096c21f92547570f2201312f9ff11385f187b326cc52db4c855c1e970bdf53",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      }
-    },
-    {
-      "file": "packages/backend/src/publication/feeds.ts",
-      "scopeName": "itemFeed/scope",
-      "sourceHash": "6283b19081380dfa76c96eb0445fe15bb6337eac6279efdd23ccd8e48f5d10aa",
-      "reasons": ["unexpanded SQL fragment", "unresolved database operation type", "opaque interpolation: selectedCondition(now)"],
-      "before": {
-        "packages/backend/src/publication/feeds.ts": "59753b19a88243fecfc6e887876a9e13e976afda0168bd0c46c72a10396d3b8f",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      },
-      "after": {
-        "packages/backend/src/publication/feeds.ts": "e6096c21f92547570f2201312f9ff11385f187b326cc52db4c855c1e970bdf53",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      }
-    },
-    {
-      "file": "packages/backend/src/publication/feeds.ts",
-      "scopeName": "itemFeed/scope",
-      "sourceHash": "f32e45be9ecd6307ac2fc116de2ac395939a06ad380bfa52cc739f7480dd9ac2",
-      "reasons": ["unexpanded SQL fragment", "unresolved database operation type", "opaque interpolation: categoryCondition(category, true)"],
-      "before": {
-        "packages/backend/src/publication/feeds.ts": "59753b19a88243fecfc6e887876a9e13e976afda0168bd0c46c72a10396d3b8f",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      },
-      "after": {
-        "packages/backend/src/publication/feeds.ts": "e6096c21f92547570f2201312f9ff11385f187b326cc52db4c855c1e970bdf53",
-        "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      }
-    },
-    {
-      "file": "packages/backend/src/publication/feeds.ts",
-      "scopeName": "itemFeed/rows",
-      "sourceHash": "6a1eb14f80b2c4f7a34ff60846a9d29b9842c39cd7d8a47f9f1f33a7cb6f1fff",
-      "reasons": [
-        "unexpanded SQL fragment",
-        "opaque interpolation: kind === \"all\"\n      ? sql`${listedCondition(now)} AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'\n        AND coalesce(p.published_at, p.discovered_at) <= ${now}`\n      : sql`${selectedCondition(now)} ${categoryCondition(category, true)}\n        ${category ? sql`AND coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)}` : sql``}`",
-        "opaque interpolation: includeContent ? sql`, p.syndicate, a.language, a.body_html, tr.body_html AS tr_html, tr.complete AS tr_complete` : sql``",
-        "opaque interpolation: includeContent\n        ? sql`LEFT JOIN articles a ON a.id = p.article_id AND p.syndicate\n      LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision`\n        : sql``"
-      ],
-      "before": {
-        "packages/backend/src/publication/feeds.ts": "59753b19a88243fecfc6e887876a9e13e976afda0168bd0c46c72a10396d3b8f",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      },
-      "after": {
-        "packages/backend/src/publication/feeds.ts": "e6096c21f92547570f2201312f9ff11385f187b326cc52db4c855c1e970bdf53",
-        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
-      }
-    }
-  ]
+  }
 }

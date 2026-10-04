@@ -1,7 +1,7 @@
 import { SITE } from "@amp/industry/site";
 import { Fragment, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { CATEGORY_LABELS } from "@amp/contracts/taxonomy";
 import type { Route } from "./+types/selectbench-run";
 import { adminGet } from "../../lib/admin.server";
 import { bj, num, pct } from "../../features/admin/format";
