@@ -22,6 +22,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { checkBoundaries } from "./boundaries.ts";
+import { checkDataOwnership, OWNERSHIP_BASELINE, OWNERSHIP_MAP } from "./data-ownership.ts";
 import { git, type Log, openLog, probe, ROOT, run, capture, sha256, sha256File, start, stopAll, tryGit } from "./lib.ts";
 import { formatLint } from "./lint.ts";
 import { checkNames, checkOutputs, checkOutputTree, fetchSiteOutputs } from "./names.ts";
@@ -37,7 +38,7 @@ import { webEnvironment } from "../../apps/web/runtime-env.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 
 const WEB_PACKAGE = "@amp/web";
-const PENDING_STAGES = ["contracts (TASK-0005)", "data-ownership (TASK-0004 PR10)", "e2e-smoke (TASK-0008)", "product-update", "pit-checks (TASK-0011)"];
+const PENDING_STAGES = ["contracts (TASK-0005)", "e2e-smoke (TASK-0008)", "product-update", "pit-checks (TASK-0011)"];
 const PASS_ENV = [
   "PATH",
   "HOME",
@@ -271,6 +272,16 @@ const STAGES: Stage[] = [
     name: "names",
     quick: true,
     run: async ({ log }) => problems(checkNames(ROOT, trackedFiles()), log, "upstream name and marks only on the exception paths; no upstream brand asset"),
+  },
+  {
+    name: "data-ownership",
+    quick: true,
+    run: async ({ log, base }) => {
+      const baseline = base ? tryGit(["show", `${base}:${OWNERSHIP_BASELINE}`]) : null;
+      const map = base ? tryGit(["show", `${base}:${OWNERSHIP_MAP}`]) : null;
+      const previous = baseline && map ? { baseline: JSON.parse(baseline), map: JSON.parse(map) } : undefined;
+      return problems(checkDataOwnership(ROOT, previous), log, "table owners, role catalogue and no-growth SQL inventory; retained UNKNOWN sites are unproved");
+    },
   },
   {
     name: "path-guard",
