@@ -1,0 +1,329 @@
+{
+  "files": {
+    "packages/backend/src/publication/items.ts": "// Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads\n// items through these functions; visibility, release gate and body licences are applied here.\nimport type { CategoryKey, ChannelKey } from \"@amp/contracts/taxonomy\";\nimport type { FeedItemSummary, ItemSummary, SourceKind } from \"@amp/contracts/site\";\nimport { dbOf, type Db } from \"../db.ts\";\nimport { displayTags } from \"./rules.ts\";\n\nconst sql = dbOf(\"publication\");\n\nexport interface ItemRow {\n  id: string;\n  revision: number;\n  title: string;\n  original_title: string | null;\n  summary: string | null;\n  reason: string | null;\n  category: string | null;\n  tags: string[];\n  score: number | null;\n  selected: boolean;\n  eligible: boolean;\n  channel: \"news\";\n  url: string;\n  published_at: Date | null;\n  discovered_at: Date;\n  timeline_at: Date;\n  /** Reading-group anchor for a selected item (timeline_at otherwise). */\n  sort_at: Date;\n  first_party: boolean;\n  visibility: string;\n  body_mode: \"full\" | \"summary\";\n  syndicate: boolean;\n  indexable: boolean;\n  visible_after: Date | null;\n  backfill: boolean;\n  fact_id: number | null;\n  story_id: number | null;\n  source_id: string;\n  source_name: string;\n  source_kind: SourceKind;\n  /** Participation mode of the source now (editorial, hot_signal, isolated). */\n  source_mode: string;\n  author: string | null;\n  language: string | null;\n  story_public_id: string | null;\n  story_title: string | null;\n}\n\n/** Columns every item listing selects. Internal judgement details never leave this layer. */\nexport const ITEM_COLUMNS = sql`\n  p.article_id AS id, p.revision, p.title, p.original_title, p.summary, p.reason, p.category, p.tags, p.score,\n  p.selected, p.eligible, p.channel, p.url, p.published_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,\n  p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,\n  s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,\n  a.author, a.language,\n  st.public_id::text AS story_public_id, st.title AS story_title`;\n\n/** Public API listings never render article bodies or story metadata. */\nexport type ApiItemRow = Pick<\n  ItemRow,\n  \"id\" | \"title\" | \"original_title\" | \"summary\" | \"source_name\" | \"url\" | \"published_at\" | \"discovered_at\" | \"category\" | \"score\" | \"selected\" | \"reason\"\n>;\nexport const API_ITEM_COLUMNS = sql`\n  p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,\n  p.published_at, p.discovered_at, p.category, p.score, p.selected, p.reason`;\nexport const API_ITEM_FROM = sql`FROM publications p JOIN sources s ON s.id = p.source_id`;\n\n/** A translation of an older revision is left out: the original changed after it (the worker translates it again). */\nexport const ITEM_FROM = sql`\n  FROM publications p\n  JOIN sources s ON s.id = p.source_id\n  JOIN articles a ON a.id = p.article_id\n  LEFT JOIN stories st ON st.id = p.story_id AND st.merged_into IS NULL\n  LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision`;\n\n/** Listed items: public, and a selected item only after its release gate. */\nexport function listedCondition(now: Date) {\n  return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now})`;\n}\n\n/** Selected set as shown on the home timeline, v1 selected mode and RSS. */\nexport function selectedCondition(now: Date) {\n  return sql`p.visibility = 'public' AND p.selected AND p.visible_after <= ${now}`;\n}\n\nexport function channelCondition(channel: ChannelKey | null | undefined) {\n  if (!channel || channel === \"all\") return sql``;\n  if (channel === \"firstParty\") return sql`AND p.first_party`;\n  return sql`AND p.channel = ${channel}`;\n}\n\nexport function categoryCondition(category: CategoryKey | null | undefined, v1 = false) {\n  if (!category) return sql``;\n  // v1 and RSS publish opinion as tip.\n  if (v1 && category === \"tip\") return sql`AND p.category IN ('tip', 'opinion')`;\n  return sql`AND p.category = ${category}`;\n}\n\nexport function tagCondition(tag: string | null | undefined) {\n  if (!tag) return sql``;\n  return sql`AND p.tags @> ${[tag]}::text[]`;\n}\n\nexport function topicCondition(topicTags: string[] | null | undefined) {\n  if (!topicTags || topicTags.length === 0) return sql``;\n  return sql`AND p.tags && ${topicTags}::text[]`;\n}\n\nexport function toItemSummary(row: ItemRow): ItemSummary {\n  return {\n    id: row.id,\n    revision: row.revision,\n    title: row.title,\n    originalTitle: row.original_title,\n    summary: row.summary,\n    reason: row.selected ? row.reason : null,\n    source: {\n      id: row.source_id,\n      name: row.source_name,\n      kind: row.source_kind,\n      firstParty: row.first_party,\n    },\n    links: { original: row.url },\n    publishedAt: row.published_at?.toISOString() ?? null,\n    discoveredAt: row.discovered_at.toISOString(),\n    timelineAt: row.timeline_at.toISOString(),\n    category: (row.category as CategoryKey | null) ?? null,\n    tags: displayTags(row.tags),\n    score: row.score === null ? null : Math.round(Number(row.score)),\n    selected: row.selected,\n    channel: row.channel,\n    story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? \"\" } : null,\n  };\n}\n\n/** Project the shared public article into the exact fields a site card renders. */\nexport function toFeedItemSummary(row: ItemRow): FeedItemSummary {\n  const item = toItemSummary(row);\n  return {\n    id: item.id,\n    title: item.title,\n    summary: item.summary,\n    reason: item.reason,\n    source: { name: item.source.name },\n    publishedAt: item.publishedAt,\n    timelineAt: item.timelineAt,\n    category: item.category,\n    tags: item.tags,\n    score: item.score,\n    selected: item.selected,\n    channel: item.channel,\n  };\n}\n\nexport async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<string, ItemRow>> {\n  if (ids.length === 0) return new Map();\n  const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${db(ids)}`;\n  return new Map(rows.map((r) => [r.id, r]));\n}\n",
+    "packages/backend/src/publication/pool.ts": "// Public pool (/all) with numeric pages, and search in its two orderings.\nimport type { PoolResponse, TimelineFilters } from \"@amp/contracts/site\";\nimport { beijingDate, beijingMidnight } from \"@amp/contracts/time\";\nimport { one, dbOf, withCustomPlans, type Db } from \"../db.ts\";\nimport {\n  categoryCondition,\n  channelCondition,\n  ITEM_COLUMNS,\n  ITEM_FROM,\n  listedCondition,\n  tagCondition,\n  toFeedItemSummary,\n  topicCondition,\n  type ItemRow,\n} from \"./items.ts\";\n\nconst sql = dbOf(\"publication\");\n\nexport const POOL_PAGE_SIZE = 40;\nexport const POOL_MAX_PAGES = 50;\n\nexport class SearchBusyError extends Error {\n  readonly retryAfter: number;\n  constructor(retryAfter: number) {\n    super(\"search capacity exhausted\");\n    this.retryAfter = retryAfter;\n  }\n}\n\n// Search capacity guard: bounded concurrency with a short queue. Overflow answers 503 + Retry-After\n// instead of letting machine traffic drag list browsing down.\nconst MAX_CONCURRENT_SEARCHES = Number(process.env.SEARCH_MAX_CONCURRENCY || 4);\nconst MAX_QUEUED_SEARCHES = Number(process.env.SEARCH_MAX_QUEUE || 8);\nlet running = 0;\nconst waiters: Array<() => void> = [];\n\nexport async function withSearchCapacity<T>(fn: (db: Db) => Promise<T>): Promise<T> {\n  if (running >= MAX_CONCURRENT_SEARCHES) {\n    if (waiters.length >= MAX_QUEUED_SEARCHES) throw new SearchBusyError(5);\n    await new Promise<void>((resolve, reject) => {\n      const timer = setTimeout(() => {\n        const i = waiters.indexOf(go);\n        if (i >= 0) waiters.splice(i, 1);\n        reject(new SearchBusyError(5));\n      }, 3000);\n      const go = () => {\n        clearTimeout(timer);\n        resolve();\n      };\n      waiters.push(go);\n    });\n  }\n  running += 1;\n  try {\n    return await withCustomPlans(fn);\n  } finally {\n    running -= 1;\n    waiters.shift()?.();\n  }\n}\n\n/** Search terms: whitespace separated, lower-cased, LIKE metacharacters escaped. */\nexport function searchTerms(q: string): string[] {\n  return q\n    .toLowerCase()\n    .split(/\\s+/)\n    .map((t) => t.trim())\n    .filter(Boolean)\n    .slice(0, 6)\n    .map((t) => t.replace(/[\\\\%_]/g, (m) => `\\\\${m}`));\n}\n\n/** Default search: subject, title or summary match (search_text), newest first. */\nexport function directMatchCondition(terms: string[]) {\n  if (terms.length === 0) return sql``;\n  return terms.reduce((acc, t) => sql`${acc} AND p.search_text LIKE ${\"%\" + t + \"%\"}`, sql``);\n}\n\n/**\n * The public APIs' q (v1 and MCP): every term matches the subject, title or summary, or\n * the start of a body whose full text may be shown, as the API documents it (\"title / Chinese\n * title / Chinese summary / body\"). Results stay in time order.\n */\nexport function publicMatchCondition(terms: string[]) {\n  if (terms.length === 0) return sql``;\n  // Keep the body lookup correlated to the time-ordered candidates. Without OFFSET 0, PostgreSQL\n  // may hash every matching body in pool_search before serving even the first 40 recent items.\n  return terms.reduce(\n    (acc, t) => sql`${acc} AND (p.search_text LIKE ${\"%\" + t + \"%\"} OR EXISTS (\n      SELECT 1 FROM pool_search ps WHERE ps.article_id = p.article_id AND ps.body LIKE ${\"%\" + t + \"%\"} OFFSET 0))`,\n    sql``,\n  );\n}\n\n/** Unfiltered-by-search totals only set the page count; they are reused for 30 seconds per filter. */\nconst countCache = new Map<string, { at: number; n: number }>();\nconst countPending = new Map<string, Promise<number>>();\nasync function poolCount(key: string | null, query: () => Promise<Array<{ n: number }>>): Promise<number> {\n  if (key === null) return Number(one(await query()).n);\n  const hit = countCache.get(key);\n  if (hit && Date.now() - hit.at < 30_000) return hit.n;\n  const pending = countPending.get(key);\n  if (pending) return pending;\n  const load = (async () => {\n    const n = Number(one(await query()).n);\n    if (countCache.size >= 200) countCache.delete(countCache.keys().next().value!);\n    countCache.set(key, { at: Date.now(), n });\n    return n;\n  })();\n  countPending.set(key, load);\n  try {\n    return await load;\n  } finally {\n    countPending.delete(key);\n  }\n}\n\nexport interface PoolQuery extends TimelineFilters {\n  q?: string | null;\n  tab?: \"time\" | \"relevance\";\n  page?: number;\n  topicTags?: string[] | null;\n  now?: Date;\n}\n\nexport async function loadPool(query: PoolQuery): Promise<PoolResponse> {\n  const now = query.now ?? new Date();\n  const page = Math.min(Math.max(query.page ?? 1, 1), POOL_MAX_PAGES);\n  const q = query.q?.trim() || null;\n  const tab = q && query.tab === \"relevance\" ? \"relevance\" : \"time\";\n  const terms = q ? searchTerms(q) : [];\n  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)}`;\n  const offset = (page - 1) * POOL_PAGE_SIZE;\n  const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;\n  // A fixed clock (tests, replays) never shares cached totals.\n  const filterKey = query.now ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null]);\n\n  // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small\n  // table to scan for one- and two-character ones.\n  const like = (col: ReturnType<typeof sql>, t: string) => sql`${col} LIKE ${\"%\" + t + \"%\"}`;\n  const run = async (db: Db) => {\n    if (!q) {\n      // Page ids from the timeline index first, then the joins for those rows only.\n      const rows = await db<ItemRow[]>`\n        WITH page AS (\n          SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters}\n          ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})\n        SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)\n        ORDER BY p.timeline_at DESC, p.article_id DESC`;\n      return {\n        rows,\n        total: await poolCount(\n          filterKey,\n          () => db<{ n: number }[]>`\n        SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} LIMIT ${cap}) t`,\n        ),\n      };\n    }\n    if (tab === \"relevance\") {\n      // Rank narrow rows first: no article bodies or translations enter the sort/count. The public\n      // total stops at 2,000, even though ranking must consider every matching item.\n      // For an unfiltered trigram search, match each indexed field separately. OR across fields\n      // can make PostgreSQL scan every toasted body instead. Keep other searches inline so short\n      // terms, additional terms and selective publication filters retain their existing plans.\n      const splitFields =\n        terms.length === 1 &&\n        /[\\p{L}\\p{N}]{3}/u.test(terms[0]!) &&\n        (!query.channel || query.channel === \"all\") &&\n        !query.category &&\n        !query.tag &&\n        !query.topicTags?.length;\n      const partScore = terms.reduce(\n        (acc, t) => sql`${acc} + (CASE WHEN ${like(sql`ps.direct`, t)} THEN 3 ELSE 0 END) + (CASE WHEN ${like(sql`ps.body`, t)} THEN 1 ELSE 0 END)`,\n        sql`0`,\n      );\n      const titleScore = terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`);\n      const anyMatch = terms.reduce((acc, t) => sql`${acc} AND (${like(sql`ps.direct`, t)} OR ${like(sql`ps.body`, t)})`, sql`TRUE`);\n      const matches = splitFields\n        ? sql`\n        SELECT coalesce(d.article_id, b.article_id) AS article_id,\n          (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END) + (CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part\n        FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${\"%\" + terms[0]! + \"%\"}) d\n        FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${\"%\" + terms[0]! + \"%\"}) b ON b.article_id = d.article_id`\n        : sql`SELECT ps.article_id, (${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}`;\n      type RankedRow = Omit<ItemRow, \"id\"> & { id: string | null; rel: number; total: number };\n      const result = await db<RankedRow[]>`\n        WITH matches AS ${splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`} (${matches}), scored AS MATERIALIZED (\n          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel\n          FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id\n          WHERE ${listedCondition(now)} AND p.eligible ${filters}\n        ), page AS MATERIALIZED (\n          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC\n          LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}\n        ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored LIMIT ${cap}) capped)\n        SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (\n          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id\n        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`;\n      const rows = result.filter((r): r is ItemRow & { rel: number; total: number } => r.id !== null);\n      return { rows, total: Number(result[0]!.total) };\n    }\n    // Default search: newest first straight from the timeline index; the total from the pool's\n    // search rows, where one- and two-character terms scan a small table instead of every item.\n    const rows = await db<ItemRow[]>`\n      WITH page AS (\n        SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${directMatchCondition(terms)}\n        ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})\n      SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)\n      ORDER BY p.timeline_at DESC, p.article_id DESC`;\n    const direct = terms.reduce((acc, t) => sql`${acc} AND ${like(sql`ps.direct`, t)}`, sql``);\n    const { n } = one(\n      await db<{ n: number }[]>`\n      SELECT count(*) AS n FROM (SELECT 1 FROM pool_search ps JOIN publications p ON p.article_id = ps.article_id\n        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${direct} LIMIT ${cap}) t`,\n    );\n    return { rows, total: Number(n) };\n  };\n\n  const { rows, total } = q ? await withSearchCapacity(run) : await run(sql);\n  const today = beijingDate(now);\n  const meta = one(\n    await sql<{ today_count: number; updated_at: Date | null }[]>`\n    SELECT (SELECT count(*) FROM publications p\n      WHERE ${listedCondition(now)} AND p.eligible AND p.timeline_at >= ${beijingMidnight(today)} ${filters}) AS today_count,\n      (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`,\n  );\n\n  return {\n    filters: { channel: query.channel, category: query.category, tag: query.tag, topic: query.topic ?? null, q, tab },\n    items: rows.map(toFeedItemSummary),\n    page,\n    pageCount: Math.min(POOL_MAX_PAGES, Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))),\n    total,\n    todayCount: Number(meta.today_count),\n    freshness: (meta.updated_at ?? now).toISOString(),\n    generatedAt: now.toISOString(),\n  };\n}\n",
+    "packages/backend/src/publication/v1.ts": "// v1 items and the selected sync (snapshot + changes), read from the same public read layer.\nimport type { PublicApiCategoryKey } from \"@amp/contracts/taxonomy\";\nimport { dbOf, type Db } from \"../db.ts\";\nimport { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from \"../lib/cursor.ts\";\nimport { newShortId } from \"../lib/ids.ts\";\nimport { categoryCondition, API_ITEM_COLUMNS, API_ITEM_FROM, listedCondition, selectedCondition, type ApiItemRow } from \"./items.ts\";\nimport { publicMatchCondition, searchTerms, withSearchCapacity } from \"./pool.ts\";\nimport { v1Payload, type V1ItemPayload } from \"./publish.ts\";\n\nconst sql = dbOf(\"publication\");\n\nexport interface V1ItemsQuery {\n  mode: \"selected\" | \"all\";\n  window: \"24h\" | \"7d\";\n  by: \"timeline\" | \"published\";\n  category: PublicApiCategoryKey | null;\n  q: string | null;\n  limit: number;\n  cursor: string | null;\n}\n\nexport interface V1ItemsResult {\n  schemaVersion: 1;\n  query: { mode: string; category: string | null; window: string; q: string | null; by: string; ordering: string };\n  items: V1ItemPayload[];\n  page: { count: number; hasMore: boolean; nextCursor: string | null };\n}\n\nexport function rowToV1(row: ApiItemRow): V1ItemPayload {\n  return v1Payload({\n    articleId: row.id,\n    title: row.title,\n    originalTitle: row.original_title,\n    summary: row.summary,\n    sourceName: row.source_name,\n    url: row.url,\n    publishedAt: row.published_at,\n    discoveredAt: row.discovered_at,\n    category: row.category,\n    score: row.score === null ? null : Number(row.score),\n    selected: row.selected,\n    reason: row.reason,\n  });\n}\n\nexport async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1ItemsResult> {\n  const windowMs = query.window === \"24h\" ? 86400000 : 7 * 86400000;\n  const windowStart = new Date(now.getTime() - windowMs);\n  const binding = queryBinding({ m: query.mode, w: query.window, b: query.by, c: query.category, q: query.q });\n  // by=timeline is the site's own order: a selected item at its reading-group anchor, anything else at its timeline time.\n  const sortCol = query.by === \"published\" ? sql`coalesce(p.published_at, p.discovered_at)` : query.mode === \"selected\" ? sql`p.sort_at` : sql`p.timeline_at`;\n  let after: { a: number; i: string } | null = null;\n  if (query.cursor) {\n    const c = decodeCursor<{ a: number; i: string; c: string }>(\"it3\", query.cursor);\n    if (c.c !== binding || typeof c.a !== \"number\" || typeof c.i !== \"string\") throw new InvalidCursorError(\"cursor does not belong to this query\");\n    // The rolling window slid past the anchor: tell the client instead of returning an empty page.\n    if (c.a < windowStart.getTime()) throw new InvalidCursorError(\"the rolling window moved past this cursor\");\n    after = { a: c.a, i: c.i };\n  }\n  const scope = query.mode === \"selected\" ? selectedCondition(now) : sql`${listedCondition(now)} AND p.eligible`;\n  const terms = query.q ? searchTerms(query.q) : [];\n\n  const run = (db: Db) => db<(ApiItemRow & { sort_at: Date })[]>`\n    SELECT ${API_ITEM_COLUMNS}, ${sortCol} AS sort_at ${API_ITEM_FROM}\n    WHERE ${scope} ${categoryCondition(query.category, true)} ${publicMatchCondition(terms)}\n      AND ${sortCol} >= ${windowStart} AND ${sortCol} <= ${now}\n      ${after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``}\n    ORDER BY ${sortCol} DESC, p.article_id DESC\n    LIMIT ${query.limit + 1}`;\n  const rows = terms.length ? await withSearchCapacity(run) : await run(sql);\n\n  const page = rows.slice(0, query.limit);\n  const hasMore = rows.length > query.limit;\n  const last = page[page.length - 1];\n  return {\n    schemaVersion: 1,\n    query: {\n      mode: query.mode,\n      category: query.category,\n      window: query.window,\n      q: query.q,\n      by: query.by,\n      ordering: query.by === \"published\" ? \"publishedAtDesc\" : \"timelineDesc\",\n    },\n    items: page.map(rowToV1),\n    page: {\n      count: page.length,\n      hasMore,\n      nextCursor: hasMore && last ? encodeCursor(\"it3\", { a: last.sort_at.getTime(), i: last.id, c: binding }) : null,\n    },\n  };\n}\n\n// ---------------------------------------------------------------------------\n// Selected sync\n// ---------------------------------------------------------------------------\n\nexport class SnapshotRequiredError extends Error {}\n\nconst SYNC_PREFIX = \"ax1\"; // any other watermark answers 409\n\nlet epochCache: string | null = null;\n\n/** Ledger epoch: changes whenever the ledger is rebuilt (e.g. after an import), invalidating old watermarks. */\nexport async function ledgerEpoch(): Promise<string> {\n  if (epochCache) return epochCache;\n  const [row] = await sql<{ value: { epoch: string } }[]>`SELECT value FROM settings WHERE key = 'selected_ledger_epoch'`;\n  if (row) return (epochCache = row.value.epoch);\n  const epoch = newShortId(6);\n  await sql`INSERT INTO settings (key, value) VALUES ('selected_ledger_epoch', ${sql.json({ epoch })}) ON CONFLICT (key) DO NOTHING`;\n  const [again] = await sql<{ value: { epoch: string } }[]>`SELECT value FROM settings WHERE key = 'selected_ledger_epoch'`;\n  return (epochCache = again!.value.epoch);\n}\n\n/** Highest sequence whose entries (and all earlier ones) have passed the release gate. */\nexport async function effectiveWatermark(now = new Date()): Promise<number> {\n  const [row] = await sql<{ w: number }[]>`\n    SELECT coalesce((SELECT min(seq) - 1 FROM selected_ledger WHERE visible_at > ${now}),\n                    (SELECT coalesce(max(seq), 0) FROM selected_ledger)) AS w`;\n  return Number(row?.w ?? 0);\n}\n\nfunction minimalOf(item: V1ItemPayload) {\n  return {\n    id: item.id,\n    title: item.title,\n    source: item.source,\n    publishedAt: item.publishedAt,\n    discoveredAt: item.discoveredAt,\n    category: item.category,\n    score: item.score,\n    selected: item.selected,\n  };\n}\n\n// Drop unused wide fields before crossing the database connection; minimalOf remains the output\n// whitelist, preserving its omission of absent keys and all existing null values.\nfunction ledgerPayload(minimal: boolean, payload = sql`payload`) {\n  return minimal ? sql`${payload} - ARRAY['originalTitle', 'summary', 'reason', 'attribution', 'links']::text[]` : payload;\n}\n\nexport interface SnapshotQuery {\n  fields?: \"default\" | \"minimal\";\n  limit: number;\n  page: string | null;\n}\n\nexport async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {\n  const epoch = await ledgerEpoch();\n  let fields = q.fields ?? \"default\";\n  let w: number;\n  let afterId = \"\";\n  let asOf: string;\n  if (q.page) {\n    const p = decodeCursor<{ k: string; e: string; w: number; f: string; a: string; t: string }>(SYNC_PREFIX, q.page);\n    if (p.k !== \"page\" || p.e !== epoch || (p.f !== \"default\" && p.f !== \"minimal\") || (q.fields !== undefined && p.f !== q.fields) || typeof p.w !== \"number\")\n      throw new InvalidCursorError(\"page token does not match this snapshot\");\n    // Only the first page defaults to full fields; continuations inherit their original projection.\n    fields = p.f;\n    w = p.w;\n    afterId = p.a;\n    asOf = p.t;\n  } else {\n    w = await effectiveWatermark(now);\n    asOf = now.toISOString();\n  }\n  // The set as of the watermark, less anything taken out of the selected set since: a withdrawal waiting\n  // behind a not-yet-released entry must not reach new snapshots. Its remove still follows in changes,\n  // which the client applies as a no-op.\n  const rows = await sql<{ article_id: string; payload: V1ItemPayload }[]>`\n    SELECT latest.article_id, ${ledgerPayload(fields === \"minimal\", sql`latest.payload`)} AS payload FROM (\n      SELECT DISTINCT ON (article_id) article_id, op, payload FROM selected_ledger\n      WHERE seq <= ${w} AND article_id > ${afterId}\n      ORDER BY article_id, seq DESC\n    ) latest\n    JOIN selected_state st ON st.article_id = latest.article_id AND st.in_set\n    WHERE latest.op = 'upsert'\n    ORDER BY latest.article_id\n    LIMIT ${q.limit + 1}`;\n  const page = rows.slice(0, q.limit);\n  const hasMore = rows.length > q.limit;\n  const last = page[page.length - 1];\n  return {\n    schemaVersion: 1 as const,\n    asOf,\n    fields,\n    cursor: encodeCursor(SYNC_PREFIX, { k: \"sync\", e: epoch, w, f: fields }),\n    count: page.length,\n    hasMore,\n    nextPage: hasMore && last ? encodeCursor(SYNC_PREFIX, { k: \"page\", e: epoch, w, f: fields, a: last.article_id, t: asOf }) : null,\n    items: page.map((r) => (fields === \"minimal\" ? minimalOf(r.payload) : r.payload)),\n  };\n}\n\nexport async function selectedChanges(q: { cursor: string; limit: number }, now = new Date()) {\n  const epoch = await ledgerEpoch();\n  let c: { k: string; e: string; w: number; f: \"default\" | \"minimal\" };\n  try {\n    c = decodeCursor(SYNC_PREFIX, q.cursor);\n  } catch {\n    throw new SnapshotRequiredError(\"unknown watermark\");\n  }\n  if (c.k !== \"sync\" || c.e !== epoch || typeof c.w !== \"number\" || (c.f !== \"default\" && c.f !== \"minimal\")) {\n    throw new SnapshotRequiredError(\"watermark from another ledger epoch or format\");\n  }\n  const w = await effectiveWatermark(now);\n  if (c.w > w) {\n    const [max] = await sql<{ m: number }[]>`SELECT coalesce(max(seq), 0) AS m FROM selected_ledger`;\n    if (c.w > Number(max?.m ?? 0)) throw new SnapshotRequiredError(\"watermark is ahead of this ledger\");\n  }\n  const rows = await sql<{ seq: number; article_id: string; op: \"upsert\" | \"remove\"; changed_at: Date; payload: V1ItemPayload | null }[]>`\n    SELECT seq, article_id, op, changed_at, ${ledgerPayload(c.f === \"minimal\")} AS payload FROM selected_ledger\n    WHERE seq > ${c.w} AND seq <= ${w}\n    ORDER BY seq LIMIT ${q.limit + 1}`;\n  const page = rows.slice(0, q.limit);\n  const hasMore = rows.length > q.limit;\n  const nextW = page.length ? page[page.length - 1]!.seq : Math.max(c.w, 0);\n  return {\n    schemaVersion: 1 as const,\n    fields: c.f,\n    cursor: encodeCursor(SYNC_PREFIX, { k: \"sync\", e: epoch, w: nextW, f: c.f }),\n    count: page.length,\n    hasMore,\n    changes: page.map((r) =>\n      r.op === \"remove\"\n        ? { op: \"remove\" as const, changedAt: r.changed_at.toISOString(), id: r.article_id }\n        : { op: \"upsert\" as const, changedAt: r.changed_at.toISOString(), item: c.f === \"minimal\" ? minimalOf(r.payload!) : r.payload! },\n    ),\n  };\n}\n"
+  },
+  "afterItems": "// Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads\n// items through these functions; visibility, release gate and body licences are applied here.\nimport type { CategoryKey, ChannelKey } from \"@amp/contracts/taxonomy\";\nimport type { FeedItemSummary, ItemSummary, SourceKind } from \"@amp/contracts/site\";\nimport { dbOf, type Db } from \"../db.ts\";\nimport { displayTags } from \"./rules.ts\";\n\nconst sql = dbOf(\"publication\");\n\nexport interface ItemRow {\n  id: string;\n  revision: number;\n  title: string;\n  original_title: string | null;\n  summary: string | null;\n  reason: string | null;\n  category: string | null;\n  tags: string[];\n  score: number | null;\n  selected: boolean;\n  eligible: boolean;\n  channel: \"news\";\n  url: string;\n  published_at: Date | null;\n  discovered_at: Date;\n  timeline_at: Date;\n  /** Reading-group anchor for a selected item (timeline_at otherwise). */\n  sort_at: Date;\n  first_party: boolean;\n  visibility: string;\n  body_mode: \"full\" | \"summary\";\n  syndicate: boolean;\n  indexable: boolean;\n  visible_after: Date | null;\n  backfill: boolean;\n  fact_id: number | null;\n  story_id: number | null;\n  source_id: string;\n  source_name: string;\n  source_kind: SourceKind;\n  /** Participation mode of the source now (editorial, hot_signal, isolated). */\n  source_mode: string;\n  author: string | null;\n  language: string | null;\n  story_public_id: string | null;\n  story_title: string | null;\n}\n\n/** Columns every item listing selects. Internal judgement details never leave this layer. */\nexport const ITEM_COLUMNS = sql`\n  p.article_id AS id, p.revision, p.title, p.original_title,\n  coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,\n  p.selected, p.eligible, p.channel, p.url, p.published_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,\n  p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,\n  s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,\n  a.author, a.language,\n  st.public_id::text AS story_public_id, st.title AS story_title`;\n\n/** Public API listings never render article bodies or story metadata. */\nexport type ApiItemRow = Pick<\n  ItemRow,\n  \"id\" | \"title\" | \"original_title\" | \"summary\" | \"source_name\" | \"url\" | \"published_at\" | \"discovered_at\" | \"category\" | \"score\" | \"selected\" | \"reason\"\n>;\nexport const API_ITEM_COLUMNS = sql`\n  p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,\n  p.published_at, p.discovered_at, p.category, p.score, p.selected, p.reason`;\nexport const API_ITEM_FROM = sql`FROM publications p JOIN sources s ON s.id = p.source_id`;\n\n/** A translation of an older revision is left out: the original changed after it (the worker translates it again). */\nexport const ITEM_FROM = sql`\n  FROM publications p\n  JOIN sources s ON s.id = p.source_id\n  JOIN articles a ON a.id = p.article_id\n  LEFT JOIN stories st ON st.id = p.story_id AND st.merged_into IS NULL\n  LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision`;\n\n/** Listed items: public, and a selected item only after its release gate. */\nexport function listedCondition(now: Date) {\n  return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now})`;\n}\n\n/** Selected set as shown on the home timeline, v1 selected mode and RSS. */\nexport function selectedCondition(now: Date) {\n  return sql`p.visibility = 'public' AND p.selected AND p.visible_after <= ${now}`;\n}\n\nexport function channelCondition(channel: ChannelKey | null | undefined) {\n  if (!channel || channel === \"all\") return sql``;\n  if (channel === \"firstParty\") return sql`AND p.first_party`;\n  return sql`AND p.channel = ${channel}`;\n}\n\nexport function categoryCondition(category: CategoryKey | null | undefined, v1 = false) {\n  if (!category) return sql``;\n  // v1 and RSS publish opinion as tip.\n  if (v1 && category === \"tip\") return sql`AND p.category IN ('tip', 'opinion')`;\n  return sql`AND p.category = ${category}`;\n}\n\nexport function tagCondition(tag: string | null | undefined) {\n  if (!tag) return sql``;\n  return sql`AND p.tags @> ${[tag]}::text[]`;\n}\n\nexport function topicCondition(topicTags: string[] | null | undefined) {\n  if (!topicTags || topicTags.length === 0) return sql``;\n  return sql`AND p.tags && ${topicTags}::text[]`;\n}\n\nexport function toItemSummary(row: ItemRow): ItemSummary {\n  return {\n    id: row.id,\n    revision: row.revision,\n    title: row.title,\n    originalTitle: row.original_title,\n    summary: row.summary,\n    reason: row.selected ? row.reason : null,\n    source: {\n      id: row.source_id,\n      name: row.source_name,\n      kind: row.source_kind,\n      firstParty: row.first_party,\n    },\n    links: { original: row.url },\n    publishedAt: row.published_at?.toISOString() ?? null,\n    discoveredAt: row.discovered_at.toISOString(),\n    timelineAt: row.timeline_at.toISOString(),\n    category: (row.category as CategoryKey | null) ?? null,\n    tags: displayTags(row.tags),\n    score: row.score === null ? null : Math.round(Number(row.score)),\n    selected: row.selected,\n    channel: row.channel,\n    story: row.story_public_id ? { publicId: row.story_public_id, title: row.story_title ?? \"\" } : null,\n  };\n}\n\n/** Project the shared public article into the exact fields a site card renders. */\nexport function toFeedItemSummary(row: ItemRow): FeedItemSummary {\n  const item = toItemSummary(row);\n  return {\n    id: item.id,\n    title: item.title,\n    summary: item.summary,\n    reason: item.reason,\n    source: { name: item.source.name },\n    publishedAt: item.publishedAt,\n    timelineAt: item.timelineAt,\n    category: item.category,\n    tags: item.tags,\n    score: item.score,\n    selected: item.selected,\n    channel: item.channel,\n  };\n}\n\nexport async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<string, ItemRow>> {\n  if (ids.length === 0) return new Map();\n  const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${db(ids)}`;\n  return new Map(rows.map((r) => [r.id, r]));\n}\n",
+  "manifest": {
+    "revision": "TASK-0010-source-excerpt-v4",
+    "before": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+    "after": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c",
+    "sites": [
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/result",
+        "sql": "db<RankedRow[]>`\n        WITH matches AS ${splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`} (${matches}), scored AS MATERIALIZED (\n          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel\n          FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id\n          WHERE ${listedCondition(now)} AND p.eligible ${filters}\n        ), page AS MATERIALIZED (\n          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC\n          LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}\n        ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored LIMIT ${cap}) capped)\n        SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (\n          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id\n        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`",
+        "shape": "with matches as ? ( ? ) , scored as materialized ( select p . article_id , p . timeline_at , matches . part + ( ? ) as rel from matches join publications p on p . article_id = matches . article_id join sources s on s . id = p . source_id where ? and p . eligible ? ? ? ? ) , page as materialized ( select article_id , rel from scored order by rel desc , timeline_at desc , article_id desc limit ? offset ? ) , total as ( select count ( * ) as n from ( select ? from scored limit ? ) capped ) select hydrated . * , total . n as total from total left join lateral ( select p . article_id as id , p . revision , p . title , p . original_title , p . summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title , page . rel from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision join page on page . article_id = p . article_id ) hydrated on true order by hydrated . rel desc , hydrated . timeline_at desc , hydrated . id desc",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`",
+          "opaque interpolation: splitFields\n        ? sql`\n        SELECT coalesce(d.article_id, b.article_id) AS article_id,\n          (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END) + (CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part\n        FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${\"%\" + terms[0]! + \"%\"}) d\n        FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${\"%\" + terms[0]! + \"%\"}) b ON b.article_id = d.article_id`\n        : sql`SELECT ps.article_id, (${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}`",
+          "opaque interpolation: terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`)",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": [[774, 786]]
+      },
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/rows",
+        "sql": "db<ItemRow[]>`\n      WITH page AS (\n        SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${directMatchCondition(terms)}\n        ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})\n      SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)\n      ORDER BY p.timeline_at DESC, p.article_id DESC`",
+        "shape": "with page as ( select p . article_id from publications p where ? and p . eligible ? ? ? ? ? order by p . timeline_at desc , p . article_id desc limit ? offset ? ) select p . article_id as id , p . revision , p . title , p . original_title , p . summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision where p . article_id in ( select article_id from page ) order by p . timeline_at desc , p . article_id desc",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)",
+          "opaque interpolation: directMatchCondition(terms)"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": [[283, 295]]
+      },
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/{ n }",
+        "sql": "db<{ n: number }[]>`\n      SELECT count(*) AS n FROM (SELECT 1 FROM pool_search ps JOIN publications p ON p.article_id = ps.article_id\n        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${direct} LIMIT ${cap}) t`",
+        "shape": "select count ( * ) as n from ( select ? from pool_search ps join publications p on p . article_id = ps . article_id where ? and p . eligible ? ? ? ? ? limit ? ) t",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)",
+          "opaque interpolation: terms.reduce((acc, t) => sql`${acc} AND ${like(sql`ps.direct`, t)}`, sql``)"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": []
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "v1Items/run",
+        "sql": "db<(ApiItemRow & { sort_at: Date })[]>`\n    SELECT ${API_ITEM_COLUMNS}, ${sortCol} AS sort_at ${API_ITEM_FROM}\n    WHERE ${scope} ${categoryCondition(query.category, true)} ${publicMatchCondition(terms)}\n      AND ${sortCol} >= ${windowStart} AND ${sortCol} <= ${now}\n      ${after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``}\n    ORDER BY ${sortCol} DESC, p.article_id DESC\n    LIMIT ${query.limit + 1}`",
+        "shape": "select p . article_id as id , p . title , p . original_title , p . summary , s . name as source_name , p . url , p . published_at , p . discovered_at , p . category , p . score , p . selected , p . reason , ? as sort_at from publications p join sources s on s . id = p . source_id where ? ? ? and ? > = ? and ? < = ? ? order by ? desc , p . article_id desc limit ?",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: query.by === \"published\" ? sql`coalesce(p.published_at, p.discovered_at)` : query.mode === \"selected\" ? sql`p.sort_at` : sql`p.timeline_at`",
+          "opaque interpolation: query.mode === \"selected\" ? selectedCondition(now) : sql`${listedCondition(now)} AND p.eligible`",
+          "opaque interpolation: categoryCondition(query.category, true)",
+          "opaque interpolation: publicMatchCondition(terms)",
+          "opaque interpolation: after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": []
+      }
+    ]
+  },
+  "prior": {
+    "packages/backend/src/publication/pool.ts:loadPool/run/result:d8fd3885d85cbaa803a9ec1450c52fd13670e61375c01641647f16c546017e77": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/rows:b192184078233a93520506430a935408b0d03307b097d70413748adfc2e95b76": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/{ n }:60f7cc3cd2b1230a6bf103f91d888f6f7ebdcba39c5835be5437e844a0330c6b": 1,
+    "packages/backend/src/publication/v1.ts:v1Items/run:dfb24d898b074b56859a1c0215767ccf3bf05589503a32d8dffbaac423548466": 1
+  },
+  "now": {
+    "packages/backend/src/publication/pool.ts:loadPool/run/result:9e2051efa29519c68f2b2b8b0d5a9b995c84e32a6899aa74772f9f22eb084a90": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/rows:aebd897b04a32c1b68085d806faffb855eb89f43975d850cf87c2aa71a47795c": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/{ n }:825e992c52d286e262645aa934a0be7eb93156c9751174bc9fd472e8fceeab0d": 1,
+    "packages/backend/src/publication/v1.ts:v1Items/run:c1133af84c6b63a586673a5cd6b0dce1566bccc79c81b9cdc0e677c27cdd3aa0": 1
+  },
+  "inventory": [
+    {
+      "file": "packages/backend/src/publication/pool.ts",
+      "scope": "runtime",
+      "modules": [
+        {
+          "name": "publication",
+          "line": 17
+        }
+      ],
+      "sites": [
+        {
+          "file": "packages/backend/src/publication/pool.ts",
+          "line": 186,
+          "column": 28,
+          "scopeName": "loadPool/run/result",
+          "kind": "template",
+          "sourceHash": "cbab10a65a0a5aca82b5d0413f3f9b9dec08ed289ef63e1b67c17a769958da63",
+          "dependencies": {
+            "pnpm-lock.yaml": "55dead9b2f0dda5bb3d6a9b048cde2bb6efde72f321d91f9bd112c4253b2f80b",
+            "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+            "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c"
+          },
+          "relations": [
+            {
+              "table": "public.publications",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.sources",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.publications",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.sources",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.articles",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.stories",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.translations",
+              "mode": "read",
+              "keys": []
+            }
+          ],
+          "unknown": [
+            "unexpanded SQL fragment",
+            "opaque interpolation: splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`",
+            "opaque interpolation: splitFields\n        ? sql`\n        SELECT coalesce(d.article_id, b.article_id) AS article_id,\n          (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END) + (CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part\n        FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${\"%\" + terms[0]! + \"%\"}) d\n        FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${\"%\" + terms[0]! + \"%\"}) b ON b.article_id = d.article_id`\n        : sql`SELECT ps.article_id, (${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}`",
+            "opaque interpolation: terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`)",
+            "opaque interpolation: listedCondition(now)",
+            "opaque interpolation: channelCondition(query.channel)",
+            "opaque interpolation: categoryCondition(query.category)",
+            "opaque interpolation: tagCondition(query.tag)",
+            "opaque interpolation: topicCondition(query.topicTags)"
+          ],
+          "shape": "with matches as ? ( ? ) , scored as materialized ( select p . article_id , p . timeline_at , matches . part + ( ? ) as rel from matches join publications p on p . article_id = matches . article_id join sources s on s . id = p . source_id where ? and p . eligible ? ? ? ? ) , page as materialized ( select article_id , rel from scored order by rel desc , timeline_at desc , article_id desc limit ? offset ? ) , total as ( select count ( * ) as n from ( select ? from scored limit ? ) capped ) select hydrated . * , total . n as total from total left join lateral ( select p . article_id as id , p . revision , p . title , p . original_title , coalesce ( p . summary , case when s . site_fulltext and p . visibility = ? then p . source_excerpt end ) as summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title , page . rel from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision join page on page . article_id = p . article_id ) hydrated on true order by hydrated . rel desc , hydrated . timeline_at desc , hydrated . id desc"
+        },
+        {
+          "file": "packages/backend/src/publication/pool.ts",
+          "line": 203,
+          "column": 24,
+          "scopeName": "loadPool/run/rows",
+          "kind": "template",
+          "sourceHash": "e544fa9bbee69430ee3cb72cb44543bcce78c1bea9fbac16e40b70c3ef4742ef",
+          "dependencies": {
+            "pnpm-lock.yaml": "55dead9b2f0dda5bb3d6a9b048cde2bb6efde72f321d91f9bd112c4253b2f80b",
+            "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+            "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c"
+          },
+          "relations": [
+            {
+              "table": "public.publications",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.publications",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.sources",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.articles",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.stories",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.translations",
+              "mode": "read",
+              "keys": []
+            }
+          ],
+          "unknown": [
+            "unexpanded SQL fragment",
+            "opaque interpolation: listedCondition(now)",
+            "opaque interpolation: channelCondition(query.channel)",
+            "opaque interpolation: categoryCondition(query.category)",
+            "opaque interpolation: tagCondition(query.tag)",
+            "opaque interpolation: topicCondition(query.topicTags)",
+            "opaque interpolation: directMatchCondition(terms)"
+          ],
+          "shape": "with page as ( select p . article_id from publications p where ? and p . eligible ? ? ? ? ? order by p . timeline_at desc , p . article_id desc limit ? offset ? ) select p . article_id as id , p . revision , p . title , p . original_title , coalesce ( p . summary , case when s . site_fulltext and p . visibility = ? then p . source_excerpt end ) as summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision where p . article_id in ( select article_id from page ) order by p . timeline_at desc , p . article_id desc"
+        },
+        {
+          "file": "packages/backend/src/publication/pool.ts",
+          "line": 211,
+          "column": 13,
+          "scopeName": "loadPool/run/{ n }",
+          "kind": "template",
+          "sourceHash": "fcfd1f767a9e6a7d7cd419983ac01ac8c44c68498e64dd6f972bb4abc1f7cfea",
+          "dependencies": {
+            "pnpm-lock.yaml": "55dead9b2f0dda5bb3d6a9b048cde2bb6efde72f321d91f9bd112c4253b2f80b",
+            "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+            "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c"
+          },
+          "relations": [
+            {
+              "table": "public.pool_search",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.publications",
+              "mode": "read",
+              "keys": []
+            }
+          ],
+          "unknown": [
+            "unexpanded SQL fragment",
+            "opaque interpolation: listedCondition(now)",
+            "opaque interpolation: channelCondition(query.channel)",
+            "opaque interpolation: categoryCondition(query.category)",
+            "opaque interpolation: tagCondition(query.tag)",
+            "opaque interpolation: topicCondition(query.topicTags)",
+            "opaque interpolation: terms.reduce((acc, t) => sql`${acc} AND ${like(sql`ps.direct`, t)}`, sql``)"
+          ],
+          "shape": "select count ( * ) as n from ( select ? from pool_search ps join publications p on p . article_id = ps . article_id where ? and p . eligible ? ? ? ? ? limit ? ) t"
+        }
+      ],
+      "ignoredTags": []
+    },
+    {
+      "file": "packages/backend/src/publication/v1.ts",
+      "scope": "runtime",
+      "modules": [
+        {
+          "name": "publication",
+          "line": 10
+        }
+      ],
+      "sites": [
+        {
+          "file": "packages/backend/src/publication/v1.ts",
+          "line": 63,
+          "column": 27,
+          "scopeName": "v1Items/run",
+          "kind": "template",
+          "sourceHash": "fcb1437ace4c15aeaabbe793c76ce70d3ef85fc2ae56f35aab737d317c7748ab",
+          "dependencies": {
+            "pnpm-lock.yaml": "55dead9b2f0dda5bb3d6a9b048cde2bb6efde72f321d91f9bd112c4253b2f80b",
+            "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+            "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c",
+            "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808"
+          },
+          "relations": [
+            {
+              "table": "public.publications",
+              "mode": "read",
+              "keys": []
+            },
+            {
+              "table": "public.sources",
+              "mode": "read",
+              "keys": []
+            }
+          ],
+          "unknown": [
+            "unexpanded SQL fragment",
+            "opaque interpolation: query.by === \"published\" ? sql`coalesce(p.published_at, p.discovered_at)` : query.mode === \"selected\" ? sql`p.sort_at` : sql`p.timeline_at`",
+            "opaque interpolation: query.mode === \"selected\" ? selectedCondition(now) : sql`${listedCondition(now)} AND p.eligible`",
+            "opaque interpolation: categoryCondition(query.category, true)",
+            "opaque interpolation: publicMatchCondition(terms)",
+            "opaque interpolation: after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``"
+          ],
+          "shape": "select p . article_id as id , p . title , p . original_title , p . summary , s . name as source_name , p . url , p . published_at , p . discovered_at , p . category , p . score , p . selected , p . reason , ? as sort_at from publications p join sources s on s . id = p . source_id where ? ? ? and ? > = ? and ? < = ? ? order by ? desc , p . article_id desc limit ?"
+        }
+      ],
+      "ignoredTags": []
+    }
+  ],
+  "lock": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+}
