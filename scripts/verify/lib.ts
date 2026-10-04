@@ -9,16 +9,16 @@ import path from "node:path";
 export const ROOT = path.resolve(import.meta.dirname, "../..");
 
 /** Runs git in the repository (or `cwd`) and returns stdout without the final newline; throws on failure. */
-export function git(args: string[], cwd = ROOT): string {
+export function git(args: string[], cwd = ROOT, trimTrailingNewline = true): string {
   const r = spawnSync("git", args, { cwd, encoding: "utf8", maxBuffer: 1024 * 1024 * 1024 });
   if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${(r.stderr || r.error?.message || "").trim()}`);
-  return r.stdout.replace(/\n$/, "");
+  return trimTrailingNewline ? r.stdout.replace(/\n$/, "") : r.stdout;
 }
 
 /** Like `git`, but returns null instead of throwing (for refs that may not exist). */
-export function tryGit(args: string[], cwd = ROOT): string | null {
+export function tryGit(args: string[], cwd = ROOT, trimTrailingNewline = true): string | null {
   try {
-    return git(args, cwd);
+    return git(args, cwd, trimTrailingNewline);
   } catch {
     return null;
   }
