@@ -23,6 +23,7 @@ let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
 let privatePageFixtures = false;
+let reconciliationUnavailable = false;
 let poolMode: "ok" | "busy" | "bad" | "missing" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
 const timelineCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
@@ -42,6 +43,45 @@ const privateApi = createServer((req, res) => {
     if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 888, feedback: 888, runs: 888 }));
     if (req.url?.startsWith("/api/admin/models?"))
       return res.end(JSON.stringify({ days: 7, capabilities: [], choices: [], history: [], benches: [{ id: "old-bench", label: "旧对比记录" }] }));
+    if (req.url === "/api/admin/runs") {
+      if (reconciliationUnavailable) {
+        res.statusCode = 503;
+        return res.end(JSON.stringify({ detail: "synthetic unavailable" }));
+      }
+      return res.end(
+        JSON.stringify({
+          processes: [{ host: "NEVER_SERIALIZE_PROCESS" }],
+          queues: [{ name: "NEVER_SERIALIZE_QUEUE" }],
+          timeline: ["NEVER_SERIALIZE_TIMELINE"],
+          receipts: {
+            counts: { unknown: 1 },
+            issues: [
+              {
+                id: 701,
+                status: "unknown",
+                service: "fixture",
+                model: "demo",
+                purpose: "score_article",
+                subject: "article:synthetic@1",
+                error: "结果待核实",
+                request: "NEVER_SERIALIZE_RECEIPT",
+              },
+            ],
+          },
+          deliveries: [
+            {
+              id: 702,
+              target_key: "合成通知目的地",
+              status: "unknown",
+              subject_kind: "selected",
+              subject_id: "test-material",
+              updated_at: "2026-10-04T00:00:00Z",
+              response: "NEVER_SERIALIZE_DELIVERY",
+            },
+          ],
+        }),
+      );
+    }
   }
   res.statusCode = 401;
   res.end(JSON.stringify({ code: "unauthorized" }));
@@ -598,5 +638,36 @@ test("retired daily pages are absent and private navigation no longer requests c
     }
   } finally {
     privatePageFixtures = false;
+  }
+});
+
+test("usage reconciliation renders existing controls and serializes only needed fees and delivery fields", async () => {
+  privatePageFixtures = true;
+  try {
+    for (const suffix of ["", ".data"]) {
+      const path = "/admin/usage-models/reconciliation" + suffix;
+      const before = privateCalls.length;
+      const denied = await fetch(origin + path);
+      assert.equal(denied.status, 404);
+      assert.equal(denied.headers.get("Set-Cookie"), null);
+      await denied.text();
+      assert.equal(privateCalls.length, before);
+      const response = await fetchWithHost(origin + path, PRIVATE_HOST);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+      const body = await response.text();
+      assert.match(body, /合成通知目的地/);
+      assert.match(body, /结果待核实/);
+      assert.doesNotMatch(body, /NEVER_SERIALIZE|worker|队列积压|任务时间线|每 20 秒/);
+      assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/runs"));
+    }
+    reconciliationUnavailable = true;
+    const failed = await fetchWithHost(origin + "/admin/usage-models/reconciliation", PRIVATE_HOST);
+    assert.equal(failed.status, 503);
+    assert.equal(failed.headers.get("Cache-Control"), "private, no-store");
+    await failed.text();
+  } finally {
+    privatePageFixtures = false;
+    reconciliationUnavailable = false;
   }
 });

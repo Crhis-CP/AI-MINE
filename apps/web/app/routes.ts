@@ -40,6 +40,7 @@ const privateRoutes = [
     route("admin/feedback", "routes/admin/feedback.tsx"),
     route("admin/runs", "routes/admin/runs.tsx"),
     route("admin/models", "routes/admin/models.tsx"),
+    route("admin/usage-models/reconciliation", "routes/admin/reconciliation.tsx"),
     route("admin/settings", "routes/admin/settings.tsx"),
   ]),
 ] satisfies RouteConfig;
