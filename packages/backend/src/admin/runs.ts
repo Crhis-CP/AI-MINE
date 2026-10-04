@@ -48,7 +48,7 @@ export async function runsOverview() {
       WHERE status IN ('unknown', 'failed') OR (status = 'sending' AND updated_at < now() - interval '15 minutes')
       ORDER BY status = 'unknown' DESC, updated_at DESC LIMIT 40`,
     sql`
-      SELECT ${failureGroupSql()} AS error, count(*)::int AS n, max(discovered_at) AS last,
+      SELECT ${failureGroupSql} AS error, count(*)::int AS n, max(discovered_at) AS last,
              (array_agg(id ORDER BY discovered_at DESC))[1] AS example
       FROM articles WHERE processing_state = 'failed' AND discovered_at > now() - interval '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 20`,
     sql`SELECT client, kind, status, left(error, 200) AS error, summary, created_at FROM ingest_events ORDER BY created_at DESC LIMIT 20`,

@@ -240,8 +240,7 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
 }
 
 /** How the runs page groups failures: the message with ids and numbers masked. */
-export const failureGroupSql = (column = "processing_error") =>
-  sql.unsafe(`regexp_replace(left(coalesce(${column}, '(no message)'), 120), '[0-9a-f]{8,}|[0-9]{4,}', '…', 'g')`);
+export const failureGroupSql = sql`regexp_replace(left(coalesce(processing_error, '(no message)'), 120), '[0-9a-f]{8,}|[0-9]{4,}', '…', 'g')`;
 
 /**
  * Admin: failed articles of the last 30 days back into processing, all or one failure group. The
@@ -251,7 +250,7 @@ export async function requeueFailed(group: string | null): Promise<{ requeued: n
   const rows = await sql<{ id: string }[]>`
     UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
     WHERE processing_state = 'failed' AND discovered_at > now() - interval '30 days'
-      AND (${group}::text IS NULL OR ${failureGroupSql()} = ${group})
+      AND (${group}::text IS NULL OR ${failureGroupSql} = ${group})
     RETURNING id`;
   for (const r of rows.slice(0, 500)) await queueProcessing(r.id);
   return { requeued: rows.length };

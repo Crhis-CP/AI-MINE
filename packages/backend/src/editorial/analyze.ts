@@ -19,6 +19,7 @@ import { collapseWhitespace } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
 import { buildMaterial, firstImagePart, loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
 import { pageFetchable } from "../content/extract.ts";
+import { commitProcessingResult } from "../content/materials.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import {
   buildArticlePrompt,
@@ -530,22 +531,19 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
     ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
     fact: out.fact,
   };
-  const committed = await sql.begin(async (tx) => {
-    const [current] = await tx<{ revision: number }[]>`SELECT revision FROM articles WHERE id = ${articleId} FOR UPDATE`;
-    const stale = !current || current.revision !== input.revision;
-    const [row] = await tx<{ id: number }[]>`
+  const committed = await commitProcessingResult(articleId, input.revision, out.relevance === "block" ? "blocked" : "analyzed", async (tx) => {
+    // Enrichment owns the statement; content owns the locked transaction executing it.
+    const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,
         subjects, title_zh, summary_zh, reason_zh, score, selected, output)
       VALUES (${articleId}, ${input.revision}, 'model', ${w?.model ?? run.prefilter.model}, ${ANALYZE_PROMPT_VERSION}, ${receiptIds},
         ${out.relevance}, ${out.category}, ${out.tags}, ${out.subjects}, ${out.titleZh}, ${out.summaryZh}, ${out.reasonZh},
-        ${out.score}, ${out.selected}, ${tx.json(detail as never)})
+        ${out.score}, ${out.selected}, ${sql.json(detail as never)})
       RETURNING id`;
+    const [row] = await tx<{ id: number }[]>`${insert}`;
     for (const id of receiptIds) await completeReceipt(tx, id);
-    if (!stale) {
-      await tx`UPDATE articles SET processing_state = ${out.relevance === "block" ? "blocked" : "analyzed"}, processing_error = NULL WHERE id = ${articleId}`;
-    }
-    return { analysisId: row!.id, stale };
+    return row!.id;
   });
   const reused = run.prefilter.reused && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
-  return { analysisId: committed.analysisId, stale: committed.stale, output: out, receiptIds, reused };
+  return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };
 }
