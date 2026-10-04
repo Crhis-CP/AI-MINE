@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["app/routes/admin/**", "app/routes/admin-login.tsx", "app/features/admin/**"]
+}

@@ -1,28 +1,11 @@
 import { titled } from "./lib/seo";
 import { SITE } from "@amp/industry/site";
-import {
-  isRouteErrorResponse,
-  Link,
-  Links,
-  Meta,
-  Outlet,
-  Scripts,
-  ScrollRestoration,
-  useLocation,
-  useNavigation,
-  useRouteError,
-  type ShouldRevalidateFunction,
-} from "react-router";
-import type { ReactNode } from "react";
+import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError } from "react-router";
 import type { Route } from "./+types/root";
-import "./app.css";
-import { Sidebar } from "./components/shell/Sidebar";
-import { MobileTabBar } from "./components/shell/MobileTabBar";
-import { BackToTop, NavigationProgress } from "./components/shell/Chrome";
+import "./group.css";
 import { Wordmark } from "./components/Logo";
 import { buttonClass } from "./components/ui/Controls";
 import { THEME_BOOT_SCRIPT } from "./lib/local-state";
-import { apiGet } from "./lib/api.server";
 import { useHydratedFlag } from "./lib/hydration";
 
 export const links: Route.LinksFunction = () => [
@@ -32,22 +15,6 @@ export const links: Route.LinksFunction = () => [
   { rel: "manifest", href: "/manifest.webmanifest" },
   { rel: "alternate", type: "application/rss+xml", title: `${SITE.name} — 精选`, href: "/feed.xml" },
 ];
-
-interface SiteMeta {
-  changelogVersion: string | null;
-}
-
-// Nothing reads the changelog version since the navigation's unread dot was removed; the endpoint
-// changes when site/meta.ts moves to the product update records.
-export async function loader({ request }: Route.LoaderArgs) {
-  try {
-    return await apiGet<SiteMeta>("/api/site/meta", { signal: request.signal });
-  } catch {
-    return { changelogVersion: null } satisfies SiteMeta;
-  }
-}
-
-export const shouldRevalidate: ShouldRevalidateFunction = () => false;
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -77,48 +44,16 @@ export function meta({ error }: Route.MetaArgs) {
   return [{ title: titled(notFound ? "页面不存在" : "暂时无法加载") }, { name: "robots", content: "noindex" }];
 }
 
-/** Sidebar, main column and phone tab bar around a page (or an error). */
-function SiteShell({ children }: { children: ReactNode }) {
-  const navigation = useNavigation();
-  return (
-    <div className="flex min-h-dvh">
-      <NavigationProgress active={navigation.state === "loading"} />
-      <a
-        href="#main"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-control focus:bg-surface focus:px-3 focus:py-2"
-      >
-        跳到正文
-      </a>
-      <Sidebar />
-      {/* Mobile shell (≤ 960px): one centred column, the tab bar below. Desktop: the page fills the main area
-          up to the list width (--page-max-wide), centred beyond it. */}
-      <main id="main" className="min-w-0 flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] lg:px-7 lg:pb-[72px] lg:pt-6">
-        <div className="mx-auto w-full max-w-[640px] px-4 lg:max-w-[var(--page-max-wide)] lg:px-0">{children}</div>
-      </main>
-      <MobileTabBar />
-      <BackToTop />
-    </div>
-  );
-}
-
 export default function App() {
   useHydratedFlag();
-  const { pathname } = useLocation();
-  // The admin has its own chrome.
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return <Outlet />;
-  return (
-    <SiteShell>
-      <Outlet />
-    </SiteShell>
-  );
+  return <Outlet />;
 }
 
 export function ErrorBoundary() {
   const error = useRouteError();
-  const { pathname } = useLocation();
   const status = isRouteErrorResponse(error) ? error.status : 500;
   const notFound = status === 404;
-  const body = (
+  return (
     <div className="flex min-h-[70vh] items-center justify-center px-2 py-16">
       <div className="max-w-sm text-center">
         <Wordmark size={28} className="mb-5 text-ink" />
@@ -128,17 +63,14 @@ export function ErrorBoundary() {
           {notFound ? "你访问的页面不存在，或内容已不再公开。" : "服务暂时繁忙，请稍后再试。已经加载过的内容不受影响。"}
         </p>
         <div className="mt-6 flex justify-center gap-2.5">
-          <Link to="/" className={buttonClass("primary")}>
+          <Link reloadDocument to="/" className={buttonClass("primary")}>
             回到精选
           </Link>
-          <Link to="/all" className={buttonClass("secondary")}>
+          <Link reloadDocument to="/all" className={buttonClass("secondary")}>
             浏览全部动态
           </Link>
         </div>
       </div>
     </div>
   );
-  // Admin errors stay inside the admin's own chrome.
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) return body;
-  return <SiteShell>{body}</SiteShell>;
 }

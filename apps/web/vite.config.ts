@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { request as httpRequest } from "node:http";
 import { reactRouter } from "@react-router/dev/vite";
 import tailwindcss from "@tailwindcss/vite";
@@ -15,7 +17,12 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
       assertWebEnvironment(env);
       const hostPolicy = webHostPolicy(env);
       server.middlewares.use((req, res, next) => {
-        if (!hostPolicy(req, res)) return;
+        const group = hostPolicy(req, res);
+        if (!group) return;
+        if (env.WEB_ROUTE_GROUP && group !== env.WEB_ROUTE_GROUP) {
+          res.writeHead(404, { "Cache-Control": "private, no-store" });
+          return res.end("Not found");
+        }
         const raw = req.url ?? "/";
         const qi = raw.indexOf("?");
         const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
@@ -45,8 +52,22 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
   };
 }
 
+const group = process.env.WEB_ROUTE_GROUP || "public";
+const buildGraph: Plugin = {
+  name: "amp-build-graph",
+  writeBundle(_, bundle) {
+    if (this.environment.name !== "client") return;
+    const modules = [...new Set(Object.values(bundle).flatMap((output) => (output.type === "chunk" ? Object.keys(output.modules) : [])))]
+      .map((id) => path.relative(import.meta.dirname, id).replaceAll("\\", "/"))
+      .sort();
+    mkdirSync(`build/${group}`, { recursive: true });
+    writeFileSync(`build/${group}/modules.json`, JSON.stringify(modules));
+  },
+};
+
 export default defineConfig({
-  plugins: [devEdge(), tailwindcss(), reactRouter()],
+  plugins: [devEdge(), tailwindcss(), reactRouter(), buildGraph],
+  resolve: { alias: { "./group.css": path.resolve(import.meta.dirname, `app/${group}.css`) } },
   server: { port: 3000, strictPort: true, allowedHosts: [privateWebHostname(), new URL(process.env.SITE_URL || "http://localhost:3000").hostname] },
   build: {
     rolldownOptions: {

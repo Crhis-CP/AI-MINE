@@ -1,0 +1,6 @@
+@import "./app.css";
+@source "./components";
+@source "./lib";
+@source "./root.tsx";
+@source "./routes/*.tsx";
+@source not "./routes/admin-login.tsx";

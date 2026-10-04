@@ -22,7 +22,10 @@ const HOST = process.env.WEB_HOST || "127.0.0.1";
  * limits (sign-in attempts, feedback).
  */
 const TRUST_PROXY = process.env.TRUST_PROXY === "true";
-const CLIENT_DIR = path.resolve(import.meta.dirname, "build/client");
+const CLIENT_DIR = {
+  public: path.resolve(import.meta.dirname, "build/public/client"),
+  private: path.resolve(import.meta.dirname, "build/private/client"),
+};
 /** Browsers keep a page at most this long, so a withdrawal reaches them within minutes. */
 const BROWSER_MAX_SECONDS = 300;
 
@@ -40,13 +43,20 @@ const TYPES: Record<string, string> = {
   ".map": "application/json",
 };
 
-const build = await import(path.resolve(import.meta.dirname, "build/server/index.js"));
-const ssr = createRequestListener({ build, mode: "production" });
+// Built JavaScript has no source declaration and is absent before the two builds.
+// @ts-expect-error generated build
+const publicBuild = await import("./build/public/server/index.js");
+// @ts-expect-error generated build
+const privateBuild = await import("./build/private/server/index.js");
+const ssr = {
+  public: createRequestListener({ build: publicBuild, mode: "production" }),
+  private: createRequestListener({ build: privateBuild, mode: "production" }),
+};
 
 class BadRequest extends Error {}
 
 /** Hashed build assets are immutable; anything else from the client build gets a short cache. */
-async function serveStatic(pathname: string, res: import("node:http").ServerResponse): Promise<boolean> {
+async function serveStatic(clientDir: string, pathname: string, res: import("node:http").ServerResponse): Promise<boolean> {
   if (pathname.includes("..") || pathname.endsWith("/")) return false;
   let decoded: string;
   try {
@@ -54,8 +64,8 @@ async function serveStatic(pathname: string, res: import("node:http").ServerResp
   } catch {
     throw new BadRequest("malformed percent-encoding");
   }
-  const file = path.join(CLIENT_DIR, decoded);
-  if (!file.startsWith(CLIENT_DIR)) return false;
+  const file = path.join(clientDir, decoded);
+  if (!file.startsWith(`${clientDir}${path.sep}`)) return false;
   const info = await stat(file).catch(() => null);
   if (!info?.isFile()) return false;
   const immutable = pathname.startsWith("/assets/");
@@ -130,11 +140,21 @@ function pageCache(req: import("node:http").IncomingMessage, res: import("node:h
 }
 
 async function handle(req: import("node:http").IncomingMessage, res: import("node:http").ServerResponse) {
-  if (!hostPolicy(req, res)) return;
+  const group = hostPolicy(req, res);
+  if (!group) return;
   const raw = req.url ?? "/";
   const qi = raw.indexOf("?");
   const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
   const search = qi >= 0 ? raw.slice(qi) : "";
+
+  // Existing private-page links to reader pages leave the private origin.
+  if (group === "private" && (req.method === "GET" || req.method === "HEAD") && /^(?:\/|\/all|\/(?:items|story)\/[^/]+)$/.test(pathname)) {
+    const target = new URL(process.env.SITE_URL || "http://localhost:3000");
+    target.pathname = pathname;
+    target.search = search;
+    res.writeHead(302, { Location: target.href });
+    return res.end();
+  }
 
   const decision = resolveRedirect(pathname, search);
   if (decision) {
@@ -165,9 +185,9 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
     return req.pipe(upstream);
   }
 
-  if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(pathname, res))) return;
+  if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(CLIENT_DIR[group], pathname, res))) return;
   pageCache(req, res);
-  return ssr(req, res);
+  return ssr[group](req, res);
 }
 
 process.on("unhandledRejection", (reason) => {

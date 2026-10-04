@@ -2,8 +2,8 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { readFileSync, readdirSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -21,6 +21,7 @@ let logs = "";
 let deadline: number;
 let refreshAt: string;
 let metaDelayMs = 0;
+let metaCalls = 0;
 let poolMode: "ok" | "busy" | "bad" | "missing" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
 const timelineCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
@@ -43,6 +44,7 @@ const api = createServer((req, res) => {
   apiCookies.push(req.headers.cookie);
   res.setHeader("Content-Type", "application/json");
   if (url.pathname === "/api/site/meta") {
+    metaCalls++;
     const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
   }
@@ -181,7 +183,7 @@ test("public route subsets produce the same complete navigation data; filters st
       assert.equal(res.headers.get("X-Accel-Expires"), `@${deadline}`);
       assert.doesNotMatch(res.headers.get("Cache-Control")!, /stale/);
       const body = await res.text();
-      assert.ok(body.includes("root") && body.includes("routes/home"));
+      assert.ok(body.includes("public-layout") && body.includes("routes/home"));
       return body;
     }),
   );
@@ -280,7 +282,7 @@ test("browser freshness shares the selected deadline, including slow sibling loa
       assert.doesNotMatch(cc, /stale/);
       await res.text();
     }
-    // The selected loader initially grants a positive TTL, but root metadata finishes after it.
+    // The selected loader initially grants a positive TTL, but public layout metadata finishes after it.
     deadline = Math.floor(Date.now() / 1000) + 2;
     refreshAt = new Date((deadline + 5) * 1000).toISOString();
     metaDelayMs = 2300;
@@ -457,6 +459,7 @@ test("actual Vite SSR admits only the configured private Host for login", async 
       NODE_ENV: "development",
       SITE_URL: "http://public.preview.test",
       PRIVATE_HOST: "private.preview.test",
+      WEB_ROUTE_GROUP: "private",
       API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
       PRIVATE_API_BASE_URL: `http://127.0.0.1:${(privateApi.address() as AddressInfo).port}`,
     }),
@@ -495,4 +498,57 @@ test("actual Vite SSR admits only the configured private Host for login", async 
   assert.equal(login.status, 200);
   assert.equal(login.headers.get("Cache-Control"), "private, no-store");
   assert.match(await login.text(), /用飞书登录/);
+});
+
+test("two builds keep the private manifest, JavaScript and CSS off the public Host", async () => {
+  const assets = (group: string) => new URL(`../build/${group}/client/assets/`, import.meta.url);
+  const publicFiles = new Set(readdirSync(assets("public")));
+  const privateFiles = readdirSync(assets("private"));
+  const privateOnly = privateFiles.filter((file) => !publicFiles.has(file));
+  for (const suffix of [".js", ".css"]) assert.ok(privateOnly.some((file) => file.endsWith(suffix)));
+  const publicManifest = [...publicFiles].find((file) => file.startsWith("manifest-"))!;
+  const manifest = await fetch(origin + "/assets/" + publicManifest);
+  assert.equal(manifest.status, 200);
+  assert.doesNotMatch(await manifest.text(), /admin-layout|routes\/admin/);
+  const css = (group: string) =>
+    readdirSync(assets(group))
+      .filter((file) => file.endsWith(".css"))
+      .map((file) => readFileSync(new URL(file, assets(group)), "utf8"))
+      .join("");
+  assert.ok(css("private").includes(".w-\\[216px\\]"), "private layout utility is generated");
+  assert.ok(!css("public").includes(".w-\\[216px\\]"), "private-only classes are excluded from the public scan");
+  const before = privateCalls.length;
+  for (const file of privateOnly) {
+    for (const method of ["GET", "HEAD"]) {
+      const denied = await fetch(origin + "/assets/" + file, { method });
+      assert.equal(denied.status, 404, file);
+      assert.equal(denied.headers.get("Set-Cookie"), null);
+      await denied.arrayBuffer();
+    }
+    const allowed = await fetchWithHost(origin + "/assets/" + file, PRIVATE_HOST);
+    assert.equal(allowed.status, 200, file);
+    assert.equal(allowed.headers.get("Cache-Control"), "private, no-store");
+    assert.deepEqual(Buffer.from(await allowed.arrayBuffer()), readFileSync(new URL(file, assets("private"))));
+  }
+  assert.equal(privateCalls.length, before);
+  const metaBefore = metaCalls;
+  const login = await fetchWithHost(origin + "/admin/login", PRIVATE_HOST);
+  assert.equal(login.status, 200);
+  assert.equal(metaCalls, metaBefore, "private SSR never calls public metadata");
+  assert.doesNotMatch(await (await fetch(origin)).text(), /admin-layout|routes\/admin/);
+});
+
+test("existing private preview links redirect only to the configured public origin", async () => {
+  for (const method of ["GET", "HEAD"]) {
+    for (const pathname of ["/", "/all", "/items/example?q=1", "/story/example", "/items/%2f%2fattacker.invalid"]) {
+      const response = await fetchWithHost(origin + pathname, PRIVATE_HOST, { method });
+      assert.equal(response.status, 302);
+      const target = new URL(response.headers.get("Location")!);
+      assert.equal(target.origin, new URL(process.env.SITE_URL || "http://localhost:3000").origin);
+      assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+    }
+  }
+  const unknown = await fetchWithHost(origin + "//attacker.invalid", PRIVATE_HOST);
+  assert.equal(unknown.status, 404);
+  assert.equal(unknown.headers.get("Location"), null);
 });

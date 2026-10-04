@@ -3,10 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "PRIVATE_API_BASE_URL=\"${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}\" react-router dev --port 3000 --host 127.0.0.1",
-    "build": "react-router build",
+    "dev": "WEB_ROUTE_GROUP=public PRIVATE_API_BASE_URL=\"${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}\" react-router dev --port 3000 --host 127.0.0.1",
+    "build": "WEB_ROUTE_GROUP=public react-router build && WEB_ROUTE_GROUP=private react-router build",
     "start": "PRIVATE_API_BASE_URL=\"${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}\" node server.ts",
-    "typecheck": "react-router typegen && tsc -p ."
+    "typecheck": "WEB_ROUTE_GROUP=public react-router typegen && tsc -p tsconfig.public.json && WEB_ROUTE_GROUP=private react-router typegen && tsc -p tsconfig.private.json",
+    "dev:private": "WEB_ROUTE_GROUP=private PRIVATE_API_BASE_URL=\"${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}\" react-router dev --port 3003 --host 127.0.0.1"
   },
   "dependencies": {
     "@amp/contracts": "workspace:*",

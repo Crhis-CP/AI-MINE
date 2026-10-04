@@ -2,6 +2,7 @@ import { SITE } from "@amp/industry/site";
 import { motion } from "motion/react";
 import { NavLink, Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
 import type { Route } from "./+types/layout";
+import { ThemeSwitch } from "../../components/shell/ThemeSwitch";
 import { Wordmark } from "../../components/Logo";
 import { NavigationProgress } from "../../components/shell/Chrome";
 import type { AdminMe } from "../../features/admin/action";
@@ -99,6 +100,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
             </div>
           ))}
         </nav>
+        <ThemeSwitch />
         <div className="mt-3 border-t border-line px-2 pt-3 text-[12.5px] text-ink-3">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">{me.name}</span>
@@ -116,6 +118,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
           <div className="flex items-center gap-2 px-4 pt-3">
             <Wordmark size={16} className="text-ink" />
             <span className="text-[14px] font-semibold text-ink">后台</span>
+            <ThemeSwitch className="ml-auto w-[124px]" />
             {me.dev && <span className="rounded bg-amber/15 px-1.5 text-[11px] font-medium text-amber">开发</span>}
           </div>
           <nav className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">

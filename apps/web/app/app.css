@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 
 /* ---------------------------------------------------------------------------
    Design tokens: warm off-white paper, ink text, one accent, hairline borders,

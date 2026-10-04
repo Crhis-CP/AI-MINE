@@ -1,0 +1,9 @@
+@import "./app.css";
+@source "./components/ui";
+@source "./components/Logo.tsx";
+@source "./components/shell/Chrome.tsx";
+@source "./components/shell/ThemeSwitch.tsx";
+@source "./root.tsx";
+@source "./features/admin";
+@source "./routes/admin";
+@source "./routes/admin-login.tsx";
