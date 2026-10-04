@@ -18,6 +18,8 @@ let starting: Promise<PgBoss> | null = null;
 let stopping: Promise<void> | null = null;
 let owner: ReturnType<typeof queueConnection> | null = null;
 let generation = 0;
+let refreshing: { instance: QueueInstance; promise: Promise<void> } | null = null;
+const retiredProducers = new WeakSet<QueueInstance>();
 
 const QUEUE_UNAVAILABLE = {
   not_installed: "Task queue is not installed yet.",
@@ -235,6 +237,11 @@ function bindQueue(raw: PgBoss, connection: ReturnType<typeof queueConnection>):
 export async function getBoss(): Promise<PgBoss> {
   const connection = queueConnection();
   if (owner && owner !== connection) throw new Error("Job queue belongs to a different database root; stop it before reuse");
+  if (refreshing) {
+    await refreshing.promise;
+    if (queueConnection() !== connection) throw new Error("Job queue database root changed during refresh");
+    return getBoss();
+  }
   // Graceful stop still lets an in-flight handler settle its receipt and enqueue its follow-up.
   if (boss) return boss.view;
   if (stopping) throw new Error("Job queue is stopping");
@@ -280,6 +287,7 @@ export async function stopBoss(): Promise<void> {
   generation += 1;
   stopping = (async () => {
     try {
+      await refreshing?.promise.catch(() => {});
       await starting?.catch(() => {});
       if (boss) await boss.raw.stop({ graceful: true, timeout: STOP_TIMEOUT_MS });
     } finally {
@@ -287,6 +295,7 @@ export async function stopBoss(): Promise<void> {
       boss = null;
       starting = null;
       owner = null;
+      refreshing = null;
     }
   })();
   try {
@@ -316,18 +325,105 @@ export async function ensureQueue(name: string, options: QueueOptions = QUEUE_OP
 /** Enqueues a job. With `tx`, the job commits atomically with the caller's business write. */
 export async function enqueue(name: string, data: object, options: SendOptions = {}, tx?: Db): Promise<string | null> {
   const connection = queueConnection();
+  const producer = connection.migrate === false;
+  const callerDb = tx ? { executeSql: async (text: string, values?: unknown[]) => ({ rows: await tx.unsafe(text, (values ?? []) as never[]) }) } : options.db;
+  let used: QueueInstance | null = null;
+  let table: string | undefined;
   try {
+    if (producer && callerDb && refreshing) throw new QueueUnavailableError("queue_missing");
+    const initial = producer ? await getBoss() : null;
+    if (initial) {
+      if (queueConnection() !== connection) throw new Error("Job queue database root changed");
+      if (boss?.view !== initial) throw new QueueUnavailableError("queue_missing");
+      used = boss;
+      used.check();
+    }
     await ensureQueue(name);
     if (queueConnection() !== connection) throw new Error("Job queue database root changed");
-    const b = await getBoss();
-    if (tx) {
-      const db = { executeSql: async (text: string, values?: unknown[]) => ({ rows: await tx.unsafe(text, (values ?? []) as never[]) }) };
-      return await b.send(name, data, { ...options, db });
-    }
-    return await b.send(name, data, options);
+    const b = initial ?? (await getBoss());
+    used?.check();
+    const target = callerDb ?? (producer ? b.getDb() : undefined);
+    const db = producer
+      ? {
+          executeSql: (text: string, values?: unknown[]) => {
+            // pg-boss 12.34 preloads every queue. Observe its actual INSERT target, not a later getQueue snapshot.
+            table = /\bINSERT INTO pgboss\.([a-zA-Z0-9_]+)\s*\(/.exec(text)?.[1];
+            if (!table) throw new Error("Task queue insert target is not recognized");
+            used?.check();
+            return target!.executeSql(text, values);
+          },
+        }
+      : callerDb;
+    const id = await b.send(name, data, db ? { ...options, db } : options);
+    if (used && id === null && (await currentProducerTable(name, used, callerDb)) !== table) throw new QueueUnavailableError("queue_missing");
+    return id;
   } catch (error) {
-    throw connection.migrate === false ? producerError(error) : error;
+    if (!producer) throw error;
+    const mapped = producerError(error);
+    const pg = error as { code?: string; message?: string; schema?: string; table?: string } | null;
+    const relation =
+      !!table &&
+      ((pg?.code === "42P01" && pg.message === `relation "pgboss.${table}" does not exist`) ||
+        (pg?.code === "23514" && pg.schema === "pgboss" && pg.table === table));
+    if (relation && callerDb && refreshing) throw new QueueUnavailableError("queue_missing");
+    if (
+      (mapped instanceof QueueUnavailableError && mapped.reason === "queue_missing") ||
+      (relation && used && (await currentProducerTable(name, used)) !== table)
+    ) {
+      if (used) {
+        const cleanup = retireProducer(used);
+        if (callerDb)
+          void cleanup.catch(() => {}); // Let the caller roll back before waiting on other senders' locks.
+        else await cleanup;
+      }
+      throw new QueueUnavailableError("queue_missing");
+    }
+    if (used && retiredProducers.has(used) && pg?.message === "Job queue instance expired") {
+      if (queueConnection() !== connection) throw mapped;
+      if (!callerDb && refreshing?.instance === used) await refreshing.promise;
+      throw new QueueUnavailableError("queue_missing");
+    }
+    throw mapped;
   }
+}
+
+/** A post-send observation, never a resend; stable queues can legitimately return null for dedupe. */
+async function currentProducerTable(name: string, instance: QueueInstance, executor?: Pick<QueueDb, "executeSql">): Promise<string | undefined> {
+  if (queueConnection() !== instance.connection) throw new Error("Job queue database root changed");
+  if (retiredProducers.has(instance)) return undefined;
+  instance.check();
+  const query = "SELECT table_name FROM pgboss.queue WHERE name = $1";
+  try {
+    const rows = (await (executor ?? instance.raw.getDb()).executeSql(query, [name])).rows;
+    if (queueConnection() !== instance.connection) throw new Error("Job queue database root changed");
+    return rows[0]?.table_name;
+  } catch (error) {
+    if (queueConnection() === instance.connection && retiredProducers.has(instance)) return undefined;
+    throw error;
+  }
+}
+
+/** Only the producer client is replaced. Its old capabilities expire; new callers share the cleanup barrier. */
+async function retireProducer(instance: QueueInstance): Promise<void> {
+  if (refreshing?.instance === instance) return refreshing.promise;
+  if (boss !== instance || instance.connection.migrate !== false) return;
+  instance.valid = false;
+  retiredProducers.add(instance);
+  const promise = (async () => {
+    try {
+      await instance.raw.stop({ graceful: false });
+    } catch {
+      throw new Error("Task queue client cleanup failed");
+    }
+    if (boss === instance) {
+      boss = null;
+      starting = null;
+      owner = null;
+    }
+    if (refreshing?.instance === instance) refreshing = null;
+  })();
+  refreshing = { instance, promise };
+  await promise;
 }
 
 // ---------------------------------------------------------------------------
