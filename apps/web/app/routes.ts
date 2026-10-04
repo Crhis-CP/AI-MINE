@@ -38,10 +38,15 @@ const privateRoutes = [
     route("admin/sources/new", "routes/admin/source-new.tsx"),
     route("admin/sources/:id", "routes/admin/source.tsx"),
     route("admin/feedback", "routes/admin/feedback.tsx"),
-    route("admin/runs", "routes/admin/runs.tsx"),
-    route("admin/models", "routes/admin/models.tsx"),
-    route("admin/usage-models/reconciliation", "routes/admin/reconciliation.tsx"),
-    route("admin/settings", "routes/admin/settings.tsx"),
+    layout("routes/admin/usage-layout.tsx", { id: "usage-models-layout" }, [
+      route("admin/usage-models", "routes/admin/models.tsx"),
+      route("admin/usage-models/reconciliation", "routes/admin/reconciliation.tsx"),
+      route("admin/usage-models/settings", "routes/admin/settings.tsx"),
+    ]),
+    route("admin/models", "routes/admin/models-redirect.tsx"),
+    route("admin/settings", "routes/admin/settings-redirect.tsx"),
+    route("admin/accounts", "routes/admin/accounts.tsx"),
+    route("admin/site", "routes/admin/site.tsx"),
   ]),
 ] satisfies RouteConfig;
 

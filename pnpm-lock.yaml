@@ -297,6 +297,9 @@ importers:
       '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
+      '@amp/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@react-router/node':
         specifier: 8.4.0
         version: 8.4.0(react-router@8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(typescript@7.0.2)
@@ -423,6 +426,16 @@ importers:
       postgres:
         specifier: 3.4.9
         version: 3.4.9
+
+  packages/ui:
+    dependencies:
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+    devDependencies:
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
 
   tooling:
     devDependencies:

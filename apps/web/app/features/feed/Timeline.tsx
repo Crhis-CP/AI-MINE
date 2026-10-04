@@ -3,7 +3,7 @@
 // "new items" prompt: readers refresh for the latest head (feedback #1199).
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
-import { Collapse } from "../../components/ui/Presence";
+import { Collapse } from "@amp/ui/Presence";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { FeedItem } from "./FeedItem";

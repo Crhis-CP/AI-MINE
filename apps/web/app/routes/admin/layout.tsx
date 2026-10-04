@@ -24,21 +24,21 @@ const NAV: Array<{ group: string; items: Array<{ to: string; label: string }> }>
   {
     group: "内容",
     items: [
-      { to: "/admin/content", label: "内容诊断" },
       { to: "/admin/sources", label: "信源" },
+      { to: "/admin/content", label: "内容" },
       { to: "/admin/feedback", label: "反馈" },
     ],
   },
   {
-    group: "系统",
+    group: "设置",
     items: [
-      { to: "/admin/runs", label: "运行" },
-      { to: "/admin/models", label: "模型与评测" },
-      { to: "/admin/usage-models/reconciliation", label: "费用与投递核对" },
-      { to: "/admin/settings", label: "设置" },
+      { to: "/admin/usage-models", label: "用量与模型密钥" },
+      { to: "/admin/site", label: "网站资料" },
     ],
   },
 ];
+
+const ACCOUNT = { to: "/admin/accounts", label: "账号" };
 
 function NavItem({ to, label }: { to: string; label: string }) {
   return (
@@ -65,7 +65,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
   const { me } = loaderData;
   const navigation = useNavigation();
   const location = useLocation();
-  const flat = NAV.flatMap((g) => g.items);
+  const flat = [...NAV.flatMap((g) => g.items), ACCOUNT];
   return (
     <div className="flex min-h-dvh bg-bg">
       <NavigationProgress active={navigation.state === "loading"} />
@@ -88,6 +88,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
         </nav>
         <ThemeSwitch />
         <div className="mt-3 border-t border-line px-2 pt-3 text-[12.5px] text-ink-3">
+          <NavItem {...ACCOUNT} />
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">{me.name}</span>
             {me.dev && <span className="rounded bg-amber/15 px-1.5 text-[11px] font-medium text-amber">开发</span>}

@@ -4,7 +4,7 @@ import type { HotEntryView, HotResponse } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { monthDayTime, shortSourceName } from "../lib/format";
-import { Badge } from "../components/ui/Badge";
+import { Badge } from "@amp/ui/Badge";
 import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
 import { Sparkline } from "../features/hot/Sparkline";
