@@ -13,7 +13,7 @@ const sql = dbOf("ops");
 const T = tag();
 const TARGET = `test-delivery-${T}`;
 const WEBHOOK = "https://delivery.invalid/test";
-const app = await buildApp();
+const app = await buildApp("private-api");
 const ids: number[] = [];
 const requests: number[] = [];
 let answer = async (_id: number) => Response.json({ code: 0 });

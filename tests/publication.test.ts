@@ -30,7 +30,7 @@ const T = tag();
 const SOURCE = `test-publication-${T}`;
 const BODY = `FULLTEXT-${T} `.repeat(40);
 const REPORT_KEY = `2099-12-${String(10 + Math.floor(Math.random() * 19))}`;
-const app = await buildApp();
+const app = await buildApp("public-api");
 
 before(async () => {
   // An interrupted earlier run may have left entries behind the release gate, holding the watermark.

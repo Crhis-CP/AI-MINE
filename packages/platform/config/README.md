@@ -22,6 +22,8 @@
 
 进程角色和地址权限见 `PROCESS_DATABASE_ROLES`。公开 API 只取得 public_read/feedback_write；私有 API 只取得 private_ops/auth；worker 取得 worker，另有 backup；迁移取得 migrate；web/fetcher 不持有数据库地址。`api` 是拆分前的临时角色，`test` 只允许一次性 `_test`/`_ci` 数据库。
 
+反馈来源哈希已改用独立 PUBLIC_RATE_LIMIT_SECRET：生产缺失拒绝启动，开发缺失警告并使用既有开发常量；SESSION_SECRET 仅用于私有认证，不再决定反馈哈希。
+
 这三个 API 助手是 PR7c 的准备，尚未接入 main、environmentProblems 或数据库创建路径；现行 api 角色与单 API 默认行为保持。PUBLIC_RATE_LIMIT_SECRET/INDEXNOW_KEY 合法，IMG_PROXY_SIGN_SECRET 不新增禁项；private/worker 的非数据库凭据拒绝仍留部署任务。
 
 所有按角色地址都未提供时才使用单一 DATABASE_URL，并输出不含地址的过渡提示；只提供一部分角色地址则拒绝启动，不退回单一地址。创建配置与连接句柄均不执行 SQL；收到查询后驱动才连接。

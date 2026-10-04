@@ -22,6 +22,7 @@ admin_url="$(node -e 'const u=new URL(process.env.DATABASE_URL);u.pathname="/pos
 
 export SITE_URL="${SITE_URL:-http://127.0.0.1:3000}"
 export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:3001}"
+export PUBLIC_RATE_LIMIT_SECRET="${PUBLIC_RATE_LIMIT_SECRET:-baseline-public-secret-0123456789abcdef}"
 export SESSION_SECRET="${SESSION_SECRET:-baseline-session-secret-0123456789abcdef}"
 export IMG_PROXY_SIGN_SECRET="${IMG_PROXY_SIGN_SECRET:-baseline-img-secret-0123456789abcdef}"
 

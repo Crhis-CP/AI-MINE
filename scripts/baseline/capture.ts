@@ -6,6 +6,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { initializeDb } from "@amp/backend/db";
+import type { HTTPMethods } from "fastify";
+import { normalizeRouteTree } from "./routes.ts";
 
 const out = process.argv[2];
 if (!out) {
@@ -22,10 +24,26 @@ const write = (name: string, text: string) => writeFileSync(path.join(out, name)
 
 await initializeDb("test");
 const { buildApp } = await import("../../apps/api/src/app.ts");
-const app = await buildApp();
-await app.ready();
-write("routes.txt", app.printRoutes({ commonPrefix: false }));
-await app.close();
+const combined = new Set<string>();
+for (const role of ["public-api", "private-api"] as const) {
+  const app = await buildApp(role);
+  try {
+    await app.ready();
+    const tree = app.printRoutes({ commonPrefix: false });
+    write(`routes-${role}.txt`, tree);
+    // These two fixed fallback registrations are the prefixes the router printer omits.
+    const wildcards: Readonly<Record<string, string>> = role === "public-api" ? { "": "/api/public/*", "/api/v1": "/api/v1/*" } : {};
+    for (const entry of normalizeRouteTree(tree, wildcards)) {
+      const separator = entry.indexOf(" ");
+      if (!app.hasRoute({ method: entry.slice(0, separator) as HTTPMethods, url: entry.slice(separator + 1) }))
+        throw new Error(`Captured route does not exist: ${entry}`);
+      combined.add(entry);
+    }
+  } finally {
+    await app.close();
+  }
+}
+write("routes.txt", [...combined].sort().join("\n"));
 
 const { QUEUES, QUEUE_OPTIONS } = await import("@amp/backend/jobs/queue");
 write("queues.json", JSON.stringify({ queues: QUEUES, options: QUEUE_OPTIONS }, null, 2));
