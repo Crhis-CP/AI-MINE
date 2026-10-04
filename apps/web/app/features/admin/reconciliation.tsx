@@ -1,29 +1,13 @@
 import { useState } from "react";
+import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import type { z } from "zod";
 import { Link } from "react-router";
 import type { useAdminAction } from "./action";
 import { Badge, Button, Card, DataTable, Field, ReasonDialog, Select, Time } from "./ui";
 
-export interface ReceiptIssue {
-  id: number;
-  status: string;
-  service: string;
-  model: string | null;
-  purpose: string;
-  subject: string | null;
-  error: string | null;
-}
-export interface DeliveryIssue {
-  id: number;
-  target_key: string;
-  status: string;
-  subject_kind: string;
-  subject_id: string;
-  updated_at: string;
-}
-export interface ReconciliationData {
-  receipts: { counts: Record<string, number>; issues: ReceiptIssue[] };
-  deliveries: DeliveryIssue[];
-}
+export type ReceiptIssue = z.infer<typeof privateSchemas.ReceiptIssue>;
+export type DeliveryIssue = z.infer<typeof privateSchemas.DeliveryIssue>;
+export type ReconciliationData = Pick<z.infer<typeof privateSchemas.ReceiptReconciliationResponse>, "receipts" | "deliveries">;
 
 export function UsageReconciliation({ data: r, actions }: { data: ReconciliationData; actions: ReturnType<typeof useAdminAction> }) {
   const { run, pending } = actions;
@@ -88,7 +72,11 @@ export function UsageReconciliation({ data: r, actions }: { data: Reconciliation
                 label: "",
                 render: (x) =>
                   x.status === "unknown" ? (
-                    <Button size="sm" onClick={() => setReceipt(x)}>
+                    <Button
+                      size="sm"
+                      disabled={actions.busy || !privateSchemas.ReceiptObservedVersion.safeParse(x.version).success}
+                      onClick={() => setReceipt(x)}
+                    >
                       核对
                     </Button>
                   ) : null,
@@ -134,14 +122,41 @@ export function UsageReconciliation({ data: r, actions }: { data: Reconciliation
 
       <ReasonDialog
         open={!!receipt}
-        title={`核对回执 #${receipt?.id ?? ""}`}
-        description="仅用于供应商明确确认未计费的请求，请填写核对依据。已计费或仍无法确认的请求保持未知，不能在这里重试。"
+        title={`核对回执 #${receipt?.id ?? ""} · 第${receipt?.attempts ?? ""}次尝试`}
+        description={
+          <>
+            仅用于供应商明确确认本次尝试未计费，请填写核对依据。已计费或仍无法确认的请求保持未知。
+            {receipt && (
+              <>
+                {" "}
+                更新时间：
+                <Time at={receipt.updated_at} />。
+              </>
+            )}
+          </>
+        }
         confirmLabel="确认未计费并放行"
         busy={pending === "release"}
         onClose={() => setReceipt(null)}
-        onSubmit={async (note) =>
-          (await run("POST", `/api/admin/receipts/${receipt!.id}/release`, { billed: false, note }, { label: "release", success: "已记录未计费核对" })) !== null
-        }
+        onSubmit={async (note) => {
+          const body = privateSchemas.ReceiptReleaseRequest.parse({ billed: false, note, version: receipt!.version });
+          return (
+            (await run("POST", `/api/admin/receipts/${receipt!.id}/release`, body, {
+              label: "release",
+              success: "已记录未计费核对",
+              parse: privateSchemas.ReceiptReleaseResponse.parse,
+              onConflict: () => setReceipt(null),
+              send: (_url, init) =>
+                createPrivateClient({}).POST("/api/admin/receipts/{id}/release", {
+                  params: { path: { id: String(receipt!.id) } },
+                  body,
+                  headers: init.headers,
+                  credentials: init.credentials,
+                  signal: init.signal,
+                }),
+            })) !== null
+          );
+        }}
       />
       <ReasonDialog
         open={!!delivery}

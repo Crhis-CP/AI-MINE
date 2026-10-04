@@ -13,12 +13,17 @@ import { closeDb, dbOf } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
 import { BudgetExceededError, completeReceipt, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
-import { autoReleaseUnknownReceipts, releaseReceipt } from "@amp/backend/admin/runs";
+import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { hasPrefilterReceipt } from "../packages/backend/src/providers/receipt-evidence.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
 
 const sql = dbOf("ai-gateway");
+async function versionFor(id: number) {
+  const [row] = await sql<{ receiptId: string; attempts: number; updatedAtUtc: string }[]>`SELECT id::text AS "receiptId", attempts,
+    pg_catalog.to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAtUtc" FROM receipts WHERE id=${id}`;
+  return receiptObservedVersion(row!);
+}
 
 const usage = { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 };
 let answer: (hit: number) => string = () => '{"ok":true}';
@@ -190,7 +195,10 @@ test("only documented non-billing requeues the failed articles of all five analy
     await sql`UPDATE receipts SET updated_at = now() - interval '31 minutes' WHERE id = ${receiptId}`;
     assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
     assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${articleId}`)[0].processing_state, "failed");
-    assert.equal((await releaseReceipt(receiptId, { billed: false, note: "provider console confirms no charge" }, "test"))?.requeued, true);
+    assert.equal(
+      (await releaseReceipt(receiptId, { billed: false, note: "provider console confirms no charge", version: await versionFor(receiptId) }, "test"))?.requeued,
+      true,
+    );
   }
   const rows = await sql<{ state: string; attempts: number; retry: Date | null; error: string | null }[]>`
     SELECT processing_state AS state, processing_attempts AS attempts, processing_retry_at AS retry, processing_error AS error
@@ -204,7 +212,7 @@ test("only documented non-billing requeues the failed articles of all five analy
 
 test("manual release resumes pending body reads and leaves unrelated article work alone", async () => {
   const body = await stoppedArticle("body_fallback", true);
-  const result = await releaseReceipt(body.receiptId, { billed: false, note: "checked the provider" }, "test");
+  const result = await releaseReceipt(body.receiptId, { billed: false, note: "checked the provider", version: await versionFor(body.receiptId) }, "test");
   assert.equal(result?.requeued, true);
   const jobs = await sql<{ name: string }[]>`SELECT name FROM pgboss.job WHERE data->>'articleId' = ${body.articleId}`;
   assert.deepEqual(
@@ -213,7 +221,10 @@ test("manual release resumes pending body reads and leaves unrelated article wor
     "the unfinished body is fetched before analysis",
   );
   const { articleId, receiptId } = await stoppedArticle("translate_body");
-  assert.equal((await releaseReceipt(receiptId, { billed: false, note: "checked the provider" }, "test"))?.requeued, false);
+  assert.equal(
+    (await releaseReceipt(receiptId, { billed: false, note: "checked the provider", version: await versionFor(receiptId) }, "test"))?.requeued,
+    false,
+  );
   const [article] = await sql<{ state: string }[]>`SELECT processing_state AS state FROM articles WHERE id = ${articleId}`;
   assert.equal(article!.state, "failed", "translation is not a reason to rerun the editorial pipeline");
 });
@@ -238,12 +249,13 @@ test("manual HTTP resolution rejects billed/invalid inputs and commits audit, re
   config.privateHost = "private.receipt.test";
   config.devAdmin = { displayName: "Receipt test" };
   const app = await buildApp("private-api");
+  const observed = await versionFor(stopped.receiptId);
   const post = (payload: object) =>
     app.inject({
       method: "POST",
       url: `/api/admin/receipts/${stopped.receiptId}/release`,
       headers: { "x-forwarded-host": "private.receipt.test", "x-csrf-token": "dev" },
-      payload,
+      payload: { version: observed, ...payload },
     });
   const state = async () => (await sql`SELECT status FROM receipts WHERE id=${stopped.receiptId}`)[0].status;
   try {

@@ -4,12 +4,17 @@ import { once } from "node:events";
 import { test } from "node:test";
 import { injectDb } from "@amp/backend/db";
 import { paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
-import { releaseReceipt } from "@amp/backend/admin/runs";
+import { receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { roleFixture } from "./role-db-fixture.ts";
 
 test("an old non-billing confirmation cannot release a new unknown attempt or a changed timestamp", async (t) => {
   const f = await roleFixture(t),
     sql = f.admin;
+  const versionFor = async (id: number) => {
+    const [row] = await sql<{ receiptId: string; attempts: number; updatedAtUtc: string }[]>`SELECT id::text AS "receiptId", attempts,
+      pg_catalog.to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAtUtc" FROM receipts WHERE id=${id}`;
+    return receiptObservedVersion(row!);
+  };
   let paused = Promise.withResolvers<void>(),
     resume = Promise.withResolvers<void>();
   let onceOnly = true;
@@ -48,7 +53,7 @@ test("an old non-billing confirmation cannot release a new unknown attempt or a 
     const [row] = await sql`SELECT id, attempts, status FROM receipts WHERE subject=${req.subject}`;
     assert.equal(row.attempts, 1);
     assert.equal(row.status, "unknown");
-    const evidence = { billed: false, note: "provider record for attempt 1 confirms no charge" };
+    const evidence = { billed: false, note: "provider record for attempt 1 confirms no charge", version: await versionFor(row.id) };
     delayed = releaseReceipt(row.id, evidence, "fixture-B");
     await paused.promise;
     assert.equal((await releaseReceipt(row.id, evidence, "fixture-A"))?.status, "failed");
@@ -74,7 +79,7 @@ test("an old non-billing confirmation cannot release a new unknown attempt or a 
     paused = Promise.withResolvers<void>();
     resume = Promise.withResolvers<void>();
     onceOnly = true;
-    delayed = releaseReceipt(row.id, { billed: false, note: "provider record for attempt 2" }, "fixture-stale-time");
+    delayed = releaseReceipt(row.id, { billed: false, note: "provider record for attempt 2", version: await versionFor(row.id) }, "fixture-stale-time");
     await paused.promise;
     await sql`UPDATE receipts SET updated_at=updated_at+interval '1 microsecond' WHERE id=${row.id}`;
     resume.resolve();

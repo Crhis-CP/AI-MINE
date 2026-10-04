@@ -5,7 +5,7 @@ import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
-import { ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
+import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
 
 const sql = dbOf("ops");
@@ -48,7 +48,8 @@ export async function runsOverview() {
       ORDER BY health = 'failing' DESC, next_fetch_at LIMIT 60`,
     sql<{ status: string; n: number }[]>`SELECT status, count(*)::int AS n FROM receipts WHERE created_at > now() - interval '7 days' GROUP BY 1`,
     sql`
-      SELECT id, service, model, purpose, subject, status, attempts, left(error, 240) AS error, created_at, updated_at FROM receipts
+      SELECT id, service, model, purpose, subject, status, attempts, left(error, 240) AS error, created_at, updated_at,
+        id::text AS version_id, pg_catalog.to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS version_time FROM receipts
       WHERE status = 'unknown' OR (status = 'failed' AND updated_at > now() - interval '3 days') OR (status = 'pending' AND updated_at < now() - interval '15 minutes')
       ORDER BY status = 'unknown' DESC, updated_at DESC LIMIT 40`,
     sql`
@@ -78,7 +79,13 @@ export async function runsOverview() {
     queues,
     failedJobs,
     lagging,
-    receipts: { counts: Object.fromEntries(receipts.map((r) => [r.status, r.n])), issues: receiptIssues },
+    receipts: {
+      counts: Object.fromEntries(receipts.map((r) => [r.status, r.n])),
+      issues: receiptIssues.map(({ version_id, version_time, ...row }) => ({
+        ...row,
+        version: receiptObservedVersion({ receiptId: version_id, attempts: row.attempts, updatedAtUtc: version_time }),
+      })),
+    },
     deliveries,
     errors,
     retrying: { count: retrying?.n ?? 0, next: retrying?.next ?? null },
@@ -124,14 +131,19 @@ async function release(id: number, error: string, actor: string, note: string, b
 }
 
 /** Existing endpoint can confirm non-billing; billed reconciliation needs the separate amount contract. */
-export async function releaseReceipt(id: number, input: { billed: boolean; note: string }, actor: string) {
-  if (!input || typeof input.billed !== "boolean" || typeof input.note !== "string" || !input.note.trim())
-    throw Object.assign(new Error("请明确核对是否计费，并填写供应商账单或控制台记录的依据"), { statusCode: 400 });
-  const [row] = await sql<(ReceiptVersion & { status: string })[]>`SELECT status, attempts, updated_at::text AS version FROM receipts WHERE id = ${id}`;
+export async function releaseReceipt(id: number, input: unknown, actor: string) {
+  const parsed = ReceiptReleaseRequest.safeParse(input);
+  if (!parsed.success) throw Object.assign(new Error("请重新读取回执版本，并填写供应商未计费的核对依据"), { statusCode: 400 });
+  const data = parsed.data;
+  const [row] = await sql<(ReceiptVersion & { status: string; version_id: string; version_time: string })[]>`
+    SELECT status, attempts, updated_at::text AS version, id::text AS version_id,
+      pg_catalog.to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS version_time FROM receipts WHERE id = ${id}`;
   if (!row) return null;
   if (row.status !== "unknown") throw new Conflict("只有结果未知的回执需要人工核对");
-  if (input.billed) throw new Conflict("已计费但结果未取回：须完成金额核销，当前不能放行或重新发起付费调用");
-  const note = input.note.trim();
+  if (data.version !== receiptObservedVersion({ receiptId: row.version_id, attempts: row.attempts, updatedAtUtc: row.version_time }))
+    throw new Conflict("回执已变化，请重新读取并核对本次尝试的计费依据");
+  if (data.billed) throw new Conflict("已计费但结果未取回：须完成金额核销，当前不能放行或重新发起付费调用");
+  const note = data.note;
   const error = `人工核对：供应商未计费。${note}`;
   return sql.begin((tx) => release(id, error, actor, note, false, tx, row));
 }

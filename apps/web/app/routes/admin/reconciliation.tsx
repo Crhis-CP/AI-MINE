@@ -1,16 +1,27 @@
 import { SITE } from "@amp/industry/site";
 import type { Route } from "./+types/reconciliation";
-import { adminGet } from "../../lib/admin.server";
+import { loadReconciliation } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
 import { UsageReconciliation, type ReconciliationData } from "../../features/admin/reconciliation";
 import { AdminPage } from "../../features/admin/ui";
 
 export async function loader({ request }: Route.LoaderArgs): Promise<ReconciliationData> {
-  const data = await adminGet<ReconciliationData>(request, "/api/admin/runs");
+  const data = await loadReconciliation(request);
   return {
     receipts: {
       counts: data.receipts.counts,
-      issues: data.receipts.issues.map(({ id, status, service, model, purpose, subject, error }) => ({ id, status, service, model, purpose, subject, error })),
+      issues: data.receipts.issues.map(({ id, status, service, model, purpose, subject, error, attempts, updated_at, version }) => ({
+        id,
+        status,
+        service,
+        model,
+        purpose,
+        subject,
+        error,
+        attempts,
+        updated_at,
+        version,
+      })),
     },
     deliveries: data.deliveries.map(({ id, target_key, status, subject_kind, subject_id, updated_at }) => ({
       id,

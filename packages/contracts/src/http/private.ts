@@ -3,7 +3,7 @@ import { Problem, ProblemResponse } from "./common.ts";
 
 export const LoginOptions = z.strictObject({ password: z.boolean(), feishu: z.boolean() });
 
-/** Prepared for atomic GET/POST/UI activation; not registered in schemas/routes yet. */
+/** Optimistic concurrency precondition; this is not an authentication credential. */
 export const ReceiptObservedVersion = z
   .string()
   .length(68)
@@ -57,11 +57,47 @@ export const ReceiptReconciliationResponse = z.looseObject({
   deliveries: z.array(DeliveryIssue),
 });
 
-export const schemas = { LoginOptions, Problem };
+export const schemas = {
+  LoginOptions,
+  ReceiptObservedVersion,
+  ReceiptReleaseRequest,
+  ReceiptReleaseResponse,
+  ReceiptIssue,
+  DeliveryIssue,
+  ReceiptReconciliationResponse,
+  Problem,
+};
 export const routes = {
   loginOptions: {
     method: "GET" as const,
     url: "/api/auth/options",
     schema: { operationId: "loginOptions", response: { 200: LoginOptions, 404: ProblemResponse, 503: ProblemResponse } },
+  },
+  receiptReview: {
+    method: "GET" as const,
+    url: "/api/admin/runs",
+    schema: {
+      operationId: "receiptReview",
+      response: { 200: ReceiptReconciliationResponse, 401: ProblemResponse, 404: ProblemResponse, 500: ProblemResponse, 503: ProblemResponse },
+    },
+  },
+  releaseReceipt: {
+    method: "POST" as const,
+    url: "/api/admin/receipts/:id/release",
+    schema: {
+      operationId: "releaseReceipt",
+      params: z.object({ id: z.string() }),
+      body: ReceiptReleaseRequest,
+      response: {
+        200: ReceiptReleaseResponse,
+        400: ProblemResponse,
+        401: ProblemResponse,
+        403: ProblemResponse,
+        404: ProblemResponse,
+        409: ProblemResponse,
+        500: ProblemResponse,
+        503: ProblemResponse,
+      },
+    },
   },
 };

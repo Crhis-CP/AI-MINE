@@ -262,7 +262,7 @@ if (process.argv.includes("--routes")) {
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [
       ["public", ["/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
-      ["private", ["/api/auth/options"], "PoolResponse"],
+      ["private", ["/api/admin/receipts/{id}/release", "/api/admin/runs", "/api/auth/options"], "PoolResponse"],
     ] as const) {
       const json = readFileSync(new URL(`../../reference/contracts/${audience}.openapi.json`, import.meta.url), "utf8");
       const doc = JSON.parse(json);
@@ -270,7 +270,7 @@ if (process.argv.includes("--routes")) {
       assert.deepEqual(Object.keys(doc.paths), routes);
       assert.ok(!json.includes(absent));
       for (const route of routes)
-        for (const [status, response] of Object.entries(doc.paths[route].get.responses)) {
+        for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post).responses)) {
           if (Number(status) >= 400) assert.deepEqual(Object.keys((response as { content: object }).content), ["application/problem+json"]);
         }
     }
