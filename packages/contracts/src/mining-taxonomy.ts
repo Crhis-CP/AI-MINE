@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** ADR-0022 preparation only; the active CATEGORY_KEYS and HTTP registries have not switched. */
+/** ADR-0022 category identities; active taxonomy and generated HTTP contracts share these keys. */
 export const MINING_CATEGORY_KEYS = [
   "policy_regulation",
   "company_project",

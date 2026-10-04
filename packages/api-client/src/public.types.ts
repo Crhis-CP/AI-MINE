@@ -52,7 +52,19 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     FeedItemSummary: {
-      category: ("ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion") | null;
+      category:
+        | (
+            | "policy_regulation"
+            | "company_project"
+            | "commodity_market"
+            | "capital_ma"
+            | "supply_trade_controls"
+            | "esg_community_labor"
+            | "safety_incident"
+            | "technology_processing"
+            | "exploration_resource"
+          )
+        | null;
       /** @constant */
       channel: "news";
       id: string;
@@ -70,7 +82,19 @@ export interface components {
       title: string;
     };
     FeedItemSummaryInput: {
-      category: ("ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion") | null;
+      category:
+        | (
+            | "policy_regulation"
+            | "company_project"
+            | "commodity_market"
+            | "capital_ma"
+            | "supply_trade_controls"
+            | "esg_community_labor"
+            | "safety_incident"
+            | "technology_processing"
+            | "exploration_resource"
+          )
+        | null;
       /** @constant */
       channel: "news";
       id: string;
@@ -133,7 +157,19 @@ export interface components {
     };
     PoolResponse: {
       filters: {
-        category: ("ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion") | null;
+        category:
+          | (
+              | "policy_regulation"
+              | "company_project"
+              | "commodity_market"
+              | "capital_ma"
+              | "supply_trade_controls"
+              | "esg_community_labor"
+              | "safety_incident"
+              | "technology_processing"
+              | "exploration_resource"
+            )
+          | null;
         /** @enum {string} */
         channel: "all" | "news" | "firstParty";
         q: string | null;
@@ -154,7 +190,19 @@ export interface components {
     };
     PoolResponseInput: {
       filters: {
-        category: ("ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion") | null;
+        category:
+          | (
+              | "policy_regulation"
+              | "company_project"
+              | "commodity_market"
+              | "capital_ma"
+              | "supply_trade_controls"
+              | "esg_community_labor"
+              | "safety_incident"
+              | "technology_processing"
+              | "exploration_resource"
+            )
+          | null;
         /** @enum {string} */
         channel: "all" | "news" | "firstParty";
         q: string | null;
@@ -192,14 +240,38 @@ export interface components {
       type: string;
     };
     SiteFilters: {
-      category: ("ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion") | null;
+      category:
+        | (
+            | "policy_regulation"
+            | "company_project"
+            | "commodity_market"
+            | "capital_ma"
+            | "supply_trade_controls"
+            | "esg_community_labor"
+            | "safety_incident"
+            | "technology_processing"
+            | "exploration_resource"
+          )
+        | null;
       /** @enum {string} */
       channel: "all" | "news" | "firstParty";
       tag: string | null;
       topic?: string | null;
     };
     SiteFiltersInput: {
-      category: ("ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion") | null;
+      category:
+        | (
+            | "policy_regulation"
+            | "company_project"
+            | "commodity_market"
+            | "capital_ma"
+            | "supply_trade_controls"
+            | "esg_community_labor"
+            | "safety_incident"
+            | "technology_processing"
+            | "exploration_resource"
+          )
+        | null;
       /** @enum {string} */
       channel: "all" | "news" | "firstParty";
       tag: string | null;
@@ -291,7 +363,16 @@ export interface operations {
   sitePool: {
     parameters: {
       query?: {
-        category?: "ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion";
+        category?:
+          | "policy_regulation"
+          | "company_project"
+          | "commodity_market"
+          | "capital_ma"
+          | "supply_trade_controls"
+          | "esg_community_labor"
+          | "safety_incident"
+          | "technology_processing"
+          | "exploration_resource";
         channel?: "all" | "news" | "firstParty";
         page?: number;
         q?: string;
@@ -380,7 +461,16 @@ export interface operations {
   siteTimeline: {
     parameters: {
       query?: {
-        category?: "ai-models" | "ai-products" | "industry" | "paper" | "tip" | "opinion";
+        category?:
+          | "policy_regulation"
+          | "company_project"
+          | "commodity_market"
+          | "capital_ma"
+          | "supply_trade_controls"
+          | "esg_community_labor"
+          | "safety_incident"
+          | "technology_processing"
+          | "exploration_resource";
         channel?: "all" | "news" | "firstParty";
         cursor?: string;
         limit?: number;

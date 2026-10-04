@@ -1,6 +1,7 @@
 // Stable public identities for URLs, API, RSS and MCP. Display labels belong to industry.
 // Changing a key or its order is a contract change, independent of the industry vocabulary.
-export const CATEGORY_KEYS = ["ai-models", "ai-products", "industry", "paper", "tip", "opinion"] as const;
+import { MINING_CATEGORY_KEYS } from "./mining-taxonomy.ts";
+export const CATEGORY_KEYS = MINING_CATEGORY_KEYS;
 export type CategoryKey = (typeof CATEGORY_KEYS)[number];
 
 /** The public API, RSS and MCP use the same categories as the website. */

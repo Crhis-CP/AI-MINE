@@ -36,7 +36,7 @@ for (const [audience, contracts] of [
   app.setValidatorCompiler(validatorCompiler);
   try {
     await app.register(swagger, {
-      openapi: { openapi: "3.1.0", info: { title: `AI矿策 ${audience}`, version: audience === "private" ? "0.2.0" : "0.1.0" } },
+      openapi: { openapi: "3.1.0", info: { title: `AI矿策 ${audience}`, version: "0.2.0" } },
       transform: createJsonSchemaTransform({ schemaRegistry: registry }),
       transformObject: createJsonSchemaTransformObject({ schemaRegistry: registry }),
     });

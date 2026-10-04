@@ -1,4 +1,4 @@
-// Dormant ADR-0022 data: glossary §3 / DR-100 definitions and DR-89 report sections.
+// ADR-0022 data: glossary §3 / DR-100 definitions and DR-89 report sections.
 // guide is the current glossary definition; shortLabel is only a compact label/alias.
 export const MINING_CATEGORIES = [
   {

@@ -4,11 +4,15 @@ import { test } from "node:test";
 import { CATEGORY_KEYS, CHANNEL_KEYS, PUBLIC_API_CATEGORY_KEYS, isCategoryKey, isChannelKey, toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES, MCP_TOOLS } from "@amp/contracts/mcp";
 import { CATEGORIES, CATEGORY_LABELS, CHANNEL_LABELS } from "@amp/industry/taxonomy";
+import { MINING_CATEGORIES } from "@amp/industry/mining-taxonomy";
 import { SITE } from "@amp/industry/site";
 import { ROOT } from "../lib.ts";
 
-test("public taxonomy identity, display labels and order retain the existing contract", () => {
-  assert.deepEqual(CATEGORY_KEYS, ["ai-models", "ai-products", "industry", "paper", "tip", "opinion"]);
+test("public taxonomy identity, display labels and order implement ADR-0022 without changing channel or MCP identity", () => {
+  assert.deepEqual(
+    CATEGORY_KEYS,
+    MINING_CATEGORIES.map((row) => row.key),
+  );
   assert.deepEqual(CHANNEL_KEYS, ["all", "news", "firstParty"]);
   assert.equal(PUBLIC_API_CATEGORY_KEYS, CATEGORY_KEYS);
   assert.deepEqual(
@@ -16,7 +20,7 @@ test("public taxonomy identity, display labels and order retain the existing con
     CATEGORY_KEYS,
   );
   assert.deepEqual(Object.keys(CATEGORY_LABELS), CATEGORY_KEYS);
-  assert.deepEqual(CATEGORY_LABELS, { "ai-models": "模型", "ai-products": "产品", industry: "行业", paper: "论文", tip: "教程", opinion: "观点" });
+  assert.deepEqual(CATEGORY_LABELS, Object.fromEntries(MINING_CATEGORIES.map((row) => [row.key, row.label])));
   assert.deepEqual(Object.keys(CHANNEL_LABELS), CHANNEL_KEYS);
   assert.deepEqual(CHANNEL_LABELS, { all: "全部", news: "资讯", firstParty: "一手" });
   for (const key of CATEGORY_KEYS) {

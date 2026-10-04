@@ -191,20 +191,20 @@
     "packages/backend/src/publication/pool.ts:loadPool/run/direct:05f84a925a247d8cb7b1aebda2017756cd417a113c70eeeee3110ecfafaa2c2c": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/direct/<closure@209:33>:9165f49f36cc5f2d5029c1107e14a137d6116482967822b5e713e95d56035497": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/direct/<closure@209:33>:4fd5a82ef4197cabbe95d86fb6d0d3df48db7d3b9b219141ff36cdf5ad9b99c9": 1,
-    "packages/backend/src/publication/v1.ts:v1Items/run:4e65733b0b2c8884d7c6870075f401b76f9ba41873b8753b7e11cd662f982ebb": 1,
-    "packages/backend/src/publication/v1.ts:v1Items/rows:7a1c03ee5dd87f19851f63f2699ee12def2a788d00cdaf4259822eef0cdb238b": 1,
-    "packages/backend/src/publication/v1.ts:ledgerPayload:b78f312a1a91f42e58146ae1c8a22085c8fadd0e000e55b26eb2b415df54df65": 1,
-    "packages/backend/src/publication/v1.ts:selectedSnapshot/rows:a61edfc8009f90f7a9b23833915db04715f7090e618a5b63f866bf5e49b7a884": 1,
-    "packages/backend/src/publication/v1.ts:selectedSnapshot/rows:8bb006b4bb89f8d56a91c0bd36eede4a00960a6946c854f8001e1328ae8241f3": 1,
-    "packages/backend/src/publication/v1.ts:selectedChanges/rows:5c79c0e1da5b26b06b0263227f35bede126ddd1d2c55396a6572e9720b5c7ec3": 1,
-    "packages/backend/src/publication/v1.ts:selectedChanges/rows:9752268b3e5d2cff736404850e6d28562f5ea0d5f83cde3af49b7fd067840996": 1,
     "packages/backend/src/sources/collect.ts:scheduleDueSources/rows:60e82c7d1c5b3eeccf73f4b44365c3a3dec666a21fac6f4523b272fba481af4b": 1,
     "packages/backend/src/sources/mp.ts:checkMpAccount:8896fe4b57566c2d0c7b1ef90738bdb54b042cb4012ccca42aad79870f622de0": 1,
     "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1,
-    "packages/backend/src/publication/pool.ts:loadPool/run/result:9e2051efa29519c68f2b2b8b0d5a9b995c84e32a6899aa74772f9f22eb084a90": 1,
-    "packages/backend/src/publication/pool.ts:loadPool/run/rows:aebd897b04a32c1b68085d806faffb855eb89f43975d850cf87c2aa71a47795c": 1,
-    "packages/backend/src/publication/pool.ts:loadPool/run/{ n }:825e992c52d286e262645aa934a0be7eb93156c9751174bc9fd472e8fceeab0d": 1,
-    "packages/backend/src/publication/v1.ts:v1Items/run:c1133af84c6b63a586673a5cd6b0dce1566bccc79c81b9cdc0e677c27cdd3aa0": 1
+    "packages/backend/src/publication/pool.ts:loadPool/run/result:67fd04103feefa4f08ada85de275067c265a2c2bb9c7f9294a8a5895d63ea5a5": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/rows:58cb2fcaa327fdbc95d8d4e5394de7c21b4a923da52b75c8789294894701d488": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/{ n }:a0c79120f794eda282f4a15e8c1c0126cb034cb72415047b966bafc5eaeaa1f2": 1,
+    "packages/backend/src/publication/v1.ts:v1Items/run:cfbce7587a22429042453bef8b4038e50645a9efb07cc97eeee111be51d7ca5c": 1,
+    "packages/backend/src/publication/v1.ts:v1Items/run:802086414083f014b1ca083e6e7b4ffdd4d0844b2a6ba964f4bb4cfb19186de3": 1,
+    "packages/backend/src/publication/v1.ts:v1Items/rows:2714a4ab0f4c383f51297c149124218e3f40d5ee072fa2009b950e0b2b563dbd": 1,
+    "packages/backend/src/publication/v1.ts:ledgerPayload:187ffab0e6d38f1067e91b4432f994e87df4ed7f521a4e178b32fefde28472ec": 1,
+    "packages/backend/src/publication/v1.ts:selectedSnapshot/rows:1cb86b6c541c0c4952020318e4584941f3da6ca519507b47911baf00446e56d0": 1,
+    "packages/backend/src/publication/v1.ts:selectedSnapshot/rows:47d6e6db7359f5960ea5b98fcb942c6d91dc2315ee6fdb0b79776ee3d62674cf": 1,
+    "packages/backend/src/publication/v1.ts:selectedChanges/rows:d21357b652f60fe84adcb1154cff05089b251659121cdf864981f13baea505c2": 1,
+    "packages/backend/src/publication/v1.ts:selectedChanges/rows:1daac56f0ba78dcd086e333ace7d1d112b35247ee7c5e566658b3a35d9f60dde": 1
   },
   "extractors": {
     "sql": "2479d891d78d004f23a2d10fcb7ef62f0520a319d69f011d0a48da8833b54f53",
@@ -406,6 +406,236 @@
           "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
         },
         "projectionOffsets": []
+      }
+    ]
+  },
+  "miningCategoryTransition": {
+    "revision": "ADR-0022-nine-categories",
+    "sites": [
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/result",
+        "kind": "template",
+        "sourceHash": "cbab10a65a0a5aca82b5d0413f3f9b9dec08ed289ef63e1b67c17a769958da63",
+        "shape": "with matches as ? ( ? ) , scored as materialized ( select p . article_id , p . timeline_at , matches . part + ( ? ) as rel from matches join publications p on p . article_id = matches . article_id join sources s on s . id = p . source_id where ? and p . eligible ? ? ? ? ) , page as materialized ( select article_id , rel from scored order by rel desc , timeline_at desc , article_id desc limit ? offset ? ) , total as ( select count ( * ) as n from ( select ? from scored limit ? ) capped ) select hydrated . * , total . n as total from total left join lateral ( select p . article_id as id , p . revision , p . title , p . original_title , coalesce ( p . summary , case when s . site_fulltext and p . visibility = ? then p . source_excerpt end ) as summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title , page . rel from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision join page on page . article_id = p . article_id ) hydrated on true order by hydrated . rel desc , hydrated . timeline_at desc , hydrated . id desc",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`",
+          "opaque interpolation: splitFields\n        ? sql`\n        SELECT coalesce(d.article_id, b.article_id) AS article_id,\n          (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END) + (CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part\n        FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${\"%\" + terms[0]! + \"%\"}) d\n        FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${\"%\" + terms[0]! + \"%\"}) b ON b.article_id = d.article_id`\n        : sql`SELECT ps.article_id, (${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}`",
+          "opaque interpolation: terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`)",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)"
+        ],
+        "before": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "20035a352e8c5ccaaec24f666f9c60694bd5777b6c8c9863ce726a045a133dbb",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/rows",
+        "kind": "template",
+        "sourceHash": "e544fa9bbee69430ee3cb72cb44543bcce78c1bea9fbac16e40b70c3ef4742ef",
+        "shape": "with page as ( select p . article_id from publications p where ? and p . eligible ? ? ? ? ? order by p . timeline_at desc , p . article_id desc limit ? offset ? ) select p . article_id as id , p . revision , p . title , p . original_title , coalesce ( p . summary , case when s . site_fulltext and p . visibility = ? then p . source_excerpt end ) as summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision where p . article_id in ( select article_id from page ) order by p . timeline_at desc , p . article_id desc",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)",
+          "opaque interpolation: directMatchCondition(terms)"
+        ],
+        "before": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "20035a352e8c5ccaaec24f666f9c60694bd5777b6c8c9863ce726a045a133dbb",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/{ n }",
+        "kind": "template",
+        "sourceHash": "fcfd1f767a9e6a7d7cd419983ac01ac8c44c68498e64dd6f972bb4abc1f7cfea",
+        "shape": "select count ( * ) as n from ( select ? from pool_search ps join publications p on p . article_id = ps . article_id where ? and p . eligible ? ? ? ? ? limit ? ) t",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)",
+          "opaque interpolation: terms.reduce((acc, t) => sql`${acc} AND ${like(sql`ps.direct`, t)}`, sql``)"
+        ],
+        "before": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "20035a352e8c5ccaaec24f666f9c60694bd5777b6c8c9863ce726a045a133dbb",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "v1Items/run",
+        "kind": "template",
+        "sourceHash": "fcb1437ace4c15aeaabbe793c76ce70d3ef85fc2ae56f35aab737d317c7748ab",
+        "shape": "select p . article_id as id , p . title , p . original_title , p . summary , s . name as source_name , p . url , p . published_at , p . discovered_at , p . category , p . score , p . selected , p . reason , ? as sort_at from publications p join sources s on s . id = p . source_id where ? ? ? and ? > = ? and ? < = ? ? order by ? desc , p . article_id desc limit ?",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: query.by === \"published\" ? sql`coalesce(p.published_at, p.discovered_at)` : query.mode === \"selected\" ? sql`p.sort_at` : sql`p.timeline_at`",
+          "opaque interpolation: query.mode === \"selected\" ? selectedCondition(now) : sql`${listedCondition(now)} AND p.eligible`",
+          "opaque interpolation: categoryCondition(query.category, true)",
+          "opaque interpolation: publicMatchCondition(terms)",
+          "opaque interpolation: after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``"
+        ],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "packages/backend/src/publication/items.ts": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c",
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "packages/backend/src/publication/items.ts": "20035a352e8c5ccaaec24f666f9c60694bd5777b6c8c9863ce726a045a133dbb",
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "v1Items/run",
+        "kind": "unresolved-call",
+        "sourceHash": "d89acf5ed4c3f095daed5407730caf3c0a01b0b01494ec82bdea94413b370de7",
+        "shape": "?",
+        "reasons": ["unexpanded SQL fragment", "unresolved database operation type", "opaque interpolation: publicMatchCondition(terms)"],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "v1Items/rows",
+        "kind": "unresolved-call",
+        "sourceHash": "645a9319c1a814c6c806f3e74545f620badc4f0d531630519cd6ee0a5b11bf6a",
+        "shape": "?",
+        "reasons": ["unexpanded SQL fragment", "unresolved database operation type", "opaque interpolation: run(sql)"],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "ledgerPayload",
+        "kind": "template",
+        "sourceHash": "1e56d6baa051cac628980a8705fc01e150ff9dc0c8b7e9307bd98d70fe7dec01",
+        "shape": "? - array [ ? , ? , ? , ? , ? ] : : text [ ]",
+        "reasons": ["unexpanded SQL fragment", "opaque interpolation: payload"],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "selectedSnapshot/rows",
+        "kind": "template",
+        "sourceHash": "a7c47b71079740b1e3512064c2227948247f612dcf6bc02d0353a3a81ba3e781",
+        "shape": "select latest . article_id , ? as payload from ( select distinct on ( article_id ) article_id , op , payload from selected_ledger where seq < = ? and article_id > ? order by article_id , seq desc ) latest join selected_state st on st . article_id = latest . article_id and st . in_set where latest . op = ? order by latest . article_id limit ?",
+        "reasons": ["unexpanded SQL fragment", "opaque interpolation: ledgerPayload(fields === \"minimal\", sql`latest.payload`)"],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "selectedSnapshot/rows",
+        "kind": "unresolved-call",
+        "sourceHash": "2a75541571969ca036fdf958f32fbe65e4603b3e7ffb6d732d16dd78b1ee99d8",
+        "shape": "?",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "unresolved database operation type",
+          "opaque interpolation: ledgerPayload(fields === \"minimal\", sql`latest.payload`)"
+        ],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "selectedChanges/rows",
+        "kind": "template",
+        "sourceHash": "c97634c5bc89fbd0eec10109d9f363942790ac754f200f9381e87428aa23a15f",
+        "shape": "select seq , article_id , op , changed_at , ? as payload from selected_ledger where seq > ? and seq < = ? order by seq limit ?",
+        "reasons": ["unexpanded SQL fragment", "opaque interpolation: ledgerPayload(c.f === \"minimal\")"],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "selectedChanges/rows",
+        "kind": "unresolved-call",
+        "sourceHash": "2a782ee8269bc72dd3f36d163cd75b181fb55fc98098188ae49dffd5836dc457",
+        "shape": "?",
+        "reasons": ["unexpanded SQL fragment", "unresolved database operation type", "opaque interpolation: ledgerPayload(c.f === \"minimal\")"],
+        "before": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "after": {
+          "packages/backend/src/publication/v1.ts": "a43270b575fb010149e48b3eb4ba18e34666bd9845d9e437b0a5f75abf203596",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        }
       }
     ]
   }

@@ -140,7 +140,7 @@ const FieldsSchema = z
     title: z.string().min(1).max(300),
     summary: z.string().max(2000),
     reason: z.string().max(1000),
-    category: z.enum(CATEGORY_KEYS as unknown as [string, ...string[]]),
+    category: z.enum(CATEGORY_KEYS).nullable(),
     tags: z.array(z.string().max(60)).max(20),
     selected: z.boolean(),
     silent: z.boolean(),

@@ -16,10 +16,10 @@ const sql = dbOf("reports");
 
 export const REPORT_VERSION = promptVersion("report-daily-lead", "report-period");
 
-const SECTION_OF: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.section]));
+const SECTION_OF = new Map<string, string>(CATEGORIES.map((c) => [c.key, c.section]));
 const SECTION_ORDER = [...new Set(CATEGORIES.map((c) => c.section))];
-/** Where an item without a category goes. */
-const DEFAULT_SECTION = SECTION_OF.industry ?? SECTION_ORDER.at(-1)!;
+/** Unknown categories remain unsectioned; country groupings require independent evidence. */
+const reportSection = (category: string | null) => SECTION_OF.get(category ?? "") ?? null;
 
 export interface ReportEntry {
   itemId: string;
@@ -191,12 +191,12 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
   const perSection = new Map<string, Candidate[]>();
   const flashes: Array<{ itemId: string; title: string; sourceName: string; sourceUrl: string; publishedAt: string }> = [];
   for (const c of fresh) {
-    const label = SECTION_OF[c.category ?? ""] ?? DEFAULT_SECTION;
-    const list = perSection.get(label) ?? [];
-    if (list.length < 8) list.push(c);
+    const label = reportSection(c.category);
+    const list = label ? (perSection.get(label) ?? []) : [];
+    if (label && list.length < 8) list.push(c);
     else if (flashes.length < 12)
       flashes.push({ itemId: c.itemId, title: c.title, sourceName: c.sourceName, sourceUrl: c.sourceUrl, publishedAt: c.publishedAt });
-    perSection.set(label, list);
+    if (label) perSection.set(label, list);
   }
   const sections = SECTION_ORDER.filter((l) => perSection.get(l)?.length).map((label) => ({
     label,
@@ -245,7 +245,7 @@ export const PeriodSchema = z.object({
 
 /** The editor's brief for a week or month: its top entries as a numbered list, each with its section. */
 export function periodPrompt(kind: "weekly" | "monthly", startDate: string, endDateInclusive: string, top: Candidate[]) {
-  const list = top.map((e, i) => `${i + 1}. [${SECTION_OF[e.category ?? ""] ?? DEFAULT_SECTION}] ${e.title}｜${e.summary.slice(0, 140)}`).join("\n");
+  const list = top.map((e, i) => `${i + 1}. [${reportSection(e.category) ?? ""}] ${e.title}｜${e.summary.slice(0, 140)}`).join("\n");
   return {
     system: promptText("report-period", { kindName: kind === "weekly" ? "周报" : "月报", overviewLength: kind === "weekly" ? "150–300" : "200–400" }),
     user: `本期：${startDate} 至 ${endDateInclusive}\n${list}`,

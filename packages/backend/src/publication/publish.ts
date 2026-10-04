@@ -219,7 +219,7 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const summary = pickString(f.summary, analysis?.summary_zh?.trim() || null);
   const sourceExcerpt = summary ? null : excerpt;
   const displaySummary = summary ?? sourceExcerpt;
-  const category = pickString(f.category, analysis?.category ?? null);
+  const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
   const tags = Array.isArray(f.tags)
     ? (f.tags as string[])
     : [...new Set([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)])];

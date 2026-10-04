@@ -62,7 +62,7 @@ async function article(body = BODY, language?: string): Promise<string> {
     publishedAt: new Date(),
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
   return articleId;
 }
 

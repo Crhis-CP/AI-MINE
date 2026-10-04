@@ -129,8 +129,8 @@ TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、
 
 `@amp/industry/jurisdictions` 提供 33 国、3 个组织及中国 14 个下级法域的纯数据；资讯起点国家单独导出为 `NEWS_COUNTRIES`。来源、字段与验证见 `jurisdictions/README.md`。`seed/` 保存 321 条原始记录/320 个目标的字节镜像及哈希，属于待接入的业务输入；当前运行源仍由 `sources.json` 控制，镜像不会自动启用或替换它。
 
-## 九类分类未激活前置
+## 九类矿业分类
 
-`@amp/industry/mining-taxonomy` 逐项采用现行术语表第3节、DR-100及DR-89：全称、紧凑别名、定义（guide）和三组报告主题栏。它不替换 CATEGORIES，不是国家/矿种/实体/主题词表，也不改 ITEM_TYPES 或评分。未知分类的主题栏为 null，国内/海外另凭国家证据。
+`@amp/industry/mining-taxonomy` 逐项采用现行术语表第3节、DR-100及DR-89：全称、紧凑别名、定义（guide）和三组报告主题栏。CATEGORIES 使用这份定义；它不是国家/矿种/实体/主题词表，也不改 ITEM_TYPES 或评分。未知分类的主题栏为 null，国内/海外另凭国家证据。
 
-后续分类调用可用 `configuredPromptVersion(name, values)` 对实际 `promptText` 渲染文本求版本；仅实际使用的注入值会影响版本，参数键序和未使用值不影响。现行 promptVersion、预筛/评分调用及模板保持；九类必须与Task5的判定/发布/旧账本出口、页面和public生成客户端同批激活，不能仅先换标签。
+结构化与理解调用使用 `configuredPromptVersion(name, values)` 对实际 `promptText` 渲染文本求版本；仅实际使用的注入值会影响版本，参数键序和未使用值不影响。现行 promptVersion、预筛/评分调用及模板保持；Task5联合接入判定/发布/旧账本出口、现有页面和public生成客户端。合成样本只验证链路，不代表真实分类质量验收。
