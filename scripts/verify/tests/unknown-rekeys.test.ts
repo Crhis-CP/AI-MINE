@@ -125,3 +125,10 @@ test("the label split preserves type-only bindings and rejects unapproved import
   assert.equal(importsOnly("import * as values from 'a';", "import * as values from 'b';"), false);
   assert.equal(importsOnly("import 'a';", "import 'b';"), false);
 });
+
+test("empty named imports retain their module effects and type-only identity", () => {
+  assert.equal(importsOnly("import {} from './old.ts';", "import {} from './new.ts';"), false);
+  assert.equal(importsOnly("const x = 1;", "import {} from './new.ts'; const x = 1;"), false);
+  assert.equal(importsOnly("import type {} from './old.ts';", "import {} from './old.ts';"), false);
+  assert.equal(importsOnly("import {} from './old.ts';", "import {} from './old.ts';"), true);
+});

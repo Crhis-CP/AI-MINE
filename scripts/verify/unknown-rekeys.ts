@@ -71,7 +71,10 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
           if (clause.name) add(clause.name.text, "default");
           const named = clause.namedBindings;
           if (named && ts.isNamespaceImport(named)) add(named.name.text, "*");
-          else if (named) for (const item of named.elements) add(item.name.text, item.propertyName?.text ?? item.name.text, item.isTypeOnly);
+          else if (named) {
+            if (!named.elements.length) add("side-effect:" + module, "");
+            for (const item of named.elements) add(item.name.text, item.propertyName?.text ?? item.name.text, item.isTypeOnly);
+          }
         });
         return { body: JSON.stringify(body), bindings };
       });
