@@ -1,0 +1,151 @@
+{
+  "format": "^rv1:[a-f0-9]{64}$",
+  "vectors": [
+    {
+      "id": "base",
+      "receiptId": "42",
+      "attempts": 1,
+      "updatedAtUtc": "2026-10-04T16:00:16.765275Z",
+      "preimage": "[\"receipt-observation-v1\",\"42\",1,\"2026-10-04T16:00:16.765275Z\"]",
+      "expectedVersion": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb"
+    },
+    {
+      "id": "one-microsecond-later",
+      "receiptId": "42",
+      "attempts": 1,
+      "updatedAtUtc": "2026-10-04T16:00:16.765276Z",
+      "preimage": "[\"receipt-observation-v1\",\"42\",1,\"2026-10-04T16:00:16.765276Z\"]",
+      "expectedVersion": "rv1:80aab4113089d108a53d3681e55bc7cce021854601b9d0927f617f6fc4bd1a37"
+    },
+    {
+      "id": "next-attempt",
+      "receiptId": "42",
+      "attempts": 2,
+      "updatedAtUtc": "2026-10-04T16:00:16.765275Z",
+      "preimage": "[\"receipt-observation-v1\",\"42\",2,\"2026-10-04T16:00:16.765275Z\"]",
+      "expectedVersion": "rv1:cc8addd8482c4f68da4ac918625fe5077a68c4be09fd75cca2b490be15f8a991"
+    },
+    {
+      "id": "other-receipt",
+      "receiptId": "43",
+      "attempts": 1,
+      "updatedAtUtc": "2026-10-04T16:00:16.765275Z",
+      "preimage": "[\"receipt-observation-v1\",\"43\",1,\"2026-10-04T16:00:16.765275Z\"]",
+      "expectedVersion": "rv1:ae26a4ac05bc7e2c4a042e974de4e7a02fdf43fb7b12ab38dd5c91ec26a544f3"
+    },
+    {
+      "id": "large-id",
+      "receiptId": "9007199254740992",
+      "attempts": 1,
+      "updatedAtUtc": "2026-10-04T16:00:16.765275Z",
+      "preimage": "[\"receipt-observation-v1\",\"9007199254740992\",1,\"2026-10-04T16:00:16.765275Z\"]",
+      "expectedVersion": "rv1:2424a5c792c6b6851ec391695b20ccf932021b856ff4a1531e3f9a3599774ece"
+    },
+    {
+      "id": "large-id-next",
+      "receiptId": "9007199254740993",
+      "attempts": 1,
+      "updatedAtUtc": "2026-10-04T16:00:16.765275Z",
+      "preimage": "[\"receipt-observation-v1\",\"9007199254740993\",1,\"2026-10-04T16:00:16.765275Z\"]",
+      "expectedVersion": "rv1:eed7963e9ce16a1abb303dec151cfbaf782c50bb67f6d7a74163c44e16910e12"
+    }
+  ],
+  "invalidBodies": [
+    {
+      "name": "missing",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费"
+      }
+    },
+    {
+      "name": "null",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": null
+      }
+    },
+    {
+      "name": "number",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": 7
+      }
+    },
+    {
+      "name": "empty",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": ""
+      }
+    },
+    {
+      "name": "wrong-prefix",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": "rv2:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb"
+      }
+    },
+    {
+      "name": "uppercase",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": "rv1:C7A3839845B207F2746B77939884879B4D22E3CAB9EEA3EC8CFCF7560A0CF0EB"
+      }
+    },
+    {
+      "name": "short",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0e"
+      }
+    },
+    {
+      "name": "trailing-space",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb "
+      }
+    },
+    {
+      "name": "blank-note",
+      "body": {
+        "billed": false,
+        "note": " \t",
+        "version": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb"
+      }
+    },
+    {
+      "name": "string-billed",
+      "body": {
+        "billed": "false",
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb"
+      }
+    },
+    {
+      "name": "trailing-newline",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb\n"
+      }
+    },
+    {
+      "name": "unexpected-field",
+      "body": {
+        "billed": false,
+        "note": "合成供应商记录：已核对本次尝试未计费",
+        "version": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb",
+        "currentVersion": "rv1:c7a3839845b207f2746b77939884879b4d22e3cab9eea3ec8cfcf7560a0cf0eb"
+      }
+    }
+  ]
+}
