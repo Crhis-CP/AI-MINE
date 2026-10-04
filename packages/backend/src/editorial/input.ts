@@ -1,6 +1,6 @@
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
 import { beijingDate, beijingTime } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { collapseWhitespace, truncate } from "../lib/text.ts";
 import { produceImage } from "../media/images.ts";
 import type { ContentPart } from "../providers/llm.ts";
@@ -35,8 +35,8 @@ export interface AnalyzeInputArticle {
   translationZh?: string | null;
 }
 
-export async function loadAnalyzeInput(articleId: string): Promise<AnalyzeInputArticle | null> {
-  const [row] = await sql<
+export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise<AnalyzeInputArticle | null> {
+  const [row] = await db<
     {
       id: string;
       revision: number;

@@ -189,7 +189,7 @@
     "sources": {
       "module": "sources",
       "access": "business",
-      "publicColumns": ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes"]
+      "publicColumns": ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext"]
     },
     "stored_files": {
       "module": "platform/storage",

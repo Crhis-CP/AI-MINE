@@ -54,3 +54,11 @@ export function promptVersion(...names: string[]): string {
   for (const n of used) hash.update(`${n}\n${raw(n)}\n`);
   return `${names.join("+")}@${hash.digest("hex").slice(0, 10)}`;
 }
+
+/** Existing analysis evidence is reusable only for this material revision and scope wording. */
+export function currentPrefilter(analysis: { input_revision: number; prompt_version: string | null; output: unknown } | undefined, revision: number) {
+  if (analysis?.input_revision !== revision || !analysis.prompt_version?.split("+").includes(promptVersion("prefilter"))) return null;
+  const output = analysis.output as { prefilter?: { label?: unknown } } | null;
+  const label = output?.prefilter?.label;
+  return label === "PASS" || label === "BLOCK" || label === "UNKNOWN" ? label : null;
+}

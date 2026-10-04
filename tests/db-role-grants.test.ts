@@ -36,10 +36,13 @@ test("seven real logins enforce grants, install worker-owned queues and round-tr
   assert.deepEqual(catalogProblems(await readRoleCatalog(f.admin, f.prefix), f.prefix, 2), []);
   const s = await f.login(); // Distinct authenticated connections; each asserts session_user=current_user.
   await f.admin.unsafe(readFileSync(new URL("./fixtures/role-grants.sql", import.meta.url), "utf8"));
-  await f.admin`UPDATE sources SET last_ok_at='2020-01-01 00:00:00+00', interval_minutes=45 WHERE id='role-source'`;
-  const [clock] = await s.public_read`SELECT last_ok_at, interval_minutes FROM sources WHERE id='role-source'`;
+  await f.admin`UPDATE sources SET last_ok_at='2020-01-01 00:00:00+00', interval_minutes=45, site_fulltext=true WHERE id='role-source'`;
+  const [clock] = await s.public_read`SELECT last_ok_at, interval_minutes, site_fulltext FROM sources WHERE id='role-source'`;
   assert.equal(clock.last_ok_at.toISOString(), "2020-01-01T00:00:00.000Z");
   assert.equal(clock.interval_minutes, 45);
+  assert.equal(clock.site_fulltext, true);
+  await denied(s.public_read, "SELECT * FROM sources");
+  await denied(s.public_read, "UPDATE sources SET site_fulltext=false WHERE id='role-source'");
   for (const column of ["config", "cursor"]) await denied(s.public_read, `SELECT ${column} FROM sources`);
   assert.deepEqual(
     (await s.public_read`SELECT id, body_text FROM articles ORDER BY id`).map((r) => ({ ...r })),

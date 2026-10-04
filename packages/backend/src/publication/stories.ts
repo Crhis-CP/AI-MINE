@@ -40,6 +40,7 @@ interface ReportRow {
   id: string;
   title: string;
   summary: string | null;
+  source_excerpt: string | null;
   url: string;
   selected: boolean;
   at: Date;
@@ -59,7 +60,8 @@ interface ReportRow {
  */
 async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
   return sql<ReportRow[]>`
-    SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary, p.url, p.selected,
+    SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary,
+      CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, p.selected,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
       p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
@@ -73,7 +75,7 @@ function reportView(r: ReportRow): StoryReportView {
   return {
     id: r.id,
     title: r.title,
-    summary: r.summary,
+    summary: r.summary ?? r.source_excerpt,
     source: { id: r.source_id, name: r.source_name, kind: r.source_kind as never, firstParty: r.first_party },
     publishedAt: r.at.toISOString(),
     originalUrl: r.url,
@@ -158,6 +160,7 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
   const latestAt = s.latest_at ?? reports[0]!.at;
   // Without a digest or a summary of its own, the story opens with its first development's representative report.
   const origin = developments[developments.length - 1]?.representative;
+  const originSummary = origin?.summary ?? origin?.source_excerpt;
   return {
     publicId: s.public_id,
     title: s.title,
@@ -169,7 +172,7 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
     digest: s.digest,
     digestUpdatedAt: s.digest_updated_at?.toISOString() ?? null,
     summary: s.summary,
-    excerpt: !s.digest && !s.summary && origin?.summary ? { text: origin.summary, sourceName: origin.source_name } : null,
+    excerpt: !s.digest && !s.summary && originSummary ? { text: originSummary, sourceName: origin!.source_name } : null,
     latest: s.latest,
     whyHot: {
       participants48h: Number(why?.p48 ?? 0),

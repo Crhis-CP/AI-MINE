@@ -189,14 +189,10 @@
     "packages/backend/src/publication/pool.ts:loadPool/run/anyMatch/<closure@177:37>:4fd5a82ef4197cabbe95d86fb6d0d3df48db7d3b9b219141ff36cdf5ad9b99c9": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/anyMatch/<closure@177:37>:fd33569973d8e1b17167783e22bdb503eae2fe6d5ffa3f4546e88b6a5ca425a5": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/matches:b8c93264f296aa8ce81269f1f6ec26489bd2cb108b91703a1897208621fe2f53": 1,
-    "packages/backend/src/publication/pool.ts:loadPool/run/result:d8fd3885d85cbaa803a9ec1450c52fd13670e61375c01641647f16c546017e77": 1,
-    "packages/backend/src/publication/pool.ts:loadPool/run/rows:b192184078233a93520506430a935408b0d03307b097d70413748adfc2e95b76": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/rows:96e167e5aec10153d280ebe4e0ce166b16d29e0e21e8157c8a2a3ff35c9e8b7c": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/direct:05f84a925a247d8cb7b1aebda2017756cd417a113c70eeeee3110ecfafaa2c2c": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/direct/<closure@209:33>:9165f49f36cc5f2d5029c1107e14a137d6116482967822b5e713e95d56035497": 1,
     "packages/backend/src/publication/pool.ts:loadPool/run/direct/<closure@209:33>:4fd5a82ef4197cabbe95d86fb6d0d3df48db7d3b9b219141ff36cdf5ad9b99c9": 1,
-    "packages/backend/src/publication/pool.ts:loadPool/run/{ n }:60f7cc3cd2b1230a6bf103f91d888f6f7ebdcba39c5835be5437e844a0330c6b": 1,
-    "packages/backend/src/publication/v1.ts:v1Items/run:dfb24d898b074b56859a1c0215767ccf3bf05589503a32d8dffbaac423548466": 1,
     "packages/backend/src/publication/v1.ts:v1Items/run:4e65733b0b2c8884d7c6870075f401b76f9ba41873b8753b7e11cd662f982ebb": 1,
     "packages/backend/src/publication/v1.ts:v1Items/rows:7a1c03ee5dd87f19851f63f2699ee12def2a788d00cdaf4259822eef0cdb238b": 1,
     "packages/backend/src/publication/v1.ts:ledgerPayload:b78f312a1a91f42e58146ae1c8a22085c8fadd0e000e55b26eb2b415df54df65": 1,
@@ -206,7 +202,11 @@
     "packages/backend/src/publication/v1.ts:selectedChanges/rows:9752268b3e5d2cff736404850e6d28562f5ea0d5f83cde3af49b7fd067840996": 1,
     "packages/backend/src/sources/collect.ts:scheduleDueSources/rows:60e82c7d1c5b3eeccf73f4b44365c3a3dec666a21fac6f4523b272fba481af4b": 1,
     "packages/backend/src/sources/mp.ts:checkMpAccount:8896fe4b57566c2d0c7b1ef90738bdb54b042cb4012ccca42aad79870f622de0": 1,
-    "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1
+    "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/result:9e2051efa29519c68f2b2b8b0d5a9b995c84e32a6899aa74772f9f22eb084a90": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/rows:aebd897b04a32c1b68085d806faffb855eb89f43975d850cf87c2aa71a47795c": 1,
+    "packages/backend/src/publication/pool.ts:loadPool/run/{ n }:825e992c52d286e262645aa934a0be7eb93156c9751174bc9fd472e8fceeab0d": 1,
+    "packages/backend/src/publication/v1.ts:v1Items/run:c1133af84c6b63a586673a5cd6b0dce1566bccc79c81b9cdc0e677c27cdd3aa0": 1
   },
   "extractors": {
     "sql": "2479d891d78d004f23a2d10fcb7ef62f0520a319d69f011d0a48da8833b54f53",
@@ -317,5 +317,98 @@
         "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
       }
     }
-  ]
+  ],
+  "publicationProjection": {
+    "revision": "TASK-0010-source-excerpt-v4",
+    "before": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+    "after": "1b0a1d54d20393a63bd9a1320c577f1c20a20f0f14d9ac9c8f96e7112ae16e2c",
+    "sites": [
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/result",
+        "sql": "db<RankedRow[]>`\n        WITH matches AS ${splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`} (${matches}), scored AS MATERIALIZED (\n          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel\n          FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id\n          WHERE ${listedCondition(now)} AND p.eligible ${filters}\n        ), page AS MATERIALIZED (\n          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC\n          LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}\n        ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored LIMIT ${cap}) capped)\n        SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (\n          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id\n        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`",
+        "shape": "with matches as ? ( ? ) , scored as materialized ( select p . article_id , p . timeline_at , matches . part + ( ? ) as rel from matches join publications p on p . article_id = matches . article_id join sources s on s . id = p . source_id where ? and p . eligible ? ? ? ? ) , page as materialized ( select article_id , rel from scored order by rel desc , timeline_at desc , article_id desc limit ? offset ? ) , total as ( select count ( * ) as n from ( select ? from scored limit ? ) capped ) select hydrated . * , total . n as total from total left join lateral ( select p . article_id as id , p . revision , p . title , p . original_title , p . summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title , page . rel from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision join page on page . article_id = p . article_id ) hydrated on true order by hydrated . rel desc , hydrated . timeline_at desc , hydrated . id desc",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`",
+          "opaque interpolation: splitFields\n        ? sql`\n        SELECT coalesce(d.article_id, b.article_id) AS article_id,\n          (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END) + (CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part\n        FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${\"%\" + terms[0]! + \"%\"}) d\n        FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${\"%\" + terms[0]! + \"%\"}) b ON b.article_id = d.article_id`\n        : sql`SELECT ps.article_id, (${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}`",
+          "opaque interpolation: terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`)",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": [[774, 786]]
+      },
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/rows",
+        "sql": "db<ItemRow[]>`\n      WITH page AS (\n        SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${directMatchCondition(terms)}\n        ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})\n      SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)\n      ORDER BY p.timeline_at DESC, p.article_id DESC`",
+        "shape": "with page as ( select p . article_id from publications p where ? and p . eligible ? ? ? ? ? order by p . timeline_at desc , p . article_id desc limit ? offset ? ) select p . article_id as id , p . revision , p . title , p . original_title , p . summary , p . reason , p . category , p . tags , p . score , p . selected , p . eligible , p . channel , p . url , p . published_at , p . discovered_at , p . timeline_at , p . sort_at , p . first_party , p . visibility , p . body_mode , p . syndicate , p . indexable , p . visible_after , p . backfill , p . fact_id , p . story_id , s . id as source_id , s . name as source_name , s . kind as source_kind , s . participation_mode as source_mode , a . author , a . language , st . public_id : : text as story_public_id , st . title as story_title from publications p join sources s on s . id = p . source_id join articles a on a . id = p . article_id left join stories st on st . id = p . story_id and st . merged_into is null left join translations tr on tr . article_id = p . article_id and tr . lang = ? and tr . revision > = a . revision where p . article_id in ( select article_id from page ) order by p . timeline_at desc , p . article_id desc",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)",
+          "opaque interpolation: directMatchCondition(terms)"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": [[283, 295]]
+      },
+      {
+        "file": "packages/backend/src/publication/pool.ts",
+        "scopeName": "loadPool/run/{ n }",
+        "sql": "db<{ n: number }[]>`\n      SELECT count(*) AS n FROM (SELECT 1 FROM pool_search ps JOIN publications p ON p.article_id = ps.article_id\n        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${direct} LIMIT ${cap}) t`",
+        "shape": "select count ( * ) as n from ( select ? from pool_search ps join publications p on p . article_id = ps . article_id where ? and p . eligible ? ? ? ? ? limit ? ) t",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: listedCondition(now)",
+          "opaque interpolation: channelCondition(query.channel)",
+          "opaque interpolation: categoryCondition(query.category)",
+          "opaque interpolation: tagCondition(query.tag)",
+          "opaque interpolation: topicCondition(query.topicTags)",
+          "opaque interpolation: terms.reduce((acc, t) => sql`${acc} AND ${like(sql`ps.direct`, t)}`, sql``)"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": []
+      },
+      {
+        "file": "packages/backend/src/publication/v1.ts",
+        "scopeName": "v1Items/run",
+        "sql": "db<(ApiItemRow & { sort_at: Date })[]>`\n    SELECT ${API_ITEM_COLUMNS}, ${sortCol} AS sort_at ${API_ITEM_FROM}\n    WHERE ${scope} ${categoryCondition(query.category, true)} ${publicMatchCondition(terms)}\n      AND ${sortCol} >= ${windowStart} AND ${sortCol} <= ${now}\n      ${after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``}\n    ORDER BY ${sortCol} DESC, p.article_id DESC\n    LIMIT ${query.limit + 1}`",
+        "shape": "select p . article_id as id , p . title , p . original_title , p . summary , s . name as source_name , p . url , p . published_at , p . discovered_at , p . category , p . score , p . selected , p . reason , ? as sort_at from publications p join sources s on s . id = p . source_id where ? ? ? and ? > = ? and ? < = ? ? order by ? desc , p . article_id desc limit ?",
+        "reasons": [
+          "unexpanded SQL fragment",
+          "opaque interpolation: query.by === \"published\" ? sql`coalesce(p.published_at, p.discovered_at)` : query.mode === \"selected\" ? sql`p.sort_at` : sql`p.timeline_at`",
+          "opaque interpolation: query.mode === \"selected\" ? selectedCondition(now) : sql`${listedCondition(now)} AND p.eligible`",
+          "opaque interpolation: categoryCondition(query.category, true)",
+          "opaque interpolation: publicMatchCondition(terms)",
+          "opaque interpolation: after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``"
+        ],
+        "dependencies": {
+          "packages/backend/src/publication/v1.ts": "c16fe7c2a1a84c5ccf13729ebf34d884f6382cefb3e5d2b801813601a733e2d8",
+          "packages/backend/src/publication/items.ts": "0bd2ecf4478e01b6c1b4348025ce7ccceaf6ee9ce23aef39269c758577c12775",
+          "packages/backend/src/publication/pool.ts": "357458e7ec3af566b1adcb37a438fc4eed852ad6465d9c50e94913f8f6c54808",
+          "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+        },
+        "projectionOffsets": []
+      }
+    ]
+  }
 }

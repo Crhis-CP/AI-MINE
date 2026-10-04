@@ -2,6 +2,7 @@
 // title/summary prompts for everything else, the output parsing and the deterministic guards. The
 // wording lives in the industry pack (industry/prompts/); a failed guard falls back without a repair call.
 import { IDENTITY_CONTEXT_ALIASES, IDENTITY_LEXICON, PUBLISHER_DOMAINS } from "@amp/industry/taxonomy";
+import { usableSourceText } from "../lib/text.ts";
 import type { AnalyzeInputArticle } from "./input.ts";
 import { promptText } from "./prompts.ts";
 
@@ -48,8 +49,8 @@ export function cleanArticleTextForLLM(s: string): string {
 // ── The material as the prefilter and the content understanding read it ─────────────────────
 
 function materialQuality(a: AnalyzeInputArticle): string {
-  if (a.bodyText) return a.source.fetchesBody ? "完整正文（抓自原始网页）" : "完整正文（来自 RSS / API 自带的 content 字段）";
-  if (a.excerpt) return "仅摘要（feed 未提供完整正文）";
+  if (usableSourceText(a.bodyText)) return a.source.fetchesBody ? "完整正文（抓自原始网页）" : "完整正文（来自 RSS / API 自带的 content 字段）";
+  if (usableSourceText(a.excerpt)) return "仅摘要（feed 未提供完整正文）";
   if (a.bodyStatus === "unconfirmed") return "抓取失败，仅标题可用";
   return "无有效文本";
 }
@@ -70,7 +71,7 @@ export function renderContext(a: AnalyzeInputArticle): string {
   lines.push(`【标题】${a.title}`);
   lines.push("");
   lines.push("【正文】");
-  lines.push(capBody(a.bodyText ?? a.excerpt ?? "(无正文)"));
+  lines.push(capBody(usableSourceText(a.bodyText, a.excerpt) || "(无正文)"));
   lines.push("");
   lines.push(`【材料质量】${materialQuality(a)}`);
   return lines.join("\n");
@@ -81,7 +82,7 @@ export const prefilterUser = (a: AnalyzeInputArticle) => JSON.stringify(renderCo
 
 /** Nothing to judge beyond the title: the prefilter's BLOCK then means "wait for material". */
 export function missingEvidence(a: AnalyzeInputArticle): boolean {
-  return !a.bodyText?.trim() && !a.excerpt?.trim();
+  return !usableSourceText(a.bodyText, a.excerpt);
 }
 
 export const understandUser = (a: AnalyzeInputArticle) => ["请按系统规则理解以下单篇材料，一次返回全部六个字段。", renderContext(a)].join("\n\n");
@@ -125,7 +126,7 @@ export interface TranslateInput {
 export function translateInputOf(a: AnalyzeInputArticle): TranslateInput {
   return {
     title: a.title,
-    text: a.bodyText ?? a.excerpt ?? "",
+    text: usableSourceText(a.bodyText, a.excerpt),
     sourceKind: a.source.kind,
     sourceName: a.source.name,
     documentUrl: a.url,
