@@ -9,6 +9,7 @@ import { sqlOwnership } from "./sql-ownership.ts";
 import { sqlLockFingerprint } from "./sql-lock.ts";
 import { rekeyUnknownBudget, unknownRekeysSchema, type UnknownRekey } from "./unknown-rekeys.ts";
 import { publicationProjectionBudget, publicationProjectionSchema, type PublicationProjection } from "./publication-projection.ts";
+import { miningCategoryBudget, miningCategoryTransitionSchema, type MiningCategoryTransition } from "./mining-category-transition.ts";
 import { stableRouteDebt } from "./route-identities.ts";
 
 export const OWNERSHIP_MAP = "scripts/verify/data-ownership-map.json";
@@ -29,6 +30,7 @@ export type Baseline = {
   unknown: Record<string, number>;
   unknownRekeys?: UnknownRekey[];
   publicationProjection?: PublicationProjection;
+  miningCategoryTransition?: MiningCategoryTransition;
 };
 const read = <T>(root: string, file: string): T => JSON.parse(readFileSync(path.join(root, file), "utf8")) as T;
 const normalize = (name: string, map: OwnershipMap) => map.moduleAliases[name] ?? name;
@@ -44,6 +46,7 @@ const budgetSchema = z.object({
   unknown: counts,
   unknownRekeys: unknownRekeysSchema.optional(),
   publicationProjection: publicationProjectionSchema.optional(),
+  miningCategoryTransition: miningCategoryTransitionSchema.optional(),
 });
 const mapSchema = z.object({
   moduleAliases: strings,
@@ -228,11 +231,20 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
       report.sqlLock.fingerprint,
       (file, before) => (before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8")),
     );
+    const categories = miningCategoryBudget(
+      baseline.unknown,
+      projection.budget,
+      baseline.miningCategoryTransition,
+      report.files,
+      report.sqlLock.fingerprint,
+      (file, before) => (before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8")),
+    );
     errors.push(
       ...routes.errors,
       ...rekeyed.errors,
       ...projection.errors,
-      ...compareOwnership(baseline, { ...previous.baseline, debt: routes.budget, unknown: projection.budget }, false),
+      ...categories.errors,
+      ...compareOwnership(baseline, { ...previous.baseline, debt: routes.budget, unknown: categories.budget }, false),
     );
     for (const [file, tables] of Object.entries(map.readModels))
       for (const table of tables) if (!previous.map.readModels[file]?.includes(table)) errors.push(`read-model allowlist increased: ${file} ${table}`);
