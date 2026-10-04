@@ -1,3 +1,4 @@
+import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -89,8 +90,8 @@ for (const misaligned of [false, true])
       publishedAt: new Date(),
       discoveredAt: new Date(Date.now() + 86_400_000),
     });
-    await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected)
-    VALUES (${articleId},1,'rule','pass','ai-models',${`终止测试${T}`},'摘要','理由',90,true)`;
+    await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected, prompt_version, receipt_ids, output)
+    VALUES (${articleId},1,'rule','pass','ai-models',${`终止测试${T}`},'摘要','理由',90,true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
     await publishArticle(articleId, { releasedAt: new Date(Date.now() - 60_000) });
     const interrupted = runTranslation();
     await Promise.race([active.asked.promise, interrupted.done.then(() => assert.fail("translation ended before a request"))]);

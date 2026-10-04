@@ -1,3 +1,4 @@
+import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 // Live news before history, and discussion posts that come before the first report: a discussion post
 // skips the analysis queue; history (a backfill that was already old when found) waits behind live
 // work and founds no event; a post that found no story is grouped again when a report founds a fact
@@ -56,8 +57,8 @@ async function report(suffix: string, opts: { title: string; backfill?: string; 
     publishedAt: opts.publishedAt ?? new Date(),
     backfill: opts.backfill ?? null,
   });
-  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${opts.title}, '摘要', 80, false, ${sql.json({ fact: { title: opts.title } })})`;
+  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
+            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${opts.title}, '摘要', 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, fact: { title: opts.title } })})`;
   await publishArticle(articleId);
   return articleId;
 }

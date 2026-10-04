@@ -6,7 +6,11 @@ import { toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { config } from "../config.ts";
 import { one, dbOf, type Tx } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { collapseWhitespace } from "../lib/text.ts";
+import { collapseWhitespace, usableSourceText } from "../lib/text.ts";
+import { currentPrefilter, promptVersion } from "../editorial/prompts.ts";
+import { loadAnalyzeInput } from "../editorial/input.ts";
+import { PREFILTER_SYSTEM, prefilterUser } from "../editorial/writing.ts";
+import { hasPrefilterReceipt } from "../providers/receipt-evidence.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
@@ -15,6 +19,7 @@ const sql = dbOf("publication");
 
 interface ArticleRow {
   id: string;
+  revision: number;
   source_id: string;
   url: string;
   title: string;
@@ -25,11 +30,16 @@ interface ArticleRow {
   backfill: boolean;
   body_status: string;
   body_text: string | null;
+  excerpt: string | null;
   grouped_at: Date | null;
 }
 
 interface AnalysisRow {
   id: number;
+  input_revision: number;
+  prompt_version: string | null;
+  output: unknown;
+  receipt_ids: number[];
   relevance: string | null;
   category: string | null;
   tags: string[];
@@ -55,6 +65,7 @@ interface PublicationRow {
   title: string;
   original_title: string | null;
   summary: string | null;
+  source_excerpt: string | null;
   reason: string | null;
   category: string | null;
   tags: string[];
@@ -156,8 +167,8 @@ export async function publishArticle(articleId: string, options: PublishOptions 
 
 export async function publishArticleTx(tx: Tx, articleId: string, options: PublishOptions = {}): Promise<PublishResult | null> {
   const [article] = await tx<ArticleRow[]>`
-    SELECT id, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, grouped_at
+    SELECT id, revision, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
+           body_text, excerpt, grouped_at
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -167,8 +178,8 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const [source] = await tx<SourceFacts[]>`
     SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
-  const [analysis] = await tx<AnalysisRow[]>`
-    SELECT id, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
+  const [storedAnalysis] = await tx<AnalysisRow[]>`
+    SELECT id, input_revision, prompt_version, output, receipt_ids, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
   const [override] = await tx<OverrideRow[]>`SELECT fields, visibility FROM editorial_overrides WHERE article_id = ${articleId}`;
   const [membership] = await tx<{ fact_id: number; story_id: number | null }[]>`
@@ -178,27 +189,50 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
     ORDER BY (fa.role = 'primary') DESC, fa.created_at LIMIT 1`;
   const [previous] = await tx<PublicationRow[]>`SELECT * FROM publications WHERE article_id = ${articleId}`;
 
+  const analysis = storedAnalysis?.input_revision === article.revision ? storedAnalysis : undefined;
   const f = override?.fields ?? {};
+  const hasMaterial = !!usableSourceText(article.body_text, article.excerpt);
+  const input = hasMaterial && currentPrefilter(analysis, article.revision) === "PASS" ? await loadAnalyzeInput(articleId, tx) : null;
+  const admitted =
+    !!input &&
+    f.relevance !== "block" &&
+    (await hasPrefilterReceipt(
+      analysis!.receipt_ids,
+      {
+        promptVersion: promptVersion("prefilter"),
+        systemHash: sha256(PREFILTER_SYSTEM),
+        userHash: sha256(prefilterUser(input)),
+      },
+      tx,
+    ));
+  const bodyMode = bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
+  // Only confirmed Chinese source text with full-text permission has a deterministic fallback.
+  const excerpt =
+    admitted && article.language === "zh" && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
+      ? `来源摘录：${Array.from(collapseWhitespace(article.body_text!)).slice(0, 400).join("")}（根据来源正文整理，保留原始材料供核对）`
+      : null;
   const isChineseTitle = article.language === "zh" || /[一-鿿]/.test(article.title);
   // Without a written Chinese title, a Chinese original keeps its own title; a foreign one would
   // still be a half-finished card.
   const zhTitle = analysis?.title_zh?.trim() ? analysis.title_zh : null;
   const title = pickString(f.title, zhTitle ?? (isChineseTitle ? collapseWhitespace(article.title) : null));
-  const summary = pickString(f.summary, analysis?.summary_zh ?? null);
+  const summary = pickString(f.summary, analysis?.summary_zh?.trim() || null);
+  const sourceExcerpt = summary ? null : excerpt;
+  const displaySummary = summary ?? sourceExcerpt;
   const category = pickString(f.category, analysis?.category ?? null);
   const tags = Array.isArray(f.tags)
     ? (f.tags as string[])
     : [...new Set([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)])];
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
-  const relevance = typeof f.relevance === "string" ? (f.relevance as string) : (analysis?.relevance ?? null);
+  const relevance = admitted ? "pass" : "unknown";
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
-  // Material from an isolated source reaches no public surface at all: not even a detail page.
-  const visibility = source.participation_mode === "isolated" ? "withdrawn" : (override?.visibility ?? "public");
+  // A manual visibility/selection override is not evidence of scope or usable public copy.
+  const visibility =
+    source.participation_mode === "isolated" || !admitted || !hasMaterial || !title || !displaySummary ? "withdrawn" : (override?.visibility ?? "public");
 
-  const eligible = isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary });
+  const eligible = hasMaterial && isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary });
   const selected = isSelectable(eligible, judgedSelected, source.tier);
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ?? null) : null;
-  const bodyMode = bodyModeOf(source, article.body_status, !!article.body_text && article.body_text.length > 0);
   const syndicate = mayRedistribute(source, bodyMode);
   const originalTitle = isChineseTitle && title === collapseWhitespace(article.title) ? null : collapseWhitespace(article.title);
 
@@ -224,13 +258,13 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
 
   const indexable = isIndexable({
     visibility,
-    hasSummary: !!summary,
+    hasSummary: !!displaySummary,
     selected,
     seoIndexedAt: previous?.seo_indexed_at ?? null,
     seoExcludedAt: previous?.seo_excluded_at ?? null,
   });
   const searchText = collapseWhitespace(
-    [title, originalTitle, summary, source.name, ...displayTags(tags), ...(analysis?.subjects ?? [])].filter(Boolean).join(" "),
+    [title, originalTitle, displaySummary, source.name, ...displayTags(tags), ...(analysis?.subjects ?? [])].filter(Boolean).join(" "),
   ).toLowerCase();
 
   // A selected item sits at its reading group's anchor: the earliest public pool member of its fact.
@@ -249,6 +283,7 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
     title: title ?? collapseWhitespace(article.title),
     original_title: originalTitle,
     summary,
+    source_excerpt: sourceExcerpt,
     reason,
     category,
     tags,
@@ -268,6 +303,7 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
         title: previous.title,
         original_title: previous.original_title,
         summary: previous.summary,
+        source_excerpt: previous.source_excerpt,
         reason: previous.reason,
         category: previous.category,
         tags: [...previous.tags].sort(),
@@ -280,17 +316,17 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const revision = previous ? previous.revision + (changed ? 1 : 0) : 1;
 
   await tx`
-    INSERT INTO publications (article_id, analysis_id, revision, visibility, eligible, selected, title, original_title, summary,
+    INSERT INTO publications (article_id, analysis_id, revision, visibility, eligible, selected, title, original_title, summary, source_excerpt,
       reason, category, tags, score, source_id, channel, first_party, url, published_at, discovered_at, timeline_at, backfill,
       selected_ready_at, visible_after, body_mode, syndicate, indexable, story_id, fact_id, search_text, sort_at, updated_at)
     VALUES (${articleId}, ${analysis?.id ?? null}, ${revision}, ${visibility}, ${eligible}, ${selected}, ${next.title},
-      ${originalTitle}, ${summary}, ${reason}, ${category}, ${tags}, ${next.score}, ${source.id}, 'news', ${source.first_party},
+      ${originalTitle}, ${summary}, ${sourceExcerpt}, ${reason}, ${category}, ${tags}, ${next.score}, ${source.id}, 'news', ${source.first_party},
       ${article.url}, ${article.published_at}, ${article.discovered_at}, ${article.timeline_at}, ${article.backfill},
       ${selectedReadyAt}, ${visibleAfter}, ${bodyMode}, ${syndicate}, ${indexable}, ${next.story_id}, ${next.fact_id}, ${searchText}, ${sortAt}, now())
     ON CONFLICT (article_id) DO UPDATE SET
       analysis_id = EXCLUDED.analysis_id, revision = EXCLUDED.revision, visibility = EXCLUDED.visibility,
       eligible = EXCLUDED.eligible, selected = EXCLUDED.selected, title = EXCLUDED.title, original_title = EXCLUDED.original_title,
-      summary = EXCLUDED.summary, reason = EXCLUDED.reason, category = EXCLUDED.category, tags = EXCLUDED.tags,
+      summary = EXCLUDED.summary, source_excerpt = EXCLUDED.source_excerpt, reason = EXCLUDED.reason, category = EXCLUDED.category, tags = EXCLUDED.tags,
       score = EXCLUDED.score, source_id = EXCLUDED.source_id, channel = EXCLUDED.channel, first_party = EXCLUDED.first_party,
       url = EXCLUDED.url, published_at = EXCLUDED.published_at, discovered_at = EXCLUDED.discovered_at,
       timeline_at = EXCLUDED.timeline_at, backfill = EXCLUDED.backfill, selected_ready_at = EXCLUDED.selected_ready_at,
@@ -298,7 +334,7 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
       indexable = EXCLUDED.indexable, story_id = EXCLUDED.story_id, fact_id = EXCLUDED.fact_id,
       search_text = EXCLUDED.search_text, sort_at = EXCLUDED.sort_at, updated_at = now()
     WHERE (publications.analysis_id, publications.revision, publications.visibility, publications.eligible,
-        publications.selected, publications.title, publications.original_title, publications.summary,
+        publications.selected, publications.title, publications.original_title, publications.summary, publications.source_excerpt,
         publications.reason, publications.category, publications.tags, publications.score,
         publications.source_id, publications.channel, publications.first_party, publications.url,
         publications.published_at, publications.discovered_at, publications.timeline_at, publications.backfill,
@@ -306,7 +342,7 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
         publications.indexable, publications.story_id, publications.fact_id, publications.search_text,
         publications.sort_at)
       IS DISTINCT FROM (EXCLUDED.analysis_id, EXCLUDED.revision, EXCLUDED.visibility, EXCLUDED.eligible,
-        EXCLUDED.selected, EXCLUDED.title, EXCLUDED.original_title, EXCLUDED.summary,
+        EXCLUDED.selected, EXCLUDED.title, EXCLUDED.original_title, EXCLUDED.summary, EXCLUDED.source_excerpt,
         EXCLUDED.reason, EXCLUDED.category, EXCLUDED.tags, EXCLUDED.score,
         EXCLUDED.source_id, EXCLUDED.channel, EXCLUDED.first_party, EXCLUDED.url,
         EXCLUDED.published_at, EXCLUDED.discovered_at, EXCLUDED.timeline_at, EXCLUDED.backfill,

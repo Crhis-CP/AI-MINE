@@ -1,7 +1,7 @@
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
-//      item; UNKNOWN goes on like PASS (a BLOCK given while material is missing counts as UNKNOWN);
+//      item; UNKNOWN may be enriched privately but cannot become PASS through writing or scoring;
 //   2. score: two independent scores against the source tier's threshold (industry/selection.ts) decide 精选;
 //   3. writing: the Chinese title, summary and reason by the content understanding for selected and
 //      near-selected items, by the cheaper title/summary prompts for the rest;
@@ -36,7 +36,7 @@ import {
   type IdentityGuard,
 } from "./writing.ts";
 import { CATEGORY_BY_ITEM_TYPE, CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
-import { promptText, promptVersion } from "./prompts.ts";
+import { currentPrefilter, promptText, promptVersion } from "./prompts.ts";
 
 const sql = dbOf("enrichment");
 
@@ -422,7 +422,15 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
 export async function runAnalysis(a: AnalyzeInputArticle, opts: StepOpts & { stages?: "selection" | "all" } = {}): Promise<AnalysisRun> {
   checkAnalysisRunning();
   const prefilter = await runSelectionPrefilter(a, opts);
-  // UNKNOWN is let through (its material is as complete as it will get); BLOCK stops here.
+  return finishAnalysis(a, prefilter, opts);
+}
+
+async function finishAnalysis(
+  a: AnalyzeInputArticle,
+  prefilter: AnalysisRun["prefilter"],
+  opts: StepOpts & { stages?: "selection" | "all" },
+): Promise<AnalysisRun> {
+  // UNKNOWN can retain enrichment evidence, but remains private until scope is confirmed.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
   if (opts.stages === "selection") {
     const scores = await runSelectionScores(a, opts);
@@ -453,9 +461,8 @@ export function normalizeAnalysis(run: AnalysisRun) {
   const label = run.prefilter.label;
   const titleZh = collapseWhitespace(run.writing?.titleZh ?? "");
   const summaryZh = (run.writing?.summaryZh ?? "").trim();
-  // Past the prefilter (PASS or UNKNOWN) an item is relevant, but without a usable Chinese title and
-  // summary it cannot be published: it waits.
-  const relevance = label === "BLOCK" ? "block" : run.writing && (!titleZh || !summaryZh) ? "unknown" : "pass";
+  // Copy or scores cannot turn missing scope evidence into admission.
+  const relevance = label === "BLOCK" ? "block" : label === "UNKNOWN" || (run.writing && (!titleZh || !summaryZh)) ? "unknown" : "pass";
   // Selected when the two scores add up to twice the tier threshold; the mean, floored,
   // is the score shown (it never decides a half point on its own).
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
@@ -506,7 +513,22 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
-  const run = await runAnalysis(input, opts);
+  checkAnalysisRunning();
+  const prefilter = await runSelectionPrefilter(input, opts);
+  // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
+  // Repeated attempts retain a complete current judgement instead of replacing it with an empty one.
+  await sql.begin(async (tx) => {
+    const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[] }[]>`
+      SELECT input_revision, prompt_version, output, receipt_ids FROM analyses WHERE article_id = ${articleId}
+      ORDER BY input_revision DESC, id DESC LIMIT 1`;
+    if (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId)) {
+      await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
+        VALUES (${articleId}, ${input.revision}, 'model', ${prefilter.model}, ${PROMPT_VERSIONS.prefilter}, ${[prefilter.receiptId]},
+          ${prefilter.label.toLowerCase()}, false, ${tx.json({ prefilter: { label: prefilter.label, reason: prefilter.reason } })})`;
+    }
+    await completeReceipt(tx, prefilter.receiptId);
+  });
+  const run = await finishAnalysis(input, prefilter, opts);
   const out = normalizeAnalysis(run);
   const receiptIds = [
     run.prefilter.receiptId,

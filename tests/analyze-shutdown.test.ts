@@ -27,7 +27,7 @@ let active: {
 const provider = await stub(async (_hit, request) => {
   const body = JSON.parse(request.body);
   const system = String(body.messages[0]?.content ?? "");
-  const step: Step = system.includes("宽召回的AI相关性预筛")
+  const step: Step = system.includes("宽召回的金属矿业范围预筛")
     ? "prefilter"
     : system.includes("事件注意力评分器")
       ? "score"
@@ -183,7 +183,7 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   assert.deepEqual(active.calls.slice().sort(), ["prefilter", "score", "score", "structure", "understand"]);
   assert.equal((await sql`SELECT state FROM pgboss.job WHERE id=${jobId}`)[0]!.state, "completed");
   assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${articleId}`)[0]!.processing_state, "analyzed");
-  const [analysis] = await sql`SELECT selected,score,receipt_ids FROM analyses WHERE article_id=${articleId}`;
+  const [analysis] = await sql`SELECT selected,score,receipt_ids FROM analyses WHERE article_id=${articleId} ORDER BY id DESC LIMIT 1`;
   assert.equal(analysis!.selected, true);
   assert.equal(analysis!.score, 80);
   assert.equal(analysis!.receipt_ids.length, 5);
@@ -232,13 +232,15 @@ for (const failScore of [false, true])
     await first.done;
     const [article] = await sql`SELECT processing_state,processing_attempts,processing_error FROM articles WHERE id=${articleId}`;
     assert.deepEqual({ ...article }, { processing_state: "new", processing_attempts: 2, processing_error: "prior temporary failure" });
-    assert.equal((await sql`SELECT 1 FROM analyses WHERE article_id=${articleId}`).length, 0, "an interrupted chain commits no terminal judgement");
+    const partial = await sql`SELECT selected, score, output FROM analyses WHERE article_id=${articleId}`;
+    assert.equal(partial.length, 1, "only completed scope evidence survives the interrupted chain");
+    assert.deepEqual([partial[0]!.selected, partial[0]!.score, partial[0]!.output.prefilter.label], [false, null, "PASS"]);
     assert.equal((await sql`SELECT 1 FROM publications WHERE article_id=${articleId}`).length, 0);
     const receipts = await sql`SELECT purpose,status FROM receipts WHERE subject=${`article:${articleId}@1`} ORDER BY purpose`;
     assert.deepEqual(
       receipts.map((r) => [r.purpose, r.status]),
       [
-        ["prefilter_article", "received"],
+        ["prefilter_article", "completed"],
         ["score_article", failScore ? "failed" : "received"],
         ["structure_article", "received"],
       ],
@@ -253,7 +255,7 @@ for (const failScore of [false, true])
     assert.equal(active.calls.filter((s) => s === "structure").length, 1, "the slow structure answer was saved and reused");
     assert.equal(active.calls.filter((s) => s === "score").length, failScore ? 3 : 2, "two ordered successful scores, only a rejected request repeats");
     assert.equal(active.calls.filter((s) => s === "understand").length, 1);
-    const [result] = await sql`SELECT selected,score,receipt_ids FROM analyses WHERE article_id=${articleId}`;
+    const [result] = await sql`SELECT selected,score,receipt_ids FROM analyses WHERE article_id=${articleId} ORDER BY id DESC LIMIT 1`;
     assert.equal(result!.selected, true);
     assert.equal(result!.score, 80);
     assert.equal(result!.receipt_ids.length, 5);

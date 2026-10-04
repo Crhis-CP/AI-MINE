@@ -143,6 +143,8 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
+    // Failure is never admission. Publishing reuses only current scope evidence; otherwise it withdraws.
+    await publishArticle(articleId);
     if (error instanceof ReceiptUnknownError) {
       // The provider may have billed this request: stop; ops.recover releases it once and requeues the article.
       await sql`UPDATE articles SET processing_state = 'failed', processing_error = ${`receipt ${error.receiptId} outcome unknown`} WHERE id = ${articleId}`;
