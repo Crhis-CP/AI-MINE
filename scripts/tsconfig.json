@@ -1,4 +1,4 @@
 {
   "extends": "../tsconfig.base.json",
-  "include": ["verify/**/*.ts", "baseline/*.ts"]
+  "include": ["verify/**/*.ts", "baseline/*.ts", "db-roles.ts", "db-roles/**/*.ts"]
 }
