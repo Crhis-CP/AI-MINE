@@ -9,6 +9,7 @@
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
 import { patternRegExp, ROOT, sha256 } from "./lib.ts";
+import { fetchWithHost } from "./api-split.ts";
 
 /** An exception path; with `sameAs` it covers the file only while the file is byte-identical to that handoff
  *  template, with `upstream` only while its SHA-256 is that upstream file's in the source manifest. */
@@ -169,7 +170,7 @@ export const SITE_OUTPUTS: ReadonlyArray<readonly [path: string, statuses: reado
   ["/terms", [200]],
   ["/privacy", [200]],
   ["/more", [200]],
-  ["/admin/login", [200]],
+  ["/admin/login", [404]],
   ["/no-such-page", [404]],
   ["/llms.txt", [200]],
   ["/openapi-v1.json", [200]],
@@ -243,14 +244,16 @@ export interface SiteOutputs {
 }
 
 /** The bodies of SITE_OUTPUTS, the changes feed and the mcpRequests() answers, labelled by path or request. */
-export async function fetchSiteOutputs(base: string): Promise<SiteOutputs> {
+export async function fetchSiteOutputs(base: string, privateHost: string): Promise<SiteOutputs> {
+  if (!privateHost) throw new Error("Name output probe requires PRIVATE_HOST");
   const outputs: SiteOutputs["outputs"] = [];
   const problems: string[] = [];
-  const get = async (url: string, statuses: readonly number[], shown = url) => {
-    const r = await fetch(base + url, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
+  const get = async (url: string, statuses: readonly number[], shown = url, host?: string) => {
+    const r = host ? await fetchWithHost(base + url, host) : await fetch(base + url, { redirect: "manual", signal: AbortSignal.timeout(30_000) });
     const text = await r.text();
     outputs.push({ label: `${shown} (HTTP ${r.status})`, text });
     if (!statuses.includes(r.status)) problems.push(`${shown}: HTTP ${r.status}, expected ${statuses.join(" or ")}`);
+    if (!host && url === "/admin/login" && r.headers.has("set-cookie")) problems.push("/admin/login: public rejection set a cookie");
     return text;
   };
   let snapshot = "";
@@ -258,6 +261,7 @@ export async function fetchSiteOutputs(base: string): Promise<SiteOutputs> {
     const text = await get(url, statuses);
     if (url === "/api/v1/selected/snapshot") snapshot = text;
   }
+  await get("/admin/login", [200], "private /admin/login", privateHost);
   const cursor = (jsonBody(snapshot) as { cursor?: unknown } | null)?.cursor;
   if (typeof cursor === "string" && cursor)
     await get(`/api/v1/selected/changes?cursor=${encodeURIComponent(cursor)}`, [200], "/api/v1/selected/changes?cursor=<snapshot cursor>");

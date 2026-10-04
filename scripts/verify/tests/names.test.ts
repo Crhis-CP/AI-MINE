@@ -160,6 +160,9 @@ test("the build output and the site's outputs have no exceptions, references to 
 
 test("the site's outputs are fetched whole with their statuses checked, the changes feed by the snapshot's cursor, every MCP tool once, and error results only where allowed", async () => {
   const called: string[] = [];
+  const privateHost = "private.brand.test:8443";
+  const loginHosts: string[] = [];
+  let loginMode = "ok";
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://site");
     if (req.method === "POST" && url.pathname === "/api/mcp") {
@@ -179,6 +182,12 @@ test("the site's outputs are fetched whole with their statuses checked, the chan
       return;
     }
     const send = (status: number, body: string) => res.writeHead(status).end(body);
+    if (url.pathname === "/admin/login") {
+      loginHosts.push(req.headers.host ?? "");
+      if (req.headers.host === privateHost) return send(loginMode === "private-missing" ? 404 : 200, `private ${N}`);
+      if (loginMode === "public-cookie") res.setHeader("Set-Cookie", "unexpected=true");
+      return send(loginMode === "public-open" ? 200 : 404, "not found");
+    }
     if (url.pathname === "/api/v1/selected/snapshot") return send(200, JSON.stringify({ cursor: "c/1", items: [] }));
     if (url.pathname === "/api/v1/selected/changes") return url.searchParams.get("cursor") === "c/1" ? send(200, "changes since c/1") : send(409, "");
     if (url.pathname === "/hot") return send(500, "failed");
@@ -187,16 +196,27 @@ test("the site's outputs are fetched whole with their statuses checked, the chan
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   try {
-    const site = await fetchSiteOutputs(`http://127.0.0.1:${(server.address() as AddressInfo).port}`);
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const site = await fetchSiteOutputs(base, privateHost);
     assert.deepEqual(site.problems, [
       "/hot: HTTP 500, expected 200",
       `MCP tools/call ${MCP_TOOL_NAMES.latest}: an error result (not available)`,
       `MCP tools/call ${MCP_TOOL_NAMES.story}: HTTP 200, error {"code":-32603,"message":"failed"}`,
     ]);
-    assert.equal(site.outputs.length, SITE_OUTPUTS.length + 1 + (await mcpRequests()).length);
+    assert.equal(site.outputs.length, SITE_OUTPUTS.length + 2 + (await mcpRequests()).length);
+    assert.deepEqual(loginHosts, [new URL(base).host, privateHost]);
+    assert.deepEqual(checkOutputs(site.outputs, rules), [`private /admin/login (HTTP 200), line 1: "${N}"`]);
     const changes = site.outputs.find((o) => o.label.startsWith("/api/v1/selected/changes"));
     assert.deepEqual(changes, { label: "/api/v1/selected/changes?cursor=<snapshot cursor> (HTTP 200)", text: "changes since c/1" });
     assert.deepEqual(called.sort(), Object.values(MCP_TOOL_NAMES).sort());
+    for (const [mode, problem] of [
+      ["private-missing", "private /admin/login: HTTP 404, expected 200"],
+      ["public-cookie", "/admin/login: public rejection set a cookie"],
+      ["public-open", "/admin/login: HTTP 200, expected 404"],
+    ] as const) {
+      loginMode = mode;
+      assert.ok((await fetchSiteOutputs(base, privateHost)).problems.includes(problem));
+    }
   } finally {
     server.close();
     server.closeAllConnections();

@@ -424,7 +424,7 @@ const STAGES: Stage[] = [
         const mcp = await capture("node", ["scripts/mcp-check.ts", `${base}/api/mcp`], { log, env: e, timeoutMs: 120_000 });
         log.line(mcp.stdout);
         if (mcp.code !== 0) return fail(`MCP check exited with ${mcp.code}`);
-        const site = await fetchSiteOutputs(base);
+        const site = await fetchSiteOutputs(base, childEnvs.web.PRIVATE_HOST!);
         const outputs = [...site.outputs, { label: "scripts/mcp-check.ts output", text: mcp.stdout }];
         for (const o of outputs) log.line(`name check: ${o.label}, ${o.text.length} characters`);
         return problems(
