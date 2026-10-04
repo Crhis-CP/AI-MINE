@@ -1,6 +1,6 @@
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
-import { dbOf, type Db } from "../db.ts";
+import { dbOf, type Db, type Tx } from "../db.ts";
 import { newArticleId, sha256 } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
@@ -201,4 +201,22 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<MaterialResult> {
   await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
            VALUES (${existing!.id}, ${row!.revision}, ${next}, ${title}, ${bodyText})`;
   return { articleId: existing!.id, created: false, revised: true, backfill: existing!.backfill };
+}
+
+/** Hold the material revision while another module commits its result and receipts on this transaction. */
+export async function commitProcessingResult<T>(
+  articleId: string,
+  inputRevision: number,
+  state: "blocked" | "analyzed",
+  writeResult: (tx: Tx) => Promise<T>,
+): Promise<{ value: T; stale: boolean }> {
+  return sql.begin(async (tx) => {
+    const [current] = await tx<{ revision: number }[]>`SELECT revision FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    const stale = !current || current.revision !== inputRevision;
+    const value = await writeResult(tx);
+    if (!stale) {
+      await tx`UPDATE articles SET processing_state = ${state}, processing_error = NULL WHERE id = ${articleId}`;
+    }
+    return { value, stale };
+  });
 }

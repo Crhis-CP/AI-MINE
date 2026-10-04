@@ -17,6 +17,8 @@
 - largeObject 保留原有查询与流功能：返回的方法、待执行查询及读写流的后续数据库操作绑定原注册，close 仍可在注销后结束其原生事务且可重复调用。迟到的创建结果先关闭再拒绝，不泄漏事务；已启动 I/O 可结束，新的流块被拒绝并按流的错误通道报告。
 - 事务和 savepoint 的回调也收到包装句柄，能够复用模块加载时声明的片段。事务提交与回滚仍由 postgres 驱动执行。
 
+内容处理通过现有 `@amp/backend/content/materials` 入口的 `commitProcessingResult` 提交结果：content 开启事务并锁定材料修订，调用方在传入的同一个 tx 中写本模块结果和完成回执，content 最后更新当前修订的处理状态。过期修订仍保留结果与回执，但不覆盖新材料状态；回调或状态更新失败会一起回滚。
+
 ```ts
 const publicationDb = dbOf("publication"); // 模块初始化，可先于组合根注入
 const columns = publicationDb`42 AS answer`;
