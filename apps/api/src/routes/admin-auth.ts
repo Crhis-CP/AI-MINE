@@ -1,6 +1,7 @@
 // Admin sign-in and the /api/admin guard. Public routes never read the session.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { config } from "@amp/backend/config";
+import { QueueUnavailableError } from "@amp/backend/jobs/queue";
 import {
   completeLogin,
   cookie,
@@ -56,6 +57,8 @@ export function adminHandler(fn: AdminHandler) {
     try {
       return await fn(req, reply, admin);
     } catch (error) {
+      if (error instanceof QueueUnavailableError)
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: error.message, retryAfter: 30 });
       if ((error as { statusCode?: number }).statusCode === 400 || error instanceof SyntaxError) {
         return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: String((error as Error).message).slice(0, 300) });
       }
