@@ -1,7 +1,9 @@
 import { useMemo, type ReactNode } from "react";
 import { Link, useLoaderData } from "react-router";
 import type { SiteStats } from "@amp/contracts/site";
-import { apiGet } from "../lib/api.server";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { apiBaseFor } from "../../api-target.ts";
+import { contractResult } from "../lib/api.server";
 import { ABOUT, SITE, withSubject } from "@amp/industry/site";
 import { organizationLd, pageMeta } from "../lib/seo";
 import { Kicker } from "../components/ui/Kicker";
@@ -14,7 +16,13 @@ export function headers() {
 }
 
 export async function loader({ request }: { request: Request }) {
-  const stats = await apiGet<SiteStats>("/api/site/stats", { signal: request.signal }).catch(() => null);
+  const stats = await createPublicClient({ baseUrl: apiBaseFor("/api/site/stats") })
+    .GET("/api/site/stats", {
+      headers: { accept: "application/json", "x-amp-ssr": "1" },
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    })
+    .then((result) => contractResult(result, publicSchemas.SiteStats))
+    .catch(() => null);
   return { stats };
 }
 

@@ -9,9 +9,13 @@
     "./mcp": "./src/mcp.ts",
     "./site": "./src/site.ts",
     "./taxonomy": "./src/taxonomy.ts",
-    "./time": "./src/time.ts"
+    "./time": "./src/time.ts",
+    "./http/common": "./src/http/common.ts",
+    "./http/public": "./src/http/public.ts",
+    "./http/private": "./src/http/private.ts"
   },
   "dependencies": {
-    "@amp/industry": "workspace:*"
+    "@amp/industry": "workspace:*",
+    "zod": "4.6.5"
   }
 }

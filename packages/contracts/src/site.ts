@@ -150,15 +150,7 @@ export interface DevelopmentsResponse {
   nextCursor: string | null;
 }
 
-export interface ProblemBody {
-  type: string;
-  title: string;
-  status: number;
-  detail: string;
-  code: string;
-  requestId: string;
-  retryAfter?: number;
-}
+export type { ProblemBody } from "./http/common.ts";
 
 // ---------------------------------------------------------------------------
 // Hot ranking and stories
@@ -301,21 +293,7 @@ export interface ReportIndexEntry {
   count: number;
 }
 
-/** Figures for the about page (site-only; not part of v1). */
-export interface SiteStats {
-  /** Sources collected from now. */
-  sources: number;
-  /** Enabled sources by kind: rss, web_list, mp_account, json_list. */
-  sourceKinds: Record<string, number>;
-  /** Of them, sources that only count toward heat (their items never reach 精选). */
-  heatOnlySources: number;
-  /** Everything collected and not withdrawn, heat-only sources included. */
-  items: number;
-  selected: number;
-  dailies: number;
-  /** The last 24 hours: items found (heat-only sources included), and items that made 精选 (by their place on the timeline). */
-  day: { collected: number; selected: number };
-}
+export type { SiteStats } from "./http/public.ts";
 
 /** A reading page transfers one language; the canonical item retains both for exports. */
 export interface SiteItemDetail extends ItemDetail {

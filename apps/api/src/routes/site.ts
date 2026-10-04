@@ -1,5 +1,6 @@
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
+import { routes as contracts, SiteStats } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
@@ -185,9 +186,12 @@ export function registerSite(app: FastifyInstance) {
   );
 
   app.get(
-    "/api/site/stats",
+    contracts.siteStats.url,
+    contracts.siteStats,
     siteHandler(async (req, reply) => {
-      return sendJsonWithEtag(req, reply, await loadSiteStats(), { etagPrefix: "stats", cacheControl: "public, max-age=300, s-maxage=300" });
+      const stats = await loadSiteStats();
+      SiteStats.parse(stats);
+      return sendJsonWithEtag(req, reply, stats, { etagPrefix: "stats", cacheControl: "public, max-age=300, s-maxage=300" });
     }),
   );
 
