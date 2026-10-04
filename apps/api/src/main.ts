@@ -1,34 +1,3 @@
-import { assertProductionSecrets, config, isProduction } from "@amp/backend/config";
-import { closeDb, initializeDb } from "@amp/backend/db";
-import { startHeartbeat } from "@amp/backend/operations/heartbeat";
-import { startWorkerWatchdog } from "@amp/backend/operations/watch";
-import { buildApp } from "./app.ts";
+import { startApi } from "./runtime.ts";
 
-await initializeDb("api");
-
-assertProductionSecrets([
-  ["auth", "SESSION_SECRET"],
-  ["auth", "PUBLIC_RATE_LIMIT_SECRET"],
-  ["auth", "IMG_PROXY_SIGN_SECRET"],
-]);
-// Somebody must be able to sign in to the admin.
-if (isProduction && !(config.adminPassword && config.adminPassword.length >= 12) && !process.env.FEISHU_LOGIN_APP_ID) {
-  throw new Error("Refusing to start in production: set ADMIN_PASSWORD (at least 12 characters) or configure Feishu sign-in");
-}
-
-const app = await buildApp();
-await app.listen({ port: config.apiPort, host: process.env.API_HOST || "127.0.0.1" });
-startHeartbeat(`api:${config.apiPort}`);
-startWorkerWatchdog();
-
-let stopping = false;
-const shutdown = async () => {
-  if (stopping) return;
-  stopping = true;
-  await app.close();
-
-  await closeDb();
-  process.exit(0);
-};
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+await startApi(process.env);

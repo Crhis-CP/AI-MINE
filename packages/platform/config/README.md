@@ -16,19 +16,19 @@
 | `databaseConfig(processRole, env)` | 组合根读取并校验配置；`urlFor` 拒绝越权角色 |
 | `createDatabaseAccess(processRole, env, warn)` | 每个组合根创建一次；模块只取得其 `dbFor(role)` 返回的连接 |
 | `processRole`、`split` | 当前访问对象已校验的进程角色及是否采用按角色地址 |
-| `queueUrl()` | worker/test 取得 worker 地址，api/private-api 取得 private_ops 地址；其他进程拒绝使用队列 |
+| `queueUrl()` | worker/test 取得 worker 地址，private-api 取得 private_ops 地址；其他进程拒绝使用队列 |
 | `backupUrl()` | 仅 worker 可以取得 backup 地址，交给 pg_dump；不可通过 dbFor 取得备份连接 |
 | `close()` | 关闭本对象创建的全部连接池；关闭后拒绝继续取得连接 |
 
-进程角色和地址权限见 `PROCESS_DATABASE_ROLES`。公开 API 只取得 public_read/feedback_write；私有 API 只取得 private_ops/auth；worker 取得 worker，另有 backup；迁移取得 migrate；web/fetcher 不持有数据库地址。`api` 是拆分前的临时角色，`test` 只允许一次性 `_test`/`_ci` 数据库。
+进程角色和地址权限见 `PROCESS_DATABASE_ROLES`。公开 API 只取得 public_read/feedback_write；私有 API 只取得 private_ops/auth；worker 取得 worker，另有 backup；迁移取得 migrate；web/fetcher 不持有数据库地址。`api` 过渡角色已删除；`test` 只允许一次性 `_test`/`_ci` 数据库。
 
 反馈来源哈希已改用独立 PUBLIC_RATE_LIMIT_SECRET：生产缺失拒绝启动，开发缺失警告并使用既有开发常量；SESSION_SECRET 仅用于私有认证，不再决定反馈哈希。
 
-apps/api/src/runtime.ts 的 startApi(env) 只接受当前进程的实际环境对象（复制或替代对象会在加载后端前被拒绝），该显式启动器已调用这些检查，并按角色管理监听、私有心跳/看门狗及退出清理；导入该模块不会启动资源。现行 main、environmentProblems 仍保持过渡入口，现行 api 角色与单 API 默认行为保持。PUBLIC_RATE_LIMIT_SECRET/INDEXNOW_KEY 合法，IMG_PROXY_SIGN_SECRET 不新增禁项；private/worker 的非数据库凭据拒绝仍留部署任务。
+apps/api/src/runtime.ts 的 startApi(env) 只接受当前进程的实际环境对象（复制或替代对象会在加载后端前被拒绝），该显式启动器已调用这些检查，并按角色管理监听、私有心跳/看门狗及退出清理；导入该模块不会启动资源。main 已接到该启动器，environmentProblems 自动执行公共生产凭据拒绝，默认单 API 工厂已删除。PUBLIC_RATE_LIMIT_SECRET/INDEXNOW_KEY 合法，IMG_PROXY_SIGN_SECRET 不新增禁项；private/worker 的非数据库凭据拒绝仍留部署任务。
 
 所有按角色地址都未提供时才使用单一 DATABASE_URL，并输出不含地址的过渡提示；只提供一部分角色地址则拒绝启动，不退回单一地址。创建配置与连接句柄均不执行 SQL；收到查询后驱动才连接。
 
-队列和备份地址从初始化时的配置取得，不重新读取环境。组合根给 private-api 的 pg-boss 连接固定关闭建 schema、迁移、维护与定时处理，只检查既有队列；队列未就绪不影响启动或登录，发任务返回可重试的暂不可用结果。worker/test 与旧 api 过渡行为保持。暖缓存队列删除或物理表形态改变时，私有投递根据 pg-boss 实际 INSERT 目标复核当前元数据（包括启动时预载但尚未投递的队列），只淘汰生产者客户端。新客户端等待清理屏障；通过 tx 或 options.db 传入的事务请求先返回暂不可用让调用方回滚，不等待自己持有的锁。不自动重发任务。正常单例去重仍返回空任务编号。关闭访问对象后，`dbFor`、`queueUrl` 和 `backupUrl` 均拒绝调用。
+队列和备份地址从初始化时的配置取得，不重新读取环境。组合根给 private-api 的 pg-boss 连接固定关闭建 schema、迁移、维护与定时处理，只检查既有队列；队列未就绪不影响启动或登录，发任务返回可重试的暂不可用结果。worker/test 行为保持。暖缓存队列删除或物理表形态改变时，私有投递根据 pg-boss 实际 INSERT 目标复核当前元数据（包括启动时预载但尚未投递的队列），只淘汰生产者客户端。新客户端等待清理屏障；通过 tx 或 options.db 传入的事务请求先返回暂不可用让调用方回滚，不等待自己持有的锁。不自动重发任务。正常单例去重仍返回空任务编号。关闭访问对象后，`dbFor`、`queueUrl` 和 `backupUrl` 均拒绝调用。
 
 web/fetcher 在任何环境都拒绝数据库与凭据变量（包括空值）；仅 `NODE_ENV=production` 启用生产检查，拒绝出网代理、`DEV_AUTH_*` 和已启用的 `ALLOW_PRIVATE_NETWORK_FETCH`。`AMP_ENVIRONMENT` 不影响判断；worker 的模型和备份凭据在 M0 过渡期仍允许。诊断不包含变量值。
 

@@ -3,7 +3,7 @@
     "lint/style/noProcessEnv": 2
   },
   "apps/api/src/main.ts": {
-    "lint/style/noProcessEnv": 2
+    "lint/style/noProcessEnv": 1
   },
   "apps/api/src/routes/mcp.ts": {
     "lint/style/noProcessEnv": 1,

@@ -10,7 +10,6 @@ export const PROCESS_DATABASE_ROLES = {
   "private-api": ["private_ops", "auth"],
   worker: ["worker", "backup"],
   migrate: ["migrate"],
-  api: ["private_ops"], // Transitional unsplit API, removed when PR7 introduces the two API instances.
   test: ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate"],
   web: [],
   fetcher: [],
@@ -70,6 +69,7 @@ export function assertPublicApiCredentials(env: Environment, warn: (message: str
 export function environmentProblems(role: ProcessRole, env: Environment = process.env): string[] {
   const isolated = role === "web" || role === "fetcher";
   const production = env.NODE_ENV === "production";
+  const publicCredentials = new Set(role === "public-api" && production ? publicApiCredentialNames(env) : []);
   return Object.keys(env)
     .filter((name) => {
       if (env[name] === undefined) return false;
@@ -79,7 +79,7 @@ export function environmentProblems(role: ProcessRole, env: Environment = proces
         /^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|EGRESS_PROXY_URL)$/i.test(name) ||
         name.startsWith("DEV_AUTH_") ||
         (name === "ALLOW_PRIVATE_NETWORK_FETCH" && /^(1|true)$/i.test(env[name]!));
-      return (isolated && credential) || (production && unsafe);
+      return (isolated && credential) || (production && unsafe) || publicCredentials.has(name);
     })
     .sort();
 }
@@ -126,7 +126,7 @@ export function databaseConfig(processRole: ProcessRole, env: Environment = proc
     if (!allowed.some((role) => variable(role) === key)) throw new Error(`${processRole} must not hold ${key}`);
   }
   if (!allowed.length && env.DATABASE_URL !== undefined) throw new Error(`${processRole} must not hold DATABASE_URL`);
-  if ((processRole === "api" || processRole === "test") && keys.length) throw new Error(`${processRole} requires the transitional single DATABASE_URL`);
+  if (processRole === "test" && keys.length) throw new Error(`${processRole} requires the transitional single DATABASE_URL`);
   const split = keys.length > 0;
   const urls = new Map<DatabaseRole, string>();
   for (const role of allowed) {
@@ -193,7 +193,6 @@ export function createDatabaseAccess(processRole: ProcessRole, env: Environment 
         case "worker":
         case "test":
           return config.urlFor("worker");
-        case "api":
         case "private-api":
           return config.urlFor("private_ops");
         default:

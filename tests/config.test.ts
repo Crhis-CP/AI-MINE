@@ -122,7 +122,7 @@ test("queue access follows the process role and keeps the validated addresses un
     const access = createDatabaseAccess(processRole, env, () => {});
     try {
       assert.equal(access.processRole, processRole);
-      if (["worker", "test", "api", "private-api"].includes(processRole)) assert.equal(access.queueUrl(), url);
+      if (["worker", "test", "private-api"].includes(processRole)) assert.equal(access.queueUrl(), url);
       else assert.throws(() => access.queueUrl(), /cannot use the job queue/);
     } finally {
       await access.close();

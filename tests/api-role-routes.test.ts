@@ -16,14 +16,13 @@ delete process.env.FEISHU_LOGIN_APP_SECRET;
 config.privateHost = HOST;
 const publicApp = await buildApp("public-api");
 const privateApp = await buildApp("private-api");
-const transitionalApp = await buildApp();
 config.privateHost = savedHost;
 const forwarded = { host: "private-api:3001", "x-forwarded-host": HOST };
 after(async () => {
   config.privateHost = savedHost;
   config.adminPassword = savedPassword;
   config.devAdmin = savedDevAdmin;
-  await Promise.all([publicApp.close(), privateApp.close(), transitionalApp.close()]);
+  await Promise.all([publicApp.close(), privateApp.close()]);
   await closeDb();
 });
 
@@ -53,7 +52,7 @@ test("public route families and feedback belong only to the public root", async 
   assert.equal(privateFallback.headers["access-control-allow-origin"], undefined);
 });
 
-test("auth and admin are private while the omitted role retains the pre-activation API", async () => {
+test("auth and admin are private and an explicit role is mandatory", async () => {
   for (const [url, status] of [
     ["/api/auth/options", 200],
     ["/api/auth/login", 302],
@@ -62,13 +61,12 @@ test("auth and admin are private while the omitted role retains the pre-activati
   ] as const) {
     assert.equal((await publicApp.inject({ url, headers: forwarded })).statusCode, 404, url);
     assert.equal((await privateApp.inject({ url, headers: forwarded })).statusCode, status, url);
-    assert.equal((await transitionalApp.inject(url)).statusCode, status, url);
   }
-  assert.equal((await transitionalApp.inject("/api/site/meta")).statusCode, 200);
-  for (const app of [publicApp, privateApp, transitionalApp]) {
+  for (const app of [publicApp, privateApp]) {
     assert.equal((await app.inject({ method: "POST", url: "/api/ingest/items", headers: forwarded })).statusCode, 404);
     assert.equal((await app.inject({ url: "/api/img-proxy", headers: forwarded })).statusCode, 404);
   }
+  await assert.rejects(buildApp(undefined as never), /Invalid API role/);
   await assert.rejects(buildApp("other" as never), /Invalid API role/);
 });
 
@@ -122,7 +120,7 @@ test("health works on both roots regardless of forwarded hostname; public redire
       assert.equal(result.json().db, "ok");
     }
   }
-  for (const app of [publicApp, transitionalApp]) {
+  for (const app of [publicApp]) {
     const result = await app.inject("/rss?reader=test");
     assert.equal(result.statusCode, 301);
     assert.equal(result.headers.location, "/feed.xml?reader=test");

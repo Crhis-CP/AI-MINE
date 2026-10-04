@@ -13,7 +13,8 @@
     "dev:web": "pnpm --filter @amp/web dev",
     "typecheck": "tsc -p packages/platform/config && tsc -p packages/contracts && tsc -p packages/backend && tsc -p apps/api && tsc -p apps/worker && tsc -p apps/fetcher && tsc -p tests && tsc -p scripts && pnpm --filter @amp/web typecheck",
     "test": "node --test --test-concurrency=1 --test-timeout=120000 \"tests/*.test.ts\"",
-    "check": "node scripts/verify/run.ts --quick"
+    "check": "node scripts/verify/run.ts --quick",
+    "dev:private-api": "pnpm --filter @amp/api dev:private"
   },
   "dependencies": {
     "@amp/backend": "workspace:*",

@@ -87,10 +87,13 @@ test("the helper does not broaden D7 or impose required-key and private/worker p
   assert.doesNotThrow(() => assertPublicApiCredentials({ NODE_ENV: "production" }));
 });
 
-test("preparation is not automatically activated through existing config or database entry points", () => {
+test("public production credentials are enforced without extending private or worker policy", () => {
   const env = { NODE_ENV: "production", DATABASE_URL: "postgres://test@127.0.0.1:1/api_config_test", SESSION_SECRET: "PRIVATE_MARKER", LLM_API_KEY: "" };
-  for (const role of ["api", "public-api", "private-api", "worker"] as const) {
+  for (const role of ["private-api", "worker"] as const) {
     assert.deepEqual(environmentProblems(role, env), []);
     assert.doesNotThrow(() => databaseConfig(role, env));
   }
+  assert.deepEqual(environmentProblems("public-api", env), ["LLM_API_KEY", "SESSION_SECRET"]);
+  assert.throws(() => databaseConfig("public-api", env), /public-api must not hold/);
+  assert.throws(() => databaseConfig("api" as never, env), /Unknown process role/);
 });

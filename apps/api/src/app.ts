@@ -27,11 +27,10 @@ function hostname(authority: unknown): string | null {
   }
 }
 
-// PR7b preparation: omitted role preserves the current single API. PR7c removes this transition atomically.
-export async function buildApp(role?: ApiRole): Promise<FastifyInstance> {
-  if (role !== undefined && role !== "public-api" && role !== "private-api") throw new Error("Invalid API role");
-  const publicRoutes = role !== "private-api";
-  const privateRoutes = role !== "public-api";
+export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
+  if (role !== "public-api" && role !== "private-api") throw new Error("Invalid API role");
+  const publicRoutes = role === "public-api";
+  const privateRoutes = role === "private-api";
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL || "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
     // Access logs never record query strings (tokens, actors).

@@ -97,7 +97,7 @@ test("public Compose validation is explicit, expands inherited configuration, an
 test("the full Compose check can require both services before activation changes its default", () => {
   const dir = scratch();
   write(dir, { "docker-compose.yml": "services: {web: {image: web}}" });
-  assert.deepEqual(checkRoleConfig(dir), []);
+  assert.ok(checkRoleConfig(dir).some((p) => p.includes("public-api service is missing")));
   assert.ok(checkRoleConfig(dir, ["web", "public-api"]).some((p) => p.includes("public-api service is missing")));
   write(dir, { "docker-compose.yml": "services: {web: {image: web}, public-api: {environment: {API_ROLE: public-api, PUBLIC_RATE_LIMIT_SECRET: fixture}}}" });
   assert.deepEqual(checkRoleConfig(dir, ["web", "public-api"]), []);
