@@ -1,0 +1,32 @@
+import type postgres from "postgres";
+import { dbOf } from "./module-db.ts";
+const sql = dbOf("content");
+const parts = Object.assign(["SELECT id FROM receipts"], { raw: ["SELECT id FROM receipts"] });
+export async function directTemplate() { return await sql`SELECT id FROM receipts`; }
+export async function directCall() { return await sql(parts); }
+export async function callTemplate() { return await sql.call(undefined, parts); }
+export async function applyTemplate() { return await sql.apply(undefined, [parts]); }
+const bound = sql.bind(undefined);
+export async function boundTemplate() { return await bound`SELECT id FROM receipts`; }
+export async function boundCall() { return await bound(parts); }
+const localSignature: (strings: TemplateStringsArray) => postgres.PendingQuery<postgres.Row[]> = sql;
+export async function retypedTemplate() { return await localSignature`SELECT id FROM receipts`; }
+export async function retypedCall() { return await localSignature(parts); }
+const wrapped = (strings: TemplateStringsArray) => sql(strings);
+export async function wrappedTemplate() { return await wrapped`SELECT id FROM receipts`; }
+export async function callUnsafe() { return await sql.unsafe.call(undefined, "SELECT id FROM receipts"); }
+export async function applyUnsafe() { return await sql.unsafe.apply(undefined, ["SELECT id FROM receipts"]); }
+const boundUnsafe = sql.unsafe.bind(undefined);
+export async function boundUnsafeCall() { return await boundUnsafe("SELECT id FROM receipts"); }
+export async function directUnsafe() { return await sql.unsafe("SELECT id FROM receipts"); }
+export async function bracketUnsafe() { return await sql["unsafe"]("SELECT id FROM receipts"); }
+const promiseSignature: (strings: TemplateStringsArray) => PromiseLike<postgres.Row[]> = sql;
+export async function promiseRetypedTemplate() { return await promiseSignature`SELECT id FROM receipts`; }
+const promiseUnsafe: (text: string) => PromiseLike<postgres.Row[]> = sql.unsafe;
+export async function promiseRetypedUnsafe() { return await promiseUnsafe("SELECT id FROM receipts"); }
+export async function close() { await sql.end(); }
+
+export async function extraSatisfiesTag() { return await (promiseSignature satisfies typeof promiseSignature)`SELECT id FROM receipts`; }
+export async function extraBracketCall() { return await promiseSignature["call"](undefined, parts); }
+const erasedBound=promiseUnsafe["bind"](undefined);
+export async function extraBracketBind() { return await erasedBound("SELECT id FROM receipts"); }
