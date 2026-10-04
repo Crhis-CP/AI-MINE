@@ -34,7 +34,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return adminGet<Settings>(request, "/api/admin/settings");
 }
 
-export const meta: Route.MetaFunction = () => [{ title: `设置 · ${SITE.name} 后台` }];
+export const meta: Route.MetaFunction = () => [{ title: `通知与请求频率 · ${SITE.name} 后台` }];
 
 function BudgetRow({ b }: { b: Settings["budgets"][number] }) {
   const { run, pending } = useAdminAction();
@@ -59,7 +59,7 @@ function BudgetRow({ b }: { b: Settings["budgets"][number] }) {
         <ReasonDialog
           open={open}
           title={`调整 ${b.service} 的请求上限`}
-          description="上限是付费请求的熔断：超过后请求暂停并按窗口重试。填 0 表示立即停用这个服务。"
+          description="这里限制各时间窗口内的请求次数；超过后暂停请求并按窗口重试。填 0 表示立即停用这个服务。"
           confirmLabel="保存"
           busy={pending === "budget"}
           onClose={() => setOpen(false)}
@@ -103,7 +103,7 @@ function TargetToggle({ t }: { t: Settings["targets"][number] }) {
 
 export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
   return (
-    <AdminPage title="设置" subtitle="不改代码即可替换的运营设置。每次修改都写入审计记录。">
+    <AdminPage title="通知与请求频率" subtitle="管理既有通知目的地与请求次数上限，每次修改都写入审计记录。">
       <Card title="通知目的地" pad={false}>
         <DataTable
           rows={s.targets}

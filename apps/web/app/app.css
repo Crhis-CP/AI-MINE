@@ -344,7 +344,7 @@
   animation: fade-up 280ms var(--ease-out-quart) both;
 }
 
-/* Enter/leave keyframes for components/ui/Presence.tsx; --anim-ms overrides a default length. */
+/* Enter/leave keyframes for @amp/ui/Presence; --anim-ms overrides a default length. */
 @keyframes amp-collapse-in {
   from {
     grid-template-rows: 0fr;

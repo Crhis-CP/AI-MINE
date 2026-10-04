@@ -1,0 +1,20 @@
+{
+  "name": "@amp/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./Badge": "./src/Badge.tsx",
+    "./Kicker": "./src/Kicker.tsx",
+    "./Presence": "./src/Presence.tsx",
+    "./Score": "./src/Score.tsx",
+    "./Menu": "./src/Menu.tsx",
+    "./Status": "./src/Status.tsx"
+  },
+  "peerDependencies": {
+    "react": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  }
+}

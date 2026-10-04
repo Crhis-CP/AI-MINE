@@ -16,7 +16,7 @@ export function UsageReconciliation({ data: r, actions }: { data: Reconciliation
   const [outcome, setOutcome] = useState<"sent" | "drop" | "resend">("sent");
   return (
     <>
-      <div className="mt-5 grid gap-5 xl:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card
           title="需要核对的付费回执"
           right={

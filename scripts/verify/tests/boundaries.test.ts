@@ -265,3 +265,17 @@ test("fetch-runtime traverses extensionless CJS and directory entries, including
     );
   }
 });
+
+test("shared UI uses explicit entries and cannot depend back on web or private clients", () => {
+  const good = workspace({
+    "packages/ui/package.json": pkg("@amp/ui", [], { "./Badge": "./src/Badge.tsx" }),
+    "packages/ui/src/Badge.tsx": "export const Badge = () => null;",
+    "apps/web/package.json": pkg("@amp/web", ["@amp/ui"]),
+    "apps/web/app/root.tsx": 'import { Badge } from "@amp/ui/Badge";',
+  });
+  assert.deepEqual(checkBoundaries(good.dir, good.files), []);
+  for (const dependency of ["@amp/web", "@amp/api-client", "@amp/backend"]) {
+    const bad = workspace({ "packages/ui/package.json": pkg("@amp/ui", [dependency]) });
+    assert.ok(checkBoundaries(bad.dir, bad.files).includes(`packages/ui/package.json: @amp/ui may not depend on ${dependency}`));
+  }
+});

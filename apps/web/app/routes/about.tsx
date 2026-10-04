@@ -6,7 +6,7 @@ import { apiBaseFor } from "../../api-target.ts";
 import { contractResult } from "../lib/api.server";
 import { ABOUT, SITE, withSubject } from "@amp/industry/site";
 import { organizationLd, pageMeta } from "../lib/seo";
-import { Kicker } from "../components/ui/Kicker";
+import { Kicker } from "@amp/ui/Kicker";
 import { buttonClass } from "../components/ui/Controls";
 import { IconArrowRight } from "../components/icons";
 

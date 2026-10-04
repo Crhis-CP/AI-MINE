@@ -42,7 +42,16 @@ const privateApi = createServer((req, res) => {
     if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false }));
     if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 888, feedback: 888, runs: 888 }));
     if (req.url?.startsWith("/api/admin/models?"))
-      return res.end(JSON.stringify({ days: 7, capabilities: [], choices: [], history: [], benches: [{ id: "old-bench", label: "旧对比记录" }] }));
+      return res.end(
+        JSON.stringify({
+          days: Number(new URL(req.url, "http://fixture").searchParams.get("days") || 7),
+          capabilities: [],
+          choices: [],
+          history: [],
+          benches: [{ id: "old-bench", label: "旧对比记录" }],
+        }),
+      );
+    if (req.url === "/api/admin/settings") return res.end(JSON.stringify({ targets: [], budgets: [] }));
     if (req.url === "/api/admin/runs") {
       if (reconciliationUnavailable) {
         res.statusCode = 503;
@@ -614,7 +623,7 @@ test("retired daily pages are absent and private navigation no longer requests c
   const before = privateCalls.length;
   privatePageFixtures = true;
   try {
-    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/selectbench", "/admin/selectbench/example"]) {
+    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/selectbench", "/admin/selectbench/example", "/admin/runs"]) {
       for (const suffix of ["", ".data?_routes=root"]) {
         for (const method of ["GET", "HEAD"]) {
           const response = path.startsWith("/admin")
@@ -628,16 +637,19 @@ test("retired daily pages are absent and private navigation no longer requests c
         }
       }
     }
-    const response = await fetchWithHost(origin + "/admin/models", PRIVATE_HOST);
+    const response = await fetchWithHost(origin + "/admin/usage-models", PRIVATE_HOST);
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /合成管理员/);
     assert.match(html, /模型与评测/);
-    assert.doesNotMatch(html, /\/admin\/(?:selectbench|audit)|同批样本对比|888/);
+    for (const path of ["content", "sources", "usage-models", "site", "feedback", "accounts", "usage-models/reconciliation", "usage-models/settings"]) {
+      assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
+    }
+    assert.doesNotMatch(html, /\/admin\/(?:selectbench|audit|runs)|同批样本对比|888/);
     assert.ok(privateCalls.slice(before).every(({ path }) => path === "/api/admin/me" || path.startsWith("/api/admin/models?")));
     for (const group of ["public", "private"]) {
       const modules = readFileSync(new URL(`../build/${group}/modules.json`, import.meta.url), "utf8");
-      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|selectbench))/);
+      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|selectbench|runs))/);
     }
   } finally {
     privatePageFixtures = false;
@@ -672,5 +684,51 @@ test("usage reconciliation renders existing controls and serializes only needed 
   } finally {
     privatePageFixtures = false;
     reconciliationUnavailable = false;
+  }
+});
+
+test("six private groups reuse existing capabilities and old bookmarks have only fixed internal targets", async () => {
+  privatePageFixtures = true;
+  try {
+    for (const method of ["GET", "HEAD"]) {
+      for (const [oldPath, expected] of [
+        ["/admin/models?days=30&days=7&redirect=https://attacker.invalid", "/admin/usage-models?days=30"],
+        ["/admin/settings?next=//attacker.invalid", "/admin/usage-models/settings"],
+      ]) {
+        const response = await fetchWithHost(origin + oldPath, PRIVATE_HOST, { method });
+        assert.equal(response.status, 302);
+        assert.equal(response.headers.get("Location"), expected);
+        assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+        await response.text();
+      }
+    }
+    for (const path of ["/admin/accounts", "/admin/site", "/admin/usage-models/settings"]) {
+      const before = privateCalls.length;
+      const denied = await fetch(origin + path);
+      assert.equal(denied.status, 404);
+      await denied.text();
+      assert.equal(privateCalls.length, before);
+      const response = await fetchWithHost(origin + path, PRIVATE_HOST);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+      const html = await response.text();
+      const main = html.match(/<main\b[\s\S]*?<\/main>/)![0];
+      if (path.endsWith("accounts")) {
+        assert.match(main, /合成管理员/);
+        const logout = main.match(/<form\b[^>]*>/)![0];
+        assert.match(logout, /method="post"/);
+        assert.match(logout, /action="\/api\/auth\/logout"/);
+        assert.doesNotMatch(main, /type="password"|<input/);
+      } else if (path.endsWith("site")) {
+        assert.match(main, /网站资料管理暂未开放/);
+        assert.doesNotMatch(main, /<form|<input|<textarea|<select/);
+      } else {
+        assert.match(main, /通知目的地/);
+        assert.match(main, /付费请求上限/);
+        assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/settings"));
+      }
+    }
+  } finally {
+    privatePageFixtures = false;
   }
 });

@@ -2,7 +2,7 @@
 // and the event's developments ("展开 N 条进展"). Each loads on first open and pages on demand.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import { Collapse } from "../../components/ui/Presence";
+import { Collapse } from "@amp/ui/Presence";
 import type { Development, GroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
 import { IconArrowUpRight, IconChevronDown } from "../../components/icons";
 import { monthDayTime, shortSourceName } from "../../lib/format";

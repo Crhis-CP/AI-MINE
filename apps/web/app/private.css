@@ -7,3 +7,4 @@
 @source "./features/admin";
 @source "./routes/admin";
 @source "./routes/admin-login.tsx";
+@source "../../../packages/ui/src/Status.tsx";
