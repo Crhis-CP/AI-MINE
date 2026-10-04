@@ -1,5 +1,13 @@
 import type { z } from "zod";
-import { SOURCE_PURPOSES, type SourcePolicySchema, type SignedProcessingPermitSchema, type SourcePurpose } from "@amp/contracts/source-policy";
+import {
+  SOURCE_PURPOSES,
+  type SourcePolicySchema,
+  type SignedProcessingPermitSchema,
+  type SourcePurpose,
+  type IssueProcessingPermitInputSchema,
+  type SourcePolicyEvaluationSchema,
+  type EvaluateSourcePolicyInputSchema,
+} from "@amp/contracts/source-policy";
 
 // Synthetic wire examples only: no key, issuer, authority, database, environment or import side effect.
 const scope = { hosts: ["source.invalid"], path_prefixes: ["/mining/"], document_types: [], excluded_content: [] };
@@ -50,3 +58,49 @@ export const signedPermitExample = {
   },
   signature: "A".repeat(86),
 } satisfies z.input<typeof SignedProcessingPermitSchema>;
+
+export const permitRequest = (): z.infer<typeof IssueProcessingPermitInputSchema> => ({
+  source_id: "source_fixture",
+  lane: "news",
+  capability: "external_model",
+  permission_version: 1,
+  binding: structuredClone(signedPermitExample.binding),
+});
+/** Explicit synthetic current-state ports. No database, issuer, defaults for production, or input echo. */
+export function permitTestState(root: AbortSignal) {
+  const input = permitRequest();
+  const state = {
+    now: Date.parse("2026-10-04T12:00:00Z"),
+    inputCalls: 0,
+    policyCalls: 0,
+    fail: false,
+    input: { source_id: input.source_id, lane: input.lane, binding: input.binding },
+    policy: {
+      source_id: input.source_id,
+      lane: input.lane,
+      capability: input.capability,
+      permission_version: 1,
+      scope: sourcePolicyExample.scope,
+      expires_at: null,
+      decision: "allow",
+    } as z.infer<typeof SourcePolicyEvaluationSchema>,
+  };
+  const ports = {
+    root,
+    now: () => state.now,
+    inputs: {
+      resolve: async (_binding: z.infer<typeof IssueProcessingPermitInputSchema>["binding"]) => {
+        state.inputCalls++;
+        if (state.fail) throw new Error("synthetic private diagnostic");
+        return structuredClone(state.input);
+      },
+    },
+    policy: {
+      evaluate: async (_input: z.infer<typeof EvaluateSourcePolicyInputSchema>) => {
+        state.policyCalls++;
+        return structuredClone(state.policy);
+      },
+    },
+  };
+  return { state, ports };
+}

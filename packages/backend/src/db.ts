@@ -22,8 +22,8 @@ export function withCustomPlans<T>(fn: (db: Tx) => Promise<T>): Promise<T> {
   }) as Promise<T>;
 }
 
-export async function closeDb(): Promise<void> {
-  await closeProcessDb();
+export function closeDb(): Promise<void> {
+  return closeProcessDb();
 }
 
 /** First row of a query that always returns one (aggregates). */
