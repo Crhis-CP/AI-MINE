@@ -1,6 +1,6 @@
 {
-  "reference/contracts/public.openapi.json": "4529e4ce99a7599fc1843a26a5604c22ebc2a54c071eef692934f3b9b9169ddd",
-  "packages/api-client/src/public.types.ts": "303554e150a81d139e425f3efc41a4dbec3c341523a1b986f43268b0d1a1d602",
+  "reference/contracts/public.openapi.json": "7bf0ceb4731e2241100e256711d2f668a597ee1357ce42c372507e172ce03f16",
+  "packages/api-client/src/public.types.ts": "d99a5cbeac195d13530bf72abf55d6800cdb97311efcd4687dbf00b6e875b96a",
   "packages/api-client/src/public.ts": "ea0b51f66e1b1dd3b79d13d4a1aa0d762d890307356a3ee8a3da00f795f54398",
   "reference/contracts/private.openapi.json": "3e40c19b2c191e8ed1a6c28f0fb31a10d91bf51273714062bd19a3735c1857fd",
   "packages/api-client/src/private.types.ts": "6cbd48157756da13f34881eb53d2df8870f097f026528c749b222c40e2168131",

@@ -1,9 +1,10 @@
 import { SITE, withSubject } from "@amp/industry/site";
 import { Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/all";
-import type { PoolResponse } from "@amp/contracts/site";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { apiBaseFor } from "../../api-target.ts";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
-import { loadOr404, queryString } from "../lib/api.server";
+import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
 import { CategoryTabs, SearchField } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
@@ -22,8 +23,24 @@ export async function loader({ request }: Route.LoaderArgs) {
   const tab = url.searchParams.get("tab") === "relevance" ? "relevance" : null;
   // Legacy deep-paging parameters (deep, anchorAt) still open a normal page.
   const page = Math.min(Math.max(Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1, 1), 50);
-  const data = await loadOr404<PoolResponse>(
-    `/api/site/pool${queryString({ channel: channel === "all" ? null : channel, category, tag, q, tab, page: page > 1 ? page : null })}`,
+  const query = {
+    channel: channel === "all" ? undefined : channel,
+    category: category ?? undefined,
+    tag: tag ?? undefined,
+    q: q ?? undefined,
+    tab: tab ?? undefined,
+    page: page > 1 ? page : undefined,
+  } as const;
+  const data = await loadOr404(
+    () =>
+      createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
+        .GET("/api/site/pool", {
+          params: { query },
+          querySerializer: () => queryString(query).slice(1),
+          headers: { accept: "application/json", "x-amp-ssr": "1" },
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        })
+        .then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal, busyRedirect: "/all/search-busy" },
   );
   return { data };
