@@ -38,7 +38,7 @@ import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 const WEB_PACKAGE = "@amp/web";
 const PENDING_STAGES = [
   "contracts (TASK-0005)",
-  "data-ownership; role-config real database grants (TASK-0004 PR8)",
+  "data-ownership; full role and public-route matrix (TASK-0004 PR9)",
   "e2e-smoke (TASK-0008)",
   "product-update",
   "pit-checks (TASK-0011)",
@@ -280,7 +280,8 @@ const STAGES: Stage[] = [
   {
     name: "role-config",
     quick: true,
-    run: async ({ log }) => problems(checkRoleConfig(ROOT), log, "process environment guards and compose web isolation; database grants follow in PR8"),
+    run: async ({ log }) =>
+      problems(checkRoleConfig(ROOT), log, "process environment guards and compose web isolation; real database grants run in backend-tests"),
   },
   {
     name: "path-guard",
