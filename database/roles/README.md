@@ -54,3 +54,6 @@ node scripts/db-roles.ts --prefix amp --public-connections 10 --apply
 ## 来源权限版本（TASK-0021）
 
 sources.source_policy_versions由private_ops只追加，worker只读；current指针及public_policy由private_ops插入/CAS更新，worker只读。migrate持有schema/表，backup读取两表；auth/feedback_write无使用权。public_read仅获sources.source_policy_current的source_id、permission_version、public_policy三列；这是准确单表例外，不开放其他sources对象。公开投影只含四用途判定所需的范围/条件/期限和读者许可说明，不含证据正文、URL、actor或来源配置。未来新列、未知表和默认授权继续拒绝。
+
+
+翻译后续身份迁移只给已登记表增加可空字段：enrichment保存gateway签认的opaque attempt_id文本，不新增跨模块外键；ai-gateway保存response_attempt_id、每次attempt原response及output_rejected_at。历史身份/判坏标记保持NULL，不从最大ID或最新ordinal猜测。表、序列、旧48表oracle和角色权限不变；公开角色不获这些回执/明细字段。结算归属由gateway端口在当前attempt锁内核对，段检查点与完成/判坏同事务，原响应先独立持久化。

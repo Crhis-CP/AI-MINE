@@ -131,6 +131,14 @@
     {
       "name": "sources/202610040001_source_permissions.sql",
       "dependsOn": []
+    },
+    {
+      "name": "enrichment/202610050000_translation_attempt_identity.sql",
+      "dependsOn": ["enrichment/202610042100_translation_readiness.sql"]
+    },
+    {
+      "name": "ai-gateway/202610050010_receipt_output_rejection.sql",
+      "dependsOn": ["enrichment/202610050000_translation_attempt_identity.sql"]
     }
   ]
 }

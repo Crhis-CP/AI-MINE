@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { z } from "zod";
 import {
   completeTranslationManifest,
+  assembleTranslation,
   restoreTranslationText,
   shield,
   unshield,
@@ -32,6 +33,8 @@ test("DR-35 six bad-segment conditions reject independently, including invisible
     ["文".repeat(20_001), "too_long"],
     ["中文\0", "nul"],
     ["中文\uFFFD", "replacement"],
+    ["中文 &#65533;", "replacement"],
+    ["中文 &#0;", "replacement"],
     ["<script>中文</script><p>English remains</p>", "no_han"],
     ["English https://example.invalid/中文", "no_han"],
   ] as const;
@@ -201,4 +204,21 @@ test("DR-35 validated raw text restores only matching source code/media, with se
     '阅读 <a href="https://example.invalid/a">条件</a>。',
     "existing public protection functions remain usable",
   );
+});
+
+test("ordered assembly keeps contiguous inline meaning and protected source nodes", () => {
+  const html = "Before <strong>not</strong> approved.<p>Tail.</p>";
+  const source = translationSourceManifest(html),
+    current = { revision: 1, recipe: "assembly" };
+  const checkpoints: TranslationCheckpoint[] = source.segments.map((s) => ({
+    ...current,
+    index: s.index,
+    sourceHash: s.sourceHash,
+    state: "complete",
+    text: s.index ? "尾段条件。" : "事项<strong>未</strong>获批。",
+  }));
+  const assembled = assembleTranslation(html, current, checkpoints)!;
+  assert.equal(assembled.html, "事项<strong>未</strong>获批。<p>尾段条件。</p>");
+  assert.equal(assembled.manifest.bodyHash, createHash("sha256").update(assembled.html).digest("hex"));
+  assert.equal(assembleTranslation(html, current, checkpoints.slice(0, 1)), null);
 });

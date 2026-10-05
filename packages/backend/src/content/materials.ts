@@ -220,3 +220,31 @@ export async function commitProcessingResult<T>(
     return { value, stale };
   });
 }
+
+export interface CurrentBody {
+  id: string;
+  source_id: string;
+  revision: number;
+  title: string;
+  language: string | null;
+  body_status: string;
+  body_html: string | null;
+  body_text: string | null;
+}
+
+/** Snapshot for derived body work; the network operation must happen after this read returns. */
+export async function readCurrentBody(articleId: string): Promise<CurrentBody | null> {
+  const [row] = await sql<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
+  return row ?? null;
+}
+
+/** Own the content transaction without changing analysis state, errors, attempts or retry timing. */
+export async function commitBodyResult<T>(body: Pick<CurrentBody, "id" | "revision" | "body_html">, write: (tx: Tx) => Promise<T>): Promise<T | null> {
+  const result = await sql.begin(async (tx) => {
+    const [current] = await tx<{ revision: number; body_html: string | null }[]>`
+      SELECT revision,body_html FROM articles WHERE id=${body.id} FOR UPDATE`;
+    if (!current || current.revision !== body.revision || current.body_html !== body.body_html) return { value: null };
+    return { value: await write(tx) };
+  });
+  return result.value;
+}
