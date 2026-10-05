@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { SourceTimeProjection } from "../time-assertion.ts";
+import { isValidDate } from "../time.ts";
 import { CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
 import { Problem, ProblemResponse } from "./common.ts";
 
@@ -19,7 +21,9 @@ export const SiteFilters = z.strictObject({
   tag: z.string().nullable(),
   topic: z.string().nullable().optional(),
 });
-export const FeedItemSummary = z.strictObject({
+/** ADR-0025 future shapes only; current aliases/registry remain unchanged until atomic activation. */
+export const SourceDatedItemTime = SourceTimeProjection.extend({ firstPublicAt: z.iso.datetime({ offset: true }).nullable() });
+const FeedItemSummaryCore = z.strictObject({
   id: z.string(),
   title: z.string(),
   summary: z.string().nullable(),
@@ -33,9 +37,12 @@ export const FeedItemSummary = z.strictObject({
   channel: z.literal("news"),
   source: z.strictObject({ name: z.string() }),
 });
-export const PoolResponse = z.strictObject({
+export const SourceDatedFeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.shape);
+export const FeedItemSummary = FeedItemSummaryCore;
+
+const PoolResponseCore = z.strictObject({
   filters: SiteFilters.extend({ q: z.string().nullable(), tab: z.enum(["time", "relevance"]) }),
-  items: z.array(FeedItemSummary),
+  items: z.array(FeedItemSummaryCore),
   page: z.number(),
   pageCount: z.number(),
   total: z.number(),
@@ -43,6 +50,9 @@ export const PoolResponse = z.strictObject({
   freshness: z.iso.datetime({ offset: true }),
   generatedAt: z.iso.datetime({ offset: true }),
 });
+export const SourceDatedPoolResponse = PoolResponseCore.extend({ items: z.array(SourceDatedFeedItemSummary) });
+export const PoolResponse = PoolResponseCore;
+
 // Documentation/client parameters only: the live route retains looseQuery and its existing parser.
 export const PoolQuery = z.object({
   channel: z.enum(CHANNEL_KEYS).optional(),
@@ -69,12 +79,18 @@ export const GroupInfo = z.strictObject({
     .nullable()
     .optional(),
 });
-export const TimelineCard = z.strictObject({
+const TimelineCardCore = z.strictObject({
   key: z.string(),
   anchorAt: z.iso.datetime({ offset: true }),
-  item: FeedItemSummary,
+  item: FeedItemSummaryCore,
   group: GroupInfo.nullable(),
 });
+export const SourceDatedTimelineCard = TimelineCardCore.extend({
+  day: z.string().refine(isValidDate, "Invalid source calendar day"),
+  item: SourceDatedFeedItemSummary,
+});
+export const TimelineCard = TimelineCardCore;
+
 export const HotStripEntry = z.strictObject({
   rank: z.number(),
   title: z.string(),
@@ -83,9 +99,9 @@ export const HotStripEntry = z.strictObject({
   storyPublicId: z.string().nullable(),
   itemId: z.string().nullable(),
 });
-export const TimelineResponse = z.strictObject({
+const TimelineResponseCore = z.strictObject({
   filters: SiteFilters,
-  cards: z.array(TimelineCard),
+  cards: z.array(TimelineCardCore),
   nextCursor: z.string().nullable(),
   /** Absolute time when a pending item in this scope becomes visible. */
   refreshAt: z.iso.datetime({ offset: true }).nullable(),
@@ -93,6 +109,9 @@ export const TimelineResponse = z.strictObject({
   dayCounts: z.record(z.string(), z.number()),
   generatedAt: z.iso.datetime({ offset: true }),
 });
+export const SourceDatedTimelineResponse = TimelineResponseCore.extend({ cards: z.array(SourceDatedTimelineCard) });
+export const TimelineResponse = TimelineResponseCore;
+
 export const TimelineQuery = PoolQuery.pick({ channel: true, category: true, tag: true, topic: true }).extend({
   cursor: z.string().optional(),
   limit: z.number().optional(),

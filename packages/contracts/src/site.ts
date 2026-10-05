@@ -1,5 +1,6 @@
 // First-party site API (/api/site/*). Not a public API: it may evolve with the website,
 // but it is served from the same public read layer as v1, RSS and MCP.
+import type { SourceTimeProjection } from "./time-assertion.ts";
 import type { CategoryKey } from "./taxonomy.ts";
 
 export type SourceKind = "rss" | "web_list" | "json_list" | "mp_account" | "external";
@@ -13,7 +14,8 @@ export interface SourceRef {
 
 export type StoryRef = import("zod").infer<typeof import("./http/public.ts").StoryRef>;
 
-export interface ItemSummary {
+export type ItemSummary = ItemSummaryCore;
+interface ItemSummaryCore {
   id: string;
   revision: number;
   title: string;
@@ -63,7 +65,8 @@ export interface ItemDetail extends ItemSummary {
   group: GroupInfo | null;
 }
 
-export interface GroupReport {
+export type GroupReport = GroupReportCore;
+interface GroupReportCore {
   id: string;
   title: string;
   summary: string | null;
@@ -137,7 +140,8 @@ export interface HeatPoint {
   participants: number;
 }
 
-export interface StoryReportView {
+export type StoryReportView = StoryReportViewCore;
+interface StoryReportViewCore {
   id: string;
   title: string;
   summary: string | null;
@@ -148,7 +152,8 @@ export interface StoryReportView {
   factId: string;
 }
 
-export interface StoryFactView {
+export type StoryFactView = StoryFactViewCore;
+interface StoryFactViewCore {
   factId: string;
   title: string;
   occurredAt: string | null;
@@ -193,7 +198,8 @@ export interface StoryDetail {
 
 export type ReportKind = "daily" | "weekly" | "monthly";
 
-export interface ReportCitation {
+export type ReportCitation = ReportCitationCore;
+interface ReportCitationCore {
   itemId: string | null;
   title: string;
   summary: string | null;
@@ -246,7 +252,8 @@ export interface SiteItemDetail extends ItemDetail {
   bodyLanguage: "zh" | "original";
 }
 
-export interface StoryFollowup {
+export type StoryFollowup = StoryFollowupCore;
+interface StoryFollowupCore {
   factId: string;
   representative: { id: string; title: string; source: { name: string }; timelineAt: string };
 }
@@ -261,3 +268,20 @@ export interface ReportNavigationEntry {
   title?: string | null;
   count?: number;
 }
+
+/** Unactivated reader variants; these derive fields from the same Zod source as future clients. */
+type SourceDatedItemTime = import("zod").infer<typeof import("./http/public.ts").SourceDatedItemTime>;
+export type SourceDatedItemSummary = ItemSummaryCore & SourceDatedItemTime;
+export type SourceDatedGroupReport = GroupReportCore & SourceDatedItemTime;
+export type SourceDatedStoryReportView = Omit<StoryReportViewCore, "publishedAt"> &
+  SourceDatedItemTime & {
+    publishedAt: SourceDatedItemSummary["publishedAt"];
+  };
+export type SourceDatedReportCitation = ReportCitationCore & SourceTimeProjection;
+export type SourceDatedStoryFactView = Omit<StoryFactViewCore, "firstReportAt" | "representative"> & {
+  firstReportAt: string | null;
+  representative: SourceDatedStoryReportView;
+};
+export type SourceDatedStoryFollowup = Omit<StoryFollowupCore, "representative"> & {
+  representative: StoryFollowupCore["representative"] & SourceDatedItemTime;
+};

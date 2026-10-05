@@ -468,3 +468,46 @@ test("date profile identity excludes polling/body edits and preserves inherited 
   assert.equal(profile.language, "en");
   assert.equal(profile.timezone, "Asia/Shanghai");
 });
+
+test("SourceDated contracts are explicit future shapes; current HTTP aliases remain byte-compatible", async () => {
+  const { FeedItemSummary, TimelineResponse, SourceDatedFeedItemSummary, SourceDatedTimelineResponse } = await import(
+    "../../../packages/contracts/src/http/public.ts"
+  );
+  const { SourceDatedReceiptReconciliationResponse, ReceiptReconciliationResponse } = await import("../../../packages/contracts/src/http/private.ts");
+  const oldItem = {
+    id: "synthetic",
+    title: "合成矿业条目",
+    summary: null,
+    reason: null,
+    publishedAt: null,
+    timelineAt: "2026-10-05T00:00:00Z",
+    category: null,
+    tags: [],
+    score: null,
+    selected: false,
+    channel: "news",
+    source: { name: "合成来源" },
+  };
+  assert.equal(FeedItemSummary.safeParse(oldItem).success, true);
+  assert.equal(SourceDatedFeedItemSummary.safeParse(oldItem).success, false);
+  const item = { ...oldItem, sourceTime: null, firstPublicAt: null };
+  assert.equal(SourceDatedFeedItemSummary.safeParse(item).success, true);
+  assert.equal(FeedItemSummary.safeParse(item).success, false, "the registered alias has not changed");
+  const oldTimeline = {
+    filters: { channel: "all", category: null, tag: null },
+    cards: [{ key: "a", anchorAt: oldItem.timelineAt, item: oldItem, group: null }],
+    nextCursor: null,
+    refreshAt: null,
+    hot: null,
+    dayCounts: {},
+    generatedAt: oldItem.timelineAt,
+  };
+  assert.equal(TimelineResponse.safeParse(oldTimeline).success, true);
+  const next = { ...oldTimeline, cards: [{ ...oldTimeline.cards[0], item, day: "2026-10-05" }] };
+  assert.equal(SourceDatedTimelineResponse.safeParse(next).success, true);
+  assert.equal(SourceDatedTimelineResponse.safeParse({ ...next, cards: [{ ...next.cards[0], day: "2026-02-30" }] }).success, false);
+  const oldRuns = { receipts: { counts: {}, issues: [] }, deliveries: [] };
+  assert.equal(ReceiptReconciliationResponse.safeParse(oldRuns).success, true);
+  assert.equal(SourceDatedReceiptReconciliationResponse.safeParse(oldRuns).success, false);
+  assert.equal(SourceDatedReceiptReconciliationResponse.safeParse({ ...oldRuns, sourceDates: { alertAfterDays: null, items: [] } }).success, true);
+});

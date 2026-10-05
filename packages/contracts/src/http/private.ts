@@ -53,7 +53,7 @@ export const DeliveryIssue = z.looseObject({
   subject_id: z.string(),
   updated_at: z.iso.datetime({ offset: true }),
 });
-export const ReceiptReconciliationResponse = z.looseObject({
+const ReceiptReconciliationResponseCore = z.looseObject({
   receipts: z.strictObject({ counts: z.record(z.string(), z.number().int().nonnegative()), issues: z.array(ReceiptIssue) }),
   deliveries: z.array(DeliveryIssue),
 });
@@ -141,6 +141,25 @@ export const SourceDetailResponse = z.strictObject({
   ),
   republish: JsonObject.nullable(),
 });
+
+/** TASK-0022 future private diagnostic fields, not registered on the running route yet. */
+export const SourceDateQueue = z.strictObject({
+  alertAfterDays: z.number().int().positive().nullable(),
+  items: z.array(
+    z.strictObject({
+      articleId: z.string(),
+      sourceId: z.string(),
+      waitingSince: z.iso.datetime(),
+      reason: z.string(),
+      attempts: z.number().int().nonnegative(),
+      retryAt: z.iso.datetime().nullable(),
+      overdue: z.boolean(),
+    }),
+  ),
+});
+export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationResponseCore.extend({ sourceDates: SourceDateQueue });
+
+export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
   SourcePolicy: SourcePolicySchema,
