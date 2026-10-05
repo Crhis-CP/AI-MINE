@@ -6,8 +6,9 @@ import { sanitizeBody } from "../content/sanitize.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
+import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
 
-const parser = new XMLParser({
+const parserOptions = {
   ignoreAttributes: false,
   attributeNamePrefix: "@",
   textNodeName: "#text",
@@ -18,7 +19,16 @@ const parser = new XMLParser({
   // XHTML is mixed content: keep its markup and text order for stripTags/sanitizeBody below.
   // Only XHTML stops parsing; escaped HTML and CDATA retain their existing entity handling.
   stopNodes: ["feed.entry.title[type=xhtml]", "feed.entry.summary[type=xhtml]", "feed.entry.content[type=xhtml]"],
-});
+};
+const parser = new XMLParser(parserOptions);
+// Preserve the original date string without changing the established title/body XML handling.
+const dateParser = new XMLParser({ ...parserOptions, trimValues: false, parseTagValue: false });
+type DateFields = Record<string, unknown>;
+type DateDocument = {
+  rss?: { channel?: { item?: DateFields | DateFields[] } };
+  "rdf:RDF"?: { item?: DateFields | DateFields[] };
+  feed?: { entry?: DateFields | DateFields[] };
+};
 
 function text(v: unknown): string {
   if (v === null || v === undefined) return "";
@@ -118,6 +128,7 @@ export interface RssRead {
 }
 
 export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}): Promise<RssRead> {
+  const observedAt = new Date().toISOString();
   const url = String(source.config.feedUrl ?? "");
   if (!url) throw new FetchError("feedUrl missing");
   // Config changes can alter parsing/filtering even when the upstream bytes did not change.
@@ -142,8 +153,10 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   }
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
   let doc: Record<string, any>;
+  let dateDoc: DateDocument;
   try {
     doc = parser.parse(res.text());
+    dateDoc = dateParser.parse(res.text());
   } catch (e) {
     throw new FetchError(`feed parse error: ${String(e).slice(0, 200)}`);
   }
@@ -156,7 +169,8 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   const channel = doc.rss?.channel ?? doc["rdf:RDF"];
   if (channel) {
     const items = arr(doc.rss?.channel?.item ?? doc["rdf:RDF"]?.item);
-    for (const it of items) {
+    const dateItems = arr(dateDoc.rss?.channel?.item ?? dateDoc["rdf:RDF"]?.item);
+    for (const [index, it] of items.entries()) {
       const link = text(it.link) || text(it.guid);
       const title = collapseWhitespace(stripTags(text(it.title)));
       if (!link || !title) continue;
@@ -166,12 +180,25 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
       const bodyHtml = bodyHtmlRaw ? sanitizeBody(bodyHtmlRaw, link) : null;
       const enclosure = arr(it.enclosure as Record<string, string> | Array<Record<string, string>>).find((e) => /^image\//.test(e?.["@type"] ?? ""));
       const media = [...(enclosure ? [{ kind: "image" as const, url: enclosure["@url"]! }] : []), ...(bodyHtmlRaw ? imagesFrom(bodyHtmlRaw, link) : [])];
+      const dateFields = dateItems[index] ?? {};
+      const dateField = source.config.publishedAtField ?? ["pubDate", "published", "dc:date"].find((field) => text(dateFields[field]).trim()) ?? "pubDate";
+      const sourceDateObservation = observeSourceDate(source, link, text(dateFields[dateField]), `feed.item[${index}].${dateField}`, { observedAt });
+      const declared = source.config.sourceDate;
+      if (
+        dateField === "dc:date" &&
+        !(source.config.publishedAtField === "dc:date" && declared?.meaning && declared?.publicationBasis && declared?.basis?.trim())
+      ) {
+        sourceDateObservation.publicationBasis = "other";
+        sourceDateObservation.basis = "RSS dc:date 日期候选；与发布时间的关系尚未核实";
+      }
+      const time = previewSourceDate(sourceDateObservation);
       out.push({
         url: link,
         ...identity(link),
         title,
         author: text(it["dc:creator"]) || text(it.author) || null,
-        publishedAt: parseDate(text(it.pubDate) || text(it["dc:date"]) || text(it.published)),
+        publishedAt: time?.utc ? new Date(time.utc) : null,
+        sourceDateObservation,
         ...feedText(bodyHtml, description, source),
         media: media.slice(0, 6),
         categories: arr(it.category)
@@ -185,7 +212,8 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
 
   const feed = doc.feed;
   if (feed) {
-    for (const e of arr(feed.entry)) {
+    const dateEntries = arr(dateDoc.feed?.entry);
+    for (const [index, e] of arr(feed.entry).entries()) {
       const link = atomLink(e.link);
       const title = collapseWhitespace(stripTags(text(e.title)));
       if (!link || !title) continue;
@@ -193,12 +221,15 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
       const summary = text(e.summary);
       const bodyHtml = content ? sanitizeBody(content, link) : null;
       const entryUrl = new URL(link, url).toString();
+      const sourceDateObservation = observeSourceDate(source, entryUrl, text(dateEntries[index]?.published), `feed.entry[${index}].published`, { observedAt });
+      const time = previewSourceDate(sourceDateObservation);
       out.push({
         url: entryUrl,
         ...identity(entryUrl),
         title,
         author: text(arr(e.author)[0]?.name) || null,
-        publishedAt: parseDate(text(e.published) || text(e.updated)),
+        publishedAt: time?.utc ? new Date(time.utc) : null,
+        sourceDateObservation,
         sourceUpdatedAt: parseDate(text(e.updated)),
         ...feedText(bodyHtml, summary, source),
         media: content ? imagesFrom(content, link) : [],

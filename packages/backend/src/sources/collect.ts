@@ -1,15 +1,18 @@
 // Collection run for one source: fetch listing → filter → store material → enqueue processing.
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
 import { dbOf } from "../db.ts";
-import { identityKeyFor, upsertMaterial } from "../content/materials.ts";
+import { identityKeyFor, upsertMaterial, materialDateHeads } from "@amp/backend/content/materials";
+import { readCurrentSourcePolicy, evaluateSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { fetchRss } from "./rss.ts";
 import { allowed, fetchDetail, fetchWebList, type DetailNeed } from "./web-list.ts";
-import { unsupportedConfig } from "./config-keys.ts";
+import { unsupportedConfig, sourceDateConfigHash } from "./config-keys.ts";
 import { fetchJsonList } from "./json-list.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
+import { toDateCandidate, previewSourceDate } from "./date-extraction.ts";
+import { beijingDate } from "@amp/contracts/time";
 
 const sql = dbOf("acquisition");
 
@@ -40,15 +43,33 @@ export function noiseFiltered(c: Candidate, source: SourceRow): boolean {
 
 function rewriteUrl(c: Candidate, source: SourceRow): Candidate {
   const rw = source.config.itemUrlPrefixRewrite;
-  if (rw?.from && rw?.to && c.url.startsWith(rw.from)) return { ...c, url: rw.to + c.url.slice(rw.from.length) };
+  if (rw?.from && rw?.to && c.url.startsWith(rw.from)) {
+    const url = rw.to + c.url.slice(rw.from.length);
+    return {
+      ...c,
+      url,
+      ...(c.sourceDateObservation
+        ? { sourceDateObservation: { ...c.sourceDateObservation, url, locator: `${c.sourceDateObservation.locator}; original link:${c.url}` } }
+        : {}),
+    };
+  }
   return c;
 }
 
-async function loadSource(id: string): Promise<SourceRow | null> {
-  const [s] = await sql<SourceRow[]>`
-    SELECT id, name, kind, config, tier, participation_mode, first_party, interval_minutes, enabled, cursor, fail_count
-    FROM sources WHERE id = ${id}`;
-  return s ?? null;
+export async function requireDateCollection(source: SourceRow, permissionVersion: number, url: string): Promise<void> {
+  const current = await readSourceDateContext(source.id);
+  if (!current?.enabled || sourceDateConfigHash(current.kind, current.config) !== sourceDateConfigHash(source.kind, source.config))
+    throw new FetchError("Source date collection paused or configuration changed");
+  for (const capability of ["fetch", "store_metadata", "process_locally"] as const) {
+    const result = await evaluateSourcePolicy({
+      source_id: source.id,
+      expected_permission_version: permissionVersion,
+      lane: "news",
+      capability,
+      resource: { url, document_type: null, attachment: false },
+    });
+    if (result.decision !== "allow") throw new FetchError(`Source date collection denied: ${capability}/${result.reason}`);
+  }
 }
 
 /** Titles of the articles already stored under these URLs. */
@@ -58,17 +79,36 @@ async function storedTitles(urls: string[]): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.url, r.title]));
 }
 
-const DAY_MS = 86_400_000;
 /** A listing title that is no headline: a label that swallowed its summary, or a call to action. */
 const needsTitle = (title: string) =>
   title.length > 100 || /^(read more|learn more|continue reading|more|阅读全文|阅读更多|查看详情|了解更多)$/i.test(title.trim());
 
-async function store(sourceId: string, candidates: Candidate[], backfill: string | null): Promise<{ created: number; revised: number }> {
+async function store(
+  sourceId: string,
+  candidates: Candidate[],
+  backfill: string | null,
+  permissionVersion: number,
+): Promise<{ created: number; revised: number }> {
   let created = 0;
   let revised = 0;
+  let metadataChanged = false;
   const seen = new Set<string>();
+  const heads = new Map(
+    (
+      await materialDateHeads(
+        sourceId,
+        candidates.map((c) => c.url),
+      )
+    ).map((h) => [h.url, h]),
+  );
   for (const c of candidates) {
-    const material = { ...c, sourceId, via: "fetch" as const, backfill };
+    const material = {
+      ...c,
+      sourceId,
+      via: "fetch" as const,
+      backfill,
+      ...(c.sourceDateObservation ? { permissionVersion, expectedSourceDateVersion: Number(heads.get(c.url)?.source_date_version ?? 0) } : {}),
+    };
     // A listing that names one article twice (a featured card and its list entry, a feed repeating an
     // item) stores its first entry only; the later ones would otherwise revise it on every fetch.
     const key = identityKeyFor(material);
@@ -77,16 +117,18 @@ async function store(sourceId: string, candidates: Candidate[], backfill: string
     const res = await upsertMaterial(material);
     if (res.created) created += 1;
     if (res.revised) revised += 1;
+    metadataChanged ||= res.metadataChanged;
     // Extraction first when the source wants full text and none came with the listing, else analysis.
-    if (res.created || res.revised) await queueProcessing(res.articleId);
+    if (res.created || res.revised || res.sourceTimeChanged) await queueProcessing(res.articleId);
   }
+  if (metadataChanged) await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
   return { created, revised };
 }
 
 export async function collectSource(sourceId: string, opts: { force?: boolean } = {}): Promise<CollectResult> {
-  const source = await loadSource(sourceId);
+  const source = await readSourceDateContext(sourceId);
   if (!source) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "missing" };
-  if (!source.enabled && !opts.force) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "paused" };
+  if (!source.enabled) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "paused" };
   if (source.kind === "mp_account" || source.kind === "external") {
     // WeChat accounts are reconciled by the mp job; external sources only receive reports.
     return { sourceId, status: "skipped", found: 0, created: 0, revised: 0 };
@@ -101,8 +143,15 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
     // A config entry this kind does not implement fails the run, visibly, instead of being ignored.
     const unsupported = unsupportedConfig(source.kind, source.config);
     if (unsupported.length) throw new FetchError(`unsupported config: ${unsupported.join(", ")}`);
+    const permission = await readCurrentSourcePolicy(sourceId);
+    if (!permission) throw new FetchError("Source date permission missing");
+    await requireDateCollection(
+      source,
+      permission.permission_version,
+      String(source.config.feedUrl ?? source.config.url ?? "").replace(/^https:\/\/r\.jina\.ai\//, ""),
+    );
     let candidates: Candidate[];
-    let nextCursor: Record<string, unknown> = { ...(source.cursor ?? {}) };
+    const nextCursor: Record<string, unknown> = { ...(source.cursor ?? {}) };
     let detail: Record<string, unknown> | null = null;
     if (source.kind === "rss") {
       const rss = await fetchRss(source, opts);
@@ -126,7 +175,13 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
     const backfillMonths = Number(source.config._amp?.initialBackfillMonths ?? 12);
     if (firstImport) {
       const cutoff = Date.now() - backfillMonths * 30 * 86400000;
-      candidates = candidates.filter((c) => !c.publishedAt || c.publishedAt.getTime() >= cutoff).slice(0, backfillLimit);
+      candidates = candidates
+        .filter((c) => {
+          if (c.publishedAt) return c.publishedAt.getTime() >= cutoff;
+          const time = c.sourceDateObservation ? previewSourceDate(c.sourceDateObservation) : null;
+          return !time?.local_date || time.local_date >= beijingDate(cutoff);
+        })
+        .slice(0, backfillLimit);
     } else {
       candidates = candidates.slice(0, MAX_ITEMS_PER_RUN);
     }
@@ -138,7 +193,10 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
     let detailUsed = 0;
     for (const c of candidates) {
       // Listing dates the source marks unreliable are dropped; the detail page's rule decides.
-      if (d?.publishedAtAuthoritative === true) c.publishedAt = null;
+      if (d?.publishedAtAuthoritative === true) {
+        c.publishedAt = null;
+        delete c.sourceDateObservation;
+      }
       const stored = known.get(c.url);
       if (stored !== undefined) {
         // The title came from the detail page: the listing's own rendering must not revise it back.
@@ -155,6 +213,7 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
       if (!need.date && !need.title && !need.summary) continue;
       detailUsed += 1;
       try {
+        await requireDateCollection(source, permission.permission_version, c.url);
         const got = await fetchDetail(c.url, source, need);
         if (got.title) c.title = got.title;
         if (got.summary) c.excerpt = got.summary;
@@ -166,14 +225,23 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
           c.bodyStatus = "ok";
           if (!c.media?.length) c.media = got.body.images;
         }
-        // A date-only listing value gives way to the detail page's time on the same day.
-        if (got.publishedAt && (!c.publishedAt || Math.abs(got.publishedAt.getTime() - c.publishedAt.getTime()) < DAY_MS)) c.publishedAt = got.publishedAt;
+        if (got.sourceDateObservation) {
+          if (!c.sourceDateObservation?.raw.trim()) c.sourceDateObservation = got.sourceDateObservation;
+          else
+            c.sourceDateObservation.alternatives = [
+              ...(c.sourceDateObservation.alternatives ?? []),
+              toDateCandidate(got.sourceDateObservation),
+              ...(got.sourceDateObservation.alternatives ?? []),
+            ];
+          const time = previewSourceDate(c.sourceDateObservation);
+          c.publishedAt = time?.utc ? new Date(time.utc) : null;
+        }
       } catch {
         // detail is best effort
       }
     }
 
-    ({ created, revised } = await store(sourceId, candidates, firstImport ? "first-import" : null));
+    ({ created, revised } = await store(sourceId, candidates, firstImport ? "first-import" : null, permission.permission_version));
 
     if (firstImport) nextCursor.initializedAt = new Date().toISOString();
     nextCursor.lastOkAt = new Date().toISOString();
@@ -208,8 +276,8 @@ export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDU
   const skipJina = process.env.COLLECT_SKIP_JINA === "true";
   const rows = await sql<{ id: string }[]>`
     SELECT id FROM sources
-    WHERE enabled AND kind IN ${sql(kinds)} AND (next_fetch_at IS NULL OR next_fetch_at <= now())
-      ${skipJina ? sql`AND config::text NOT LIKE '%r.jina.ai%'` : sql``}
+    WHERE enabled AND kind = ANY(${kinds}::text[]) AND (next_fetch_at IS NULL OR next_fetch_at <= now())
+      AND (NOT ${skipJina} OR config::text NOT LIKE '%r.jina.ai%')
     ORDER BY next_fetch_at NULLS FIRST LIMIT ${limit}`;
   for (const r of rows) {
     await enqueue(QUEUES.fetchSource, { sourceId: r.id }, { singletonKey: r.id });

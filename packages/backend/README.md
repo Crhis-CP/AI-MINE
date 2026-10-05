@@ -39,9 +39,13 @@ TASK-0021生命周期前置：initializeDb返回本根AbortSignal；同role与�
 
 未激活的sources/permissions与providers/permissions提供显式Ed25519签发/校验工厂：私钥只在sources闭包，验证端固定公钥/issuer/root。当前许可查询、可信完整输入重建、根signal与时钟必须由组合根提供，无默认allow。现有应用尚未调用工厂；合成端口测试不是数据库权限接线，模型/cache/写回仍待原子接通。
 
-### content/source-time（TASK-0022，未激活）
+### content/source-time（TASK-0022）
 
-共享纯规范化函数 `normalizeSourceTime` 位于 `@amp/contracts/time-assertion`，不猜格式、时区或来源事实；content 的待接线 `sourceDateVerdict(lane, evidence, currentBinding, now)` 显式接收时钟与当前身份，返回日期的 reliable/pending，policy 则仅返回 not_applicable 并交 BR-POL-11。复用 `@amp/contracts/time` 的日历与北京日函数；只有新闻发布依据能通过，官方登记/正式刊发须使用相应证据口径，系统/更新/生效日期不能顶替。此结论不是总体公开资格，不访问数据库、网络或模型；现有材料、队列、publication 和 HTTP 尚未调用。
+共享纯规范化函数 `normalizeSourceTime` 位于 `@amp/contracts/time-assertion`，不猜格式、时区或来源事实；content 的 `sourceDateVerdict(lane, evidence, currentBinding, now)` 显式接收时钟与当前身份，返回日期的 reliable/pending，policy 则仅返回 not_applicable 并交 BR-POL-11。复用 `@amp/contracts/time` 的日历与北京日函数；只有新闻发布依据能通过，官方登记/正式刊发须使用相应证据口径，系统/更新/生效日期不能顶替。这是日期判定，不是总体公开资格；纯函数不访问数据库、网络或模型，当前已供材料日期写回使用，publication 和 HTTP 尚未接入日期门。
+
+来源日期取得/保存通过既有 `@amp/backend/admin/sources` 的当前来源快照、配置锁、用途判定和纯日期 parser 端口衔接；不增加 backend 子路径白名单。`content/materials` 的实际写回先锁当前许可版本，再锁相关来源配置和材料，保存不可变原始观察及多候选依据；迟到观察不提升当前版本，不把它重绑到不存在的新修订。相同事实的重复采集不刷新当前证据版本，也不重新排分析；需要更新投影的元数据变化单独走重新发布队列。公众号观察引用实际取得回执，关闭的外部上报入口不能凭传入 Date 建立来源日期证据。
+
+这一步仅接通取得和材料保存；公共 TimeAssertion、统一新闻日期门与自动补取在后续能力联合启用。现有 fetch/store_metadata/process_locally 判定是该次日期取得/写回的边界，不代表全链 ProcessingPermit/所有付费 provider 强制已经完成。
 
 
 
@@ -59,3 +63,5 @@ TASK-0021存储能力：既有admin/sources入口新增saveSourcePolicy以及当
 TASK-0021来源加入与真实evaluate：来源创建严格要求明确permission_scope/attachments_in_scope，默认九用途Owner声明许可，无自动到期，初始暂停；显式关闭site_fulltext仅收紧原文/译文公开，syndicate默认关闭。来源、初始权限和审计同事务，按采集地址并发判重；旧来源缺记录不补造。既有全文开关关闭会在同事务生成收紧版本；已有deny/unknown或缺记录不能被重新勾选旧开关恢复。
 
 既有admin/sources公开入口的evaluateSourcePolicy(value, now?, db?)按当前版本、用途、资源/证据范围、附件与有效期限读取真实存储，未证明的条件/排除项失败关闭，查询失败不回退allow。默认时钟在查询后读取；日期等调用者在已有事务中传第三参tx，不额外占连接。公开四用途只读受限投影；共享许可锁→sources行锁/材料锁的顺序一致。UI和生成private client使用同一Zod契约；采集/模型/公开消费者的ProcessingPermit强制及正式权限放宽编辑仍待后续原子接通。
+
+RSS/RDF的`dc:date`始终保留原串与定位，默认publicationBasis=other，不自动作为发布时间。需逐源明确`publishedAtField:"dc:date"`，并给sourceDate.meaning/publicationBasis/basis语义依据，才按声明解析和判定；显式字段缺失时不切换依据。默认网页日期只取head页面级元数据或绑定当前URL的Article类itemscope；侧栏、其他文章和无身份的microdata不属于本稿，显式selector规则保持。公众号首次窗口同样先严格解析，不能用Number把未识别的原串提前转成旧日期。

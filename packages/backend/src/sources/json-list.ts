@@ -3,6 +3,29 @@ import { credential } from "../config.ts";
 import { guardedFetch } from "../lib/http-fetch.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
+import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
+
+const primitiveSources = new WeakMap<object, Map<string, string>>();
+function parseSourceJson(text: string): unknown {
+  return JSON.parse(text, function (this: object, key: string, value: unknown, context?: { source?: string }) {
+    if (context?.source) {
+      const fields = primitiveSources.get(this) ?? new Map<string, string>();
+      fields.set(key, context.source);
+      primitiveSources.set(this, fields);
+    }
+    return value;
+  });
+}
+function rawDateAt(item: unknown, path: string | undefined): string {
+  if (!path) return "";
+  const value = getPath(item, path);
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  const segments = path.split("."),
+    key = segments.pop()!;
+  const parent = segments.length ? getPath(item, segments.join(".")) : item;
+  return parent && typeof parent === "object" ? (primitiveSources.get(parent)?.get(key) ?? "") : "";
+}
 
 export function getPath(obj: unknown, path: string): unknown {
   if (!path) return obj;
@@ -37,20 +60,6 @@ export function renderTemplate(template: string, item: unknown): string | null {
     return raw ? String(v) : encodeURIComponent(String(v)).replace(/%2F/g, "/");
   });
   return missing ? null : out;
-}
-
-function toDate(v: unknown, unit: string | undefined): Date | null {
-  if (v === null || v === undefined || v === "") return null;
-  if (unit === "epoch_ms") return new Date(Number(v));
-  if (unit === "epoch_s") return new Date(Number(v) * 1000);
-  // 20260922: a calendar day at UTC midnight (some list APIs give dates as yyyymmdd).
-  if (unit === "yyyymmdd") {
-    const m = /^(\d{4})(\d{2})(\d{2})$/.exec(String(v).trim());
-    const d = m ? new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`) : null;
-    return d && Number.isFinite(d.getTime()) && d.toISOString().startsWith(`${m![1]}-${m![2]}-${m![3]}`) ? d : null;
-  }
-  const t = Date.parse(String(v));
-  return Number.isFinite(t) ? new Date(t) : null;
 }
 
 function findKey(obj: unknown, key: string, depth = 0): unknown {
@@ -90,7 +99,7 @@ function embeddedJson(html: string, source: SourceRow): unknown {
       else if (ch === "{" || ch === "[") depth++;
       else if (ch === "}" || ch === "]") {
         depth--;
-        if (depth === 0) return JSON.parse(html.slice(start, i + 1));
+        if (depth === 0) return parseSourceJson(html.slice(start, i + 1));
       }
     }
     throw new FetchError(`window.${name} not terminated`);
@@ -104,7 +113,7 @@ function embeddedJson(html: string, source: SourceRow): unknown {
     const candidates = [body, body.replace(/^[^{[]*/, "").replace(/;?\s*$/, "")];
     for (const c of candidates) {
       try {
-        const parsed = JSON.parse(c);
+        const parsed = parseSourceJson(c);
         const found = findKey(parsed, key);
         if (found) return { [key]: found };
       } catch {
@@ -114,11 +123,11 @@ function embeddedJson(html: string, source: SourceRow): unknown {
     const flight = /"((?:[^"\\]|\\.)*)"\]\)\s*$/.exec(body);
     if (flight) {
       try {
-        const decoded = JSON.parse(`"${flight[1]}"`) as string;
+        const decoded = parseSourceJson(`"${flight[1]}"`) as string;
         const idx = decoded.indexOf(`"${key}"`);
         if (idx >= 0) {
           const objStart = decoded.lastIndexOf("{", idx);
-          const parsed = JSON.parse(decoded.slice(objStart, decoded.indexOf("]", idx) + 1) + "}");
+          const parsed = parseSourceJson(decoded.slice(objStart, decoded.indexOf("]", idx) + 1) + "}");
           const found = findKey(parsed, key);
           if (found) return { [key]: found };
         }
@@ -131,6 +140,7 @@ function embeddedJson(html: string, source: SourceRow): unknown {
 }
 
 export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
+  const observedAt = new Date().toISOString();
   const c = source.config;
   const url = String(c.url ?? "");
   const headers: Record<string, string> = { accept: "application/json, text/html;q=0.9", ...(c.headers ?? {}) };
@@ -149,7 +159,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
   if (c.mode === "html_json_key" || c.mode === "html_window_var") data = embeddedJson(res.text(), source);
   else {
     try {
-      data = JSON.parse(res.text());
+      data = parseSourceJson(res.text());
     } catch {
       throw new FetchError("response is not JSON");
     }
@@ -159,7 +169,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
   if (!Array.isArray(items)) throw new FetchError("items path did not resolve to an array");
 
   const out: Candidate[] = [];
-  for (const item of items) {
+  for (const [index, item] of items.entries()) {
     if (c.requireBoolean && getPath(item, c.requireBoolean.path) !== c.requireBoolean.equals) continue;
     if (c.minNumeric && !(Number(getPath(item, c.minNumeric.path)) >= Number(c.minNumeric.min))) continue;
     const title = firstString(item, c.titlePaths);
@@ -170,11 +180,31 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
     const raw = item && typeof item === "object" ? { ...(item as Record<string, unknown>) } : { value: item };
     for (const k of c.rawDropKeys ?? []) delete (raw as Record<string, unknown>)[k];
     const summaryIsBody = c.summaryIsBody === true && !!summary;
+    const sourceDateObservation = observeSourceDate(
+      source,
+      url,
+      rawDateAt(item, c.publishedAtPath),
+      `json.items[${index}].${c.publishedAtPath ?? "(unconfigured)"}`,
+      {
+        observedAt,
+        format:
+          c.publishedAtUnit === "epoch_ms"
+            ? "epoch_milliseconds"
+            : c.publishedAtUnit === "epoch_s"
+              ? "epoch_seconds"
+              : c.publishedAtUnit === "yyyymmdd"
+                ? "declared"
+                : undefined,
+        ...(c.publishedAtUnit === "yyyymmdd" ? { formatPattern: "YYYYMMDD", language: "und" } : {}),
+      },
+    );
+    const time = previewSourceDate(sourceDateObservation);
     out.push({
       url,
       title: collapseWhitespace(stripTags(title)),
       author: firstString(item, c.authorPaths),
-      publishedAt: toDate(getPath(item, c.publishedAtPath), c.publishedAtUnit),
+      publishedAt: time?.utc ? new Date(time.utc) : null,
+      sourceDateObservation,
       excerpt: summary ? collapseWhitespace(stripTags(summary)).slice(0, 2000) : null,
       bodyText: summaryIsBody ? stripTags(summary!) : null,
       bodyStatus: summaryIsBody ? "ok" : "pending",

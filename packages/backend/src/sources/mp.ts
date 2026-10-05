@@ -1,7 +1,10 @@
 // WeChat official accounts. Dajiala (极致了, a paid service) supplies each account's latest posts and
 // article bodies; every enabled account is checked once per source interval.
 import { dbOf } from "../db.ts";
-import { upsertMaterial } from "../content/materials.ts";
+import { upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
+import { readCurrentSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
+import { requireDateCollection } from "./collect.ts";
+import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { stripTags } from "../lib/text.ts";
@@ -30,27 +33,18 @@ async function fetchBody(url: string, sourceId: string, identity: string): Promi
   }
 }
 
-interface MpSource {
-  id: string;
-  name: string;
-  config: { wxid?: string; ghid?: string; nickname?: string };
-  cursor: Record<string, unknown> | null;
-  enabled: boolean;
-  participation_mode: string;
-}
-
 export async function checkMpAccount(sourceId: string, reason: "schedule" | "manual") {
-  const [source] = await sql<
-    MpSource[]
-  >`SELECT id, name, config, cursor, enabled, participation_mode FROM sources WHERE id = ${sourceId} AND kind = 'mp_account'`;
-  if (!source) return { sourceId, status: "missing" as const };
-  if (!source.enabled && reason !== "manual") return { sourceId, status: "paused" as const };
+  const source = await readSourceDateContext(sourceId);
+  if (source?.kind !== "mp_account") return { sourceId, status: "missing" as const };
+  if (!source.enabled) return { sourceId, status: "paused" as const };
   const ghid = source.config.ghid ?? source.config.wxid;
   if (!ghid) return { sourceId, status: "unconfigured" as const };
   const [run] = await sql<{ id: number }[]>`INSERT INTO fetch_runs (source_id, detail) VALUES (${sourceId}, ${sql.json({ reason })}) RETURNING id`;
   const firstCheck = !source.cursor?.lastCheckedAt;
   let created = 0;
   try {
+    const permission = await readCurrentSourcePolicy(sourceId);
+    if (!permission) throw new Error("Source date permission missing");
     // One paid list call per account per 10-minute window, whoever asks.
     const window = `${reason === "schedule" ? "s" : "m"}:${Math.floor(Date.now() / 600_000)}`;
     const history = await mpHistory(ghid, { subject: sourceId, window });
@@ -58,29 +52,49 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
     let fetched = 0;
     for (const p of posts) {
       if (!p.url || !p.title || fetched >= MAX_NEW_PER_CHECK) continue;
-      const publishedAt = p.post_time ? new Date(p.post_time * 1000) : null;
+      const epochValue: unknown = p.post_time;
+      const epochRaw = typeof epochValue === "string" ? epochValue : String(epochValue ?? "");
+      const exactEpoch = typeof epochValue === "string" || Number.isSafeInteger(epochValue);
+      const sourceDateObservation = observeSourceDate(source, p.url, epochRaw, `receipt:${history.receiptId}.post[${p.position}].post_time`, {
+        format: exactEpoch ? "epoch_seconds" : "unknown",
+      });
+      sourceDateObservation.observationId = `receipt:${history.receiptId}:post:${p.url}`;
+      const time = previewSourceDate(sourceDateObservation);
+      const publishedAt = time?.utc ? new Date(time.utc) : null;
       if (firstCheck && publishedAt && Date.now() - publishedAt.getTime() > FIRST_CHECK_WINDOW_MS) continue;
       // Same identity rule as every entrance: the long link without tracking parameters. A known post is
       // skipped, unless its body failed for a passing reason: then it is tried again a few times.
       const key = identityKeyForUrl(p.url);
       const [known] = key
-        ? await sql<{ id: string; body_status: string; discovered_at: Date; retry: { attempts: number } | null }[]>`
-            SELECT id, body_status, discovered_at, raw->'dajiala'->'bodyRetry' AS retry FROM articles WHERE identity_key = ${key} LIMIT 1`
+        ? await sql<
+            { id: string; revision: number; source_date_version: string; body_status: string; discovered_at: Date; retry: { attempts: number } | null }[]
+          >`
+            SELECT id, revision, source_date_version, body_status, discovered_at, raw->'dajiala'->'bodyRetry' AS retry FROM articles WHERE identity_key = ${key} LIMIT 1`
         : [];
+      await requireDateCollection(source, permission.permission_version, p.url);
+      const date = {
+        sourceDateObservation,
+        permissionVersion: permission.permission_version,
+        expectedSourceDateVersion: Number(known?.source_date_version ?? 0),
+      };
       const retryBody =
         !!known?.retry &&
         known.body_status === "none" &&
         known.retry.attempts < BODY_RETRIES &&
         Date.now() - known.discovered_at.getTime() < BODY_RETRY_WINDOW_MS;
-      if (known && !retryBody) continue;
+      if (known && !retryBody) {
+        const result = await updateMaterialSourceDate(known.id, known.revision, date);
+        if (result.sourceTimeChanged) await queueProcessing(known.id);
+        if (result.metadataChanged) await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
+        continue;
+      }
       fetched += 1;
       // Without a body the post is listed anyway; analysis works from title and digest.
       const { body, passing } = await fetchBody(p.url, sourceId, p.sn ?? p.url);
       if (known && !body?.content) {
-        const retry = passing
-          ? sql`jsonb_set(raw, '{dajiala,bodyRetry}', ${sql.json({ attempts: known.retry!.attempts + 1, error: passing })})`
-          : sql`raw #- '{dajiala,bodyRetry}'`;
-        await sql`UPDATE articles SET raw = ${retry} WHERE id = ${known.id}`;
+        await sql`UPDATE articles SET raw = CASE WHEN ${!!passing}
+          THEN jsonb_set(raw, '{dajiala,bodyRetry}', ${sql.json({ attempts: known.retry!.attempts + 1, error: passing })})
+          ELSE raw #- '{dajiala,bodyRetry}' END WHERE id = ${known.id}`;
         continue;
       }
       // Mode 1 bodies are light HTML (paragraphs and image tags).
@@ -97,6 +111,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
         author: body?.author ?? null,
         language: "zh",
         publishedAt,
+        ...date,
         excerpt: p.digest ?? body?.desc ?? null,
         bodyHtml: html,
         bodyText: text || null,
@@ -116,10 +131,11 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       });
       // A body fetched again arrives as a new revision (analysed again); stop retrying it.
       if (known) await sql`UPDATE articles SET raw = raw #- '{dajiala,bodyRetry}' WHERE id = ${known.id}`;
-      if (res.created || res.revised) {
+      if (res.created || res.revised || res.sourceTimeChanged) {
         created += res.created ? 1 : 0;
         await queueProcessing(res.articleId);
       }
+      if (res.metadataChanged) await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
     }
     const cursor = {
       ...(source.cursor ?? {}),

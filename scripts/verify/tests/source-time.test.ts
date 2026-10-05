@@ -11,7 +11,8 @@ import {
   SourceDateCandidate,
   SourceTimeProjection,
 } from "@amp/contracts/time-assertion";
-import { parseSourceDate } from "../../../packages/backend/src/sources/date-extraction.ts";
+import { sourceDateConfigHash, sourceDateProfile } from "../../../packages/backend/src/sources/config-keys.ts";
+import { parseSourceDate, previewSourceDate } from "../../../packages/backend/src/sources/date-extraction.ts";
 
 const binding = { articleId: "article-fixture", sourceId: "source-fixture", revision: 1, configHash: "a".repeat(64) };
 const now = Date.parse("2026-10-04T09:00:00.000Z");
@@ -424,4 +425,46 @@ test("public sourceTime is nullable and keeps date precision without exposing pr
   assert.equal(SourceTimeProjection.safeParse({ sourceTime: { ...time, utc: "2026-10-04T00:00:00Z" } }).success, false);
   assert.equal(SourceTimeProjection.safeParse({ sourceTime: time, alternatives: [] }).success, false);
   assert.equal(SourceTimeProjection.safeParse({}).success, false);
+});
+
+test("intake previews reuse strict lexical parsing without inventing a material binding", () => {
+  const { binding: current, ...input } = request("2026-10-04T09:00Z");
+  const observation = { ...input, sourceId: current.sourceId, configHash: current.configHash };
+  assert.equal(previewSourceDate(observation)?.utc, "2026-10-04T09:00:00Z");
+  const day = { ...observation, raw: "2026-10-04", excerpt: "2026-10-04" };
+  assert.deepEqual([previewSourceDate(day)?.local_date, previewSourceDate(day)?.utc], ["2026-10-04", null]);
+  assert.equal("binding" in observation, false);
+  assert.equal(previewSourceDate({ ...observation, raw: "03/04/2026", excerpt: "03/04/2026" }), null);
+  assert.equal(previewSourceDate({ ...observation, meaning: "updated" }), null);
+  assert.equal(previewSourceDate({ ...observation, excerpt: "unrelated text" }), null);
+  assert.equal(parseSourceDate(request("2026-10-04", { excerpt: "unrelated text" })).reason, "invalid_time");
+});
+
+test("date profile identity excludes polling/body edits and preserves inherited detail declarations", () => {
+  const config = {
+    url: "https://source.invalid/list",
+    itemSelector: ".entry",
+    publishedAtSelector: "time",
+    sourceDate: { format: "declared", formatPattern: "DD/MM/YYYY", language: "en" },
+    detail: { maxFetches: 5 },
+  };
+  const original = sourceDateConfigHash("web_list", config);
+  assert.equal(sourceDateConfigHash("web_list", { ...config, detail: { maxFetches: 20, summarySelector: ".summary" }, fetchPublicContent: true }), original);
+  assert.equal(
+    sourceDateConfigHash("web_list", {
+      sourceDate: { language: "en", formatPattern: "DD/MM/YYYY", format: "declared" },
+      publishedAtSelector: "time",
+      itemSelector: ".entry",
+      url: "https://source.invalid/list",
+      detail: {},
+    }),
+    original,
+  );
+  assert.notEqual(sourceDateConfigHash("web_list", { ...config, publishedAtSelector: "[data-published]" }), original);
+  assert.notEqual(sourceDateConfigHash("web_list", { ...config, sourceDate: { ...config.sourceDate, formatPattern: "MM/DD/YYYY" } }), original);
+  const profile = sourceDateProfile({ ...config, detail: { sourceDate: { timezone: "Asia/Shanghai", timezoneEvidence: "source statement" } } }, true);
+  assert.equal(profile.format, "declared");
+  assert.equal(profile.formatPattern, "DD/MM/YYYY");
+  assert.equal(profile.language, "en");
+  assert.equal(profile.timezone, "Asia/Shanghai");
 });

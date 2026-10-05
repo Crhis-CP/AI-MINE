@@ -191,9 +191,10 @@ test("noise words match whatever their case", () => {
   assert.equal(noiseFiltered(c("iPhone 18 开售", ""), source), true);
 });
 
-test("dates in yyyymmdd and in JSON-LD are read", async () => {
+test("source date intake preserves calendar strings and refuses unidentified JSON-LD", async () => {
   const days = await fetchJsonList({
     id: "test-json",
+    kind: "json_list",
     config: {
       url: `${site}/days.json`,
       itemsPath: "data.list",
@@ -204,9 +205,12 @@ test("dates in yyyymmdd and in JSON-LD are read", async () => {
     },
   } as never);
   assert.deepEqual(
-    days.map((c) => c.publishedAt?.toISOString() ?? null),
-    ["2026-09-22T00:00:00.000Z", null],
-    "February 30 is no date",
+    days.map((c) => [c.publishedAt, c.sourceDateObservation?.raw, c.sourceDateObservation?.formatPattern]),
+    [
+      [null, "20260922", "YYYYMMDD"],
+      [null, "20260230", "YYYYMMDD"],
+    ],
+    "Raw source days are preserved for content validation, never converted to midnight instants",
   );
   const got = await fetchDetail(`${site}/ld-post`, { id: "test-feed", config: { detail: { maxFetches: 20 } } } as never, {
     date: true,
@@ -214,5 +218,6 @@ test("dates in yyyymmdd and in JSON-LD are read", async () => {
     summary: false,
     body: false,
   });
-  assert.equal(got.publishedAt?.toISOString(), "2026-09-24T00:00:00.000Z");
+  assert.equal(got.publishedAt, null);
+  assert.equal(got.sourceDateObservation?.raw, "", "an arbitrary JSON-LD node is not evidence for this article");
 });

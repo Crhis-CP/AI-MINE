@@ -1,13 +1,13 @@
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { dbOf, type Db, type Tx } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { republishKey } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
 import { fetchJsonList } from "../sources/json-list.ts";
 import { fetchRss } from "../sources/rss.ts";
-import { assertSupportedConfig } from "../sources/config-keys.ts";
+import { assertSupportedConfig, sourceDateConfigHash } from "../sources/config-keys.ts";
 import type { SourceRow } from "../sources/types.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit } from "./auth.ts";
@@ -132,6 +132,7 @@ export async function updateSource(id: string, input: { patch: unknown; version:
       syndicate_fulltext = CASE WHEN ${Object.hasOwn(patch, "syndicate_fulltext")} THEN ${patch.syndicate_fulltext ?? null} ELSE syndicate_fulltext END,
       tags = CASE WHEN ${Object.hasOwn(patch, "tags")} THEN ${patch.tags ?? null}::text[] ELSE tags END,
       config = CASE WHEN ${Object.hasOwn(patch, "config")} THEN ${patch.config === undefined ? null : tx.json(patch.config as never)} ELSE config END,
+      source_date_config_hash = CASE WHEN ${Object.hasOwn(patch, "config")} THEN ${patch.config ? sourceDateConfigHash(before.kind as SourceRow["kind"], patch.config) : null} ELSE source_date_config_hash END,
       updated_at = now(),
       health = CASE WHEN ${patch.enabled ?? null}::boolean IS FALSE THEN 'paused' WHEN ${patch.enabled ?? null}::boolean IS TRUE AND health = 'paused' THEN 'unknown' ELSE health END,
       next_fetch_at = CASE WHEN ${patch.enabled ?? null}::boolean IS TRUE THEN now() ELSE next_fetch_at END
@@ -203,9 +204,9 @@ export async function createSource(input: unknown, actor: string) {
     if (dup) return { created: false as const, duplicate: dup };
     await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${s.id}))`;
     const [row] = await tx`
-      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at)
+      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at,source_date_config_hash)
       VALUES (${s.id},${s.name},${s.kind},${tx.json(s.config as never)},${s.tier},${s.participation_mode},${s.interval_minutes},${s.first_party},${s.tags},
-        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL) ON CONFLICT (id) DO NOTHING RETURNING *`;
+        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL,${sourceDateConfigHash(s.kind, s.config)}) ON CONFLICT (id) DO NOTHING RETURNING *`;
     if (!row) throw new Conflict(`信源 ID ${s.id} 已存在`);
     const at = new Date().toISOString();
     const permission = SourcePolicySchema.parse({
@@ -253,10 +254,28 @@ export async function fetchNow(id: string, actor: string) {
   return { jobId };
 }
 
+/** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
+export async function readSourceDateContext(sourceId: string): Promise<SourceRow | null> {
+  const [source] = await sql<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, first_party,
+    interval_minutes, enabled, cursor, fail_count FROM sources WHERE id = ${sourceId}`;
+  return source ?? null;
+}
+
+/** Caller holds the permission lock first. Configuration stays stable until the material commit. */
+export async function lockSourceDateConfiguration(tx: Tx, sourceId: string, expectedHash: string): Promise<void> {
+  const [source] = await tx<{ enabled: boolean; kind: SourceRow["kind"]; config: Record<string, unknown>; source_date_config_hash: string | null }[]>`
+    SELECT enabled, kind, config, source_date_config_hash FROM sources WHERE id = ${sourceId} FOR UPDATE`;
+  if (!source?.enabled || sourceDateConfigHash(source.kind, source.config) !== expectedHash) throw new Conflict("Stale source date configuration");
+  // Existing sources acquire their deterministic identity without inventing a date or a permission.
+  if (source.source_date_config_hash === null) await tx`UPDATE sources SET source_date_config_hash = ${expectedHash} WHERE id = ${sourceId}`;
+  else if (source.source_date_config_hash !== expectedHash) throw new Conflict("Stale source date configuration");
+}
+
 import { appendSourcePolicy, readCurrentSourcePolicy } from "../sources/permission-store.ts";
 import { SOURCE_PURPOSES, SourcePolicySchema } from "@amp/contracts/source-policy";
 import { SourceCreateRequest } from "@amp/contracts/http/private";
 export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "../sources/permission-store.ts";
+export { parseSourceDate } from "../sources/date-extraction.ts";
 
 /** Explicit permission edit; no HTTP caller is activated by this storage capability. */
 export async function saveSourcePolicy(id: string, input: { policy: Record<string, unknown>; expectedVersion: number | null; reason: string }, actor: string) {

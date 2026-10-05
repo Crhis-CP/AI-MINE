@@ -11,6 +11,7 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { extractArticleBody, readable } from "@amp/backend/content/extract";
 import { collectSource } from "@amp/backend/sources/collect";
 import { updateSource } from "@amp/backend/admin/sources";
+import { grantDateFixture } from "./source-date-fixture.ts";
 
 const sql = dbOf("acquisition");
 
@@ -105,6 +106,7 @@ before(async () => {
   for (const [name, s] of Object.entries(SOURCES)) {
     await sql`INSERT INTO sources (id, name, kind, config, tier, participation_mode, cursor, next_fetch_at)
               VALUES (${id(name as keyof typeof SOURCES)}, ${name}, ${s.kind}, ${sql.json(s.config)}, 'T1', 'editorial', ${cursor}, '2100-01-01')`;
+    await grantDateFixture(id(name as keyof typeof SOURCES), [base, "https://example.org"]);
   }
 });
 after(async () => {
@@ -145,8 +147,8 @@ test("detail rules fill what the listing lacks, and a detail title survives the 
   const [a, b] = await articles(id("detail"));
   assert.deepEqual(
     [a!.title, a!.excerpt, a!.published_at?.toISOString(), a!.revision],
-    [`Short clean title ${T}`, "Summary of A", "2026-09-21T08:00:00.000Z", 1],
-    "a clean listing title stays; the byline, not the listing date or page metadata, dates it",
+    [`Short clean title ${T}`, "Summary of A", undefined, 1],
+    "a clean listing title stays; contradictory publication metadata leaves the source date pending",
   );
   assert.deepEqual(
     [b!.title, b!.excerpt, b!.published_at, b!.revision],

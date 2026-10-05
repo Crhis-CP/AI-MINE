@@ -8,8 +8,8 @@ import { denied } from "./role-db-fixture.ts";
 
 // Independent D4 oracle: do not derive expected privilege grants from the SQL planner.
 const PUBLIC_COLUMNS: Record<string, string[]> = {
-  sources: ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext"],
-  articles: ["id", "revision", "author", "language", "body_html", "body_text", "body_status"],
+  sources: ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext", "source_date_config_hash"],
+  articles: ["id", "revision", "author", "language", "body_html", "body_text", "body_status", "source_date_version", "source_date_state"],
   translations: ["article_id", "lang", "revision", "body_html", "complete", "recipe", "source_hash", "manifest"],
   settings: ["key", "value"],
 };
@@ -41,7 +41,7 @@ test("every real role has exactly the approved table, column, sequence and cross
   assert.equal(legacy.length, 48);
   assert.deepEqual(
     catalog.tables.filter((row) => !row.name.startsWith("public.")).map((row) => row.name),
-    ["enrichment.translation_segments", "sources.source_policy_current", "sources.source_policy_versions"],
+    ["content.source_date_observations", "enrichment.translation_segments", "sources.source_policy_current", "sources.source_policy_versions"],
   );
   for (const role of DATABASE_ROLES) {
     const sql = sessions[role];
@@ -106,6 +106,20 @@ test("every real role has exactly the approved table, column, sequence and cross
                 : `DELETE FROM ${name} WHERE false RETURNING 1`;
         await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
       }
+    }
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const name = 'content."source_date_observations"';
+      const allowed =
+        role === "migrate" || (operation === "SELECT" && ["worker", "private_ops", "backup"].includes(role)) || (role === "worker" && operation === "INSERT");
+      const statement =
+        operation === "SELECT"
+          ? `SELECT * FROM ${name} LIMIT 1`
+          : operation === "INSERT"
+            ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false RETURNING 1`
+            : operation === "UPDATE"
+              ? `UPDATE ${name} SET observed_at=observed_at WHERE false RETURNING 1`
+              : `DELETE FROM ${name} WHERE false RETURNING 1`;
+      await permission(sql, statement, allowed, `${role} ${operation} source_date_observations`);
     }
     for (const row of catalog.sequences) {
       assert.match(row.name, /^public\./);

@@ -7,6 +7,7 @@ import { dbOf, closeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource } from "@amp/backend/sources/collect";
 import { previewSource } from "@amp/backend/admin/sources";
+import { grantDateFixture } from "./source-date-fixture.ts";
 
 const sql = dbOf("acquisition");
 
@@ -49,6 +50,7 @@ after(async () => {
 async function source(id: string, path: string, initialized = true) {
   await sql`INSERT INTO sources (id,name,kind,config,tier,participation_mode,cursor,next_fetch_at)
     VALUES (${id},'RSS conditional test','rss',${sql.json({ feedUrl: base + path })},'T1','editorial',${initialized ? sql.json({ initializedAt: new Date().toISOString() }) : null},'2100-01-01')`;
+  await grantDateFixture(id, [base, "https://example.org"]);
 }
 const cursor = async (id: string) => (await sql`SELECT cursor FROM sources WHERE id=${id}`)[0]!.cursor;
 

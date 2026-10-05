@@ -41,6 +41,24 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql"],
       },
       {
+        name: "sources/202610042019_source_date_config_identity.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202610040001_source_permissions.sql"],
+      },
+      {
+        name: "content/202610042020_source_date_evidence.sql",
+        module: "content",
+        schemas: ["content"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202610042019_source_date_config_identity.sql"],
+      },
+      {
+        name: "publication/202610042021_public_source_time.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "content/202610042020_source_date_evidence.sql"],
+      },
+      {
         name: "enrichment/202610042100_translation_readiness.sql",
         module: "enrichment",
         schemas: ["enrichment"],

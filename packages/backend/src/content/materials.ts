@@ -4,6 +4,9 @@ import { dbOf, type Db, type Tx } from "../db.ts";
 import { newArticleId, sha256 } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
+import { MaterialSourceDateInput, MaterialUpdateResult } from "@amp/contracts/time-assertion";
+import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
+export { updateMaterialSourceDate, materialDateHeads } from "./date-evidence.ts";
 
 const sql = dbOf("content");
 
@@ -16,7 +19,7 @@ export interface MediaItem {
   poster?: string | null;
 }
 
-export interface MaterialInput {
+export interface MaterialInput extends MaterialSourceDateInput {
   sourceId: string;
   url: string;
   title: string;
@@ -39,12 +42,13 @@ export interface MaterialInput {
   id?: string;
 }
 
-export interface MaterialResult {
+interface BaseMaterialResult {
   articleId: string;
   created: boolean;
   revised: boolean;
   backfill: boolean;
 }
+export type MaterialResult = MaterialUpdateResult;
 
 // Material first discovered more than this long after its source time is archived by source time,
 // stays out of "today" and is never pushed. Must not be wider than the 72 h the v1 contract states.
@@ -113,11 +117,20 @@ export function identityKeyFor(m: MaterialInput): string {
  * so every change gets its own revision number. Returns whether processing is needed.
  */
 export async function upsertMaterial(m: MaterialInput, db: Db = sql): Promise<MaterialResult> {
-  const run = (tx: Db) => upsertIn(tx, m);
-  return "begin" in db ? (db as typeof sql).begin(run) : run(db);
+  const date = MaterialSourceDateInput.parse({
+    sourceDateObservation: m.sourceDateObservation,
+    expectedSourceDateVersion: m.expectedSourceDateVersion,
+    permissionVersion: m.permissionVersion,
+  });
+  const run = async (tx: Tx) => {
+    await prepareDateMutation(tx, m.sourceId, date);
+    const result = await upsertIn(tx, m);
+    return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now())) });
+  };
+  return "begin" in db ? (db as typeof sql).begin(run) : run(db as Tx);
 }
 
-async function upsertIn(db: Db, m: MaterialInput): Promise<MaterialResult> {
+async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
   const identityKey = identityKeyFor(m);
   const discoveredAt = m.discoveredAt ?? new Date();
   const title = collapseWhitespace(m.title).slice(0, 1000) || m.url;
@@ -158,7 +171,7 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<MaterialResult> {
     SELECT id, source_id, revision, content_hash, backfill, title, body_text, excerpt FROM articles WHERE identity_key = ${identityKey} FOR UPDATE`;
   await db`INSERT INTO article_discoveries (article_id, source_id, via, discovered_at)
            VALUES (${existing!.id}, ${m.sourceId}, ${m.via}, ${discoveredAt}) ON CONFLICT DO NOTHING`;
-  const unchanged: MaterialResult = { articleId: existing!.id, created: false, revised: false, backfill: existing!.backfill };
+  const unchanged: BaseMaterialResult = { articleId: existing!.id, created: false, revised: false, backfill: existing!.backfill };
   // Another source listing the same material (an aggregator, a translated mirror, a hot signal) is a
   // discovery only: its title and summary are its own rendering, and taking them made the article flip
   // between the two sources' versions on every fetch. Only the article's own source revises it.

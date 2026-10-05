@@ -29,7 +29,7 @@
     "articles": {
       "module": "content",
       "access": "business",
-      "publicColumns": ["id", "revision", "author", "language", "body_html", "body_text", "body_status"]
+      "publicColumns": ["id", "revision", "author", "language", "body_html", "body_text", "body_status", "source_date_version", "source_date_state"]
     },
     "audit_log": {
       "module": "identity",
@@ -189,7 +189,7 @@
     "sources": {
       "module": "sources",
       "access": "business",
-      "publicColumns": ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext"]
+      "publicColumns": ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext", "source_date_config_hash"]
     },
     "stored_files": {
       "module": "platform/storage",
@@ -266,6 +266,15 @@
       "permissions": {
         "private_ops": ["SELECT", "INSERT", "UPDATE"],
         "worker": ["SELECT"]
+      }
+    },
+    "content.source_date_observations": {
+      "module": "content",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
       }
     }
   },

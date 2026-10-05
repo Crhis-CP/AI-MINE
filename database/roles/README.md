@@ -57,3 +57,5 @@ sources.source_policy_versions由private_ops只追加，worker只读；current�
 
 
 翻译后续身份迁移只给已登记表增加可空字段：enrichment保存gateway签认的opaque attempt_id文本，不新增跨模块外键；ai-gateway保存response_attempt_id、每次attempt原response及output_rejected_at。历史身份/判坏标记保持NULL，不从最大ID或最新ordinal猜测。表、序列、旧48表oracle和角色权限不变；公开角色不获这些回执/明细字段。结算归属由gateway端口在当前attempt锁内核对，段检查点与完成/判坏同事务，原响应先独立持久化。
+
+来源日期观察归 content，仅 worker 可追加、private_ops/backup 可读；公开登录不能读原始候选或私有依据。公开需要的 articles 日期状态/版本与 sources 相关配置指纹按列授予，仍不能读取 sources.config；publication 的日期投影字段不表示日期门已启用。
