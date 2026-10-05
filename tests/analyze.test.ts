@@ -338,10 +338,23 @@ test("guards: everyday Chinese that contains a short company name names no compa
     [rss("New steel grade", "A new steel grade lowers its aluminium content."), "新钢种降低钢中铝含量。"],
     [rss("Copper fabricators cut runs", "Copper fabricators in Zhejiang cut operating rates."), "浙江铜加工企业下调开工率。"],
     [rss("Shandong gold output", "Gold output in Shandong province rose in the first half."), "上半年山东黄金产量增长。"],
+    // Round 2: the same kinds of phrase, found again (力拓 by the next character, the others by context).
+    [rss("Ivanhoe steps up", "Ivanhoe Mines stepped up its expansion."), "艾芬豪矿业发力拓展业务。"],
+    [rss("Port capacity", "Port capacity is being expanded."), "港口运力拓展，实力拓展，影响力拓展。"],
+    [rss("Bauxite quality", "The bauxite's alumina-silica ratio is low."), "这批铝土矿中铝硅比偏低，矿石中铝的品位不高。"],
+    [rss("Copper belt", "Copper industry along the river grows."), "沿江铜产业带与三江铜矿带、丽江铜矿的勘查进展。"],
+    [rss("Gold demand in Shandong", "Gold consumption in Shandong rose."), "山东黄金消费量上升。"],
   ];
   for (const [input, summaryZh] of everyday) assert.equal(enforceIdentity(input, { titleZh: "", summaryZh }).summaryZh, summaryZh, summaryZh);
-  // A real mention the input does not support is still caught.
+  // A real mention the input does not support is still caught, in each company's usual short forms.
   assert.equal(enforceIdentity(rss("Aluminium output rises", "Aluminium output rose."), { titleZh: "", summaryZh: "据中铝消息，铝产量上升。" }).summaryZh, "");
+  for (const named of ["股东江铜集团称铜产量上升。", "龙头企业中铝集团扩产。", "力拓宣布扩产。", "力拓展示新的选矿技术。", "山东黄金产能提升。"])
+    assert.equal(enforceIdentity(rss("Metal output rises", "Metal output rose."), { titleZh: "", summaryZh: named }).summaryZh, "", named);
+  // 雅保 is a common rendering of Albemarle: the input's 雅保 supports a summary's 雅宝.
+  assert.equal(
+    enforceIdentity({ title: "雅保锂业务调整", text: "雅保宣布调整锂业务。", sourceKind: "web_list" }, { titleZh: "雅宝调整锂业务", summaryZh: "雅宝宣布调整锂业务。" }).identityGuard.outcome,
+    "pass",
+  );
   // The input's own rendering of a company supports the common Chinese name the summary uses.
   const codelco = { title: "智利国营铜业公司上调产量指引", text: "智利国营铜业公司上调了全年铜产量指引。", sourceKind: "web_list" };
   const copy = { titleZh: "智利国家铜业公司上调产量指引", summaryZh: "智利国家铜业公司上调全年铜产量指引。" };

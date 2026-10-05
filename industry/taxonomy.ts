@@ -224,7 +224,7 @@ export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; pattern
     id: "jiangxi-copper",
     name: "江西铜业",
     patterns: [
-      /江西铜业|江铜(?=集团|股份|公司)|(?<![长珠浙龙镇九湛内吴晋松丹漓嫩乌闽赣湘汉沅绿沙怒沧布塘浦岷陵渠涪沱綦曲阳廉清柳邕盘西南北椒瓯灵])江铜|jiangxi\s+copper/i,
+      /江西铜业|江铜(?=集团|股份|公司)|(?<![长珠浙龙镇九湛内吴晋松丹漓嫩乌闽赣湘汉沅绿沙怒沧布塘浦岷陵渠涪沱綦曲阳廉清柳邕盘西南北椒瓯灵沿三丽临靖])江铜|jiangxi\s+copper/i,
     ],
   },
   { id: "minmetals", name: "中国五矿", patterns: [/中国五矿|五矿集团|minmetals/i] },
@@ -233,10 +233,10 @@ export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; pattern
     id: "chalco",
     name: "中国铝业",
     patterns: [
-      /中国铝业|中铝(?=集团|股份|公司|国际)|(?<![其场集高口量存费构业钢金水土])中铝(?![土价库锭材箔板棒]|合金|含量)|\bchalco\b|chinalco|alumin(?:i)?um\s+corp(?:oration)?\s+of\s+china/i,
+      /中国铝业|中铝(?=集团|股份|公司|国际)|(?<![其场集高口量存费构业钢金水土矿石料壤])中铝(?![土价库锭材箔板棒]|合金|含量)|\bchalco\b|chinalco|alumin(?:i)?um\s+corp(?:oration)?\s+of\s+china/i,
     ],
   },
-  { id: "shandong-gold", name: "山东黄金", patterns: [/山东黄金矿业|山东黄金(?!产量|储量|资源|矿产)|shandong\s+gold/i] },
+  { id: "shandong-gold", name: "山东黄金", patterns: [/山东黄金矿业|山东黄金(?!产量|储量|资源|矿产|消费)|shandong\s+gold/i] },
   { id: "ganfeng", name: "赣锋锂业", patterns: [/赣锋|\bganfeng\b/i] },
   { id: "tianqi", name: "天齐锂业", patterns: [/天齐锂业|\btianqi\b/i] },
   { id: "huayou", name: "华友钴业", patterns: [/华友钴业|\bhuayou\b/i] },
@@ -245,7 +245,7 @@ export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; pattern
     id: "rio-tinto",
     name: "力拓",
     patterns: [
-      /联合力拓|力拓(?=集团|公司)|(?<![大全着努致助合奋能动潜活争人财物精魄势权压电风水火马推张拉外内效智尽极竭鼎协戮卖省借聚蓄])力拓|rio[\s-]?tinto/i,
+      /联合力拓|力拓(?=集团|公司)|(?<![大全着努致助合奋能动潜活争人财物精魄势权压电风水火马推张拉外内效智尽极竭鼎协戮卖省借聚蓄实运发响])力拓(?:(?=展示)|(?![展宽]))|rio[\s-]?tinto/i,
     ],
   },
   { id: "glencore", name: "嘉能可", patterns: [/嘉能可|glencore/i] },
@@ -257,7 +257,7 @@ export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; pattern
   { id: "codelco", name: "智利国家铜业公司", patterns: [/智利国家铜业|智利国营铜业|科德尔科|codelco/i] },
   { id: "first-quantum", name: "第一量子", patterns: [/第一量子(?![计信通力点比]|科技|科学)|first\s+quantum/i] },
   { id: "ivanhoe", name: "艾芬豪矿业", patterns: [/艾芬豪(?!电气|大西洋)|ivanhoe(?!\s+(?:electric|atlantic))/i] },
-  { id: "albemarle", name: "雅宝", patterns: [/雅宝(?!路)|albemarle/i] },
+  { id: "albemarle", name: "雅宝", patterns: [/雅宝(?!路)|雅保|albemarle/i] },
   { id: "sqm", name: "智利化工矿业", patterns: [/智利化工矿业|智利矿业化工|智利化学矿业|\bSQM\b/] },
   { id: "southern-copper", name: "南方铜业", patterns: [/南方铜业|southern\s+copper/i] },
 ];
