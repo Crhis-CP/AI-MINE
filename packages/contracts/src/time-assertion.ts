@@ -87,6 +87,9 @@ export const TimeAssertion = SourceTimeParts.extend({
   }
 });
 export type TimeAssertion = z.infer<typeof TimeAssertion>;
+/** Additive public field; actual route registration and readers activate together in TASK-0022. */
+export const SourceTimeProjection = z.strictObject({ sourceTime: TimeAssertion.nullable() });
+export type SourceTimeProjection = z.infer<typeof SourceTimeProjection>;
 export type SourceTimeParts = z.infer<typeof SourceTimeParts>;
 
 export const SourceDateBinding = z.strictObject({
@@ -176,16 +179,39 @@ export const SourceDateParseResult = z.strictObject({
       "relative_without_anchor",
       "unsupported_format",
       "missing_format_language",
+      "conflicting_candidates",
     ])
     .nullable(),
 });
 export type SourceDateParseResult = z.infer<typeof SourceDateParseResult>;
 
-/** Intake cannot invent the material identity/revision that content assigns under its lock. */
-export const SourceDateObservationInput = z.strictObject(SourceDateParseInput.shape).omit({ binding: true }).extend({
-  sourceId: SourceDateBinding.shape.sourceId,
-  configHash: SourceDateBinding.shape.configHash,
+/** Other source candidates from the same acquisition, never a caller-supplied reliability verdict. */
+export const SourceDateCandidate = SourceDateParseInput.pick({
+  raw: true,
+  locator: true,
+  excerpt: true,
+  origin: true,
+  meaning: true,
+  basis: true,
+  condition_text: true,
+  format: true,
+  formatPattern: true,
+  language: true,
+  publicationBasis: true,
+  timezone: true,
+  timezoneEvidence: true,
 });
+export type SourceDateCandidate = z.infer<typeof SourceDateCandidate>;
+
+/** Intake cannot invent the material identity/revision that content assigns under its lock. */
+export const SourceDateObservationInput = z
+  .strictObject(SourceDateParseInput.shape)
+  .omit({ binding: true })
+  .extend({
+    sourceId: SourceDateBinding.shape.sourceId,
+    configHash: SourceDateBinding.shape.configHash,
+    alternatives: z.array(SourceDateCandidate).nonempty().optional(),
+  });
 export type SourceDateObservationInput = z.infer<typeof SourceDateObservationInput>;
 const EvidenceVersion = z.number().int().nonnegative();
 const PermissionVersion = z.number().int().positive();

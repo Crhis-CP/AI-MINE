@@ -23,3 +23,7 @@ A2 新增未激活 `SourceDateParseInput` / `SourceDateParseResult`，输入实�
 `MaterialUpdateResult` 保留原 articleId/created/revised/backfill，所有新建/重复/聚合来源/历史已见/正文修订分支都返回真实 revision/sourceDateVersion，不能拿请求值回填。sourceTimeChanged仅指规范化时间事实或时间公开资格/投影变化；metadataChanged指当前额外元数据或当前日期证据变化，单纯追加抓取观察或刷新observedAt均不算。证据/配置依据变化但时间事实不变时可仅metadataChanged=true；sourceDateOutcome区分unchanged/applied/stale，不把CAS失败伪装成成功。两旗标都不是新付费指令，仍由实际模型输入哈希复用回执，不生成新attemptTag。
 
 `SourceDateTask`固定news并携带材料修订、配置、许可和日期证据的预期版本，可引用已取得的observationId以复用字节；消费者在取回/写入前重新核对当前暂停、用途许可与CAS。任务字段不授权访问、不允许policy混入。这里的类型/样例不证明数据库CAS已经实现；实际返回分支、单调版本、原件保留及失败原子性在后续取得+保存+消费者联合片验收。
+
+TASK0022 取得接线补充（仍未激活公开字段）：`SourceTimeProjection` 单源定义 `sourceTime: TimeAssertion | null`；既有 `publishedAt` 只表示已证明的绝对时刻，date-only 不填午夜、不借 discoveredAt。实际路由、生成客户端、v1/同步出口和页面在运行片联合启用，并更新公开契约版本；本准备差量不修改当前路由或发布半套响应。
+
+`SourceDateObservationInput.alternatives` 可保存同次取得的其他原始日期候选，逐项保留原串、原文位置/片段、含义、格式/语言和时区依据；来源、配置、取得记录与 URL 共用外层身份，候选不能覆盖它们，也不接受 parsed/reliable/冲突结论。缺省表示只有主依据，空数组不合法。content 逐项严格解析、比较同语义的事实，冲突保留全部原件并给 `conflicting_candidates`；未核实时区不能擅自消除差异，元数据更精确不能覆盖指定主依据。updated/effective 等另义候选不代替 published。公开投影只带被采用的 TimeAssertion，不带私有候选集。
