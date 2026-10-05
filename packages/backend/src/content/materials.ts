@@ -38,6 +38,8 @@ export interface MaterialInput extends MaterialSourceDateInput {
   discoveredAt?: Date;
   /** Explicit backfill: first import of a new source, or a report flagged as backfill. */
   backfill?: string | null;
+  /** The day a source states when it gives no time of day (Beijing midnight of that date). */
+  sourceDay?: Date | null;
   /** Keep an existing id when importing history. */
   id?: string;
 }
@@ -63,16 +65,34 @@ export interface TimelineDecision {
   backfillReason: string | null;
 }
 
-/** The one timeline rule shared by every entrance. */
-export function decideTimeline(claimed: Date | null | undefined, discoveredAt: Date, explicitBackfill?: string | null): TimelineDecision {
+/**
+ * The one timeline rule shared by every entrance. A source that states only the day puts the item on
+ * that day, at its start, so it follows the day's timed items (PG-01) and is never news of the day it
+ * was found; it gets no time of day. A day further back than the stale threshold is history.
+ */
+export function decideTimeline(
+  claimed: Date | null | undefined,
+  discoveredAt: Date,
+  explicitBackfill?: string | null,
+  sourceDay?: Date | null,
+): TimelineDecision {
   let publishedAt: Date | null = claimed && Number.isFinite(claimed.getTime()) ? claimed : null;
   if (publishedAt && publishedAt.getTime() > discoveredAt.getTime() + FUTURE_TOLERANCE_MS) publishedAt = null;
+  const day = !publishedAt && sourceDay && Number.isFinite(sourceDay.getTime()) && sourceDay.getTime() <= discoveredAt.getTime() ? sourceDay : null;
+  const sourceTime = publishedAt ?? day;
   let backfillReason: string | null = null;
   if (explicitBackfill) backfillReason = explicitBackfill;
-  else if (publishedAt && discoveredAt.getTime() - publishedAt.getTime() > STALE_ON_DISCOVERY_MS) backfillReason = "stale-on-discovery";
+  else if (sourceTime && discoveredAt.getTime() - sourceTime.getTime() > STALE_ON_DISCOVERY_MS) backfillReason = "stale-on-discovery";
   const backfill = backfillReason !== null;
-  const timelineAt = backfill && publishedAt ? publishedAt : discoveredAt;
+  const timelineAt = backfill && publishedAt ? publishedAt : (day ?? discoveredAt);
   return { publishedAt, timelineAt, backfill, backfillReason };
+}
+
+/** Beijing midnight of a source's stated day (YYYY-MM-DD), or null. */
+export function sourceDayStart(localDate: string | null | undefined): Date | null {
+  if (!localDate || !/^\d{4}-\d{2}-\d{2}$/.test(localDate)) return null;
+  const at = new Date(`${localDate}T00:00:00+08:00`);
+  return Number.isFinite(at.getTime()) ? at : null;
 }
 
 /**
@@ -135,7 +155,7 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
   const discoveredAt = m.discoveredAt ?? new Date();
   const title = collapseWhitespace(m.title).slice(0, 1000) || m.url;
 
-  const t = decideTimeline(m.publishedAt, discoveredAt, m.backfill);
+  const t = decideTimeline(m.publishedAt, discoveredAt, m.backfill, m.sourceDay);
   const newId = m.id ?? newArticleId();
   const hash = contentHash({ title, bodyText: m.bodyText, excerpt: m.excerpt });
   const [inserted] = await db<{ id: string }[]>`

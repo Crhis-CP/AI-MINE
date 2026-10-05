@@ -1,7 +1,7 @@
 // Collection run for one source: fetch listing → filter → store material → enqueue processing.
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
 import { dbOf } from "../db.ts";
-import { identityKeyFor, upsertMaterial, materialDateHeads } from "@amp/backend/content/materials";
+import { identityKeyFor, upsertMaterial, materialDateHeads, sourceDayStart } from "@amp/backend/content/materials";
 import { readCurrentSourcePolicy, evaluateSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { queueProcessing } from "../jobs/content.ts";
@@ -103,12 +103,15 @@ async function store(
     ).map((h) => [h.url, h]),
   );
   for (const c of candidates) {
+    // A listing that states only the day: the item goes on that day (no time of day is invented).
+    const day = !c.publishedAt && c.sourceDateObservation ? previewSourceDate(c.sourceDateObservation) : null;
     const material = {
       ...c,
       language: declaredLanguage === undefined ? normalizeSourceLanguage(c.language) : declaredLanguage,
       sourceId,
       via: "fetch" as const,
       backfill,
+      sourceDay: day && !day.utc ? sourceDayStart(day.local_date) : null,
       ...(c.sourceDateObservation ? { permissionVersion, expectedSourceDateVersion: Number(heads.get(c.url)?.source_date_version ?? 0) } : {}),
     };
     // A listing that names one article twice (a featured card and its list entry, a feed repeating an
