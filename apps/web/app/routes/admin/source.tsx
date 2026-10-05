@@ -1,3 +1,5 @@
+import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import type { z } from "zod";
 import { SITE } from "@amp/industry/site";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -26,64 +28,8 @@ import {
   Time,
 } from "../../features/admin/ui";
 
-interface Source {
-  id: string;
-  name: string;
-  kind: string;
-  config: Record<string, unknown>;
-  tags: string[];
-  first_party: boolean;
-  owner_entity_id: string | null;
-  tier: string;
-  participation_mode: string;
-  interval_minutes: number;
-  site_fulltext: boolean;
-  syndicate_fulltext: boolean;
-  enabled: boolean;
-  health: string;
-  fail_count: number;
-  last_fetch_at: string | null;
-  last_ok_at: string | null;
-  last_error: string | null;
-  cursor: Record<string, unknown> | null;
-  next_fetch_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** X runs: pages read, and older stretches still to read (backlog) or given up (dropped). */
-interface RunDetail {
-  pages?: number;
-  backlog?: number;
-  dropped?: number;
-}
-
-interface Detail {
-  source: Source;
-  runs: Array<{
-    id: number;
-    started_at: string;
-    finished_at: string | null;
-    status: string;
-    found_count: number | null;
-    new_count: number | null;
-    error: string | null;
-    detail: RunDetail | null;
-  }>;
-  items: Array<{
-    id: string;
-    title: string;
-    url: string;
-    discovered_at: string;
-    published_at: string | null;
-    processing_state: string;
-    selected: boolean | null;
-    visibility: string | null;
-    title_zh: string | null;
-  }>;
-  stats: { total: number; last7d: number; selected: number };
-  history: Array<{ created_at: string; actor: string; action: string; reason: string | null; before: unknown; after: unknown }>;
-}
+type Source = z.infer<typeof privateSchemas.SourceRecord>;
+type Detail = z.infer<typeof privateSchemas.SourceDetailResponse>;
 
 interface Preview {
   ms: number;
@@ -92,7 +38,14 @@ interface Preview {
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  return adminGet<Detail>(request, `/api/admin/sources/${encodeURIComponent(params.id)}`);
+  const response = await adminGet<Detail>(request, `/api/admin/sources/${encodeURIComponent(params.id)}`, (url, init) =>
+    createPrivateClient({ baseUrl: new URL(String(url)).origin }).GET("/api/admin/sources/{id}", {
+      params: { path: { id: params.id } },
+      headers: init.headers,
+      signal: init.signal,
+    }),
+  );
+  return privateSchemas.SourceDetailResponse.parse(response);
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `${loaderData?.source.name ?? "信源"} · ${SITE.name} 后台` }];
@@ -240,6 +193,28 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
 
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
         <div className="space-y-5">
+          <Card title="来源用途许可">
+            {loaderData.permission ? (
+              <>
+                <p className="text-[13px] text-ink-2">
+                  版本 {loaderData.permission.permission_version} · {loaderData.permission.licence_label_zh}
+                </p>
+                <p className="text-[13px] text-ink-2">已有禁止或未知用途不会因重新勾选旧全文开关恢复；正式权限放宽编辑尚未开放。</p>
+                <Json
+                  value={{
+                    permissions: loaderData.permission.permissions,
+                    scope: loaderData.permission.scope,
+                    attachments_in_scope: loaderData.permission.attachments_in_scope,
+                    reviewed_by: loaderData.permission.reviewed_by,
+                    reviewed_at: loaderData.permission.reviewed_at,
+                    expires_at: loaderData.permission.expires_at,
+                  }}
+                />
+              </>
+            ) : (
+              <Empty>尚无用途许可记录；此来源不会因缺记录自动获得许可。</Empty>
+            )}
+          </Card>
           <Card title="设置" right={<span>版本 {bj(s.updated_at, true)}</span>}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="名称">
@@ -255,7 +230,10 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                 />
               </Field>
               <Field label="参与方式" hint="氛围只作热点讨论证据，不单独成为内容">
-                <Select value={draft.participation_mode} onChange={(e) => setDraft({ ...draft, participation_mode: e.target.value })}>
+                <Select
+                  value={draft.participation_mode}
+                  onChange={(e) => setDraft({ ...draft, participation_mode: privateSchemas.SourceRecord.shape.participation_mode.parse(e.target.value) })}
+                >
                   {Object.entries(MODE_LABEL).map(([k, v]) => (
                     <option key={k} value={k}>
                       {v}
@@ -264,7 +242,7 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                 </Select>
               </Field>
               <Field label="等级">
-                <Select value={draft.tier} onChange={(e) => setDraft({ ...draft, tier: e.target.value })}>
+                <Select value={draft.tier} onChange={(e) => setDraft({ ...draft, tier: privateSchemas.SourceRecord.shape.tier.parse(e.target.value) })}>
                   {Object.entries(TIER_LABEL).map(([k, v]) => (
                     <option key={k} value={k}>
                       {v}

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { verify as verifySignature } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import type { z } from "zod";
-import type { IssueProcessingPermitInputSchema, SignedProcessingPermit } from "@amp/contracts/source-policy";
+import { SourcePolicySchema, type IssueProcessingPermitInputSchema, type SignedProcessingPermit } from "@amp/contracts/source-policy";
 import { initializeDb, closeDb, dbOf } from "@amp/backend/db";
 import path from "node:path";
 import { provisionRoles } from "../scripts/db-roles.ts";
@@ -203,6 +203,221 @@ test("root lifetime is stable for reentry, refuses reconfiguration and cannot su
     assert.equal(next.aborted, true);
   } finally {
     await closeDb();
+  }
+});
+
+test("private creation confirms an explicit scope atomically and the real evaluator checks each current use", async (t) => {
+  await import("./setup.ts");
+  await closeDb();
+  const f = await roleFixture(t);
+  await provisionRoles(f.admin, { prefix: f.prefix, apply: true });
+  const sessions = await f.login();
+  await initializeDb("private-api", { DATABASE_URL_PRIVATE_OPS: f.urlFor("private_ops"), DATABASE_URL_AUTH: f.urlFor("auth"), DATABASE_POOL_MAX: "4" });
+  await f.admin.unsafe("ALTER TABLE public.sources ADD COLUMN IF NOT EXISTS source_date_config_hash text");
+  const { config } = await import("@amp/backend/config");
+  const { buildApp } = await import("../apps/api/src/app.ts");
+  const { evaluateSourcePolicy, saveSourcePolicy } = await import("@amp/backend/admin/sources");
+  const { stopBoss } = await import("@amp/backend/jobs/queue");
+  const original = { adminPassword: config.adminPassword, devAdmin: config.devAdmin, privateHost: config.privateHost };
+  Object.assign(config, { adminPassword: "synthetic-policy-password-012345", devAdmin: null, privateHost: "private.policy.test" });
+  const app = await buildApp("private-api");
+  const forwarded = { "x-forwarded-host": "private.policy.test" };
+  const payload = {
+    id: "policy-created-source",
+    name: "合成来源",
+    kind: "rss",
+    config: { feedUrl: "https://source.invalid/mining/feed.xml" },
+    permission_scope: { hosts: ["source.invalid"], path_prefixes: ["/mining/"], document_types: ["news"], excluded_content: [] },
+    attachments_in_scope: false,
+  };
+  try {
+    assert.equal((await app.inject({ method: "POST", url: "/api/admin/sources", headers: forwarded, payload: {} })).statusCode, 401);
+    const login = await app.inject({ method: "POST", url: "/api/auth/password", headers: forwarded, payload: { password: config.adminPassword } });
+    assert.equal(login.statusCode, 303);
+    const cookie = String(login.headers["set-cookie"]).split(";")[0];
+    const who = await app.inject({ url: "/api/admin/me", headers: { ...forwarded, cookie } });
+    const headers = { ...forwarded, cookie, "x-csrf-token": who.json().csrf as string };
+    const post = (value: unknown) => app.inject({ method: "POST", url: "/api/admin/sources", headers, payload: value as never });
+    assert.equal((await app.inject({ method: "POST", url: "/api/admin/sources", headers: { ...forwarded, cookie }, payload })).statusCode, 403);
+    assert.equal((await post({ ...payload, permission_scope: undefined })).statusCode, 400);
+    assert.equal((await post({ ...payload, enabled: true })).statusCode, 400);
+    const created = await post(payload);
+    assert.equal(created.statusCode, 200, created.body);
+    assert.equal("source_date_config_hash" in created.json().source, false, "internal date CAS identity is not an implicit HTTP field");
+    assert.equal(created.json().source.enabled, false);
+    assert.equal(created.json().source.health, "paused");
+    assert.equal(created.json().source.next_fetch_at, null);
+    assert.equal(created.json().source.site_fulltext, true);
+    assert.equal(created.json().source.syndicate_fulltext, false);
+    const detail = await app.inject({ url: `/api/admin/sources/${payload.id}`, headers });
+    assert.equal(detail.statusCode, 200, detail.body);
+    assert.equal("source_date_config_hash" in detail.json().source, false);
+    const initial = SourcePolicySchema.parse(detail.json().permission);
+    assert.equal(initial.permission_version, 1);
+    assert.ok(Object.values(initial.permissions).every((decision) => decision === "allow"));
+    assert.equal(initial.evidence[0].kind, "owner_declared");
+    assert.equal(initial.evidence[0].valid_until, null);
+    assert.equal(initial.expires_at, null);
+    assert.match(initial.reviewed_by, /^admin:\d+$/);
+    const scope = { url: "https://source.invalid/mining/item", document_type: "news", attachment: false };
+    const now = Date.parse("2030-01-01T00:00:00Z");
+    const evaluate = async (capability: string, version = 1, resource = scope) => {
+      const result = await evaluateSourcePolicy({ source_id: payload.id, expected_permission_version: version, lane: "news", capability, resource }, now);
+      return { ...result, reason: "reason" in result ? result.reason : undefined };
+    };
+    for (const capability of Object.keys(initial.permissions)) assert.equal((await evaluate(capability)).decision, "allow");
+    for (const resource of [
+      { ...scope, url: "https://other.invalid/mining/item" },
+      { ...scope, url: "https://source.invalid/other/item" },
+      { ...scope, document_type: "policy" },
+      { ...scope, attachment: true },
+    ])
+      assert.equal((await evaluate("external_model", 1, resource)).reason, "resource_mismatch");
+    const duplicate = await post({ ...payload, id: "duplicate-other-id", site_fulltext: false });
+    assert.equal(duplicate.statusCode, 200, duplicate.body);
+    assert.equal(duplicate.json().created, false);
+    assert.equal((await readCurrentSourcePolicy(payload.id))?.permission_version, 1, "duplicate joining never changes an existing policy");
+    const narrowedId = "explicit-narrow-source";
+    assert.equal(
+      (await post({ ...payload, id: narrowedId, config: { feedUrl: "https://source.invalid/mining/second.xml" }, site_fulltext: false })).statusCode,
+      200,
+    );
+    const narrowed = await readCurrentSourcePolicy(narrowedId);
+    assert.equal(narrowed?.permissions.public_original_fulltext, "deny");
+    assert.equal(narrowed?.permissions.public_translation, "deny");
+    assert.equal(narrowed?.permissions.external_model, "allow");
+    const concurrent = await Promise.all(
+      ["parallel-source-one", "parallel-source-two"].map((id) => post({ ...payload, id, config: { feedUrl: "https://source.invalid/mining/concurrent.xml" } })),
+    );
+    assert.ok(concurrent.every((r) => r.statusCode === 200));
+    assert.equal(concurrent.filter((r) => r.json().created).length, 1);
+    assert.equal(
+      (await sessions.worker`SELECT count(*) AS n FROM sources.source_policy_current WHERE source_id IN ('parallel-source-one','parallel-source-two')`)[0].n,
+      1,
+    );
+    await f.admin.unsafe(`REVOKE INSERT ON public.audit_log FROM ${quote(f.roles.private_ops)}`);
+    try {
+      assert.equal(
+        (await post({ ...payload, id: "rollback-created-source", config: { feedUrl: "https://source.invalid/mining/rollback.xml" } })).statusCode,
+        500,
+      );
+    } finally {
+      await f.admin.unsafe(`GRANT INSERT ON public.audit_log TO ${quote(f.roles.private_ops)}`);
+    }
+    assert.equal((await sessions.worker`SELECT count(*) AS n FROM sources WHERE id='rollback-created-source'`)[0].n, 0);
+    assert.equal((await sessions.worker`SELECT count(*) AS n FROM sources.source_policy_versions WHERE source_id='rollback-created-source'`)[0].n, 0);
+
+    await f.run(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+      import { initializeDb, closeDb } from '@amp/backend/db';
+      import { ensureQueue, QUEUES, stopBoss } from '@amp/backend/jobs/queue';
+      try { await initializeDb('worker'); await ensureQueue(QUEUES.republishSource); }
+      finally { await stopBoss(); await closeDb(); }
+    `,
+      ],
+      { DATABASE_URL_WORKER: f.urlFor("worker"), DATABASE_URL_BACKUP: f.urlFor("backup") },
+    );
+    const editLegacy = async (patch: Record<string, unknown>) => {
+      const current = await app.inject({ url: `/api/admin/sources/${payload.id}`, headers });
+      return app.inject({
+        method: "PATCH",
+        url: `/api/admin/sources/${payload.id}`,
+        headers,
+        payload: { patch, version: current.json().source.updated_at, reason: "synthetic narrowing" },
+      });
+    };
+    await f.admin.unsafe(`REVOKE INSERT ON public.audit_log FROM ${quote(f.roles.private_ops)}`);
+    try {
+      assert.equal((await editLegacy({ site_fulltext: false })).statusCode, 500);
+    } finally {
+      await f.admin.unsafe(`GRANT INSERT ON public.audit_log TO ${quote(f.roles.private_ops)}`);
+    }
+    assert.equal((await readCurrentSourcePolicy(payload.id))?.permission_version, 1);
+    assert.equal((await sessions.worker`SELECT site_fulltext FROM sources WHERE id=${payload.id}`)[0].site_fulltext, true);
+    assert.equal((await editLegacy({ site_fulltext: false })).statusCode, 200);
+    assert.equal((await readCurrentSourcePolicy(payload.id))?.permission_version, 2);
+    assert.equal((await evaluate("public_original_fulltext", 2)).reason, "purpose_denied");
+    assert.equal((await editLegacy({ site_fulltext: true })).statusCode, 409, "legacy flag cannot resurrect denied/unknown full text");
+    assert.equal((await sessions.worker`SELECT site_fulltext FROM sources WHERE id=${payload.id}`)[0].site_fulltext, false);
+    const inTransaction = await sessions.worker.begin(async (tx) => {
+      await lockCurrentSourcePolicies(tx, [{ sourceId: payload.id, permissionVersion: 2 }]);
+      return evaluateSourcePolicy({ source_id: payload.id, expected_permission_version: 2, lane: "news", capability: "fetch", resource: scope }, undefined, tx);
+    });
+    assert.equal(inTransaction.decision, "allow", "evaluation shares the caller's one-connection transaction");
+    let version = 2;
+    const replace = async (change: (policy: typeof initial) => void) => {
+      const policy = structuredClone(initial);
+      change(policy);
+      await saveSourcePolicy(payload.id, { policy, expectedVersion: version, reason: "synthetic verification only" }, initial.reviewed_by);
+      version++;
+    };
+    await replace((p) => {
+      p.permissions.external_model = "deny";
+    });
+    assert.equal((await evaluate("external_model", 1)).reason, "version_changed");
+    assert.equal((await evaluate("external_model", version)).reason, "purpose_denied");
+    assert.equal((await evaluate("public_summary", version)).decision, "allow");
+    await replace((p) => {
+      p.permissions.external_model = "unknown";
+    });
+    assert.equal((await evaluate("external_model", version)).reason, "permission_unknown");
+    await replace((p) => {
+      p.conditions = ["attribution_required"];
+    });
+    assert.equal((await evaluate("external_model", version)).decision, "unknown");
+    await replace((p) => {
+      p.scope.excluded_content = ["third-party photos"];
+    });
+    assert.equal((await evaluate("public_summary", version)).decision, "unknown");
+    await replace((p) => {
+      p.evidence[0].scope.path_prefixes = ["/elsewhere/"];
+    });
+    assert.equal((await evaluate("external_model", version)).reason, "resource_mismatch");
+    await replace((p) => {
+      p.evidence[0].capabilities = p.evidence[0].capabilities.filter((purpose: string) => purpose !== "external_model" && purpose !== "public_translation");
+      p.evidence.push({
+        ...p.evidence[0],
+        kind: "written_authorization",
+        capabilities: ["external_model", "public_translation"],
+        valid_until: new Date(now + 1000).toISOString(),
+      });
+    });
+    for (const capability of ["external_model", "public_translation"]) {
+      assert.equal((await evaluate(capability, version)).expires_at, new Date(now + 1000).toISOString());
+      const expired = await evaluateSourcePolicy(
+        { source_id: payload.id, expected_permission_version: version, lane: "policy", capability, resource: scope },
+        now + 1000,
+      );
+      assert.equal("reason" in expired && expired.reason, "permission_expired");
+    }
+    await replace(() => {});
+    assert.equal((await sessions.worker`SELECT site_fulltext FROM sources WHERE id=${payload.id}`)[0].site_fulltext, false);
+    assert.equal((await editLegacy({ site_fulltext: false })).statusCode, 200);
+    version++;
+    assert.equal((await evaluate("public_translation", version)).reason, "purpose_denied", "explicit false still narrows a newly relaxed policy");
+    assert.equal((await editLegacy({ site_fulltext: false })).statusCode, 200);
+    assert.equal((await readCurrentSourcePolicy(payload.id))?.permission_version, version, "already-denied false is idempotent for permission versions");
+    await f.admin.unsafe(`REVOKE SELECT ON sources.source_policy_versions FROM ${quote(f.roles.private_ops)}`);
+    try {
+      assert.equal((await evaluate("external_model", version)).reason, "verification_unavailable");
+    } finally {
+      await f.admin.unsafe(`GRANT SELECT ON sources.source_policy_versions TO ${quote(f.roles.private_ops)}`);
+    }
+    await app.close();
+    await stopBoss();
+    await closeDb();
+    await initializeDb("public-api", { DATABASE_URL_PUBLIC_READ: f.urlFor("public_read"), DATABASE_URL_FEEDBACK_WRITE: f.urlFor("feedback_write") });
+    assert.equal((await evaluate("public_summary", version)).decision, "allow", "public checking uses only the approved current projection");
+    assert.equal((await evaluate("external_model", version)).reason, "verification_unavailable", "public login cannot read private purposes/evidence");
+  } finally {
+    await app.close();
+    await stopBoss();
+    await closeDb();
+    Object.assign(config, original);
   }
 });
 

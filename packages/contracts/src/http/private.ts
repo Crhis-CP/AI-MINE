@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Problem, ProblemResponse } from "./common.ts";
+import { PermissionScopeSchema, SourcePolicySchema } from "../source-policy.ts";
 
 export const LoginOptions = z.strictObject({ password: z.boolean(), feishu: z.boolean() });
 
@@ -57,7 +58,96 @@ export const ReceiptReconciliationResponse = z.looseObject({
   deliveries: z.array(DeliveryIssue),
 });
 
+const SourceKind = z.enum(["rss", "web_list", "json_list", "mp_account", "external"]);
+const SourceTier = z.enum(["T1", "T1_5", "T2", "EXCLUDE_MP"]);
+const SourceMode = z.enum(["editorial", "hot_signal", "isolated"]);
+const JsonObject = z.record(z.string(), z.unknown());
+const Time = z.iso.datetime({ offset: true });
+export const SourceCreateRequest = z.strictObject({
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]{2,79}$/),
+  name: z.string().min(1).max(200),
+  kind: SourceKind,
+  config: JsonObject,
+  tier: SourceTier.default("T2"),
+  participation_mode: SourceMode.default("editorial"),
+  interval_minutes: z.number().int().min(1).max(1440).default(30),
+  first_party: z.boolean().default(false),
+  tags: z.array(z.string()).default([]),
+  site_fulltext: z.boolean().default(true),
+  syndicate_fulltext: z.boolean().default(false),
+  permission_scope: PermissionScopeSchema,
+  attachments_in_scope: z.boolean(),
+});
+export const SourceRecord = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  kind: SourceKind,
+  config: JsonObject,
+  tags: z.array(z.string()),
+  first_party: z.boolean(),
+  owner_entity_id: z.string().nullable(),
+  tier: SourceTier,
+  participation_mode: SourceMode,
+  interval_minutes: z.number().int(),
+  site_fulltext: z.boolean(),
+  syndicate_fulltext: z.boolean(),
+  enabled: z.boolean(),
+  health: z.string(),
+  fail_count: z.number().int(),
+  last_fetch_at: Time.nullable(),
+  last_ok_at: Time.nullable(),
+  last_error: z.string().nullable(),
+  cursor: JsonObject.nullable(),
+  next_fetch_at: Time.nullable(),
+  imported_from: z.string().nullable(),
+  created_at: Time,
+  updated_at: Time,
+});
+export const SourceCreateResponse = z.discriminatedUnion("created", [
+  z.strictObject({ created: z.literal(true), source: SourceRecord }),
+  z.strictObject({ created: z.literal(false), duplicate: SourceRecord.pick({ id: true, name: true, kind: true, config: true }) }),
+]);
+export const SourceDetailResponse = z.strictObject({
+  source: SourceRecord,
+  permission: SourcePolicySchema.nullable(),
+  runs: z.array(
+    z.strictObject({
+      id: z.number().int(),
+      started_at: Time,
+      finished_at: Time.nullable(),
+      status: z.string(),
+      found_count: z.number().nullable(),
+      new_count: z.number().nullable(),
+      error: z.string().nullable(),
+      detail: z.looseObject({ pages: z.number().optional(), backlog: z.number().optional(), dropped: z.number().optional() }).nullable(),
+    }),
+  ),
+  items: z.array(
+    z.strictObject({
+      id: z.string(),
+      title: z.string(),
+      url: z.string(),
+      discovered_at: Time,
+      published_at: Time.nullable(),
+      processing_state: z.string(),
+      selected: z.boolean().nullable(),
+      visibility: z.string().nullable(),
+      title_zh: z.string().nullable(),
+    }),
+  ),
+  stats: z.strictObject({ total: z.number(), last7d: z.number(), selected: z.number() }),
+  history: z.array(
+    z.strictObject({ created_at: Time, actor: z.string(), action: z.string(), reason: z.string().nullable(), before: z.unknown(), after: z.unknown() }),
+  ),
+  republish: JsonObject.nullable(),
+});
+
 export const schemas = {
+  SourcePolicy: SourcePolicySchema,
+  SourceCreateRequest,
+  SourceCreateResponse,
+  SourceRecord,
+  SourceDetailResponse,
   LoginOptions,
   ReceiptObservedVersion,
   ReceiptReleaseRequest,
@@ -68,6 +158,32 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  createSource: {
+    method: "POST" as const,
+    url: "/api/admin/sources",
+    schema: {
+      operationId: "createSource",
+      body: SourceCreateRequest,
+      response: {
+        200: SourceCreateResponse,
+        400: ProblemResponse,
+        401: ProblemResponse,
+        403: ProblemResponse,
+        404: ProblemResponse,
+        409: ProblemResponse,
+        500: ProblemResponse,
+      },
+    },
+  },
+  sourceDetail: {
+    method: "GET" as const,
+    url: "/api/admin/sources/:id",
+    schema: {
+      operationId: "sourceDetail",
+      params: z.strictObject({ id: z.string() }),
+      response: { 200: SourceDetailResponse, 401: ProblemResponse, 404: ProblemResponse, 500: ProblemResponse },
+    },
+  },
   loginOptions: {
     method: "GET" as const,
     url: "/api/auth/options",

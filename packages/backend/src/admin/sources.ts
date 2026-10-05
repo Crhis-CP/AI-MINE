@@ -1,7 +1,7 @@
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { republishKey } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
@@ -65,7 +65,7 @@ export async function sourceDetail(id: string) {
   const history =
     await sql`SELECT created_at, actor, action, reason, before, after FROM audit_log WHERE subject = ${`source:${id}`} ORDER BY created_at DESC LIMIT 20`;
   const [republish] = await sql<{ value: Record<string, unknown> }[]>`SELECT value FROM settings WHERE key = ${republishKey(id)}`;
-  return { source, runs, items, stats, history, republish: republish?.value ?? null };
+  return { source, permission: await readCurrentSourcePolicy(id), runs, items, stats, history, republish: republish?.value ?? null };
 }
 
 /** Fetches a source (saved or draft) and returns what it would collect, without storing anything. */
@@ -107,10 +107,16 @@ const EDITABLE = z
 export async function updateSource(id: string, input: { patch: unknown; version: string; reason?: string }, actor: string) {
   const patch = EDITABLE.parse(input.patch);
   return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${id}))`;
     const [before] = await tx`SELECT * FROM sources WHERE id = ${id} FOR UPDATE`;
     if (!before) return null;
     if (new Date(before.updated_at as Date).toISOString() !== input.version) throw new Conflict("信源已被其他操作修改，请刷新后再改");
     if (patch.config) assertSupportedConfig(before.kind as SourceRow["kind"], patch.config);
+    if (patch.site_fulltext === true) {
+      const current = await readCurrentSourcePolicy(id, tx);
+      if (current?.permissions.public_original_fulltext !== "allow" || current?.permissions.public_translation !== "allow")
+        throw new Conflict("当前全文用途仍被禁止、未知或尚无许可记录；重新勾选旧开关不能恢复，须正式编辑权限并填写依据");
+    }
     const keys = Object.keys(patch) as Array<keyof typeof patch>;
     if (!keys.length) return before;
     if (keys.some((key) => patch[key] === undefined)) throw new Error("Undefined source values are not allowed");
@@ -130,7 +136,30 @@ export async function updateSource(id: string, input: { patch: unknown; version:
       health = CASE WHEN ${patch.enabled ?? null}::boolean IS FALSE THEN 'paused' WHEN ${patch.enabled ?? null}::boolean IS TRUE AND health = 'paused' THEN 'unknown' ELSE health END,
       next_fetch_at = CASE WHEN ${patch.enabled ?? null}::boolean IS TRUE THEN now() ELSE next_fetch_at END
       WHERE id = ${id} RETURNING *`;
-    await audit(actor, "source.update", `source:${id}`, input.reason ?? null, Object.fromEntries(keys.map((k) => [k, before[k]])), patch);
+    if (patch.site_fulltext === false) {
+      const current = await readCurrentSourcePolicy(id, tx);
+      if (current && (current.permissions.public_original_fulltext !== "deny" || current.permissions.public_translation !== "deny"))
+        await appendSourcePolicy(tx, current.permission_version, {
+          ...current,
+          permission_version: current.permission_version + 1,
+          reviewed_by: actor,
+          reviewed_at: new Date().toISOString(),
+          permissions: { ...current.permissions, public_original_fulltext: "deny", public_translation: "deny" },
+          evidence: [
+            ...current.evidence,
+            {
+              kind: "owner_instruction",
+              url: null,
+              checked_at: new Date().toISOString(),
+              valid_until: null,
+              basis_zh: input.reason?.trim() || "负责人关闭站内全文展示",
+              capabilities: ["public_original_fulltext", "public_translation"],
+              scope: current.scope,
+            },
+          ],
+        });
+    }
+    await audit(actor, "source.update", `source:${id}`, input.reason ?? null, Object.fromEntries(keys.map((k) => [k, before[k]])), patch, undefined, tx);
     // What public exits show for this source's articles is derived from these fields: re-derive them
     // all (in the worker) so a revoked licence or an isolated source stops on every exit.
     if (keys.some((k) => PUBLICATION_FIELDS.includes(k) && JSON.stringify(before[k]) !== JSON.stringify(patch[k]))) {
@@ -145,22 +174,6 @@ export async function updateSource(id: string, input: { patch: unknown; version:
 /** Source fields the public projection reads (publication/rules.ts and the v1 payload). */
 const PUBLICATION_FIELDS: string[] = ["participation_mode", "site_fulltext", "syndicate_fulltext", "tier", "name", "first_party"];
 
-const CreateSchema = z
-  .object({
-    id: z.string().regex(/^[a-z0-9][a-z0-9-]{2,79}$/),
-    name: z.string().min(1).max(200),
-    kind: z.enum(["rss", "web_list", "json_list", "mp_account", "external"]),
-    config: z.record(z.string(), z.unknown()),
-    tier: z.enum(["T1", "T1_5", "T2", "EXCLUDE_MP"]).default("T2"),
-    participation_mode: z.enum(["editorial", "hot_signal", "isolated"]).default("editorial"),
-    interval_minutes: z.number().int().min(1).max(1440).default(30),
-    first_party: z.boolean().default(false),
-    tags: z.array(z.string()).default([]),
-    site_fulltext: z.boolean().default(false),
-    syndicate_fulltext: z.boolean().default(false),
-  })
-  .strict();
-
 /** The address a source collects from, used to find duplicates before creating one. */
 export function sourceIdentity(config: Record<string, unknown>): string | null {
   const raw = (config.feedUrl ?? config.url ?? config.listUrl ?? config.endpoint ?? null) as string | null;
@@ -172,28 +185,61 @@ export function sourceIdentity(config: Record<string, unknown>): string | null {
   }
 }
 
-export async function findDuplicateSource(kind: string, config: Record<string, unknown>) {
+export async function findDuplicateSource(kind: string, config: Record<string, unknown>, db: Db = sql) {
   const identity = sourceIdentity(config);
   if (!identity) return null;
-  const rows = await sql<
+  const rows = await db<
     { id: string; kind: string; config: Record<string, unknown>; name: string }[]
   >`SELECT id, kind, config, name FROM sources WHERE kind = ${kind}`;
   return rows.find((r) => sourceIdentity(r.config) === identity) ?? null;
 }
 
 export async function createSource(input: unknown, actor: string) {
-  const s = CreateSchema.parse(input);
+  const s = SourceCreateRequest.parse(input);
   assertSupportedConfig(s.kind, s.config);
-  const dup = await findDuplicateSource(s.kind, s.config);
-  if (dup) return { created: false as const, duplicate: dup };
-  const [row] = await sql`
-    INSERT INTO sources (id, name, kind, config, tier, participation_mode, interval_minutes, first_party, tags, site_fulltext, syndicate_fulltext, next_fetch_at)
-    VALUES (${s.id}, ${s.name}, ${s.kind}, ${sql.json(s.config as never)}, ${s.tier}, ${s.participation_mode}, ${s.interval_minutes}, ${s.first_party}, ${s.tags},
-            ${s.site_fulltext}, ${s.syndicate_fulltext}, now())
-    ON CONFLICT (id) DO NOTHING RETURNING *`;
-  if (!row) throw new Conflict(`信源 ID ${s.id} 已存在`);
-  await audit(actor, "source.create", `source:${s.id}`, null, null, s);
-  return { created: true as const, source: row };
+  return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(23622, hashtext(${s.kind + ":" + (sourceIdentity(s.config) ?? s.id)}))`;
+    const dup = await findDuplicateSource(s.kind, s.config, tx);
+    if (dup) return { created: false as const, duplicate: dup };
+    await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${s.id}))`;
+    const [row] = await tx`
+      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at)
+      VALUES (${s.id},${s.name},${s.kind},${tx.json(s.config as never)},${s.tier},${s.participation_mode},${s.interval_minutes},${s.first_party},${s.tags},
+        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL) ON CONFLICT (id) DO NOTHING RETURNING *`;
+    if (!row) throw new Conflict(`信源 ID ${s.id} 已存在`);
+    const at = new Date().toISOString();
+    const permission = SourcePolicySchema.parse({
+      source_id: s.id,
+      permission_version: 1,
+      permissions: Object.fromEntries(
+        SOURCE_PURPOSES.map((purpose) => [
+          purpose,
+          !s.site_fulltext && (purpose === "public_original_fulltext" || purpose === "public_translation") ? "deny" : "allow",
+        ]),
+      ),
+      evidence: [
+        {
+          kind: "owner_declared",
+          url: null,
+          checked_at: at,
+          valid_until: null,
+          basis_zh: "Owner 2026-10-01书面答复",
+          capabilities: [...SOURCE_PURPOSES],
+          scope: s.permission_scope,
+        },
+      ],
+      scope: s.permission_scope,
+      conditions: [],
+      attachments_in_scope: s.attachments_in_scope,
+      reviewed_by: actor,
+      reviewed_at: at,
+      expires_at: null,
+      licence_label_zh: "负责人声明许可；来源异议或指示可逐项收紧",
+    });
+    await appendSourcePolicy(tx, null, permission);
+    await audit(actor, "source.create", `source:${s.id}`, null, null, s, undefined, tx);
+    return { created: true as const, source: row };
+  });
 }
 
 export async function fetchNow(id: string, actor: string) {
@@ -207,8 +253,10 @@ export async function fetchNow(id: string, actor: string) {
   return { jobId };
 }
 
-import { appendSourcePolicy } from "../sources/permission-store.ts";
-export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies } from "../sources/permission-store.ts";
+import { appendSourcePolicy, readCurrentSourcePolicy } from "../sources/permission-store.ts";
+import { SOURCE_PURPOSES, SourcePolicySchema } from "@amp/contracts/source-policy";
+import { SourceCreateRequest } from "@amp/contracts/http/private";
+export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "../sources/permission-store.ts";
 
 /** Explicit permission edit; no HTTP caller is activated by this storage capability. */
 export async function saveSourcePolicy(id: string, input: { policy: Record<string, unknown>; expectedVersion: number | null; reason: string }, actor: string) {

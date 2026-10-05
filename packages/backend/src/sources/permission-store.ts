@@ -1,5 +1,12 @@
 import { z } from "zod";
-import { SourcePolicySchema, PermissionDecisionSchema, PermissionScopeSchema, type SourcePolicy } from "@amp/contracts/source-policy";
+import {
+  SourcePolicySchema,
+  PermissionDecisionSchema,
+  PermissionScopeSchema,
+  EvaluateSourcePolicyInputSchema,
+  type SourcePolicyEvaluationSchema,
+  type SourcePolicy,
+} from "@amp/contracts/source-policy";
 import { dbOf, type Db, type Tx } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
@@ -99,4 +106,50 @@ export async function lockCurrentSourcePolicies(tx: Tx, expected: readonly { sou
     result.push(policy);
   }
   return result;
+}
+
+/** Real current-state query. Unproved conditions are never converted into an allow decision. */
+export async function evaluateSourcePolicy(value: unknown, now?: number, db: Db = sql): Promise<z.infer<typeof SourcePolicyEvaluationSchema>> {
+  const input = EvaluateSourcePolicyInputSchema.parse(value);
+  const absent = { source_id: input.source_id, lane: input.lane, capability: input.capability, permission_version: null, scope: null, expires_at: null };
+  try {
+    const publicPurpose = publicPurposes.find((purpose) => purpose === input.capability);
+    const full = publicPurpose ? null : await readCurrentSourcePolicy(input.source_id, db);
+    const published = publicPurpose ? await readCurrentPublicPolicy(input.source_id, db) : null;
+    const policy = full ?? published;
+    if (!policy) return { ...absent, decision: "unknown", reason: "missing_policy" };
+    const context = { ...absent, permission_version: policy.permission_version, scope: policy.scope, expires_at: policy.expires_at };
+    const checkedAt = now === undefined ? Date.now() : now;
+    if (!Number.isFinite(checkedAt)) return { ...context, decision: "unknown", reason: "verification_unavailable" };
+    if (policy.permission_version !== input.expected_permission_version) return { ...context, decision: "deny", reason: "version_changed" };
+    const decision = full?.permissions[input.capability] ?? (published && publicPurpose ? published.permissions[publicPurpose] : "unknown");
+    if (decision !== "allow") return { ...context, decision, reason: decision === "deny" ? "purpose_denied" : "permission_unknown" };
+    if (policy.expires_at !== null && Date.parse(policy.expires_at) <= checkedAt) return { ...context, decision: "unknown", reason: "permission_expired" };
+    const url = new URL(input.resource.url);
+    const matches = (scope: SourcePolicy["scope"]) =>
+      scope.hosts.includes(url.hostname) &&
+      scope.path_prefixes.some((prefix) => url.pathname.startsWith(prefix)) &&
+      (!scope.document_types.length || (input.resource.document_type !== null && scope.document_types.includes(input.resource.document_type)));
+    if (!matches(policy.scope) || (input.resource.attachment && !policy.attachments_in_scope))
+      return { ...context, decision: "deny", reason: "resource_mismatch" };
+    if (policy.conditions.length || policy.scope.excluded_content.length) return { ...context, decision: "unknown", reason: "permission_unknown" };
+    const evidence = full
+      ? full.evidence.filter(
+          (e) => e.capabilities.includes(input.capability) && !["source_objection", "owner_instruction", "legal_requirement"].includes(e.kind),
+        )
+      : published && publicPurpose
+        ? published.grants[publicPurpose].map((grant) => ({ scope: grant.scope, valid_until: grant.expires_at }))
+        : [];
+    const supporting = evidence.filter((e) => matches(e.scope));
+    if (!supporting.length) return { ...context, decision: "deny", reason: "resource_mismatch" };
+    const live = supporting.filter((e) => e.valid_until === null || Date.parse(e.valid_until) > checkedAt);
+    if (!live.length) return { ...context, decision: "unknown", reason: "permission_expired" };
+    const proven = live.filter((e) => !e.scope.excluded_content.length);
+    if (!proven.length) return { ...context, decision: "unknown", reason: "permission_unknown" };
+    const latest = Math.max(...proven.map((e) => (e.valid_until === null ? Infinity : Date.parse(e.valid_until))));
+    const until = Math.min(latest, policy.expires_at === null ? Infinity : Date.parse(policy.expires_at));
+    return { ...context, decision: "allow", expires_at: Number.isFinite(until) ? new Date(until).toISOString() : null };
+  } catch {
+    return { ...absent, decision: "unknown", reason: "verification_unavailable" };
+  }
 }

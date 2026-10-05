@@ -1,3 +1,4 @@
+import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
 import { SITE } from "@amp/industry/site";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -32,6 +33,8 @@ const TEMPLATES: Record<string, Record<string, unknown>> = {
   external: {},
 };
 
+type ScopeEntry = { id: string; value: string };
+
 interface Preview {
   ms: number;
   count: number;
@@ -54,6 +57,13 @@ export default function NewSource() {
     tags: "",
   });
   const [config, setConfig] = useState(JSON.stringify(TEMPLATES.rss, null, 2));
+  const [scope, setScope] = useState<{ hosts: ScopeEntry[]; path_prefixes: ScopeEntry[]; document_types: ScopeEntry[]; excluded_content: ScopeEntry[] }>({
+    hosts: [{ id: "initial-host", value: "" }],
+    path_prefixes: [{ id: "initial-path", value: "/" }],
+    document_types: [],
+    excluded_content: [],
+  });
+  const [attachments, setAttachments] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
@@ -74,10 +84,10 @@ export default function NewSource() {
         <Card title="信源定义">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="ID" hint="小写字母、数字和连字符，创建后不可改">
-              <Input value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value.toLowerCase() })} placeholder="openai-blog" />
+              <Input value={form.id} onChange={(e) => setForm({ ...form, id: e.target.value.toLowerCase() })} placeholder="mining-source" />
             </Field>
             <Field label="名称">
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="OpenAI 博客" />
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="矿业资讯来源" />
             </Field>
             <Field label="类型">
               <Select
@@ -149,11 +159,60 @@ export default function NewSource() {
             <Field label="采集配置（JSON）">
               <Textarea className="font-mono !text-[12px]" rows={10} value={config} onChange={(e) => setConfig(e.target.value)} spellCheck={false} />
             </Field>
-            {error && <div className="mt-1 text-[12.5px] text-hot">{error}</div>}
           </div>
+          <fieldset className="mt-5 space-y-4 rounded-card border border-line-soft p-4">
+            <legend className="px-1 text-[13px] font-medium text-ink">来源许可范围</legend>
+            <p className="text-[12px] leading-relaxed text-ink-3">
+              填写实际获准处理的范围。采集地址可能只是RSS托管地址，不会自动作为正文许可域名。加入后记录负责人声明，仍保持暂停。
+            </p>
+            <ScopeEntries
+              label="域名"
+              hint="例如 mining.example.org，只填域名，不含协议、端口或路径。"
+              values={scope.hosts}
+              onChange={(hosts) => setScope({ ...scope, hosts })}
+              required
+              placeholder="mining.example.org"
+            />
+            <ScopeEntries
+              label="路径前缀"
+              hint="以 / 开头；/ 表示整个域名，/news/ 表示该目录及其下属路径。"
+              values={scope.path_prefixes}
+              onChange={(path_prefixes) => setScope({ ...scope, path_prefixes })}
+              required
+              placeholder="/news/"
+            />
+            <details className="text-[13px] text-ink-2">
+              <summary className="cursor-pointer font-medium">文类与排除内容（可选）</summary>
+              <div className="mt-3 space-y-4">
+                <ScopeEntries
+                  label="文类"
+                  hint="不添加表示不限文类；如有限定，请逐项填写实际文类名称。"
+                  values={scope.document_types}
+                  onChange={(document_types) => setScope({ ...scope, document_types })}
+                  multiline
+                />
+                <ScopeEntries
+                  label="排除内容"
+                  hint="没有排除项可留空。无法确认内容符合这些条件时，不会自动处理。"
+                  values={scope.excluded_content}
+                  onChange={(excluded_content) => setScope({ ...scope, excluded_content })}
+                  multiline
+                />
+              </div>
+            </details>
+            <label className="inline-flex items-center gap-2 text-[13px] text-ink-2">
+              <input type="checkbox" checked={attachments} onChange={(e) => setAttachments(e.target.checked)} />
+              附件纳入此许可范围
+            </label>
+          </fieldset>
+          {error && (
+            <p role="alert" className="mt-3 text-[12.5px] text-hot">
+              {error}
+            </p>
+          )}
           {duplicate && (
             <div className="mt-4 rounded-card bg-amber/10 px-4 py-3 text-[13px] text-ink-2 ring-1 ring-amber/25">
-              这个地址已经在监控：
+              这个地址的信源已存在：
               <Link className="font-medium text-accent" to={`/admin/sources/${encodeURIComponent(duplicate.id)}`}>
                 {duplicate.name}
               </Link>
@@ -184,22 +243,42 @@ export default function NewSource() {
               onClick={async () => {
                 const c = parsed();
                 if (!c) return;
-                const r = await run<{ created: boolean; duplicate?: { id: string; name: string }; source?: { id: string } }>(
-                  "POST",
-                  "/api/admin/sources",
-                  {
-                    ...form,
-                    tags: form.tags
-                      .split(/[,，]/)
-                      .map((t) => t.trim())
-                      .filter(Boolean),
-                    config: c,
+                const input = privateSchemas.SourceCreateRequest.safeParse({
+                  ...form,
+                  config: c,
+                  tags: form.tags
+                    .split(/[,，]/)
+                    .map((t) => t.trim())
+                    .filter(Boolean),
+                  permission_scope: {
+                    hosts: scope.hosts.map(({ value }) => value.trim()).filter(Boolean),
+                    path_prefixes: scope.path_prefixes.map(({ value }) => value.trim()).filter(Boolean),
+                    document_types: scope.document_types.map(({ value }) => value).filter((value) => value.trim()),
+                    excluded_content: scope.excluded_content.map(({ value }) => value).filter((value) => value.trim()),
                   },
-                  { label: "create", revalidate: false },
-                );
+                  attachments_in_scope: attachments,
+                });
+                if (!input.success) {
+                  const field = input.error.issues[0]?.path;
+                  setError(
+                    field?.[1] === "hosts"
+                      ? "请填写规范且不重复的域名，不含协议、端口或路径。"
+                      : field?.[1] === "path_prefixes"
+                        ? "请填写以 / 开头且不重复的规范路径，不含查询参数或 #。"
+                        : "请检查信源字段及许可范围；文类和排除项不能重复。",
+                  );
+                  return;
+                }
+                const client = createPrivateClient({ baseUrl: window.location.origin });
+                const r = await run("POST", "/api/admin/sources", input.data, {
+                  label: "create",
+                  revalidate: false,
+                  send: (_url, init) => client.POST("/api/admin/sources", { body: input.data, headers: init.headers, signal: init.signal }),
+                  parse: privateSchemas.SourceCreateResponse.parse,
+                });
                 if (!r) return;
                 if (!r.created && r.duplicate) setDuplicate(r.duplicate);
-                else if (r.source) navigate(`/admin/sources/${encodeURIComponent(r.source.id)}`);
+                else if (r.created) navigate(`/admin/sources/${encodeURIComponent(r.source.id)}`);
               }}
             >
               创建
@@ -227,5 +306,59 @@ export default function NewSource() {
         </Card>
       </div>
     </AdminPage>
+  );
+}
+
+function ScopeEntries({
+  label,
+  hint,
+  values,
+  onChange,
+  required = false,
+  multiline = false,
+  placeholder,
+}: {
+  label: string;
+  hint: string;
+  values: ScopeEntry[];
+  onChange: (values: ScopeEntry[]) => void;
+  required?: boolean;
+  multiline?: boolean;
+  placeholder?: string;
+}) {
+  return (
+    <Field label={label} hint={hint}>
+      <div className="space-y-2">
+        {values.map((entry, index) => (
+          <div key={entry.id} className="flex min-w-0 items-start gap-2">
+            <div className="min-w-0 flex-1">
+              {multiline ? (
+                <Textarea
+                  aria-label={`${label} ${index + 1}`}
+                  rows={2}
+                  value={entry.value}
+                  onChange={(e) => onChange(values.map((item, i) => (i === index ? { ...item, value: e.target.value } : item)))}
+                />
+              ) : (
+                <Input
+                  aria-label={`${label} ${index + 1}`}
+                  value={entry.value}
+                  placeholder={placeholder}
+                  onChange={(e) => onChange(values.map((item, i) => (i === index ? { ...item, value: e.target.value } : item)))}
+                />
+              )}
+            </div>
+            <Button
+              aria-label={`移除${label} ${index + 1}`}
+              disabled={required && values.length === 1}
+              onClick={() => onChange(values.filter((_item, i) => i !== index))}
+            >
+              移除
+            </Button>
+          </div>
+        ))}
+        <Button onClick={() => onChange([...values, { id: crypto.randomUUID(), value: "" }])}>添加{label}</Button>
+      </div>
+    </Field>
   );
 }

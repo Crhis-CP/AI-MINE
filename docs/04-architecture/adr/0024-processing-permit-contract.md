@@ -28,3 +28,6 @@ SourcePolicyPort.evaluate是typed allow/deny/unknown结果，失败原因区分�
 纯样例覆盖九键缺失/额外键、未知/拒绝不连带关闭其他用途、证据/附件/期限独立、lane/material/revision/hash/获取配置必填、无隐式allow、格式正确的零签名仍只是未受信任数据。没有数据库或真实模型调用；纯契约通过不代表许可已强制或可执行模型。真实并发收紧、缓存/聚合/评测、根撤销与发送前后校验在后续真实签发测试中验证。
 
 推翻条件：若需要新的用途、信任根或跨进程签发，另立契约/ADR并遵守既定授权边界；不能通过增加默认allow或把许可从缓存键读出来取消硬门。
+
+
+私有HTTP接线采用0.3.0建设期breaking版本：新建必需明确的permission_scope/attachments_in_scope，不从feed托管域推断正文域；创建本身是既有负责人加入确认，不新增审批。现有POST返回created/source或duplicate保持，GET详情增加严格SourcePolicy/null；两个页面和生成客户端同片更新。未登录/CSRF仍先于body验证；未知存储列不隐式进入HTTP，公共契约不变。
