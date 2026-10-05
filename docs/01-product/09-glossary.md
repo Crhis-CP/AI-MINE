@@ -136,8 +136,8 @@
 | `capital_ma` | 投资并购 | 资本交易 | 投资、合资、收购、出售、交割等权益或控制权交易 |
 | `supply_trade_controls` | 供应链、贸易与制裁 | 供应链贸易制裁 | 出口限制、关税、配额、禁运、制裁、供应链准入与中断 |
 | `esg_community_labor` | ESG、社区与劳工 | ESG社区劳工 | 环境、社区权利、原住民咨询、劳工关系、罢工、利益相关方冲突 |
-| `safety_incident` | 人身与生产安全 | 安全事故 | 伤亡事故、救援、重大设备失效、停产与事故调查 |
-| `technology_processing` | 技术与加工 | 技术加工 | 采矿、选冶、回收、尾矿处理技术的研发、验证与商业部署 |
+| `safety_incident` | 矿山安全 | 矿山安全 | 伤亡事故、救援、重大设备失效、停产与事故调查 |
+| `technology_processing` | 技术与冶炼 | 技术冶炼 | 采矿、选冶、回收、尾矿处理技术的研发、验证与商业部署 |
 | `exploration_resource` | 勘探与资源 | 勘探资源 | 勘查、钻探、资源量、储量与技术报告披露 |
 
 完整定义、纳入/排除示例与常见分界的**历史参考**见 `data/legacy-editorial/taxonomy.v1.json` 与 `annotation-manual.md`（旧项目离线规则包，**不导入新系统**；九类的现行定义以本表与 `01-product/06-content-standards.md` 为准，需用新站自己的真实样本校准）。
