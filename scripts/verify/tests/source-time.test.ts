@@ -3,7 +3,14 @@ import { test } from "node:test";
 import { sourceDateVerdict } from "../../../packages/backend/src/content/source-time.ts";
 import { type SourceDateEvidence, type SourceTimeParts, TimeAssertion, normalizeSourceTime } from "@amp/contracts/time-assertion";
 import type { SourceDateParseInput } from "@amp/contracts/time-assertion";
-import { SourceDateObservationInput, MaterialSourceDateInput, MaterialUpdateResult, SourceDateTask } from "@amp/contracts/time-assertion";
+import {
+  SourceDateObservationInput,
+  MaterialSourceDateInput,
+  MaterialUpdateResult,
+  SourceDateTask,
+  SourceDateCandidate,
+  SourceTimeProjection,
+} from "@amp/contracts/time-assertion";
 import { parseSourceDate } from "../../../packages/backend/src/sources/date-extraction.ts";
 
 const binding = { articleId: "article-fixture", sourceId: "source-fixture", revision: 1, configHash: "a".repeat(64) };
@@ -385,4 +392,36 @@ test("news date task carries exact material/config/permission/evidence precondit
   }
   for (const change of [{ lane: "policy" }, { expectedRevision: 0 }, { expectedSourceDateVersion: -1 }, { permissionVersion: 0 }])
     assert(!SourceDateTask.safeParse({ ...job, ...change }).success);
+});
+
+test("alternative candidates retain source evidence without accepting an identity or reliability verdict", () => {
+  const { binding: current, ...intake } = request("2026-10-04");
+  const {
+    binding: _binding,
+    observationId: _id,
+    observedAt: _at,
+    url: _url,
+    ...alternative
+  } = request("2026-10-04T09:00Z", {
+    locator: "meta[property=article:published_time]",
+    excerpt: "2026-10-04T09:00Z",
+    meaning: "published",
+  });
+  const wire = { ...intake, sourceId: current.sourceId, configHash: current.configHash, alternatives: [alternative] };
+  assert.equal(SourceDateCandidate.parse(alternative).raw, alternative.raw);
+  assert.deepEqual(SourceDateObservationInput.parse(wire).alternatives, [alternative]);
+  for (const forbidden of ["binding", "sourceId", "configHash", "url", "observedAt", "interpretation", "time", "reliable"])
+    assert.equal(SourceDateObservationInput.safeParse({ ...wire, alternatives: [{ ...alternative, [forbidden]: "caller-value" }] }).success, false);
+  assert.equal(SourceDateObservationInput.safeParse({ ...wire, alternatives: [] }).success, false);
+  assert.equal(SourceDateObservationInput.parse({ ...wire, alternatives: undefined }).alternatives, undefined);
+  assert.equal(SourceDateObservationInput.parse({ ...wire, alternatives: [{ ...alternative, meaning: "updated" }] }).alternatives![0].meaning, "updated");
+});
+
+test("public sourceTime is nullable and keeps date precision without exposing private acquisition fields", () => {
+  const time = normalizeSourceTime(parts(), noZone);
+  assert.equal(SourceTimeProjection.parse({ sourceTime: null }).sourceTime, null);
+  assert.deepEqual(SourceTimeProjection.parse({ sourceTime: time }).sourceTime, time);
+  assert.equal(SourceTimeProjection.safeParse({ sourceTime: { ...time, utc: "2026-10-04T00:00:00Z" } }).success, false);
+  assert.equal(SourceTimeProjection.safeParse({ sourceTime: time, alternatives: [] }).success, false);
+  assert.equal(SourceTimeProjection.safeParse({}).success, false);
 });
