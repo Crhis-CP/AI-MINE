@@ -4,6 +4,16 @@ import { test, type TestContext } from "node:test";
 import type { z } from "zod";
 import type { IssueProcessingPermitInputSchema, SignedProcessingPermit } from "@amp/contracts/source-policy";
 import { initializeDb, closeDb, dbOf } from "@amp/backend/db";
+import path from "node:path";
+import { provisionRoles } from "../scripts/db-roles.ts";
+import { quote } from "../scripts/db-roles/grants.ts";
+import { roleFixture, denied } from "./role-db-fixture.ts";
+import {
+  appendSourcePolicy,
+  readCurrentSourcePolicy,
+  readCurrentPublicPolicy,
+  lockCurrentSourcePolicies,
+} from "../packages/backend/src/sources/permission-store.ts";
 import { queueConnection } from "../packages/backend/src/db-bootstrap.ts";
 import { createPermitIssuer } from "../packages/backend/src/sources/permissions.ts";
 import { createPermitVerifier, permitMessage, type PermitPorts } from "../packages/backend/src/providers/permissions.ts";
@@ -232,4 +242,199 @@ test("abort listeners observe revoked capabilities and share the already registe
     { sharedClosing: nested === closing, reentryRejected, queueReadable, databaseReadable },
     { sharedClosing: true, reentryRejected: true, queueReadable: false, databaseReadable: false },
   );
+});
+
+test("real permission storage is immutable, CAS/audit atomic, fenced and recoverable with the backup login", async (t) => {
+  await import("./setup.ts"); // Fix the parent's credential directory before importing private administration.
+  await closeDb();
+  const f = await roleFixture(t);
+  const migration = "sources/202610040001_source_permissions.sql";
+  const previous = await f.admin`SELECT name,sha256,applied_at FROM schema_migrations WHERE name<>${migration} ORDER BY name`;
+  assert.equal((await f.admin`SELECT count(*) AS n FROM sources.source_policy_current`)[0].n, 0, "fresh migration starts empty");
+  // Recreate the exact pre-permission state in this fixture's own fresh database, then upgrade it.
+  await f.admin.unsafe("DROP TABLE sources.source_policy_current; DROP TABLE sources.source_policy_versions; DROP SCHEMA sources");
+  await f.admin`DELETE FROM schema_migrations WHERE name=${migration}`;
+  await f.admin`INSERT INTO public.sources(id,name,kind,enabled,site_fulltext) VALUES
+    ('source_fixture','permission fixture','external',false,true),('unrecorded_fixture','unrecorded fixture','external',false,false)`;
+  await f.run(process.execPath, ["scripts/migrate.ts"], { DATABASE_URL: f.urlFor() });
+  assert.deepEqual(await f.admin`SELECT name,sha256,applied_at FROM schema_migrations WHERE name<>${migration} ORDER BY name`, previous);
+  assert.equal((await f.admin`SELECT site_fulltext FROM sources WHERE id='unrecorded_fixture'`)[0].site_fulltext, false);
+  await provisionRoles(f.admin, { prefix: f.prefix, apply: true });
+  const sessions = await f.login();
+  await initializeDb("private-api", { DATABASE_URL_PRIVATE_OPS: f.urlFor("private_ops"), DATABASE_URL_AUTH: f.urlFor("auth"), DATABASE_POOL_MAX: "4" });
+  const { saveSourcePolicy, updateSource } = await import("@amp/backend/admin/sources");
+  const { stopBoss } = await import("@amp/backend/jobs/queue");
+  const edit = (expectedVersion: number | null, policy = structuredClone(sourcePolicyExample)) =>
+    saveSourcePolicy("source_fixture", { policy, expectedVersion, reason: "synthetic owner instruction" }, "admin:42");
+  try {
+    assert.equal(await readCurrentSourcePolicy("unrecorded_fixture", sessions.worker), null, "migration never manufactures an owner declaration");
+    for (const policy of [{}, { source_id: "source_fixture" }, { permission_version: 1 }, { source_id: null, permission_version: 1 }]) {
+      await assert.rejects(
+        sessions.private_ops`INSERT INTO sources.source_policy_versions(source_id,permission_version,policy,policy_hash)
+        VALUES('source_fixture',1,${sessions.private_ops.json(policy)},${"0".repeat(64)})`,
+        (e: { code?: string }) => e.code === "23514",
+      );
+    }
+    const first = await Promise.allSettled([edit(null), edit(null)]);
+    assert.equal(first.filter((r) => r.status === "fulfilled").length, 1, "only one concurrent first version commits");
+    assert.equal(first.filter((r) => r.status === "rejected" && r.reason.code === "conflict").length, 1);
+    for (const projection of [{}, { source_id: "source_fixture" }, { source_id: null, permission_version: 1 }]) {
+      await assert.rejects(
+        sessions.private_ops`UPDATE sources.source_policy_current SET public_policy=${sessions.private_ops.json(projection)}
+        WHERE source_id='source_fixture'`,
+        (e: { code?: string }) => e.code === "23514",
+      );
+    }
+    assert.equal((await sessions.worker`SELECT count(*) AS n FROM sources.source_policy_versions`)[0].n, 1);
+    assert.equal((await sessions.private_ops`SELECT count(*) AS n FROM audit_log WHERE action='source.permission'`)[0].n, 1);
+    const policy = await readCurrentSourcePolicy("source_fixture", sessions.worker);
+    assert.equal(policy?.reviewed_by, "admin:42");
+    assert.equal(policy?.expires_at, null);
+    const publicPolicy = await readCurrentPublicPolicy("source_fixture", sessions.public_read);
+    assert.deepEqual(Object.keys(publicPolicy!.permissions).sort(), ["public_excerpt", "public_original_fulltext", "public_summary", "public_translation"]);
+    assert.ok(!("evidence" in publicPolicy!) && !("reviewed_by" in publicPolicy!) && !("external_model" in publicPolicy!.permissions));
+    await denied(sessions.public_read, "SELECT policy FROM sources.source_policy_versions");
+    for (const login of [sessions.worker, sessions.private_ops]) {
+      await denied(login, "UPDATE sources.source_policy_versions SET policy='{}'");
+      await denied(login, "DELETE FROM sources.source_policy_versions");
+    }
+    const narrow = structuredClone(sourcePolicyExample);
+    narrow.permissions.public_translation = "deny";
+    await edit(1, narrow);
+    assert.equal((await readCurrentPublicPolicy("source_fixture", sessions.public_read))?.permissions.public_translation, "deny");
+    await assert.rejects(edit(1), { code: "conflict" });
+    const beforeAuditFailure = await readCurrentSourcePolicy("source_fixture", sessions.worker);
+    await f.admin.unsafe(`REVOKE INSERT ON public.audit_log FROM ${quote(f.roles.private_ops)}`);
+    try {
+      await assert.rejects(edit(2), (e: { code?: string }) => e.code === "42501");
+    } finally {
+      await f.admin.unsafe(`GRANT INSERT ON public.audit_log TO ${quote(f.roles.private_ops)}`);
+    }
+    assert.deepEqual(await readCurrentSourcePolicy("source_fixture", sessions.worker), beforeAuditFailure);
+    assert.equal((await sessions.worker`SELECT count(*) AS n FROM sources.source_policy_versions`)[0].n, 2, "failed audit rolls back history and pointer");
+
+    const waiting = async (role: string) => {
+      for (let tries = 0; tries < 100; tries++) {
+        const [row] = await f.admin`SELECT EXISTS(SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid
+          WHERE l.locktype='advisory' AND NOT l.granted AND a.usename=${role}) AS blocked`;
+        if (row.blocked) return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      assert.fail("expected a real advisory lock wait");
+    };
+    const held = Promise.withResolvers<void>(),
+      resume = Promise.withResolvers<void>();
+    const reader = sessions.worker.begin(async (tx) => {
+      await lockCurrentSourcePolicies(tx, [{ sourceId: "source_fixture", permissionVersion: 2 }]);
+      held.resolve();
+      await resume.promise;
+      await tx`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at)
+        VALUES('permitted_result','source_fixture','permitted_result','https://source.invalid/mining/result','synthetic result',now(),now())`;
+    });
+    await held.promise;
+    const editor = edit(2, narrow);
+    try {
+      await waiting(f.roles.private_ops);
+      assert.equal((await readCurrentPublicPolicy("source_fixture", sessions.public_read))?.permission_version, 2);
+    } finally {
+      resume.resolve();
+    }
+    await reader;
+    await editor;
+    assert.equal((await sessions.worker`SELECT count(*) AS n FROM articles WHERE id='permitted_result'`)[0].n, 1);
+
+    const changed = Promise.withResolvers<void>(),
+      commit = Promise.withResolvers<void>();
+    const writer = sessions.private_ops.begin(async (tx) => {
+      await appendSourcePolicy(tx, 3, { ...narrow, permission_version: 4 });
+      changed.resolve();
+      await commit.promise;
+    });
+    await changed.promise;
+    const stale = sessions.worker.begin(async (tx) => {
+      await lockCurrentSourcePolicies(tx, [{ sourceId: "source_fixture", permissionVersion: 3 }]);
+      await tx`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at)
+        VALUES('stale_result','source_fixture','stale_result','https://source.invalid/mining/stale','must not commit',now(),now())`;
+    });
+    const rejected = assert.rejects(stale, { code: "conflict" });
+    try {
+      await waiting(f.roles.worker);
+    } finally {
+      commit.resolve();
+    }
+    await writer;
+    await rejected;
+    assert.equal((await sessions.worker`SELECT count(*) AS n FROM articles WHERE id='stale_result'`)[0].n, 0);
+
+    const oldSnapshot = sessions.worker.begin("isolation level repeatable read", async (tx) => {
+      const current = await readCurrentSourcePolicy("source_fixture", tx);
+      await edit(4, narrow);
+      return lockCurrentSourcePolicies(tx, [{ sourceId: "source_fixture", permissionVersion: current!.permission_version }]);
+    });
+    await assert.rejects(oldSnapshot, /read committed/);
+
+    await f.run(
+      process.execPath,
+      [
+        "--input-type=module",
+        "-e",
+        `
+      import { initializeDb, closeDb } from '@amp/backend/db';
+      import { ensureQueue, QUEUES, stopBoss } from '@amp/backend/jobs/queue';
+      try { await initializeDb('worker'); await ensureQueue(QUEUES.republishSource); }
+      finally { await stopBoss(); await closeDb(); }
+    `,
+      ],
+      { DATABASE_URL_WORKER: f.urlFor("worker"), DATABASE_URL_BACKUP: f.urlFor("backup") },
+    );
+    const beforeEdit = (await sessions.private_ops`SELECT * FROM sources WHERE id='source_fixture'`)[0];
+    const patch = {
+      name: "changed fixture",
+      enabled: true,
+      interval_minutes: 17,
+      tier: "T1",
+      participation_mode: "hot_signal",
+      first_party: true,
+      owner_entity_id: "fixture_owner",
+      site_fulltext: false,
+      syndicate_fulltext: false,
+      tags: ["synthetic"],
+      config: {},
+    };
+    const afterEdit = await updateSource("source_fixture", { patch, version: beforeEdit.updated_at.toISOString(), reason: "same behavior" }, "admin:42");
+    for (const [key, value] of Object.entries(patch)) assert.deepEqual(afterEdit![key], value);
+    assert.ok(afterEdit!.next_fetch_at instanceof Date);
+    const clear = await updateSource(
+      "source_fixture",
+      { patch: { owner_entity_id: null, tags: [] }, version: afterEdit!.updated_at.toISOString() },
+      "admin:42",
+    );
+    assert.equal(clear!.owner_entity_id, null);
+    assert.deepEqual(clear!.tags, []);
+    assert.equal(clear!.name, patch.name, "omitted fields are preserved");
+    assert.deepEqual(await updateSource("source_fixture", { patch: {}, version: clear!.updated_at.toISOString() }, "admin:42"), clear);
+    await assert.rejects(updateSource("source_fixture", { patch: { name: undefined }, version: clear!.updated_at.toISOString() }, "admin:42"), /Undefined/);
+    await assert.rejects(updateSource("source_fixture", { patch: { id: "overwrite" }, version: clear!.updated_at.toISOString() }, "admin:42"));
+    const audits = await sessions.private_ops`SELECT actor,after FROM audit_log WHERE action='source.update' ORDER BY id`;
+    assert.equal(audits.length, 2, "empty/invalid edits do not produce an audit");
+    assert.equal(audits[0].actor, "admin:42");
+    assert.deepEqual(audits[0].after, patch);
+    assert.equal((await sessions.private_ops`SELECT value FROM settings WHERE key='republish.source:source_fixture'`)[0].value.status, "queued");
+    assert.equal((await sessions.worker`SELECT count(*) AS n FROM pgboss.job WHERE data->>'sourceId'='source_fixture'`)[0].n, 1);
+
+    const archive = path.join(f.dir, "permissions.dump"),
+      restored = `${f.prefix}_restore_test`;
+    await f.run("pg_dump", ["--format=custom", "--file", archive, f.urlFor("backup")]);
+    await f.createDatabase(restored);
+    await f.run("pg_restore", ["--no-owner", "--no-acl", "--dbname", f.urlFor(undefined, restored), archive]);
+    const restoredDb = f.open(f.urlFor(undefined, restored));
+    assert.deepEqual(await readCurrentSourcePolicy("source_fixture", restoredDb), await readCurrentSourcePolicy("source_fixture", sessions.worker));
+    assert.deepEqual(
+      await restoredDb`SELECT policy_hash FROM sources.source_policy_versions ORDER BY permission_version`,
+      await sessions.worker`SELECT policy_hash FROM sources.source_policy_versions ORDER BY permission_version`,
+    );
+  } finally {
+    await stopBoss();
+    await closeDb();
+  }
 });

@@ -113,8 +113,20 @@ export async function updateSource(id: string, input: { patch: unknown; version:
     if (patch.config) assertSupportedConfig(before.kind as SourceRow["kind"], patch.config);
     const keys = Object.keys(patch) as Array<keyof typeof patch>;
     if (!keys.length) return before;
-    const values = Object.fromEntries(keys.map((k) => [k, k === "config" ? tx.json(patch.config as never) : patch[k]]));
-    const [after] = await tx`UPDATE sources SET ${tx(values as never, ...(keys as string[]))}, updated_at = now(),
+    if (keys.some((key) => patch[key] === undefined)) throw new Error("Undefined source values are not allowed");
+    const [after] = await tx`UPDATE sources SET
+      name = CASE WHEN ${Object.hasOwn(patch, "name")} THEN ${patch.name ?? null} ELSE name END,
+      enabled = CASE WHEN ${Object.hasOwn(patch, "enabled")} THEN ${patch.enabled ?? null} ELSE enabled END,
+      interval_minutes = CASE WHEN ${Object.hasOwn(patch, "interval_minutes")} THEN ${patch.interval_minutes ?? null} ELSE interval_minutes END,
+      tier = CASE WHEN ${Object.hasOwn(patch, "tier")} THEN ${patch.tier ?? null} ELSE tier END,
+      participation_mode = CASE WHEN ${Object.hasOwn(patch, "participation_mode")} THEN ${patch.participation_mode ?? null} ELSE participation_mode END,
+      first_party = CASE WHEN ${Object.hasOwn(patch, "first_party")} THEN ${patch.first_party ?? null} ELSE first_party END,
+      owner_entity_id = CASE WHEN ${Object.hasOwn(patch, "owner_entity_id")} THEN ${patch.owner_entity_id ?? null} ELSE owner_entity_id END,
+      site_fulltext = CASE WHEN ${Object.hasOwn(patch, "site_fulltext")} THEN ${patch.site_fulltext ?? null} ELSE site_fulltext END,
+      syndicate_fulltext = CASE WHEN ${Object.hasOwn(patch, "syndicate_fulltext")} THEN ${patch.syndicate_fulltext ?? null} ELSE syndicate_fulltext END,
+      tags = CASE WHEN ${Object.hasOwn(patch, "tags")} THEN ${patch.tags ?? null}::text[] ELSE tags END,
+      config = CASE WHEN ${Object.hasOwn(patch, "config")} THEN ${patch.config === undefined ? null : tx.json(patch.config as never)} ELSE config END,
+      updated_at = now(),
       health = CASE WHEN ${patch.enabled ?? null}::boolean IS FALSE THEN 'paused' WHEN ${patch.enabled ?? null}::boolean IS TRUE AND health = 'paused' THEN 'unknown' ELSE health END,
       next_fetch_at = CASE WHEN ${patch.enabled ?? null}::boolean IS TRUE THEN now() ELSE next_fetch_at END
       WHERE id = ${id} RETURNING *`;
@@ -193,4 +205,23 @@ export async function fetchNow(id: string, actor: string) {
       : await enqueue(QUEUES.fetchSource, { sourceId: id, force: true }, { singletonKey: `manual:${id}` });
   await audit(actor, "source.fetch", `source:${id}`, null, null, { jobId });
   return { jobId };
+}
+
+import { appendSourcePolicy } from "../sources/permission-store.ts";
+export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies } from "../sources/permission-store.ts";
+
+/** Explicit permission edit; no HTTP caller is activated by this storage capability. */
+export async function saveSourcePolicy(id: string, input: { policy: Record<string, unknown>; expectedVersion: number | null; reason: string }, actor: string) {
+  if (!actor.trim() || !input.reason.trim()) throw new Error("Permission editor and reason are required");
+  return sql.begin(async (tx) => {
+    const change = await appendSourcePolicy(tx, input.expectedVersion, {
+      ...input.policy,
+      source_id: id,
+      permission_version: (input.expectedVersion ?? 0) + 1,
+      reviewed_by: actor,
+      reviewed_at: new Date().toISOString(),
+    });
+    await audit(actor, "source.permission", `source:${id}`, input.reason, change.before, change.after, undefined, tx);
+    return change.after;
+  });
 }

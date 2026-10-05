@@ -41,7 +41,7 @@ test("every real role has exactly the approved table, column, sequence and cross
   assert.equal(legacy.length, 48);
   assert.deepEqual(
     catalog.tables.filter((row) => !row.name.startsWith("public.")).map((row) => row.name),
-    ["enrichment.translation_segments"],
+    ["enrichment.translation_segments", "sources.source_policy_current", "sources.source_policy_versions"],
   );
   for (const role of DATABASE_ROLES) {
     const sql = sessions[role];
@@ -87,6 +87,25 @@ test("every real role has exactly the approved table, column, sequence and cross
               ? `UPDATE ${table} SET state=state WHERE false RETURNING 1`
               : `DELETE FROM ${table} WHERE false RETURNING 1`;
       await permission(sql, statement, allowed, `${role} ${operation} translation_segments`);
+    }
+    for (const table of ["source_policy_versions", "source_policy_current"]) {
+      const name = `sources.${quote(table)}`;
+      const current = table === "source_policy_current";
+      for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+        const allowed =
+          role === "migrate" ||
+          (operation === "SELECT" && (["backup", "worker", "private_ops"].includes(role) || (current && role === "public_read"))) ||
+          (role === "private_ops" && (operation === "INSERT" || (current && operation === "UPDATE")));
+        const statement =
+          operation === "SELECT"
+            ? `SELECT * FROM ${name} LIMIT 1`
+            : operation === "INSERT"
+              ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false RETURNING 1`
+              : operation === "UPDATE"
+                ? `UPDATE ${name} SET permission_version=permission_version WHERE false RETURNING 1`
+                : `DELETE FROM ${name} WHERE false RETURNING 1`;
+        await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
+      }
     }
     for (const row of catalog.sequences) {
       assert.match(row.name, /^public\./);
