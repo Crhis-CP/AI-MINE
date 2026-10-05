@@ -22,6 +22,15 @@ export class BudgetExceededError extends Error {
 
 export class ReceiptBusyError extends Error {}
 export class ReceiptAttemptSupersededError extends Error {}
+export class ReceiptCooldownError extends Error {
+  readonly receiptId: number;
+  readonly retryAfterSeconds: number;
+  constructor(receiptId: number, retryAfterSeconds: number) {
+    super(`Receipt ${receiptId} translation retry cooling down (${retryAfterSeconds}s)`);
+    this.receiptId = receiptId;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
 export class ReceiptOutputLimitError extends Error {
   readonly receiptId: number;
   readonly rejected: number;
@@ -34,9 +43,11 @@ export class ReceiptOutputLimitError extends Error {
 
 export class ReceiptUnknownError extends Error {
   readonly receiptId: number;
-  constructor(receiptId: number, message: string) {
+  readonly attemptId: string | null;
+  constructor(receiptId: number, message: string, attemptId: string | null = null) {
     super(message);
     this.receiptId = receiptId;
+    this.attemptId = attemptId;
   }
 }
 
@@ -70,7 +81,13 @@ export interface ReceiptRequest {
   /** Distinguishes an explicit re-run (e.g. admin "re-evaluate") from recovery of the same request. */
   attemptTag?: string;
   /** Translation opts in; existing capabilities keep their current retry behavior. */
-  maxRejectedOutputs?: 3;
+  maxRejectedOutputs?: 1 | 3;
+  translationObservations?: TranslationObservation[];
+}
+
+export interface TranslationObservation {
+  receiptId: string;
+  attemptId: string | null;
 }
 
 export interface ReceiptResult {
@@ -81,6 +98,54 @@ export interface ReceiptResult {
 }
 
 const PENDING_STALE_MS = 10 * 60 * 1000;
+const knownTranslationUsage = (usage: Record<string, unknown> | null) =>
+  [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0);
+
+async function translationBlocker(db: Db, stage: string | null, logicalKey: string) {
+  if (!stage) return null;
+  const rows = await db<
+    {
+      id: number;
+      id_text: string;
+      status: string;
+      usage: Record<string, unknown> | null;
+      attempt_id: string | null;
+      known_unbilled: boolean;
+      has_response: boolean;
+      receipt_version: number;
+    }[]
+  >`
+    SELECT r.id,r.id::text AS id_text,CASE WHEN a.id IS NULL AND r.attempts<>o.receipt_version THEN 'unknown' ELSE coalesce(a.status,r.status) END AS status,
+      a.usage,o.attempt_id,o.known_unbilled,r.response IS NOT NULL AS has_response,o.receipt_version
+    FROM ai.translation_receipt_observations o JOIN receipts r ON r.id=o.receipt_id
+      LEFT JOIN receipt_attempts a ON a.id::text=o.attempt_id AND a.receipt_id=r.id AND a.attempt=o.receipt_version
+    WHERE o.scope=${stage} AND r.logical_key<>${logicalKey} ORDER BY r.id`;
+  for (const row of rows) {
+    if (row.known_unbilled) continue;
+    if (row.status === "failed" && row.attempt_id === null && !row.has_response) {
+      await db`UPDATE ai.translation_receipt_observations SET known_unbilled=true
+        WHERE scope=${stage} AND receipt_id=${row.id_text} AND receipt_version=${row.receipt_version} AND attempt_id IS NULL`;
+      continue;
+    }
+    if (row.attempt_id !== null && (row.status === "failed" || (row.status === "received" && knownTranslationUsage(row.usage)))) continue;
+    if (row.attempt_id !== null && row.status === "pending") return { kind: "busy" as const, row };
+    return { kind: "unknown" as const, row };
+  }
+  return null;
+}
+
+async function observeTranslation(db: Db, stage: string | null, receipt: TranslationObservation) {
+  if (!stage) return;
+  const rows = await db<{ version: number }[]>`SELECT coalesce(a.attempt,r.attempts) AS version FROM receipts r
+    LEFT JOIN receipt_attempts a ON a.id::text=${receipt.attemptId} AND a.receipt_id=r.id
+    WHERE r.id=${receipt.receiptId} AND r.purpose='translate_body' AND (${receipt.attemptId === null} OR a.id IS NOT NULL)`;
+  if (!rows.length) throw new Error("Translation observation has no matching actual receipt/attempt");
+  // The counter locates the observation; only the independently verified opaque id proves an attempt.
+  await db`INSERT INTO ai.translation_receipt_observations(scope,receipt_id,receipt_version,attempt_id)
+    VALUES(${stage},${receipt.receiptId},${rows[0]!.version},${receipt.attemptId}) ON CONFLICT(scope,receipt_id,receipt_version)
+    DO UPDATE SET attempt_id=coalesce(translation_receipt_observations.attempt_id,EXCLUDED.attempt_id),
+      known_unbilled=CASE WHEN EXCLUDED.attempt_id IS NOT NULL THEN false ELSE translation_receipt_observations.known_unbilled END`;
+}
 
 export function logicalKeyFor(req: ReceiptRequest): string {
   const identity = sha256(stableJson(req.identity));
@@ -89,9 +154,11 @@ export function logicalKeyFor(req: ReceiptRequest): string {
 
 interface ReceiptRow {
   id: number;
+  id_text: string;
   status: string;
   response: unknown;
   attempt_id: string | null;
+  current_attempt_id: string | null;
   has_response: boolean;
   response_bound: boolean;
   created_at: Date;
@@ -124,61 +191,90 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
  * The caller parses the response and commits business results, then calls completeReceipt.
  */
 export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallOutcome>): Promise<ReceiptResult> {
-  if (req.maxRejectedOutputs !== undefined && (req.maxRejectedOutputs !== 3 || req.purpose !== "translate_body"))
-    throw new Error("Only translation may opt into the three rejected-output limit");
+  if (req.maxRejectedOutputs !== undefined && (![1, 3].includes(req.maxRejectedOutputs) || req.purpose !== "translate_body"))
+    throw new Error("Only translation may opt into a rejected-output limit");
   const logicalKey = logicalKeyFor(req);
+  const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
+  if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
   const claimed = await sql.begin(async (tx) => {
+    // A changed recipe/input key cannot route around an unresolved call in this material stage.
+    if (stage) await tx`SELECT pg_advisory_xact_lock(hashtext(${"translation:" + stage}))`;
+    for (const receipt of req.translationObservations ?? []) await observeTranslation(tx, stage, receipt);
     // Serialise budget checks per service so concurrent workers cannot overshoot.
     await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + req.service}))`;
     const [existing] = await tx<ReceiptRow[]>`
-      SELECT r.id,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,
+      SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
         (a.id IS NOT NULL AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response) AS response_bound,
         CASE WHEN a.attempt=r.attempts AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response
           THEN a.id::text ELSE NULL END AS attempt_id
       FROM receipts r LEFT JOIN receipt_attempts a ON a.id=r.response_attempt_id AND a.receipt_id=r.id
+        LEFT JOIN receipt_attempts ca ON ca.receipt_id=r.id AND ca.attempt=r.attempts
       WHERE r.logical_key=${logicalKey} FOR UPDATE OF r`;
     if (existing) {
       if (existing.status === "received" || existing.status === "completed") {
         if (existing.response_bound && existing.attempt_id === null) throw new ReceiptAttemptSupersededError(`Receipt ${existing.id} stores an older attempt`);
+        await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.attempt_id });
         return { kind: "reuse" as const, row: existing };
       }
       if (existing.status === "pending") {
+        await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.current_attempt_id });
         if (Date.now() - existing.updated_at.getTime() < PENDING_STALE_MS) return { kind: "busy" as const, row: existing };
         await markUnknown(tx, existing.id, "placeholder went stale without a recorded result");
-        return { kind: "unknown" as const, row: existing };
+        return { kind: "unknown" as const, row: { ...existing, attempt_id: existing.current_attempt_id } };
       }
-      if (existing.status === "unknown") return { kind: "unknown" as const, row: existing };
+      if (existing.status === "unknown") {
+        await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.current_attempt_id });
+        return { kind: "unknown" as const, row: { ...existing, attempt_id: existing.current_attempt_id } };
+      }
       // Count rejected physical outputs under the claim lock, before creating another paid attempt.
       if (req.maxRejectedOutputs !== undefined) {
-        if (existing.has_response && !existing.response_bound) return { kind: "reuse" as const, row: existing };
-        const [count] = await tx`SELECT count(*)::int AS n FROM receipt_attempts WHERE receipt_id=${existing.id} AND output_rejected_at IS NOT NULL`;
+        if (existing.has_response && !existing.response_bound) {
+          await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: null });
+          return { kind: "reuse" as const, row: existing };
+        }
+        const [count] = await tx`SELECT count(*)::int AS n,
+          CASE WHEN max(finished_at) + interval '5 minutes' > now()
+            THEN greatest(1,extract(epoch FROM max(finished_at) + interval '5 minutes' - now())::int) ELSE 0 END AS cooldown
+          FROM receipt_attempts WHERE receipt_id=${existing.id} AND output_rejected_at IS NOT NULL`;
         if (count!.n >= req.maxRejectedOutputs) return { kind: "limited" as const, id: existing.id, rejected: count!.n as number };
+        if (count!.cooldown > 0) return { kind: "cooldown" as const, id: existing.id, seconds: count!.cooldown as number };
       }
       // failed: the provider did not take the request, or its answer was unusable; a new attempt is allowed.
+      const blocked = await translationBlocker(tx, stage, logicalKey);
+      if (blocked) return blocked;
+      if (stage && !existing.has_response)
+        await tx`UPDATE ai.translation_receipt_observations SET known_unbilled=true
+        WHERE receipt_id=${existing.id_text} AND receipt_version=(SELECT attempts FROM receipts WHERE id=${existing.id_text}) AND attempt_id IS NULL`;
       await checkBudget(tx, req.service);
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
       const attemptId = await startAttempt(tx, existing.id, r!.attempts, req);
+      await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId });
       return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts };
     }
+    const blocked = await translationBlocker(tx, stage, logicalKey);
+    if (blocked) return blocked;
     await checkBudget(tx, req.service);
-    const [row] = await tx<{ id: number }[]>`
+    const [row] = await tx<{ id: number; id_text: string }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
       VALUES (${logicalKey}, ${req.service}, ${req.model ?? null}, ${req.purpose}, ${req.subject ?? null}, 'pending',
               ${tx.json((req.requestSummary ?? {}) as never)}, 1)
-      RETURNING id`;
+      RETURNING id,id::text AS id_text`;
     const attemptId = await startAttempt(tx, row!.id, 1, req);
+    await observeTranslation(tx, stage, { receiptId: row!.id_text, attemptId });
     return { kind: "call" as const, id: row!.id, attemptId, attempt: 1 };
   });
 
   if (claimed.kind === "reuse") return { receiptId: claimed.row.id, response: claimed.row.response, reused: true, attemptId: claimed.row.attempt_id };
   if (claimed.kind === "limited") throw new ReceiptOutputLimitError(claimed.id, claimed.rejected);
+  if (claimed.kind === "cooldown") throw new ReceiptCooldownError(claimed.id, claimed.seconds);
   if (claimed.kind === "busy") throw new ReceiptBusyError(`Receipt ${claimed.row.id} is in flight`);
   if (claimed.kind === "unknown") {
     throw new ReceiptUnknownError(
       claimed.row.id,
       `Receipt ${claimed.row.id} has an unknown outcome; confirmation that it was not billed is required before retry`,
+      claimed.row.attempt_id,
     );
   }
 
@@ -270,11 +366,23 @@ export async function settleTranslationResponse(
     if (row.status !== "completed") await completeReceipt(db, receipt.receiptId);
   } else {
     await db`UPDATE receipt_attempts SET output_rejected_at=coalesce(output_rejected_at,now()) WHERE id=${receipt.attemptId}`;
-    const knownUsage = [row.usage?.prompt_tokens, row.usage?.completion_tokens].every((n) => typeof n === "number" && Number.isFinite(n) && n >= 0);
+    const knownUsage = knownTranslationUsage(row.usage);
     // Missing usage preserves received/completed: validation cannot silently authorize another payment.
     if (knownUsage && row.status !== "failed")
       await db`UPDATE receipts SET status='failed',error=${verdict.reason.slice(0, 2000)},updated_at=now() WHERE id=${receipt.receiptId}`;
   }
   const [count] = await db`SELECT count(*)::int AS n FROM receipt_attempts WHERE receipt_id=${receipt.receiptId} AND output_rejected_at IS NOT NULL`;
   return { rejected: count!.n as number };
+}
+
+/** A truncation branch requires this attempt's actual response/usage; never infer it from caller flags. */
+export async function canReplaceTranslationResponse(db: Db, receipt: Pick<ReceiptResult, "receiptId" | "attemptId">): Promise<boolean> {
+  if (receipt.attemptId === null) return false;
+  const [row] = await db<{ usage: Record<string, unknown> | null; finish: string | null }[]>`
+    SELECT a.usage,a.response->'choices'->0->>'finish_reason' AS finish FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id
+    WHERE r.id=${receipt.receiptId} AND a.id=${receipt.attemptId} AND r.response_attempt_id=a.id AND r.attempts=a.attempt
+      AND r.purpose='translate_body' AND r.status='received' AND a.status='received' AND a.response=r.response
+      AND NOT EXISTS (SELECT 1 FROM receipt_attempts old WHERE old.receipt_id=r.id AND old.output_rejected_at IS NOT NULL)
+    FOR UPDATE OF r,a`;
+  return row?.finish === "length" && knownTranslationUsage(row.usage);
 }

@@ -287,6 +287,15 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
       }
+    },
+    "ai.translation_receipt_observations": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
     }
   },
   "sequences": {

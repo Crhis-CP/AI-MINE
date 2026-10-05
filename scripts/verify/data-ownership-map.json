@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "6391d1419c46b8bf7d60b68e39883f6f812544292440f6c7fda1e39b9b76633e",
+  "grantCatalogueSha256": "36347433d9a698679e9eed168fa78f1853dddee33ef86d9863396a7fdd7ef279",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -216,6 +216,10 @@
     },
     "content.source_date_observations": {
       "module": "content",
+      "access": "business"
+    },
+    "ai.translation_receipt_observations": {
+      "module": "ai-gateway",
       "access": "business"
     }
   },

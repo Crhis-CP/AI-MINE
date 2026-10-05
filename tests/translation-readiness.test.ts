@@ -14,6 +14,8 @@ import {
   TRANSLATION_MANIFEST_FORMAT,
   TranslationTextSchema,
   translationSourceManifest,
+  translationLeaves,
+  translationReplacement,
   translationTextIssue,
   type TranslationCheckpoint,
 } from "../packages/backend/src/editorial/translation-readiness.ts";
@@ -71,7 +73,7 @@ test("DR-34 manifest follows leaf order, covers Unicode scripts and hashes origi
   );
   assert.deepEqual(
     source.segments.map((s) => s.html),
-    ["Heading", 'Persian فارسی <a href="https://example.invalid/one">link</a>', "Ελληνικά", "中文", "हिन्दी"],
+    ["Heading", 'Persian فارسی <a href="https://example.invalid/one">link</a>', "Ελληνικά", "中文", "<td>हिन्दी</td>"],
   );
   for (const s of source.segments) assert.equal(s.sourceHash, createHash("sha256").update(s.html).digest("hex"));
   const changed = translationSourceManifest(html.replace("/one", "/two"));
@@ -252,7 +254,17 @@ test("public reading rechecks current manifest, ordered protected nodes and six 
       ...assembled.manifest,
       sourceHash: hash("<p>Original.</p>"),
       bodyHash: hash(html),
-      segments: [{ index: 0, sourceHash: hash("Original."), responseHash: hash(bad), textHash: hash(bad) }],
+      segments: [
+        {
+          index: 0,
+          unitIndex: 0,
+          sourceHash: hash("Original."),
+          referenceHash: hash(""),
+          responseHash: hash(bad),
+          textHash: hash(bad),
+          textLength: bad.length,
+        },
+      ],
     };
     assert.equal(
       readableTranslation("<p>Original.</p>", current, { ...stored, source_hash: manifest.sourceHash, body_html: html, manifest }),
@@ -271,4 +283,82 @@ test("public reading rechecks current manifest, ordered protected nodes and six 
     assert.equal(isChineseOriginal(null, text), false);
     assert.equal(isChineseOriginal("und", text), false);
   }
+});
+
+test("long units keep exact safe boundaries and 4000 UTF-8 bytes; table rows and clauses stay atomic", () => {
+  const lines = Array.from({ length: 18 }, (_, i) => `Line ${i}. ${"矿é".repeat(55)} <strong>not</strong> approved.`);
+  const source = translationSourceManifest(`<p>${lines.join("\n")}</p><table><tr><td>One cell.</td><td>Two cells.</td></tr></table>`);
+  assert.deepEqual(source.capacity, []);
+  const chunks = source.segments.filter((s) => s.unitIndex === 0);
+  assert.ok(chunks.length > 1);
+  assert.equal(chunks.map((s) => s.html + s.after).join(""), lines.join("\n"));
+  assert.ok(source.segments.every((s) => Buffer.byteLength(shield(s.html).html, "utf8") <= 4000));
+  assert.equal(source.segments.at(-1)!.html, "<td>One cell.</td><td>Two cells.</td>");
+  assert.equal(source.segments.at(-1)!.atomic, true);
+  for (const html of [
+    `<p>${"unbreakable ".repeat(450)}</p>`,
+    `<p><span>${lines.join("\n")}</span></p>`,
+    `<table><tr><td>${lines.join("\n")}</td></tr></table>`,
+    `<ol><li>${lines.join("\n")}</li></ol>`,
+  ])
+    assert.deepEqual(translationSourceManifest(html).capacity, [0]);
+  const reference = translationSourceManifest("<p>First. Second sentence. Third sentence.</p><p>Next.</p>");
+  assert.equal(reference.segments[0]!.reference, "");
+  assert.equal(reference.segments[1]!.reference, "Second sentence. Third sentence.");
+});
+
+test("one replacement restores ordered coverage and public proof rejects changed boundaries or recursion", () => {
+  const html = "<p>First source sentence.\nSecond source sentence.</p><p>Following paragraph.</p>";
+  const source = translationSourceManifest(html),
+    current = { revision: 1, recipe: "context-halves" };
+  const split = translationReplacement(source.segments[0]!, source.segments.length)!;
+  assert.equal(split.map((s) => s.html + s.after).join(""), source.segments[0]!.html);
+  assert.equal(split[1]!.reference, "First source sentence.");
+  assert.equal(translationReplacement(split[0]!, source.segments.length), null);
+  assert.equal(translationReplacement(source.segments[1]!, source.segments.length), null);
+  const leaves = translationLeaves(source, [0])!;
+  assert.deepEqual(
+    leaves.map((s) => s.index),
+    [2, 3, 1],
+  );
+  const checkpoints = leaves.map((s) => ({ ...current, index: s.index, sourceHash: s.sourceHash, state: "complete" as const, text: `合成译文${s.index}。` }));
+  const assembled = assembleTranslation(html, current, checkpoints, [0])!;
+  assert.equal(assembled.html, "<p>合成译文2。\n合成译文3。</p><p>合成译文1。</p>");
+  const stored = { ...current, body_html: assembled.html, complete: true, origin: "model", source_hash: source.sourceHash, manifest: assembled.manifest };
+  assert.equal(readableTranslation(html, current, stored), assembled.html);
+  for (const replacements of [[0, 0], [2], [-1]]) assert.equal(translationLeaves(source, replacements), null);
+  for (const key of ["textLength", "unitIndex"] as const) {
+    const manifest = structuredClone(assembled.manifest);
+    manifest.segments[0]![key]++;
+    assert.equal(readableTranslation(html, current, { ...stored, manifest }), null);
+  }
+  assert.equal(assembleTranslation(html, current, checkpoints.slice(1), [0]), null);
+  assert.equal(assembleTranslation(html, current, [...checkpoints].reverse(), [0]), null);
+});
+
+test("public validation checks each unassembled answer, not the larger combined unit", () => {
+  const html = `<p>${"Source words. ".repeat(170)}\n${"Following words. ".repeat(160)}</p>`;
+  const source = translationSourceManifest(html),
+    current = { revision: 1, recipe: "large-output-unit" };
+  assert.equal(source.segments.length, 2);
+  const checkpoints = source.segments.map((s) => ({
+    ...current,
+    index: s.index,
+    sourceHash: s.sourceHash,
+    state: "complete" as const,
+    text: "文".repeat(13_000),
+  }));
+  const assembled = assembleTranslation(html, current, checkpoints)!;
+  assert.ok(assembled.html.length > 20_000);
+  assert.equal(
+    readableTranslation(html, current, {
+      ...current,
+      body_html: assembled.html,
+      complete: true,
+      origin: "model",
+      source_hash: source.sourceHash,
+      manifest: assembled.manifest,
+    }),
+    assembled.html,
+  );
 });

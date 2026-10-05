@@ -27,14 +27,17 @@ SELECT id,'zh',1,'PR9 译文 '||id,'<h2>合成译文</h2><p>合成中文 TRANSLA
 FROM articles WHERE id LIKE 'pr9-%';
 -- SELF_AUTHORED stored-read snapshot, not gateway/translation acceptance evidence.
 -- Exact current protocol/prompt identity: update this fixture deliberately when that protocol changes.
-UPDATE translations tr SET recipe='strict-text-attempt-v1:translate-body@0a8e5ebf44',
+UPDATE translations tr SET recipe='strict-text-context-v2:translate-body@0a8e5ebf44',
   source_hash=encode(sha256(convert_to(a.body_html,'UTF8')),'hex'),
-  manifest=jsonb_build_object('format','strict-text-attempt-v1','revision',1,'recipe','strict-text-attempt-v1:translate-body@0a8e5ebf44',
+  manifest=jsonb_build_object('format','strict-text-context-v2','revision',1,'recipe','strict-text-context-v2:translate-body@0a8e5ebf44',
     'sourceHash',encode(sha256(convert_to(a.body_html,'UTF8')),'hex'),'bodyHash',encode(sha256(convert_to(tr.body_html,'UTF8')),'hex'),
+    'replacements','[]'::jsonb,
     'segments',jsonb_build_array(
-      jsonb_build_object('index',0,'sourceHash',encode(sha256(convert_to('PR9 original','UTF8')),'hex'),
+      jsonb_build_object('index',0,'unitIndex',0,'textLength',char_length('合成译文'),
+        'referenceHash',encode(sha256(convert_to('','UTF8')),'hex'),'sourceHash',encode(sha256(convert_to('PR9 original','UTF8')),'hex'),
         'responseHash',encode(sha256(convert_to('合成译文','UTF8')),'hex'),'textHash',encode(sha256(convert_to('合成译文','UTF8')),'hex')),
-      jsonb_build_object('index',1,'sourceHash',encode(sha256(convert_to('ORIGINAL_BODY_'||a.id,'UTF8')),'hex'),
+      jsonb_build_object('index',1,'unitIndex',1,'textLength',char_length('合成中文 TRANSLATED_BODY_'||a.id),
+        'referenceHash',encode(sha256(convert_to('PR9 original','UTF8')),'hex'),'sourceHash',encode(sha256(convert_to('ORIGINAL_BODY_'||a.id,'UTF8')),'hex'),
         'responseHash',encode(sha256(convert_to('合成中文 TRANSLATED_BODY_'||a.id,'UTF8')),'hex'),
         'textHash',encode(sha256(convert_to('合成中文 TRANSLATED_BODY_'||a.id,'UTF8')),'hex'))))
 FROM articles a WHERE tr.article_id=a.id AND a.id IN (SELECT id FROM pr9_cases);

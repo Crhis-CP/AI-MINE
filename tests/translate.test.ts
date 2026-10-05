@@ -151,7 +151,11 @@ test("links and images survive in checkpoints, while a bad paragraph prevents wh
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
             VALUES (${id}, 1, 'rule', 'pass', 'ai-models', ${`链接-${T}`}, '摘要', '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(id)]}, ${sql.json(scopeOutput)})`;
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
-  for (let n = 0; n < 4; n++) await translateOne(id);
+  for (let n = 0; n < 4; n++) {
+    await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
+      WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${id}@1#%`})`;
+    await translateOne(id);
+  }
   const [tr] = await sql<{ body_html: string | null; complete: boolean }[]>`SELECT body_html, complete FROM translations WHERE article_id = ${id}`;
   assert.equal(tr!.body_html, null, "bad segments and original English are never assembled into a partial translation");
   assert.equal(tr!.complete, false);

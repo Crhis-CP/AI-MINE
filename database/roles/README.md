@@ -61,3 +61,7 @@ sources.source_policy_versions由private_ops只追加，worker只读；current�
 来源日期观察归 content，仅 worker 可追加、private_ops/backup 可读；公开登录不能读原始候选或私有依据。公开需要的 articles 日期状态/版本与 sources 相关配置指纹按列授予，仍不能读取 sources.config；publication 的日期投影字段不表示日期门已启用。
 
 公开读时校验只补两项元数据列：translations.origin用于区分模型证明与尚无来源中文版证明的旧记录；sources.syndicate_fulltext用于全文RSS即时核对当前再分发许可。保留site_fulltext与原列白名单，不开放来源config/cursor、回执、段检查点或任何写权限。
+
+翻译的replacement_plan与parent_index仍在私有enrichment.translation_segments内；仅增加同schema父子约束，不增加public_read列或整表权限。原截断回执不因替代变成完成，公开正文只读取已晋升translations的必要身份/完整性列。
+
+ai.translation_receipt_observations仅为gateway私有状态：worker写、private_ops/backup只读、public_read/auth/feedback_write无读取权；不增加跨schema FK，不改付费缓存身份。receipt_version只是观察到的计数版本，actual attempt仍由可空的稳定ID单独核对；known_unbilled仅继承已有明确未计费状态，不产生新的计费判断。

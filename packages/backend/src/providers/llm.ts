@@ -4,7 +4,7 @@
 import type { z } from "zod";
 import { config, credential } from "../config.ts";
 import { sha256 } from "../lib/ids.ts";
-import { completeReceipt, paidRequest, ProviderRejectedError, rejectReceivedResponse } from "./receipts.ts";
+import { completeReceipt, paidRequest, ProviderRejectedError, rejectReceivedResponse, type TranslationObservation } from "./receipts.ts";
 import { dbOf } from "../db.ts";
 
 const sql = dbOf("ai-gateway");
@@ -142,7 +142,8 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   maxTokens?: number;
   attemptTag?: string;
   timeoutMs?: number;
-  maxRejectedOutputs?: 3;
+  maxRejectedOutputs?: 1 | 3;
+  translationObservations?: TranslationObservation[];
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
   json?: boolean;
   parse?: (content: string) => unknown;
@@ -257,6 +258,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       },
       attemptTag: opts.attemptTag,
       maxRejectedOutputs: opts.maxRejectedOutputs,
+      translationObservations: opts.translationObservations,
     },
     async () => {
       const started = Date.now();
