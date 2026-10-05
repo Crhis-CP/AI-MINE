@@ -1,6 +1,7 @@
-// A web listing whose list HTML arrives inside JSON (MOFCOM's page units answer {"data":{"html":"<ul>…"}}):
-// htmlJsonPath reads that string and the usual selectors parse it; links resolve against baseUrl. A
-// listing that is not JSON, or has no string at the path, fails the fetch instead of passing as empty.
+// A web listing whose list HTML arrives inside JSON (the column pages of MOFCOM's commercial offices
+// abroad declare a page unit that answers {"data":{"html":"<ul>…"}}): htmlJsonPath reads that string and the
+// usual selectors parse it; links resolve against baseUrl, the column page. A listing that is not JSON, or
+// has no string at the path, fails the fetch instead of passing as empty. Titles and links are made up.
 import "./setup.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -10,10 +11,10 @@ import { fetchWebList } from "@amp/backend/sources/web-list";
 import { sourceDateConfigHash, unsupportedConfig } from "@amp/backend/sources/config-keys";
 
 const LIST =
-  `<style>.pagination{display:block}</style><div id="分页列表"><ul class="txtList_01">` +
-  `<li><a href="/zwgk/zcfb/art/2026/art_97459d25.html" title="商务部公告2026年第44号 公布对原产于欧盟的进口对硝基甲苯发起反倾销立案调查" target="_blank">商务部公告2026年第44号 公布对原产于欧盟的进口对硝基甲苯发起反倾销立案调查</a><span>[2026-10-03]</span></li>` +
-  `<li><a href="/zwgk/zcfb/art/2026/art_4a7a0cc4.html" title="商务部办公厅关于做好2027年度汽车和摩托车出口许可申报工作的通知" target="_blank">商务部办公厅关于做好2027年度汽车和摩托车出口许可申报工作的通知</a><span>[2026-09-30]</span></li>` +
-  `</ul></div>`;
+  `<style>.pagination{display:block}</style><div id="信息列表"><div class="page-content"><ul class="txtList_01">` +
+  `<li><a href="/jmxw/art/2026/art_0001.html" target="_blank">某国调整铜精矿出口政策</a><span>2026-08-06 18:42:37</span></li>` +
+  `<li><a href="/jmxw/art/2026/art_0002.html" target="_blank">某国收回未使用的钴出口配额</a><span>[2026-07-02]</span></li>` +
+  `</ul></div><div class="pagination" rows="15" count="417" pageNo="1"></div></div>`;
 const pages: Record<string, string> = {
   "/unit": JSON.stringify({ success: true, code: "200", data: { html: LIST } }),
   "/not-json": `<html><body>${LIST}</body></html>`,
@@ -31,12 +32,12 @@ after(() => new Promise<void>((resolve) => server.close(() => resolve())));
 
 const listing = (path: string, extra: Record<string, unknown> = {}) => ({
   url: `${base}${path}?parseType=bulidstatic&pageId=fc8bdff4`,
-  baseUrl: "https://www.mofcom.gov.cn/",
+  baseUrl: "https://cd.mofcom.gov.cn/jmxw/index.html",
   language: "zh-CN",
   htmlJsonPath: "data.html",
   itemSelector: "ul.txtList_01 li",
   linkSelector: "a[href]",
-  publishedAtRegex: "<span>\\[(\\d{4}-\\d{2}-\\d{2})\\]</span>",
+  publishedAtRegex: "<span>\\s*\\[?(\\d{4}-\\d{2}-\\d{2})",
   ...extra,
 });
 const source = (config: Record<string, unknown>) => ({ id: "test-json-html", kind: "web_list", config }) as never;
@@ -47,16 +48,16 @@ test("htmlJsonPath: the list HTML inside JSON parses with the usual selectors, l
   assert.deepEqual(
     items.map((c) => [c.url, c.title]),
     [
-      ["https://www.mofcom.gov.cn/zwgk/zcfb/art/2026/art_97459d25.html", "商务部公告2026年第44号 公布对原产于欧盟的进口对硝基甲苯发起反倾销立案调查"],
-      ["https://www.mofcom.gov.cn/zwgk/zcfb/art/2026/art_4a7a0cc4.html", "商务部办公厅关于做好2027年度汽车和摩托车出口许可申报工作的通知"],
+      ["https://cd.mofcom.gov.cn/jmxw/art/2026/art_0001.html", "某国调整铜精矿出口政策"],
+      ["https://cd.mofcom.gov.cn/jmxw/art/2026/art_0002.html", "某国收回未使用的钴出口配额"],
     ],
   );
-  // The day inside the brackets is the list date; a day without a time stays a day (no exact time).
+  // Either way of writing the day is the list date; a day without a declared time zone stays a day.
   assert.deepEqual(
     items.map((c) => [c.sourceDateObservation?.raw, c.publishedAt]),
     [
-      ["2026-10-03", null],
-      ["2026-09-30", null],
+      ["2026-08-06", null],
+      ["2026-07-02", null],
     ],
   );
 });
@@ -66,11 +67,12 @@ test("htmlJsonPath: a listing that is not JSON, or has no string at the path, fa
   await assert.rejects(fetchWebList(source(listing("/no-html"))), /no string at data\.html/);
 });
 
-test("htmlJsonPath only with a direct JSON listing: through Jina, as Markdown or empty it is refused", () => {
+test("htmlJsonPath only with a direct JSON listing and a named page: through Jina, as Markdown, empty or without baseUrl it is refused", () => {
   assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { url: "https://r.jina.ai/https://www.mofcom.gov.cn/unit" })), ["htmlJsonPath+jina"]);
   assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { parseMode: "markdown" })), ["htmlJsonPath+parseMode=markdown"]);
   assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { htmlJsonPath: "" })), ["htmlJsonPath"]);
   assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { htmlJsonPath: 3 })), ["htmlJsonPath"]);
+  assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { baseUrl: undefined })), ["htmlJsonPath without baseUrl"]);
 });
 
 test("htmlJsonPath decides where list dates come from, so it is part of the date configuration hash", () => {
