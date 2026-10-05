@@ -160,7 +160,7 @@ for (const model of models) {
       let request = scoreRequests.get(key);
       if (!request) {
         const sharedReceiptIds: number[] = [];
-        request = runSelectionScores(input, { scoreModel: model }, (id) => sharedReceiptIds.push(id)).then(
+        request = runSelectionScores(input, { scoreModel: model }, (id) => sharedReceiptIds.push(id), threshold).then(
           (scores) => ({ scores, receiptIds: sharedReceiptIds, error: null }),
           (error: unknown) => ({ scores: null, receiptIds: sharedReceiptIds, error: String(error).slice(0, 200) }),
         );

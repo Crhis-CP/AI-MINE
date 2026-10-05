@@ -310,9 +310,16 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
   return { model, threshold, values, receiptIds, reused };
 }
 
-/** The production score step; its threshold stays case-specific even when an evaluator shares model output. */
-export async function runSelectionScores(a: AnalyzeInputArticle, opts: StepOpts = {}, onReceipt?: ReceiptObserver): Promise<AnalysisRun["scores"]> {
-  const threshold = tierThreshold(a.source.tier);
+/**
+ * The production score step; its threshold stays case-specific even when an evaluator shares model output.
+ * Evaluations pass the draft's threshold (draftTierThreshold); production keeps the Owner gate.
+ */
+export async function runSelectionScores(
+  a: AnalyzeInputArticle,
+  opts: StepOpts = {},
+  onReceipt?: ReceiptObserver,
+  threshold: number | null = tierThreshold(a.source.tier),
+): Promise<AnalysisRun["scores"]> {
   return threshold === null ? null : runScores(a, threshold, opts, onReceipt);
 }
 

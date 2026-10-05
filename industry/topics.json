@@ -275,7 +275,7 @@
       "name": "铝",
       "group": "field",
       "entityId": null,
-      "tags": ["铝"],
+      "tags": ["铝", "铝土矿"],
       "definition": "铝的矿业动态：铝土矿、氧化铝与电解铝的项目、供需与政策。",
       "related": ["china"]
     },
