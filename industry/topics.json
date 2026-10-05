@@ -344,7 +344,7 @@
     },
     {
       "slug": "zijin",
-      "name": "紫金矿业",
+      "name": "紫金矿业（Zijin Mining）",
       "group": "company",
       "entityId": "zijin",
       "tags": ["紫金矿业", "entity:zijin"],
@@ -353,7 +353,7 @@
     },
     {
       "slug": "cmoc",
-      "name": "洛阳钼业",
+      "name": "洛阳钼业（CMOC）",
       "group": "company",
       "entityId": "cmoc",
       "tags": ["洛阳钼业", "entity:cmoc"],
@@ -362,7 +362,7 @@
     },
     {
       "slug": "jiangxi-copper",
-      "name": "江西铜业",
+      "name": "江西铜业（Jiangxi Copper）",
       "group": "company",
       "entityId": "jiangxi-copper",
       "tags": ["江西铜业", "entity:jiangxi-copper"],
@@ -371,7 +371,7 @@
     },
     {
       "slug": "minmetals",
-      "name": "中国五矿",
+      "name": "中国五矿（China Minmetals）",
       "group": "company",
       "entityId": "minmetals",
       "tags": ["中国五矿", "entity:minmetals"],
@@ -380,7 +380,7 @@
     },
     {
       "slug": "mmg",
-      "name": "五矿资源",
+      "name": "五矿资源（MMG）",
       "group": "company",
       "entityId": "mmg",
       "tags": ["五矿资源", "entity:mmg"],
@@ -389,7 +389,7 @@
     },
     {
       "slug": "chalco",
-      "name": "中国铝业",
+      "name": "中国铝业（Chalco）",
       "group": "company",
       "entityId": "chalco",
       "tags": ["中国铝业", "entity:chalco"],
@@ -398,7 +398,7 @@
     },
     {
       "slug": "shandong-gold",
-      "name": "山东黄金",
+      "name": "山东黄金（Shandong Gold）",
       "group": "company",
       "entityId": "shandong-gold",
       "tags": ["山东黄金", "entity:shandong-gold"],
@@ -407,7 +407,7 @@
     },
     {
       "slug": "ganfeng",
-      "name": "赣锋锂业",
+      "name": "赣锋锂业（Ganfeng Lithium）",
       "group": "company",
       "entityId": "ganfeng",
       "tags": ["赣锋锂业", "entity:ganfeng"],
@@ -416,7 +416,7 @@
     },
     {
       "slug": "tianqi",
-      "name": "天齐锂业",
+      "name": "天齐锂业（Tianqi Lithium）",
       "group": "company",
       "entityId": "tianqi",
       "tags": ["天齐锂业", "entity:tianqi"],
@@ -425,7 +425,7 @@
     },
     {
       "slug": "huayou",
-      "name": "华友钴业",
+      "name": "华友钴业（Huayou Cobalt）",
       "group": "company",
       "entityId": "huayou",
       "tags": ["华友钴业", "entity:huayou"],
@@ -434,7 +434,7 @@
     },
     {
       "slug": "bhp",
-      "name": "必和必拓",
+      "name": "必和必拓（BHP）",
       "group": "company",
       "entityId": "bhp",
       "tags": ["必和必拓", "entity:bhp"],
@@ -443,7 +443,7 @@
     },
     {
       "slug": "rio-tinto",
-      "name": "力拓",
+      "name": "力拓（Rio Tinto）",
       "group": "company",
       "entityId": "rio-tinto",
       "tags": ["力拓", "entity:rio-tinto"],
@@ -452,7 +452,7 @@
     },
     {
       "slug": "glencore",
-      "name": "嘉能可",
+      "name": "嘉能可（Glencore）",
       "group": "company",
       "entityId": "glencore",
       "tags": ["嘉能可", "entity:glencore"],
@@ -461,7 +461,7 @@
     },
     {
       "slug": "vale",
-      "name": "淡水河谷",
+      "name": "淡水河谷（Vale）",
       "group": "company",
       "entityId": "vale",
       "tags": ["淡水河谷", "entity:vale"],
@@ -470,7 +470,7 @@
     },
     {
       "slug": "anglo-american",
-      "name": "英美资源",
+      "name": "英美资源（Anglo American）",
       "group": "company",
       "entityId": "anglo-american",
       "tags": ["英美资源", "entity:anglo-american"],
@@ -479,7 +479,7 @@
     },
     {
       "slug": "freeport",
-      "name": "自由港麦克莫兰",
+      "name": "自由港麦克莫兰（Freeport-McMoRan）",
       "group": "company",
       "entityId": "freeport",
       "tags": ["自由港麦克莫兰", "entity:freeport"],
@@ -488,7 +488,7 @@
     },
     {
       "slug": "newmont",
-      "name": "纽蒙特",
+      "name": "纽蒙特（Newmont）",
       "group": "company",
       "entityId": "newmont",
       "tags": ["纽蒙特", "entity:newmont"],
@@ -497,7 +497,7 @@
     },
     {
       "slug": "barrick",
-      "name": "巴里克",
+      "name": "巴里克（Barrick）",
       "group": "company",
       "entityId": "barrick",
       "tags": ["巴里克", "entity:barrick"],
@@ -506,7 +506,7 @@
     },
     {
       "slug": "codelco",
-      "name": "智利国家铜业公司",
+      "name": "智利国家铜业公司（Codelco）",
       "group": "company",
       "entityId": "codelco",
       "tags": ["智利国家铜业公司", "entity:codelco"],
@@ -515,7 +515,7 @@
     },
     {
       "slug": "first-quantum",
-      "name": "第一量子",
+      "name": "第一量子（First Quantum）",
       "group": "company",
       "entityId": "first-quantum",
       "tags": ["第一量子", "entity:first-quantum"],
@@ -524,7 +524,7 @@
     },
     {
       "slug": "ivanhoe",
-      "name": "艾芬豪矿业",
+      "name": "艾芬豪矿业（Ivanhoe Mines）",
       "group": "company",
       "entityId": "ivanhoe",
       "tags": ["艾芬豪矿业", "entity:ivanhoe"],
@@ -533,7 +533,7 @@
     },
     {
       "slug": "albemarle",
-      "name": "雅宝",
+      "name": "雅宝（Albemarle）",
       "group": "company",
       "entityId": "albemarle",
       "tags": ["雅宝", "entity:albemarle"],
@@ -542,7 +542,7 @@
     },
     {
       "slug": "sqm",
-      "name": "智利化工矿业",
+      "name": "智利化工矿业（SQM）",
       "group": "company",
       "entityId": "sqm",
       "tags": ["智利化工矿业", "entity:sqm"],
@@ -551,7 +551,7 @@
     },
     {
       "slug": "southern-copper",
-      "name": "南方铜业",
+      "name": "南方铜业（Southern Copper）",
       "group": "company",
       "entityId": "southern-copper",
       "tags": ["南方铜业", "entity:southern-copper"],

@@ -18,12 +18,15 @@ export async function loader({ request }: { request: Request }) {
   return apiGet<{ topics: TopicSummary[] }>("/api/site/topics", { signal: request.signal });
 }
 
-export function meta() {
+export function meta({ loaderData }: { loaderData?: { topics: TopicSummary[] } }) {
+  // The “正在规划” empty state, shown while no topic has content, is not indexed (PG-08).
+  const empty = !loaderData?.topics.some((t) => t.total > 0);
   return pageMeta({
     title: "主题",
     description: "按国家与地区、金属、矿企聚合的金属矿业主题页：智利、刚果（金）、铜、锂、紫金矿业、必和必拓等。",
     path: "/topics",
     image: "/og/pages/topics.png",
+    noindex: empty,
   });
 }
 
@@ -73,6 +76,8 @@ export default function TopicsPage() {
           <ul className="mt-3.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {topics
               .filter((t) => t.group === g.key)
+              // Metals and companies by their last 30 days; countries keep the pack's order (PG-08).
+              .sort((a, b) => (g.key === "genre" ? 0 : b.recent - a.recent))
               .map((t) => (
                 <li key={t.slug}>
                   <Link
@@ -84,7 +89,8 @@ export default function TopicsPage() {
                     <span className="text-[15px] font-bold text-ink transition-colors group-hover:text-accent">{t.name}</span>
                     <span className="mt-1.5 line-clamp-2 flex-1 text-[12.5px] leading-[1.7] text-ink-3">{t.definition}</span>
                     <span className="mono mt-3 text-[11.5px] text-accent">
-                      查看 {t.total} 条动态 <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                      近 30 天 <span className="num">{t.recent}</span> 条{" "}
+                      <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
                     </span>
                   </Link>
                 </li>

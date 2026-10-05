@@ -39,7 +39,6 @@ async function build(): Promise<string> {
     { loc: "/daily/archive", lastmod: latestDaily?.t, changefreq: "daily", priority: 0.7 },
     { loc: "/weekly", changefreq: "weekly", priority: 0.7 },
     { loc: "/monthly", changefreq: "monthly", priority: 0.6 },
-    { loc: "/topics", changefreq: "daily", priority: 0.7 },
     { loc: "/agent", lastmod: now, changefreq: "weekly", priority: 0.7 },
     { loc: "/about", changefreq: "monthly", priority: 0.5 },
     { loc: "/terms", changefreq: "monthly", priority: 0.4 },
@@ -54,7 +53,10 @@ async function build(): Promise<string> {
       changefreq: r.kind === "daily" ? "never" : "monthly",
       priority: r.kind === "daily" ? 0.6 : 0.6,
     });
-  for (const t of await topicPageCounts()) {
+  // The topic index only once some topic has content: its “正在规划” empty state is not indexed (PG-08).
+  const topicCounts = await topicPageCounts();
+  if (topicCounts.some((t) => t.total > 0)) entries.push({ loc: "/topics", changefreq: "daily", priority: 0.7 });
+  for (const t of topicCounts) {
     if (!t.indexable) continue;
     entries.push({ loc: `/topics/${t.slug}`, lastmod: t.latest, changefreq: "daily", priority: 0.6 });
     for (let p = 2; p <= t.pages; p++) entries.push({ loc: `/topics/${t.slug}/page/${p}`, lastmod: t.latest, changefreq: "weekly", priority: 0.3 });

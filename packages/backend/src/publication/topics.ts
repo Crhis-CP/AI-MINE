@@ -70,6 +70,8 @@ export async function loadTopicTags(slug: string): Promise<string[] | null> {
 }
 
 export const TOPIC_PAGE_SIZE = 20;
+/** Like 全部矿业动态, topic lists stop at 50 pages; older items are reached by search. */
+export const TOPIC_MAX_PAGES = 50;
 
 /** Topic pages exist for every topic; only topics with enough content are listed and indexed. */
 export function topicPageCounts(): Promise<TopicCount[]> {
@@ -77,36 +79,31 @@ export function topicPageCounts(): Promise<TopicCount[]> {
 }
 
 /**
- * One pass over the listed pool (what 全部矿业动态 shows) instead of one scan per topic; a topic counts
- * an item when their tags overlap, as `p.tags && match` does. Topics follow the whole pool, not only
- * 精选 (PG-08 “最新动态”): before the mining scoring standard is confirmed there is no 精选 at all.
+ * One grouped query over the listed pool (what 全部矿业动态 shows): a topic counts an item when their tags
+ * overlap (`p.tags && match`, served by the tags GIN index), and only about 60 rows come back. Topics follow
+ * the whole pool, not only 精选 (PG-08 “近 30 天 N 条”): before the mining scoring standard is confirmed
+ * there is no 精选 at all.
  */
 async function queryTopicCounts(): Promise<TopicCount[]> {
-  const [topics, items] = await Promise.all([
-    sql<Array<Pick<TopicRow, "slug" | "entity_id" | "tags">>>`SELECT slug, entity_id, tags FROM topics ORDER BY position`,
-    sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE ${listedCondition(new Date())} AND p.eligible`,
-  ]);
-  const recentFrom = Date.now() - 30 * 86400_000;
-  return topics.map((t) => {
-    const match = new Set(topicMatchTags(t));
-    let total = 0;
-    let recent = 0;
-    let latest: Date | null = null;
-    for (const it of items) {
-      if (!it.tags.some((tag) => match.has(tag))) continue;
-      total += 1;
-      if (it.timeline_at.getTime() > recentFrom) recent += 1;
-      if (!latest || it.timeline_at > latest) latest = it.timeline_at;
-    }
-    return {
-      slug: t.slug,
-      total,
-      recent,
-      latest,
-      pages: Math.max(1, Math.ceil(total / TOPIC_PAGE_SIZE)),
-      indexable: total >= 50 || (total >= 20 && recent > 0),
-    };
-  });
+  const now = new Date();
+  const recentFrom = new Date(now.getTime() - 30 * 86400_000);
+  const rows = await sql<{ slug: string; total: number; recent: number; latest: Date | null }[]>`
+    SELECT t.slug, count(p.article_id)::int AS total,
+      count(p.article_id) FILTER (WHERE p.timeline_at > ${recentFrom})::int AS recent,
+      max(p.timeline_at) AS latest
+    FROM topics t
+    LEFT JOIN publications p ON ${listedCondition(now)} AND p.eligible
+      AND p.tags && (CASE WHEN t.entity_id IS NOT NULL THEN ARRAY['entity:' || t.entity_id] ELSE t.tags END)
+    GROUP BY t.slug, t.position
+    ORDER BY t.position`;
+  return rows.map((r) => ({
+    slug: r.slug,
+    total: r.total,
+    recent: r.recent,
+    latest: r.latest,
+    pages: Math.min(TOPIC_MAX_PAGES, Math.max(1, Math.ceil(r.total / TOPIC_PAGE_SIZE))),
+    indexable: r.total >= 50 || (r.total >= 20 && r.recent > 0),
+  }));
 }
 
 export interface TopicSummary {
@@ -151,7 +148,7 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   const topics = await listTopicSummaries();
   const topic = topics.find((t) => t.slug === slug);
   if (!topic) return null;
-  const pageCount = Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE));
+  const pageCount = Math.min(TOPIC_MAX_PAGES, Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE)));
   if (page < 1 || page > pageCount) return null;
   // Page ids from the listed pool first, then the joins for those rows only.
   const rows = await sql<ItemRow[]>`
