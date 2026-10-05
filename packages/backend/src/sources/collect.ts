@@ -8,7 +8,7 @@ import { queueProcessing } from "../jobs/content.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { fetchRss } from "./rss.ts";
 import { allowed, fetchDetail, fetchWebList, type DetailNeed } from "./web-list.ts";
-import { unsupportedConfig, sourceDateConfigHash } from "./config-keys.ts";
+import { normalizeSourceLanguage, unsupportedConfig, sourceDateConfigHash } from "./config-keys.ts";
 import { fetchJsonList } from "./json-list.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { toDateCandidate, previewSourceDate } from "./date-extraction.ts";
@@ -88,6 +88,7 @@ async function store(
   candidates: Candidate[],
   backfill: string | null,
   permissionVersion: number,
+  declaredLanguage: string | null | undefined,
 ): Promise<{ created: number; revised: number }> {
   let created = 0;
   let revised = 0;
@@ -104,6 +105,7 @@ async function store(
   for (const c of candidates) {
     const material = {
       ...c,
+      language: declaredLanguage === undefined ? normalizeSourceLanguage(c.language) : declaredLanguage,
       sourceId,
       via: "fetch" as const,
       backfill,
@@ -241,7 +243,8 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
       }
     }
 
-    ({ created, revised } = await store(sourceId, candidates, firstImport ? "first-import" : null, permission.permission_version));
+    const language = Object.hasOwn(source.config, "language") ? normalizeSourceLanguage(source.config.language) : undefined;
+    ({ created, revised } = await store(sourceId, candidates, firstImport ? "first-import" : null, permission.permission_version, language));
 
     if (firstImport) nextCursor.initializedAt = new Date().toISOString();
     nextCursor.lastOkAt = new Date().toISOString();

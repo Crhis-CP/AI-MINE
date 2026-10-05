@@ -187,7 +187,12 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   assert.equal(analysis!.selected, true);
   assert.equal(analysis!.score, 80);
   assert.equal(analysis!.receipt_ids.length, 5);
-  assert.equal((await sql`SELECT selected FROM publications WHERE article_id=${articleId}`)[0]!.selected, true);
+  const [projection] = await sql`SELECT visibility,selected FROM publications WHERE article_id=${articleId}`;
+  assert.deepEqual(
+    { ...projection },
+    { visibility: "withdrawn", selected: false },
+    "finishing analysis during shutdown does not publish untranslated material",
+  );
   assert.equal((await sql`SELECT 1 FROM receipts WHERE subject=${`article:${articleId}@1`} AND status='completed'`).length, 5);
 });
 

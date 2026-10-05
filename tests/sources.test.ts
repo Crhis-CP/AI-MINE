@@ -12,7 +12,7 @@ import { fetchDetail, fromHtml, fromMarkdown } from "@amp/backend/sources/web-li
 import { fetchRss } from "@amp/backend/sources/rss";
 import { fetchJsonList } from "@amp/backend/sources/json-list";
 import { noiseFiltered } from "@amp/backend/sources/collect";
-import { unsupportedConfig } from "@amp/backend/sources/config-keys";
+import { normalizeSourceLanguage, unsupportedConfig } from "@amp/backend/sources/config-keys";
 
 const source = (config: Record<string, unknown>) => ({ id: "test-list", config }) as never;
 
@@ -220,4 +220,19 @@ test("source date intake preserves calendar strings and refuses unidentified JSO
   });
   assert.equal(got.publishedAt, null);
   assert.equal(got.sourceDateObservation?.raw, "", "an arbitrary JSON-LD node is not evidence for this article");
+});
+
+test("collected source language declarations are canonical BCP47; unknown labels stay unclassified", () => {
+  for (const kind of ["rss", "web_list", "json_list"] as const) assert.deepEqual(unsupportedConfig(kind, { language: "zh-Hant-TW" }), []);
+  for (const [value, expected] of [
+    ["EN-us", "en-US"],
+    ["zh-Hant-TW", "zh-Hant-TW"],
+    ["es-419", "es-419"],
+    ["fa", "fa"],
+    ["el", "el"],
+    ["ja", "ja"],
+  ])
+    assert.equal(normalizeSourceLanguage(value), expected);
+  for (const value of [null, undefined, "", "  ", "und", "mul", "zxx", "zz", "unknown", "en_US", "x-private", "u-ca-gregory", 17, {}])
+    assert.equal(normalizeSourceLanguage(value), null);
 });

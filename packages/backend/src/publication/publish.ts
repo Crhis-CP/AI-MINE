@@ -9,7 +9,10 @@ import { sha256, stableJson } from "../lib/ids.ts";
 import { collapseWhitespace, usableSourceText } from "../lib/text.ts";
 import { currentPrefilter, promptVersion } from "../editorial/prompts.ts";
 import { loadAnalyzeInput } from "../editorial/input.ts";
-import { PREFILTER_SYSTEM, prefilterUser } from "../editorial/writing.ts";
+import { PREFILTER_SYSTEM, prefilterUser, looksZh } from "../editorial/writing.ts";
+import { normalizeSourceLanguage } from "../sources/config-keys.ts";
+import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT } from "../editorial/translation-readiness.ts";
+import { readStoredTranslation } from "../editorial/translation-store.ts";
 import { hasPrefilterReceipt } from "../providers/receipt-evidence.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
@@ -30,6 +33,7 @@ interface ArticleRow {
   backfill: boolean;
   body_status: string;
   body_text: string | null;
+  body_html: string | null;
   excerpt: string | null;
   grouped_at: Date | null;
 }
@@ -165,10 +169,26 @@ export async function publishArticle(articleId: string, options: PublishOptions 
   return sql.begin((tx) => publishArticleTx(tx, articleId, options));
 }
 
-export async function publishArticleTx(tx: Tx, articleId: string, options: PublishOptions = {}): Promise<PublishResult | null> {
+/** Worker rechecks current scope, source licence and withdrawal before any translation request. */
+export async function prepareTranslation(articleId: string): Promise<number | null> {
+  let revision: number | null = null;
+  await sql.begin((tx) =>
+    publishArticleTx(tx, articleId, {}, (current) => {
+      revision = current;
+    }),
+  );
+  return revision;
+}
+
+export async function publishArticleTx(
+  tx: Tx,
+  articleId: string,
+  options: PublishOptions = {},
+  forTranslation?: (revision: number) => void,
+): Promise<PublishResult | null> {
   const [article] = await tx<ArticleRow[]>`
     SELECT id, revision, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, excerpt, grouped_at
+           body_text, body_html, excerpt, grouped_at
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -192,7 +212,9 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const analysis = storedAnalysis?.input_revision === article.revision ? storedAnalysis : undefined;
   const f = override?.fields ?? {};
   const hasMaterial = !!usableSourceText(article.body_text, article.excerpt);
-  const input = hasMaterial && currentPrefilter(analysis, article.revision) === "PASS" ? await loadAnalyzeInput(articleId, tx) : null;
+  const language = normalizeSourceLanguage(article.language);
+  const nativeChinese = isChineseOriginal(language);
+  const input = language && hasMaterial && currentPrefilter(analysis, article.revision) === "PASS" ? await loadAnalyzeInput(articleId, tx) : null;
   const admitted =
     !!input &&
     f.relevance !== "block" &&
@@ -208,10 +230,10 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const bodyMode = bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
   // Only confirmed Chinese source text with full-text permission has a deterministic fallback.
   const excerpt =
-    admitted && article.language === "zh" && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
+    admitted && nativeChinese && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
       ? `来源摘录：${Array.from(collapseWhitespace(article.body_text!)).slice(0, 400).join("")}（根据来源正文整理，保留原始材料供核对）`
       : null;
-  const isChineseTitle = article.language === "zh" || /[一-鿿]/.test(article.title);
+  const isChineseTitle = nativeChinese;
   // Without a written Chinese title, a Chinese original keeps its own title; a foreign one would
   // still be a half-finished card.
   const zhTitle = analysis?.title_zh?.trim() ? analysis.title_zh : null;
@@ -226,11 +248,37 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
-  // A manual visibility/selection override is not evidence of scope or usable public copy.
+  const chineseCopy = !!title && !!displaySummary && looksZh(title) && looksZh(displaySummary);
+  const translation = !nativeChinese && article.body_html ? await readStoredTranslation(articleId, tx) : null;
+  const wholeChinese =
+    nativeChinese ||
+    !!(
+      article.body_html &&
+      readableTranslation(
+        article.body_html,
+        { revision: article.revision, recipe: `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}` },
+        translation,
+      )
+    );
+  // A pending/withdrawn row is not proof of prior public reading. New foreign material has no exception here.
+  const previouslyPublic = previous?.visibility === "public" && previous.eligible;
+  const readingReady = !!language && (nativeChinese || (bodyMode === "full" && (wholeChinese || previouslyPublic)));
   const visibility =
-    source.participation_mode === "isolated" || !admitted || !hasMaterial || !title || !displaySummary ? "withdrawn" : (override?.visibility ?? "public");
-
-  const eligible = hasMaterial && isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary });
+    source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady ? "withdrawn" : (override?.visibility ?? "public");
+  const needsTranslation =
+    !!language &&
+    !nativeChinese &&
+    admitted &&
+    chineseCopy &&
+    bodyMode === "full" &&
+    !wholeChinese &&
+    source.participation_mode === "editorial" &&
+    (!override?.visibility || override.visibility === "public");
+  if (needsTranslation) {
+    if (forTranslation) forTranslation(article.revision);
+    else await enqueue(QUEUES.translate, { articleId }, { singletonKey: articleId }, tx);
+  }
+  const eligible = readingReady && hasMaterial && isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary });
   const selected = isSelectable(eligible, judgedSelected, source.tier);
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ?? null) : null;
   const syndicate = mayRedistribute(source, bodyMode);

@@ -174,6 +174,7 @@ async function stoppedArticle(purpose: string, needsBody = false) {
     sourceId,
     url: `https://example.com/recovery-${key}`,
     title: "Recovery",
+    language: "en",
     via: "fetch",
     bodyStatus: needsBody ? "pending" : "ok",
     bodyText: needsBody ? undefined : "body",

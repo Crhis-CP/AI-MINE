@@ -1,8 +1,9 @@
 // Body pictures reach readers only as links to the picture on the source's site (DR-78): the item page
 // and the full feed never fetch, re-host or show a source's pictures.
-import "./setup.ts";
+import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { linkBodyImages } from "@amp/backend/content/sanitize";
 
 const link = (href: string, text: string) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
@@ -73,4 +74,63 @@ test("a description is text, never markup", () => {
     linkBodyImages('<p><img src="https://example.org/q.png?a=&quot;b" alt="&quot;&gt;<b>bold</b>"></p>'),
     `<p>${link("https://example.org/q.png?a=&quot;b", '查看配图："&gt;&lt;b&gt;bold&lt;/b&gt;')}</p>`,
   );
+});
+
+test("real public_read detail and full RSS reject unproved translations and tightened full-text licences", async (t) => {
+  const f = await publicRoleFixture(t),
+    app = await publicServer(t, f);
+  const id = "pr9-editorial-public-full";
+  await f.admin`UPDATE translations SET manifest=NULL,recipe=NULL WHERE article_id=${id}`;
+  const detail = async (original = false) => {
+    const response = await app.request(`/api/site/items/${id}${original ? "/original" : ""}`);
+    assert.equal(response.status, 200);
+    return (await response.json()) as { body: { zh: string | null; original: string | null; complete: boolean } | null };
+  };
+  const feedItem = async () => {
+    const response = await app.request("/feed/full.xml");
+    assert.equal(response.status, 200);
+    return (await response.text()).split("<item>").find((item) => item.includes(id))!;
+  };
+  const pending = await detail();
+  assert.equal(pending.body!.zh, null, "replay complete=true is not model completeness evidence");
+  assert.equal(pending.body!.original, null, "the default Chinese page does not substitute English");
+  assert.equal(pending.body!.complete, false);
+  assert.ok((await detail(true)).body!.original!.includes(`ORIGINAL_BODY_${id}`));
+  assert.doesNotMatch(await feedItem(), /<content:encoded>/, "the full feed cannot substitute untranslated English");
+  const provider = await stub((_hit, request) => {
+    const input = JSON.parse(JSON.parse(request.body).messages[1].content) as { text: string };
+    return {
+      choices: [{ message: { content: JSON.stringify({ text: input.text.includes("PR9 original") ? "合成译文" : "真实假服务中文正文。" }) } }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    };
+  });
+  t.after(() => provider.close());
+  const script = `
+    import {initializeDb,closeDb} from '@amp/backend/db';
+    import {runBodyTranslation} from './packages/backend/src/editorial/translation-runtime.ts';
+    import {TRANSLATION_MANIFEST_FORMAT} from './packages/backend/src/editorial/translation-readiness.ts';
+    import {promptVersion,promptText} from '@amp/backend/editorial/prompts';
+    await initializeDb('worker');
+    try { const version=promptVersion('translate-body');
+      const result=await runBodyTranslation(process.argv[1],{id:TRANSLATION_MANIFEST_FORMAT+':'+version,model:'deepseek-flash',promptVersion:version,system:promptText('translate-body')});
+      if(result.status!=='translated') throw new Error(JSON.stringify(result));
+    } finally {await closeDb();}
+  `;
+  await f.run(process.execPath, ["--input-type=module", "-e", script, id], {
+    DATABASE_URL_WORKER: f.urlFor("worker"),
+    DATABASE_URL_BACKUP: f.urlFor("backup"),
+    MODEL_CALLS_ENABLED: "true",
+    DEEPSEEK_BASE_URL: `${provider.url}/v1`,
+    DEEPSEEK_API_KEY: "synthetic-fixture",
+  });
+  assert.equal(provider.hits(), 2, "the stored manifest came from two actual gateway/attempt writes");
+  assert.ok((await detail()).body!.zh!.includes("真实假服务中文正文"));
+  assert.match(await feedItem(), /真实假服务中文正文/);
+  await f.admin`UPDATE sources SET syndicate_fulltext=false WHERE id='pr9-editorial'`;
+  assert.doesNotMatch(await feedItem(), /<content:encoded>/, "current syndication permission overrides the cached projection");
+  assert.ok((await detail()).body!.zh!.includes("真实假服务中文正文"));
+  await f.admin`UPDATE sources SET site_fulltext=false WHERE id='pr9-editorial'`;
+  assert.equal((await detail()).body, null);
+  assert.equal((await detail(true)).body, null, "current site permission also applies to the original route");
+  assert.doesNotMatch(await feedItem(), /<content:encoded>/);
 });

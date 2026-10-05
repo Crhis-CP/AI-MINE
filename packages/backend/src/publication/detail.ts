@@ -4,15 +4,19 @@ import { linkBodyImages } from "../content/sanitize.ts";
 import { dbOf } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { hasItemPage } from "./rules.ts";
+import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT, type StoredTranslation } from "../editorial/translation-readiness.ts";
+import { promptVersion } from "../editorial/prompts.ts";
 
 const sql = dbOf("publication");
+const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
 interface DetailRow extends ItemRow {
   body_html: string | null;
   body_text: string | null;
   body_status: string;
-  tr_html: string | null;
-  tr_complete: boolean | null;
+  content_revision: number;
+  source_site_fulltext: boolean;
+  translation: StoredTranslation;
 }
 
 export type DetailResult = { kind: "found"; detail: ItemDetail; row: DetailRow } | { kind: "not_found" };
@@ -39,7 +43,9 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS}, a.body_html, a.body_text, a.body_status, tr.body_html AS tr_html, tr.complete AS tr_complete
+    SELECT ${ITEM_COLUMNS}, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
+      jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
+        'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
     ${ITEM_FROM}
     WHERE p.article_id = ${id}`;
   return row ?? null;
@@ -79,17 +85,18 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
 
   let body: ItemDetail["body"] = null;
   let outline: OutlineEntry[] = [];
-  if (row.body_mode === "full" && row.body_html) {
-    const isZh = row.language === "zh" || (/[一-鿿]/.test(row.body_text?.slice(0, 400) ?? "") && row.language !== "en");
+  if (row.body_mode === "full" && row.source_site_fulltext && row.body_html) {
+    const isZh = isChineseOriginal(row.language, row.body_text ?? "");
     const original = linkBodyImages(row.body_html);
-    const zh = isZh ? original : row.tr_html ? linkBodyImages(row.tr_html) : null;
+    const verified = isZh ? null : readableTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
+    const zh = isZh ? original : verified ? linkBodyImages(verified) : null;
     const primary = withOutline(zh ?? original);
     outline = primary.outline;
     body = {
       zh: zh ? primary.html : null,
       original: zh && !isZh ? withOutline(original).html : isZh ? null : primary.html,
       zhKind: isZh ? "original" : zh ? "translation" : null,
-      complete: isZh ? true : (row.tr_complete ?? false),
+      complete: isZh || verified !== null,
     };
   }
 
@@ -133,7 +140,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */
 export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDetail {
   const hasTranslation = !!detail.body?.zh && detail.body.zhKind === "translation" && !!detail.body.original;
-  const bodyLanguage = original && detail.body?.original ? "original" : detail.body?.zh ? "zh" : "original";
+  const bodyLanguage = original && detail.body?.original ? "original" : "zh";
   const selectedHtml = bodyLanguage === "zh" ? detail.body?.zh : detail.body?.original;
   return {
     ...detail,

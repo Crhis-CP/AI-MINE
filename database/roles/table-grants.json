@@ -189,7 +189,18 @@
     "sources": {
       "module": "sources",
       "access": "business",
-      "publicColumns": ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext", "source_date_config_hash"]
+      "publicColumns": [
+        "id",
+        "name",
+        "kind",
+        "participation_mode",
+        "enabled",
+        "last_ok_at",
+        "interval_minutes",
+        "site_fulltext",
+        "source_date_config_hash",
+        "syndicate_fulltext"
+      ]
     },
     "stored_files": {
       "module": "platform/storage",
@@ -239,7 +250,7 @@
     "translations": {
       "module": "enrichment",
       "access": "business",
-      "publicColumns": ["article_id", "lang", "revision", "body_html", "complete", "recipe", "source_hash", "manifest"]
+      "publicColumns": ["article_id", "lang", "revision", "body_html", "complete", "recipe", "source_hash", "manifest", "origin"]
     },
     "enrichment.translation_segments": {
       "module": "enrichment",

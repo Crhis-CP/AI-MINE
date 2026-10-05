@@ -84,7 +84,7 @@ test("INV-01: real source/content workers collect, book model receipts and publi
         kind: "rss",
         tier: "T2",
         participation_mode: "editorial",
-        config: { feedUrl: fixture.feedUrl },
+        config: { feedUrl: fixture.feedUrl, language: "zh" },
         permission_scope: { hosts: [new URL(fixture.feedUrl).hostname, "example.invalid"], path_prefixes: ["/"], document_types: [], excluded_content: [] },
         attachments_in_scope: false,
         site_fulltext: true,

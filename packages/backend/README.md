@@ -33,7 +33,7 @@ await access.close();
 队列接口仍经 `@amp/backend/jobs/queue` 使用。getBoss 返回绑定当前根的句柄，保存的方法和 getDb 的公开数据库操作同样受约束，不暴露原生接收者或连接池。队列存在缓存归属实例，旧异步结果不能写入新实例。停机先 stopBoss、后 closeDb；同根 graceful drain 允许在途 handler 结算和后续投递，内部原始资源负责最终关闭。事务 rollback 和监听 close 保留失效后的清理能力。
 
 
-翻译的逐段存储准备由enrichment独占：`translation_segments` 区分材料修订、配方、原文hash和段序号，原始模型text与恢复后HTML分别留hash；公开读取不读该明细表。`translations` 新增的recipe/source_hash/manifest保持旧记录为null，不补造完整度或回执依据。本次只交付可执行迁移与权限，严格逐段调用、事务写回及首次公开门另行接通，不能把schema存在当作完整中文验收。
+翻译的逐段存储准备由enrichment独占：`translation_segments` 区分材料修订、配方、原文hash和段序号，原始模型text与恢复后HTML分别留hash；公开读取不读该明细表。`translations` 新增的recipe/source_hash/manifest保持旧记录为null，不补造完整度或回执依据。严格逐段调用、事务写回与首次公开门已接入实际worker，实际模型语义质量仍需真实样本验收。
 
 TASK-0021生命周期前置：initializeDb返回本根AbortSignal；同role与同env引用重入复用，不同声明仍须先关闭。closeProcessDb先登记共享关闭Promise，再撤销注册和signal，监听器同步重入不能打开新根或使用旧能力；新根独立，未改队列正常drain的时点。signal不包含控制器、连接或URL；生命周期本身不代表许可存储或网关强制已激活。
 
@@ -49,14 +49,13 @@ TASK-0021生命周期前置：initializeDb返回本根AbortSignal；同role与�
 
 
 
-TASK-0021存储能力：既有admin/sources入口新增saveSourcePolicy以及当前私有/公开读取、版本锁端口；不注册HTTP、不启用模型调用。来源编辑在同一事务追加不可变版本、CAS推进当前指针及最小公开投影、记录审计。缺记录返回null；不会在读取或迁移时补造Owner许可。数据库限制应用角色改删历史，管理员仍有管理能力。
 
 lockCurrentSourcePolicies在调用方的事务中按source_id顺序取得共享咨询锁并核对版本，编辑使用同key独占锁；锁持有至事务结束。围栏仅接受READ COMMITTED，明确拒绝可能在等待后继续看旧快照的其他隔离级别。正式消费者必须先锁全部许可、再锁材料，并在锁内校验实际用途/资源后写回；该端口只保证版本围栏，不能代替ProcessingPermit或范围判定。当前函数尚未接入模型/内容消费者，不声称已实现完整网关强制。
 
 
 `readCurrentBody` / `commitBodyResult`是content的正文派生窄端口：读取正文身份，写回时锁定相同revision与HTML；不改变分析状态、错误、次数或重试时间。显式`runBodyTranslation`由已核验准入、来源许可和外文条件的worker调用，网络在事务外，检查点与实际attempt的完成/标坏同事务提交，完整manifest另行晋升。旧revision/recipe迟到停止后续片段；旧attempt不能覆盖新attempt或被当作正常结果交给旧调用者。
 
-Gateway保存每个实际attempt的原响应/用量/成本，receipts只在CAS当前尝试时更新response_attempt_id；缓存沿该指针核验所属回执、尝试与原响应，不猜MAX或给历史记录补造身份。新翻译显式启用同一调用键最多3次坏输出限制，claim前检查，重复结算不重复计数；旧能力默认不启用这个限制。缺usage的坏响应仍received，unknown不重发，明确截断不晋升；stop或空finishReason也须严格text与结构检查。不能证明历史缓存的attempt时保持私有待处理，不重新购买。旧cron/t提示词与公开门尚未切换，本片不代表自动外文准入完成。
+Gateway保存每个实际attempt的原响应/用量/成本，receipts只在CAS当前尝试时更新response_attempt_id；缓存沿该指针核验所属回执、尝试与原响应，不猜MAX或给历史记录补造身份。新翻译显式启用同一调用键最多3次坏输出限制，claim前检查，重复结算不重复计数；旧能力默认不启用这个限制。缺usage的坏响应仍received，unknown不重发，明确截断不晋升；stop或空finishReason也须严格text与结构检查。不能证明历史缓存的attempt时保持私有待处理，不重新购买。当前严格text消费者复用这些身份；网关强制ProcessingPermit仍由Task21完成。
 TASK-0021存储能力：既有admin/sources入口新增saveSourcePolicy以及当前私有/公开读取、版本锁端口；来源创建/读回已接入私有HTTP；模型调用仍未强制许可。来源编辑在同一事务追加不可变版本、CAS推进当前指针及最小公开投影、记录审计。缺记录返回null；不会在读取或迁移时补造Owner许可。数据库限制应用角色改删历史，管理员仍有管理能力。
 
 
@@ -65,3 +64,13 @@ TASK-0021来源加入与真实evaluate：来源创建严格要求明确permissio
 既有admin/sources公开入口的evaluateSourcePolicy(value, now?, db?)按当前版本、用途、资源/证据范围、附件与有效期限读取真实存储，未证明的条件/排除项失败关闭，查询失败不回退allow。默认时钟在查询后读取；日期等调用者在已有事务中传第三参tx，不额外占连接。公开四用途只读受限投影；共享许可锁→sources行锁/材料锁的顺序一致。UI和生成private client使用同一Zod契约；采集/模型/公开消费者的ProcessingPermit强制及正式权限放宽编辑仍待后续原子接通。
 
 RSS/RDF的`dc:date`始终保留原串与定位，默认publicationBasis=other，不自动作为发布时间。需逐源明确`publishedAtField:"dc:date"`，并给sourceDate.meaning/publicationBasis/basis语义依据，才按声明解析和判定；显式字段缺失时不切换依据。默认网页日期只取head页面级元数据或绑定当前URL的Article类itemscope；侧栏、其他文章和无身份的microdata不属于本稿，显式selector规则保持。公众号首次窗口同样先严格解析，不能用Number把未识别的原串提前转成旧日期。
+
+
+旧`translateArticle`/`translatePending`已切到严格单段`{text}`运行器，提示词与适配同片生效。完整当前配方才结束补漏；部分结果依实际attempt检查点续接，unknown/停机不写终态，整篇操作记录不再充当付费次数上限。现在由逐稿content.translate消费，cron只补投递；不以selected/public作为翻译前置。新外文在当前完整中文就绪前不公开，已公开稿重处理期间正文待补齐，人工撤回仍优先。
+
+
+详情与全文RSS复检当前修订/配方/原文、完整manifest、段顺序/hash及六类坏段；默认中文阅读不回退英文，原文入口仍受当前全文许可约束。source标签的旧派生中文版尚无真实写入/完整性证明端口，保持未证明；原生中文材料不受此影响。RSS只在当前site与syndication均允许时内联已验证中文，不读取私有段表。当前普通/入选外文都经来源队列、严格逐段调用和公开门；长单元拆分/前文参考及一次截断替代任务仍待后续，不把当前pending截断状态说成已完成。
+
+R-03/R-10最小接线：collectSource支持config.language明确声明，经BCP47/运行时语言注册数据规范化后写既有材料language；没有明确语言时不进入付费处理或公开，不以单个汉字推断。中文主语言zh含繁体变体无需翻译，已知非zh才入队。新正文修订明确language:null会清空旧语言，省略字段才保留。没有实现自动语言检测，也不会改写既有重复材料的语言或对声明变更全量回填；需受控元数据修订的历史材料仍是明确余项。私有建源继续使用SourcePolicy 0.3的显式scope/附件声明，不能用旧0.2请求或测试SQL补造加入依据。
+
+继承的翻译cron补漏仍局限最近三天及最新30条，逐稿初次投递不受此条件限制。缺失投递的旧稿和被前批阻塞的稿件需要后续基于既有job_runs的持久轮转补漏；此项与长单元/前文、语言自动检测及来源中文版证明仍是Task20余项，不宣称无人值守持续处理已验收。

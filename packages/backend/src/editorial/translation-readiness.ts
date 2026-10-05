@@ -1,5 +1,6 @@
-// TASK-0020 preparation: no I/O or registration; worker and publication activation is a later change.
+// Pure translation coverage and public-read checks; no I/O or registration.
 import { createHash } from "node:crypto";
+import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import { z } from "zod";
@@ -140,6 +141,72 @@ export function assembleTranslation(sourceHtml: string, current: { revision: num
   }
   const html = $.html();
   return { html, manifest: { ...manifest, bodyHash: hash(html) } };
+}
+
+export interface StoredTranslation {
+  revision: number;
+  body_html: string | null;
+  complete: boolean;
+  origin: string;
+  recipe: string | null;
+  source_hash: string | null;
+  manifest: unknown;
+}
+
+export function isChineseOriginal(language: string | null, _sample?: string): boolean {
+  return normalizeSourceLanguage(language)?.split("-")[0] === "zh";
+}
+
+const digest = z.string().regex(/^[a-f0-9]{64}$/);
+const StoredManifest = z.strictObject({
+  format: z.literal(TRANSLATION_MANIFEST_FORMAT),
+  sourceHash: digest,
+  bodyHash: digest,
+  revision: z.number().int().positive(),
+  recipe: z.string().min(1),
+  segments: z.array(z.strictObject({ index: z.number().int().nonnegative(), sourceHash: digest, responseHash: digest, textHash: digest })),
+});
+
+/** Read-only second defence: legacy flags or a body hash alone never prove model completeness. */
+export function readableTranslation(sourceHtml: string, current: { revision: number; recipe: string }, stored: StoredTranslation | null): string | null {
+  if (!stored?.complete || stored.revision !== current.revision || !stored.body_html) return null;
+  const translated = translationSourceManifest(stored.body_html);
+  if (!translated.segments.length) return null;
+  // No source-edition writer/proof exists yet; an origin string cannot promote unproved legacy text.
+  if (stored.origin === "source") return null;
+  const parsed = StoredManifest.safeParse(stored.manifest);
+  if (!parsed.success) return null;
+  const manifest = parsed.data,
+    source = translationSourceManifest(sourceHtml);
+  if (
+    stored.recipe !== current.recipe ||
+    manifest.recipe !== current.recipe ||
+    manifest.revision !== current.revision ||
+    stored.source_hash !== source.sourceHash ||
+    manifest.sourceHash !== source.sourceHash ||
+    manifest.bodyHash !== hash(stored.body_html) ||
+    manifest.segments.length !== source.segments.length ||
+    translated.segments.length !== source.segments.length
+  )
+    return null;
+  const checkpoints: TranslationCheckpoint[] = [];
+  for (const original of source.segments) {
+    const segment = translated.segments[original.index]!,
+      proof = manifest.segments[original.index]!;
+    const before = shield(original.html),
+      after = shield(segment.html);
+    if (
+      proof.index !== original.index ||
+      proof.sourceHash !== original.sourceHash ||
+      proof.textHash !== hash(segment.html) ||
+      JSON.stringify(before.tokens) !== JSON.stringify(after.tokens) ||
+      JSON.stringify(before.links) !== JSON.stringify(after.links)
+    )
+      return null;
+    checkpoints.push({ ...current, index: original.index, sourceHash: original.sourceHash, state: "complete", text: after.html });
+  }
+  const assembled = assembleTranslation(sourceHtml, current, checkpoints);
+  return assembled?.html === stored.body_html ? stored.body_html : null;
 }
 
 /** A block as the model sees it: media and inline code as ⟦n⟧, links as <a id="Ln"> with their attributes kept here. */

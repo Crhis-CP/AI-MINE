@@ -175,6 +175,7 @@ const article = async (marker: string, extra: Record<string, unknown> = {}) =>
       sourceId: SOURCE,
       url: `https://example.com/${marker}-${T}`,
       title: `${marker} model release ${T}`,
+      language: "en",
       bodyText: `${marker}: ${LONG} (${T})`,
       bodyStatus: "ok",
       via: "fetch",

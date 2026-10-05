@@ -203,7 +203,7 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
 
   const [row] = await db<{ revision: number }[]>`
     UPDATE articles SET
-      title = ${title}, author = coalesce(${m.author ?? null}, author), language = coalesce(${m.language ?? null}, language),
+      title = ${title}, author = coalesce(${m.author ?? null}, author), language = CASE WHEN ${m.language !== undefined} THEN ${m.language ?? null} ELSE language END,
       source_updated_at = ${m.sourceUpdatedAt ?? null}, excerpt = coalesce(${m.excerpt ?? null}, excerpt),
       body_text = coalesce(${m.bodyText ?? null}, body_text), body_html = coalesce(${m.bodyHtml ?? null}, body_html),
       body_status = CASE WHEN ${m.bodyText ?? null}::text IS NULL THEN body_status ELSE ${m.bodyStatus ?? "ok"} END,

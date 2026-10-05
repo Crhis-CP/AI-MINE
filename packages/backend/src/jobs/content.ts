@@ -4,12 +4,14 @@
 // extraction first. A provider outage makes an article wait and retry with backoff; only a permanent
 // refusal or exhausted retries end in "failed", which the admin re-queues in bulk.
 import type { PgBoss } from "pg-boss";
+import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { dbOf, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
 import { isHistorical } from "../content/materials.ts";
-import { publishArticle } from "../publication/publish.ts";
+import { publishArticle, prepareTranslation } from "../publication/publish.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
+import { translateArticle } from "../editorial/translate.ts";
 import { ModelOutputError } from "../providers/llm.ts";
 import { ensureQueue, enqueue, QUEUES, shutdownSignal } from "./queue.ts";
 
@@ -31,6 +33,7 @@ interface Route {
   /** Not an editorial source: no analysis; the post goes straight to event grouping as discussion evidence. */
   signal: boolean;
   historical: boolean;
+  language: string | null;
 }
 
 /**
@@ -41,6 +44,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const [row] = await db<
     {
       body_status: string;
+      language: string | null;
       participation_mode: string;
       kind: string;
       config: Record<string, unknown>;
@@ -51,7 +55,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       discovered_at: Date;
     }[]
   >`
-    SELECT a.body_status, s.participation_mode, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
+    SELECT a.body_status, a.language, s.participation_mode, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
            a.backfill, a.published_at, a.discovered_at
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!row) return null;
@@ -60,7 +64,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const pending = row.body_status === "pending";
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
   const needsPage = !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
-  return { step: pending && needsPage ? "extract" : "analyze", signal, historical };
+  return { step: pending && needsPage ? "extract" : "analyze", signal, historical, language: normalizeSourceLanguage(row.language) };
 }
 
 /**
@@ -79,6 +83,10 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   const db = opts.db ?? sql;
   const r = await route(articleId, db);
   if (!r) return null;
+  if (!r.language) {
+    await unidentifiedLanguage(articleId, db);
+    return null;
+  }
   const step = opts.step ?? r.step;
   await db`UPDATE articles SET processing_queued_at = now() WHERE id = ${articleId}`;
   if (step === "extract")
@@ -100,6 +108,11 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   );
 }
 
+async function unidentifiedLanguage(articleId: string, db: Db = sql) {
+  await db`UPDATE articles SET processing_state='failed',processing_error='language_unidentified: 来源语言未识别',
+    processing_retry_at=NULL,processing_queued_at=NULL WHERE id=${articleId}`;
+}
+
 /**
  * A post of a non-editorial source: recorded (hot_signal material only feeds heat; isolated material
  * never reaches public surfaces). Returns whether it is discussion evidence to group.
@@ -117,10 +130,23 @@ export async function settleNonEditorial(articleId: string): Promise<{ group: bo
 /** attemptTag makes an explicit re-evaluation a new (paid) request; the same tag reuses its receipt. */
 export async function processArticle(articleId: string, opts: { attemptTag?: string } = {}): Promise<{ state: string }> {
   const [found] = await sql<
-    { participation_mode: string; processing_state: string; revision: number; backfill: boolean; published_at: Date | null; discovered_at: Date }[]
+    {
+      participation_mode: string;
+      processing_state: string;
+      revision: number;
+      language: string | null;
+      backfill: boolean;
+      published_at: Date | null;
+      discovered_at: Date;
+    }[]
   >`
-    SELECT s.participation_mode, a.processing_state, a.revision, a.backfill, a.published_at, a.discovered_at FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
+    SELECT s.participation_mode, a.processing_state, a.revision, a.language, a.backfill, a.published_at, a.discovered_at FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!found) return { state: "missing" };
+  if (!normalizeSourceLanguage(found.language)) {
+    await unidentifiedLanguage(articleId);
+    await publishArticle(articleId);
+    return { state: "unknown-language" };
+  }
   const row = { ...found, historical: isHistorical(found) };
   if (row.participation_mode !== "editorial") {
     // Normally queued straight for grouping (queueProcessing); an explicit re-evaluation lands here.
@@ -137,9 +163,10 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
       return { state: "fetching-body" };
     }
     if (result.stale) return { state: "stale" }; // the newer revision has its own job
-    await publishArticle(articleId);
+    const publication = await publishArticle(articleId);
     // History is archived but founds no event (isHistorical).
-    if (result.output.relevance === "pass" && !row.historical) await enqueue(QUEUES.group, { articleId }, { singletonKey: articleId, priority: PRIORITY.live });
+    if (result.output.relevance === "pass" && publication?.visibility === "public" && !row.historical)
+      await enqueue(QUEUES.group, { articleId }, { singletonKey: articleId, priority: PRIORITY.live });
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
@@ -183,6 +210,19 @@ async function afterFailure(articleId: string, error: unknown): Promise<{ state:
 }
 
 export async function registerContentJobs(boss: PgBoss, concurrency = Number(process.env.ANALYZE_CONCURRENCY || 6)) {
+  await ensureQueue(QUEUES.translate);
+  await boss.work<{ articleId: string }>(QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
+    if (!job) return;
+    const revision = await prepareTranslation(job.data.articleId);
+    if (revision === null) return { state: "not-needed-or-not-permitted" };
+    const result = await translateArticle(job.data.articleId, revision);
+    if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
+    const publication = await publishArticle(job.data.articleId);
+    const r = await route(job.data.articleId, sql);
+    if (publication?.visibility === "public" && r && !r.historical)
+      await enqueue(QUEUES.group, { articleId: job.data.articleId }, { singletonKey: job.data.articleId, priority: PRIORITY.live });
+    return result;
+  });
   await ensureQueue(QUEUES.analyze);
   await boss.work<{ articleId: string; attemptTag?: string }>(QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
     if (!job) return;
