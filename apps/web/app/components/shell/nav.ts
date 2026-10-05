@@ -1,7 +1,7 @@
 // Site navigation, one place for the desktop sidebar, the mobile tab bar and the mobile "更多" page.
 import { withSubject } from "@amp/industry/site";
 import type { ReactNode } from "react";
-import { IconApps, IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconHistory, IconList, IconMessage, IconPlug } from "../icons";
+import { IconApps, IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconHistory, IconList, IconMessage, IconPlug, IconTrendUp } from "../icons";
 
 export interface NavItem {
   to: string;
@@ -21,6 +21,7 @@ export const SIDEBAR: Array<{ title: string; items: NavItem[] }> = [
       { to: "/daily", label: withSubject("日报"), icon: IconDoc },
       { to: "/topics", label: "主题", icon: IconGrid },
       { to: "/starred", label: "收藏", icon: IconBookmark },
+      { to: "/metals", label: "金属价格", icon: IconTrendUp },
     ],
   },
   {
@@ -42,7 +43,7 @@ export const TABBAR: NavItem[] = [
 ];
 
 /** Pages reached from the mobile "更多" tab keep that tab highlighted. */
-export const MORE_PATHS = ["/more", "/hot", "/topics", "/starred", "/agent", "/about", "/changelog", "/feedback", "/terms", "/privacy"];
+export const MORE_PATHS = ["/more", "/hot", "/topics", "/starred", "/metals", "/agent", "/about", "/changelog", "/feedback", "/terms", "/privacy"];
 
 export function tabIsActive(item: NavItem, pathname: string): boolean {
   if (item.end) return pathname === item.to;
