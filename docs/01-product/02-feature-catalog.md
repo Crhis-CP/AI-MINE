@@ -142,7 +142,7 @@ F-POL-08～F-POL-11 的含义在本表、`10-policy-service.md` §0.3、`02b-fun
 
 ## 7. 精选与排序（F-SEL）
 
-> 2026-10-03 文字预审：Owner 认可除矿种范围更正外的评分文字规则，并允许继续准备真实样本；范围按 BR-ENR-01。真实模型、金标、留出集与正式生效仍待各自证据，以下生效门槛不因此视为通过。
+> 2026-10-03 文字预审：Owner 对除矿种范围更正外的评分文字无异议（原话“其他我没什么问题”，不是 BR-SEL-09 的确认），并允许继续准备真实样本；范围按 BR-ENR-01（2026-10-05 Owner 选“只收金属”）。评分草案原文不在仓库，下一版随矿业内容包交 Owner 审阅。真实模型、金标、留出集与正式生效仍待各自证据，以下生效门槛不因此视为通过。
 
 **沿用 AIHOT 的精选与热点，把 AI 侧改成矿业侧**（Owner 2026-10-01：“学习 AIHOT 的开源内容，把 AI 侧改造成矿业侧”，Q-06 已答复，DEC-10、DEC-64），随全面切换上线，状态为“切换前完成”（M3）。**矿业版评分标准（读者定义、内容类型与权重表、两张清单、封顶规则）是草案，生效前必须先交 Owner 审阅确认**（见下表“Owner 审阅关卡”），未经确认不得用于正式站的精选。依据是 AIHOT 快照的 `docs/selection.md`、`industry/selection.ts`、`packages/backend/src/editorial/analyze.ts`、`docs/grouping.md`、`packages/backend/src/events/`（热点见 `hot.ts`、`hot-read.ts`）、`packages/backend/src/reports/compose.ts`（报告选材）、`apps/web/app/components/ui/Score.tsx` 与 `apps/web/app/features/feed/FeedItem.tsx`（分数小标签与卡片显示）与 `industry/prompts/`。
 
