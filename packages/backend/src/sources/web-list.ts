@@ -54,6 +54,17 @@ export function parseLooseDate(value: string | null | undefined, utcOffset = "+0
   return atOffset(local.getFullYear(), local.getMonth() + 1, local.getDate(), local.getHours(), local.getMinutes(), local.getSeconds(), utcOffset);
 }
 
+/**
+ * The published time kept for a parsed source date, read as the upstream reads it (Owner 2026-10-05:
+ * where the handoff's way differs from the upstream's, the upstream's): the instant when the source gives
+ * one; otherwise the text as printed, by parseLooseDate in the source's offset, so a date alone is the
+ * start of that day.
+ */
+export function sourcePublishedAt(time: { raw: string; utc: string | null } | null | undefined, utcOffset?: string): Date | null {
+  if (!time) return null;
+  return time.utc ? new Date(time.utc) : parseLooseDate(time.raw, utcOffset);
+}
+
 /** Only structured data identifying this article can contribute a publication date. */
 function jsonLdDates($: cheerio.CheerioAPI, url: string, keepFragment = false): Array<{ raw: string; locator: string }> {
   const values: Array<{ raw: string; locator: string }> = [];
@@ -262,7 +273,7 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
     const sourceDateObservation = observeSourceDate(source, url, raw, locator);
     seen.add(url);
     const time = previewSourceDate(sourceDateObservation);
-    out.push({ url, title, publishedAt: time?.utc ? new Date(time.utc) : null, sourceDateObservation });
+    out.push({ url, title, publishedAt: sourcePublishedAt(time, c.publishedAtUtcOffset), sourceDateObservation });
   }
   return out;
 }
@@ -339,5 +350,5 @@ export async function fetchDetail(
     summary = collapseWhitespace(el.attr("content") ?? el.text()) || null;
   }
   const time = sourceDateObservation ? previewSourceDate(sourceDateObservation) : null;
-  return { publishedAt: time?.utc ? new Date(time.utc) : null, sourceDateObservation, title, summary, body };
+  return { publishedAt: sourcePublishedAt(time, d.publishedAtUtcOffset), sourceDateObservation, title, summary, body };
 }

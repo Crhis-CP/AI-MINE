@@ -125,7 +125,9 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql): Promise<Ma
   const run = async (tx: Tx) => {
     await prepareDateMutation(tx, m.sourceId, date);
     const result = await upsertIn(tx, m);
-    return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now())) });
+    // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
+    const listed = decideTimeline(m.publishedAt, m.discoveredAt ?? new Date()).publishedAt;
+    return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now(), undefined, listed)) });
   };
   return "begin" in db ? (db as typeof sql).begin(run) : run(db as Tx);
 }

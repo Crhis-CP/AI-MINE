@@ -2,7 +2,7 @@
 // the server runs in (Docker runs in UTC; run this file with TZ=UTC and TZ=Asia/Shanghai to see both).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseLooseDate } from "@amp/backend/sources/web-list";
+import { parseLooseDate, sourcePublishedAt } from "@amp/backend/sources/web-list";
 
 const iso = (v: string, offset?: string) => parseLooseDate(v, offset)?.toISOString() ?? null;
 
@@ -32,4 +32,14 @@ test("a date that carries its zone keeps it", () => {
 test("no date at all is null", () => {
   assert.equal(iso(""), null);
   assert.equal(iso("yesterday"), null);
+});
+
+test("the published time kept for a parsed source date is its instant, or its text read as above", () => {
+  const at = (raw: string, utc: string | null = null, offset?: string) => sourcePublishedAt({ raw, utc }, offset)?.toISOString() ?? null;
+  assert.equal(at("2026-09-26 10:00", "2026-09-26T02:00:00Z"), "2026-09-26T02:00:00.000Z");
+  assert.equal(at("2026/09/26"), "2026-09-25T16:00:00.000Z", "a date alone: the start of that day in Beijing");
+  assert.equal(at("2026-09-26"), "2026-09-26T00:00:00.000Z", "an ISO date alone: UTC midnight");
+  assert.equal(at("2026年9月26日", null, "-07:00"), "2026-09-26T07:00:00.000Z");
+  assert.equal(at(""), null);
+  assert.equal(sourcePublishedAt(null), null);
 });
