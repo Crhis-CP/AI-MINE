@@ -40,6 +40,8 @@ const requests: Req[] = [];
 const scoreHolds = new Map<string, { asked: () => void; release: Promise<void> }>();
 // A test can make the prefilter answer a marker differently on a later judgement.
 const prefilterLabels = new Map<string, string>();
+// A test can make a marker's score requests fail like an outage.
+const scoreOutages = new Set<string>();
 // Prescribed fake labels test the admission plumbing, not the model's mining judgement quality.
 const mining = [
   ["COPPER", "铜矿产量公告", "PASS"],
@@ -129,7 +131,7 @@ const provider = await stub(async (_hit, req) => {
       hold.asked();
       await hold.release;
     }
-    if (marker === "SCFAIL") return new Reply(503, { error: { message: "synthetic score outage" } });
+    if (marker === "SCFAIL" || scoreOutages.has(marker)) return new Reply(503, { error: { message: "synthetic score outage" } });
     if (marker === "SCREFUSED")
       return new Reply(400, { contentFilter: [{ level: 1, role: "user" }], error: { code: "1301", message: "synthetic content refusal" } });
     return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
@@ -549,6 +551,19 @@ test("BR-PUB-08: judging a selected Chinese original again keeps its last comple
   const done = await projection(id);
   assert.deepEqual([done.visibility, done.selected], ["public", true]);
   assert.ok(!(await ledger()).includes("remove"), "the selected set never lost it");
+  scoreOutages.add("REJUDGE");
+  try {
+    await assert.rejects(processArticle(id, { attemptTag: `outage-${T}` }), /synthetic score outage/);
+  } finally {
+    scoreOutages.delete("REJUDGE");
+  }
+  const failed = await projection(id);
+  assert.deepEqual(
+    [failed.visibility, failed.selected, failed.score, failed.summary],
+    [done.visibility, done.selected, done.score, done.summary],
+    "a failed judgement of the same revision keeps the last complete one",
+  );
+  assert.ok(!(await ledger()).includes("remove"), "nor does a failed one take it out of the selected set");
   prefilterLabels.set("REJUDGE", "BLOCK");
   try {
     assert.equal((await processArticle(id, { attemptTag: `block-${T}` })).state, "block");
