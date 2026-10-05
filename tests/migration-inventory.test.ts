@@ -11,13 +11,14 @@ test("real migration entry preserves legacy records, serializes fresh runs and r
   const run = (url = f.urlFor(), args = ["scripts/migrate.ts"]) => f.run(process.execPath, args, { DATABASE_URL: url });
   const records = async () => (await f.admin`SELECT name, applied_at::text, sha256 FROM schema_migrations ORDER BY name`).map((row) => ({ ...row }));
   const initial = await records();
+  const byName = [...inventory].sort((left, right) => left.name.localeCompare(right.name));
   assert.deepEqual(
     initial.map((row) => row.name),
-    inventory.map((entry) => entry.name),
+    byName.map((entry) => entry.name),
   );
   assert.deepEqual(
     initial.map((row) => row.sha256),
-    inventory.map((entry) => entry.sha256),
+    byName.map((entry) => entry.sha256),
   );
   const legacyNames = inventory.filter((entry) => entry.module === null).map((entry) => entry.name);
   await f.admin`UPDATE schema_migrations SET sha256=NULL WHERE name=ANY(${legacyNames}::text[])`;
@@ -72,11 +73,11 @@ test("real migration entry preserves legacy records, serializes fresh runs and r
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(file, entry.text);
   }
-  mkdirSync(path.join(directory, "sources"));
-  writeFileSync(path.join(directory, "sources/202610041000_new.sql"), "CREATE SCHEMA sources;");
+  mkdirSync(path.join(directory, "sources"), { recursive: true });
+  writeFileSync(path.join(directory, "sources/202610041000_new.sql"), "CREATE TABLE sources.unregistered_probe(id integer);");
   writeFileSync(path.join(root, "database/migration-inventory.json"), JSON.stringify(manifest));
   const args = ["--input-type=module", "-e", "import {migrate} from './scripts/migrate.ts'; await migrate(process.argv[1]);", root];
   await assert.rejects(run(f.urlFor(), args), /Unregistered migration/);
-  assert.equal((await f.admin`SELECT count(*)::int AS n FROM pg_namespace WHERE nspname='sources'`)[0].n, 0);
+  assert.equal((await f.admin`SELECT to_regclass('sources.unregistered_probe') AS name`)[0].name, null);
   assert.match((await run()).stdout, /database is up to date/);
 });
