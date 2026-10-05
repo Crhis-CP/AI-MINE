@@ -1,4 +1,5 @@
 // Run after `npm run build -w @amp/web`. Real production server/router, synthetic HTTP API only.
+import { SITE } from "@amp/industry/site";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
@@ -250,6 +251,18 @@ test("public route subsets produce the same complete navigation data; filters st
   const body = await filtered.text();
   assert.ok(body.includes(category));
   assert.notEqual(body, answers[0]);
+});
+
+test("every public page carries the ICP filing number in the phone footer; the 更多 page keeps its own", async () => {
+  const icp = SITE.icp!;
+  assert.ok(icp, "the filing number is on file");
+  for (const path of ["/", "/all", "/about"]) {
+    const html = await (await fetch(origin + path)).text();
+    assert.match(html, new RegExp(`<footer[^>]*lg:hidden[^>]*>.*?${icp}`, "s"), path);
+  }
+  const more = await (await fetch(`${origin}/more`)).text();
+  assert.doesNotMatch(more, /<footer[^>]*lg:hidden/);
+  assert.ok(more.includes(icp));
 });
 
 test("HTML and navigation share freshness; cookies do not personalize public results", async () => {
