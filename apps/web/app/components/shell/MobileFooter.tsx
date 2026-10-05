@@ -7,7 +7,7 @@ import { useLocation } from "react-router";
  */
 export function MobileFooter() {
   const { pathname } = useLocation();
-  if (pathname === "/more" || !(SITE.icp || SITE.publicSecurity || SITE.newsLicense)) return null;
+  if (pathname.replace(/\/+$/, "") === "/more" || !(SITE.icp || SITE.publicSecurity || SITE.newsLicense)) return null;
   return (
     <footer className="mt-10 flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-line-soft pb-2 pt-4 text-center text-[11px] text-ink-4 lg:hidden">
       {SITE.icp && (
