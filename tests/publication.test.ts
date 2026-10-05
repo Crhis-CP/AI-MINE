@@ -74,10 +74,10 @@ after(async () => {
 
 let n = 0;
 /** A selected article with full text and a summary. */
-async function article(body = BODY, language?: string): Promise<string> {
+async function article(body = BODY, language?: string, sourceId = SOURCE): Promise<string> {
   n += 1;
   const { articleId } = await upsertMaterial({
-    sourceId: SOURCE,
+    sourceId,
     url: `https://example.com/${T}-${n}`,
     title: `Test ${n}`,
     bodyText: body,
@@ -89,7 +89,7 @@ async function article(body = BODY, language?: string): Promise<string> {
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
             VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题${n}-${T}`}, ${`合成摘要 SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
-  const [source] = await sql`SELECT site_fulltext FROM sources WHERE id=${SOURCE}`;
+  const [source] = await sql`SELECT site_fulltext FROM sources WHERE id=${sourceId}`;
   if (source?.site_fulltext && body && !isChineseOriginal(language ?? null, body)) await translateFixture(articleId);
   return articleId;
 }
@@ -255,7 +255,7 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
   for (const url of exits) assert.ok(!(await get(url)).body.includes(rep!), `${url} still shows the withdrawn item`);
 });
 
-test("items without scope evidence and hot_signal items have no public page", async () => {
+test("items without an identified language or Chinese copy, and hot_signal items, have no public page", async () => {
   const SIGNAL = `${SOURCE}-signal`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
             VALUES (${SIGNAL}, 'Test signal', 'rss', 'T1', 'hot_signal', true, false, '2100-01-01')`;
@@ -279,7 +279,7 @@ test("items without scope evidence and hot_signal items have no public page", as
   await publishArticle(signal);
 
   const page = await get(`/api/site/items/${plain}`);
-  assert.equal(page.status, 404, "an unconfirmed editorial item cannot gain a detail page");
+  assert.equal(page.status, 404, "an item with no identified language or Chinese copy cannot gain a detail page");
   assert.equal((await get(`/api/site/items/${signal}`)).status, 404, "hot_signal material has no page");
 
   const publicId = randomUUID();
@@ -289,8 +289,43 @@ test("items without scope evidence and hot_signal items have no public page", as
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`f-${T}`}, ${story!.id}, ${`事实-${T}`}) RETURNING id`;
   await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${fact!.id}, ${plain}, 'report'), (${fact!.id}, ${signal}, 'report')`;
   const storyPage = await get(`/api/site/stories/${publicId}`);
-  assert.equal(storyPage.status, 404, "an event with no admitted reports cannot expose the material");
+  assert.equal(storyPage.status, 404, "an event with no publishable reports cannot expose the material");
   assert.ok(!storyPage.body.includes(signal) && !storyPage.body.includes(`SIGNAL-SUMMARY-${T}`), "and not the hot_signal one");
+});
+
+test("one item's failure does not stop a source republish; a passing failure is tried once more", async () => {
+  const source = `${SOURCE}-republish`;
+  await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
+            VALUES (${source}, 'Test republish', 'rss', 'T1', 'editorial', true, true, '2100-01-01')`;
+  const ids: string[] = [];
+  for (let i = 0; i < 3; i++) ids.push(await article(BODY, undefined, source));
+  for (const id of ids) await publishArticle(id, released());
+  ids.sort(); // the order republishSource walks
+  const visibility = async () =>
+    (await sql<{ visibility: string }[]>`SELECT visibility FROM publications WHERE source_id = ${source} ORDER BY article_id`).map((r) => r.visibility);
+  assert.deepEqual(await visibility(), ["public", "public", "public"]);
+  const trigger = `test_republish_failure_${T}`;
+  const counter = `${trigger}_calls`;
+  // The first item fails every time; the second only on its first try (a sequence is not rolled back).
+  await sql.unsafe(`CREATE SEQUENCE ${counter};
+    CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN
+      IF NEW.article_id = '${ids[0]}' THEN RAISE EXCEPTION 'synthetic publication failure'; END IF;
+      IF NEW.article_id = '${ids[1]}' THEN
+        IF nextval('${counter}') = 1 THEN RAISE EXCEPTION 'synthetic passing failure'; END IF;
+      END IF;
+      RETURN NEW;
+    END$$;
+    CREATE TRIGGER ${trigger} BEFORE INSERT ON publications FOR EACH ROW
+      WHEN (NEW.article_id IN ('${ids[0]}', '${ids[1]}')) EXECUTE FUNCTION ${trigger}();`);
+  try {
+    // Isolating the source changes every item's projection.
+    await sql`UPDATE sources SET participation_mode = 'isolated' WHERE id = ${source}`;
+    const result = await republishSource(source);
+    assert.deepEqual([result.total, result.changed, result.failed, result.failedIds], [3, 2, 1, [ids[0]]]);
+    assert.deepEqual(await visibility(), ["public", "withdrawn", "withdrawn"], "the failing item keeps its stored projection; the rest are re-derived");
+  } finally {
+    await sql.unsafe(`DROP TRIGGER IF EXISTS ${trigger} ON publications; DROP FUNCTION IF EXISTS ${trigger}(); DROP SEQUENCE IF EXISTS ${counter}`);
+  }
 });
 
 test("an early release keeps the selected ledger in order", async () => {

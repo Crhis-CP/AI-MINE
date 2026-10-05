@@ -144,6 +144,8 @@ const FieldsSchema = z
     tags: z.array(z.string().max(60)).max(20),
     selected: z.boolean(),
     silent: z.boolean(),
+    // 收录 (AI-01 人工覆盖): "pass" admits despite a model BLOCK, "block" keeps the item off every public page.
+    relevance: z.enum(["pass", "block"]),
   })
   .partial()
   .strict();

@@ -7,13 +7,11 @@ import { config } from "../config.ts";
 import { one, dbOf, type Tx } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { collapseWhitespace, usableSourceText } from "../lib/text.ts";
-import { currentPrefilter, promptVersion } from "../editorial/prompts.ts";
-import { loadAnalyzeInput } from "../editorial/input.ts";
-import { PREFILTER_SYSTEM, prefilterUser, looksZh } from "../editorial/writing.ts";
+import { promptVersion } from "../editorial/prompts.ts";
+import { looksZh } from "../editorial/writing.ts";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT } from "../editorial/translation-readiness.ts";
 import { readStoredTranslation } from "../editorial/translation-store.ts";
-import { hasPrefilterReceipt } from "../providers/receipt-evidence.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
@@ -36,14 +34,12 @@ interface ArticleRow {
   body_html: string | null;
   excerpt: string | null;
   grouped_at: Date | null;
+  processing_state: string;
 }
 
 interface AnalysisRow {
   id: number;
   input_revision: number;
-  prompt_version: string | null;
-  output: unknown;
-  receipt_ids: number[];
   relevance: string | null;
   category: string | null;
   tags: string[];
@@ -188,7 +184,7 @@ export async function publishArticleTx(
 ): Promise<PublishResult | null> {
   const [article] = await tx<ArticleRow[]>`
     SELECT id, revision, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, body_html, excerpt, grouped_at
+           body_text, body_html, excerpt, grouped_at, processing_state
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -199,7 +195,7 @@ export async function publishArticleTx(
     SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
   const [storedAnalysis] = await tx<AnalysisRow[]>`
-    SELECT id, input_revision, prompt_version, output, receipt_ids, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
+    SELECT id, input_revision, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
   const [override] = await tx<OverrideRow[]>`SELECT fields, visibility FROM editorial_overrides WHERE article_id = ${articleId}`;
   const [membership] = await tx<{ fact_id: number; story_id: number | null }[]>`
@@ -214,21 +210,15 @@ export async function publishArticleTx(
   const hasMaterial = !!usableSourceText(article.body_text, article.excerpt);
   const language = normalizeSourceLanguage(article.language);
   const nativeChinese = isChineseOriginal(language);
-  const input = language && hasMaterial && currentPrefilter(analysis, article.revision) === "PASS" ? await loadAnalyzeInput(articleId, tx) : null;
-  const admitted =
-    !!input &&
-    f.relevance !== "block" &&
-    (await hasPrefilterReceipt(
-      analysis!.receipt_ids,
-      {
-        promptVersion: promptVersion("prefilter"),
-        systemHash: sha256(PREFILTER_SYSTEM),
-        userHash: sha256(prefilterUser(input)),
-      },
-      tx,
-    ));
+  // Wide admission (BR-SEL-01): only a BLOCK keeps an item out. PASS, UNKNOWN and "not judged yet" go on;
+  // the latest judgement holds until a newer revision is judged, and the manual 收录 choice outranks it.
+  // Material that is never judged (hot_signal and isolated sources mark it "skipped") stays out even after its
+  // source becomes editorial: nothing would ever judge it (INV-13 lets an item wait for its judgement only).
+  const manualScope = f.relevance === "pass" || f.relevance === "block" ? f.relevance : null;
+  const scope = manualScope ?? storedAnalysis?.relevance ?? (article.processing_state === "skipped" ? "block" : null);
+  const admitted = scope !== "block";
   const bodyMode = bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
-  // Only confirmed Chinese source text with full-text permission has a deterministic fallback.
+  // A Chinese original with full-text permission is guided by a deterministic excerpt until the model writes (BR-ENR-06).
   const excerpt =
     admitted && nativeChinese && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
       ? `来源摘录：${Array.from(collapseWhitespace(article.body_text!)).slice(0, 400).join("")}（根据来源正文整理，保留原始材料供核对）`
@@ -461,31 +451,45 @@ export async function publishArticleTx(
 
 /**
  * Re-derives every published article of one source (after its participation, licences, tier or name
- * changed) without calling models. Runs in the worker; progress goes to the callback.
+ * changed) without calling models. Runs in the worker; progress goes to the callback. One item's failure
+ * does not stop the rest: failed items are tried once more at the end, and those still failing keep their
+ * stored projection and are counted (the first 20 ids go into the job's result; the source page does not
+ * show them yet).
  */
 export async function republishSource(
   sourceId: string,
   onProgress?: (done: number, total: number) => Promise<void>,
-): Promise<{ total: number; changed: number; reduced: number }> {
+): Promise<{ total: number; changed: number; reduced: number; failed: number; failedIds: string[] }> {
   const { total } = one(await sql<{ total: number }[]>`SELECT count(*)::int AS total FROM publications WHERE source_id = ${sourceId}`);
   let after = "";
   let done = 0;
   let changed = 0;
   let reduced = 0;
+  const retry: string[] = [];
+  const attempt = async (articleId: string): Promise<boolean> => {
+    // Stopping mid-way is safe: the job is retried after the restart and re-derives from the start.
+    if (shutdownSignal.signal.aborted) throw new Error("worker is stopping; republish resumes after restart");
+    try {
+      const r = await publishArticle(articleId);
+      if (r?.changed) changed += 1;
+      if (r?.reduced) reduced += 1;
+      return true;
+    } catch (error) {
+      if (shutdownSignal.signal.aborted) throw error;
+      return false;
+    }
+  };
   for (;;) {
     const batch = await sql<{ article_id: string }[]>`
       SELECT article_id FROM publications WHERE source_id = ${sourceId} AND article_id > ${after} ORDER BY article_id LIMIT 500`;
     if (batch.length === 0) break;
-    for (const { article_id } of batch) {
-      // Stopping mid-way is safe: the job is retried after the restart and re-derives from the start.
-      if (shutdownSignal.signal.aborted) throw new Error("worker is stopping; republish resumes after restart");
-      const r = await publishArticle(article_id);
-      if (r?.changed) changed += 1;
-      if (r?.reduced) reduced += 1;
-    }
+    for (const { article_id } of batch) if (!(await attempt(article_id))) retry.push(article_id);
     done += batch.length;
     after = batch[batch.length - 1]!.article_id;
     await onProgress?.(done, total);
   }
-  return { total, changed, reduced };
+  // A passing failure (a lock wait, a dropped connection) gets one more try; it costs no model call.
+  const failedIds: string[] = [];
+  for (const articleId of retry) if (!(await attempt(articleId))) failedIds.push(articleId);
+  return { total, changed, reduced, failed: failedIds.length, failedIds: failedIds.slice(0, 20) };
 }
