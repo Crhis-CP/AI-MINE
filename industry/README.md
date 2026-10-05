@@ -109,13 +109,9 @@
 
 ## 3. 包外的硬编码
 
-下列 AI 口径写死在页面与报告代码里，没有走 `SITE.subject` 或 `withSubject()`，换行业时要逐个改：
+AIHOT 写死在页面与报告代码里的 AI 口径已经改成矿业的（TASK-0010、TASK-0028）：报告标题、报头顶行的 `MOTTO`（“金属矿业 · 每日要闻 / 每周综述 / 每月盘点”）、主题页的描述与三组名称（国家与地区、金属、矿企）、热点页说明、反馈页的示例、后台新建信源页的占位文字。只剩一处：`packages/backend/src/reports/compose.ts` 的 `modelsReleased` 指标按“模型发布/更新”分节计数，矿业版没有这一节，恒为 0，`features/report/format.ts` 在为 0 时不显示，随报告指标改造一并删除。
 
-- 报告：`apps/web/app/routes/report-latest.tsx`、`features/report/ReportPaper.tsx` 的“AI 日报 / 周报 / 月报”；`features/report/format.ts` 的“这一天的 N 件 AI 大事”、数字条的“个新模型”和报头顶行的 `MOTTO`“人工智能 · 每日要闻 / 每周综述 / 每月盘点”（在日期与版次之间，宽屏时显示，`ReportPaper.tsx:34`）；`packages/backend/src/reports/compose.ts` 按“模型发布/更新”分节计数的 `modelsReleased` 指标。
-- 页面：`routes/topics.tsx` 的页面描述、“按主题看 AI”与三组名称；`routes/hot.tsx` 的“AI 圈讨论最多”；`routes/feedback.tsx` 输入框里“搜索 OpenAI 时……”的示例；后台新建信源页 `routes/admin/source-new.tsx` 名称输入框的占位文字“OpenAI 博客”。
-- 测试：`tests/` 里有些用例用的是示例行业的分类、标签和公司（如 `ai-models`、“模型发布”、Anthropic）。改了 `taxonomy.ts` 后这些用例会失败，把例子换成新行业的对应项即可，测的规则不变。
-
-TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、`industry/` 下搜 `\bAI\b|OpenAI|Anthropic|Codex|模型发布|大模型`，只允许命中 AI 生成标注（“AI 导读”“AI 翻译”“AI 综述”，DR-87）、评分标签“AI 评分”与 `llms.txt` 的说明。这道门禁搜不到“人工智能”，报告报头的 `MOTTO` 只能靠上面的清单找到，建议 TASK-0010 把这个词也加进搜索词。本说明为了列出这些写法也会命中，TASK-0010 改完硬编码时连同本节一起改写。
+测试里的示例分类、标签和公司也已换成矿业的（如“铜”“锂”“紫金矿业”）。以后改 `taxonomy.ts` 时，用例失败就把例子换成新词表的对应项，测的规则不变。
 
 ## 4. 运行机制与已定的变化
 
