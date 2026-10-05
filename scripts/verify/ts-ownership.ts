@@ -6,6 +6,7 @@ import * as ts from "typescript/unstable/ast";
 import { sqlOwnership, type Hole } from "./sql-ownership.ts";
 import { fragmentProduct, sqlExpressionFragment } from "./sql-fragments.ts";
 import { stableRouteClosure } from "./route-identities.ts";
+import { stableTransactionClosure } from "./transaction-identity.ts";
 
 export const digest = (text: string) => createHash("sha256").update(text).digest("hex");
 export function ownershipFiles(root: string): string[] {
@@ -130,7 +131,7 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
           else if ((ts.isArrowFunction(parent) || ts.isFunctionExpression(parent)) && (!parent.parent || !binding(parent.parent))) {
             const at = location(parent);
             const legacy = (ts.isFunctionExpression(parent) && parent.name?.text) || `<closure@${at.line}:${at.column}>`;
-            prepend(stableRouteClosure(file, parent) ?? legacy, legacy);
+            prepend(stableRouteClosure(file, parent) ?? stableTransactionClosure(file, parent, (part) => declaration(checker, part)) ?? legacy, legacy);
           }
         }
         const scopeName = names.join("/") || "<module>";

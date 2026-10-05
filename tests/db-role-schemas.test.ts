@@ -29,7 +29,7 @@ test("the real grant entry classifies qualified objects, restricts new schema pr
   mkdirSync(path.dirname(file), { recursive: true });
   const save = (value = manifest) => writeFileSync(file, JSON.stringify(value));
   save();
-  await f.admin.unsafe("CREATE SCHEMA ai; CREATE TABLE ai.catalog_fixture (id bigserial PRIMARY KEY, payload text)");
+  await f.admin.unsafe("CREATE SCHEMA IF NOT EXISTS ai; CREATE TABLE ai.catalog_fixture (id bigserial PRIMARY KEY, payload text)");
   const apply = () => f.run(process.execPath, [path.join(root, "scripts/db-roles.ts"), "--prefix", f.prefix, "--apply"], { DATABASE_URL_MIGRATE: f.urlFor() });
   await apply();
   const unexpectedlyAccepted: string[] = [];
