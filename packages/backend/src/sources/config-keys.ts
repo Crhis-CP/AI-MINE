@@ -40,6 +40,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     ...COLLECTED,
     "url",
     "baseUrl",
+    "htmlJsonPath",
     "parseMode",
     "cacheToleranceSeconds",
     "linksStartLine",
@@ -132,6 +133,7 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
         ? [
             "url",
             "baseUrl",
+            "htmlJsonPath",
             "parseMode",
             "itemSelector",
             "linkSelector",
