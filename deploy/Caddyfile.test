@@ -8,3 +8,10 @@ http://{$SITE_DOMAIN}:{$EDGE_PORT}, http://{$PRIVATE_HOSTNAME}:{$EDGE_PORT} {
 	encode zstd gzip
 	reverse_proxy {$WEB_UPSTREAM}
 }
+
+# The www counterpart redirects to the bare domain. Without bind, Caddy would put www on a second
+# server listening on every interface, and requests to 127.0.0.1 would get an empty 200, not the redirect.
+http://www.{$SITE_DOMAIN}:{$EDGE_PORT} {
+	bind 127.0.0.1
+	redir http://{$SITE_DOMAIN}:{$EDGE_PORT}{uri} permanent
+}
