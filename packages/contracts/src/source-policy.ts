@@ -282,3 +282,72 @@ export const ProcessingInputManifestSchema = z.discriminatedUnion("kind", [
   z.strictObject({ schema_version: z.literal(1), kind: z.literal("registered_artifact"), ...RegisteredInputContext }),
 ]);
 export type ProcessingInputManifest = Readonly<z.infer<typeof ProcessingInputManifestSchema>>;
+
+/** Reserved for the explicit account activation. Existing URL schemas and HTTP remain unchanged. */
+export const WechatBizSchema = z
+  .string()
+  .min(4)
+  .max(160)
+  .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/][AQgw]==|[A-Za-z0-9+/]{2}[AEIMQUYcgkosw048]=)?$/);
+const declaredWechatBiz = (value: string): string | null => {
+  try {
+    const url = new URL(value),
+      values = url.searchParams.getAll("__biz");
+    if (
+      !/^https?:$/.test(url.protocol) ||
+      url.hostname !== "mp.weixin.qq.com" ||
+      url.port ||
+      url.username ||
+      url.password ||
+      url.pathname !== "/s" ||
+      values.length !== 1
+    )
+      return null;
+    const biz = WechatBizSchema.safeParse(values[0]);
+    return biz.success ? biz.data : null;
+  } catch {
+    return null;
+  }
+};
+export const WechatSourceDeclarationSchema = z.strictObject({
+  referenceArticleUrl: z
+    .url({ protocol: /^https?$/ })
+    .refine((url) => declaredWechatBiz(url) !== null, "explicit WeChat long article URL with one canonical __biz required"),
+  ghid: z
+    .string()
+    .regex(/^gh_[A-Za-z0-9_-]{1,80}$/)
+    .optional(),
+});
+/** Parses an Owner-declared join identity, not third-party content or a verified provider response. */
+export function declaredWechatAccount(input: z.infer<typeof WechatSourceDeclarationSchema>) {
+  const declaration = WechatSourceDeclarationSchema.parse(input);
+  return { ...declaration, biz: declaredWechatBiz(declaration.referenceArticleUrl)! };
+}
+export const WechatAccountPermissionScopeSchema = z.strictObject({
+  kind: z.literal("wechat_account"),
+  biz: WechatBizSchema,
+  document_types: unique(Text),
+  excluded_content: unique(Text),
+});
+export const WechatAccountResourceSchema = z.strictObject({
+  kind: z.literal("wechat_account"),
+  biz: WechatBizSchema,
+  document_type: Text.nullable(),
+  attachment: z.literal(false),
+});
+export const WechatContentResourceSchema = z
+  .strictObject({
+    kind: z.literal("wechat_content"),
+    biz: WechatBizSchema,
+    url: z.url({ protocol: /^https?$/ }),
+    document_type: Text.nullable(),
+    attachment: z.boolean(),
+  })
+  .superRefine((resource, ctx) => {
+    const url = new URL(resource.url);
+    if (url.username || url.password) ctx.addIssue({ code: "custom", path: ["url"], message: "credentialed resource URL refused" });
+    const declared = url.searchParams.getAll("__biz");
+    if (declared.length && (declared.length !== 1 || declared[0] !== resource.biz))
+      ctx.addIssue({ code: "custom", path: ["url"], message: "URL account identity disagrees" });
+  });
+export const WechatSourceResourceSchema = z.discriminatedUnion("kind", [WechatAccountResourceSchema, WechatContentResourceSchema]);
