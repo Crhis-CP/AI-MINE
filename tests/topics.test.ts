@@ -54,7 +54,10 @@ test("before the first 精选, topics follow 全部矿业动态 like its topic f
   assert.equal(pool.total, copper.total, "the same items as 全部矿业动态 with the topic filter");
   assert.deepEqual(await titles("copper"), ["old", "plain"]);
   assert.equal(await loadTopicPage("copper", 2), null, "no page past the last");
-  assert.ok((await listTopicSummaries()).every((t) => t.basis === "all"), "the pages are told to say 动态, not 精选");
+  assert.ok(
+    (await listTopicSummaries()).every((t) => t.basis === "all"),
+    "the pages are told to say 动态, not 精选",
+  );
 });
 
 test("from the first 精选 on, topics take only 精选, as the upstream's do", async () => {

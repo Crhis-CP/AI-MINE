@@ -352,7 +352,10 @@ test("guards: everyday Chinese that contains a short company name names no compa
     assert.equal(enforceIdentity(rss("Metal output rises", "Metal output rose."), { titleZh: "", summaryZh: named }).summaryZh, "", named);
   // 雅保 is a common rendering of Albemarle: the input's 雅保 supports a summary's 雅宝.
   assert.equal(
-    enforceIdentity({ title: "雅保锂业务调整", text: "雅保宣布调整锂业务。", sourceKind: "web_list" }, { titleZh: "雅宝调整锂业务", summaryZh: "雅宝宣布调整锂业务。" }).identityGuard.outcome,
+    enforceIdentity(
+      { title: "雅保锂业务调整", text: "雅保宣布调整锂业务。", sourceKind: "web_list" },
+      { titleZh: "雅宝调整锂业务", summaryZh: "雅宝宣布调整锂业务。" },
+    ).identityGuard.outcome,
     "pass",
   );
   // The input's own rendering of a company supports the common Chinese name the summary uses.
