@@ -38,13 +38,14 @@ const GROUPS = [
 ] as const;
 
 export default function TopicsPage() {
-  const { topics } = useLoaderData<typeof loader>();
+  // Only topics with content are listed; an axis without any stays out of the index (PG-08).
+  const topics = useLoaderData<typeof loader>().topics.filter((t) => t.total > 0);
   return (
     <div className="pb-10">
       <header className="pb-2 pt-5 lg:pt-1">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">按主题看矿业</h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
-          按国家与地区、金属、矿企浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期焦点与精选。
+          按国家与地区、金属、矿企浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期动态。
         </p>
       </header>
       {topics.length === 0 && (
@@ -75,13 +76,13 @@ export default function TopicsPage() {
                   <Link
                     to={`/topics/${t.slug}`}
                     prefetch="intent"
-                    aria-label={`查看${t.name}相关精选文章`}
+                    aria-label={`查看${t.name}相关动态`}
                     className="card card-hover group flex h-full flex-col px-5 py-[18px]"
                   >
                     <span className="text-[15px] font-bold text-ink transition-colors group-hover:text-accent">{t.name}</span>
                     <span className="mt-1.5 line-clamp-2 flex-1 text-[12.5px] leading-[1.7] text-ink-3">{t.definition}</span>
                     <span className="mono mt-3 text-[11.5px] text-accent">
-                      查看 {t.total} 条精选 <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+                      查看 {t.total} 条动态 <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
                     </span>
                   </Link>
                 </li>
