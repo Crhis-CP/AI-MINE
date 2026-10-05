@@ -233,7 +233,7 @@ export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; pattern
     id: "chalco",
     name: "中国铝业",
     patterns: [
-      /中国铝业|中铝(?=集团|股份|公司|国际)|(?<![其场集高口量存费构业])中铝(?![土价库锭材箔板棒]|合金)|\bchalco\b|chinalco|alumin(?:i)?um\s+corp(?:oration)?\s+of\s+china/i,
+      /中国铝业|中铝(?=集团|股份|公司|国际)|(?<![其场集高口量存费构业钢金水土])中铝(?![土价库锭材箔板棒]|合金|含量)|\bchalco\b|chinalco|alumin(?:i)?um\s+corp(?:oration)?\s+of\s+china/i,
     ],
   },
   { id: "shandong-gold", name: "山东黄金", patterns: [/山东黄金矿业|山东黄金(?!产量|储量|资源|矿产)|shandong\s+gold/i] },

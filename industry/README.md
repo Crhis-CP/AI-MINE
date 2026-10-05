@@ -31,7 +31,7 @@
 - `mcpPrefix`：MCP 站点前缀，现值 `aiminingpolicy`。5个工具名在 contracts 固定，集成测试保证与此前缀一致；修改站点显示配置不会静默重命名工具。
 - `contactEmail`：对外联系邮箱（选填），使用规则、`llms.txt` 与响应头会写。`organization`：结构化数据里的网站运营者。
 - `crawlerName`：抓取信源时在 User-Agent 里报的名字，不能冒用别的站名。现在是 `AIMiningPolicyBot`。
-- `icp` 与 `ABOUT`（关于页文案，“怎么工作”四个环节各配一个站内实时统计数字）会按第 4 节拆走；页脚小字 `footerNote` 已删除。
+- `icp`、`publicSecurity`、`newsLicense`：页脚与关于页显示的 ICP 备案号、公安联网备案号与互联网新闻信息服务许可证编号，按 DEC-66 沿用上游的做法写在这里（页脚本来就公开显示）；没有的写 `null`，页面不显示。`ABOUT` 是关于页文案（“怎么工作”四个环节各配一个站内实时统计数字）；页脚小字 `footerNote` 已删除。
 
 ### 2.2 `taxonomy.ts` 与 `topics.json`
 
@@ -118,7 +118,7 @@
 1. **构建期内容随发版生效**：`site.ts`、`taxonomy.ts`、`selection.ts`、`prompts/`、`pages/`、`brand/` 打进镜像，改了要重新构建、发版。契约包现在在构建时 import 本包的分类（`packages/contracts/src/taxonomy.ts`），这个方向要反转：分类键由契约定义，行业包只提供标签、说明与提示词，并按契约的 schema 校验（TASK-0005）。
 2. **上线后冻结的标识**：分类 `key`、主题 `slug`、MCP 前缀、报告周期键出现在网址、接口与 RSS 里，改动走契约的破坏性变更流程。
 3. **种子语义**：`scripts/seed.ts` 每次运行都用 `topics.json` 覆盖库里同名的主题，信源则只插入库里没有的（`ON CONFLICT DO NOTHING`）。现在 Compose 的 `setup` 容器每次 `up` 都先迁移再跑种子；初始化已改为新信源一律 `enabled=false`、`next_fetch_at` 为空，不接受种子内的启用标记；已有来源不覆盖。AI行业示范来源已移除，当前采集配置种子为空；Owner原始信源表（`industry/seed/`）仍是待研究目标，不能直接变成采集配置。后续逐源核实配置、通过预览和权限确认后经私有页面显式启用；主题改由分面生成（PG-08），取消覆盖式种子；迁移与种子改为发布步骤。
-4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除（已随 T-0002 删）；`icp` 删除，ICP 备案号与公安联网备案号改读受保护的运行时配置（生产环境任一未配置则公开站不开放）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
+4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除（已随 T-0002 删）；备案号沿用上游的做法写在 `site.ts`（DEC-66；规格原写“改读受保护的运行时配置、生产环境任一未配置则公开站不开放”，Owner 2026-10-05 决定不等公安备案、网站直接开放，见 08-owner-voice DEC-31）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
 5. **其余去向**（附录 B 的 B.8 节）：`sources.json` 由 `industry/seed/` 取代；`changelog.json` 改为产品更新表加 `changes/*.md`；两个评测样例移到 `evals/<能力>/` 并换成矿业样例；`brand/` 换成 AI矿策 的标识，仓库里不得留下与上游品牌素材 SHA-256 相同的文件，报头字按新站名重新生成（已随 T-0002 换）；`pages/` 补上联系方式与截图 180 天后删除的说明，上线前经 Owner 确认；分级 `EXCLUDE_MP` 改名 `EXCLUDE`。
 
 ## 法域与原始来源输入

@@ -334,6 +334,10 @@ test("guards: everyday Chinese that contains a short company name names no compa
     [rss("Ivanhoe expands Kamoa-Kakula", "Ivanhoe Mines is expanding the Kamoa-Kakula copper complex."), "艾芬豪矿业大力拓展卡莫阿-卡库拉铜矿。"],
     [rss("Zijin buys a copper mine in Heilongjiang", "Zijin Mining bought the Tongshan copper mine in Heilongjiang."), "紫金矿业收购黑龙江铜山铜矿。"],
     [rss("Copper prices in China", "Spot copper on the Changjiang market rose."), "长江铜价上涨，市场中铝库存下降。"],
+    [rss("Base metals rise", "LME base metals rose, led by aluminium."), "LME基本金属普遍上涨，其中铝价领涨。"],
+    [rss("New steel grade", "A new steel grade lowers its aluminium content."), "新钢种降低钢中铝含量。"],
+    [rss("Copper fabricators cut runs", "Copper fabricators in Zhejiang cut operating rates."), "浙江铜加工企业下调开工率。"],
+    [rss("Shandong gold output", "Gold output in Shandong province rose in the first half."), "上半年山东黄金产量增长。"],
   ];
   for (const [input, summaryZh] of everyday) assert.equal(enforceIdentity(input, { titleZh: "", summaryZh }).summaryZh, summaryZh, summaryZh);
   // A real mention the input does not support is still caught.

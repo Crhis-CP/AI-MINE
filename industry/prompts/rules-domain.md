@@ -10,7 +10,7 @@
    - exploration licence / permit = 勘探许可证；mining licence / lease = 采矿许可证 / 采矿权
    - open pit = 露天矿；underground = 地下矿 / 井工；heap leach = 堆浸；SX-EW = 萃取-电积；flotation = 浮选
    - brine = 卤水；spodumene = 锂辉石；LCE = 碳酸锂当量；hydroxide = 氢氧化锂（锂语境）
-   - feasibility study = 可行性研究；PFS = 预可行性研究；DFS / BFS = 最终可行性研究；PEA = 初步经济评估；scoping study = 概略研究
+   - feasibility study = 可行性研究；PFS = 预可行性研究；DFS = 最终可行性研究；BFS = 可融资可行性研究；PEA = 初步经济评估；scoping study = 概略研究
    - capex = 资本支出；opex = 运营成本；AISC = 全维持成本；C1 cash cost = C1 现金成本；NPV = 净现值；IRR = 内部收益率
    - artisanal mining / ASM = 手工采矿 / 小规模采矿；care and maintenance = 停产维护
    - force majeure = 不可抗力；export ban = 出口禁令；export quota = 出口配额
