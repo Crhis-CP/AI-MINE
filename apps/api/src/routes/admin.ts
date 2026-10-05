@@ -10,7 +10,15 @@ import { modelsOverview, switchModel } from "@amp/backend/admin/models";
 import { contentChain, detachFromFact, mergeStories, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@amp/backend/admin/content";
 import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
 import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
-import { routes as contracts, ReceiptReconciliationResponse, ReceiptReleaseResponse } from "@amp/contracts/http/private";
+import {
+  routes as contracts,
+  ReceiptReconciliationResponse,
+  ReceiptReleaseResponse,
+  SourceRecord,
+  SourceCreateRequest,
+  SourceCreateResponse,
+  SourceDetailResponse,
+} from "@amp/contracts/http/private";
 import { listBudgets, listTargets, setTargetEnabled, updateBudget } from "@amp/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
@@ -37,16 +45,30 @@ export function registerAdmin(app: FastifyInstance) {
     }),
   );
   app.post(
-    "/api/admin/sources",
-    adminHandler(async (req, _reply, admin) => createSource(body(req), actorOf(admin))),
+    contracts.createSource.url,
+    { schema: { operationId: contracts.createSource.schema.operationId, response: contracts.createSource.schema.response } },
+    adminHandler(async (req, reply, admin) => {
+      const parsed = SourceCreateRequest.safeParse(body(req));
+      if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请填写有效的信源、许可范围和附件许可。" });
+      const result = await createSource(parsed.data, actorOf(admin));
+      return SourceCreateResponse.parse(JSON.parse(JSON.stringify(result.created ? { ...result, source: sourceWire(result.source) } : result)));
+    }),
   );
   app.post(
     "/api/admin/sources/preview",
     adminHandler(async (req) => previewSource(body(req) as never)),
   );
   app.get(
-    "/api/admin/sources/:id",
-    adminHandler(async (req, reply) => orNotFound(req, reply, await sourceDetail(param(req, "id")))),
+    contracts.sourceDetail.url,
+    { schema: contracts.sourceDetail.schema },
+    adminHandler(async (req, reply) => {
+      const result = await sourceDetail(param(req, "id"));
+      return orNotFound(
+        req,
+        reply,
+        result === null ? null : SourceDetailResponse.parse(JSON.parse(JSON.stringify({ ...result, source: sourceWire(result.source) }))),
+      );
+    }),
   );
   app.patch(
     "/api/admin/sources/:id",
@@ -250,4 +272,9 @@ export function registerAdmin(app: FastifyInstance) {
       return { page: page(req), rows };
     }),
   );
+}
+
+/** Internal storage columns do not become HTTP fields implicitly when another module adds one. */
+function sourceWire(source: Record<string, unknown>) {
+  return Object.fromEntries(Object.keys(SourceRecord.shape).map((key) => [key, source[key]]));
 }

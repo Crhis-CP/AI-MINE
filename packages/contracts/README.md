@@ -27,3 +27,6 @@ A2 新增未激活 `SourceDateParseInput` / `SourceDateParseResult`，输入实�
 TASK0022 取得接线补充（仍未激活公开字段）：`SourceTimeProjection` 单源定义 `sourceTime: TimeAssertion | null`；既有 `publishedAt` 只表示已证明的绝对时刻，date-only 不填午夜、不借 discoveredAt。实际路由、生成客户端、v1/同步出口和页面在运行片联合启用，并更新公开契约版本；本准备差量不修改当前路由或发布半套响应。
 
 `SourceDateObservationInput.alternatives` 可保存同次取得的其他原始日期候选，逐项保留原串、原文位置/片段、含义、格式/语言和时区依据；来源、配置、取得记录与 URL 共用外层身份，候选不能覆盖它们，也不接受 parsed/reliable/冲突结论。缺省表示只有主依据，空数组不合法。content 逐项严格解析、比较同语义的事实，冲突保留全部原件并给 `conflicting_candidates`；未核实时区不能擅自消除差异，元数据更精确不能覆盖指定主依据。updated/effective 等另义候选不代替 published。公开投影只带被采用的 TimeAssertion，不带私有候选集。
+
+
+TASK-0021私有HTTP 0.3.0（建设期breaking，ADR-0024）：POST sources必需permission_scope与attachments_in_scope，创建动作即负责人加入确认；SourceCreateRequest/Response与SourceDetailResponse由本包唯一定义，既有返回形状保留，详情增加严格permission读回。省略site_fulltext默认true，显式false收紧两个站内全文用途，syndicate默认false。SourceRecord是既有HTTP字段的明确投影，内部日期CAS等新增存储列不自动暴露。公共HTTP及其0.2.0生成物保持原字节。

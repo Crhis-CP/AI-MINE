@@ -85,6 +85,8 @@ test("INV-01: real source/content workers collect, book model receipts and publi
         tier: "T2",
         participation_mode: "editorial",
         config: { feedUrl: fixture.feedUrl },
+        permission_scope: { hosts: [new URL(fixture.feedUrl).hostname], path_prefixes: ["/"], document_types: [], excluded_content: [] },
+        attachments_in_scope: false,
         site_fulltext: true,
         syndicate_fulltext: false,
       },

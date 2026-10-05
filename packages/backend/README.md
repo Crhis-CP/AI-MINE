@@ -53,3 +53,9 @@ lockCurrentSourcePolicies在调用方的事务中按source_id顺序取得共享�
 `readCurrentBody` / `commitBodyResult`是content的正文派生窄端口：读取正文身份，写回时锁定相同revision与HTML；不改变分析状态、错误、次数或重试时间。显式`runBodyTranslation`由已核验准入、来源许可和外文条件的worker调用，网络在事务外，检查点与实际attempt的完成/标坏同事务提交，完整manifest另行晋升。旧revision/recipe迟到停止后续片段；旧attempt不能覆盖新attempt或被当作正常结果交给旧调用者。
 
 Gateway保存每个实际attempt的原响应/用量/成本，receipts只在CAS当前尝试时更新response_attempt_id；缓存沿该指针核验所属回执、尝试与原响应，不猜MAX或给历史记录补造身份。新翻译显式启用同一调用键最多3次坏输出限制，claim前检查，重复结算不重复计数；旧能力默认不启用这个限制。缺usage的坏响应仍received，unknown不重发，明确截断不晋升；stop或空finishReason也须严格text与结构检查。不能证明历史缓存的attempt时保持私有待处理，不重新购买。旧cron/t提示词与公开门尚未切换，本片不代表自动外文准入完成。
+TASK-0021存储能力：既有admin/sources入口新增saveSourcePolicy以及当前私有/公开读取、版本锁端口；来源创建/读回已接入私有HTTP；模型调用仍未强制许可。来源编辑在同一事务追加不可变版本、CAS推进当前指针及最小公开投影、记录审计。缺记录返回null；不会在读取或迁移时补造Owner许可。数据库限制应用角色改删历史，管理员仍有管理能力。
+
+
+TASK-0021来源加入与真实evaluate：来源创建严格要求明确permission_scope/attachments_in_scope，默认九用途Owner声明许可，无自动到期，初始暂停；显式关闭site_fulltext仅收紧原文/译文公开，syndicate默认关闭。来源、初始权限和审计同事务，按采集地址并发判重；旧来源缺记录不补造。既有全文开关关闭会在同事务生成收紧版本；已有deny/unknown或缺记录不能被重新勾选旧开关恢复。
+
+既有admin/sources公开入口的evaluateSourcePolicy(value, now?, db?)按当前版本、用途、资源/证据范围、附件与有效期限读取真实存储，未证明的条件/排除项失败关闭，查询失败不回退allow。默认时钟在查询后读取；日期等调用者在已有事务中传第三参tx，不额外占连接。公开四用途只读受限投影；共享许可锁→sources行锁/材料锁的顺序一致。UI和生成private client使用同一Zod契约；采集/模型/公开消费者的ProcessingPermit强制及正式权限放宽编辑仍待后续原子接通。
