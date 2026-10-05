@@ -101,6 +101,16 @@ test("HTML acquisition retains conflicting dates, keeps the configured primary p
   await upsertMaterial({ ...m, sourceDateObservation: unknownZone.sourceDateObservation!, expectedSourceDateVersion: 2, permissionVersion: 1 });
   assert.equal((await stored()).source_date_error, "conflicting_candidates", "unknown wall-clock differences cannot be guessed away");
   const noRule = { ...current, config: { url: `${base}/list` } };
+  page =
+    '<html><head><meta property="article:published_time" content="2026-10-01"></head><body><section id="older-release">Earlier section</section></body></html>';
+  const fragmentSource = { ...noRule, config: { ...noRule.config, preserveUrlFragment: true } };
+  const fragment = await fetchDetail(`${base}/article#older-release`, fragmentSource, { date: true, title: false, summary: false });
+  assert.equal(fragment.sourceDateObservation?.raw, "", "page-level dates cannot prove a separate fragment date");
+  page = `<html><head itemscope itemid="${base}/article#older-release" itemtype="https://schema.org/NewsArticle"><meta property="article:published_time" content="2026-10-01"></head></html>`;
+  const boundFragment = await fetchDetail(`${base}/article#older-release`, fragmentSource, { date: true, title: false, summary: false });
+  assert.equal(boundFragment.sourceDateObservation?.raw, "2026-10-01");
+  assert.match(boundFragment.sourceDateObservation!.locator, /^itemscope:/, "new evidence retains the proven fragment identity");
+
   page = `<time datetime="2026-10-01"></time><script type="application/ld+json">{"@type":"NewsArticle","url":"${base}/related","datePublished":"2026-10-01"}</script>`;
   const unrelated = await fetchDetail(`${base}/article`, noRule, { date: true, title: false, summary: false });
   assert.equal(unrelated.sourceDateObservation!.raw, "");

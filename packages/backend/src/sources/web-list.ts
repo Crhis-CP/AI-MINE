@@ -132,10 +132,11 @@ function detailDate(text: string, url: string, source: SourceRow, $: cheerio.Che
           /* An invalid identity cannot describe this article. */
         }
       }
-      const pageMeta = node.is("meta") && node.parent().is("head") && (!itemId || bound);
+      const fragmentIdentity = source.config.preserveUrlFragment === true && !!new URL(url).hash;
+      const pageMeta = node.is("meta") && node.parent().is("head") && (!itemId || bound) && (!fragmentIdentity || bound);
       const articleScope = bound && (scope.attr("itemtype") ?? "").split(/\s+/).some((type) => /(?:^|\/)(Article|NewsArticle|BlogPosting)$/.test(type));
       if (!pageMeta && !articleScope) return;
-      if (raw.trim()) add(raw, `${pageMeta ? "head" : `itemscope:${itemId}`}/publication-metadata[${i}]`, true);
+      if (raw.trim()) add(raw, `${pageMeta && !fragmentIdentity ? "head" : `itemscope:${itemId}`}/publication-metadata[${i}]`, true);
     });
     for (const item of jsonLdDates($, url, source.config.preserveUrlFragment === true)) add(item.raw, item.locator, true);
   }
