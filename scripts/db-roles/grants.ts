@@ -159,8 +159,14 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
           else if (spec.access === "audit" && values.some((p) => p === "UPDATE" || p === "DELETE"))
             problems.push(`Audit permissions must be append-only: ${name}/${role}`);
         }
-      if (spec.publicColumns.length && (identity.schema !== "publication" || spec.access !== "business"))
-        problems.push(`Public columns outside publication: ${name}`);
+      const sourceProjection =
+        name === "sources.source_policy_current" &&
+        spec.module === "sources" &&
+        spec.publicColumns.length === 3 &&
+        new Set(spec.publicColumns).size === 3 &&
+        spec.publicColumns.every((column) => ["source_id", "permission_version", "public_policy"].includes(column));
+      if (spec.publicColumns.length && ((identity.schema !== "publication" && !sourceProjection) || spec.access !== "business"))
+        problems.push(`Public columns outside approved projections: ${name}`);
     }
   }
   for (const [name, table] of Object.entries(SEQUENCES))

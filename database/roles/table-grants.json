@@ -249,6 +249,24 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
       }
+    },
+    "sources.source_policy_versions": {
+      "module": "sources",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "sources.source_policy_current": {
+      "module": "sources",
+      "access": "business",
+      "publicColumns": ["source_id", "permission_version", "public_policy"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
     }
   },
   "sequences": {

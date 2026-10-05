@@ -127,6 +127,10 @@
     {
       "name": "enrichment/202610042100_translation_readiness.sql",
       "dependsOn": []
+    },
+    {
+      "name": "sources/202610040001_source_permissions.sql",
+      "dependsOn": []
     }
   ]
 }

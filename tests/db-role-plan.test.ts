@@ -20,7 +20,7 @@ function catalog(): Catalog {
     actor: "bootstrap",
     superuser: true,
     databaseOwner: "bootstrap",
-    schemas: { public: "pg_database_owner", enrichment: "bootstrap" },
+    schemas: { public: "pg_database_owner", enrichment: "bootstrap", sources: "bootstrap" },
     tables: Object.entries(TABLE_GRANTS).map(([name, grant]) => ({
       name,
       owner: "bootstrap",
@@ -45,12 +45,15 @@ test("all current migration tables and serial sequences have one explicit classi
     .map((f) => readFileSync(new URL(f, dir), "utf8"))
     .join("\n");
   const tables = [...sql.matchAll(/CREATE TABLE (\w+)/g)].map((m) => m[1]).concat("schema_migrations");
-  assert.deepEqual(Object.keys(TABLE_GRANTS).sort(), [...tables.map((name) => `public.${name}`), "enrichment.translation_segments"].sort());
+  assert.deepEqual(
+    Object.keys(TABLE_GRANTS).sort(),
+    [...tables.map((name) => `public.${name}`), "enrichment.translation_segments", "sources.source_policy_current", "sources.source_policy_versions"].sort(),
+  );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
   assert.deepEqual(Object.keys(SEQUENCES).sort(), serials.map((name) => `public.${name}`).sort());
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 18);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 19);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["enrichment.translation_segments"], {
     module: "enrichment",
@@ -74,7 +77,8 @@ test("the plan separates seven identities, column reads, append-only audit, owne
   const defaults = statements.filter((s) => s.includes("ALTER DEFAULT PRIVILEGES"));
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_worker" IN SCHEMA pgboss')).length, 8);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "enrichment"')).length, 4);
-  assert.equal(defaults.length, 12);
+  assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "sources"')).length, 4);
+  assert.equal(defaults.length, 16);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.doesNotMatch(sql, /GRANT .* TO PUBLIC/);
   const c = catalog();
@@ -161,4 +165,23 @@ test("controlled relation identities distinguish module schemas and reject ambig
   assert.equal(quoteRelation("ai.reservations"), '"ai"."reservations"');
   for (const name of ["", "unknown.data", "pg_catalog.pg_roles", "public.sources.extra", "ai.x;DROP SCHEMA ai", 'ai."x"', `ai.${"x".repeat(64)}`])
     assert.throws(() => relationIdentity(name));
+});
+
+test("only the exact current source projection may expose its three public columns", () => {
+  for (const name of ["sources.source_policy_current", "sources.source_policy_versions"]) {
+    const spec = TABLE_GRANTS[name];
+    const original = spec.publicColumns;
+    try {
+      for (const columns of [["*"], ["source_id", "permission_version", "policy"], ["source_id", "permission_version", "public_policy", "reviewed_by"]]) {
+        spec.publicColumns = columns;
+        assert.ok(catalogProblems(catalog(), "fixture").some((p) => p.includes("Public columns outside")));
+      }
+      if (name.endsWith("versions")) {
+        spec.publicColumns = ["source_id", "permission_version", "public_policy"];
+        assert.ok(catalogProblems(catalog(), "fixture").some((p) => p.includes("Public columns outside")));
+      }
+    } finally {
+      spec.publicColumns = original;
+    }
+  }
 });

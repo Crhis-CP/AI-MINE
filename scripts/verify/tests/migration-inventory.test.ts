@@ -35,6 +35,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
     inventory.filter((entry) => entry.module !== null).map(({ name, module, schemas, dependsOn }) => ({ name, module, schemas, dependsOn })),
     [
       {
+        name: "sources/202610040001_source_permissions.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
         name: "enrichment/202610042100_translation_readiness.sql",
         module: "enrichment",
         schemas: ["enrichment"],

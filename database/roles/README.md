@@ -1,6 +1,6 @@
 # PostgreSQL 角色授权（TASK-0004 D4/D5）
 
-`table-grants.json` 分类全部48张 public 表、1张 enrichment 段检查点表、15个序列及其属表；18张表支撑现有公开读取。目录有未知/缺少的表、序列或错误依赖即拒绝规划，不把未来新表自动授权。
+`table-grants.json` 分类全部48张 public 表、1张 enrichment 段检查点表、2张 sources 权限表、15个序列及其属表；19张表支撑现有公开读取。目录有未知/缺少的表、序列或错误依赖即拒绝规划，不把未来新表自动授权。
 
 `scripts/db-roles/grants.ts` 的规划器是纯函数：输入目录快照，输出七个前缀登录及SQL语句，自己不连接、不执行。现有角色有额外权限属性/继承成员关系、对象属主或授权来源不明、未知RLS策略、危险默认授权时拒绝。执行器只读取目录元信息，不读取角色口令或业务数据；全部校验完成后才执行授权。
 
@@ -49,3 +49,8 @@ node scripts/db-roles.ts --prefix amp --public-connections 10 --apply
 `enrichment.translation_segments` 按材料、修订、配方、全文hash和段序号区分检查点，分别保存原始模型text与按来源占位恢复后的HTML及hash。worker读写；private_ops只读以便诊断；migrate持有对象，backup只读。public_read/auth/feedback_write不获此schema使用权或段表权限，应用角色不能创建未登记对象。
 
 现有public.translations只增加可空recipe/source_hash/manifest三个身份列，公开角色仅多读这三列，不获receipt_id或整表SELECT。旧记录保持null；新列和检查点表本身不能证明译文完整或回执可信，实际逐段写回和公开就绪门仍由后续运行接线验收。此次以真实enrichment迁移连同唯一inventory、模块写入归属检查及执行器解除旧fence，既有30份迁移、顺序、账本名与RLS规则不变。无hash的历史行仅在固定原件核验后补齐；已应用模块行缺hash直接拒绝，不以当前文件补造身份。
+
+
+## 来源权限版本（TASK-0021）
+
+sources.source_policy_versions由private_ops只追加，worker只读；current指针及public_policy由private_ops插入/CAS更新，worker只读。migrate持有schema/表，backup读取两表；auth/feedback_write无使用权。public_read仅获sources.source_policy_current的source_id、permission_version、public_policy三列；这是准确单表例外，不开放其他sources对象。公开投影只含四用途判定所需的范围/条件/期限和读者许可说明，不含证据正文、URL、actor或来源配置。未来新列、未知表和默认授权继续拒绝。
