@@ -134,7 +134,7 @@
 
 | AIHOT 路径（路由） | 现职责 | 处置 | 新位置 | 规格依据（PG / B 的 P） | 备注 |
 |---|---|---|---|---|---|
-| `routes/home.tsx`（路由 /） | 精选首页 | 改造 | `apps/web` | PG-02 / P-02；F-RDR-08；DEC-10 | 路由改到 `/featured`，沿用 AIHOT 的精选时间线（卡片显示分数与推荐理由），数据不足时只显示诚实空态（“暂未启用”不再是常态文案，DEC-10）；首页让位给全部动态；删 X 头像与图集、“一手”页签（评分标签与首页热点条保留） |
+| `routes/home.tsx`（路由 /） | 精选首页 | 改造 | `apps/web` | PG-02 / P-02；F-RDR-08；DEC-10 | 路由仍是 `/`（Owner 2026-10-05，DEC-13），沿用 AIHOT 的精选时间线（卡片显示分数与推荐理由），数据不足时只显示诚实空态（“暂未启用”不再是常态文案，DEC-10）；还没有精选、且不带筛选时先放全部动态第一页；删 X 头像与图集、“一手”页签（评分标签与首页热点条保留） |
 | `routes/all.tsx`、`search-busy.tsx`（路由 /all、/all/search-busy、/search-busy） | 全部动态与搜索、搜索繁忙页 | 改造 | `apps/web` | PG-01、PG-09 / P-01、P-04；DEC-23 | `all.tsx` 成为首页“全部矿业动态”；AIHOT 已是页码分页，差距只有**最多 50 页与“2000+”封顶**，新站页码分页 + 跳页不设封顶；`search-busy.tsx` 删除并入通用读取失败（PG-17）；`RingMark` 换标识 |
 | `routes/item.tsx`、`item-original.tsx`（路由 /items/:id(/original)） | 条目详情（中文/原文切换、仅摘要提示、更多菜单） | 改造 | `apps/web` | PG-04 / P-05；DR-78；DEC-38 | **保留评分标签与推荐理由（`:185-188,297-299`，无评分不显示）；删 X 图集、分享海报入口与“导出 Markdown”菜单项**；图片只给“查看配图”外链；时间带精度；新增文中公司、许可声明、AI 标识说明、相关法规文书块；`noindex` 由通则 18 决定（`:38`） |
 | `routes/hot.tsx`（路由 /hot） | 热点榜 | 改造 | `apps/web` | PG-03 / P-03；DEC-10 | M3 随全面切换上线（沿用 AIHOT 的页面结构）：榜首大卡、前三与其余榜单、热度指数、24 小时走势与涨跌标记保留；去“AI 圈讨论最多”等 AI 口径（`:21,241`）；删封面图（图片管线关闭，榜首卡片无封面时本就用走势面板，`:104,119`）；不放头像堆叠（`Faces.tsx` 删除，PG-03、DR-78），来源行用文字来源名加“等 N 家独立来源”；数据不足只显示诚实空态“暂时没有足够的多来源事件” |
@@ -262,7 +262,7 @@
 | `publication/publish.ts`（361 行） | 唯一投影写入（材料 + 最新分析 + 人工覆盖 + 归组）、放行闸门、精选同步账本、v1 载荷、整源重投 | 改造 | `publication` | ADR-0004；F-PUB-01 | 多对象增量投影、不透明内容版本、下架集合先行；**全局 advisory lock（`:136-141`）保证序号即提交序，有吞吐上限，压测前不删**；`:296-299` 的 `notifySelected` 入队随飞书内容推送保留（Owner 2026-10-02），同一事务里的 `prepareMedia` 入队随图片预热删除（正文 4.7）；`links.aihot` 不进公开投影（`score` 保留，可空）；`:285` 的检索窄表只取正文前 12,000 字，改全文分片（G14）；投影读取他模块表写成“读模型白名单” |
 | `publication/rules.ts`（66 行） | 公开规则：公开池、有无详情页、可入选、全文模式、可转载、可收录 | 改造 | `publication` | 通则 18；DEC-58；G12 | **`isIndexable`（`:55-61`）由“入选或人工标记收录”改为“公开且有中文导读、且不属通则 18 列出的 noindex 类型”，人工“标记收录/取消收录”保留为覆盖**；`bodyModeOf`、`mayRedistribute` 改读九项权限矩阵；可发布门统一在此 |
 | `publication/items.ts`（203 行） | 条目级读取列、筛选条件、摘要 DTO、X 帖视图 | 改造 | `publication` | DR-78；G17；DEC-10、BR-SEL-07 | `links.aihot`、`channel` 的 `x` 不进契约（`score` 保留，可空）；**`xView` 删除**；`sources.icon_url` 公开投影（`:58,167`）删除 |
-| `publication/timeline.ts`（209 行） | 首页精选时间线（阅读组折叠）、下一次放行时刻 | 改造 | `publication` | PG-01；PG-02；DEC-10 | 首页改为全部动态；精选时间线沿用 AIHOT（随精选上线，路由 `/featured`，同一事件折叠） |
+| `publication/timeline.ts`（209 行） | 首页精选时间线（阅读组折叠）、下一次放行时刻 | 改造 | `publication` | PG-01；PG-02；DEC-10 | 首页仍是精选时间线，沿用 AIHOT（同一事件折叠；还没有精选时先放全部动态第一页，DEC-13）；全部动态在 `/all` |
 | `publication/pool.ts`（208 行） | 全部动态分页与两种搜索、搜索并发与排队 | 改造 | `publication` | PG-01、PG-09；DEC-23 | 加国家、矿种、来源、日期筛选；页码跳页不设封顶；M3 中文检索评测加入长文书用例 |
 | `publication/detail.ts`（192 行） | 条目详情、Markdown 导出（同一可见性与许可规则） | 改造 | `publication` | PG-04 | **删 Markdown 导出**（导出文件名 `aihot-${id}.md` 随删除消失；上游 #16 不移植）；正文按 `public_fulltext` 许可 |
 | `publication/groups.ts`、`followups.ts` | “另有 N 家报道”与“展开进展”、事件后续短列表 | 搬移 | `publication` | F-EVT-04 | M3 随事件两层结构调整 |

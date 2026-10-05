@@ -24,7 +24,7 @@ let metaDelayMs = 0;
 let metaCalls = 0;
 let privatePageFixtures = false;
 let reconciliationUnavailable = false;
-let poolMode: "ok" | "busy" | "bad" | "missing" = "ok";
+let poolMode: "ok" | "busy" | "bad" | "missing" | "empty" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
 const timelineCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
 const timeline = publicSchemas.TimelineResponse.parse(
@@ -146,8 +146,7 @@ const api = createServer((req, res) => {
     return res.end(
       JSON.stringify({
         filters: { channel: "all", category: null, tag: null, topic: null, q: url.searchParams.get("q"), tab: "time" },
-        items: [
-          {
+        items: (poolMode === "empty" ? [] : [0]).map(() => ({
             id: "pool-fixture",
             title: "真实列表消费者",
             summary: null,
@@ -160,11 +159,10 @@ const api = createServer((req, res) => {
             score: poolMode === "bad" ? "invalid" : null,
             selected: false,
             channel: "news",
-          },
-        ],
+          })),
         page: Number(url.searchParams.get("page") || 1),
-        pageCount: 3,
-        total: 81,
+        pageCount: poolMode === "empty" ? 0 : 3,
+        total: poolMode === "empty" ? 0 : 81,
         todayCount: 1,
         freshness: "2026-10-04T00:00:00Z",
         generatedAt: "2026-10-04T00:00:00Z",
@@ -463,7 +461,7 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
       await failed.text();
     }
     timelineMode = "empty";
-    const empty = await fetch(origin);
+    const empty = await fetch(`${origin}/?category=${category}`);
     assert.equal(empty.status, 200);
     assert.match(await empty.text(), /这个筛选下还没有精选内容/);
     const search = await fetch(`${origin}/?q=test`, { redirect: "manual" });
@@ -473,6 +471,122 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
   } finally {
     timelineMode = "empty";
   }
+});
+
+/** Each 筛选 tab row on a page, as its links' attributes and visible text. */
+function filterTabs(html: string) {
+  return [...html.matchAll(/<nav[^>]*aria-label="筛选"[^>]*>([\s\S]*?)<\/nav>/g)].map((row) =>
+    [...(row[1] ?? "").matchAll(/<a([^>]*)>([\s\S]*?)<\/a>/g)].map((link) => ({
+      attrs: link[1] ?? "",
+      text: (link[2] ?? "").replace(/<[^>]+>/g, "").trim(),
+    })),
+  );
+}
+
+test("until the first pick exists the unfiltered home page shows the newest items of 全部动态", async () => {
+  const notice = /精选还没开始，先看最新动态。/;
+  const noPicks = /暂时没有符合条件的精选[\s\S]*当前可在全部矿业动态中阅读已收录资讯。[\s\S]*href="\/all"/;
+  const category = CATEGORY_KEYS.at(-1)!;
+  try {
+    timelineMode = "empty";
+    let before = poolCalls.length;
+    const home = await fetch(`${origin}/`);
+    assert.equal(home.status, 200);
+    const html = await home.text();
+    assert.match(html, notice);
+    assert.match(html, /真实列表消费者/);
+    assert.match(html, /href="\/all\?page=2"/);
+    assert.deepEqual(poolCalls.slice(before), [{ path: "/api/site/pool", accept: "application/json", ssr: "1" }]);
+    assert.equal(home.headers.get("X-Accel-Expires"), `@${deadline}`);
+    // “全部” stays on the home page (the current page); the other tabs lead to 全部动态.
+    const rows = filterTabs(html);
+    assert.ok(rows.length > 0);
+    for (const links of rows) {
+      const all = links.find((link) => link.text === "全部")?.attrs ?? "";
+      assert.match(all, /href="\/"/);
+      assert.match(all, /aria-current="page"/);
+      assert.ok(links.some((link) => link.attrs.includes(`href="/all?category=${category}"`)));
+      assert.ok(!links.some((link) => link.attrs.includes('href="/?')));
+    }
+    // Any filter (category, tag or channel) keeps the picks feed and does not read 全部动态.
+    for (const query of [`category=${category}`, "tag=%E9%93%9C", "channel=news"]) {
+      before = poolCalls.length;
+      const filtered = await fetch(`${origin}/?${query}`);
+      assert.equal(filtered.status, 200, query);
+      const body = await filtered.text();
+      assert.doesNotMatch(body, notice, query);
+      assert.match(body, /这个筛选下还没有精选内容/, query);
+      assert.equal(poolCalls.length, before, query);
+    }
+    // 全部动态 empty: the picks empty state of DR-85, cached as usual.
+    poolMode = "empty";
+    const empty = await fetch(`${origin}/`);
+    assert.equal(empty.status, 200);
+    const emptyBody = await empty.text();
+    assert.doesNotMatch(emptyBody, notice);
+    assert.match(emptyBody, noPicks);
+    assert.equal(empty.headers.get("X-Accel-Expires"), `@${deadline}`);
+    // 全部动态 unreadable or unusable: the same empty state, and nothing is cached so the next request reads again.
+    for (const mode of ["busy", "bad"] as const) {
+      poolMode = mode;
+      const failed = await fetch(`${origin}/`);
+      assert.equal(failed.status, 200, mode);
+      const body = await failed.text();
+      assert.doesNotMatch(body, notice, mode);
+      assert.match(body, noPicks, mode);
+      assert.equal(failed.headers.get("Cache-Control"), "no-cache", mode);
+      assert.equal(failed.headers.get("X-Accel-Expires"), "0", mode);
+    }
+    poolMode = "ok";
+    // Once a pick exists the home page is the picks feed again.
+    timelineMode = "ok";
+    before = poolCalls.length;
+    const picks = await (await fetch(`${origin}/`)).text();
+    assert.match(picks, /真实精选消费者/);
+    assert.doesNotMatch(picks, notice);
+    assert.doesNotMatch(picks, /暂时没有符合条件的精选/);
+    assert.equal(poolCalls.length, before);
+    // …and its tabs filter the picks again.
+    const pickRows = filterTabs(picks);
+    assert.ok(pickRows.length > 0);
+    for (const links of pickRows) {
+      assert.match(links.find((link) => link.text === "全部")?.attrs ?? "", /href="\/"/);
+      assert.ok(links.some((link) => link.attrs.includes(`href="/?category=${category}"`)));
+    }
+  } finally {
+    poolMode = "ok";
+    timelineMode = "empty";
+  }
+});
+
+test("金属价格 shows the official LME entry and the notice, never a number or a table", async () => {
+  const res = await fetch(`${origin}/metals`);
+  assert.equal(res.status, 200);
+  const html = await res.text();
+  const start = html.indexOf(">", html.indexOf("data-metals")) + 1;
+  const article = html.slice(start, html.indexOf("</article>", start));
+  const text = article.replace(/<[^>]+>/g, "");
+  for (const line of [
+    "金属价格",
+    "通过伦敦金属交易所（LME）官方入口查看金属行情。",
+    "LME 官方金属行情",
+    "本站目前不展示或转售 LME 报价。行情的时间、计价单位与使用规则以 LME 官方页面为准。",
+    "站内价格表尚未开通，暂无已授权价格数据。",
+    "浏览矿业市场动态",
+  ])
+    assert.ok(text.includes(line), line);
+  assert.doesNotMatch(text, /\d/);
+  assert.doesNotMatch(article, /<table/);
+  assert.match(article, /<a href="https:\/\/www\.lme\.com\/metals" target="_blank" rel="noopener noreferrer"/);
+  assert.match(article, /href="\/all\?category=commodity_market"/);
+  // Desktop sidebar entry; on phones the bottom bar keeps “更多” highlighted.
+  assert.match(html, /<aside[\s\S]*href="\/metals"[\s\S]*<\/aside>/);
+  const tabbar = html.slice(html.indexOf('aria-label="底部导航"'));
+  assert.match(tabbar.slice(0, tabbar.indexOf("</nav>")), /<a[^>]*aria-current="page"[^>]*href="\/more"|<a[^>]*href="\/more"[^>]*aria-current="page"/);
+  // The “更多” page lists it in its own body, not only through the sidebar.
+  const more = await (await fetch(`${origin}/more`)).text();
+  const body = more.slice(more.indexOf('id="main"'), more.indexOf('aria-label="底部导航"'));
+  assert.match(body, /href="\/metals"[^>]*>[\s\S]{0,400}金属价格/);
 });
 
 test("public Host rejects private pages, data, API and redirect aliases before any private work", async () => {

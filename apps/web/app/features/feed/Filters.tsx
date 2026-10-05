@@ -26,6 +26,7 @@ export function hrefWith(base: string, params: URLSearchParams, patch: Record<st
  */
 export function CategoryTabs({
   base,
+  allTo,
   category,
   channel = "all",
   layoutId,
@@ -33,6 +34,8 @@ export function CategoryTabs({
   className = "",
 }: {
   base: string;
+  /** Where “全部” leads when it differs from `base` (the home page while it waits for its first pick). */
+  allTo?: string;
   category: CategoryKey | null;
   channel?: ChannelKey;
   layoutId: string;
@@ -41,7 +44,7 @@ export function CategoryTabs({
 }) {
   const [params] = useSearchParams();
   const items = [
-    { key: "all", label: "全部", to: hrefWith(base, params, { category: null, channel: null }) },
+    { key: "all", label: "全部", to: allTo ?? hrefWith(base, params, { category: null, channel: null }) },
     { key: "firstParty", label: CHANNEL_LABELS.firstParty, to: hrefWith(base, params, { category: null, channel: "firstParty" }) },
     ...CATEGORY_KEYS.map((k) => ({ key: k, label: CATEGORY_LABELS[k], to: hrefWith(base, params, { category: k, channel: null }) })),
   ];
