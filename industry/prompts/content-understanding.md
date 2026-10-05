@@ -8,19 +8,19 @@
 
 ## 内容类型
 
-`itemType` 必须七选一：
+`itemType` 必须九选一，与网站的 9 个分类是同一套，按材料的核心事件选择；观点、解读、研报与访谈按它讨论的事件归类：
 
-- `policy_regulation`：法规政策变化（立法、修法、矿权与许可制度、税费与权益金、出口管制与关税、环保与安全监管新规、官方规划）
-- `project_milestone`：矿权与项目里程碑（找矿发现、资源量与储量披露、获批、开工、投产、扩产、减产、停产、复产、关闭）
-- `corporate_deal`：企业经营与资本动作（并购、融资、合资、股权变动、业绩与产量报告、重大合同、管理层变动的实质后果）
-- `market_trade`：价格、供需与贸易（价格的实质变化及原因、库存、产量与消费数据、进出口与供应链变化）
-- `safety_environment`：安全与环境事件（事故、尾矿库、污染、生态处罚、社区冲突与停工抗议）
-- `resource_technology`：资源与技术进展（勘探、采矿、选冶、回收、绿色低碳与数字化的技术或工艺进展，地质研究成果）
-- `opinion_research`：观点分析与研究报告（行业判断、机构研报、复盘、长访谈、科普解读）
+- `policy_regulation` 政策监管：政府或有法定职能的机构对矿业权利义务、许可、税费、准入、执法作出的规则与程序变化
+- `company_project` 企业与项目：矿企、矿山、冶炼加工资产、基础设施项目的建设、运营、产能、融资与关键里程碑
+- `commodity_market` 商品与市场：矿产品价格、基准、库存、供需、交易场所与市场结构的可核验变化
+- `capital_ma` 投资并购：投资、合资、收购、出售、交割等权益或控制权交易
+- `supply_trade_controls` 供应链、贸易与制裁：出口限制、关税、配额、禁运、制裁、供应链准入与中断
+- `esg_community_labor` ESG、社区与劳工：环境、社区权利、原住民咨询、劳工关系、罢工、利益相关方冲突
+- `safety_incident` 人身与生产安全：伤亡事故、救援、重大设备失效、停产与事故调查
+- `technology_processing` 技术与加工：采矿、选冶、回收、尾矿处理技术的研发、验证与商业部署
+- `exploration_resource` 勘探与资源：勘查、钻探、资源量、储量与技术报告披露
 
-优先级：正式发布或生效的法规、政策与规划选 policy_regulation；项目或矿山本身的阶段变化选 project_milestone；企业交易、业绩与产量报告选 corporate_deal；以价格、库存、供需或贸易数据为主选 market_trade；事故、污染、处罚或社区冲突选 safety_environment；技术、工艺或地质研究成果选 resource_technology；观点、预测、研报与访谈选 opinion_research。
-
-内容类型用于现有评分与写作，和矿业主类别相互独立，不从 itemType 推断主类别。
+内容类型只用于评分与写作；网站显示的主类别由独立的结构化步骤确定，不从 itemType 推断。
 
 ## 作者角色
 
@@ -58,4 +58,4 @@
 
 只返回合法 JSON，不要 Markdown，不要解释。顶层必须且只能包含以下六个字段：
 
-{"itemType":"project_milestone","authorRole":"principal","tags":["企业与项目"],"editorialJudgment":"原文列出了扩建范围与计划产能，可据此了解项目的建设进度。","titleZh":"某铜矿公布扩建进度","summaryZh":"某铜矿公布扩建范围、计划产能与施工进度。"}
+{"itemType":"company_project","authorRole":"principal","tags":["企业与项目"],"editorialJudgment":"原文列出了扩建范围与计划产能，可据此了解项目的建设进度。","titleZh":"某铜矿公布扩建进度","summaryZh":"某铜矿公布扩建范围、计划产能与施工进度。"}

@@ -128,7 +128,7 @@ const provider = await stub((_hit, req) => {
         error: { code: "1301", message: "系统检测到输入或生成内容可能包含不安全或敏感内容" },
       });
     return answer({
-      itemType: "project_milestone",
+      itemType: "company_project",
       authorRole: "principal",
       tags: ["法规政策", "铜", "不存在的标签"],
       editorialJudgment: `理由 ${marker}`,
@@ -227,7 +227,7 @@ test("a selected item: prefilter, two scores, the content understanding and the 
   assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "company_project", 5]);
   assert.deepEqual(r.tags, ["企业与项目", "铜", "紫金矿业"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
   assert.deepEqual(r.subjects, ["zijin"]);
-  assert.deepEqual([r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title], ["understand", "project_milestone", "PASS", "事实 CLEAR"]);
+  assert.deepEqual([r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title], ["understand", "company_project", "PASS", "事实 CLEAR"]);
   const score = requests.find((q) => q.marker === "CLEAR" && q.step === "score")!;
   assert.match(score.user, /【标题】\nCLEAR model release/, "the score reads the original title, before any writing");
   assert.deepEqual([score.body.temperature, score.body.reasoning_effort, score.body.max_tokens], [1, "high", 65536]);

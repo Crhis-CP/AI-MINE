@@ -57,7 +57,7 @@ const provider = await stub(async (_hit, request) => {
         : step === "structure"
           ? { category: "ai-models", tags: ["模型发布"], subjects: [], fact: { title: "新模型发布" } }
           : {
-              itemType: "project_milestone",
+              itemType: "company_project",
               authorRole: "principal",
               tags: ["模型发布"],
               editorialJudgment: "模型有明确的能力提升",

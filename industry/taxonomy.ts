@@ -18,15 +18,18 @@ export const CHANNEL_LABELS: Record<"all" | "news" | "firstParty", string> = {
 /**
  * 内容理解一步给每篇资料判的“内容类型”（写在 prompts/content-understanding.md 里，改了类型要同步改那份提示词）。
  * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
+ * 与 CATEGORIES 的 9 个 key 同一套、顺序相同（评分标准草案的方案 A，待 Owner 选定）；主类别仍由结构化一步独立判定。
  */
 export const ITEM_TYPES = [
   "policy_regulation",
-  "project_milestone",
-  "corporate_deal",
-  "market_trade",
-  "safety_environment",
-  "resource_technology",
-  "opinion_research",
+  "company_project",
+  "commodity_market",
+  "capital_ma",
+  "supply_trade_controls",
+  "esg_community_labor",
+  "safety_incident",
+  "technology_processing",
+  "exploration_resource",
 ] as const;
 
 // ── 标签词表 ────────────────────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
@@ -30,7 +30,7 @@ const provider = await stub((_hit, req) => {
       : system.includes("资料结构化助手")
         ? { category: category === "null" ? null : category, tags: [], subjects: [], fact: null }
         : {
-            itemType: "project_milestone",
+            itemType: "company_project",
             authorRole: "principal",
             tags: ["法规政策"],
             editorialJudgment: "原文说明了铜矿扩建工程的建设进度。",
@@ -57,7 +57,8 @@ const get = async (url: string) => {
 
 test("actual classification, publication and public exits agree on nine keys and nullable unknowns", async () => {
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@e86693e15b");
-  assert.equal(PROMPT_VERSIONS.score, "selection-score@0eaf2a633c");
+  assert.equal(PROMPT_VERSIONS.score, "selection-score@40605b5587");
+  assert.deepEqual([...ITEM_TYPES], [...CATEGORY_KEYS], "the scoring content types are the nine site categories, in order");
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
   assert.deepEqual(normalizeTags([]), []);
