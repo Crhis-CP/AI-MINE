@@ -1,7 +1,7 @@
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
-//      item; UNKNOWN may be enriched privately but cannot become PASS through writing or scoring;
+//      item; UNKNOWN goes on like PASS (a BLOCK given while material is missing counts as UNKNOWN);
 //   2. score: two independent scores against the source tier's threshold (industry/selection.ts) decide 精选;
 //   3. writing: the Chinese title, summary and reason by the content understanding for selected and
 //      near-selected items, by the cheaper title/summary prompts for the rest;
@@ -432,7 +432,7 @@ async function finishAnalysis(
   prefilter: AnalysisRun["prefilter"],
   opts: StepOpts & { stages?: "selection" | "all" },
 ): Promise<AnalysisRun> {
-  // UNKNOWN can retain enrichment evidence, but remains private until scope is confirmed.
+  // UNKNOWN is let through (its material is as complete as it will get); BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
   if (opts.stages === "selection") {
     const scores = await runSelectionScores(a, opts);
@@ -463,8 +463,10 @@ export function normalizeAnalysis(run: AnalysisRun) {
   const label = run.prefilter.label;
   const titleZh = collapseWhitespace(run.writing?.titleZh ?? "");
   const summaryZh = (run.writing?.summaryZh ?? "").trim();
-  // Copy or scores cannot turn missing scope evidence into admission.
-  const relevance = label === "BLOCK" ? "block" : label === "UNKNOWN" || (run.writing && (!titleZh || !summaryZh)) ? "unknown" : "pass";
+  // Past the prefilter (PASS or UNKNOWN) an item is relevant. Writing that gives no usable Chinese title and
+  // summary leaves it without copy of its own ("unknown", waiting for material); a Chinese original from a
+  // full-text source still shows its source excerpt, since publication only keeps a BLOCK out.
+  const relevance = label === "BLOCK" ? "block" : run.writing && (!titleZh || !summaryZh) ? "unknown" : "pass";
   // Selected when the two scores add up to twice the tier threshold; the mean, floored,
   // is the score shown (it never decides a half point on its own).
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
@@ -512,7 +514,7 @@ export interface AnalyzeResult {
  * Analyses the current revision and commits the judgement. A result computed for an older revision
  * is kept for traceability but never overwrites a newer input (stale = true).
  */
-export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Promise<AnalyzeResult | null> {
+export async function analyzeArticle(articleId: string, opts: StepOpts = {}, afterScope?: () => Promise<unknown>): Promise<AnalyzeResult | null> {
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
@@ -532,6 +534,8 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
     }
     await completeReceipt(tx, prefilter.receiptId);
   });
+  // The caller may publish now on the committed scope (a Chinese original need not wait for the writing).
+  await afterScope?.();
   const run = await finishAnalysis(input, prefilter, opts);
   const out = normalizeAnalysis(run);
   const receiptIds = [

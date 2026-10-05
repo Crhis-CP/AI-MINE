@@ -255,7 +255,7 @@ test("a withdrawn item leaves the hot board and the hot APIs at once, not at the
   for (const url of exits) assert.ok(!(await get(url)).body.includes(rep!), `${url} still shows the withdrawn item`);
 });
 
-test("items without scope evidence and hot_signal items have no public page", async () => {
+test("items without an identified language or Chinese copy, and hot_signal items, have no public page", async () => {
   const SIGNAL = `${SOURCE}-signal`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
             VALUES (${SIGNAL}, 'Test signal', 'rss', 'T1', 'hot_signal', true, false, '2100-01-01')`;
@@ -279,7 +279,7 @@ test("items without scope evidence and hot_signal items have no public page", as
   await publishArticle(signal);
 
   const page = await get(`/api/site/items/${plain}`);
-  assert.equal(page.status, 404, "an unconfirmed editorial item cannot gain a detail page");
+  assert.equal(page.status, 404, "an item with no identified language or Chinese copy cannot gain a detail page");
   assert.equal((await get(`/api/site/items/${signal}`)).status, 404, "hot_signal material has no page");
 
   const publicId = randomUUID();
@@ -289,8 +289,26 @@ test("items without scope evidence and hot_signal items have no public page", as
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`f-${T}`}, ${story!.id}, ${`事实-${T}`}) RETURNING id`;
   await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${fact!.id}, ${plain}, 'report'), (${fact!.id}, ${signal}, 'report')`;
   const storyPage = await get(`/api/site/stories/${publicId}`);
-  assert.equal(storyPage.status, 404, "an event with no admitted reports cannot expose the material");
+  assert.equal(storyPage.status, 404, "an event with no publishable reports cannot expose the material");
   assert.ok(!storyPage.body.includes(signal) && !storyPage.body.includes(`SIGNAL-SUMMARY-${T}`), "and not the hot_signal one");
+});
+
+test("one item's failure does not stop a source republish", async () => {
+  await publishArticle(await article(), released());
+  const [first] = await sql<{ article_id: string; total: number }[]>`
+    SELECT min(article_id) AS article_id, count(*)::int AS total FROM publications WHERE source_id = ${SOURCE}`;
+  assert.match(first!.article_id, /^[\w-]+$/);
+  const trigger = `test_republish_failure_${T}`;
+  await sql`CREATE FUNCTION ${sql(trigger)}() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic publication failure'; END$$`;
+  try {
+    await sql.unsafe(`CREATE TRIGGER ${trigger} BEFORE INSERT ON publications FOR EACH ROW
+      WHEN (NEW.article_id = '${first!.article_id}') EXECUTE FUNCTION ${trigger}()`);
+    const result = await republishSource(SOURCE);
+    // The failing item is the first in order, so every later item was still re-derived.
+    assert.deepEqual([result.total, result.failed, result.failedIds], [first!.total, 1, [first!.article_id]]);
+  } finally {
+    await sql.unsafe(`DROP TRIGGER IF EXISTS ${trigger} ON publications; DROP FUNCTION IF EXISTS ${trigger}()`);
+  }
 });
 
 test("an early release keeps the selected ledger in order", async () => {

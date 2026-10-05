@@ -12,10 +12,9 @@ import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
-import { BudgetExceededError, completeReceipt, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
+import { BudgetExceededError, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { hasPrefilterReceipt } from "../packages/backend/src/providers/receipt-evidence.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
 
 const sql = dbOf("ai-gateway");
@@ -228,20 +227,6 @@ test("manual release resumes pending body reads and leaves unrelated article wor
   );
   const [article] = await sql<{ state: string }[]>`SELECT processing_state AS state FROM articles WHERE id = ${articleId}`;
   assert.equal(article!.state, "failed", "translation is not a reason to rerun the editorial pipeline");
-});
-
-test("applied prefilter proof reuses parsed evidence without making a provider call", async () => {
-  const expected = { promptVersion: "synthetic-v1", systemHash: "system-fixture", userHash: tag() };
-  const receipt = await paidRequest({ service: "fixture", purpose: "prefilter_article", identity: expected, requestSummary: expected }, async () => ({
-    response: { choices: [{ message: { content: '{"label":" pass ","reason":"synthetic"}' } }] },
-  }));
-  assert.equal(await hasPrefilterReceipt([receipt.receiptId], expected), false, "received is not yet applied");
-  await completeReceipt(sql, receipt.receiptId);
-  assert.equal(await hasPrefilterReceipt([receipt.receiptId], expected), true);
-  assert.equal(await hasPrefilterReceipt([], expected), false);
-  assert.equal(await hasPrefilterReceipt([receipt.receiptId], { ...expected, userHash: "different" }), false);
-  await sql`UPDATE receipts SET purpose = 'score_article' WHERE id = ${receipt.receiptId}`;
-  assert.equal(await hasPrefilterReceipt([receipt.receiptId], expected), false);
 });
 
 test("manual HTTP resolution rejects billed/invalid inputs and commits audit, receipt and one queue job atomically", async () => {

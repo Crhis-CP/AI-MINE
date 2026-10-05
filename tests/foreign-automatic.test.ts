@@ -122,15 +122,18 @@ test("BR-ENR-07: source queue prepares low and selected foreign material, then f
         body: "SCOPE_UNKNOWN: Los datos del proyecto requieren comprobación. ".repeat(8),
       },
     ],
-    translate: async () => ({ text: "Only untranslated English" }),
+    // UNKNOWN goes on like PASS: it is translated and published once its Chinese is complete.
+    translate: async (marker) => (marker === "SCOPE_UNKNOWN" ? { text: `合成中文全文 ${marker}，只用于工程验证。` } : { text: "Only untranslated English" }),
   });
   await bad.until(
     "bad translation durably rejected",
     async () => (await bad.sql`SELECT count(*)::int AS n FROM enrichment.translation_segments WHERE state='failed'`)[0].n > 0,
   );
-  await bad.until("scope unknown settled", async () => (await bad.rows()).every((row) => row.processing_state === "analyzed"));
-  for (const row of await bad.rows()) assert.equal((await bad.reader.inject(`/api/site/items/${row.id}`)).statusCode, 404);
-  assert.ok(!bad.calls.some((call) => call.marker === "SCOPE_UNKNOWN" && call.step === "translate"));
+  await bad.until("scope unknown published", async () =>
+    (await bad.rows()).every((row) => row.processing_state === "analyzed" && (row.visibility === "public") === row.title.includes("Datos")),
+  );
+  for (const row of await bad.rows())
+    assert.equal((await bad.reader.inject(`/api/site/items/${row.id}`)).statusCode, row.title.includes("Datos") ? 200 : 404, row.title);
   const badId = (await bad.rows()).find((row) => row.title.includes("Ensayo"))!.id;
   await bad.until(
     "failed job retained for retry",

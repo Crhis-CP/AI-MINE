@@ -7,13 +7,11 @@ import { config } from "../config.ts";
 import { one, dbOf, type Tx } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { collapseWhitespace, usableSourceText } from "../lib/text.ts";
-import { currentPrefilter, promptVersion } from "../editorial/prompts.ts";
-import { loadAnalyzeInput } from "../editorial/input.ts";
-import { PREFILTER_SYSTEM, prefilterUser, looksZh } from "../editorial/writing.ts";
+import { promptVersion } from "../editorial/prompts.ts";
+import { looksZh } from "../editorial/writing.ts";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT } from "../editorial/translation-readiness.ts";
 import { readStoredTranslation } from "../editorial/translation-store.ts";
-import { hasPrefilterReceipt } from "../providers/receipt-evidence.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
@@ -214,21 +212,12 @@ export async function publishArticleTx(
   const hasMaterial = !!usableSourceText(article.body_text, article.excerpt);
   const language = normalizeSourceLanguage(article.language);
   const nativeChinese = isChineseOriginal(language);
-  const input = language && hasMaterial && currentPrefilter(analysis, article.revision) === "PASS" ? await loadAnalyzeInput(articleId, tx) : null;
-  const admitted =
-    !!input &&
-    f.relevance !== "block" &&
-    (await hasPrefilterReceipt(
-      analysis!.receipt_ids,
-      {
-        promptVersion: promptVersion("prefilter"),
-        systemHash: sha256(PREFILTER_SYSTEM),
-        userHash: sha256(prefilterUser(input)),
-      },
-      tx,
-    ));
+  // Wide admission (BR-SEL-01): only a BLOCK keeps an item out. PASS, UNKNOWN and "not judged yet" go on;
+  // the latest judgement holds until a newer revision is judged, and the manual 收录 choice outranks it.
+  const manualScope = f.relevance === "pass" || f.relevance === "block" ? f.relevance : null;
+  const admitted = (manualScope ?? storedAnalysis?.relevance) !== "block";
   const bodyMode = bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
-  // Only confirmed Chinese source text with full-text permission has a deterministic fallback.
+  // A Chinese original with full-text permission is guided by a deterministic excerpt until the model writes (BR-ENR-06).
   const excerpt =
     admitted && nativeChinese && bodyMode === "full" && collapseWhitespace(article.body_text!).length >= 20
       ? `来源摘录：${Array.from(collapseWhitespace(article.body_text!)).slice(0, 400).join("")}（根据来源正文整理，保留原始材料供核对）`
@@ -466,12 +455,14 @@ export async function publishArticleTx(
 export async function republishSource(
   sourceId: string,
   onProgress?: (done: number, total: number) => Promise<void>,
-): Promise<{ total: number; changed: number; reduced: number }> {
+): Promise<{ total: number; changed: number; reduced: number; failed: number; failedIds: string[] }> {
   const { total } = one(await sql<{ total: number }[]>`SELECT count(*)::int AS total FROM publications WHERE source_id = ${sourceId}`);
   let after = "";
   let done = 0;
   let changed = 0;
   let reduced = 0;
+  let failed = 0;
+  const failedIds: string[] = []; // the first few, shown with the progress on the source page
   for (;;) {
     const batch = await sql<{ article_id: string }[]>`
       SELECT article_id FROM publications WHERE source_id = ${sourceId} AND article_id > ${after} ORDER BY article_id LIMIT 500`;
@@ -479,13 +470,20 @@ export async function republishSource(
     for (const { article_id } of batch) {
       // Stopping mid-way is safe: the job is retried after the restart and re-derives from the start.
       if (shutdownSignal.signal.aborted) throw new Error("worker is stopping; republish resumes after restart");
-      const r = await publishArticle(article_id);
-      if (r?.changed) changed += 1;
-      if (r?.reduced) reduced += 1;
+      try {
+        const r = await publishArticle(article_id);
+        if (r?.changed) changed += 1;
+        if (r?.reduced) reduced += 1;
+      } catch (error) {
+        // One item's failure must not stop the rest of the source; it keeps its stored projection.
+        if (shutdownSignal.signal.aborted) throw error;
+        failed += 1;
+        if (failedIds.length < 20) failedIds.push(article_id);
+      }
     }
     done += batch.length;
     after = batch[batch.length - 1]!.article_id;
     await onProgress?.(done, total);
   }
-  return { total, changed, reduced };
+  return { total, changed, reduced, failed, failedIds };
 }
