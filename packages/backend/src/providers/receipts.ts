@@ -147,6 +147,21 @@ async function observeTranslation(db: Db, stage: string | null, receipt: Transla
       known_unbilled=CASE WHEN EXCLUDED.attempt_id IS NOT NULL THEN false ELSE translation_receipt_observations.known_unbilled END`;
 }
 
+async function observeOriginalTranslation(db: Db, stage: string | null) {
+  if (!stage) return;
+  // Before observations/checkpoints existed, only the original subject proves this material's use.
+  // A received response needs its own pointer; the current ordinal alone cannot prove its provenance.
+  const rows = await db<{ id: string; attempt_id: string | null }[]>`
+    SELECT r.id::text AS id,CASE WHEN r.status IN ('pending','unknown') THEN ca.id::text
+      WHEN a.attempt=r.attempts AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response
+        THEN a.id::text ELSE NULL END AS attempt_id
+    FROM receipts r LEFT JOIN receipt_attempts ca ON ca.receipt_id=r.id AND ca.attempt=r.attempts
+      LEFT JOIN receipt_attempts a ON a.id=r.response_attempt_id AND a.receipt_id=r.id
+    WHERE r.purpose='translate_body' AND r.subject ~ ${"^" + stage + "(#[0-9]+)?$"}
+      AND r.status IN ('pending','unknown','received','completed') ORDER BY r.id FOR UPDATE OF r`;
+  for (const row of rows) await observeTranslation(db, stage, { receiptId: row.id, attemptId: row.attempt_id });
+}
+
 export function logicalKeyFor(req: ReceiptRequest): string {
   const identity = sha256(stableJson(req.identity));
   return [req.service, req.purpose, req.model ?? "-", identity, req.attemptTag ?? "0"].join(":");
@@ -203,6 +218,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     for (const receipt of req.translationObservations ?? []) await observeTranslation(tx, stage, receipt);
     // Serialise budget checks per service so concurrent workers cannot overshoot.
     await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + req.service}))`;
+    await observeOriginalTranslation(tx, stage);
     const [existing] = await tx<ReceiptRow[]>`
       SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
         (a.id IS NOT NULL AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response) AS response_bound,

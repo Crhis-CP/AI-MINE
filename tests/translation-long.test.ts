@@ -1,6 +1,8 @@
 import { gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { z } from "zod";
+import { chatJson } from "@amp/backend/providers/llm";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { sanitizeBody } from "@amp/backend/content/sanitize";
@@ -378,4 +380,74 @@ test("an explicit non-billing decision resolves only the unproved historical cou
   assert.match(observations[1]!.attempt_id, /^[1-9][0-9]*$/);
   assert.equal(observations[1]!.receipt_version, 2);
   assert.equal(observations[1]!.known_unbilled, false);
+});
+
+test("upgrade recovers an own paid attempt before any segment or observation existed", async () => {
+  for (const initial of ["pending", "reset", "no-usage-length", "normal"]) {
+    const { articleId } = await material(`pre-observation-${initial}`, `<p>Historical ${initial} ${T}.</p>`),
+      stage = `article:${articleId}@1`,
+      start = requests.length;
+    mode = initial === "pending" ? "reset" : initial;
+    if (initial === "pending") hold = { asked: gate(), release: gate() };
+    // The old chatJson/paidRequest path has no translation opt-in and writes no observation.
+    const stopped = chatJson({
+      ...recipe,
+      purpose: "translate_body",
+      subject: `${stage}#0`,
+      user: JSON.stringify({ text: `Legacy ${initial} ${T}.` }),
+      schema: z.object({ text: z.string() }),
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    if (hold) await hold.asked.promise;
+    else await stopped;
+    const [old] = await sql`SELECT r.id::text,r.status,a.id::text AS attempt_id FROM receipts r
+      JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts WHERE r.subject=${`${stage}#0`}`;
+    assert.equal(old!.status, initial === "pending" ? "pending" : initial === "reset" ? "unknown" : "received");
+    assert.equal((await sql`SELECT count(*) AS n FROM ai.translation_receipt_observations WHERE scope=${stage}`)[0]!.n, 0);
+    assert.equal((await sql`SELECT count(*) AS n FROM enrichment.translation_segments WHERE article_id=${articleId}`)[0]!.n, 0);
+    mode = "normal";
+    let outcome: unknown, error: unknown;
+    try {
+      outcome = await runBodyTranslation(articleId, { ...recipe, id: recipe.id + initial, promptVersion: recipe.promptVersion + initial });
+    } catch (failure) {
+      error = failure;
+    } finally {
+      hold?.release.open();
+      hold = null;
+      await stopped;
+    }
+    console.log("LEGACY_NO_OBSERVATION=" + JSON.stringify({ initial, old, calls: requests.length - start, outcome, error: String(error) }));
+    assert.equal(requests.length - start, initial === "normal" ? 2 : 1);
+    if (initial === "normal") assert.equal((outcome as { status: string }).status, "translated");
+    else assert.match(String(error), initial === "pending" ? /in flight/ : /unknown outcome/);
+    const [observed] = await sql`SELECT receipt_version,attempt_id FROM ai.translation_receipt_observations
+      WHERE scope=${stage} AND receipt_id=${old!.id}`;
+    assert.deepEqual({ ...observed }, { receipt_version: 1, attempt_id: old!.attempt_id });
+  }
+});
+
+test("upgrade must retain an own-material unknown when old worker persisted no checkpoint or observation", async () => {
+  mode = "reset";
+  const { articleId } = await material("old-worker-before-catch", `<p>Historical material ${T}.</p>`);
+  const start = requests.length;
+  await assert.rejects(runBodyTranslation(articleId, recipe));
+  assert.equal(requests.length, start + 1);
+  const [old] = await sql`SELECT id,status FROM receipts WHERE subject=${`article:${articleId}@1#0`}`;
+  assert.equal(old.status, "unknown");
+  // These two stores did not exist yet, or had not been written, at the old process exit window.
+  // Keep the actual paid receipt and actual attempt intact.
+  await sql`DELETE FROM ai.translation_receipt_observations WHERE scope=${`article:${articleId}@1`}`;
+  await sql`DELETE FROM enrichment.translation_segments WHERE article_id=${articleId}`;
+  mode = "normal";
+  let outcome: unknown, error: unknown;
+  try {
+    outcome = await runBodyTranslation(articleId, { ...recipe, id: recipe.id + "-after-upgrade", promptVersion: recipe.promptVersion + "-after-upgrade" });
+  } catch (failure) {
+    error = failure;
+  }
+  console.log("ROOT_LEGACY_NO_OBSERVATION=" + JSON.stringify({ articleId, old, calls: requests.length - start, outcome, error: String(error) }));
+  assert.equal(requests.length, start + 1, "unresolved old physical request must block a new paid key even before new observation storage was introduced");
+  assert.match(String(error), /unknown outcome/);
 });
