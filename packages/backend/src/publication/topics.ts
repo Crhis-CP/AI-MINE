@@ -4,7 +4,7 @@ import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { cached } from "../lib/cache.ts";
-import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
+import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
 
 const sql = dbOf("publication");
 
@@ -77,14 +77,13 @@ export function topicPageCounts(): Promise<TopicCount[]> {
 }
 
 /**
- * One pass over the listed pool (what 全部矿业动态 shows) instead of one scan per topic; a topic counts
- * an item when their tags overlap, as `p.tags && match` does. Topics follow the whole pool, not only
- * 精选 (PG-08 “最新动态”): before the mining scoring standard is confirmed there is no 精选 at all.
+ * One pass over the selected set (a few thousand rows from its partial index) instead of one
+ * scan per topic; a topic counts an item when their tags overlap, as `p.tags && match` does.
  */
 async function queryTopicCounts(): Promise<TopicCount[]> {
   const [topics, items] = await Promise.all([
     sql<Array<Pick<TopicRow, "slug" | "entity_id" | "tags">>>`SELECT slug, entity_id, tags FROM topics ORDER BY position`,
-    sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE ${listedCondition(new Date())} AND p.eligible`,
+    sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE p.visibility = 'public' AND p.selected`,
   ]);
   const recentFrom = Date.now() - 30 * 86400_000;
   return topics.map((t) => {
@@ -153,11 +152,11 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   if (!topic) return null;
   const pageCount = Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE));
   if (page < 1 || page > pageCount) return null;
-  // Page ids from the listed pool first, then the joins for those rows only.
+  // Page ids from the selected set first, then the joins for those rows only.
   const rows = await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${listedCondition(now)} AND p.eligible AND p.tags && ${topicMatchTags(row)}::text[]
+      WHERE ${selectedCondition(now)} AND p.tags && ${topicMatchTags(row)}::text[]
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${(page - 1) * TOPIC_PAGE_SIZE})
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)

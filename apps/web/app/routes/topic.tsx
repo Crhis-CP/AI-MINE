@@ -64,7 +64,7 @@ export default function TopicPage() {
         <p className="mt-1 max-w-[640px] text-[13px] leading-relaxed text-ink-3">{topic.definition}</p>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <span className="text-[12.5px] text-ink-4">
-            <span className="num mr-1 text-[20px] font-bold text-ink">{topic.total.toLocaleString("zh-CN")}</span>条动态
+            <span className="num mr-1 text-[20px] font-bold text-ink">{topic.total.toLocaleString("zh-CN")}</span>条精选
           </span>
           {topic.related.length > 0 && (
             <span className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
@@ -80,7 +80,7 @@ export default function TopicPage() {
       </header>
 
       <div className="mb-1 mt-2 flex items-baseline justify-between">
-        <h2 className="text-[18px] font-bold text-ink">最新动态</h2>
+        <h2 className="text-[18px] font-bold text-ink">最新精选</h2>
         {items.length > 0 && (
           <span className="num text-[12px] text-ink-4">
             第 {first}–{last} 条 · 共 {topic.total.toLocaleString("zh-CN")} 条
@@ -89,7 +89,7 @@ export default function TopicPage() {
       </div>
       {items.length === 0 ? (
         <div className="lg:card">
-          <EmptyState title="这个主题暂时还没有内容" />
+          <EmptyState title="这个主题暂时还没有精选内容" />
         </div>
       ) : (
         <DayList items={items} />
