@@ -1,5 +1,6 @@
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
@@ -57,7 +58,7 @@ const get = async (url: string) => {
 
 test("actual classification, publication and public exits agree on nine keys and nullable unknowns", async () => {
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@e86693e15b");
-  assert.equal(PROMPT_VERSIONS.score, "selection-score@40605b5587");
+  assert.equal(PROMPT_VERSIONS.score, "selection-score@e8bd844cf2");
   assert.deepEqual([...ITEM_TYPES], [...CATEGORY_KEYS], "the scoring content types are the nine site categories, in order");
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
@@ -119,4 +120,14 @@ test("actual classification, publication and public exits agree on nine keys and
   await assert.rejects(overrideFields(chosen, { fields: { category: "tip" }, reason: "旧键", version: 1 }, "synthetic"));
   for (const url of ["/api/site/pool?category=tip", "/api/v1/items?category=tip", "/feed/category/tip.xml"])
     assert.ok([400, 404].includes((await app.inject({ method: "GET", url })).statusCode));
+});
+
+test("the content types agree across the vocabulary and both prompts, and every weight row sums to 10", () => {
+  const prompt = (name: string) => readFileSync(new URL(`../industry/prompts/${name}.md`, import.meta.url), "utf8");
+  const listed = (text: string) => [...text.matchAll(/^- `([a-z_]+)` /gm)].map((m) => m[1]);
+  assert.deepEqual(listed(prompt("content-understanding")), [...ITEM_TYPES], "content understanding lists the vocabulary's types, in order");
+  assert.deepEqual(listed(prompt("selection-score")), [...ITEM_TYPES], "the score prompt lists the same types");
+  const rows = [...prompt("selection-score").matchAll(/^\| ([a-z_]+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|$/gm)];
+  assert.deepEqual(rows.map((r) => r[1]), [...ITEM_TYPES], "one weight row per type, in order");
+  for (const r of rows) assert.equal(r.slice(2).reduce((sum, w) => sum + Number(w), 0), 10, `${r[1]}: the weights sum to 10`);
 });
