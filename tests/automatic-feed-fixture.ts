@@ -85,7 +85,7 @@ export async function automaticFeedFixture(
                 ? { category: null, tags: [], subjects: [], fact: null }
                 : step === "understand"
                   ? {
-                      itemType: "model_release",
+                      itemType: "project_milestone",
                       authorRole: "principal",
                       tags: [],
                       editorialJudgment: "合成判断",

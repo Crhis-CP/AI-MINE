@@ -20,13 +20,13 @@ export const CHANNEL_LABELS: Record<"all" | "news" | "firstParty", string> = {
  * 评分提示词（prompts/selection-score.md）按类型给五个维度不同的权重。
  */
 export const ITEM_TYPES = [
-  "model_release",
-  "product_launch",
-  "tool_or_prompt",
-  "research_paper",
-  "industry_event",
-  "opinion_analysis",
-  "tutorial_explainer",
+  "policy_regulation",
+  "project_milestone",
+  "corporate_deal",
+  "market_trade",
+  "safety_environment",
+  "resource_technology",
+  "opinion_research",
 ] as const;
 
 // ── 标签词表 ────────────────────────────────────────────────────────────────────────────

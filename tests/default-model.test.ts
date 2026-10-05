@@ -27,7 +27,7 @@ const provider = await stub((_hit, req) => {
       ? { attentionScore: 80 }
       : system.includes("内容理解编辑")
         ? {
-            itemType: "product_launch",
+            itemType: "corporate_deal",
             authorRole: "principal",
             tags: ["产品更新"],
             editorialJudgment: "理由",
