@@ -37,3 +37,5 @@ TASK-0021私有HTTP 0.3.0（建设期breaking，ADR-0024）：POST sources必需
 ADR-0025 / TASK-0022 的 `SourceDated*` 是未注册的下一版公开形状，复用现有 schema 的 `extend`：TimeAssertion 仍是来源事实，`firstPublicAt` 是实际公开资格成立时的本站记录，旧历史未知保留 null；TimelineCard.day 是来源日/组内最新来源日，不能用回退时刻分组。现有 Feed/Pool/Timeline 及私有 runs 别名和 HTTP 注册继续保持原形状，生成 public 0.2.0 / private 0.3.0 字节不变。本片不把 nullable 来源日期或新必填字段提前放到旧处理器上。
 
 消费者联合激活时一次切换相应别名、旧手写 DTO 引用、全部读者/机器出口与生成 public 0.3.0；详情报道的 publishedAt 允许 null，日历日不制造 instant。tl2（日+原锚点）和 by=published 的 it4 文本日期游标拒绝旧版本并沿用 Problem/重载语义，其他游标协议保留。`SourceDatedReceiptReconciliationResponse` 同时预告私有待补列表；未配置告警天数时是 null，不暗设期限。具体兼容边界、实际 first-public 时机与联动顺序见 ADR-0025；本片没有日期公开门、任务、数据库或模型调用。
+
+公众号增量只预定义WechatSourceDeclaration/AccountScope/AccountResource/ContentResource，暂未并入SourcePolicy或ProcessingPermit的现行URL分支。加入时明确参考长文章URL，解析唯一规范__biz；ghid可选，不要求填写未知原始ID，不从微信号/昵称或供应商域名推导归属。账号列表无伪造URL，短文链接与附件必须由运行端口核验已取得的账号关系，schema解析不授信。实际启用需SourcePolicy/私有创建读回/生成客户端/两页/采集者联合，私有版本计划升0.4.0（MP建档新增明确身份前提）；原URL wire与公共0.2.0保持，旧配置不自动升级。

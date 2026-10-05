@@ -188,3 +188,45 @@ test("input manifests retain exact nonempty source identities and upstream artif
   invalid(Manifest, { ...registered, materials: [] });
   assert.equal(z.globalRegistry.has(Manifest), false);
 });
+
+test("explicit WeChat declaration binds a stable account without inventing a URL or requiring an unknown ghid", async () => {
+  const {
+    declaredWechatAccount,
+    WechatSourceDeclarationSchema: Declaration,
+    WechatAccountPermissionScopeSchema: Scope,
+  } = await import("@amp/contracts/source-policy");
+  const biz = "MTIzNDU2Nzg5MA==",
+    referenceArticleUrl = `https://mp.weixin.qq.com/s?__biz=${encodeURIComponent(biz)}&mid=1&idx=1`;
+  assert.deepEqual(declaredWechatAccount({ referenceArticleUrl }), { referenceArticleUrl, biz });
+  assert.equal(declaredWechatAccount({ referenceArticleUrl, ghid: "gh_synthetic" }).ghid, "gh_synthetic");
+  const credentialed = new URL(referenceArticleUrl);
+  credentialed.username = "user";
+  credentialed.password = "pass";
+  for (const url of [
+    "https://mp.weixin.qq.com/s/short",
+    "https://mp.weixin.qq.com/",
+    referenceArticleUrl.replace("mp.weixin.qq.com", "lookalike.invalid"),
+    `${referenceArticleUrl}&__biz=${biz}`,
+    referenceArticleUrl.replace(biz.slice(0, -2), "not-base64!"),
+    credentialed.toString(),
+  ])
+    invalid(Declaration, { referenceArticleUrl: url });
+  invalid(Declaration, { referenceArticleUrl, ghid: "mutable_nickname" });
+  const scope = { kind: "wechat_account", biz, document_types: [], excluded_content: [] };
+  assert.deepEqual(Scope.parse(scope), scope);
+  invalid(Scope, { ...scope, hosts: ["mp.weixin.qq.com"] });
+  invalid(SourcePolicySchema, { ...policy(), scope });
+});
+
+test("account list and content resources stay distinct; short links still require trusted runtime provenance", async () => {
+  const { WechatSourceResourceSchema: Resource } = await import("@amp/contracts/source-policy");
+  const account = { kind: "wechat_account", biz: "MTIzNDU2Nzg5MA==", document_type: null, attachment: false };
+  assert.deepEqual(Resource.parse(account), account);
+  invalid(Resource, { ...account, url: "https://supplier.invalid/api" });
+  invalid(Resource, { ...account, attachment: true });
+  const content = { ...account, kind: "wechat_content", url: "https://mp.weixin.qq.com/s/short" };
+  assert.deepEqual(Resource.parse(content), content, "parsing a resource cannot verify short-link ownership");
+  invalid(Resource, { ...content, url: "https://mp.weixin.qq.com/s?__biz=OTg3NjU0MzIxMA==" });
+  invalid(Resource, { ...content, url: `https://mp.weixin.qq.com/s?__biz=${account.biz}&__biz=${account.biz}` });
+  assert.equal(z.globalRegistry.has(Resource), false);
+});
