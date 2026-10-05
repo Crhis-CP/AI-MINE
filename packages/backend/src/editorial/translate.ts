@@ -1,5 +1,7 @@
 // Per-item worker translation and an enqueue-only cron repair, using durable strict segment checkpoints.
 import { dbOf } from "../db.ts";
+import { z } from "zod";
+import { latestSuccessfulRunResult } from "../admin/runs.ts";
 import { modelFor } from "./models.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { promptText, promptVersion } from "./prompts.ts";
@@ -43,23 +45,33 @@ export async function translateArticle(articleId: string, expectedRevision: numb
   return result;
 }
 
-/** Cron only repairs missing dispatch. Eligibility is rechecked by the per-item worker. */
-export async function translatePending(opts: { limit?: number; budgetMs?: number } = {}): Promise<{ enqueued: number }> {
+const RepairCursor = z.object({ cursor: z.strictObject({ version: z.literal(1), afterId: z.string().min(1).max(128).nullable() }) });
+
+/** Bounded keyset repair, independent of age. recordRun persists progress; workers recheck eligibility. */
+export async function translatePending(opts: { limit?: number; budgetMs?: number } = {}) {
   const started = Date.now();
+  const limit = opts.limit ?? 30;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1000) throw new RangeError("translation repair limit must be from 1 to 1000");
+  const previous = RepairCursor.safeParse(await latestSuccessfulRunResult("content.translate"));
+  let afterId = previous.success ? previous.data.cursor.afterId : null;
   const rows = await sql<{ article_id: string }[]>`
     SELECT p.article_id FROM publications p JOIN articles a ON a.id = p.article_id
     LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh'
     WHERE p.body_mode = 'full' AND a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh'
-      AND (p.discovered_at > now() - interval '3 days'
-           OR EXISTS (SELECT 1 FROM article_revisions r WHERE r.article_id = a.id AND r.revision = a.revision AND r.revision > 1
-                      AND r.created_at > now() - interval '3 days'))
+      AND p.article_id > ${afterId ?? ""}
       AND (tr.article_id IS NULL OR (tr.origin <> 'source' AND
            (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE})))
-    ORDER BY p.discovered_at DESC LIMIT ${opts.limit ?? 30}`;
-  let enqueued = 0;
+    ORDER BY p.article_id LIMIT ${limit}`;
+  let enqueued = 0,
+    scanned = 0;
   for (const row of rows) {
-    if (shutdownSignal.signal.aborted || Date.now() - started > (opts.budgetMs ?? 4 * 60_000)) break;
-    if (await enqueue(QUEUES.translate, { articleId: row.article_id }, { singletonKey: row.article_id })) enqueued++;
+    if (shutdownSignal.signal.aborted || Date.now() - started >= (opts.budgetMs ?? 4 * 60_000)) break;
+    const queued = await enqueue(QUEUES.translate, { articleId: row.article_id }, { singletonKey: row.article_id });
+    if (queued === undefined) break; // An expired producer gives no durable acceptance evidence.
+    if (queued) enqueued++;
+    scanned++;
+    afterId = row.article_id; // null means an existing durable singleton, so it must not starve later ids.
   }
-  return { enqueued };
+  if (scanned === rows.length && rows.length < limit) afterId = null;
+  return { enqueued, scanned, cursor: { version: 1 as const, afterId } };
 }

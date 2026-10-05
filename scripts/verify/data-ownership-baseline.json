@@ -64,7 +64,6 @@
     "[\"packages/backend/src/editorial/input.ts\",\"loadAnalyzeInput/[row]\",\"enrichment\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/editorial/translate.ts\",\"translatePending/rows\",\"enrichment\",\"public.publications\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/editorial/translate.ts\",\"translatePending/rows\",\"enrichment\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
-    "[\"packages/backend/src/editorial/translate.ts\",\"translatePending/rows\",\"enrichment\",\"public.article_revisions\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/events/digest.ts\",\"composeStoryDigest/reports\",\"events\",\"public.publications\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/events/digest.ts\",\"composeStoryDigest/reports\",\"events\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/events/group.ts\",\"rootFactOf\",\"events\",\"public.publications\",\"read\",\"cross-debt\"]": 1,

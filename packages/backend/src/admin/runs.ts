@@ -12,6 +12,13 @@ const sql = dbOf("ops");
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 
+/** Worker recovery reads only the last completed result; running/failed attempts never advance it. */
+export async function latestSuccessfulRunResult(job: string): Promise<unknown> {
+  const [row] = await sql<{ detail: unknown }[]>`SELECT detail FROM job_runs
+    WHERE job=${job} AND status='ok' ORDER BY started_at DESC,id DESC LIMIT 1`;
+  return row?.detail ?? null;
+}
+
 /** Exact database text only: no Date/epoch conversion, I/O, or authentication semantics. */
 export function receiptObservedVersion(input: ReceiptVersionFields): string {
   const { receiptId, attempts, updatedAtUtc } = ReceiptVersionInput.parse(input);
