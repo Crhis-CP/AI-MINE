@@ -1,4 +1,4 @@
-// One-off correction (TASK-0037): items stored before day-only source dates set the timeline were put at
+// One-off correction (TASK-0040): items stored before day-only source dates set the timeline were put at
 // the moment they were found. This puts each on its stated day (Beijing midnight), marks days older than
 // the stale threshold as history, and republishes so the public lists follow. Re-runnable: items already
 // on their day are left alone.
