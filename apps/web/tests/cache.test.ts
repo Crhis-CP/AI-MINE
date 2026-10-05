@@ -147,19 +147,19 @@ const api = createServer((req, res) => {
       JSON.stringify({
         filters: { channel: "all", category: null, tag: null, topic: null, q: url.searchParams.get("q"), tab: "time" },
         items: (poolMode === "empty" ? [] : [0]).map(() => ({
-            id: "pool-fixture",
-            title: "真实列表消费者",
-            summary: null,
-            reason: null,
-            source: { name: "合成来源" },
-            publishedAt: null,
-            timelineAt: "2026-10-04T00:00:00Z",
-            category: null,
-            tags: [],
-            score: poolMode === "bad" ? "invalid" : null,
-            selected: false,
-            channel: "news",
-          })),
+          id: "pool-fixture",
+          title: "真实列表消费者",
+          summary: null,
+          reason: null,
+          source: { name: "合成来源" },
+          publishedAt: null,
+          timelineAt: "2026-10-04T00:00:00Z",
+          category: null,
+          tags: [],
+          score: poolMode === "bad" ? "invalid" : null,
+          selected: false,
+          channel: "news",
+        })),
         page: Number(url.searchParams.get("page") || 1),
         pageCount: poolMode === "empty" ? 0 : 3,
         total: poolMode === "empty" ? 0 : 81,
@@ -587,6 +587,12 @@ test("金属价格 shows the official LME entry and the notice, never a number o
   const more = await (await fetch(`${origin}/more`)).text();
   const body = more.slice(more.indexOf('id="main"'), more.indexOf('aria-label="底部导航"'));
   assert.match(body, /href="\/metals"[^>]*>[\s\S]{0,400}金属价格/);
+  // Right below 收藏, in the sidebar and on the “更多” page (Owner 2026-10-05).
+  const hrefs = (s: string) => [...s.matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+  for (const links of [hrefs(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))), hrefs(body)]) {
+    assert.ok(links.includes("/starred"), links.join(" "));
+    assert.equal(links[links.indexOf("/starred") + 1], "/metals", links.join(" "));
+  }
 });
 
 test("public Host rejects private pages, data, API and redirect aliases before any private work", async () => {

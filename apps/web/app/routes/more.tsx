@@ -21,7 +21,6 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
     title: "内容",
     rows: [
       { to: "/topics", label: "主题索引", icon: <IconGrid size={18} /> },
-      { to: "/metals", label: "金属价格", icon: <IconTrendUp size={18} /> },
       { to: "/agent", label: "Agent 接入", icon: <IconPlug size={18} /> },
     ],
   },
@@ -30,6 +29,7 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
     rows: [
       { to: "/hot", label: "热点榜", icon: <IconFlame size={18} /> },
       { to: "/starred", label: "收藏", icon: <IconBookmark size={18} /> },
+      { to: "/metals", label: "金属价格", icon: <IconTrendUp size={18} /> },
     ],
   },
   {
