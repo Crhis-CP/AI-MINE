@@ -85,7 +85,7 @@ test("INV-01: real source/content workers collect, book model receipts and publi
         tier: "T2",
         participation_mode: "editorial",
         config: { feedUrl: fixture.feedUrl },
-        permission_scope: { hosts: [new URL(fixture.feedUrl).hostname], path_prefixes: ["/"], document_types: [], excluded_content: [] },
+        permission_scope: { hosts: [new URL(fixture.feedUrl).hostname, "example.invalid"], path_prefixes: ["/"], document_types: [], excluded_content: [] },
         attachments_in_scope: false,
         site_fulltext: true,
         syndicate_fulltext: false,
@@ -150,8 +150,9 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     assert.equal(fixture.calls.length, modelCalls, "unchanged source bytes do not cause another paid request");
     assert.equal((await sql`SELECT count(*)::int AS n FROM articles WHERE source_id=${sourceId}`)[0].n, 3);
     assert.equal((await sql`SELECT count(*)::int AS n FROM articles WHERE source_id=${sourceId} AND revision<>1`)[0].n, 0);
+    const [beforeNarrowing] = await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.republishSource} AND state='completed'`;
     await editSource({ site_fulltext: false });
-    await waitFor("permission republish worker settled", () => settled(QUEUES.republishSource));
+    await waitFor("permission republish worker settled", () => settled(QUEUES.republishSource, beforeNarrowing.n));
     const counts = async () =>
       (
         await sql`SELECT (SELECT count(*) FROM receipts)::int AS receipts,

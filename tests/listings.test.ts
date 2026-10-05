@@ -10,6 +10,7 @@ import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource } from "@amp/backend/sources/collect";
+import { grantDateFixture } from "./source-date-fixture.ts";
 
 const sql = dbOf("acquisition");
 
@@ -61,6 +62,7 @@ before(async () => {
     (${DUP_SOURCE}, 'Test feed', 'rss', ${sql.json({ feedUrl: `${base}/dup.xml` })}, 'T1', 'editorial', ${cursor}, '2100-01-01'),
     (${NOTES_SOURCE}, 'Test release notes', 'rss', ${sql.json({ feedUrl: `${base}/notes.xml`, preserveUrlFragment: true })}, 'T1', 'editorial', ${cursor}, '2100-01-01'),
     (${GARBLED_SOURCE}, 'Test garbling feed', 'rss', ${sql.json({ feedUrl: `${base}/garbled.xml` })}, 'T1', 'hot_signal', ${cursor}, '2100-01-01')`;
+  for (const sourceId of [DUP_SOURCE, NOTES_SOURCE, GARBLED_SOURCE]) await grantDateFixture(sourceId, [base, "https://example.org"]);
 });
 after(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -31,7 +31,21 @@ after(async () => {
 
 async function read(path: string) {
   const feedUrl = `http://127.0.0.1:${(server.address() as { port: number }).port}${path}`;
-  return (await fetchRss({ config: { feedUrl }, participation_mode: "editorial" } as never)).candidates;
+  return (
+    await fetchRss({
+      id: "rss-xhtml-fixture",
+      name: "Isolated Atom XHTML fixture",
+      kind: "rss",
+      config: { feedUrl },
+      participation_mode: "editorial",
+      tier: "T2",
+      first_party: false,
+      enabled: true,
+      cursor: null,
+      interval_minutes: 60,
+      fail_count: 0,
+    })
+  ).candidates;
 }
 
 test("Atom XHTML titles and summaries keep the article and its text in order", async () => {
