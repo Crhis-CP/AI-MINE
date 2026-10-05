@@ -81,13 +81,18 @@ export const SCORE_CALLS = 2;
  */
 export function tierThreshold(tier: string): number | null {
   if (!scoringConfirmed()) return null;
+  return draftTierThreshold(tier);
+}
+
+/** The same threshold without the Owner gate: evaluations always run the scoring prompt as it is. */
+export function draftTierThreshold(tier: string): number | null {
   return SELECTION.thresholds[tier] ?? null;
 }
 
 /**
  * Owner review gate (ADR-0021 §12, BR-SEL-09): in production nothing is scored or selected, and no score
  * is shown, until the Owner has confirmed this exact scoring prompt (SELECTION_CONFIRMED_VERSION).
- * Development, tests and evaluations run the draft.
+ * Development, tests and evaluations (draftTierThreshold) run the draft.
  */
 export function scoringConfirmed(production = isProduction, confirmed = config.selectionConfirmedVersion): boolean {
   return !production || confirmed === PROMPT_VERSIONS.score;

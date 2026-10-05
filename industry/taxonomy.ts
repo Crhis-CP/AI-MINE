@@ -34,10 +34,34 @@ export const ITEM_TYPES = [
 /** 已有明确主分类时使用该类的显示名；无法判断时不补标签。 */
 export const CATEGORY_TAGS = CATEGORIES.map((c) => c.label);
 
-/** 金属（矿种）标签：Owner 2026-10-03，金属矿业为重点，六种金属只是例举；独立煤、铀、砂石不作正向标签。 */
-export const MINERAL_TAGS = ["铜", "金", "银", "锌", "铅", "锂", "镍", "钴", "钼", "铁矿石", "铝", "稀土", "钨", "锑", "锡", "锰", "铬", "铂族金属"] as const;
+/**
+ * 金属（矿种）标签：Owner 2026-10-03，金属矿业为重点，六种金属只是例举；独立煤、铀、砂石不作正向标签。
+ * 铁与铁矿石、铝与铝土矿分立（Q-37 的默认做法）；整份词表是交 Owner 审定的草案（I-16，不答复就按此执行）。
+ */
+export const MINERAL_TAGS = [
+  "铜",
+  "金",
+  "银",
+  "锌",
+  "铅",
+  "锂",
+  "镍",
+  "钴",
+  "钼",
+  "铁矿石",
+  "铁",
+  "铝土矿",
+  "铝",
+  "稀土",
+  "钨",
+  "锑",
+  "锡",
+  "锰",
+  "铬",
+  "铂族金属",
+] as const;
 
-/** 国家与地区标签：法规线 36 个对象里的 33 国（资讯线 18 国在前），另加巴西；数量不是上限。 */
+/** 国家与地区标签：法规线 36 个对象里的 33 国（资讯线 18 国在前），另加巴西（铁矿石第二大产国、淡水河谷所在国）；数量不是上限。 */
 export const COUNTRY_TAGS = [
   "中国",
   "美国",
@@ -106,9 +130,6 @@ export const ENTITY_TAGS = [
   "南方铜业",
 ] as const;
 
-/** 只归一术语表的正式短称，不从内容类型、主体或模糊动词猜类别。 */
-export const TAG_SYNONYMS: Readonly<Record<string, string>> = Object.fromEntries(CATEGORIES.map((c) => [c.shortLabel, c.label]));
-
 // ── 公司与主体 ──────────────────────────────────────────────────────────────────────────
 
 /** 矿企主题：id → 显示名、卡片上显示的标签（null 表示只用 entity:<id> 归类）、别名。 */
@@ -140,33 +161,98 @@ export const ENTITIES: Record<string, { name: string; displayTag: string | null;
 };
 
 /**
+ * 模型常写的近义写法 → 词表里的标签：分类只认术语表的正式短称（不从内容类型、主体或模糊动词猜类别）；
+ * 金属与国家收常见的另一种写法；矿企收名录里的别名（英文按小写比对）。
+ */
+export const TAG_SYNONYMS: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(CATEGORIES.map((c) => [c.shortLabel, c.label])),
+  黄金: "金",
+  金矿: "金",
+  白银: "银",
+  银矿: "银",
+  铜矿: "铜",
+  锌矿: "锌",
+  铅矿: "铅",
+  锂矿: "锂",
+  碳酸锂: "锂",
+  氢氧化锂: "锂",
+  镍矿: "镍",
+  钴矿: "钴",
+  钼矿: "钼",
+  铁矿: "铁矿石",
+  铝矾土: "铝土矿",
+  电解铝: "铝",
+  氧化铝: "铝",
+  稀土元素: "稀土",
+  稀土矿: "稀土",
+  钨矿: "钨",
+  锑矿: "锑",
+  锡矿: "锡",
+  锰矿: "锰",
+  铬矿: "铬",
+  铂: "铂族金属",
+  钯: "铂族金属",
+  铂金: "铂族金属",
+  钯金: "铂族金属",
+  铂族: "铂族金属",
+  刚果金: "刚果（金）",
+  "刚果(金)": "刚果（金）",
+  刚果民主共和国: "刚果（金）",
+  民主刚果: "刚果（金）",
+  澳洲: "澳大利亚",
+  印尼: "印度尼西亚",
+  吉尔吉斯: "吉尔吉斯斯坦",
+  哈萨克: "哈萨克斯坦",
+  塔吉克: "塔吉克斯坦",
+  乌兹别克: "乌兹别克斯坦",
+  俄罗斯联邦: "俄罗斯",
+  蒙古国: "蒙古",
+  ...Object.fromEntries(Object.values(ENTITIES).flatMap((e) => (e.displayTag ? e.aliases.map((a) => [a.toLowerCase(), e.displayTag]) : []))),
+};
+
+/**
  * 身份词典：摘要和标题里出现的公司，必须在原文里也出现过，否则退回原标题、丢掉摘要（防止模型张冠李戴）。
  * 中英文写法都要列：原文常是英文，摘要是中文。容易和普通词混淆的写法不列（如单独的“自由港”“紫金”）。
  */
+// 双字简称常是普通中文的一部分（大力拓展、其中铝产量、黑龙江铜山、长江铜价），只在前后文不像普通词时才算公司；
+// 其他中文译名（智利国营铜业公司、科德尔科、智利矿业化工公司……）也要认，否则模型写出的通行译名会被当成编造。
+// 单独的“天齐”不收：“今天齐聚”会误认。
 export const IDENTITY_LEXICON: ReadonlyArray<{ id: string; name: string; patterns: RegExp[] }> = [
   { id: "zijin", name: "紫金矿业", patterns: [/紫金矿业|紫金集团|\bzijin\b/i] },
-  { id: "cmoc", name: "洛阳钼业", patterns: [/洛阳钼业|洛钼|\bCMOC\b|china\s+molybdenum/i] },
-  { id: "jiangxi-copper", name: "江西铜业", patterns: [/江西铜业|江铜|jiangxi\s+copper/i] },
+  { id: "cmoc", name: "洛阳钼业", patterns: [/洛阳钼业|洛钼|\bCMOC\b|(?:china|luoyang)\s+molybdenum/i] },
+  {
+    id: "jiangxi-copper",
+    name: "江西铜业",
+    patterns: [/江西铜业|(?<![长珠浙龙镇九湛内吴晋松丹漓嫩乌闽赣湘汉沅绿沙怒沧布塘浦岷陵渠涪沱綦曲阳廉清柳邕盘东西南北椒瓯灵])江铜|jiangxi\s+copper/i],
+  },
   { id: "minmetals", name: "中国五矿", patterns: [/中国五矿|五矿集团|minmetals/i] },
   { id: "mmg", name: "五矿资源", patterns: [/五矿资源|\bMMG\b/] },
-  { id: "chalco", name: "中国铝业", patterns: [/中国铝业|中铝|\bchalco\b|chinalco/i] },
-  { id: "shandong-gold", name: "山东黄金", patterns: [/山东黄金|shandong\s+gold/i] },
+  {
+    id: "chalco",
+    name: "中国铝业",
+    patterns: [/中国铝业|(?<![其场集高口量存费构业])中铝(?![土价库锭材箔板棒]|合金)|\bchalco\b|chinalco|alumin(?:i)?um\s+corp(?:oration)?\s+of\s+china/i],
+  },
+  { id: "shandong-gold", name: "山东黄金", patterns: [/山东黄金矿业|山东黄金(?![产储资矿市])|shandong\s+gold/i] },
   { id: "ganfeng", name: "赣锋锂业", patterns: [/赣锋|\bganfeng\b/i] },
   { id: "tianqi", name: "天齐锂业", patterns: [/天齐锂业|\btianqi\b/i] },
   { id: "huayou", name: "华友钴业", patterns: [/华友钴业|\bhuayou\b/i] },
   { id: "bhp", name: "必和必拓", patterns: [/必和必拓|\bBHP\b/] },
-  { id: "rio-tinto", name: "力拓", patterns: [/力拓|rio\s+tinto/i] },
+  {
+    id: "rio-tinto",
+    name: "力拓",
+    patterns: [/联合力拓|(?<![大全着努致助合发奋实能动潜活争人财物精魄势权压电风水火马推张拉外内效智尽极竭鼎协戮用卖出省借聚蓄])力拓|rio[\s-]?tinto/i],
+  },
   { id: "glencore", name: "嘉能可", patterns: [/嘉能可|glencore/i] },
-  { id: "vale", name: "淡水河谷", patterns: [/淡水河谷|\bVale\b/] },
-  { id: "anglo-american", name: "英美资源", patterns: [/英美资源|anglo\s+american/i] },
-  { id: "freeport", name: "自由港麦克莫兰", patterns: [/自由港麦克莫兰|自由港迈克墨伦|freeport[-\s]?mcmoran|\bFCX\b/i] },
+  { id: "vale", name: "淡水河谷", patterns: [/淡水河谷(?!地带|地区|流域)|\bVale\b|\bVALE\b/] },
+  { id: "anglo-american", name: "英美资源", patterns: [/英美资源(?![竞争博合])|anglo[\s-]+american/i] },
+  { id: "freeport", name: "自由港麦克莫兰", patterns: [/自由港[-·・]?麦克莫兰|自由港迈克墨伦|freeport[-\s]?mcmoran|\bFCX\b/i] },
   { id: "newmont", name: "纽蒙特", patterns: [/纽蒙特|newmont/i] },
   { id: "barrick", name: "巴里克", patterns: [/巴里克|\bbarrick\b/i] },
-  { id: "codelco", name: "智利国家铜业公司", patterns: [/智利国家铜业|codelco/i] },
-  { id: "first-quantum", name: "第一量子", patterns: [/第一量子|first\s+quantum/i] },
-  { id: "ivanhoe", name: "艾芬豪矿业", patterns: [/艾芬豪|ivanhoe/i] },
-  { id: "albemarle", name: "雅宝", patterns: [/雅宝|albemarle/i] },
-  { id: "sqm", name: "智利化工矿业", patterns: [/智利化工矿业|\bSQM\b/] },
+  { id: "codelco", name: "智利国家铜业公司", patterns: [/智利国家铜业|智利国营铜业|科德尔科|codelco/i] },
+  { id: "first-quantum", name: "第一量子", patterns: [/第一量子(?![计科信通力点比])|first\s+quantum/i] },
+  { id: "ivanhoe", name: "艾芬豪矿业", patterns: [/艾芬豪(?!电气|大西洋)|ivanhoe(?!\s+(?:electric|atlantic))/i] },
+  { id: "albemarle", name: "雅宝", patterns: [/雅宝(?!路)|albemarle/i] },
+  { id: "sqm", name: "智利化工矿业", patterns: [/智利化工矿业|智利矿业化工|智利化学矿业|\bSQM\b/] },
   { id: "southern-copper", name: "南方铜业", patterns: [/南方铜业|southern\s+copper/i] },
 ];
 

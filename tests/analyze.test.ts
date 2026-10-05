@@ -19,6 +19,7 @@ import { publishArticle } from "@amp/backend/publication/publish";
 import { setVisibility } from "@amp/backend/admin/content";
 import { buildApp } from "../apps/api/src/app.ts";
 import { SITE } from "@amp/industry/site";
+import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
 
 const sql = dbOf("enrichment");
 
@@ -308,6 +309,45 @@ test("guards: a company the input does not name is not written in; long summarie
     parseTranslateOutput("title_zh: 标题\nbody_zh: 我们懂你。\n\n来源：X：PixVerse (@PixVerse)").bodyZh,
     "我们懂你。",
     "a repeated prompt line is dropped",
+  );
+});
+
+test("guards: everyday Chinese that contains a short company name names no company; other renderings of a named company count", () => {
+  const rss = (title: string, text: string) => ({ title, text, sourceKind: "rss" });
+  // 大力拓展 (力拓), 其中铝产量 (中铝), 黑龙江铜山 and 长江铜价 (江铜): a summary is not emptied for them.
+  const everyday: Array<[ReturnType<typeof rss>, string]> = [
+    [rss("Aluminium output rises", "Aluminium output rose, mostly in Yunnan."), "铝产量上升，其中铝产量增长主要来自云南。"],
+    [rss("Ivanhoe expands Kamoa-Kakula", "Ivanhoe Mines is expanding the Kamoa-Kakula copper complex."), "艾芬豪矿业大力拓展卡莫阿-卡库拉铜矿。"],
+    [rss("Zijin buys a copper mine in Heilongjiang", "Zijin Mining bought the Tongshan copper mine in Heilongjiang."), "紫金矿业收购黑龙江铜山铜矿。"],
+    [rss("Copper prices in China", "Spot copper on the Changjiang market rose."), "长江铜价上涨，市场中铝库存下降。"],
+  ];
+  for (const [input, summaryZh] of everyday) assert.equal(enforceIdentity(input, { titleZh: "", summaryZh }).summaryZh, summaryZh, summaryZh);
+  // A real mention the input does not support is still caught.
+  assert.equal(enforceIdentity(rss("Aluminium output rises", "Aluminium output rose."), { titleZh: "", summaryZh: "据中铝消息，铝产量上升。" }).summaryZh, "");
+  // The input's own rendering of a company supports the common Chinese name the summary uses.
+  const codelco = { title: "智利国营铜业公司上调产量指引", text: "智利国营铜业公司上调了全年铜产量指引。", sourceKind: "web_list" };
+  const copy = { titleZh: "智利国家铜业公司上调产量指引", summaryZh: "智利国家铜业公司上调全年铜产量指引。" };
+  assert.equal(enforceIdentity(codelco, copy).identityGuard.outcome, "pass");
+  assert.equal(
+    enforceIdentity(rss("Rio-Tinto and Anglo-American", "Rio-Tinto and Anglo-American agreed terms."), { titleZh: "力拓与英美资源达成协议", summaryZh: "" })
+      .identityGuard.outcome,
+    "pass",
+  );
+  // Common other spellings map to a vocabulary tag instead of being dropped.
+  const vocabulary = new Set<string>([...TOPIC_TAGS, ...ENTITY_TAGS]);
+  for (const [spelling, tag] of [
+    ["黄金", "金"],
+    ["刚果(金)", "刚果（金）"],
+    ["澳洲", "澳大利亚"],
+    ["钯", "铂族金属"],
+    ["rio tinto", "力拓"],
+  ]) {
+    assert.equal(TAG_SYNONYMS[spelling!], tag, spelling);
+    assert.ok(vocabulary.has(tag!), tag);
+  }
+  assert.ok(
+    Object.values(TAG_SYNONYMS).every((tag) => vocabulary.has(tag) || (CATEGORY_TAGS as readonly string[]).includes(tag)),
+    "every synonym lands on a vocabulary tag",
   );
 });
 

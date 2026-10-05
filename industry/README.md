@@ -1,8 +1,8 @@
 # 行业包
 
-`industry/` 集中放和“行业”有关的内容：站名与文案、分类与标签、主题、种子信源、提示词、精选门槛、品牌素材、页面文案、更新日志和评测样例。换行业时这里是**主要改动点，但不是唯一的改动点**：页面和报告里另有写死的 AI 口径（第 3 节），只改这个目录换不完。
+`industry/` 集中放和“行业”有关的内容：站名与文案、分类与标签、主题、种子信源、提示词、精选门槛、品牌素材、页面文案、更新日志和评测样例。换行业时这里是**主要改动点，但不是唯一的改动点**：页面和报告里另有写死的行业口径（第 3 节），只改这个目录换不完。
 
-站点身份与读者介绍已开始矿业化；分类、主题和处理提示词仍含导入时的 AI 行业示例，尚未完成整包替换。矿业化由 `tasks/TASK-0010.md`（矿业行业包 v0）完成；行业包的归属与机制以 `docs/04-architecture/04-aihot-adoption.md` 4.4 节为准，逐个文件的去向见附录 B 的 B.8 节。
+站点身份、分类、标签词表、主题与写作提示词已经是矿业的（TASK-0010、TASK-0028）；评分标准 `prompts/selection-score.md` 的矿业版是交 Owner 审阅的草案（TASK-0029），事件综述、归组与全文翻译等提示词还有导入时的 AI 行业写法，另开任务改。行业包的归属与机制以 `docs/04-architecture/04-aihot-adoption.md` 4.4 节为准，逐个文件的去向见附录 B 的 B.8 节。
 
 ## 1. 文件
 
@@ -38,9 +38,9 @@
 - `CATEGORY_LABELS`、`CHANNEL_LABELS`：显示标签的公开出口；分类/栏目 keys 与顺序在 contracts 固定，离线集成测试逐项对齐，industry 不反向依赖 contracts。
 - `CATEGORIES`：首页与“全部动态”的筛选类别，也用于卡片角标和 RSS 分类订阅。`key` 出现在网址与接口里（`/all?category=`、`/feed/category/<key>.xml`），上线后冻结；`label` 是显示名；`section` 是日报里的分节标题，几个类别可以共用一节；`guide` 告诉模型怎么归类。没归上类的资料放进 `key` 为 `industry` 的类别所在的节，没有这个类别就放最后一节。
 - `ITEM_TYPES`：内容理解一步判定的内容类型。`prompts/content-understanding.md` 列出这些类型，`prompts/selection-score.md` 按类型给评分维度不同的权重，三处在同一个提交里改。`CATEGORY_BY_ITEM_TYPE`：模型漏了分类标签时，按内容类型补一个。
-- `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义词统一成词表里的写法。
+- `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义写法统一成词表里的标签（黄金→金、刚果(金)→刚果（金）、澳洲→澳大利亚、矿企别名→显示名等）。
 - `ENTITIES`：主要公司与机构，用于公司类主题。`IDENTITY_LEXICON`、`PUBLISHER_DOMAINS`、`IDENTITY_CONTEXT_ALIASES` 防止模型在标题和摘要里写进原文没提到的公司：核验过的身份事实经 `prompts/identity-context.md` 交给模型。
-- `topics.json`：主题目录，分 `company`（公司与机构）、`field`（方向）、`genre`（内容形态）三组。每个主题用 `tags` 或 `entityId` 决定收哪些内容；`slug` 出现在网址里，上线后冻结。
+- `topics.json`：主题目录，分三组：`genre`（国家与地区）、`field`（金属）、`company`（矿企）；组的键沿用上游，页面只改显示名。每个主题用 `tags` 或 `entityId` 决定收哪些内容；`slug` 出现在网址里，上线后冻结。
 
 ### 2.3 `sources.json`
 
@@ -109,9 +109,9 @@
 
 ## 3. 包外的硬编码
 
-上游写死在页面与报告代码里的 AI 口径已经改成矿业的（TASK-0010、TASK-0028）：报告标题、报头顶行的 `MOTTO`（“金属矿业 · 每日要闻 / 每周综述 / 每月盘点”）、主题页的描述与三组名称（国家与地区、金属、矿企）、热点页说明、反馈页的示例、后台新建信源页的占位文字。只剩一处：`packages/backend/src/reports/compose.ts` 的 `modelsReleased` 指标按“模型发布/更新”分节计数，矿业版没有这一节，恒为 0，`features/report/format.ts` 在为 0 时不显示，随报告指标改造一并删除。
+上游写死在页面与报告代码里的 AI 口径已经改成矿业的（TASK-0010、TASK-0028）：报告标题、报头顶行的 `MOTTO`（“金属矿业 · 每日要闻 / 每周综述 / 每月盘点”）、主题页的描述与三组名称（国家与地区、金属、矿企）、热点页说明、反馈页的示例、后台新建信源页的占位文字。还剩几处：`packages/backend/src/reports/compose.ts` 的 `modelsReleased` 指标按“模型发布/更新”分节计数，矿业版没有这一节，恒为 0，`features/report/format.ts` 在为 0 时不显示，随报告指标改造一并删除；`apps/api/src/routes/og.ts` 的主题分享图副标题与 `packages/backend/src/publication/llms.ts` 的说明仍是旧的三组说法，另开任务改。
 
-测试里的示例分类、标签和公司也已换成矿业的（如“铜”“锂”“紫金矿业”）。以后改 `taxonomy.ts` 时，用例失败就把例子换成新词表的对应项，测的规则不变。
+分析与分类相关测试里的示例分类、标签和公司已换成矿业的（如“铜”“锂”“紫金矿业”）；事件、信号、翻译等测试的夹具里还有 AI 行业的例子，测的规则与行业无关，随相应任务换掉。以后改 `taxonomy.ts` 时，用例失败就把例子换成新词表的对应项，测的规则不变。
 
 ## 4. 运行机制与已定的变化
 

@@ -16,8 +16,8 @@ import {
   buildScoreInput,
   normalizeAnalysis,
   runSelectionPrefilter,
+  draftTierThreshold,
   runSelectionScores,
-  tierThreshold,
   type AnalysisRun,
   type AnalyzeInputArticle,
 } from "@amp/backend/editorial/analyze";
@@ -149,7 +149,8 @@ for (const model of models) {
         return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null };
       }
 
-      const threshold = tierThreshold(input.source.tier);
+      // The draft's thresholds even where production waits for the Owner's confirmation of this prompt.
+      const threshold = draftTierThreshold(input.source.tier);
       if (threshold === null) {
         const run: AnalysisRun = { prefilter, scores: null, writing: null, structure: null };
         return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null };
