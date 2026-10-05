@@ -11,6 +11,7 @@ import { rekeyUnknownBudget, unknownRekeysSchema, type UnknownRekey } from "./un
 import { publicationProjectionBudget, publicationProjectionSchema, type PublicationProjection } from "./publication-projection.ts";
 import { miningCategoryBudget, miningCategoryTransitionSchema, type MiningCategoryTransition } from "./mining-category-transition.ts";
 import { stableRouteDebt } from "./route-identities.ts";
+import { stableTransactionDebt } from "./transaction-identity.ts";
 
 export const OWNERSHIP_MAP = "scripts/verify/data-ownership-map.json";
 export const OWNERSHIP_BASELINE = "scripts/verify/data-ownership-baseline.json";
@@ -231,6 +232,9 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
     const routes = stableRouteDebt(baseline.debt, previous.baseline.debt, report, (file, before) =>
       before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8"),
     );
+    const transaction = stableTransactionDebt(baseline.debt, routes.budget, report, (file, before) =>
+      before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8"),
+    );
     const rekeyed = rekeyUnknownBudget(baseline.unknown, previous.baseline.unknown, baseline.unknownRekeys, (file, before) =>
       before ? (previous.readSource?.(file) ?? null) : readFileSync(path.join(root, file), "utf8"),
     );
@@ -252,10 +256,11 @@ export function checkDataOwnership(root = ROOT, previous?: { baseline: Baseline;
     );
     errors.push(
       ...routes.errors,
+      ...transaction.errors,
       ...rekeyed.errors,
       ...projection.errors,
       ...categories.errors,
-      ...compareOwnership(baseline, { ...previous.baseline, debt: routes.budget, unknown: categories.budget }, false),
+      ...compareOwnership(baseline, { ...previous.baseline, debt: transaction.budget, unknown: categories.budget }, false),
     );
     for (const [file, tables] of Object.entries(map.readModels))
       for (const table of tables) if (!previous.map.readModels[file]?.includes(table)) errors.push(`read-model allowlist increased: ${file} ${table}`);
