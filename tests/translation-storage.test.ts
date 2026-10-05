@@ -10,44 +10,51 @@ const hash = "a".repeat(64);
 
 test("the module migration preserves legacy translations without manufacturing verified identity", async (t) => {
   const f = await roleFixture(t);
-  // Reconstruct the immediately preceding schema in this fixture's own database, then use the real runner.
-  await f.admin.unsafe("DROP TABLE enrichment.translation_segments; DROP SCHEMA enrichment");
-  await f.admin.unsafe("ALTER TABLE translations DROP COLUMN recipe, DROP COLUMN source_hash, DROP COLUMN manifest");
-  await f.admin`DELETE FROM schema_migrations WHERE name=${MIGRATION}`;
-  await f.admin`INSERT INTO sources(id,name,kind) VALUES('storage-source','Storage fixture','rss')`;
-  await f.admin`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at)
+  const database = `${f.prefix}_legacy_test`;
+  await f.createDatabase(database);
+  const db = f.open(f.urlFor(undefined, database));
+  const originals = loadMigrationInventory(process.cwd()).filter((entry) => entry.module === null);
+  const legacyNames = originals.map((entry) => entry.name);
+  // An actual pre-module fixture: preserve the old ledger without a hash column, irrespective of later modules.
+  await db`CREATE TABLE schema_migrations(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`;
+  for (const entry of originals) {
+    await db.begin(async (tx) => {
+      await tx.unsafe(entry.text);
+      await tx`INSERT INTO schema_migrations(name) VALUES(${entry.name})`;
+    });
+  }
+  await db`INSERT INTO sources(id,name,kind) VALUES('storage-source','Storage fixture','rss')`;
+  await db`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at)
     VALUES('storage-article','storage-source','storage-article','https://fixture.invalid/storage','Original',now(),now())`;
-  await f.admin`INSERT INTO translations(article_id,revision,body_html,origin) VALUES('storage-article',1,'旧译文','source')`;
-  const before = await f.admin`SELECT * FROM translations`;
-  const legacy = await f.admin`SELECT name,applied_at::text FROM schema_migrations ORDER BY name`;
-  await f.admin`ALTER TABLE schema_migrations DROP COLUMN sha256`;
-  const run = () => f.run(process.execPath, ["scripts/migrate.ts"], { DATABASE_URL: f.urlFor() });
-  await f.admin.unsafe(`CREATE FUNCTION translation_ledger_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+  await db`INSERT INTO translations(article_id,revision,body_html,origin) VALUES('storage-article',1,'旧译文','source')`;
+  const before = await db`SELECT * FROM translations`;
+  const legacy = await db`SELECT name,applied_at::text FROM schema_migrations ORDER BY name`;
+  const run = () => f.run(process.execPath, ["scripts/migrate.ts"], { DATABASE_URL: f.urlFor(undefined, database) });
+  await db.unsafe(`CREATE FUNCTION translation_ledger_failure() RETURNS trigger LANGUAGE plpgsql AS $$
     BEGIN RAISE EXCEPTION 'fixture translation ledger failure'; END$$;
-    CREATE TRIGGER translation_ledger_failure BEFORE INSERT ON schema_migrations FOR EACH ROW EXECUTE FUNCTION translation_ledger_failure()`);
+    CREATE TRIGGER translation_ledger_failure BEFORE INSERT ON schema_migrations FOR EACH ROW WHEN (NEW.name = '${MIGRATION}') EXECUTE FUNCTION translation_ledger_failure()`);
   await assert.rejects(run(), /fixture translation ledger failure/);
-  assert.equal((await f.admin`SELECT to_regnamespace('enrichment') AS schema`)[0].schema, null);
+  assert.equal((await db`SELECT to_regnamespace('enrichment') AS schema`)[0].schema, null);
   assert.equal(
     (
-      await f.admin`SELECT count(*) AS n FROM information_schema.columns
+      await db`SELECT count(*) AS n FROM information_schema.columns
     WHERE table_schema='public' AND table_name='translations' AND column_name IN ('recipe','source_hash','manifest')`
     )[0].n,
     0,
   );
-  assert.equal((await f.admin`SELECT count(*) AS n FROM schema_migrations WHERE name=${MIGRATION}`)[0].n, 0);
-  await f.admin.unsafe("DROP TRIGGER translation_ledger_failure ON schema_migrations; DROP FUNCTION translation_ledger_failure()");
+  assert.equal((await db`SELECT count(*) AS n FROM schema_migrations WHERE name=${MIGRATION}`)[0].n, 0);
+  await db.unsafe("DROP TRIGGER translation_ledger_failure ON schema_migrations; DROP FUNCTION translation_ledger_failure()");
   assert.match((await run()).stdout, /applied enrichment\/202610042100_translation_readiness.sql/);
-  const [after] = await f.admin`SELECT * FROM translations`;
+  const [after] = await db`SELECT * FROM translations`;
   const { recipe, source_hash, manifest, ...unchanged } = after;
   assert.deepEqual(unchanged, { ...before[0] });
   assert.deepEqual([recipe, source_hash, manifest], [null, null, null]);
-  assert.deepEqual(await f.admin`SELECT name,applied_at::text FROM schema_migrations WHERE name<>${MIGRATION} ORDER BY name`, legacy);
-  const originals = loadMigrationInventory(process.cwd()).filter((entry) => entry.module === null);
+  assert.deepEqual(await db`SELECT name,applied_at::text FROM schema_migrations WHERE name=ANY(${legacyNames}::text[]) ORDER BY name`, legacy);
   assert.deepEqual(
-    (await f.admin`SELECT name,sha256 FROM schema_migrations WHERE name<>${MIGRATION} ORDER BY name`).map((row) => ({ ...row })),
+    (await db`SELECT name,sha256 FROM schema_migrations WHERE name=ANY(${legacyNames}::text[]) ORDER BY name`).map((row) => ({ ...row })),
     originals.map(({ name, sha256 }) => ({ name, sha256 })),
   );
-  const [applied] = await f.admin`SELECT sha256 FROM schema_migrations WHERE name=${MIGRATION}`;
+  const [applied] = await db`SELECT sha256 FROM schema_migrations WHERE name=${MIGRATION}`;
   assert.equal(applied.sha256, loadMigrationInventory(process.cwd()).find((entry) => entry.name === MIGRATION)!.sha256);
   assert.match((await run()).stdout, /database is up to date/);
 });
