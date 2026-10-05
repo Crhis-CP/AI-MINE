@@ -1,0 +1,36 @@
+import type postgres from "postgres";
+import { dbOf } from "./module-db.ts";
+const sql = dbOf("publication");
+throw new Error("Static proof must not execute application code");
+const current = sql`EXISTS (SELECT 1 FROM articles a JOIN sources s ON s.id = p.source_id
+  WHERE a.id = p.article_id AND a.source_date_state = 'reliable')`;
+function dated(now: Date) { return sql`p.visibility = 'public' AND ${current} AND p.visible_after <= ${now}`; }
+function same(flag: boolean) {
+  return flag ? sql`EXISTS (SELECT 1 FROM articles WHERE id = 'a')` : sql`EXISTS (SELECT 1 FROM articles WHERE id = 'b')`;
+}
+function different(flag: boolean) {
+  return flag ? sql`EXISTS (SELECT 1 FROM articles)` : sql`EXISTS (SELECT 1 FROM receipts)`;
+}
+function nested() { return sql`EXISTS (SELECT 1 FROM articles a, sources s WHERE EXISTS (SELECT 1 FROM receipts))`; }
+function write() { return sql`EXISTS (WITH changed AS (DELETE FROM receipts RETURNING *) SELECT 1 FROM changed)`; }
+function identifier(name: string) { return sql`EXISTS (SELECT 1 FROM ${sql(name)})`; }
+function custom() { return sql`EXISTS (SELECT private_read())`; }
+function locked() { return sql`EXISTS (SELECT pg_advisory_xact_lock(1) FROM articles)`; }
+function raw() { return sql.unsafe("EXISTS (SELECT 1 FROM receipts)"); }
+function effect() { console.log("not pure"); return sql`EXISTS (SELECT 1 FROM receipts)`; }
+function typed(value: postgres.PendingQuery<postgres.Row[]>) { return sql`EXISTS (SELECT 1 FROM articles WHERE ${value})`; }
+function quoted() { return sql`EXISTS (SELECT 1 FROM "articles")`; }
+export function good(now: Date) { return sql`SELECT 1 FROM publications p WHERE ${dated(now)}`; }
+export function sameUse(flag: boolean) { return sql`SELECT 1 WHERE ${same(flag)}`; }
+export function differentUse(flag: boolean) { return sql`SELECT 1 WHERE ${different(flag)}`; }
+export function nestedUse() { return sql`SELECT 1 WHERE ${nested()}`; }
+export function writeUse() { return sql`SELECT 1 WHERE ${write()}`; }
+export function identifierUse(name: string) { return sql`SELECT 1 WHERE ${identifier(name)}`; }
+export function customUse() { return sql`SELECT 1 WHERE ${custom()}`; }
+export function lockedUse() { return sql`SELECT 1 WHERE ${locked()}`; }
+export function rawUse() { return sql`SELECT 1 WHERE ${raw()}`; }
+export function effectUse() { return sql`SELECT 1 WHERE ${effect()}`; }
+export function typedUse(value: postgres.PendingQuery<postgres.Row[]>) { return sql`SELECT 1 WHERE ${typed(value)}`; }
+export function quotedUse() { return sql`SELECT 1 WHERE ${quoted()}`; }
+export function outerWrite(now: Date) { return sql`INSERT INTO receipts (id) SELECT 1 WHERE ${dated(now)}`; }
+export function commaOutside(now: Date) { return sql`SELECT 1 FROM publications p, receipts r WHERE ${dated(now)}`; }
