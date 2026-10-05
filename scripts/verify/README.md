@@ -182,3 +182,10 @@ node scripts/verify/data-ownership.ts --report > .verify/data-ownership.json
 预算两侧（含previous.baseline）都先校验为非负有限整数；错误值、缺失的预算字典或数组冒充字典、错误读模型列表或所属模块字段直接失败，不参与JavaScript隐式数值比较。迁移发现与执行器共同使用 `loadMigrationInventory`：先验证30份历史原件、登记、路径与依赖，再按拓扑消费原文和字节哈希；未登记的模块子目录不能被静默漏掉。历史迁移的 UNKNOWN key 与额度不变，`migrate.ts` 内建账本建表仍单独纳入。模块迁移可供离线报告解析，但执行器仍拒绝执行，须待模块DDL归属、schema-qualified授权目录与真实首个迁移同批接通。角色catalog只读数据库元目录，当前表/序列/RLS仍限public、owner/ACL限public和pgboss；没有为它加入无用的文件发现，也没有增加授权。
 
 锁定子图只从backend importer的postgres、pg-boss与根目录实际TypeScript 7出发，包含全部传递/可选依赖及已解析peer的package和snapshot完整条目（包括integrity）；用现有yaml的parseAllDocuments读取pnpm12多文档，缺节点或不支持的解析直接失败。B原始报告仍保留完整锁文件哈希作溯源，预算用相关子图指纹替换它：无关tooling依赖不消耗UNKNOWN预算，相关SQL库/解析依赖的锁项变化仍被拒绝；不推断其他JavaScript依赖。
+
+
+### 本地故障回滚附加证据
+
+主回执的 `local_rehearsal` 未执行时为 `null`；它只证明本执行器的合成 Compose 演练。执行后按白名单记录固定 source SHA、正常/故障 image ID、fixture SHA256、准备阶段及中间资源清理、控制器退出码、检查阶段、恢复和清理结果，不包含环境对象、日志或工作目录。`boundToInput` 核对本次 head/镜像/夹具；`accepted` 还要求正常检查、候选实际健康失败、同一上一镜像的完整复验和所属资源清理全部满足。字段出现本身不算通过，原有 `scope` / `full` / 退出状态判定保持不变；它不是 PG18、正式发布或开发机 VM 已演练的证据。
+
+健康观测只访问本次登记的 loopback `/api/health`，不跟随任何重定向；记录有界的原因、原目标、状态和是否直接响应，不记录响应正文或 Location。故意503演练还必须具有直接HTTP503观测；Docker/端口查询、地址、连接、重定向或响应结构错误即使成功回退，也不得被计为该故障夹具验收通过。

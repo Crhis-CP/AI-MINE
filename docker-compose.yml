@@ -4,11 +4,12 @@ name: amp
 
 x-app: &app
   build: .
-  image: amp-app
+  image: ${APP_IMAGE:-amp-app}
   env_file: .env
   restart: unless-stopped
   environment: &app-env
     NODE_ENV: production
+    AMP_RELEASE: ${AMP_RELEASE:-dev}
     DATABASE_URL: postgres://amp:${POSTGRES_PASSWORD:-amp}@db:5432/amp
     AMP_DATA_DIR: /data
     API_BASE_URL: http://public-api:3001
@@ -44,11 +45,12 @@ services:
 
   public-api:
     build: .
-    image: amp-app
+    image: ${APP_IMAGE:-amp-app}
     restart: unless-stopped
     command: ["node", "apps/api/src/main.ts"]
     environment:
       NODE_ENV: production
+      AMP_RELEASE: ${AMP_RELEASE:-dev}
       API_ROLE: public-api
       API_HOST: 0.0.0.0
       API_PORT: "3001"
@@ -91,7 +93,7 @@ services:
 
   web:
     build: .
-    image: amp-app
+    image: ${APP_IMAGE:-amp-app}
     restart: unless-stopped
     command: ["node", "apps/web/server.ts"]
     environment:
@@ -104,7 +106,7 @@ services:
       WEB_HOST: 0.0.0.0
       WEB_PORT: "3000"
     ports:
-      - "${PORT:-3000}:3000"
+      - "127.0.0.1:${PORT:-3000}:3000"
     depends_on:
       public-api:
         condition: service_started
