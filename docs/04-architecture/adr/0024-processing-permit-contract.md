@@ -31,3 +31,9 @@ SourcePolicyPort.evaluate是typed allow/deny/unknown结果，失败原因区分�
 
 
 私有HTTP接线采用0.3.0建设期breaking版本：新建必需明确的permission_scope/attachments_in_scope，不从feed托管域推断正文域；创建本身是既有负责人加入确认，不新增审批。现有POST返回created/source或duplicate保持，GET详情增加严格SourcePolicy/null；两个页面和生成客户端同片更新。未登录/CSRF仍先于body验证；未知存储列不隐式进入HTTP，公共契约不变。
+
+## 完整输入集合与非来源能力分支
+
+来源输入manifest固定news/policy，保留每项真实material/source/revision/content_hash/resource及上游artifact的kind/id/version/content_hash/manifest_id。来源集合不能为空，同一材料同一revision的多资源可以并存但其source/hash必须一致；同一稿不同revision可分别表示旧摘要与新输入的真实依赖，schema不因此授权旧版本使用；四元组在存储已有不同manifest时必须拒绝。没有历史来源记录的衍生文本失败关闭，不以当前成员列表补造。模型能力、许可用途和付费配方分别记录，manifest不携permission_version作为缓存分区。
+
+CapabilityInputAuthorization使用独立品牌及Ed25519封装，载荷明确登记artifact的ID/hash、caller、lane、model_capability、external_model用途、实际input_fingerprint与可信工厂签发时刻。签发请求不含时刻、issuer或期限；固定SELF_AUTHORED样例/模板及连接探针由服务端按实际字节登记，不能靠URL、eval用途、test角色或空来源集合声明非来源材料。解析仅检查形状，不执行登记核对/密码学/当前根或权限；后续网关仍需这些实际验证，本未激活差量不是许可强制完成。
