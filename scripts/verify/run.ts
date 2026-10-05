@@ -1,3 +1,4 @@
+import { rehearsalEvidence } from "../../deploy/check-local-release.ts";
 import { checkWebSplit } from "./web-split.ts";
 // make verify (docs/06-agents/01-parallel-development-rules.md §8; ADR-0017): every check that needs no real
 // model, run on a clean checkout of one commit, ending in a receipt bound to that commit. Any executor can run
@@ -540,7 +541,26 @@ const STAGES: Stage[] = [
         );
         const want = industrySourceCount(dir);
         if (Number(count.stdout.trim()) !== want) return fail(`compose seeded ${count.stdout.trim()} sources, industry/sources.json has ${want}`);
-        return pass(`compose up, smoke, ${want} seed sources`);
+        const image = await capture("docker", ["--host", "unix:///var/run/docker.sock", "image", "inspect", "amp-app", "--format", "{{.Id}}"], { log, env: e });
+        const previous = image.stdout.trim();
+        if (image.code !== 0 || !/^sha256:[a-f0-9]{64}$/.test(previous)) return fail("local normal image identity unavailable");
+        if ((await compose("down", "-v")) !== 0) return fail("normal Compose cleanup failed before rehearsal");
+        const record = `${log.file}.${randomBytes(8).toString("hex")}.local-release.json`;
+        const code = await run("node", ["deploy/check-local-release.ts", "--sha", head, "--previous", previous, "--record", record], {
+          log,
+          env: e,
+          timeoutMs: 15 * 60_000,
+          shutdownMs: 300_000,
+        });
+        const evidence = rehearsalEvidence(
+          code,
+          { sha: head, previous, fixtureSha256: sha256File("deploy/fixtures/unhealthy-api.ts") },
+          existsSync(`${record}.images.json`) ? JSON.parse(readFileSync(`${record}.images.json`, "utf8")) : null,
+          existsSync(record) ? JSON.parse(readFileSync(record, "utf8")) : null,
+        );
+        receipt.local_rehearsal = evidence;
+        if (!evidence.accepted) return fail(`local fault preparation or rollback checks failed; evidence ${path.relative(ROOT, record)}`);
+        return pass(`compose smoke, ${want} seed sources; actual unhealthy candidate recovered and rechecked on this executor`);
       } finally {
         if (existsSync(path.join(dir, "docker-compose.yml"))) {
           await compose("logs", "--tail", "80");
@@ -666,6 +686,7 @@ function writeReceipt(exitStatus: number, failedStage: string | null, endState: 
     failed_stage: failedStage,
     secret_scan: receipt.secret_scan ?? null,
     audit: receipt.audit ?? null,
+    local_rehearsal: receipt.local_rehearsal ?? null,
     log_digest: `sha256:${sha256(Buffer.concat(logs.map((f) => readFileSync(f))))}`,
   };
   // No receipt without both supply-chain sections (rules §8.3): it would read as a pass it is not.

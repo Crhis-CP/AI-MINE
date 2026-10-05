@@ -7,7 +7,7 @@
 #   make tasks-index                               regenerate tasks/INDEX.md (integrator, on main)
 # Settings are environment variables; see scripts/verify/README.md.
 
-.PHONY: verify check release-check nightly tasks-index
+.PHONY: verify check release-check local-release-check nightly tasks-index
 
 verify:
 	node scripts/verify/run.ts $(if $(TASK),--task $(TASK)) $(if $(SHA),--sha $(SHA))
@@ -17,6 +17,10 @@ check:
 
 release-check:
 	node scripts/verify/run.ts --release-check
+
+# A recovered candidate failure intentionally returns nonzero; inspect its journal.
+local-release-check:
+	node deploy/local-release.ts --sha "$(SHA)" --previous "$(PREVIOUS_IMAGE)" --candidate "$(CANDIDATE_IMAGE)" --record "$(RECORD)"
 
 nightly:
 	node scripts/verify/run.ts --nightly
