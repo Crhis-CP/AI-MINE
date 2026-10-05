@@ -192,3 +192,93 @@ export interface SourcePolicyPort {
   issueProcessingPermit(input: z.infer<typeof IssueProcessingPermitInputSchema>): Promise<PermitIssuanceResult>;
 }
 export type SourcePolicyQueryPort = Pick<SourcePolicyPort, "evaluate">;
+
+/** Exact derived-output identity. A current membership list cannot substitute for its stored inputs. */
+export const InputArtifactReferenceSchema = z.strictObject({
+  kind: Id,
+  id: Text.max(200),
+  version: Text.max(200),
+  content_hash: Hash,
+});
+export const SourceMaterialReferenceSchema = z.strictObject({
+  source_id: Id,
+  material_id: Id,
+  revision: Version,
+  content_hash: Hash,
+  resource: SourceResourceSchema,
+});
+const RegisteredInputArtifact = z.strictObject({ id: Id, content_hash: Hash });
+const RegisteredInputContext = {
+  artifact: RegisteredInputArtifact,
+  caller: Id,
+  lane: PermissionLaneSchema,
+  model_capability: Id,
+  purpose: z.literal("external_model"),
+};
+
+/** An untrusted declaration. The server registry must verify artifact bytes, caller and rendered input. */
+export const CapabilityInputAuthorizationRequestSchema = z.strictObject({
+  ...RegisteredInputContext,
+  input_fingerprint: Hash,
+});
+export const CapabilityInputAuthorizationPayloadSchema = z.strictObject({
+  ...RegisteredInputContext,
+  __brand: z.literal("CapabilityInputAuthorization"),
+  input_fingerprint: Hash,
+  issued_at: Instant,
+});
+export const SignedCapabilityInputAuthorizationSchema = z
+  .strictObject({
+    schema_version: z.literal(1),
+    algorithm: z.literal("Ed25519"),
+    issuer_id: Id,
+    credential_expires_at: Instant,
+    payload: CapabilityInputAuthorizationPayloadSchema,
+    signature: SignedProcessingPermitSchema.shape.signature,
+  })
+  .refine((wire) => Date.parse(wire.credential_expires_at) > Date.parse(wire.payload.issued_at), "credential lifetime must be positive");
+export type SignedCapabilityInputAuthorization = z.infer<typeof SignedCapabilityInputAuthorizationSchema>;
+declare const authorizedCapabilityInput: unique symbol;
+/** The future current-root authority grants this brand only after exact registered-artifact verification. */
+export type CapabilityInputAuthorization = Readonly<SignedCapabilityInputAuthorization> & { readonly [authorizedCapabilityInput]: true };
+
+export const SourceInputManifestSchema = z
+  .strictObject({
+    schema_version: z.literal(1),
+    kind: z.literal("source_materials"),
+    lane: PermissionLaneSchema,
+    materials: z.array(SourceMaterialReferenceSchema).min(1),
+    upstream_artifacts: z.array(InputArtifactReferenceSchema.extend({ manifest_id: Hash })),
+  })
+  .superRefine((manifest, ctx) => {
+    const identities = new Map<string, string>(),
+      resources = new Set<string>(),
+      artifacts = new Set<string>();
+    for (const material of manifest.materials) {
+      const versionKey = JSON.stringify([material.material_id, material.revision]),
+        identity = JSON.stringify([material.source_id, material.content_hash]);
+      const prior = identities.get(versionKey);
+      if (prior !== undefined && prior !== identity)
+        ctx.addIssue({ code: "custom", path: ["materials"], message: "one material revision cannot claim conflicting source or content identities" });
+      identities.set(versionKey, identity);
+      const key = JSON.stringify([
+        material.material_id,
+        material.revision,
+        material.resource.url,
+        material.resource.document_type,
+        material.resource.attachment,
+      ]);
+      if (resources.has(key)) ctx.addIssue({ code: "custom", path: ["materials"], message: "duplicate material resource" });
+      resources.add(key);
+    }
+    for (const artifact of manifest.upstream_artifacts) {
+      const key = JSON.stringify([artifact.kind, artifact.id, artifact.version, artifact.content_hash]);
+      if (artifacts.has(key)) ctx.addIssue({ code: "custom", path: ["upstream_artifacts"], message: "duplicate artifact identity" });
+      artifacts.add(key);
+    }
+  });
+export const ProcessingInputManifestSchema = z.discriminatedUnion("kind", [
+  SourceInputManifestSchema,
+  z.strictObject({ schema_version: z.literal(1), kind: z.literal("registered_artifact"), ...RegisteredInputContext }),
+]);
+export type ProcessingInputManifest = Readonly<z.infer<typeof ProcessingInputManifestSchema>>;

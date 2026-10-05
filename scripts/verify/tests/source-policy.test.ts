@@ -114,3 +114,77 @@ test("typed evaluation distinguishes missing policy from allow and schemas regis
   invalid(SourcePolicyEvaluationSchema, { ...context, decision: "deny" });
   for (const schema of [SourcePolicySchema, SignedProcessingPermitSchema, SourcePolicyEvaluationSchema]) assert.equal(z.globalRegistry.has(schema), false);
 });
+
+test("registered non-source input is a separate signed identity, not a source permit or caller-set lifetime", async () => {
+  const { CapabilityInputAuthorizationRequestSchema: Request, SignedCapabilityInputAuthorizationSchema: Signed } = await import("@amp/contracts/source-policy");
+  const request = {
+    artifact: { id: "self_authored_fixture", content_hash: "a".repeat(64) },
+    caller: "eval_selection",
+    lane: "news",
+    model_capability: "score",
+    purpose: "external_model",
+    input_fingerprint: "b".repeat(64),
+  };
+  assert.deepEqual(Request.parse(request), request);
+  for (const extra of [{ source_id: "invented" }, { materials: [] }, { issued_at: "2026-10-05T01:00:00Z" }, { credential_expires_at: "2099-01-01T00:00:00Z" }])
+    invalid(Request, { ...request, ...extra });
+  for (const field of ["artifact", "caller", "lane", "model_capability", "purpose", "input_fingerprint"] as const) {
+    const bad: Partial<typeof request> = { ...request };
+    delete bad[field];
+    invalid(Request, bad);
+  }
+  invalid(Request, { ...request, purpose: "fetch" });
+  invalid(Request, { ...request, artifact: { ...request.artifact, content_hash: "" } });
+  const wire = {
+    schema_version: 1,
+    algorithm: "Ed25519",
+    issuer_id: "synthetic_issuer",
+    credential_expires_at: "2026-10-05T01:01:00Z",
+    payload: { ...request, __brand: "CapabilityInputAuthorization", issued_at: "2026-10-05T01:00:00Z" },
+    signature: "A".repeat(86),
+  };
+  assert.deepEqual(Signed.parse(wire), wire, "a well-shaped zero signature remains untrusted data");
+  invalid(Signed, { ...wire, credential_expires_at: wire.payload.issued_at });
+  invalid(SignedProcessingPermitSchema, wire);
+  const cannotGrant: import("@amp/contracts/source-policy").SignedCapabilityInputAuthorization extends import("@amp/contracts/source-policy").CapabilityInputAuthorization
+    ? false
+    : true = true;
+  assert.equal(cannotGrant, true);
+  assert.equal(z.globalRegistry.has(Signed), false);
+});
+
+test("input manifests retain exact nonempty source identities and upstream artifact versions without permission cache partitions", async () => {
+  const { ProcessingInputManifestSchema: Manifest } = await import("@amp/contracts/source-policy");
+  const source = {
+    source_id: "source_one",
+    material_id: "article_one",
+    revision: 2,
+    content_hash: "c".repeat(64),
+    resource: { url: "https://source.invalid/news/one", document_type: null, attachment: false },
+  };
+  const artifact = { kind: "analysis", id: "27", version: "2", content_hash: "d".repeat(64), manifest_id: "e".repeat(64) };
+  const manifest = { schema_version: 1, kind: "source_materials", lane: "news", materials: [source], upstream_artifacts: [artifact] };
+  assert.deepEqual(Manifest.parse(manifest), manifest);
+  invalid(Manifest, { ...manifest, materials: [] });
+  invalid(Manifest, { ...manifest, materials: [source, source] });
+  for (const change of [{ source_id: "other" }, { content_hash: "f".repeat(64) }])
+    invalid(Manifest, { ...manifest, materials: [source, { ...source, ...change, resource: { ...source.resource, attachment: true } }] });
+  assert.equal(Manifest.safeParse({ ...manifest, materials: [source, { ...source, resource: { ...source.resource, attachment: true } }] }).success, true);
+  const twoVersions = { ...manifest, materials: [source, { ...source, revision: 3, content_hash: "f".repeat(64) }] };
+  assert.deepEqual(Manifest.parse(twoVersions), twoVersions, "an old summary and a new input can retain distinct real revisions of one material");
+  invalid(Manifest, { ...manifest, materials: [{ ...source, permission_version: 9 }] });
+  invalid(Manifest, { ...manifest, upstream_artifacts: [artifact, { ...artifact, manifest_id: "f".repeat(64) }] });
+  invalid(Manifest, { ...manifest, upstream_artifacts: [{ ...artifact, version: "" }] });
+  const registered = {
+    schema_version: 1,
+    kind: "registered_artifact",
+    lane: "news",
+    artifact: { id: "self_authored_fixture", content_hash: "a".repeat(64) },
+    caller: "eval_selection",
+    model_capability: "score",
+    purpose: "external_model",
+  };
+  assert.deepEqual(Manifest.parse(registered), registered);
+  invalid(Manifest, { ...registered, materials: [] });
+  assert.equal(z.globalRegistry.has(Manifest), false);
+});
