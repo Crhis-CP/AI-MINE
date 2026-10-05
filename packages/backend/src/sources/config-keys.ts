@@ -190,6 +190,13 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
       for (const sub of Object.keys(value)) if (!NESTED[key]!.includes(sub)) out.push(`${key}.${sub}`);
     }
   }
+  // htmlJsonPath reads list HTML out of a direct JSON response: through Jina or as Markdown it would be
+  // ignored or misread, so those combinations are refused like an unknown key.
+  if (kind === "web_list" && config?.htmlJsonPath !== undefined) {
+    if (typeof config.htmlJsonPath !== "string" || !config.htmlJsonPath.trim()) out.push("htmlJsonPath");
+    else if (String(config.url ?? "").startsWith("https://r.jina.ai/")) out.push("htmlJsonPath+jina");
+    else if (config.parseMode === "markdown") out.push("htmlJsonPath+parseMode=markdown");
+  }
   return out;
 }
 

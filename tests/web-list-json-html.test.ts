@@ -66,6 +66,13 @@ test("htmlJsonPath: a listing that is not JSON, or has no string at the path, fa
   await assert.rejects(fetchWebList(source(listing("/no-html"))), /no string at data\.html/);
 });
 
+test("htmlJsonPath only with a direct JSON listing: through Jina, as Markdown or empty it is refused", () => {
+  assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { url: "https://r.jina.ai/https://www.mofcom.gov.cn/unit" })), ["htmlJsonPath+jina"]);
+  assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { parseMode: "markdown" })), ["htmlJsonPath+parseMode=markdown"]);
+  assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { htmlJsonPath: "" })), ["htmlJsonPath"]);
+  assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { htmlJsonPath: 3 })), ["htmlJsonPath"]);
+});
+
 test("htmlJsonPath decides where list dates come from, so it is part of the date configuration hash", () => {
   assert.notEqual(sourceDateConfigHash("web_list", listing("/unit")), sourceDateConfigHash("web_list", listing("/unit", { htmlJsonPath: "data.body" })));
 });
