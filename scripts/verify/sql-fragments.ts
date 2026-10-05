@@ -1,6 +1,7 @@
 import { SignatureKind, TypeFlags, type Checker, type Type } from "typescript/unstable/sync";
 import * as ts from "typescript/unstable/ast";
 import { sqlOwnership } from "./sql-ownership.ts";
+import { readOnlyExistsExpression } from "./sql-read-expression.ts";
 
 export function fragmentProduct(left: string[], right: string[], suffix = ""): string[] | undefined {
   return left.length * right.length > 128 ? undefined : [...new Set(left.flatMap((a) => right.map((b) => a + b + suffix)))];
@@ -189,10 +190,13 @@ export function sqlExpressionFragment(
         /\b(?:select|from|join|with|union|except|intersect|into|insert|update|delete|create|alter|drop|table|where|order|group|having|limit|offset|returning|using|on|materialized|recursive|lateral|only)\b|;/;
       return texts.every((text) => {
         const parsed = sqlOwnership(text);
-        return !parsed.unknown.length && !parsed.relations.length && !structural.test(parsed.shape);
+        return (!parsed.unknown.length && !parsed.relations.length && !structural.test(parsed.shape)) || readOnlyExistsExpression(text);
       })
         ? texts
         : undefined;
     });
-  return fragment(input);
+  const result = fragment(input);
+  if (!result) return undefined;
+  const relations = result.map((text) => JSON.stringify(sqlOwnership(text).relations));
+  return relations.every((value) => value === relations[0]) ? result : undefined;
 }

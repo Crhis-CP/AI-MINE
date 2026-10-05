@@ -55,7 +55,7 @@ test("pure SQL return paths are proved without executing helpers or dropping any
   });
 });
 
-test("side effects, raw SQL, recursive, relational, partial and unresolved functions remain UNKNOWN", () => {
+test("side effects, raw SQL, recursive, unsupported relational, partial and unresolved functions remain UNKNOWN", () => {
   fixture((root, files, helper) => {
     const inventory = extractOwnership(root, files),
       calls = inventory.find((file) => file.file.endsWith("calls.ts"))!;
@@ -64,7 +64,6 @@ test("side effects, raw SQL, recursive, relational, partial and unresolved funct
       "effectConditionUse",
       "mutatingUse",
       "rawUse",
-      "relationUse",
       "relationBranchUse",
       "nestedRelationUse",
       "recursiveUse",
@@ -91,6 +90,9 @@ test("side effects, raw SQL, recursive, relational, partial and unresolved funct
     assert.ok(mixed.unknown.includes("opaque interpolation: opaque()"));
     assert.deepEqual(mixed.relations, [{ table: "public.publications", mode: "read", keys: [] }]);
     const helpers = inventory.find((file) => file.file.endsWith("helpers.ts"))!;
+    const readOnly = calls.sites.filter((site) => site.scopeName === "relationUse");
+    assert.ok(readOnly.length && readOnly.every((site) => !site.unknown.length));
+    assert.ok(readOnly.every((site) => site.relations.some((relation) => relation.table === "public.receipts" && relation.mode === "read")));
     for (const scope of ["relation", "relationBranch", "nestedRelation", "tablePart"])
       assert.ok(
         helpers.sites.some((site) => site.scopeName === scope && site.relations.some((relation) => relation.table === "public.receipts")),
