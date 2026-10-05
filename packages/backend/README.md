@@ -73,4 +73,4 @@ RSS/RDF的`dc:date`始终保留原串与定位，默认publicationBasis=other，
 
 R-03/R-10最小接线：collectSource支持config.language明确声明，经BCP47/运行时语言注册数据规范化后写既有材料language；没有明确语言时不进入付费处理或公开，不以单个汉字推断。中文主语言zh含繁体变体无需翻译，已知非zh才入队。新正文修订明确language:null会清空旧语言，省略字段才保留。没有实现自动语言检测，也不会改写既有重复材料的语言或对声明变更全量回填；需受控元数据修订的历史材料仍是明确余项。私有建源继续使用SourcePolicy 0.3的显式scope/附件声明，不能用旧0.2请求或测试SQL补造加入依据。
 
-继承的翻译cron补漏仍局限最近三天及最新30条，逐稿初次投递不受此条件限制。缺失投递的旧稿和被前批阻塞的稿件需要后续基于既有job_runs的持久轮转补漏；此项与长单元/前文、语言自动检测及来源中文版证明仍是Task20余项，不宣称无人值守持续处理已验收。
+翻译cron按article_id进行有界轮转，覆盖任意日期的缺失当前译文。platform/ops的latestSuccessfulRunResult只读同名最近成功job_runs结果，原recordRun保存每批cursor；失败结果不推进，空批回到起点，已存在的durable singleton也推进扫描而不挡住后批。补漏不调用模型、不改translation_attempts或费用回执；新进程从持久结果续扫。逐稿worker仍重新核对许可、当前修订和人工撤回；unknown回执不得因再次排队而重买。长单元/前文、语言自动检测及来源中文版证明仍是Task20余项，真实持续运行尚待验收。

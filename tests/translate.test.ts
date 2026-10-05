@@ -4,11 +4,14 @@ import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 // Links and images inside a paragraph survive the model.
 import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { translateArticle } from "@amp/backend/editorial/translate";
-import { stopBoss } from "@amp/backend/jobs/queue";
+import { translateArticle, translatePending } from "@amp/backend/editorial/translate";
+import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
+import { getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
 import { buildApp } from "../apps/api/src/app.ts";
 
@@ -192,4 +195,74 @@ test("the active adapter covers a body beyond the old cap and then makes no repe
   assert.equal((await sql`SELECT count(*)::int AS n FROM enrichment.translation_segments WHERE article_id=${id} AND state='complete'`)[0]!.n, 30);
   await translateOne(id);
   assert.equal(provider.hits() - start, 30, "a complete current result and older exhausted bad segments cause no new request");
+});
+
+test("repair rotates past a full blocked batch, includes old material and resumes from successful runs across processes", async () => {
+  const ids: string[] = [];
+  for (let i = 0; i < 32; i++) {
+    const { articleId } = await upsertMaterial({
+      sourceId: SOURCE,
+      url: `${URL_}-repair-${i}`,
+      title: `Old copper report ${i}`,
+      language: "en",
+      bodyHtml: `<p>Copper report ${i} ${T}.</p>`,
+      bodyText: `Copper report ${i} ${T}.`,
+      bodyStatus: "ok",
+      via: "fetch",
+      publishedAt: new Date(Date.now() - 12 * 86400_000),
+      discoveredAt: new Date(Date.now() - 12 * 86400_000),
+    });
+    await currentJudgement(articleId);
+    await publishArticle(articleId);
+    ids.push(articleId);
+  }
+  const boss = await getBoss();
+  const initial = await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId' IN ${sql(ids)} AND state='created'`;
+  assert.equal(initial.length, 32, "normal per-item dispatch was created first");
+  for (const row of initial) await boss.cancel(QUEUES.translate, row.id);
+  const calls = provider.hits();
+  const paused = await recordRun("content.translate", () => translatePending({ limit: 30, budgetMs: 0 }));
+  assert.equal(paused.scanned, 0);
+  assert.equal(paused.cursor.afterId, null, "no accepted dispatch means no progress");
+  await assert.rejects(
+    recordRun("content.translate", async () => {
+      assert.equal((await translatePending({ limit: 30 })).scanned, 30);
+      throw new Error("synthetic interrupted result commit");
+    }),
+    /synthetic interrupted/,
+  );
+  assert.deepEqual(await latestSuccessfulRunResult("content.translate"), paused, "failed scheduler results cannot skip work");
+  const first = await recordRun("content.translate", () => translatePending({ limit: 30 }));
+  assert.equal(first.scanned, 30);
+  assert.equal(first.enqueued, 0, "the durable blocked batch deduplicates but still advances the scan");
+  const child = await promisify(execFile)(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    import {initializeDb,closeDb} from '@amp/backend/db';
+    import {translatePending} from '@amp/backend/editorial/translate';
+    import {recordRun,stopBoss} from '@amp/backend/jobs/queue';
+    await initializeDb('test');
+    try { console.log('REPAIR_RESULT='+JSON.stringify(await recordRun('content.translate',()=>translatePending({limit:30})))); }
+    finally { await stopBoss(); await closeDb(); }
+  `,
+    ],
+    { cwd: process.cwd(), env: process.env, timeout: 30_000 },
+  );
+  const resumed = JSON.parse(
+    child.stdout
+      .split("\n")
+      .find((line) => line.startsWith("REPAIR_RESULT="))!
+      .slice("REPAIR_RESULT=".length),
+  );
+  assert.ok(resumed.scanned > 0 && resumed.scanned < 30, "a new process resumes after the blocked first batch");
+  assert.equal(resumed.cursor.afterId, null, "end of scan wraps so earlier ids can recover later");
+  const repaired = await sql`SELECT data->>'articleId' AS id FROM pgboss.job
+    WHERE name=${QUEUES.translate} AND data->>'articleId' IN ${sql(ids)} AND state='created'`;
+  assert.deepEqual(repaired.map((row) => row.id).sort(), ids.sort(), "all old candidates have durable repair jobs");
+  assert.equal(provider.hits(), calls, "scanning and restart never call the model");
+  const attempts = await sql`SELECT 1 FROM translation_attempts WHERE article_id IN ${sql(ids)}`;
+  assert.equal(attempts.length, 0, "dispatch progress is not stored as a paid or translation attempt");
 });
