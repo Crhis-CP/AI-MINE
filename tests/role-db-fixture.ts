@@ -11,7 +11,7 @@ import { createTestDatabase, recordResources, resourcePrefix } from "./test-reso
 import { quote, roleNames } from "../scripts/db-roles/grants.ts";
 
 /** Only fresh *_test databases and a collision-checked random role prefix; no test root is injected. */
-export async function roleFixture(t: TestContext) {
+export async function roleFixture(t: TestContext, options: { migrationRoot?: string } = {}) {
   const base = new URL(process.env.DATABASE_URL ?? "postgres://unset/unset");
   assert.match(base.pathname, /_(test|ci)$/);
   const access = createDatabaseAccess("test", { DATABASE_URL: base.toString(), DATABASE_POOL_MAX: "1" }, () => {});
@@ -84,7 +84,10 @@ export async function roleFixture(t: TestContext) {
       throw new Error(`Isolated ${path.basename(command)} failed (${e.code}): ${(e.stderr ?? "").replace(/\/\/[^@\s]+@/g, "//[redacted]@").slice(0, 1000)}`);
     }
   };
-  await run(process.execPath, ["scripts/migrate.ts"], { DATABASE_URL: urlFor() });
+  const migrationArgs = options.migrationRoot
+    ? ["--input-type=module", "-e", "import { migrate } from './scripts/migrate.ts'; await migrate(process.argv[1]);", options.migrationRoot]
+    : ["scripts/migrate.ts"];
+  await run(process.execPath, migrationArgs, { DATABASE_URL: urlFor() });
   const login = async () => {
     const sessions = {} as Record<DatabaseRole, Database>;
     for (const [role, name] of Object.entries(roles)) {

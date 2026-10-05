@@ -5,6 +5,9 @@ import { collapseWhitespace } from "../lib/text.ts";
 import { readable, type ExtractedBody } from "../content/extract.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
+import { observeSourceDate, previewSourceDate, toDateCandidate } from "./date-extraction.ts";
+import type { SourceDateObservationInput } from "@amp/contracts/time-assertion";
+import { identityKeyForUrl } from "../lib/url.ts";
 
 const JINA_PREFIX = "https://r.jina.ai/";
 
@@ -51,30 +54,94 @@ export function parseLooseDate(value: string | null | undefined, utcOffset = "+0
   return atOffset(local.getFullYear(), local.getMonth() + 1, local.getDate(), local.getHours(), local.getMinutes(), local.getSeconds(), utcOffset);
 }
 
-/** The datePublished of the page's structured data (JSON-LD, also inside @graph or embedded app state). */
-export function jsonLdPublished($: cheerio.CheerioAPI, html: string): string | null {
-  const find = (v: unknown, depth = 0): string | null => {
-    if (depth > 6 || v === null || typeof v !== "object") return null;
-    if (Array.isArray(v)) {
-      for (const x of v) {
-        const got = find(x, depth + 1);
-        if (got) return got;
-      }
-      return null;
-    }
-    const o = v as Record<string, unknown>;
-    if (typeof o.datePublished === "string" && o.datePublished) return o.datePublished;
-    return find(o["@graph"], depth + 1);
-  };
-  for (const el of $('script[type="application/ld+json"]').toArray()) {
+/** Only structured data identifying this article can contribute a publication date. */
+function jsonLdDates($: cheerio.CheerioAPI, url: string, keepFragment = false): Array<{ raw: string; locator: string }> {
+  const values: Array<{ raw: string; locator: string }> = [];
+  const samePage = (value: unknown) => {
+    if (typeof value !== "string") return false;
     try {
-      const got = find(JSON.parse($(el).text()));
-      if (got) return got;
+      const candidate = identityKeyForUrl(new URL(value, url).href, { keepFragment });
+      return candidate !== null && candidate === identityKeyForUrl(url, { keepFragment });
     } catch {
-      // a broken block: the pattern below may still find it
+      return false;
     }
+  };
+  const visit = (value: unknown, locator: string, depth = 0) => {
+    if (depth > 6 || value === null || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      value.forEach((item, i) => {
+        visit(item, `${locator}[${i}]`, depth + 1);
+      });
+      return;
+    }
+    const row = value as Record<string, unknown>;
+    const types = Array.isArray(row["@type"]) ? row["@type"] : [row["@type"]];
+    const page = row.mainEntityOfPage;
+    const identity = typeof page === "object" && page !== null ? (page as Record<string, unknown>)["@id"] : page;
+    if (
+      types.some((type) => typeof type === "string" && /(?:^|\/)(Article|NewsArticle|BlogPosting)$/.test(type)) &&
+      [row.url, row["@id"], identity].some(samePage) &&
+      typeof row.datePublished === "string"
+    )
+      values.push({ raw: row.datePublished, locator: `${locator}.datePublished` });
+    visit(row["@graph"], `${locator}.@graph`, depth + 1);
+  };
+  $('script[type="application/ld+json"]').each((i, element) => {
+    try {
+      visit(JSON.parse($(element).text()), `script[type=application/ld+json][${i}]`);
+    } catch {
+      /* Broken JSON is not a date claim. */
+    }
+  });
+  return values;
+}
+
+export function jsonLdPublished($: cheerio.CheerioAPI, _html: string, url?: string): string | null {
+  return url ? (jsonLdDates($, url)[0]?.raw ?? null) : null;
+}
+
+function detailDate(text: string, url: string, source: SourceRow, $: cheerio.CheerioAPI | null, observedAt: string): SourceDateObservationInput {
+  const d = source.config.detail ?? {},
+    candidates: SourceDateObservationInput[] = [];
+  const add = (raw: string, locator: string, standard = false) => {
+    const item = observeSourceDate(source, url, raw, locator, { detail: true, observedAt, ...(standard ? { format: "unknown" } : {}) });
+    if (standard) {
+      item.meaning = "published";
+      item.publicationBasis = "source_published";
+      item.basis = `Source field: ${locator}`;
+    }
+    candidates.push(item);
+  };
+  if (d.publishedAtSelector) {
+    const node = $?.(d.publishedAtSelector).first();
+    add(node?.attr("datetime") ?? node?.attr("content") ?? node?.attr("title") ?? node?.text() ?? "", `selector:${d.publishedAtSelector}`);
+  } else if (d.publishedAtRegex) add(new RegExp(d.publishedAtRegex).exec(text)?.[1] ?? "", `regex:${d.publishedAtRegex}`);
+  if ($) {
+    $('meta[property="article:published_time"], meta[name="pubdate"], meta[itemprop="datePublished"], time[itemprop="datePublished"]').each((i, el) => {
+      const node = $(el),
+        raw = node.attr("content") ?? node.attr("datetime") ?? node.text();
+      const scope = node.closest("[itemscope]"),
+        itemId = scope.attr("itemid");
+      let bound = false;
+      if (itemId) {
+        try {
+          const keepFragment = source.config.preserveUrlFragment === true;
+          const identity = identityKeyForUrl(new URL(itemId, url).href, { keepFragment });
+          bound = identity !== null && identity === identityKeyForUrl(url, { keepFragment });
+        } catch {
+          /* An invalid identity cannot describe this article. */
+        }
+      }
+      const pageMeta = node.is("meta") && node.parent().is("head") && (!itemId || bound);
+      const articleScope = bound && (scope.attr("itemtype") ?? "").split(/\s+/).some((type) => /(?:^|\/)(Article|NewsArticle|BlogPosting)$/.test(type));
+      if (!pageMeta && !articleScope) return;
+      if (raw.trim()) add(raw, `${pageMeta ? "head" : `itemscope:${itemId}`}/publication-metadata[${i}]`, true);
+    });
+    for (const item of jsonLdDates($, url, source.config.preserveUrlFragment === true)) add(item.raw, item.locator, true);
   }
-  return /"datePublished"\s*:\s*"([^"]+)"/.exec(html)?.[1] ?? null;
+  const primary = candidates.shift() ?? observeSourceDate(source, url, "", "page publication metadata absent", { detail: true, observedAt });
+  if (candidates.length) primary.alternatives = candidates.map(toDateCandidate);
+  return primary;
 }
 
 /** Prefix rules ignore the scheme: a Jina listing of an http:// address links its posts over http. */
@@ -181,17 +248,20 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
     const titleEl = c.titleSelector ? (el.is(c.titleSelector) ? el : el.find(c.titleSelector).first()) : linkEl;
     const title = collapseWhitespace(titleEl.text() || linkEl.attr("title") || "");
     if (!title) continue;
-    let publishedAt: Date | null = null;
+    let raw = "",
+      locator = "listing publication field absent";
     if (c.publishedAtSelector) {
-      const dateEl = el.find(c.publishedAtSelector).first();
-      publishedAt = parseLooseDate(dateEl.attr("datetime") ?? dateEl.attr("title") ?? dateEl.text(), c.publishedAtUtcOffset);
+      const node = el.find(c.publishedAtSelector).first();
+      raw = node.attr("datetime") ?? node.attr("title") ?? node.text();
+      locator = `selector:${c.itemSelector ?? "a[href]"}/${c.publishedAtSelector}`;
+    } else if (c.publishedAtRegex) {
+      raw = new RegExp(c.publishedAtRegex).exec($.html(el))?.[1] ?? "";
+      locator = `regex:${c.publishedAtRegex}`;
     }
-    if (!publishedAt && c.publishedAtRegex) {
-      const m = new RegExp(c.publishedAtRegex).exec($.html(el));
-      publishedAt = parseLooseDate(m?.[1], c.publishedAtUtcOffset);
-    }
+    const sourceDateObservation = observeSourceDate(source, url, raw, locator);
     seen.add(url);
-    out.push({ url, title, publishedAt });
+    const time = previewSourceDate(sourceDateObservation);
+    out.push({ url, title, publishedAt: time?.utc ? new Date(time.utc) : null, sourceDateObservation });
   }
   return out;
 }
@@ -222,7 +292,14 @@ export async function fetchDetail(
   url: string,
   source: SourceRow,
   need: DetailNeed,
-): Promise<{ publishedAt: Date | null; title: string | null; summary: string | null; body: ExtractedBody | null }> {
+): Promise<{
+  publishedAt: Date | null;
+  sourceDateObservation?: SourceDateObservationInput;
+  title: string | null;
+  summary: string | null;
+  body: ExtractedBody | null;
+}> {
+  const observedAt = new Date().toISOString();
   const d = source.config.detail ?? {};
   const jinaListing = String(source.config.url ?? "").startsWith(JINA_PREFIX);
   const dateInJina = need.date && jinaListing && !!d.publishedAtRegex;
@@ -245,22 +322,8 @@ export async function fetchDetail(
   }
   const $ = html === null ? null : cheerio.load(html);
 
-  let publishedAt: Date | null = null;
   const dateText = dateInJina ? jina : html;
-  if (need.date && dateText !== null) {
-    if ($ && !dateInJina && d.publishedAtSelector) {
-      const el = $(d.publishedAtSelector).first();
-      publishedAt = parseLooseDate(el.attr("datetime") ?? el.attr("title") ?? el.text(), d.publishedAtUtcOffset);
-    }
-    if (!publishedAt && d.publishedAtRegex) publishedAt = parseLooseDate(new RegExp(d.publishedAtRegex).exec(dateText)?.[1], d.publishedAtUtcOffset);
-    // An authoritative rule is the only source of the date: when its byline is missing, no other
-    // timestamp on the page (an update time, a related post) stands in for it.
-    const authoritative = d.publishedAtAuthoritative === true && !!(d.publishedAtSelector || d.publishedAtRegex);
-    if (!publishedAt && $ && !dateInJina && !authoritative) {
-      const meta = $('meta[property="article:published_time"], meta[name="pubdate"], meta[itemprop="datePublished"]').attr("content");
-      publishedAt = parseLooseDate(meta) ?? parseLooseDate(jsonLdPublished($, html!)) ?? parseLooseDate($("time[datetime]").first().attr("datetime"));
-    }
-  }
+  const sourceDateObservation = need.date && dateText !== null ? detailDate(dateText, url, source, dateInJina ? null : $, observedAt) : undefined;
 
   let title: string | null = null;
   if (need.title) {
@@ -274,5 +337,6 @@ export async function fetchDetail(
     const el = $(d.summarySelector).first();
     summary = collapseWhitespace(el.attr("content") ?? el.text()) || null;
   }
-  return { publishedAt, title, summary, body };
+  const time = sourceDateObservation ? previewSourceDate(sourceDateObservation) : null;
+  return { publishedAt: time?.utc ? new Date(time.utc) : null, sourceDateObservation, title, summary, body };
 }

@@ -5,6 +5,10 @@ import type { z } from "zod";
 import { SourcePolicySchema, type IssueProcessingPermitInputSchema, type SignedProcessingPermit } from "@amp/contracts/source-policy";
 import { initializeDb, closeDb, dbOf } from "@amp/backend/db";
 import path from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { loadMigrationInventory } from "../scripts/migrations/inventory.ts";
+import { ROOT } from "../scripts/verify/lib.ts";
 import { provisionRoles } from "../scripts/db-roles.ts";
 import { quote } from "../scripts/db-roles/grants.ts";
 import { roleFixture, denied } from "./role-db-fixture.ts";
@@ -462,17 +466,27 @@ test("abort listeners observe revoked capabilities and share the already registe
 test("real permission storage is immutable, CAS/audit atomic, fenced and recoverable with the backup login", async (t) => {
   await import("./setup.ts"); // Fix the parent's credential directory before importing private administration.
   await closeDb();
-  const f = await roleFixture(t);
-  const migration = "sources/202610040001_source_permissions.sql";
-  const previous = await f.admin`SELECT name,sha256,applied_at FROM schema_migrations WHERE name<>${migration} ORDER BY name`;
-  assert.equal((await f.admin`SELECT count(*) AS n FROM sources.source_policy_current`)[0].n, 0, "fresh migration starts empty");
-  // Recreate the exact pre-permission state in this fixture's own fresh database, then upgrade it.
-  await f.admin.unsafe("DROP TABLE sources.source_policy_current; DROP TABLE sources.source_policy_versions; DROP SCHEMA sources");
-  await f.admin`DELETE FROM schema_migrations WHERE name=${migration}`;
+  const originals = loadMigrationInventory(ROOT).filter((entry) => entry.module === null);
+  assert.equal(originals.length, 30);
+  const migrationRoot = mkdtempSync(path.join(tmpdir(), "amp-before-permissions-"));
+  t.after(() => rmSync(migrationRoot, { recursive: true, force: true }));
+  mkdirSync(path.join(migrationRoot, "database/migrations"), { recursive: true });
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, "database/migration-inventory.json"), "utf8"));
+  // Only this upgrade fixture uses the checksum-locked historical inventory; the normal path stays complete.
+  writeFileSync(path.join(migrationRoot, "database/migration-inventory.json"), JSON.stringify({ ...manifest, migrations: [] }));
+  for (const entry of originals) writeFileSync(path.join(migrationRoot, "database/migrations", entry.name), entry.text);
+  const f = await roleFixture(t, { migrationRoot });
+  const previous = await f.admin`SELECT name,sha256,applied_at FROM schema_migrations ORDER BY name`;
+  assert.equal(previous.length, 30);
+  assert.equal((await f.admin`SELECT to_regclass('sources.source_policy_current') AS table_name`)[0].table_name, null, "a real pre-permission schema");
   await f.admin`INSERT INTO public.sources(id,name,kind,enabled,site_fulltext) VALUES
     ('source_fixture','permission fixture','external',false,true),('unrecorded_fixture','unrecorded fixture','external',false,false)`;
   await f.run(process.execPath, ["scripts/migrate.ts"], { DATABASE_URL: f.urlFor() });
-  assert.deepEqual(await f.admin`SELECT name,sha256,applied_at FROM schema_migrations WHERE name<>${migration} ORDER BY name`, previous);
+  assert.deepEqual(
+    await f.admin`SELECT name,sha256,applied_at FROM schema_migrations WHERE name=ANY(${previous.map((row) => String(row.name))}::text[]) ORDER BY name`,
+    previous,
+  );
+  assert.equal((await f.admin`SELECT count(*) AS n FROM sources.source_policy_current`)[0].n, 0, "upgrade does not manufacture permission for old sources");
   assert.equal((await f.admin`SELECT site_fulltext FROM sources WHERE id='unrecorded_fixture'`)[0].site_fulltext, false);
   await provisionRoles(f.admin, { prefix: f.prefix, apply: true });
   const sessions = await f.login();

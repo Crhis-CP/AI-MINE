@@ -1,6 +1,49 @@
 import { ZodError } from "zod";
 import { isValidDate } from "@amp/contracts/time";
-import { SourceDateParseInput, SourceDateParseResult, SourceTimeParts, normalizeSourceTime } from "@amp/contracts/time-assertion";
+import {
+  SourceDateParseInput,
+  SourceDateParseResult,
+  SourceDateObservationInput,
+  type SourceDateCandidate,
+  SourceTimeParts,
+  normalizeSourceTime,
+} from "@amp/contracts/time-assertion";
+import { sourceDateConfigHash, sourceDateProfile } from "./config-keys.ts";
+import type { SourceRow } from "./types.ts";
+import { newUuid } from "../lib/ids.ts";
+
+/** Unbound source bytes: content assigns the real article/revision under its own transaction. */
+export function observeSourceDate(
+  source: SourceRow,
+  url: string,
+  raw: string,
+  locator: string,
+  options: { detail?: boolean; observedAt?: string; format?: SourceDateObservationInput["format"]; formatPattern?: string; language?: string } = {},
+): SourceDateObservationInput {
+  const profile = sourceDateProfile(source.config, options.detail);
+  return SourceDateObservationInput.parse({
+    ...profile,
+    format: options.format ?? profile.format,
+    formatPattern: options.formatPattern ?? profile.formatPattern,
+    language: options.language ?? profile.language,
+    basis: profile.basis ?? `Source field: ${locator}`,
+    sourceId: source.id,
+    configHash: sourceDateConfigHash(source.kind, source.config),
+    observationId: newUuid(),
+    observedAt: options.observedAt ?? new Date().toISOString(),
+    url,
+    raw,
+    locator,
+    excerpt: raw.trim() ? raw : `Missing source date at ${locator}`,
+    origin: "source",
+    condition_text: null,
+  });
+}
+
+export function toDateCandidate(observation: SourceDateObservationInput): SourceDateCandidate {
+  const { sourceId: _source, configHash: _config, observationId: _id, observedAt: _at, url: _url, alternatives: _alternatives, ...candidate } = observation;
+  return candidate;
+}
 
 type Reason = NonNullable<SourceDateParseResult["reason"]>;
 type Fields = { day: string; clock: string | null; offset?: string; weekday?: string };
@@ -102,12 +145,14 @@ function declared(raw: string, pattern: string | null, language: string | null):
   return { day: entry[1] === "ymd" ? dayOf(a, b, c) : entry[1] === "dmy" ? dayOf(c, b, a) : dayOf(c, a, b), clock: clock ?? null };
 }
 
-/** Pure parsing only: no fetch, database, current-clock anchor or inference from a country. */
-export function parseSourceDate(input: SourceDateParseInput): SourceDateParseResult {
-  const source = SourceDateParseInput.parse(input);
+type UnboundInput = Omit<SourceDateParseInput, "binding">;
+type UnboundResult = { reason: SourceDateParseResult["reason"]; evidence: Omit<SourceDateParseResult["evidence"], "binding"> };
+
+/** The same lexical parser serves intake windows and the later real material binding. */
+function parseRawDate(source: UnboundInput, validate: (value: UnboundResult) => UnboundResult): UnboundResult {
   const { raw, meaning, basis, condition_text, timezone, ...context } = source;
-  const unknown = (reason: Reason): SourceDateParseResult =>
-    SourceDateParseResult.parse({
+  const unknown = (reason: Reason): UnboundResult =>
+    validate({
       reason,
       evidence: {
         ...context,
@@ -175,10 +220,39 @@ export function parseSourceDate(input: SourceDateParseInput): SourceDateParseRes
       },
       { instantBasis, timezoneEvidence: source.timezoneEvidence },
     );
-    return SourceDateParseResult.parse({ reason: null, evidence: { ...context, instantBasis, interpretation: "parsed", time } });
+    return validate({ reason: null, evidence: { ...context, instantBasis, interpretation: "parsed", time } });
   } catch (error) {
     if (error instanceof InvalidDate) return unknown(error.reason);
     if (error instanceof ZodError) return unknown("invalid_time");
     throw error;
   }
+}
+
+/** A display/window hint only, never material identity or publication admission. */
+export function previewSourceDate(observation: SourceDateObservationInput) {
+  const { sourceId: _source, configHash: _config, alternatives, ...input } = SourceDateObservationInput.parse(observation);
+  if (
+    alternatives?.length ||
+    input.origin !== "source" ||
+    input.meaning !== "published" ||
+    input.publicationBasis !== "source_published" ||
+    input.condition_text
+  )
+    return null;
+  const parsed = parseRawDate(input, (value) => {
+    if (value.evidence.interpretation === "parsed" && !value.evidence.excerpt.includes(value.evidence.time.raw)) reject("invalid_time");
+    return value;
+  });
+  return parsed.reason ? null : parsed.evidence.time;
+}
+
+/** Only content supplies the actual article/revision; lexical parsing never invents a binding. */
+export function parseSourceDate(input: SourceDateParseInput): SourceDateParseResult {
+  const { binding, ...source } = SourceDateParseInput.parse(input);
+  const parsed = parseRawDate(source, (value) => {
+    const bound = SourceDateParseResult.parse({ reason: value.reason, evidence: { ...value.evidence, binding } });
+    const { binding: _binding, ...evidence } = bound.evidence;
+    return { reason: bound.reason, evidence };
+  });
+  return { reason: parsed.reason, evidence: { ...parsed.evidence, binding } };
 }

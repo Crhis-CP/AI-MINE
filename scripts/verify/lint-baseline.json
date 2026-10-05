@@ -218,8 +218,7 @@
     "lint/style/noProcessEnv": 1
   },
   "packages/backend/src/sources/collect.ts": {
-    "lint/style/noProcessEnv": 3,
-    "lint/style/useConst": 1
+    "lint/style/noProcessEnv": 3
   },
   "packages/backend/src/sources/rss.ts": {
     "lint/suspicious/noExplicitAny": 2

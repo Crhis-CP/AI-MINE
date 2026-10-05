@@ -139,6 +139,18 @@
     {
       "name": "ai-gateway/202610050010_receipt_output_rejection.sql",
       "dependsOn": ["enrichment/202610050000_translation_attempt_identity.sql"]
+    },
+    {
+      "name": "sources/202610042019_source_date_config_identity.sql",
+      "dependsOn": ["sources/202610040001_source_permissions.sql"]
+    },
+    {
+      "name": "content/202610042020_source_date_evidence.sql",
+      "dependsOn": ["sources/202610042019_source_date_config_identity.sql"]
+    },
+    {
+      "name": "publication/202610042021_public_source_time.sql",
+      "dependsOn": ["content/202610042020_source_date_evidence.sql"]
     }
   ]
 }
