@@ -38,3 +38,7 @@ await access.close();
 TASK-0021生命周期前置：initializeDb返回本根AbortSignal；同role与同env引用重入复用，不同声明仍须先关闭。closeProcessDb先登记共享关闭Promise，再撤销注册和signal，监听器同步重入不能打开新根或使用旧能力；新根独立，未改队列正常drain的时点。signal不包含控制器、连接或URL；生命周期本身不代表许可存储或网关强制已激活。
 
 未激活的sources/permissions与providers/permissions提供显式Ed25519签发/校验工厂：私钥只在sources闭包，验证端固定公钥/issuer/root。当前许可查询、可信完整输入重建、根signal与时钟必须由组合根提供，无默认allow。现有应用尚未调用工厂；合成端口测试不是数据库权限接线，模型/cache/写回仍待原子接通。
+
+### content/source-time（TASK-0022，未激活）
+
+共享纯规范化函数 `normalizeSourceTime` 位于 `@amp/contracts/time-assertion`，不猜格式、时区或来源事实；content 的待接线 `sourceDateVerdict(lane, evidence, currentBinding, now)` 显式接收时钟与当前身份，返回日期的 reliable/pending，policy 则仅返回 not_applicable 并交 BR-POL-11。复用 `@amp/contracts/time` 的日历与北京日函数；只有新闻发布依据能通过，官方登记/正式刊发须使用相应证据口径，系统/更新/生效日期不能顶替。此结论不是总体公开资格，不访问数据库、网络或模型；现有材料、队列、publication 和 HTTP 尚未调用。

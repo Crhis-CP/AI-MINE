@@ -9,3 +9,17 @@ Fastify 和 tooling 使用同一 `routes`/`schemas` 导出。修改字段须遵�
 `mining-taxonomy` 定义 ADR-0022 的九类键、非空键 schema、nullable 分类 schema 及未知/旧值归 null 的纯助手。CATEGORY_KEYS 使用同一九类键；归一仅用于公开投影，不能据此重写原分析、人工字段或账本。中文定义与报告主题栏在 industry 的同名子路径，二者通过离线测试对齐。
 
 `source-policy` 是 TASK-0021/ADR-0024 的未激活内部契约：九用途权限版本、证据/范围、未受信任的签名封装与独立品牌类型。schema解析不授予许可，不签发/验签，不解释当前范围、版本或时效；HTTP与网关尚未接入。合成共享样例见 tests/permission-fixture.ts，后续真实工厂不能把该样例当授权。
+
+`time-assertion` 是 TASK-0022 未激活的时间契约。`TimeAssertion` 按时间语义 §1.2 / 公开契约 §2.5 保存精度、来源原串、当地日期、可核实 IANA 时区与 UTC、中文标签及北京日期；`SourceDateEvidence` 另保存私有观察/原文定位/日期片段/格式语言/解析结论和 article/source/revision/configHash 绑定，不进入公开 DTO。原串必须经本片严格解析入口建立 `interpretation`，不能把现有 `Date`、字段存在或人工填写 parsed 当作来源日期证明；真实取得与当前观察的持久化仍未接线。
+
+共享纯 `normalizeSourceTime` 与 TimeAssertion 同处 contracts（模块地图§3、采用说明§5.7），parser 不私读 content。日期精度不携带时分或 UTC；分钟/秒精度必须有真实绝对时刻依据，固定偏移不能冒作 IANA 时区。5 分钟边界还比较原 UTC 小数尾数，不因 `Date.parse` 截断微秒而误放行，也不把更细绝对时刻拒作非法。没有注册 HTTP schema、修改现有响应或生成客户端；同一准备交付已定义材料日期更新结果与补取任务，运行消费者尚未接线。
+
+A2 新增未激活 `SourceDateParseInput` / `SourceDateParseResult`，输入实际原串与原文定位，输出已解析证据或明确 unknown 原因，替代由调用方先声称 parsed 的准备接口。`sources/date-extraction.parseSourceDate` 支持日历式 ISO、英文 RFC、显式 epoch 秒/毫秒，以及有格式和语言的七种确定日期布局（可带声明的 HH:mm[:ss]）；不使用 Date.parse 猜未识别原串。ISO/RFC 可按完整语法识别；数字绝不按长度猜 epoch 单位，月日顺序必须声明。
+
+有显式偏移的时刻保留该原始当地值及 UTC，IANA 留 null；时区配置只用于无偏移的当地时间，且必须有依据。IANA 转换会回读校验候选，DST 重复或不存在的时刻都 unknown；没有核实时区则保留日期。相对时间尚无可靠锚点契约，一律 unknown，不借 observedAt。未列语言月份名/布局、闰秒等未支持输入同样保留原串返回 unknown；不宣称通用解析所有 ISO/RFC 变体。条件日期不生成 instant；updated/effective/system 的 meaning/origin 保持，不能替代 published。此片仍无取得调用、数据库、HTTP 或当前公开门接线。
+
+入站 `SourceDateObservationInput` 不含材料ID/修订；content确定真实身份后才组成有绑定的解析输入。`MaterialSourceDateInput`：省略观察是不变更日期，null不清空；给观察就必须带 expectedSourceDateVersion 和 permissionVersion。版本0表示尚无已提交日期观察，初始化也按CAS预期0提交；成功晋升当前证据才在事务内加1，重复相同观察/无变化不刷新版本，stale不得自动改成现读版本重试旧观察。版本参数不是来源处理许可。
+
+`MaterialUpdateResult` 保留原 articleId/created/revised/backfill，所有新建/重复/聚合来源/历史已见/正文修订分支都返回真实 revision/sourceDateVersion，不能拿请求值回填。sourceTimeChanged仅指规范化时间事实或时间公开资格/投影变化；metadataChanged指当前额外元数据或当前日期证据变化，单纯追加抓取观察或刷新observedAt均不算。证据/配置依据变化但时间事实不变时可仅metadataChanged=true；sourceDateOutcome区分unchanged/applied/stale，不把CAS失败伪装成成功。两旗标都不是新付费指令，仍由实际模型输入哈希复用回执，不生成新attemptTag。
+
+`SourceDateTask`固定news并携带材料修订、配置、许可和日期证据的预期版本，可引用已取得的observationId以复用字节；消费者在取回/写入前重新核对当前暂停、用途许可与CAS。任务字段不授权访问、不允许policy混入。这里的类型/样例不证明数据库CAS已经实现；实际返回分支、单调版本、原件保留及失败原子性在后续取得+保存+消费者联合片验收。
