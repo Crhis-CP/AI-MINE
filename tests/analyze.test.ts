@@ -16,7 +16,7 @@ import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFI
 import { promptText } from "@amp/backend/editorial/prompts";
 import { config } from "@amp/backend/config";
 import { BudgetExceededError } from "@amp/backend/providers/receipts";
-import { publishArticle } from "@amp/backend/publication/publish";
+import { publishArticle, republishSource } from "@amp/backend/publication/publish";
 import { overrideFields, setVisibility } from "@amp/backend/admin/content";
 import { buildApp } from "../apps/api/src/app.ts";
 import { SITE } from "@amp/industry/site";
@@ -38,6 +38,8 @@ interface Req {
 const requests: Req[] = [];
 // A test can hold a marker's score answer: `asked` fires when the request arrives, the answer waits for `release`.
 const scoreHolds = new Map<string, { asked: () => void; release: Promise<void> }>();
+// A test can make the prefilter answer a marker differently on a later judgement.
+const prefilterLabels = new Map<string, string>();
 // Prescribed fake labels test the admission plumbing, not the model's mining judgement quality.
 const mining = [
   ["COPPER", "铜矿产量公告", "PASS"],
@@ -67,6 +69,7 @@ const MARKERS = [
   "EMPTYCASE",
   "TRIMMED",
   "EARLY",
+  "REJUDGE",
   ...mining.map(([m]) => m),
 ];
 const scoreAnswers: Record<string, number[]> = {
@@ -78,6 +81,7 @@ const scoreAnswers: Record<string, number[]> = {
   BARE: [30, 34],
   VAGUE: [60, 62],
   TITLEONLY: [80, 80],
+  REJUDGE: [80, 80, 80, 80],
 };
 
 const stepOf = (system: string, user: string): Step =>
@@ -113,9 +117,10 @@ const provider = await stub(async (_hit, req) => {
   if (step === "prefilter")
     return answer({
       label:
-        marker === "TRIMMED"
+        prefilterLabels.get(marker) ??
+        (marker === "TRIMMED"
           ? " pass "
-          : (mining.find(([m]) => m === marker)?.[2] ?? (marker === "OFFTOPIC" || marker === "BARE" ? "BLOCK" : marker === "VAGUE" ? "UNKNOWN" : "PASS")),
+          : (mining.find(([m]) => m === marker)?.[2] ?? (marker === "OFFTOPIC" || marker === "BARE" ? "BLOCK" : marker === "VAGUE" ? "UNKNOWN" : "PASS"))),
       reason: "合成预筛",
     });
   if (step === "score") {
@@ -369,6 +374,8 @@ test("the manual 收录 choice outranks the prefilter both ways (AI-01 人工覆
     "test",
   );
   assert.equal((await projection(blocked)).visibility, "public", "恢复收录 outranks the model's BLOCK");
+  assert.equal((await processArticle(blocked, { attemptTag: `manual-${T}` })).state, "block");
+  assert.equal((await projection(blocked)).visibility, "public", "judging it again does not override 恢复收录");
   const passed = await article("COPPER", {
     url: `https://example.com/COPPER-manual-${T}`,
     title: "铜矿复核公告",
@@ -380,6 +387,10 @@ test("the manual 收录 choice outranks the prefilter both ways (AI-01 人工覆
   assert.equal((await projection(passed)).visibility, "public");
   await overrideFields(passed, { fields: { relevance: "block" }, reason: "synthetic 不收录", version: 0 }, "test");
   assert.equal((await projection(passed)).visibility, "withdrawn", "不收录 outranks the model's PASS");
+  assert.equal((await processArticle(passed, { attemptTag: `manual-${T}` })).state, "pass");
+  assert.equal((await republishSource(SOURCE)).failed, 0);
+  assert.equal((await projection(passed)).visibility, "withdrawn", "judging it again or republishing the source does not override 不收录");
+  assert.equal((await projection(blocked)).visibility, "public", "nor 恢复收录");
   await assert.rejects(overrideFields(passed, { fields: { relevance: "unknown" }, reason: "synthetic", version: 1 }, "test"));
 });
 
@@ -444,8 +455,15 @@ test("INV-13: Chinese material is public on its excerpt through score failure, m
   await sql`UPDATE budgets SET per_minute = 0`;
   try {
     const paused = await article("PAUSED", { title: "钼矿公告", language: "zh", bodyText: `PAUSED：${body}` });
-    await assert.rejects(processArticle(paused), BudgetExceededError);
+    const error = await processArticle(paused).then(
+      () => assert.fail("paused paid calls cannot finish a judgement"),
+      (e: unknown) => e,
+    );
+    assert.ok(error instanceof BudgetExceededError);
     assert.equal((await projection(paused)).visibility, "public", "paused paid calls (BR-COST-20) do not hold Chinese back");
+    assert.equal((await afterFailure(paused, error)).state, "waiting");
+    const [held] = await sql`SELECT processing_state, processing_attempts FROM articles WHERE id = ${paused}`;
+    assert.deepEqual({ ...held }, { processing_state: "new", processing_attempts: 0 }, "paused paid calls wait without using up attempts");
   } finally {
     for (const b of budgets) await sql`UPDATE budgets SET per_minute = ${b.per_minute} WHERE service = ${b.service}`;
   }
@@ -493,6 +511,76 @@ test("BR-ENR-06: a Chinese original is public on its excerpt once the prefilter 
   const done = await projection(id);
   assert.equal(done.visibility, "public");
   assert.match(done.summary, /EARLY/, "once written, the model's summary is shown");
+});
+
+test("BR-PUB-08: judging a selected Chinese original again keeps its last complete projection until the new judgement commits", async () => {
+  await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
+  const body = "铜矿扩建项目的原始公告，列明产能、地点与建设条件，供读者核对。".repeat(6);
+  const id = await article("REJUDGE", { title: "铜矿扩建公告", language: "zh", bodyText: `REJUDGE：${body} (${T})` });
+  assert.equal((await processArticle(id)).state, "pass");
+  const first = await projection(id);
+  assert.deepEqual([first.visibility, first.selected], ["public", true]);
+  assert.match(first.summary, /理解摘要 REJUDGE/);
+  const ledger = async () => (await sql<{ op: string }[]>`SELECT op FROM selected_ledger WHERE article_id = ${id} ORDER BY seq`).map((r) => r.op);
+  const judgements = async () => (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM analyses WHERE article_id = ${id}`)[0]!.n;
+  const committed = await judgements();
+  const asked = gate();
+  const release = gate();
+  scoreHolds.set("REJUDGE", { asked: asked.open, release: release.promise });
+  let run: Promise<{ state: string }> | undefined;
+  try {
+    run = processArticle(id, { attemptTag: `rejudge-${T}` });
+    await Promise.race([asked.promise, run.then(() => assert.fail("finished before its score was answered"))]);
+    const during = await projection(id);
+    assert.deepEqual(
+      [during.visibility, during.selected, during.score, during.summary],
+      [first.visibility, first.selected, first.score, first.summary],
+      "no half-finished copy while the same revision is judged again",
+    );
+    assert.equal(await judgements(), committed, "no scope-only judgement is committed over a complete one");
+    release.open();
+    assert.equal((await run).state, "pass");
+  } finally {
+    release.open();
+    await run?.catch(() => undefined); // a failed assertion must not leave the judgement running into the next test
+    scoreHolds.delete("REJUDGE");
+  }
+  assert.equal(calls("REJUDGE").filter((step) => step === "prefilter").length, 2, "the second judgement bought its own answers");
+  const done = await projection(id);
+  assert.deepEqual([done.visibility, done.selected], ["public", true]);
+  assert.ok(!(await ledger()).includes("remove"), "the selected set never lost it");
+  prefilterLabels.set("REJUDGE", "BLOCK");
+  try {
+    assert.equal((await processArticle(id, { attemptTag: `block-${T}` })).state, "block");
+  } finally {
+    prefilterLabels.delete("REJUDGE");
+  }
+  assert.equal((await projection(id)).visibility, "withdrawn", "a BLOCK on a later judgement still withdraws it");
+  assert.equal((await ledger()).at(-1), "remove");
+});
+
+test("material a hot_signal source never had judged stays out once the source becomes editorial", async () => {
+  const signal = `${SOURCE}-signal`;
+  await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, next_fetch_at)
+    VALUES (${signal}, 'Test signal source', 'rss', 'T1', 'hot_signal', true, '2100-01-01')`;
+  const { articleId: id } = await upsertMaterial({
+    sourceId: signal,
+    url: `https://example.com/COAL-signal-${T}`,
+    title: "独立煤矿生产公告",
+    language: "zh",
+    bodyText: `COAL：独立煤矿生产公告，附产量与地点，供核对。${T}`.repeat(4),
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date("2026-09-28T01:02:03Z"),
+  } as never);
+  const hits = provider.hits();
+  assert.equal((await processArticle(id)).state, "skipped");
+  await publishArticle(id);
+  await sql`UPDATE sources SET participation_mode = 'editorial' WHERE id = ${signal}`;
+  assert.equal((await republishSource(signal)).failed, 0);
+  assert.equal((await projection(id)).visibility, "withdrawn", "nothing will ever judge it, so it is not admitted");
+  assert.equal((await publicApp.inject(`/api/site/items/${id}`)).statusCode, 404);
+  assert.equal(provider.hits(), hits, "nothing was judged or paid for");
 });
 
 test("empty and punctuation-only source text cannot be replaced by high-score model writing", async () => {

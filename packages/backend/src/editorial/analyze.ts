@@ -432,7 +432,7 @@ async function finishAnalysis(
   prefilter: AnalysisRun["prefilter"],
   opts: StepOpts & { stages?: "selection" | "all" },
 ): Promise<AnalysisRun> {
-  // UNKNOWN is let through (its material is as complete as it will get); BLOCK stops here.
+  // UNKNOWN goes on like PASS; BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
   if (opts.stages === "selection") {
     const scores = await runSelectionScores(a, opts);
@@ -510,6 +510,9 @@ export interface AnalyzeResult {
   reused: boolean;
 }
 
+/** A judgement that went past the prefilter (it carries the scores, even when there were none to give). */
+const isCompleteJudgement = (output: unknown) => !!output && typeof output === "object" && "scores" in output;
+
 /**
  * Analyses the current revision and commits the judgement. A result computed for an older revision
  * is kept for traceability but never overwrites a newer input (stale = true).
@@ -522,12 +525,16 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   checkAnalysisRunning();
   const prefilter = await runSelectionPrefilter(input, opts);
   // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
-  // Repeated attempts retain a complete current judgement instead of replacing it with an empty one.
+  // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
+  // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
+  // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
   await sql.begin(async (tx) => {
-    const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[] }[]>`
-      SELECT input_revision, prompt_version, output, receipt_ids FROM analyses WHERE article_id = ${articleId}
+    const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]>`
+      SELECT input_revision, prompt_version, output, receipt_ids, relevance FROM analyses WHERE article_id = ${articleId}
       ORDER BY input_revision DESC, id DESC LIMIT 1`;
-    if (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId)) {
+    const settled =
+      latest?.input_revision === input.revision && isCompleteJudgement(latest.output) && latest.relevance !== "block" && prefilter.label !== "BLOCK";
+    if (!settled && (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))) {
       await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
         VALUES (${articleId}, ${input.revision}, 'model', ${prefilter.model}, ${PROMPT_VERSIONS.prefilter}, ${[prefilter.receiptId]},
           ${prefilter.label.toLowerCase()}, false, ${tx.json({ prefilter: { label: prefilter.label, reason: prefilter.reason } })})`;

@@ -34,14 +34,12 @@ interface ArticleRow {
   body_html: string | null;
   excerpt: string | null;
   grouped_at: Date | null;
+  processing_state: string;
 }
 
 interface AnalysisRow {
   id: number;
   input_revision: number;
-  prompt_version: string | null;
-  output: unknown;
-  receipt_ids: number[];
   relevance: string | null;
   category: string | null;
   tags: string[];
@@ -186,7 +184,7 @@ export async function publishArticleTx(
 ): Promise<PublishResult | null> {
   const [article] = await tx<ArticleRow[]>`
     SELECT id, revision, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
-           body_text, body_html, excerpt, grouped_at
+           body_text, body_html, excerpt, grouped_at, processing_state
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
   // Reports take this lock exclusively while reading candidates. Hold it through commit so a
@@ -197,7 +195,7 @@ export async function publishArticleTx(
     SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
   const [storedAnalysis] = await tx<AnalysisRow[]>`
-    SELECT id, input_revision, prompt_version, output, receipt_ids, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
+    SELECT id, input_revision, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
   const [override] = await tx<OverrideRow[]>`SELECT fields, visibility FROM editorial_overrides WHERE article_id = ${articleId}`;
   const [membership] = await tx<{ fact_id: number; story_id: number | null }[]>`
@@ -214,8 +212,11 @@ export async function publishArticleTx(
   const nativeChinese = isChineseOriginal(language);
   // Wide admission (BR-SEL-01): only a BLOCK keeps an item out. PASS, UNKNOWN and "not judged yet" go on;
   // the latest judgement holds until a newer revision is judged, and the manual 收录 choice outranks it.
+  // Material that is never judged (hot_signal and isolated sources mark it "skipped") stays out even after its
+  // source becomes editorial: nothing would ever judge it (INV-13 lets an item wait for its judgement only).
   const manualScope = f.relevance === "pass" || f.relevance === "block" ? f.relevance : null;
-  const admitted = (manualScope ?? storedAnalysis?.relevance) !== "block";
+  const scope = manualScope ?? storedAnalysis?.relevance ?? (article.processing_state === "skipped" ? "block" : null);
+  const admitted = scope !== "block";
   const bodyMode = bodyModeOf(source, article.body_status, !!usableSourceText(article.body_text));
   // A Chinese original with full-text permission is guided by a deterministic excerpt until the model writes (BR-ENR-06).
   const excerpt =
@@ -450,7 +451,10 @@ export async function publishArticleTx(
 
 /**
  * Re-derives every published article of one source (after its participation, licences, tier or name
- * changed) without calling models. Runs in the worker; progress goes to the callback.
+ * changed) without calling models. Runs in the worker; progress goes to the callback. One item's failure
+ * does not stop the rest: failed items are tried once more at the end, and those still failing keep their
+ * stored projection and are counted (the first 20 ids go into the job's result; the source page does not
+ * show them yet).
  */
 export async function republishSource(
   sourceId: string,
@@ -461,29 +465,31 @@ export async function republishSource(
   let done = 0;
   let changed = 0;
   let reduced = 0;
-  let failed = 0;
-  const failedIds: string[] = []; // the first few, shown with the progress on the source page
+  const retry: string[] = [];
+  const attempt = async (articleId: string): Promise<boolean> => {
+    // Stopping mid-way is safe: the job is retried after the restart and re-derives from the start.
+    if (shutdownSignal.signal.aborted) throw new Error("worker is stopping; republish resumes after restart");
+    try {
+      const r = await publishArticle(articleId);
+      if (r?.changed) changed += 1;
+      if (r?.reduced) reduced += 1;
+      return true;
+    } catch (error) {
+      if (shutdownSignal.signal.aborted) throw error;
+      return false;
+    }
+  };
   for (;;) {
     const batch = await sql<{ article_id: string }[]>`
       SELECT article_id FROM publications WHERE source_id = ${sourceId} AND article_id > ${after} ORDER BY article_id LIMIT 500`;
     if (batch.length === 0) break;
-    for (const { article_id } of batch) {
-      // Stopping mid-way is safe: the job is retried after the restart and re-derives from the start.
-      if (shutdownSignal.signal.aborted) throw new Error("worker is stopping; republish resumes after restart");
-      try {
-        const r = await publishArticle(article_id);
-        if (r?.changed) changed += 1;
-        if (r?.reduced) reduced += 1;
-      } catch (error) {
-        // One item's failure must not stop the rest of the source; it keeps its stored projection.
-        if (shutdownSignal.signal.aborted) throw error;
-        failed += 1;
-        if (failedIds.length < 20) failedIds.push(article_id);
-      }
-    }
+    for (const { article_id } of batch) if (!(await attempt(article_id))) retry.push(article_id);
     done += batch.length;
     after = batch[batch.length - 1]!.article_id;
     await onProgress?.(done, total);
   }
-  return { total, changed, reduced, failed, failedIds };
+  // A passing failure (a lock wait, a dropped connection) gets one more try; it costs no model call.
+  const failedIds: string[] = [];
+  for (const articleId of retry) if (!(await attempt(articleId))) failedIds.push(articleId);
+  return { total, changed, reduced, failed: failedIds.length, failedIds: failedIds.slice(0, 20) };
 }
