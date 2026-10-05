@@ -44,9 +44,11 @@ export default function TopicsPage() {
     <div className="pb-10">
       <header className="pb-2 pt-5 lg:pt-1">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">按主题看矿业</h1>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
-          按国家与地区、金属、矿企浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期动态。
-        </p>
+        {topics.length > 0 && (
+          <p className="mt-1.5 text-[13px] leading-relaxed text-ink-3">
+            按国家与地区、金属、矿企浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期动态。
+          </p>
+        )}
       </header>
       {topics.length === 0 && (
         <EmptyState
