@@ -27,9 +27,9 @@ SELECT id,'zh',1,'PR9 译文 '||id,'<h2>合成译文</h2><p>合成中文 TRANSLA
 FROM articles WHERE id LIKE 'pr9-%';
 -- SELF_AUTHORED stored-read snapshot, not gateway/translation acceptance evidence.
 -- Exact current protocol/prompt identity: update this fixture deliberately when that protocol changes.
-UPDATE translations tr SET recipe='strict-text-context-v2:translate-body@0a8e5ebf44',
+UPDATE translations tr SET recipe='__TRANSLATION_RECIPE__',
   source_hash=encode(sha256(convert_to(a.body_html,'UTF8')),'hex'),
-  manifest=jsonb_build_object('format','strict-text-context-v2','revision',1,'recipe','strict-text-context-v2:translate-body@0a8e5ebf44',
+  manifest=jsonb_build_object('format','strict-text-context-v2','revision',1,'recipe','__TRANSLATION_RECIPE__',
     'sourceHash',encode(sha256(convert_to(a.body_html,'UTF8')),'hex'),'bodyHash',encode(sha256(convert_to(tr.body_html,'UTF8')),'hex'),
     'replacements','[]'::jsonb,
     'segments',jsonb_build_array(
