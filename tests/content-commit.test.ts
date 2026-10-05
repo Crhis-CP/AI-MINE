@@ -33,7 +33,15 @@ after(async () => {
   await closeDb();
 });
 const material = (name: string, title = name) =>
-  upsertMaterial({ sourceId: SOURCE, url: `https://fixture.invalid/${T}/${name}`, title, bodyText: `合成材料正文 ${title}`, bodyStatus: "ok", via: "fetch" });
+  upsertMaterial({
+    sourceId: SOURCE,
+    language: "zh",
+    url: `https://fixture.invalid/${T}/${name}`,
+    title,
+    bodyText: `合成材料正文 ${title}`,
+    bodyStatus: "ok",
+    via: "fetch",
+  });
 
 test("content modules and the fixed failure fragment import without a database or credentials", () => {
   const child = spawnSync(
@@ -209,4 +217,14 @@ test("derived-body transactions preserve analysis state and refuse changed revis
   assert.equal(await commitBodyResult(current, forbidden), null);
   assert.equal(await readCurrentBody(`${articleId}-missing`), null);
   assert.deepEqual(await state(), before);
+});
+
+test("a new revision keeps omitted language but clears an explicitly unrecognized declaration", async () => {
+  const input = { sourceId: SOURCE, url: `https://fixture.invalid/${T}/language`, title: "Known language", via: "fetch" as const };
+  const first = await upsertMaterial({ ...input, bodyText: "中文原文。", language: "zh" });
+  await upsertMaterial({ ...input, bodyText: "更新的中文原文。" });
+  assert.equal((await readCurrentBody(first.articleId))!.language, "zh", "omission preserves existing metadata");
+  const unknown = await upsertMaterial({ ...input, bodyText: "Changed foreign 铜 text.", language: null });
+  assert.equal(unknown.revised, true);
+  assert.equal((await readCurrentBody(first.articleId))!.language, null, "an explicit unknown must not inherit zh on the changed body");
 });

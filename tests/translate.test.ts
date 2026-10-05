@@ -7,9 +7,9 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { translatePending } from "@amp/backend/editorial/translate";
+import { translateArticle } from "@amp/backend/editorial/translate";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { publishArticle } from "@amp/backend/publication/publish";
+import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
 import { buildApp } from "../apps/api/src/app.ts";
 
 const sql = dbOf("enrichment");
@@ -23,22 +23,26 @@ let hold: ReturnType<typeof gate<void>> | null = null;
 const asked = gate();
 const asks = new Map<string, number>();
 const provider = await stub(async (_hit, req) => {
-  const { segments } = JSON.parse(JSON.parse(req.body).messages[1].content) as { segments: string[] };
+  const { text: s } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
   if (hold) {
     asked.open();
     await hold.promise;
   }
-  const t = segments.map((s) => {
+  const text = (() => {
     // A block with a link and an image: the first answer drops the link, the second keeps everything.
     if (s.includes("Neuroglancer")) {
       const n = (asks.get(s) ?? 0) + 1;
       asks.set(s, n);
       return n === 1 ? "解释 Neuroglancer 的文字 ⟦0⟧。" : '解释 <a id="L0">Neuroglancer</a> 的文字 ⟦0⟧。';
     }
-    if (s.includes("never keeps")) return "丢了链接。";
+    if (s.includes("never keeps")) {
+      asks.set(s, (asks.get(s) ?? 0) + 1);
+      return "丢了链接。";
+    }
+    if (s.includes("FINAL_PARAGRAPH")) return "最后一段完整译文。";
     return s.includes("twenty") ? "价格是二十美元。" : s.includes("ten") ? "价格是十美元。" : "译文";
-  });
-  return { id: "stub", choices: [{ message: { content: JSON.stringify({ t }) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
+  })();
+  return { id: "stub", choices: [{ message: { content: JSON.stringify({ text }) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
@@ -60,10 +64,24 @@ const material = (price: string) =>
     discoveredAt: new Date(Date.now() + 600_000),
   });
 
-async function detail(id: string) {
-  const res = await app.inject({ method: "GET", url: `/api/site/items/${id}` });
+async function detail(id: string, original = false) {
+  const res = await app.inject({ method: "GET", url: `/api/site/items/${id}${original ? "/original" : ""}` });
   assert.equal(res.statusCode, 200);
   return JSON.parse(res.body) as { body: { zh: string | null; original: string | null; complete: boolean } };
+}
+
+async function translateOne(id: string) {
+  const revision = await prepareTranslation(id);
+  if (revision === null) return { articleId: id, status: "skipped" as const };
+  const result = await translateArticle(id, revision);
+  if (result.status === "translated") await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
+  return result;
+}
+
+async function currentJudgement(id: string) {
+  const [{ revision }] = await sql`SELECT revision FROM articles WHERE id=${id}`;
+  await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
+    VALUES(${id},${revision},'rule','pass','company_project',${`价格更新-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
 }
 
 before(async () => {
@@ -78,14 +96,16 @@ after(async () => {
 });
 
 test("a text corrected while its translation was running is translated again, and the old translation is not shown", async () => {
-  const { articleId: id } = await material("ten");
-  await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${id}, 1, 'rule', 'pass', 'ai-models', ${`价格更新-${T}`}, '摘要', '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(id)]}, ${sql.json(scopeOutput)})`;
+  const { articleId: id } = await material("five");
+  await currentJudgement(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
+  assert.equal((await translateOne(id)).status, "translated", "this item was genuinely complete and publicly readable before reprocessing");
+  await material("ten");
+  await currentJudgement(id);
 
-  // The model is asked about revision 1; the source corrects the price before it answers.
+  // The model is asked about revision 2; the source corrects the price before it answers.
   hold = gate();
-  const running = translatePending({ limit: 1 });
+  const running = translateOne(id);
   await Promise.race([asked.promise, running.then(() => assert.fail("the run ended without asking the model"))]);
   const revised = await material("twenty");
   assert.equal(revised.revised, true);
@@ -94,19 +114,21 @@ test("a text corrected while its translation was running is translated again, an
   await running;
 
   const [attempt] = await sql<{ revision: number; outcome: string }[]>`SELECT revision, outcome FROM translation_attempts WHERE article_id = ${id}`;
-  assert.deepEqual({ ...attempt }, { revision: 1, outcome: "translated" }, "the attempt is booked on the revision translated");
+  assert.deepEqual({ ...attempt }, { revision: 2, outcome: "partial" }, "a superseded response is not promoted or booked against the new revision");
   const stale = await detail(id);
   assert.equal(stale.body.zh, null, "a translation of the old wording is not shown");
-  assert.ok(stale.body.original?.includes("twenty"));
+  assert.equal(stale.body.original, null, "the default Chinese page stays pending");
+  assert.ok((await detail(id, true)).body.original?.includes("twenty"), "the explicit original route retains current permitted source text");
 
-  await translatePending({ limit: 1 });
+  await currentJudgement(id);
+  await translateOne(id);
   const [tr] = await sql<{ revision: number }[]>`SELECT revision FROM translations WHERE article_id = ${id}`;
-  assert.equal(tr?.revision, 2, "the corrected text is translated on the next run");
+  assert.equal(tr?.revision, 3, "the corrected text is translated on the next run");
   const current = await detail(id);
   assert.ok(current.body.zh?.includes("二十美元") && current.body.complete, "the page shows the translation of the corrected text");
 });
 
-test("links and images inside a paragraph survive the translation, or the paragraph stays in the original", async () => {
+test("links and images survive in checkpoints, while a bad paragraph prevents whole-body assembly and has only three paid attempts", async () => {
   // Google's fly-brain post lost its link to the Neuroglancer docs; a GPU price post lost two charts.
   const html =
     `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> in text ${T} <img src="https://example.com/chart-${T}.png" alt="B200 prices"></p>` +
@@ -126,10 +148,48 @@ test("links and images inside a paragraph survive the translation, or the paragr
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
             VALUES (${id}, 1, 'rule', 'pass', 'ai-models', ${`链接-${T}`}, '摘要', '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(id)]}, ${sql.json(scopeOutput)})`;
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
-  await translatePending({ limit: 1 });
-  const [tr] = await sql<{ body_html: string; complete: boolean }[]>`SELECT body_html, complete FROM translations WHERE article_id = ${id}`;
-  assert.ok(tr!.body_html.includes('<a href="https://neuroglancer.dev/docs">Neuroglancer</a>'), tr!.body_html);
-  assert.ok(tr!.body_html.includes(`chart-${T}.png`), "the chart stays");
-  assert.ok(tr!.body_html.includes('<a href="https://example.com/kept">never keeps</a>'), "a paragraph that loses its link stays in the original");
+  for (let n = 0; n < 4; n++) await translateOne(id);
+  const [tr] = await sql<{ body_html: string | null; complete: boolean }[]>`SELECT body_html, complete FROM translations WHERE article_id = ${id}`;
+  assert.equal(tr!.body_html, null, "bad segments and original English are never assembled into a partial translation");
   assert.equal(tr!.complete, false);
+  const parts = await sql`SELECT state,restored_html,failed_attempts FROM enrichment.translation_segments WHERE article_id=${id} ORDER BY segment_index`;
+  assert.equal(parts[0]!.state, "complete");
+  assert.ok(parts[0]!.restored_html.includes('<a href="https://neuroglancer.dev/docs">Neuroglancer</a>'));
+  assert.ok(parts[0]!.restored_html.includes(`chart-${T}.png`), "the chart survives in the verified checkpoint");
+  assert.equal(parts[1]!.state, "failed");
+  assert.equal(parts[1]!.restored_html, null);
+  assert.equal(parts[1]!.failed_attempts, 3);
+  assert.deepEqual([...asks.values()].sort(), [2, 3], "good checkpoints are reused and bad output is bounded per actual attempt");
+  assert.equal((await app.inject(`/api/site/items/${id}`)).statusCode, 404, "new material with a bad segment never gets a public page");
+});
+
+test("the active adapter covers a body beyond the old cap and then makes no repeat model request", async () => {
+  const html = Array.from({ length: 30 }, (_, i) => `<p>${i === 29 ? "FINAL_PARAGRAPH" : i} ${T} ${"Copper production update. ".repeat(95)}</p>`).join("");
+  assert.ok(html.length > 60_000);
+  const { articleId: id } = await upsertMaterial({
+    sourceId: SOURCE,
+    url: `${URL_}-long`,
+    title: `Long report ${T}`,
+    language: "en",
+    bodyHtml: html,
+    bodyText: html,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+    discoveredAt: new Date(Date.now() + 1_800_000),
+  });
+  await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
+    VALUES (${id},1,'rule','pass','ai-models',${`完整长文-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
+  await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
+  const start = provider.hits();
+  const result = await translateOne(id);
+  assert.equal(result.status, "translated");
+  assert.equal(provider.hits() - start, 30);
+  const [tr] = await sql`SELECT complete,body_html,manifest FROM translations WHERE article_id=${id}`;
+  assert.equal(tr!.complete, true);
+  assert.equal(tr!.manifest.segments.length, 30);
+  assert.ok(tr!.body_html.endsWith("最后一段完整译文。</p>"), "the final source paragraph is included");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM enrichment.translation_segments WHERE article_id=${id} AND state='complete'`)[0]!.n, 30);
+  await translateOne(id);
+  assert.equal(provider.hits() - start, 30, "a complete current result and older exhausted bad segments cause no new request");
 });

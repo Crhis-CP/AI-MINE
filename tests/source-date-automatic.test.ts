@@ -247,7 +247,7 @@ test("RSS intake preserves its raw source date and supplements an unchanged body
   t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`,
     id = `rss-date-${tag()}`;
-  const sourceConfig = { feedUrl: `${base}/feed`, summaryIsBody: true };
+  const sourceConfig = { feedUrl: `${base}/feed`, summaryIsBody: true, language: "zh" };
   await sql`INSERT INTO sources (id, name, kind, enabled, config, cursor) VALUES
     (${id}, 'Synthetic local feed', 'rss', true, ${sql.json(sourceConfig)}, ${sql.json({ initializedAt: new Date().toISOString() })})`;
   const scope = { hosts: ["127.0.0.1"], path_prefixes: ["/"], document_types: [], excluded_content: [] };
@@ -272,6 +272,7 @@ test("RSS intake preserves its raw source date and supplements an unchanged body
   date = "  2026-10-01  ";
   assert.deepEqual((({ status, created, revised }) => ({ status, created, revised }))(await collectSource(id)), { status: "ok", created: 0, revised: 0 });
   const dated = await state();
+  assert.ok(dated.processing_queued_at instanceof Date, "the declared Chinese material actually entered the processing queue");
   assert.deepEqual([dated.revision, Number(dated.source_date_version), dated.published_at, dated.result.evidence.time.raw], [1, 2, null, date]);
   assert.equal((await collectSource(id)).status, "ok");
   const repeated = await state();

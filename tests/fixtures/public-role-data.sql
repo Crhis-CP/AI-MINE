@@ -23,8 +23,21 @@ FROM pr9_cases;
 INSERT INTO articles (id,source_id,identity_key,url,title,language,discovered_at,timeline_at,body_html,body_text,body_status)
 VALUES ('pr9-candidate','pr9-editorial','pr9-candidate','https://source.example.test/candidate','PR9 candidate','en',now(),now(),'<p>CANDIDATE_PRIVATE_BODY</p>','CANDIDATE_PRIVATE_BODY','ok');
 INSERT INTO translations (article_id,lang,revision,title,body_html,body_text,complete,origin)
-SELECT id,'zh',1,'PR9 译文 '||id,'<h2>合成译文</h2><p>TRANSLATED_BODY_'||id||'</p>','TRANSLATED_BODY_'||id,true,'replay'
+SELECT id,'zh',1,'PR9 译文 '||id,'<h2>合成译文</h2><p>合成中文 TRANSLATED_BODY_'||id||'</p>','TRANSLATED_BODY_'||id,true,'replay'
 FROM articles WHERE id LIKE 'pr9-%';
+-- SELF_AUTHORED stored-read snapshot, not gateway/translation acceptance evidence.
+-- Exact current protocol/prompt identity: update this fixture deliberately when that protocol changes.
+UPDATE translations tr SET recipe='strict-text-attempt-v1:translate-body@0a8e5ebf44',
+  source_hash=encode(sha256(convert_to(a.body_html,'UTF8')),'hex'),
+  manifest=jsonb_build_object('format','strict-text-attempt-v1','revision',1,'recipe','strict-text-attempt-v1:translate-body@0a8e5ebf44',
+    'sourceHash',encode(sha256(convert_to(a.body_html,'UTF8')),'hex'),'bodyHash',encode(sha256(convert_to(tr.body_html,'UTF8')),'hex'),
+    'segments',jsonb_build_array(
+      jsonb_build_object('index',0,'sourceHash',encode(sha256(convert_to('PR9 original','UTF8')),'hex'),
+        'responseHash',encode(sha256(convert_to('合成译文','UTF8')),'hex'),'textHash',encode(sha256(convert_to('合成译文','UTF8')),'hex')),
+      jsonb_build_object('index',1,'sourceHash',encode(sha256(convert_to('ORIGINAL_BODY_'||a.id,'UTF8')),'hex'),
+        'responseHash',encode(sha256(convert_to('合成中文 TRANSLATED_BODY_'||a.id,'UTF8')),'hex'),
+        'textHash',encode(sha256(convert_to('合成中文 TRANSLATED_BODY_'||a.id,'UTF8')),'hex'))))
+FROM articles a WHERE tr.article_id=a.id AND a.id IN (SELECT id FROM pr9_cases);
 INSERT INTO publications (article_id,title,original_title,summary,reason,category,tags,score,source_id,channel,url,
                          published_at,discovered_at,timeline_at,sort_at,visibility,eligible,selected,visible_after,body_mode,syndicate,indexable,first_party)
 SELECT id,'PR9 已发布 '||id,'PR9 原稿 '||id,'PR9 synthetic summary '||id,'PR9 fixture selection','company_project',ARRAY['PR9','行业动态'],82,

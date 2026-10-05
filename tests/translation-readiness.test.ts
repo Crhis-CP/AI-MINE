@@ -5,6 +5,8 @@ import { test } from "node:test";
 import { z } from "zod";
 import {
   completeTranslationManifest,
+  readableTranslation,
+  isChineseOriginal,
   assembleTranslation,
   restoreTranslationText,
   shield,
@@ -221,4 +223,52 @@ test("ordered assembly keeps contiguous inline meaning and protected source node
   assert.equal(assembled.html, "事项<strong>未</strong>获批。<p>尾段条件。</p>");
   assert.equal(assembled.manifest.bodyHash, createHash("sha256").update(assembled.html).digest("hex"));
   assert.equal(assembleTranslation(html, current, checkpoints.slice(0, 1)), null);
+});
+
+test("public reading rechecks current manifest, ordered protected nodes and six bad-text conditions", () => {
+  const source = "<p>Read <code>" + "a".repeat(241) + '</code> and <a href="https://example.invalid/x">conditions</a>.</p>';
+  const current = { revision: 2, recipe: "current-reading" },
+    original = translationSourceManifest(source);
+  const assembled = assembleTranslation(source, current, [
+    { ...current, ...original.segments[0]!, state: "complete", text: '阅读 ⟦0⟧ 与<a id="L0">条件</a>。' },
+  ])!;
+  const stored = { ...current, body_html: assembled.html, complete: true, origin: "model", source_hash: original.sourceHash, manifest: assembled.manifest };
+  assert.equal(readableTranslation(source, current, stored), assembled.html, "protected source code is not reclassified as bad model prose");
+  for (const changed of [
+    { ...stored, manifest: null },
+    { ...stored, complete: false },
+    { ...stored, revision: 1 },
+    { ...stored, recipe: "old" },
+    { ...stored, body_html: assembled.html + "<p>多出的段落。</p>" },
+    { ...stored, manifest: { ...assembled.manifest, segments: [] } },
+    { ...stored, manifest: { ...assembled.manifest, bodyHash: "0".repeat(64) } },
+  ])
+    assert.equal(readableTranslation(source, current, changed), null);
+  assert.equal(readableTranslation(source.replace("conditions", "changed conditions"), current, stored), null);
+  const hash = (s: string) => createHash("sha256").update(s).digest("hex");
+  for (const bad of ["English only", "中文 language:zh section_index:0 sections_total:1", "译" + "a".repeat(241), "文".repeat(20001), "中文\0", "中文\uFFFD"]) {
+    const html = `<p>${bad}</p>`;
+    const manifest = {
+      ...assembled.manifest,
+      sourceHash: hash("<p>Original.</p>"),
+      bodyHash: hash(html),
+      segments: [{ index: 0, sourceHash: hash("Original."), responseHash: hash(bad), textHash: hash(bad) }],
+    };
+    assert.equal(
+      readableTranslation("<p>Original.</p>", current, { ...stored, source_hash: manifest.sourceHash, body_html: html, manifest }),
+      null,
+      "even matching stored hashes cannot bypass bad-text rejection",
+    );
+  }
+  const official = { ...stored, origin: "source", recipe: null, source_hash: null, manifest: null, body_html: "<p>来源提供的完整中文。</p>" };
+  assert.equal(readableTranslation(source, current, official), null, "a source label alone does not prove completeness");
+  assert.equal(readableTranslation(source, current, { ...stored, origin: "source" }), null, "source editions cannot impersonate model proofs");
+  assert.equal(readableTranslation(source, current, { ...official, body_html: "<p>English only</p>" }), null);
+  assert.equal(isChineseOriginal("es", "中文名称 with Spanish source text"), false);
+  assert.equal(isChineseOriginal("zh", "中文原文"), true);
+  assert.equal(isChineseOriginal("zh-Hant-TW", "繁體原文"), true);
+  for (const text of ["An English copper project named 铜.", "La empresa 铜 confirma el proyecto.", "銅鉱山の計画は未承認です。"]) {
+    assert.equal(isChineseOriginal(null, text), false);
+    assert.equal(isChineseOriginal("und", text), false);
+  }
 });

@@ -49,6 +49,7 @@ async function job(articleId: string) {
 async function report(suffix: string, opts: { title: string; backfill?: string; publishedAt?: Date }) {
   const { articleId } = await upsertMaterial({
     sourceId: EDITORIAL,
+    language: "en",
     url: `https://example.com/sig-${T}-${suffix}`,
     title: opts.title,
     bodyText: "Body.",
@@ -78,6 +79,7 @@ after(async () => {
 test("a discussion post that came before any report is grouped again when a report founds its fact", async () => {
   const { articleId: postId } = await upsertMaterial({
     sourceId: SIGNAL,
+    language: "en",
     url: `https://example.com/sig-${T}-post`,
     title: `AMD to acquire ${TOPIC}`,
     via: "fetch",

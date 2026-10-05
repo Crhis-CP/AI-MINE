@@ -8,9 +8,20 @@ import { denied } from "./role-db-fixture.ts";
 
 // Independent D4 oracle: do not derive expected privilege grants from the SQL planner.
 const PUBLIC_COLUMNS: Record<string, string[]> = {
-  sources: ["id", "name", "kind", "participation_mode", "enabled", "last_ok_at", "interval_minutes", "site_fulltext", "source_date_config_hash"],
+  sources: [
+    "id",
+    "name",
+    "kind",
+    "participation_mode",
+    "enabled",
+    "last_ok_at",
+    "interval_minutes",
+    "site_fulltext",
+    "source_date_config_hash",
+    "syndicate_fulltext",
+  ],
   articles: ["id", "revision", "author", "language", "body_html", "body_text", "body_status", "source_date_version", "source_date_state"],
-  translations: ["article_id", "lang", "revision", "body_html", "complete", "recipe", "source_hash", "manifest"],
+  translations: ["article_id", "lang", "revision", "body_html", "complete", "recipe", "source_hash", "manifest", "origin"],
   settings: ["key", "value"],
 };
 const PUBLIC_TABLES = new Set(

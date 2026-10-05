@@ -1,3 +1,5 @@
+import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT, type StoredTranslation } from "../editorial/translation-readiness.ts";
+import { promptVersion } from "../editorial/prompts.ts";
 // RSS feeds. GUID = article id (isPermaLink=false), <link> = the site's page, pubDate = source
 // publication time. Summary feeds never carry content:encoded; full feeds inline bodies only for
 // sources that explicitly allow redistribution. Titles come from the site's name and categories.
@@ -9,10 +11,11 @@ import { linkBodyImages } from "../content/sanitize.ts";
 import { dbOf } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
 import { reportHeadline, reportIndex } from "./reports.ts";
-import { categoryCondition, listedCondition, selectedCondition, type ItemRow } from "./items.ts";
+import type { ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 
 const sql = dbOf("publication");
+const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
 interface FeedMeta {
   id: string;
@@ -90,17 +93,22 @@ type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "
   Partial<
     Pick<ItemRow, "language" | "syndicate"> & {
       body_html: string | null;
-      tr_html: string | null;
-      tr_complete: boolean | null;
+      content_revision: number;
+      translation: StoredTranslation;
     }
   >;
 
 /**
  * The body a full feed carries, in Chinese when the page has it: a complete Chinese translation of the
- * article, else the original. It ends with an attribution line (also a mark on copies taken from the feed).
+ * article, or a Chinese original. Unproved/unfinished foreign bodies stay out of the feed.
+ * It ends with an attribution line (also a mark on copies taken from the feed).
  */
 function fullContent(r: FeedRow, pageUrl: string): string | null {
-  const html = r.body_html ? (r.language !== "zh" && r.tr_html && r.tr_complete ? r.tr_html : r.body_html) : null;
+  const html = r.body_html
+    ? isChineseOriginal(r.language ?? null, r.body_html)
+      ? r.body_html
+      : readableTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null)
+    : null;
   if (!html) return null;
   return `${linkBodyImages(html)}<p>—— 本文由 ${escapeXml(SITE.name)} 聚合整理，完整版与更多动态见 <a href="${pageUrl}">${pageUrl}</a></p>`;
 }
@@ -132,29 +140,38 @@ export type ItemFeedKind = "selected" | "selected-full" | "all";
 // Like the live feeds, items are the newest by their original publish time (the pubDate shown):
 // 50 per feed; a category feed holds only its last 7 days (by original publish time).
 
+function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now: Date) {
+  return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now}) AND (
+    (${kind} = 'all' AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
+      AND coalesce(p.published_at, p.discovered_at) <= ${now}) OR
+    (${kind} <> 'all' AND p.selected AND p.visible_after <= ${now} AND (${category}::text IS NULL OR p.category = ${category})
+      AND (${category}::text IS NULL OR coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)})))`;
+}
+
 export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKey | null, now = new Date()): Promise<string> {
   const includeContent = kind === "selected-full";
-  const scope =
-    kind === "all"
-      ? sql`${listedCondition(now)} AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
-        AND coalesce(p.published_at, p.discovered_at) <= ${now}`
-      : sql`${selectedCondition(now)} ${categoryCondition(category, true)}
-        ${category ? sql`AND coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)}` : sql``}`;
-  const rows = await sql<FeedRow[]>`
-    WITH page AS MATERIALIZED (
-      SELECT p.article_id FROM publications p WHERE ${scope}
-      ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
-    )
-    SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name
-      ${includeContent ? sql`, p.syndicate, a.language, a.body_html, tr.body_html AS tr_html, tr.complete AS tr_complete` : sql``}
-    FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id
-    ${
-      includeContent
-        ? sql`LEFT JOIN articles a ON a.id = p.article_id AND p.syndicate
-      LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision`
-        : sql``
-    }
-    ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`;
+  const rows = includeContent
+    ? await sql<FeedRow[]>`
+      WITH page AS MATERIALIZED (
+        SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
+        ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
+      )
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name,
+        (p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS syndicate, a.language, a.body_html, a.revision AS content_revision,
+        jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
+          'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
+      FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id
+      LEFT JOIN articles a ON a.id = p.article_id AND p.syndicate
+      LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision
+      ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`
+    : await sql<FeedRow[]>`
+      WITH page AS MATERIALIZED (
+        SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
+        ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
+      )
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name
+      FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id
+      ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`;
   let meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number };
   if (category) {
     const label = CATEGORY_LABELS[category] ?? category;

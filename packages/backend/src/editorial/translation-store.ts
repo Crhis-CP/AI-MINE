@@ -1,11 +1,17 @@
 import * as cheerio from "cheerio";
-import { dbOf, type Tx } from "../db.ts";
+import { dbOf, type Db, type Tx } from "../db.ts";
 import { commitBodyResult, type CurrentBody } from "../content/materials.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { sha256 } from "../lib/ids.ts";
 import { settleTranslationResponse } from "../providers/receipts.ts";
 import type { ChatJsonResult } from "../providers/llm.ts";
-import { assembleTranslation, restoreTranslationText, translationSourceManifest, type TranslationCheckpoint } from "./translation-readiness.ts";
+import {
+  assembleTranslation,
+  restoreTranslationText,
+  translationSourceManifest,
+  type StoredTranslation,
+  type TranslationCheckpoint,
+} from "./translation-readiness.ts";
 
 const sql = dbOf("enrichment");
 export interface TranslationSession {
@@ -136,4 +142,11 @@ export async function finishTranslation(run: TranslationSession): Promise<boolea
       return true;
     })) ?? false
   );
+}
+
+/** Only the promoted/read-safe fields cross the enrichment port; never checkpoint or receipt rows. */
+export async function readStoredTranslation(articleId: string, db: Db = sql): Promise<StoredTranslation | null> {
+  const [row] = await db<StoredTranslation[]>`SELECT revision,body_html,complete,origin,recipe,source_hash,manifest
+    FROM translations WHERE article_id=${articleId} AND lang='zh'`;
+  return row ?? null;
 }

@@ -14,27 +14,37 @@ const T = tag();
 const SOURCE = `test-translate-stop-${T}`;
 let active: { asked: ReturnType<typeof gate<void>>; hold: ReturnType<typeof gate<void>>; calls: number; misaligned: boolean };
 const provider = await stub(async (_hit, req) => {
-  const { segments } = JSON.parse(JSON.parse(req.body).messages[1].content) as { segments: string[] };
+  const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
+  assert.equal(typeof text, "string");
   active.calls++;
   if (active.calls === 1) {
     active.asked.open();
     await active.hold.promise;
   }
-  const t = active.misaligned && segments.length === 2 ? [] : segments.map(() => `完整译文${T}`);
-  return { id: "stub", choices: [{ message: { content: JSON.stringify({ t }) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
+  const output = { text: `完整译文${T}`, ...(active.misaligned && active.calls === 1 ? { extra: true } : {}) };
+  return { id: "stub", choices: [{ message: { content: JSON.stringify(output) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
 });
 
-function runTranslation() {
+function runTranslation(articleId: string) {
   const script = `
-    import { translatePending } from '@amp/backend/editorial/translate';
+    import { translateArticle } from '@amp/backend/editorial/translate';
+    import {prepareTranslation} from '@amp/backend/publication/publish';
+    import {TranslationInterruptedError} from './packages/backend/src/editorial/translation-runtime.ts';
     import { shutdownSignal } from '@amp/backend/jobs/queue';
     import { closeDb, initializeDb } from '@amp/backend/db';
     await initializeDb('test');
     process.on('SIGTERM', () => { shutdownSignal.abort(); process.send({ stopped: true }); });
-    try { process.send({ result: await translatePending({ limit: 1 }) }); }
+    try {
+      const revision=await prepareTranslation(process.argv[1]);
+      const done=revision===null?[]:[await translateArticle(process.argv[1],revision)];
+      process.send({result:{done}});
+    } catch(error) {
+      if(error instanceof TranslationInterruptedError) process.send({result:{done:[]}});
+      else throw error;
+    }
     finally { await closeDb(); process.disconnect(); }
   `;
-  const child = spawn(process.execPath, ["--input-type=module", "-e", script], {
+  const child = spawn(process.execPath, ["--input-type=module", "-e", script, articleId], {
     cwd: process.cwd(),
     env: {
       ...process.env,
@@ -74,7 +84,7 @@ after(async () => {
 });
 
 for (const misaligned of [false, true])
-  test(`SIGTERM finishes the sent ${misaligned ? "misaligned" : "normal"} batch and resumes from its receipt`, async () => {
+  test(`SIGTERM finishes the sent ${misaligned ? "extra-field" : "normal"} segment and resumes from its receipt`, async () => {
     active = { asked: gate(), hold: gate(), calls: 0, misaligned };
     const first = misaligned ? `First paragraph ${T}.` : `First paragraph ${T}. ${"English text ".repeat(170)}`;
     const second = misaligned ? `Second paragraph ${T}.` : `Second paragraph ${T}. ${"More English ".repeat(170)}`;
@@ -93,13 +103,13 @@ for (const misaligned of [false, true])
     await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected, prompt_version, receipt_ids, output)
     VALUES (${articleId},1,'rule','pass','ai-models',${`终止测试${T}`},'摘要','理由',90,true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
     await publishArticle(articleId, { releasedAt: new Date(Date.now() - 60_000) });
-    const interrupted = runTranslation();
+    const interrupted = runTranslation(articleId);
     await Promise.race([active.asked.promise, interrupted.done.then(() => assert.fail("translation ended before a request"))]);
     interrupted.child.kill("SIGTERM");
     await interrupted.stopped;
     active.hold.open();
     assert.deepEqual(await interrupted.done, { done: [] });
-    assert.equal(active.calls, 1, "no later fragment or half-batch starts after shutdown");
+    assert.equal(active.calls, 1, "no later fragment starts after shutdown");
     const receiptRows = await sql`SELECT status,response FROM receipts WHERE purpose='translate_body' AND subject LIKE ${`article:${articleId}@1#%`}`;
     assert.equal(receiptRows.length, 1);
     assert.equal(receiptRows[0]!.status, "received");
@@ -109,8 +119,15 @@ for (const misaligned of [false, true])
       0,
       "interruption does not consume attempts or become terminal",
     );
-    assert.equal((await sql`SELECT 1 FROM translations WHERE article_id=${articleId}`).length, 0, "no partial translation prevents restart");
-    const resumed = await runTranslation().done;
+    const [pending] = await sql`SELECT complete,body_html,manifest FROM translations WHERE article_id=${articleId}`;
+    assert.deepEqual(
+      { ...pending },
+      { complete: false, body_html: null, manifest: null },
+      "the durable target remains resumable without publishing partial text",
+    );
+    const reused = await runTranslation(articleId).done;
+    if (misaligned) assert.equal(reused.done[0].status, "partial", "the cached extra-field response is rejected, never silently repaired");
+    const resumed = misaligned ? await runTranslation(articleId).done : reused;
     assert.equal(resumed.done[0].status, "translated");
     assert.equal(active.calls, misaligned ? 3 : 2, "the first receipt is reused, only missing pieces are requested");
     const [translation] = await sql`SELECT complete,revision FROM translations WHERE article_id=${articleId}`;

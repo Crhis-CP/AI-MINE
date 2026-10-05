@@ -17,3 +17,5 @@ D4的M0余项保持原样：公开DB登录仍能读到有projection的summary-on
 运行：`node --test --test-concurrency=1 --test-timeout=120000 tests/db-role-matrix.test.ts tests/public-role-routes.test.ts`，DATABASE_URL须为允许建临时库/角色的隔离测试连接。完整verify的D12分组接线由集成人后续处理；本地通过不代表full verify、PG16.14基线或上线。
 
 TASK-0005九类接线后，分类RSS正例使用company_project及对应当前publication夹具，继续断言有条目和正文；旧industry两个路径明确404。selected ledger仍保留旧industry值，以覆盖旧账本只在公开读取时归null；没有批量改账本或放宽角色断言。
+
+Task20读出口夹具的译文保留origin=replay和全部TRANSLATED_BODY/ORIGINAL_BODY标记，正文增加明确的自编中文，显式登记当前protocol/prompt与逐段结构/hash快照；这是管理员构造的角色读取状态，不是模型回执、自动翻译或来源中文版完整性证据。真实worker登录经本机假HTTP写入attempt/manifest后再由public_read读取的正例在body-images.test.ts；只有origin=source字符串的旧记录不因该标签获得完整身份。

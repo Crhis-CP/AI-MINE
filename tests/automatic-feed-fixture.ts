@@ -12,7 +12,17 @@ export const authoredTitle = (marker: string) => `合成模型处理标题 ${mar
 export const authoredSummary = (marker: string) => `合成模型导读 ${marker}：仅用于验证自动处理接口，不代表真实新闻或质量评价。`;
 
 /** Real loopback HTTP at both boundaries; the worker still parses RSS and invokes its model adapter. */
-export async function automaticFeedFixture() {
+export interface FeedCase {
+  marker: string;
+  title: string;
+  label: "PASS" | "BLOCK" | "UNKNOWN";
+  body?: string;
+  score?: number;
+}
+export async function automaticFeedFixture(
+  options: { samples?: readonly FeedCase[]; publishedAt?: string; translate?: (marker: string, text: string) => Promise<unknown> } = {},
+) {
+  const samples: readonly FeedCase[] = options.samples ?? FEED_CASES;
   const feedRequests: string[] = [];
   const calls: { marker: string; step: string; user: string }[] = [];
   const feed = createServer((req, res) => {
@@ -24,13 +34,15 @@ export async function automaticFeedFixture() {
     res.setHeader("content-type", "application/rss+xml; charset=utf-8");
     res.end(
       '<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>' +
-        FEED_CASES.map(({ marker, title }) => {
-          const body = `${marker}：${title}。这段材料是自编采集夹具，只验证接口、正文保存和范围状态的传播，不是生产内容。`.repeat(6);
-          return (
-            `<item><title>${title} ${marker}</title><link>https://example.invalid/${marker}</link>` +
-            `<pubDate>Thu, 01 Jan 2026 00:00:00 GMT</pubDate><content:encoded><![CDATA[<p>${body}</p>]]></content:encoded></item>`
-          );
-        }).join("") +
+        samples
+          .map(({ marker, title, body: supplied }) => {
+            const body = supplied ?? `${marker}：${title}。这段材料是自编采集夹具，只验证接口、正文保存和范围状态的传播，不是生产内容。`.repeat(6);
+            return (
+              `<item><title>${title} ${marker}</title><link>https://example.invalid/${marker}</link>` +
+              `<pubDate>${options.publishedAt ?? "Thu, 01 Jan 2026 00:00:00 GMT"}</pubDate><content:encoded><![CDATA[<p>${body}</p>]]></content:encoded></item>`
+            );
+          })
+          .join("") +
         "</channel></rss>",
     );
   });
@@ -42,30 +54,45 @@ export async function automaticFeedFixture() {
       feed.close(() => resolve());
     });
   try {
-    const provider = await stub((_hit, req) => {
+    const provider = await stub(async (_hit, req) => {
       const body = JSON.parse(req.body) as { messages: { role: string; content: string }[] };
       const system = body.messages.find((m) => m.role === "system")?.content ?? "";
       const user = body.messages.at(-1)!.content;
-      const sample = FEED_CASES.find(({ marker }) => user.includes(marker));
-      const step = system.includes("范围预筛")
-        ? "prefilter"
-        : system.includes("事件注意力评分器")
-          ? "score"
-          : system.includes("资料结构化助手")
-            ? "structure"
-            : !system
-              ? "summarize"
-              : "unexpected";
+      const sample = samples.find(({ marker }) => user.includes(marker));
+      const step = system.includes("矿业新闻译者")
+        ? "translate"
+        : system.includes("范围预筛")
+          ? "prefilter"
+          : system.includes("事件注意力评分器")
+            ? "score"
+            : system.includes("资料结构化助手")
+              ? "structure"
+              : system.includes("内容理解编辑")
+                ? "understand"
+                : !system
+                  ? "summarize"
+                  : "unexpected";
       calls.push({ marker: sample?.marker ?? "missing", step, user });
       if (!sample || step === "unexpected" || req.url !== "/v1/chat/completions") return new Reply(400, { error: "unexpected fixture request" });
       const result =
-        step === "prefilter"
-          ? { label: sample.label, reason: "合成预筛结果，不评价模型分类质量" }
-          : step === "score"
-            ? { attentionScore: 10 }
-            : step === "structure"
-              ? { category: null, tags: [], subjects: [], fact: null }
-              : `title_zh: ${authoredTitle(sample.marker)}\nsummary_zh: ${authoredSummary(sample.marker)}`;
+        step === "translate"
+          ? await options.translate?.(sample.marker, JSON.parse(user).text)
+          : step === "prefilter"
+            ? { label: sample.label, reason: "合成预筛结果，不评价模型分类质量" }
+            : step === "score"
+              ? { attentionScore: sample.score ?? 10 }
+              : step === "structure"
+                ? { category: null, tags: [], subjects: [], fact: null }
+                : step === "understand"
+                  ? {
+                      itemType: "model_release",
+                      authorRole: "principal",
+                      tags: [],
+                      editorialJudgment: "合成判断",
+                      titleZh: authoredTitle(sample.marker),
+                      summaryZh: authoredSummary(sample.marker),
+                    }
+                  : `title_zh: ${authoredTitle(sample.marker)}\nsummary_zh: ${authoredSummary(sample.marker)}`;
       return {
         id: `fixture-${calls.length}`,
         choices: [{ message: { content: typeof result === "string" ? result : JSON.stringify(result) } }],

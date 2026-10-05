@@ -8,7 +8,10 @@ import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { beijingDate } from "@amp/contracts/time";
 import { ogEtag } from "../apps/api/src/og/render.ts";
-import { tag } from "./setup.ts";
+import { tag, stub } from "./setup.ts";
+import { runBodyTranslation } from "../packages/backend/src/editorial/translation-runtime.ts";
+import { isChineseOriginal, TRANSLATION_MANIFEST_FORMAT } from "../packages/backend/src/editorial/translation-readiness.ts";
+import { promptVersion, promptText } from "@amp/backend/editorial/prompts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
@@ -31,6 +34,28 @@ const T = tag();
 const SOURCE = `test-publication-${T}`;
 const BODY = `FULLTEXT-${T} `.repeat(40);
 const REPORT_KEY = `2099-12-${String(10 + Math.floor(Math.random() * 19))}`;
+const provider = await stub((_hit, req) => {
+  const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
+  const translated =
+    text === "Original heading"
+      ? "译文标题"
+      : text === "Original full body"
+        ? "中文完整正文"
+        : `${[...text.matchAll(/⟦\d+⟧/g)].map((m) => m[0]).join(" ")} 合成中文 FULLTEXT-${T}`;
+  return { choices: [{ message: { content: JSON.stringify({ text: translated }) } }], usage: { prompt_tokens: 10, completion_tokens: 5 } };
+});
+process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
+process.env.DEEPSEEK_API_KEY = "synthetic-publication-fixture";
+async function translateFixture(id: string) {
+  const version = promptVersion("translate-body");
+  const result = await runBodyTranslation(id, {
+    id: `${TRANSLATION_MANIFEST_FORMAT}:${version}`,
+    model: "deepseek-flash",
+    promptVersion: version,
+    system: promptText("translate-body"),
+  });
+  assert.equal(result.status, "translated");
+}
 const app = await buildApp("public-api");
 
 before(async () => {
@@ -42,6 +67,7 @@ before(async () => {
 after(async () => {
   await sql`DELETE FROM reports WHERE kind = 'daily' AND key = ${REPORT_KEY}`;
   await app.close();
+  await provider.close();
   await stopBoss();
   await closeDb();
 });
@@ -56,13 +82,15 @@ async function article(body = BODY, language?: string): Promise<string> {
     title: `Test ${n}`,
     bodyText: body,
     bodyHtml: `<p>${body}</p>`,
-    language,
+    language: language ?? "en",
     bodyStatus: "ok",
     via: "fetch",
     publishedAt: new Date(),
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题${n}-${T}`}, ${`SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题${n}-${T}`}, ${`合成摘要 SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+  const [source] = await sql`SELECT site_fulltext FROM sources WHERE id=${SOURCE}`;
+  if (source?.site_fulltext && body && !isChineseOriginal(language ?? null, body)) await translateFixture(articleId);
   return articleId;
 }
 
@@ -85,7 +113,7 @@ async function get(url: string, headers: Record<string, string> = {}) {
 test("site reading sends one language per page, and the original page goes with a withdrawal", async () => {
   const id = await article();
   await sql`UPDATE articles SET language = 'en', body_html = '<h2>Original heading</h2><p>Original full body</p>' WHERE id = ${id}`;
-  await sql`INSERT INTO translations (article_id, revision, body_html, body_text, origin) VALUES (${id}, 1, '<h2>译文标题</h2><p>中文完整正文</p>', '中文完整正文', 'source')`;
+  await translateFixture(id);
   await publishArticle(id, released());
   const normal = JSON.parse((await get(`/api/site/items/${id}`)).body);
   const original = JSON.parse((await get(`/api/site/items/${id}/original`)).body);
@@ -108,6 +136,7 @@ test("body pictures reach the item page and the full feed only as links, and the
   const mark = `https://example.com/${T}-mark.png`;
   const html = `<h2><img src="${mark}" alt="mark"> Results</h2><p>${BODY}</p><p><img src="${picture}" alt="Shipments by quarter" width="800" height="400"></p><video src="https://example.com/${T}.mp4" poster="https://example.com/${T}.jpg"></video>`;
   await sql`UPDATE articles SET language = 'en', body_html = ${html} WHERE id = ${id}`;
+  await translateFixture(id);
   await publishArticle(id, released());
   const detail = JSON.parse((await get(`/api/site/items/${id}/original`)).body);
   const page = detail.body.original as string;
@@ -470,7 +499,7 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
     400,
     "page tokens stay bound to the requested projection",
   );
-  await sql`UPDATE analyses SET title_zh = 'Updated sync title', summary_zh = ${"large summary ".repeat(200)} WHERE article_id = ${id}`;
+  await sql`UPDATE analyses SET title_zh = '更新标题 Updated sync title', summary_zh = ${"长摘要 large summary ".repeat(200)} WHERE article_id = ${id}`;
   await publishArticle(id, released());
   const getChanges = async (cursor: string) => {
     const response = await get(`/api/v1/selected/changes?cursor=${encodeURIComponent(cursor)}&limit=100`);
@@ -483,7 +512,7 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
     minimalChanges.changes,
     fullChanges.changes.map((c: any) => (c.op === "upsert" ? { ...c, item: project(c.item) } : c)),
   );
-  assert.equal(minimalChanges.changes.find((c: any) => c.item?.id === id)?.item.title, "Updated sync title");
+  assert.equal(minimalChanges.changes.find((c: any) => c.item?.id === id)?.item.title, "更新标题 Updated sync title");
   await setVisibility(id, { visibility: "withdrawn", reason: "sync test", version: 0 }, "test");
   const removed = await getChanges(minimalChanges.cursor);
   assert.ok(removed.changes.some((c: any) => c.op === "remove" && c.id === id));

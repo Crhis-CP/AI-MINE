@@ -6,10 +6,25 @@ import { z } from "zod";
 import { SourceDateParseInput } from "@amp/contracts/time-assertion";
 import { sha256, stableJson } from "../lib/ids.ts";
 
+const languageNames = new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
+/** Declared BCP47 only; absent, unidentified or unsupported tags never become a language guess. */
+export function normalizeSourceLanguage(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  try {
+    const locale = new Intl.Locale(value.trim()),
+      language = locale.language;
+    if (!language || ["und", "mul", "mis", "zxx"].includes(language) || !languageNames.of(language)) return null;
+    return locale.baseName;
+  } catch {
+    return null;
+  }
+}
+
 // Rules applied in collect.ts to every kind read through collectSource.
 const COLLECTED = [
   "sourceDate",
   "_amp",
+  "language",
   "allowUrlPrefixes",
   "denyUrlPrefixes",
   "ingestNoiseFilter",

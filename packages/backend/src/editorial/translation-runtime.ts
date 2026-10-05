@@ -1,10 +1,11 @@
-// Explicit runner preparation; the existing cron/t adapter switches in its own atomic change.
+// Strict segment runner used by the per-item worker; network calls stay outside content locks.
 import { z } from "zod";
+import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { readCurrentBody } from "../content/materials.ts";
 import { chatJson, type ChatJsonResult } from "../providers/llm.ts";
 import { ReceiptUnknownError, ReceiptOutputLimitError } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
-import { restoreTranslationText, shield, TranslationTextSchema } from "./translation-readiness.ts";
+import { isChineseOriginal, restoreTranslationText, shield, TranslationTextSchema } from "./translation-readiness.ts";
 import { beginTranslation, finishTranslation, recordTranslationFailure, saveTranslationSegment, translationCheckpoints } from "./translation-store.ts";
 
 export interface TranslationRecipe {
@@ -19,10 +20,13 @@ const assertRunning = () => {
 };
 
 /** Caller verifies scope/source permission first. Paid work never holds a content transaction. */
-export async function runBodyTranslation(articleId: string, recipe: TranslationRecipe) {
+export async function runBodyTranslation(articleId: string, recipe: TranslationRecipe, expectedRevision?: number) {
   assertRunning();
   const body = await readCurrentBody(articleId);
-  const run = body && (await beginTranslation(body, recipe.id));
+  if (!body || !normalizeSourceLanguage(body.language)) return { status: "skipped" as const, revision: body?.revision, reason: "language_unidentified" };
+  if (expectedRevision !== undefined && body.revision !== expectedRevision) return { status: "stale" as const, revision: body.revision };
+  if (isChineseOriginal(body.language)) return { status: "skipped" as const, revision: body.revision, reason: "original_chinese" };
+  const run = await beginTranslation(body, recipe.id);
   if (!run) return { status: "skipped" as const, revision: body?.revision };
   const saved = await translationCheckpoints(run);
   for (const segment of run.source.segments) {
