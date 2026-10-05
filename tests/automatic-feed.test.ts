@@ -13,7 +13,7 @@ import { registerPublicationJobs } from "@amp/backend/jobs/publication";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { automaticFeedFixture, authoredSummary, authoredTitle, FEED_CASES } from "./automatic-feed-fixture.ts";
 
-test("INV-01: real source/content workers collect, book model receipts and publish only admitted Chinese material", async (t) => {
+test("INV-01: real source/content workers collect, book model receipts and publish Chinese material unless the prefilter blocks it", async (t) => {
   const sql = dbOf("ops");
   const fixture = await automaticFeedFixture();
   const savedConfig = { ...config };
@@ -121,8 +121,8 @@ test("INV-01: real source/content workers collect, book model receipts and publi
       assert.match(scope.request.promptVersion, /^prefilter@/);
       assert.equal(JSON.parse(scope.response.choices[0].message.content).label, label);
       const detail = await reader.inject(`/api/site/items/${id}`);
-      assert.equal(detail.statusCode, label === "PASS" ? 200 : 404, detail.body);
-      if (label === "PASS") {
+      assert.equal(detail.statusCode, label === "BLOCK" ? 404 : 200, detail.body);
+      if (label !== "BLOCK") {
         assert.equal(detail.json().title, authoredTitle(marker));
         assert.equal(detail.json().summary, authoredSummary(marker));
         assert.equal(detail.json().body.zhKind, "original");
@@ -139,8 +139,12 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     const listing = await reader.inject("/api/site/pool");
     assert.equal(listing.statusCode, 200, listing.body);
     assert.deepEqual(
-      listing.json().items.map((r: { id: string }) => r.id),
-      [ids.get("AUTO_PASS")],
+      listing
+        .json()
+        .items.map((r: { id: string }) => r.id)
+        .sort(),
+      [ids.get("AUTO_PASS"), ids.get("AUTO_UNKNOWN")].sort(),
+      "UNKNOWN goes on like PASS; only BLOCK stays out",
     );
     const modelCalls = fixture.calls.length;
     const fetch = await admin.inject({ method: "POST", url: `/api/admin/sources/${sourceId}/fetch`, headers });
@@ -170,13 +174,20 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     assert.deepEqual(await counts(), beforeRead, "public reads do not collect, model, enqueue or write analyses");
     assert.equal(fixture.calls.length, modelCalls);
     assert.equal(fixture.feedRequests.length, 2);
+    // A rename re-derives from stored judgements: nothing is withdrawn and no paid call is made.
+    const [beforeRename] = await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.republishSource} AND state='completed'`;
+    await editSource({ name: "SELF_AUTHORED 自动链夹具（改名）", tier: "T1" });
+    await waitFor("rename republish worker settled", () => settled(QUEUES.republishSource, beforeRename.n));
+    for (const { marker, label } of FEED_CASES)
+      assert.equal((await reader.inject(`/api/site/items/${ids.get(marker)}`)).statusCode, label === "BLOCK" ? 404 : 200, marker);
+    assert.equal(fixture.calls.length, modelCalls, "a rename makes no paid call");
     t.diagnostic(
       JSON.stringify({
         sourceFetches: fixture.feedRequests.length,
         fakeModelCalls: modelCalls,
         materials: materials.length,
-        publicItems: 1,
-        blockedOrUnknownItems: 2,
+        publicItems: 2,
+        blockedItems: 1,
         realModelCalls: 0,
       }),
     );

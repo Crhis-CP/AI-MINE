@@ -76,7 +76,7 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
   const { run, pending } = useAdminAction();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [visibility, setVisibility] = useState<string>(p?.visibility ?? "public");
-  const [fields, setFields] = useState({ title: "", summary: "", reason: "", category: "", tags: "", selected: "", silent: "" });
+  const [fields, setFields] = useState({ title: "", summary: "", reason: "", category: "", tags: "", selected: "", silent: "", relevance: "" });
   const [mergeInto, setMergeInto] = useState("");
   const version = c.override?.version ?? 0;
   const base = `/api/admin/content/${encodeURIComponent(a.id)}`;
@@ -93,6 +93,7 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
       tags: Array.isArray(f.tags) ? (f.tags as string[]).join(", ") : "",
       selected: f.selected === undefined ? "" : String(f.selected),
       silent: f.silent === undefined ? "" : String(f.silent),
+      relevance: String(f.relevance ?? ""),
     });
     setDialog("override");
   };
@@ -458,6 +459,8 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
             if (fields[k] === "true" || fields[k] === "false") next[k] = fields[k] === "true";
             else if (c.override?.fields[k] !== undefined) clear.push(k);
           }
+          if (fields.relevance) next.relevance = fields.relevance;
+          else if (c.override?.fields.relevance !== undefined) clear.push("relevance");
           return (
             (await run("POST", `${base}/override`, { fields: next, clear, reason, version }, { label: "override", success: "修正已保存并重新发布" })) !== null
           );
@@ -498,6 +501,13 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
               <option value="">正常</option>
               <option value="true">静默（入选也不推送）</option>
               <option value="false">取消静默</option>
+            </Select>
+          </Field>
+          <Field label="收录">
+            <Select value={fields.relevance} onChange={(e) => setFields({ ...fields, relevance: e.target.value })}>
+              <option value="">按模型</option>
+              <option value="pass">恢复收录</option>
+              <option value="block">不收录</option>
             </Select>
           </Field>
         </div>

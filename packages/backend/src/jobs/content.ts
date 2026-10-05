@@ -2,9 +2,11 @@
 // Every article reaches the queues through queueProcessing, which records when it was queued, so the
 // safety net only picks up articles nothing is working on and sends those still waiting for a body to
 // extraction first. A provider outage makes an article wait and retry with backoff; only a permanent
-// refusal or exhausted retries end in "failed", which the admin re-queues in bulk.
+// refusal or exhausted retries end in "failed", which the admin re-queues in bulk. Paused paid calls and
+// switched-off model calls only make it wait, without using up its attempts.
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
+import { config } from "../config.ts";
 import { dbOf, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
@@ -12,6 +14,7 @@ import { isHistorical } from "../content/materials.ts";
 import { publishArticle, prepareTranslation } from "../publication/publish.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { translateArticle } from "../editorial/translate.ts";
+import { isChineseOriginal } from "../editorial/translation-readiness.ts";
 import { ModelOutputError } from "../providers/llm.ts";
 import { ensureQueue, enqueue, QUEUES, shutdownSignal } from "./queue.ts";
 
@@ -23,6 +26,8 @@ const RETRY_MINUTES = [5, 10, 20, 40, 60, 120, 240, 360];
 const MAX_OUTPUT_FAILURES = 3;
 /** Extraction gives up after this many errors and the article is judged on what it has. */
 const MAX_EXTRACT_FAILURES = 3;
+/** While model calls are switched off, a waiting article looks again this often. */
+const MODELS_OFF_WAIT_SECONDS = 3600;
 /** A queued article whose job left no trace for this long is queued again. */
 const QUEUED_STALE = "30 minutes";
 
@@ -155,7 +160,9 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     return { state: "skipped" };
   }
   try {
-    const result = await analyzeArticle(articleId, { attemptTag: opts.attemptTag });
+    // A Chinese original is public on its excerpt once the prefilter has not blocked it (BR-ENR-06).
+    const early = isChineseOriginal(normalizeSourceLanguage(found.language)) ? () => publishArticle(articleId) : undefined;
+    const result = await analyzeArticle(articleId, { attemptTag: opts.attemptTag }, early);
     if (!result) return { state: "missing" };
     // Only a title or a feed summary: the article page first; extraction queues the analysis again.
     if (result.needsBody || !result.output) {
@@ -170,10 +177,11 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     return { state: result.output.relevance };
   } catch (error) {
     if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
-    // Failure is never admission. Publishing reuses only current scope evidence; otherwise it withdraws.
+    // A model outage or paused paid calls do not hold a Chinese original back; a BLOCK already given keeps it out.
     await publishArticle(articleId);
     if (error instanceof ReceiptUnknownError) {
-      // The provider may have billed this request: stop; ops.recover releases it once and requeues the article.
+      // The provider may have billed this request: stop. Requeueing alone meets the same unknown receipt; the
+      // owner checks it and, once it is confirmed unbilled, releases it, which requeues the article (admin/runs.ts).
       await sql`UPDATE articles SET processing_state = 'failed', processing_error = ${`receipt ${error.receiptId} outcome unknown`} WHERE id = ${articleId}`;
       return { state: "unknown-receipt" };
     }
@@ -182,14 +190,15 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
 }
 
 /** Waits and retries for passing trouble; marks "failed" for refusals and exhausted retries. */
-async function afterFailure(articleId: string, error: unknown): Promise<{ state: string; retryAt?: Date }> {
+export async function afterFailure(articleId: string, error: unknown): Promise<{ state: string; retryAt?: Date }> {
   // Let pg-boss retry this job after restart, reusing settled receipts. A deploy is not an article
   // failure and must neither consume processing_attempts nor turn an incomplete chain terminal.
   if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
   const message = String(error instanceof Error ? error.message : error).slice(0, 500);
-  if (error instanceof ReceiptBusyError || error instanceof BudgetExceededError) {
-    // Not the article's fault: the same request is in flight, or the budget window is full.
-    const seconds = error instanceof BudgetExceededError ? error.retryAfterSeconds : 60;
+  if (error instanceof ReceiptBusyError || error instanceof BudgetExceededError || !config.modelCallsEnabled) {
+    // Not the article's fault: the same request is in flight, the budget window is full, or model calls are
+    // switched off. A Chinese original stays public meanwhile and is judged once calls are back on.
+    const seconds = error instanceof BudgetExceededError ? error.retryAfterSeconds : error instanceof ReceiptBusyError ? 60 : MODELS_OFF_WAIT_SECONDS;
     const retryAt = new Date(Date.now() + seconds * 1000);
     await sql`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
     return { state: "waiting", retryAt };
