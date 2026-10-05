@@ -52,7 +52,13 @@ test("every real role has exactly the approved table, column, sequence and cross
   assert.equal(legacy.length, 48);
   assert.deepEqual(
     catalog.tables.filter((row) => !row.name.startsWith("public.")).map((row) => row.name),
-    ["content.source_date_observations", "enrichment.translation_segments", "sources.source_policy_current", "sources.source_policy_versions"],
+    [
+      "ai.translation_receipt_observations",
+      "content.source_date_observations",
+      "enrichment.translation_segments",
+      "sources.source_policy_current",
+      "sources.source_policy_versions",
+    ],
   );
   for (const role of DATABASE_ROLES) {
     const sql = sessions[role];
@@ -86,19 +92,22 @@ test("every real role has exactly the approved table, column, sequence and cross
       if (role === "feedback_write" && table.name === "feedback")
         for (const column of table.columns.filter((name) => name !== "id")) await denied(sql, `SELECT ${quote(column)} FROM ${name}`);
     }
-    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
-      const allowed = role === "migrate" || role === "worker" || (operation === "SELECT" && (role === "private_ops" || role === "backup"));
-      const table = '"enrichment"."translation_segments"';
-      const statement =
-        operation === "SELECT"
-          ? `SELECT * FROM ${table} LIMIT 1`
-          : operation === "INSERT"
-            ? `INSERT INTO ${table} SELECT * FROM ${table} WHERE false RETURNING 1`
-            : operation === "UPDATE"
-              ? `UPDATE ${table} SET state=state WHERE false RETURNING 1`
-              : `DELETE FROM ${table} WHERE false RETURNING 1`;
-      await permission(sql, statement, allowed, `${role} ${operation} translation_segments`);
-    }
+    for (const [table, field] of [
+      ['"enrichment"."translation_segments"', "state"],
+      ['"ai"."translation_receipt_observations"', "scope"],
+    ])
+      for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+        const allowed = role === "migrate" || role === "worker" || (operation === "SELECT" && (role === "private_ops" || role === "backup"));
+        const statement =
+          operation === "SELECT"
+            ? `SELECT * FROM ${table} LIMIT 1`
+            : operation === "INSERT"
+              ? `INSERT INTO ${table} SELECT * FROM ${table} WHERE false RETURNING 1`
+              : operation === "UPDATE"
+                ? `UPDATE ${table} SET ${field}=${field} WHERE false RETURNING 1`
+                : `DELETE FROM ${table} WHERE false RETURNING 1`;
+        await permission(sql, statement, allowed, `${role} ${operation} ${table}`);
+      }
     for (const table of ["source_policy_versions", "source_policy_current"]) {
       const name = `sources.${quote(table)}`;
       const current = table === "source_policy_current";

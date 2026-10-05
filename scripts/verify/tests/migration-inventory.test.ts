@@ -76,6 +76,22 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["ai"],
         dependsOn: ["0038_publication_source_excerpt.sql", "enrichment/202610050000_translation_attempt_identity.sql"],
       },
+      {
+        name: "enrichment/202610051200_translation_replacements.sql",
+        module: "enrichment",
+        schemas: ["enrichment"],
+        dependsOn: [
+          "0038_publication_source_excerpt.sql",
+          "enrichment/202610050000_translation_attempt_identity.sql",
+          "ai-gateway/202610050010_receipt_output_rejection.sql",
+        ],
+      },
+      {
+        name: "ai-gateway/202610051210_translation_receipt_observations.sql",
+        module: "ai-gateway",
+        schemas: ["ai"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610050010_receipt_output_rejection.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

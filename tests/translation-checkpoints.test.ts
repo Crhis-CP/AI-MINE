@@ -71,6 +71,10 @@ const material = (name: string, html = `<p>${name} ${T}</p>`) =>
     via: "fetch",
   });
 const translation = async (id: string) => (await sql`SELECT revision,recipe,body_html,complete,manifest FROM translations WHERE article_id=${id}`)[0];
+const cool = async (id: string) => {
+  await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
+  WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${id}@1#%`})`;
+};
 
 test("real strict calls assemble all ordered blocks, reuse receipts across recipe assembly and keep analysis state", async () => {
   mode = "stop";
@@ -166,13 +170,17 @@ test("known-usage bad text can retry only that segment; empty finish reason stay
     ["completed", "failed"],
   );
   mode = "empty";
+  await cool(articleId);
   assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
   assert.equal((await runBodyTranslation(articleId, { ...recipe, id: recipe.id + "-empty-cache" })).status, "translated");
   assert.equal(hits - start, 3, "only the bad segment is retried; empty finishReason survives paid-result reuse");
   mode = "bad";
   const limited = await material("bad-limit"),
     before = hits;
-  for (let i = 0; i < 4; i++) assert.equal((await runBodyTranslation(limited.articleId, recipe)).status, "partial");
+  for (let i = 0; i < 4; i++) {
+    await cool(limited.articleId);
+    assert.equal((await runBodyTranslation(limited.articleId, recipe)).status, "partial");
+  }
   assert.equal(hits - before, 3, "known-usage bad segments allow at most two additional paid attempts");
   mode = "encoded";
   const encoded = await material("encoded-bad");

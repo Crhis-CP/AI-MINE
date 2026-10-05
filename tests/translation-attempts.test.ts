@@ -72,12 +72,19 @@ async function state(id: string, start: number) {
   return { hits: hits - start, receipt: r ? { ...r } : null, checkpoint: s ? { ...s } : null, attempts: attempts.map((x) => ({ ...x })) };
 }
 
+// Synthetic elapsed time preserves the retry/stop windows without a real five-minute wait.
+async function coolArticle(id: string) {
+  await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
+    WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${id}@1#%`})`;
+}
+
 test("second attempt received before checkpoint then restart cannot buy a fourth bad response", async () => {
   const { articleId } = await material("second-attempt-stop"),
     start = hits,
     phases: Record<string, unknown> = {};
   await runBodyTranslation(articleId, recipe);
   phases.first = await state(articleId, start);
+  await coolArticle(articleId);
   held = { asked: gate(), release: gate() };
   const child = spawn(
     process.execPath,
@@ -117,7 +124,10 @@ test("second attempt received before checkpoint then restart cannot buy a fourth
   phases.stopped = await state(articleId, start);
   await runBodyTranslation(articleId, recipe);
   phases.reused = await state(articleId, start);
-  for (let n = 0; n < 3; n++) await runBodyTranslation(articleId, recipe);
+  for (let n = 0; n < 3; n++) {
+    await coolArticle(articleId);
+    await runBodyTranslation(articleId, recipe);
+  }
   phases.final = await state(articleId, start);
   console.log("SECOND_ATTEMPT_PROBE=" + JSON.stringify(phases));
   assert.equal(hits - start, 3, "a received second attempt is not identified by receipts.id alone");
@@ -137,7 +147,10 @@ test("checkpoint rollback preserves received response and cannot enable an uncou
     await sql`DROP TRIGGER ${sql(name)} ON enrichment.translation_segments`;
     await sql`DROP FUNCTION ${sql(name)}()`;
   }
-  for (let n = 0; n < 4; n++) await runBodyTranslation(articleId, recipe);
+  for (let n = 0; n < 4; n++) {
+    await coolArticle(articleId);
+    await runBodyTranslation(articleId, recipe);
+  }
   phases.final = await state(articleId, start);
   console.log("NONATOMIC_PROBE=" + JSON.stringify(phases));
   assert.equal(hits - start, 3, "receipt rejection and durable attempt accounting need the same transaction");
@@ -194,6 +207,7 @@ test("actual response pointers bind cached identity; duplicate settlement is ide
   assert.equal(before.cost, 1.25);
   const rejected = await Promise.all([1, 2].map(() => sql.begin((tx) => settleTranslationResponse(tx, first, { accepted: false, reason: "bad output" }))));
   assert.deepEqual(rejected, [{ rejected: 1 }, { rejected: 1 }]);
+  await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes' WHERE id=${first.attemptId}`;
   const second = await paidRequest(req, async () => {
     calls++;
     return outcome("second", 2.5);
@@ -290,6 +304,7 @@ test("translation output cap is checked before a new claim and legacy callers ke
         return outcome(`bad-${n}`);
       });
       await sql.begin((tx) => settleTranslationResponse(tx, received, { accepted: false, reason: "known bad output" }));
+      if (limited) await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes' WHERE id=${received.attemptId}`;
     }
     if (limited)
       await assert.rejects(

@@ -12,7 +12,7 @@ const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-translate-stop-${T}`;
-let active: { asked: ReturnType<typeof gate<void>>; hold: ReturnType<typeof gate<void>>; calls: number; misaligned: boolean };
+let active: { asked: ReturnType<typeof gate<void>>; hold: ReturnType<typeof gate<void>>; calls: number; misaligned: boolean; truncated: boolean };
 const provider = await stub(async (_hit, req) => {
   const { text } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
   assert.equal(typeof text, "string");
@@ -22,7 +22,11 @@ const provider = await stub(async (_hit, req) => {
     await active.hold.promise;
   }
   const output = { text: `完整译文${T}`, ...(active.misaligned && active.calls === 1 ? { extra: true } : {}) };
-  return { id: "stub", choices: [{ message: { content: JSON.stringify(output) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
+  return {
+    id: "stub",
+    choices: [{ message: { content: JSON.stringify(output) }, finish_reason: active.truncated && text.includes("\n") ? "length" : "stop" }],
+    usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+  };
 });
 
 function runTranslation(articleId: string) {
@@ -83,14 +87,20 @@ after(async () => {
   await closeDb();
 });
 
-for (const misaligned of [false, true])
-  test(`SIGTERM finishes the sent ${misaligned ? "extra-field" : "normal"} segment and resumes from its receipt`, async () => {
-    active = { asked: gate(), hold: gate(), calls: 0, misaligned };
-    const first = misaligned ? `First paragraph ${T}.` : `First paragraph ${T}. ${"English text ".repeat(170)}`;
-    const second = misaligned ? `Second paragraph ${T}.` : `Second paragraph ${T}. ${"More English ".repeat(170)}`;
+for (const scenario of ["normal", "extra-field", "truncated"] as const)
+  test(`SIGTERM finishes the sent ${scenario} segment and resumes from its receipt`, async () => {
+    const misaligned = scenario === "extra-field",
+      truncated = scenario === "truncated";
+    active = { asked: gate(), hold: gate(), calls: 0, misaligned, truncated };
+    const first = truncated
+      ? `Truncated left ${T}.\nTruncated right ${T}.`
+      : misaligned
+        ? `First paragraph ${T}.`
+        : `First paragraph ${T}. ${"English text ".repeat(170)}`;
+    const second = truncated ? `Truncated follow-up ${T}.` : misaligned ? `Second paragraph ${T}.` : `Second paragraph ${T}. ${"More English ".repeat(170)}`;
     const { articleId } = await upsertMaterial({
       sourceId: SOURCE,
-      url: `https://example.org/translation-shutdown-${T}/${misaligned}`,
+      url: `https://example.org/translation-shutdown-${T}/${scenario}`,
       title: `Shutdown ${T}`,
       bodyHtml: `<p>${first}</p><p>${second}</p>`,
       bodyText: first + second,
@@ -126,10 +136,27 @@ for (const misaligned of [false, true])
       "the durable target remains resumable without publishing partial text",
     );
     const reused = await runTranslation(articleId).done;
-    if (misaligned) assert.equal(reused.done[0].status, "partial", "the cached extra-field response is rejected, never silently repaired");
+    if (misaligned) {
+      assert.equal(reused.done[0].status, "partial", "the cached extra-field response is rejected, never silently repaired");
+      assert.equal((await runTranslation(articleId).done).done[0].status, "partial", "restart cannot bypass the five-minute bad-output cooldown");
+      assert.equal(active.calls, 2, "the bad received answer and the good second segment are reused during cooldown");
+      await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
+        WHERE output_rejected_at IS NOT NULL AND receipt_id IN (SELECT id FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`})`;
+    }
     const resumed = misaligned ? await runTranslation(articleId).done : reused;
     assert.equal(resumed.done[0].status, "translated");
-    assert.equal(active.calls, misaligned ? 3 : 2, "the first receipt is reused, only missing pieces are requested");
+    assert.equal(
+      active.calls,
+      truncated ? 4 : misaligned ? 3 : 2,
+      "the first receipt is reused, only missing pieces or the two explicit replacement children are requested",
+    );
+    if (truncated) {
+      assert.equal(
+        (await sql`SELECT count(*) AS n FROM enrichment.translation_segments WHERE article_id=${articleId} AND replacement_plan IS NOT NULL`)[0]!.n,
+        1,
+      );
+      assert.equal((await sql`SELECT status FROM receipts WHERE purpose='translate_body' AND subject=${`article:${articleId}@1#0`}`)[0]!.status, "received");
+    }
     const [translation] = await sql`SELECT complete,revision FROM translations WHERE article_id=${articleId}`;
     assert.deepEqual({ ...translation }, { complete: true, revision: 1 });
   });
