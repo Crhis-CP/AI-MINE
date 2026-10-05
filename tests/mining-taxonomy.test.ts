@@ -58,7 +58,7 @@ const get = async (url: string) => {
 
 test("actual classification, publication and public exits agree on nine keys and nullable unknowns", async () => {
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@e86693e15b");
-  assert.equal(PROMPT_VERSIONS.score, "selection-score@fbd8c3c4e0");
+  assert.equal(PROMPT_VERSIONS.score, "selection-score@6c522d7f20");
   assert.deepEqual([...ITEM_TYPES], [...CATEGORY_KEYS], "the scoring content types are the nine site categories, in order");
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
