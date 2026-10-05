@@ -32,3 +32,8 @@ TASK0022 取得接线补充（仍未激活公开字段）：`SourceTimeProjectio
 TASK-0021私有HTTP 0.3.0（建设期breaking，ADR-0024）：POST sources必需permission_scope与attachments_in_scope，创建动作即负责人加入确认；SourceCreateRequest/Response与SourceDetailResponse由本包唯一定义，既有返回形状保留，详情增加严格permission读回。省略site_fulltext默认true，显式false收紧两个站内全文用途，syndicate默认false。SourceRecord是既有HTTP字段的明确投影，内部日期CAS等新增存储列不自动暴露。公共HTTP及其0.2.0生成物保持原字节。
 
 `source-policy`补充未激活的ProcessingInputManifest与独立CapabilityInputAuthorization：来源分支必须非空、保持材料revision/hash/资源和完整上游artifact四元组；同一材料同一revision不能自称不同来源/hash；历史摘要与当前输入可各自携带该稿不同revision，是否实际可用仍须核验，重复artifact不可伪装另一manifest。非来源分支只声明待核对的登记artifact/hash/caller/lane/model_capability/external_model用途，schema本身不登记、不签发或认可SELF_AUTHORED。请求不能指定签发时刻/有效期；实际工厂核对服务端清单、真实渲染输入与当前根后签发Ed25519封装。权限版本与业务用途记录在每次使用审计，不写入付费缓存身份。此差量不注册HTTP或改变任何生成物，实际消费随后与存储/全部调用方原子接通。
+
+
+ADR-0025 / TASK-0022 的 `SourceDated*` 是未注册的下一版公开形状，复用现有 schema 的 `extend`：TimeAssertion 仍是来源事实，`firstPublicAt` 是实际公开资格成立时的本站记录，旧历史未知保留 null；TimelineCard.day 是来源日/组内最新来源日，不能用回退时刻分组。现有 Feed/Pool/Timeline 及私有 runs 别名和 HTTP 注册继续保持原形状，生成 public 0.2.0 / private 0.3.0 字节不变。本片不把 nullable 来源日期或新必填字段提前放到旧处理器上。
+
+消费者联合激活时一次切换相应别名、旧手写 DTO 引用、全部读者/机器出口与生成 public 0.3.0；详情报道的 publishedAt 允许 null，日历日不制造 instant。tl2（日+原锚点）和 by=published 的 it4 文本日期游标拒绝旧版本并沿用 Problem/重载语义，其他游标协议保留。`SourceDatedReceiptReconciliationResponse` 同时预告私有待补列表；未配置告警天数时是 null，不暗设期限。具体兼容边界、实际 first-public 时机与联动顺序见 ADR-0025；本片没有日期公开门、任务、数据库或模型调用。

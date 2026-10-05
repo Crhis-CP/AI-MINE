@@ -37,8 +37,9 @@ async function analyzed(label: string, timelineAt: string): Promise<string> {
   const { articleId, backfill } = await upsertMaterial({
     sourceId: SOURCE,
     url: `https://example.com/report-boundary-${T}-${label}`,
-    title: `Report boundary ${label}`,
-    bodyText: `Report boundary ${label} body`,
+    title: `矿业报告边界 ${label}`,
+    bodyText: `矿业报告边界 ${label} 的自编中文原文。`,
+    language: "zh",
     bodyStatus: "ok",
     publishedAt: new Date(timelineAt),
     discoveredAt: new Date(timelineAt),
