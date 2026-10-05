@@ -142,6 +142,7 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   maxTokens?: number;
   attemptTag?: string;
   timeoutMs?: number;
+  maxRejectedOutputs?: 3;
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
   json?: boolean;
   parse?: (content: string) => unknown;
@@ -153,6 +154,8 @@ export interface ChatJsonResult<T> {
   reused: boolean;
   model: string;
   usage: Record<string, unknown> | null;
+  finishReason: string | null;
+  attemptId: string | null;
 }
 
 export class ModelOutputError extends Error {
@@ -253,6 +256,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         maxTokens,
       },
       attemptTag: opts.attemptTag,
+      maxRejectedOutputs: opts.maxRejectedOutputs,
     },
     async () => {
       const started = Date.now();
@@ -296,10 +300,18 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     parsed = opts.schema.parse(opts.parse ? opts.parse(content) : extractJson(content));
   } catch (error) {
     // Unusable output: record it and let a later attempt pay for a fresh answer.
-    await rejectReceivedResponse(receipt.receiptId, `unusable output: ${String(error).slice(0, 500)}`);
+    await rejectReceivedResponse(receipt.receiptId, `unusable output: ${String(error).slice(0, 500)}`, receipt.attemptId);
     throw new ModelOutputError(`Model ${opts.model} returned unusable output for ${opts.subject}: ${String(error).slice(0, 300)}`, receipt.receiptId);
   }
-  return { data: parsed, receiptId: receipt.receiptId, reused: receipt.reused, model: spec.key, usage: response.usage ?? null };
+  return {
+    data: parsed,
+    receiptId: receipt.receiptId,
+    reused: receipt.reused,
+    model: spec.key,
+    usage: response.usage ?? null,
+    finishReason: response.choices?.[0]?.finish_reason ?? null,
+    attemptId: receipt.attemptId,
+  };
 }
 
 export async function markReceiptsCompleted(ids: number[]): Promise<void> {

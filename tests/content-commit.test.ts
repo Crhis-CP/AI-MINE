@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf, type Tx } from "@amp/backend/db";
-import { commitProcessingResult, upsertMaterial } from "@amp/backend/content/materials";
+import { commitBodyResult, readCurrentBody, commitProcessingResult, upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle } from "@amp/backend/editorial/analyze";
 import { failureGroupSql, requeueFailed } from "@amp/backend/jobs/content";
 import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
@@ -45,6 +45,7 @@ test("content modules and the fixed failure fragment import without a database o
     await import('@amp/backend/jobs/content');
     await import('@amp/backend/admin/runs');
     await import('@amp/backend/editorial/analyze');
+    await import('./packages/backend/src/editorial/translation-runtime.ts');
   `,
     ],
     { env: { AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials" }, encoding: "utf8", timeout: 10_000 },
@@ -158,4 +159,54 @@ test("real analysis retains stale evidence and receipts without overwriting a ne
   assert.equal(current!.stale, false);
   const [updated] = await sql`SELECT processing_state,processing_error FROM articles WHERE id=${articleId}`;
   assert.deepEqual({ ...updated }, { processing_state: "blocked", processing_error: null });
+});
+
+test("derived-body transactions preserve analysis state and refuse changed revisions or HTML before callbacks", async () => {
+  const { articleId } = await upsertMaterial({
+    sourceId: SOURCE,
+    url: `https://fixture.invalid/${T}/body-lock`,
+    title: "Body lock",
+    bodyText: "First body.",
+    bodyHtml: "<p>First body.</p>",
+    bodyStatus: "ok",
+    language: "en",
+    via: "fetch",
+  });
+  await sql`UPDATE articles SET processing_state='failed',processing_error='kept',processing_attempts=2,
+    processing_retry_at='2100-01-01' WHERE id=${articleId}`;
+  const current = (await readCurrentBody(articleId))!;
+  const state = async () => ({
+    ...(await sql`SELECT processing_state,processing_error,processing_attempts,processing_retry_at FROM articles WHERE id=${articleId}`)[0],
+  });
+  const before = await state();
+  const receipt = await paidRequest({ service: "dashscope", purpose: "body_commit_test", identity: { articleId } }, async () => ({
+    response: { text: "合成译文" },
+  }));
+  const write = async (tx: Tx) => {
+    await tx`INSERT INTO translations(article_id,revision,body_html,complete) VALUES(${articleId},1,'合成译文',false)`;
+    await completeReceipt(tx, receipt.receiptId);
+    return "committed";
+  };
+  await assert.rejects(
+    commitBodyResult(current, async (tx) => {
+      await write(tx);
+      throw new Error("body rollback");
+    }),
+    /body rollback/,
+  );
+  assert.equal((await sql`SELECT count(*) AS n FROM translations WHERE article_id=${articleId}`)[0].n, 0);
+  assert.equal((await sql`SELECT status FROM receipts WHERE id=${receipt.receiptId}`)[0].status, "received");
+  assert.deepEqual(await state(), before);
+  assert.equal(await commitBodyResult(current, write), "committed");
+  assert.equal((await sql`SELECT status FROM receipts WHERE id=${receipt.receiptId}`)[0].status, "completed");
+  assert.deepEqual(await state(), before);
+  const forbidden = async () => {
+    assert.fail("stale body must not invoke the writer");
+  };
+  await sql`UPDATE articles SET body_html='<p>Changed HTML with the same revision.</p>' WHERE id=${articleId}`;
+  assert.equal(await commitBodyResult(current, forbidden), null);
+  await sql`UPDATE articles SET body_html=${current.body_html},revision=2 WHERE id=${articleId}`;
+  assert.equal(await commitBodyResult(current, forbidden), null);
+  assert.equal(await readCurrentBody(`${articleId}-missing`), null);
+  assert.deepEqual(await state(), before);
 });

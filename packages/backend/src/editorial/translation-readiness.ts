@@ -4,7 +4,7 @@ import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import { z } from "zod";
 
-export const TRANSLATION_MANIFEST_FORMAT = "strict-text-v1";
+export const TRANSLATION_MANIFEST_FORMAT = "strict-text-attempt-v1";
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
 const URL_TEXT = /\b(?:https?|ftp):\/\/[^\s<>"']+|\bwww\.[^\s<>"']+/giu;
 const BLOCK = new Set(["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "figcaption", "td", "th", "dt", "dd", "caption"]);
@@ -22,6 +22,8 @@ export function translationTextIssue(html: string): string | null {
   if (html.includes("\0")) return "nul";
   if (html.includes("\uFFFD")) return "replacement";
   const text = visibleText(html);
+  if (text.includes("\0")) return "nul";
+  if (text.includes("\uFFFD")) return "replacement";
   const han = [...text.matchAll(/\p{Script=Han}/gu)].length;
   if (!han) return "no_han";
   const envelope = new Set([...text.matchAll(/\b(language|section_index|sections_total|source)\b["']?\s*[:=]/gu)].map((m) => m[1]));
@@ -47,18 +49,18 @@ export interface SourceSegment {
 }
 
 /** Stable leaf order and exact source bytes; Unicode letters cover non-Latin source text too. */
-export function translationSourceManifest(html: string) {
+function sourceTree(html: string) {
   const $ = cheerio.load(html, null, false);
-  const segments: SourceSegment[] = [];
-  const add = (inner: string, kind: SourceSegment["kind"]) => {
-    if (/\p{L}/u.test(visibleText(inner, true))) segments.push({ index: segments.length, kind, sourceHash: hash(inner), html: inner });
+  const segments: (SourceSegment & { nodes: AnyNode[] })[] = [];
+  const add = (inner: string, kind: SourceSegment["kind"], nodes: AnyNode[]) => {
+    if (/\p{L}/u.test(visibleText(inner, true))) segments.push({ index: segments.length, kind, sourceHash: hash(inner), html: inner, nodes });
   };
   const boundary = (node: AnyNode): boolean => node.type === "tag" && CONTAINER.test((node as Element).name);
   const containsBoundary = (nodes: AnyNode[]): boolean => nodes.some((n) => boundary(n) || (n.type === "tag" && containsBoundary((n as Element).children)));
   const visit = (nodes: AnyNode[]) => {
     let inline: AnyNode[] = [];
     const flush = () => {
-      if (inline.length) add($.html(inline), "inline");
+      if (inline.length) add($.html(inline), "inline", inline);
       inline = [];
     };
     for (const node of nodes) {
@@ -68,13 +70,18 @@ export function translationSourceManifest(html: string) {
       }
       flush();
       if (node.name === "pre") continue;
-      if (BLOCK.has(node.name) && !containsBoundary(node.children)) add($(node).html() ?? "", "element");
+      if (BLOCK.has(node.name) && !containsBoundary(node.children)) add($(node).html() ?? "", "element", [node]);
       else visit(node.children);
     }
     flush();
   };
   visit($.root().contents().toArray());
-  return { format: TRANSLATION_MANIFEST_FORMAT, sourceHash: hash(html), segments };
+  return { $, segments };
+}
+
+export function translationSourceManifest(html: string) {
+  const { segments } = sourceTree(html);
+  return { format: TRANSLATION_MANIFEST_FORMAT, sourceHash: hash(html), segments: segments.map(({ nodes: _, ...segment }) => segment) };
 }
 
 export interface TranslationCheckpoint {
@@ -116,6 +123,23 @@ export function completeTranslationManifest(sourceHtml: string, current: { revis
     recipe: current.recipe,
     segments,
   };
+}
+
+/** Assembly uses the same ordered units as coverage, never a text search or a partial replacement. */
+export function assembleTranslation(sourceHtml: string, current: { revision: number; recipe: string }, checkpoints: readonly TranslationCheckpoint[]) {
+  const manifest = completeTranslationManifest(sourceHtml, current, checkpoints);
+  if (!manifest) return null;
+  const { $, segments } = sourceTree(sourceHtml);
+  for (const [index, segment] of segments.entries()) {
+    const text = restoreTranslationText(segment.html, { text: checkpoints[index]!.text })!;
+    if (segment.kind === "element") $(segment.nodes[0]!).html(text);
+    else {
+      $(segment.nodes[0]!).replaceWith(text);
+      for (const node of segment.nodes.slice(1)) $(node).remove();
+    }
+  }
+  const html = $.html();
+  return { html, manifest: { ...manifest, bodyHash: hash(html) } };
 }
 
 /** A block as the model sees it: media and inline code as ⟦n⟧, links as <a id="Ln"> with their attributes kept here. */

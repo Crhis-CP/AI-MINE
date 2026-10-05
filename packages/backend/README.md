@@ -48,3 +48,8 @@ TASK-0021生命周期前置：initializeDb返回本根AbortSignal；同role与�
 TASK-0021存储能力：既有admin/sources入口新增saveSourcePolicy以及当前私有/公开读取、版本锁端口；不注册HTTP、不启用模型调用。来源编辑在同一事务追加不可变版本、CAS推进当前指针及最小公开投影、记录审计。缺记录返回null；不会在读取或迁移时补造Owner许可。数据库限制应用角色改删历史，管理员仍有管理能力。
 
 lockCurrentSourcePolicies在调用方的事务中按source_id顺序取得共享咨询锁并核对版本，编辑使用同key独占锁；锁持有至事务结束。围栏仅接受READ COMMITTED，明确拒绝可能在等待后继续看旧快照的其他隔离级别。正式消费者必须先锁全部许可、再锁材料，并在锁内校验实际用途/资源后写回；该端口只保证版本围栏，不能代替ProcessingPermit或范围判定。当前函数尚未接入模型/内容消费者，不声称已实现完整网关强制。
+
+
+`readCurrentBody` / `commitBodyResult`是content的正文派生窄端口：读取正文身份，写回时锁定相同revision与HTML；不改变分析状态、错误、次数或重试时间。显式`runBodyTranslation`由已核验准入、来源许可和外文条件的worker调用，网络在事务外，检查点与实际attempt的完成/标坏同事务提交，完整manifest另行晋升。旧revision/recipe迟到停止后续片段；旧attempt不能覆盖新attempt或被当作正常结果交给旧调用者。
+
+Gateway保存每个实际attempt的原响应/用量/成本，receipts只在CAS当前尝试时更新response_attempt_id；缓存沿该指针核验所属回执、尝试与原响应，不猜MAX或给历史记录补造身份。新翻译显式启用同一调用键最多3次坏输出限制，claim前检查，重复结算不重复计数；旧能力默认不启用这个限制。缺usage的坏响应仍received，unknown不重发，明确截断不晋升；stop或空finishReason也须严格text与结构检查。不能证明历史缓存的attempt时保持私有待处理，不重新购买。旧cron/t提示词与公开门尚未切换，本片不代表自动外文准入完成。
