@@ -30,7 +30,7 @@
 |---|---|---|
 | 世界银行 | The World Bank: Commodity Price Data (The Pink Sheet) | CC BY 4.0（数据集页面 https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections 写着 “License : Creative Commons Attribution 4.0”）；使用条款 https://data.worldbank.org/summary-terms-of-use |
 | IMF | Source: International Monetary Fund, Primary Commodity Prices, https://www.imf.org/en/research/commodity-prices | 仅作非商业使用；条款 https://www.imf.org/en/about/copyright-and-terms |
-| 国家统计局 | 转自国家统计局网站 https://www.stats.gov.cn | 网站声明 https://www.stats.gov.cn/wzgl/202302/t20230217_1912857.html |
+| 国家统计局 | 转自国家统计局网站 https://www.stats.gov.cn | 服务条款 https://www.stats.gov.cn/wzgl/202302/t20230217_1912857.html |
 
 ## 裁法
 

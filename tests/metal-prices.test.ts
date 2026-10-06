@@ -49,7 +49,7 @@ test("the price table refuses a row without source, benchmark, unit, currency or
     // Each of these two breaks one value list only: an unknown source, and a period type no source uses.
     { source: "wb", series_key: "wb.copper", currency: "USD", period_type: "month", period_start: "2026-08-01", period_end: "2026-08-31" },
     { source: "worldbank", series_key: "wb.copper", currency: "USD", period_type: "week", period_start: "2026-08-01", period_end: "2026-08-31" },
-    { benchmark: " " },
+    ...["name_zh", "grade", "benchmark", "delivery_basis", "unit", "source_unit", "period_label", "release_label"].map((column) => ({ [column]: " " })),
     { currency: "EUR" },
     { period_end: "2026-09-10" },
     { release_url: "http://www.stats.gov.cn/sj/zxfb/202609/t20260923_1965403.html" },
@@ -140,7 +140,7 @@ test("a bad registry is refused whole with the field named; a stopped series sta
   const stopped = data();
   stopped.items[3].enabled = false;
   const kept = parseMetalPriceRegistry(stopped).items;
-  assert.deepEqual([kept.length, kept.filter((item) => !item.enabled).map((item) => item.key)], [stopped.items.length, ["nbs.zinc"]]);
+  assert.deepEqual([kept.length, kept.filter((item) => item.source === "nbs" && !item.enabled).map((item) => item.key)], [stopped.items.length, ["nbs.zinc"]]);
   const dir = mkdtempSync(path.join(tmpdir(), "metal-prices-"));
   writeFileSync(path.join(dir, "broken.json"), text.slice(0, -10));
   assert.throws(() => loadMetalPriceRegistry(path.join(dir, "broken.json")), SyntaxError);

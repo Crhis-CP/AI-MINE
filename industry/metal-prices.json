@@ -6,14 +6,14 @@
       "section": "domestic",
       "frequency": "ten_day",
       "currency": "CNY",
-      "delay": "旬度，每旬结束后数日发布",
+      "delay": "每旬结束后数日发布",
       "staleDays": 20,
       "hosts": ["www.stats.gov.cn"],
       "officialUrl": "https://www.stats.gov.cn/sj/zxfb/index.html",
       "terms": { "name": "国家统计局服务条款", "url": "https://www.stats.gov.cn/wzgl/202302/t20230217_1912857.html" },
       "attribution": ["转自国家统计局网站 https://www.stats.gov.cn", "原文数据来源：中国统计信息服务中心、卓创资讯"],
       "license": [
-        "本栏价格转自国家统计局网站，本站以资料性的公共免费信息为目的引用，照发布的原数显示，不换算单位、不四舍五入，不显示涨跌。",
+        "本栏价格转自国家统计局网站，本站以资料性的公共免费信息为目的，合理、善意地引用，照发布的原数显示，不换算单位、不四舍五入，不显示涨跌。",
         "本站不授权任何人转载或再使用本栏数据；需要使用，请到国家统计局网站查阅原数并遵守其服务条款。",
         "国家统计局没有说明“本期价格”是怎样取的，本站只写所属期。"
       ],
