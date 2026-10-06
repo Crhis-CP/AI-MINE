@@ -8517,7 +8517,7 @@
   },
   {
    "id": "INV-06",
-   "title": "只有日期精度的来源时间在任何出口都不显示时分，不补“00:00”；列表时间栏对仅日期条目回退显示",
+   "title": "资讯线：只写日期的来源，网页上不显示“00:00”或“08:00”，不算“几天前”：文章页只写日",
    "main_layer": "L1",
    "status": "rewritten",
    "t_ids": [
@@ -8534,7 +8534,7 @@
   },
   {
    "id": "INV-07",
-   "title": "旧文（来源日期的北京日历日早于发现日的前一天，即相差 ≥2 个日历日；新信源首次导入的存量；标记",
+   "title": "旧文（资讯线，照 AIHOT：新信源首次导入的、标记为回填的、发现时已晚于来源时间 48 小时以",
    "main_layer": "L2",
    "status": "rewritten",
    "t_ids": [
@@ -12716,7 +12716,7 @@
   },
   {
    "id": "T-145",
-   "title": "旧文判据与时间边界（北京日历日）",
+   "title": "旧文判据（照 AIHOT）",
    "layer": "L2",
    "level": "N",
    "f_ids": [
@@ -21228,7 +21228,7 @@
   },
   {
    "id": "BR-TIME-01",
-   "title": "保留精度，不编造时分",
+   "title": "只写日期的来源：发布时间取当天零点，网页只显示日期",
    "file": "02-rules/04-time-semantics.md",
    "status": "covered",
    "t_ids": [
@@ -21325,7 +21325,7 @@
   },
   {
    "id": "BR-TIME-06",
-   "title": "旧文不刷屏：按北京日历日判定",
+   "title": "旧文不刷屏：照 AIHOT 判定",
    "file": "02-rules/04-time-semantics.md",
    "status": "covered",
    "t_ids": [
@@ -21367,7 +21367,7 @@
   },
   {
    "id": "BR-TIME-08",
-   "title": "“今天”与日期筛选按北京时间自然日；仅日期不平移",
+   "title": "“今天”与日期分组按北京时间自然日，资讯线以时间线为准",
    "file": "02-rules/04-time-semantics.md",
    "status": "covered",
    "t_ids": [
@@ -21446,7 +21446,7 @@
   },
   {
    "id": "BR-TIME-12",
-   "title": "外文日期解析要有依据；没有可靠来源日期的新闻材料不公开",
+   "title": "外文日期解析要有依据",
    "file": "02-rules/04-time-semantics.md",
    "status": "covered",
    "t_ids": [
@@ -21486,7 +21486,7 @@
   },
   {
    "id": "BR-TIME-14",
-   "title": "混合精度条目的排序键",
+   "title": "排序：照 AIHOT 按时间线倒序",
    "file": "02-rules/04-time-semantics.md",
    "status": "covered",
    "t_ids": [
@@ -21502,7 +21502,7 @@
   },
   {
    "id": "BR-TIME-15",
-   "title": "没有可靠来源日期的新闻材料不公开（法规文书例外）；来源时间不得晚于当前",
+   "title": "没有可靠来源日期的新闻材料照 AIHOT 公开；判为未来的来源时间不采用；法规文书另有规则",
    "file": "02-rules/04-time-semantics.md",
    "status": "covered",
    "t_ids": [

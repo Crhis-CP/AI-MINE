@@ -74,7 +74,7 @@
 | F-ACQ-01 | 7×24 调度 | 每 5 分钟检查到期信源，按各源频率抓取，含追赶机制；“每 5 分钟检查”不等于每 5 分钟都有新稿；资讯与法规分别调度、互不饿死 | 系统 | M1→M2 | 【已实现未验证】 | 线上存在（README.md:47@main）；09-15 现役 worker 退出且数据库全局暂停，至 09-20 才发现（product-production-audit-20260920.md:16-20@main） | F-006 | BR-ACQ、BR-OPS-03、BR-OPS-09、ANTI-29 | acquisition |
 | F-ACQ-02 | 多种采集方式 | RSS/Atom、网页列表、JSON 接口、站点地图、法规库接口、PDF 列表；付费渠道（如付费公众号）属新增付费依赖，须 Owner 同意 | 系统 | M2 | 【已验证】（RSS/网页/JSON）/【新增】（PDF 列表） | 2026-09-15 回读 25 个来源有公开内容（README.md:25@main） | F-007 | BR-ACQ | acquisition |
 | F-ACQ-03 | 分页与检查点 | 页码、续读链接、未消费文章、热窗口与冷回填；保存页内尾部后再推进页码，失败不推进 | 系统 | M2 | 【已验证】 | 山西厅来源的页码规则与断点（docs/designs/mining-product-overhaul.md:118-119@main） | F-006 | ENT-09、BR-OPS-05 | acquisition |
-| F-ACQ-04 | 有界回填 | 新来源热窗口 72 小时（先看列表头部，按“条目 ID + 修订”判新）；冷回填 7 天 → 30 天，低优先、与新稿共用同一用量账本与熔断保护；30 天后每 24 小时复扫；回填保留原日期，旧文不进“今天”；法规线不受 30 天上限，另设窗口 | 系统 | M2 | 【已验证】 | “新来源回填近 30 天”（README.md:44@main） | F-006、F-038 | BR-TIME-06/07 | acquisition |
+| F-ACQ-04 | 有界回填 | 新来源热窗口 72 小时（先看列表头部，按“条目 ID + 修订”判新）；冷回填 7 天 → 30 天，低优先、与新稿共用同一用量账本与熔断保护；30 天后每 24 小时复扫；回填保留原日期，旧文来源日期不在今天的不进“今天”，没有来源日期的按发现时间进当天（目前的限制，BR-TIME-06 第 2 点）；法规线不受 30 天上限，另设窗口 | 系统 | M2 | 【已验证】 | “新来源回填近 30 天”（README.md:44@main） | F-006、F-038 | BR-TIME-06/07 | acquisition |
 | F-ACQ-05 | 礼貌与安全抓取 | robots、限速、同主机重定向、SSRF 防护、大小上限、gzip、编码识别（含 GBK）；默认只接受 https，负责人可为单源开 http 例外并留审计（DEC-56） | 系统 | M1 | 【已验证】（部分）/【新增】（robots、GBK、http 例外审计） | 原表 63–79 个 http 网址（DEC-56 依据） | F-002、F-007 | BR-ACQ、`04-architecture/06-security-and-access.md`、DEC-56 | acquisition |
 | F-ACQ-06 | 单源失败隔离 | 单源失败只影响自己，分类记录原因并按类重试 | 系统 | M2 | 【已验证】 | — | F-006 | BR-ACQ | acquisition |
 | F-ACQ-07 | 外部推送入口 | 带令牌的脚本推送材料，走同一判重与处理流程，新来源默认隔离；首版关闭（见 §14） | 负责人 | 候选 | 【设计】 | 旧站无；AIHOT `apps/api/src/routes/ingest.ts` | — | OUT-10 | acquisition（候选，首版关闭） |
@@ -87,7 +87,7 @@
 | F-MAT-02 | 正文取得与清洗 | 列表 → 详情 → 正文；去导航广告；保留表格、段落、列表、尾段条件与落款 | 系统 | M2 | 【已验证】 | 线上个别条目中文与原文可读（README.md:23@main） | F-008 | BR-MAT | content |
 | F-MAT-03 | 行政文书正文判定 | 逐文核实机关正式文书（署名、落款、文号齐全）以确认身份与完整性；这是逐篇核验链，保留其核验作用，不再作为许可依据（Owner 2026-10-01：许可一律按 owner_declared 建档，DEC-33） | 系统 | M2 | 【已实现未验证】 | — | F-010 | BR-MAT、`07-sources-and-coverage.md` §6.6 | content |
 | F-MAT-04 | 薄材料补全 | 只有标题/附件链接时延后重取，不算完成、不公开 | 系统 | M2 | 【已实现未验证】 | — | F-008、F-017 | BR-ENR-11 | content |
-| F-MAT-05 | 时间字段与精度 | 发布、更新、登记、公开阅览、生效、签署、发现、首次公开分开；以时间断言（TimeAssertion）为底，带中文标签与北京日期（DEC-50）；仅日期精度不补时分；法律日期按法域当地日历日比较（BR-TIME-13）；混合精度条目用单独的排序键（BR-TIME-14）；没有可靠来源日期的材料不进入公开读取层，进入私有“待补日期”队列（BR-TIME-15；是否改为先公开见 `08-open-questions.md` Q-31） | 系统 | M1 | 【已验证】 | 线上时间栏显示真实时分（README.md:24@main） | F-009 | `02-rules/04-time-semantics.md`（BR-TIME-09/13/14/15）、DEC-49、DEC-50 | content |
+| F-MAT-05 | 时间字段与精度 | 发布、更新、登记、公开阅览、生效、签署、发现、首次公开分开；以时间断言（TimeAssertion）为底，带中文标签与北京日期（DEC-50）；网页列表和详情页只写日期的资讯，发布时间取来源时区当天零点，网页只显示日期（BR-TIME-01，2026-10-05 改；RSS、JSON 列表等的限制见 BR-TIME-01）；法规线只写日期的照旧不补时分；法律日期按法域当地日历日比较（BR-TIME-13）；列表照 AIHOT 按时间线排（BR-TIME-14）；没有可靠来源日期的资讯照 AIHOT 公开、按发现时间排（BR-TIME-15） | 系统 | M1 | 【已实现】TASK-0040（只指资讯线部分；法规线的时间【设计】） | `tests/day-only-timeline.test.ts`、`tests/web-list-date.test.ts`、`apps/web/tests/day-only-time.test.ts`（旧仓库“线上时间栏显示真实时分”README.md:24@main 只是旧站的证据） | F-009 | `02-rules/04-time-semantics.md`（BR-TIME-09/13/14/15）、DEC-49、DEC-50 | content |
 | F-MAT-06 | PDF 与附件 | PDF 正文提取、附件清单；许可范围内保存；法规必要附件为必需能力（见 F-POL-02） | 系统 | M2 | 【新增】 | — | F-007、F-047 | BR-MAT | content；acquisition（PDF/OCR 抽取） |
 | F-MAT-07 | 材料修订与稳定身份 | 正文变化新建不可变修订；改名称/频率不新建文章；翻译补齐不换文章网址；旧人工覆盖不借给新材料 | 系统 | M1 | 【设计】 | A 仅在数据模型中描述，功能全集原无条目 | F-011 | `03-data/01-domain-model.md` | content |
 
