@@ -76,6 +76,22 @@ export const MINING_CATEGORY_GUIDE = [
   ...MINING_CATEGORIES.map((c) => `- ${c.key}（${c.label}）：${c.guide}`),
 ].join("\n");
 
+/**
+ * Display names the Owner changed on 2026-10-05 (TASK-0041). An item's category name is also kept as its
+ * first tag, so items analysed before the change still carry an old name: publication shows the new one.
+ */
+const RENAMED_CATEGORY_TAGS: Readonly<Record<string, string>> = {
+  人身与生产安全: MINING_CATEGORY_LABELS.safety_incident,
+  安全事故: MINING_CATEGORY_LABELS.safety_incident,
+  技术与加工: MINING_CATEGORY_LABELS.technology_processing,
+  技术加工: MINING_CATEGORY_LABELS.technology_processing,
+};
+
+/** Tags with the old category names replaced by the current ones, without duplicates. */
+export function renameCategoryTags(tags: readonly string[]): string[] {
+  return [...new Set(tags.map((t) => RENAMED_CATEGORY_TAGS[t] ?? t))];
+}
+
 /** Only the three category-based report sections; domestic/overseas require country evidence. */
 export function miningReportSection(category: unknown) {
   return MINING_CATEGORIES.find((c) => c.key === category)?.section ?? null;
