@@ -127,6 +127,11 @@ test("metal prices: a source not fetched for over a day is in the digest, with i
     // in the registry) is not looked at.
     await seed({ hours: 40, record: { imf: failed } }, { hours: 25, record: { nbs: stored } }, { hours: 2, record: { nbs: failed } });
     assert.equal(await metals(), undefined);
+    // Exactly 26 hours is not over it; a minute more is.
+    await seed({ hours: 26, record: { nbs: stored } }, { hours: 2, record: { nbs: failed } });
+    assert.equal(await metals(), undefined);
+    await seed({ hours: 26 + 1 / 60, record: { nbs: stored } }, { hours: 2, record: { nbs: failed } });
+    assert.deepEqual(await metals(), listed("nbs：列表页返回 HTTP 503（上次成功 1月9日 06:59）"));
     // Over 26 hours: the source, its latest reason (an error before any period held back) and its last success in
     // Beijing time.
     await seed(
@@ -170,15 +175,42 @@ test("metal prices: a source not fetched for over a day is in the digest, with i
       { hours: 10, record: { imf: entry([]), nbs: entry([{ ...period("2099年12月下旬"), inserted: 0, touched: 10 }]), worldbank: entry([]) } },
     );
     assert.equal(await metals(), undefined);
-    // Runs on record but none ok for 26 hours (a bad registry throws, or the schedule stopped): said whether or not a
-    // source is known.
+    // A period stored by force (TASK-0076's metals.prices.manual) clears its hold: the scheduled runs after it that return
+    // no period (World Bank's same version within 7 days) keep the forced outcome.
+    await seed(
+      { hours: 40, record: { worldbank: entry([period("2099年11月", "wb.copper 是上一期的 2.10 倍，超出 0.67–1.5 倍")]) } },
+      { hours: 30, job: "metals.prices.manual", record: { worldbank: entry([period("2099年11月")]) } },
+      { hours: 20, record: { worldbank: entry([]) } },
+      { hours: 10, record: { worldbank: entry([]) } },
+    );
+    assert.equal(await metals(), undefined);
+    // Runs on record but none ok for over 26 hours (a bad registry throws, or the schedule stopped): said whether or not
+    // a source is known; a failed latest run's error is said once, first.
     const broken = { hours: 10, error: "Error: 登记文件不合格" };
-    await seed({ hours: 50, record: { nbs: stored } }, broken);
-    assert.deepEqual(await metals(), stopped(`nbs：定时任务出错：Error: 登记文件不合格（上次成功 1月8日 07:00）；${WHERE}`));
+    await seed({ hours: 26, record: { nbs: stored } }, broken);
+    assert.equal(await metals(), undefined);
+    await seed({ hours: 26 + 1 / 60, record: { nbs: stored } }, broken);
+    assert.deepEqual(await metals(), stopped(`定时任务出错：Error: 登记文件不合格；nbs：定时任务之后没有跑成功（上次成功 1月9日 06:59）；${WHERE}`));
     await seed({ hours: 50, record: { nbs: stored } });
     assert.deepEqual(await metals(), stopped(`nbs：定时任务之后没有跑成功（上次成功 1月8日 07:00）；${WHERE}`));
     await seed(broken);
-    assert.deepEqual(await metals(), stopped(WHERE));
+    assert.deepEqual(await metals(), stopped(`定时任务出错：Error: 登记文件不合格；${WHERE}`));
+    // A source's older reason stays its own; errors are cut to 200 characters like the other alerts.
+    await seed({ hours: 50, record: { nbs: failed } }, { hours: 30, error: "Error: 登记文件不合格" }, broken);
+    assert.deepEqual(await metals(), stopped(`定时任务出错：Error: 登记文件不合格；nbs：列表页返回 HTTP 503（还没有成功过）；${WHERE}`));
+    await seed({ hours: 50, record: { nbs: entry([], "错".repeat(300)) } }, { hours: 10, error: "误".repeat(300) });
+    assert.deepEqual(await metals(), stopped(`定时任务出错：${"误".repeat(200)}；nbs：${"错".repeat(200)}（还没有成功过）；${WHERE}`));
+    // At most 6 sources are written out; the title counts them all.
+    const seven = Object.fromEntries(["s1", "s2", "s3", "s4", "s5", "s6", "s7"].map((key) => [key, failed]));
+    await seed({ hours: 30, record: seven }, { hours: 10, record: seven });
+    const many = await metals();
+    assert.equal(many?.title, "金属价格有 7 个来源超过一天没抓到，暂用上一期数据");
+    assert.deepEqual(many?.detail?.split("；"), [...["s1", "s2", "s3", "s4", "s5", "s6"].map((key) => `${key}：列表页返回 HTTP 503（还没有成功过）`), WHERE]);
+    // A record it cannot read (an entry without periods) becomes the item instead of stopping every other alert.
+    await seed({ hours: 10, record: { nbs: { ...stored, periods: undefined } as never } });
+    const unread = await metals();
+    assert.equal(unread?.title, "金属价格的运行记录读不出来，没法判断有没有抓到");
+    assert.match(unread?.detail ?? "", /^TypeError: .+；看 job_runs 里 metals\.prices 的运行记录$/);
     // No run at all (not deployed yet), or collection off (the schedule does not run): nothing.
     await seed();
     assert.equal(await metals(), undefined);
@@ -225,7 +257,7 @@ test("metal prices: a source's periods held back come from its latest run that r
       },
       { hours: 10, record: { nbs: entry([], "列表页返回 HTTP 503"), worldbank: entry([]) } },
       // Not read: another job, and runs outside the 30 days up to NOW.
-      { hours: 5, job: "metals.prices.manual", record: { nbs: entry([period("2099年12月下旬")]) } },
+      { hours: 5, job: "reports.daily", record: { nbs: entry([period("2099年12月下旬")]) } },
       { hours: 31 * 24, record: { nbs: entry([period("2099年12月上旬")]) } },
       { hours: -1, record: { nbs: entry([period("2100年1月中旬", "发布页读不到标题")]) } },
     );
@@ -237,6 +269,13 @@ test("metal prices: a source's periods held back come from its latest run that r
       [runs.latest?.at, runs.lastOkRunAt, runs.sources.nbs?.firstSeenAt, runs.sources.nbs?.lastOkAt, runs.sources.worldbank?.lastOkAt],
       [hours(10), hours(10), hours(30), null, null],
     );
+    // TASK-0076's manual runs count for their source (a period stored by force), never for the schedule.
+    await seed(
+      { hours: 20, record: { nbs: entry([period("2099年12月下旬", "nbs.copper 是上一期的 2.10 倍，超出 0.67–1.5 倍")]) } },
+      { hours: 10, job: "metals.prices.manual", record: { nbs: entry([period("2099年12月下旬")]) } },
+    );
+    const forced = await readMetalPriceRuns(new Date(NOW));
+    assert.deepEqual([forced.sources.nbs?.held, forced.sources.nbs?.lastOkAt, forced.latest?.at, forced.lastOkRunAt], [[], hours(10), hours(20), hours(20)]);
   } finally {
     await seed();
   }

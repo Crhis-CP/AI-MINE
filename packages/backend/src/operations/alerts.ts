@@ -21,6 +21,10 @@ const collecting = () => process.env.COLLECT_ENABLED !== "false";
 const modelsOn = () => process.env.MODEL_CALLS_ENABLED !== "false";
 /** How long the site may go without a new article before it counts as stalled (small source lists are quieter). */
 const QUIET_MS = Number(process.env.ALERT_QUIET_MINUTES || 360) * 60_000;
+/** Where the metal price item sends the reader (TASK-0071); TASK-0076 adds its check script after it. */
+const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录";
+/** An error or reason cut to 200 characters, as left(…, 200) does for the other items. */
+const clip = (text: string) => [...text].slice(0, 200).join("");
 
 /** Everything wrong right now, with its level. */
 export async function collectFindings(now = Date.now()): Promise<Finding[]> {
@@ -171,31 +175,44 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
 
   // Metal prices (TASK-0071), as upstream's leaderboard sources: one not fetched for over a day leaves the page showing its
   // last period (marked stale past the threshold), so it waits for the digest. The schedule runs only while collecting.
+  // A run record this cannot read becomes the item instead of stopping every other alert.
   if (collecting()) {
-    const late = 26 * 3600_000;
-    const prices = await readMetalPriceRuns(new Date(now));
-    const stale = Object.entries(prices.sources).filter(([, s]) => now - (s.lastOkAt ?? s.firstSeenAt).getTime() > late);
-    // Runs on record but none ok for that long: the schedule itself stopped or fails (a bad registry throws).
-    const stopped = !!prices.latest && (!prices.lastOkRunAt || now - prices.lastOkRunAt.getTime() > late);
-    if (stale.length || stopped) {
-      // The source's error, else its first period held back, else its series held back alone; when its last run went
-      // well, what the schedule did since.
-      const reason = ({ error, periods }: MetalPriceSourceRecord) => {
-        const held = periods.find((p) => p.held !== null);
-        const alone = periods.find((p) => p.heldSeries?.length);
-        if (error) return error;
-        if (held) return `${held.period}被扣下：${held.held}`;
-        if (alone) return `${alone.period}按品种扣下：${alone.heldSeries!.map((s) => `${s.key}（${s.reason}）`).join("、")}`;
-        return prices.latest?.status === "failed" ? `定时任务出错：${prices.latest.error}` : "定时任务之后没有跑成功";
-      };
+    try {
+      const late = 26 * 3600_000;
+      const prices = await readMetalPriceRuns(new Date(now));
+      const stale = Object.entries(prices.sources).filter(([, s]) => now - (s.lastOkAt ?? s.firstSeenAt).getTime() > late);
+      // Runs on record but none ok for that long: the schedule itself stopped or fails (a bad registry throws).
+      const stopped = !!prices.latest && (!prices.lastOkRunAt || now - prices.lastOkRunAt.getTime() > late);
+      if (stale.length || stopped) {
+        // The source's error, else its first period held back, else its series held back alone; when its last record
+        // went well, the schedule has not run well since (a failed latest run's own error is said once, first).
+        const reason = ({ error, periods }: MetalPriceSourceRecord) => {
+          const held = periods.find((p) => p.held !== null);
+          const alone = periods.find((p) => p.heldSeries?.length);
+          if (error) return error;
+          if (held) return `${held.period}被扣下：${held.held}`;
+          if (alone) return `${alone.period}按品种扣下：${alone.heldSeries!.map((s) => `${s.key}（${s.reason}）`).join("、")}`;
+          return "定时任务之后没有跑成功";
+        };
+        out.push({
+          key: "metals.fetch",
+          level: "digest",
+          title: stopped ? "金属价格超过一天没有抓取成功，暂用上一期数据" : `金属价格有 ${stale.length} 个来源超过一天没抓到，暂用上一期数据`,
+          detail: [
+            ...(prices.latest?.status === "failed" ? [`定时任务出错：${clip(prices.latest.error ?? "（无）")}`] : []),
+            ...stale
+              .slice(0, 6)
+              .map(([key, s]) => `${key}：${clip(reason(s.latest))}（${s.lastOkAt ? `上次成功 ${beijingStamp(s.lastOkAt)}` : "还没有成功过"}）`),
+            METALS_WHERE,
+          ].join("；"),
+        });
+      }
+    } catch (error) {
       out.push({
         key: "metals.fetch",
         level: "digest",
-        title: stopped ? "金属价格超过一天没有抓取成功，暂用上一期数据" : `金属价格有 ${stale.length} 个来源超过一天没抓到，暂用上一期数据`,
-        detail: [
-          ...stale.slice(0, 6).map(([key, s]) => `${key}：${reason(s.latest)}（${s.lastOkAt ? `上次成功 ${beijingStamp(s.lastOkAt)}` : "还没有成功过"}）`),
-          "看 job_runs 里 metals.prices 的运行记录",
-        ].join("；"),
+        title: "金属价格的运行记录读不出来，没法判断有没有抓到",
+        detail: `${clip(String(error))}；${METALS_WHERE}`,
       });
     }
   }

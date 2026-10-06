@@ -1,7 +1,7 @@
-// Metal price runs (TASK-0071): the metals.prices records the schedule leaves in job_runs, read for the daily digest
-// (alerts.ts) and TASK-0076's check script. A record is the refresh's return value as TASK-0069 shaped it, one entry per
-// source key; later cards only add fields, read here when present (TASK-0046's note and heldSeries). Read-only, and from
-// job_runs alone: no publication code, price table or registry.
+// Metal price runs (TASK-0071): the metals.prices records the schedule leaves in job_runs (and TASK-0076's manual ones),
+// read for the daily digest (alerts.ts) and TASK-0076's check script. A record is the refresh's return value as TASK-0069
+// shaped it, one entry per source key; later cards only add fields, read here when present (TASK-0046's note and
+// heldSeries). Read-only, and from job_runs alone: no publication code, price table or registry.
 import { dbOf } from "../db.ts";
 
 const sql = dbOf("ops");
@@ -35,7 +35,7 @@ export interface MetalPriceSourceRecord {
 export interface MetalPriceSourceRuns {
   firstSeenAt: Date;
   lastOkAt: Date | null;
-  /** Its entry in the latest run that has it; one that returned no period and did not fail stands for the latest earlier one that did. */
+  /** Its entry in the latest run (scheduled or manual) that has it; one that returned no period and did not fail stands for the latest earlier one that did. */
   latest: MetalPriceSourceRecord;
   /** By label (all a record keeps), the periods its latest entry that returned periods held back, less those waiting ("等 …"). */
   held: string[];
@@ -49,14 +49,20 @@ export interface MetalPriceRuns {
   sources: Record<string, MetalPriceSourceRuns>;
 }
 
-/** The metals.prices runs of the 30 days up to `now` (job_runs keeps no more), by when they started. */
+/**
+ * The metals.prices runs of the 30 days up to `now` (job_runs keeps no more), by when they started. A source's entries also
+ * come from TASK-0076's metals.prices.manual runs (a period stored by force), so the scheduled runs after one that return
+ * no period (World Bank's same version within 7 days, TASK-0068) do not keep the hold it cleared; the schedule's own state
+ * (latest, lastOkRunAt, which sources) is from metals.prices alone.
+ */
 export async function readMetalPriceRuns(now: Date): Promise<MetalPriceRuns> {
-  const runs = await sql<{ started_at: Date; status: string; error: string | null; detail: Record<string, MetalPriceSourceRecord> | null }[]>`
-    SELECT started_at, status, error, detail FROM job_runs
-    WHERE job = 'metals.prices' AND started_at > ${new Date(now.getTime() - 30 * 86400_000)} AND started_at <= ${now}
+  const runs = await sql<{ job: string; started_at: Date; status: string; error: string | null; detail: Record<string, MetalPriceSourceRecord> | null }[]>`
+    SELECT job, started_at, status, error, detail FROM job_runs
+    WHERE job IN ('metals.prices', 'metals.prices.manual') AND started_at > ${new Date(now.getTime() - 30 * 86400_000)} AND started_at <= ${now}
     ORDER BY started_at, id`;
-  const last = runs.at(-1);
-  const lastOk = runs.findLast((run) => run.status === "ok");
+  const scheduled = runs.filter((run) => run.job === "metals.prices");
+  const last = scheduled.at(-1);
+  const lastOk = scheduled.findLast((run) => run.status === "ok");
   const sources: Record<string, MetalPriceSourceRuns> = {};
   for (const key of Object.keys(lastOk?.detail ?? {})) {
     const entries = runs.flatMap((run) => (run.detail?.[key] ? [{ at: run.started_at, entry: run.detail[key] }] : []));
