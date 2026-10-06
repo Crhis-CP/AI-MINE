@@ -1,4 +1,5 @@
 // Run after `npm run build -w @amp/web`. Real production server/router, synthetic HTTP API only.
+import { SITE } from "@amp/industry/site";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
@@ -31,6 +32,36 @@ const timeline = publicSchemas.TimelineResponse.parse(
   JSON.parse(readFileSync(new URL("../../../scripts/verify/tests/fixtures/timeline-response.json", import.meta.url), "utf8")),
 );
 const poolCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
+/** A detail page that renders (the phone footer test reads it). */
+const footerItem = {
+  id: "footer-page",
+  title: "合成详情页",
+  summary: "合成摘要",
+  reason: null,
+  source: { id: "synthetic", name: "合成来源", kind: "web_list", firstParty: true },
+  publishedAt: "2026-10-04T02:00:00Z",
+  timelineAt: "2026-10-04T02:00:00Z",
+  category: null,
+  tags: [],
+  score: null,
+  selected: false,
+  channel: "news",
+  revision: 1,
+  originalTitle: null,
+  links: { original: "https://source.invalid/a/1" },
+  discoveredAt: "2026-10-04T02:00:00Z",
+  story: null,
+  readingMode: "summary-only",
+  author: null,
+  language: "zh-CN",
+  body: null,
+  outline: [],
+  relatedStories: [],
+  indexable: false,
+  group: null,
+  hasTranslation: false,
+  bodyLanguage: "zh",
+};
 const apiCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
 const privateApi = createServer((req, res) => {
@@ -173,6 +204,7 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/echo-routing") return res.end(JSON.stringify({ target: "public", path: req.url }));
   if (url.pathname === "/api/site/echo-client") return res.end(JSON.stringify({ forwarded: req.headers["x-forwarded-for"], real: req.headers["x-real-ip"] }));
   if (url.pathname === "/api/site/items/long-lived") return res.end(JSON.stringify({ id: "long-lived", title: "t" }));
+  if (url.pathname === "/api/site/items/footer-page") return res.end(JSON.stringify(footerItem));
   if (url.pathname === "/api/site/stories/merged") {
     res.statusCode = 308;
     return res.end(JSON.stringify({ mergedInto: "surviving-story" }));
@@ -250,6 +282,37 @@ test("public route subsets produce the same complete navigation data; filters st
   const body = await filtered.text();
   assert.ok(body.includes(category));
   assert.notEqual(body, answers[0]);
+});
+
+test("every public page carries the ICP filing number in the phone footer; the 更多 page keeps its own", async () => {
+  const icp = SITE.icp!;
+  assert.ok(icp, "the filing number is on file");
+  const phoneFooters = (html: string) => html.match(/<footer[^>]*lg:hidden[^>]*>[\s\S]*?<\/footer>/g) ?? [];
+  for (const path of ["/", "/all", "/about", "/items/footer-page"]) {
+    const res = await fetch(origin + path);
+    assert.equal(res.status, 200, path);
+    const footers = phoneFooters(await res.text());
+    assert.equal(footers.length, 1, path);
+    assert.ok(footers[0]!.includes(icp), path);
+  }
+  // Error pages are pages too: a missing item and an address no route matches show the reader shell's 404.
+  for (const path of ["/items/missing", "/does-not-exist"]) {
+    const res = await fetch(origin + path);
+    assert.equal(res.status, 404, path);
+    assert.match(res.headers.get("Content-Type") ?? "", /text\/html/, path);
+    const html = await res.text();
+    assert.ok(html.includes("这里没有内容"), path);
+    const footers = phoneFooters(html);
+    assert.equal(footers.length, 1, path);
+    assert.ok(footers[0]!.includes(icp), path);
+  }
+  const slash = await fetch(`${origin}/more/`, { redirect: "manual" });
+  assert.equal(slash.status, 301);
+  assert.equal(new URL(slash.headers.get("Location")!, origin).pathname, "/more");
+  await slash.text();
+  const more = await (await fetch(`${origin}/more`)).text();
+  assert.equal(phoneFooters(more).length, 0, "the 更多 page has its own footer instead");
+  assert.equal(more.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
 });
 
 test("HTML and navigation share freshness; cookies do not personalize public results", async () => {

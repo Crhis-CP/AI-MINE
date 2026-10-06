@@ -29,6 +29,8 @@
 | technology_processing | 技术与加工 |
 | exploration_resource | 勘探与资源 |
 
+> 附注：2026-10-05 Owner 改了两类的显示名：`safety_incident` 改为“矿山安全”，`technology_processing` 改为“技术与冶炼”，键不变（TASK-0041）。上表保持采纳时的原样，现行显示名以 `docs/01-product/09-glossary.md` 第 3 节为准。
+
 2. 替换闭合枚举按 **breaking** 处理；联合激活时 public OpenAPI 预发布版本从 0.1.0 改为 0.2.0，私有版本保持。现有 URL、字段名、string/null 形状、分页/游标与同步 schemaVersion 字段、MCP 身份不随此片变动；不把本次前置改造伪称为 additive，也不顺带交付最终 v3 的 Labeled 对象。
 3. 无法判断为 category=null，公开不显示待定/未分类标签。旧六键没有可靠的一对一映射时同样公开归一 null；私有原分析、回执、人工字段与账本原件保留，既有 snapshot/changes 的 default/minimal 出口也归一。不得重写旧值冒充新分类，不因无分类阻断已确认范围的中文稿公开。
 4. 分类键属于 contracts；中文名、定义、guide 与标签属于 industry；两者无反向包依赖，通过集成测试核对身份与顺序。依赖分类的模型配方须包含实际注入配置摘要，避免改了 guide 仍复用旧分类回执；不重算未变的预筛和评分回执，不自动发起付费重跑。

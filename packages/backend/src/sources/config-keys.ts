@@ -40,6 +40,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     ...COLLECTED,
     "url",
     "baseUrl",
+    "htmlJsonPath",
     "parseMode",
     "cacheToleranceSeconds",
     "linksStartLine",
@@ -132,6 +133,7 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
         ? [
             "url",
             "baseUrl",
+            "htmlJsonPath",
             "parseMode",
             "itemSelector",
             "linkSelector",
@@ -187,6 +189,15 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
     else if (NESTED[key] && value && typeof value === "object") {
       for (const sub of Object.keys(value)) if (!NESTED[key]!.includes(sub)) out.push(`${key}.${sub}`);
     }
+  }
+  // htmlJsonPath reads list HTML out of a direct JSON response: through Jina or as Markdown it would be
+  // ignored or misread, so those combinations are refused like an unknown key. The endpoint is not the page
+  // the links belong to, so that page is named explicitly (baseUrl) instead of resolving against the endpoint.
+  if (kind === "web_list" && config?.htmlJsonPath !== undefined) {
+    if (typeof config.htmlJsonPath !== "string" || !config.htmlJsonPath.trim()) out.push("htmlJsonPath");
+    else if (String(config.url ?? "").startsWith("https://r.jina.ai/")) out.push("htmlJsonPath+jina");
+    else if (config.parseMode === "markdown") out.push("htmlJsonPath+parseMode=markdown");
+    else if (typeof config.baseUrl !== "string" || !config.baseUrl.trim()) out.push("htmlJsonPath without baseUrl");
   }
   return out;
 }

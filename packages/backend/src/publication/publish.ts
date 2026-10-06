@@ -1,6 +1,7 @@
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
 // Rebuilding only re-reads stored results; it never calls a model.
+import { renameCategoryTags } from "@amp/industry/mining-taxonomy";
 import { SITE } from "@amp/industry/site";
 import { toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { config } from "../config.ts";
@@ -232,9 +233,10 @@ export async function publishArticleTx(
   const sourceExcerpt = summary ? null : excerpt;
   const displaySummary = summary ?? sourceExcerpt;
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
+  // Tags set by hand stay as they are; analysed ones show renamed categories by their current name (TASK-0041).
   const tags = Array.isArray(f.tags)
     ? (f.tags as string[])
-    : [...new Set([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)])];
+    : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]);
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
