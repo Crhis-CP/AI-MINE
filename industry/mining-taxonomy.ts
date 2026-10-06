@@ -87,6 +87,9 @@ const RENAMED_CATEGORY_TAGS: Readonly<Record<string, string>> = {
   技术加工: MINING_CATEGORY_LABELS.technology_processing,
 };
 
+/** The old names (full and short) that publication replaces. */
+export const OLD_CATEGORY_TAGS: readonly string[] = Object.keys(RENAMED_CATEGORY_TAGS);
+
 /** Tags with the old category names replaced by the current ones, without duplicates. */
 export function renameCategoryTags(tags: readonly string[]): string[] {
   return [...new Set(tags.map((t) => RENAMED_CATEGORY_TAGS[t] ?? t))];
