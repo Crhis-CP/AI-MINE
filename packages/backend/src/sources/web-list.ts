@@ -6,6 +6,7 @@ import { readable, type ExtractedBody } from "../content/extract.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { observeSourceDate, previewSourceDate, toDateCandidate } from "./date-extraction.ts";
+import { getPath } from "./json-list.ts";
 import type { SourceDateObservationInput } from "@amp/contracts/time-assertion";
 import { identityKeyForUrl } from "../lib/url.ts";
 
@@ -52,6 +53,42 @@ export function parseLooseDate(value: string | null | undefined, utcOffset = "+0
   if (!Number.isFinite(en)) return null;
   const local = new Date(en);
   return atOffset(local.getFullYear(), local.getMonth() + 1, local.getDate(), local.getHours(), local.getMinutes(), local.getSeconds(), utcOffset);
+}
+
+/** The calendar day of an instant in an offset such as "+08:00"; null for an offset it cannot read. */
+function dayInOffset(at: Date, utcOffset: string): string | null {
+  const m = /^([+-])(\d{2}):?(\d{2})$/.exec(utcOffset);
+  if (!m) return null;
+  const minutes = (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]));
+  return new Date(at.getTime() + minutes * 60_000).toISOString().slice(0, 10);
+}
+
+/**
+ * The published time kept for a parsed source date, read as the upstream reads it (Owner 2026-10-05:
+ * where the handoff's way differs from the upstream's, the upstream's): the instant when the source gives
+ * one; otherwise the text as printed, by parseLooseDate in the source's offset. One difference: a date
+ * alone is the start of that day in the source's offset whatever its spelling (the upstream reads an ISO
+ * date alone as UTC midnight, Beijing 08:00), so pages can tell it from a real time and show the date
+ * only (Owner 2026-10-05: 只显示日期).
+ */
+export function sourcePublishedAt(
+  time: { raw: string; utc: string | null; local_date?: string | null; local_time?: string | null } | null | undefined,
+  utcOffset = "+08:00",
+): Date | null {
+  if (!time) return null;
+  if (time.utc) return new Date(time.utc);
+  const day = time.local_date && /^\d{4}-\d{2}-\d{2}$/.test(time.local_date) ? time.local_date : null;
+  // A time of day the date evidence could not place in a zone, so it kept the date alone: read in the
+  // source's offset, as the upstream reads it, as long as it still falls on that day.
+  if (/\d{1,2}:\d{2}/.test(time.raw)) {
+    const read = parseLooseDate(time.raw, utcOffset);
+    if (read && (!day || dayInOffset(read, utcOffset) === day)) return read;
+  }
+  if (day) {
+    const start = Date.parse(`${day}T00:00:00${utcOffset}`);
+    if (Number.isFinite(start)) return new Date(start);
+  }
+  return parseLooseDate(time.raw, utcOffset);
 }
 
 /** Only structured data identifying this article can contribute a publication date. */
@@ -201,7 +238,19 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
   }
   const res = await guardedFetch(url, { headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8" }, timeoutMs: 25_000 });
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
-  return { text: res.text(), viaJina: false, base: source.config.baseUrl ?? url };
+  const base = source.config.baseUrl ?? url;
+  // Some listings are filled in by script from JSON that carries the list HTML (MOFCOM's page units
+  // answer {"data":{"html":"<ul>…"}}): read that string, then parse it like any page.
+  const path = source.config.htmlJsonPath;
+  if (!path) return { text: res.text(), viaJina: false, base };
+  let html: unknown;
+  try {
+    html = getPath(JSON.parse(res.text()), String(path));
+  } catch {
+    throw new FetchError("htmlJsonPath: the listing is not JSON");
+  }
+  if (typeof html !== "string") throw new FetchError(`htmlJsonPath: no string at ${path}`);
+  return { text: html, viaJina: false, base };
 }
 
 export function fromMarkdown(md: string, base: string, source: SourceRow): Candidate[] {
@@ -262,7 +311,7 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
     const sourceDateObservation = observeSourceDate(source, url, raw, locator);
     seen.add(url);
     const time = previewSourceDate(sourceDateObservation);
-    out.push({ url, title, publishedAt: time?.utc ? new Date(time.utc) : null, sourceDateObservation });
+    out.push({ url, title, publishedAt: sourcePublishedAt(time, c.publishedAtUtcOffset), sourceDateObservation });
   }
   return out;
 }
@@ -339,5 +388,5 @@ export async function fetchDetail(
     summary = collapseWhitespace(el.attr("content") ?? el.text()) || null;
   }
   const time = sourceDateObservation ? previewSourceDate(sourceDateObservation) : null;
-  return { publishedAt: time?.utc ? new Date(time.utc) : null, sourceDateObservation, title, summary, body };
+  return { publishedAt: sourcePublishedAt(time, d.publishedAtUtcOffset), sourceDateObservation, title, summary, body };
 }

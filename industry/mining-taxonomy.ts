@@ -45,15 +45,15 @@ export const MINING_CATEGORIES = [
   },
   {
     key: "safety_incident",
-    label: "人身与生产安全",
-    shortLabel: "安全事故",
+    label: "矿山安全",
+    shortLabel: "矿山安全",
     section: "政策与安全",
     guide: "伤亡事故、救援、重大设备失效、停产与事故调查",
   },
   {
     key: "technology_processing",
-    label: "技术与加工",
-    shortLabel: "技术加工",
+    label: "技术与冶炼",
+    shortLabel: "技术冶炼",
     section: "市场与技术",
     guide: "采矿、选冶、回收、尾矿处理技术的研发、验证与商业部署",
   },
@@ -75,6 +75,25 @@ export const MINING_CATEGORY_GUIDE = [
   "按本条新增可证事实的核心动作唯一归类；无法稳定判断时返回 null。不要按发布方、热度、评分内容类型或标签数组位置猜类。",
   ...MINING_CATEGORIES.map((c) => `- ${c.key}（${c.label}）：${c.guide}`),
 ].join("\n");
+
+/**
+ * Display names the Owner changed on 2026-10-05 (TASK-0041). An item's category name is also kept as its
+ * first tag, so items analysed before the change still carry an old name: publication shows the new one.
+ */
+const RENAMED_CATEGORY_TAGS: Readonly<Record<string, string>> = {
+  人身与生产安全: MINING_CATEGORY_LABELS.safety_incident,
+  安全事故: MINING_CATEGORY_LABELS.safety_incident,
+  技术与加工: MINING_CATEGORY_LABELS.technology_processing,
+  技术加工: MINING_CATEGORY_LABELS.technology_processing,
+};
+
+/** The old names (full and short) that publication replaces. */
+export const OLD_CATEGORY_TAGS: readonly string[] = Object.keys(RENAMED_CATEGORY_TAGS);
+
+/** Tags with the old category names replaced by the current ones, without duplicates. */
+export function renameCategoryTags(tags: readonly string[]): string[] {
+  return [...new Set(tags.map((t) => RENAMED_CATEGORY_TAGS[t] ?? t))];
+}
 
 /** Only the three category-based report sections; domestic/overseas require country evidence. */
 export function miningReportSection(category: unknown) {
