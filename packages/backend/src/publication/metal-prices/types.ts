@@ -1,5 +1,6 @@
 // Shapes of the metal price fetchers and their plausibility check (TASK-0057), after the upstream leaderboard fetchers
-// ({sourceKeys, fetch()}, one per source). The World Bank and IMF fetchers return the same; the refresh calls them so.
+// ({sourceKeys, fetch()}, one per source). The World Bank and IMF fetchers return the same and the refresh calls them
+// so; later cards add fields, never rename one.
 import type { MetalPriceItem, MetalPriceSource, MetalPriceSourceKey } from "./registry.ts";
 
 /** A page request: guardedFetch in production, fixtures by address in tests. `url` is where any redirects ended. */
@@ -12,56 +13,53 @@ export interface Period {
   label: string;
 }
 
-/** A period the source lists. Its release's title on the list is the version (release_label). */
-export interface ListedPeriod {
-  source: MetalPriceSourceKey;
-  period: Period;
-  release: { label: string; url: string; releasedOn: string | null };
-}
-
+/** As the source writes it: whether the unit and value are what they should be is the check's to say. */
 export interface PriceRow {
   key: string;
   unit: string;
-  /** As the source writes it, thousands separators dropped and nothing else. */
+  /** Thousands separators dropped and nothing else. */
   value: string;
 }
 
-/** A listed period read from its release page, before any plausibility check. */
-export interface FetchedPeriod extends ListedPeriod {
-  /** The release's title as its own page gives it. */
-  title: string;
-  /** The leading header cells of the price table, NFKC with no whitespace. */
-  header: string[];
+/** A period read from its release, before the plausibility check. */
+export interface FetchedPeriod {
+  source: MetalPriceSourceKey;
+  period: Period;
+  /** The release's title on the list is the version (release_label); the date is the one the list gives it. */
+  release: { label: string; url: string; releasedOn: string | null };
   /** Enabled registered series only, in the table's order. */
   rows: PriceRow[];
-  /** Reasons the fetcher itself found to hold the period back (two copies of the table that differ). */
+  /** The source's own reasons to hold the period back whole, from pages that read fine; empty: none. */
   held: string[];
 }
 
 export interface Fetcher {
   sourceKeys: MetalPriceSourceKey[];
   /**
-   * Lists what was published and reads the periods `pick` keeps, in its order. Throws on an error status, an address
-   * or redirect off the source's https hosts, a list naming no period or a release without its price table (INV-33).
+   * The periods to check, oldest first: the stored newest one (`newest` gives its start) again and every later one, or
+   * the newest listed alone when nothing is stored (null; no back-fill). Throws when a page cannot be read as expected:
+   * an error status, an address or redirect off the source's https hosts, a list naming no period, no price table (INV-33).
    */
-  fetch(pick: (listed: ListedPeriod[]) => Promise<ListedPeriod[]>): Promise<FetchedPeriod[]>;
+  fetch(newest: (source: MetalPriceSourceKey) => Promise<string | null>): Promise<FetchedPeriod[]>;
 }
 
 export interface PeriodCheckInput {
   fetched: FetchedPeriod;
   source: MetalPriceSource;
-  /** The source's enabled series. */
+  /** The source's enabled series, less any the fetcher holds back alone (TASK-0046). */
   items: MetalPriceItem[];
   /** The still enabled series' values in the stored period before this one; absent before there is one. */
   previous?: ReadonlyMap<string, string> | null;
   /** Start of the source's newest stored period; absent before the first. */
   newest?: string | null;
+  /** False (the stored newest period read again unchanged) skips the row count and ratio checks, with no note. */
+  compareWithPrevious?: boolean;
   now: Date;
 }
 
 export interface PeriodCheckResult {
-  /** Why the period is held back whole; empty: it passes. */
-  held: string[];
-  /** What was not checked and why ("没有上一期"). */
+  /** Why the period is held back whole, beside the fetcher's own; empty: it passes. */
+  reasons: string[];
+  /** What was not compared and why ("没有上一期"); recorded with the period, never holding it back. */
   notes: string[];
 }

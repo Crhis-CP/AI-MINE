@@ -3,13 +3,15 @@
 // registered name. "本期价格" is not said to be a ten-day average, so nothing here calls it one: a value is its period's.
 import { type CheerioAPI, load } from "cheerio";
 import { guardedFetch } from "../../lib/http-fetch.ts";
-import { TABLE_HEADER } from "./check.ts";
 import { type MetalPriceRegistry, normalizeSourceName, onSourceHost } from "./registry.ts";
-import type { FetchedPeriod, Fetcher, ListedPeriod, PageGetter, Period, PriceRow } from "./types.ts";
+import type { FetchedPeriod, Fetcher, PageGetter, Period, PriceRow } from "./types.ts";
 
 export const NBS_LIST_URL = "https://www.stats.gov.cn/sj/zxfb/index.html";
 const TITLE = /^(\d{4})年(\d{1,2})月([上中下])旬流通领域重要生产资料市场价格变动情况$/;
-const HEADER = TABLE_HEADER.nbs!;
+/** The price table's leading header cells, NFKC with no whitespace; the two after them (the changes) are not read. */
+const HEADER = ["产品名称", "单位", "本期价格(元)"];
+
+type Listed = Omit<FetchedPeriod, "rows" | "held">;
 
 /** The period a release title names: 上旬 days 1–10, 中旬 11–20, 下旬 the 21st to the month's last day. */
 export function tenDayPeriod(title: string): Period | null {
@@ -26,8 +28,8 @@ export function tenDayPeriod(title: string): Period | null {
  * with its text cut short), so a link counts by its full title and once per address. The date is the entry's own, not
  * read from the file name (the latest release is dated the 24th, its file named the 23rd).
  */
-function listed($: CheerioAPI, base: string): ListedPeriod[] {
-  const found = new Map<string, ListedPeriod>();
+function listed($: CheerioAPI, base: string): Listed[] {
+  const found = new Map<string, Listed>();
   for (const link of Array.from($("li a[href]"))) {
     const label = ($(link).attr("title") ?? $(link).text()).trim();
     const period = tenDayPeriod(label);
@@ -39,17 +41,18 @@ function listed($: CheerioAPI, base: string): ListedPeriod[] {
   return [...found.values()];
 }
 
-/** The release page writes its title from a script in <h1> (`var title1 = '…'`); without one, the heading's text. */
-function pageTitle($: CheerioAPI): string {
-  const heading = $("h1").first().text();
-  return (/\btitle1\s*=\s*'([^']*)'/.exec(heading)?.[1] ?? heading).trim();
+/** The release page writes its title from a script in <h1> (`var title1 = '…'`): one unlike the list's, or none, holds. */
+function titleHeld($: CheerioAPI, label: string): string[] {
+  const title = /\btitle1\s*=\s*'([^']*)'/.exec($("h1").text())?.[1]?.trim();
+  if (title === undefined) return ["发布页读不到标题（<h1> 的脚本里没有 title1）"];
+  return title === label ? [] : [`发布页标题“${title}”与列表页标题“${label}”不一致`];
 }
 
 /**
  * Every copy of the price table (the page repeats it for another screen size), read by registered name; a copy that
  * reads differently from the first holds the period back. No table headed as expected throws, saying what was there.
  */
-function priceTable($: CheerioAPI, keys: Map<string, string>): Pick<FetchedPeriod, "header" | "rows" | "held"> {
+function priceTable($: CheerioAPI, keys: Map<string, string>): Pick<FetchedPeriod, "rows" | "held"> {
   const tables = Array.from($("table"), (table) =>
     Array.from($(table).find("tr"), (row) => Array.from($(row).children("td, th"), (cell) => $(cell).text().replace(/\s+/gu, ""))),
   );
@@ -69,13 +72,13 @@ function priceTable($: CheerioAPI, keys: Map<string, string>): Pick<FetchedPerio
     const i = [...Array(Math.max(rows.length, copy.length)).keys()].find((i) => show(rows[i]) !== show(copy[i]));
     return i === undefined ? [] : [`价格表第 ${n + 2} 份与第 1 份不同：第 1 份是“${show(rows[i])}”，第 ${n + 2} 份是“${show(copy[i])}”`];
   });
-  return { header: copies[0][0].slice(0, HEADER.length).map(normalizeSourceName), rows, held };
+  return { rows, held };
 }
 
 export function nbsFetcher(registry: MetalPriceRegistry, get: PageGetter = guardedFetch): Fetcher {
   return {
     sourceKeys: ["nbs"],
-    async fetch(pick) {
+    async fetch(newest) {
       const source = registry.sources.find((candidate) => candidate.key === "nbs");
       if (!source) throw new Error("登记里没有国家统计局");
       const enabled = registry.items.filter((item) => item.source === "nbs" && item.enabled);
@@ -90,12 +93,15 @@ export function nbsFetcher(registry: MetalPriceRegistry, get: PageGetter = guard
         return { $: load(res.text()), url: res.url };
       };
       const list = await page(NBS_LIST_URL);
-      const found = listed(list.$, list.url);
+      const found = listed(list.$, list.url).toSorted((a, b) => a.period.start.localeCompare(b.period.start));
       if (!found.length) throw new Error("列表页没有认出任何一期（可能改版或是验证页）");
+      // The stored newest period is read again, to catch a value changed in its version; nothing stored: the newest alone.
+      const since = await newest("nbs");
       const fetched: FetchedPeriod[] = [];
-      for (const one of await pick(found)) {
+      for (const one of since ? found.filter((later) => later.period.start >= since) : found.slice(-1)) {
         const { $ } = await page(one.release.url);
-        fetched.push({ ...one, title: pageTitle($), ...priceTable($, keys) });
+        const { rows, held } = priceTable($, keys);
+        fetched.push({ ...one, rows, held: [...titleHeld($, one.release.label), ...held] });
       }
       return fetched;
     },
