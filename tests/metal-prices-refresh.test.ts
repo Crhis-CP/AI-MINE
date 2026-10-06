@@ -175,7 +175,7 @@ test("a failing source is recorded as failed with its reason, never as 'no new v
     [() => Promise.reject(new Error("connect timeout")), "connect timeout"],
     [pages({ [NBS_LIST_URL]: entries((entry) => (entry.includes(TAIL) ? "" : entry)) }), "列表页没有认出任何一期（可能改版或是验证页）"],
     [async () => ({ status: 200, url: away, text: () => list }), `${NBS_LIST_URL} 跳到了 ${away}，不在登记的主机上或不是 https`],
-    [() => Promise.reject(new Error("超时".repeat(600))), "超时".repeat(500)],
+    [() => Promise.reject(new Error(`${"超时".repeat(499)}超𠮷尾`)), `${"超时".repeat(499)}超\uFFFD`],
   ];
   for (const [get, error] of failing) assert.deepEqual((await refreshMetalPrices({ registry, get, now: LATER })).nbs, { ...record(false, [], LATER), error });
   assert.deepEqual(await table(), before);

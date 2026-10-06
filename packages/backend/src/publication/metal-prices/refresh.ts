@@ -28,7 +28,7 @@ export interface MetalPriceSourceRun {
   /** No error, and no period held back or waiting for one ("no new version" is a success; notes do not count). */
   ok: boolean;
   at: string;
-  /** The first 1000 characters, as source collection keeps them. */
+  /** The first 1000 characters, as source collection keeps them; a character cut in half is replaced (the record is jsonb). */
   error: string | null;
   inserted: number;
   touched: number;
@@ -88,7 +88,7 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
       }
       run.ok = run.periods.every((entry) => entry.held === null);
     } catch (error) {
-      run.error = (error instanceof Error ? error.message : String(error)).slice(0, 1000);
+      run.error = (error instanceof Error ? error.message : String(error)).slice(0, 1000).toWellFormed();
     }
   }
   return record;
