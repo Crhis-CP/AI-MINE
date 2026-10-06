@@ -828,7 +828,7 @@ AIHOT 原表共 7 类（顺序同上）：`model_release` 3-2-2-2-1；`product_l
     | progress | 同一发展线上的后续事件 | `Event.relations[].relation = updates` |
     | separate（含汇总稿、uncertain） | 不关联 | 不输出；“相关阅读”由 events 另行生成，取值 `related` |
 
-    **与 AIHOT 四值的适配**（ENT-19 映射表，适配层在提示词输出与存储值之间转换，AIHOT 的成对提示词、评测脚本与金标无需重写）：`SAME_OCCURRENCE` → `same_event`；`SAME_STORY` → `progress`；`UNRELATED` → `separate` + `unrelated`；`ROUNDUP` → `separate` + `roundup`；模型漏答按 `UNRELATED` 处理；`uncertain` 只是内部状态（并入 `separate`，记 `low_confidence` 等原因），不作为存储关系值。AIHOT 的 `SAME_STORY` 包括事件与针对它的解读、点评、分析（`industry/prompts/group-definitions.md`）。判为 `SAME_STORY` 的稿子在同一个事件里新建一个进展，在事件页“事件进展”与文章页“事件后续”里各占一条；事件页的“报道时间线”列出这个事件的全部报道。
+    **与 AIHOT 四值的适配**（ENT-19 映射表，适配层在提示词输出与存储值之间转换，AIHOT 的成对提示词、评测脚本与金标无需重写）：`SAME_OCCURRENCE` → `same_event`；`SAME_STORY` → `progress`；`UNRELATED` → `separate` + `unrelated`；`ROUNDUP` → `separate` + `roundup`；模型漏答按 `UNRELATED` 处理；`uncertain` 只是内部状态（并入 `separate`，记 `low_confidence` 等原因），不作为存储关系值。AIHOT 的 `SAME_STORY` 包括发布与针对它的评测、解读；矿业化后写作事件与针对它的解读、点评、分析（`industry/prompts/group-definitions.md` 第 3 行）。判为 `SAME_STORY` 的稿子在同一个事件里新建一个进展，在事件页“事件进展”与文章页“事件后续”里各占一条；事件页的“报道时间线”列出这个事件的全部报道。
 
     政策文书之间的关系（updates / corrects / repeals / implements / related）单列，见 AI-18。
 - **提示词必写**：
@@ -847,7 +847,7 @@ AIHOT 原表共 7 类（顺序同上）：`model_release` 3-2-2-2-1；`product_l
   - 引文逐字存在于原文中；
   - 双方引文都包含共同锚点；
   - “同一事件”不得跨越“拟议↔批准”“停产↔复产”；
-  - `progress` 必须时间更晚，且阶段、动作或数字有变化（针对某一事件的解读、点评除外，它们照 AIHOT 算后续）。
+  - `progress` 必须时间更晚，且阶段、动作或数字有变化（针对某一事件的解读、点评、分析除外，它们照 AIHOT 算后续）。
 - **缓存与预算**：缓存键为新材料修订 + 候选集哈希；记账类别 event_org；单次输入上限与重试见 2.2 末表（新材料 ≤1,500 字符片段，每篇最多 3 个候选；重试按 1.4）；每次约 0.010 元（高峰）/ 0.005 元（非高峰）【估算】；复核的单价待候选路由评测后测量。
 - **失败与降级**：不阻塞公开，暂按“一材料一事件”处理；已判“无关”的结论，在候选集变化后重算。
 - **人工覆盖**：人工归组（指定合并或禁止合并）优先于任何模型结论。合并、拆分都可撤销，被并入事件的原公开 ID 在新站内重定向到合并后的事件（新站自己的稳定 ID 规则，与旧站任何地址无关；新站不为旧站的任何地址做兼容、重定向或说明页，不存在的地址一律走通用 404，DEC-21）。
