@@ -195,6 +195,10 @@ test("metal prices: a source not fetched for over a day is in the digest, with i
     assert.deepEqual(await metals(), stopped(`nbs：定时任务之后没有跑成功（上次成功 1月8日 07:00）；${WHERE}`));
     await seed(broken);
     assert.deepEqual(await metals(), stopped(`定时任务出错：Error: 登记文件不合格；${WHERE}`));
+    // The error is said whenever the latest run failed, also when an ok run within 26 hours leaves only a source late.
+    await seed({ hours: 30, record: { nbs: stored, worldbank: stored } }, { hours: 20, record: { nbs: stored, worldbank: failed } }, broken);
+    const late = "worldbank：列表页返回 HTTP 503（上次成功 1月9日 03:00）";
+    assert.deepEqual(await metals(), { ...listed(late), detail: `定时任务出错：Error: 登记文件不合格；${late}；${WHERE}` });
     // A source's older reason stays its own; errors are cut to 200 characters like the other alerts.
     await seed({ hours: 50, record: { nbs: failed } }, { hours: 30, error: "Error: 登记文件不合格" }, broken);
     assert.deepEqual(await metals(), stopped(`定时任务出错：Error: 登记文件不合格；nbs：列表页返回 HTTP 503（还没有成功过）；${WHERE}`));
