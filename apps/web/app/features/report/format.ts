@@ -172,7 +172,7 @@ export function dateLine(kind: ReportKind, key: string): string {
 }
 
 /** What each kind is, under its nameplate. */
-export const MOTTO: Record<ReportKind, string> = { daily: "人工智能 · 每日要闻", weekly: "人工智能 · 每周综述", monthly: "人工智能 · 每月盘点" };
+export const MOTTO: Record<ReportKind, string> = { daily: "金属矿业 · 每日要闻", weekly: "金属矿业 · 每周综述", monthly: "金属矿业 · 每月盘点" };
 
 export interface PeriodCell {
   key: string | null;

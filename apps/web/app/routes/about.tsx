@@ -175,6 +175,8 @@ export default function AboutPage() {
         联系我们。
       </p>
 
+      {SITE.newsLicense && <p className="mt-4 text-[12.5px] text-ink-4">互联网新闻信息服务许可证：{SITE.newsLicense}</p>}
+
       <footer className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-5 text-[12.5px] text-ink-4">
         <nav className="flex gap-5" aria-label="规则与隐私">
           <Link to="/terms" className="transition-colors hover:text-accent">

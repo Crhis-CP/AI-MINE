@@ -1,8 +1,8 @@
 # 行业包
 
-`industry/` 集中放和“行业”有关的内容：站名与文案、分类与标签、主题、种子信源、提示词、精选门槛、品牌素材、页面文案、更新日志和评测样例。换行业时这里是**主要改动点，但不是唯一的改动点**：页面和报告里另有写死的 AI 口径（第 3 节），只改这个目录换不完。
+`industry/` 集中放和“行业”有关的内容：站名与文案、分类与标签、主题、种子信源、提示词、精选门槛、品牌素材、页面文案、更新日志和评测样例。换行业时这里是**主要改动点，但不是唯一的改动点**：页面和报告里另有写死的行业口径（第 3 节），只改这个目录换不完。
 
-站点身份与读者介绍已开始矿业化；分类、主题和处理提示词仍含导入时的 AI 行业示例，尚未完成整包替换。矿业化由 `tasks/TASK-0010.md`（矿业行业包 v0）完成；行业包的归属与机制以 `docs/04-architecture/04-aihot-adoption.md` 4.4 节为准，逐个文件的去向见附录 B 的 B.8 节。
+站点身份、分类、标签词表、主题与写作提示词已经是矿业的（TASK-0010、TASK-0028）；评分标准 `prompts/selection-score.md` 的矿业版是交 Owner 审阅的草案（TASK-0029），事件综述、归组与全文翻译等提示词还有导入时的 AI 行业写法，另开任务改。行业包的归属与机制以 `docs/04-architecture/04-aihot-adoption.md` 4.4 节为准，逐个文件的去向见附录 B 的 B.8 节。
 
 ## 1. 文件
 
@@ -31,16 +31,16 @@
 - `mcpPrefix`：MCP 站点前缀，现值 `aiminingpolicy`。5个工具名在 contracts 固定，集成测试保证与此前缀一致；修改站点显示配置不会静默重命名工具。
 - `contactEmail`：对外联系邮箱（选填），使用规则、`llms.txt` 与响应头会写。`organization`：结构化数据里的网站运营者。
 - `crawlerName`：抓取信源时在 User-Agent 里报的名字，不能冒用别的站名。现在是 `AIMiningPolicyBot`。
-- `icp` 与 `ABOUT`（关于页文案，“怎么工作”四个环节各配一个站内实时统计数字）会按第 4 节拆走；页脚小字 `footerNote` 已删除。
+- `icp`、`publicSecurity`、`newsLicense`：页脚与关于页显示的 ICP 备案号、公安联网备案号与互联网新闻信息服务许可证编号，按 DEC-66 沿用上游的做法写在这里（页脚本来就公开显示）；没有的写 `null`，页面不显示。`ABOUT` 是关于页文案（“怎么工作”四个环节各配一个站内实时统计数字）；页脚小字 `footerNote` 已删除。
 
 ### 2.2 `taxonomy.ts` 与 `topics.json`
 
 - `CATEGORY_LABELS`、`CHANNEL_LABELS`：显示标签的公开出口；分类/栏目 keys 与顺序在 contracts 固定，离线集成测试逐项对齐，industry 不反向依赖 contracts。
 - `CATEGORIES`：首页与“全部动态”的筛选类别，也用于卡片角标和 RSS 分类订阅。`key` 出现在网址与接口里（`/all?category=`、`/feed/category/<key>.xml`），上线后冻结；`label` 是显示名；`section` 是日报里的分节标题，几个类别可以共用一节；`guide` 告诉模型怎么归类。没归上类的资料放进 `key` 为 `industry` 的类别所在的节，没有这个类别就放最后一节。
 - `ITEM_TYPES`：内容理解一步判定的内容类型。`prompts/content-understanding.md` 列出这些类型，`prompts/selection-score.md` 按类型给评分维度不同的权重，三处在同一个提交里改。`CATEGORY_BY_ITEM_TYPE`：模型漏了分类标签时，按内容类型补一个。
-- `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义词统一成词表里的写法。
+- `CATEGORY_TAGS`、`TOPIC_TAGS`、`ENTITY_TAGS`：模型打标签时只能从这里选，每篇资料的第一个标签必须是分类标签；`TAG_SYNONYMS` 把模型常写的近义写法统一成词表里的标签（黄金→金、刚果(金)→刚果（金）、澳洲→澳大利亚、矿企别名→显示名等）。
 - `ENTITIES`：主要公司与机构，用于公司类主题。`IDENTITY_LEXICON`、`PUBLISHER_DOMAINS`、`IDENTITY_CONTEXT_ALIASES` 防止模型在标题和摘要里写进原文没提到的公司：核验过的身份事实经 `prompts/identity-context.md` 交给模型。
-- `topics.json`：主题目录，分 `company`（公司与机构）、`field`（方向）、`genre`（内容形态）三组。每个主题用 `tags` 或 `entityId` 决定收哪些内容；`slug` 出现在网址里，上线后冻结。
+- `topics.json`：主题目录，分三组：`genre`（国家与地区）、`field`（金属）、`company`（矿企）；组的键沿用上游，页面只改显示名。每个主题用 `tags` 或 `entityId` 决定收哪些内容；`slug` 出现在网址里，上线后冻结。
 
 ### 2.3 `sources.json`
 
@@ -109,20 +109,16 @@
 
 ## 3. 包外的硬编码
 
-下列 AI 口径写死在页面与报告代码里，没有走 `SITE.subject` 或 `withSubject()`，换行业时要逐个改：
+上游写死在页面与报告代码里的 AI 口径已经改成矿业的（TASK-0010、TASK-0028）：报告标题、报头顶行的 `MOTTO`（“金属矿业 · 每日要闻 / 每周综述 / 每月盘点”）、主题页的描述与三组名称（国家与地区、金属、矿企）、热点页说明、反馈页的示例、后台新建信源页的占位文字。还剩几处：`packages/backend/src/reports/compose.ts` 的 `modelsReleased` 指标按“模型发布/更新”分节计数，矿业版没有这一节，恒为 0，`features/report/format.ts` 在为 0 时不显示，随报告指标改造一并删除；`apps/api/src/routes/og.ts` 的主题分享图副标题与 `packages/backend/src/publication/llms.ts` 的说明仍是旧的三组说法，另开任务改。
 
-- 报告：`apps/web/app/routes/report-latest.tsx`、`features/report/ReportPaper.tsx` 的“AI 日报 / 周报 / 月报”；`features/report/format.ts` 的“这一天的 N 件 AI 大事”、数字条的“个新模型”和报头顶行的 `MOTTO`“人工智能 · 每日要闻 / 每周综述 / 每月盘点”（在日期与版次之间，宽屏时显示，`ReportPaper.tsx:34`）；`packages/backend/src/reports/compose.ts` 按“模型发布/更新”分节计数的 `modelsReleased` 指标。
-- 页面：`routes/topics.tsx` 的页面描述、“按主题看 AI”与三组名称；`routes/hot.tsx` 的“AI 圈讨论最多”；`routes/feedback.tsx` 输入框里“搜索 OpenAI 时……”的示例；后台新建信源页 `routes/admin/source-new.tsx` 名称输入框的占位文字“OpenAI 博客”。
-- 测试：`tests/` 里有些用例用的是示例行业的分类、标签和公司（如 `ai-models`、“模型发布”、Anthropic）。改了 `taxonomy.ts` 后这些用例会失败，把例子换成新行业的对应项即可，测的规则不变。
-
-TASK-0010 的验收有一道文本门禁：在 `apps/`、`packages/contracts`、`industry/` 下搜 `\bAI\b|OpenAI|Anthropic|Codex|模型发布|大模型`，只允许命中 AI 生成标注（“AI 导读”“AI 翻译”“AI 综述”，DR-87）、评分标签“AI 评分”与 `llms.txt` 的说明。这道门禁搜不到“人工智能”，报告报头的 `MOTTO` 只能靠上面的清单找到，建议 TASK-0010 把这个词也加进搜索词。本说明为了列出这些写法也会命中，TASK-0010 改完硬编码时连同本节一起改写。
+分析与分类相关测试里的示例分类、标签和公司已换成矿业的（如“铜”“锂”“紫金矿业”）；事件、信号、翻译等测试的夹具里还有 AI 行业的例子，测的规则与行业无关，随相应任务换掉。以后改 `taxonomy.ts` 时，用例失败就把例子换成新词表的对应项，测的规则不变。
 
 ## 4. 运行机制与已定的变化
 
 1. **构建期内容随发版生效**：`site.ts`、`taxonomy.ts`、`selection.ts`、`prompts/`、`pages/`、`brand/` 打进镜像，改了要重新构建、发版。契约包现在在构建时 import 本包的分类（`packages/contracts/src/taxonomy.ts`），这个方向要反转：分类键由契约定义，行业包只提供标签、说明与提示词，并按契约的 schema 校验（TASK-0005）。
 2. **上线后冻结的标识**：分类 `key`、主题 `slug`、MCP 前缀、报告周期键出现在网址、接口与 RSS 里，改动走契约的破坏性变更流程。
 3. **种子语义**：`scripts/seed.ts` 每次运行都用 `topics.json` 覆盖库里同名的主题，信源则只插入库里没有的（`ON CONFLICT DO NOTHING`）。现在 Compose 的 `setup` 容器每次 `up` 都先迁移再跑种子；初始化已改为新信源一律 `enabled=false`、`next_fetch_at` 为空，不接受种子内的启用标记；已有来源不覆盖。AI行业示范来源已移除，当前采集配置种子为空；Owner原始信源表（`industry/seed/`）仍是待研究目标，不能直接变成采集配置。后续逐源核实配置、通过预览和权限确认后经私有页面显式启用；主题改由分面生成（PG-08），取消覆盖式种子；迁移与种子改为发布步骤。
-4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除（已随 T-0002 删）；`icp` 删除，ICP 备案号与公安联网备案号改读受保护的运行时配置（生产环境任一未配置则公开站不开放）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
+4. **站点信息分三层**：`site.ts` 只留构建期常量；`footerNote` 删除（已随 T-0002 删）；备案号沿用上游的做法写在 `site.ts`（DEC-66；规格原写“改读受保护的运行时配置、生产环境任一未配置则公开站不开放”，Owner 2026-10-05 决定不等公安备案、网站直接开放，见 08-owner-voice DEC-31）；`ABOUT` 只留版权类固定声明，关于与联系方式改由私有页面“网站资料”编辑。
 5. **其余去向**（附录 B 的 B.8 节）：`sources.json` 由 `industry/seed/` 取代；`changelog.json` 改为产品更新表加 `changes/*.md`；两个评测样例移到 `evals/<能力>/` 并换成矿业样例；`brand/` 换成 AI矿策 的标识，仓库里不得留下与上游品牌素材 SHA-256 相同的文件，报头字按新站名重新生成（已随 T-0002 换）；`pages/` 补上联系方式与截图 180 天后删除的说明，上线前经 Owner 确认；分级 `EXCLUDE_MP` 改名 `EXCLUDE`。
 
 ## 法域与原始来源输入
