@@ -24,28 +24,31 @@ export async function readRoleCatalog(sql: Db, prefix = "amp"): Promise<Catalog>
     WHERE n.nspname !~ '^pg_' AND n.nspname NOT IN ('information_schema','pgboss') AND s.relkind='S' ORDER BY n.nspname,s.relname`;
   const policies = await sql<
     Catalog["policies"]
-  >`SELECT schemaname||'.'||tablename AS table, policyname AS name FROM pg_policies WHERE schemaname !~ '^pg_' AND schemaname NOT IN ('information_schema','pgboss')`;
+  >`SELECT schemaname||'.'||tablename AS table, policyname AS name FROM pg_policies WHERE schemaname !~ '^pg_' AND schemaname NOT IN ('information_schema','pgboss') ORDER BY 1, 2`;
   const roles = await sql<Catalog["roles"]>`SELECT rolname AS name, rolcanlogin AS login, rolsuper AS superuser, rolcreatedb AS createdb,
     rolcreaterole AS createrole, rolreplication AS replication, rolbypassrls AS bypassrls, rolinherit AS inherit, rolconnlimit AS "connectionLimit"
-    FROM pg_roles WHERE rolname=ANY(${names}::text[])`;
+    FROM pg_roles WHERE rolname=ANY(${names}::text[]) ORDER BY rolname`;
   const memberships = (
     await sql`SELECT pg_get_userbyid(member)||' -> '||pg_get_userbyid(roleid) AS membership FROM pg_auth_members
-    WHERE pg_get_userbyid(member)=ANY(${names}::text[]) OR pg_get_userbyid(roleid)=ANY(${names}::text[])`
+    WHERE pg_get_userbyid(member)=ANY(${names}::text[]) OR pg_get_userbyid(roleid)=ANY(${names}::text[]) ORDER BY 1`
   ).map((r) => r.membership);
   const queueOwners = await sql<Catalog["queueOwners"]>`SELECT c.relname AS name, pg_get_userbyid(c.relowner) AS owner FROM pg_class c
     JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='pgboss' AND c.relkind IN ('r','p','S','v','m','f')
     UNION ALL SELECT p.proname, pg_get_userbyid(p.proowner) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='pgboss'
-    UNION ALL SELECT t.typname, pg_get_userbyid(t.typowner) FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='pgboss' AND t.typtype='e'`;
+    UNION ALL SELECT t.typname, pg_get_userbyid(t.typowner) FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace WHERE n.nspname='pgboss' AND t.typtype='e'
+    ORDER BY 1, 2`;
   const grants = await sql<Catalog["grants"]>`WITH objects AS (
     SELECT 'database '||datname AS object, datacl AS acl FROM pg_database WHERE datname=current_database()
     UNION ALL SELECT 'schema '||nspname, nspacl FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname<>'information_schema'
     UNION ALL SELECT n.nspname||'.'||c.relname, c.relacl FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema'
     UNION ALL SELECT n.nspname||'.'||c.relname||'.'||a.attname, a.attacl FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname !~ '^pg_' AND n.nspname<>'information_schema' AND a.attnum>0)
-    SELECT object, CASE WHEN acl.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(acl.grantee) END AS grantee FROM objects CROSS JOIN LATERAL aclexplode(objects.acl) acl`;
+    SELECT object, CASE WHEN acl.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(acl.grantee) END AS grantee FROM objects CROSS JOIN LATERAL aclexplode(objects.acl) acl
+    ORDER BY 1, 2`;
   const defaults = await sql<Catalog["defaults"]>`SELECT pg_get_userbyid(d.defaclrole) AS owner, coalesce(n.nspname,'') AS schema,
     CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END AS grantee
     FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace CROSS JOIN LATERAL aclexplode(d.defaclacl) a
-    WHERE d.defaclobjtype IN ('r','S') AND pg_get_userbyid(d.defaclrole)=ANY(${names}::text[])`;
+    WHERE d.defaclobjtype IN ('r','S') AND pg_get_userbyid(d.defaclrole)=ANY(${names}::text[])
+    ORDER BY 1, 2, 3`;
   const unsupportedObjects = (
     await sql<{ name: string }[]>`SELECT 'function '||n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')' AS name
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace

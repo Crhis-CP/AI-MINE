@@ -41,11 +41,14 @@ const code = (expected: string) => (error: { code?: string }) => error.code === 
 
 test("the price table refuses a row without source, benchmark, unit, currency or period, and every unpaired value", async () => {
   const required =
-    "source benchmark unit source_unit currency period_type period_start period_end period_label name_zh release_label first_fetched_at fetched_at";
+    "series_key source benchmark unit source_unit currency period_type period_start period_end period_label name_zh value release_label release_url first_fetched_at fetched_at";
   const refused: Record<string, string | null>[] = [
     ...required.split(" ").map((column) => ({ [column]: null })),
     ...["0", "-1", "NaN", "Infinity"].map((value) => ({ value })),
     { source: "lme" },
+    // Each of these two breaks one value list only: an unknown source, and a period type no source uses.
+    { source: "wb", series_key: "wb.copper", currency: "USD", period_type: "month", period_start: "2026-08-01", period_end: "2026-08-31" },
+    { source: "worldbank", series_key: "wb.copper", currency: "USD", period_type: "week", period_start: "2026-08-01", period_end: "2026-08-31" },
     { benchmark: " " },
     { currency: "EUR" },
     { period_end: "2026-09-10" },
@@ -77,17 +80,19 @@ test("the real registry: the bureau's ten series on its one official host, sourc
   const registry = loadMetalPriceRegistry();
   assert.deepEqual(registry, parseMetalPriceRegistry(JSON.parse(text)));
   assert.deepEqual([...METAL_PRICE_HOSTS].sort(), ["thedocs.worldbank.org", "www.imf.org", "www.stats.gov.cn", "www.worldbank.org"]);
-  const [nbs] = registry.sources;
+  // Only the bureau's part: later cards add the World Bank and the IMF to the same file.
+  const nbs = registry.sources.find((source) => source.key === "nbs")!;
+  const items = registry.items.filter((item) => item.source === "nbs");
   assert.deepEqual(
-    [registry.sources.length, nbs.key, nbs.section, nbs.frequency, nbs.currency, nbs.staleDays, nbs.hosts, nbs.decimals, nbs.lmeNote, nbs.enabled],
-    [1, "nbs", "domestic", "ten_day", "CNY", 20, ["www.stats.gov.cn"], null, null, true],
+    [nbs.section, nbs.frequency, nbs.currency, nbs.staleDays, nbs.hosts, nbs.decimals, nbs.lmeNote, nbs.enabled],
+    ["domestic", "ten_day", "CNY", 20, ["www.stats.gov.cn"], null, null, true],
   );
   assert.deepEqual(nbs.attribution, ["转自国家统计局网站 https://www.stats.gov.cn", "原文数据来源：中国统计信息服务中心、卓创资讯"]);
   assert.equal(
-    registry.items.map((item) => item.key).join(" "),
+    items.map((item) => item.key).join(" "),
     "nbs.copper nbs.aluminum nbs.lead nbs.zinc nbs.rebar nbs.wire_rod nbs.medium_plate nbs.hr_coil nbs.seamless_pipe nbs.angle_steel",
   );
-  for (const item of registry.items)
+  for (const item of items)
     assert.deepEqual(
       [item.source, item.enabled, item.benchmark, item.deliveryBasis, item.unit, item.sourceUnit, item.descriptionIncludes],
       ["nbs", true, "全国流通领域市场价格", null, "元/吨", "吨", []],
@@ -112,7 +117,7 @@ test("a bad registry is refused whole with the field named; a stopped series sta
     ["sources.0.fetchUrl", "https://www.lme.com/", /Unrecognized key: "fetchUrl"/],
     ["sources.1", data().sources[0], /sources\.1\.key: duplicate source nbs/],
     ["sources.0.benchmark", undefined, /items\.0\.benchmark: no benchmark on the item or its source/],
-    ["items.10", { key: "wb.copper", source: "worldbank", sourceName: "Copper", name: "铜" }, /items\.10\.source: unknown source worldbank/],
+    ["sources.0.key", "worldbank", /items\.0\.source: unknown source nbs/],
     ["items.0.source", "lme", /items\.0\.source/],
     ["items.0.key", "imf.copper", /items\.0\.key: imf\.copper does not start with nbs\./],
     ["items.0.key", "nbs.Copper", /items\.0\.key/],
@@ -135,7 +140,7 @@ test("a bad registry is refused whole with the field named; a stopped series sta
   const stopped = data();
   stopped.items[3].enabled = false;
   const kept = parseMetalPriceRegistry(stopped).items;
-  assert.deepEqual([kept.length, kept.filter((item) => !item.enabled).map((item) => item.key)], [10, ["nbs.zinc"]]);
+  assert.deepEqual([kept.length, kept.filter((item) => !item.enabled).map((item) => item.key)], [stopped.items.length, ["nbs.zinc"]]);
   const dir = mkdtempSync(path.join(tmpdir(), "metal-prices-"));
   writeFileSync(path.join(dir, "broken.json"), text.slice(0, -10));
   assert.throws(() => loadMetalPriceRegistry(path.join(dir, "broken.json")), SyntaxError);
