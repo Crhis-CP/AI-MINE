@@ -37,7 +37,7 @@ const listing = (path: string, extra: Record<string, unknown> = {}) => ({
   htmlJsonPath: "data.html",
   itemSelector: "ul.txtList_01 li",
   linkSelector: "a[href]",
-  publishedAtRegex: "<span>\\s*\\[?(\\d{4}-\\d{2}-\\d{2})",
+  publishedAtRegex: "<span>\\s*\\[?(\\d{4}-\\d{2}-\\d{2}(?: \\d{2}:\\d{2}(?::\\d{2})?)?)",
   ...extra,
 });
 const source = (config: Record<string, unknown>) => ({ id: "test-json-html", kind: "web_list", config }) as never;
@@ -52,12 +52,13 @@ test("htmlJsonPath: the list HTML inside JSON parses with the usual selectors, l
       ["https://cd.mofcom.gov.cn/jmxw/art/2026/art_0002.html", "某国收回未使用的钴出口配额"],
     ],
   );
-  // Either way of writing the day is the list date; a day without a declared time zone stays a day.
+  // The list writes a day and time (kept, read in Beijing, the default offset) or a day alone (the start of
+  // that day in Beijing), as the collectors read dates.
   assert.deepEqual(
-    items.map((c) => [c.sourceDateObservation?.raw, c.publishedAt]),
+    items.map((c) => [c.sourceDateObservation?.raw, c.publishedAt?.toISOString() ?? null]),
     [
-      ["2026-08-06", null],
-      ["2026-07-02", null],
+      ["2026-08-06 18:42:37", "2026-08-06T10:42:37.000Z"],
+      ["2026-07-02", "2026-07-01T16:00:00.000Z"],
     ],
   );
 });
