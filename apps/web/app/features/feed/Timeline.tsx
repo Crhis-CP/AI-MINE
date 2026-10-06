@@ -10,7 +10,7 @@ import { FeedItem } from "./FeedItem";
 import { IconChevronDown } from "../../components/icons";
 import { LoadingDots } from "../../components/Logo";
 import { EmptyState } from "../../components/ui/Page";
-import { beijingDate, beijingTime, beijingWeekday } from "../../lib/format";
+import { beijingDate, beijingTime, beijingWeekday, isDateOnlyInstant, NO_TIME } from "../../lib/format";
 import { isHydrated, isReload, markHydrated, readSnapshot, restoreAnchor, saveSnapshot } from "./restore";
 
 const AUTO_BATCHES = 3;
@@ -119,6 +119,8 @@ export function TimelineSlot({
   delay?: number;
   dataKey?: string;
 }) {
+  // A source that gave only the date gets a dash, never the day's 00:00 (Owner 2026-10-05: 只显示日期).
+  const dateOnly = isDateOnlyInstant(at);
   return (
     <li
       data-card-key={dataKey}
@@ -126,10 +128,11 @@ export function TimelineSlot({
       style={fresh ? { animationDelay: `${delay}ms` } : undefined}
     >
       <time
-        dateTime={at}
+        dateTime={dateOnly ? beijingDate(at) : at}
+        title={dateOnly ? "来源只写了日期" : undefined}
         className="mono pt-[2px] text-[13px] leading-[18px] text-ink-4 lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
       >
-        {beijingTime(at)}
+        {dateOnly ? NO_TIME : beijingTime(at)}
       </time>
       <span aria-hidden="true" className="relative hidden lg:block">
         <span className="absolute -bottom-[41px] left-[10.5px] top-[29px] w-px bg-line-strong group-last/slot:hidden" />
