@@ -113,8 +113,7 @@ async function check(argv: string[] = []): Promise<{ code: number; out: string }
 
 const sent = () => calls.filter((c) => c.method === "POST" && c.path === "/open-apis/im/v1/messages");
 
-// The token is cached for the rest of the process once Feishu hands one out, so the cases that must not get one
-// (missing settings, a refused token) come first.
+// Feishu's token is cached once handed out, so the cases that must not get one (missing settings, a refused token) come first.
 
 test("an unknown argument prints the usage and fails", async () => {
   const { code, out } = await check(["--bogus"]);
@@ -149,7 +148,7 @@ test("with everything set it lists both pages of chats and passes", async () => 
   for (const chat of ["运行提醒（oc_alert_test）", "别的群（oc_other_test）", "读者反馈（oc_feedback_test）"]) assert.ok(out.includes(chat), chat);
   assert.match(out, /提醒群：运行提醒（oc_alert_test），机器人在群里/);
   assert.match(out, /反馈群：读者反馈（oc_feedback_test），机器人在群里/);
-  assert.match(out, /结论：通过/);
+  assert.ok(out.endsWith("结论：通过（设置和群都对）；能不能真的发出去，加 --send 发一条测试消息确认。") && !out.includes("能发出去"), out);
   const lists = calls.filter((c) => c.path === "/open-apis/im/v1/chats");
   assert.deepEqual(
     lists.map((c) => c.query.get("page_token")),
@@ -167,12 +166,15 @@ test("a switch written as 1 is off: it only accepts true", async () => {
   assert.match(out, /写的是“1”。开关只认 true，现在等于关着/);
 });
 
-test("Feishu refusing the chat list (no permission) is a failure in one plain sentence", async () => {
+test("Feishu refusing the chat list (no permission), or not reachable, is a failure in one plain sentence each", async () => {
   chatsAnswer = () => ({ code: 99991672, msg: "Access denied. One of the following scopes is required: [im:chat:readonly]" });
   const { code, out } = await check();
   assert.notEqual(code, 0);
-  assert.match(out, /列不出机器人所在的群。多半是应用还没开“获取群组信息”权限/);
-  assert.match(out, /飞书的说明：99991672 Access denied/);
+  assert.match(out, /列不出机器人所在的群。多半是应用还没开“获取群组信息”权限.*\n飞书的说明：99991672 Access denied/);
+  chatsAnswer = () => {
+    throw new TypeError("fetch failed");
+  };
+  assert.match((await check()).out, /列群：连不上飞书，稍后再试。出错的说明：fetch failed/);
 });
 
 test("an alert chat the bot is not in fails", async () => {
@@ -199,7 +201,7 @@ test("the same chat for alerts and feedback is only a hint", async () => {
 test("--send sends exactly one test message to the alert chat", async () => {
   const { code, out } = await check(["--send"]);
   assert.equal(code, 0, out);
-  assert.match(out, /已发到提醒群，请在飞书里看一眼/);
+  assert.match(out, /已发到提醒群，请在飞书里看一眼。\n结论：通过，提醒能发出去。/);
   const messages = sent();
   assert.equal(messages.length, 1);
   assert.equal(messages[0]!.query.get("receive_id_type"), "chat_id");

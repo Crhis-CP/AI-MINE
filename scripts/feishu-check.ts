@@ -1,14 +1,13 @@
-// Checks that operations alerts can reach Feishu (TASK-0062): reads the server's Feishu settings, asks Feishu
-// which chats the message app's bot is in, and says in plain words what is missing. Read-only, no database;
-// with --send it sends one test message to the alert chat. It never prints the App Secret, the tenant token
-// or request headers. Run it on the server as a deployment step:
+// Checks the Feishu set-up for operations alerts (TASK-0062): reads the server's Feishu settings, asks Feishu which chats the message app's bot
+// is in, and says in plain words what is missing. Read-only, no database; only --send, which sends one test message to the alert chat, shows
+// that alerts get through. It never prints the App Secret, the tenant token or request headers. Run it on the server as a deployment step:
 //   docker compose run --rm --no-deps worker node scripts/feishu-check.ts [--send]
 import { feishuSettingsSummary, listBotChats, sendAlert } from "@amp/backend/notify/deliver";
 
 const USAGE = "用法：node scripts/feishu-check.ts [--send]";
 
-/** Feishu's own words from an error, without our "feishu token:" / "feishu chats:" prefix. */
-const feishuSays = (error: unknown) => (error instanceof Error ? error.message : String(error)).replace(/^feishu (token|chats): /, "");
+/** Feishu's own words from an error, without our "feishu token:" / "feishu chats:" / "feishu send:" prefix. */
+const feishuSays = (error: unknown) => (error instanceof Error ? error.message : String(error)).replace(/^feishu (token|chats|send): /, "");
 
 export async function main(argv: string[], print: (line: string) => void): Promise<number> {
   const unknown = argv.filter((arg) => arg !== "--send");
@@ -39,10 +38,10 @@ export async function main(argv: string[], print: (line: string) => void): Promi
     if (error instanceof Error && error.name === "FeishuTokenError") {
       if (error.message.startsWith("feishu token:")) print(`取令牌：飞书没有接受这对应用凭据。飞书的说明：${feishuSays(error)}`);
       else print(`取令牌：连不上飞书，稍后再试。出错的说明：${feishuSays(error)}`);
-    } else {
+    } else if (error instanceof Error && error.message.startsWith("feishu chats:")) {
       print("列群：列不出机器人所在的群。多半是应用还没开“获取群组信息”权限，或者开了权限还没发布新版本。");
       print(`飞书的说明：${feishuSays(error)}`);
-    }
+    } else print(`列群：连不上飞书，稍后再试。出错的说明：${feishuSays(error)}`);
     return 1;
   }
   print("取令牌：飞书接受了这对应用凭据。");
@@ -93,13 +92,14 @@ export async function main(argv: string[], print: (line: string) => void): Promi
           ok = false;
         }
       } catch (error) {
-        print(`--send：发送失败。飞书的说明：${feishuSays(error).replace(/^feishu send: /, "")}`);
+        print(`--send：发送失败。多半是应用没开“以应用的身份发消息”权限、开了还没发布新版本，或机器人不在提醒群里。飞书的说明：${feishuSays(error)}`);
         ok = false;
       }
     }
   }
 
-  print(ok ? "结论：通过，提醒能发出去。" : "结论：没通过，照上面说的改好以后再跑一次。");
+  if (ok && !send) print("结论：通过（设置和群都对）；能不能真的发出去，加 --send 发一条测试消息确认。");
+  else print(ok ? "结论：通过，提醒能发出去。" : "结论：没通过，照上面说的改好以后再跑一次。");
   return ok ? 0 : 1;
 }
 
