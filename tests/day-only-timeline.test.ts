@@ -69,8 +69,10 @@ async function collect(sourceId: string) {
   for (const { id } of await sql<{ id: string }[]>`SELECT id FROM articles WHERE source_id = ${sourceId}`) await publishArticle(id);
 }
 const row = async (title: string) =>
-  (await sql<{ id: string; published_at: Date | null; timeline_at: Date; backfill: boolean; backfill_reason: string | null }[]>`
-    SELECT id, published_at, timeline_at, backfill, backfill_reason FROM articles WHERE title = ${title}`)[0]!;
+  (
+    await sql<{ id: string; published_at: Date | null; timeline_at: Date; backfill: boolean; backfill_reason: string | null }[]>`
+    SELECT id, published_at, timeline_at, backfill, backfill_reason FROM articles WHERE title = ${title}`
+  )[0]!;
 const pool = () => loadPool({ channel: "all", category: null, tag: null, topicTags: null } as never);
 const ours = (items: Array<{ title: string }>) => items.filter((i) => i.title.endsWith(T)).map((i) => i.title);
 
@@ -135,7 +137,11 @@ test("the correction script dry-runs, corrects and republishes once, and keeps a
     [beijingMidnight(daysAgo(3)), beijingMidnight(daysAgo(3)), "stale-on-discovery"],
   );
   const [pub] = await sql<{ published_at: Date; timeline_at: Date }[]>`SELECT published_at, timeline_at FROM publications WHERE article_id = ${late.id}`;
-  assert.deepEqual([pub!.published_at.toISOString(), pub!.timeline_at.toISOString()], [beijingMidnight(daysAgo(3)), beijingMidnight(daysAgo(3))], "republished");
+  assert.deepEqual(
+    [pub!.published_at.toISOString(), pub!.timeline_at.toISOString()],
+    [beijingMidnight(daysAgo(3)), beijingMidnight(daysAgo(3))],
+    "republished",
+  );
   const [withdrawn] = await sql<{ visibility: string }[]>`SELECT visibility FROM publications WHERE article_id = ${kept.id}`;
   assert.equal(withdrawn!.visibility, "withdrawn", "a manual withdrawal stays");
   assert.equal((await row(`存量两个月前 ${T}`)).timeline_at.toISOString(), beijingMidnight(daysAgo(60)));

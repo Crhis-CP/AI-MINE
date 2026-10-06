@@ -81,7 +81,14 @@ before(async () => {
   await once(api, "listening");
   const apiBase = `http://127.0.0.1:${(api.address() as AddressInfo).port}`;
   web = spawn(process.execPath, [fileURLToPath(new URL("../server.ts", import.meta.url))], {
-    env: webEnvironment({ ...process.env, WEB_PORT: "0", PRIVATE_HOST: "private.localhost", TRUST_PROXY: "false", API_BASE_URL: apiBase, PRIVATE_API_BASE_URL: apiBase }),
+    env: webEnvironment({
+      ...process.env,
+      WEB_PORT: "0",
+      PRIVATE_HOST: "private.localhost",
+      TRUST_PROXY: "false",
+      API_BASE_URL: apiBase,
+      PRIVATE_API_BASE_URL: apiBase,
+    }),
     stdio: ["ignore", "pipe", "pipe"],
   });
   await new Promise<void>((resolve, reject) => {
