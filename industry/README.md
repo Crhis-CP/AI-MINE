@@ -17,6 +17,7 @@
 | `brand/` | 站点图标、Logo，以及日报、周报、月报的报头字（`nameplates/`） |
 | `pages/` | 使用规则与隐私说明，是模板，上线前按实际情况改写并经 Owner 确认 |
 | `changelog.json` | 更新日志（`/changelog`）：新条目写在 `releases` 最前面；`latestVersion` 写第一条的日期，第一条有时间再加“T时间”（如 `2026-10-06T02:50`）；同一天里只写日期的条目排在有时间的前面；每条只许 `date`、`time`、`kind`、`version`、`title`、`body` 六个字段，读入时整份校验，不合格就报错（TASK-0038） |
+| `metal-prices.json` | 金属价格的来源与品种（TASK-0044，照上游模型榜登记来源的做法）：`sources` 每个来源写名称、分区、频率、币种、发布延迟、陈旧门槛天数、允许的主机（只能从 `packages/backend/src/publication/metal-prices/registry.ts` 写死的四个官方主机里选）、官方查询入口、条款、出处行与许可说明，写在来源上的基准与单位是它的品种的缺省；`items` 每个品种一行，`sourceName` 是来源原文的品名，抓取时做 NFKC 规范化、去掉空白后按它精确匹配；`enabled` 不写就是启用，停用写 `false`；读入时整份校验，不合格就报错。国家统计局 10 个品种的品名与规格照 2026-10-06 录下的原件填写，已与 `tests/fixtures/metal-prices/nbs/` 的两期发布页逐个核对（NFKC、去空白后精确匹配）；条款名称与官方查询入口照录下的原件填写 |
 | `gold.example.jsonl`、`relation-gold.example.jsonl` | 精选评测与事件关系评测的样本格式示例（2.6 节） |
 
 ## 2. 各文件怎么写
