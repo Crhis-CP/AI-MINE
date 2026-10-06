@@ -18,6 +18,7 @@ import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
 import { sourceHealthWeekly } from "@amp/backend/operations/reports";
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
+import { refreshMetalPrices } from "@amp/backend/jobs/publication";
 
 interface Scheduled {
   name: string;
@@ -69,6 +70,8 @@ export const SCHEDULES: Scheduled[] = [
         { name: "sources.adapt-intervals", cron: "20 4 * * *", run: adaptIntervals },
         // WeChat official accounts (paid), each once per its interval.
         { name: "sources.mp-reconcile", cron: "*/15 * * * *", run: () => scheduleMpReconcile() },
+        // Official metal prices, stored only (the bureau publishes at 09:30). No lane: prices belong to neither line (DEC-66).
+        { name: "metals.prices", cron: "45 9,15,21 * * *", missed: "once" as const, run: () => refreshMetalPrices() },
       ]
     : []),
 ];
