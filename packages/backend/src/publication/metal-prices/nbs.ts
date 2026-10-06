@@ -54,7 +54,7 @@ function titleHeld($: CheerioAPI, label: string): string[] {
  */
 function priceTable($: CheerioAPI, keys: Map<string, string>): Pick<FetchedPeriod, "rows" | "held"> {
   const tables = Array.from($("table"), (table) =>
-    Array.from($(table).find("tr"), (row) => Array.from($(row).children("td, th"), (cell) => $(cell).text().replace(/\s+/gu, ""))),
+    Array.from($(table).find("tr"), (row) => Array.from($(row).children("td, th"), (cell) => $(cell).text().trim())),
   );
   const copies = tables.filter(([header = []]) => HEADER.every((cell, i) => normalizeSourceName(header[i] ?? "") === cell));
   if (!copies.length) {

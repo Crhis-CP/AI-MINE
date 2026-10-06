@@ -66,6 +66,9 @@ test("both releases read as ten rows exactly as published, in the periods the li
   assert.deepEqual(withoutRows(await read(pages({ [NBS_LIST_URL]: list.replace(/ title='[^']*'/g, "") }))), listed);
   // Values exactly as the fixtures write them: the thousands separator written into a copy is dropped, nothing else.
   assert.deepEqual([both[0].rows, both[1].rows], [PUBLISHED[EARLY], PUBLISHED[MID]]);
+  const zincStopped = { ...registry, items: registry.items.map((item) => ({ ...item, enabled: item.key !== "nbs.zinc" })) };
+  const [inKilograms] = await nbsFetcher(zincStopped, pages({ [MID]: mid.replace(/(电解铜[\s\S]*?)吨/, "$1千克") })).fetch(async () => "2026-09-11");
+  assert.deepEqual(inKilograms.rows, copper({ unit: "千克" }).fetched.rows.slice(0, 9));
   // Nor does the check hold either: 9月上旬 with nothing stored, 9月中旬 after it.
   assert.deepEqual([checkPeriod({ ...base, fetched: previous, previous: null, newest: null }), checkPeriod(base)], [FIRST, NONE]);
   // 下旬 runs to the month's last day: February 28, or 29 in a leap year.
@@ -87,7 +90,7 @@ test("INV-33: a list naming no period, an address or redirect off the registered
   const noReleases = list.replace(/<li>(?:(?!<\/li>)[\s\S])*<\/li>/g, (li) => (li.includes(TAIL) ? "" : li));
   // Redirected (the final address guardedFetch reports) to another host, or to plain http on the bureau's own host.
   const [away, plain] = ["https://www.example.com/sj/zxfb/index.html", NBS_LIST_URL.replace("https:", "http:")];
-  const elsewhere = "https://stats.example.com/sj/zxfb/t20260923_1965403.html";
+  const elsewhere = "https://x.www.stats.gov.cn/sj/zxfb/t20260923_1965403.html";
   const failing: [PageGetter, string][] = [
     [pages({ [NBS_LIST_URL]: noReleases }), "列表页没有认出任何一期（可能改版或是验证页）"],
     [pages({ [NBS_LIST_URL]: challenge }), "列表页没有认出任何一期（可能改版或是验证页）"],
@@ -117,7 +120,7 @@ test("the fetcher's own reasons: a second copy of the table that differs (an ide
 });
 
 test("the check gives the reason for each way a period is held back", () => {
-  const [offHost, plainHttp] = [MID.replace("www.stats.gov.cn", "www.example.com"), MID.replace("https:", "http:")];
+  const [offHost, plainHttp] = [MID.replace("www.stats.gov.cn", "www.stats.gov.cn:8443"), MID.replace("https:", "http:")];
   const month = { source: { ...source, frequency: "month" as const } };
   const cases: [Partial<PeriodCheckInput>, string][] = [
     [rows((all) => all.filter((row) => row.key !== "nbs.copper")), "nbs.copper 出现 0 次"],
@@ -125,7 +128,7 @@ test("the check gives the reason for each way a period is held back", () => {
     [copper({ unit: "千克" }), "nbs.copper 的单位是“千克”，不是“吨”"],
     [copper({ value: "0" }), "nbs.copper 的数值 0 不大于 0"],
     [copper({ value: "-108770.0" }), "nbs.copper 的数值 -108770.0 不大于 0"],
-    [copper({ value: "108770.0元" }), "nbs.copper 的数值“108770.0元”不是数字"],
+    [copper({ value: "1e5" }), "nbs.copper 的数值“1e5”不是数字"],
     [copper({ value: "176788.0" }), "nbs.copper 是 176788.0，是上一期 110492.5 的 1.60 倍，超出 0.67–1.5 倍"],
     [copper({ value: "66295.5" }), "nbs.copper 是 66295.5，是上一期 110492.5 的 0.60 倍，超出 0.67–1.5 倍"],
     // A monthly source (the World Bank, the IMF) may move further: 0.5 to 2 times.
@@ -165,7 +168,7 @@ test("a series the previous period lacks skips its own ratio alone, noted; not c
   const up = rows((all) => all.map((row) => ({ ...row, value: { "nbs.copper": "176788.0", "nbs.zinc": "43187.0" }[row.key] ?? row.value })));
   const zinc = "nbs.zinc 是 43187.0，是上一期 26991.9 的 1.60 倍，超出 0.67–1.5 倍";
   assert.deepEqual(checkPeriod({ ...base, ...up, previous: noCopper }), { reasons: [zinc], notes: ["上一期没有 nbs.copper，跳过它的倍数检查"] });
-  // The refresh passes false for the stored newest period read again unchanged (TASK-0069): 1.6 times is not held.
+  // The refresh passes false for the stored newest period read again unchanged (TASK-0069): 1.6 times is not held, nor is it older than itself.
   for (const change of [up, { previous: undefined }]) assert.deepEqual(checkPeriod({ ...base, ...change, compareWithPrevious: false }), NONE);
-  assert.deepEqual(checkPeriod({ ...base, ...four, compareWithPrevious: false }), { reasons: missingSteel, notes: [] });
+  assert.deepEqual(checkPeriod({ ...base, ...four, newest: latest.period.start, compareWithPrevious: false }), { reasons: missingSteel, notes: [] });
 });

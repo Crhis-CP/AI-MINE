@@ -17,7 +17,7 @@ export interface Period {
 export interface PriceRow {
   key: string;
   unit: string;
-  /** Thousands separators dropped and nothing else. */
+  /** Surrounding whitespace and thousands separators dropped, nothing else. */
   value: string;
 }
 
