@@ -1,7 +1,7 @@
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
-//      item; UNKNOWN may be enriched privately but cannot become PASS through writing or scoring;
+//      item; UNKNOWN goes on like PASS (a BLOCK given while material is missing counts as UNKNOWN);
 //   2. score: two independent scores against the source tier's threshold (industry/selection.ts) decide 精选;
 //   3. writing: the Chinese title, summary and reason by the content understanding for selected and
 //      near-selected items, by the cheaper title/summary prompts for the rest;
@@ -12,6 +12,7 @@ import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SELECTION } from "@amp/industry/selection";
+import { config, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
@@ -79,7 +80,22 @@ export const SCORE_CALLS = 2;
  * score1 + score2 >= 2 × threshold. Tiers without a threshold are not scored for 精选.
  */
 export function tierThreshold(tier: string): number | null {
+  if (!scoringConfirmed()) return null;
+  return draftTierThreshold(tier);
+}
+
+/** The same threshold without the Owner gate: evaluations always run the scoring prompt as it is. */
+export function draftTierThreshold(tier: string): number | null {
   return SELECTION.thresholds[tier] ?? null;
+}
+
+/**
+ * Owner review gate (ADR-0021 §12, BR-SEL-09): in production nothing is scored or selected, and no score
+ * is shown, until the Owner has confirmed this exact scoring prompt (SELECTION_CONFIRMED_VERSION).
+ * Development, tests and evaluations (draftTierThreshold) run the draft.
+ */
+export function scoringConfirmed(production = isProduction, confirmed = config.selectionConfirmedVersion): boolean {
+  return !production || confirmed === PROMPT_VERSIONS.score;
 }
 
 /** Unselected items above this mean are written like selected ones. */
@@ -294,9 +310,16 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
   return { model, threshold, values, receiptIds, reused };
 }
 
-/** The production score step; its threshold stays case-specific even when an evaluator shares model output. */
-export async function runSelectionScores(a: AnalyzeInputArticle, opts: StepOpts = {}, onReceipt?: ReceiptObserver): Promise<AnalysisRun["scores"]> {
-  const threshold = tierThreshold(a.source.tier);
+/**
+ * The production score step; its threshold stays case-specific even when an evaluator shares model output.
+ * Evaluations pass the draft's threshold (draftTierThreshold); production keeps the Owner gate.
+ */
+export async function runSelectionScores(
+  a: AnalyzeInputArticle,
+  opts: StepOpts = {},
+  onReceipt?: ReceiptObserver,
+  threshold: number | null = tierThreshold(a.source.tier),
+): Promise<AnalysisRun["scores"]> {
   return threshold === null ? null : runScores(a, threshold, opts, onReceipt);
 }
 
@@ -432,7 +455,7 @@ async function finishAnalysis(
   prefilter: AnalysisRun["prefilter"],
   opts: StepOpts & { stages?: "selection" | "all" },
 ): Promise<AnalysisRun> {
-  // UNKNOWN can retain enrichment evidence, but remains private until scope is confirmed.
+  // UNKNOWN goes on like PASS; BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
   if (opts.stages === "selection") {
     const scores = await runSelectionScores(a, opts);
@@ -463,8 +486,10 @@ export function normalizeAnalysis(run: AnalysisRun) {
   const label = run.prefilter.label;
   const titleZh = collapseWhitespace(run.writing?.titleZh ?? "");
   const summaryZh = (run.writing?.summaryZh ?? "").trim();
-  // Copy or scores cannot turn missing scope evidence into admission.
-  const relevance = label === "BLOCK" ? "block" : label === "UNKNOWN" || (run.writing && (!titleZh || !summaryZh)) ? "unknown" : "pass";
+  // Past the prefilter (PASS or UNKNOWN) an item is relevant. Writing that gives no usable Chinese title and
+  // summary leaves it without copy of its own ("unknown", waiting for material); a Chinese original from a
+  // full-text source still shows its source excerpt, since publication only keeps a BLOCK out.
+  const relevance = label === "BLOCK" ? "block" : run.writing && (!titleZh || !summaryZh) ? "unknown" : "pass";
   // Selected when the two scores add up to twice the tier threshold; the mean, floored,
   // is the score shown (it never decides a half point on its own).
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
@@ -508,11 +533,14 @@ export interface AnalyzeResult {
   reused: boolean;
 }
 
+/** A judgement that went past the prefilter (it carries the scores, even when there were none to give). */
+const isCompleteJudgement = (output: unknown) => !!output && typeof output === "object" && "scores" in output;
+
 /**
  * Analyses the current revision and commits the judgement. A result computed for an older revision
  * is kept for traceability but never overwrites a newer input (stale = true).
  */
-export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Promise<AnalyzeResult | null> {
+export async function analyzeArticle(articleId: string, opts: StepOpts = {}, afterScope?: () => Promise<unknown>): Promise<AnalyzeResult | null> {
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
@@ -520,18 +548,24 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}): Pr
   checkAnalysisRunning();
   const prefilter = await runSelectionPrefilter(input, opts);
   // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
-  // Repeated attempts retain a complete current judgement instead of replacing it with an empty one.
+  // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
+  // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
+  // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
   await sql.begin(async (tx) => {
-    const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[] }[]>`
-      SELECT input_revision, prompt_version, output, receipt_ids FROM analyses WHERE article_id = ${articleId}
+    const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]>`
+      SELECT input_revision, prompt_version, output, receipt_ids, relevance FROM analyses WHERE article_id = ${articleId}
       ORDER BY input_revision DESC, id DESC LIMIT 1`;
-    if (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId)) {
+    const settled =
+      latest?.input_revision === input.revision && isCompleteJudgement(latest.output) && latest.relevance !== "block" && prefilter.label !== "BLOCK";
+    if (!settled && (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))) {
       await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
         VALUES (${articleId}, ${input.revision}, 'model', ${prefilter.model}, ${PROMPT_VERSIONS.prefilter}, ${[prefilter.receiptId]},
           ${prefilter.label.toLowerCase()}, false, ${tx.json({ prefilter: { label: prefilter.label, reason: prefilter.reason } })})`;
     }
     await completeReceipt(tx, prefilter.receiptId);
   });
+  // The caller may publish now on the committed scope (a Chinese original need not wait for the writing).
+  await afterScope?.();
   const run = await finishAnalysis(input, prefilter, opts);
   const out = normalizeAnalysis(run);
   const receiptIds = [

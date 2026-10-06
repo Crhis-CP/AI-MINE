@@ -269,7 +269,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 | 输入安全与输出 | 材料里的指令一律不执行；只输出 `attentionScore` | 沿用 |
 | 门槛 | T1 60 / T1_5 65 / T2 76；`understandFloor` 50 | 起点沿用；按 100–200 条矿业样本校准后才可调整（BR-SEL-08） |
 
-- **Owner 审阅关卡（硬前置，BR-SEL-09；Owner 2026-10-01：“改之前先给我看一下”）**：上表的矿业版评分标准——读者定义、内容类型与权重表、两张清单、封顶规则（以及材料不足规则、门槛起点与预筛提示词的矿业口径）——**目前全部是草案，生效前必须先交 Owner 审阅确认**；提交时并排给出 AIHOT 原规则与矿业版改动点（即上表，每项写明“AIHOT 原写法｜矿业版写法｜为什么改”，再加完整的矿业版 `selection-score.md`），缺项视为未提交、不能确认。Owner 的结论三选一：通过／改后再审／不通过；**确认只对该版本有效**（版本 = 提示词内容哈希，内容再变就回到“草案”，须重新确认），**只有负责人（Owner）能确认**，管理员、任务与 Agent 不能代确认，配置里的“已确认”标记无效。**未经 Owner 确认的矿业版评分标准不得用于正式站的精选**：正式站只加载已确认的版本；没有已确认版本时，不产生自动精选、不露出任何分数（精选页显示诚实空态“暂时没有符合条件的精选”，条目照常按宽收录进入全部矿业动态，并向告警渠道提示“评分标准未经 Owner 审阅确认”），**也不回退到 AIHOT 原 AI 领域评分标准**；**影子运行与评测环境可以用草案跑**，结果只给 Owner 看，不出现在任何公开出口。确认在建设期校准工具（OP-11“精选校准”页签，默认关闭）里做，每次结论是一条审阅记录（ENT-84 `standard_review` 类：版本哈希、提交时间与提交材料、结论、确认人、确认时间、修改意见）并写审计；确认前该版评分标准在 OP-12 只读块显示“草案：未经 Owner 确认，不得用于正式站的精选”，确认后显示“Owner 已确认（日期）”，OP-12 没有编辑与审批入口（路线图 T-0323；`01-product/04-private-operations.md` OP-11、OP-12；`02-rules/01-business-rules.md` BR-SEL-09；验收 T-160）【设计】。校准标注由 Owner 做（100–200 条，与 Q-23 是同一安排，2.12）。
+- **Owner 审阅关卡（硬前置，BR-SEL-09；Owner 2026-10-01：“改之前先给我看一下”）**：上表的矿业版评分标准——读者定义、内容类型与权重表、两张清单、封顶规则（以及材料不足规则、门槛起点与预筛提示词的矿业口径）——**目前全部是草案，生效前必须先交 Owner 审阅确认**；提交时并排给出 AIHOT 原规则与矿业版改动点（即上表，每项写明“AIHOT 原写法｜矿业版写法｜为什么改”，再加完整的矿业版 `selection-score.md`），缺项视为未提交、不能确认。Owner 的结论三选一：通过／改后再审／不通过；**确认只对该版本有效**（版本 = 提示词内容哈希，内容再变就回到“草案”，须重新确认），**只有负责人（Owner）能确认**，管理员、任务与 Agent 不能代确认，配置里的“已确认”标记无效。**未经 Owner 确认的矿业版评分标准不得用于正式站的精选**：正式站只加载已确认的版本；没有已确认版本时，不产生自动精选、不露出任何分数（首页先放最新动态，全部矿业动态也为空时显示诚实空态“暂时没有符合条件的精选”，条目照常按宽收录进入全部矿业动态，并向告警渠道提示“评分标准未经 Owner 审阅确认”），**也不回退到 AIHOT 原 AI 领域评分标准**；**影子运行与评测环境可以用草案跑**，结果只给 Owner 看，不出现在任何公开出口。确认在建设期校准工具（OP-11“精选校准”页签，默认关闭）里做，每次结论是一条审阅记录（ENT-84 `standard_review` 类：版本哈希、提交时间与提交材料、结论、确认人、确认时间、修改意见）并写审计；确认前该版评分标准在 OP-12 只读块显示“草案：未经 Owner 确认，不得用于正式站的精选”，确认后显示“Owner 已确认（日期）”，OP-12 没有编辑与审批入口（路线图 T-0323；`01-product/04-private-operations.md` OP-11、OP-12；`02-rules/01-business-rules.md` BR-SEL-09；验收 T-160）【设计】。校准标注由 Owner 做（100–200 条，与 Q-23 是同一安排，2.12）。
 - **需要的加强**：
   1. **字段与记录**：ENT-12 增评分结果字段（两次分值、平均分、是否入选、门槛版本、评分标准与提示词版本、模型）；精选决定是独立记录（ENT-26、BR-SEL-03），**以材料为单位记录**（精选看价值、按材料；热点看传播、按事件，BR-SEL-06），展示层按事件折叠成一张卡（2.10）；**两次评分的单次分值与所用门槛不进任何公开出口**，公开的只有平均分（整数，可空）。
   2. **没有评分的情形**：评分失败、两次中任一次失败、被模型拒答、该信源分级没有门槛、人工精选而无分值——不显示分数；除人工精选外不入选；仍按宽收录进全部矿业动态。
@@ -574,7 +574,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 ### 4.6 删除的验收（T-0002）
 
-- **名称检查**（2026-10-02 勘误，证据裁决，见决定台账）：`git grep -i -E 'aihot|ai hot'` 与 `#176b75`、`#2ce2e8`、`RingMark` 只在下列路径命中——① 来源登记：`LICENSE`、`LICENSES/AIHOT-MIT.txt`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json`；② 交接包原件及其写回：`docs/` 下除 `docs/acceptance/` 以外的文件（ADR-0001 在其中；`docs/assets/` 的宣传图与 AIHOT 自带的说明文档随 T-0002 删除，不在其列）；③ 历史证据：`docs/acceptance/**`；④ 治理记录：与交接包模板逐字节相同的 `AGENTS.md`、`CLAUDE.md`、`tasks/_template.md`，以及 `lanes.yaml`、`tasks/TASK-*.md`、由任务卡生成的 `tasks/INDEX.md`；⑤ 上游原样存档：与上游原件逐字节相同的 `scripts/verify/upstream-check.yml`；⑥ 名称检查脚本自身的匹配模式。引用登记文件或交接包文件的路径与文件名（如 `upstream/aihot.lock.json`、`research/aihot/`、`AIHOT-<提交>.tar.gz`、`B-aihot-file-inventory.*`、`04-aihot-adoption.md`）不算命中；读者站构建产物、`/openapi-v1.json`、`llms.txt`、RSS 与 MCP 输出零命中；品牌哈希黑名单不设例外（4.3）。原写“只命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、锁文件与 ADR-0001”做不到：交接包整包原样放进 `docs/`、不改名不拆分（`07-bootstrap/01-new-repo-bootstrap.md` 3.1 与步骤 8 的“第 1 天不要做的事”），模板也按原样装成 `AGENTS.md`、`CLAUDE.md` 与 `tasks/_template.md`，这些原件本身就写着 AIHOT；NOTICE 限制的是把名称与 Logo 用作本站标识，不对外的来源说明与历史记录不违背这一点。AC-M0-01、`05-quality/03-testing-standards.md` 1.1、`06-agents/01-parallel-development-rules.md` 第 17 节、`UPSTREAM.md` 第 2 节、4.3、6.2、`07-bootstrap/01-new-repo-bootstrap.md` 与 `06-agents/02-roadmap-and-wbs.md` 的 T-0002 行都以本条为准。`assets/og-fonts/LICENSE` 的说明段按第 6 节改写。旧仓库“AIHOT 只借鉴、不得复制代码”的规则已被 Owner 2026-09-29 的重建决定取代（ADR-0001），Agent 读到旧规则时以 ADR-0001 为准。
+- **名称检查**（2026-10-02 勘误，证据裁决，见决定台账）：`git grep -i -E 'aihot|ai hot'` 与 `#176b75`、`#2ce2e8`、`RingMark` 只在下列路径命中——① 来源登记：`LICENSE`、`LICENSES/AIHOT-MIT.txt`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json`；② 交接包原件及其写回：`docs/` 下除 `docs/acceptance/` 以外的文件（ADR-0001 在其中；`docs/assets/` 的宣传图与 AIHOT 自带的说明文档随 T-0002 删除，不在其列）；③ 历史证据：`docs/acceptance/**`；④ 治理记录：与交接包模板逐字节相同的 `AGENTS.md`、`CLAUDE.md`、`tasks/_template.md`，以及 `lanes.yaml`、`tasks/TASK-*.md`、由任务卡生成的 `tasks/INDEX.md`；⑤ 上游原样存档：与上游原件逐字节相同的 `scripts/verify/upstream-check.yml`；⑥ 名称检查脚本自身的匹配模式；⑦ 致谢（Owner 2026-10-05 要求，TASK-0038）：更新日志数据 `industry/changelog.json` 里的致谢与正式上线两条，文件里的命中只能落在 `scripts/verify/names.json` 列出的三句原句里，每句出现的次数也登记在那里，多一次少一次都算失败。引用登记文件或交接包文件的路径与文件名（如 `upstream/aihot.lock.json`、`research/aihot/`、`AIHOT-<提交>.tar.gz`、`B-aihot-file-inventory.*`、`04-aihot-adoption.md`）不算命中；读者站构建产物、`/openapi-v1.json`、`llms.txt`、RSS 与 MCP 输出零命中，站点输出唯一放行的是 `/changelog` 页及其站内接口 `/api/site/changelog` 里这三句致谢原句，一字不差才放行（⑦；站内跳转取的 `/changelog.data` 是同一份数据，不是公开 API `/api/v1`）；品牌哈希黑名单不设例外（4.3）。原写“只命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、锁文件与 ADR-0001”做不到：交接包整包原样放进 `docs/`、不改名不拆分（`07-bootstrap/01-new-repo-bootstrap.md` 3.1 与步骤 8 的“第 1 天不要做的事”），模板也按原样装成 `AGENTS.md`、`CLAUDE.md` 与 `tasks/_template.md`，这些原件本身就写着 AIHOT；NOTICE 限制的是把名称与 Logo 用作本站标识，不对外的来源说明与历史记录不违背这一点；更新日志里的致谢只写明出处，同样不是本站标识。AC-M0-01、`05-quality/03-testing-standards.md` 1.1、`06-agents/01-parallel-development-rules.md` 第 17 节、`UPSTREAM.md` 第 2 节、4.3、6.2、`07-bootstrap/01-new-repo-bootstrap.md` 与 `06-agents/02-roadmap-and-wbs.md` 的 T-0002 行都以本条为准。`assets/og-fonts/LICENSE` 的说明段按第 6 节改写。旧仓库“AIHOT 只借鉴、不得复制代码”的规则已被 Owner 2026-09-29 的重建决定取代（ADR-0001），Agent 读到旧规则时以 ADR-0001 为准。
 - 全仓没有 `FEATURES.`、`leaderboard`、`codex-reset`/`codexReset`/`codex_reset`、`monitor_` 与 `lb_` 表名的残留（主题图标 `IconMonitor`、Agent 接入页里 Codex 命令行注册 MCP 的说明、T-0009 才替换的 AI 分类词表不算）；`pnpm why highs`、`pnpm why hyparquet` 无结果。
 - 标识：`RingMark`、`#176b75`、`#2ce2e8` 只在第 1 条所列路径命中；品牌哈希黑名单无命中（4.3）；搜不到对 X 的引用（`xView`、`channel: "x"`、`onlyXArticleLink`）。分数不在删除验收之列：`Score.tsx` 保留，验收见 4.8。
 - 空库全量迁移后不存在上述 12 张表，也不存在 X 相关列与表（`x_post`、`quote_translations`）与 `signal_group_id` 列（2.11 第 2 条）；`story_signals` 是热度证据表，保留（见 4.5 第 1 行）；种子不再导入模型名录。
@@ -716,7 +716,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 ### 5.13 产品更新登记（F-SITE-01、ENT-49，M3；INV-28）
 
 - **现状**：更新日志是仓库里的 `industry/changelog.json`（运行时由 `site/meta.ts` 读取，可用环境变量改路径），条目手写、`latestVersion` 手改；读者站 `/changelog` 页和导航红点。
-- **扩展点**：publication 新建产品更新表；每个用户可见改动的 PR 附 `changes/*.md` 片段；发布流程在健康检查与公开冒烟成功后，按“发布版本标识”幂等登记（重试不重复；没有产品说明的版本登记一条例行维护说明）；读者站沿用 AIHOT 的按日期分组版式与四种类型（公告/更新/优化/下线），删“按类型筛选”与导航红点（PG-13）；登记状态经只读运维接口查看。
+- **扩展点**：publication 新建产品更新表；每个用户可见改动的 PR 附 `changes/*.md` 片段；发布流程在健康检查与公开冒烟成功后，按“发布版本标识”幂等登记（重试不重复；没有产品说明的版本登记一条例行维护说明）；读者站沿用 AIHOT 的按日期分组版式与四种类型（公告/更新/优化/下线；片段与登记流程仍是这四个值，页面另有手写大版本条目的“重大更新”，TASK-0038），删“按类型筛选”与导航红点（PG-13）；登记状态经只读运维接口查看。
 
 ### 5.14 最小私有页面（ADR-0018；规格见 `01-product/04-private-operations.md`）
 
@@ -729,7 +729,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 | AI矿策 需要 | AIHOT 现状 | 扩展点 | 模块 | 里程碑 |
 |---|---|---|---|---|
 | **两条业务线并行、隔离运行**（ADR-0016、F-POL-08、DEC-34） | 一条流水线；队列名没有业务线维度；采集配置只有一层 `sources`；没有按线暂停 | 队列 `<lane>.<stage>`、按线并发保留与轮转、按线暂停（旧分支 `docs/policy-upgrade/operations-exit.md:30-31@policy`：共用 `processing_paused` 做不到“暂停新闻、法规继续”）、按线记账与处理顺序（法规 > 官方一手 > 其他；不设预算保底额与调剂额）；信源改为“发布方 → 信源 → 按业务线的采集配置”三层 | platform/queue、ai-gateway、sources | M1 |
-| 首页是“全部矿业动态”，精选与热点入口常在、空时诚实空态（F-RDR-01/08、INV-19） | 首页是精选时间线（`routes/home.tsx` + `publication/timeline.ts`），全部动态在 `/all`，最多 50 页（“2000+”封顶） | 首页改用全部动态（按北京日期分组，同一事件折叠成一张卡，DEC-25），页码分页 + 跳页不设封顶；**精选页沿用 AIHOT 的精选时间线（`routes/home.tsx` + `publication/timeline.ts` 的精选部分，路由改到 `/featured`，卡片显示分数与推荐理由）与热点榜页，入口常在，数据不足时只显示诚实空态，“暂未启用”不再是常态文案（DEC-10）** | publication、`apps/web` | 首页与折叠 M1；精选与热点页 M3 |
+| 首页是精选（还没有精选时先放最新动态，Owner 2026-10-05，DEC-13），全部矿业动态在 `/all`；精选与热点入口常在、空时诚实空态（F-RDR-01/08、INV-19） | 首页是精选时间线（`routes/home.tsx` + `publication/timeline.ts`），全部动态在 `/all`，最多 50 页（“2000+”封顶） | 全部动态 `/all` 按北京日期分组，同一事件折叠成一张卡（DEC-25），页码分页 + 跳页不设封顶；**首页沿用 AIHOT 的精选时间线（`routes/home.tsx` + `publication/timeline.ts` 的精选部分，路由仍是 `/`，卡片显示分数与推荐理由；还没有精选、且不带筛选时先读全部动态第一页显示）与热点榜页，入口常在，数据不足时只显示诚实空态，“暂未启用”不再是常态文案（DEC-10）** | publication、`apps/web` | 全部动态与折叠 M1；首页先放最新动态 2026-10-05（TASK-0033）；精选与热点页 M3 |
 | 可发布门：来源有效、有矿业影响路径、元数据完整、证据可追溯、权限允许、无未决冲突、结构校验通过（目标架构第 4 节） | `rules.ts::isPoolEligible` 只看参与方式、相关度、有无中文标题摘要 | publication 统一实现可发布门，并记录未通过的原因，供私有页面“内容”与只读运维接口查看 | publication | M1 |
 | 宽收录自动公开、详情页可收录、站点地图与 robots（通则 18、F-PUB-05） | `rules.ts::isIndexable` 默认 noindex，站点地图只含“入选或人工标记收录”的条目（G12） | `isIndexable` 改读通则 18 页面类型表（公开 && 有中文导读 && 不属 noindex 类型）；人工“标记收录/取消收录”保留为覆盖；站点地图至少含条目与报告，随读者站上线，不等精选 | publication | M3（早于切换） |
 | 异常事项（F-EDT-05、ENT-31） | 没有统一队列；运行页分散列出未知回执、待核实投递、处理失败 | editorial 记录异常事项（身份/权限无法判断、费用结果未知、多次重试仍无合法结构等）；不设独立异常页——处理失败在私有页面“内容”的“自动处理失败”页签、费用结果未知在“用量与熔断”页逐笔核对 | editorial | M2 |
@@ -789,7 +789,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 ### 6.2 名称与 Logo 禁用
 
-- 代码、界面、文档、包名、Cookie、请求头、环境变量、浏览器存储键、User-Agent、MCP 工具名、提交信息中都不使用 “AIHOT”，只作为来源说明与历史记录出现在 4.6 第 1 条所列路径里（2026-10-02 勘误；改名清单见 4.3 节）。
+- 代码、界面、文档、包名、Cookie、请求头、环境变量、浏览器存储键、User-Agent、MCP 工具名、提交信息中都不使用 “AIHOT”，只作为来源说明与历史记录出现在 4.6 第 1 条所列路径里（2026-10-02 勘误；改名清单见 4.3 节）；对读者显示的只有更新日志里的致谢（4.6 第 1 条 ⑦，Owner 2026-10-05 要求），写明出处，不当作本站名称或标识。
 - 不使用 AIHOT 的 Logo、宣传图与截图（`industry/brand/*`、`docs/assets/*` 全部替换或删除），也不使用 `RingMark` 环形加载环与四角星图形（4.3）；不把 `aihot.news` 当作本站背书链接；删除页脚“由 AIHOT 开源框架驱动”。
 - 验证入口增加名称检查：`git grep -i -E 'aihot|ai hot'` 只允许在 4.6 第 1 条所列路径命中（2026-10-02 勘误）；另加品牌哈希黑名单（不设例外）与 `RingMark`、品牌色值检查（4.3、4.6）。
 
@@ -911,7 +911,7 @@ T-0003 只做 3.1 的最小边界与按角色连接，拆成可独立合并的 P
 3. sources：九项权限矩阵（加入时一次确认、`owner_declared` 建档、逐源收紧）、按业务线的采集配置与版本、预览与原表对账（5.1、5.15）——权限 M1，预览与对账 M2。
 4. acquisition 与 content：语言识别、抓取守卫、分页检查点、`gov_cms`、PDF 选型 spike、时间组、许可执行（5.2、5.3、5.7、5.11）——M1～M2。
 5. enrichment：矿业能力单元、原生中文直出、分段翻译与内容行为必改清单（2.8、5.11）——M2；精选评分管线（预筛、两次评分、分级门槛，2.9）M2 起跑；矿业版评分标准在 M3 提交 Owner 审阅、取得确认后生效（路线图 T-0323；最迟全面切换前，BR-SEL-09），确认前正式站不产生精选、不露出分数；门槛校准的开发集迭代 M3 完成，留出集检查最迟在 M4 内完成并留记录（T-158）。
-6. editorial 与 publication：下架集合、人工修订、内容版本、可发布门、全部动态首页、收录策略（2.1、5.9、5.15）——M1～M3；精选、热点榜、事件卡与事件页的读取与分数字段（2.9～2.11）——M3。
+6. editorial 与 publication：下架集合、人工修订、内容版本、可发布门、全部动态（`/all`）与首页先放最新动态、收录策略（2.1、5.9、5.15）——M1～M3；精选、热点榜、事件卡与事件页的读取与分数字段（2.9～2.11）——M3。
 7. reports：选材与出刊时间沿用 AIHOT（精选候选；日报 08:00／周报周一 10:00／月报 1 日 10:30，5.10）、刊期成员与修订传播——M3。
 8. `platform/identity`、publication（站点资料与产品更新）、`platform/ops`：具名账号与审计、告警推送与日聚合（5.12、5.13、5.15）——M1～M3；告警随首次生产部署上线。
 9. events：热度与热点榜（规则版本、小时快照）、事件折叠与事件综述、跨语言与硬校验（2.10、2.11）——M2 计算、M3 页面与出口。

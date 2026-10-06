@@ -1,341 +1,562 @@
 {
-  "exportedAt": "2026-09-26",
+  "exportedAt": "2026-10-05",
   "groups": [
     {
-      "key": "company",
-      "name": "公司与模型",
-      "blurb": "按厂商与模型系追踪：谁发了什么、又赢了哪一局"
+      "key": "genre",
+      "name": "国家与地区",
+      "blurb": "按国家与地区看金属矿业：政策、项目与市场"
     },
     {
       "key": "field",
-      "name": "技术方向",
-      "blurb": "按技术领域深挖：Agent、多模态、具身智能……"
+      "name": "金属",
+      "blurb": "按金属看矿业：铜、金、锂、镍……"
     },
     {
-      "key": "genre",
-      "name": "内容形态",
-      "blurb": "按内容类型浏览：论文、教程、观点、政策……"
+      "key": "company",
+      "name": "矿企",
+      "blurb": "按公司追踪：项目、产量、并购与经营"
     }
   ],
   "topics": [
     {
-      "slug": "openai",
-      "name": "OpenAI / ChatGPT",
-      "group": "company",
-      "entityId": "openai",
-      "tags": ["OpenAI", "entity:openai"],
-      "definition": "OpenAI 的全部动态：GPT 系列模型、ChatGPT 与 Sora 产品、公司战略与人事的持续追踪。",
-      "related": ["anthropic", "google", "model-releases"]
-    },
-    {
-      "slug": "anthropic",
-      "name": "Anthropic / Claude",
-      "group": "company",
-      "entityId": "anthropic",
-      "tags": ["Anthropic", "entity:anthropic"],
-      "definition": "Anthropic 的全部动态：Claude 系列模型、Claude Code、安全研究路线与公司进展的持续追踪。",
-      "related": ["openai", "google", "safety"]
-    },
-    {
-      "slug": "google",
-      "name": "Google / Gemini",
-      "group": "company",
-      "entityId": "google",
-      "tags": ["Google", "DeepMind", "entity:google"],
-      "definition": "Google 与 DeepMind 的 AI 动态：Gemini 系列、Veo 视频模型、研究成果与产品生态的持续追踪。",
-      "related": ["openai", "anthropic", "multimodal"]
-    },
-    {
-      "slug": "deepseek",
-      "name": "DeepSeek",
-      "group": "company",
-      "entityId": "deepseek",
-      "tags": ["DeepSeek", "entity:deepseek"],
-      "definition": "DeepSeek（深度求索）的模型发布、开源权重与技术报告——开源大模型价格与性能双卷的风向标。",
-      "related": ["qwen", "open-source", "model-releases"]
-    },
-    {
-      "slug": "qwen",
-      "name": "千问 Qwen",
-      "group": "company",
-      "entityId": "qwen",
-      "tags": ["entity:qwen"],
-      "definition": "阿里千问 Qwen 系列的开源发布与迭代：从旗舰模型到端侧小模型的全谱系动态。",
-      "related": ["deepseek", "kimi", "open-source"]
-    },
-    {
-      "slug": "kimi",
-      "name": "Kimi / 月之暗面",
-      "group": "company",
-      "entityId": "kimi",
-      "tags": ["entity:kimi"],
-      "definition": "月之暗面 Kimi 系列模型与产品动态：K 系列开源模型、长上下文技术与产品演进的追踪。",
-      "related": ["qwen", "deepseek", "minimax"]
-    },
-    {
-      "slug": "minimax",
-      "name": "MiniMax",
-      "group": "company",
-      "entityId": "minimax",
-      "tags": ["entity:minimax"],
-      "definition": "MiniMax 的模型与产品动态：M 系列大模型、语音与多模态能力、开源与商业化进展。",
-      "related": ["kimi", "qwen", "voice"]
-    },
-    {
-      "slug": "zhipu",
-      "name": "智谱 GLM",
-      "group": "company",
-      "entityId": "zhipu",
-      "tags": ["entity:zhipu"],
-      "definition": "智谱的 GLM 系列模型动态：旗舰开源发布、代码与推理能力迭代、商业化与生态进展的追踪。",
-      "related": ["qwen", "kimi", "open-source"]
-    },
-    {
-      "slug": "xai",
-      "name": "xAI / Grok",
-      "group": "company",
-      "entityId": "xai",
-      "tags": ["xAI", "entity:xai"],
-      "definition": "马斯克 xAI 与 Grok 系列的全部动态：模型迭代、算力扩张与 X 平台整合的持续追踪。",
-      "related": ["openai", "meta", "industry"]
-    },
-    {
-      "slug": "meta",
-      "name": "Meta / Llama",
-      "group": "company",
-      "entityId": "meta",
-      "tags": ["Meta", "entity:meta"],
-      "definition": "Meta 的 AI 动态：Llama 开源模型系列、超级智能实验室与元宇宙之外的 AI 豪赌。",
-      "related": ["xai", "open-source", "industry"]
-    },
-    {
-      "slug": "microsoft",
-      "name": "Microsoft / Copilot",
-      "group": "company",
-      "entityId": "microsoft",
-      "tags": ["Microsoft", "entity:microsoft"],
-      "definition": "微软的 AI 布局：Copilot 全家桶、Azure AI 基础设施与 OpenAI 合作关系的持续追踪。",
-      "related": ["openai", "coding", "product-updates"]
-    },
-    {
-      "slug": "nvidia",
-      "name": "NVIDIA 英伟达",
-      "group": "company",
-      "entityId": "nvidia",
-      "tags": ["entity:nvidia"],
-      "definition": "英伟达的 AI 芯片与生态动态：GPU 新品、CUDA 生态、机器人平台与 AI 算力市场的风向。",
-      "related": ["engineering", "industry", "embodied"]
-    },
-    {
-      "slug": "hugging-face",
-      "name": "Hugging Face",
-      "group": "company",
-      "entityId": "hugging-face",
-      "tags": ["Hugging Face", "entity:hugging-face"],
-      "definition": "Hugging Face 开源社区动态：热门模型与数据集、排行榜变化与开源生态的晴雨表。",
-      "related": ["open-source", "model-releases", "data-training"]
-    },
-    {
-      "slug": "cursor",
-      "name": "Cursor",
-      "group": "company",
-      "entityId": "cursor",
-      "tags": ["entity:cursor"],
-      "definition": "Cursor 编辑器的产品迭代与生态动态——AI 编码工具竞争中最受关注的玩家之一。",
-      "related": ["coding", "agent", "product-updates"]
-    },
-    {
-      "slug": "openrouter",
-      "name": "OpenRouter",
-      "group": "company",
-      "entityId": "openrouter",
-      "tags": ["entity:openrouter"],
-      "definition": "OpenRouter 模型路由平台动态：新模型上架、用量排行与开发者选型的真实市场信号。",
-      "related": ["engineering", "model-releases", "open-source"]
-    },
-    {
-      "slug": "agent",
-      "name": "Agent 智能体",
-      "group": "field",
-      "tags": ["Agent"],
-      "definition": "让模型自主规划、调用工具、完成多步任务的技术方向——从 Claude Code、Manus 到各家 Agent 框架与评测基准的全部动态。",
-      "related": ["mcp", "coding", "reasoning"]
-    },
-    {
-      "slug": "coding",
-      "name": "AI 编码",
-      "group": "field",
-      "tags": ["编码"],
-      "definition": "AI 写代码的一切：编码助手、Vibe Coding、代码模型评测与开发工作流变革。",
-      "related": ["agent", "cursor", "tutorials"]
-    },
-    {
-      "slug": "reasoning",
-      "name": "推理能力",
-      "group": "field",
-      "tags": ["推理"],
-      "definition": "模型推理能力的进展：思维链、推理模型、数学与逻辑基准的突破与争议。",
-      "related": ["papers", "model-releases", "agent"]
-    },
-    {
-      "slug": "multimodal",
-      "name": "多模态",
-      "group": "field",
-      "tags": ["多模态"],
-      "definition": "文本之外的能力：视觉理解、图文混合、音视频输入输出的模型与产品进展。",
-      "related": ["image-gen", "video", "voice"]
-    },
-    {
-      "slug": "image-gen",
-      "name": "图像生成",
-      "group": "field",
-      "tags": ["图像生成"],
-      "definition": "AI 画图的最前线：文生图模型迭代、图像编辑能力与创作工具生态的全部动态。",
-      "related": ["video", "multimodal", "product-updates"]
-    },
-    {
-      "slug": "video",
-      "name": "AI 视频",
-      "group": "field",
-      "tags": ["视频"],
-      "definition": "AI 视频生成与理解：文生视频模型、视频编辑工具与影视创作变革的追踪。",
-      "related": ["image-gen", "multimodal", "voice"]
-    },
-    {
-      "slug": "voice",
-      "name": "语音与音频",
-      "group": "field",
-      "tags": ["语音"],
-      "definition": "AI 语音与音频的进展：语音合成、实时对话、音乐生成与音频理解的模型与产品。",
-      "related": ["multimodal", "video", "product-updates"]
-    },
-    {
-      "slug": "embodied",
-      "name": "具身智能",
-      "group": "field",
-      "tags": ["具身智能"],
-      "definition": "AI 走进物理世界：人形机器人、具身基础模型与真实环境操作能力的进展追踪。",
-      "related": ["nvidia", "multimodal", "papers"]
-    },
-    {
-      "slug": "on-device",
-      "name": "端侧 AI",
-      "group": "field",
-      "tags": ["端侧"],
-      "definition": "跑在手机、电脑与边缘设备上的 AI：小模型、本地推理与端侧芯片的进展。",
-      "related": ["engineering", "open-source", "model-releases"]
-    },
-    {
-      "slug": "open-source",
-      "name": "开源生态",
-      "group": "field",
-      "tags": ["开源生态", "开源/仓库"],
-      "definition": "开源模型、框架与仓库动态：权重开放、社区项目爆火、开源与闭源的力量消长。",
-      "related": ["model-releases", "hugging-face", "coding"]
-    },
-    {
-      "slug": "engineering",
-      "name": "部署工程",
-      "group": "field",
-      "tags": ["部署/工程"],
-      "definition": "把模型跑起来的工程实践：推理优化、显存与成本、Serving 架构与基础设施选型。",
-      "related": ["open-source", "data-training", "on-device"]
-    },
-    {
-      "slug": "data-training",
-      "name": "数据与训练",
-      "group": "field",
-      "tags": ["数据/训练"],
-      "definition": "训练侧的门道：数据集构建、合成数据、预训练与后训练方法、算力与训练成本。",
-      "related": ["papers", "engineering", "model-releases"]
-    },
-    {
-      "slug": "safety",
-      "name": "安全对齐",
-      "group": "field",
-      "tags": ["安全/对齐"],
-      "definition": "AI 安全与对齐：越狱与防御、模型行为研究、安全评测与治理框架的进展。",
-      "related": ["papers", "policy", "reasoning"]
-    },
-    {
-      "slug": "mcp",
-      "name": "MCP 与工具调用",
-      "group": "field",
-      "tags": ["MCP/工具调用"],
-      "definition": "模型连接外部世界的协议与实践：MCP 生态、function calling、工具链集成的动态。",
-      "related": ["agent", "coding", "open-source"]
-    },
-    {
-      "slug": "model-releases",
-      "name": "模型发布",
+      "slug": "china",
+      "name": "中国",
       "group": "genre",
-      "tags": ["模型发布"],
-      "definition": "新模型的发布、开源与迭代：大模型厂商的旗舰更新、开源权重放出、性能与价格变化的第一时间记录。",
-      "related": ["product-updates", "papers", "open-source"]
+      "entityId": null,
+      "tags": ["中国"],
+      "definition": "中国的矿业动态：全品类金属矿产的政策法规、矿企与项目、市场与贸易。",
+      "related": ["copper", "rare-earths", "lithium"]
     },
     {
-      "slug": "product-updates",
-      "name": "产品更新",
+      "slug": "mongolia",
+      "name": "蒙古",
       "group": "genre",
-      "tags": ["产品更新"],
-      "definition": "AI 产品与应用的功能上新、改版与商业化动态——谁家的产品变强了、变贵了、能用了。",
-      "related": ["model-releases", "industry", "coding"]
+      "entityId": null,
+      "tags": ["蒙古"],
+      "definition": "蒙古的矿业动态：铜、金等金属矿产的政策、项目与贸易。",
+      "related": ["copper", "gold"]
     },
     {
-      "slug": "papers",
-      "name": "论文研究",
+      "slug": "kazakhstan",
+      "name": "哈萨克斯坦",
       "group": "genre",
-      "tags": ["论文/研究"],
-      "definition": "值得读的 AI 论文与研究成果：架构创新、训练方法、能力测量与理论进展的精选解读。",
-      "related": ["reasoning", "safety", "data-training"]
+      "entityId": null,
+      "tags": ["哈萨克斯坦"],
+      "definition": "哈萨克斯坦的矿业动态：铜、金等金属矿产的政策、项目与市场。",
+      "related": ["copper", "gold"]
     },
     {
-      "slug": "benchmarks",
-      "name": "评测基准",
+      "slug": "kyrgyzstan",
+      "name": "吉尔吉斯斯坦",
       "group": "genre",
-      "tags": ["评测/基准"],
-      "definition": "模型到底谁强：Benchmark 成绩、评测方法论争议与排行榜变化的持续记录。",
-      "related": ["model-releases", "papers", "reasoning"]
+      "entityId": null,
+      "tags": ["吉尔吉斯斯坦"],
+      "definition": "吉尔吉斯斯坦的矿业动态：金等金属矿产的政策、矿权与项目。",
+      "related": ["gold"]
     },
     {
-      "slug": "tutorials",
-      "name": "教程实践",
+      "slug": "tajikistan",
+      "name": "塔吉克斯坦",
       "group": "genre",
-      "tags": ["教程/实践"],
-      "definition": "拿来就能用的实操内容：提示词技巧、工作流搭建、工具用法与踩坑经验。",
-      "related": ["coding", "agent", "product-updates"]
+      "entityId": null,
+      "tags": ["塔吉克斯坦"],
+      "definition": "塔吉克斯坦的矿业动态：金、银、锑等金属矿产的政策与项目。",
+      "related": ["gold", "silver", "antimony"]
     },
     {
-      "slug": "opinions",
-      "name": "大佬观点",
+      "slug": "dr-congo",
+      "name": "刚果（金）",
       "group": "genre",
-      "tags": ["大佬观点"],
-      "definition": "行业关键人物在想什么：创始人访谈、研究者论战、投资人判断的观点集合。",
-      "related": ["trends", "industry"]
+      "entityId": null,
+      "tags": ["刚果（金）"],
+      "definition": "刚果（金）的矿业动态：铜、钴等金属矿产的政策、矿权与项目。",
+      "related": ["copper", "cobalt"]
     },
     {
-      "slug": "trends",
-      "name": "现象与趋势",
+      "slug": "zambia",
+      "name": "赞比亚",
       "group": "genre",
-      "tags": ["现象/趋势"],
-      "definition": "正在发生的行业级变化：使用习惯迁移、能力涌现、社会影响与市场格局的观察。",
-      "related": ["opinions", "industry", "safety"]
+      "entityId": null,
+      "tags": ["赞比亚"],
+      "definition": "赞比亚的矿业动态：铜、钴等金属矿产的政策、矿权与项目。",
+      "related": ["copper", "cobalt"]
     },
     {
-      "slug": "industry",
-      "name": "行业动态",
+      "slug": "south-africa",
+      "name": "南非",
       "group": "genre",
-      "tags": ["行业动态"],
-      "definition": "AI 行业的商业脉搏：融资并购、人事变动、合作与竞争、政策与市场信号。",
-      "related": ["trends", "opinions", "policy"]
+      "entityId": null,
+      "tags": ["南非"],
+      "definition": "南非的矿业动态：铂族金属、金、锰、铬等矿产的政策、项目与安全。",
+      "related": ["pgm", "gold", "manganese", "chromium"]
     },
     {
-      "slug": "policy",
-      "name": "政策监管",
+      "slug": "ghana",
+      "name": "加纳",
       "group": "genre",
-      "tags": ["政策/监管"],
-      "definition": "AI 相关政策法规与政府监管动态：立法进展、出口管制与全球治理框架的追踪。",
-      "related": ["industry", "safety", "trends"]
+      "entityId": null,
+      "tags": ["加纳"],
+      "definition": "加纳的矿业动态：金矿的政策、矿权与项目。",
+      "related": ["gold"]
+    },
+    {
+      "slug": "chile",
+      "name": "智利",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["智利"],
+      "definition": "智利的矿业动态：铜、锂等金属矿产的政策、项目与市场。",
+      "related": ["copper", "lithium", "molybdenum"]
+    },
+    {
+      "slug": "argentina",
+      "name": "阿根廷",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["阿根廷"],
+      "definition": "阿根廷的矿业动态：锂、铜、金、银等金属矿产的政策与项目。",
+      "related": ["lithium", "copper", "gold", "silver"]
+    },
+    {
+      "slug": "colombia",
+      "name": "哥伦比亚",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["哥伦比亚"],
+      "definition": "哥伦比亚的矿业动态：金等金属矿产的政策、矿权与安全。",
+      "related": ["gold"]
+    },
+    {
+      "slug": "guyana",
+      "name": "圭亚那",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["圭亚那"],
+      "definition": "圭亚那的矿业动态：金等金属矿产的政策、矿权与项目。",
+      "related": ["gold"]
+    },
+    {
+      "slug": "suriname",
+      "name": "苏里南",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["苏里南"],
+      "definition": "苏里南的矿业动态：金等金属矿产的政策与项目。",
+      "related": ["gold"]
+    },
+    {
+      "slug": "united-states",
+      "name": "美国",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["美国"],
+      "definition": "美国的矿业动态：关键矿产政策、铜金等金属项目与贸易措施。",
+      "related": ["copper", "gold", "lithium"]
+    },
+    {
+      "slug": "canada",
+      "name": "加拿大",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["加拿大"],
+      "definition": "加拿大的矿业动态：关键矿产政策、金铜等金属项目与审批。",
+      "related": ["gold", "copper", "nickel"]
+    },
+    {
+      "slug": "serbia",
+      "name": "塞尔维亚",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["塞尔维亚"],
+      "definition": "塞尔维亚的矿业动态：铜、金、锂等金属矿产的政策与项目。",
+      "related": ["copper", "gold", "lithium"]
+    },
+    {
+      "slug": "australia",
+      "name": "澳大利亚",
+      "group": "genre",
+      "entityId": null,
+      "tags": ["澳大利亚"],
+      "definition": "澳大利亚的矿业动态：铁矿石、锂、金、铜等金属矿产的政策、项目与市场。",
+      "related": ["iron-ore", "lithium", "gold", "copper"]
+    },
+    {
+      "slug": "copper",
+      "name": "铜",
+      "group": "field",
+      "entityId": null,
+      "tags": ["铜"],
+      "definition": "铜的矿业动态：铜矿项目与产量、供需与价格、相关政策。",
+      "related": ["chile", "dr-congo", "zambia"]
+    },
+    {
+      "slug": "gold",
+      "name": "金",
+      "group": "field",
+      "entityId": null,
+      "tags": ["金"],
+      "definition": "金的矿业动态：金矿项目与产量、金价与央行购金、相关政策。",
+      "related": ["ghana", "australia", "china"]
+    },
+    {
+      "slug": "silver",
+      "name": "银",
+      "group": "field",
+      "entityId": null,
+      "tags": ["银"],
+      "definition": "银的矿业动态：银矿项目与产量、价格与供需。",
+      "related": ["copper", "zinc"]
+    },
+    {
+      "slug": "zinc",
+      "name": "锌",
+      "group": "field",
+      "entityId": null,
+      "tags": ["锌"],
+      "definition": "锌的矿业动态：锌矿项目、冶炼与供需价格。",
+      "related": ["lead", "silver"]
+    },
+    {
+      "slug": "lead",
+      "name": "铅",
+      "group": "field",
+      "entityId": null,
+      "tags": ["铅"],
+      "definition": "铅的矿业动态：铅矿项目、冶炼与供需价格。",
+      "related": ["zinc", "silver"]
+    },
+    {
+      "slug": "lithium",
+      "name": "锂",
+      "group": "field",
+      "entityId": null,
+      "tags": ["锂"],
+      "definition": "锂的矿业动态：锂矿石与盐湖、卤水等取得方式的项目、供需与政策。",
+      "related": ["chile", "argentina", "australia"]
+    },
+    {
+      "slug": "nickel",
+      "name": "镍",
+      "group": "field",
+      "entityId": null,
+      "tags": ["镍"],
+      "definition": "镍的矿业动态：镍矿与冶炼项目、供需价格与出口政策。",
+      "related": ["cobalt", "copper"]
+    },
+    {
+      "slug": "cobalt",
+      "name": "钴",
+      "group": "field",
+      "entityId": null,
+      "tags": ["钴"],
+      "definition": "钴的矿业动态：钴矿项目、出口配额与供需价格。",
+      "related": ["dr-congo", "copper", "nickel"]
+    },
+    {
+      "slug": "molybdenum",
+      "name": "钼",
+      "group": "field",
+      "entityId": null,
+      "tags": ["钼"],
+      "definition": "钼的矿业动态：钼矿项目、产量与价格。",
+      "related": ["copper", "chile"]
+    },
+    {
+      "slug": "iron-ore",
+      "name": "铁矿石",
+      "group": "field",
+      "entityId": null,
+      "tags": ["铁矿石"],
+      "definition": "铁矿石的矿业动态：矿山项目与发运、供需与价格。",
+      "related": ["australia"]
+    },
+    {
+      "slug": "aluminium",
+      "name": "铝",
+      "group": "field",
+      "entityId": null,
+      "tags": ["铝", "铝土矿"],
+      "definition": "铝的矿业动态：铝土矿、氧化铝与电解铝的项目、供需与政策。",
+      "related": ["china"]
+    },
+    {
+      "slug": "rare-earths",
+      "name": "稀土",
+      "group": "field",
+      "entityId": null,
+      "tags": ["稀土"],
+      "definition": "稀土的矿业动态：稀土矿与分离项目、管理政策与出口管制。",
+      "related": ["china"]
+    },
+    {
+      "slug": "tungsten",
+      "name": "钨",
+      "group": "field",
+      "entityId": null,
+      "tags": ["钨"],
+      "definition": "钨的矿业动态：钨矿项目、供需与出口管制。",
+      "related": ["antimony", "china"]
+    },
+    {
+      "slug": "antimony",
+      "name": "锑",
+      "group": "field",
+      "entityId": null,
+      "tags": ["锑"],
+      "definition": "锑的矿业动态：锑矿项目、供需与出口管制。",
+      "related": ["tungsten", "china"]
+    },
+    {
+      "slug": "tin",
+      "name": "锡",
+      "group": "field",
+      "entityId": null,
+      "tags": ["锡"],
+      "definition": "锡的矿业动态：锡矿项目、产量与价格。",
+      "related": ["china"]
+    },
+    {
+      "slug": "manganese",
+      "name": "锰",
+      "group": "field",
+      "entityId": null,
+      "tags": ["锰"],
+      "definition": "锰的矿业动态：锰矿项目、供需与价格。",
+      "related": ["south-africa"]
+    },
+    {
+      "slug": "chromium",
+      "name": "铬",
+      "group": "field",
+      "entityId": null,
+      "tags": ["铬"],
+      "definition": "铬的矿业动态：铬矿项目、供需与价格。",
+      "related": ["south-africa"]
+    },
+    {
+      "slug": "pgm",
+      "name": "铂族金属",
+      "group": "field",
+      "entityId": null,
+      "tags": ["铂族金属"],
+      "definition": "铂、钯等铂族金属的矿业动态：矿山项目、产量与价格。",
+      "related": ["south-africa"]
+    },
+    {
+      "slug": "zijin",
+      "name": "紫金矿业",
+      "group": "company",
+      "entityId": "zijin",
+      "tags": ["紫金矿业", "entity:zijin"],
+      "definition": "紫金矿业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "gold", "lithium"]
+    },
+    {
+      "slug": "cmoc",
+      "name": "洛阳钼业",
+      "group": "company",
+      "entityId": "cmoc",
+      "tags": ["洛阳钼业", "entity:cmoc"],
+      "definition": "洛阳钼业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "cobalt", "molybdenum"]
+    },
+    {
+      "slug": "jiangxi-copper",
+      "name": "江西铜业",
+      "group": "company",
+      "entityId": "jiangxi-copper",
+      "tags": ["江西铜业", "entity:jiangxi-copper"],
+      "definition": "江西铜业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper"]
+    },
+    {
+      "slug": "minmetals",
+      "name": "中国五矿",
+      "group": "company",
+      "entityId": "minmetals",
+      "tags": ["中国五矿", "entity:minmetals"],
+      "definition": "中国五矿的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "zinc"]
+    },
+    {
+      "slug": "mmg",
+      "name": "五矿资源",
+      "group": "company",
+      "entityId": "mmg",
+      "tags": ["五矿资源", "entity:mmg"],
+      "definition": "五矿资源的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "zinc"]
+    },
+    {
+      "slug": "chalco",
+      "name": "中国铝业",
+      "group": "company",
+      "entityId": "chalco",
+      "tags": ["中国铝业", "entity:chalco"],
+      "definition": "中国铝业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["aluminium"]
+    },
+    {
+      "slug": "shandong-gold",
+      "name": "山东黄金",
+      "group": "company",
+      "entityId": "shandong-gold",
+      "tags": ["山东黄金", "entity:shandong-gold"],
+      "definition": "山东黄金的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["gold"]
+    },
+    {
+      "slug": "ganfeng",
+      "name": "赣锋锂业",
+      "group": "company",
+      "entityId": "ganfeng",
+      "tags": ["赣锋锂业", "entity:ganfeng"],
+      "definition": "赣锋锂业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["lithium"]
+    },
+    {
+      "slug": "tianqi",
+      "name": "天齐锂业",
+      "group": "company",
+      "entityId": "tianqi",
+      "tags": ["天齐锂业", "entity:tianqi"],
+      "definition": "天齐锂业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["lithium"]
+    },
+    {
+      "slug": "huayou",
+      "name": "华友钴业",
+      "group": "company",
+      "entityId": "huayou",
+      "tags": ["华友钴业", "entity:huayou"],
+      "definition": "华友钴业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["cobalt", "nickel"]
+    },
+    {
+      "slug": "bhp",
+      "name": "必和必拓",
+      "group": "company",
+      "entityId": "bhp",
+      "tags": ["必和必拓", "entity:bhp"],
+      "definition": "必和必拓的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["iron-ore", "copper"]
+    },
+    {
+      "slug": "rio-tinto",
+      "name": "力拓",
+      "group": "company",
+      "entityId": "rio-tinto",
+      "tags": ["力拓", "entity:rio-tinto"],
+      "definition": "力拓的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["iron-ore", "copper", "lithium"]
+    },
+    {
+      "slug": "glencore",
+      "name": "嘉能可",
+      "group": "company",
+      "entityId": "glencore",
+      "tags": ["嘉能可", "entity:glencore"],
+      "definition": "嘉能可的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "cobalt", "zinc"]
+    },
+    {
+      "slug": "vale",
+      "name": "淡水河谷",
+      "group": "company",
+      "entityId": "vale",
+      "tags": ["淡水河谷", "entity:vale"],
+      "definition": "淡水河谷的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["iron-ore", "nickel"]
+    },
+    {
+      "slug": "anglo-american",
+      "name": "英美资源",
+      "group": "company",
+      "entityId": "anglo-american",
+      "tags": ["英美资源", "entity:anglo-american"],
+      "definition": "英美资源的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "iron-ore", "pgm"]
+    },
+    {
+      "slug": "freeport",
+      "name": "自由港麦克莫兰",
+      "group": "company",
+      "entityId": "freeport",
+      "tags": ["自由港麦克莫兰", "entity:freeport"],
+      "definition": "自由港麦克莫兰的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "gold"]
+    },
+    {
+      "slug": "newmont",
+      "name": "纽蒙特",
+      "group": "company",
+      "entityId": "newmont",
+      "tags": ["纽蒙特", "entity:newmont"],
+      "definition": "纽蒙特的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["gold"]
+    },
+    {
+      "slug": "barrick",
+      "name": "巴里克",
+      "group": "company",
+      "entityId": "barrick",
+      "tags": ["巴里克", "entity:barrick"],
+      "definition": "巴里克的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["gold", "copper"]
+    },
+    {
+      "slug": "codelco",
+      "name": "智利国家铜业公司",
+      "group": "company",
+      "entityId": "codelco",
+      "tags": ["智利国家铜业公司", "entity:codelco"],
+      "definition": "智利国家铜业公司的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "chile"]
+    },
+    {
+      "slug": "first-quantum",
+      "name": "第一量子",
+      "group": "company",
+      "entityId": "first-quantum",
+      "tags": ["第一量子", "entity:first-quantum"],
+      "definition": "第一量子的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper"]
+    },
+    {
+      "slug": "ivanhoe",
+      "name": "艾芬豪矿业",
+      "group": "company",
+      "entityId": "ivanhoe",
+      "tags": ["艾芬豪矿业", "entity:ivanhoe"],
+      "definition": "艾芬豪矿业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper", "dr-congo"]
+    },
+    {
+      "slug": "albemarle",
+      "name": "雅宝",
+      "group": "company",
+      "entityId": "albemarle",
+      "tags": ["雅宝", "entity:albemarle"],
+      "definition": "雅宝的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["lithium"]
+    },
+    {
+      "slug": "sqm",
+      "name": "智利化工矿业",
+      "group": "company",
+      "entityId": "sqm",
+      "tags": ["智利化工矿业", "entity:sqm"],
+      "definition": "智利化工矿业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["lithium", "chile"]
+    },
+    {
+      "slug": "southern-copper",
+      "name": "南方铜业",
+      "group": "company",
+      "entityId": "southern-copper",
+      "tags": ["南方铜业", "entity:southern-copper"],
+      "definition": "南方铜业的动态：项目与产量、并购与经营、相关政策。",
+      "related": ["copper"]
     }
   ]
 }

@@ -158,6 +158,53 @@ test("the build output and the site's outputs have no exceptions, references to 
   );
 });
 
+const ALLOWED = rules.allowedPhrases ?? { phrases: {}, files: [], outputs: [] };
+const PHRASES = Object.keys(ALLOWED.phrases);
+
+test("the changelog's thanks phrases pass verbatim in the outputs names.json lists; anywhere else they are hits", () => {
+  const phrases = PHRASES;
+  assert.ok(phrases.length > 0);
+  assert.deepEqual(ALLOWED.outputs, ["/changelog", "/api/site/changelog"]);
+  assert.ok(SITE_OUTPUTS.some(([url]) => url === "/api/site/changelog"));
+  const page = `<h3>${phrases.join("</h3>\n<p>")}</p>`;
+  for (const output of ALLOWED.outputs) assert.deepEqual(checkOutputs([{ label: `${output} (HTTP 200)`, text: page }], rules), []);
+  assert.equal(checkOutputs([{ label: "/about (HTTP 200)", text: page }], rules).length, phrases.length);
+  assert.equal(checkOutputs([{ label: "/changelog-feed (HTTP 200)", text: page }], rules).length, phrases.length);
+  assert.equal(checkOutputs([{ label: "/api/v1/items (HTTP 200)", text: page }], rules).length, phrases.length);
+  // One character changed outside the name, or the name once more on the page: hits again.
+  const changed = phrases.map((p) => `某${p.slice(1)}`);
+  assert.ok(changed.every((p) => !phrases.includes(p) && p.toLowerCase().includes(N)));
+  assert.equal(checkOutputs([{ label: "/changelog (HTTP 200)", text: changed.join("\n") }], rules).length, phrases.length);
+  assert.deepEqual(checkOutputs([{ label: "/changelog (HTTP 200)", text: `${page}\n${N}` }], rules), [
+    `/changelog (HTTP 200), line ${phrases.length + 1}: "${N}"`,
+  ]);
+});
+
+test("in the changelog data file (exception 7) the thanks phrases, each as many times as names.json says, are the only hits allowed", () => {
+  const [file] = ALLOWED.files as [string];
+  assert.equal(exemption(scratch(), file, rules), "7 thanks in the changelog");
+  const entries = (lines: string[]) => JSON.stringify({ releases: lines.map((l) => ({ body: [l] })) }, null, 2);
+  const counted = Object.entries(ALLOWED.phrases).flatMap(([p, n]) => Array<string>(n).fill(p));
+  const ok = tree({ [file]: entries(counted) });
+  assert.deepEqual(checkNames(ok.dir, ok.files, rules), []);
+  const BEYOND = "outside the allowed phrases of scripts/verify/names.json";
+  const more = tree({ [file]: entries([...counted, `${N} again`, `某${PHRASES[0]!.slice(1)}`]) });
+  const problems = checkNames(more.dir, more.files, rules);
+  assert.equal(problems.length, 2);
+  assert.ok(problems.every((p) => p.startsWith(`${file}:`) && p.endsWith(BEYOND)));
+  // A phrase written once more in another entry, or one left out: the counts no longer match.
+  const [first] = PHRASES as [string];
+  for (const lines of [[...counted, first], counted.filter((l) => l !== first)]) {
+    const changed = tree({ [file]: entries(lines) });
+    const found = checkNames(changed.dir, changed.files, rules);
+    assert.equal(found.length, 1);
+    assert.match(
+      found[0]!,
+      new RegExp(`^${file}: ".+" appears ${lines.filter((l) => l === first).length} times, scripts/verify/names.json allows ${ALLOWED.phrases[first]}$`),
+    );
+  }
+});
+
 test("the site's outputs are fetched whole with their statuses checked, the changes feed by the snapshot's cursor, every MCP tool once, and error results only where allowed", async () => {
   const called: string[] = [];
   const privateHost = "private.brand.test:8443";
