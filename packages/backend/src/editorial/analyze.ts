@@ -12,6 +12,7 @@ import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SELECTION } from "@amp/industry/selection";
+import { config, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
@@ -79,7 +80,22 @@ export const SCORE_CALLS = 2;
  * score1 + score2 >= 2 × threshold. Tiers without a threshold are not scored for 精选.
  */
 export function tierThreshold(tier: string): number | null {
+  if (!scoringConfirmed()) return null;
+  return draftTierThreshold(tier);
+}
+
+/** The same threshold without the Owner gate: evaluations always run the scoring prompt as it is. */
+export function draftTierThreshold(tier: string): number | null {
   return SELECTION.thresholds[tier] ?? null;
+}
+
+/**
+ * Owner review gate (ADR-0021 §12, BR-SEL-09): in production nothing is scored or selected, and no score
+ * is shown, until the Owner has confirmed this exact scoring prompt (SELECTION_CONFIRMED_VERSION).
+ * Development, tests and evaluations (draftTierThreshold) run the draft.
+ */
+export function scoringConfirmed(production = isProduction, confirmed = config.selectionConfirmedVersion): boolean {
+  return !production || confirmed === PROMPT_VERSIONS.score;
 }
 
 /** Unselected items above this mean are written like selected ones. */
@@ -294,9 +310,16 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
   return { model, threshold, values, receiptIds, reused };
 }
 
-/** The production score step; its threshold stays case-specific even when an evaluator shares model output. */
-export async function runSelectionScores(a: AnalyzeInputArticle, opts: StepOpts = {}, onReceipt?: ReceiptObserver): Promise<AnalysisRun["scores"]> {
-  const threshold = tierThreshold(a.source.tier);
+/**
+ * The production score step; its threshold stays case-specific even when an evaluator shares model output.
+ * Evaluations pass the draft's threshold (draftTierThreshold); production keeps the Owner gate.
+ */
+export async function runSelectionScores(
+  a: AnalyzeInputArticle,
+  opts: StepOpts = {},
+  onReceipt?: ReceiptObserver,
+  threshold: number | null = tierThreshold(a.source.tier),
+): Promise<AnalysisRun["scores"]> {
   return threshold === null ? null : runScores(a, threshold, opts, onReceipt);
 }
 
