@@ -307,13 +307,15 @@ test("a new version repeating the stored newest period, copper at 1.6 times the 
   await storePeriod(parsed.sources[0], parsed.items, forced, NOW);
   const before = await table();
   const version = `${forced.release.label}（修订）`;
-  const fetchers = (rows = forced.rows) => ({ nbs: fake("nbs", () => [{ ...forced, rows, release: { ...forced.release, label: version } }]) });
-  const again = async (rows = forced.rows) => (await refreshMetalPrices({ registry, now: LATER, fetchers: fetchers(rows) })).nbs;
+  const fetchers = (rows = forced.rows, label = version) => ({ nbs: fake("nbs", () => [{ ...forced, rows, release: { ...forced.release, label } }]) });
+  const again = async (rows = forced.rows, label = version) => (await refreshMetalPrices({ registry, now: LATER, fetchers: fetchers(rows, label) })).nbs;
   assert.deepEqual(await again(), record(true, [period(SEP2, { version, notes: ["和库里已有的一样，不另存"] })], LATER));
   assert.deepEqual(await table(), before);
   // Copper back to the bureau's figure: every check applies and passes, and the new version is a row beside the old one.
   const copper = forced.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "108770.0" } : row));
   assert.deepEqual(await again(copper), record(true, [period(SEP2, { version, inserted: 10 })], LATER));
+  // A third version is compared with the latest one stored, so repeating it adds nothing.
+  assert.deepEqual(await again(copper, "三"), record(true, [period(SEP2, { version: "三", notes: ["和库里已有的一样，不另存"] })], LATER));
   const rows = await table();
   assert.deepEqual([rows.length, rows.filter((row) => row.release_label !== version)], [30, before]);
 });

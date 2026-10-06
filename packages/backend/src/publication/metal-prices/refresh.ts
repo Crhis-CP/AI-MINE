@@ -2,7 +2,6 @@
 // periods from the newest stored one on (TASK-0057), and each is checked, then stored or held back whole on the fetcher's
 // reasons or the check's; a failing source fails alone. The return value is the run record the schedule keeps in
 // job_runs.detail.
-// TASK-0046: sources are fetched two at a time, then checked and stored one after another; a series can be held back alone.
 import { checkPeriod } from "./check.ts";
 import { nbsFetcher } from "./nbs.ts";
 import { loadMetalPriceRegistry, type MetalPriceSource, type MetalPriceSourceKey, parseMetalPriceRegistry } from "./registry.ts";
@@ -53,13 +52,11 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
   // A bad registry throws here, so the schedule records a failed run rather than skipping entries.
   const registry = opts.registry === undefined ? loadMetalPriceRegistry() : parseMetalPriceRegistry(opts.registry);
   const now = opts.now ?? new Date();
-  const fetchers = opts.fetchers ?? FETCHERS;
   const record: Record<string, MetalPriceSourceRun> = {};
-  // Two sources' requests at a time, as the upstream refresh overlaps them; once all are back, each source is checked and
-  // stored in registry order, one after another. A source registered without a fetcher fails alone.
+  // Requests go out two sources at a time, as upstream; once all are back, each source is checked and stored in turn, in registry order.
   const sources = registry.sources.filter((candidate) => candidate.enabled);
   const fetching = async (source: MetalPriceSource) => {
-    const fetcher = fetchers[source.key]?.(registry, opts.get);
+    const fetcher = (opts.fetchers ?? FETCHERS)[source.key]?.(registry, opts.get);
     if (!fetcher) throw new Error("没有这个来源的抓取器");
     return fetcher.fetch(newestStart, { now, fetchedAt });
   };
