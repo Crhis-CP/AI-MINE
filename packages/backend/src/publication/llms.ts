@@ -64,7 +64,7 @@ export function llmsTxt(opts: { hasDailies: boolean; hasWeekly: boolean; hasMont
   }
   if (opts.hasWeekly) lines.push(`- [${withSubject("周报")}](${u("/weekly")}): 每周综合回顾`);
   if (opts.hasMonthly) lines.push(`- [${withSubject("月报")}](${u("/monthly")}): 每月盘点`);
-  lines.push(`- [主题](${u("/topics")}): 按公司、方向、内容形态聚合的主题页`);
+  lines.push(`- [主题](${u("/topics")}): 按国家与地区、金属、矿企聚合的主题页`);
   lines.push("", "## 使用说明", "");
   lines.push("- 内容为第三方原文的聚合摘要与编辑策展，原文版权归各来源所有；重要事实请回原文核对。");
   lines.push("- API v1 区分原文发布时间 publishedAt 与本站首次收到时间 discoveredAt；attribution.url 回到站内阅读页，links.original 指向第三方原文。");

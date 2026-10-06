@@ -63,6 +63,8 @@ TASK-0021来源加入与真实evaluate：来源创建严格要求明确permissio
 
 既有admin/sources公开入口的evaluateSourcePolicy(value, now?, db?)按当前版本、用途、资源/证据范围、附件与有效期限读取真实存储，未证明的条件/排除项失败关闭，查询失败不回退allow。默认时钟在查询后读取；日期等调用者在已有事务中传第三参tx，不额外占连接。公开四用途只读受限投影；共享许可锁→sources行锁/材料锁的顺序一致。UI和生成private client使用同一Zod契约；采集/模型/公开消费者的ProcessingPermit强制及正式权限放宽编辑仍待后续原子接通。
 
+网页列表（web_list）的 `htmlJsonPath`（TASK-0030）：栏目页的列表由页面脚本从 JSON 接口填充时（如商务部驻外经商处栏目页里 `unitbuild.js` 声明的 `/api-gateway/jpaas-publish-server/front/page/build/unit`，返回 `{"data":{"html":"…"}}`），`url` 写页面声明的接口地址与参数，`htmlJsonPath` 写取列表 HTML 的字段路径（如 `data.html`），`baseUrl` 必须写栏目页地址，相对链接按它补全；取出的字符串照常用 `itemSelector` 等选择器解析。只用于页面自己声明过的接口，不猜接口。不是 JSON、路径上没有字符串时这次采集失败（不当作空列表）；与 Jina 读取、`parseMode=markdown` 同用，值为空或没有 `baseUrl` 时，按不支持的配置拒绝。改它等于改日期从哪里来，计入日期配置哈希。
+
 RSS/RDF的`dc:date`始终保留原串与定位，默认publicationBasis=other，不自动作为发布时间。需逐源明确`publishedAtField:"dc:date"`，并给sourceDate.meaning/publicationBasis/basis语义依据，才按声明解析和判定；显式字段缺失时不切换依据。默认网页日期只取head页面级元数据或绑定当前URL的Article类itemscope；侧栏、其他文章和无身份的microdata不属于本稿，显式selector规则保持。公众号首次窗口同样先严格解析，不能用Number把未识别的原串提前转成旧日期。
 
 

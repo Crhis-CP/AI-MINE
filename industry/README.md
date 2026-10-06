@@ -65,13 +65,13 @@
 | `selection-score.md` | 评分标准：0–100 分，同一份标准独立打两次；含内容类型、评分维度与各类型的权重，以及必须正常评价的价值和必须压住的噪声 |
 | `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加四份共用规则（`rules-domain.md`、`rules-anti-hallucination.md`、`rules-self-contained-title.md`、`rules-answer-first-summary.md`）组成 |
 | `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
-| `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`）、防幻觉、答案先行的摘要、自洽的标题 |
+| `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`，其中第 3 条“通行中文名”引用 `rules-domain-names.md`）、防幻觉、答案先行的摘要、自洽的标题 |
 | `identity-context.md` | 把核验过的公司身份事实交给模型 |
 | `structure.md`、`safety.md` | 分类、标签、主体与事实的结构化抽取；资料内容一律当作不可信数据 |
 | `group-*.md` | 事件归组：两篇报道的关系（成对与批量判断），以及热度信号挂到哪个事实上；关系定义在 `group-definitions.md` |
 | `story-digest.md` | 事件综述 |
 | `report-daily-lead.md`、`report-period.md` | 日报导语，周报与月报 |
-| `translate-body.md` | 全文翻译 |
+| `translate-body.md` | 全文翻译；只引用 `rules-domain-names.md`（公司与机构的通行中文名，翻译只用这份名单），术语默认值不进翻译，改术语或写作规则不会让已译的全文重译；改 `translate-body.md` 或 `rules-domain-names.md` 会让已存的外文全文全部重译（后者和摘要规则 `rules-domain.md` 第 3 条共用） |
 
 模板只有两种写法（`packages/backend/src/editorial/prompts.ts`）：`{{名字}}` 是调用方传入的值（另有站名 `siteName`），`{{> 文件名}}` 原样插入另一份提示词。缺值或缺文件直接报错，不会留空。提示词的版本号由名称加它读到的所有文件内容的哈希组成，回执和私有页面的模型页都记着结果出自哪一版；改一个字，版本号就变。
 
@@ -109,7 +109,7 @@
 
 ## 3. 包外的硬编码
 
-上游写死在页面与报告代码里的 AI 口径已经改成矿业的（TASK-0010、TASK-0028）：报告标题、报头顶行的 `MOTTO`（“金属矿业 · 每日要闻 / 每周综述 / 每月盘点”）、主题页的描述与三组名称（国家与地区、金属、矿企）、热点页说明、反馈页的示例、后台新建信源页的占位文字。还剩几处：`packages/backend/src/reports/compose.ts` 的 `modelsReleased` 指标按“模型发布/更新”分节计数，矿业版没有这一节，恒为 0，`features/report/format.ts` 在为 0 时不显示，随报告指标改造一并删除；`apps/api/src/routes/og.ts` 的主题分享图副标题与 `packages/backend/src/publication/llms.ts` 的说明仍是旧的三组说法，另开任务改。
+上游写死在页面与报告代码里的 AI 口径已经改成矿业的（TASK-0010、TASK-0028）：报告标题、报头顶行的 `MOTTO`（“金属矿业 · 每日要闻 / 每周综述 / 每月盘点”）、主题页的描述与三组名称（国家与地区、金属、矿企）、热点页说明、反馈页的示例、后台新建信源页的占位文字。还剩一处：`packages/backend/src/reports/compose.ts` 的 `modelsReleased` 指标按“模型发布/更新”分节计数，矿业版没有这一节，恒为 0，`features/report/format.ts` 在为 0 时不显示，随报告指标改造一并删除。
 
 分析与分类相关测试里的示例分类、标签和公司已换成矿业的（如“铜”“锂”“紫金矿业”）；事件、信号、翻译等测试的夹具里还有 AI 行业的例子，测的规则与行业无关，随相应任务换掉。以后改 `taxonomy.ts` 时，用例失败就把例子换成新词表的对应项，测的规则不变。
 
