@@ -11,7 +11,6 @@ import { decideTimeline } from "@amp/backend/content/materials";
 import { publishArticleTx } from "@amp/backend/publication/publish";
 import { sourcePublishedAt } from "@amp/backend/sources/web-list";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { beijingDate, beijingTime } from "@amp/contracts/time";
 
 const args = process.argv.slice(2);
 const unknown = args.filter((a) => a !== "--apply");
@@ -52,7 +51,9 @@ const rows = await sql<Row[]>`
   WHERE a.published_at IS NULL AND a.source_date_state = 'reliable' AND o.result->'evidence'->'time'->>'utc' IS NULL
     AND o.result->'evidence'->'time'->>'raw' <> '' AND a.language LIKE 'zh%'
   ORDER BY a.source_id, a.discovered_at`;
-const at = (d: Date) => `${beijingDate(d)} ${beijingTime(d)}`;
+// Beijing time is UTC+8 all year, read as beijingDate and beijingTime read it (packages/contracts/src/time.ts); the
+// contracts package is not installed for root scripts in the production image, only the root package.json's dependencies.
+const at = (d: Date) => new Date(d.getTime() + 8 * 3_600_000).toISOString().slice(0, 16).replace("T", " ");
 let changed = 0;
 for (const r of rows) {
   // A date read from the detail page is read in the detail page's offset, as the collector reads it.

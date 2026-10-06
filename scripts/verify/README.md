@@ -87,7 +87,7 @@ make verify TASK=TASK-0002
 
 ## 4. 故意违规用例
 
-`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规与工作流形状的 13 条规则（`toolchain.test.ts`，27 个违规用例，另有 11 个换写法绕过规则 3、7、13 的用例）、计划 PR 的放行与拦截（`path-guard.test.ts`）、任务卡号只从“任务卡”一行、分支名或手动输入取（`pr-task.test.ts`）、数据库镜像只从 compose 读（`ci-db.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）。契约漂移的用例随 TASK-0005 加入。
+`node --test scripts/verify/tests/*.test.ts`（`test` 阶段会跑）。每类检查都有一个应当被拦下的例子：越权路径与 PR 自己放宽任务卡（`path-guard.test.ts`）、越界 import 与前端导入数据库驱动（`boundaries.test.ts`）、提交密钥（`secrets.test.ts`，假密钥在运行时拼出来，测试文件本身不命中规则）、工具链违规与工作流形状的 13 条规则（`toolchain.test.ts`，27 个违规用例，另有 11 个换写法绕过规则 3、7、13 的用例）、计划 PR 的放行与拦截（`path-guard.test.ts`）、任务卡号只从“任务卡”一行、分支名或手动输入取（`pr-task.test.ts`）、数据库镜像只从 compose 读（`ci-db.test.ts`）、坏任务卡与告警增加（`tasks-lint.test.ts`）、例外路径之外的上游名称与标识、中文路径与符号链接、改过的模板副本与上游工作流、上游自带的说明文档、放在任何位置的上游品牌素材、构建产物与站点输出里的命中、站点输出的状态码与 MCP 报错（`names.test.ts`，匹配模式从 `names.json` 读，测试文件本身不写出名称）、正式镜像里跑的脚本引了镜像里没装的包（`production-scripts.test.ts`：`scripts/` 第一层的脚本连同它们相对引入的文件，只能引 Node 自带模块与所在目录往上各级 `package.json` 的 `dependencies`，`@amp/backend`、`@amp/industry` 只能引导出清单里的路径；开发依赖、导出清单之外的路径、`import { type X }` 引开发依赖、相对引入的文件里引开发依赖都拦，整句 `import type` 与 JSON 不拦；只在开发机或执行器上跑的四个脚本列为例外，各写一句原因）。契约漂移的用例随 TASK-0005 加入。
 
 ## 5. 常见情况
 
