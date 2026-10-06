@@ -3,6 +3,8 @@
 - 状态：已接受契约，未激活；TASK-0022 消费者联合启用后再记录实现证据。
 - 依据：BR-PUB-01、BR-TIME-12/15、DR-70/71/72；不改变法规线 BR-POL-11。
 
+> **2026-10-05 附注**（Owner 22:56:40Z：交接包的做法与 AIHOT 冲突时以 AIHOT 为准；TASK-0040、TASK-0043）：第 1 条“只有日期时 `publishedAt=null`、不得生成午夜”与第 3 条“锚点保留真实系统时刻”不再适用于资讯线——只写日期的发布时间取来源时区当天零点，旧文的时间线是来源时间（AIHOT 的 `decideTimeline`），网页按 Owner 23:16:49Z 的选择只显示日期；第 2 条的列表回退徽标作废。本契约尚未激活，激活前按 BR-TIME 改写。下面原文保留作历史。
+
 ## 决定
 
 1. 公开 `sourceTime: TimeAssertion | null` 与私有原始证据分开。只有日期时 `publishedAt=null`，不得生成午夜、借用 discoveredAt 或用 updated/effective 代替发布时间；StoryReportView 的既有必填 instant 因此变为 nullable；事件分组的 firstReportAt 没有真实时刻时同样保持 null。
