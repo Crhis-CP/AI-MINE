@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { pageMeta } from "../lib/seo";
 import { removeStar, useStarred } from "../lib/local-state";
-import { fullDateTime, shortSourceName } from "../lib/format";
+import { fullDateTime, shortSourceName, sourceDateTime } from "../lib/format";
 import { IconBookmark, IconClose } from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
@@ -65,7 +65,7 @@ export default function StarredPage() {
               >
                 <div className="flex items-center gap-2 text-[12.5px] text-ink-4">
                   <span className="min-w-0 truncate text-ink-3">{shortSourceName(s.sourceName)}</span>
-                  {s.publishedAt && <span className="num shrink-0">· {fullDateTime(s.publishedAt)}</span>}
+                  {s.publishedAt && <span className="num shrink-0">· {sourceDateTime(s.publishedAt)}</span>}
                   <span className="ml-auto hidden shrink-0 sm:inline">
                     收藏于 <span className="num">{fullDateTime(s.savedAt)}</span>
                   </span>
