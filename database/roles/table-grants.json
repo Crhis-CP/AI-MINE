@@ -296,6 +296,15 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
       }
+    },
+    "publication.metal_prices": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

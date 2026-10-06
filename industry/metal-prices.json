@@ -1,0 +1,37 @@
+{
+  "sources": [
+    {
+      "key": "nbs",
+      "name": "国家统计局",
+      "section": "domestic",
+      "frequency": "ten_day",
+      "currency": "CNY",
+      "delay": "旬度，每旬结束后数日发布",
+      "staleDays": 20,
+      "hosts": ["www.stats.gov.cn"],
+      "officialUrl": "https://www.stats.gov.cn/sj/zxfb/",
+      "terms": { "name": "国家统计局网站声明", "url": "https://www.stats.gov.cn/wzgl/202302/t20230217_1912857.html" },
+      "attribution": ["转自国家统计局网站 https://www.stats.gov.cn", "原文数据来源：中国统计信息服务中心、卓创资讯"],
+      "license": [
+        "国家统计局网站允许以公共免费信息为目的引用其统计数据，须注明“转自国家统计局网站”并标明网址。",
+        "本站照国家统计局发布的原数显示，不换算单位、不四舍五入，不显示涨跌。",
+        "国家统计局没有说明“本期价格”是怎样取的，本站只写所属期。"
+      ],
+      "benchmark": "全国流通领域市场价格",
+      "unit": "元/吨",
+      "sourceUnit": "吨"
+    }
+  ],
+  "items": [
+    { "key": "nbs.copper", "source": "nbs", "sourceName": "电解铜（1#）", "name": "电解铜", "grade": "1#" },
+    { "key": "nbs.aluminum", "source": "nbs", "sourceName": "铝锭（A00）", "name": "铝锭", "grade": "A00" },
+    { "key": "nbs.lead", "source": "nbs", "sourceName": "铅锭（1#）", "name": "铅锭", "grade": "1#" },
+    { "key": "nbs.zinc", "source": "nbs", "sourceName": "锌锭（0#）", "name": "锌锭", "grade": "0#" },
+    { "key": "nbs.rebar", "source": "nbs", "sourceName": "螺纹钢（Φ20mm，HRB400E）", "name": "螺纹钢", "grade": "Φ20mm，HRB400E" },
+    { "key": "nbs.wire_rod", "source": "nbs", "sourceName": "线材（Φ8—10mm，HPB300）", "name": "线材", "grade": "Φ8—10mm，HPB300" },
+    { "key": "nbs.medium_plate", "source": "nbs", "sourceName": "普通中板（20mm，Q235）", "name": "普通中板", "grade": "20mm，Q235" },
+    { "key": "nbs.hr_coil", "source": "nbs", "sourceName": "热轧普通板卷（4.75—11.5mm，Q235）", "name": "热轧普通板卷", "grade": "4.75—11.5mm，Q235" },
+    { "key": "nbs.seamless_pipe", "source": "nbs", "sourceName": "无缝钢管（219*6，20#）", "name": "无缝钢管", "grade": "219*6，20#" },
+    { "key": "nbs.angle_steel", "source": "nbs", "sourceName": "角钢（5#）", "name": "角钢", "grade": "5#" }
+  ]
+}

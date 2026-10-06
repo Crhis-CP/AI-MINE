@@ -2,6 +2,7 @@
 apps/web/build
 apps/web/.react-router
 .data
+.ops
 .env
 .env.*
 !.env.example
