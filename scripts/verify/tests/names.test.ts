@@ -208,19 +208,32 @@ test("in the changelog data file (exception 7) the thanks phrases, each as many 
 /** The text with its first letter written as a JSON \uXXXX escape. */
 const escapeFirst = (text: string) => text.replace(/[a-z]/i, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
 
-test("a JSON file is read with its \\uXXXX escapes decoded; an escaped backslash stays, and hits keep the file's lines", () => {
-  // Exception 7: the first phrase once more, its name's first letter escaped, is counted (review of #165, item 12).
+test("in the changelog data file a phrase is counted with its escapes decoded (review of #165, item 12)", () => {
   const [file] = ALLOWED.files as [string];
   const [first] = PHRASES as [string];
-  const counted = Object.entries(ALLOWED.phrases).flatMap(([p, n]) => Array<string>(n).fill(p));
-  const changelog = JSON.stringify({ releases: [...counted, "@"].map((l) => ({ body: [l] })) }, null, 2).replace('"@"', `"${escapeFirst(first)}"`);
-  const seven = tree({ [file]: changelog });
-  assert.deepEqual(checkNames(seven.dir, seven.files, rules), [
-    `${file}: "${first}" appears ${ALLOWED.phrases[first]! + 1} times, scripts/verify/names.json allows ${ALLOWED.phrases[first]}`,
-  ]);
-  // Any other JSON file: the name written as escapes is a hit (item 12b), on its own line after a decoded line break;
-  // a backslash escaped before "u" starts no escape.
-  const other = tree({ "apps/web/app/data.json": `{\n  "a": "one\\u000atwo",\n  "b": "${escapeFirst(N)}",\n  "c": "\\\\${escapeFirst(N).slice(1)}"\n}\n` });
+  const n = ALLOWED.phrases[first]!;
+  assert.ok(first.includes(" "));
+  const counted = Object.entries(ALLOWED.phrases).flatMap(([p, k]) => Array<string>(k).fill(p));
+  /** The changelog with `raw` as one more entry, written into the file as it is (escapes and all). */
+  const changelog = (lines: string[], raw: string) =>
+    tree({ [file]: JSON.stringify({ releases: [...lines, "@"].map((l) => ({ body: [l] })) }, null, 2).replace('"@"', `"${raw}"`) });
+  // The first phrase once more, its name's first letter escaped: counted.
+  const more = changelog(counted, escapeFirst(first));
+  assert.deepEqual(checkNames(more.dir, more.files, rules), [`${file}: "${first}" appears ${n + 1} times, scripts/verify/names.json allows ${n}`]);
+  // One of its copies with the space written as an escaped line break: not the phrase, so the count drops and the name is a hit.
+  const broken = changelog(counted.toSpliced(counted.indexOf(first), 1), first.replace(" ", "\\u000a"));
+  const found = checkNames(broken.dir, broken.files, rules);
+  assert.equal(found.length, 2, found.join("\n"));
+  assert.equal(found[0], `${file}: "${first}" appears ${n - 1} times, scripts/verify/names.json allows ${n}`);
+  assert.ok(found[1]!.startsWith(`${file}:`) && found[1]!.endsWith("outside the allowed phrases of scripts/verify/names.json"), found[1]);
+});
+
+test("any other JSON file is read with its \\uXXXX escapes decoded; an escaped backslash stays, and hits keep the file's lines (item 12b)", () => {
+  // The name written as escapes is a hit, on its own line after a decoded line break; the spaced name split by an escaped
+  // line break is no hit, as across a real line break elsewhere; a backslash escaped before "u" starts no escape.
+  const other = tree({
+    "apps/web/app/data.json": `{\n  "a": "one\\u000atwo",\n  "b": "${escapeFirst(N)}",\n  "c": "\\\\${escapeFirst(N).slice(1)}",\n  "d": "${SPACED.replace(" ", "\\u000a")}"\n}\n`,
+  });
   assert.deepEqual(checkNames(other.dir, other.files, rules), [`apps/web/app/data.json:3: "${N}" ${OUTSIDE}`]);
 });
 
@@ -234,6 +247,7 @@ test("exception 7 and allowedPhrases.files must list the same files", () => {
   assert.deepEqual(lists([file, "industry/more.json"], [file]), [`${differ} (only in the exception: industry/more.json; only in allowedPhrases.files: none)`]);
   assert.deepEqual(lists([file], [file, "industry/more.json"]), [`${differ} (only in the exception: none; only in allowedPhrases.files: industry/more.json)`]);
   assert.deepEqual(lists([file], [file]), []);
+  assert.deepEqual(lists([file], []), ["scripts/verify/names.json: allowedPhrases has phrases but no files, so no file is limited to them"]);
 });
 
 test("the site's outputs are fetched whole with their statuses checked, the changes feed by the snapshot's cursor, every MCP tool once, and error results only where allowed", async () => {

@@ -65,12 +65,13 @@ export function findHits(content: Buffer | string, rules: NameRules, { reference
 }
 
 /** A JSON file's text with its \uXXXX escapes decoded, so a name written as escapes is found; an escaped backslash
- *  stays as it is. A decoded line break becomes a space, so hits keep the file's own line numbers. */
+ *  stays as it is. A decoded line break becomes a tab, neither a space nor a line break: hits keep the file's own line
+ *  numbers, and an allowed phrase with its space written as an escaped line break is not that phrase. */
 export function jsonUnescaped(text: string): string {
   return text.replace(/\\(?:\\|u([0-9a-fA-F]{4}))/g, (sequence: string, hex?: string) => {
     if (hex === undefined) return sequence;
     const char = String.fromCharCode(Number.parseInt(hex, 16));
-    return char === "\n" || char === "\r" ? " " : char;
+    return char === "\n" || char === "\r" ? "\t" : char;
   });
 }
 
@@ -144,7 +145,10 @@ function phraseProblems(file: string, text: string, rules: NameRules): string[] 
  *  lists would be excepted without its phrases counted, or counted without being excepted. */
 function phraseListProblems(rules: NameRules): string[] {
   const files = rules.allowedPhrases?.files ?? [];
-  if (!files.length) return [];
+  if (!files.length)
+    return Object.keys(rules.allowedPhrases?.phrases ?? {}).length
+      ? ["scripts/verify/names.json: allowedPhrases has phrases but no files, so no file is limited to them"]
+      : [];
   const lists = Object.entries(rules.exceptions).map(([name, entries]) => ({ name, paths: entries.map((e) => (typeof e === "string" ? e : e.path)) }));
   const owners = lists.filter(({ paths }) => files.some((file) => paths.includes(file)));
   if (owners.length !== 1)
