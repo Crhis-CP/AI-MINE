@@ -189,7 +189,7 @@
 
 | 中文 | 代码名 | 说明 |
 |---|---|---|
-| 时间断言 | `TimeAssertion` | 统一的“来源上的时间 / 法律日期”对象：`raw`、`local_date`、`local_time`、`timezone`（只在可验证时填写）、`utc`（日期精度时恒为空）、`precision`（`unknown` / `date` / `minute` / `second`）、`meaning`（来源发布、更新、登记、公开阅览、正式刊发、签署、生效、适用、截止、汇编、到期、事件发生、本站发现、本站公开、上传、原文核对）及中文依据标签、`basis`、`condition_text`、**`label`**（服务端生成的中文显示文本，各端不得自行格式化）、**`beijing_date`**（按日分组与日期筛选用，仅日期精度不平移）；取代 A 的扁平 `published_at / time_precision / time_label`（ENT-60；DEC-50） |
+| 时间断言 | `TimeAssertion` | 统一的“来源上的时间 / 法律日期”对象：`raw`、`local_date`、`local_time`、`timezone`（只在可验证时填写）、`utc`（日期精度时恒为空）、`precision`（`unknown` / `date` / `minute` / `second`）、`meaning`（来源发布、更新、登记、公开阅览、正式刊发、签署、生效、适用、截止、汇编、到期、事件发生、本站发现、本站公开、上传、原文核对）及中文依据标签、`basis`、`condition_text`、**`label`**（服务端生成的中文显示文本，各端不得自行格式化）、**`beijing_date`**（日期证据的北京日期，仅日期精度不平移；法规线按它分组与筛选，资讯线的分组与筛选按时间线，BR-TIME-08）；取代 A 的扁平 `published_at / time_precision / time_label`（ENT-60；DEC-50） |
 | 来源发布时间 | `source_published_at` | 来源标注的发布/登记时刻 |
 | 时间精度 | `time_precision` | `date` 或 `minute`（契约中还有 `second`、`unknown`）；缺失时按 `date`，不得默认 `minute` |
 | 时间依据 | `timestamp_basis` | 该时间取自哪个字段（发布日期、登记时间等）；是依据，不是显示文本 |
