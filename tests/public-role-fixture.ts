@@ -5,6 +5,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { provisionRoles } from "../scripts/db-roles.ts";
 import { roleFixture } from "./role-db-fixture.ts";
 import { apiProcess } from "./api-process.ts";
+import { TRANSLATE_PROMPT_VERSION } from "@amp/backend/editorial/translate";
+import { TRANSLATION_MANIFEST_FORMAT } from "../packages/backend/src/editorial/translation-readiness.ts";
 
 export const INDEX_KEY = "1234567890abcdef1234567890abcdef";
 export const STORY = "11111111-1111-4111-8111-111111111111";
@@ -16,7 +18,12 @@ export async function publicRoleFixture(t: TestContext) {
   await provisionRoles(f.admin, { prefix: f.prefix, publicConnections: 2, apply: true });
   const sessions = await f.login();
   await Promise.all(Object.values(sessions).map((sql) => sql.end()));
-  await f.admin.begin(async (tx) => tx.unsafe(readFileSync(new URL("./fixtures/public-role-data.sql", import.meta.url), "utf8")));
+  // The stored translations carry the current recipe, so a translation prompt change does not stale the fixture.
+  const data = readFileSync(new URL("./fixtures/public-role-data.sql", import.meta.url), "utf8").replaceAll(
+    "__TRANSLATION_RECIPE__",
+    `${TRANSLATION_MANIFEST_FORMAT}:${TRANSLATE_PROMPT_VERSION}`,
+  );
+  await f.admin.begin(async (tx) => tx.unsafe(data));
   const reports = await f.admin`SELECT kind,key FROM reports ORDER BY kind,key DESC`;
   const keys = Object.fromEntries(["daily", "weekly", "monthly"].map((kind) => [kind, reports.filter((r) => r.kind === kind).map((r) => r.key as string)]));
   return { ...f, keys };
