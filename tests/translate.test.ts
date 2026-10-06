@@ -103,9 +103,11 @@ test("the translation prompt gives a closed list of Chinese names, and its versi
   const prompt = promptText("translate-body");
   assert.ok(prompt.includes("必和必拓（BHP）") && prompt.includes("华友钴业"), "the names list is in the prompt");
   for (const open of ["确有通行译名", "例如："]) assert.ok(!prompt.includes(open), `no open wording: ${open}`);
+  // The summary rules keep their open example: the list ends with “等” right after the include (the names file has no final newline).
+  assert.ok(promptText("rules-domain").includes("华友钴业等"), "the summary rules still read “……华友钴业等”");
   // A change to translate-body.md or rules-domain-names.md (shared with the summary rules) translates every stored
   // foreign body again: change this pin on purpose.
-  assert.equal(TRANSLATE_PROMPT_VERSION, "translate-body@c7d8699153");
+  assert.equal(TRANSLATE_PROMPT_VERSION, "translate-body@5127c40297");
 });
 
 test("a text corrected while its translation was running is translated again, and the old translation is not shown", async () => {
