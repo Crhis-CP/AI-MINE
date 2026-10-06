@@ -5,7 +5,7 @@ import type { Route } from "./+types/story";
 import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
-import { beijingDate, beijingTime, monthDayTime, relativeTime, shortSourceName } from "../lib/format";
+import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME, relativeTime, shortSourceName, sourceMonthDayTime } from "../lib/format";
 import { HeatChart } from "../features/story/HeatChart";
 import { Badge, SelectedBadge } from "@amp/ui/Badge";
 import { PillTabs } from "../components/ui/Tabs";
@@ -143,8 +143,8 @@ function TimelineRow({ r }: { r: StoryReportView }) {
   }, [r.summary, open]);
   return (
     <li className="grid gap-x-3 border-b border-line-soft py-4 last:border-b-0 lg:grid-cols-[48px_minmax(0,1fr)]">
-      <time dateTime={r.publishedAt} className="mono text-[12px] leading-[20px] text-ink-4">
-        {beijingTime(r.publishedAt)}
+      <time dateTime={isDateOnlyInstant(r.publishedAt) ? beijingDate(r.publishedAt) : r.publishedAt} className="mono text-[12px] leading-[20px] text-ink-4">
+        {isDateOnlyInstant(r.publishedAt) ? NO_TIME : beijingTime(r.publishedAt)}
       </time>
       <div className="min-w-0">
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[12px] leading-[20px] text-ink-4 lg:mt-0">
@@ -292,7 +292,7 @@ export default function StoryPage() {
               <div className="-mx-5 mt-5 border-t border-line-soft px-5 pt-4 lg:-mx-6 lg:px-6">
                 <div className="flex items-center gap-2.5 text-[12px]">
                   <span className="font-semibold text-ink">最新进展</span>
-                  {story.latestAt && <span className="num text-ink-4">{monthDayTime(story.latestAt)}</span>}
+                  {story.latestAt && <span className="num text-ink-4">{sourceMonthDayTime(story.latestAt)}</span>}
                 </div>
                 {newest ? (
                   <Link to={`/items/${newest.id}`} className="group mt-1.5 inline text-[14px] leading-[1.7] text-ink-2 transition-colors hover:text-accent">
@@ -316,7 +316,7 @@ export default function StoryPage() {
                       aria-hidden="true"
                     />
                     <div className="num text-[12px] text-ink-4">
-                      {monthDayTime(d.firstReportAt)} · {d.reportCount} 篇报道
+                      {sourceMonthDayTime(d.firstReportAt)} · {d.reportCount} 篇报道
                     </div>
                     <Link
                       to={`/items/${d.representative.id}`}
@@ -452,7 +452,7 @@ export default function StoryPage() {
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-4">最早报道</dt>
                   <dd className="num text-ink-2">
-                    <time dateTime={story.firstReportAt}>{monthDayTime(story.firstReportAt)}</time>
+                    <time dateTime={story.firstReportAt}>{sourceMonthDayTime(story.firstReportAt)}</time>
                   </dd>
                 </div>
               )}
@@ -460,7 +460,7 @@ export default function StoryPage() {
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-4">最近更新</dt>
                   <dd className="num text-ink-2">
-                    <time dateTime={story.latestAt}>{monthDayTime(story.latestAt)}</time>
+                    <time dateTime={story.latestAt}>{sourceMonthDayTime(story.latestAt)}</time>
                   </dd>
                 </div>
               )}

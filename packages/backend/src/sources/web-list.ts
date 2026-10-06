@@ -57,12 +57,22 @@ export function parseLooseDate(value: string | null | undefined, utcOffset = "+0
 /**
  * The published time kept for a parsed source date, read as the upstream reads it (Owner 2026-10-05:
  * where the handoff's way differs from the upstream's, the upstream's): the instant when the source gives
- * one; otherwise the text as printed, by parseLooseDate in the source's offset, so a date alone is the
- * start of that day.
+ * one; otherwise the text as printed, by parseLooseDate in the source's offset. One difference: a date
+ * alone is the start of that day in the source's offset whatever its spelling (the upstream reads an ISO
+ * date alone as UTC midnight, Beijing 08:00), so pages can tell it from a real time and show the date
+ * only (Owner 2026-10-05: 只显示日期).
  */
-export function sourcePublishedAt(time: { raw: string; utc: string | null } | null | undefined, utcOffset?: string): Date | null {
+export function sourcePublishedAt(
+  time: { raw: string; utc: string | null; local_date?: string | null; local_time?: string | null } | null | undefined,
+  utcOffset = "+08:00",
+): Date | null {
   if (!time) return null;
-  return time.utc ? new Date(time.utc) : parseLooseDate(time.raw, utcOffset);
+  if (time.utc) return new Date(time.utc);
+  if (time.local_date && !time.local_time && /^\d{4}-\d{2}-\d{2}$/.test(time.local_date)) {
+    const start = Date.parse(`${time.local_date}T00:00:00${utcOffset}`);
+    if (Number.isFinite(start)) return new Date(start);
+  }
+  return parseLooseDate(time.raw, utcOffset);
 }
 
 /** Only structured data identifying this article can contribute a publication date. */

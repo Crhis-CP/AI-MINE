@@ -1,5 +1,5 @@
 // Correction (TASK-0040) for items stored while a date alone was kept as no published time: the date is
-// read as the collectors now read it (sourcePublishedAt, the upstream's reading: the start of that day) and the
+// read as the collectors now read it (sourcePublishedAt: the start of that day in the source's offset) and the
 // timeline is decided again by the one timeline rule. A new source's first import stays a backfill; the
 // rest are judged stale or not afresh. Each item is corrected and republished in one transaction, so a
 // run that stops part-way leaves nothing half done and a rerun changes nothing. Only Chinese sources;
@@ -24,6 +24,8 @@ interface Row {
   backfill: boolean;
   backfill_reason: string | null;
   raw: string;
+  local_date: string | null;
+  local_time: string | null;
   locator: string | null;
   list_offset: string | null;
   detail_offset: string | null;
@@ -31,7 +33,8 @@ interface Row {
 }
 const rows = await sql<Row[]>`
   SELECT a.id, a.source_id, a.title, a.discovered_at, a.timeline_at, a.backfill, a.backfill_reason,
-    o.result->'evidence'->'time'->>'raw' AS raw, o.observation->>'locator' AS locator,
+    o.result->'evidence'->'time'->>'raw' AS raw, o.result->'evidence'->'time'->>'local_date' AS local_date,
+    o.result->'evidence'->'time'->>'local_time' AS local_time, o.observation->>'locator' AS locator,
     s.config->>'publishedAtUtcOffset' AS list_offset, s.config->'detail'->>'publishedAtUtcOffset' AS detail_offset,
     COALESCE('regex:' || (s.config->'detail'->>'publishedAtRegex'), 'selector:' || (s.config->'detail'->>'publishedAtSelector')) AS detail_rule
   FROM articles a JOIN content.source_date_observations o ON o.id = a.source_date_observation_id
@@ -45,7 +48,7 @@ for (const r of rows) {
   // A date read from the detail page is read in the detail page's offset, as the collector reads it.
   const offset = (r.locator !== null && r.locator === r.detail_rule ? r.detail_offset : r.list_offset) ?? undefined;
   const explicit = r.backfill && r.backfill_reason !== "stale-on-discovery" ? r.backfill_reason : null;
-  const t = decideTimeline(sourcePublishedAt({ raw: r.raw, utc: null }, offset), r.discovered_at, explicit);
+  const t = decideTimeline(sourcePublishedAt({ raw: r.raw, utc: null, local_date: r.local_date, local_time: r.local_time }, offset), r.discovered_at, explicit);
   if (!t.publishedAt) continue;
   changed += 1;
   if (dry) {

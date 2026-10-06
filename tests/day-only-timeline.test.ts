@@ -1,6 +1,6 @@
 // Sources that print a date alone, through collection, publication and the public list (TASK-0040): the
-// date is read as the upstream reads it (an ISO date alone is UTC midnight, "2026/09/26" midnight in Beijing)
-// and kept as the published time, so the upstream's timeline rule works on it: a new source's first
+// date is kept as the published time, the start of that day in Beijing whatever its spelling (ISO included),
+// so the upstream's timeline rule works on it and pages can show the date alone: a new source's first
 // import and an item found more than 48 hours late go on their own day and stay out of "today". The
 // correction script dry-runs without writing, corrects and republishes once, and keeps a manual withdrawal.
 import { tag } from "./setup.ts";
@@ -26,7 +26,6 @@ const DETAIL = `test-dayonly-detail-${T}`;
 const DAY = 86_400_000;
 const today = beijingDate(new Date());
 const daysAgo = (n: number) => beijingDate(new Date(Date.parse(`${today}T12:00:00+08:00`) - n * DAY));
-const utcMidnight = (day: string) => `${day}T00:00:00.000Z`;
 const beijingMidnight = (day: string) => new Date(`${day}T00:00:00+08:00`).toISOString();
 const slashed = (day: string) => day.replaceAll("-", "/");
 const BODY = "合成的矿业资讯正文，用于检验只写日期的来源在时间线上的位置，内容足够长。";
@@ -84,20 +83,20 @@ test("a date alone is kept as the start of that day; old ones go on their day, n
   ];
   await collect(LIST);
   const old = await row(`存量两个月前 ${T}`);
-  assert.equal(old.published_at?.toISOString(), utcMidnight(daysAgo(60)), "an ISO date alone is UTC midnight, as the upstream reads it");
-  assert.deepEqual([old.timeline_at.toISOString(), old.backfill_reason], [utcMidnight(daysAgo(60)), "first-import"]);
-  assert.equal((await row(`存量昨天 ${T}`)).timeline_at.toISOString(), utcMidnight(daysAgo(1)));
+  assert.equal(old.published_at?.toISOString(), beijingMidnight(daysAgo(60)), "an ISO date alone is the start of that day in Beijing");
+  assert.deepEqual([old.timeline_at.toISOString(), old.backfill_reason], [beijingMidnight(daysAgo(60)), "first-import"]);
+  assert.equal((await row(`存量昨天 ${T}`)).timeline_at.toISOString(), beijingMidnight(daysAgo(1)));
   let listed = await pool();
-  assert.equal(listed.items.find((i) => i.title === `存量两个月前 ${T}`)?.publishedAt, utcMidnight(daysAgo(60)), "the public list shows that day");
+  assert.equal(listed.items.find((i) => i.title === `存量两个月前 ${T}`)?.publishedAt, beijingMidnight(daysAgo(60)), "the public list shows that day");
 
   // Later runs: found within 48 hours of its date it is news; found later it goes on its own day.
   entries.push({ slug: "new-yesterday", title: `新稿昨天 ${T}`, day: daysAgo(1) }, { slug: "new-old", title: `新稿三天前 ${T}`, day: daysAgo(3) });
   await collect(LIST);
   const late = await row(`新稿三天前 ${T}`);
-  assert.deepEqual([late.timeline_at.toISOString(), late.backfill_reason], [utcMidnight(daysAgo(3)), "stale-on-discovery"]);
+  assert.deepEqual([late.timeline_at.toISOString(), late.backfill_reason], [beijingMidnight(daysAgo(3)), "stale-on-discovery"]);
   const fresh = await row(`新稿昨天 ${T}`);
   assert.equal(fresh.backfill, false, "within 48 hours: news, on the timeline when found");
-  assert.equal(fresh.published_at?.toISOString(), utcMidnight(daysAgo(1)));
+  assert.equal(fresh.published_at?.toISOString(), beijingMidnight(daysAgo(1)));
 
   listed = await pool();
   const todays = ours(listed.items.filter((i) => beijingDate(i.timelineAt) === today));
@@ -133,13 +132,13 @@ test("the correction script dry-runs, corrects and republishes once, and keeps a
   const fixed = await row(`新稿三天前 ${T}`);
   assert.deepEqual(
     [fixed.published_at?.toISOString(), fixed.timeline_at.toISOString(), fixed.backfill_reason],
-    [utcMidnight(daysAgo(3)), utcMidnight(daysAgo(3)), "stale-on-discovery"],
+    [beijingMidnight(daysAgo(3)), beijingMidnight(daysAgo(3)), "stale-on-discovery"],
   );
   const [pub] = await sql<{ published_at: Date; timeline_at: Date }[]>`SELECT published_at, timeline_at FROM publications WHERE article_id = ${late.id}`;
-  assert.deepEqual([pub!.published_at.toISOString(), pub!.timeline_at.toISOString()], [utcMidnight(daysAgo(3)), utcMidnight(daysAgo(3))], "republished");
+  assert.deepEqual([pub!.published_at.toISOString(), pub!.timeline_at.toISOString()], [beijingMidnight(daysAgo(3)), beijingMidnight(daysAgo(3))], "republished");
   const [withdrawn] = await sql<{ visibility: string }[]>`SELECT visibility FROM publications WHERE article_id = ${kept.id}`;
   assert.equal(withdrawn!.visibility, "withdrawn", "a manual withdrawal stays");
-  assert.equal((await row(`存量两个月前 ${T}`)).timeline_at.toISOString(), utcMidnight(daysAgo(60)));
+  assert.equal((await row(`存量两个月前 ${T}`)).timeline_at.toISOString(), beijingMidnight(daysAgo(60)));
 
   const again = run("--dry-run");
   assert.ok(!again.includes(late.id) && !again.includes(kept.id), "a second run changes nothing");
