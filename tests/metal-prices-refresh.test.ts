@@ -234,13 +234,13 @@ test("with collection off the price schedule is not registered, like source coll
   }
 });
 
-// TASK-0046: fetchers made up here, on registries made up here. The monthly sources take keys the registry allows and the
-// bureau's other fields; none of this is their data.
+// TASK-0046: fetchers made up here, on registries made up here: the whole file's with sources and items of their own. The monthly
+// sources take keys the registry allows and the bureau's other fields; none of this is their data.
 const monthly = (key: string, host: string) => ({ ...registry.sources[0], key, frequency: "month", currency: "USD", hosts: [host] });
 const series = (key: string, source: string) => ({ key, source, sourceName: key, name: key });
-const imf = { sources: [monthly("imf", "www.imf.org")], items: [series("imf.a", "imf"), series("imf.b", "imf")] };
-const wb = { sources: [monthly("worldbank", "www.worldbank.org")], items: [series("wb.a", "worldbank")] };
-const three = { sources: [...registry.sources, ...wb.sources, ...imf.sources], items: [...registry.items, ...wb.items, ...imf.items] };
+const imf = { ...data, sources: [monthly("imf", "www.imf.org")], items: [series("imf.a", "imf"), series("imf.b", "imf")] };
+const wb = { ...data, sources: [monthly("worldbank", "www.worldbank.org")], items: [series("wb.a", "worldbank")] };
+const three = { ...data, sources: [...registry.sources, ...wb.sources, ...imf.sources], items: [...registry.items, ...wb.items, ...imf.items] };
 const FILE = "https://www.imf.org/prices.xlsx";
 /** A month of the made-up IMF source: the series' values as published. */
 const month = (at: string, label: string, values: Record<string, string>, more: Partial<FetchedPeriod> = {}): FetchedPeriod => {
@@ -267,7 +267,7 @@ test("two sources are requested at a time, the third once both are back; one fai
   const fetchers = { nbs: fake("nbs", () => []), worldbank: fake("worldbank", () => assert.fail("connect timeout"), 3), imf: fake("imf", () => [JUNE]) };
   const first = await refreshMetalPrices({ registry: three, now: NOW, fetchers });
   assert.deepEqual(log.splice(0), ["nbs 发", "worldbank 发", "nbs 回", "worldbank 回", "imf 发", "imf 回"]);
-  const nothing = (now: Date) => ({ ...record(true, [], now), note: "一期都没返回（版本没变或没有要读的期），这次没有下载价格" });
+  const nothing = (now: Date) => ({ ...record(true, [], now), note: "这次一期都没有返回" });
   const june = period("2026-06", { version: "R1", inserted: 2, notes: NO_PREVIOUS });
   assert.deepEqual(first, { nbs: nothing(NOW), worldbank: { ...record(false, []), error: "connect timeout" }, imf: record(true, [june]) });
   // With no fetcher the World Bank alone fails. Each fetcher is given the run's clock and when a version was last fetched.

@@ -38,7 +38,7 @@ export interface MetalPriceSourceRun {
   inserted: number;
   touched: number;
   periods: MetalPricePeriodRun[];
-  /** Present when the fetcher returned no period, by its source's own rule (TASK-0046); a success. */
+  /** "这次一期都没有返回" when the fetcher returned no period, whatever the reason: the refresh cannot tell (TASK-0046). A success. */
   note?: string;
 }
 
@@ -70,7 +70,7 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
       const outcome = outcomes[i]!;
       if (outcome.status === "rejected") throw outcome.reason;
       const fetched = outcome.value;
-      if (!fetched.length) run.note = "一期都没返回（版本没变或没有要读的期），这次没有下载价格";
+      if (!fetched.length) run.note = "这次一期都没有返回";
       // One period fetched twice (the list naming it under two addresses) fails the source: neither copy is guessed right.
       const twice = fetched.filter((one) => fetched.some((other) => other !== one && other.period.start === one.period.start));
       if (twice.length) throw new Error(`同一所属期抓到不止一份，不猜哪份为准：${twice.map((one) => `${one.period.label} ${one.release.url}`).join("、")}`);
