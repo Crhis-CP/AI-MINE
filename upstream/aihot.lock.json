@@ -3611,11 +3611,11 @@
    "path": "packages/backend/src/leaderboard/fetch/unzip.ts",
    "bytes": 1487,
    "sha256": "61d8395ad3012b2703f7ab488d2718ecd67785fab96736fb2603f47f2c2a7589",
-   "disposition": "删除",
-   "disposition_note": "",
-   "new_location": "—",
-   "spec_refs": "ANTI-26",
-   "tasks": "T-0002"
+   "disposition": "改造",
+   "disposition_note": "（模型榜的例外）只移植这个解压小工具，用来读金属价格的 xlsx；加条目数、解压后大小与读取范围的上限，超限或格式不对就抛错。模型榜其余文件仍删除",
+   "new_location": "packages/backend/src/publication/metal-prices/unzip.ts",
+   "spec_refs": "ANTI-26（例外）；F-RDR-12、INV-33",
+   "tasks": "T-0002；T-0207（TASK-0046）"
   },
   {
    "path": "packages/backend/src/leaderboard/method/compute-worker.ts",
