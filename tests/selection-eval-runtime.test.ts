@@ -202,6 +202,18 @@ test("custom split names cannot escape the evaluation output directory", async (
 });
 
 test("in a production environment the evaluation still scores the draft, before any Owner confirmation", async (t) => {
+  // A production child refuses to start while it holds proxy variables, so evaluate() must drop them. Set them here
+  // (pointing at a port with nothing behind it) so that step is exercised on every executor, not only on those that
+  // reach the internet through a proxy (TASK-0059).
+  const proxies = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy", "EGRESS_PROXY_URL"];
+  const saved = proxies.map((name) => [name, process.env[name]] as const);
+  for (const name of proxies) process.env[name] = "http://127.0.0.1:9";
+  t.after(() => {
+    for (const [name, value] of saved) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
   await withoutModelOverrides(async () => {
     const prefilter = await stub(() => ({
       choices: [{ message: { content: JSON.stringify({ label: "PASS", reason: "relevant" }) } }],
