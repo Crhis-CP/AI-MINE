@@ -7,13 +7,23 @@ import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
-/** Selected items of a topic: shared caches keep the page as long as its api answer (one minute). */
+/** Items of a topic (精选, or 全部矿业动态 before the first 精选): shared caches keep the page as long as its api answer (one minute). */
 export function headers() {
   return { "Cache-Control": "public, max-age=0, s-maxage=60" };
 }
 
 interface TopicPageData {
-  topic: { slug: string; name: string; group: string; definition: string; total: number; indexable: boolean; related: Array<{ slug: string; name: string }> };
+  topic: {
+    slug: string;
+    name: string;
+    group: string;
+    definition: string;
+    total: number;
+    indexable: boolean;
+    /** "all" while the site has no 精选 yet: the topic then follows 全部矿业动态 (Owner 2026-10-05; DEC-13). */
+    basis: "selected" | "all";
+    related: Array<{ slug: string; name: string }>;
+  };
   items: FeedItemSummary[];
   page: number;
   pageCount: number;
@@ -49,6 +59,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 export default function TopicPage() {
   const { data } = useLoaderData<typeof loader>();
   const { topic, items, page, pageCount } = data;
+  const picks = topic.basis !== "all";
   const href = (p: number) => (p <= 1 ? `/topics/${topic.slug}` : `/topics/${topic.slug}/page/${p}`);
   const first = (page - 1) * 20 + 1;
   const last = first + items.length - 1;
@@ -64,7 +75,7 @@ export default function TopicPage() {
         <p className="mt-1 max-w-[640px] text-[13px] leading-relaxed text-ink-3">{topic.definition}</p>
         <div className="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1">
           <span className="text-[12.5px] text-ink-4">
-            <span className="num mr-1 text-[20px] font-bold text-ink">{topic.total.toLocaleString("zh-CN")}</span>条精选
+            <span className="num mr-1 text-[20px] font-bold text-ink">{topic.total.toLocaleString("zh-CN")}</span>条{picks ? "精选" : "动态"}
           </span>
           {topic.related.length > 0 && (
             <span className="flex flex-wrap items-center gap-1.5 text-[12.5px]">
@@ -80,7 +91,7 @@ export default function TopicPage() {
       </header>
 
       <div className="mb-1 mt-2 flex items-baseline justify-between">
-        <h2 className="text-[18px] font-bold text-ink">最新精选</h2>
+        <h2 className="text-[18px] font-bold text-ink">{picks ? "最新精选" : "最新动态"}</h2>
         {items.length > 0 && (
           <span className="num text-[12px] text-ink-4">
             第 {first}–{last} 条 · 共 {topic.total.toLocaleString("zh-CN")} 条
@@ -89,7 +100,7 @@ export default function TopicPage() {
       </div>
       {items.length === 0 ? (
         <div className="lg:card">
-          <EmptyState title="这个主题暂时还没有精选内容" />
+          <EmptyState title={picks ? "这个主题暂时还没有精选内容" : "这个主题暂时还没有内容"} />
         </div>
       ) : (
         <DayList items={items} />

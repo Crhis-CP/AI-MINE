@@ -51,6 +51,17 @@ export function Sidebar() {
             {SITE.icp}
           </a>
         )}
+        {SITE.publicSecurity && (
+          <a
+            href={`https://beian.mps.gov.cn/#/query/webSearch?code=${SITE.publicSecurity.code}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block px-2 text-[10px] text-ink-4 hover:text-ink-3"
+          >
+            {SITE.publicSecurity.text}
+          </a>
+        )}
+        {SITE.newsLicense && <p className="px-2 text-[10px] text-ink-4">互联网新闻信息服务许可证：{SITE.newsLicense}</p>}
       </div>
     </aside>
   );

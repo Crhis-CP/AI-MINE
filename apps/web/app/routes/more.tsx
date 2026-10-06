@@ -97,6 +97,17 @@ export default function MorePage() {
             {SITE.icp}
           </a>
         )}
+        {SITE.publicSecurity && (
+          <a
+            href={`https://beian.mps.gov.cn/#/query/webSearch?code=${SITE.publicSecurity.code}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-ink-2"
+          >
+            {SITE.publicSecurity.text}
+          </a>
+        )}
+        {SITE.newsLicense && <span>互联网新闻信息服务许可证：{SITE.newsLicense}</span>}
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { cached } from "../lib/cache.ts";
-import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
+import { ITEM_COLUMNS, ITEM_FROM, listedCondition, selectedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
 
 const sql = dbOf("publication");
 
@@ -19,7 +19,13 @@ export interface TopicRow {
   position: number;
 }
 
-type TopicCount = { slug: string; total: number; recent: number; pages: number; indexable: boolean; latest: Date | null };
+/**
+ * What topics count: 精选, as the upstream's do, or 全部矿业动态 (the same condition as /all) while the site
+ * has no 精选 at all yet; they switch back by themselves at the first 精选, the same switch as the home page
+ * (Owner 2026-10-05; DEC-13).
+ */
+export type TopicBasis = "selected" | "all";
+type TopicCount = { slug: string; total: number; recent: number; pages: number; indexable: boolean; latest: Date | null; basis: TopicBasis };
 const topicsCache = cached(() => sql<TopicRow[]>`SELECT slug, name, grp, entity_id, tags, definition, related, position FROM topics ORDER BY position`, {
   freshMs: 60_000,
   maxStaleMs: 10 * 60_000,
@@ -77,13 +83,19 @@ export function topicPageCounts(): Promise<TopicCount[]> {
 }
 
 /**
- * One pass over the selected set (a few thousand rows from its partial index) instead of one
- * scan per topic; a topic counts an item when their tags overlap, as `p.tags && match` does.
+ * One pass over the counted set (精选, a few thousand rows from its partial index; or 全部矿业动态 before
+ * the first 精选) instead of one scan per topic; a topic counts an item when their tags overlap, as
+ * `p.tags && match` does.
  */
 async function queryTopicCounts(): Promise<TopicCount[]> {
+  const now = new Date();
+  const [row] = await sql<{ picked: boolean }[]>`SELECT EXISTS (SELECT 1 FROM publications p WHERE ${selectedCondition(now)}) AS picked`;
+  const basis: TopicBasis = row?.picked ? "selected" : "all";
   const [topics, items] = await Promise.all([
     sql<Array<Pick<TopicRow, "slug" | "entity_id" | "tags">>>`SELECT slug, entity_id, tags FROM topics ORDER BY position`,
-    sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE p.visibility = 'public' AND p.selected`,
+    basis === "selected"
+      ? sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE p.visibility = 'public' AND p.selected`
+      : sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE ${listedCondition(now)} AND p.eligible`,
   ]);
   const recentFrom = Date.now() - 30 * 86400_000;
   return topics.map((t) => {
@@ -104,6 +116,7 @@ async function queryTopicCounts(): Promise<TopicCount[]> {
       latest,
       pages: Math.max(1, Math.ceil(total / TOPIC_PAGE_SIZE)),
       indexable: total >= 50 || (total >= 20 && recent > 0),
+      basis,
     };
   });
 }
@@ -117,6 +130,7 @@ export interface TopicSummary {
   recent: number;
   indexable: boolean;
   latestAt: string | null;
+  basis: TopicBasis;
 }
 
 export async function listTopicSummaries(): Promise<TopicSummary[]> {
@@ -133,6 +147,7 @@ export async function listTopicSummaries(): Promise<TopicSummary[]> {
       recent: c?.recent ?? 0,
       indexable: c?.indexable ?? false,
       latestAt: c?.latest?.toISOString() ?? null,
+      basis: c?.basis ?? "selected",
     };
   });
 }
@@ -152,13 +167,25 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   if (!topic) return null;
   const pageCount = Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE));
   if (page < 1 || page > pageCount) return null;
-  // Page ids from the selected set first, then the joins for those rows only.
-  const rows = await sql<ItemRow[]>`
+  // Page ids from the set the counts follow first, then the joins for those rows only.
+  const match = topicMatchTags(row);
+  const offset = (page - 1) * TOPIC_PAGE_SIZE;
+  const rows =
+    topic.basis === "selected"
+      ? await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${selectedCondition(now)} AND p.tags && ${topicMatchTags(row)}::text[]
+      WHERE ${selectedCondition(now)} AND p.tags && ${match}::text[]
       ORDER BY p.timeline_at DESC, p.article_id DESC
-      LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${(page - 1) * TOPIC_PAGE_SIZE})
+      LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
+    SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
+    ORDER BY p.timeline_at DESC, p.article_id DESC`
+      : await sql<ItemRow[]>`
+    WITH page AS (
+      SELECT p.article_id FROM publications p
+      WHERE ${listedCondition(now)} AND p.eligible AND p.tags && ${match}::text[]
+      ORDER BY p.timeline_at DESC, p.article_id DESC
+      LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
     ORDER BY p.timeline_at DESC, p.article_id DESC`;
   const related = row.related

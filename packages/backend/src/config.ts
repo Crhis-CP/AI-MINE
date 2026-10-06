@@ -41,6 +41,11 @@ export const config = {
   // Every generated absolute link uses this address, whatever Host a request arrives with.
   siteUrl: str("SITE_URL", SITE.defaultUrl).replace(/\/+$/, ""),
   selectedVisibleAfterSeconds: int("SELECTED_VISIBLE_AFTER_SECONDS", 180),
+  /**
+   * The mining scoring standard (industry/prompts/selection-score.md) the Owner has confirmed, as its
+   * prompt version (selection-score@…). Production scores and selects only with that exact version.
+   */
+  selectionConfirmedVersion: env.SELECTION_CONFIRMED_VERSION || null,
   egressProxyUrl: env.EGRESS_PROXY_URL || null,
   allowPrivateNetworkFetch: bool("ALLOW_PRIVATE_NETWORK_FETCH", false),
   feishuContentPushEnabled: bool("FEISHU_CONTENT_PUSH_ENABLED", false),
