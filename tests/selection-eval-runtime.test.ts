@@ -44,7 +44,11 @@ interface Result {
   cases: Array<{ caseId: string; decision: string | null; error: string | null }>;
 }
 
-async function evaluate(rows: GoldRow[], providers: { prefilter: string; score: string }, opts: { split?: string } = {}): Promise<Result> {
+async function evaluate(
+  rows: GoldRow[],
+  providers: { prefilter: string; score: string },
+  opts: { split?: string; env?: NodeJS.ProcessEnv } = {},
+): Promise<Result> {
   const dir = mkdtempSync(path.join(tmpdir(), "selection-eval-"));
   let reportPath: string | undefined;
   try {
@@ -63,6 +67,7 @@ async function evaluate(rows: GoldRow[], providers: { prefilter: string; score: 
         DASHSCOPE_API_KEY: "test-key",
         ZHIPU_BASE_URL: `${providers.score}/v1`,
         ZHIPU_API_KEY: "test-key",
+        ...opts.env,
       },
       timeout: 20_000,
     });
@@ -190,5 +195,32 @@ test("custom split names cannot escape the evaluation output directory", async (
     assert.ok(path.basename(result.reportPath).startsWith("selection-outside-1-"));
     assert.equal(result.meta.split, split, "metadata keeps the original user-supplied split");
     assert.equal(score.hits(), 0);
+  });
+});
+
+test("in a production environment the evaluation still scores the draft, before any Owner confirmation", async (t) => {
+  await withoutModelOverrides(async () => {
+    const prefilter = await stub(() => ({
+      choices: [{ message: { content: JSON.stringify({ label: "PASS", reason: "relevant" }) } }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    }));
+    const score = await stub(() => ({
+      choices: [{ message: { content: JSON.stringify({ attentionScore: 70 }) } }],
+      usage: { prompt_tokens: 100, completion_tokens: 20 },
+    }));
+    t.after(async () => {
+      await Promise.all([prefilter.close(), score.close()]);
+    });
+
+    const marker = tag();
+    const rows = [row(`${marker}-t1`, marker, "T1", "select"), row(`${marker}-t2`, marker, "T2", "reject")];
+    // Production with no confirmed scoring prompt: the site scores nothing, the evaluation still runs the draft.
+    const result = await evaluate(rows, { prefilter: prefilter.url, score: score.url }, { env: { NODE_ENV: "production", SELECTION_CONFIRMED_VERSION: "" } });
+    assert.deepEqual(
+      result.cases.map((item) => item.decision),
+      ["select", "reject"],
+    );
+    assert.deepEqual([result.summary.decisive, result.summary.errors], [2, 0]);
+    assert.equal(score.hits(), 2, "two score calls, shared by the two cases");
   });
 });
