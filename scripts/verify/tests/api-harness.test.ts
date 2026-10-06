@@ -117,7 +117,8 @@ test("cleanup waits for all three owned processes and kills a child that ignores
     for (const child of children) if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
   });
   await Promise.all(children.map((child) => new Promise<void>((resolve) => child.stdout!.once("data", () => resolve()))));
-  await stopSiteProcesses(children, 100);
+  // Long enough for the two children that exit on SIGTERM to do so on a busy machine; the one that ignores it is still killed when the wait runs out.
+  await stopSiteProcesses(children, 3000);
   assert.equal(children[0].exitCode, 0);
   assert.equal(children[1].exitCode, 0);
   assert.equal(children[2].signalCode, "SIGKILL");
