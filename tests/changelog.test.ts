@@ -8,12 +8,29 @@ import { type Changelog, loadChangelog, validateChangelog } from "@amp/backend/s
 
 const text = readFileSync(new URL("../industry/changelog.json", import.meta.url), "utf8");
 
-test("the real changelog passes, starts at the 2.0 launch, has no framework sample and no review notes", () => {
+test("the real changelog passes: the first deploy's entries, then the 2.0 launch; no framework sample, no review notes", () => {
   const changelog = validateChangelog(JSON.parse(text));
   assert.deepEqual(loadChangelog(), changelog);
-  const [first] = changelog.releases;
-  assert.deepEqual([first!.date, first!.time, first!.kind, first!.version], ["2026-10-06", "02:50", "重大更新", "2.0"]);
-  assert.equal(changelog.latestVersion, "2026-10-06T02:50");
+  // The first deploy after the launch, written before the deploy with its Beijing date alone, above the launch of the
+  // same day: the four entries of the Owner's preview that ship with it, then one for each other change readers will see with it.
+  const launchAt = changelog.releases.findIndex((r) => r.kind === "重大更新");
+  assert.deepEqual(
+    changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
+    [
+      ["2026-10-06", undefined, "首页：精选开始之前，先放最新动态"],
+      ["2026-10-06", undefined, "金属价格：侧栏新增入口"],
+      ["2026-10-06", undefined, "带 www 的网址也能打开本站"],
+      ["2026-10-06", undefined, "只写日期的稿子：只显示日期，旧稿归到原来那天"],
+      ["2026-10-06", undefined, "全部动态更聚焦金属矿业"],
+      ["2026-10-06", undefined, "两个分类改名：矿山安全、技术与冶炼"],
+      ["2026-10-06", undefined, "新增信源：商务部驻外经商处"],
+      ["2026-10-06", undefined, "事件归并改按矿业的写法"],
+      ["2026-10-06", undefined, "手机上每个页面都显示备案号"],
+    ],
+  );
+  const launch = changelog.releases[launchAt]!;
+  assert.deepEqual([launch.date, launch.time, launch.kind, launch.version], ["2026-10-06", "02:50", "重大更新", "2.0"]);
+  assert.equal(changelog.latestVersion, "2026-10-06");
   assert.ok(!changelog.releases.some((r) => r.date === "2026-10-01"));
   // Only the launch has a time; the old site's records and the thanks have their dates alone.
   assert.deepEqual(
