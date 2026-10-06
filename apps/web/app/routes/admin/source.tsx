@@ -6,7 +6,7 @@ import { Link } from "react-router";
 import type { Route } from "./+types/source";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
-import { bj, duration, num } from "../../features/admin/format";
+import { bj, bjSource, duration, num } from "../../features/admin/format";
 import { HEALTH_LABEL, KIND_LABEL, MODE_LABEL, TIER_LABEL, VISIBILITY_LABEL } from "../../features/admin/labels";
 import {
   AdminPage,
@@ -179,7 +179,7 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                     {i.title}
                   </a>
                   <div className="text-[12px] text-ink-4">
-                    {i.publishedAt ? bj(i.publishedAt, true) : "无发布时间"} · {i.url}
+                    {i.publishedAt ? bjSource(i.publishedAt, true) : "无发布时间"} · {i.url}
                   </div>
                   {i.excerpt && <div className="mt-0.5 line-clamp-2 text-[12.5px] text-ink-3">{i.excerpt}</div>}
                 </li>
