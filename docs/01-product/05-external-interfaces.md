@@ -45,7 +45,7 @@
 | 编号 | 出口 | 面向 | 内容 | 阶段（功能全集） | 依据 |
 |---|---|---|---|---|---|
 | OUT-01 | 读者站 | 读者 | 全部页面（见 `03-reader-pages.md`）；列表页码、总数与跳页，页码写进地址（通则 8） | 切换前完成（按 F-RDR 各功能的里程碑，M1–M3） | F-RDR 系列（读者页面功能） |
-| OUT-02 | RSS：全部矿业动态 | 读者、阅读器、Agent | `/feed/all.xml`，最近 50 条，链接到本站详情；`guid` 用本站条目 ID（公开 ID 不复用，INV-18）；只有日期的条目只输出 `dc:date`，摘要前置“来源发布日期：YYYY-MM-DD（仅提供日期）” | 切换前完成（M3） | F-PUB-02；旧站有同类 RSS（旧实现 `services/live_pipeline/reader.py:917-949@main`，只作经验参考，旧地址不兼容）【已实现未验证】 |
+| OUT-02 | RSS：全部矿业动态 | 读者、阅读器、Agent | `/feed/all.xml`，最近 50 条，链接到本站详情；`guid` 用本站条目 ID（公开 ID 不复用，INV-18）；每条输出 `pubDate`：照 AIHOT 用发布时间，没有时用发现时间；只写日期的条目输出存着的时刻（来源时区当天零点），摘要不加日期前缀（2026-10-05 改，TASK-0043；原“只输出 `dc:date`、摘要前置‘来源发布日期……（仅提供日期）’”作废，代码 `publication/feeds.ts`） | 切换前完成（M3） | F-PUB-02；旧站有同类 RSS（旧实现 `services/live_pipeline/reader.py:917-949@main`，只作经验参考，旧地址不兼容）【已实现未验证】 |
 | OUT-03 | RSS：精选、日报、法规政策动态、全文 | 同上 | `/feed.xml`（精选；暂时没有符合条件的精选时为合法空 feed；不输出评分）、`/feed/daily.xml`（日报）、`/feed/policies.xml`（法规动态）；`/feed/full.xml` 只含站外再分发允许的来源（第十项许可默认关闭，Q-47） | 切换前完成：精选随 F-SEL-01（M3）、日报随 F-RPT-01（M3）、法规动态随法规线（M3）；全文 RSS 候选（不排期，Owner 启用第十项许可并点名后再立项；立项前该地址不存在，按通用规则返回 404） | F-PUB-02；AIHOT 实现；法规动态为新增 |
 | OUT-04 | 公开 API v3 | Agent、程序 | `/api/v3`：列表（含精选视图）、详情、阅读分块、收藏解析、事件、热点（只给名次）、发展线、报告、主题、更新日志、法域字典、精选同步（`featured/snapshot`、`featured/changes`，沿用 AIHOT 的 selected snapshot / changes）；条目带 `score`（没有评分时为空）；法规政策文书（详情、阅读分块、版本记录、范围、周月汇总、政策线）；游标分页；只读匿名；`/api/v3` 前缀不承担旧接口兼容义务 | 切换前完成（M3）：全部端点随对应页面功能（F-RDR-09 事件与发展线、F-RDR-11 主题页、F-SEL-01/02 精选与热点）；契约与样例在 M1 冻结；法规接口随法规线（M3） | F-PUB-03；旧读者接口（经验参考）；Owner 要求；B 契约；AIHOT 公开 API |
 | OUT-05 | 公开 MCP | 大模型客户端 | `/api/mcp` 只读工具：`get_latest`、`search`、`get_item`、`get_event`、`get_hot`（只返回名次，不返回热度值，沿用 AIHOT）、`get_report`、`list_topics`，以及法规线的 `get_policy`、`search_policies`、`get_policy_thread`；工具名前缀取站点配置 | 切换前完成（M3） | F-PUB-04；AIHOT 实现 |
@@ -103,7 +103,7 @@
 | AC-OUT-02 | 遍历所有公开出口，模型网关调用数、采集任务数、业务表写入数不变，响应不带 `Set-Cookie` | INV-01 |
 | AC-OUT-03 | 下架一条内容后 60 秒内，未带条件请求头的匿名请求在 OUT-02～OUT-08 均不可见；响应头不含 `stale-while-revalidate`；重采集与升级后仍不可见 | INV-03、DEC-48 |
 | AC-OUT-04 | 公开 API 响应通过 OpenAPI 校验；扫描不到白名单以外的字段 | INV-10 |
-| AC-OUT-05 | 只写日期的条目，网页只显示日期；RSS、API、MCP 照 AIHOT 输出存着的发布时间（来源时区当天零点）（2026-10-05 改，Owner：做法以 AIHOT 为准；网页只显示日期） | INV-06 |
+| AC-OUT-05 | 资讯线：只写日期的条目，网页只显示日期；RSS、API、MCP 照 AIHOT 输出存着的发布时间（来源时区当天零点）（2026-10-05 改，Owner：做法以 AIHOT 为准；网页只显示日期）。法规线不变：只写日期的在任何出口（含 `/feed/policies.xml`）都只给日期，不补时分（BR-TIME-04、13） | INV-06 |
 | AC-OUT-06 | 每条公开内容 `attributions` 至少一项；RSS 描述与 MCP 文本前置署名；显式与机器可读 AI 标识齐全；任何出口不出现“已复核/已核实/已审核” | DEC-38 |
 | AC-OUT-07 | Agent 接入页列出的每个示例请求都能真实返回数据；页面不提及任何旧站接口，不含“已有 V1、V2 接口继续兼容”一类承诺 | OUT-09 |
 | AC-OUT-08 | 【已废弃】旧 RSS 地址 301、旧接口适配期兼容响应与迁移响应头、期满 410、旧页面链接 301 或 410 的验收（Owner 2026-10-01：旧链接、旧 RSS、旧接口全部不要）。替代：AC-OUT-20 与 T-107 | OUT-13【已废弃】 |

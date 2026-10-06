@@ -87,7 +87,7 @@
 | F-MAT-02 | 正文取得与清洗 | 列表 → 详情 → 正文；去导航广告；保留表格、段落、列表、尾段条件与落款 | 系统 | M2 | 【已验证】 | 线上个别条目中文与原文可读（README.md:23@main） | F-008 | BR-MAT | content |
 | F-MAT-03 | 行政文书正文判定 | 逐文核实机关正式文书（署名、落款、文号齐全）以确认身份与完整性；这是逐篇核验链，保留其核验作用，不再作为许可依据（Owner 2026-10-01：许可一律按 owner_declared 建档，DEC-33） | 系统 | M2 | 【已实现未验证】 | — | F-010 | BR-MAT、`07-sources-and-coverage.md` §6.6 | content |
 | F-MAT-04 | 薄材料补全 | 只有标题/附件链接时延后重取，不算完成、不公开 | 系统 | M2 | 【已实现未验证】 | — | F-008、F-017 | BR-ENR-11 | content |
-| F-MAT-05 | 时间字段与精度 | 发布、更新、登记、公开阅览、生效、签署、发现、首次公开分开；以时间断言（TimeAssertion）为底，带中文标签与北京日期（DEC-50）；只写日期的资讯，发布时间取来源时区当天零点，网页只显示日期（BR-TIME-01，2026-10-05 改）；法律日期按法域当地日历日比较（BR-TIME-13）；列表照 AIHOT 按时间线排（BR-TIME-14）；没有可靠来源日期的资讯照 AIHOT 公开、按发现时间排（BR-TIME-15） | 系统 | M1 | 【已验证】 | 线上时间栏显示真实时分（README.md:24@main） | F-009 | `02-rules/04-time-semantics.md`（BR-TIME-09/13/14/15）、DEC-49、DEC-50 | content |
+| F-MAT-05 | 时间字段与精度 | 发布、更新、登记、公开阅览、生效、签署、发现、首次公开分开；以时间断言（TimeAssertion）为底，带中文标签与北京日期（DEC-50）；网页列表和详情页只写日期的资讯，发布时间取来源时区当天零点，网页只显示日期（BR-TIME-01，2026-10-05 改；RSS、JSON 列表等的限制见 BR-TIME-01）；法规线只写日期的照旧不补时分；法律日期按法域当地日历日比较（BR-TIME-13）；列表照 AIHOT 按时间线排（BR-TIME-14）；没有可靠来源日期的资讯照 AIHOT 公开、按发现时间排（BR-TIME-15） | 系统 | M1 | 【已实现】TASK-0040 | `tests/day-only-timeline.test.ts`、`tests/web-list-date.test.ts`、`apps/web/tests/day-only-time.test.ts`（旧仓库“线上时间栏显示真实时分”README.md:24@main 只是旧站的证据） | F-009 | `02-rules/04-time-semantics.md`（BR-TIME-09/13/14/15）、DEC-49、DEC-50 | content |
 | F-MAT-06 | PDF 与附件 | PDF 正文提取、附件清单；许可范围内保存；法规必要附件为必需能力（见 F-POL-02） | 系统 | M2 | 【新增】 | — | F-007、F-047 | BR-MAT | content；acquisition（PDF/OCR 抽取） |
 | F-MAT-07 | 材料修订与稳定身份 | 正文变化新建不可变修订；改名称/频率不新建文章；翻译补齐不换文章网址；旧人工覆盖不借给新材料 | 系统 | M1 | 【设计】 | A 仅在数据模型中描述，功能全集原无条目 | F-011 | `03-data/01-domain-model.md` | content |
 
