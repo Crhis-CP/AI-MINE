@@ -1,13 +1,16 @@
 // Ops alerts reach the site owner: a problem is announced once, repeated no more than its level allows
 // (hourly for reader impact), closed with one recovery message; entries from before the levels existed
 // close without a message. Metal prices not fetched for over a day wait for the 09:00 digest (TASK-0071).
+// The request meter's automatic stops (hourly and daily) are announced as such, not as a used-up quota, and
+// the days they happened are counted for the weekly usage report (TASK-0063).
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { checkAlerts, collectFindings, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
+import { autoStopsBetween, checkAlerts, collectFindings, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
 
 const sql = dbOf("ops");
 
@@ -282,5 +285,156 @@ test("metal prices: a source's periods held back come from its latest run that r
     assert.deepEqual([forced.sources.nbs?.held, forced.sources.nbs?.lastOkAt, forced.latest?.at, forced.lastOkRunAt], [[], hours(10), hours(20), hours(20)]);
   } finally {
     await seed();
+  }
+});
+
+// ---- Automatic stops (TASK-0063) -------------------------------------------------------------------------------------
+// Each test meters its own service (a budgets row and live attempts in database time) and removes it afterwards.
+const gateway = dbOf("ai-gateway");
+
+/** A service of this file's own with these limits and `calls` live attempts `minutesAgo` minutes ago. */
+async function meter(service: string, limits: { perMinute: number; perHour: number; perDay: number }, calls: number, minutesAgo = 10) {
+  await gateway`
+    INSERT INTO budgets (service, per_minute, per_hour, per_day, note) VALUES (${service}, ${limits.perMinute}, ${limits.perHour}, ${limits.perDay}, 'test')
+    ON CONFLICT (service) DO UPDATE SET per_minute = EXCLUDED.per_minute, per_hour = EXCLUDED.per_hour, per_day = EXCLUDED.per_day`;
+  const [receipt] = await gateway<{ id: number }[]>`
+    INSERT INTO receipts (logical_key, service, purpose, status, origin) VALUES (${`test-meter:${randomUUID()}`}, ${service}, 'test', 'received', 'live')
+    RETURNING id`;
+  for (let attempt = 1; attempt <= calls; attempt++)
+    await gateway`
+      INSERT INTO receipt_attempts (receipt_id, attempt, service, origin, status, started_at)
+      VALUES (${receipt!.id}, ${attempt}, ${service}, 'live', 'received', now() - ${minutesAgo}::int * interval '1 minute')`;
+}
+async function unmeter(service: string) {
+  await gateway`DELETE FROM receipts WHERE service = ${service}`;
+  await gateway`DELETE FROM budgets WHERE service = ${service}`;
+  await sql`UPDATE settings SET value = value - ${`budget.hour.${service}`}::text - ${`budget.day.${service}`}::text WHERE key = 'alerts.state'`;
+}
+const stopsOf = async (service: string) => (await collectFindings()).filter((f) => f.key.endsWith(`.${service}`));
+
+test("auto-stops: the hourly and the daily meter each open their own alert, never worded as a used-up quota", async () => {
+  const service = `test-meter-${T}`;
+  try {
+    await meter(service, { perMinute: 1000, perHour: 3, perDay: 1000 }, 3);
+    const [hour, ...rest] = await stopsOf(service);
+    assert.deepEqual([hour?.key, rest.length], [`budget.hour.${service}`, 0], "the hourly window alone");
+    assert.deepEqual(
+      [hour!.title, hour!.impact, hour!.heals, hour!.detail],
+      [
+        `${service} 调用次数异常，已自动暂停付费调用（不是总额上限）`,
+        "相关功能停了，直到调用次数回落",
+        "会：过去 1 小时的调用次数回落到限额以下后自动恢复",
+        "1 小时内 3 次，限额 3（budgets 表 per_hour）",
+      ],
+    );
+    assert.match(hour!.action!, /先看后台“用量与模型密钥”里的“模型与近期用量”.*这不是总额上限.*“通知与请求频率”里调高限额/);
+    for (const text of [hour!.title, hour!.impact, hour!.heals, hour!.action, hour!.detail]) assert.ok(!text!.includes("额度"), text);
+    await gateway`UPDATE budgets SET per_day = 3 WHERE service = ${service}`;
+    const both = await stopsOf(service);
+    assert.deepEqual(both.map((f) => f.key).sort(), [`budget.day.${service}`, `budget.hour.${service}`], "both windows, one alert each");
+    assert.equal(both.find((f) => f.key.startsWith("budget.day."))!.detail, "24 小时内 3 次，限额 3（budgets 表 per_day）");
+  } finally {
+    await unmeter(service);
+  }
+});
+
+test("auto-stops: a service with any limit at 0 or below was stopped by hand and gets no automatic-stop alert", async () => {
+  const service = `test-meter-off-${T}`;
+  try {
+    await meter(service, { perMinute: 0, perHour: 1, perDay: 1 }, 3);
+    assert.deepEqual(await stopsOf(service), []);
+  } finally {
+    await unmeter(service);
+  }
+});
+
+test("auto-stops: opened lists a key only in the round it opens, and the recovery follows once the calls leave the hour", async () => {
+  const service = `test-meter-run-${T}`;
+  const mine = (keys: string[]) => keys.filter((k) => k.includes(`.${service}`));
+  try {
+    await meter(service, { perMinute: 1000, perHour: 2, perDay: 1000 }, 2);
+    const t0 = Date.now();
+    let r = await checkAlerts(t0);
+    assert.deepEqual([mine(r.sent), mine(r.opened)], [[`budget.hour.${service}`], [`budget.hour.${service}`]]);
+    r = await checkAlerts(t0 + 10 * 60_000);
+    assert.ok(Array.isArray(r.opened));
+    assert.deepEqual([mine(r.sent), mine(r.opened)], [[], []], "still open: neither repeated within the day nor opened again");
+    await gateway`UPDATE receipt_attempts SET started_at = now() - interval '2 hours' WHERE service = ${service}`;
+    r = await checkAlerts(t0 + 20 * 60_000);
+    assert.deepEqual([mine(r.sent), mine(r.opened)], [[`budget.hour.${service}:recovered`], []]);
+  } finally {
+    await unmeter(service);
+  }
+});
+
+test("auto-stops: with alerts on but no chat id, the alert is logged as not sent and nothing goes to Feishu", async (t) => {
+  const service = `test-meter-nochat-${T}`;
+  const env = { on: process.env.FEISHU_INTERNAL_ENABLED, alert: process.env.FEISHU_ALERT_CHAT_ID, internal: process.env.FEISHU_INTERNAL_CHAT_ID };
+  const feishu: string[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input);
+    if (new URL(url).hostname.endsWith("feishu.cn")) {
+      feishu.push(url);
+      return Response.json({ code: 0, tenant_access_token: "t", expire: 7200, data: { message_id: "m" } });
+    }
+    return realFetch(input, init);
+  }) as typeof fetch;
+  const log = t.mock.method(console, "log", () => {});
+  try {
+    process.env.FEISHU_INTERNAL_ENABLED = "true";
+    delete process.env.FEISHU_ALERT_CHAT_ID;
+    delete process.env.FEISHU_INTERNAL_CHAT_ID;
+    await meter(service, { perMinute: 1000, perHour: 1, perDay: 1000 }, 1);
+    const r = await checkAlerts(Date.now());
+    assert.ok(r.sent.includes(`budget.hour.${service}`), "the alert went through sendAlert");
+    const warned = log.mock.calls
+      .map((call) => JSON.parse(String(call.arguments[0])) as { level?: string; msg?: string; title?: string })
+      .find((line) => line.title?.includes(service));
+    assert.deepEqual([warned?.level, warned?.msg], ["warn", "alert (not sent: no FEISHU_ALERT_CHAT_ID or FEISHU_INTERNAL_CHAT_ID)"]);
+    assert.deepEqual(feishu, [], "no request to Feishu");
+  } finally {
+    globalThis.fetch = realFetch;
+    for (const [name, value] of [
+      ["FEISHU_INTERNAL_ENABLED", env.on],
+      ["FEISHU_ALERT_CHAT_ID", env.alert],
+      ["FEISHU_INTERNAL_CHAT_ID", env.internal],
+    ] as const) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    await unmeter(service);
+  }
+});
+
+test("auto-stops: autoStopsBetween counts days per service and Beijing day, from the runs that record opened", async () => {
+  const at = (iso: string) => new Date(iso);
+  const runs: { at: Date; opened?: string[]; status?: string; job?: string }[] = [
+    { at: at("2099-12-31T15:00:00Z"), opened: ["budget.hour.svc-a"] }, // before the window
+    { at: at("2100-01-02T01:00:00Z") }, // a run from before opened was recorded
+    { at: at("2100-01-02T02:00:00Z"), opened: [] }, // nothing opened: still the start of coverage
+    { at: at("2100-01-02T03:00:00Z"), opened: ["budget.hour.svc-a", "content.process"] },
+    { at: at("2100-01-02T05:00:00Z"), opened: ["budget.day.svc-a", "budget.hour.svc-b"] }, // svc-a again the same day
+    { at: at("2100-01-02T15:30:00Z"), opened: ["budget.hour.svc-a"] }, // 23:30 in Beijing: same day
+    { at: at("2100-01-02T16:30:00Z"), opened: ["budget.hour.svc-a"] }, // 00:30 the next Beijing day
+    { at: at("2100-01-03T02:00:00Z"), opened: ["budget.hour.svc-c"], status: "failed" },
+    { at: at("2100-01-03T02:00:00Z"), opened: ["budget.hour.svc-d"], job: "ops.digest" },
+    { at: at("2100-01-05T00:00:00Z"), opened: ["budget.hour.svc-e"] }, // the window's end is excluded
+  ];
+  const ids: number[] = [];
+  try {
+    for (const run of runs) {
+      const detail = run.opened ? { open: [], sent: [], opened: run.opened } : { open: [], sent: [] };
+      const [row] = await sql<{ id: number }[]>`
+        INSERT INTO job_runs (job, started_at, finished_at, status, detail)
+        VALUES (${run.job ?? "ops.alerts"}, ${run.at}, ${run.at}, ${run.status ?? "ok"}, ${sql.json(detail as never)})
+        RETURNING id`;
+      ids.push(row!.id);
+    }
+    const stops = await autoStopsBetween(at("2100-01-01T00:00:00Z"), at("2100-01-05T00:00:00Z"));
+    assert.deepEqual(stops, { days: 2, byService: { "svc-a": 2, "svc-b": 1 }, coveredFrom: at("2100-01-02T02:00:00Z") });
+    assert.deepEqual(await autoStopsBetween(at("2100-02-01T00:00:00Z"), at("2100-02-08T00:00:00Z")), { days: 0, byService: {}, coveredFrom: null });
+  } finally {
+    await sql`DELETE FROM job_runs WHERE id IN ${sql(ids)}`;
   }
 });
