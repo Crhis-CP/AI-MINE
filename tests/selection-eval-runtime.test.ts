@@ -56,10 +56,13 @@ async function evaluate(
     writeFileSync(gold, rows.map((item) => JSON.stringify(item)).join("\n"));
     const args = ["scripts/eval-selection.ts", "--gold", gold, "--concurrency", "6", "--no-import"];
     if (opts.split) args.push("--split", opts.split);
+    // The model stubs listen on 127.0.0.1, so the child needs no proxy. Executors that reach the internet through a
+    // proxy carry these variables, and packages/platform/config refuses to start a production process that holds them.
+    const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|EGRESS_PROXY_URL)$/i.test(name)));
     const { stdout } = await exec(process.execPath, args, {
       cwd: REPO_ROOT,
       env: {
-        ...process.env,
+        ...inherited,
         MODEL_CALLS_ENABLED: "true",
         SCORE_MODEL: "glm-5.3-flash-selection",
         PREFILTER_MODEL: "qwen3.7-flash",
