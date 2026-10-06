@@ -4,3 +4,9 @@
 	encode zstd gzip
 	reverse_proxy web:3000
 }
+
+# The ICP filing names www.SITE_DOMAIN as the homepage: redirect it permanently to the bare domain,
+# keeping the path and query. Its DNS record points here as well, so Caddy gets its certificate too.
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}

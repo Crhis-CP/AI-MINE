@@ -25,6 +25,7 @@ const publicRoutes = [
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
+  route("metals", "routes/metals.tsx"),
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;
 
