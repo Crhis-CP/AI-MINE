@@ -20,6 +20,7 @@ import { publishArticle, republishSource } from "@amp/backend/publication/publis
 import { overrideFields, setVisibility } from "@amp/backend/admin/content";
 import { buildApp } from "../apps/api/src/app.ts";
 import { SITE } from "@amp/industry/site";
+import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
 
 const sql = dbOf("enrichment");
 
@@ -145,7 +146,7 @@ const provider = await stub(async (_hit, req) => {
     return answer({
       itemType: "model_release",
       authorRole: "principal",
-      tags: ["法规政策", "Agent", "不存在的标签"],
+      tags: ["法规政策", "铜", "不存在的标签"],
       editorialJudgment: `理由 ${marker}`,
       titleZh: `理解标题 ${marker}`,
       summaryZh: `理解摘要 ${marker}。第二句补充一个关键数字。`,
@@ -154,8 +155,8 @@ const provider = await stub(async (_hit, req) => {
   if (step === "structure")
     return answer({
       category: "company_project",
-      tags: ["企业与项目", "推理"],
-      subjects: ["anthropic", "unknown-co"],
+      tags: ["企业与项目", "锂"],
+      subjects: ["zijin", "unknown-co"],
       fact: { title: `事实 ${marker}`, subject: "某公司", action: "发布", object: "模型", occurredAt: null },
     });
   return answer(`title_zh: 翻译标题 ${marker}\nsummary_zh: 翻译摘要 ${marker}。第二句补充影响。`);
@@ -240,8 +241,8 @@ test("a selected item: prefilter, two scores, the content understanding and the 
   assert.deepEqual(calls("CLEAR").sort(), ["prefilter", "score", "score", "structure", "understand"]);
   const r = await row(id);
   assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "company_project", 5]);
-  assert.deepEqual(r.tags, ["企业与项目", "Agent", "Anthropic"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
-  assert.deepEqual(r.subjects, ["anthropic"]);
+  assert.deepEqual(r.tags, ["企业与项目", "铜", "紫金矿业"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
+  assert.deepEqual(r.subjects, ["zijin"]);
   assert.deepEqual([r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title], ["understand", "model_release", "PASS", "事实 CLEAR"]);
   const score = requests.find((q) => q.marker === "CLEAR" && q.step === "score")!;
   assert.match(score.user, /【标题】\nCLEAR model release/, "the score reads the original title, before any writing");
@@ -263,7 +264,7 @@ test("a near-selected item is written like a selected one; below the floor it is
   const summarize = requests.find((q) => q.marker === "LOW" && q.step === "summarize")!;
   assert.equal(summarize.body.messages.length, 1, "the title/summary prompt is one user message");
   assert.equal(summarize.body.response_format, undefined, "answered in its own text format");
-  assert.deepEqual((await row(lowId)).tags, ["企业与项目", "推理", "Anthropic"], "structure tags");
+  assert.deepEqual((await row(lowId)).tags, ["企业与项目", "锂", "紫金矿业"], "structure tags");
 });
 
 test("the prefilter's BLOCK stops everything; UNKNOWN goes on like PASS", async () => {
@@ -309,12 +310,12 @@ test("a content-filter refusal of the content understanding is translated instea
 });
 
 test("guards: a company the input does not name is not written in; long summaries are cut at sentences", () => {
-  const input = { title: "某实验室发布新模型", text: "某实验室发布了一个新模型，参数规模和价格都有说明。", sourceKind: "rss" };
-  const guarded = enforceIdentity(input, { titleZh: "OpenAI 发布新模型", summaryZh: "某实验室发布新模型。" });
-  assert.deepEqual([guarded.titleZh, guarded.summaryZh, guarded.identityGuard.outcome], ["某实验室发布新模型", "某实验室发布新模型。", "fallback"]);
+  const input = { title: "某矿企公布扩产计划", text: "某矿企公布了一座铜矿的扩产计划，产能和投资额都有说明。", sourceKind: "rss" };
+  const guarded = enforceIdentity(input, { titleZh: "紫金矿业公布扩产计划", summaryZh: "某矿企公布扩产计划。" });
+  assert.deepEqual([guarded.titleZh, guarded.summaryZh, guarded.identityGuard.outcome], ["某矿企公布扩产计划", "某矿企公布扩产计划。", "fallback"]);
   // The identity lexicon: a Chinese rendering of a company the input names in English is no invention.
-  const alibaba = { title: "Alibaba ships a new coding model", text: "Alibaba released a coding model with pricing details.", sourceKind: "rss" };
-  assert.equal(enforceIdentity(alibaba, { titleZh: "阿里巴巴发布编程模型", summaryZh: "阿里巴巴发布了编程模型并公布价格。" }).identityGuard.outcome, "pass");
+  const zijin = { title: "Zijin Mining raises copper output", text: "Zijin Mining raised copper output at its mines in the third quarter.", sourceKind: "rss" };
+  assert.equal(enforceIdentity(zijin, { titleZh: "紫金矿业提高铜产量", summaryZh: "紫金矿业第三季度提高了旗下矿山的铜产量。" }).identityGuard.outcome, "pass");
   const long = "第一句交代了谁做了什么以及关键结果，这一句本身已经足够说明核心事件的来龙去脉。".repeat(3) + "第二句补充数字。".repeat(20);
   assert.ok(compactAnswerFirstSummary(long).length <= 190);
   assert.deepEqual(parseTranslateOutput("title_zh: 标题\nsummary_zh: 第一句。\n第二句。"), { titleZh: "标题", summaryZh: "第一句。\n第二句。", bodyZh: "" });
@@ -322,6 +323,65 @@ test("guards: a company the input does not name is not written in; long summarie
     parseTranslateOutput("title_zh: 标题\nbody_zh: 我们懂你。\n\n来源：X：PixVerse (@PixVerse)").bodyZh,
     "我们懂你。",
     "a repeated prompt line is dropped",
+  );
+});
+
+test("guards: everyday Chinese that contains a short company name names no company; other renderings of a named company count", () => {
+  const rss = (title: string, text: string) => ({ title, text, sourceKind: "rss" });
+  // 大力拓展 (力拓), 其中铝产量 (中铝), 黑龙江铜山 and 长江铜价 (江铜): a summary is not emptied for them.
+  const everyday: Array<[ReturnType<typeof rss>, string]> = [
+    [rss("Aluminium output rises", "Aluminium output rose, mostly in Yunnan."), "铝产量上升，其中铝产量增长主要来自云南。"],
+    [rss("Ivanhoe expands Kamoa-Kakula", "Ivanhoe Mines is expanding the Kamoa-Kakula copper complex."), "艾芬豪矿业大力拓展卡莫阿-卡库拉铜矿。"],
+    [rss("Zijin buys a copper mine in Heilongjiang", "Zijin Mining bought the Tongshan copper mine in Heilongjiang."), "紫金矿业收购黑龙江铜山铜矿。"],
+    [rss("Copper prices in China", "Spot copper on the Changjiang market rose."), "长江铜价上涨，市场中铝库存下降。"],
+    [rss("Base metals rise", "LME base metals rose, led by aluminium."), "LME基本金属普遍上涨，其中铝价领涨。"],
+    [rss("New steel grade", "A new steel grade lowers its aluminium content."), "新钢种降低钢中铝含量。"],
+    [rss("Copper fabricators cut runs", "Copper fabricators in Zhejiang cut operating rates."), "浙江铜加工企业下调开工率。"],
+    [rss("Shandong gold output", "Gold output in Shandong province rose in the first half."), "上半年山东黄金产量增长。"],
+    // Round 2: the same kinds of phrase, found again (力拓 by the next character, the others by context).
+    [rss("Ivanhoe steps up", "Ivanhoe Mines stepped up its expansion."), "艾芬豪矿业发力拓展业务。"],
+    [rss("Port capacity", "Port capacity is being expanded."), "港口运力拓展，实力拓展，影响力拓展。"],
+    [rss("Bauxite quality", "The bauxite's alumina-silica ratio is low."), "这批铝土矿中铝硅比偏低，矿石中铝的品位不高。"],
+    [rss("Copper belt", "Copper industry along the river grows."), "沿江铜产业带与三江铜矿带、丽江铜矿的勘查进展。"],
+    [rss("Gold demand in Shandong", "Gold consumption in Shandong rose."), "山东黄金消费量上升。"],
+  ];
+  for (const [input, summaryZh] of everyday) assert.equal(enforceIdentity(input, { titleZh: "", summaryZh }).summaryZh, summaryZh, summaryZh);
+  // A real mention the input does not support is still caught, in each company's usual short forms.
+  assert.equal(enforceIdentity(rss("Aluminium output rises", "Aluminium output rose."), { titleZh: "", summaryZh: "据中铝消息，铝产量上升。" }).summaryZh, "");
+  for (const named of ["股东江铜集团称铜产量上升。", "龙头企业中铝集团扩产。", "力拓宣布扩产。", "力拓展示新的选矿技术。", "山东黄金产能提升。"])
+    assert.equal(enforceIdentity(rss("Metal output rises", "Metal output rose."), { titleZh: "", summaryZh: named }).summaryZh, "", named);
+  // 雅保 is a common rendering of Albemarle: the input's 雅保 supports a summary's 雅宝.
+  assert.equal(
+    enforceIdentity(
+      { title: "雅保锂业务调整", text: "雅保宣布调整锂业务。", sourceKind: "web_list" },
+      { titleZh: "雅宝调整锂业务", summaryZh: "雅宝宣布调整锂业务。" },
+    ).identityGuard.outcome,
+    "pass",
+  );
+  // The input's own rendering of a company supports the common Chinese name the summary uses.
+  const codelco = { title: "智利国营铜业公司上调产量指引", text: "智利国营铜业公司上调了全年铜产量指引。", sourceKind: "web_list" };
+  const copy = { titleZh: "智利国家铜业公司上调产量指引", summaryZh: "智利国家铜业公司上调全年铜产量指引。" };
+  assert.equal(enforceIdentity(codelco, copy).identityGuard.outcome, "pass");
+  assert.equal(
+    enforceIdentity(rss("Rio-Tinto and Anglo-American", "Rio-Tinto and Anglo-American agreed terms."), { titleZh: "力拓与英美资源达成协议", summaryZh: "" })
+      .identityGuard.outcome,
+    "pass",
+  );
+  // Common other spellings map to a vocabulary tag instead of being dropped.
+  const vocabulary = new Set<string>([...TOPIC_TAGS, ...ENTITY_TAGS]);
+  for (const [spelling, tag] of [
+    ["黄金", "金"],
+    ["刚果(金)", "刚果（金）"],
+    ["澳洲", "澳大利亚"],
+    ["钯", "铂族金属"],
+    ["rio tinto", "力拓"],
+  ]) {
+    assert.equal(TAG_SYNONYMS[spelling!], tag, spelling);
+    assert.ok(vocabulary.has(tag!), tag);
+  }
+  assert.ok(
+    Object.values(TAG_SYNONYMS).every((tag) => vocabulary.has(tag) || (CATEGORY_TAGS as readonly string[]).includes(tag)),
+    "every synonym lands on a vocabulary tag",
   );
 });
 
