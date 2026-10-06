@@ -298,6 +298,9 @@ test("a series held back alone: the rest of its month goes in, the record lists 
   const all = [...heldSeries, { key: "imf.a", reason: "说明对不上" }];
   const august = period("2026-08", { version: "R3", held: "这一期启用的品种全被单独扣下", heldSeries: all });
   assert.deepEqual(await imfRun(month("2026-08", "R3", { "imf.a": "11", "imf.b": "100" }, { heldSeries: all })), record(false, [august]));
+  // A new version of the stored newest month, the same but for the series held back, is not stored either.
+  const again = period("2026-07", { version: "R4", heldSeries, notes: ["和库里已有的一样，不另存"] });
+  assert.deepEqual(await imfRun(month("2026-07", "R4", { "imf.a": "11", "imf.b": "0" }, { heldSeries })), record(false, [again]));
   assert.deepEqual([await values("2026-07-01"), await values("2026-08-01")], [new Map([["imf.a", "11"]]), new Map()]);
 });
 
