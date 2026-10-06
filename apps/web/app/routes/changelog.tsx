@@ -14,8 +14,11 @@ export function headers() {
 
 interface Release {
   date: string;
-  time: string;
-  kind: "更新" | "优化" | "公告" | "下线";
+  /** Absent when the record has only a date: no time is shown, never 00:00 (PG-13). */
+  time?: string;
+  kind: "重大更新" | "更新" | "优化" | "公告" | "下线";
+  /** Only on 重大更新, shown after the kind ("重大更新 2.0"). */
+  version?: string;
   title: string;
   body: string[];
 }
@@ -29,6 +32,7 @@ export function meta() {
 }
 
 const KIND_DOT: Record<Release["kind"], string> = {
+  重大更新: "bg-hot",
   更新: "bg-accent",
   优化: "bg-ok",
   公告: "bg-amber",
@@ -126,14 +130,16 @@ export default function ChangelogPage() {
                   <ol>
                     {plain.map((r) => (
                       <li
-                        key={`${r.date}-${r.time}-${r.title}`}
+                        key={`${r.date}-${r.time ?? ""}-${r.title}`}
                         className="grid gap-x-8 gap-y-2 border-b border-line-soft py-5 last:border-b-0 sm:grid-cols-[88px_minmax(0,1fr)]"
                       >
                         <div className="flex items-center gap-3 sm:block">
-                          <span className="mono block text-[12.5px] text-ink-3">{r.time}</span>
-                          <span className="inline-flex items-center gap-1.5 text-[11.5px] text-ink-4 sm:mt-1.5">
+                          {r.time && <span className="mono block text-[12.5px] text-ink-3">{r.time}</span>}
+                          <span
+                            className={`inline-flex items-center gap-1.5 text-[11.5px] ${r.kind === "重大更新" ? "font-semibold text-hot" : "text-ink-4"} ${r.time ? "sm:mt-1.5" : ""}`}
+                          >
                             <span className={`size-1.5 rounded-full ${KIND_DOT[r.kind]}`} aria-hidden="true" />
-                            {r.kind}
+                            {r.version ? `${r.kind} ${r.version}` : r.kind}
                           </span>
                         </div>
                         <article className="min-w-0 sm:border-l sm:border-line sm:pl-8">
