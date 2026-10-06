@@ -43,6 +43,7 @@ test("the published time kept for a parsed source date: its instant; a date alon
   assert.equal(day("2026-09-26", "2026-09-26"), "2026-09-25T16:00:00.000Z", "an ISO date alone too, not UTC midnight (Beijing 08:00)");
   assert.equal(day("2026年9月26日", "2026-09-26", "-07:00"), "2026-09-26T07:00:00.000Z");
   assert.equal(day("2026-09-26 10:00", "2026-09-26"), "2026-09-26T02:00:00.000Z", "a time without a zone keeps its time, read in Beijing");
+  assert.equal(day("2026-09-26 10:00", "2026-09-27"), "2026-09-26T16:00:00.000Z", "a time read onto another day falls back to the stated day's start");
   assert.equal(sourcePublishedAt({ raw: "", utc: null, local_date: null, local_time: null }), null);
   assert.equal(sourcePublishedAt(null), null);
 });

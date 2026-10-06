@@ -50,12 +50,44 @@ const detail = {
   hasTranslation: false,
   bodyLanguage: "zh",
 };
+const story = {
+  publicId: "s-day",
+  title: "只写日期的合成事件",
+  status: "active",
+  reportCount: 1,
+  sourceCount: 1,
+  firstReportAt: statedDay,
+  latestAt: statedDay,
+  digest: null,
+  digestUpdatedAt: null,
+  summary: "合成事件摘要",
+  excerpt: null,
+  latest: null,
+  whyHot: { participants48h: 1, newParticipants6h: 0, recentReports24h: 0, observationComplete: true, rank: null, heat: null },
+  developments: [],
+  officialReports: [],
+  timeline: [
+    {
+      id: "day-only",
+      title: "只写日期的合成稿",
+      summary: "合成摘要",
+      source: { id: "synthetic", name: "合成来源", kind: "web_list", firstParty: true },
+      publishedAt: statedDay,
+      originalUrl: "https://source.invalid/a/1",
+      selected: false,
+      factId: "f1",
+    },
+  ],
+  heat: [],
+  related: [],
+};
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   res.setHeader("Content-Type", "application/json");
   if (url.pathname === "/api/site/meta") return res.end(JSON.stringify({ changelogVersion: "2026-10-06T00:00" }));
   if (url.pathname === "/api/site/hot") return res.end(JSON.stringify({ entries: [] }));
   if (url.pathname === "/api/site/items/day-only") return res.end(JSON.stringify(detail));
+  if (url.pathname === "/api/site/stories/s-day") return res.end(JSON.stringify(story));
   if (url.pathname === "/api/site/pool")
     return res.end(
       JSON.stringify({
@@ -142,4 +174,14 @@ test("an article page shows a date-only source's stated date alone, not 00:00 or
   assert.doesNotMatch(visible, /04:30/, "never the moment it was found");
   assert.doesNotMatch(visible, /00:00/, "never the day's start as a time");
   assert.doesNotMatch(visible, /天前|小时前/, "no relative time from the day's start");
+});
+
+test("a story page shows a date-only report and update by date, not as hours ago or 00:00", async () => {
+  const res = await fetch(`${origin}/story/s-day`);
+  assert.equal(res.status, 200);
+  const visible = (await res.text()).replace(/<script[\s\S]*?<\/script>/g, "");
+  assert.match(visible, /9月24日(<!-- -->)?更新/, "the header says the day it was updated");
+  assert.doesNotMatch(visible, /小时前更新|天前更新/, "no hours counted from the day's start");
+  assert.match(visible, /<time[^>]*datetime="2026-09-24"[^>]*>—<\/time>/i, "the report's time column shows a dash");
+  assert.doesNotMatch(visible, />\s*00:00\s*</, "never the day's start as a time");
 });

@@ -23,6 +23,7 @@ const sql = dbOf("content");
 const T = tag();
 const LIST = `test-dayonly-${T}`;
 const DETAIL = `test-dayonly-detail-${T}`;
+const TIMED = `test-dayonly-timed-${T}`;
 const DAY = 86_400_000;
 const today = beijingDate(new Date());
 const daysAgo = (n: number) => beijingDate(new Date(Date.parse(`${today}T12:00:00+08:00`) - n * DAY));
@@ -36,6 +37,7 @@ const server = http.createServer((req, res) => {
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   if (url === "/list") return res.end(`<ul>${entries.map((e) => `<li><a href="/a/${e.slug}">${e.title}</a><span>${e.day}</span></li>`).join("")}</ul>`);
   if (url === "/dlist") return res.end(`<ul>${entries.map((e) => `<li><a href="/a/${e.slug}">${e.title}</a></li>`).join("")}</ul>`);
+  if (url === "/tlist") return res.end(`<ul>${entries.map((e) => `<li><a href="/a/${e.slug}">${e.title}</a><span>${e.day} 10:30</span></li>`).join("")}</ul>`);
   const e = entries.find((x) => url === `/a/${x.slug}`);
   res.end(`<html><body><h1>${e?.title ?? ""}</h1><p>${BODY}</p><span class="pub">${e ? slashed(e.day) : ""}</span></body></html>`);
 });
@@ -53,8 +55,10 @@ before(async () => {
   await sql`INSERT INTO sources (id, name, kind, config, tier, participation_mode, site_fulltext, next_fetch_at) VALUES
     (${LIST}, '只写日期的列表', 'web_list', ${sql.json({ ...listing, url: `${base}/list`, publishedAtRegex: "<span>(\\d{4}-\\d{2}-\\d{2})</span>" })},
       'T1', 'editorial', true, '2100-01-01'),
-    (${DETAIL}, '日期只在详情页', 'web_list', ${sql.json({ ...listing, url: `${base}/dlist`, detail })}, 'T1', 'editorial', true, '2100-01-01')`;
-  for (const id of [LIST, DETAIL]) await grantDateFixture(id, [base]);
+    (${DETAIL}, '日期只在详情页', 'web_list', ${sql.json({ ...listing, url: `${base}/dlist`, detail })}, 'T1', 'editorial', true, '2100-01-01'),
+    (${TIMED}, '有时分没时区', 'web_list', ${sql.json({ ...listing, url: `${base}/tlist`, publishedAtRegex: "<span>(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})</span>" })},
+      'T1', 'editorial', true, '2100-01-01')`;
+  for (const id of [LIST, DETAIL, TIMED]) await grantDateFixture(id, [base]);
 });
 after(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -114,7 +118,16 @@ test("a date found only on the detail page is read the same way, in Beijing time
   assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [beijingMidnight(daysAgo(3)), "first-import"]);
 });
 
-test("the correction script dry-runs, corrects and republishes once, and keeps a manual withdrawal", async () => {
+test("a time of day without a declared zone keeps that time, read in Beijing, through collection and the date commit", async () => {
+  entries = [{ slug: "timed-old", title: `有时分五天前 ${T}`, day: daysAgo(5) }];
+  await collect(TIMED);
+  const r = await row(`有时分五天前 ${T}`);
+  const tenThirty = new Date(`${daysAgo(5)}T10:30:00+08:00`).toISOString();
+  assert.equal(r.published_at?.toISOString(), tenThirty, "10:30 in Beijing, not the day's start");
+  assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [tenThirty, "first-import"]);
+});
+
+test("the correction script lists by default, writes only with --apply, refuses unknown arguments, and keeps a manual withdrawal", async () => {
   // Two items stored the old way: no published time, on the timeline when they were found.
   const late = await row(`新稿三天前 ${T}`);
   const kept = await row(`存量两个月前 ${T}`);
@@ -126,11 +139,14 @@ test("the correction script dry-runs, corrects and republishes once, and keeps a
   const script = fileURLToPath(new URL("../scripts/retime-day-only.ts", import.meta.url));
   const run = (...args: string[]) => execFileSync(process.execPath, [script, ...args], { env: process.env, encoding: "utf8" });
 
-  const dry = run("--dry-run");
-  assert.ok(dry.includes(late.id) && dry.includes(kept.id), "the dry run lists what it would change");
-  assert.equal((await row(`新稿三天前 ${T}`)).published_at, null, "a dry run writes nothing");
+  const dry = run();
+  assert.ok(dry.includes(late.id) && dry.includes(kept.id), "without --apply it lists what it would change");
+  assert.ok(dry.includes(`原文 ${daysAgo(3)}`), "each line shows the date as the source wrote it");
+  assert.equal((await row(`新稿三天前 ${T}`)).published_at, null, "listing writes nothing");
+  assert.throws(() => run("--dryrun"), "an unknown argument stops the script");
+  assert.equal((await row(`新稿三天前 ${T}`)).published_at, null, "and nothing is written");
 
-  run();
+  run("--apply");
   const fixed = await row(`新稿三天前 ${T}`);
   assert.deepEqual(
     [fixed.published_at?.toISOString(), fixed.timeline_at.toISOString(), fixed.backfill_reason],
@@ -146,6 +162,6 @@ test("the correction script dry-runs, corrects and republishes once, and keeps a
   assert.equal(withdrawn!.visibility, "withdrawn", "a manual withdrawal stays");
   assert.equal((await row(`存量两个月前 ${T}`)).timeline_at.toISOString(), beijingMidnight(daysAgo(60)));
 
-  const again = run("--dry-run");
+  const again = run();
   assert.ok(!again.includes(late.id) && !again.includes(kept.id), "a second run changes nothing");
 });

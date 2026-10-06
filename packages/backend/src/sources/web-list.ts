@@ -54,6 +54,14 @@ export function parseLooseDate(value: string | null | undefined, utcOffset = "+0
   return atOffset(local.getFullYear(), local.getMonth() + 1, local.getDate(), local.getHours(), local.getMinutes(), local.getSeconds(), utcOffset);
 }
 
+/** The calendar day of an instant in an offset such as "+08:00"; null for an offset it cannot read. */
+function dayInOffset(at: Date, utcOffset: string): string | null {
+  const m = /^([+-])(\d{2}):?(\d{2})$/.exec(utcOffset);
+  if (!m) return null;
+  const minutes = (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3]));
+  return new Date(at.getTime() + minutes * 60_000).toISOString().slice(0, 10);
+}
+
 /**
  * The published time kept for a parsed source date, read as the upstream reads it (Owner 2026-10-05:
  * where the handoff's way differs from the upstream's, the upstream's): the instant when the source gives
@@ -68,11 +76,15 @@ export function sourcePublishedAt(
 ): Date | null {
   if (!time) return null;
   if (time.utc) return new Date(time.utc);
+  const day = time.local_date && /^\d{4}-\d{2}-\d{2}$/.test(time.local_date) ? time.local_date : null;
   // A time of day the date evidence could not place in a zone, so it kept the date alone: read in the
-  // source's offset, as the upstream reads it.
-  if (/\d{1,2}:\d{2}/.test(time.raw)) return parseLooseDate(time.raw, utcOffset);
-  if (time.local_date && !time.local_time && /^\d{4}-\d{2}-\d{2}$/.test(time.local_date)) {
-    const start = Date.parse(`${time.local_date}T00:00:00${utcOffset}`);
+  // source's offset, as the upstream reads it, as long as it still falls on that day.
+  if (/\d{1,2}:\d{2}/.test(time.raw)) {
+    const read = parseLooseDate(time.raw, utcOffset);
+    if (read && (!day || dayInOffset(read, utcOffset) === day)) return read;
+  }
+  if (day) {
+    const start = Date.parse(`${day}T00:00:00${utcOffset}`);
     if (Number.isFinite(start)) return new Date(start);
   }
   return parseLooseDate(time.raw, utcOffset);

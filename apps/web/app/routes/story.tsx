@@ -251,7 +251,7 @@ export default function StoryPage() {
           {story.latestAt && (
             <span className="inline-flex items-center gap-1.5" suppressHydrationWarning>
               <IconClock size={15} className="text-ink-4" />
-              {relativeTime(story.latestAt)}更新
+              {isDateOnlyInstant(story.latestAt) ? sourceMonthDayTime(story.latestAt) : relativeTime(story.latestAt)}更新
             </span>
           )}
         </div>
