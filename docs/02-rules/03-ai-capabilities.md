@@ -815,7 +815,7 @@ AIHOT 原表共 7 类（顺序同上）：`model_release` 3-2-2-2-1；`product_l
 - **输出（每个候选一组）——两层枚举 + 映射**【设计｜D07-ai-011】：
   - **模型输出层**沿用已在线验证的取值（旧线上模型只输出三值加四个证据字段，`services/live_pipeline/event_association.py:41-50@main`）：
     - `relation`：`same_event`（同一具体动作的不同报道）/ `progress`（同一具体项目或事项出现有原文依据的实质新进展）/ `separate`（不能确认就分开）。模型拿不准时输出 `uncertain`，视同 `separate` 并记原因。
-    - `member_role`（仅 `same_event` 时填）：`reprint` 转载同稿 / `independent_confirmation` 独立确认 / `substantive_update` 实质更新 / `correction` 正式更正 / `cross_language` 跨语言分发 / `commentary` 评论解释 / `conflicting` 相互冲突。v1.0 的“关系未明”即 `uncertain`，并入 `separate`。
+    - `member_role`（仅 `same_event` 时填）：`reprint` 转载同稿 / `independent_confirmation` 独立确认 / `substantive_update` 实质更新 / `correction` 正式更正 / `cross_language` 跨语言分发 / `commentary` 评论解释（只指同一次发布里的另一文本，如随文发布的官方解读；另外撰写、针对某一具体事件的解读、点评、分析不是同一事件成员，是后续 `progress`）/ `conflicting` 相互冲突。v1.0 的“关系未明”即 `uncertain`，并入 `separate`。
     - `separate_reason`：取 `03-data/01-domain-model.md` ENT-19 的闭合枚举 `unrelated` / `roundup`（汇总稿）/ `insufficient_evidence` / `low_confidence` / `check_failed`。**“汇总稿”不再是独立关系，而是 `separate` 的一种原因（`roundup`）。**
     - `confidence`；双方各 20–600 字符的逐字引文；`shared_anchor`（≤40 字）、`difference`（≤60 字）。
   - **三层映射**（规范表在 `03-data/02-public-api-contract.md` 与 `openapi.json`，冲突以契约为准；B 的工作流另有 same_event / substantive_update / related / different / uncertain 五值，属同一概念的第三套写法，统一映射如下）：
@@ -828,12 +828,12 @@ AIHOT 原表共 7 类（顺序同上）：`model_release` 3-2-2-2-1；`product_l
     | progress | 同一发展线上的后续事件 | `Event.relations[].relation = updates` |
     | separate（含汇总稿、uncertain） | 不关联 | 不输出；“相关阅读”由 events 另行生成，取值 `related` |
 
-    **与 AIHOT 四值的适配**（ENT-19 映射表，适配层在提示词输出与存储值之间转换，AIHOT 的成对提示词、评测脚本与金标无需重写）：`SAME_OCCURRENCE` → `same_event`；`SAME_STORY` → `progress`；`UNRELATED` → `separate` + `unrelated`；`ROUNDUP` → `separate` + `roundup`；模型漏答按 `UNRELATED` 处理；`uncertain` 只是内部状态（并入 `separate`，记 `low_confidence` 等原因），不作为存储关系值。
+    **与 AIHOT 四值的适配**（ENT-19 映射表，适配层在提示词输出与存储值之间转换，AIHOT 的成对提示词、评测脚本与金标无需重写）：`SAME_OCCURRENCE` → `same_event`；`SAME_STORY` → `progress`；`UNRELATED` → `separate` + `unrelated`；`ROUNDUP` → `separate` + `roundup`；模型漏答按 `UNRELATED` 处理；`uncertain` 只是内部状态（并入 `separate`，记 `low_confidence` 等原因），不作为存储关系值。AIHOT 的 `SAME_STORY` 包括事件与针对它的解读、点评、分析（`industry/prompts/group-definitions.md`）。判为 `SAME_STORY` 的稿子在同一个事件里新建一个进展，在事件页“事件进展”与文章页“事件后续”里各占一条；事件页的“报道时间线”列出这个事件的全部报道。
 
     政策文书之间的关系（updates / corrects / repeals / implements / related）单列，见 AI-18。
 - **提示词必写**：
   - **同一事件**：同一主体在同一时间做的同一具体行动。例如同一文书的同一阶段、同一起事故、同一交易的同一阶段、同一份钻探或资源公告。跨语言、详略不同，都仍算同一事件。
-  - **后续（progress）**：直接接续的下一步。例如政策进入新阶段、拟议↔批准、停产↔复产、立案调查↔调查结论、签约↔交割。同一政策的不同阶段绝不判为同一事件。
+  - **后续（progress）**：直接接续的下一步。例如政策进入新阶段、拟议↔批准、停产↔复产、立案调查↔调查结论、签约↔交割。同一政策的不同阶段绝不判为同一事件。针对某一具体事件的解读、点评、分析（如某国新矿业法与律所的解读，某矿停产与分析师的点评）也是后续；泛泛谈某公司、某矿种的评论、行情与个人观点，不针对候选那一次具体发生的，是无关。
   - **无关（separate）**：同一公司的不同事项；同国、同矿种的不同项目；同一矿山的不同事故。
   - 同公司、同国家、同矿种、同一话题，都不能作为合并理由。
   - 跨法域判为同一事件，必须有引文证明是同一跨境行动。拿不准时，分开处理。
@@ -847,7 +847,7 @@ AIHOT 原表共 7 类（顺序同上）：`model_release` 3-2-2-2-1；`product_l
   - 引文逐字存在于原文中；
   - 双方引文都包含共同锚点；
   - “同一事件”不得跨越“拟议↔批准”“停产↔复产”；
-  - `progress` 必须时间更晚，且阶段、动作或数字有变化。
+  - `progress` 必须时间更晚，且阶段、动作或数字有变化（针对某一事件的解读、点评除外，它们照 AIHOT 算后续）。
 - **缓存与预算**：缓存键为新材料修订 + 候选集哈希；记账类别 event_org；单次输入上限与重试见 2.2 末表（新材料 ≤1,500 字符片段，每篇最多 3 个候选；重试按 1.4）；每次约 0.010 元（高峰）/ 0.005 元（非高峰）【估算】；复核的单价待候选路由评测后测量。
 - **失败与降级**：不阻塞公开，暂按“一材料一事件”处理；已判“无关”的结论，在候选集变化后重算。
 - **人工覆盖**：人工归组（指定合并或禁止合并）优先于任何模型结论。合并、拆分都可撤销，被并入事件的原公开 ID 在新站内重定向到合并后的事件（新站自己的稳定 ID 规则，与旧站任何地址无关；新站不为旧站的任何地址做兼容、重定向或说明页，不存在的地址一律走通用 404，DEC-21）。
