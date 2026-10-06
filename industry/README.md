@@ -65,13 +65,13 @@
 | `selection-score.md` | 评分标准：0–100 分，同一份标准独立打两次；含内容类型、评分维度与各类型的权重，以及必须正常评价的价值和必须压住的噪声 |
 | `understand.md` | 入选和接近入选的资料怎么写：中文标题、答案先行的摘要、推荐理由、标签。由 `content-understanding.md` 加四份共用规则（`rules-domain.md`、`rules-anti-hallucination.md`、`rules-self-contained-title.md`、`rules-answer-first-summary.md`）组成 |
 | `summarize-article.md`、`summarize-article-empty.md` | 其余资料的标题与摘要；后者用于原文为空的资料 |
-| `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`）、防幻觉、答案先行的摘要、自洽的标题 |
+| `rules-*.md` | 共用规则：领域术语的翻译与保留（`rules-domain.md`，其中第 3 条“通行中文名”引用 `rules-domain-names.md`）、防幻觉、答案先行的摘要、自洽的标题 |
 | `identity-context.md` | 把核验过的公司身份事实交给模型 |
 | `structure.md`、`safety.md` | 分类、标签、主体与事实的结构化抽取；资料内容一律当作不可信数据 |
 | `group-*.md` | 事件归组：两篇报道的关系（成对与批量判断），以及热度信号挂到哪个事实上；关系定义在 `group-definitions.md` |
 | `story-digest.md` | 事件综述 |
 | `report-daily-lead.md`、`report-period.md` | 日报导语，周报与月报 |
-| `translate-body.md` | 全文翻译 |
+| `translate-body.md` | 全文翻译；只引用 `rules-domain-names.md`（公司与机构的通行中文名），术语默认值不进翻译，改术语或写作规则不会让已译的全文重译 |
 
 模板只有两种写法（`packages/backend/src/editorial/prompts.ts`）：`{{名字}}` 是调用方传入的值（另有站名 `siteName`），`{{> 文件名}}` 原样插入另一份提示词。缺值或缺文件直接报错，不会留空。提示词的版本号由名称加它读到的所有文件内容的哈希组成，回执和私有页面的模型页都记着结果出自哪一版；改一个字，版本号就变。
 
