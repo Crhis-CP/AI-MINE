@@ -7,7 +7,10 @@ import { config, credential } from "../config.ts";
 
 const API = "https://open.feishu.cn/open-apis";
 
-export const feishuInternalEnabled = () => process.env.FEISHU_INTERNAL_ENABLED === "true";
+/** The alerts switch exactly as written; only the process environment counts, never a credentials file. */
+const internalSwitch = () => process.env.FEISHU_INTERNAL_ENABLED;
+
+export const feishuInternalEnabled = () => internalSwitch() === "true";
 
 let tokenCache: { token: string; expires: number } | null = null;
 
@@ -113,6 +116,70 @@ export async function sendAlert(title: string, lines: string[]): Promise<"sent" 
   }
   await sendToChat(chat, "text", { text });
   return "sent";
+}
+
+// ---- Connection check (scripts/feishu-check.ts) -----------------------------------------------------
+
+/** Whether each Feishu setting is filled in. Chat ids are not secrets; the app id and secret are only "set or not". */
+export interface FeishuSettingsSummary {
+  /** FEISHU_INTERNAL_ENABLED exactly as written, null when absent. */
+  switchValue: string | null;
+  enabled: boolean;
+  appIdSet: boolean;
+  appSecretSet: boolean;
+  alertChatId: string | null;
+  feedbackChatId: string | null;
+  /** Where alerts go, by sendAlert's rule: the alert chat, else the feedback chat. */
+  alertTarget: string | null;
+}
+
+export function feishuSettingsSummary(): FeishuSettingsSummary {
+  const alertChatId = credential("integrations", "FEISHU_ALERT_CHAT_ID");
+  const feedbackChatId = credential("integrations", "FEISHU_INTERNAL_CHAT_ID");
+  return {
+    switchValue: internalSwitch() ?? null,
+    enabled: feishuInternalEnabled(),
+    appIdSet: credential("integrations", "FEISHU_APP_ID") !== null,
+    appSecretSet: credential("integrations", "FEISHU_APP_SECRET") !== null,
+    alertChatId,
+    feedbackChatId,
+    alertTarget: alertChatId ?? feedbackChatId,
+  };
+}
+
+/**
+ * The chats the message app's bot is in (Feishu "list chats", 100 a page, at most 20 pages). A failure to get
+ * the tenant token is thrown with name "FeishuTokenError"; Feishu refusing the list throws with its code and msg.
+ */
+export async function listBotChats(): Promise<Array<{ chatId: string; name: string }>> {
+  let token: string;
+  try {
+    token = await tenantToken();
+  } catch (error) {
+    const failure = new Error(error instanceof Error ? error.message : String(error));
+    failure.name = "FeishuTokenError";
+    throw failure;
+  }
+  const chats: Array<{ chatId: string; name: string }> = [];
+  let pageToken = "";
+  for (let page = 0; page < 20; page++) {
+    const query = new URLSearchParams({ page_size: "100" });
+    if (pageToken) query.set("page_token", pageToken);
+    const res = await fetch(`${API}/im/v1/chats?${query}`, {
+      headers: { authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const json = (await res.json()) as {
+      code: number;
+      msg?: string;
+      data?: { items?: Array<{ chat_id?: string; name?: string }>; page_token?: string; has_more?: boolean };
+    };
+    if (json.code !== 0) throw new Error(`feishu chats: ${json.code} ${json.msg ?? ""}`.trim());
+    for (const item of json.data?.items ?? []) if (item.chat_id) chats.push({ chatId: item.chat_id, name: item.name ?? "" });
+    if (!json.data?.has_more || !json.data.page_token) break;
+    pageToken = json.data.page_token;
+  }
+  return chats;
 }
 
 /** Custom-bot webhook for content groups (selected cards). */
