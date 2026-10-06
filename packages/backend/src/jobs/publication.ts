@@ -6,6 +6,9 @@ import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
 
+// The metal price refresh, run by the schedule metals.prices (TASK-0069).
+export { refreshMetalPrices } from "../publication/metal-prices/refresh.ts";
+
 const sql = dbOf("publication");
 
 export const republishKey = (sourceId: string) => `republish.source:${sourceId}`;
