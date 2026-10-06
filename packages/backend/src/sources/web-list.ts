@@ -6,6 +6,7 @@ import { readable, type ExtractedBody } from "../content/extract.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { observeSourceDate, previewSourceDate, toDateCandidate } from "./date-extraction.ts";
+import { getPath } from "./json-list.ts";
 import type { SourceDateObservationInput } from "@amp/contracts/time-assertion";
 import { identityKeyForUrl } from "../lib/url.ts";
 
@@ -237,7 +238,19 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
   }
   const res = await guardedFetch(url, { headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8" }, timeoutMs: 25_000 });
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
-  return { text: res.text(), viaJina: false, base: source.config.baseUrl ?? url };
+  const base = source.config.baseUrl ?? url;
+  // Some listings are filled in by script from JSON that carries the list HTML (MOFCOM's page units
+  // answer {"data":{"html":"<ul>…"}}): read that string, then parse it like any page.
+  const path = source.config.htmlJsonPath;
+  if (!path) return { text: res.text(), viaJina: false, base };
+  let html: unknown;
+  try {
+    html = getPath(JSON.parse(res.text()), String(path));
+  } catch {
+    throw new FetchError("htmlJsonPath: the listing is not JSON");
+  }
+  if (typeof html !== "string") throw new FetchError(`htmlJsonPath: no string at ${path}`);
+  return { text: html, viaJina: false, base };
 }
 
 export function fromMarkdown(md: string, base: string, source: SourceRow): Candidate[] {
