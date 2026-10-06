@@ -1,3 +1,4 @@
+// Published times as the collectors keep them (moved out of web-list.ts so the RSS and JSON readers can share them).
 /** A time followed by its zone: "10:00Z", "10:00:00+08:00", "10:00:00 +0000", "10:00:00 GMT". */
 const EXPLICIT_ZONE = /\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}:?\d{2}|GMT|UTC)\b/i;
 
@@ -75,4 +76,13 @@ export function sourcePublishedAt(
     if (Number.isFinite(start)) return new Date(start);
   }
   return parseLooseDate(time.raw, utcOffset);
+}
+
+/**
+ * RSS and JSON lists have no setting for the source's offset: an exact instant as given, and a date printed
+ * alone as the start of that day in Beijing, as for web lists (TASK-0055); a time of day without a zone stays unknown.
+ */
+export function feedPublishedAt(time: Parameters<typeof sourcePublishedAt>[0], raw: string): Date | null {
+  if (time?.utc) return new Date(time.utc);
+  return time && !/\d{1,2}:\d{2}/.test(raw) ? sourcePublishedAt(time) : null;
 }

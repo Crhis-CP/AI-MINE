@@ -220,7 +220,9 @@ test("strict raw parsing closes the measured loose-parser rollover, inferred-mid
   unknown("2026-10-04T24:00Z", "invalid_time");
   unknown("03/04/2026", "ambiguous_format");
   unknown("2026", "unrecognized_format");
-  unknown("published 2026-10-04 nonsense", "unrecognized_format");
+  // Inside other text the first date is read, as the upstream reads it (TASK-0055).
+  const inside = parseSourceDate(request("published 2026-10-04 nonsense"));
+  assert.deepEqual([inside.reason, inside.evidence.time.local_date, inside.evidence.time.raw], [null, "2026-10-04", "2026-10-04"]);
 });
 
 test("ISO absolute offsets and decimal seconds retain raw evidence and do not become an inferred IANA zone", () => {
@@ -294,6 +296,40 @@ test("declared pattern and language determine calendar order without choosing a 
   unknown("03/04/2026", "missing_format_language", { format: "declared", formatPattern: "DD/MM/YYYY" });
   for (const formatPattern of [".*", "toString", "__proto__"])
     unknown("2026-10-04", "unsupported_format", { format: "declared", formatPattern, language: "en" });
+});
+
+test("dates without leading zeros, with slashes, dots or 年月日, or inside other text are read as the upstream reads them", () => {
+  for (const [raw, formatPattern] of [
+    ["2026/9/26", "YYYY/MM/DD"],
+    ["2026-9-26", "YYYY-MM-DD"],
+    ["2026.9.26", "YYYY.MM.DD"],
+  ]) {
+    const result = parseSourceDate(request(raw, { format: "declared", formatPattern, language: "zh" }));
+    assert.deepEqual([result.reason, result.evidence.time.local_date], [null, "2026-09-26"], raw);
+  }
+  // No declared format: read as the matching declared format, its language undetermined.
+  for (const [raw, formatPattern, read = raw] of [
+    ["2026/09/26", "YYYY/MM/DD"],
+    ["2026年9月26日", "YYYY年M月D日"],
+    ["2026.09.26", "YYYY.MM.DD"],
+    ["2026-9-26", "YYYY-MM-DD"],
+    ["2026/9/26 10:30", "YYYY/MM/DD HH:mm"],
+    ["发布于 2026/9/26 10:30 来源：某网", "YYYY/MM/DD HH:mm", "2026/9/26 10:30"],
+    ["发布于 2026/9/26 9:05", "YYYY/MM/DD HH:mm", "2026/9/26 9:05"],
+    // A time followed by its zone is not read in the source's offset: the date alone.
+    ["2026-09-26 10:30 UTC", "YYYY-MM-DD", "2026-09-26"],
+  ]) {
+    const { reason, evidence } = parseSourceDate(request(raw!));
+    assert.deepEqual(
+      [reason, evidence.format, evidence.formatPattern, evidence.language, evidence.time.local_date, evidence.time.utc, evidence.time.raw],
+      [null, "declared", formatPattern, "und", "2026-09-26", null, read],
+      raw,
+    );
+    assert.equal(verdict(evidence).status, "reliable", `${raw}: the evidence passes the contract`);
+  }
+  unknown("2026/02/30", "invalid_calendar");
+  unknown("2026/02/30 更新于 2026/03/01", "invalid_calendar");
+  unknown("发布于 2026-09/26", "unrecognized_format");
 });
 
 test("verified IANA local conversion rejects DST gaps and folds instead of selecting one instant", () => {

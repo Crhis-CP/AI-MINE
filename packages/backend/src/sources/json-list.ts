@@ -4,6 +4,7 @@ import { guardedFetch } from "../lib/http-fetch.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
+import { feedPublishedAt } from "./published-at.ts";
 
 const primitiveSources = new WeakMap<object, Map<string, string>>();
 function parseSourceJson(text: string): unknown {
@@ -203,7 +204,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
       url,
       title: collapseWhitespace(stripTags(title)),
       author: firstString(item, c.authorPaths),
-      publishedAt: time?.utc ? new Date(time.utc) : null,
+      publishedAt: feedPublishedAt(time, sourceDateObservation.raw),
       sourceDateObservation,
       excerpt: summary ? collapseWhitespace(stripTags(summary)).slice(0, 2000) : null,
       bodyText: summaryIsBody ? stripTags(summary!) : null,

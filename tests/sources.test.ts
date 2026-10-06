@@ -35,6 +35,16 @@ const pages: Record<string, () => string> = {
         ],
       },
     }),
+  // Feeds that print a date alone, next to an exact time and a time without its zone.
+  "/days.xml": () =>
+    `<?xml version="1.0"?><rss version="2.0"><channel><title>Days</title>` +
+    `<item><title>A day alone</title><link>https://example.org/day-alone</link><pubDate>2026-09-22</pubDate></item>` +
+    `<item><title>An exact time</title><link>https://example.org/exact</link><pubDate>Tue, 22 Sep 2026 10:30:00 +0000</pubDate></item>` +
+    `<item><title>A time without its zone</title><link>https://example.org/no-zone</link><pubDate>2026-09-22 10:30</pubDate></item>` +
+    `</channel></rss>`,
+  "/days-atom.xml": () =>
+    `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><entry><title>An Atom day</title>` +
+    `<link rel="alternate" href="https://example.org/atom-day"/><published>2026-09-22</published></entry></feed>`,
   // Google Developers Blog: no date in the feed or in meta tags, only in JSON-LD.
   "/ld-post": () =>
     `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Blog"},` +
@@ -205,12 +215,12 @@ test("source date intake preserves calendar strings and refuses unidentified JSO
     },
   } as never);
   assert.deepEqual(
-    days.map((c) => [c.publishedAt, c.sourceDateObservation?.raw, c.sourceDateObservation?.formatPattern]),
+    days.map((c) => [c.publishedAt?.toISOString() ?? null, c.sourceDateObservation?.raw, c.sourceDateObservation?.formatPattern]),
     [
-      [null, "20260922", "YYYYMMDD"],
+      ["2026-09-21T16:00:00.000Z", "20260922", "YYYYMMDD"],
       [null, "20260230", "YYYYMMDD"],
     ],
-    "Raw source days are preserved for content validation, never converted to midnight instants",
+    "raw source days are preserved; a day alone is the start of that day in Beijing, as for web lists; a day that does not exist stays unknown",
   );
   const got = await fetchDetail(`${site}/ld-post`, { id: "test-feed", config: { detail: { maxFetches: 20 } } } as never, {
     date: true,
@@ -220,6 +230,21 @@ test("source date intake preserves calendar strings and refuses unidentified JSO
   });
   assert.equal(got.publishedAt, null);
   assert.equal(got.sourceDateObservation?.raw, "", "an arbitrary JSON-LD node is not evidence for this article");
+});
+
+test("feeds keep a date printed alone as the start of that day in Beijing; exact times are unchanged", async () => {
+  const feed = async (path: string) =>
+    (await fetchRss({ id: "test-feed", config: { feedUrl: `${site}${path}` }, participation_mode: "editorial", cursor: null } as never, { force: true }))
+      .candidates;
+  assert.deepEqual(
+    (await feed("/days.xml")).map((c) => [c.title, c.publishedAt?.toISOString() ?? null]),
+    [
+      ["A day alone", "2026-09-21T16:00:00.000Z"],
+      ["An exact time", "2026-09-22T10:30:00.000Z"],
+      ["A time without its zone", null],
+    ],
+  );
+  assert.equal((await feed("/days-atom.xml"))[0]!.publishedAt?.toISOString(), "2026-09-21T16:00:00.000Z");
 });
 
 test("collected source language declarations are canonical BCP47; unknown labels stay unclassified", () => {
