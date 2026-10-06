@@ -65,3 +65,5 @@ sources.source_policy_versions由private_ops只追加，worker只读；current�
 翻译的replacement_plan与parent_index仍在私有enrichment.translation_segments内；仅增加同schema父子约束，不增加public_read列或整表权限。原截断回执不因替代变成完成，公开正文只读取已晋升translations的必要身份/完整性列。
 
 ai.translation_receipt_observations仅为gateway私有状态：worker写、private_ops/backup只读、public_read/auth/feedback_write无读取权；不增加跨schema FK，不改付费缓存身份。receipt_version只是观察到的计数版本，actual attempt仍由可空的稳定ID单独核对；known_unbilled仅继承已有明确未计费状态，不产生新的计费判断。
+
+publication.metal_prices（金属价格，TASK-0044）归 publication：worker 读、插、改，没有 DELETE（只增不删，修订另起一行）；private_ops/backup 只读；public_read/auth/feedback_write 没有 publication schema 使用权，读者接口要用的列由 TASK-0045 登记 publicColumns 后才开放。
