@@ -12,7 +12,7 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   const changelog = validateChangelog(JSON.parse(text));
   assert.deepEqual(loadChangelog(), changelog);
   // The first deploy after the launch, written before the deploy with its Beijing date alone, above the launch of the
-  // same day: the four entries of the Owner's preview that ship with it, then one for each other change fragment in it.
+  // same day: the four entries of the Owner's preview that ship with it, then one for each other change readers will see with it.
   const launchAt = changelog.releases.findIndex((r) => r.kind === "重大更新");
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
