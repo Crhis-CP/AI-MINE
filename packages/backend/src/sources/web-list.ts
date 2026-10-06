@@ -68,6 +68,9 @@ export function sourcePublishedAt(
 ): Date | null {
   if (!time) return null;
   if (time.utc) return new Date(time.utc);
+  // A time of day the date evidence could not place in a zone, so it kept the date alone: read in the
+  // source's offset, as the upstream reads it.
+  if (/\d{1,2}:\d{2}/.test(time.raw)) return parseLooseDate(time.raw, utcOffset);
   if (time.local_date && !time.local_time && /^\d{4}-\d{2}-\d{2}$/.test(time.local_date)) {
     const start = Date.parse(`${time.local_date}T00:00:00${utcOffset}`);
     if (Number.isFinite(start)) return new Date(start);
