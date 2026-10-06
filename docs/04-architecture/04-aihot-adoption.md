@@ -574,7 +574,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 ### 4.6 删除的验收（T-0002）
 
-- **名称检查**（2026-10-02 勘误，证据裁决，见决定台账）：`git grep -i -E 'aihot|ai hot'` 与 `#176b75`、`#2ce2e8`、`RingMark` 只在下列路径命中——① 来源登记：`LICENSE`、`LICENSES/AIHOT-MIT.txt`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json`；② 交接包原件及其写回：`docs/` 下除 `docs/acceptance/` 以外的文件（ADR-0001 在其中；`docs/assets/` 的宣传图与 AIHOT 自带的说明文档随 T-0002 删除，不在其列）；③ 历史证据：`docs/acceptance/**`；④ 治理记录：与交接包模板逐字节相同的 `AGENTS.md`、`CLAUDE.md`、`tasks/_template.md`，以及 `lanes.yaml`、`tasks/TASK-*.md`、由任务卡生成的 `tasks/INDEX.md`；⑤ 上游原样存档：与上游原件逐字节相同的 `scripts/verify/upstream-check.yml`；⑥ 名称检查脚本自身的匹配模式。引用登记文件或交接包文件的路径与文件名（如 `upstream/aihot.lock.json`、`research/aihot/`、`AIHOT-<提交>.tar.gz`、`B-aihot-file-inventory.*`、`04-aihot-adoption.md`）不算命中；读者站构建产物、`/openapi-v1.json`、`llms.txt`、RSS 与 MCP 输出零命中；品牌哈希黑名单不设例外（4.3）。原写“只命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、锁文件与 ADR-0001”做不到：交接包整包原样放进 `docs/`、不改名不拆分（`07-bootstrap/01-new-repo-bootstrap.md` 3.1 与步骤 8 的“第 1 天不要做的事”），模板也按原样装成 `AGENTS.md`、`CLAUDE.md` 与 `tasks/_template.md`，这些原件本身就写着 AIHOT；NOTICE 限制的是把名称与 Logo 用作本站标识，不对外的来源说明与历史记录不违背这一点。AC-M0-01、`05-quality/03-testing-standards.md` 1.1、`06-agents/01-parallel-development-rules.md` 第 17 节、`UPSTREAM.md` 第 2 节、4.3、6.2、`07-bootstrap/01-new-repo-bootstrap.md` 与 `06-agents/02-roadmap-and-wbs.md` 的 T-0002 行都以本条为准。`assets/og-fonts/LICENSE` 的说明段按第 6 节改写。旧仓库“AIHOT 只借鉴、不得复制代码”的规则已被 Owner 2026-09-29 的重建决定取代（ADR-0001），Agent 读到旧规则时以 ADR-0001 为准。
+- **名称检查**（2026-10-02 勘误，证据裁决，见决定台账）：`git grep -i -E 'aihot|ai hot'` 与 `#176b75`、`#2ce2e8`、`RingMark` 只在下列路径命中——① 来源登记：`LICENSE`、`LICENSES/AIHOT-MIT.txt`、`NOTICE`、`UPSTREAM.md`、`upstream/aihot.lock.json`；② 交接包原件及其写回：`docs/` 下除 `docs/acceptance/` 以外的文件（ADR-0001 在其中；`docs/assets/` 的宣传图与 AIHOT 自带的说明文档随 T-0002 删除，不在其列）；③ 历史证据：`docs/acceptance/**`；④ 治理记录：与交接包模板逐字节相同的 `AGENTS.md`、`CLAUDE.md`、`tasks/_template.md`，以及 `lanes.yaml`、`tasks/TASK-*.md`、由任务卡生成的 `tasks/INDEX.md`；⑤ 上游原样存档：与上游原件逐字节相同的 `scripts/verify/upstream-check.yml`；⑥ 名称检查脚本自身的匹配模式；⑦ 致谢（Owner 2026-10-05 要求，TASK-0038）：更新日志数据 `industry/changelog.json` 里的致谢与正式上线两条，文件里的命中只能落在 `scripts/verify/names.json` 列出的三句原句里，每句出现的次数也登记在那里，多一次少一次都算失败。引用登记文件或交接包文件的路径与文件名（如 `upstream/aihot.lock.json`、`research/aihot/`、`AIHOT-<提交>.tar.gz`、`B-aihot-file-inventory.*`、`04-aihot-adoption.md`）不算命中；读者站构建产物、`/openapi-v1.json`、`llms.txt`、RSS 与 MCP 输出零命中，站点输出唯一放行的是 `/changelog` 页及其站内接口 `/api/site/changelog` 里这三句致谢原句，一字不差才放行（⑦；站内跳转取的 `/changelog.data` 是同一份数据，不是公开 API `/api/v1`）；品牌哈希黑名单不设例外（4.3）。原写“只命中 `LICENSE`、`NOTICE`、`UPSTREAM.md`、锁文件与 ADR-0001”做不到：交接包整包原样放进 `docs/`、不改名不拆分（`07-bootstrap/01-new-repo-bootstrap.md` 3.1 与步骤 8 的“第 1 天不要做的事”），模板也按原样装成 `AGENTS.md`、`CLAUDE.md` 与 `tasks/_template.md`，这些原件本身就写着 AIHOT；NOTICE 限制的是把名称与 Logo 用作本站标识，不对外的来源说明与历史记录不违背这一点；更新日志里的致谢只写明出处，同样不是本站标识。AC-M0-01、`05-quality/03-testing-standards.md` 1.1、`06-agents/01-parallel-development-rules.md` 第 17 节、`UPSTREAM.md` 第 2 节、4.3、6.2、`07-bootstrap/01-new-repo-bootstrap.md` 与 `06-agents/02-roadmap-and-wbs.md` 的 T-0002 行都以本条为准。`assets/og-fonts/LICENSE` 的说明段按第 6 节改写。旧仓库“AIHOT 只借鉴、不得复制代码”的规则已被 Owner 2026-09-29 的重建决定取代（ADR-0001），Agent 读到旧规则时以 ADR-0001 为准。
 - 全仓没有 `FEATURES.`、`leaderboard`、`codex-reset`/`codexReset`/`codex_reset`、`monitor_` 与 `lb_` 表名的残留（主题图标 `IconMonitor`、Agent 接入页里 Codex 命令行注册 MCP 的说明、T-0009 才替换的 AI 分类词表不算）；`pnpm why highs`、`pnpm why hyparquet` 无结果。
 - 标识：`RingMark`、`#176b75`、`#2ce2e8` 只在第 1 条所列路径命中；品牌哈希黑名单无命中（4.3）；搜不到对 X 的引用（`xView`、`channel: "x"`、`onlyXArticleLink`）。分数不在删除验收之列：`Score.tsx` 保留，验收见 4.8。
 - 空库全量迁移后不存在上述 12 张表，也不存在 X 相关列与表（`x_post`、`quote_translations`）与 `signal_group_id` 列（2.11 第 2 条）；`story_signals` 是热度证据表，保留（见 4.5 第 1 行）；种子不再导入模型名录。
@@ -716,7 +716,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 ### 5.13 产品更新登记（F-SITE-01、ENT-49，M3；INV-28）
 
 - **现状**：更新日志是仓库里的 `industry/changelog.json`（运行时由 `site/meta.ts` 读取，可用环境变量改路径），条目手写、`latestVersion` 手改；读者站 `/changelog` 页和导航红点。
-- **扩展点**：publication 新建产品更新表；每个用户可见改动的 PR 附 `changes/*.md` 片段；发布流程在健康检查与公开冒烟成功后，按“发布版本标识”幂等登记（重试不重复；没有产品说明的版本登记一条例行维护说明）；读者站沿用 AIHOT 的按日期分组版式与四种类型（公告/更新/优化/下线），删“按类型筛选”与导航红点（PG-13）；登记状态经只读运维接口查看。
+- **扩展点**：publication 新建产品更新表；每个用户可见改动的 PR 附 `changes/*.md` 片段；发布流程在健康检查与公开冒烟成功后，按“发布版本标识”幂等登记（重试不重复；没有产品说明的版本登记一条例行维护说明）；读者站沿用 AIHOT 的按日期分组版式与四种类型（公告/更新/优化/下线；片段与登记流程仍是这四个值，页面另有手写大版本条目的“重大更新”，TASK-0038），删“按类型筛选”与导航红点（PG-13）；登记状态经只读运维接口查看。
 
 ### 5.14 最小私有页面（ADR-0018；规格见 `01-product/04-private-operations.md`）
 
@@ -789,7 +789,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 ### 6.2 名称与 Logo 禁用
 
-- 代码、界面、文档、包名、Cookie、请求头、环境变量、浏览器存储键、User-Agent、MCP 工具名、提交信息中都不使用 “AIHOT”，只作为来源说明与历史记录出现在 4.6 第 1 条所列路径里（2026-10-02 勘误；改名清单见 4.3 节）。
+- 代码、界面、文档、包名、Cookie、请求头、环境变量、浏览器存储键、User-Agent、MCP 工具名、提交信息中都不使用 “AIHOT”，只作为来源说明与历史记录出现在 4.6 第 1 条所列路径里（2026-10-02 勘误；改名清单见 4.3 节）；对读者显示的只有更新日志里的致谢（4.6 第 1 条 ⑦，Owner 2026-10-05 要求），写明出处，不当作本站名称或标识。
 - 不使用 AIHOT 的 Logo、宣传图与截图（`industry/brand/*`、`docs/assets/*` 全部替换或删除），也不使用 `RingMark` 环形加载环与四角星图形（4.3）；不把 `aihot.news` 当作本站背书链接；删除页脚“由 AIHOT 开源框架驱动”。
 - 验证入口增加名称检查：`git grep -i -E 'aihot|ai hot'` 只允许在 4.6 第 1 条所列路径命中（2026-10-02 勘误）；另加品牌哈希黑名单（不设例外）与 `RingMark`、品牌色值检查（4.3、4.6）。
 
