@@ -122,3 +122,9 @@ export function parseMetalPriceRegistry(data: unknown): MetalPriceRegistry {
 export function loadMetalPriceRegistry(file = path.join(REPO_ROOT, "industry/metal-prices.json")): MetalPriceRegistry {
   return parseMetalPriceRegistry(JSON.parse(readFileSync(file, "utf8")));
 }
+
+/** Hard rule 3 at fetch time (INV-33): an https address on one of the source's registered hosts, also after redirects. */
+export function onSourceHost(source: Pick<MetalPriceSource, "hosts">, url: string): boolean {
+  const parsed = URL.parse(url);
+  return parsed?.protocol === "https:" && source.hosts.some((host) => host === parsed.host);
+}
