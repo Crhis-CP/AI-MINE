@@ -105,7 +105,7 @@ G1–G8 是 A 包原有的八条；G9 起是本轮逐源码复核新增的缺口
 
 | AIHOT 已有能力（文件） | 包内曾当作新建或漏登记的位置 | 复用方式与必须改什么 |
 |---|---|---|
-| 告警三级与心跳（`operations/alerts.ts`、`watch.ts`、`heartbeat.ts`）、飞书发送与幂等投递（`notify/feishu.ts`、`deliver.ts`） | OP-20、F-OPS-03 写成“新增”；B 评估表只写“飞书发送与幂等投递” | 复用发送、去重键、“结果未知不重发”与三级分级；新增的只有渠道配置（OP-20）、用量提示与异常熔断（含 70% 预警）、磁盘、按业务线积压、质量资格与带期限证据到期等规则 |
+| 告警三级与心跳（`operations/alerts.ts`、`watch.ts`、`heartbeat.ts`）、飞书发送与幂等投递（`notify/feishu.ts`、`deliver.ts`） | OP-20、F-OPS-03 写成“新增”；B 评估表只写“飞书发送与幂等投递” | 复用发送、去重键、“结果未知不重发”与三级分级；新增的只有渠道配置（OP-20）、用量提示与异常熔断（含 70% 预警）、磁盘、按业务线积压、质量资格与带期限证据到期等规则，以及每周用量（BR-COST-18 第 6 条）与按小时的自动暂停提醒（TASK-0063） |
 | 公开反馈后端（`operations/feedback.ts`、`routes/feedback.ts`，不可逆来源标识、限流） | F-FBK 按新建写；B 评估表漏列 | 复用来源标识与限流；改截图类型与存储、删转发（G24） |
 | 全文分块翻译（`translate.ts` 的 `shield/unshield`、丢块重问、进度） | AI-05 | 复用占位保护与重问；改触发条件、语言识别、逐段持久化（5.11） |
 | 事件综述（`events/digest.ts`）、公开 MCP（`routes/mcp.ts`）、`llms.txt`、站点地图、RSS、IndexNow | F-EVT-06、F-PUB-02～05 | 已有实现（功能目录标“AIHOT 已有实现”），改造而非新建 |

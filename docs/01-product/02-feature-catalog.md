@@ -291,7 +291,7 @@ OP-nn 的页面规格见 `04-private-operations.md`（本节“规格”列的 O
 | 分享图 | `apps/api/src/routes/og.ts`、`packages/backend/src/publication/og.ts` | 候选 | F-PUB-05 |
 | 事件综述 | `database/migrations/0020_story_summary.sql`、`packages/backend/src/events/` | 保留，M3 | F-EVT-06 |
 | SelectBench 评测 | `packages/backend/src/admin/selectbench.ts`、`apps/web/app/routes/admin/selectbench*.tsx` | 改造为评测运行器（含精选评分校准，沿用 `scripts/eval-selection.ts`） | F-AI-05 |
-| 飞书发送 | `packages/backend/src/notify/feishu.ts` | 改造为告警推送（2026-10-06 改为飞书自建应用：照上游原样，只发飞书，不做邮件备用，08-owner-voice DEC-33；只发业务语言，不转发读者反馈）；AIHOT 的飞书内容推送（`notify/selected.ts`）也经它发送，保留、默认关闭（Owner 2026-10-02），开通仍需单独立项 | F-OPS-03、F-EXT-01 |
+| 飞书发送 | `packages/backend/src/notify/feishu.ts` | 照上游原样用作告警推送（2026-10-06 改为飞书自建应用：只发飞书，不做邮件备用，08-owner-voice DEC-33；只发业务语言，不转发读者反馈）；AIHOT 的飞书内容推送（`notify/selected.ts`）也经它发送，保留、默认关闭（Owner 2026-10-02），开通仍需单独立项 | F-OPS-03、F-EXT-01 |
 | 飞书登录 | 后台登录 | 保留、默认关闭（Owner 2026-10-02）：两项登录应用凭据配齐才出现入口；私有侧仍只用密码的具名账号（DEC-05 password-only），接入时另立任务 | F-IAM-01 |
 | 隐私与条款页 | `apps/web/app/routes/privacy.tsx`、`terms.tsx`、`industry/pages/*.md` | 改写 | F-RDR-19 |
 | 更新日志页 | `apps/web/app/routes/changelog.tsx` | 改造 | F-RDR-14 |
