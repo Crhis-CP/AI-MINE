@@ -28,6 +28,7 @@ export interface MetalPriceSourceRun {
   /** No error, and no period held back or waiting for one ("no new version" is a success; notes do not count). */
   ok: boolean;
   at: string;
+  /** The first 1000 characters, as source collection keeps them. */
   error: string | null;
   inserted: number;
   touched: number;
@@ -53,8 +54,12 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
     try {
       const fetcher = fetchers.find((candidate) => candidate.sourceKeys.includes(source.key));
       if (!fetcher) throw new Error("没有这个来源的抓取器");
+      const fetched = await fetcher.fetch(newestStart);
+      // One period fetched twice (the list naming it under two addresses) fails the source: neither copy is guessed right.
+      const twice = fetched.filter((one) => fetched.some((other) => other !== one && other.period.start === one.period.start));
+      if (twice.length) throw new Error(`同一所属期抓到不止一份，不猜哪份为准：${twice.map((one) => `${one.period.label} ${one.release.url}`).join("、")}`);
       let waiting: string | null = null;
-      for (const one of await fetcher.fetch(newestStart)) {
+      for (const one of fetched) {
         const entry = blank(one);
         run.periods.push(entry);
         if (waiting) {
@@ -83,7 +88,7 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
       }
       run.ok = run.periods.every((entry) => entry.held === null);
     } catch (error) {
-      run.error = error instanceof Error ? error.message : String(error);
+      run.error = (error instanceof Error ? error.message : String(error)).slice(0, 1000);
     }
   }
   return record;

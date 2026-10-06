@@ -115,6 +115,15 @@ test("a value changed in the same version replaces the old one, before and after
   assert.deepEqual([rows.length, rows.filter((row) => row.release_label === SEP2 + TAIL)], [20, before]);
 });
 
+test("a revised version: the next period is compared with the previous period's newest version, the stored newest with its own", async () => {
+  await run({ [NBS_LIST_URL]: earlyList });
+  const [sep1] = await nbsFetcher(parsed, pages()).fetch(async () => "2026-09-01");
+  const rows = sep1!.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "176788.0" } : row));
+  await storePeriod(parsed.sources[0], parsed.items, { ...sep1!, rows, release: { ...sep1!.release, label: `${sep1!.release.label}（修订）` } }, LATER);
+  const reason = "nbs.copper 是 108770.0，是上一期 176788.0 的 0.62 倍，超出 0.67–1.5 倍";
+  assert.deepEqual(await run({}, LATER), record(false, [period(SEP1, { touched: 10 }), period(SEP2, { held: reason })], LATER));
+});
+
 test("a new period failing a check is held back whole and the next one waits for it, the store unchanged; they go in once it passes", async () => {
   await run({ [NBS_LIST_URL]: earlyList });
   const before = await table();
@@ -166,11 +175,22 @@ test("a failing source is recorded as failed with its reason, never as 'no new v
     [() => Promise.reject(new Error("connect timeout")), "connect timeout"],
     [pages({ [NBS_LIST_URL]: entries((entry) => (entry.includes(TAIL) ? "" : entry)) }), "列表页没有认出任何一期（可能改版或是验证页）"],
     [async () => ({ status: 200, url: away, text: () => list }), `${NBS_LIST_URL} 跳到了 ${away}，不在登记的主机上或不是 https`],
+    [() => Promise.reject(new Error("超时".repeat(600))), "超时".repeat(500)],
   ];
   for (const [get, error] of failing) assert.deepEqual((await refreshMetalPrices({ registry, get, now: LATER })).nbs, { ...record(false, [], LATER), error });
   assert.deepEqual(await table(), before);
   // A registry that fails its check throws instead: the schedule records a failed run rather than skipping entries.
   await assert.rejects(refreshMetalPrices({ registry: { ...registry, items: [] }, get: pages(), now: LATER }), /^Error: metal price registry: items/);
+});
+
+test("one period listed under two addresses fails the source, naming both, and neither copy is stored", async () => {
+  await run({ [NBS_LIST_URL]: earlyList });
+  const before = await table();
+  const copy = MID.replace("1965403", "1965404");
+  const twice = { [NBS_LIST_URL]: entries((entry) => (entry.includes(SEP2) ? entry + entry.replaceAll("1965403", "1965404") : entry)) };
+  const error = `同一所属期抓到不止一份，不猜哪份为准：${SEP2} ${MID}、${SEP2} ${copy}`;
+  assert.deepEqual(await run({ ...twice, [copy]: mid.replace(">108770.0<", ">108800.0<") }, LATER), { ...record(false, [], LATER), error });
+  assert.deepEqual(await table(), before);
 });
 
 test("a stopped series gets no new rows and keeps its old ones, and no period is held back for lacking it", async () => {
@@ -182,6 +202,11 @@ test("a stopped series gets no new rows and keeps its old ones, and no period is
   assert.deepEqual([...zinc], [{ start: "2026-09-01", fetched_at: NOW }]);
 });
 
+test("a stopped source is not fetched and has no entry in the run record", async () => {
+  const off = { ...registry, sources: registry.sources.map((source) => ({ ...source, enabled: false })) };
+  assert.deepEqual(await refreshMetalPrices({ registry: off, get: () => Promise.reject(new Error("fetched")), now: NOW }), {});
+});
+
 test("two runs at the same moment: the second adds no rows and changes no values, the table is one run's, its record only 只更新时间; the schedule", async () => {
   await run();
   const once = await table();
@@ -190,4 +215,19 @@ test("two runs at the same moment: the second adds no rows and changes no values
   // Three times a day after the bureau's 09:30 release, a missed slot run once; with the collectors (no lane).
   const schedule = SCHEDULES.find((candidate) => candidate.name === "metals.prices");
   assert.deepEqual([schedule?.cron, schedule?.missed], ["45 9,15,21 * * *", "once"]);
+});
+
+test("with collection off the price schedule is not registered, like source collection", async () => {
+  const was = process.env.COLLECT_ENABLED;
+  process.env.COLLECT_ENABLED = "false";
+  try {
+    const { SCHEDULES: off } = await import(`../apps/worker/src/schedules.ts?${"collect-off"}`);
+    assert.deepEqual(
+      ["sources.schedule", "metals.prices"].map((name) => off.some((s: { name: string }) => s.name === name)),
+      [false, false],
+    );
+  } finally {
+    if (was === undefined) delete process.env.COLLECT_ENABLED;
+    else process.env.COLLECT_ENABLED = was;
+  }
 });
