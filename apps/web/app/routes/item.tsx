@@ -5,7 +5,7 @@ import type { Route } from "./+types/item";
 import type { SiteItemDetail } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
-import { fullDateTime, relativeTime } from "../lib/format";
+import { beijingDate, isDateOnlyInstant, relativeTime, sourceDateTime } from "../lib/format";
 import { SelectedBadge } from "@amp/ui/Badge";
 import { ScoreLabel } from "@amp/ui/Score";
 import { PillTabs } from "../components/ui/Tabs";
@@ -121,6 +121,9 @@ export default function ItemPage() {
         ? "正文 · 原文"
         : "正文";
   const publishedIso = item.publishedAt ?? item.discoveredAt;
+  // A source that gave only the date shows the date alone, with no "x 小时前" (Owner 2026-10-05: 只显示日期).
+  const dateOnly = item.publishedAt !== null && isDateOnlyInstant(item.publishedAt);
+  const publishedAttr = dateOnly ? beijingDate(publishedIso) : publishedIso;
   const summaryOnly = item.readingMode === "summary-only";
   const showOutline = item.outline.length >= 3;
   const originalLabel = "打开原文";
@@ -200,12 +203,14 @@ export default function ItemPage() {
       <div className="text-[14px] font-semibold leading-snug text-ink">{item.source.name}</div>
       <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
       <div className="mt-3 text-[12px] text-ink-4">发布时间</div>
-      <time dateTime={publishedIso} className="mono mt-0.5 block text-[12.5px] text-ink-2">
-        {fullDateTime(publishedIso)}
+      <time dateTime={publishedAttr} className="mono mt-0.5 block text-[12.5px] text-ink-2">
+        {sourceDateTime(publishedIso)}
       </time>
-      <div className="mt-0.5 text-[12px] text-ink-4" suppressHydrationWarning>
-        {relativeTime(publishedIso)}
-      </div>
+      {!dateOnly && (
+        <div className="mt-0.5 text-[12px] text-ink-4" suppressHydrationWarning>
+          {relativeTime(publishedIso)}
+        </div>
+      )}
     </RailSection>
   );
   const outline = showOutline && (
@@ -296,10 +301,10 @@ export default function ItemPage() {
             <span className="font-semibold text-ink-2">{item.source.name}</span>
             {item.author && <span>· {item.author}</span>}
             <span>·</span>
-            <time dateTime={publishedIso} className="mono">
-              {fullDateTime(publishedIso)}
+            <time dateTime={publishedAttr} className="mono">
+              {sourceDateTime(publishedIso)}
             </time>
-            <span suppressHydrationWarning>· {relativeTime(publishedIso)}</span>
+            {!dateOnly && <span suppressHydrationWarning>· {relativeTime(publishedIso)}</span>}
             {item.selected && (
               <span className="ml-1 lg:hidden">
                 <SelectedBadge />

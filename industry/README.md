@@ -16,7 +16,7 @@
 | `selection.ts` | 精选门槛 |
 | `brand/` | 站点图标、Logo，以及日报、周报、月报的报头字（`nameplates/`） |
 | `pages/` | 使用规则与隐私说明，是模板，上线前按实际情况改写并经 Owner 确认 |
-| `changelog.json` | 更新日志（`/changelog`）：新条目写在 `releases` 最前面，`latestVersion` 写它的日期和时间 |
+| `changelog.json` | 更新日志（`/changelog`）：新条目写在 `releases` 最前面；`latestVersion` 写第一条的日期，第一条有时间再加“T时间”（如 `2026-10-06T02:50`）；同一天里只写日期的条目排在有时间的前面；每条只许 `date`、`time`、`kind`、`version`、`title`、`body` 六个字段，读入时整份校验，不合格就报错（TASK-0038） |
 | `gold.example.jsonl`、`relation-gold.example.jsonl` | 精选评测与事件关系评测的样本格式示例（2.6 节） |
 
 ## 2. 各文件怎么写

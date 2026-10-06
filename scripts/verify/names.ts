@@ -2,8 +2,11 @@
 // item 1; docs/05-quality/03-testing-standards.md 1.1): the upstream project's name, its two brand colours and
 // its ring loader appear only on the exception paths of names.json, and no tracked file has the SHA-256 of an
 // upstream brand asset (no exceptions). Paths and file names of the registration and handoff files are not
-// hits. The same patterns, with no exceptions at all, apply to the reader site's build output (stage build-web)
-// and to the pages, machine outputs and MCP answers of the running site (stage smoke).
+// hits. The same patterns apply, with no exception paths, to the reader site's build output (stage build-web) and
+// to the pages, machine outputs and MCP answers of the running site (stage smoke); the one allowance there is the
+// changelog's thanks, the exact phrases of names.json `allowedPhrases` in the outputs it names. In the repository
+// those phrases, each exactly as many times as names.json says, are also the only hits allowed in the files it
+// names (exception 7).
 //   node scripts/verify/names.ts            the repository check, as the stage runs it
 //   node scripts/verify/names.ts --counts   lines with hits in each excepted file (for the acceptance record)
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
@@ -22,6 +25,10 @@ export interface NameRules {
   references: string[];
   manifest: string;
   brand: { prefixes: string[] };
+  /** Exact phrases (the changelog's thanks), each with the number of times it appears in each file named. In those
+   *  files the counts must match and the phrases are blanked before the search (the limit of exception 7); in the
+   *  outputs named they are blanked without counting (the only allowance in what the site serves). */
+  allowedPhrases?: { phrases: Record<string, number>; files: string[]; outputs: string[] };
 }
 export interface Hit {
   line: number;
@@ -32,6 +39,10 @@ export const loadRules = (root = ROOT): NameRules => JSON.parse(readFileSync(pat
 
 const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const hitPattern = (rules: NameRules) => new RegExp([...rules.names, ...rules.marks].map(literal).join("|"), "gi");
+
+/** The text with the allowed phrases blanked out, lines kept in place. */
+const withoutPhrases = (text: string, rules: NameRules): string =>
+  Object.keys(rules.allowedPhrases?.phrases ?? {}).reduce((t, p) => t.replaceAll(p, "\0".repeat(p.length)), text);
 
 /** The text with every path or file name of a registration or handoff file blanked out, lines kept in place. */
 export function withoutReferences(text: string, rules: NameRules): string {
@@ -104,6 +115,17 @@ function readTracked(root: string, file: string, problems: string[]): Buffer | n
 }
 
 const OUTSIDE = "outside the exception paths of scripts/verify/names.json";
+const BEYOND = "outside the allowed phrases of scripts/verify/names.json";
+
+/** A file of `allowedPhrases`, read as UTF-8: each phrase as many times as names.json says, and no other hit once
+ *  the phrases are blanked. */
+function phraseProblems(file: string, text: string, rules: NameRules): string[] {
+  const counts = Object.entries(rules.allowedPhrases?.phrases ?? {}).flatMap(([phrase, allowed]) => {
+    const n = text.split(phrase).length - 1;
+    return n === allowed ? [] : [`${file}: "${phrase}" appears ${n} times, scripts/verify/names.json allows ${allowed}`];
+  });
+  return [...counts, ...findHits(withoutPhrases(text, rules), rules).map((h) => `${file}:${h.line}: "${h.match}" ${BEYOND}`)];
+}
 
 /** Problems in the repository: hits outside the exceptions, paths that name the project, upstream brand assets. */
 export function checkNames(root: string, files: readonly string[], rules = loadRules(root)): string[] {
@@ -127,6 +149,7 @@ export function checkNames(root: string, files: readonly string[], rules = loadR
       const asset = brand.get(sha256(content));
       if (asset) problems.push(`${file}: same bytes as the upstream brand asset ${asset} (no exceptions)`);
       if (!excepted) found.push(...findHits(content, rules).map((h) => `${file}:${h.line}: "${h.match}" ${OUTSIDE}`));
+      else if (rules.allowedPhrases?.files.includes(file)) found.push(...phraseProblems(file, content.toString("utf8"), rules));
     }
     const original = originals.get(file);
     if (found.length && original) found.push(`${file}: differs from ${original} does not cover it`);
@@ -187,6 +210,7 @@ export const SITE_OUTPUTS: ReadonlyArray<readonly [path: string, statuses: reado
   ["/api/v1/dailies", [200]],
   ["/api/v1/dailies/latest", [200, 404]], // 404 until a daily is published
   ["/api/v1/selected/snapshot", [200]],
+  ["/api/site/changelog", [200]], // the changelog's data: the thanks phrases of names.json pass here and on /changelog only
 ];
 
 export interface McpRequest {
@@ -286,9 +310,13 @@ export async function fetchSiteOutputs(base: string, privateHost: string): Promi
   return { outputs, problems };
 }
 
-/** Problems in labelled outputs (responses, a command's output): no hits, no exceptions, no references. */
+/** Problems in labelled outputs (responses, a command's output): no hits, no exceptions, no references; the only
+ *  allowance is the exact phrases names.json allows in the outputs it names (the changelog's thanks, exception 7). */
 export function checkOutputs(outputs: ReadonlyArray<{ label: string; text: string }>, rules = loadRules()): string[] {
-  return outputs.flatMap(({ label, text }) => findHits(text, rules, { references: false }).map((h) => `${label}, line ${h.line}: "${h.match}"`));
+  return outputs.flatMap(({ label, text }) => {
+    const allowed = rules.allowedPhrases?.outputs.some((o) => label.startsWith(`${o} (`));
+    return findHits(allowed ? withoutPhrases(text, rules) : text, rules, { references: false }).map((h) => `${label}, line ${h.line}: "${h.match}"`);
+  });
 }
 
 /** Lines with hits in each excepted file, by exception (references not counted), for the acceptance record. */

@@ -5,7 +5,7 @@ import { Link, useLocation } from "react-router";
 import { Collapse } from "@amp/ui/Presence";
 import type { Development, GroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
 import { IconArrowUpRight, IconChevronDown } from "../../components/icons";
-import { monthDayTime, shortSourceName } from "../../lib/format";
+import { shortSourceName, sourceMonthDayTime } from "../../lib/format";
 import { isReload } from "./restore";
 import { sessionCache } from "./session-cache";
 
@@ -270,7 +270,7 @@ export function GroupDevelopments({
                 {d.title}
               </Link>
               <div className="mt-0.5 text-[11.5px] text-ink-4">
-                {shortSourceName(d.representative.source.name)} · <span className="num">{monthDayTime(d.representative.timelineAt)}</span>
+                {shortSourceName(d.representative.source.name)} · <span className="num">{sourceMonthDayTime(d.representative.timelineAt)}</span>
                 {d.reportCount > 1 ? ` · ${d.reportCount} 篇报道` : ""}
               </div>
             </li>
@@ -301,7 +301,7 @@ export function LatestDevelopment({ group }: { group: GroupInfo }) {
   return (
     <p className="relative z-10 mt-2.5 flex items-baseline gap-1.5 text-[13px] leading-relaxed">
       <span className="shrink-0 font-medium text-accent">最新进展</span>
-      <span className="num shrink-0 text-ink-4">{monthDayTime(group.latestDevelopment.at)}</span>
+      <span className="num shrink-0 text-ink-4">{sourceMonthDayTime(group.latestDevelopment.at)}</span>
       <span className="line-clamp-1 text-ink-3">{group.latestDevelopment.title}</span>
     </p>
   );

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Route } from "./+types/public-layout";
 import { Sidebar } from "../components/shell/Sidebar";
 import { MobileTabBar } from "../components/shell/MobileTabBar";
+import { MobileFooter } from "../components/shell/MobileFooter";
 import { BackToTop, NavigationProgress } from "../components/shell/Chrome";
 import { apiGet } from "../lib/api.server";
 import { ErrorBoundary as PageError } from "../root";
@@ -39,7 +40,10 @@ function SiteShell({ children }: { children: ReactNode }) {
       {/* Mobile shell (≤ 960px): one centred column, the tab bar below. Desktop: the page fills the main area
           up to the list width (--page-max-wide), centred beyond it. */}
       <main id="main" className="min-w-0 flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] lg:px-7 lg:pb-[72px] lg:pt-6">
-        <div className="mx-auto w-full max-w-[640px] px-4 lg:max-w-[var(--page-max-wide)] lg:px-0">{children}</div>
+        <div className="mx-auto w-full max-w-[640px] px-4 lg:max-w-[var(--page-max-wide)] lg:px-0">
+          {children}
+          <MobileFooter />
+        </div>
       </main>
       <MobileTabBar />
       <BackToTop />
