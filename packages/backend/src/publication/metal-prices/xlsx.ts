@@ -8,15 +8,8 @@ import { unzipEntries } from "./unzip.ts";
 export type Sheet = Map<number, Map<string, string>>;
 
 type Text = string | { "#text"?: string };
-interface Str {
-  t?: Text;
-  r?: { t?: Text }[];
-}
-interface Cell {
-  "@_r"?: string;
-  "@_t"?: string;
-  v?: Text;
-}
+type Str = { t?: Text; r?: { t?: Text }[] };
+type Cell = { "@_r"?: string; "@_t"?: string; v?: Text };
 interface Part {
   workbook?: { sheets?: { sheet?: { "@_name"?: string; "@_r:id"?: string }[] } };
   Relationships?: { Relationship?: { "@_Id"?: string; "@_Target"?: string }[] };

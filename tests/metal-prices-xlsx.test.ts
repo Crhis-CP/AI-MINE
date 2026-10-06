@@ -79,25 +79,20 @@ test("the zip reader: stored and deflated entries, each inflated only when read,
 
 test("the workbook reader: each cell as the file writes it, shared strings looked up and rich text joined; a missing part, sheet, string or reference throws", () => {
   const sheet = openWorkbook(monthly);
-  const at = (cells: Sheet, ref: string) => cells.get(Number(ref.replace(/^[A-Z]+/, "")))?.get(ref.replace(/\d+$/, ""));
+  const at = (cells: Sheet, ...refs: string[]) => refs.map((ref) => cells.get(Number(ref.replace(/^[A-Z]+/, "")))?.get(ref.replace(/\d+$/, "")));
   // Numbers stay the text in the file: 64.599999999999994 is not read as 64.6.
   const prices = sheet("Monthly Prices");
-  assert.deepEqual(
-    ["BM5", "BM6", "A807", "BT806", "BT807"].map((ref) => at(prices, ref)),
-    ["Copper", "($/mt)", "2026M09", "65.400000000000006", "64.599999999999994"],
-  );
+  assert.deepEqual(at(prices, "BM5", "BM6", "A807", "BT806", "BT807"), ["Copper", "($/mt)", "2026M09", "65.400000000000006", "64.599999999999994"]);
   // Shared strings as written: spaces kept at either end and inside, an entity decoded.
-  const description = sheet("Description");
-  assert.equal(at(description, "A88"), "   *");
-  assert.match(at(description, "B100")!, /, cash prices $/);
-  assert.match(at(description, "B105")!, /^Silver \(UK\), 99\.9% refined, London afternoon fixing; prior to July 1976 Handy & Harman\. {2}Grade/);
+  const [star, zinc, silver] = at(sheet("Description"), "A88", "B100", "B105");
+  assert.equal(star, "   *");
+  assert.match(zinc!, /, cash prices $/);
+  assert.match(silver!, /^Silver \(UK\), 99\.9% refined, London afternoon fixing; prior to July 1976 Handy & Harman\. {2}Grade/);
   const copy = (part: string, from: string, to: string) => openWorkbook(changed(part, from, to))("Monthly Prices");
-  assert.equal(at(copy("xl/sharedStrings.xml", "<t>Copper</t>", "<r><t>Cop</t></r><r><t>per</t></r>"), "BM5"), "Copper");
+  assert.deepEqual(at(copy("xl/sharedStrings.xml", "<t>Copper</t>", "<r><t>Cop</t></r><r><t>per</t></r>"), "BM5"), ["Copper"]);
   assert.throws(() => sheet("Notes"), /workbook has no sheet Notes/);
   assert.throws(() => copy("xl/worksheets/sheet2.xml", "<v>5</v>", "<v>99</v>"), /cell BK5 points at no shared string/);
   assert.throws(() => copy("xl/worksheets/sheet2.xml", ' r="BK805"', ""), /a cell without a reference/);
-  for (const missing of ["xl/workbook.xml", "xl/_rels/workbook.xml.rels", "xl/sharedStrings.xml", "xl/worksheets/sheet2.xml"]) {
-    const without = rezip((part) => (part.name === missing ? null : part));
-    assert.throws(() => openWorkbook(without)("Monthly Prices"), new RegExp(`workbook part ${missing} is missing`));
-  }
+  for (const missing of ["xl/workbook.xml", "xl/_rels/workbook.xml.rels", "xl/sharedStrings.xml", "xl/worksheets/sheet2.xml"])
+    assert.throws(() => openWorkbook(rezip((part) => (part.name === missing ? null : part)))("Monthly Prices"), new RegExp(`part ${missing} is missing`));
 });

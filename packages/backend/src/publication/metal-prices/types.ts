@@ -31,7 +31,12 @@ export interface FetchedPeriod {
   rows: PriceRow[];
   /** The source's own reasons to hold the period back whole, from pages that read fine; empty: none. */
   held: string[];
+  /** Series held back alone, with the source's reasons (TASK-0046): their rows are neither checked nor stored. */
+  heldSeries?: { key: string; reason: string }[];
 }
+
+/** The run's clock, and when a version (release) of a source was last fetched: null while no row of it is stored (TASK-0046). */
+export type FetchContext = { now: Date; fetchedAt(source: MetalPriceSourceKey, release: string): Promise<Date | null> };
 
 export interface Fetcher {
   sourceKeys: MetalPriceSourceKey[];
@@ -40,7 +45,7 @@ export interface Fetcher {
    * the newest listed alone when nothing is stored (null; no back-fill). Throws when a page cannot be read as expected:
    * an error status, an address or redirect off the source's https hosts, a list naming no period, no price table (INV-33).
    */
-  fetch(newest: (source: MetalPriceSourceKey) => Promise<string | null>): Promise<FetchedPeriod[]>;
+  fetch(newest: (source: MetalPriceSourceKey) => Promise<string | null>, context?: FetchContext): Promise<FetchedPeriod[]>;
 }
 
 export interface PeriodCheckInput {

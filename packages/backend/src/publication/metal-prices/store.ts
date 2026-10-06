@@ -30,6 +30,21 @@ export async function storedValues(source: string, { period, release }: Pick<Fet
   return new Map(rows.map((row) => [row.series_key, row.value]));
 }
 
+/** Each series' value in the period's newest stored version; empty when the period is not stored (TASK-0046). */
+export async function latestValues(source: string, start: string): Promise<Map<string, string>> {
+  const rows = await sql<{ series_key: string; value: string }[]>`
+    SELECT DISTINCT ON (series_key) series_key, value::text AS value FROM publication.metal_prices
+    WHERE source = ${source} AND period_start = ${start} ORDER BY series_key, first_fetched_at DESC`;
+  return new Map(rows.map((row) => [row.series_key, row.value]));
+}
+
+/** When a version (release) of the source was last fetched; null while no row of it is stored (TASK-0046). */
+export async function fetchedAt(source: string, release: string): Promise<Date | null> {
+  const [row] = await sql<{ at: Date | null }[]>`
+    SELECT max(fetched_at) AS at FROM publication.metal_prices WHERE source = ${source} AND release_label = ${release}`;
+  return row?.at ?? null;
+}
+
 /**
  * A row of the same version (release) read again moves fetched_at only, or takes the new value too when the source now
  * writes it differently (before and after are returned); a new version of a period is a row beside the old one.
