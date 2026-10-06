@@ -1,4 +1,6 @@
 // Admin display helpers: Beijing wall-clock times, relative ages, compact numbers.
+import { isDateOnlyInstant } from "../../lib/format.ts";
+
 const BJ = 8 * 3600_000;
 
 export function bj(iso: string | Date | null | undefined, withYear = false): string {
@@ -7,6 +9,17 @@ export function bj(iso: string | Date | null | undefined, withYear = false): str
   if (Number.isNaN(d.getTime())) return "—";
   const s = d.toISOString();
   return `${withYear ? `${s.slice(0, 4)}-` : ""}${s.slice(5, 10)} ${s.slice(11, 16)}`;
+}
+
+/**
+ * A time the source itself gave (published, timeline), shown like the reader site: a source that gave only
+ * the date is kept at the start of that Beijing day (TASK-0040), so exactly 00:00:00 in Beijing is the date
+ * alone; any other time is bj(). Times this site records (created, written, sent) keep bj(): their 00:00 is real.
+ */
+export function bjSource(iso: string | Date | null | undefined, withYear = false): string {
+  const s = bj(iso, withYear);
+  if (!iso || s === "—") return s;
+  return isDateOnlyInstant(new Date(iso).toISOString()) ? s.slice(0, s.indexOf(" ")) : s;
 }
 
 export function ago(iso: string | Date | null | undefined, now = Date.now()): string {

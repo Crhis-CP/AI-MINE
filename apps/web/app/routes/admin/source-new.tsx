@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { Route } from "./+types/source-new";
 import { useAdminAction } from "../../features/admin/action";
-import { bj } from "../../features/admin/format";
+import { bjSource } from "../../features/admin/format";
 import { KIND_LABEL, MODE_LABEL, TIER_LABEL } from "../../features/admin/labels";
 import { AdminPage, Button, Card, Empty, Field, Input, Select, Textarea } from "../../features/admin/ui";
 
@@ -295,7 +295,7 @@ export default function NewSource() {
                   <a href={i.url} target="_blank" rel="noreferrer" className="font-medium text-ink hover:text-accent">
                     {i.title}
                   </a>
-                  <div className="text-[12px] text-ink-4">{i.publishedAt ? bj(i.publishedAt, true) : "无发布时间"}</div>
+                  <div className="text-[12px] text-ink-4">{i.publishedAt ? bjSource(i.publishedAt, true) : "无发布时间"}</div>
                   {i.excerpt && <div className="mt-0.5 line-clamp-2 text-[12.5px] text-ink-3">{i.excerpt}</div>}
                 </li>
               ))}
