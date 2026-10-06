@@ -9,7 +9,8 @@ import { promisify } from "node:util";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { translateArticle, translatePending } from "@amp/backend/editorial/translate";
+import { promptText } from "@amp/backend/editorial/prompts";
+import { TRANSLATE_PROMPT_VERSION, translateArticle, translatePending } from "@amp/backend/editorial/translate";
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
 import { getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
@@ -96,6 +97,15 @@ after(async () => {
   await provider.close();
   await stopBoss();
   await closeDb();
+});
+
+test("the translation prompt gives a closed list of Chinese names, and its version is pinned", () => {
+  const prompt = promptText("translate-body");
+  assert.ok(prompt.includes("必和必拓（BHP）") && prompt.includes("华友钴业"), "the names list is in the prompt");
+  for (const open of ["确有通行译名", "例如："]) assert.ok(!prompt.includes(open), `no open wording: ${open}`);
+  // A change to translate-body.md or rules-domain-names.md (shared with the summary rules) translates every stored
+  // foreign body again: change this pin on purpose.
+  assert.equal(TRANSLATE_PROMPT_VERSION, "translate-body@c7d8699153");
 });
 
 test("a text corrected while its translation was running is translated again, and the old translation is not shown", async () => {
