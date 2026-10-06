@@ -159,6 +159,10 @@
     {
       "name": "ai-gateway/202610051210_translation_receipt_observations.sql",
       "dependsOn": ["ai-gateway/202610050010_receipt_output_rejection.sql"]
+    },
+    {
+      "name": "publication/202610060435_metal_prices.sql",
+      "dependsOn": ["ai-gateway/202610051210_translation_receipt_observations.sql"]
     }
   ]
 }
