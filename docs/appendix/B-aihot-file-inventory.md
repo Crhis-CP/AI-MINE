@@ -324,7 +324,7 @@
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `leaderboard/**`（`directory.ts`、`registry.ts`、`source-registry.json`、`prices.ts`、`read.ts`、`fetch/**` 13 个上游读取器与工具、`method/**` v15/Kemeny/HiGHS） | 模型榜 | 删除 | — | ANTI-26 | T-0002，牵连见正文 4.1 |
+| `leaderboard/**`（`directory.ts`、`registry.ts`、`source-registry.json`、`prices.ts`、`read.ts`、`fetch/**` 13 个上游读取器与工具、`method/**` v15/Kemeny/HiGHS） | 模型榜 | 删除 | — | ANTI-26 | T-0002，牵连见正文 4.1；例外：`fetch/unzip.ts` 改造移植为 `publication/metal-prices/unzip.ts`，读金属价格的 xlsx，加了条目数、解压后大小与读取范围的上限（TASK-0046，锁文件同一项） |
 | `monitor/**`（`assemble.ts`、`read.ts`、`recognize.ts`、`scan.ts`、`time.ts`） | Codex 重置监控 | 删除 | — | ANTI-26 | T-0002，牵连见正文 4.2；`time.ts` 的 IANA 换算思路供时间值类型参考 |
 
 ## B.6 `packages/contracts`

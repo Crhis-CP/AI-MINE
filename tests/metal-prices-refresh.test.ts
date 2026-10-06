@@ -14,6 +14,8 @@ import type { MetalPricePeriodRun } from "../packages/backend/src/publication/me
 import { parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
 import { storePeriod } from "../packages/backend/src/publication/metal-prices/store.ts";
 import type { PageGetter } from "../packages/backend/src/publication/metal-prices/types.ts";
+import type { MetalPriceSourceKey } from "../packages/backend/src/publication/metal-prices/registry.ts";
+import type { FetchContext, FetchedPeriod } from "../packages/backend/src/publication/metal-prices/types.ts";
 
 const sql = dbOf("publication");
 after(() => closeDb());
@@ -230,4 +232,93 @@ test("with collection off the price schedule is not registered, like source coll
     if (was === undefined) delete process.env.COLLECT_ENABLED;
     else process.env.COLLECT_ENABLED = was;
   }
+});
+
+// TASK-0046: fetchers made up here, on registries made up here: the whole file's with sources and items of their own. The monthly
+// sources take keys the registry allows and the bureau's other fields; none of this is their data.
+const monthly = (key: string, host: string) => ({ ...registry.sources[0], key, frequency: "month", currency: "USD", hosts: [host] });
+const series = (key: string, source: string) => ({ key, source, sourceName: key, name: key });
+const imf = { ...data, sources: [monthly("imf", "www.imf.org")], items: [series("imf.a", "imf"), series("imf.b", "imf")] };
+const wb = { ...data, sources: [monthly("worldbank", "www.worldbank.org")], items: [series("wb.a", "worldbank")] };
+const three = { ...data, sources: [...registry.sources, ...wb.sources, ...imf.sources], items: [...registry.items, ...wb.items, ...imf.items] };
+const FILE = "https://www.imf.org/prices.xlsx";
+/** A month of the made-up IMF source: the series' values as published. */
+const month = (at: string, label: string, values: Record<string, string>, more: Partial<FetchedPeriod> = {}): FetchedPeriod => {
+  const rows = Object.entries(values).map(([key, value]) => ({ key, unit: "吨", value }));
+  return { source: "imf", period: { start: `${at}-01`, end: `${at}-28`, label: at }, release: { label, url: FILE, releasedOn: null }, rows, held: [], ...more };
+};
+const log: string[] = [];
+const contexts: FetchContext[] = [];
+/** A made-up fetcher: logs its request going out and, `turns` turns of the event loop later, coming back; then gives `periods()`. */
+function fake(key: MetalPriceSourceKey, periods: () => FetchedPeriod[], turns = 1) {
+  const fetch = async (_newest: unknown, context?: FetchContext) => {
+    log.push(`${key} 发`);
+    contexts.push(context!);
+    for (let turn = 0; turn < turns; turn++) await new Promise(setImmediate);
+    log.push(`${key} 回`);
+    return periods();
+  };
+  return () => ({ sourceKeys: [key], fetch });
+}
+const imfRun = async (...months: FetchedPeriod[]) => (await refreshMetalPrices({ registry: imf, now: NOW, fetchers: { imf: fake("imf", () => months) } })).imf;
+const JUNE = month("2026-06", "R1", { "imf.a": "10", "imf.b": "100" });
+
+test("two sources are requested at a time, the third once both are back; one failing or with no fetcher fails alone; one returning nothing is noted, a success", async () => {
+  const fetchers = { nbs: fake("nbs", () => []), worldbank: fake("worldbank", () => assert.fail("connect timeout"), 3), imf: fake("imf", () => [JUNE]) };
+  const first = await refreshMetalPrices({ registry: three, now: NOW, fetchers });
+  assert.deepEqual(log.splice(0), ["nbs 发", "worldbank 发", "nbs 回", "worldbank 回", "imf 发", "imf 回"]);
+  const nothing = (now: Date) => ({ ...record(true, [], now), note: "这次一期都没有返回" });
+  const june = period("2026-06", { version: "R1", inserted: 2, notes: NO_PREVIOUS });
+  assert.deepEqual(first, { nbs: nothing(NOW), worldbank: { ...record(false, []), error: "connect timeout" }, imf: record(true, [june]) });
+  // With no fetcher the World Bank alone fails. Each fetcher is given the run's clock and when a version was last fetched.
+  const second = await refreshMetalPrices({ registry: three, now: LATER, fetchers: { ...fetchers, worldbank: undefined } });
+  const missing = { ...record(false, [], LATER), error: "没有这个来源的抓取器" };
+  assert.deepEqual(second, { nbs: nothing(LATER), worldbank: missing, imf: record(true, [period("2026-06", { version: "R1", touched: 2 })], LATER) });
+  const { now, fetchedAt } = contexts.at(-1)!;
+  assert.deepEqual([now, await fetchedAt("imf", "R1"), await fetchedAt("worldbank", "R1"), await fetchedAt("imf", "R2")], [LATER, LATER, null, null]);
+});
+
+test("a monthly source: a value at 2.1 or 0.45 times the month before holds the month back whole, the store unchanged; 2 and 0.5 times go in", async () => {
+  await imfRun(JUNE);
+  const before = await table();
+  const july = (a: string, b: string) => month("2026-07", "R2", { "imf.a": a, "imf.b": b });
+  const held = (reason: string) => record(false, [period("2026-07", { version: "R2", held: reason })]);
+  assert.deepEqual(await imfRun(july("21", "100")), held("imf.a 是 21，是上一期 10 的 2.10 倍，超出 0.5–2 倍"));
+  assert.deepEqual(await imfRun(july("10", "45")), held("imf.b 是 45，是上一期 100 的 0.45 倍，超出 0.5–2 倍"));
+  assert.deepEqual(await table(), before);
+  assert.deepEqual(await imfRun(july("20", "50")), record(true, [period("2026-07", { version: "R2", inserted: 2 })]));
+});
+
+test("a series held back alone: the rest of its month goes in, the record lists it, the source did not succeed; with all held back the month is held whole", async () => {
+  await imfRun(JUNE);
+  // The series held back is not checked (its 0 would hold the month) and not stored.
+  const heldSeries = [{ key: "imf.b", reason: "说明对不上" }];
+  const july = period("2026-07", { version: "R2", inserted: 1, heldSeries });
+  assert.deepEqual(await imfRun(month("2026-07", "R2", { "imf.a": "11", "imf.b": "0" }, { heldSeries })), record(false, [july]));
+  const all = [...heldSeries, { key: "imf.a", reason: "说明对不上" }];
+  const august = period("2026-08", { version: "R3", held: "这一期启用的品种全被单独扣下", heldSeries: all });
+  assert.deepEqual(await imfRun(month("2026-08", "R3", { "imf.a": "11", "imf.b": "100" }, { heldSeries: all })), record(false, [august]));
+  // A new version of the stored newest month, the same but for the series held back, is not stored either.
+  const again = period("2026-07", { version: "R4", heldSeries, notes: ["和库里已有的一样，不另存"] });
+  assert.deepEqual(await imfRun(month("2026-07", "R4", { "imf.a": "11", "imf.b": "0" }, { heldSeries })), record(false, [again]));
+  assert.deepEqual([await values("2026-07-01"), await values("2026-08-01")], [new Map([["imf.a", "11"]]), new Map()]);
+});
+
+test("a new version repeating the stored newest period, copper at 1.6 times the one before, is not compared or stored; one changing a value is stored beside it", async () => {
+  await run({ [NBS_LIST_URL]: earlyList });
+  const [forced] = await nbsFetcher(parsed, pages(COPPER_UP)).fetch(async () => "2026-09-11");
+  await storePeriod(parsed.sources[0], parsed.items, forced, NOW);
+  const before = await table();
+  const version = `${forced.release.label}（修订）`;
+  const fetchers = (rows = forced.rows, label = version) => ({ nbs: fake("nbs", () => [{ ...forced, rows, release: { ...forced.release, label } }]) });
+  const again = async (rows = forced.rows, label = version) => (await refreshMetalPrices({ registry, now: LATER, fetchers: fetchers(rows, label) })).nbs;
+  assert.deepEqual(await again(), record(true, [period(SEP2, { version, notes: ["和库里已有的一样，不另存"] })], LATER));
+  assert.deepEqual(await table(), before);
+  // Copper back to the bureau's figure: every check applies and passes, and the new version is a row beside the old one.
+  const copper = forced.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "108770.0" } : row));
+  assert.deepEqual(await again(copper), record(true, [period(SEP2, { version, inserted: 10 })], LATER));
+  // A third version is compared with the latest one stored, so repeating it adds nothing.
+  assert.deepEqual(await again(copper, "三"), record(true, [period(SEP2, { version: "三", notes: ["和库里已有的一样，不另存"] })], LATER));
+  const rows = await table();
+  assert.deepEqual([rows.length, rows.filter((row) => row.release_label !== version)], [30, before]);
 });
