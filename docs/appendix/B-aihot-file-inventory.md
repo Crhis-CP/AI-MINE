@@ -202,7 +202,7 @@
 | `lib/http-fetch.ts`（139 行） | 出网：每跳 SSRF 检查、出网代理分流、总超时、字节上限、字符集解码 | 改造 | `acquisition`（fetch 运行时，在 `apps/fetcher` 执行） | ADR-0019；G11；旧ADR-0006:26@main | **只搬 SSRF 检查、连接时地址校验并钉住对端 IP、总超时（含 DNS + 重定向 + 读取）、字节上限、字符集解码**；**删除 `EGRESS_PROXY_URL` 分流**；重定向每一跳重新校验，默认只允许同主机，跨主机判 `redirect_host_changed`；只接受 identity/gzip；抓取对多语种站点显式请求文书的语言版本，不依赖 `accept-language`（AIHOT 默认偏中文） |
 | `lib/ids.ts` | cuid2 条目 ID、UUID、短 ID、哈希、稳定 JSON | 改造 | `contracts`（ids 纯函数） | `03-data/01-domain-model.md` 第 1 节 | 新对象用带前缀 ID（`mat_` 等）；`@paralleldrive/cuid2` 沿用与否在 T-0003 选定（PostgreSQL 18 `uuidv7()` 或应用侧 UUIDv7/ULID，`02-tech-stack.md` 1.3） |
 | `lib/text.ts`、`lib/url.ts`（220 行） | 文本工具；URL 规范化、身份键、内网地址判定、`guardedLookup` | 改造（拆分） | SSRF 与内网判定、`guardedLookup` → `acquisition`（fetch 运行时）；`normalizeUrl`/`identityKeyForUrl` → `content`；`text.ts` → 使用方 | R-01 | 不建通用 utils |
-| `providers/receipts.ts`（216 行） | 付费请求回执、尝试记录、请求数预算、结果未知处理 | 改造 | `ai-gateway` | F-AI-02；ENT-41；BR-COST-07；正文 2.3、2.4、5.8 | M1：ENT-41 状态机、预留金额、用量账本；**预算行缺失即放行改为缺配置默认拒绝**；按请求数熔断保留作速率限制层，新增异常熔断（含 70% 预警，BR-COST-20）；价格表带 `observed_at`/`valid_until` |
+| `providers/receipts.ts`（216 行） | 付费请求回执、尝试记录、请求数预算、结果未知处理 | 改造 | `ai-gateway` | F-AI-02；ENT-41；BR-COST-07；正文 2.3、2.4、5.8 | M1：ENT-41 状态机、预留金额、用量账本；按请求数熔断照上游保留，作 BR-COST-07 第二层（没有预算行的服务不限次数，触达自动暂停、回落自动恢复；Owner 2026-10-06）；新增异常熔断（含 70% 预警，BR-COST-20）；价格表带 `observed_at`/`valid_until` |
 | `providers/llm.ts`（245 行） | OpenAI 兼容 `/chat/completions`、JSON 提取与 schema 校验、AIHOT 自用模型预设 `MODELS` | 改造 | `ai-gateway` | OP-12；DEC-29 | 预设改为私有页面的“模型接入”对象；代码不写提供商名；默认沿用 Owner 已开通的 DeepSeek，新供应商按新付费订阅处理 |
 | `providers/embeddings.ts`（113 行） | 向量调用（经回执）、`real[]` 存储、进程内事实向量缓存、余弦 | 改造（拆分） | `ai-gateway`（调用）+ `events`（存储与召回） | DEC-29；ADR-0015 第 6 条；AI-16 | 默认不启用；pgvector 装上不建索引，召回先用确定性候选 + 有界窗口精确比较 + DeepSeek 判定；任何嵌入供应商按新付费订阅处理，须基准证明必要并经 Owner 同意 |
 | `providers/jina.ts`（59 行） | 浏览器渲染读取（付费，正文与列表兜底） | 关闭 | `acquisition`（适配器，在 fetcher 执行） | BR-ACQ-24；ADR-0019 | 默认关闭、按源开启；启用须 Owner 批准，计费经 ai-gateway，受许可与预算约束；4GB 主机不常驻 Chromium |
@@ -287,7 +287,7 @@
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `notify/feishu.ts`（203 行） | 飞书：告警与反馈转发的内部群、图片上传、webhook 发送；告警格式 | 改造 | `platform/ops`（告警推送） | DEC-06；OP-20 | **保留 webhook 发送与告警格式**；删反馈转发和只为它服务的图片上传（`uploadImage` 只被反馈截图调用，原注“内容推送用”有误：内容推送只走 webhook 卡片）；飞书登录应用部分随飞书登录保留、默认关闭（Owner 2026-10-02）；地址由 Owner 经私有页面“告警渠道”安全录入（只写不回显、加密保存），未提供前退为邮件；开关并入 `NOTIFY_ENABLED` |
+| `notify/feishu.ts`（203 行） | 飞书：告警与反馈转发的内部群、图片上传、webhook 发送；告警格式 | 改造 | `platform/ops`（告警推送） | DEC-06；OP-20 | **保留 webhook 发送与告警格式**；删反馈转发和只为它服务的图片上传（`uploadImage` 只被反馈截图调用，原注“内容推送用”有误：内容推送只走 webhook 卡片）；飞书登录应用部分随飞书登录保留、默认关闭（Owner 2026-10-02）；告警 2026-10-06 改为飞书自建应用，照上游原样，只发飞书（应用凭据与群号写在服务器设置，08-owner-voice DEC-33）；开关并入 `NOTIFY_ENABLED` |
 | `notify/deliver.ts`（108 行） | 内容群投递：去重、未知不重发、启用前内容不补推 | 改造 | `platform/ops` | DEC-06；G15 | **保留“去重键 + 结果未知不重发”**，用于告警与飞书内容推送（默认关闭，Owner 2026-10-02）；删 `codex_reset` 投递类型；移植上游 #19（投递重试原子认领，正文 6.5） |
 | `notify/selected.ts`（83 行） | 精选推送（同题租约、按事实去重，旧文不推） | 关闭 | `platform/ops`（随 `notify/`） | G15；DEC-45 | 飞书内容推送保留、默认关闭（Owner 2026-10-02：「飞书推送与登录还是要保留，我也要后面接飞书的呢」），开通仍是不排期候选；启用条件：Owner 接飞书时另立任务；`publish.ts` 与 `jobs/queue.ts` 的入队点保留 |
 | `operations/alerts.ts`（285 行） | now/today/digest 三级告警、每日摘要 | 改造 | `platform/ops` | F-OPS-03；DEC-06 | 删监控与模型榜两段（T-0002）；**告警随首次生产部署上线**；新增用量提示（月内累计每增加 100 元）、异常熔断预警（达阈值 70%）与触发、磁盘、备份失败、按业务线最老积压、发布新鲜度、质量资格与带期限证据到期、全局暂停超时、内容停更（旧站曾停更 5 天无人察觉） |
