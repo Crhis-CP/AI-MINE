@@ -7,7 +7,7 @@ import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { fetchRss } from "./rss.ts";
-import { allowed, fetchDetail, fetchWebList, type DetailNeed } from "./web-list.ts";
+import { allowed, fetchDetail, fetchWebList, sourcePublishedAt, type DetailNeed } from "./web-list.ts";
 import { normalizeSourceLanguage, unsupportedConfig, sourceDateConfigHash } from "./config-keys.ts";
 import { fetchJsonList } from "./json-list.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
@@ -236,7 +236,7 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
               ...(got.sourceDateObservation.alternatives ?? []),
             ];
           const time = previewSourceDate(c.sourceDateObservation);
-          c.publishedAt = time?.utc ? new Date(time.utc) : null;
+          c.publishedAt = sourcePublishedAt(time, d.publishedAtUtcOffset);
         }
       } catch {
         // detail is best effort
