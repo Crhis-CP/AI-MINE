@@ -68,7 +68,7 @@ flowchart LR
 
 | 边界 | 规则 |
 |---|---|
-| 公网 → 读者站/公开 API | 只允许 GET（外加反馈提交）；限流见 2.2；公开主机名显式拒绝私有路径并移除下游 `Set-Cookie` |
+| 公网 → 读者站/公开 API | 读者路由与公开 API 只允许 GET（反馈提交除外）；限流见 2.2；`public-api` 不注册私有路由，网站转给公开接口的请求不带 `Cookie`，公开响应移除下游 `Set-Cookie`；主域名私有路径由私有路由组与 `private-api` 处理（ADR-0026；地址仍待 TASK-0080 部署读回） |
 | 公网 → 私有页面 | 在主域名的 `/admin`（`PRIVATE_HOST` 生产即主域名，ADR-0026；登记在 `07-deployment-and-ops.md` 第 1 节，不代表存在运营台）；页面与接口需要登录（登录页与登录接口除外）；`private-api` 只接受 `PRIVATE_HOST`，不注册公开路由 |
 | 应用 → 数据库 | 数据库不开放公网端口；按角色分开登录（`dbFor(role)`）：公开只读 `public_read`、反馈写入 `feedback_write`、私有业务 `private_ops`、认证 `auth`、`worker`、迁移 `migrate`（短时）；备份作业另有专用只读 `backup` 登录，不经模块注入；web、fetcher 没有数据库登录。旧项目曾共用最高权限凭据，是已知坑（PIT-059） |
 | 应用 → 对象存储 | 原件与备份分桶、分权限；各进程只持自己前缀的凭据（4.2） |
@@ -100,7 +100,7 @@ flowchart LR
 | HTTPS、HTTP→HTTPS 重定向、按 Host 路由 | ✓ | — |
 | 安全响应头 | ✓ 以旧站头集合为基线：HSTS、CSP、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy`、`Permissions-Policy`、删除 `Server`；CSP 随新前端栈调整；私有路径一律 `Cache-Control: private, no-store`（ADR-0026）（`Caddyfile.live:57-67,102@main`） | — |
 | 代理身份改写 | ✓ 用直接 TCP 对端覆盖 `X-Forwarded-For`；删除 `Forwarded`、`X-Real-IP`、`CF-Connecting-IP`、`True-Client-IP`、`X-Client-IP`（`Caddyfile.live:69-78@main`） | 只按配置的可信跳数取客户端地址 |
-| 屏蔽私有路径、去 `Set-Cookie` | ✓（`Caddyfile.live:80-90@main`） | ✓ 按 Host 二次拒绝 |
+| 主机名与私有路径边界、拒绝响应不带 `Set-Cookie` | ✓ 只认主域名、www 与旧 admin 子域；两个别名先 301 到主域名（ADR-0026） | ✓ 按 Host 与路径执行 2.1 节的分流与拒绝；拒绝响应不带 `Set-Cookie` |
 | 日志脱敏 | ✓ 删除查询串中的 `code`、`state`、`access_token`、`refresh_token`、`csrf`、`bootstrap_secret`、`client_secret`（`Caddyfile.live:5-45@main`） | ✓ 日志组件层统一脱敏，另含 `password`、`token`、`api_key`、`secret`、邮箱与账号标识（PIT-062） |
 | 超时与头大小 | ✓ 初值：读头 10 秒、读体 10 秒、写 30 秒、空闲 60 秒、请求头 ≤16KB（`Caddyfile.live:46-54@main`，随基准调整） | JSON 请求体大小有界 |
 | **限流** | **✗ 不做** | **✓ 令牌桶**，见下 |
