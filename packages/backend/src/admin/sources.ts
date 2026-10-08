@@ -254,7 +254,7 @@ export async function fetchNow(id: string, actor: string) {
   return { jobId };
 }
 
-/** The sources on one business line (ADR-0016), for stages that must leave the other line's material alone. */
+/** The sources on one business line (ADR-0016), for checks of one line that must not count the other line's material. */
 export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]> {
   return (await sql<{ id: string }[]>`SELECT id FROM sources WHERE lane = ${lane}`).map((r) => r.id);
 }

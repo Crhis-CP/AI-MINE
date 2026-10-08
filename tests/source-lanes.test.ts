@@ -1,14 +1,18 @@
 // Business lines (ADR-0016, TASK-0093): material collected from a policy source is stored like any other, but no
-// news stage takes it up: not the processing queue, the safety-net sweep, the requeue of failures, the republish
-// after a metadata change, the interval tuning or the heat clocks. News sources behave exactly as before.
+// news stage takes it up. The one way into processing settles it as skipped, so neither the safety-net sweep nor
+// the alerts about new content count it; the republish after a metadata change, the interval tuning, the heat
+// clocks and the about page leave policy sources out. News sources behave exactly as before.
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
-import { queueProcessing, requeueFailed, sweepUnprocessed } from "@amp/backend/jobs/content";
+import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
+import { queueProcessing, sweepUnprocessed } from "@amp/backend/jobs/content";
+import { upsertMaterial } from "@amp/backend/content/materials";
+import { collectFindings } from "@amp/backend/operations/alerts";
+import { loadSiteStats } from "@amp/backend/site/stats";
 import { adaptIntervals, collectSource } from "@amp/backend/sources/collect";
 import { sourceClocks } from "@amp/backend/events/hot";
 import { grantDateFixture } from "./source-date-fixture.ts";
@@ -45,6 +49,7 @@ const listing = (line: string) => ({
   publishedAtRegex: "<span>(\\d{4}-\\d{2}-\\d{2})</span>",
 });
 before(async () => {
+  await getBoss(); // the alerts read the job tables
   await sql`INSERT INTO sources (id, name, kind, config, tier, participation_mode, site_fulltext, next_fetch_at) VALUES
     (${NEWS}, '资讯线信源', 'web_list', ${sql.json(listing("news"))}, 'T1', 'editorial', true, '2100-01-01')`;
   await sql`INSERT INTO sources (id, name, kind, config, tier, participation_mode, site_fulltext, next_fetch_at, lane, interval_minutes) VALUES
@@ -61,6 +66,8 @@ const articleIds = async (sourceId: string) =>
   (await sql<{ id: string }[]>`SELECT id FROM articles WHERE source_id = ${sourceId} ORDER BY url`).map((r) => r.id);
 const jobsFor = async (ids: string[]) =>
   (await sql<{ name: string }[]>`SELECT name FROM pgboss.job WHERE data->>'articleId' = ANY(${ids}) ORDER BY name`).map((r) => r.name);
+const states = async (ids: string[]) =>
+  (await sql<{ processing_state: string }[]>`SELECT processing_state FROM articles WHERE id = ANY(${ids})`).map((r) => r.processing_state);
 const republishes = async (sourceId: string) =>
   (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM pgboss.job WHERE name = ${QUEUES.republishSource} AND data->>'sourceId' = ${sourceId}`)[0]!.n;
 
@@ -69,7 +76,7 @@ test("existing sources are on the news line and a line is one of two values", as
   await assert.rejects(sql`UPDATE sources SET lane = 'other' WHERE id = ${NEWS}`, /check/i);
 });
 
-test("material of a policy source is stored, but never queued for news processing or republished", async () => {
+test("material of a policy source is stored and settled as skipped, never queued for news processing or republished", async () => {
   assert.equal((await collectSource(POLICY, { force: true })).status, "ok");
   assert.equal((await collectSource(NEWS, { force: true })).status, "ok");
   const policy = await articleIds(POLICY);
@@ -77,9 +84,11 @@ test("material of a policy source is stored, but never queued for news processin
   assert.equal(policy.length, 2, "the policy material is in the material store");
   assert.equal(news.length, 2);
   assert.deepEqual(await jobsFor(policy), [], "no extraction, analysis or grouping job for policy material");
+  assert.deepEqual(await states(policy), ["skipped", "skipped"], "settled at once, like a post of a non-editorial source");
   assert.deepEqual(await jobsFor(news), [QUEUES.extractBody, QUEUES.extractBody], "news material goes to processing as before");
   assert.equal(await queueProcessing(policy[0]!), null, "the one way into processing refuses policy material");
   assert.deepEqual(await jobsFor(policy), []);
+  assert.deepEqual(await states(policy), ["skipped", "skipped"]);
   assert.equal((await sql`SELECT 1 FROM publications WHERE article_id = ANY(${policy})`).length, 0, "nothing is published");
 
   // A changed source date is a metadata change: the news source is republished, the policy source is not.
@@ -91,24 +100,54 @@ test("material of a policy source is stored, but never queued for news processin
   assert.deepEqual(await jobsFor(policy), []);
 });
 
-test("the safety-net sweep and the requeue of failures only take news material", async () => {
-  const policy = await articleIds(POLICY);
-  const news = await articleIds(NEWS);
-  await sql`DELETE FROM pgboss.job WHERE data->>'articleId' = ANY(${[...policy, ...news]})`;
-  // Old enough for the sweep, and not held by any queue.
-  await sql`UPDATE articles SET created_at = now() - interval '1 hour', processing_queued_at = NULL WHERE id = ANY(${[...policy, ...news]})`;
+test("the safety-net sweep and the alerts about new content count news material only", async () => {
+  process.env.COLLECT_ENABLED = "true";
+  process.env.MODEL_CALLS_ENABLED = "true";
+  await sql`DELETE FROM settings WHERE key = 'heartbeat.worker'`;
+  const findings = async () => (await collectFindings()).map((f) => f.key);
+  // Twenty documents of each line written three hours ago that no queue took (a crash between the write and the enqueue).
+  const waiting = async (sourceId: string) => {
+    const ids: string[] = [];
+    for (let i = 0; i < 20; i++)
+      ids.push(
+        (
+          await upsertMaterial({
+            sourceId,
+            url: `${base}/${sourceId}/w/${i}`,
+            title: `等待 ${i} ${T}`,
+            language: "zh-CN",
+            bodyStatus: "none",
+            via: "fetch",
+          } as never)
+        ).articleId,
+      );
+    await sql`UPDATE articles SET created_at = now() - interval '3 hours', discovered_at = now() - interval '3 hours',
+      processing_state = 'new', processing_queued_at = NULL WHERE id = ANY(${ids})`;
+    return ids;
+  };
+  const policy = await waiting(POLICY);
   await sweepUnprocessed();
-  assert.deepEqual(await jobsFor(policy), [], "the sweep leaves policy material alone");
-  assert.equal((await jobsFor(news)).length, 2, "the sweep requeues waiting news material");
+  assert.deepEqual(await jobsFor(policy), [], "the sweep queues no news step for policy material");
+  assert.deepEqual(new Set(await states(policy)), new Set(["skipped"]), "it settles the policy material as skipped instead");
+  assert.ok(!(await findings()).includes("content.process"), "settled policy material is not new content stuck");
+  const news = await waiting(NEWS);
+  assert.ok((await findings()).includes("content.process"), "the same backlog on the news line is reported as before");
+  await sweepUnprocessed();
+  assert.equal((await jobsFor(news)).length, 20, "the sweep requeues waiting news material");
 
-  await sql`DELETE FROM pgboss.job WHERE data->>'articleId' = ANY(${[...policy, ...news]})`;
-  await sql`UPDATE articles SET processing_state = 'failed', processing_error = 'synthetic failure' WHERE id = ANY(${[policy[0]!, news[0]!]})`;
-  await requeueFailed(null);
-  const state = async (id: string) => (await sql<{ processing_state: string }[]>`SELECT processing_state FROM articles WHERE id = ${id}`)[0]!.processing_state;
-  assert.equal(await state(policy[0]!), "failed", "a failed policy material is not put back into news processing");
-  assert.equal(await state(news[0]!), "new");
-  assert.deepEqual(await jobsFor([policy[0]!]), []);
-  assert.equal((await jobsFor([news[0]!])).length, 1);
+  // News collection that stopped is reported even while a policy source keeps bringing documents.
+  await sql`UPDATE articles SET discovered_at = now() - interval '7 hours' WHERE source_id = ${NEWS}`;
+  await sql`UPDATE articles SET discovered_at = now() WHERE id = ${policy[0]!}`;
+  assert.ok((await findings()).includes("content.collect"), "policy documents do not hide a stalled news line");
+});
+
+test("the about page counts news sources only", async () => {
+  const enabled = async (lane: string) => (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM sources WHERE enabled AND lane = ${lane}`)[0]!.n;
+  assert.ok((await enabled("policy")) >= 1, "the policy source is enabled");
+  const stats = await loadSiteStats();
+  assert.equal(stats.sources, await enabled("news"), "the reader sees the news sources, not documents it cannot read yet");
+  const [webList] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM sources WHERE enabled AND lane = 'news' AND kind = 'web_list'`;
+  assert.equal(stats.sourceKinds.web_list ?? 0, webList!.n);
 });
 
 test("interval tuning and the heat clocks only count news sources", async () => {
