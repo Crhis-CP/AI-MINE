@@ -19,7 +19,7 @@ const REPEAT_MS: Record<Exclude<Level, "digest">, number> = { now: 3600_000, tod
 
 const collecting = () => process.env.COLLECT_ENABLED !== "false";
 const modelsOn = () => process.env.MODEL_CALLS_ENABLED !== "false";
-/** How long the site may go without a new article before it counts as stalled (small source lists are quieter). */
+/** First-discovery silence warrants a check; it does not by itself prove collection or publication stopped. */
 const QUIET_MS = Number(process.env.ALERT_QUIET_MINUTES || 360) * 60_000;
 /** Where the metal price item sends the reader (TASK-0071); TASK-0076 adds its check script after it. */
 const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录";
@@ -27,25 +27,28 @@ const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录";
 const clip = (text: string) => [...text].slice(0, 200).join("");
 
 /** Everything wrong right now, with its level. */
-export async function collectFindings(now = Date.now()): Promise<Finding[]> {
+export async function collectFindings(now = Date.now(), observeIntake?: (lastDiscoveredAt: Date | null) => void): Promise<Finding[]> {
   const out: Finding[] = [];
 
   // ---- Readers affected now ----------------------------------------------------------------------
-  // Content flow, judged by outcome: whatever broke (worker, egress proxy, models, queues), readers see
-  // a site that stops changing. Skipped for 20 minutes after the worker starts, and where the valves are off.
+  // First discoveries are distinct from successful fetches and public updates. Reuse this same read
+  // for recovery; a disabled or warming-up check supplies no evidence that intake recovered.
   const [hb] = await sql<{ value: { startedAt?: string } }[]>`SELECT value FROM settings WHERE key = 'heartbeat.worker'`;
   const settled = !hb?.value.startedAt || now - Date.parse(hb.value.startedAt) > 20 * 60_000;
   if (settled && collecting()) {
     const [last] = await sql<{ at: Date | null }[]>`SELECT max(discovered_at) AS at FROM articles WHERE discovered_at > ${new Date(now - 4 * QUIET_MS)}`;
     const [anySource] = await sql`SELECT 1 FROM sources WHERE enabled LIMIT 1`;
+    if (anySource) observeIntake?.(last?.at ?? null);
     if (anySource && (!last?.at || now - last.at.getTime() > QUIET_MS)) {
       out.push({
         key: "content.collect",
         level: "now",
-        title: "网站停止收录新内容",
-        impact: last?.at ? `最后一篇新文章收录于 ${beijingStamp(last.at)}，之后网站不会出现新内容` : "很久没有收录任何新文章",
-        heals: "没有",
-        action: "转给 AI 立即处理",
+        title: "新文章入库长时间无新增",
+        impact: last?.at
+          ? `最近一次新文章入库于 ${beijingStamp(last.at)}；采集或公开是否异常仍需核查`
+          : "检查窗口内没有新文章首次入库记录；采集或公开是否异常仍需核查",
+        heals: "尚不能判断，需核对采集及处理记录",
+        action: "转给 AI 核查采集、处理与公开记录",
         detail: `articles.discovered_at 超过 ${Math.round(QUIET_MS / 60_000)} 分钟没有新值（ALERT_QUIET_MINUTES）；查 sources.schedule、出网代理与采集失败`,
         since: last?.at ?? undefined,
       });
@@ -277,7 +280,12 @@ interface AlertState {
 
 /** Every 10 minutes: new problems and recoveries of the now/today levels go out; digest items wait for 09:00. */
 export async function checkAlerts(now = Date.now()) {
-  const found = (await collectFindings(now)).filter((f) => f.level !== "digest");
+  const intake: { at?: Date | null } = {};
+  const found = (
+    await collectFindings(now, (at) => {
+      intake.at = at;
+    })
+  ).filter((f) => f.level !== "digest");
   const [row] = await sql<{ value: AlertState }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
   const state: AlertState = { ...(row?.value ?? {}) };
   const sent: string[] = [];
@@ -295,7 +303,10 @@ export async function checkAlerts(now = Date.now()) {
     if (found.some((f) => f.key === key)) continue;
     // Entries without a level predate this scheme (2026-09-29) and close without a message.
     if (state[key]!.level) {
-      const msg = formatRecovery(state[key]!.title, new Date(state[key]!.since), now);
+      // A missing finding may mean collection was paused or the worker is warming up. Keep this
+      // incident open until a real discovery advances; never replay its legacy outage title.
+      if (key === "content.collect" && !(intake.at && intake.at.getTime() > Date.parse(state[key]!.since) && intake.at.getTime() <= now)) continue;
+      const msg = formatRecovery(key === "content.collect" ? "新文章入库" : state[key]!.title, new Date(state[key]!.since), now);
       await sendAlert(msg.title, msg.lines);
       sent.push(`${key}:recovered`);
     }
