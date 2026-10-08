@@ -110,7 +110,10 @@ export async function sendAlert(title: string, lines: string[]): Promise<"sent" 
     return "disabled";
   }
   const chat = credential("integrations", "FEISHU_ALERT_CHAT_ID") ?? credential("integrations", "FEISHU_INTERNAL_CHAT_ID");
-  if (!chat) return "disabled";
+  if (!chat) {
+    console.log(JSON.stringify({ level: "warn", msg: "alert (not sent: no FEISHU_ALERT_CHAT_ID or FEISHU_INTERNAL_CHAT_ID)", title, lines }));
+    return "disabled";
+  }
   await sendToChat(chat, "text", { text });
   return "sent";
 }

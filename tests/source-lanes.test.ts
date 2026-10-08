@@ -11,7 +11,7 @@ import { closeDb, dbOf } from "@amp/backend/db";
 import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { queueProcessing, sweepUnprocessed } from "@amp/backend/jobs/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { collectFindings } from "@amp/backend/operations/alerts";
+import { checkAlerts, collectFindings } from "@amp/backend/operations/alerts";
 import { loadSiteStats } from "@amp/backend/site/stats";
 import { adaptIntervals, collectSource } from "@amp/backend/sources/collect";
 import { sourceClocks } from "@amp/backend/events/hot";
@@ -135,10 +135,27 @@ test("the safety-net sweep and the alerts about new content count news material 
   await sweepUnprocessed();
   assert.equal((await jobsFor(news)).length, 20, "the sweep requeues waiting news material");
 
-  // News collection that stopped is reported even while a policy source keeps bringing documents.
+  // News first-discovery silence is reported even while a policy source keeps bringing documents.
   await sql`UPDATE articles SET discovered_at = now() - interval '7 hours' WHERE source_id = ${NEWS}`;
   await sql`UPDATE articles SET discovered_at = now() WHERE id = ${policy[0]!}`;
-  assert.ok((await findings()).includes("content.collect"), "policy documents do not hide a stalled news line");
+  assert.ok((await findings()).includes("content.collect"), "policy documents do not hide a quiet news line");
+});
+
+test("news intake recovery requires a new news arrival, not a new policy document", async () => {
+  process.env.COLLECT_ENABLED = "true";
+  await sql`DELETE FROM settings WHERE key IN ('heartbeat.worker', 'alerts.state')`;
+  await sql`UPDATE articles SET discovered_at = now() - interval '7 hours' WHERE source_id = ${NEWS}`;
+  const now = Date.now();
+  const opened = await checkAlerts(now);
+  assert.ok(opened.open.includes("content.collect"));
+  await sql`UPDATE articles SET discovered_at = now() WHERE source_id = ${POLICY}`;
+  const stillQuiet = await checkAlerts(now + 60_000);
+  assert.ok(stillQuiet.open.includes("content.collect"));
+  assert.ok(!stillQuiet.sent.includes("content.collect:recovered"));
+  await sql`UPDATE articles SET discovered_at = now() WHERE source_id = ${NEWS}`;
+  const recovered = await checkAlerts(now + 120_000);
+  assert.ok(recovered.sent.includes("content.collect:recovered"));
+  assert.ok(!recovered.open.includes("content.collect"));
 });
 
 test("the about page counts news sources only", async () => {

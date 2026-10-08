@@ -63,9 +63,9 @@ const RFC =
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const DECLARED: Record<string, [string, "ymd" | "dmy" | "mdy"]> = {
-  "YYYY-MM-DD": ["(\\d{4})-(\\d{2})-(\\d{2})", "ymd"],
-  "YYYY/MM/DD": ["(\\d{4})/(\\d{2})/(\\d{2})", "ymd"],
-  "YYYY.MM.DD": ["(\\d{4})\\.(\\d{2})\\.(\\d{2})", "ymd"],
+  "YYYY-MM-DD": ["(\\d{4})-(\\d{1,2})-(\\d{1,2})", "ymd"],
+  "YYYY/MM/DD": ["(\\d{4})/(\\d{1,2})/(\\d{1,2})", "ymd"],
+  "YYYY.MM.DD": ["(\\d{4})\\.(\\d{1,2})\\.(\\d{1,2})", "ymd"],
   YYYYMMDD: ["(\\d{4})(\\d{2})(\\d{2})", "ymd"],
   YYYY年M月D日: ["(\\d{4})年(\\d{1,2})月(\\d{1,2})日", "ymd"],
   "DD/MM/YYYY": ["(\\d{2})/(\\d{2})/(\\d{4})", "dmy"],
@@ -145,6 +145,25 @@ function declared(raw: string, pattern: string | null, language: string | null):
   return { day: entry[1] === "ymd" ? dayOf(a, b, c) : entry[1] === "dmy" ? dayOf(c, b, a) : dayOf(c, a, b), clock: clock ?? null };
 }
 
+// No declared format, neither ISO nor RFC: the first year-month-day in the text, as the upstream reads it
+// (parseLooseDate in published-at.ts), but with both separators alike and a time only after one space; a zone right
+// after that time makes it the exact instant (the upstream also drops a zone inside Chinese text; not followed here).
+const LOOSE = /((\d{4})(?:([-/.])(\d{1,2})\3(\d{1,2})|年(\d{1,2})月(\d{1,2})日))(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?/;
+const LOOSE_FORMATS: Record<string, string> = { "-": "YYYY-MM-DD", "/": "YYYY/MM/DD", ".": "YYYY.MM.DD" };
+// The zone right after that time: Z, ±hh:mm, ±hhmm, or GMT/UTC with an offset after it (a space between allowed) or none ("GMT+8", "GMT +0800", "UTC+08:00").
+const LOOSE_ZONE = /^(?:\.\d+)?\s*(?:(Z|[+-]\d{2}:?\d{2})|(?:GMT|UTC)(?:\s*([+-])(\d{1,2})(?::?(\d{2}))?)?)\b/i;
+function loose(value: string): { raw: string; pattern: string; fields: Fields } | null {
+  const m = LOOSE.exec(value);
+  if (!m) return null;
+  const [found, , year, separator, month, day, cnMonth, cnDay, hour, minute, second] = m;
+  const zone = hour ? LOOSE_ZONE.exec(value.slice(m.index + found.length)) : null;
+  const clock = hour ? `${hour.padStart(2, "0")}:${minute}${second ? `:${second}` : ""}` : null;
+  const pattern = `${separator ? LOOSE_FORMATS[separator] : "YYYY年M月D日"}${clock ? (second ? " HH:mm:ss" : " HH:mm") : ""}${zone ? " Z" : ""}`;
+  const offset = !zone ? undefined : (zone[1] ?? (zone[2] ? `${zone[2]}${zone[3]!.padStart(2, "0")}:${zone[4] ?? "00"}` : "UTC"));
+  const fields = { day: dayOf(year!, (month ?? cnMonth)!, (day ?? cnDay)!), clock, offset };
+  return { raw: zone ? found + zone[0] : found, pattern, fields };
+}
+
 type UnboundInput = Omit<SourceDateParseInput, "binding">;
 type UnboundResult = { reason: SourceDateParseResult["reason"]; evidence: Omit<SourceDateParseResult["evidence"], "binding"> };
 
@@ -170,7 +189,12 @@ function parseRawDate(source: UnboundInput, validate: (value: UnboundResult) => 
     if (/(?:\bago\b|\byesterday\b|\bhace\b|昨天|前天|\d+\s*(?:分钟|小时|天)前)/i.test(value)) return unknown("relative_without_anchor");
     const iso = ISO.exec(value),
       rfc = RFC.exec(value);
-    if (context.format === "unknown")
+    const found = context.format === "unknown" && !iso && !rfc ? loose(value) : null;
+    if (found) {
+      context.format = "declared";
+      context.formatPattern = found.pattern;
+      context.language = "und";
+    } else if (context.format === "unknown")
       context.format = iso ? "iso8601" : rfc ? "rfc2822" : reject(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value) ? "ambiguous_format" : "unrecognized_format");
     let fields: Fields,
       utc: string | null = null,
@@ -180,7 +204,7 @@ function parseRawDate(source: UnboundInput, validate: (value: UnboundResult) => 
       utc = epoch(value, context.format === "epoch_milliseconds");
       fields = { day: utc.slice(0, 10), clock: utc.slice(11, -1) };
       instantBasis = "explicit";
-    } else if (context.format === "declared") fields = declared(value, context.formatPattern, context.language);
+    } else if (context.format === "declared") fields = found?.fields ?? declared(value, context.formatPattern, context.language);
     else if (context.format === "iso8601") {
       if (!iso) reject("unrecognized_format");
       fields = { day: iso[1], clock: iso[2] ?? null, offset: iso[3] };
@@ -208,7 +232,8 @@ function parseRawDate(source: UnboundInput, validate: (value: UnboundResult) => 
     }
     const time = normalizeSourceTime(
       {
-        raw,
+        // A date found inside other text keeps only the part read, which the excerpt contains.
+        raw: found && found.raw !== value ? found.raw : raw,
         meaning,
         basis,
         condition_text,
