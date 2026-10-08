@@ -283,7 +283,11 @@ test("RSS intake preserves its raw source date and supplements an unchanged body
   assert.deepEqual((({ status, created, revised }) => ({ status, created, revised }))(await collectSource(id)), { status: "ok", created: 0, revised: 0 });
   const dated = await state();
   assert.ok(dated.processing_queued_at instanceof Date, "the declared Chinese material actually entered the processing queue");
-  assert.deepEqual([dated.revision, Number(dated.source_date_version), dated.published_at, dated.result.evidence.time.raw], [1, 2, null, date]);
+  // A date printed alone is the start of that day in Beijing, as for web lists (TASK-0055).
+  assert.deepEqual(
+    [dated.revision, Number(dated.source_date_version), dated.published_at, dated.result.evidence.time.raw],
+    [1, 2, new Date("2026-09-30T16:00:00.000Z"), date],
+  );
   assert.equal((await collectSource(id)).status, "ok");
   const repeated = await state();
   assert.equal(Number(repeated.source_date_version), 2);

@@ -24,11 +24,13 @@ const T = tag();
 const LIST = `test-dayonly-${T}`;
 const DETAIL = `test-dayonly-detail-${T}`;
 const TIMED = `test-dayonly-timed-${T}`;
+const LOOSE = `test-dayonly-loose-${T}`;
 const DAY = 86_400_000;
 const today = beijingDate(new Date());
 const daysAgo = (n: number) => beijingDate(new Date(Date.parse(`${today}T12:00:00+08:00`) - n * DAY));
 const beijingMidnight = (day: string) => new Date(`${day}T00:00:00+08:00`).toISOString();
 const slashed = (day: string) => day.replaceAll("-", "/");
+const unpadded = (day: string) => day.split("-").map(Number).join("/");
 const BODY = "合成的矿业资讯正文，用于检验只写日期的来源在时间线上的位置，内容足够长。";
 
 let entries: Array<{ slug: string; title: string; day: string }> = [];
@@ -38,6 +40,8 @@ const server = http.createServer((req, res) => {
   if (url === "/list") return res.end(`<ul>${entries.map((e) => `<li><a href="/a/${e.slug}">${e.title}</a><span>${e.day}</span></li>`).join("")}</ul>`);
   if (url === "/dlist") return res.end(`<ul>${entries.map((e) => `<li><a href="/a/${e.slug}">${e.title}</a></li>`).join("")}</ul>`);
   if (url === "/tlist") return res.end(`<ul>${entries.map((e) => `<li><a href="/a/${e.slug}">${e.title}</a><span>${e.day} 10:30</span></li>`).join("")}</ul>`);
+  if (url === "/llist")
+    return res.end(`<ul>${entries.map((e) => `<li><a href="/a/${e.slug}">${e.title}</a><span>${unpadded(e.day)}</span></li>`).join("")}</ul>`);
   const e = entries.find((x) => url === `/a/${x.slug}`);
   res.end(`<html><body><h1>${e?.title ?? ""}</h1><p>${BODY}</p><span class="pub">${e ? slashed(e.day) : ""}</span></body></html>`);
 });
@@ -57,8 +61,10 @@ before(async () => {
       'T1', 'editorial', true, '2100-01-01'),
     (${DETAIL}, '日期只在详情页', 'web_list', ${sql.json({ ...listing, url: `${base}/dlist`, detail })}, 'T1', 'editorial', true, '2100-01-01'),
     (${TIMED}, '有时分没时区', 'web_list', ${sql.json({ ...listing, url: `${base}/tlist`, publishedAtRegex: "<span>(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2})</span>" })},
+      'T1', 'editorial', true, '2100-01-01'),
+    (${LOOSE}, '不补零也不声明格式', 'web_list', ${sql.json({ ...listing, url: `${base}/llist`, publishedAtRegex: "<span>(\\d{4}/\\d{1,2}/\\d{1,2})</span>" })},
       'T1', 'editorial', true, '2100-01-01')`;
-  for (const id of [LIST, DETAIL, TIMED]) await grantDateFixture(id, [base]);
+  for (const id of [LIST, DETAIL, TIMED, LOOSE]) await grantDateFixture(id, [base]);
 });
 after(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -125,6 +131,21 @@ test("a time of day without a declared zone keeps that time, read in Beijing, th
   const tenThirty = new Date(`${daysAgo(5)}T10:30:00+08:00`).toISOString();
   assert.equal(r.published_at?.toISOString(), tenThirty, "10:30 in Beijing, not the day's start");
   assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [tenThirty, "first-import"]);
+});
+
+test("a list that writes 2026/8/5, without leading zeros or a declared format, is read the same way (TASK-0055)", async () => {
+  // The 5th, two months back, so the day is always written without its zero.
+  const day = `${daysAgo(60).slice(0, 7)}-05`;
+  entries = [{ slug: "loose-old", title: `不补零两个月前 ${T}`, day }];
+  await collect(LOOSE);
+  const r = await row(`不补零两个月前 ${T}`);
+  assert.deepEqual(
+    [r.published_at?.toISOString(), r.timeline_at.toISOString(), r.backfill_reason],
+    [beijingMidnight(day), beijingMidnight(day), "first-import"],
+    "the start of that day in Beijing, on its own day",
+  );
+  const todays = ours((await pool()).items.filter((i) => beijingDate(i.timelineAt) === today));
+  assert.ok(!todays.includes(`不补零两个月前 ${T}`), todays.join(", "));
 });
 
 test("the correction script lists by default, writes only with --apply, refuses unknown arguments, and keeps a manual withdrawal", async () => {
