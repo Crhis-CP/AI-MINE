@@ -7,6 +7,7 @@ import { identityKeyForUrl } from "../lib/url.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
+import { feedPublishedAt } from "./published-at.ts";
 
 const parserOptions = {
   ignoreAttributes: false,
@@ -137,10 +138,10 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
   const headers: Record<string, string> = { accept: "application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.8" };
   if (previous?.etag) headers["if-none-match"] = previous.etag;
   if (previous?.lastModified) headers["if-modified-since"] = previous.lastModified;
-  let res = await guardedFetch(url, { headers, timeoutMs: 25_000 });
+  let res = await guardedFetch(url, { headers, timeoutMs: 25_000, retryDropped: true });
   // A redirect may have changed destinations, whose ETag namespace is unrelated to the old one.
   if (res.status === 304 && previous && res.url !== previous.responseUrl) {
-    res = await guardedFetch(url, { headers: { accept: headers.accept! }, timeoutMs: 25_000 });
+    res = await guardedFetch(url, { headers: { accept: headers.accept! }, timeoutMs: 25_000, retryDropped: true });
   }
   const validator: RssValidator = {
     configHash,
@@ -197,7 +198,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
         ...identity(link),
         title,
         author: text(it["dc:creator"]) || text(it.author) || null,
-        publishedAt: time?.utc ? new Date(time.utc) : null,
+        publishedAt: feedPublishedAt(time, sourceDateObservation.raw),
         sourceDateObservation,
         ...feedText(bodyHtml, description, source),
         media: media.slice(0, 6),
@@ -228,7 +229,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
         ...identity(entryUrl),
         title,
         author: text(arr(e.author)[0]?.name) || null,
-        publishedAt: time?.utc ? new Date(time.utc) : null,
+        publishedAt: feedPublishedAt(time, sourceDateObservation.raw),
         sourceDateObservation,
         sourceUpdatedAt: parseDate(text(e.updated)),
         ...feedText(bodyHtml, summary, source),

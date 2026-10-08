@@ -52,7 +52,7 @@
 |---|---|---|---|---|
 | `contracts`（架构 Agent） | `packages/contracts/**`（公共类型除外，见 3.2）、`packages/api-client/`（生成）、`tooling/` | — | 产品 F-ID 与状态机基线 | schema、负例、示例回放、消费者 mock、漂移检查 |
 | `web` | `apps/web` 公开路由组与 `app/features/**`、`packages/ui/**` | — | 核心 DTO 与 mock | mock 下的 E2E、可访问性、无数据库/模型导入 |
-| `private` | `apps/web` 私有路由组与 `app/private/**`、`packages/platform/identity`、`packages/domains/feedback` | identity、feedback | 私有契约（`01-product/04-private-operations.md` 第 7.2 节） | 权限、会话、审计与业务变更同事务、公开主机名访问私有路径 404 且无 `Set-Cookie`；**不阻塞公开站** |
+| `private` | `apps/web` 私有路由组与 `app/private/**`、`packages/platform/identity`、`packages/domains/feedback` | identity、feedback | 私有契约（`01-product/04-private-operations.md` 第 7.2 节） | 权限、会话、审计与业务变更同事务、主域名以外的主机名访问私有路径 404 且无 `Set-Cookie`；私有路径需登录且不缓存（ADR-0026）；**不阻塞公开站** |
 | `sources` | `packages/domains/sources`、`packages/domains/acquisition`、`apps/fetcher` | sources、acquisition | `ProcessingPermit` 类型、`FetchPort` | 来源夹具、SSRF/分页/权限矩阵、单源失败隔离、同一信源两条线独立启停 |
 | `content` | `packages/domains/content`、`packages/platform/storage` | content | 材料修订与正文协议 | 长文/表格/脚注/图片保真、续译、对象生命周期、许可范围执行 |
 | `news`（资讯加工） | `packages/domains/enrichment`、`entities`、`events` | enrichment、entities、events | `material.*` 事件与查询契约 | 预筛/中文/事件评测集、误合并率、人工锁 |

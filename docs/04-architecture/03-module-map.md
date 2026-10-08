@@ -67,7 +67,7 @@ AI 能力单元的模块归属以 `02-rules/03-ai-capabilities.md` 第 2 节为�
 | 包 | 职责 | 规格域 |
 |---|---|---|
 | `platform/identity` | 具名账号（只用密码，DEC-05）、服务端会话、负责人/管理员两类人类角色 + 能力、服务身份（worker、只读 MCP）、审计写入（接受调用方事务句柄，与业务变更同事务） | F-IAM |
-| `platform/ops` | 告警推送（飞书群机器人 Webhook 为主，邮件为备；含用量提示、熔断前的用量预警（70%）、异常熔断触发与每月用量报告的推送）、心跳、按 lane 指标计算、备份状态、运行记录汇总；数据保留由各模块自己的定时任务执行，ops 只调度与汇总，不直接删他模块数据 | F-OPS |
+| `platform/ops` | 告警推送（飞书自建应用，照上游，只发飞书；含用量提示、熔断前的用量预警（70%）、异常熔断触发、按服务的调用次数上限触达时的自动暂停、每周用量与每月用量报告的推送）、心跳、按 lane 指标计算、备份状态、运行记录汇总；数据保留由各模块自己的定时任务执行，ops 只调度与汇总，不直接删他模块数据 | F-OPS |
 | `platform/queue` | pg-boss 适配、`<lane>.<stage>` 队列与份额调度、outbox 分发器、inbox 去重、长任务执行记录（租约、检查点） | — |
 | `platform/storage` | 对象存储端口：S3 兼容（首选腾讯云 COS）与本地目录两实现；暂存前缀；临时签名 URL 只在内存生成、不入库 | — |
 | `platform/config` | 按进程角色的配置 schema 与启动校验；密钥文件读取（只读挂载，配置只放路径）；按角色的数据库连接 `dbFor(role)`（`public_read`、`feedback_write`、`private_ops`、`auth`、`worker`、`migrate`；备份作业另有专用只读 `backup` 登录，不经模块注入；web、fetcher 没有数据库登录） | — |
@@ -243,9 +243,9 @@ packages/domains/<name>/
 
 | 进程 | 加载的模块代码 | 对外 |
 |---|---|---|
-| `web` | 不加载任何业务模块或平台包 | 公开域名：读者站页面；私有主机名：私有路由组（六组私有页面） |
+| `web` | 不加载任何业务模块或平台包 | 主域名：读者站页面与 `/admin` 私有路由组（六组私有页面；`PRIVATE_HOST` 生产即主域名，ADR-0026） |
 | `public-api` | 各模块 `publicRoutes` + 其依赖 | 公开域名下的 `/api/v3`、`/feed`、`/mcp`、`/llms.txt`、`/sitemap`（`/api/` 下不存在的路径，含旧站的 `/api/v1`、`/api/v2`，统一返回错误体 `not_found`，不做兼容）；只读 GET 与反馈提交 |
-| `private-api` | 各模块与 `platform/identity`、`platform/ops` 的 `privateRoutes` + 其依赖 | 私有主机名下的 `/api/admin/*`（全部需会话与防伪令牌；`03-data/contracts/interface-behavior.md` §2.1）与只读 MCP `/mcp-ops`（服务身份） |
+| `private-api` | 各模块与 `platform/identity`、`platform/ops` 的 `privateRoutes` + 其依赖 | 主域名下的 `/api/admin/*`（ADR-0026）（全部需会话与防伪令牌；`03-data/contracts/interface-behavior.md` §2.1）与私网直连的只读 MCP `/mcp-ops`（服务身份；公开 Web 入口始终拒绝该路径，ADR-0026） |
 | `worker` | 各模块 `jobs` + 其依赖 | 无对外端口 |
 | `fetcher` | `@amp/acquisition/fetch-runtime` | 只在内部网络监听一个端点，供 worker 调用 |
 
@@ -367,7 +367,7 @@ M0 退出标准以路线图 `06-agents/02-roadmap-and-wbs.md` 为准：AIHOT 归
 | 旧ADR-0025 | 已审冷启动生产桥 | 仅教训：零可发布时失败关闭；无上一版本时公开入口保持关闭 | 旧ADR-0027、0037 | PIT-044、INV-09、ADR-0012 第 3 条 |
 | 旧ADR-0026 | 多人生产控制面信任边界 | 已被取代 | 旧ADR-0031 → 0037 | ADR-0018 |
 | 旧ADR-0027 | 公共 Web 先上线 | 仍有效（合法空站、单源失败只影响该源、24 小时观察从首次公开启用后开始） | — | INV-09、PIT-044、ADR-0004 第 6 条 |
-| 旧ADR-0028 | 公共 Web 最小权限 | 仍有效（公开只读库角色；公开域名对私有路径 404 并剥离 `Set-Cookie`） | — | ADR-0018 第 4 条、目标架构 §9、INV-25 |
+| 旧ADR-0028 | 公共 Web 最小权限 | 仍有效（公开只读库角色；主域名以外的主机名访问私有路径 404 并剥离 `Set-Cookie`，ADR-0026） | — | ADR-0018 第 4 条、目标架构 §9、INV-25 |
 | 旧ADR-0029 | 321 条观察的生产化处理台账 | 仍有效（台账状态机；媒体不因类型被拒；社交与未核实转载只作线索）；数字是 2026-08-27 快照 | — | F-SRC-06、BR-SRC-09、BR-SRC-10、目标架构 §4.1 |
 | 旧ADR-0030 | P4 获取与内容处理边界 | 仍有效（四层权限独立）；对经审定来源的公开口径已放宽；2026-10-01 起按 Owner 声明许可建档、逐源收紧（DEC-33） | 旧ADR-0031–0033（放宽部分） | ADR-0009 |
 | 旧ADR-0031 | 自动情报发布与独立管理 | 部分有效：自动公开、先预留、未知不重发、下架持久有效（月度 100 元硬限/80 元提醒已被 Owner 2026-10-01 的“预算无上限，但是不要浪费”取代，DEC-08）；**password-only 具名账号（负责人/管理员）与首个账号服务端一次性开通沿用**（Owner 2026-09-06，DEC-05、DEC-43）；独立 admin 应用与运营台页面被取消 | 旧ADR-0037 | ADR-0006、ADR-0011、ADR-0018、`06-security-and-access.md` 第 3 节、`02-rules/05-cost-and-budget.md` |

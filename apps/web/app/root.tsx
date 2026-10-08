@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import { titled } from "./lib/seo";
 import { SITE } from "@amp/industry/site";
 import { isRouteErrorResponse, Link, Links, Meta, Outlet, Scripts, ScrollRestoration, useRouteError } from "react-router";
@@ -5,6 +6,7 @@ import type { Route } from "./+types/root";
 import "./group.css";
 import { Wordmark } from "./components/Logo";
 import { buttonClass } from "./components/ui/Controls";
+import { NonceContext } from "./lib/csp";
 import { THEME_BOOT_SCRIPT } from "./lib/local-state";
 import { useHydratedFlag } from "./lib/hydration";
 
@@ -24,7 +26,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf9f6" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#13191c" />
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script nonce={useContext(NonceContext)} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         <Meta />
         <Links />
       </head>
