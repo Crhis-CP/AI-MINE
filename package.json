@@ -31,7 +31,7 @@
     "@amp/contracts": "workspace:*",
     "@axe-core/playwright": "4.13.0",
     "@biomejs/biome": "2.5.15",
-    "@modelcontextprotocol/client": "2.1.0",
+    "@modelcontextprotocol/client": "2.2.0",
     "@playwright/test": "1.63.0",
     "@types/node": "24.19.0",
     "@types/sanitize-html": "2.16.1",
