@@ -300,7 +300,19 @@
     "publication.metal_prices": {
       "module": "publication",
       "access": "business",
-      "publicColumns": [],
+      "publicColumns": [
+        "series_key",
+        "currency",
+        "unit",
+        "period_start",
+        "period_end",
+        "period_label",
+        "value",
+        "release_label",
+        "release_url",
+        "released_on",
+        "first_fetched_at"
+      ],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
