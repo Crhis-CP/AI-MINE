@@ -261,7 +261,7 @@ if (process.argv.includes("--routes")) {
   });
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [
-      ["public", ["/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
+      ["public", ["/api/site/metal-prices", "/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
       [
         "private",
         ["/api/admin/receipts/{id}/release", "/api/admin/runs", "/api/admin/sources", "/api/admin/sources/{id}", "/api/auth/options"],

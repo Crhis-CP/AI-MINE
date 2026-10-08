@@ -1,4 +1,20 @@
 export interface paths {
+  "/api/site/metal-prices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["siteMetalPrices"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/site/pool": {
     parameters: {
       query?: never;
@@ -154,6 +170,170 @@ export interface components {
       title: string;
       /** @enum {string} */
       trend: "up" | "down" | "flat" | "new" | "unknown";
+    };
+    MetalPrices: {
+      /** Format: date-time */
+      generatedAt: string;
+      intro: string;
+      latest: {
+        extras: {
+          label: string;
+          metals: string[];
+          stale: boolean;
+        }[];
+        label: string | null;
+        stale: boolean;
+        tag: string;
+      }[];
+      metals: {
+        key: string;
+        name: string;
+        quotes: {
+          change: {
+            percent: string;
+            previous: {
+              period: {
+                /** Format: date */
+                end: string;
+                label: string;
+                /** Format: date */
+                start: string;
+              };
+              value: string;
+            };
+          } | null;
+          /** @enum {string} */
+          currency: "CNY" | "USD";
+          decimals: number | null;
+          footnote: number | null;
+          key: string;
+          period: {
+            /** Format: date */
+            end: string;
+            label: string;
+            /** Format: date */
+            start: string;
+          } | null;
+          source: string;
+          spec: string | null;
+          title: string;
+          unit: string;
+          value: string | null;
+        }[];
+      }[];
+      notes: {
+        link: {
+          name: string;
+          /** Format: uri */
+          url: string;
+        } | null;
+        ref: number | null;
+        text: string;
+      }[];
+      officialLinks: {
+        name: string;
+        note: string;
+        /** Format: uri */
+        url: string;
+      }[];
+      sources: {
+        key: string;
+        latest: {
+          label: string;
+          release: {
+            date: string | null;
+            label: string;
+            /** Format: uri */
+            url: string;
+          };
+        } | null;
+        name: string;
+        /** @enum {string} */
+        status: "fresh" | "stale" | "empty";
+        tag: string;
+      }[];
+    };
+    MetalPricesInput: {
+      /** Format: date-time */
+      generatedAt: string;
+      intro: string;
+      latest: {
+        extras: {
+          label: string;
+          metals: string[];
+          stale: boolean;
+        }[];
+        label: string | null;
+        stale: boolean;
+        tag: string;
+      }[];
+      metals: {
+        key: string;
+        name: string;
+        quotes: {
+          change: {
+            percent: string;
+            previous: {
+              period: {
+                /** Format: date */
+                end: string;
+                label: string;
+                /** Format: date */
+                start: string;
+              };
+              value: string;
+            };
+          } | null;
+          /** @enum {string} */
+          currency: "CNY" | "USD";
+          decimals: number | null;
+          footnote: number | null;
+          key: string;
+          period: {
+            /** Format: date */
+            end: string;
+            label: string;
+            /** Format: date */
+            start: string;
+          } | null;
+          source: string;
+          spec: string | null;
+          title: string;
+          unit: string;
+          value: string | null;
+        }[];
+      }[];
+      notes: {
+        link: {
+          name: string;
+          /** Format: uri */
+          url: string;
+        } | null;
+        ref: number | null;
+        text: string;
+      }[];
+      officialLinks: {
+        name: string;
+        note: string;
+        /** Format: uri */
+        url: string;
+      }[];
+      sources: {
+        key: string;
+        latest: {
+          label: string;
+          release: {
+            date: string | null;
+            label: string;
+            /** Format: uri */
+            url: string;
+          };
+        } | null;
+        name: string;
+        /** @enum {string} */
+        status: "fresh" | "stale" | "empty";
+        tag: string;
+      }[];
     };
     PoolResponse: {
       filters: {
@@ -360,6 +540,42 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  siteMetalPrices: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MetalPrices"];
+        };
+      };
+      /** @description Default Response */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
   sitePool: {
     parameters: {
       query?: {
