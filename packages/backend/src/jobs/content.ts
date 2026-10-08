@@ -6,6 +6,7 @@
 // switched-off model calls only make it wait, without using up its attempts.
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
+import { sourceIdsOnLane } from "@amp/backend/admin/sources";
 import { config } from "../config.ts";
 import { dbOf, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
@@ -39,6 +40,8 @@ interface Route {
   signal: boolean;
   historical: boolean;
   language: string | null;
+  /** The source is on the news line; policy material never enters news processing. */
+  news: boolean;
 }
 
 /**
@@ -51,6 +54,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       body_status: string;
       language: string | null;
       participation_mode: string;
+      lane: string;
       kind: string;
       config: Record<string, unknown>;
       url: string;
@@ -60,7 +64,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       discovered_at: Date;
     }[]
   >`
-    SELECT a.body_status, a.language, s.participation_mode, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
+    SELECT a.body_status, a.language, s.participation_mode, s.lane, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
            a.backfill, a.published_at, a.discovered_at
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!row) return null;
@@ -69,7 +73,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const pending = row.body_status === "pending";
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
   const needsPage = !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
-  return { step: pending && needsPage ? "extract" : "analyze", signal, historical, language: normalizeSourceLanguage(row.language) };
+  return { step: pending && needsPage ? "extract" : "analyze", signal, historical, language: normalizeSourceLanguage(row.language), news: row.lane === "news" };
 }
 
 /**
@@ -87,7 +91,8 @@ const PRIORITY = { live: 0, liveSignal: -1, history: -2 } as const;
 export async function queueProcessing(articleId: string, opts: { step?: Step; attemptTag?: string; db?: Db } = {}): Promise<string | null> {
   const db = opts.db ?? sql;
   const r = await route(articleId, db);
-  if (!r) return null;
+  // Material of a policy source is stored, never processed as news (ADR-0016): no prefilter, scoring, grouping or publication.
+  if (!r?.news) return null;
   if (!r.language) {
     await unidentifiedLanguage(articleId, db);
     return null;
@@ -280,9 +285,11 @@ export async function registerExtractionJobs(boss: PgBoss) {
  * a lost job, a retry that came due). Articles already queued or running are left alone.
  */
 export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
+  // Policy material waits for the policy line, never for news processing (ADR-0016).
+  const policy = await sourceIdsOnLane("policy");
   const rows = await sql<{ id: string }[]>`
     SELECT id FROM articles
-    WHERE processing_state = 'new' AND created_at < now() - interval '3 minutes'
+    WHERE processing_state = 'new' AND created_at < now() - interval '3 minutes' AND NOT source_id = ANY(${policy}::text[])
       AND (processing_retry_at IS NULL OR processing_retry_at <= now())
       AND (processing_queued_at IS NULL OR processing_queued_at < now() - ${QUEUED_STALE}::interval)
     ORDER BY discovered_at DESC LIMIT 500`;
@@ -298,9 +305,10 @@ export const failureGroupSql = sql`regexp_replace(left(coalesce(processing_error
  * first ones are queued now; the safety net picks up the rest within minutes.
  */
 export async function requeueFailed(group: string | null): Promise<{ requeued: number }> {
+  const policy = await sourceIdsOnLane("policy");
   const rows = await sql<{ id: string }[]>`
     UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
-    WHERE processing_state = 'failed' AND discovered_at > now() - interval '30 days'
+    WHERE processing_state = 'failed' AND discovered_at > now() - interval '30 days' AND NOT source_id = ANY(${policy}::text[])
       AND (${group}::text IS NULL OR ${failureGroupSql} = ${group})
     RETURNING id`;
   for (const r of rows.slice(0, 500)) await queueProcessing(r.id);

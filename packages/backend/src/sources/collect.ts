@@ -64,7 +64,7 @@ export async function requireDateCollection(source: SourceRow, permissionVersion
     const result = await evaluateSourcePolicy({
       source_id: source.id,
       expected_permission_version: permissionVersion,
-      lane: "news",
+      lane: source.lane,
       capability,
       resource: { url, document_type: null, attachment: false },
     });
@@ -89,6 +89,7 @@ async function store(
   backfill: string | null,
   permissionVersion: number,
   declaredLanguage: string | null | undefined,
+  lane: SourceRow["lane"],
 ): Promise<{ created: number; revised: number }> {
   let created = 0;
   let revised = 0;
@@ -123,7 +124,8 @@ async function store(
     // Extraction first when the source wants full text and none came with the listing, else analysis.
     if (res.created || res.revised || res.sourceTimeChanged) await queueProcessing(res.articleId);
   }
-  if (metadataChanged) await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
+  // Republishing is a news step; policy material is never published as news (ADR-0016).
+  if (metadataChanged && lane === "news") await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId });
   return { created, revised };
 }
 
@@ -244,7 +246,7 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
     }
 
     const language = Object.hasOwn(source.config, "language") ? normalizeSourceLanguage(source.config.language) : undefined;
-    ({ created, revised } = await store(sourceId, candidates, firstImport ? "first-import" : null, permission.permission_version, language));
+    ({ created, revised } = await store(sourceId, candidates, firstImport ? "first-import" : null, permission.permission_version, language, source.lane));
 
     if (firstImport) nextCursor.initializedAt = new Date().toISOString();
     nextCursor.lastOkAt = new Date().toISOString();
@@ -297,7 +299,7 @@ export async function adaptIntervals(): Promise<{ updated: number }> {
   const rows = await sql<Array<Pick<SourceRow, "id" | "participation_mode"> & { paid_listing: boolean; per_day: number }>>`
     SELECT s.id, s.participation_mode, coalesce(s.config->>'url', '') LIKE 'https://r.jina.ai/%' AS paid_listing,
       (SELECT count(*) FROM articles a WHERE a.source_id = s.id AND a.discovered_at > now() - interval '7 days' AND NOT a.backfill) / 7.0 AS per_day
-    FROM sources s WHERE s.enabled AND s.kind IN ('rss', 'web_list', 'json_list')`;
+    FROM sources s WHERE s.enabled AND s.lane = 'news' AND s.kind IN ('rss', 'web_list', 'json_list')`;
   let updated = 0;
   for (const r of rows) {
     const perDay = Number(r.per_day);
