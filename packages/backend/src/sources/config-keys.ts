@@ -103,7 +103,7 @@ const NESTED: Record<string, string[]> = {
 };
 
 const VALUES: Record<string, string[]> = {
-  publishedAtField: ["pubDate", "published", "dc:date"],
+  publishedAtField: ["pubDate", "published", "dc:date", "updated"],
   parseMode: ["html", "markdown"],
 };
 
