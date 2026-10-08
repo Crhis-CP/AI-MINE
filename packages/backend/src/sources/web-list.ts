@@ -160,7 +160,11 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     });
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
-  const res = await guardedFetch(url, { headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8" }, timeoutMs: 25_000 });
+  const res = await guardedFetch(url, {
+    headers: { accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8" },
+    timeoutMs: 25_000,
+    retryDropped: true,
+  });
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
   const base = source.config.baseUrl ?? url;
   // Some listings are filled in by script from JSON that carries the list HTML (MOFCOM's page units
