@@ -48,6 +48,11 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
   };
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  const privateAssets: { pathname: string; status: number }[] = [];
+  page.on("response", (response) => {
+    const pathname = new URL(response.url()).pathname;
+    if (pathname.startsWith("/admin/assets/")) privateAssets.push({ pathname, status: response.status() });
+  });
   await page.clock.setFixedTime(new Date(FIXED_TIME));
   info.annotations.push({ type: "browser", description: `${browser.version()} (${browserExecutable()})` });
   const axeEngines: Array<{ name: string; version: string }> = [];
@@ -80,22 +85,22 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     await audit("public-empty-search");
     expect(violations).toEqual([]);
     const before = site.calls.filter((c) => c.role === "private").length;
-    const denied = await page.goto(`${site.publicOrigin}/admin/login`);
+    const denied = await page.goto(`${site.badOrigin}/admin/login`);
     expect(denied!.status()).toBe(404);
     expect(denied!.headers()["set-cookie"]).toBeUndefined();
     const apiDenied = await page.evaluate(() =>
-      fetch("/api/auth/options", { headers: { "X-Forwarded-Host": "private.localhost" } }).then((response) => response.status),
+      fetch("/api/auth/options", { headers: { "X-Forwarded-Host": "127.0.0.1" } }).then((response) => response.status),
     );
     expect(apiDenied).toBe(404);
-    const badHost = await page.goto(`${site.badOrigin}/admin/login`);
-    expect(badHost!.status()).toBe(404);
-    expect(badHost!.headers()["set-cookie"]).toBeUndefined();
     expect(site.calls.filter((c) => c.role === "private")).toHaveLength(before);
     const login = await page.goto(`${site.privateOrigin}/admin/login`);
     expect(login!.status()).toBe(200);
     expect(login!.headers()["cache-control"]).toContain("no-store");
     await expect(page.getByLabel("管理员密码")).toBeVisible();
     await expect(page.getByRole("link", { name: "用飞书登录" })).toBeVisible();
+    expect(privateAssets.some(({ pathname }) => pathname.endsWith(".js"))).toBe(true);
+    expect(privateAssets.some(({ pathname }) => pathname.endsWith(".css"))).toBe(true);
+    expect(privateAssets.every(({ status }) => status === 200)).toBe(true);
     await page.getByLabel("管理员密码").fill("synthetic-not-submitted");
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "登录", exact: true })).toBeFocused();

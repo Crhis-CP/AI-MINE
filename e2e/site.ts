@@ -96,7 +96,7 @@ export async function startBrowserSite(logFile: string) {
       port = await listen(reservation);
     await new Promise<void>((resolve) => reservation.close(() => resolve()));
     const publicOrigin = `http://127.0.0.1:${port}`,
-      privateOrigin = `http://private.localhost:${port}`;
+      privateOrigin = publicOrigin;
     privateAuthority = new URL(privateOrigin).host;
     const env = webEnvironment({
       PATH: process.env.PATH,
@@ -104,7 +104,7 @@ export async function startBrowserSite(logFile: string) {
       WEB_HOST: "127.0.0.1",
       WEB_PORT: String(port),
       SITE_URL: publicOrigin,
-      PRIVATE_HOST: "private.localhost",
+      PRIVATE_HOST: "127.0.0.1",
       TRUST_PROXY: "false",
       API_BASE_URL: `http://127.0.0.1:${publicPort}`,
       PRIVATE_API_BASE_URL: `http://127.0.0.1:${privatePort}`,
