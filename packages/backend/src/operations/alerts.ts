@@ -256,27 +256,31 @@ async function providerFindings(): Promise<Finding[]> {
   // The meter in providers/receipts.ts (checkBudget) stops a service while its live calls of the past hour or day reach the
   // limit, and lets it go once they fall back. The per-minute window is a 60-second pause and is not announced. A service
   // with any limit at 0 or below was stopped by hand, not by the meter.
-  const capped = await sql<{ service: string; per_hour: number; per_day: number; hour: number; day: number }[]>`
-    SELECT b.service, b.per_hour, b.per_day,
+  // A stop already announced stays open until its window falls below 80% of the limit: while a burst lasts, retries refill
+  // the window as old calls leave it, and without this margin the alert would close and reopen every few minutes.
+  const [alerts] = await sql<{ value: Record<string, unknown> }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
+  const announced = (key: string) => !!alerts?.value[key];
+  const capped = await sql<{ service: string; per_hour: number; per_day: number; models: boolean; hour: number; day: number }[]>`
+    SELECT b.service, b.per_hour, b.per_day, bool_or(a.model IS NOT NULL) AS models,
            (count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour'))::int AS hour, count(a.id)::int AS day
     FROM budgets b
     JOIN receipt_attempts a ON a.service = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day'
     WHERE b.per_minute > 0 AND b.per_hour > 0 AND b.per_day > 0
     GROUP BY 1, 2, 3
-    HAVING count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour') >= b.per_hour OR count(a.id) >= b.per_day`;
+    HAVING count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour') >= b.per_hour * 0.8 OR count(a.id) >= b.per_day * 0.8`;
   for (const c of capped) {
     const windows = [
       { key: "hour", used: c.hour, limit: c.per_hour, span: "1 小时", column: "per_hour" },
       { key: "day", used: c.day, limit: c.per_day, span: "24 小时", column: "per_day" },
     ];
-    for (const w of windows.filter((w) => w.used >= w.limit)) {
+    for (const w of windows.filter((w) => w.used >= w.limit || (w.used >= w.limit * 0.8 && announced(`budget.${w.key}.${c.service}`)))) {
       out.push({
         key: `budget.${w.key}.${c.service}`,
         level: "today",
-        title: `${providerName(c.service)} 调用次数异常，已自动暂停付费调用（不是总额上限）`,
+        title: `${providerName(c.service)} 过去 ${w.span}的调用次数异常，已自动暂停付费调用（不是总额上限）`,
         impact: `${providerStops(c.service)}，直到调用次数回落`,
-        heals: `会：过去 ${w.span}的调用次数回落到限额以下后自动恢复`,
-        action: "先看后台“用量与模型密钥”里的“模型与近期用量”，是哪一步调用变多；这不是总额上限，经常出现再决定要不要在“通知与请求频率”里调高限额",
+        heals: `会，过去 ${w.span}的调用次数回落到限额以下就自动恢复；降到限额的八成以下时再发“已恢复”`,
+        action: `先看后台“用量与模型密钥”里的${c.models ? "“模型与近期用量”，是哪一步调用变多" : "“通知与请求频率”，这项服务近 1 小时、近 24 小时各用了多少次"}；这不是总额上限，经常出现再决定要不要在“通知与请求频率”里调高限额`,
         detail: `${w.span}内 ${w.used} 次，限额 ${w.limit}（budgets 表 ${w.column}）`,
       });
     }
@@ -323,13 +327,14 @@ export async function checkAlerts(now = Date.now()) {
 }
 
 /**
- * The days on which the meter stopped a service between `from` and `to` (TASK-0063, for the weekly usage report), read
- * from the ops.alerts run records: a budget.* key in a run's `opened`, counted once per service and Beijing day, so an
- * alert that opens and closes several times a day is one day. Runs from before `opened` was recorded are not counted;
- * `coveredFrom` is the first run in the window that records it.
+ * The days on which the meter had a service stopped between `from` and `to` (TASK-0063, for the weekly usage report), read
+ * from the ops.alerts run records: a budget.* key in a run's `open` (the alerts open after that run), counted once per
+ * service and Beijing day, so a stop that lasts past midnight counts on both days and one that opens and closes several
+ * times a day is one day. Runs from before `opened` was recorded are not counted; `coveredFrom` is the first run in the
+ * window that records it.
  */
 export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: number; byService: Record<string, number>; coveredFrom: Date | null }> {
-  const runs = await sql<{ started_at: Date; detail: { opened?: unknown } | null }[]>`
+  const runs = await sql<{ started_at: Date; detail: { open?: unknown; opened?: unknown } | null }[]>`
     SELECT started_at, detail FROM job_runs
     WHERE job = 'ops.alerts' AND status = 'ok' AND started_at >= ${from} AND started_at < ${to}
     ORDER BY started_at`;
@@ -337,11 +342,11 @@ export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: nu
   const serviceDays = new Map<string, Set<string>>();
   let coveredFrom: Date | null = null;
   for (const run of runs) {
-    const opened = run.detail?.opened;
-    if (!Array.isArray(opened)) continue;
+    if (!Array.isArray(run.detail?.opened)) continue;
     coveredFrom ??= run.started_at;
+    const open = Array.isArray(run.detail?.open) ? run.detail.open : [];
     const day = beijingDate(run.started_at);
-    for (const key of opened) {
+    for (const key of open) {
       if (typeof key !== "string" || !key.startsWith("budget.")) continue;
       const service = key.split(".").slice(2).join(".");
       allDays.add(day);

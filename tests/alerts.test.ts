@@ -321,18 +321,24 @@ test("auto-stops: the hourly and the daily meter each open their own alert, neve
     assert.deepEqual(
       [hour!.title, hour!.impact, hour!.heals, hour!.detail],
       [
-        `${service} 调用次数异常，已自动暂停付费调用（不是总额上限）`,
+        `${service} 过去 1 小时的调用次数异常，已自动暂停付费调用（不是总额上限）`,
         "相关功能停了，直到调用次数回落",
-        "会：过去 1 小时的调用次数回落到限额以下后自动恢复",
+        "会，过去 1 小时的调用次数回落到限额以下就自动恢复；降到限额的八成以下时再发“已恢复”",
         "1 小时内 3 次，限额 3（budgets 表 per_hour）",
       ],
     );
-    assert.match(hour!.action!, /先看后台“用量与模型密钥”里的“模型与近期用量”.*这不是总额上限.*“通知与请求频率”里调高限额/);
+    assert.match(
+      hour!.action!,
+      /先看后台“用量与模型密钥”里的“通知与请求频率”，这项服务近 1 小时、近 24 小时各用了多少次；这不是总额上限.*“通知与请求频率”里调高限额/,
+    );
     for (const text of [hour!.title, hour!.impact, hour!.heals, hour!.action, hour!.detail]) assert.ok(!text!.includes("额度"), text);
     await gateway`UPDATE budgets SET per_day = 3 WHERE service = ${service}`;
     const both = await stopsOf(service);
     assert.deepEqual(both.map((f) => f.key).sort(), [`budget.day.${service}`, `budget.hour.${service}`], "both windows, one alert each");
     assert.equal(both.find((f) => f.key.startsWith("budget.day."))!.detail, "24 小时内 3 次，限额 3（budgets 表 per_day）");
+    assert.equal(both.find((f) => f.key.startsWith("budget.day."))!.title, `${service} 过去 24 小时的调用次数异常，已自动暂停付费调用（不是总额上限）`);
+    await gateway`UPDATE receipt_attempts SET model = 'm' WHERE service = ${service}`;
+    assert.match((await stopsOf(service))[0]!.action!, /先看后台“用量与模型密钥”里的“模型与近期用量”，是哪一步调用变多；这不是总额上限/);
   } finally {
     await unmeter(service);
   }
@@ -362,6 +368,29 @@ test("auto-stops: opened lists a key only in the round it opens, and the recover
     await gateway`UPDATE receipt_attempts SET started_at = now() - interval '2 hours' WHERE service = ${service}`;
     r = await checkAlerts(t0 + 20 * 60_000);
     assert.deepEqual([mine(r.sent), mine(r.opened)], [[`budget.hour.${service}:recovered`], []]);
+  } finally {
+    await unmeter(service);
+  }
+});
+
+test("auto-stops: an announced stop stays open between 80% and the limit, and recovers only below 80%", async () => {
+  const service = `test-meter-margin-${T}`;
+  const mine = (keys: string[]) => keys.filter((k) => k.includes(`.${service}`));
+  const leaveHour = (n: number) =>
+    gateway`UPDATE receipt_attempts SET started_at = now() - interval '2 hours'
+            WHERE id IN (SELECT id FROM receipt_attempts WHERE service = ${service} AND started_at > now() - interval '1 hour' ORDER BY id LIMIT ${n})`;
+  try {
+    await meter(service, { perMinute: 1000, perHour: 5, perDay: 1000 }, 4);
+    const t0 = Date.now();
+    assert.deepEqual(mine((await checkAlerts(t0)).sent), [], "80% of the limit does not open an alert that was not announced");
+    await meter(service, { perMinute: 1000, perHour: 5, perDay: 1000 }, 1);
+    assert.deepEqual(mine((await checkAlerts(t0 + 10 * 60_000)).sent), [`budget.hour.${service}`], "the limit opens it");
+    await leaveHour(1);
+    let r = await checkAlerts(t0 + 20 * 60_000);
+    assert.deepEqual([mine(r.sent), mine(r.open)], [[], [`budget.hour.${service}`]], "4 of 5: still open, no recovery");
+    await leaveHour(1);
+    r = await checkAlerts(t0 + 30 * 60_000);
+    assert.deepEqual([mine(r.sent), mine(r.open)], [[`budget.hour.${service}:recovered`], []], "3 of 5: below 80%, recovered");
   } finally {
     await unmeter(service);
   }
@@ -407,24 +436,24 @@ test("auto-stops: with alerts on but no chat id, the alert is logged as not sent
   }
 });
 
-test("auto-stops: autoStopsBetween counts days per service and Beijing day, from the runs that record opened", async () => {
+test("auto-stops: autoStopsBetween counts the days a stop was open, per service and Beijing day, from the runs that record opened", async () => {
   const at = (iso: string) => new Date(iso);
-  const runs: { at: Date; opened?: string[]; status?: string; job?: string }[] = [
-    { at: at("2099-12-31T15:00:00Z"), opened: ["budget.hour.svc-a"] }, // before the window
-    { at: at("2100-01-02T01:00:00Z") }, // a run from before opened was recorded
-    { at: at("2100-01-02T02:00:00Z"), opened: [] }, // nothing opened: still the start of coverage
-    { at: at("2100-01-02T03:00:00Z"), opened: ["budget.hour.svc-a", "content.process"] },
-    { at: at("2100-01-02T05:00:00Z"), opened: ["budget.day.svc-a", "budget.hour.svc-b"] }, // svc-a again the same day
-    { at: at("2100-01-02T15:30:00Z"), opened: ["budget.hour.svc-a"] }, // 23:30 in Beijing: same day
-    { at: at("2100-01-02T16:30:00Z"), opened: ["budget.hour.svc-a"] }, // 00:30 the next Beijing day
-    { at: at("2100-01-03T02:00:00Z"), opened: ["budget.hour.svc-c"], status: "failed" },
-    { at: at("2100-01-03T02:00:00Z"), opened: ["budget.hour.svc-d"], job: "ops.digest" },
-    { at: at("2100-01-05T00:00:00Z"), opened: ["budget.hour.svc-e"] }, // the window's end is excluded
+  const runs: { at: Date; open: string[]; opened?: string[]; status?: string; job?: string }[] = [
+    { at: at("2099-12-31T15:00:00Z"), open: ["budget.hour.svc-a"], opened: ["budget.hour.svc-a"] }, // before the window
+    { at: at("2100-01-02T01:00:00Z"), open: ["budget.hour.svc-x"] }, // a run from before opened was recorded
+    { at: at("2100-01-02T02:00:00Z"), open: [], opened: [] }, // nothing open: still the start of coverage
+    { at: at("2100-01-02T03:00:00Z"), open: ["budget.hour.svc-a", "content.process"], opened: ["budget.hour.svc-a", "content.process"] },
+    { at: at("2100-01-02T05:00:00Z"), open: ["budget.hour.svc-a", "budget.day.svc-a", "budget.hour.svc-b"], opened: ["budget.day.svc-a", "budget.hour.svc-b"] },
+    { at: at("2100-01-02T15:30:00Z"), open: ["budget.hour.svc-a"], opened: [] }, // 23:30 in Beijing: same day
+    { at: at("2100-01-02T16:30:00Z"), open: ["budget.hour.svc-a"], opened: [] }, // 00:30 the next Beijing day, still open
+    { at: at("2100-01-03T02:00:00Z"), open: ["budget.hour.svc-c"], opened: ["budget.hour.svc-c"], status: "failed" },
+    { at: at("2100-01-03T02:00:00Z"), open: ["budget.hour.svc-d"], opened: ["budget.hour.svc-d"], job: "ops.digest" },
+    { at: at("2100-01-05T00:00:00Z"), open: ["budget.hour.svc-e"], opened: ["budget.hour.svc-e"] }, // the window's end is excluded
   ];
   const ids: number[] = [];
   try {
     for (const run of runs) {
-      const detail = run.opened ? { open: [], sent: [], opened: run.opened } : { open: [], sent: [] };
+      const detail = run.opened ? { open: run.open, sent: [], opened: run.opened } : { open: run.open, sent: [] };
       const [row] = await sql<{ id: number }[]>`
         INSERT INTO job_runs (job, started_at, finished_at, status, detail)
         VALUES (${run.job ?? "ops.alerts"}, ${run.at}, ${run.at}, ${run.status ?? "ok"}, ${sql.json(detail as never)})
