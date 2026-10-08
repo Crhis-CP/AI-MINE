@@ -1,4 +1,4 @@
-# 金属价格夹具（TASK-0044、0046、0049）
+# 金属价格夹具（TASK-0044、0046、0049、0068）
 
 金属价格表的解析测试用这些夹具。它们是从三个官方网站的原件裁出来的。原件在 2026-10-06 由 Owner Mac 上的本地会话在上海服务器（正式站所在的腾讯云主机）上录下，只做了只读请求，请求头的 User-Agent 是 `Mozilla/5.0 (compatible; AIMiningPolicyBot/1.0; +https://aiminingpolicy.com/about)`。原件不进 Git，留在服务器的 `/opt/aimine/.ops/fixtures-raw/2026-10-06/`；裁剪件也留了一份在 `/opt/aimine/.ops/fixtures-cropped/2026-10-06/`。
 
@@ -49,3 +49,11 @@
 | `imf/external-data.xlsx` | 唯一的工作表 External 的第 1 行（代码）、第 2 行（说明，含单位）、第 3 行（Data Type）、第 4 行（Frequency）和最近三个月 2026M6–2026M8（第 562–564 行）；列只留日期列 A 和钼（BW，PLMMODY）、钴（BX，PCOBA）、钯（CA，PPALLA）。其余同上一条；`sharedStrings.xml` 留 15 个字符串 | 其余行列；批注（在被删的 D123 单元格上，含编辑人姓名）、批注图形、自定义属性、Web 加载项、customXml、文档属性、定义名称。文件和页面上没有把这三项标为第三方数据的内容（只写着 “LME spot price”）|
 
 裁剪后用标准库打开两个 xlsx，逐个工作表把保留的单元格和原件同一位置比对，值、`s`、`t`、公式都一致，保留的行列里原件的单元格一个不少、也没有多出来的。
+
+## 世界银行核对依据（TASK-0068）
+
+- robots与许可沿用2026-10-06录制记录及TASK-0068背景：`www.worldbank.org/robots.txt`为200，核对未禁止`/en/research/`（原PR162评论6010092753）；`thedocs.worldbank.org/robots.txt`为404。本轮未重新请求网页或连接生产。
+- 数据集页记录的许可为CC BY 4.0，使用条款按数据集metadata处理第三方数据；TASK-0068指向的原PR166评论6011274610记录：原件Description的A108/B108解释星号为“denotes forecast series”，不是第三方限制，T列为Sources。裁剪件不含这条表尾说明，不将任务卡的原件核对说成本轮重新读取原件。
+- “月平均价”依据是[2026年10月版Pink Sheet](https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Pink-Sheet-October-2026.pdf)月度栏表头“Monthly Averages”（TASK-0068记录的2026-10-06 13:56Z核对）；不是裁剪XLSX前四行的文字。Excel Description中的六项LME说明写“settlement price”，没有daily；金、铂写“spot average of daily rates”。
+- 本轮纯读现有裁剪XLSX核对：第5行名称、第6行单位；A806/A807是2026M08/2026M09；白银9月原数为`64.599999999999994`，不得先转浮点再写回。金的现行说明是“spot average of daily rates, from June 2025”，后段99.5%属于历史说明，不写为现行规格；铁矿石原单位保留`($/dmtu)`，现行说明明确“spot in US dollar/dry ton”和“fines, 62% Fe, c.f.r. China”，不做单位换算。
+- 月度页面单元格是“Monthly prices October 2026 (XLS)”，其中br形成空格；单元格没有发布日期，工作表A4的更新时间不得补成发布日期。上述核对不代表来源已部署或持续取数。

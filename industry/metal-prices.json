@@ -20,6 +20,25 @@
       "benchmark": "全国流通领域市场价格",
       "unit": "元/吨",
       "sourceUnit": "吨"
+    },
+    {
+      "key": "worldbank",
+      "name": "世界银行",
+      "section": "international",
+      "frequency": "month",
+      "currency": "USD",
+      "delay": "每月第 2 个工作日发布上月价格",
+      "staleDays": 45,
+      "hosts": ["www.worldbank.org", "thedocs.worldbank.org"],
+      "officialUrl": "https://www.worldbank.org/en/research/commodity-markets",
+      "terms": { "name": "世界银行数据集使用条款", "url": "https://data.worldbank.org/summary-terms-of-use" },
+      "attribution": [
+        "The World Bank: Commodity Price Data (The Pink Sheet)",
+        "https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections"
+      ],
+      "license": ["按 CC BY 4.0 许可使用，品种名称与规格为本站据英文翻译，数值保留两位小数。"],
+      "decimals": 2,
+      "enabled": false
     }
   ],
   "items": [
@@ -84,7 +103,156 @@
       "enabled": false
     },
     { "key": "nbs.seamless_pipe", "source": "nbs", "sourceName": "无缝钢管（219*6，20#）", "name": "无缝钢管", "grade": "219*6，20#", "enabled": false },
-    { "key": "nbs.angle_steel", "source": "nbs", "sourceName": "角钢（5#）", "name": "角钢", "grade": "5#", "enabled": false }
+    { "key": "nbs.angle_steel", "source": "nbs", "sourceName": "角钢（5#）", "name": "角钢", "grade": "5#", "enabled": false },
+    {
+      "key": "wb.gold",
+      "source": "worldbank",
+      "sourceName": "Gold",
+      "name": "金",
+      "metal": "gold",
+      "quote": "国际现货 · 月均价",
+      "footnote": "monthly_average",
+      "unit": "美元/盎司",
+      "sourceUnit": "($/troy oz)",
+      "benchmark": "spot average of daily rates",
+      "descriptionIncludes": ["Gold", "spot average of daily rates", "from June 2025"]
+    },
+    {
+      "key": "wb.silver",
+      "source": "worldbank",
+      "sourceName": "Silver",
+      "name": "银",
+      "metal": "silver",
+      "quote": "国际 · 伦敦下午定价",
+      "footnote": "london_pm",
+      "unit": "美元/盎司",
+      "sourceUnit": "($/troy oz)",
+      "benchmark": "London afternoon fixing",
+      "descriptionIncludes": ["Silver (UK)", "99.9% refined", "London afternoon fixing"],
+      "spec": "精炼，纯度 99.9%",
+      "grade": "99.9% refined"
+    },
+    {
+      "key": "wb.platinum",
+      "source": "worldbank",
+      "sourceName": "Platinum",
+      "name": "铂",
+      "metal": "platinum",
+      "quote": "国际现货 · 月均价",
+      "footnote": "monthly_average",
+      "unit": "美元/盎司",
+      "sourceUnit": "($/troy oz)",
+      "benchmark": "spot average of daily rates",
+      "descriptionIncludes": ["Platinum", "99.95% minimum purity", "plate or ingot form", "spot average of daily rates"],
+      "spec": "纯度不低于 99.95%，板或锭",
+      "grade": "99.95% minimum purity, plate or ingot form"
+    },
+    {
+      "key": "wb.copper",
+      "source": "worldbank",
+      "sourceName": "Copper",
+      "name": "铜",
+      "metal": "copper",
+      "quote": "国际 · LME 结算价",
+      "footnote": "lme",
+      "unit": "美元/吨",
+      "sourceUnit": "($/mt)",
+      "benchmark": "LME settlement price",
+      "descriptionIncludes": ["Copper (LME)", "grade A", "minimum 99.9935% purity", "cathodes and wire bar shapes", "settlement price"],
+      "spec": "A 级阴极铜，纯度不低于 99.9935%",
+      "grade": "grade A, minimum 99.9935% purity"
+    },
+    {
+      "key": "wb.aluminum",
+      "source": "worldbank",
+      "sourceName": "Aluminum",
+      "name": "铝",
+      "metal": "aluminum",
+      "quote": "国际 · LME 结算价",
+      "footnote": "lme",
+      "unit": "美元/吨",
+      "sourceUnit": "($/mt)",
+      "benchmark": "LME settlement price",
+      "descriptionIncludes": ["Aluminum (LME)", "unalloyed primary ingots", "high grade", "minimum 99.7% purity", "settlement price"],
+      "spec": "原铝锭，纯度不低于 99.7%",
+      "grade": "unalloyed primary ingots, high grade, minimum 99.7% purity"
+    },
+    {
+      "key": "wb.zinc",
+      "source": "worldbank",
+      "sourceName": "Zinc",
+      "name": "锌",
+      "metal": "zinc",
+      "quote": "国际 · LME 结算价",
+      "footnote": "lme",
+      "unit": "美元/吨",
+      "sourceUnit": "($/mt)",
+      "benchmark": "LME settlement price",
+      "descriptionIncludes": ["Zinc (LME)", "high grade", "minimum 99.95% purity", "settlement price"],
+      "spec": "高等级，纯度不低于 99.95%",
+      "grade": "high grade, minimum 99.95% purity"
+    },
+    {
+      "key": "wb.lead",
+      "source": "worldbank",
+      "sourceName": "Lead",
+      "name": "铅",
+      "metal": "lead",
+      "quote": "国际 · LME 结算价",
+      "footnote": "lme",
+      "unit": "美元/吨",
+      "sourceUnit": "($/mt)",
+      "benchmark": "LME settlement price",
+      "descriptionIncludes": ["Lead (LME)", "refined", "99.97% purity", "settlement price"],
+      "spec": "精炼，纯度 99.97%",
+      "grade": "refined, 99.97% purity"
+    },
+    {
+      "key": "wb.tin",
+      "source": "worldbank",
+      "sourceName": "Tin",
+      "name": "锡",
+      "metal": "tin",
+      "quote": "国际 · LME 结算价",
+      "footnote": "lme",
+      "unit": "美元/吨",
+      "sourceUnit": "($/mt)",
+      "benchmark": "LME settlement price",
+      "descriptionIncludes": ["Tin (LME)", "refined", "99.85% purity", "settlement price"],
+      "spec": "精炼，纯度 99.85%",
+      "grade": "refined, 99.85% purity"
+    },
+    {
+      "key": "wb.nickel",
+      "source": "worldbank",
+      "sourceName": "Nickel",
+      "name": "镍",
+      "metal": "nickel",
+      "quote": "国际 · LME 结算价",
+      "footnote": "lme",
+      "unit": "美元/吨",
+      "sourceUnit": "($/mt)",
+      "benchmark": "LME settlement price",
+      "descriptionIncludes": ["Nickel (LME)", "cathodes", "minimum 99.8% purity", "settlement price"],
+      "spec": "阴极镍，纯度不低于 99.8%",
+      "grade": "cathodes, minimum 99.8% purity"
+    },
+    {
+      "key": "wb.iron_ore",
+      "source": "worldbank",
+      "sourceName": "Iron ore, cfr spot",
+      "name": "铁矿石",
+      "metal": "iron_ore",
+      "quote": "国际现货 · 运到中国（CFR）",
+      "footnote": "cfr",
+      "unit": "美元/干吨",
+      "sourceUnit": "($/dmtu)",
+      "benchmark": "spot in US dollar/dry ton",
+      "descriptionIncludes": ["Iron ore, spot in US dollar/dry ton", "fines, 62% Fe, c.f.r. China"],
+      "spec": "粉矿，含铁 62%",
+      "grade": "fines, 62% Fe",
+      "deliveryBasis": "c.f.r. China"
+    }
   ],
   "metals": [
     { "key": "gold", "name": "金" },
@@ -101,14 +269,24 @@
     { "key": "sulfuric_acid", "name": "硫酸" }
   ],
   "intro": "官方机构定期发布的金属价格，注明出处。不是实时行情。",
-  "frequencies": [{ "key": "ten_day", "tag": "旬", "compare": "旬价比上一旬" }],
-  "footnotes": [],
+  "frequencies": [{ "key": "ten_day", "tag": "旬", "compare": "旬价比上一旬" }, { "key": "month", "tag": "月", "compare": "月价比上个月" }],
+  "footnotes": [
+    { "key": "monthly_average", "text": "月均价：世界银行公布的当月每日现货价格的平均值，不是某一天的价格。" },
+    { "key": "london_pm", "text": "伦敦下午定价：世界银行对这项白银价格的原文是 London afternoon fixing，指伦敦市场每个工作日定出的白银基准价。" },
+    { "key": "lme", "text": "LME：伦敦金属交易所（London Metal Exchange）。结算价是它每个交易日公布的官方价格；表中是世界银行按月公布的月平均价。" },
+    { "key": "cfr", "text": "CFR：成本加运费，指运到中国港口的价格，含海运费、不含保险。干吨：扣除水分后计重的吨。" }
+  ],
   "notes": [
     { "text": "每行前面的“{tags}”表示多久更新一次；旬是每月的上、中、下旬，约十天一期。" },
-    { "text": "“电解铜 1#”“铝锭 A00”这类是国内常用的牌号，下面一行写的是该牌号的最低纯度。" },
+    { "text": "“电解铜 1#”“铝锭 A00”这类是国内常用的牌号，下面一行写的是该牌号的最低纯度。盎司指金衡盎司，约 31.1 克。" },
     {
       "text": "国内价格来自国家统计局每旬发布的流通领域重要生产资料市场价格（数据来源：中国统计信息服务中心、卓创资讯），转自国家统计局网站 https://www.stats.gov.cn。",
       "sources": ["nbs"]
+    },
+    {
+      "text": "国际价格来自世界银行每月发布的大宗商品价格（Pink Sheet，按 {link} 许可使用），表中是它公布的月平均价；铜、铝、锌、铅、锡、镍是它写明的 LME 结算价。品种名称与规格由本站翻译，数值保留两位小数。",
+      "link": { "name": "CC BY 4.0", "url": "https://creativecommons.org/licenses/by/4.0/" },
+      "sources": ["worldbank"]
     },
     { "text": "较上期：{compare}。红色是涨，绿色是跌。" },
     { "text": "本栏数据不授权转载，需要使用请到各官方网站查阅原数。" }
