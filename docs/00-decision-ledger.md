@@ -1,5 +1,7 @@
 # 合并裁决表（A 包 × B 包 × 旧仓库）
 
+> **2026-10-06 更新（后台地址）**：Owner 12:11:35Z 在决定卡「后台网址要照 AIHOT 改回主域名下吗？」选「照 AIHOT」，选项写明「后台改回 aiminingpolicy.com/admin，重写线程改代码，部署前再问你」（原话见 `01-product/08-owner-voice.md` DEC-34）。后台 `/admin`、私有接口 `/api/admin/*` 与登录接口 `/api/auth/*` 改回主域名，旧 admin 子域保留解析与证书、301 到同一路径与查询（ADR-0026，取代 ADR-0018 第 4 条的主机部分）；两次构建、两个 api 角色、数据库登录与登录方式不变。同源防护由 TASK-0084 提供，默认随 TASK-0080 同次部署；上线须 Owner 当时同意，本次只登记【Owner 决定】与【设计】。
+
 > **2026-10-03 Owner 追加更正（TASK-0018）**：关注铜、金、锌、银、锂、钼等金属相关内容，六种是例举；明确不要独立煤、铀、砂石内容，保留锂的矿石/盐湖等取得方式。混合材料和通用法规必须有实质金属信息或适用性，不用关键词一刀切。范围排除不得用“低分”或仍可公开的来源 tier=EXCLUDE 代替。原“固体矿产含煤、铀、砂石”准入文字由本次决定取代；原始321/320输入保留，分类在派生台账记录。Owner 对评分其余文字无异议并同意继续准备真实样本；这不是已经取得真实样本、金标或留出集结果。正式准入以 `02-rules/01-business-rules.md` BR-ENR-01 为准。Owner 原话见 `01-product/08-owner-voice.md` DEC-27 ②；本段“混合材料和通用法规……”“范围排除不得用……”两句是落实口径，不是 Owner 原话（2026-10-05 注）。
 
 > 本表是 v2.0 交接包合并时对两份原始交接包（A：v1.0；B：2026-09-29）所有立场分歧的裁决记录。裁决依据优先级：Owner 已批准的仓库决定（ADR、docs/designs、README 现状）> 较新的 Owner 明确表达 > 旧站已上线并验证的行为 > 两包一致意见 > 本包建议。
@@ -51,7 +53,7 @@
 | DEC-27 | 品牌副标题 | 默认“全球矿业政策情报” | 未写 | 旧站现网与 main README 为“全球矿业资讯”（D01-product-015） | **Owner 2026-10-01 答复**：B：全球矿业资讯（沿用现网）。 | 已答复（2026-10-01） | 已定 |
 | DEC-28 | 新仓库名称 | ai-mining-policy，私有 | aimining-policy-next | 无 | 用产品名、不带 next；无需 Owner 决定。2026-10-03 读回为公开（Owner 原话“我这是开源项目”，Actions 照开，08-owner-voice DEC-25 ③；仓库公开后许可怎样声明另行处理，见 TASK-0015“明确不做”）；改可见性前先问 Owner（ADR-0017 的 2026-10-03 更新，TASK-0015） | 否 | ai-mining-policy（私有；2026-10-03 读回为公开） |
 | DEC-29 | 模型供应商与新增付费依赖 | 默认 DeepSeek（flash/pro）；另新增通义 embedding + pgvector HNSW 作为 M2 事件召回基础，未列入 Q | O-06：provider/版本未定；pgvector 可选，先确定性候选召回 | 08-owner-voice DEC-10（09-05 选 DeepSeek）；ADR 0036:21@main（固定 DeepSeek Flash）；requirements.md:21 D13“项目现有模型” | 默认沿用 Owner 已开通的 DeepSeek；任何新供应商（含 embedding）按新付费订阅处理，须基准证明必要并经 Owner 同意 | 否 | DeepSeek；事件召回先用确定性候选+DeepSeek 判定 |
-| DEC-30 | 进程拓扑与抓取隔离 | 四进程：reader-web、admin-web、api、worker（采集在 worker 内） | API/Web/worker/fetcher 分离，fetcher 无主库写权限 | ADR 0037 不设运营台 → 独立 admin-web 失去依据 | reader-web + api + worker + 独立 fetcher；最小私有页面随 reader-web/api 在私有主机名下提供，不另起应用 | 否 | 同左 |
+| DEC-30 | 进程拓扑与抓取隔离 | 四进程：reader-web、admin-web、api、worker（采集在 worker 内） | API/Web/worker/fetcher 分离，fetcher 无主库写权限 | ADR 0037 不设运营台 → 独立 admin-web 失去依据 | reader-web + api + worker + 独立 fetcher；最小私有页面随 reader-web/api 在私有主机名下提供，不另起应用（2026-10-06 起私有主机名就是主域名，后台在 `/admin`，ADR-0026） | 否 | 同左 |
 | DEC-31 | 契约唯一事实源 | Zod → OpenAPI 生成 | OpenAPI JSON（Python 脚本生成）为规范源 | 见 D05（契约唯一源一条） | 采用 A 的链路，B 的 openapi.json 作为首版输入一次性转写 | 否 | 同左 |
 | DEC-32 | 人类角色与能力 | 负责人/管理员 + 可授予附加权限（Q-12 与 OPQ-02、07 §8.5 #8 对“信源维护”可否下放说法不一） | owner/editor/observer + 服务身份 | ADR 0031:65-70@main（负责人+具名管理员）；见 D04-admin-013 | 负责人/管理员两类人类角色，observer 只作机器只读身份；信源维护默认负责人专属 | 否 | 同左 |
 | DEC-33 | 信源权限的审定机制 | OPQ-17 默认每个“允许”都由负责人确认；07 §8.5 #2 默认旧源沿用、新源可批量审定 | “由获授权者确认”，未落机制 | Owner 2026-08-28“不要管授权”与 ADR-0009 逐源判断相冲突；见 D08-sources-012 | **Owner 2026-10-01 答复**：“全部都获得许可了”：原表 320 个目标对应的信源及此后由负责人确认加入的信源，站内九项用途一律按“允许”建档，证据类型 `owner_declared`；“未知按禁止”“三类自动规则”“批量确认”作废；权限矩阵保留作逐源收紧（来源方异议、Owner 指示或法律要求时即时关闭并联动撤回）；第十项站外再分发全文仍默认关闭（Q-47）。 | 已答复（2026-10-01） | 已定：按 Owner 声明许可建档 |
