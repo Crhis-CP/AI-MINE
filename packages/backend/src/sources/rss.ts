@@ -7,6 +7,7 @@ import { identityKeyForUrl } from "../lib/url.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
+import { feedPublishedAt } from "./published-at.ts";
 
 const parserOptions = {
   ignoreAttributes: false,
@@ -197,7 +198,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
         ...identity(link),
         title,
         author: text(it["dc:creator"]) || text(it.author) || null,
-        publishedAt: time?.utc ? new Date(time.utc) : null,
+        publishedAt: feedPublishedAt(time, sourceDateObservation.raw),
         sourceDateObservation,
         ...feedText(bodyHtml, description, source),
         media: media.slice(0, 6),
@@ -228,7 +229,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
         ...identity(entryUrl),
         title,
         author: text(arr(e.author)[0]?.name) || null,
-        publishedAt: time?.utc ? new Date(time.utc) : null,
+        publishedAt: feedPublishedAt(time, sourceDateObservation.raw),
         sourceDateObservation,
         sourceUpdatedAt: parseDate(text(e.updated)),
         ...feedText(bodyHtml, summary, source),
