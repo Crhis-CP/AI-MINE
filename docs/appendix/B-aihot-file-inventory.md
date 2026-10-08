@@ -165,7 +165,7 @@
 | `routes/admin/runs.tsx` | 运行与异常：心跳、队列、定时任务、未知回执核对、投递、失败处理、模型榜来源 | 删除 | — | ADR-0018；OP-13；OP-09 | 运行状态改告警推送，不做页面；“需核对的付费回执”并入“用量与熔断”页逐笔核对，失败清单并入内容页“自动处理失败”页签 |
 | `routes/admin/models.tsx` | 每个能力的当前模型与切换、用量、耗时、费用估算 | 改造 | `apps/web` 私有路由组 | OP-12；DEC-29 | 保留“每个能力的当前模型与切换”作环节指派基础；**增加“接入”对象与密钥安全录入**（只写不回显，只显示指纹）；评测对比块不做（按需再做，评测默认离线运行，与 `04-private-operations.md` §7.5 一致） |
 | `routes/admin/selectbench.tsx`、`selectbench-run.tsx` | 精选评测运行列表与逐条对比 | 关闭 | `apps/web` 私有路由组（默认关闭，不进日常导航） | ADR-0018；ADR-0021；OP-11；F-AI-05；F-EDT-06；BR-SEL-08；BR-SEL-09 | **默认关闭的建设期校准工具（OP-11）**（原“删除”作废）：精选校准时由负责人开启，逐条看误选、漏选与模型分歧；Owner 对评分标准的审阅确认也在 OP-11 的“精选校准”页签做（BR-SEL-09，审阅记录 ENT-84）；不构成日常页面；评测运行器与结果入库在 ai-gateway 离线运行 |
-| `routes/admin/settings.tsx` | 关于页二维码、通知目的地、付费请求上限 | 改造（拆分） | 用量与熔断 → OP-13；告警渠道 → OP-20；网站资料 → OP-17 | OP-13、OP-17、OP-20；Owner 2026-09-06 | **删二维码与通知目的地**；请求数表降为按需的速率限制（失控循环的保护，正文 2.4），用量以金额用量账本为准、异常熔断阈值走受控配置（OP-13） |
+| `routes/admin/settings.tsx` | 关于页二维码、通知目的地、付费请求上限 | 改造（拆分） | 用量与熔断 → OP-13；告警渠道 → OP-20；网站资料 → OP-17 | OP-13、OP-17、OP-20；Owner 2026-09-06 | **删二维码与通知目的地**；请求数表照上游保留为按服务的调用次数上限（失控循环的保护，正文 2.4；BR-COST-07 第二层，2026-10-06 改，裁决表 DEC-66），用量以金额用量账本为准、异常熔断阈值走受控配置（OP-13） |
 | `routes/admin/audit.tsx` | 审计记录（按操作前缀与对象筛选） | 删除 | — | ADR-0018 第 6 条；OP-00-J | 不设审计查看页；审计记录照写，经只读运维接口或导出查询 |
 | `routes/admin/feedback.tsx` | 反馈收件箱（状态、备注、封禁、删除） | 改造 | `apps/web` 私有路由组 | OP-14；DEC-46、DEC-53 | 三态（删 `labels.ts` 五态）；去飞书转发；**删 `:118` 的 AIHOT 运营者话术**（飞书邮箱回复、“AI HOT”签名）；封禁与逐条删除不照搬，处理完成 180 天自动删除联系方式与截图 |
 | `routes/admin/monitor.tsx`（336 行） | Codex 监控后台 | 删除 | — | ANTI-26 | T-0002；“需复核”队列的交互可作建设期抽样工具的原型 |
@@ -202,7 +202,7 @@
 | `lib/http-fetch.ts`（139 行） | 出网：每跳 SSRF 检查、出网代理分流、总超时、字节上限、字符集解码 | 改造 | `acquisition`（fetch 运行时，在 `apps/fetcher` 执行） | ADR-0019；G11；旧ADR-0006:26@main | **只搬 SSRF 检查、连接时地址校验并钉住对端 IP、总超时（含 DNS + 重定向 + 读取）、字节上限、字符集解码**；**删除 `EGRESS_PROXY_URL` 分流**；重定向每一跳重新校验，默认只允许同主机，跨主机判 `redirect_host_changed`；只接受 identity/gzip；抓取对多语种站点显式请求文书的语言版本，不依赖 `accept-language`（AIHOT 默认偏中文） |
 | `lib/ids.ts` | cuid2 条目 ID、UUID、短 ID、哈希、稳定 JSON | 改造 | `contracts`（ids 纯函数） | `03-data/01-domain-model.md` 第 1 节 | 新对象用带前缀 ID（`mat_` 等）；`@paralleldrive/cuid2` 沿用与否在 T-0003 选定（PostgreSQL 18 `uuidv7()` 或应用侧 UUIDv7/ULID，`02-tech-stack.md` 1.3） |
 | `lib/text.ts`、`lib/url.ts`（220 行） | 文本工具；URL 规范化、身份键、内网地址判定、`guardedLookup` | 改造（拆分） | SSRF 与内网判定、`guardedLookup` → `acquisition`（fetch 运行时）；`normalizeUrl`/`identityKeyForUrl` → `content`；`text.ts` → 使用方 | R-01 | 不建通用 utils |
-| `providers/receipts.ts`（216 行） | 付费请求回执、尝试记录、请求数预算、结果未知处理 | 改造 | `ai-gateway` | F-AI-02；ENT-41；BR-COST-07；正文 2.3、2.4、5.8 | M1：ENT-41 状态机、预留金额、用量账本；**预算行缺失即放行改为缺配置默认拒绝**；按请求数熔断保留作速率限制层，新增异常熔断（含 70% 预警，BR-COST-20）；价格表带 `observed_at`/`valid_until` |
+| `providers/receipts.ts`（216 行） | 付费请求回执、尝试记录、请求数预算、结果未知处理 | 改造 | `ai-gateway` | F-AI-02；ENT-41；BR-COST-07；正文 2.3、2.4、5.8 | M1：ENT-41 状态机、预留金额、用量账本；按请求数熔断照上游保留，作 BR-COST-07 第二层（没有预算行的服务不限次数，触达自动暂停、回落自动恢复；Owner 2026-10-06）；新增异常熔断（含 70% 预警，BR-COST-20）；价格表带 `observed_at`/`valid_until` |
 | `providers/llm.ts`（245 行） | OpenAI 兼容 `/chat/completions`、JSON 提取与 schema 校验、AIHOT 自用模型预设 `MODELS` | 改造 | `ai-gateway` | OP-12；DEC-29 | 预设改为私有页面的“模型接入”对象；代码不写提供商名；默认沿用 Owner 已开通的 DeepSeek，新供应商按新付费订阅处理 |
 | `providers/embeddings.ts`（113 行） | 向量调用（经回执）、`real[]` 存储、进程内事实向量缓存、余弦 | 改造（拆分） | `ai-gateway`（调用）+ `events`（存储与召回） | DEC-29；ADR-0015 第 6 条；AI-16 | 默认不启用；pgvector 装上不建索引，召回先用确定性候选 + 有界窗口精确比较 + DeepSeek 判定；任何嵌入供应商按新付费订阅处理，须基准证明必要并经 Owner 同意 |
 | `providers/jina.ts`（59 行） | 浏览器渲染读取（付费，正文与列表兜底） | 关闭 | `acquisition`（适配器，在 fetcher 执行） | BR-ACQ-24；ADR-0019 | 默认关闭、按源开启；启用须 Owner 批准，计费经 ai-gateway，受许可与预算约束；4GB 主机不常驻 Chromium |
@@ -287,7 +287,7 @@
 
 | AIHOT 路径 | 现职责 | 处置 | 新位置 | 规格依据 | 备注 |
 |---|---|---|---|---|---|
-| `notify/feishu.ts`（203 行） | 飞书：告警与反馈转发的内部群、图片上传、webhook 发送；告警格式 | 改造 | `platform/ops`（告警推送） | DEC-06；OP-20 | **保留 webhook 发送与告警格式**；删反馈转发和只为它服务的图片上传（`uploadImage` 只被反馈截图调用，原注“内容推送用”有误：内容推送只走 webhook 卡片）；飞书登录应用部分随飞书登录保留、默认关闭（Owner 2026-10-02）；地址由 Owner 经私有页面“告警渠道”安全录入（只写不回显、加密保存），未提供前退为邮件；开关并入 `NOTIFY_ENABLED` |
+| `notify/feishu.ts`（203 行） | 飞书：告警与反馈转发的内部群、图片上传、webhook 发送；告警格式 | 改造 | `platform/ops`（告警推送） | DEC-06；OP-20 | **保留 webhook 发送与告警格式**；删反馈转发和只为它服务的图片上传（`uploadImage` 只被反馈截图调用，原注“内容推送用”有误：内容推送只走 webhook 卡片）；飞书登录应用部分随飞书登录保留、默认关闭（Owner 2026-10-02）；告警 2026-10-06 改为飞书自建应用，照上游原样，只发飞书（应用凭据与群号写在服务器设置，08-owner-voice DEC-33）；开关并入 `NOTIFY_ENABLED` |
 | `notify/deliver.ts`（108 行） | 内容群投递：去重、未知不重发、启用前内容不补推 | 改造 | `platform/ops` | DEC-06；G15 | **保留“去重键 + 结果未知不重发”**，用于告警与飞书内容推送（默认关闭，Owner 2026-10-02）；删 `codex_reset` 投递类型；移植上游 #19（投递重试原子认领，正文 6.5） |
 | `notify/selected.ts`（83 行） | 精选推送（同题租约、按事实去重，旧文不推） | 关闭 | `platform/ops`（随 `notify/`） | G15；DEC-45 | 飞书内容推送保留、默认关闭（Owner 2026-10-02：「飞书推送与登录还是要保留，我也要后面接飞书的呢」），开通仍是不排期候选；启用条件：Owner 接飞书时另立任务；`publish.ts` 与 `jobs/queue.ts` 的入队点保留 |
 | `operations/alerts.ts`（285 行） | now/today/digest 三级告警、每日摘要 | 改造 | `platform/ops` | F-OPS-03；DEC-06 | 删监控与模型榜两段（T-0002）；**告警随首次生产部署上线**；新增用量提示（月内累计每增加 100 元）、异常熔断预警（达阈值 70%）与触发、磁盘、备份失败、按业务线最老积压、发布新鲜度、质量资格与带期限证据到期、全局暂停超时、内容停更（旧站曾停更 5 天无人察觉） |
@@ -312,7 +312,7 @@
 | `admin/models.ts`（108 行） | 模型概览（用量、成功率、耗时、费用估算）与切换 | 改造 | `ai-gateway` | OP-12 | 用量数据改读用量账本；“接入”对象与密钥写入 |
 | `admin/runs.ts`（163 行） | 运行概览、回执核对放行、自动放行、失败重排、投递核实 | 改造（拆分） | `platform/ops`（投递核实）+ `ai-gateway`（回执核对）+ `content`（失败重排） | DEC-55；G4 | **`:91` 的用途名缺陷上游已于 `c3ba0ca` 修复（改为“从下一个未完成步骤恢复”），按该实现移植，不要按原文“只改用途名”**；自动放行删除；未知回执逐笔核对（必填依据与审计，只改该笔回执） |
 | `admin/selectbench.ts`（100 行） | SelectBench 导入、列表、逐条对比 | 改造 | `ai-gateway`（评测运行器，离线） | F-AI-05 | 泛化为 EvalRun；精选校准是第一个用途（BR-SEL-08），页面作为默认关闭的建设期工具（见 B.4.4）；上游 #25 按正文 6.5 移植 |
-| `admin/settings.ts`（71 行） | 联系二维码、通知目的地、付费服务上限 | 改造（拆分） | `ai-gateway`（用量与熔断配置）+ `platform/ops`（告警渠道） | OP-13、OP-20 | **二维码删除**；请求数上限降为速率限制层，异常熔断阈值走受控配置（ENT-83） |
+| `admin/settings.ts`（71 行） | 联系二维码、通知目的地、付费服务上限 | 改造（拆分） | `ai-gateway`（用量与熔断配置）+ `platform/ops`（告警渠道） | OP-13、OP-20 | **二维码删除**；请求数上限照上游保留为按服务的调用次数上限（BR-COST-07 第二层，2026-10-06 改），异常熔断阈值走受控配置（ENT-83） |
 | `admin/sources.ts`（195 行） | 信源列表、详情、试抓（api 进程内直接联网）、修改、判重新建、立即采集 | 改造（拆分） | `sources`（列表、详情、修改、判重、新建）+ `acquisition`（试抓、立即采集） | OP-03～OP-05；F-SRC-03 | 试抓改为只排队、由 worker 执行（AIHOT 的 `previewSource` 在 api 请求内直接联网，违反预览规则）；配置版本；按业务线的采集配置 |
 | `admin/monitor.ts`（174 行） | 监控事件与帖子的人工修正 | 删除 | — | ANTI-26 | T-0002 |
 | `ingest/items.ts`（72 行） | 外部推送入库（未知来源自动建为隔离信源，统一入库口） | 关闭 | `acquisition` | F-ACQ-07（候选） | 首版不启用；启用时并入 `external_push`；上游 #21（拒绝向暂停的来源推送）、#27（写库前校验）在启用时移植 |

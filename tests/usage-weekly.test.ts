@@ -55,15 +55,16 @@ async function call(o: {
   at: Date;
   status?: string;
   tokens?: [number, number];
-  cost?: [number, string, string];
+  cost?: [number | null, string, string];
+  model?: string;
   origin?: string;
 }) {
   const origin = o.origin ?? "live";
   const [r] = await sql<{ id: number }[]>`INSERT INTO receipts (logical_key, service, purpose, status, origin)
     VALUES (${`test-weekly:${randomUUID()}`}, ${o.service}, ${o.purpose}, 'received', ${origin}) RETURNING id`;
   const [cost, currency, basis] = o.cost ?? [null, null, null];
-  await sql`INSERT INTO receipt_attempts (receipt_id, attempt, service, origin, status, usage, cost, currency, cost_basis, started_at)
-    VALUES (${r!.id}, 1, ${o.service}, ${origin}, ${o.status ?? "received"},
+  await sql`INSERT INTO receipt_attempts (receipt_id, attempt, service, model, origin, status, usage, cost, currency, cost_basis, started_at)
+    VALUES (${r!.id}, 1, ${o.service}, ${o.model ?? null}, ${origin}, ${o.status ?? "received"},
       ${sql.json({ prompt_tokens: o.tokens?.[0] ?? 0, completion_tokens: o.tokens?.[1] ?? 0 })}, ${cost}, ${currency}, ${basis}, ${o.at})`;
 }
 const lineOf = (text: string, name: string) => text.split("\n").find((l) => l.startsWith(`· ${name}：`)) ?? "";
@@ -87,7 +88,7 @@ test("each service and capability against the week before, amounts kept apart, u
     ["2100-06-17T10:00:00", [`budget.hour.${ACTUAL}`]],
   ] as const)
     await ops`INSERT INTO job_runs (job, started_at, finished_at, status, detail)
-      VALUES ('ops.alerts', ${at(when)}, ${at(when)}, 'ok', ${ops.json({ open: [], sent: [], opened: [...opened] })})`;
+      VALUES ('ops.alerts', ${at(when)}, ${at(when)}, 'ok', ${ops.json({ open: [...opened], sent: [], opened: [...opened] })})`;
 
   const result = await usageWeekly(W24);
   const [pending] = await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM receipts WHERE status = 'unknown'`;
@@ -115,6 +116,30 @@ test("a week without paid calls still gets its report, and says when the meter h
   assert.match(messages.at(-1)!, /上周没有付费调用（前一周 0 次）\n\n自动暂停：上周还没有这项记录/);
 });
 
+test("zero estimates retain their label, missing costs use model or service prices, and partial stop coverage is stated", async () => {
+  const [zero, mixed, missing, priced] = ["zero", "mixed", "missing", "model"].map((s) => `test-weekly-${s}-${T}`) as [string, string, string, string];
+  const when = at("2100-06-22T10:00:00");
+  await call({ service: zero, purpose: "test", at: when, cost: [0, "CNY", "estimated"] });
+  await call({ service: mixed, purpose: "test", at: when, cost: [0, "USD", "actual"] });
+  await call({ service: mixed, purpose: "test", at: when, cost: [0, "USD", "estimated"] });
+  await call({ service: missing, purpose: "test", at: when, cost: [2, "CNY", "actual"] });
+  await call({ service: missing, purpose: "test", at: when, cost: [null, "CNY", "actual"] });
+  await sql`INSERT INTO service_prices (service, model, currency, per_request)
+    VALUES (${priced}, 'exact', 'CNY', 5), (${priced}, '', 'CNY', 2)`;
+  await call({ service: priced, model: "exact", purpose: "test", at: when, cost: [null, "CNY", "actual"] });
+  await call({ service: priced, model: "other", purpose: "test", at: when });
+  const coverage = at("2100-06-23T10:00:00");
+  await ops`INSERT INTO job_runs (job, started_at, finished_at, status, detail)
+    VALUES ('ops.alerts', ${coverage}, ${coverage}, 'ok', ${ops.json({ open: [], sent: [], opened: [] })})`;
+  await usageWeekly(Date.parse("2100-06-28T01:05:00Z"));
+  const text = messages.at(-1)!;
+  assert.match(lineOf(text, zero), /金额 估算 ¥0\.00（—）$/);
+  assert.match(lineOf(text, mixed), /金额 \$0\.00（—；实际 \$0\.00、估算 \$0\.00）$/);
+  assert.match(lineOf(text, missing), /金额 ¥2\.00（—）、另有 1 次未登记单价$/);
+  assert.match(lineOf(text, priced), /金额 估算 ¥7\.00（—）$/);
+  assert.match(text, /自动暂停：上周没有出现过自动暂停（从\s*6月23日起才有记录）/);
+});
+
 test("one report per week: a second run of the job for the same week sends nothing", async () => {
   const before = messages.length;
   const first = await recordRun("reports.usage-weekly", () => usageWeekly(W24));
@@ -133,4 +158,7 @@ test("with alerts off nothing is requested and the week last sent stays as it wa
   } finally {
     process.env.FEISHU_INTERNAL_ENABLED = "true";
   }
+  const sent = await recordRun("reports.usage-weekly", () => usageWeekly(W28));
+  const repeated = await recordRun("reports.usage-weekly", () => usageWeekly(W28));
+  assert.deepEqual([sent.sent, sent.lastSentWeek, repeated.sent], [true, "2100-W28", false]);
 });

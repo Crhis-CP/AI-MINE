@@ -71,6 +71,113 @@ test("an outage is announced once, repeated hourly, and closed with one recovery
   assert.deepEqual(stuck(r.sent), []);
 });
 
+// ---- First-discovery silence (TASK-0115) -------------------------------------------------------------------------
+const INTAKE_NOW = Date.parse("2100-03-01T01:00:00Z");
+const INTAKE_QUIET_MS = 360 * 60_000;
+const intakeKeys = (keys: string[]) => keys.filter((key) => key.startsWith("content.collect"));
+
+async function withIntakeFixture(run: () => Promise<void>) {
+  const settingRows = await sql`SELECT key, value FROM settings WHERE key IN ('alerts.state', 'heartbeat.worker')`;
+  const articles = await sql<{ id: string; discovered_at: Date }[]>`SELECT id, discovered_at FROM articles WHERE source_id = ${SOURCE}`;
+  const [source] = await sql`SELECT enabled FROM sources WHERE id = ${SOURCE}`;
+  const env = Object.fromEntries(["COLLECT_ENABLED", "MODEL_CALLS_ENABLED", "FEISHU_INTERNAL_ENABLED"].map((key) => [key, process.env[key]]));
+  try {
+    process.env.COLLECT_ENABLED = "true";
+    process.env.MODEL_CALLS_ENABLED = "false";
+    process.env.FEISHU_INTERNAL_ENABLED = "false";
+    await sql`DELETE FROM settings WHERE key IN ('alerts.state', 'heartbeat.worker')`;
+    await sql`UPDATE sources SET enabled = true WHERE id = ${SOURCE}`;
+    await sql`UPDATE articles SET discovered_at = ${new Date(INTAKE_NOW - INTAKE_QUIET_MS - 60_000)} WHERE source_id = ${SOURCE}`;
+    await run();
+  } finally {
+    for (const article of articles) await sql`UPDATE articles SET discovered_at = ${article.discovered_at} WHERE id = ${article.id}`;
+    await sql`UPDATE sources SET enabled = ${source!.enabled} WHERE id = ${SOURCE}`;
+    await sql`DELETE FROM settings WHERE key IN ('alerts.state', 'heartbeat.worker')`;
+    for (const row of settingRows) await sql`INSERT INTO settings (key, value) VALUES (${row.key}, ${sql.json(row.value as never)})`;
+    for (const [key, value] of Object.entries(env)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+test("intake silence reports only discovery evidence, retaining its threshold and hourly reminder", async () => {
+  await withIntakeFixture(async () => {
+    const finding = async (now = INTAKE_NOW) => (await collectFindings(now)).find((f) => f.key === "content.collect");
+    await sql`UPDATE articles SET discovered_at = ${new Date(INTAKE_NOW - INTAKE_QUIET_MS)} WHERE source_id = ${SOURCE}`;
+    assert.equal(await finding(), undefined, "exactly the existing threshold is not overdue");
+    const f = await finding(INTAKE_NOW + 1);
+    assert.equal(f?.title, "新文章入库长时间无新增");
+    assert.equal(f?.level, "now");
+    assert.match(f?.impact ?? "", /最近一次新文章入库于.+采集或公开是否异常仍需核查/);
+    assert.equal(f?.heals, "尚不能判断，需核对采集及处理记录");
+    assert.equal(f?.since?.getTime(), INTAKE_NOW - INTAKE_QUIET_MS);
+    assert.doesNotMatch(JSON.stringify(f), /网站停止|不会出现新内容|"heals":"没有"/);
+
+    const [fetch] = await sql<{ id: number }[]>`
+      INSERT INTO fetch_runs (source_id, status, found_count, new_count, started_at, finished_at)
+      VALUES (${SOURCE}, 'ok', 20, 0, ${new Date(INTAKE_NOW)}, ${new Date(INTAKE_NOW)}) RETURNING id`;
+    try {
+      assert.ok(await finding(INTAKE_NOW + 1), "a successful fetch with no new discovery must not hide the reminder");
+    } finally {
+      await sql`DELETE FROM fetch_runs WHERE id = ${fetch!.id}`;
+    }
+    assert.deepEqual(intakeKeys((await checkAlerts(INTAKE_NOW + 1)).sent), ["content.collect"]);
+    assert.deepEqual(intakeKeys((await checkAlerts(INTAKE_NOW + 50 * 60_000)).sent), []);
+    assert.deepEqual(intakeKeys((await checkAlerts(INTAKE_NOW + 61 * 60_000)).sent), ["content.collect"]);
+    await sql`UPDATE articles SET discovered_at = ${new Date(INTAKE_NOW - 5 * INTAKE_QUIET_MS)} WHERE source_id = ${SOURCE}`;
+    assert.equal((await finding())?.impact, "检查窗口内没有新文章首次入库记录；采集或公开是否异常仍需核查");
+  });
+});
+
+test("intake recovery needs a new discovery, surviving switches, warmup and legacy titles", async (t) => {
+  await withIntakeFixture(async () => {
+    const messages: { title?: string }[] = [];
+    t.mock.method(console, "log", (line: string) => messages.push(JSON.parse(line)));
+    const since = new Date(INTAKE_NOW - INTAKE_QUIET_MS - 60_000).toISOString();
+    const previous = { title: "网站停止收录新内容", level: "now", since, sentAt: new Date(INTAKE_NOW).toISOString() };
+    await sql`INSERT INTO settings (key, value) VALUES ('alerts.state', ${sql.json({ "content.collect": previous } as never)})`;
+    const unchanged = async () => {
+      const result = await checkAlerts(INTAKE_NOW);
+      assert.deepEqual(intakeKeys(result.sent), []);
+      assert.ok(result.open.includes("content.collect"));
+      const [row] = await sql<{ value: Record<string, unknown> }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
+      assert.deepEqual(row!.value["content.collect"], previous, "keep the original silence and repeat clock");
+    };
+
+    // Progress exists, but skipped checks still must not claim recovery.
+    await sql`UPDATE articles SET discovered_at = ${new Date(INTAKE_NOW - 30_000)} WHERE id = ${ids[0]!}`;
+    process.env.COLLECT_ENABLED = "false";
+    await unchanged();
+    process.env.COLLECT_ENABLED = "true";
+    await sql`UPDATE sources SET enabled = false WHERE id = ${SOURCE}`;
+    await unchanged();
+    await sql`UPDATE sources SET enabled = true WHERE id = ${SOURCE}`;
+    await sql`INSERT INTO settings (key, value) VALUES ('heartbeat.worker', ${sql.json({ startedAt: new Date(INTAKE_NOW).toISOString() })})`;
+    await unchanged();
+    await sql`DELETE FROM settings WHERE key = 'heartbeat.worker'`;
+
+    await sql`UPDATE articles SET discovered_at = ${new Date(INTAKE_NOW - 5 * INTAKE_QUIET_MS)} WHERE source_id = ${SOURCE}`;
+    await unchanged();
+    await sql`UPDATE articles SET discovered_at = ${new Date(INTAKE_NOW + 60_000)} WHERE id = ${ids[0]!}`;
+    await unchanged();
+    // A recent timestamp equal to the saved observation is not evidence of progress either.
+    previous.since = new Date(INTAKE_NOW - 60_000).toISOString();
+    await sql`UPDATE settings SET value = ${sql.json({ "content.collect": previous } as never)} WHERE key = 'alerts.state'`;
+    await sql`UPDATE articles SET discovered_at = ${new Date(previous.since)} WHERE id = ${ids[0]!}`;
+    await unchanged();
+    assert.equal(messages.filter((m) => m.title?.startsWith("✅")).length, 0);
+
+    await sql`UPDATE articles SET discovered_at = ${new Date(INTAKE_NOW - 30_000)} WHERE id = ${ids[0]!}`;
+    const recovered = await checkAlerts(INTAKE_NOW);
+    assert.deepEqual(intakeKeys(recovered.sent), ["content.collect:recovered"]);
+    assert.ok(!recovered.open.includes("content.collect"));
+    assert.ok(messages.some((m) => m.title === "✅ 已恢复：新文章入库"));
+    assert.ok(!messages.some((m) => m.title?.includes("网站停止")));
+    assert.deepEqual(intakeKeys((await checkAlerts(INTAKE_NOW + 60_000)).sent), []);
+  });
+});
+
 // ---- Metal prices (TASK-0071) -------------------------------------------------------------------------------------
 // These metals.prices runs are this file's own, at a fixed far-future hour, and removed after each test: no run another
 // test writes falls in the 30 days the reader looks back from NOW.
@@ -321,18 +428,24 @@ test("auto-stops: the hourly and the daily meter each open their own alert, neve
     assert.deepEqual(
       [hour!.title, hour!.impact, hour!.heals, hour!.detail],
       [
-        `${service} 调用次数异常，已自动暂停付费调用（不是总额上限）`,
+        `${service} 过去 1 小时的调用次数异常，已自动暂停付费调用（不是总额上限）`,
         "相关功能停了，直到调用次数回落",
-        "会：过去 1 小时的调用次数回落到限额以下后自动恢复",
+        "会，过去 1 小时的调用次数回落到限额以下就自动恢复；降到限额的八成以下时再发“已恢复”",
         "1 小时内 3 次，限额 3（budgets 表 per_hour）",
       ],
     );
-    assert.match(hour!.action!, /先看后台“用量与模型密钥”里的“模型与近期用量”.*这不是总额上限.*“通知与请求频率”里调高限额/);
+    assert.match(
+      hour!.action!,
+      /先看后台“用量与模型密钥”里的“通知与请求频率”，这项服务近 1 小时、近 24 小时各用了多少次；这不是总额上限.*“通知与请求频率”里调高限额/,
+    );
     for (const text of [hour!.title, hour!.impact, hour!.heals, hour!.action, hour!.detail]) assert.ok(!text!.includes("额度"), text);
     await gateway`UPDATE budgets SET per_day = 3 WHERE service = ${service}`;
     const both = await stopsOf(service);
     assert.deepEqual(both.map((f) => f.key).sort(), [`budget.day.${service}`, `budget.hour.${service}`], "both windows, one alert each");
     assert.equal(both.find((f) => f.key.startsWith("budget.day."))!.detail, "24 小时内 3 次，限额 3（budgets 表 per_day）");
+    assert.equal(both.find((f) => f.key.startsWith("budget.day."))!.title, `${service} 过去 24 小时的调用次数异常，已自动暂停付费调用（不是总额上限）`);
+    await gateway`UPDATE receipt_attempts SET model = 'm' WHERE service = ${service}`;
+    assert.match((await stopsOf(service))[0]!.action!, /先看后台“用量与模型密钥”里的“模型与近期用量”，是哪一步调用变多；这不是总额上限/);
   } finally {
     await unmeter(service);
   }
@@ -362,6 +475,29 @@ test("auto-stops: opened lists a key only in the round it opens, and the recover
     await gateway`UPDATE receipt_attempts SET started_at = now() - interval '2 hours' WHERE service = ${service}`;
     r = await checkAlerts(t0 + 20 * 60_000);
     assert.deepEqual([mine(r.sent), mine(r.opened)], [[`budget.hour.${service}:recovered`], []]);
+  } finally {
+    await unmeter(service);
+  }
+});
+
+test("auto-stops: an announced stop stays open between 80% and the limit, and recovers only below 80%", async () => {
+  const service = `test-meter-margin-${T}`;
+  const mine = (keys: string[]) => keys.filter((k) => k.includes(`.${service}`));
+  const leaveHour = (n: number) =>
+    gateway`UPDATE receipt_attempts SET started_at = now() - interval '2 hours'
+            WHERE id IN (SELECT id FROM receipt_attempts WHERE service = ${service} AND started_at > now() - interval '1 hour' ORDER BY id LIMIT ${n})`;
+  try {
+    await meter(service, { perMinute: 1000, perHour: 5, perDay: 1000 }, 4);
+    const t0 = Date.now();
+    assert.deepEqual(mine((await checkAlerts(t0)).sent), [], "80% of the limit does not open an alert that was not announced");
+    await meter(service, { perMinute: 1000, perHour: 5, perDay: 1000 }, 1);
+    assert.deepEqual(mine((await checkAlerts(t0 + 10 * 60_000)).sent), [`budget.hour.${service}`], "the limit opens it");
+    await leaveHour(1);
+    let r = await checkAlerts(t0 + 20 * 60_000);
+    assert.deepEqual([mine(r.sent), mine(r.open)], [[], [`budget.hour.${service}`]], "4 of 5: still open, no recovery");
+    await leaveHour(1);
+    r = await checkAlerts(t0 + 30 * 60_000);
+    assert.deepEqual([mine(r.sent), mine(r.open)], [[`budget.hour.${service}:recovered`], []], "3 of 5: below 80%, recovered");
   } finally {
     await unmeter(service);
   }
@@ -407,24 +543,24 @@ test("auto-stops: with alerts on but no chat id, the alert is logged as not sent
   }
 });
 
-test("auto-stops: autoStopsBetween counts days per service and Beijing day, from the runs that record opened", async () => {
+test("auto-stops: autoStopsBetween counts the days a stop was open, per service and Beijing day, from the runs that record opened", async () => {
   const at = (iso: string) => new Date(iso);
-  const runs: { at: Date; opened?: string[]; status?: string; job?: string }[] = [
-    { at: at("2099-12-31T15:00:00Z"), opened: ["budget.hour.svc-a"] }, // before the window
-    { at: at("2100-01-02T01:00:00Z") }, // a run from before opened was recorded
-    { at: at("2100-01-02T02:00:00Z"), opened: [] }, // nothing opened: still the start of coverage
-    { at: at("2100-01-02T03:00:00Z"), opened: ["budget.hour.svc-a", "content.process"] },
-    { at: at("2100-01-02T05:00:00Z"), opened: ["budget.day.svc-a", "budget.hour.svc-b"] }, // svc-a again the same day
-    { at: at("2100-01-02T15:30:00Z"), opened: ["budget.hour.svc-a"] }, // 23:30 in Beijing: same day
-    { at: at("2100-01-02T16:30:00Z"), opened: ["budget.hour.svc-a"] }, // 00:30 the next Beijing day
-    { at: at("2100-01-03T02:00:00Z"), opened: ["budget.hour.svc-c"], status: "failed" },
-    { at: at("2100-01-03T02:00:00Z"), opened: ["budget.hour.svc-d"], job: "ops.digest" },
-    { at: at("2100-01-05T00:00:00Z"), opened: ["budget.hour.svc-e"] }, // the window's end is excluded
+  const runs: { at: Date; open: string[]; opened?: string[]; status?: string; job?: string }[] = [
+    { at: at("2099-12-31T15:00:00Z"), open: ["budget.hour.svc-a"], opened: ["budget.hour.svc-a"] }, // before the window
+    { at: at("2100-01-02T01:00:00Z"), open: ["budget.hour.svc-x"] }, // a run from before opened was recorded
+    { at: at("2100-01-02T02:00:00Z"), open: [], opened: [] }, // nothing open: still the start of coverage
+    { at: at("2100-01-02T03:00:00Z"), open: ["budget.hour.svc-a", "content.process"], opened: ["budget.hour.svc-a", "content.process"] },
+    { at: at("2100-01-02T05:00:00Z"), open: ["budget.hour.svc-a", "budget.day.svc-a", "budget.hour.svc-b"], opened: ["budget.day.svc-a", "budget.hour.svc-b"] },
+    { at: at("2100-01-02T15:30:00Z"), open: ["budget.hour.svc-a"], opened: [] }, // 23:30 in Beijing: same day
+    { at: at("2100-01-02T16:30:00Z"), open: ["budget.hour.svc-a"], opened: [] }, // 00:30 the next Beijing day, still open
+    { at: at("2100-01-03T02:00:00Z"), open: ["budget.hour.svc-c"], opened: ["budget.hour.svc-c"], status: "failed" },
+    { at: at("2100-01-03T02:00:00Z"), open: ["budget.hour.svc-d"], opened: ["budget.hour.svc-d"], job: "ops.digest" },
+    { at: at("2100-01-05T00:00:00Z"), open: ["budget.hour.svc-e"], opened: ["budget.hour.svc-e"] }, // the window's end is excluded
   ];
   const ids: number[] = [];
   try {
     for (const run of runs) {
-      const detail = run.opened ? { open: [], sent: [], opened: run.opened } : { open: [], sent: [] };
+      const detail = run.opened ? { open: run.open, sent: [], opened: run.opened } : { open: run.open, sent: [] };
       const [row] = await sql<{ id: number }[]>`
         INSERT INTO job_runs (job, started_at, finished_at, status, detail)
         VALUES (${run.job ?? "ops.alerts"}, ${run.at}, ${run.at}, ${run.status ?? "ok"}, ${sql.json(detail as never)})

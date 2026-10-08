@@ -19,7 +19,7 @@ const REPEAT_MS: Record<Exclude<Level, "digest">, number> = { now: 3600_000, tod
 
 const collecting = () => process.env.COLLECT_ENABLED !== "false";
 const modelsOn = () => process.env.MODEL_CALLS_ENABLED !== "false";
-/** How long the site may go without a new article before it counts as stalled (small source lists are quieter). */
+/** First-discovery silence warrants a check; it does not by itself prove collection or publication stopped. */
 const QUIET_MS = Number(process.env.ALERT_QUIET_MINUTES || 360) * 60_000;
 /** Where the metal price item sends the reader (TASK-0071); TASK-0076 adds its check script after it. */
 const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录";
@@ -27,25 +27,28 @@ const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录";
 const clip = (text: string) => [...text].slice(0, 200).join("");
 
 /** Everything wrong right now, with its level. */
-export async function collectFindings(now = Date.now()): Promise<Finding[]> {
+export async function collectFindings(now = Date.now(), observeIntake?: (lastDiscoveredAt: Date | null) => void): Promise<Finding[]> {
   const out: Finding[] = [];
 
   // ---- Readers affected now ----------------------------------------------------------------------
-  // Content flow, judged by outcome: whatever broke (worker, egress proxy, models, queues), readers see
-  // a site that stops changing. Skipped for 20 minutes after the worker starts, and where the valves are off.
+  // First discoveries are distinct from successful fetches and public updates. Reuse this same read
+  // for recovery; a disabled or warming-up check supplies no evidence that intake recovered.
   const [hb] = await sql<{ value: { startedAt?: string } }[]>`SELECT value FROM settings WHERE key = 'heartbeat.worker'`;
   const settled = !hb?.value.startedAt || now - Date.parse(hb.value.startedAt) > 20 * 60_000;
   if (settled && collecting()) {
     const [last] = await sql<{ at: Date | null }[]>`SELECT max(discovered_at) AS at FROM articles WHERE discovered_at > ${new Date(now - 4 * QUIET_MS)}`;
     const [anySource] = await sql`SELECT 1 FROM sources WHERE enabled LIMIT 1`;
+    if (anySource) observeIntake?.(last?.at ?? null);
     if (anySource && (!last?.at || now - last.at.getTime() > QUIET_MS)) {
       out.push({
         key: "content.collect",
         level: "now",
-        title: "网站停止收录新内容",
-        impact: last?.at ? `最后一篇新文章收录于 ${beijingStamp(last.at)}，之后网站不会出现新内容` : "很久没有收录任何新文章",
-        heals: "没有",
-        action: "转给 AI 立即处理",
+        title: "新文章入库长时间无新增",
+        impact: last?.at
+          ? `最近一次新文章入库于 ${beijingStamp(last.at)}；采集或公开是否异常仍需核查`
+          : "检查窗口内没有新文章首次入库记录；采集或公开是否异常仍需核查",
+        heals: "尚不能判断，需核对采集及处理记录",
+        action: "转给 AI 核查采集、处理与公开记录",
         detail: `articles.discovered_at 超过 ${Math.round(QUIET_MS / 60_000)} 分钟没有新值（ALERT_QUIET_MINUTES）；查 sources.schedule、出网代理与采集失败`,
         since: last?.at ?? undefined,
       });
@@ -256,27 +259,31 @@ async function providerFindings(): Promise<Finding[]> {
   // The meter in providers/receipts.ts (checkBudget) stops a service while its live calls of the past hour or day reach the
   // limit, and lets it go once they fall back. The per-minute window is a 60-second pause and is not announced. A service
   // with any limit at 0 or below was stopped by hand, not by the meter.
-  const capped = await sql<{ service: string; per_hour: number; per_day: number; hour: number; day: number }[]>`
-    SELECT b.service, b.per_hour, b.per_day,
+  // A stop already announced stays open until its window falls below 80% of the limit: while a burst lasts, retries refill
+  // the window as old calls leave it, and without this margin the alert would close and reopen every few minutes.
+  const [alerts] = await sql<{ value: Record<string, unknown> }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
+  const announced = (key: string) => !!alerts?.value[key];
+  const capped = await sql<{ service: string; per_hour: number; per_day: number; models: boolean; hour: number; day: number }[]>`
+    SELECT b.service, b.per_hour, b.per_day, bool_or(a.model IS NOT NULL) AS models,
            (count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour'))::int AS hour, count(a.id)::int AS day
     FROM budgets b
     JOIN receipt_attempts a ON a.service = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day'
     WHERE b.per_minute > 0 AND b.per_hour > 0 AND b.per_day > 0
     GROUP BY 1, 2, 3
-    HAVING count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour') >= b.per_hour OR count(a.id) >= b.per_day`;
+    HAVING count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour') >= b.per_hour * 0.8 OR count(a.id) >= b.per_day * 0.8`;
   for (const c of capped) {
     const windows = [
       { key: "hour", used: c.hour, limit: c.per_hour, span: "1 小时", column: "per_hour" },
       { key: "day", used: c.day, limit: c.per_day, span: "24 小时", column: "per_day" },
     ];
-    for (const w of windows.filter((w) => w.used >= w.limit)) {
+    for (const w of windows.filter((w) => w.used >= w.limit || (w.used >= w.limit * 0.8 && announced(`budget.${w.key}.${c.service}`)))) {
       out.push({
         key: `budget.${w.key}.${c.service}`,
         level: "today",
-        title: `${providerName(c.service)} 调用次数异常，已自动暂停付费调用（不是总额上限）`,
+        title: `${providerName(c.service)} 过去 ${w.span}的调用次数异常，已自动暂停付费调用（不是总额上限）`,
         impact: `${providerStops(c.service)}，直到调用次数回落`,
-        heals: `会：过去 ${w.span}的调用次数回落到限额以下后自动恢复`,
-        action: "先看后台“用量与模型密钥”里的“模型与近期用量”，是哪一步调用变多；这不是总额上限，经常出现再决定要不要在“通知与请求频率”里调高限额",
+        heals: `会，过去 ${w.span}的调用次数回落到限额以下就自动恢复；降到限额的八成以下时再发“已恢复”`,
+        action: `先看后台“用量与模型密钥”里的${c.models ? "“模型与近期用量”，是哪一步调用变多" : "“通知与请求频率”，这项服务近 1 小时、近 24 小时各用了多少次"}；这不是总额上限，经常出现再决定要不要在“通知与请求频率”里调高限额`,
         detail: `${w.span}内 ${w.used} 次，限额 ${w.limit}（budgets 表 ${w.column}）`,
       });
     }
@@ -290,7 +297,12 @@ interface AlertState {
 
 /** Every 10 minutes: new problems and recoveries of the now/today levels go out; digest items wait for 09:00. */
 export async function checkAlerts(now = Date.now()) {
-  const found = (await collectFindings(now)).filter((f) => f.level !== "digest");
+  const intake: { at?: Date | null } = {};
+  const found = (
+    await collectFindings(now, (at) => {
+      intake.at = at;
+    })
+  ).filter((f) => f.level !== "digest");
   const [row] = await sql<{ value: AlertState }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
   const state: AlertState = { ...(row?.value ?? {}) };
   const sent: string[] = [];
@@ -310,7 +322,10 @@ export async function checkAlerts(now = Date.now()) {
     if (found.some((f) => f.key === key)) continue;
     // Entries without a level predate this scheme (2026-09-29) and close without a message.
     if (state[key]!.level) {
-      const msg = formatRecovery(state[key]!.title, new Date(state[key]!.since), now);
+      // A missing finding may mean collection was paused or the worker is warming up. Keep this
+      // incident open until a real discovery advances; never replay its legacy outage title.
+      if (key === "content.collect" && !(intake.at && intake.at.getTime() > Date.parse(state[key]!.since) && intake.at.getTime() <= now)) continue;
+      const msg = formatRecovery(key === "content.collect" ? "新文章入库" : state[key]!.title, new Date(state[key]!.since), now);
       await sendAlert(msg.title, msg.lines);
       sent.push(`${key}:recovered`);
     }
@@ -323,13 +338,14 @@ export async function checkAlerts(now = Date.now()) {
 }
 
 /**
- * The days on which the meter stopped a service between `from` and `to` (TASK-0063, for the weekly usage report), read
- * from the ops.alerts run records: a budget.* key in a run's `opened`, counted once per service and Beijing day, so an
- * alert that opens and closes several times a day is one day. Runs from before `opened` was recorded are not counted;
- * `coveredFrom` is the first run in the window that records it.
+ * The days on which the meter had a service stopped between `from` and `to` (TASK-0063, for the weekly usage report), read
+ * from the ops.alerts run records: a budget.* key in a run's `open` (the alerts open after that run), counted once per
+ * service and Beijing day, so a stop that lasts past midnight counts on both days and one that opens and closes several
+ * times a day is one day. Runs from before `opened` was recorded are not counted; `coveredFrom` is the first run in the
+ * window that records it.
  */
 export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: number; byService: Record<string, number>; coveredFrom: Date | null }> {
-  const runs = await sql<{ started_at: Date; detail: { opened?: unknown } | null }[]>`
+  const runs = await sql<{ started_at: Date; detail: { open?: unknown; opened?: unknown } | null }[]>`
     SELECT started_at, detail FROM job_runs
     WHERE job = 'ops.alerts' AND status = 'ok' AND started_at >= ${from} AND started_at < ${to}
     ORDER BY started_at`;
@@ -337,11 +353,11 @@ export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: nu
   const serviceDays = new Map<string, Set<string>>();
   let coveredFrom: Date | null = null;
   for (const run of runs) {
-    const opened = run.detail?.opened;
-    if (!Array.isArray(opened)) continue;
+    if (!Array.isArray(run.detail?.opened)) continue;
     coveredFrom ??= run.started_at;
+    const open = Array.isArray(run.detail?.open) ? run.detail.open : [];
     const day = beijingDate(run.started_at);
-    for (const key of opened) {
+    for (const key of open) {
       if (typeof key !== "string" || !key.startsWith("budget.")) continue;
       const service = key.split(".").slice(2).join(".");
       allDays.add(day);

@@ -27,6 +27,13 @@ export interface CollectResult {
 
 const MAX_ITEMS_PER_RUN = 60;
 
+export function failureMessage(error: unknown): string {
+  const message = String(error instanceof Error ? error.message : error);
+  const cause = (error as { cause?: { code?: string; message?: string } })?.cause;
+  const detail = [cause?.code, cause?.message].filter(Boolean).join(": ");
+  return (detail && !message.includes(detail) ? `${message} (${detail})` : message).slice(0, 1000);
+}
+
 export function noiseFiltered(c: Candidate, source: SourceRow): boolean {
   const f = source.config.ingestNoiseFilter;
   const cats: string[] = c.categories ?? [];
@@ -257,7 +264,7 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
                 detail = ${detail ? sql.json(detail as never) : null} WHERE id = ${run!.id}`;
     return { sourceId, status: "ok", found, created, revised };
   } catch (error) {
-    const message = String(error instanceof Error ? error.message : error).slice(0, 1000);
+    const message = failureMessage(error);
     const budget = error instanceof BudgetExceededError;
     await sql`
       UPDATE sources SET last_fetch_at = now(),

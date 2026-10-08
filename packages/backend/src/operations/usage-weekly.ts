@@ -40,7 +40,7 @@ interface Tally {
   tokensIn: number;
   tokensOut: number;
   /** By currency: the whole amount, and the part of it that is an estimate. */
-  amounts: Record<string, { total: number; estimated: number }>;
+  amounts: Record<string, { total: number; estimated: number; hasActual: boolean; hasEstimate: boolean }>;
   unpriced: number;
 }
 
@@ -68,7 +68,7 @@ function add(t: Tally, row: Row, price: Price | undefined) {
     tokensOut: t.tokensOut + tokensOut,
   });
   let amount: { currency: string; value: number; estimated: boolean } | null = null;
-  if (row.basis) amount = { currency: row.currency ?? "?", value: Number(row.cost ?? 0), estimated: row.basis === "estimated" };
+  if (row.basis && row.cost !== null) amount = { currency: row.currency ?? "?", value: Number(row.cost), estimated: row.basis === "estimated" };
   else if (price && (price.input_per_mtok || price.output_per_mtok))
     amount = {
       currency: price.currency,
@@ -80,10 +80,12 @@ function add(t: Tally, row: Row, price: Price | undefined) {
     t.unpriced += count;
     return;
   }
-  t.amounts[amount.currency] ??= { total: 0, estimated: 0 };
+  t.amounts[amount.currency] ??= { total: 0, estimated: 0, hasActual: false, hasEstimate: false };
   const slot = t.amounts[amount.currency]!;
   slot.total += amount.value;
   if (amount.estimated) slot.estimated += amount.value;
+  slot.hasActual ||= !amount.estimated;
+  slot.hasEstimate ||= amount.estimated;
 }
 
 function line(name: string, t: Tally, before: Tally) {
@@ -92,8 +94,8 @@ function line(name: string, t: Tally, before: Tally) {
     .map(([cur, a]) => {
       const change = pct(a.total, before.amounts[cur]?.total ?? 0);
       // Actual and estimated apart: all one or the other says so, a mix gives both parts.
-      if (!a.estimated) return `${money(cur, a.total)}（${change}）`;
-      if (a.estimated === a.total) return `估算 ${money(cur, a.total)}（${change}）`;
+      if (!a.hasEstimate) return `${money(cur, a.total)}（${change}）`;
+      if (!a.hasActual) return `估算 ${money(cur, a.total)}（${change}）`;
       return `${money(cur, a.total)}（${change}；实际 ${money(cur, a.total - a.estimated)}、估算 ${money(cur, a.estimated)}）`;
     });
   if (t.unpriced) amounts.push(`另有 ${n(t.unpriced)} 次未登记单价`);
@@ -112,7 +114,8 @@ export async function usageWeekly(now = Date.now()) {
     before = beijingMidnight(addDays(start, -7));
   const [rows, prices, [unknown]] = await Promise.all([
     sql<Row[]>`
-      SELECT a.service, coalesce(a.model, '') AS model, r.purpose, a.started_at >= ${from} AS current, a.cost_basis AS basis, a.currency,
+      SELECT a.service, coalesce(a.model, '') AS model, r.purpose, a.started_at >= ${from} AS current,
+             CASE WHEN a.cost IS NULL THEN NULL ELSE a.cost_basis END AS basis, a.currency,
              count(*) FILTER (WHERE a.status = 'received')::int AS ok, count(*) FILTER (WHERE a.status = 'failed')::int AS failed,
              count(*) FILTER (WHERE a.status IN ('pending', 'unknown'))::int AS unknown,
              coalesce(sum((a.usage->>'prompt_tokens')::bigint), 0) AS tokens_in, coalesce(sum((a.usage->>'completion_tokens')::bigint), 0) AS tokens_out,
@@ -168,7 +171,7 @@ export async function usageWeekly(now = Date.now()) {
   );
   const last = (await latestSuccessfulRunResult("reports.usage-weekly")) as { lastSentWeek?: unknown } | null;
   const lastSentWeek = typeof last?.lastSentWeek === "string" ? last.lastSentWeek : null;
-  const totals = { calls: calls(total[0]), previousCalls: calls(total[1]), unpriced: total[0].unpriced, unknownReceipts: pending, autoStopDays: stops.days };
+  const totals = { ...total[0], calls: calls(total[0]), previousCalls: calls(total[1]), unknownReceipts: pending, autoStopDays: stops.days };
   if (lastSentWeek === week) return { week, sent: false, lastSentWeek, ...totals };
   const sent = (await sendAlert(`📈 用量周报 · ${beijingDay(from)}至${beijingDay(beijingMidnight(end))}`, lines)) === "sent";
   return { week, sent, lastSentWeek: sent ? week : lastSentWeek, ...totals };
