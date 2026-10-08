@@ -150,7 +150,7 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
       key: "receipts.unknown",
       level: "digest",
       title: `${r!.receipts} 个付费请求自动重试过一次，结果仍未知`,
-      detail: `${r!.services}；后台“运行”页核对后放行`,
+      detail: `${r!.services}；在后台“用量与模型密钥”里的“费用与投递核对”核对后放行`,
     });
   }
   if (r!.deliveries > 0)
@@ -158,7 +158,7 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
       key: "deliveries.unknown",
       level: "digest",
       title: `${r!.deliveries} 条飞书内容群推送不确定是否送达`,
-      detail: "后台“运行”页核对群里有没有，再标记或重发",
+      detail: "在后台“用量与模型密钥”里的“费用与投递核对”核对群里有没有，再标记或重发",
     });
 
   // Runnable jobs (deferred ones excluded) that have waited more than two hours.
@@ -223,7 +223,7 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
   return out;
 }
 
-const MODEL_STOPS = "用到这家模型的步骤停了（看后台“模型与评测”），新内容可能进不了精选";
+const MODEL_STOPS = "用到这家模型的步骤停了（看后台“用量与模型密钥”里的“模型与近期用量”），新内容可能进不了精选";
 const PROVIDERS: Record<string, { name: string; stops: string; where: string }> = {
   llm: { name: "默认模型服务", stops: "新文章的精选、摘要、归组和日报停了", where: "模型服务商的控制台" },
   zhipu: { name: "智谱", stops: MODEL_STOPS, where: "智谱开放平台" },
@@ -237,7 +237,7 @@ export const providerName = (service: string) => PROVIDERS[service]?.name ?? ser
 export const providerStops = (service: string) => PROVIDERS[service]?.stops ?? "相关功能停了";
 export const providerConsole = (service: string) => PROVIDERS[service]?.where ?? `${service} 后台`;
 
-/** Paid services that refuse us (no balance, a dead key), and daily budgets used up. */
+/** Paid services that refuse us (no balance, a dead key), and services the request meter stopped for an hour or a day. */
 async function providerFindings(): Promise<Finding[]> {
   const out: Finding[] = [];
   const refused = await sql<{ service: string; n: number; last: string }[]>`
@@ -256,20 +256,37 @@ async function providerFindings(): Promise<Finding[]> {
       detail: `最近 1 小时被拒 ${p.n} 次：${p.last}`,
     });
   }
-  const capped = await sql<{ service: string; per_day: number; used: number }[]>`
-    SELECT b.service, b.per_day, count(a.id)::int AS used FROM budgets b
+  // The meter in providers/receipts.ts (checkBudget) stops a service while its live calls of the past hour or day reach the
+  // limit, and lets it go once they fall back. The per-minute window is a 60-second pause and is not announced. A service
+  // with any limit at 0 or below was stopped by hand, not by the meter.
+  // A stop already announced stays open until its window falls below 80% of the limit: while a burst lasts, retries refill
+  // the window as old calls leave it, and without this margin the alert would close and reopen every few minutes.
+  const [alerts] = await sql<{ value: Record<string, unknown> }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
+  const announced = (key: string) => !!alerts?.value[key];
+  const capped = await sql<{ service: string; per_hour: number; per_day: number; models: boolean; hour: number; day: number }[]>`
+    SELECT b.service, b.per_hour, b.per_day, bool_or(a.model IS NOT NULL) AS models,
+           (count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour'))::int AS hour, count(a.id)::int AS day
+    FROM budgets b
     JOIN receipt_attempts a ON a.service = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day'
-    WHERE b.per_day > 0 GROUP BY 1, 2 HAVING count(a.id) >= b.per_day`;
+    WHERE b.per_minute > 0 AND b.per_hour > 0 AND b.per_day > 0
+    GROUP BY 1, 2, 3
+    HAVING count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour') >= b.per_hour * 0.8 OR count(a.id) >= b.per_day * 0.8`;
   for (const c of capped) {
-    out.push({
-      key: `budget.day.${c.service}`,
-      level: "today",
-      title: `${providerName(c.service)} 过去 24 小时的调用额度用完了`,
-      impact: `${providerStops(c.service)}，直到额度随时间腾出来`,
-      heals: "会，额度按 24 小时滚动恢复",
-      action: "这次不用处理；如果经常出现，再决定要不要调高额度",
-      detail: `24 小时内 ${c.used} 次，上限 ${c.per_day}（budgets 表）`,
-    });
+    const windows = [
+      { key: "hour", used: c.hour, limit: c.per_hour, span: "1 小时", column: "per_hour" },
+      { key: "day", used: c.day, limit: c.per_day, span: "24 小时", column: "per_day" },
+    ];
+    for (const w of windows.filter((w) => w.used >= w.limit || (w.used >= w.limit * 0.8 && announced(`budget.${w.key}.${c.service}`)))) {
+      out.push({
+        key: `budget.${w.key}.${c.service}`,
+        level: "today",
+        title: `${providerName(c.service)} 过去 ${w.span}的调用次数异常，已自动暂停付费调用（不是总额上限）`,
+        impact: `${providerStops(c.service)}，直到调用次数回落`,
+        heals: `会，过去 ${w.span}的调用次数回落到限额以下就自动恢复；降到限额的八成以下时再发“已恢复”`,
+        action: `先看后台“用量与模型密钥”里的${c.models ? "“模型与近期用量”，是哪一步调用变多" : "“通知与请求频率”，这项服务近 1 小时、近 24 小时各用了多少次"}；这不是总额上限，经常出现再决定要不要在“通知与请求频率”里调高限额`,
+        detail: `${w.span}内 ${w.used} 次，限额 ${w.limit}（budgets 表 ${w.column}）`,
+      });
+    }
   }
   return out;
 }
@@ -289,6 +306,7 @@ export async function checkAlerts(now = Date.now()) {
   const [row] = await sql<{ value: AlertState }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
   const state: AlertState = { ...(row?.value ?? {}) };
   const sent: string[] = [];
+  const opened: string[] = [];
   for (const f of found) {
     const level = f.level as Exclude<Level, "digest">;
     const open = state[f.key]?.level ? state[f.key] : undefined;
@@ -298,6 +316,7 @@ export async function checkAlerts(now = Date.now()) {
     await sendAlert(msg.title, msg.lines);
     state[f.key] = { title: f.title, level, since: since.toISOString(), sentAt: new Date(now).toISOString() };
     sent.push(f.key);
+    if (!open) opened.push(f.key);
   }
   for (const key of Object.keys(state)) {
     if (found.some((f) => f.key === key)) continue;
@@ -314,7 +333,40 @@ export async function checkAlerts(now = Date.now()) {
   }
   await sql`INSERT INTO settings (key, value, updated_by) VALUES ('alerts.state', ${sql.json(state as never)}, 'alerts')
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`;
-  return { open: Object.keys(state), sent };
+  // `opened` (the keys first announced this round) is kept in the ops.alerts run record for autoStopsBetween.
+  return { open: Object.keys(state), sent, opened };
+}
+
+/**
+ * The days on which the meter had a service stopped between `from` and `to` (TASK-0063, for the weekly usage report), read
+ * from the ops.alerts run records: a budget.* key in a run's `open` (the alerts open after that run), counted once per
+ * service and Beijing day, so a stop that lasts past midnight counts on both days and one that opens and closes several
+ * times a day is one day. Runs from before `opened` was recorded are not counted; `coveredFrom` is the first run in the
+ * window that records it.
+ */
+export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: number; byService: Record<string, number>; coveredFrom: Date | null }> {
+  const runs = await sql<{ started_at: Date; detail: { open?: unknown; opened?: unknown } | null }[]>`
+    SELECT started_at, detail FROM job_runs
+    WHERE job = 'ops.alerts' AND status = 'ok' AND started_at >= ${from} AND started_at < ${to}
+    ORDER BY started_at`;
+  const allDays = new Set<string>();
+  const serviceDays = new Map<string, Set<string>>();
+  let coveredFrom: Date | null = null;
+  for (const run of runs) {
+    if (!Array.isArray(run.detail?.opened)) continue;
+    coveredFrom ??= run.started_at;
+    const open = Array.isArray(run.detail?.open) ? run.detail.open : [];
+    const day = beijingDate(run.started_at);
+    for (const key of open) {
+      if (typeof key !== "string" || !key.startsWith("budget.")) continue;
+      const service = key.split(".").slice(2).join(".");
+      allDays.add(day);
+      if (!serviceDays.has(service)) serviceDays.set(service, new Set());
+      serviceDays.get(service)!.add(day);
+    }
+  }
+  const byService = Object.fromEntries([...serviceDays].map(([service, days]) => [service, days.size]));
+  return { days: allDays.size, byService, coveredFrom };
 }
 
 /** 09:00: one message with the follow-ups that do not touch readers; nothing when there are none. */
