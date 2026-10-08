@@ -343,7 +343,7 @@
   | 转载与独立确认 | 30 |
   | 官方原文与媒体报道 | 30 |
 
-- **金标字段**：三值关系（same_event / progress / separate）；same_event 时标成员角色（reprint、independent_confirmation、substantive_update、correction、cross_language、commentary、conflicting）；共同锚点。**与 AIHOT 脚本对接**：运行器沿用 AIHOT 的 `scripts/eval-relations.ts`（直接复用生产的成对提示词与 schema，输出 4×4 混淆矩阵、每类 P/R/F1、宏 F1、`SAME_OCCURRENCE` / `SAME_STORY` 作正例时各置信度阈值的二分类 P/R/F1、token 与延迟），样本格式沿用 `industry/relation-gold.example.jsonl`（`caseId`、`a`、`b`〔title、source、firstParty、publishedAt、summary，可选 frame〕、`samplingContext`、`gold.relation` 四值）；四值与本包三值的映射见 `03-ai-capabilities.md` AI-08（`ROUNDUP` = `separate` + `roundup`）。
+- **金标字段**：三值关系（same_event / progress / separate）；same_event 时标成员角色（reprint、independent_confirmation、substantive_update、correction、cross_language、commentary、conflicting）；针对某一具体事件另写的解读、点评、分析标 progress（四值里的 `SAME_STORY`），随文发布的官方解读才标 same_event + commentary；共同锚点。**与 AIHOT 脚本对接**：运行器沿用 AIHOT 的 `scripts/eval-relations.ts`（直接复用生产的成对提示词与 schema，输出 4×4 混淆矩阵、每类 P/R/F1、宏 F1、`SAME_OCCURRENCE` / `SAME_STORY` 作正例时各置信度阈值的二分类 P/R/F1、token 与延迟），样本格式沿用 `industry/relation-gold.example.jsonl`（`caseId`、`a`、`b`〔title、source、firstParty、publishedAt、summary，可选 frame〕、`samplingContext`、`gold.relation` 四值）；四值与本包三值的映射见 `03-ai-capabilities.md` AI-08（`ROUNDUP` = `separate` + `roundup`）。
 - **标注要点**：
   - 按 legacy §8 区分五类成员关系：转载同稿、独立确认、实质更新、正式更正、跨语言分发。
   - “拿不准就分开”同样适用于标注：无法确认是同一事件时，标 progress 或 separate，并写明理由。
