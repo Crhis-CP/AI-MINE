@@ -111,6 +111,35 @@ test("force still holds invalid units, zeroes, hosts, duplicates, future periods
   }
 });
 
+test("an empty hold list fails the whole manual run before a failed fetch can replace the source record", async () => {
+  await recorded(() => run([first]));
+  await recorded(() => run());
+  await recorded(() => run([high], { force }), "metals.prices.manual");
+  const read = await readMetalPriceRuns(NOW);
+  const before = await prices();
+  let fetchCalls = 0;
+  const failing = {
+    nbs: () => ({
+      sourceKeys: ["nbs" as const],
+      fetch: async () => {
+        fetchCalls += 1;
+        throw new Error("fixture transport unavailable");
+      },
+    }),
+  };
+  const failure = await recorded(() => run([high], { force: { ...force, held: read.sources.nbs.held }, fetchers: failing }), "metals.prices.manual").then(
+    () => null,
+    (error: unknown) => error,
+  );
+  const last = (await jobs()).at(-1)!;
+  assert.deepEqual([last.status, last.detail], ["failed", null]);
+  assert.ok(failure instanceof Error);
+  assert.match(failure.message, /没对上/);
+  assert.equal(fetchCalls, 0);
+  assert.deepEqual(await prices(), before);
+  assert.deepEqual((await readMetalPriceRuns(NOW)).sources.nbs.latest, read.sources.nbs.latest);
+});
+
 test("a target missing from fetched periods or held labels fails before earlier periods write; unknown sources fail", async () => {
   await run([first]);
   const before = await snapshot();

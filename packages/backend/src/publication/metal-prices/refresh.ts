@@ -69,6 +69,7 @@ export async function refreshMetalPrices(
   const sources = registry.sources.filter((candidate) => candidate.enabled && (opts.source === undefined || candidate.key === opts.source));
   if (opts.source !== undefined && !sources.length) throw new Error(`来源 ${opts.source} 不存在或未启用`);
   if (opts.force && !opts.source) throw new Error("强制入库必须指定一个来源");
+  if (opts.force && !opts.force.held.length) throw new Error(`强制所属期 ${opts.force.periodStart} 没对上：不在被扣下清单里`);
   const fetching = async (source: MetalPriceSource) => {
     const fetcher = (opts.fetchers ?? FETCHERS)[source.key]?.(registry, opts.get);
     if (!fetcher) throw new Error("没有这个来源的抓取器");
