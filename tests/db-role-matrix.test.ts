@@ -54,6 +54,7 @@ test("every real role has exactly the approved table, column, sequence and cross
     catalog.tables.filter((row) => !row.name.startsWith("public.")).map((row) => row.name),
     [
       "ai.translation_receipt_observations",
+      "content.source_date_observation_seen",
       "content.source_date_observations",
       "enrichment.translation_segments",
       "publication.metal_prices",
@@ -141,6 +142,20 @@ test("every real role has exactly the approved table, column, sequence and cross
               ? `UPDATE ${name} SET observed_at=observed_at WHERE false RETURNING 1`
               : `DELETE FROM ${name} WHERE false RETURNING 1`;
       await permission(sql, statement, allowed, `${role} ${operation} source_date_observations`);
+    }
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const name = 'content."source_date_observation_seen"';
+      const allowed =
+        role === "migrate" || (operation === "SELECT" && ["worker", "private_ops", "backup"].includes(role)) || (role === "worker" && operation !== "DELETE");
+      const statement =
+        operation === "SELECT"
+          ? `SELECT * FROM ${name} LIMIT 1`
+          : operation === "INSERT"
+            ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false RETURNING 1`
+            : operation === "UPDATE"
+              ? `UPDATE ${name} SET last_observed_at=last_observed_at WHERE false RETURNING 1`
+              : `DELETE FROM ${name} WHERE false RETURNING 1`;
+      await permission(sql, statement, allowed, `${role} ${operation} source_date_observation_seen`);
     }
     // Metal prices are updated in place but never deleted (TASK-0044).
     for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {

@@ -67,3 +67,5 @@ sources.source_policy_versions由private_ops只追加，worker只读；current�
 ai.translation_receipt_observations仅为gateway私有状态：worker写、private_ops/backup只读、public_read/auth/feedback_write无读取权；不增加跨schema FK，不改付费缓存身份。receipt_version只是观察到的计数版本，actual attempt仍由可空的稳定ID单独核对；known_unbilled仅继承已有明确未计费状态，不产生新的计费判断。
 
 publication.metal_prices（金属价格，TASK-0044）归 publication：worker 读、插、改，没有 DELETE（只增不删，修订另起一行）；private_ops/backup 只读；public_read/auth/feedback_write 没有 publication schema 使用权，读者接口要用的列由 TASK-0045 登记 publicColumns 后才开放。
+
+TASK-0110：日期证据表保持worker只读、只插；新表`content.source_date_observation_seen`仅记录最后观察时刻，worker可读/插/改，private_ops与backup只读，公开角色无权；一次性清理仅用migrate角色。

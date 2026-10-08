@@ -1,6 +1,6 @@
 import { MaterialSourceDateInput, type SourceDateParseResult, type SourceDateParseInput, type MaterialUpdateResult } from "@amp/contracts/time-assertion";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies, lockSourceDateConfiguration, parseSourceDate } from "@amp/backend/admin/sources";
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { dbOf, type Db, type Tx, type Sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { sourceDateVerdict } from "./source-time.ts";
@@ -58,7 +58,7 @@ export async function prepareDateMutation(tx: Tx, sourceId: string, input: Mater
   }
 }
 
-/** Keeps every observation; only a changed, current observation can advance the current version. */
+/** Retain changed evidence and the last time seen; only current observations advance the current version. */
 export async function commitDateObservation(
   tx: Tx,
   articleId: string,
@@ -92,10 +92,11 @@ export async function commitDateObservation(
   }
   const [previous] = await tx<{ semantic_hash: string; result: SourceDateParseResult; observed_at: Date }[]>`
     SELECT semantic_hash, result, observed_at FROM content.source_date_observations WHERE id = ${article.source_date_observation_id}`;
-  const [recent] = await tx<{ observed_at: Date }[]>`
-    SELECT observed_at FROM content.source_date_observations
-    WHERE article_id = ${articleId} AND revision = ${inputRevision} AND config_hash = ${observation.configHash}
-    ORDER BY observed_at DESC LIMIT 1`;
+  const [recent] = await tx<{ id: string; semantic_hash: string; observed_at: Date; last_observed_at: Date | null }[]>`
+    SELECT o.id, o.semantic_hash, o.observed_at, s.last_observed_at FROM content.source_date_observations o
+    LEFT JOIN content.source_date_observation_seen s USING (article_id, revision, config_hash)
+    WHERE o.article_id = ${articleId} AND o.revision = ${inputRevision} AND o.config_hash = ${observation.configHash}
+    ORDER BY o.observed_at DESC, o.created_at DESC, o.id DESC LIMIT 1`;
   const { sourceId, configHash, alternatives, ...raw } = observation;
   const binding = { articleId, sourceId, revision: inputRevision, configHash };
   const primaryInput = { ...raw, binding };
@@ -114,15 +115,20 @@ export async function commitDateObservation(
   const verdict = sourceDateVerdict("news", parsed.evidence, binding, now);
   const { observationId: _id, observedAt: _at, ...facts } = parsed.evidence;
   const semanticHash = sha256(stableJson({ facts, alternatives, permissionVersion: input.permissionVersion }));
-  const id = sha256(stableJson({ parsed, alternatives, permissionVersion: input.permissionVersion }));
-  await tx`INSERT INTO content.source_date_observations
+  const id = recent?.semantic_hash === semanticHash ? recent.id : sha256(stableJson({ parsed, alternatives, permissionVersion: input.permissionVersion }));
+  if (id !== recent?.id)
+    await tx`INSERT INTO content.source_date_observations
     (id, article_id, source_id, revision, config_hash, permission_version, observation_id, observed_at, observation, result, semantic_hash)
     VALUES (${id}, ${articleId}, ${sourceId}, ${inputRevision}, ${configHash}, ${input.permissionVersion!},
       ${raw.observationId}, ${raw.observedAt}, ${tx.json(observation)}, ${tx.json(parsed)}, ${semanticHash}) ON CONFLICT (id) DO NOTHING`;
+  await tx`INSERT INTO content.source_date_observation_seen(article_id, revision, config_hash, last_observed_at)
+    VALUES (${articleId}, ${inputRevision}, ${configHash}, ${raw.observedAt})
+    ON CONFLICT (article_id, revision, config_hash) DO UPDATE SET
+      last_observed_at = greatest(content.source_date_observation_seen.last_observed_at, EXCLUDED.last_observed_at), updated_at = now()`;
   if (
     inputRevision !== article.revision ||
     result.sourceDateVersion !== input.expectedSourceDateVersion ||
-    (recent && recent.observed_at.getTime() > Date.parse(observation.observedAt))
+    (recent && Math.max(recent.observed_at.getTime(), recent.last_observed_at?.getTime() ?? -Infinity) > Date.parse(observation.observedAt))
   )
     return stale();
   if (previous?.semantic_hash === semanticHash && article.source_date_state === verdict.status) return result;
@@ -143,6 +149,50 @@ export async function commitDateObservation(
     sourceDateOutcome: "applied",
     metadataChanged: true,
     sourceTimeChanged: stableJson(oldTime) !== stableJson(time),
+  };
+}
+
+/** Migration-only maintenance: preview writes nothing; each apply locks one material before choosing deletions. */
+export async function compactDateObservations(db: Sql, { apply = false }: { apply?: boolean } = {}) {
+  const materials = await db<{ article_id: string }[]>`SELECT DISTINCT article_id FROM content.source_date_observations ORDER BY article_id`;
+  const rows: { articleId: string; before: number; after: number; removable: number; bytes: number }[] = [];
+  for (const { article_id: articleId } of materials) {
+    const inspect = async (tx: Db) => {
+      if (apply) await tx`SELECT id FROM articles WHERE id = ${articleId} FOR UPDATE`;
+      const [current] = await tx<{ source_date_observation_id: string | null }[]>`SELECT source_date_observation_id FROM articles WHERE id = ${articleId}`;
+      const observed = await tx<{ id: string; revision: number; config_hash: string; semantic_hash: string; observed_at: Date; bytes: number }[]>`
+        SELECT id, revision, config_hash, semantic_hash, observed_at, pg_catalog.pg_column_size(o)::int AS bytes FROM content.source_date_observations o
+        WHERE article_id = ${articleId} ORDER BY revision, config_hash, observed_at, created_at, id`;
+      const same = (a: (typeof observed)[number] | undefined, b: (typeof observed)[number]) =>
+        a?.revision === b.revision && a.config_hash === b.config_hash && a.semantic_hash === b.semantic_hash;
+      const remove = observed.filter((row, i) => row.id !== current?.source_date_observation_id && same(observed[i - 1], row) && same(observed[i + 1], row));
+      if (apply) {
+        const latest = new Map(observed.map((row) => [`${row.revision}:${row.config_hash}`, row]));
+        for (const row of latest.values())
+          await tx`INSERT INTO content.source_date_observation_seen(article_id, revision, config_hash, last_observed_at)
+          VALUES (${articleId}, ${row.revision}, ${row.config_hash}, ${row.observed_at})
+          ON CONFLICT (article_id, revision, config_hash) DO UPDATE SET
+            last_observed_at = greatest(content.source_date_observation_seen.last_observed_at, EXCLUDED.last_observed_at), updated_at = now()`;
+        if (remove.length) await tx`DELETE FROM content.source_date_observations WHERE article_id = ${articleId} AND id IN ${tx(remove.map((row) => row.id))}`;
+      }
+      return {
+        articleId,
+        before: observed.length,
+        after: observed.length - (apply ? remove.length : 0),
+        removable: remove.length,
+        bytes: remove.reduce((n, row) => n + row.bytes, 0),
+      };
+    };
+    rows.push(apply ? await db.begin(inspect) : await inspect(db));
+  }
+  return {
+    apply,
+    totalRows: rows.reduce((n, row) => n + row.before, 0),
+    remainingRows: rows.reduce((n, row) => n + row.after, 0),
+    removableRows: rows.reduce((n, row) => n + row.removable, 0),
+    estimatedMB: rows.reduce((n, row) => n + row.bytes, 0) / 1024 ** 2,
+    topMaterials: [...rows].sort((a, b) => b.removable - a.removable || a.articleId.localeCompare(b.articleId)).slice(0, 10),
+    materials: rows,
   };
 }
 
