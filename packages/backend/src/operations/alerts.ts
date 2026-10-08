@@ -22,7 +22,7 @@ const modelsOn = () => process.env.MODEL_CALLS_ENABLED !== "false";
 /** How long the site may go without a new article before it counts as stalled (small source lists are quieter). */
 const QUIET_MS = Number(process.env.ALERT_QUIET_MINUTES || 360) * 60_000;
 /** Where the metal price item sends the reader (TASK-0071); TASK-0076 adds its check script after it. */
-const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录";
+const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录，或在 worker 容器里跑 scripts/metal-prices-check.ts";
 /** An error or reason cut to 200 characters, as left(…, 200) does for the other items. */
 const clip = (text: string) => [...text].slice(0, 200).join("");
 

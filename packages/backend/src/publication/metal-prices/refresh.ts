@@ -5,7 +5,7 @@
 import { checkPeriod } from "./check.ts";
 import { nbsFetcher } from "./nbs.ts";
 import { loadMetalPriceRegistry, type MetalPriceSource, type MetalPriceSourceKey, parseMetalPriceRegistry } from "./registry.ts";
-import { fetchedAt, latestValues, newestStart, previousValues, storedValues, storePeriod } from "./store.ts";
+import { fetchedAt, latestValues, newestStart, previousValues, previewLatestValues, previewPeriod, storedValues, storePeriod } from "./store.ts";
 import type { FetchedPeriod, PageGetter } from "./types.ts";
 
 /** Each source's fetcher by its key: a source is added by its registry entry and a line here (TASK-0046). */
@@ -28,7 +28,7 @@ export interface MetalPricePeriodRun {
   heldSeries?: { key: string; reason: string }[];
 }
 
-/** One source of the run record; TASK-0049's digest reads it, so later cards add fields only. */
+/** One source of the run record; TASK-0071's digest reads it, so later cards add fields only. */
 export interface MetalPriceSourceRun {
   /** No error, no period held back or waiting for one, no series held back alone ("no new version" is a success; notes do not count). */
   ok: boolean;
@@ -40,6 +40,8 @@ export interface MetalPriceSourceRun {
   periods: MetalPricePeriodRun[];
   /** "这次一期都没有返回" when the fetcher returned no period, whatever the reason: the refresh cannot tell (TASK-0046). A success. */
   note?: string;
+  /** Only this period skips comparison with the previous one (TASK-0076); all other checks still apply. */
+  forced?: { period: string; skipped: ["行数", "倍数"] };
 }
 
 /** A period's entry in the run record, before it is checked. */
@@ -48,20 +50,38 @@ function blank({ period, release }: FetchedPeriod): MetalPricePeriodRun {
 }
 
 /** `registry` is data as in industry/metal-prices.json (tests narrow it), checked whole like the file. */
-export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageGetter; now?: Date; fetchers?: typeof FETCHERS } = {}) {
+export async function refreshMetalPrices(
+  opts: {
+    registry?: unknown;
+    get?: PageGetter;
+    now?: Date;
+    fetchers?: typeof FETCHERS;
+    source?: string;
+    dryRun?: boolean;
+    force?: { periodStart: string; held: string[] };
+  } = {},
+) {
   // A bad registry throws here, so the schedule records a failed run rather than skipping entries.
   const registry = opts.registry === undefined ? loadMetalPriceRegistry() : parseMetalPriceRegistry(opts.registry);
   const now = opts.now ?? new Date();
   const record: Record<string, MetalPriceSourceRun> = {};
   // Requests go out two sources at a time, as upstream; once all are back, each source is checked and stored in turn, in registry order.
-  const sources = registry.sources.filter((candidate) => candidate.enabled);
+  const sources = registry.sources.filter((candidate) => candidate.enabled && (opts.source === undefined || candidate.key === opts.source));
+  if (opts.source !== undefined && !sources.length) throw new Error(`来源 ${opts.source} 不存在或未启用`);
+  if (opts.force && !opts.source) throw new Error("强制入库必须指定一个来源");
   const fetching = async (source: MetalPriceSource) => {
     const fetcher = (opts.fetchers ?? FETCHERS)[source.key]?.(registry, opts.get);
     if (!fetcher) throw new Error("没有这个来源的抓取器");
-    return fetcher.fetch(newestStart, { now, fetchedAt });
+    return fetcher.fetch(newestStart, { now, fetchedAt: opts.dryRun || opts.force ? async () => null : fetchedAt });
   };
   const outcomes: PromiseSettledResult<FetchedPeriod[]>[] = [];
   for (let start = 0; start < sources.length; start += 2) outcomes.push(...(await Promise.allSettled(sources.slice(start, start + 2).map(fetching))));
+  // Refuse a mismatched manual request before any period can write; recordRun must mark the whole run failed.
+  const forcedOutcome = opts.force ? outcomes[0] : undefined;
+  if (forcedOutcome?.status === "fulfilled") {
+    const target = forcedOutcome.value.find((one) => one.period.start === opts.force!.periodStart);
+    if (!target || !opts.force!.held.includes(target.period.label)) throw new Error(`强制所属期 ${opts.force!.periodStart} 没对上：未抓到或不在被扣下清单里`);
+  }
   for (const [i, source] of sources.entries()) {
     const run: MetalPriceSourceRun = { ok: false, at: now.toISOString(), error: null, inserted: 0, touched: 0, periods: [] };
     record[source.key] = run;
@@ -70,11 +90,13 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
       const outcome = outcomes[i]!;
       if (outcome.status === "rejected") throw outcome.reason;
       const fetched = outcome.value;
+      if (opts.force) run.forced = { period: fetched.find((one) => one.period.start === opts.force!.periodStart)!.period.label, skipped: ["行数", "倍数"] };
       if (!fetched.length) run.note = "这次一期都没有返回";
       // One period fetched twice (the list naming it under two addresses) fails the source: neither copy is guessed right.
       const twice = fetched.filter((one) => fetched.some((other) => other !== one && other.period.start === one.period.start));
       if (twice.length) throw new Error(`同一所属期抓到不止一份，不猜哪份为准：${twice.map((one) => `${one.period.label} ${one.release.url}`).join("、")}`);
       let waiting: string | null = null;
+      const projected = new Map<string, Map<string, string>>();
       for (const one of fetched) {
         const entry = blank(one);
         if (one.heldSeries?.length) entry.heldSeries = one.heldSeries;
@@ -87,15 +109,20 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
         const alone = new Set(one.heldSeries?.map((series) => series.key));
         const kept = items.filter((item) => !alone.has(item.key));
         const rows = one.rows.filter((row) => !alone.has(row.key));
-        const newest = await newestStart(source.key);
-        const previous = await previousValues(source.key, one.period.start, items);
-        // The stored newest period read again unchanged passed its checks when stored, or was stored by force (TASK-0049):
+        const newest = [...projected.keys(), (await newestStart(source.key)) ?? ""].sort().at(-1) || null;
+        const previousStart = [...projected.keys()]
+          .filter((start) => start < one.period.start)
+          .sort()
+          .at(-1);
+        const previous = previousStart ? projected.get(previousStart)! : await previousValues(source.key, one.period.start, items);
+        // The stored newest period read again unchanged passed its checks when stored, or was stored by force (TASK-0076):
         // compared with the period before again, a forced one would be held back at every run.
         // A new version of it repeating each series' latest stored value is taken the same way, and not stored (TASK-0046).
         const stored = await storedValues(source.key, one);
         const known = stored.size ? stored : await latestValues(source.key, one.period.start);
         const unchanged = one.period.start === newest && rows.length === kept.length && rows.every((row) => known.get(row.key) === row.value);
-        const { reasons, notes } = checkPeriod({ fetched: { ...one, rows }, source, items: kept, previous, newest, compareWithPrevious: !unchanged, now });
+        const compareWithPrevious = !unchanged && one.period.start !== opts.force?.periodStart;
+        const { reasons, notes } = checkPeriod({ fetched: { ...one, rows }, source, items: kept, previous, newest, compareWithPrevious, now });
         entry.notes = notes;
         const held = [...one.held, ...(kept.length ? [] : ["这一期启用的品种全被单独扣下"]), ...reasons];
         if (held.length) {
@@ -106,7 +133,8 @@ export async function refreshMetalPrices(opts: { registry?: unknown; get?: PageG
           continue;
         }
         if (unchanged && !stored.size) entry.notes.push("和库里已有的一样，不另存");
-        else Object.assign(entry, await storePeriod(source, kept, { ...one, rows }, now));
+        else Object.assign(entry, opts.dryRun ? await previewPeriod(source, kept, { ...one, rows }) : await storePeriod(source, kept, { ...one, rows }, now));
+        if (opts.dryRun) projected.set(one.period.start, await previewLatestValues(source.key, { ...one, rows: unchanged && !stored.size ? [] : rows }, now));
         run.inserted += entry.inserted;
         run.touched += entry.touched;
       }
