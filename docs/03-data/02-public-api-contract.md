@@ -32,7 +32,7 @@
 | 7 | 每条公开内容带机器可读 `attributions`（发布方署名）与 `ai_label`；全文只对“站外再分发”许可为允许的来源返回 | DEC-38；D05-api-017、020 |
 | 8 | 下架后 **60 秒内**所有出口不可见；公开响应不设长缓存、不用 stale-while-revalidate | DEC-48 |
 | 9 | 法规接口以 B 的 Policy 系列 DTO 为底，增加分维法律状态、结构化经营影响与七经营主题字段；资讯线与法规线接口同步设计 | DEC-01、DEC-36；D11-policy-005 |
-| 10 | 金属价格接口移出首版：页面只放官方入口与说明，不出任何数字；价格数据契约保留为“延后”草案（§3.9）。Owner 2026-10-01 已定（Q-11，A）：开发方先调研免费或低价的官方数据源并报价，Owner 再定是否开通站内价格表 | DEC-07 |
+| 10 | 金属价格使用站内`GET /api/site/metal-prices`，公开API仍无`/api/v1/metal-prices`；不进入RSS、MCP等机器出口（§3.9、PG-11） | DEC-07 |
 | 11 | 公网只暴露一个经限流的只读“公开新鲜度探针”（`/api/v3/freshness`，§2.13）；所有公开响应带发布标识头；`/healthz`、`/readyz` 不属于公网契约，不进 OpenAPI | `04-architecture/07-deployment-and-ops.md` §6.2、§6.3；DEC-06 |
 | 12 | 精选、热点、条目评分沿用 AIHOT，切换前完成：条目卡带 `score`（两次评分的平均值，向下取整；没有评分为 null，不出现 0）；热点榜机器形态只给名次，热度值只在站点接口；精选同步 `featured/snapshot`、`featured/changes` 沿用 AIHOT；`availability` 字段与 `not_enabled` 取值废弃（数据不足时返回空列表，页面显示诚实空态） | DEC-10、DEC-64；BR-SEL-05、BR-SEL-07 |
 
@@ -355,9 +355,9 @@
 
 `q`（≤120，搜索中文名、原文名、文号与发布机构）、`jurisdiction`（选国家时包含其下级）、`theme`（七主题键，枚举见 §3.7 `themes`）、`nature`（文书性质，枚举见 §3.7）、`stage`（制定阶段，即 `legal_state.legislative_stage`：`proposed` / `consultation` / `adopted` / `published` / `unknown`）、`from`、`to`（北京自然日闭区间，对 `sort_time` 生效，只有日期精度的不平移，DEC-49）；分页：站点接口 `page`、`page_size`（默认 20，≤50，返回 `total`、`has_more`，越界 200 空列表），公开 API `cursor`、`limit`（§2.3）。列表与国家计数按文书、不按语言；33 国与 EU/UN/OECD 不混计。页面侧若删减筛选项，以页面规格为准并同步删除契约参数；两边不得不一致（D03-reader-pages-005）。【设计】
 
-### 3.9 延后：金属价格数据（不进首版 OpenAPI）
+### 3.9 金属价格数据（站内接口，不进公开 API）
 
-金属价格表是保留的产品目标。Owner 2026-10-01 已定（Q-11，A）：先只放官方入口，由开发方调研免费或低价的官方数据源并报价，Owner 再定是否开通站内价格表；**数据源、展示许可与费用仍须 Owner 批准后才启用**；开通前页面只放官方入口与说明，不出任何数字，不放空表格框架，该状态不计为价格表完成（DEC-07，Q-11，`apps/web/components/reader/information.tsx:61-85@main` 的旧站现状）。因此 `GET /metal-prices` 不在首版契约中；站点设置的 `metal_links` 承载官方入口。启用时的数据形状沿用 B 的 `Quote`：`{id, commodity, benchmark, venue, grade, delivery_basis, price_decimal（字符串小数）, currency, unit, as_of, delay_label, status: available / stale / unavailable / restricted, source_url, source_name, license_label}`；`available` 必须有真实值与时点，缺数为 `unavailable`/`restricted`，不得填 0 或模型估价，不同基准或单位不混算；换汇与涨跌比较属未确认扩展，不在验收内。启用前置条件：已确定数据源、取得站内展示许可、品种清单经 Owner 确认。
+金属价格表按Owner 2026-10-05、10-06确认的第四版排期M3（PG-11、DEC-07），使用站内`GET /api/site/metal-prices`，不设公开`/api/v1/metal-prices`。响应含导语、按频率的最新一期、各来源名称/频率标签/状态/最新一期、按品种分组的报价（标题、规格、脚注号、价格、单位、币种、所属期、较上期）、脚注与说明及官方查询入口；价格是十进制字符串，缺值为空，不填0。换算只限俄罗斯央行，同一报价较上期按相邻期规则计算；其余来源不换算、不跨源比较。具体契约由TASK-0045实现，本卡只确定语义，不改B原件JSON或已生成契约。
 
 ---
 
@@ -470,7 +470,7 @@ v2.0 的“旧公开路径处置表”（旧 RSS 与旧页面链接 301、旧机
 | 错误 | 6 个码 | 9 个码、`retry_after_seconds` 必填 | 统一体，`retry_after_seconds` 可选（§2.7） |
 | 反馈 | 旧站字段 | 多附件令牌、必带幂等键 | 旧站字段 + 可选幂等键 + 201（§4.3） |
 | 法规接口 | 扁平 `Instrument` | Policy 系列 | Policy 系列 + 分维状态 + 影响 + 七主题（§3.7） |
-| 金属价格 | 无接口 | `/metal-prices` | 移出首版（§3.9） |
+| 金属价格 | 站内 `/api/site/metal-prices` | `/metal-prices` | 不进入公开API，站内第四版形状见§3.9 |
 | 署名与再分发 | 无结构化字段、全文权限不分渠道 | 无 | `attributions`、`syndicate_fulltext`（§2.9） |
 | 缓存 | 允许 5 分钟浏览器缓存 | 不得依赖 TTL | 60 秒可测条款（§2.8） |
 | 撤回代次 | 无 | `policy_epoch` 随每个响应与游标 | 内部 `suppression_epoch`，只在站点 `/version` 以不透明字符串返回，公开 API 不含（§2.2） |
