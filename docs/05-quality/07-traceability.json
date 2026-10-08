@@ -12739,7 +12739,7 @@
   },
   {
    "id": "T-146",
-   "title": "运行告警送达：去重、恢复、第二渠道与外部拨测",
+   "title": "运行告警送达：去重、恢复与外部拨测",
    "layer": "L2；L6",
    "level": "N",
    "f_ids": [
@@ -18247,7 +18247,7 @@
   },
   {
    "id": "BR-COST-07",
-   "title": "熔断分层：异常熔断（BR-COST-20）与速率限制，缺配置即拒绝",
+   "title": "熔断分层：异常熔断（BR-COST-20）与按服务的调用次数上限（照上游）",
    "file": "02-rules/05-cost-and-budget.md",
    "status": "covered",
    "t_ids": [
@@ -18461,7 +18461,7 @@
   },
   {
    "id": "BR-COST-18",
-   "title": "用量记账与月度用量报告",
+   "title": "用量记账、每周用量与月度用量报告",
    "file": "02-rules/05-cost-and-budget.md",
    "status": "covered",
    "t_ids": [
