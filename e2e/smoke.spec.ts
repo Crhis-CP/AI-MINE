@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Response } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { startBrowserSite } from "./site.ts";
 import { FIXED_TIME } from "./time.ts";
+
+type CspViolation = { directive: string; blockedURI: string };
+declare global {
+  interface Window {
+    __reportCsp: (violation: CspViolation) => Promise<void>;
+    __injected?: number;
+    __injected2?: number;
+  }
+}
 
 const test = base.extend<{ site: Awaited<ReturnType<typeof startBrowserSite>> }>({
   site: async ({ browserName }, use, info) => {
@@ -19,6 +28,24 @@ const test = base.extend<{ site: Awaited<ReturnType<typeof startBrowserSite>> }>
 
 test("production empty reader, private Host boundary and WCAG smoke", async ({ page, context, browser, site }, info) => {
   const blocked = await isolateBrowser(context, [site.publicOrigin, site.privateOrigin, site.badOrigin]);
+  const violations: CspViolation[] = [];
+  await page.exposeBinding("__reportCsp", (_source, violation: CspViolation) => violations.push(violation));
+  await page.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (event) => {
+      void window.__reportCsp({ directive: event.effectiveDirective, blockedURI: event.blockedURI });
+    });
+  });
+  const pageNonce = async (response: Response) => {
+    const nonce = response.headers()["content-security-policy"]?.match(/'nonce-([^']+)'/)?.[1];
+    expect(nonce).toBeTruthy();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", /^(light|dark)$/);
+    const nonces = await page
+      .locator('script:not([type="application/ld+json"])')
+      .evaluateAll((scripts) => scripts.map((script) => (script as HTMLScriptElement).nonce));
+    expect(nonces.length).toBeGreaterThan(0);
+    expect(nonces.every((value) => value === nonce)).toBe(true);
+    return nonce;
+  };
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.clock.setFixedTime(new Date(FIXED_TIME));
@@ -38,7 +65,9 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(info.project.use.viewport!.width);
   };
   try {
-    expect((await page.goto(`${site.publicOrigin}/all`))!.status()).toBe(200);
+    const reader = await page.goto(`${site.publicOrigin}/all`);
+    expect(reader!.status()).toBe(200);
+    await pageNonce(reader!);
     await expect(page.getByText("没有找到相关内容", { exact: true })).toBeVisible();
     const search = page.getByRole("textbox", { name: "搜索标题、摘要与正文" });
     await search.fill("铜矿");
@@ -49,6 +78,7 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     await expect(page).toHaveURL(/tab=relevance/);
     assert(site.calls.some((c) => c.role === "public" && new URL(c.path, site.publicOrigin).searchParams.get("q") === "铜矿"));
     await audit("public-empty-search");
+    expect(violations).toEqual([]);
     const before = site.calls.filter((c) => c.role === "private").length;
     const denied = await page.goto(`${site.publicOrigin}/admin/login`);
     expect(denied!.status()).toBe(404);
@@ -70,6 +100,24 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "登录", exact: true })).toBeFocused();
     await audit("private-login");
+    const firstNonce = await pageNonce(login!);
+    const reopened = await page.goto(`${site.privateOrigin}/admin/login`);
+    expect(await pageNonce(reopened!)).not.toBe(firstNonce);
+    expect(violations).toEqual([]);
+
+    const injectionUrl = `${site.publicOrigin}/about`;
+    await page.route(
+      injectionUrl,
+      async (route) => {
+        const response = await route.fetch();
+        const body = (await response.text()).replace("</body>", '<script>window.__injected=1</script><img src="/x" onerror="window.__injected2=1"></body>');
+        await route.fulfill({ response, body });
+      },
+      { times: 1 },
+    );
+    expect((await page.goto(injectionUrl))!.status()).toBe(200);
+    await expect.poll(() => violations.map((event) => event.directive).sort()).toEqual(["script-src-attr", "script-src-elem"]);
+    expect(await page.evaluate(() => [window.__injected, window.__injected2])).toEqual([undefined, undefined]);
     const probe = "https://blocked.invalid/browser-smoke";
     expect(
       await page.evaluate(
@@ -81,11 +129,28 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
         probe,
       ),
     ).toBe(true);
+    await expect.poll(() => violations.filter((event) => event.directive === "connect-src")).toEqual([{ directive: "connect-src", blockedURI: probe }]);
+    expect(blocked).toEqual([]);
+    const blank = await context.newPage();
+    try {
+      expect(
+        await blank.evaluate(
+          (url) =>
+            fetch(url).then(
+              () => false,
+              () => true,
+            ),
+          probe,
+        ),
+      ).toBe(true);
+    } finally {
+      await blank.close();
+    }
     expect(blocked).toEqual([probe]);
     expect(errors).toEqual([]);
     expect(site.calls.every((c) => c.method === "GET")).toBe(true);
   } finally {
-    console.info(JSON.stringify({ project: info.project.name, browser: browser.version(), axeEngines, manualReview, blocked, errors }));
+    console.info(JSON.stringify({ project: info.project.name, browser: browser.version(), axeEngines, manualReview, blocked, errors, violations }));
     await info.attach("browser-evidence", {
       body: JSON.stringify(
         {
@@ -94,6 +159,7 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
           fixedTime: FIXED_TIME,
           blocked,
           errors,
+          violations,
           upstreamCalls: site.calls,
           axeEngines,
         },

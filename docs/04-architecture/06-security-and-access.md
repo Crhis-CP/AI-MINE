@@ -98,7 +98,7 @@ flowchart LR
 | 职责 | Caddy（边缘） | 应用层 |
 |---|---|---|
 | HTTPS、HTTP→HTTPS 重定向、按 Host 路由 | ✓ | — |
-| 安全响应头 | ✓ 以旧站头集合为基线：HSTS、CSP、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy`、`Permissions-Policy`、删除 `Server`；CSP 随新前端栈调整；私有主机名加 `Cache-Control: no-store`（`Caddyfile.live:57-67,102@main`） | — |
+| 安全响应头 | ✓ 以旧站头集合为基线：HSTS、`X-Content-Type-Options: nosniff`、`X-Frame-Options: DENY`、`Referrer-Policy`、`Permissions-Policy`、删除 `Server`（CSP 见应用层一列）；私有主机名加 `Cache-Control: no-store`（`Caddyfile.live:57-67,102@main`） | ✓ CSP：网站进程给每个页面响应发，脚本只认本次请求的随机值（nonce），另有 `frame-ancestors 'none'`、`object-src 'none'`、`base-uri 'none'`（TASK-0084）【设计】，部署读回后改【已验证】 |
 | 代理身份改写 | ✓ 用直接 TCP 对端覆盖 `X-Forwarded-For`；删除 `Forwarded`、`X-Real-IP`、`CF-Connecting-IP`、`True-Client-IP`、`X-Client-IP`（`Caddyfile.live:69-78@main`） | 只按配置的可信跳数取客户端地址 |
 | 屏蔽私有路径、去 `Set-Cookie` | ✓（`Caddyfile.live:80-90@main`） | ✓ 按 Host 二次拒绝 |
 | 日志脱敏 | ✓ 删除查询串中的 `code`、`state`、`access_token`、`refresh_token`、`csrf`、`bootstrap_secret`、`client_secret`（`Caddyfile.live:5-45@main`） | ✓ 日志组件层统一脱敏，另含 `password`、`token`、`api_key`、`secret`、邮箱与账号标识（PIT-062） |
