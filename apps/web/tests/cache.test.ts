@@ -224,6 +224,7 @@ before(async () => {
     env: webEnvironment({
       ...process.env,
       WEB_PORT: "0",
+      SITE_URL: process.env.SITE_URL || "http://localhost:3000",
       PRIVATE_HOST: "private.localhost",
       TRUST_PROXY: "false",
       API_BASE_URL: `http://127.0.0.1:${(api.address() as AddressInfo).port}`,
@@ -282,6 +283,37 @@ test("public route subsets produce the same complete navigation data; filters st
   const body = await filtered.text();
   assert.ok(body.includes(category));
   assert.notEqual(body, answers[0]);
+});
+
+test("INV-34 public, missing and private pages authorize only this response's nonce", async () => {
+  for (const pathname of ["/", "/all", "/about", "/items/footer-page", "/does-not-exist", "/admin/login"]) {
+    const get = (method = "GET") =>
+      pathname.startsWith("/admin") ? fetchWithHost(origin + pathname, PRIVATE_HOST, { method }) : fetch(origin + pathname, { method });
+    const response = await get();
+    assert.equal(response.status, pathname === "/does-not-exist" ? 404 : 200, pathname);
+    const policy = response.headers.get("Content-Security-Policy") ?? "";
+    const scriptSource = policy.match(/(?:^|; )script-src ([^;]+)/)?.[1] ?? "";
+    const nonce = scriptSource.match(/'nonce-([^']+)'/)?.[1];
+    assert.ok(nonce, pathname);
+    assert.equal(Buffer.from(nonce, "base64").byteLength, 16);
+    assert.doesNotMatch(scriptSource, /'unsafe-inline'|'unsafe-eval'/);
+    for (const directive of ["object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'"]) assert.ok(policy.includes(directive), pathname);
+    if (pathname.startsWith("/admin")) {
+      const siteOrigin = new URL(process.env.SITE_URL || "http://localhost:3000").origin;
+      assert.ok(policy.split("; ").includes(`form-action 'self' ${siteOrigin}`));
+    }
+    const scripts = [...(await response.text()).matchAll(/<script\b([^>]*)>/g)].filter((match) => !/type="application\/ld\+json"/.test(match[1]!));
+    assert.ok(scripts.length > 0, pathname);
+    for (const [, attributes] of scripts) assert.equal(attributes!.match(/\bnonce="([^"]+)"/)?.[1], nonce, pathname);
+    const next = await get();
+    const nextNonce = next.headers.get("Content-Security-Policy")?.match(/'nonce-([^']+)'/)?.[1];
+    assert.ok(nextNonce, pathname);
+    assert.notEqual(nextNonce, nonce, pathname);
+    await next.arrayBuffer();
+    const head = await get("HEAD");
+    assert.match(head.headers.get("Content-Security-Policy") ?? "", /'nonce-[^']+'/);
+    assert.equal(await head.text(), "");
+  }
 });
 
 test("every public page carries the ICP filing number in the phone footer; the 更多 page keeps its own", async () => {
