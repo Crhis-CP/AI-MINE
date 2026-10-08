@@ -78,6 +78,14 @@ export default defineConfig({
     tailwindcss(),
     reactRouter(),
     buildGraph,
+    {
+      name: "amp-csp-zod-client",
+      enforce: "pre",
+      applyToEnvironment: (environment) => environment.name === "client",
+      resolveId(source) {
+        if (/^zod$/.test(source)) return path.resolve(import.meta.dirname, "app/lib/zod.client.ts");
+      },
+    },
   ],
   resolve: { alias: { "./group.css": path.resolve(import.meta.dirname, `app/${group}.css`) } },
   server: { port: 3000, strictPort: true, allowedHosts: [privateWebHostname(), new URL(process.env.SITE_URL || "http://localhost:3000").hostname] },

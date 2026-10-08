@@ -12,7 +12,7 @@
 ## 决定
 
 1. 一个仓库、一个数据库、四类应用进程：
-   - `web`（`apps/web`，裁决表称 reader-web）：读者站 SSR + 需登录的私有页面路由组（只在私有主机名响应，见 ADR-0018）；
+   - `web`（`apps/web`，裁决表称 reader-web）：读者站 SSR + 需登录的私有页面路由组（只在 `PRIVATE_HOST` 的私有路径上可达（生产即主域名的 `/admin`，ADR-0026））；
    - `api`（`apps/api`）：同一镜像按角色启动两个实例——`public-api` 只注册公开路由，`private-api` 只注册私有路由；
    - `worker`（`apps/worker`）：全部任务、定时器、资讯线与法规线的 lane×stage 调度（ADR-0016）；
    - `fetcher`（`apps/fetcher`）：独立的抓取与解析隔离进程，无主库凭据、无模型密钥（ADR-0019）。

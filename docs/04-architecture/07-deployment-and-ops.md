@@ -34,7 +34,7 @@
 | 域名与 DNS | `aiminingpolicy.com`；DNS 托管在火山引擎；**只追加记录，不迁移 nameserver**；记录值不写入仓库与本包；`www` 子域是 ICP 备案登记的首页地址，解析指向本机，入口层 301 到主域名，保留路径与查询（Owner 2026-10-05 同意，TASK-0037） | 【已验证】`docs/runbooks/production-deployment.md:554-555@main`；旧ADR-0010:28@main；www 一句【Owner 决定】2026-10-05（备案线程「那你加，我同意」，TASK-0037） |
 | 备案与许可 | ICP 备案已通过（Owner 已在官方控制台核验），**公安联网备案已办好**（Owner 2026-10-01，DEC-39）；两个备案号**只从受保护的运行时配置读取**，不进仓库与本包；每个公开 HTML 页面（桌面与手机）页脚同时显示 ICP 备案号（链接 `https://beian.miit.gov.cn/`）与公安联网备案号（带公安备案图标，链接全国互联网安全管理服务平台），**生产环境任一未配置则不开放公网入口**；域名、云账号、备案主体必须一致；互联网新闻信息服务许可已取得（DEC-40），许可证信息的录入与展示见第 9 节 | 【已验证】ICP 与页脚做法（`production-deployment.md:558-559@main`、`apps/web/components/reader/shell.tsx:155-161,189-191@main`）；公安联网备案与许可证【Owner 决定】2026-10-01（备案号、许可证编号、服务类别、有效期由 Owner 经安全方式提供） |
 | 证书 | Caddy 自动签发与续期（HTTP-01 验证需占用 80 端口）；证书与账户状态目录随入口切换一起迁移（4.3）；剩余少于 14 天预警 | 【已实现未验证】 |
-| 私有主机名 `PRIVATE_HOST` | 默认 `admin.aiminingpolicy.com`：沿用旧站已解析并签发证书的子域，避免切换当天新增 DNS 与证书变更；只承载最小私有页面、私有接口与只读运维 MCP，**不是运营台、不是独立应用** | 【设计】；`01-target-architecture.md` 第 3 节 |
+| 私有路径所在主机名 `PRIVATE_HOST` | 生产填主域名，后台在 `https://aiminingpolicy.com/admin`（照 AIHOT，Owner 2026-10-06，ADR-0026；生效以 TASK-0080 部署后读回为准）；旧地址 `admin.aiminingpolicy.com` 保留解析与证书，入口层 301 到主域名，保留路径与查询；不是运营台、不是独立应用 | 【Owner 决定】2026-10-06；【设计】 |
 | 对象存储 | 腾讯云 COS（私有），用于原件与备份。**旧仓库没有桶已创建、命令行工具已安装、生产备份或恢复演练的证据**（手册 2026-08 快照：备份桶未创建、命令行工具待安装），按“未就绪”处理；是否已有桶由 Owner 确认（桶名与密钥不写入本包）。创建桶、开通命令行工具、创建子账号是 Owner 逐次批准的云写操作，列入 M0 前置清单 | D15-secops-002；`docs/runbooks/production-deployment.md:55,160@main`；`docs/runbooks/infrastructure.md:17,105@main`。需 Owner：云上是否已创建备份用私有桶？默认按“没有”处理 |
 | 镜像仓库 | 腾讯云容器镜像服务（TCR，个人版或企业版）是否已开通：本包没有已开通的证据，**由 Owner 确认**；默认按“没有”处理，M0 前置由 Owner 批准创建；配额与保留策略在 M0 核实（旧站曾因制品存储配额用尽而签名包上传失败，PIT-055） | `02-tech-stack.md` 8.1；Q-60 |
 | 告警接收人 | 旧站手册 2026-08 快照记录“告警接收人待确认”，其后未见已验证记录；新站须在云监控控制台确认接收人可用（6.5） | `production-deployment.md:101,175-176@main` |
@@ -59,7 +59,7 @@
 | 容器 | 职责 | 内存初值 |
 |---|---|---|
 | `caddy` | HTTPS、按 Host 路由、安全响应头、代理身份改写、屏蔽私有路径并去 `Set-Cookie`、日志脱敏、超时与头大小限制。**不做限流**：限流在应用层（`06-security-and-access.md` 2.2） | ~50MB |
-| `web` | 读者站 SSR + 私有路由组（只在 `PRIVATE_HOST` 响应）；不持数据库与模型凭据 | ~200MB |
+| `web` | 读者站 SSR + 私有路由组（主域名 `/admin`；`PRIVATE_HOST` 生产即主域名，ADR-0026）；不持数据库与模型凭据 | ~200MB |
 | `public-api` | 公开只读查询、反馈提交（`/api/` 下不存在的路径，含旧站的 `/api/v1`、`/api/v2`，统一返回错误体 `not_found`，不做兼容） | ~200MB，1 核上限 |
 | `private-api` | 最小私有页面接口、只读运维 MCP（`/mcp-ops`）；与 public-api 同镜像 | ~150MB |
 | `worker` | 调度、加工、归组、法规处理、投影、报告、告警；两条业务线 lane×stage 调度 | ~600MB |
@@ -85,7 +85,7 @@ Docker 的 `internal` 网络不发布端口，回环发布无效，探针须在�
 
 ### 2.4 共享缓存层：默认不加
 
-AIHOT 的缓存头与图片代理是按“前置缓存 nginx/CDN”写的（`X-Accel-Expires`、`auth_request`），仓库自带的部署只有不缓存的 Caddy，README 的“页面中位数约 10ms”测量条件不明、可能含前置缓存，**不作证据**（D14b-aihot-web-009）。决定：**默认无缓存直连，以目标机实测为准**；只有基准显示首屏 p95 不达标、且确认瓶颈在重复渲染与读取时，才按顺序评估应用层短缓存、Caddy 缓存插件、自建 nginx `proxy_cache`。任何缓存层都必须满足“下架 60 秒内所有出口不可见、JSON 与 RSS `max-age=0, must-revalidate`”（`03-data/contracts/interface-behavior.md` 1.4）。`X-Accel-Expires`、图片代理 `auth_request`、后台 `auth_request` 的去留写入 T-0008 任务卡。
+AIHOT 的缓存头与图片代理是按“前置缓存 nginx/CDN”写的（`X-Accel-Expires`、`auth_request`），仓库自带的部署只有不缓存的 Caddy，README 的“页面中位数约 10ms”测量条件不明、可能含前置缓存，**不作证据**（D14b-aihot-web-009）。决定：**默认无缓存直连，以目标机实测为准**；只有基准显示首屏 p95 不达标、且确认瓶颈在重复渲染与读取时，才按顺序评估应用层短缓存、Caddy 缓存插件、自建 nginx `proxy_cache`。任何缓存层都必须满足“下架 60 秒内所有出口不可见、JSON 与 RSS `max-age=0, must-revalidate`”（`03-data/contracts/interface-behavior.md` 1.4）。`X-Accel-Expires`、图片代理 `auth_request`、后台 `auth_request` 的去留写入 T-0008 任务卡。前置 CDN 也是缓存层：私有路径源站一律 `private, no-store`，CDN 规则另外写明不缓存（ADR-0026）。
 
 ---
 
@@ -117,7 +117,7 @@ AIHOT 的缓存头与图片代理是按“前置缓存 nginx/CDN”写的（`X-A
   2. 按 digest 拉取新镜像并验签
   3. 执行迁移（只增不破；失败即停，不影响当前版本）
   4. 替换 public-api / private-api / web / worker / fetcher（始终保留当前与上一版本）
-  5. 健康检查 + 公开读取冒烟（首页、详情、搜索、RSS、私有主机名登录页、公开新鲜度探针）
+  5. 健康检查 + 公开读取冒烟（首页、详情、搜索、RSS、主域名 `/admin/login`、公开新鲜度探针）
      + worker 在 120 秒内通过当次启动的就绪探针并跑通一轮 + 从主机之外读回发布标识头
   6. 成功：登记本版本的产品更新（幂等；登记失败保留“待补记”并重试，不回滚健康的站点）
      失败：自动回滚到上一版本镜像，并验收回滚
