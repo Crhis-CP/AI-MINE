@@ -393,11 +393,11 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 - **现状**：一个 `root.tsx`、一个 `routes.ts`、一个 `app.css`；`root.tsx` 用 `pathname.startsWith("/admin")` 绕开读者外壳；`motion` 动画库只给后台用（`features/admin/{charts,toast,ui}.tsx`、`routes/admin/layout.tsx`），新站不带入（7.5）；后台只有 `admin/layout.tsx` 与 `admin-login.tsx` 输出 `no-store`；`apps/web/server.ts` 把 api 拥有的路径反向代理给 api，单端口对外；`react-router.config.ts:7-9` 的 `routeDiscovery: initial` 会把整张路由清单（含后台路由）随每个公开页下发。
 - **改造方式**：
-  1. **不拆独立应用，不设运营台**：没有 `admin-web`、运营子域与运营端口。私有页面是 `apps/web` 内需登录的独立路由组，只在私有主机名（`PRIVATE_HOST`）上响应；公开主机名访问私有路径返回 404 且不带 `Set-Cookie`；私有路由代码按路由拆包，不进入公开页面包；沿用读者站视觉与 `packages/ui`（补上 AIHOT 后台没有的主题切换）；所有私有响应 `no-store`。
-  2. `apps/api` 同一镜像以 `private-api` 角色运行私有路由组：只接受私有主机名，全部要求会话与防伪令牌，写操作与审计同事务；公开端口由 `public-api` 实例承载，两者不共用进程（DEC-30）。
+  1. **不拆独立应用，不设运营台**：没有 `admin-web`、运营子域与运营端口。私有页面是 `apps/web` 内需登录的独立路由组，在主域名的 `/admin` 响应（`PRIVATE_HOST` 生产即主域名，ADR-0026）；其他主机名访问私有路径返回 404 且不带 `Set-Cookie`；私有路由代码按路由拆包，不进入公开页面包；沿用读者站视觉与 `packages/ui`（补上 AIHOT 后台没有的主题切换）；所有私有路径的响应 `private, no-store`。
+  2. `apps/api` 同一镜像以 `private-api` 角色运行私有路由组：只接受 `PRIVATE_HOST`（生产即主域名），全部要求会话与防伪令牌，写操作与审计同事务；公开端口由 `public-api` 实例承载，两者不共用进程（DEC-30）。
   3. **公开构建不得含私有路由清单**【设计】：关闭 `routeDiscovery: initial`，或让公开构建的路由清单不含私有路由；验收 = 公开主机名下的页面 HTML、静态资源与路由清单端点里检索不到任何私有路径。
   4. 读者站 `server.ts` 保留缓存头改写与发布截止逻辑；生产不再代理 api 路径（由 Caddy 按路径转发到 `public-api`，开发时由 Vite 插件 `devEdge` 代理）。
-  5. 边缘层可复用 AIHOT 的会话校验端点 `/api/auth/check`（`admin-auth.ts:122`，有会话 204、否则 401）在 Caddy 上对私有主机名的页面路径（登录页与静态资源除外）做 `forward_auth`，作为第二道门【设计，采用与否写入 T-0008 任务卡，`07-deployment-and-ops.md` 2.4】。
+  5. 边缘层可复用 AIHOT 的会话校验端点 `/api/auth/check`（`admin-auth.ts:122`，有会话 204、否则 401）在 Caddy 上对主域名的私有页面路径（登录页与静态资源除外）做 `forward_auth`，作为第二道门【设计，采用与否写入 T-0008 任务卡，`07-deployment-and-ops.md` 2.4】。
   6. 拆成独立进程的触发条件：私有页面依赖无法与公开包隔离，或安全审计要求物理隔离（ADR-0018 第 8 条）。
 - **最小私有页面基线**：下表是从 AIHOT 后台起步的对表结果，与 `01-product/04-private-operations.md` §7.5 一致（逐文件处置见附录 B.4.4）。可直接作起点的只有信源三页、内容两页、反馈页、模型页和外壳；**账号管理、模型接入与密钥录入、金额用量账本与熔断/暂停、网站资料、告警渠道**在 AIHOT 里几乎是空白。
 
@@ -441,7 +441,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 
 - **现状**：`docker-compose.yml` 有 db（`postgres:17-alpine`）、setup（每次 `up` 先跑迁移与种子再退出）、api、worker、web 与可选 caddy；单一镜像在服务器上构建（`docker compose up -d --build`）；web 占 3000 端口并代理 api；`deploy/Caddyfile` 只把整个域名转给 web；`Dockerfile` 装的是与 PG17 匹配的 `postgresql-client`。
 - **改造方式**：服务为 caddy、web、public-api、private-api、worker、fetcher、postgres（+ 一次性 migrate），**没有 admin-web**（`03-module-map.md` 第 6 节）；镜像在独立构建执行器上按 SHA 构建、签名，服务器只按 digest 拉取——**不在生产主机构建，也不依赖 GitHub Actions**（ADR-0017）；迁移作为发布流程的一步，种子只导入行业种子数据（36 个法域对象、原始信源表、分类；信源一律 `enabled=false`），不再导入示范信源；PostgreSQL 换成 `postgres:18.6-trixie` + pgvector 自建镜像（装上不建向量索引），备份客户端同步升级；**按服务分别挂载密钥文件，不使用共享 `env_file`**（AIHOT 的四个应用容器共用一份 env 与数据卷，web 也拿到数据库连接串，G13）；Caddy 按主机名路由、拒绝私有路径并去 `Set-Cookie`；**公开端点限流在应用层做**（标准 Caddy 没有内置限流，`06-security-and-access.md` 2.2）；`trustProxy` 设为 1 跳或具体代理地址、绝不用 `true`（AIHOT `apps/api/src/app.ts:24` 写 `true`，任何人可伪造 `X-Forwarded-For` 换限流桶，同上 2.2）；去掉 web 直接发布的 3000 端口（`LOCAL_ROUTER_URL` 只服务飞书推送前的分享图预热，随飞书内容推送保留，Owner 2026-10-02）；保留 worker 的 `stop_grace_period`（让在途付费调用完成）、国内 npm 镜像构建参数；发布成功后登记产品更新（ADR-0012）。境外信源不可达时记录来源健康状态，不写“抓不到就配代理”（2.15 出网行）。**Dockerfile** 改为整仓复制 + `pnpm install --prod --frozen-lockfile`（禁用 `pnpm deploy`，与 Node 类型剥离冲突）、保留 `NPM_REGISTRY` 构建参数，所有基础镜像写“补丁版 + sha256 摘要”（现为浮动标签 `node:24-trixie-slim`），备份用的 `pg_dump` 客户端随数据库升到 18（Debian 自带的是 17，`02-tech-stack.md` 4.2）。
-- **共享缓存层**【设计】：AIHOT 的缓存头（`X-Accel-Expires`）与 `auth_request` 校验端点是按前置 nginx/CDN 写的，而自带部署只有不缓存的 Caddy（G21）。**结论见 `07-deployment-and-ops.md` 2.4：默认无缓存直连，以目标机实测为准**；只有基准显示首屏 p95 不达标、且瓶颈在重复渲染与读取时，才按顺序评估应用层短缓存、Caddy 缓存插件、自建 nginx `proxy_cache`，且任何缓存层都必须满足“下架 60 秒内全出口不可见”与 JSON、RSS 的 `max-age=0, must-revalidate`。页面与 API 的性能验收只在目标机实测，不引用上游数字；`X-Accel-Expires`、图片代理与后台的 `auth_request` 端点的去留写入 T-0008 任务卡（图片代理公开页关闭，其校验端点随之关闭；后台端点用于私有主机名的 `forward_auth`，3.4）。
+- **共享缓存层**【设计】：AIHOT 的缓存头（`X-Accel-Expires`）与 `auth_request` 校验端点是按前置 nginx/CDN 写的，而自带部署只有不缓存的 Caddy（G21）。**结论见 `07-deployment-and-ops.md` 2.4：默认无缓存直连，以目标机实测为准**；只有基准显示首屏 p95 不达标、且瓶颈在重复渲染与读取时，才按顺序评估应用层短缓存、Caddy 缓存插件、自建 nginx `proxy_cache`，且任何缓存层都必须满足“下架 60 秒内全出口不可见”与 JSON、RSS 的 `max-age=0, must-revalidate`。页面与 API 的性能验收只在目标机实测，不引用上游数字；`X-Accel-Expires`、图片代理与后台的 `auth_request` 端点的去留写入 T-0008 任务卡（图片代理公开页关闭，其校验端点随之关闭；后台端点用于主域名私有路径的 `forward_auth`，3.4）。
 - **时机**：T-0005（数据库镜像）、T-0008（部署骨架）。
 
 ### 3.8 术语与数据模型映射（改名防混淆）
@@ -855,8 +855,8 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 | 3 | T-0003 最小边界与按角色连接 | exports 白名单、前端不得导入后端、付费调用只经网关、web 无数据库与模型凭据、`dbFor(role)`、边界脚本、`public-api`/`private-api` 两个角色入口、《待迁出清单》（3.1、7.4） | 连接注入方式（行为不变） | 7.3 节的等价性检查通过；公开 GET 路径的连接只有 `public_read` |
 | 4 | T-0004 契约中心 | 只为保留的响应按现状写 Zod，生成 OpenAPI 与 api-client；漂移检查进验证入口；`score`、`links.aihot`、`channel` 中的 `x` 不进契约 | 无（只新增契约测试） | 保留的响应全部通过契约校验 |
 | 5 | T-0005 数据库基线 | PG18.6 + pgvector（装上不建索引）；基线 = 删去 AI 表后的 AIHOT 原表（默认 schema）+ 待迁出清单；迁移执行器；模板库克隆 | 无 | 结构快照与基线一致（去掉 AI 表）；测试全绿 |
-| 6 | T-0006 前端路由组清理 | 公开、私有两个路由组；删除项（7.5）；主题切换；公开构建不含私有路由清单 | 仅删除项与部署形态（一个应用、两个主机名） | 页面合集 = 原页面 − T-0002 已删页面 − 4.5 同批删除项；缓存与请求取消测试全绿；桌面 + 手机冒烟 |
-| 7 | T-0007/0008/0009 | 测试基建（假模型服务、录制响应、固定时钟）、部署骨架（`public-api`/`private-api`/`fetcher`、Caddy 两个主机名、共享缓存层决定、密钥文件）、矿业行业包 v0（信源种子一律 disabled） | T-0009 更换行业内容；T-0008 改变部署拓扑 | 各自任务卡验收；M0 退出标准 |
+| 6 | T-0006 前端路由组清理 | 公开、私有两个路由组；删除项（7.5）；主题切换；公开构建不含私有路由清单 | 仅删除项与部署形态（一个应用、两个主机名〔2026-10-06 起一个主机名，ADR-0026〕） | 页面合集 = 原页面 − T-0002 已删页面 − 4.5 同批删除项；缓存与请求取消测试全绿；桌面 + 手机冒烟 |
+| 7 | T-0007/0008/0009 | 测试基建（假模型服务、录制响应、固定时钟）、部署骨架（`public-api`/`private-api`/`fetcher`、Caddy 两个主机名〔2026-10-06 起一个主机名，ADR-0026〕、共享缓存层决定、密钥文件）、矿业行业包 v0（信源种子一律 disabled） | T-0009 更换行业内容；T-0008 改变部署拓扑 | 各自任务卡验收；M0 退出标准 |
 
 T-0009 可以与 T-0003 并行起草，但在 T-0003 合并前只改 `industry/**`；替换测试里 AI 例子的提交排在 T-0003 之后，避免同时移动与修改测试文件。T-0006 只依赖 `packages/contracts` 的位置，T-0003 合并后即可开始。**两条合成纵向链**（一条新闻、一份含必要附件的政策）是 M1 的首个验收（`00-overview.md`）；M0 只搭它们所需的骨架（两个 api 实例、fetcher 进程、按角色连接）。`03-module-map.md` 第 9 节把纵向链列入 M0 退出标准，与 `00-overview.md` 不一致，以 `00-overview.md` 为准（该节待同步）。
 
