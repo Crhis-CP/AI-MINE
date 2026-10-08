@@ -6,7 +6,7 @@
 // to the pages, machine outputs and MCP answers of the running site (stage smoke); the one allowance there is the
 // changelog's thanks, the exact phrases of names.json `allowedPhrases` in the outputs it names. In the repository
 // those phrases, each exactly as many times as names.json says, are also the only hits allowed in the files it
-// names (exception 7).
+// names, which are exactly the files of exception 7. JSON files are read with their \uXXXX escapes decoded.
 //   node scripts/verify/names.ts            the repository check, as the stage runs it
 //   node scripts/verify/names.ts --counts   lines with hits in each excepted file (for the acceptance record)
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
@@ -63,6 +63,20 @@ export function findHits(content: Buffer | string, rules: NameRules, { reference
   }
   return hits;
 }
+
+/** A JSON file's text with its \uXXXX escapes decoded, so a name written as escapes is found; an escaped backslash
+ *  stays as it is. A decoded line break becomes a tab, neither a space nor a line break: hits keep the file's own line
+ *  numbers, and an allowed phrase with its space written as an escaped line break is not that phrase. */
+export function jsonUnescaped(text: string): string {
+  return text.replace(/\\(?:\\|u([0-9a-fA-F]{4}))/g, (sequence: string, hex?: string) => {
+    if (hex === undefined) return sequence;
+    const char = String.fromCharCode(Number.parseInt(hex, 16));
+    return char === "\n" || char === "\r" ? "\t" : char;
+  });
+}
+
+/** A repository file's text as the check reads it: JSON with its escapes decoded. */
+const readable = (file: string, text: string) => (file.endsWith(".json") ? jsonUnescaped(text) : text);
 
 type ManifestFile = { path: string; sha256: string };
 const manifestFiles = (root: string, rules: NameRules) =>
@@ -127,9 +141,33 @@ function phraseProblems(file: string, text: string, rules: NameRules): string[] 
   return [...counts, ...findHits(withoutPhrases(text, rules), rules).map((h) => `${file}:${h.line}: "${h.match}" ${BEYOND}`)];
 }
 
+/** The files of allowedPhrases are exactly one exception's list (exception 7): a file added to only one of the two
+ *  lists would be excepted without its phrases counted, or counted without being excepted. */
+function phraseListProblems(rules: NameRules): string[] {
+  const files = rules.allowedPhrases?.files ?? [];
+  if (!files.length)
+    return Object.keys(rules.allowedPhrases?.phrases ?? {}).length
+      ? ["scripts/verify/names.json: allowedPhrases has phrases but no files, so no file is limited to them"]
+      : [];
+  const lists = Object.entries(rules.exceptions).map(([name, entries]) => ({ name, paths: entries.map((e) => (typeof e === "string" ? e : e.path)) }));
+  const owners = lists.filter(({ paths }) => files.some((file) => paths.includes(file)));
+  if (owners.length !== 1)
+    return [
+      `scripts/verify/names.json: allowedPhrases.files must be the files of one exception, not of ${owners.map((o) => `"${o.name}"`).join(" and ") || "none"}`,
+    ];
+  const [{ name, paths }] = owners as [(typeof lists)[number]];
+  const onlyExcepted = paths.filter((path) => !files.includes(path)),
+    onlyCounted = files.filter((file) => !paths.includes(file));
+  if (!onlyExcepted.length && !onlyCounted.length) return [];
+  const list = (names: string[]) => names.join(", ") || "none";
+  return [
+    `scripts/verify/names.json: exception "${name}" and allowedPhrases.files must list the same files (only in the exception: ${list(onlyExcepted)}; only in allowedPhrases.files: ${list(onlyCounted)})`,
+  ];
+}
+
 /** Problems in the repository: hits outside the exceptions, paths that name the project, upstream brand assets. */
 export function checkNames(root: string, files: readonly string[], rules = loadRules(root)): string[] {
-  const problems: string[] = [];
+  const problems: string[] = phraseListProblems(rules);
   const originals = new Map(
     Object.values(rules.exceptions)
       .flat()
@@ -148,8 +186,8 @@ export function checkNames(root: string, files: readonly string[], rules = loadR
     if (content) {
       const asset = brand.get(sha256(content));
       if (asset) problems.push(`${file}: same bytes as the upstream brand asset ${asset} (no exceptions)`);
-      if (!excepted) found.push(...findHits(content, rules).map((h) => `${file}:${h.line}: "${h.match}" ${OUTSIDE}`));
-      else if (rules.allowedPhrases?.files.includes(file)) found.push(...phraseProblems(file, content.toString("utf8"), rules));
+      if (!excepted) found.push(...findHits(readable(file, content.toString("latin1")), rules).map((h) => `${file}:${h.line}: "${h.match}" ${OUTSIDE}`));
+      else if (rules.allowedPhrases?.files.includes(file)) found.push(...phraseProblems(file, readable(file, content.toString("utf8")), rules));
     }
     const original = originals.get(file);
     if (found.length && original) found.push(`${file}: differs from ${original} does not cover it`);
@@ -327,7 +365,7 @@ export function exceptionCounts(root: string, files: readonly string[], rules = 
     if (!name) continue;
     const content = readTracked(root, file, []);
     if (!content) continue;
-    const lines = new Set(findHits(content, rules).map((h) => h.line)).size;
+    const lines = new Set(findHits(readable(file, content.toString("latin1")), rules).map((h) => h.line)).size;
     if (!lines) continue;
     if (!counts.has(name)) counts.set(name, new Map());
     counts.get(name)!.set(file, lines);
