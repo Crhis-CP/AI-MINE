@@ -146,18 +146,19 @@ function declared(raw: string, pattern: string | null, language: string | null):
 }
 
 // No declared format, neither ISO nor RFC: the first year-month-day in the text, as the upstream reads it
-// (parseLooseDate in published-at.ts), but with both separators alike and a time only after one space.
+// (parseLooseDate in published-at.ts), but with both separators alike and a time only after one space; a zone right
+// after that time makes it the exact instant, as the upstream reads it.
 const LOOSE = /((\d{4})(?:([-/.])(\d{1,2})\3(\d{1,2})|年(\d{1,2})月(\d{1,2})日))(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?/;
 const LOOSE_FORMATS: Record<string, string> = { "-": "YYYY-MM-DD", "/": "YYYY/MM/DD", ".": "YYYY.MM.DD" };
 function loose(value: string): { raw: string; pattern: string; fields: Fields } | null {
   const m = LOOSE.exec(value);
   if (!m) return null;
-  const [found, date, year, separator, month, day, cnMonth, cnDay, hour, minute, second] = m;
-  // A time followed by its zone would be read in the source's offset: keep the date alone instead.
-  const zoned = hour && /^(?:\.\d+)?\s*(?:Z|[+-]\d{2}:?\d{2}|GMT|UTC)\b/i.test(value.slice(m.index + found.length));
-  const clock = hour && !zoned ? `${hour.padStart(2, "0")}:${minute}${second ? `:${second}` : ""}` : null;
-  const pattern = `${separator ? LOOSE_FORMATS[separator] : "YYYY年M月D日"}${clock ? (second ? " HH:mm:ss" : " HH:mm") : ""}`;
-  return { raw: clock ? found : date!, pattern, fields: { day: dayOf(year!, (month ?? cnMonth)!, (day ?? cnDay)!), clock } };
+  const [found, , year, separator, month, day, cnMonth, cnDay, hour, minute, second] = m;
+  const zone = hour ? /^(?:\.\d+)?\s*(Z|[+-]\d{2}:?\d{2}|GMT|UTC)\b/i.exec(value.slice(m.index + found.length)) : null;
+  const clock = hour ? `${hour.padStart(2, "0")}:${minute}${second ? `:${second}` : ""}` : null;
+  const pattern = `${separator ? LOOSE_FORMATS[separator] : "YYYY年M月D日"}${clock ? (second ? " HH:mm:ss" : " HH:mm") : ""}${zone ? " Z" : ""}`;
+  const fields = { day: dayOf(year!, (month ?? cnMonth)!, (day ?? cnDay)!), clock, offset: zone?.[1] };
+  return { raw: zone ? found + zone[0] : found, pattern, fields };
 }
 
 type UnboundInput = Omit<SourceDateParseInput, "binding">;
