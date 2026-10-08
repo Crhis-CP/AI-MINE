@@ -150,6 +150,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
     if (token) headers.authorization = `Bearer ${token}`;
   }
   const res = await guardedFetch(url, {
+    retryDropped: true,
     method: c.method ?? "GET",
     headers: c.bodyJson ? { ...headers, "content-type": "application/json" } : headers,
     body: c.bodyJson ? JSON.stringify(c.bodyJson) : undefined,
