@@ -40,15 +40,16 @@ export function privateWebHostname(env: Environment = process.env): string {
   } catch {
     /* Report only configuration names. */
   }
-  if (!expected || !publicHost || expected === publicHost) throw new Error("PRIVATE_HOST must be valid and distinct from SITE_URL");
+  if (!expected || !publicHost) throw new Error("PRIVATE_HOST and SITE_URL must identify valid hosts");
   return expected;
 }
 
 export function webHostPolicy(env: Environment = process.env) {
   const expected = privateWebHostname(env);
+  const sharedHost = expected === hostname(new URL(env.SITE_URL || "http://localhost:3000").host);
   return (req: IncomingMessage, res: ServerResponse): "public" | "private" | null => {
     const hosts = req.rawHeaders.filter((name, index) => index % 2 === 0 && name.toLowerCase() === "host").length;
-    if (hosts === 1 && hostname(req.headers.host) === expected) {
+    if (hosts === 1 && hostname(req.headers.host) === expected && (!sharedHost || privatePath(req.url ?? "/"))) {
       noStore(res);
       return "private";
     }

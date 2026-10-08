@@ -63,8 +63,10 @@ const footerItem = {
   bodyLanguage: "zh",
 };
 const apiCookies: Array<string | undefined> = [];
+const privateCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
 const privateApi = createServer((req, res) => {
+  privateCookies.push(req.headers.cookie);
   privateCalls.push({ path: req.url!, forwarded: req.headers["x-forwarded-host"] as string | undefined });
   res.setHeader("Content-Type", "application/json");
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
@@ -686,12 +688,48 @@ test("public Host rejects private pages, data, API and redirect aliases before a
   const login = await fetchWithHost(origin + "/admin/login", "PRIVATE.LOCALHOST:443");
   assert.equal(login.status, 200);
   const html = await login.text();
-  const asset = html.match(/(?:src|href)="(\/assets\/[^"<>]+\.js)"/)?.[1];
+  const asset = html.match(/(?:src|href)="(\/admin\/assets\/[^"<>]+\.js)"/)?.[1];
   assert.ok(asset, "built private login loads actual client JavaScript");
   const response = await fetchWithHost(origin + asset, PRIVATE_HOST);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("Cache-Control"), "private, no-store");
   await response.arrayBuffer();
+});
+
+test("private asset prefix serves only the private build and never the public Host", async () => {
+  const html = await (await fetchWithHost(origin + "/admin/login", PRIVATE_HOST)).text();
+  assert.doesNotMatch(html, /["']\/assets\//);
+  for (const suffix of ["js", "css"]) assert.match(html, new RegExp(`/admin/assets/[^"'<>]+\\.${suffix}`));
+  assert.match(html, /\/admin\/assets\/manifest-/);
+  const publicFiles = new Set(readdirSync(new URL("../build/public/client/assets/", import.meta.url)));
+  const folder = new URL("../build/private/client/assets/", import.meta.url);
+  const privateOnly = readdirSync(folder).filter((file) => !publicFiles.has(file));
+  assert.ok(privateOnly.length);
+  for (const file of privateOnly) {
+    const pathname = "/admin/assets/" + file;
+    const denied = await fetch(origin + pathname);
+    assert.equal(denied.status, 404);
+    assert.equal(denied.headers.get("Set-Cookie"), null);
+    await denied.arrayBuffer();
+    const allowed = await fetchWithHost(origin + pathname, PRIVATE_HOST);
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.headers.get("Cache-Control"), "private, no-store");
+    assert.deepEqual(Buffer.from(await allowed.arrayBuffer()), readFileSync(new URL(file, folder)));
+  }
+});
+
+test("production proxy drops administrator cookies for public APIs and keeps them for private APIs", async () => {
+  const headers = { Cookie: "amp_admin=synthetic-proxy-cookie" };
+  for (const pathname of ["/api/v1/items", "/api/site/feedback"]) {
+    const before = apiCookies.length;
+    await (await fetch(origin + pathname, { headers })).arrayBuffer();
+    assert.equal(apiCookies.length, before + 1);
+    assert.equal(apiCookies.at(-1), undefined);
+  }
+  const before = privateCookies.length;
+  await (await fetchWithHost(origin + "/api/admin/me", PRIVATE_HOST, { headers })).arrayBuffer();
+  assert.equal(privateCookies.length, before + 1);
+  assert.equal(privateCookies.at(-1), headers.Cookie);
 });
 
 test("actual Vite SSR admits only the configured private Host for login", async (t) => {
