@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, type Plugin } from "vite";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
-import { apiBaseFor, privateHostHeaders } from "./api-target.ts";
+import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { privateWebHostname, webHostPolicy } from "./host-policy.ts";
 
 /** Development stand-in for the production web server: the shared redirect table and api-owned path routing. */
@@ -37,7 +37,7 @@ export function devEdge(env: Readonly<Record<string, string | undefined>> = proc
         }
         if (!isApiOwned(pathname)) return next();
         const target = new URL(apiBaseFor(raw, env));
-        const headers = { ...req.headers, ...privateHostHeaders(raw, req.headers.host) };
+        const headers = apiForwardHeaders(raw, req.headers);
         const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
           res.writeHead(up.statusCode ?? 502, up.headers);
           up.pipe(res);
@@ -67,6 +67,13 @@ const buildGraph: Plugin = {
 
 export default defineConfig({
   plugins: [
+    {
+      name: "amp-private-asset-base",
+      enforce: "pre",
+      config(_config, { command }) {
+        if (command === "build" && group === "private") return { base: "/admin/" };
+      },
+    },
     devEdge(),
     tailwindcss(),
     reactRouter(),

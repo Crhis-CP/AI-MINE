@@ -7,10 +7,10 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { apiBaseFor, isPrivateApiPath, privateHostHeaders } from "../api-target.ts";
+import { apiBaseFor, apiForwardHeaders, isPrivateApiPath, privateHostHeaders } from "../api-target.ts";
 import { adminGet } from "../app/lib/admin.server.ts";
 import { devEdge } from "../vite.config.ts";
-import { privateWebHostname } from "../host-policy.ts";
+import { privateWebHostname, webHostPolicy } from "../host-policy.ts";
 import { fetchWithHost } from "../http-probe.ts";
 
 const PRIVATE_HOST = "private.localhost:8443";
@@ -130,9 +130,88 @@ test("Vite devEdge forwards to two local APIs using the same path and Host rules
   assert.deepEqual(await (await fetch(origin + path)).json(), { target: "public", path, forwarded: null });
 });
 
-test("private Host configuration shares API normalization and cannot identify the public site", () => {
+test("private Host configuration shares API normalization and permits the public site", () => {
   assert.equal(privateWebHostname({ SITE_URL: "https://public.test", PRIVATE_HOST: "PRIVATE.test:8443" }), "private.test");
   assert.equal(privateWebHostname({ SITE_URL: "https://public.test", PRIVATE_HOST: "[::1]:8443" }), "[::1]");
-  for (const value of ["public.test:8443", "private.test,public.test", "user@private.test", "https://private.test", "private%2etest"])
+  assert.equal(privateWebHostname({ SITE_URL: "https://public.test", PRIVATE_HOST: "public.test:8443" }), "public.test");
+  for (const value of ["private.test,public.test", "user@private.test", "https://private.test", "private%2etest"])
     assert.throws(() => privateWebHostname({ SITE_URL: "https://public.test", PRIVATE_HOST: value }), /PRIVATE_HOST/);
+});
+
+test("same-origin private paths require one authoritative Host and remain uncacheable", () => {
+  const policy = webHostPolicy({ SITE_URL: "https://site.test", PRIVATE_HOST: "site.test" });
+  const probe = (url: string, host = "site.test", duplicate = false) => {
+    const headers: Record<string, unknown> = {};
+    let status = 200;
+    const res = {
+      setHeader: (key: string, value: unknown) => {
+        headers[key] = value;
+      },
+      removeHeader: (key: string) => {
+        delete headers[key];
+      },
+      writeHead: (code: number, values: object = {}) => {
+        status = code;
+        Object.assign(headers, values);
+      },
+      end: () => {},
+    } as unknown as ServerResponse;
+    const req = {
+      url,
+      headers: { host, "x-forwarded-host": "site.test" },
+      rawHeaders: ["Host", host, ...(duplicate ? ["Host", host] : [])],
+    } as unknown as IncomingMessage;
+    const group = policy(req, res);
+    if (group) res.writeHead(200, { "Cache-Control": "public, max-age=60", Expires: "tomorrow" });
+    return { group, status, headers };
+  };
+  for (const pathname of [
+    "/admin/login",
+    "/admin/sources.data",
+    "/ADMIN",
+    "/%61dmin/login",
+    "/api/admin/me",
+    "/api/auth/options",
+    "/admin/assets/x.js",
+    "/sources",
+  ]) {
+    const found = probe(pathname);
+    assert.equal(found.group, "private", pathname);
+    assert.equal(found.headers["Cache-Control"], "private, no-store");
+    assert.equal(found.headers["X-Accel-Expires"], "0");
+    assert.equal(found.headers.Expires, undefined);
+    for (const denied of [probe(pathname, "other.test"), probe(pathname, "site.test", true)]) {
+      assert.equal(denied.group, null);
+      assert.equal(denied.status, 404);
+      assert.equal(denied.headers["Cache-Control"], "private, no-store");
+      assert.equal(denied.headers["Set-Cookie"], undefined);
+    }
+  }
+  for (const pathname of ["/", "/all", "/api/v1/items", "/assets/x.js", "/administrator"]) {
+    const found = probe(pathname);
+    assert.equal(found.group, "public", pathname);
+    assert.equal(found.headers["Cache-Control"], "public, max-age=60");
+  }
+});
+
+test("proxy headers remove cookies only from public API traffic without changing the input", () => {
+  const input = {
+    host: "site.test",
+    cookie: "amp_admin=synthetic",
+    Cookie: "second-synthetic",
+    accept: "application/json",
+    "x-forwarded-host": "spoofed.test",
+  };
+  for (const pathname of ["/api/v1/items", "/api/site/feedback", "/feed.xml"]) {
+    const headers = apiForwardHeaders(pathname, input);
+    assert.equal(headers.cookie, undefined);
+    assert.equal(headers.Cookie, undefined);
+    assert.equal(headers.accept, input.accept);
+  }
+  for (const pathname of ["/api/admin/me", "/api/auth/password"]) {
+    const headers = apiForwardHeaders(pathname, input);
+    assert.equal(headers.cookie, input.cookie);
+    assert.equal(headers["x-forwarded-host"], input.host);
+  }
+  assert.equal(input.cookie, "amp_admin=synthetic");
 });

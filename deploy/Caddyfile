@@ -1,6 +1,12 @@
 # HTTPS in front of the site: Caddy gets and renews the certificate for SITE_DOMAIN and compresses
 # responses. Point the domain's DNS at this server first.
-{$SITE_DOMAIN}, {$PRIVATE_HOSTNAME} {
+{
+	cert_issuer acme {
+		disable_tlsalpn_challenge
+	}
+}
+
+{$SITE_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy web:3000
 }
@@ -8,5 +14,10 @@
 # The ICP filing names www.SITE_DOMAIN as the homepage: redirect it permanently to the bare domain,
 # keeping the path and query. Its DNS record points here as well, so Caddy gets its certificate too.
 www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
+
+# Keep existing administrator bookmarks, including their path and query.
+admin.{$SITE_DOMAIN} {
 	redir https://{$SITE_DOMAIN}{uri} permanent
 }

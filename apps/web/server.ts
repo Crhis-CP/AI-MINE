@@ -8,7 +8,7 @@ import path from "node:path";
 import { createRequestListener } from "@react-router/node";
 import { isApiOwned, resolveRedirect } from "@amp/contracts/http-policy";
 import { assertWebEnvironment } from "./runtime-env.ts";
-import { apiBaseFor, privateHostHeaders } from "./api-target.ts";
+import { apiBaseFor, apiForwardHeaders } from "./api-target.ts";
 import { webHostPolicy } from "./host-policy.ts";
 
 assertWebEnvironment();
@@ -147,7 +147,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
   const pathname = qi >= 0 ? raw.slice(0, qi) : raw;
   const search = qi >= 0 ? raw.slice(qi) : "";
 
-  // Existing private-page links to reader pages leave the private origin.
+  // In the two-host configuration, private-page links to reader pages leave the private origin.
   if (group === "private" && (req.method === "GET" || req.method === "HEAD") && /^(?:\/|\/all|\/(?:items|story)\/[^/]+)$/.test(pathname)) {
     const target = new URL(process.env.SITE_URL || "http://localhost:3000");
     target.pathname = pathname;
@@ -173,7 +173,7 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
       .filter(Boolean);
     const client = TRUST_PROXY && forwarded.length ? forwarded[forwarded.length - 1]! : (req.socket.remoteAddress ?? "");
     const target = new URL(apiBaseFor(raw));
-    const headers = { ...req.headers, ...privateHostHeaders(raw, req.headers.host), "x-forwarded-for": client, "x-real-ip": client };
+    const headers = { ...apiForwardHeaders(raw, req.headers), "x-forwarded-for": client, "x-real-ip": client };
     const upstream = httpRequest({ hostname: target.hostname, port: target.port, path: raw, method: req.method, headers }, (up) => {
       res.writeHead(up.statusCode ?? 502, up.headers);
       up.pipe(res);
@@ -185,7 +185,8 @@ async function handle(req: import("node:http").IncomingMessage, res: import("nod
     return req.pipe(upstream);
   }
 
-  if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(CLIENT_DIR[group], pathname, res))) return;
+  const assetPath = group === "private" && pathname.startsWith("/admin/assets/") ? pathname.slice("/admin".length) : pathname;
+  if ((req.method === "GET" || req.method === "HEAD") && pathname.includes(".") && (await serveStatic(CLIENT_DIR[group], assetPath, res))) return;
   pageCache(req, res);
   return ssr[group](req, res);
 }
