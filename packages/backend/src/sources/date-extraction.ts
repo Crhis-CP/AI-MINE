@@ -150,8 +150,8 @@ function declared(raw: string, pattern: string | null, language: string | null):
 // after that time makes it the exact instant (the upstream also drops a zone inside Chinese text; not followed here).
 const LOOSE = /((\d{4})(?:([-/.])(\d{1,2})\3(\d{1,2})|年(\d{1,2})月(\d{1,2})日))(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?/;
 const LOOSE_FORMATS: Record<string, string> = { "-": "YYYY-MM-DD", "/": "YYYY/MM/DD", ".": "YYYY.MM.DD" };
-// The zone right after that time: Z, ±hh:mm, ±hhmm, or GMT/UTC with an offset after it or none ("GMT+8", "UTC+08:00").
-const LOOSE_ZONE = /^(?:\.\d+)?\s*(?:(Z|[+-]\d{2}:?\d{2})|(?:GMT|UTC)(?:([+-])(\d{1,2})(?::?(\d{2}))?)?)\b/i;
+// The zone right after that time: Z, ±hh:mm, ±hhmm, or GMT/UTC with an offset after it (a space between allowed) or none ("GMT+8", "GMT +0800", "UTC+08:00").
+const LOOSE_ZONE = /^(?:\.\d+)?\s*(?:(Z|[+-]\d{2}:?\d{2})|(?:GMT|UTC)(?:\s*([+-])(\d{1,2})(?::?(\d{2}))?)?)\b/i;
 function loose(value: string): { raw: string; pattern: string; fields: Fields } | null {
   const m = LOOSE.exec(value);
   if (!m) return null;

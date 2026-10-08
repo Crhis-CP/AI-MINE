@@ -333,6 +333,8 @@ test("dates without leading zeros, with slashes, dots or 年月日, or inside ot
     ["2026-09-26 10:30 GMT+8", "YYYY-MM-DD HH:mm Z", "2026-09-26T02:30:00Z"],
     ["2026/09/26 10:30:00 GMT+0800 (中国标准时间)", "YYYY/MM/DD HH:mm:ss Z", "2026-09-26T02:30:00Z"],
     ["2026年9月26日 10:30 UTC+08:00", "YYYY年M月D日 HH:mm Z", "2026-09-26T02:30:00Z"],
+    ["2026-09-26 10:30 GMT +0800", "YYYY-MM-DD HH:mm Z", "2026-09-26T02:30:00Z"],
+    ["2026/9/26 20:00 UTC-5:30", "YYYY/MM/DD HH:mm Z", "2026-09-27T01:30:00Z"],
   ]) {
     const { reason, evidence } = parseSourceDate(request(raw!));
     assert.deepEqual([reason, evidence.formatPattern, evidence.instantBasis, evidence.time.utc], [null, formatPattern, "explicit", utc], raw);

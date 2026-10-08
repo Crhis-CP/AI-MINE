@@ -126,6 +126,7 @@ test("a development dependency, an unexported path or a relatively imported file
     ['import { parse } from "yaml";', {}, "scripts/a.ts: yaml is not installed"],
     ['import { publish } from "@amp/backend/publication/publish";', {}, "scripts/a.ts: @amp/backend/publication/publish is not in @amp/backend's exports"],
     ['import { type Document, parse } from "yaml";', {}, "scripts/a.ts: yaml is not installed"],
+    ['import pkg from "@amp/contracts/package.json" with { type: "json" };', {}, "scripts/a.ts: @amp/contracts/package.json is not installed"],
     [
       'import { run } from "./helper/run.ts";',
       { "scripts/helper/run.ts": 'import { parse } from "yaml";\nexport const run = parse;' },
