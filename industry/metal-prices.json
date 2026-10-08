@@ -13,7 +13,7 @@
       "terms": { "name": "国家统计局服务条款", "url": "https://www.stats.gov.cn/wzgl/202302/t20230217_1912857.html" },
       "attribution": ["转自国家统计局网站 https://www.stats.gov.cn", "原文数据来源：中国统计信息服务中心、卓创资讯"],
       "license": [
-        "本栏价格转自国家统计局网站，本站以资料性的公共免费信息为目的，合理、善意地引用，照发布的原数显示，不换算单位、不四舍五入，不显示涨跌。",
+        "本栏价格转自国家统计局网站，本站以资料性的公共免费信息为目的，合理、善意地引用，照发布的原数显示，不换算单位、不四舍五入。",
         "本站不授权任何人转载或再使用本栏数据；需要使用，请到国家统计局网站查阅原数并遵守其服务条款。",
         "国家统计局没有说明“本期价格”是怎样取的，本站只写所属期。"
       ],
@@ -23,15 +23,103 @@
     }
   ],
   "items": [
-    { "key": "nbs.copper", "source": "nbs", "sourceName": "电解铜（1#）", "name": "电解铜", "grade": "1#" },
-    { "key": "nbs.aluminum", "source": "nbs", "sourceName": "铝锭（A00）", "name": "铝锭", "grade": "A00" },
-    { "key": "nbs.lead", "source": "nbs", "sourceName": "铅锭（1#）", "name": "铅锭", "grade": "1#" },
-    { "key": "nbs.zinc", "source": "nbs", "sourceName": "锌锭（0#）", "name": "锌锭", "grade": "0#" },
-    { "key": "nbs.rebar", "source": "nbs", "sourceName": "螺纹钢（Φ20mm，HRB400E）", "name": "螺纹钢", "grade": "Φ20mm，HRB400E" },
-    { "key": "nbs.wire_rod", "source": "nbs", "sourceName": "线材（Φ8—10mm，HPB300）", "name": "线材", "grade": "Φ8—10mm，HPB300" },
-    { "key": "nbs.medium_plate", "source": "nbs", "sourceName": "普通中板（20mm，Q235）", "name": "普通中板", "grade": "20mm，Q235" },
-    { "key": "nbs.hr_coil", "source": "nbs", "sourceName": "热轧普通板卷（4.75—11.5mm，Q235）", "name": "热轧普通板卷", "grade": "4.75—11.5mm，Q235" },
-    { "key": "nbs.seamless_pipe", "source": "nbs", "sourceName": "无缝钢管（219*6，20#）", "name": "无缝钢管", "grade": "219*6，20#" },
-    { "key": "nbs.angle_steel", "source": "nbs", "sourceName": "角钢（5#）", "name": "角钢", "grade": "5#" }
+    {
+      "key": "nbs.copper",
+      "source": "nbs",
+      "sourceName": "电解铜（1#）",
+      "name": "电解铜",
+      "grade": "1#",
+      "metal": "copper",
+      "quote": "国内 · 电解铜 1#",
+      "spec": "铜含量不低于 99.95%"
+    },
+    {
+      "key": "nbs.aluminum",
+      "source": "nbs",
+      "sourceName": "铝锭（A00）",
+      "name": "铝锭",
+      "grade": "A00",
+      "metal": "aluminum",
+      "quote": "国内 · 铝锭 A00",
+      "spec": "铝含量不低于 99.70%"
+    },
+    {
+      "key": "nbs.lead",
+      "source": "nbs",
+      "sourceName": "铅锭（1#）",
+      "name": "铅锭",
+      "grade": "1#",
+      "metal": "lead",
+      "quote": "国内 · 铅锭 1#",
+      "spec": "铅含量不低于 99.994%"
+    },
+    {
+      "key": "nbs.zinc",
+      "source": "nbs",
+      "sourceName": "锌锭（0#）",
+      "name": "锌锭",
+      "grade": "0#",
+      "metal": "zinc",
+      "quote": "国内 · 锌锭 0#",
+      "spec": "锌含量不低于 99.995%"
+    },
+    {
+      "key": "nbs.sulfuric_acid",
+      "source": "nbs",
+      "sourceName": "硫酸（98%）",
+      "name": "硫酸",
+      "grade": "98%",
+      "metal": "sulfuric_acid",
+      "quote": "国内 · 硫酸（98%）"
+    },
+    { "key": "nbs.rebar", "source": "nbs", "sourceName": "螺纹钢（Φ20mm，HRB400E）", "name": "螺纹钢", "grade": "Φ20mm，HRB400E", "enabled": false },
+    { "key": "nbs.wire_rod", "source": "nbs", "sourceName": "线材（Φ8—10mm，HPB300）", "name": "线材", "grade": "Φ8—10mm，HPB300", "enabled": false },
+    { "key": "nbs.medium_plate", "source": "nbs", "sourceName": "普通中板（20mm，Q235）", "name": "普通中板", "grade": "20mm，Q235", "enabled": false },
+    {
+      "key": "nbs.hr_coil",
+      "source": "nbs",
+      "sourceName": "热轧普通板卷（4.75—11.5mm，Q235）",
+      "name": "热轧普通板卷",
+      "grade": "4.75—11.5mm，Q235",
+      "enabled": false
+    },
+    { "key": "nbs.seamless_pipe", "source": "nbs", "sourceName": "无缝钢管（219*6，20#）", "name": "无缝钢管", "grade": "219*6，20#", "enabled": false },
+    { "key": "nbs.angle_steel", "source": "nbs", "sourceName": "角钢（5#）", "name": "角钢", "grade": "5#", "enabled": false }
+  ],
+  "metals": [
+    { "key": "gold", "name": "金" },
+    { "key": "silver", "name": "银" },
+    { "key": "platinum", "name": "铂" },
+    { "key": "palladium", "name": "钯" },
+    { "key": "copper", "name": "铜" },
+    { "key": "aluminum", "name": "铝" },
+    { "key": "zinc", "name": "锌" },
+    { "key": "lead", "name": "铅" },
+    { "key": "tin", "name": "锡" },
+    { "key": "nickel", "name": "镍" },
+    { "key": "iron_ore", "name": "铁矿石" },
+    { "key": "sulfuric_acid", "name": "硫酸" }
+  ],
+  "intro": "官方机构定期发布的金属价格，注明出处。不是实时行情。",
+  "frequencies": [{ "key": "ten_day", "tag": "旬", "compare": "旬价比上一旬" }],
+  "footnotes": [],
+  "notes": [
+    { "text": "每行前面的“{tags}”表示多久更新一次；旬是每月的上、中、下旬，约十天一期。" },
+    { "text": "“电解铜 1#”“铝锭 A00”这类是国内常用的牌号，下面一行写的是该牌号的最低纯度。" },
+    {
+      "text": "国内价格来自国家统计局每旬发布的流通领域重要生产资料市场价格（数据来源：中国统计信息服务中心、卓创资讯），转自国家统计局网站 https://www.stats.gov.cn。",
+      "sources": ["nbs"]
+    },
+    { "text": "较上期：{compare}。红色是涨，绿色是跌。" },
+    { "text": "本栏数据不授权转载，需要使用请到各官方网站查阅原数。" }
+  ],
+  "officialLinks": [
+    { "name": "国家统计局 数据发布", "note": "流通领域重要生产资料市场价格，每旬发布。", "url": "https://www.stats.gov.cn/sj/zxfb/index.html" },
+    { "name": "世界银行 大宗商品价格", "note": "每月发布的大宗商品价格（Pink Sheet）。", "url": "https://www.worldbank.org/en/research/commodity-markets" },
+    { "name": "IMF 初级商品价格", "note": "国际货币基金组织每月发布的初级商品价格数据。", "url": "https://www.imf.org/en/research/commodity-prices" },
+    { "name": "LME 官方金属行情", "note": "铜、铝、镍、锌、铅、锡等金属的官方信息。", "url": "https://www.lme.com/metals" },
+    { "name": "上海黄金交易所 每日行情", "note": "黄金、白银、铂等现货合约的每日行情。", "url": "https://www.sge.com.cn/sjzx/quotation_daily_new" },
+    { "name": "上海期货交易所", "note": "铜、铝、锌、铅、镍、锡、黄金、白银等期货的交易所，链接到它的网站首页。", "url": "https://www.shfe.com.cn/" },
+    { "name": "伦敦金银市场协会（LBMA）", "note": "网站首页有上一个工作日的金、银、铂、钯价格。", "url": "https://www.lbma.org.uk/" }
   ]
 }

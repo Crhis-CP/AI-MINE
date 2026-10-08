@@ -15,11 +15,19 @@ const sql = dbOf("publication");
 const NOW = new Date("2026-10-06T04:00:00Z");
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/nbs/${name}.html`, import.meta.url), "utf8");
 const [list, early, mid] = ["list", "release-previous", "release-latest"].map(fixture);
-const data = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"));
+const data = {
+  ...JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8")),
+  frequencies: [
+    { key: "ten_day", tag: "旬", compare: "旬价比上一旬" },
+    { key: "month", tag: "月", compare: "月价比上个月" },
+  ],
+};
 const registry = {
   ...data,
   sources: data.sources.filter((s: { key: string }) => s.key === "nbs"),
-  items: data.items.filter((i: { source: string }) => i.source === "nbs"),
+  items: data.items
+    .filter((i: { key: string; source: string }) => i.source === "nbs" && i.key !== "nbs.sulfuric_acid")
+    .map((i: { key: string }) => ({ metal: "copper", quote: i.key, ...i, enabled: true })),
 };
 const parsed = parseMetalPriceRegistry(registry);
 const get = async (url: string) => ({ status: 200, url, text: () => (url === NBS_LIST_URL ? list : url.includes("1965293") ? early : mid) });
@@ -181,7 +189,11 @@ test("touching an older version in a dry-run keeps the newer revision as the nex
 
 test("World Bank fetch context bypasses the stored-version cache only for dry-run and force, selecting one source", async () => {
   const source = { ...registry.sources[0], key: "worldbank", frequency: "month", currency: "USD", hosts: ["www.worldbank.org"] };
-  const all = { ...data, sources: [...registry.sources, source], items: [...registry.items, { key: "wb.a", source: "worldbank", sourceName: "a", name: "a" }] };
+  const all = {
+    ...data,
+    sources: [...registry.sources, source],
+    items: [...registry.items, { key: "wb.a", source: "worldbank", sourceName: "a", name: "a", metal: "copper", quote: "fixture" }],
+  };
   const wb = { ...second, source: "worldbank" as const, rows: [], held: ["fixture hold"] };
   const selected = {
     nbs: () => {

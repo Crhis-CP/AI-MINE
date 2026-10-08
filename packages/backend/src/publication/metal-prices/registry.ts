@@ -38,8 +38,6 @@ const Source = z.strictObject({
   license: texts,
   /** Absent: values are shown as published. */
   decimals: z.int().min(0).max(6).optional(),
-  /** Replaces the default LME sentence of the page while this source has data (TASK-0045). */
-  lmeNote: text.optional(),
   enabled,
   ...itemDefaults,
 });
@@ -51,6 +49,10 @@ const Item = z.strictObject({
   sourceName: text,
   name: text,
   grade: text.optional(),
+  metal: text.optional(),
+  quote: text.optional(),
+  spec: text.optional(),
+  footnote: text.optional(),
   /** Words the source's own description of the series must still contain (the World Bank's benchmark notes). */
   descriptionIncludes: texts.optional(),
   enabled,
@@ -63,17 +65,55 @@ export function normalizeSourceName(name: string): string {
 }
 
 const Registry = z
-  .strictObject({ sources: z.array(Source).min(1), items: z.array(Item).min(1) })
-  .superRefine(({ sources, items }, ctx) => {
+  .strictObject({
+    sources: z.array(Source).min(1),
+    items: z.array(Item).min(1),
+    metals: z.array(z.strictObject({ key: text, name: text })).min(1),
+    intro: text,
+    frequencies: z.array(z.strictObject({ key: Source.shape.frequency, tag: text, compare: text })).min(1),
+    footnotes: z.array(z.strictObject({ key: text, text, link: z.strictObject({ name: text, url: https }).optional() })),
+    notes: z.array(z.strictObject({ text, link: z.strictObject({ name: text, url: https }).optional(), sources: z.array(z.enum(SOURCE_KEYS)).optional() })),
+    officialLinks: z.array(z.strictObject({ name: text, note: text, url: https })).min(1),
+  })
+  .superRefine(({ sources, items, metals, frequencies, footnotes, notes }, ctx) => {
     const issue = (path: (string | number)[], message: string) => ctx.addIssue({ code: "custom", path, message });
+    for (const [field, rows, key] of [
+      ["metals", metals, "key"],
+      ["frequencies", frequencies, "key"],
+      ["frequencies", frequencies, "tag"],
+      ["footnotes", footnotes, "key"],
+    ] as const) {
+      const seen = new Set<string>();
+      for (const [i, row] of rows.entries()) {
+        const value = key === "tag" && "tag" in row ? row.tag : row.key;
+        if (seen.has(value)) issue([field, i, key], "duplicate key or tag");
+        seen.add(value);
+      }
+    }
+    for (const [field, rows, allowed] of [
+      ["footnotes", footnotes, ["link"]],
+      ["notes", notes, ["link", "tags", "compare"]],
+    ] as const) {
+      for (const [i, row] of rows.entries()) {
+        const links = row.text.match(/\{link\}/g)?.length ?? 0;
+        const remainder = row.text.replace(/\{(link|tags|compare)\}/g, (token, key: string) => ((allowed as readonly string[]).includes(key) ? "" : token));
+        if (links !== (row.link ? 1 : 0) || /[{}]/.test(remainder)) issue([field, i, "text"], "invalid placeholder or link");
+      }
+    }
     for (const [i, source] of sources.entries()) {
       if (sources.findIndex((other) => other.key === source.key) !== i) issue(["sources", i, "key"], `duplicate source ${source.key}`);
       if (source.frequency !== PERIOD_TYPE[source.key]) issue(["sources", i, "frequency"], `${source.key} publishes ${PERIOD_TYPE[source.key]} prices`);
       if (new Set(source.hosts).size !== source.hosts.length) issue(["sources", i, "hosts"], "duplicate host");
       if (source.enabled && !items.some((item) => item.source === source.key && item.enabled)) issue(["sources", i, "enabled"], "no enabled item");
+      if (source.enabled && !frequencies.some((frequency) => frequency.key === source.frequency))
+        issue(["sources", i, "frequency"], "frequency is not registered");
     }
     for (const [i, item] of items.entries()) {
       const source = sources.find((candidate) => candidate.key === item.source);
+      if (item.enabled && !item.metal) issue(["items", i, "metal"], "enabled item needs a metal");
+      if (item.enabled && !item.quote) issue(["items", i, "quote"], "enabled item needs a quote");
+      if (item.metal && !metals.some((metal) => metal.key === item.metal)) issue(["items", i, "metal"], "unknown metal");
+      if (item.footnote && !footnotes.some((footnote) => footnote.key === item.footnote)) issue(["items", i, "footnote"], "unknown footnote");
       if (items.findIndex((other) => other.key === item.key) !== i) issue(["items", i, "key"], `duplicate item ${item.key}`);
       if (!source) {
         issue(["items", i, "source"], `unknown source ${item.source}`);
@@ -88,17 +128,21 @@ const Registry = z
     }
   })
   // Fill the source defaults into its items; absent optional values become null.
-  .transform(({ sources, items }) => ({
-    sources: sources.map(({ benchmark, deliveryBasis, unit, sourceUnit, decimals, lmeNote, ...source }) => ({
+  .transform(({ sources, items, ...presentation }) => ({
+    ...presentation,
+    sources: sources.map(({ benchmark, deliveryBasis, unit, sourceUnit, decimals, ...source }) => ({
       ...source,
       decimals: decimals ?? null,
-      lmeNote: lmeNote ?? null,
     })),
     items: items.map((item) => {
       const source = sources.find((candidate) => candidate.key === item.source)!;
       return {
         ...item,
         grade: item.grade ?? null,
+        metal: item.metal ?? null,
+        quote: item.quote ?? null,
+        spec: item.spec ?? null,
+        footnote: item.footnote ?? null,
         benchmark: (item.benchmark ?? source.benchmark)!,
         deliveryBasis: item.deliveryBasis ?? source.deliveryBasis ?? null,
         unit: (item.unit ?? source.unit)!,

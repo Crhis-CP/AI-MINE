@@ -40,7 +40,20 @@ const data: { sources: { key: string }[]; items: { key: string; source: string }
   readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"),
 );
 // Only the bureau's part: later cards add the World Bank and the IMF to the same file.
-const registry = { sources: data.sources.filter((source) => source.key === "nbs"), items: data.items.filter((item) => item.source === "nbs") };
+const baseRegistry = {
+  ...data,
+  frequencies: [
+    { key: "ten_day", tag: "旬", compare: "旬价比上一旬" },
+    { key: "month", tag: "月", compare: "月价比上个月" },
+  ],
+};
+const registry = {
+  ...baseRegistry,
+  sources: data.sources.filter((source) => source.key === "nbs"),
+  items: data.items
+    .filter((item) => item.source === "nbs" && item.key !== "nbs.sulfuric_acid")
+    .map((item) => ({ metal: "copper", quote: item.key, ...item, enabled: true })),
+};
 const parsed = parseMetalPriceRegistry(registry);
 /** 本期价格 as the fixtures write it, by series, in the order of the bureau's table. */
 const KEYS = "rebar wire_rod medium_plate hr_coil seamless_pipe angle_steel copper aluminum lead zinc".split(" ").map((key) => `nbs.${key}`);
@@ -237,10 +250,10 @@ test("with collection off the price schedule is not registered, like source coll
 // TASK-0046: fetchers made up here, on registries made up here: the whole file's with sources and items of their own. The monthly
 // sources take keys the registry allows and the bureau's other fields; none of this is their data.
 const monthly = (key: string, host: string) => ({ ...registry.sources[0], key, frequency: "month", currency: "USD", hosts: [host] });
-const series = (key: string, source: string) => ({ key, source, sourceName: key, name: key });
-const imf = { ...data, sources: [monthly("imf", "www.imf.org")], items: [series("imf.a", "imf"), series("imf.b", "imf")] };
-const wb = { ...data, sources: [monthly("worldbank", "www.worldbank.org")], items: [series("wb.a", "worldbank")] };
-const three = { ...data, sources: [...registry.sources, ...wb.sources, ...imf.sources], items: [...registry.items, ...wb.items, ...imf.items] };
+const series = (key: string, source: string) => ({ key, source, sourceName: key, name: key, metal: "copper", quote: key });
+const imf = { ...baseRegistry, sources: [monthly("imf", "www.imf.org")], items: [series("imf.a", "imf"), series("imf.b", "imf")] };
+const wb = { ...baseRegistry, sources: [monthly("worldbank", "www.worldbank.org")], items: [series("wb.a", "worldbank")] };
+const three = { ...baseRegistry, sources: [...registry.sources, ...wb.sources, ...imf.sources], items: [...registry.items, ...wb.items, ...imf.items] };
 const FILE = "https://www.imf.org/prices.xlsx";
 /** A month of the made-up IMF source: the series' values as published. */
 const month = (at: string, label: string, values: Record<string, string>, more: Partial<FetchedPeriod> = {}): FetchedPeriod => {
