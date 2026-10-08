@@ -49,7 +49,7 @@
 - **收录策略**：公开且有中文导读、且不属于页面通则 18 列出的 noindex 类型的条目、报告刊期、主题页、法规文书页与栏目页，以及关于、Agent 接入等静态页。AIHOT 只收“已入选或人工标记”的条目（`isIndexable`），改为读取通则 18 的页面类型表；是否另设人工“标记收录/取消收录”覆盖手段，以 `01-product/04-private-operations.md` OP-09 为准（OP-09 当前不提供该操作，默认没有人工覆盖，需要撤下的内容走下架）。【设计】（D14a-aihot-backend-008）
 - **不收录（noindex）**：带搜索词或筛选条件的结果页、收藏、反馈、更多、原文视图（canonical 指向中文页）、精选与热点榜因数据不足显示空态时的页面、错误页（`01-product/03-reader-pages.md` 通则 18）。
 - 条目数超过单个文件上限时分片为 sitemap index；`lastmod` 取材料修订时间；下架对象 60 秒内移出并使页面返回 404 或 410。站点地图随读者站的首个公开版本上线（功能全集 F-PUB-05 标 M3，不晚于切换），至少含条目、报告与法规文书页，不等增强阶段（A 原稿标 M2，与自己的 SEO 通则不匹配）。
-- **robots.txt**：放行 `/api/v3/` 与 `/api/mcp`，禁止其余 `/api/`、私有路径、`/starred`、`/feedback`；附 `Sitemap:` 行；私有主机名上的路径一律不在公开站点暴露。规则沿用 AIHOT（`apps/api/src/routes/static.ts:128`（AIHOT）），路径前缀改为 v3。
+- **robots.txt**：放行 `/api/v3/` 与 `/api/mcp`，禁止其余 `/api/`、私有路径、`/starred`、`/feedback`；附 `Sitemap:` 行；私有路径不进站点地图与 RSS，robots 禁止 `/admin/`，后台页面带 noindex（ADR-0026）。规则沿用 AIHOT（`apps/api/src/routes/static.ts:128`（AIHOT）），路径前缀改为 v3。
 
 ## 4. `llms.txt`、Agent 接入页、分享图
 
