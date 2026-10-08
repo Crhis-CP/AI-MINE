@@ -25,8 +25,12 @@ export interface Changelog {
 const FILE_KEYS = new Set(["latestVersion", "releases"]);
 const RELEASE_KEYS = new Set(["date", "time", "kind", "version", "title", "body"]);
 const nonEmpty = (v: unknown): v is string => typeof v === "string" && v.trim() !== "";
-const realDate = (v: unknown): v is string =>
-  typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v;
+const realDate = (v: unknown): v is string => {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  // A month or day out of every range (2026-13-01, 2026-10-32) is an invalid Date, which toISOString would throw on.
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+};
 
 /**
  * The whole file, checked: only the six fields of a release (notes written for reviewing a draft never ship),
