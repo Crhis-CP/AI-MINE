@@ -1,6 +1,12 @@
+import "./setup.ts";
+import { closeDb, dbOf } from "@amp/backend/db";
+import { refreshMetalPrices } from "../packages/backend/src/publication/metal-prices/refresh.ts";
+import { worldbankFetcher, worldbankPeriods, WORLDBANK_LIST_URL } from "../packages/backend/src/publication/metal-prices/worldbank.ts";
+import { openWorkbook, type Sheet } from "../packages/backend/src/publication/metal-prices/xlsx.ts";
+import type { FetchedPeriod, PageGetter } from "../packages/backend/src/publication/metal-prices/types.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { after, beforeEach, test } from "node:test";
 import { loadMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
 
 const raw = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"));
@@ -72,4 +78,254 @@ test("monthly-average wording occurs only at the explicitly supported locations"
     else if (value && typeof value === "object") for (const [key, child] of Object.entries(value)) visit(child, [...path, key]);
   };
   visit(raw);
+});
+
+const sql = dbOf("publication");
+after(() => closeDb());
+beforeEach(async () => {
+  await sql`TRUNCATE publication.metal_prices`;
+});
+const fixture = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/worldbank/${name}`, import.meta.url));
+const [html, bytes] = [fixture("commodity-markets.html").toString(), fixture("monthly.xlsx")] as const;
+const NOW = new Date("2026-10-06T04:00:00Z");
+const later = (days: number) => new Date(NOW.getTime() + days * 86400_000);
+const wb = {
+  ...raw,
+  sources: raw.sources.filter((s: { key: string }) => s.key === "worldbank"),
+  items: raw.items.filter((s: { source: string }) => s.source === "worldbank"),
+};
+const stock = worldbankFetcher(registry);
+const noStored = async () => null;
+const current = async () => "2026-09-01";
+function pages(page = html, body = bytes, response: Partial<Awaited<ReturnType<PageGetter>>> = {}) {
+  const calls: { url: string; opts: Parameters<PageGetter>[1] }[] = [];
+  const get: PageGetter = async (url, opts) => {
+    calls.push({ url, opts });
+    return url === WORLDBANK_LIST_URL ? { url, status: 200, text: () => page } : { url, status: 200, text: () => "", body, ...response };
+  };
+  return { get, files: () => calls.filter((call) => call.url !== WORLDBANK_LIST_URL), calls };
+}
+const snapshot = () => sql`SELECT * FROM publication.metal_prices ORDER BY series_key, period_start, release_label`;
+const run = async (opts: Parameters<typeof refreshMetalPrices>[0] = {}) =>
+  (await refreshMetalPrices({ registry: wb, get: pages().get, now: NOW, ...opts })).worldbank;
+const copied = (edit: (prices: Sheet, descriptions: Sheet) => void) => {
+  const sheet = openWorkbook(bytes),
+    prices = sheet("Monthly Prices"),
+    descriptions = sheet("Description");
+  edit(prices, descriptions);
+  return (name: string) => (name === "Monthly Prices" ? prices : descriptions);
+};
+const release = { label: "Monthly prices October 2026 (XLS)", url: "https://thedocs.worldbank.org/CMO-Historical-Data-Monthly.xlsx", releasedOn: null };
+const parse = (edit: (p: Sheet, d: Sheet) => void, newest: string | null = "2026-09-01") => worldbankPeriods(registry, copied(edit), release, newest);
+const fetchers = (periods: FetchedPeriod[]) => ({ worldbank: () => ({ sourceKeys: stock.sourceKeys, fetch: async () => periods }) });
+
+test("recorded workbook keeps raw values, full cell version, source units and adjacent calendar months", async () => {
+  const get = pages();
+  const periods = await worldbankFetcher(registry, get.get).fetch(noStored);
+  assert.deepEqual(
+    periods.map((p) => p.period),
+    [
+      { start: "2026-08-01", end: "2026-08-31", label: "2026年8月" },
+      { start: "2026-09-01", end: "2026-09-30", label: "2026年9月" },
+    ],
+  );
+  const latest = periods[1];
+  assert.deepEqual(
+    latest.rows.map((r) => [r.key, r.unit, r.value]),
+    [
+      ["wb.aluminum", "($/mt)", "3283"],
+      ["wb.iron_ore", "($/dmtu)", "97.7"],
+      ["wb.copper", "($/mt)", "14474"],
+      ["wb.lead", "($/mt)", "1873"],
+      ["wb.tin", "($/mt)", "53712"],
+      ["wb.nickel", "($/mt)", "16324"],
+      ["wb.zinc", "($/mt)", "4021"],
+      ["wb.gold", "($/troy oz)", "4319"],
+      ["wb.platinum", "($/troy oz)", "1784"],
+      ["wb.silver", "($/troy oz)", "64.599999999999994"],
+    ],
+  );
+  assert.equal(latest.release.label, release.label);
+  assert.equal(latest.release.releasedOn, null);
+  assert.deepEqual(latest.held, []);
+  assert.equal(latest.heldSeries, undefined);
+  assert.deepEqual(get.files()[0].opts, { maxRedirects: 0, maxBytes: 4 * 1024 * 1024 });
+  const january = parse((p) => {
+    p.get(807)!.set("A", "2027M01");
+    p.get(806)!.set("A", "2026M12");
+  }, null);
+  assert.deepEqual(
+    january.map((p) => p.period.start),
+    ["2026-12-01", "2027-01-01"],
+  );
+  assert.equal(
+    parse((p) => {
+      p.delete(806);
+    }, null).length,
+    1,
+  );
+  assert.throws(
+    () =>
+      parse((p) => {
+        for (const row of p.values()) row.delete("A");
+      }),
+    /没有月份行/,
+  );
+  assert.throws(
+    () =>
+      worldbankPeriods(
+        registry,
+        (name) => {
+          if (name === "Description") throw new Error("missing Description");
+          return openWorkbook(bytes)(name);
+        },
+        release,
+        null,
+      ),
+    /missing Description/,
+  );
+  const dated = await worldbankFetcher(registry, pages(html.replace("October 2026", "October 02, 2026")).get).fetch(current);
+  assert.equal(dated[0].release.releasedOn, "2026-10-02");
+});
+
+test("initial refresh stores two months; cached versions skip the file, seven days touch, dry-run and force bypass cache", async () => {
+  assert.equal((await run()).inserted, 20);
+  const original = await snapshot();
+  const cached = pages();
+  const skipped = await run({ get: cached.get, now: later(6) });
+  assert.deepEqual([skipped.ok, skipped.note, cached.files().length], [true, "这次一期都没有返回", 0]);
+  assert.deepEqual(await snapshot(), original);
+  const changed = pages(html.replace("October 2026", "November 2026"));
+  const newVersion = await run({ get: changed.get, now: later(1) });
+  assert.deepEqual([newVersion.inserted, changed.files().length], [0, 1]);
+  assert.deepEqual(await snapshot(), original);
+  const due = pages();
+  const refreshed = await run({ get: due.get, now: later(7) });
+  assert.deepEqual([refreshed.inserted, refreshed.touched, due.files().length], [0, 10, 1]);
+  assert.equal((await snapshot()).length, 20);
+  const unchanged = await snapshot();
+  const dry = pages();
+  assert.equal((await run({ get: dry.get, dryRun: true, now: later(8) })).touched, 10);
+  assert.equal(dry.files().length, 1);
+  assert.deepEqual(await snapshot(), unchanged);
+  const forced = pages();
+  assert.equal((await run({ get: forced.get, source: "worldbank", force: { periodStart: "2026-09-01", held: ["2026年9月"] }, now: later(8) })).ok, true);
+  assert.equal(forced.files().length, 1);
+  const direct = pages();
+  await worldbankFetcher(registry, direct.get).fetch(current);
+  assert.equal(direct.files().length, 1);
+});
+
+test("description drift and explicit missing markers hold only that series, retaining its old fetched time without defeating the cache", async () => {
+  await run();
+  for (const marker of ["…", "..", "description"]) {
+    const periods = parse((p, d) => {
+      if (marker === "description") d.get(89)!.set("B", d.get(89)!.get("B")!.replaceAll("LME", "unknown"));
+      else p.get(807)!.set("BM", marker);
+    });
+    assert.deepEqual(
+      periods[0].heldSeries?.map((s) => s.key),
+      ["wb.copper"],
+    );
+    const result = await run({ fetchers: fetchers(periods), now: later(7) });
+    assert.deepEqual([result.ok, result.touched, result.periods[0].held], [false, 9, null]);
+    assert.equal(
+      (await sql`SELECT fetched_at FROM publication.metal_prices WHERE series_key = 'wb.copper' AND period_start = '2026-09-01'`)[0].fetched_at.toISOString(),
+      NOW.toISOString(),
+    );
+    const get = pages();
+    await run({ get: get.get, now: later(8) });
+    assert.equal(get.files().length, 0);
+  }
+  await sql`TRUNCATE publication.metal_prices`;
+  const missing = parse((p) => {
+    p.get(807)!.set("BM", "…");
+  });
+  assert.equal((await run({ fetchers: fetchers(missing) })).inserted, 9);
+});
+
+test("bad headers, duplicate columns, units and ordinary missing values hold the whole period with no database change", async () => {
+  await run();
+  const before = await snapshot();
+  const edits: [string, (p: Sheet) => void][] = [
+    [
+      "实际 0 列",
+      (p) => {
+        p.get(5)!.delete("BM");
+      },
+    ],
+    [
+      "实际 2 列",
+      (p) => {
+        p.get(5)!.set("ZZ", "Copper");
+      },
+    ],
+    [
+      "单位",
+      (p) => {
+        p.get(6)!.set("BM", "($/kg)");
+      },
+    ],
+    [
+      "不是数值",
+      (p) => {
+        p.get(807)!.set("BM", "");
+      },
+    ],
+  ];
+  for (const [reason, edit] of edits) {
+    const result = await run({ fetchers: fetchers(parse(edit)) });
+    assert.equal(result.ok, false);
+    assert.match(result.periods[0].held!, new RegExp(reason));
+    assert.deepEqual(await snapshot(), before);
+  }
+});
+
+test("new versions revise the stored previous month, unchanged versions add no duplicate rows", async () => {
+  const initial = await worldbankFetcher(registry, pages().get).fetch(noStored);
+  assert.equal((await run({ fetchers: fetchers(initial.slice(0, 1)) })).inserted, 10);
+  const revised = parse((p) => {
+    p.get(806)!.set("BM", "14330");
+  }, "2026-08-01").map((p) => ({ ...p, release: { ...p.release, label: "Monthly prices revised October 2026 (XLS)" } }));
+  assert.deepEqual(
+    revised.map((p) => p.period.start),
+    ["2026-08-01", "2026-09-01"],
+  );
+  assert.equal((await run({ fetchers: fetchers(revised) })).inserted, 20);
+  assert.equal((await snapshot()).length, 30);
+  const repeated = revised.slice(-1).map((p) => ({ ...p, release: { ...p.release, label: "Monthly prices November 2026 (XLS)" } }));
+  const result = await run({ fetchers: fetchers(repeated) });
+  assert.deepEqual([result.inserted, result.touched], [0, 0]);
+  assert.match(result.periods[0].notes.join(" "), /不另存/);
+  assert.equal((await snapshot()).length, 30);
+});
+
+test("off-host links, redirects, bad statuses, oversized and unreadable files fail without writes; NBS continues", async () => {
+  await run();
+  const before = await snapshot();
+  const bad = [
+    pages(html.replaceAll("thedocs.worldbank.org", "example.com")),
+    pages(html, bytes, { url: "https://example.com/a" }),
+    pages(html, bytes, { status: 404 }),
+    pages(html, Buffer.alloc(4 * 1024 * 1024 + 1)),
+    pages(html, Buffer.from("not zip")),
+    pages(html, bytes, { status: 302 }),
+    pages(html.replaceAll("CMO-Historical-Data-Monthly.xlsx", "missing.xlsx")),
+  ];
+  for (const get of bad) {
+    const result = await run({ get: get.get, now: later(7) });
+    assert.equal(result.ok, false);
+    assert.ok(result.error);
+    assert.deepEqual(await snapshot(), before);
+  }
+  const nbs = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/nbs/${name}.html`, import.meta.url), "utf8");
+  const get: PageGetter = async (url) => ({
+    url,
+    status: url.startsWith("https://www.stats.gov.cn/") ? 200 : 404,
+    text: () => nbs(url.endsWith("index.html") ? "list" : "release-latest"),
+  });
+  const result = await refreshMetalPrices({ registry: raw, get, now: NOW });
+  assert.equal(result.worldbank.ok, false);
+  assert.equal(result.nbs.ok, true);
+  assert.equal(result.nbs.inserted, 5);
 });

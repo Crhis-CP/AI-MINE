@@ -37,8 +37,7 @@
         "https://datacatalog.worldbank.org/search/dataset/0038238/commodity-prices-history-and-projections"
       ],
       "license": ["按 CC BY 4.0 许可使用，品种名称与规格为本站据英文翻译，数值保留两位小数。"],
-      "decimals": 2,
-      "enabled": false
+      "decimals": 2
     }
   ],
   "items": [
