@@ -325,11 +325,14 @@ test("dates without leading zeros, with slashes, dots or 年月日, or inside ot
     );
     assert.equal(verdict(evidence).status, "reliable", `${raw}: the evidence passes the contract`);
   }
-  // A time followed by its zone is that exact instant, as the upstream reads it.
+  // A time followed by its zone is that exact instant. The upstream reads the zone only where Date.parse reads the whole text; inside Chinese text it falls back to Beijing time and drops the zone, a misreading not followed here.
   for (const [raw, formatPattern, utc] of [
     ["2026-09-26 10:30 UTC", "YYYY-MM-DD HH:mm Z", "2026-09-26T10:30:00Z"],
     ["2026年9月26日 10:30+0800", "YYYY年M月D日 HH:mm Z", "2026-09-26T02:30:00Z"],
     ["发布于 2026/9/26 10:30 GMT 来源：某网", "YYYY/MM/DD HH:mm Z", "2026-09-26T10:30:00Z"],
+    ["2026-09-26 10:30 GMT+8", "YYYY-MM-DD HH:mm Z", "2026-09-26T02:30:00Z"],
+    ["2026/09/26 10:30:00 GMT+0800 (中国标准时间)", "YYYY/MM/DD HH:mm:ss Z", "2026-09-26T02:30:00Z"],
+    ["2026年9月26日 10:30 UTC+08:00", "YYYY年M月D日 HH:mm Z", "2026-09-26T02:30:00Z"],
   ]) {
     const { reason, evidence } = parseSourceDate(request(raw!));
     assert.deepEqual([reason, evidence.formatPattern, evidence.instantBasis, evidence.time.utc], [null, formatPattern, "explicit", utc], raw);

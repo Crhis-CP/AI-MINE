@@ -41,6 +41,7 @@ const pages: Record<string, () => string> = {
     `<item><title>A day alone</title><link>https://example.org/day-alone</link><pubDate>2026-09-22</pubDate></item>` +
     `<item><title>An exact time</title><link>https://example.org/exact</link><pubDate>Tue, 22 Sep 2026 10:30:00 +0000</pubDate></item>` +
     `<item><title>A time without its zone</title><link>https://example.org/no-zone</link><pubDate>2026-09-22 10:30</pubDate></item>` +
+    `<item><title>A time joined by T</title><link>https://example.org/t-joined</link><pubDate>2026/9/22T10:30</pubDate></item>` +
     `</channel></rss>`,
   "/days-atom.xml": () =>
     `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><entry><title>An Atom day</title>` +
@@ -242,6 +243,7 @@ test("feeds keep a date printed alone as the start of that day in Beijing; exact
       ["A day alone", "2026-09-21T16:00:00.000Z"],
       ["An exact time", "2026-09-22T10:30:00.000Z"],
       ["A time without its zone", null],
+      ["A time joined by T", null],
     ],
   );
   assert.equal((await feed("/days-atom.xml"))[0]!.publishedAt?.toISOString(), "2026-09-21T16:00:00.000Z");

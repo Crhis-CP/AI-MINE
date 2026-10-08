@@ -76,7 +76,7 @@ function productionImports(root: string, exempt: Record<string, string> = EXEMPT
     checked.push(file);
     const allowed = installed(file);
     for (const spec of importsOf(readFileSync(path.join(root, file), "utf8").replace(TYPE_ONLY, ""))) {
-      if (DATA.test(spec) || isBuiltin(spec)) continue;
+      if (isBuiltin(spec) || (spec.startsWith(".") && DATA.test(spec))) continue;
       if (spec.startsWith(".")) {
         const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), spec));
         if (!target.endsWith(".ts") || !existsSync(path.join(root, target))) problems.push(`${file}: cannot follow ${spec}`);

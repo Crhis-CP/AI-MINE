@@ -147,17 +147,20 @@ function declared(raw: string, pattern: string | null, language: string | null):
 
 // No declared format, neither ISO nor RFC: the first year-month-day in the text, as the upstream reads it
 // (parseLooseDate in published-at.ts), but with both separators alike and a time only after one space; a zone right
-// after that time makes it the exact instant, as the upstream reads it.
+// after that time makes it the exact instant (the upstream also drops a zone inside Chinese text; not followed here).
 const LOOSE = /((\d{4})(?:([-/.])(\d{1,2})\3(\d{1,2})|年(\d{1,2})月(\d{1,2})日))(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?/;
 const LOOSE_FORMATS: Record<string, string> = { "-": "YYYY-MM-DD", "/": "YYYY/MM/DD", ".": "YYYY.MM.DD" };
+// The zone right after that time: Z, ±hh:mm, ±hhmm, or GMT/UTC with an offset after it or none ("GMT+8", "UTC+08:00").
+const LOOSE_ZONE = /^(?:\.\d+)?\s*(?:(Z|[+-]\d{2}:?\d{2})|(?:GMT|UTC)(?:([+-])(\d{1,2})(?::?(\d{2}))?)?)\b/i;
 function loose(value: string): { raw: string; pattern: string; fields: Fields } | null {
   const m = LOOSE.exec(value);
   if (!m) return null;
   const [found, , year, separator, month, day, cnMonth, cnDay, hour, minute, second] = m;
-  const zone = hour ? /^(?:\.\d+)?\s*(Z|[+-]\d{2}:?\d{2}|GMT|UTC)\b/i.exec(value.slice(m.index + found.length)) : null;
+  const zone = hour ? LOOSE_ZONE.exec(value.slice(m.index + found.length)) : null;
   const clock = hour ? `${hour.padStart(2, "0")}:${minute}${second ? `:${second}` : ""}` : null;
   const pattern = `${separator ? LOOSE_FORMATS[separator] : "YYYY年M月D日"}${clock ? (second ? " HH:mm:ss" : " HH:mm") : ""}${zone ? " Z" : ""}`;
-  const fields = { day: dayOf(year!, (month ?? cnMonth)!, (day ?? cnDay)!), clock, offset: zone?.[1] };
+  const offset = !zone ? undefined : (zone[1] ?? (zone[2] ? `${zone[2]}${zone[3]!.padStart(2, "0")}:${zone[4] ?? "00"}` : "UTC"));
+  const fields = { day: dayOf(year!, (month ?? cnMonth)!, (day ?? cnDay)!), clock, offset };
   return { raw: zone ? found + zone[0] : found, pattern, fields };
 }
 
