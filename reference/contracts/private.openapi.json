@@ -73,6 +73,373 @@
         ],
         "type": "object"
       },
+      "LaneControl": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "holder": {
+            "enum": [
+              "owner",
+              "deploy",
+              "system"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy",
+              "all"
+            ],
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "switch": {
+            "enum": [
+              "collection",
+              "processing",
+              "publication"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lane",
+          "switch",
+          "holder",
+          "revision",
+          "reason",
+          "actor",
+          "expires_at",
+          "updated_at",
+          "overdue"
+        ],
+        "type": "object"
+      },
+      "LaneControlActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "pause",
+              "resume"
+            ],
+            "type": "string"
+          },
+          "confirm_all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "expected_revisions": {
+            "additionalProperties": false,
+            "properties": {
+              "collection": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "processing": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "processing"
+            ],
+            "type": "object"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy",
+              "all"
+            ],
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "processing",
+              "automatic"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "lane",
+          "mode",
+          "action",
+          "reason",
+          "expected_revisions",
+          "confirm_all"
+        ],
+        "type": "object"
+      },
+      "LaneControlActionRequestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "pause",
+              "resume"
+            ],
+            "type": "string"
+          },
+          "confirm_all": {
+            "default": false,
+            "type": "boolean"
+          },
+          "expected_revisions": {
+            "additionalProperties": false,
+            "properties": {
+              "collection": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "processing": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "processing"
+            ],
+            "type": "object"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy",
+              "all"
+            ],
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "processing",
+              "automatic"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "lane",
+          "mode",
+          "action",
+          "reason",
+          "expected_revisions"
+        ],
+        "type": "object"
+      },
+      "LaneControlInput": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "holder": {
+            "enum": [
+              "owner",
+              "deploy",
+              "system"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy",
+              "all"
+            ],
+            "type": "string"
+          },
+          "overdue": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "switch": {
+            "enum": [
+              "collection",
+              "processing",
+              "publication"
+            ],
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lane",
+          "switch",
+          "holder",
+          "revision",
+          "reason",
+          "actor",
+          "expires_at",
+          "updated_at",
+          "overdue"
+        ],
+        "type": "object"
+      },
+      "LaneControlsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/LaneControl"
+            },
+            "type": "array"
+          },
+          "owner_revisions": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "lane": {
+                  "enum": [
+                    "news",
+                    "policy",
+                    "all"
+                  ],
+                  "type": "string"
+                },
+                "revision": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "switch": {
+                  "enum": [
+                    "collection",
+                    "processing"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "lane",
+                "switch",
+                "revision"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "controls",
+          "owner_revisions"
+        ],
+        "type": "object"
+      },
+      "LaneControlsResponseInput": {
+        "additionalProperties": false,
+        "properties": {
+          "controls": {
+            "items": {
+              "$ref": "#/components/schemas/LaneControlInput"
+            },
+            "type": "array"
+          },
+          "owner_revisions": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "lane": {
+                  "enum": [
+                    "news",
+                    "policy",
+                    "all"
+                  ],
+                  "type": "string"
+                },
+                "revision": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "switch": {
+                  "enum": [
+                    "collection",
+                    "processing"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "lane",
+                "switch",
+                "revision"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "controls",
+          "owner_revisions"
+        ],
+        "type": "object"
+      },
       "LoginOptions": {
         "additionalProperties": false,
         "properties": {
@@ -2326,6 +2693,130 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/admin/lane-controls": {
+      "get": {
+        "operationId": "laneControls",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaneControlsResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/lane-controls/actions": {
+      "post": {
+        "operationId": "laneControlAction",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LaneControlActionRequestInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaneControlsResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
     "/api/admin/receipts/{id}/release": {
       "post": {
         "operationId": "releaseReceipt",

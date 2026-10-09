@@ -1,3 +1,5 @@
+import { runtimeControlSchemas, runtimeControlRoutes } from "./runtime-controls.ts";
+export { LaneControl, LaneControlsResponse, LaneControlActionRequest } from "./runtime-controls.ts";
 import { z } from "zod";
 import { Problem, ProblemResponse } from "./common.ts";
 import { PermissionScopeSchema, SourcePolicySchema } from "../source-policy.ts";
@@ -162,6 +164,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...runtimeControlSchemas,
   SourcePolicy: SourcePolicySchema,
   SourceCreateRequest,
   SourceCreateResponse,
@@ -177,6 +180,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...runtimeControlRoutes,
   createSource: {
     method: "POST" as const,
     url: "/api/admin/sources",

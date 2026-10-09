@@ -1,4 +1,36 @@
 export interface paths {
+  "/api/admin/lane-controls": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["laneControls"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/lane-controls/actions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["laneControlAction"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/receipts/{id}/release": {
     parameters: {
       query?: never;
@@ -104,6 +136,92 @@ export interface components {
       updated_at: string;
     } & {
       [key: string]: unknown;
+    };
+    LaneControl: {
+      actor: string;
+      /** Format: date-time */
+      expires_at: string;
+      /** @enum {string} */
+      holder: "owner" | "deploy" | "system";
+      /** @enum {string} */
+      lane: "news" | "policy" | "all";
+      overdue: boolean;
+      reason: string;
+      revision: number;
+      /** @enum {string} */
+      switch: "collection" | "processing" | "publication";
+      /** Format: date-time */
+      updated_at: string;
+    };
+    LaneControlActionRequest: {
+      /** @enum {string} */
+      action: "pause" | "resume";
+      /** @default false */
+      confirm_all: boolean;
+      expected_revisions: {
+        collection?: number;
+        processing: number;
+      };
+      /** Format: date-time */
+      expires_at?: string;
+      /** @enum {string} */
+      lane: "news" | "policy" | "all";
+      /** @enum {string} */
+      mode: "processing" | "automatic";
+      reason: string;
+    };
+    LaneControlActionRequestInput: {
+      /** @enum {string} */
+      action: "pause" | "resume";
+      /** @default false */
+      confirm_all: boolean;
+      expected_revisions: {
+        collection?: number;
+        processing: number;
+      };
+      /** Format: date-time */
+      expires_at?: string;
+      /** @enum {string} */
+      lane: "news" | "policy" | "all";
+      /** @enum {string} */
+      mode: "processing" | "automatic";
+      reason: string;
+    };
+    LaneControlInput: {
+      actor: string;
+      /** Format: date-time */
+      expires_at: string;
+      /** @enum {string} */
+      holder: "owner" | "deploy" | "system";
+      /** @enum {string} */
+      lane: "news" | "policy" | "all";
+      overdue: boolean;
+      reason: string;
+      revision: number;
+      /** @enum {string} */
+      switch: "collection" | "processing" | "publication";
+      /** Format: date-time */
+      updated_at: string;
+    };
+    LaneControlsResponse: {
+      controls: components["schemas"]["LaneControl"][];
+      owner_revisions: {
+        /** @enum {string} */
+        lane: "news" | "policy" | "all";
+        revision: number;
+        /** @enum {string} */
+        switch: "collection" | "processing";
+      }[];
+    };
+    LaneControlsResponseInput: {
+      controls: components["schemas"]["LaneControlInput"][];
+      owner_revisions: {
+        /** @enum {string} */
+        lane: "news" | "policy" | "all";
+        revision: number;
+        /** @enum {string} */
+        switch: "collection" | "processing";
+      }[];
     };
     LoginOptions: {
       feishu: boolean;
@@ -618,6 +736,122 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  laneControls: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LaneControlsResponse"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  laneControlAction: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LaneControlActionRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LaneControlsResponse"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
   releaseReceipt: {
     parameters: {
       query?: never;
