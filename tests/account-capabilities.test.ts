@@ -26,6 +26,13 @@ test("real session identity and current access revision distinguish Owner, deleg
     manager = await user("manager", "admin", true),
     legacy = await user("legacy", null),
     temporary = await user("temporary", "admin", true, true);
+  const [sharedUser] = await dbs.auth`INSERT INTO admin_users(email,display_name) VALUES('admin@local','管理员') RETURNING id`;
+  const sharedToken = "synthetic-shared-password";
+  await dbs.auth`INSERT INTO admin_sessions(id_hash,user_id,csrf_token,expires_at) VALUES(${sha256(sharedToken)},${sharedUser.id},'synthetic-csrf',now()+interval '1 hour')`;
+  const shared = await sessionPrincipal(`${SESSION_COOKIE}=${sharedToken}`);
+  assert.ok(shared);
+  assert.equal(await currentCapability(shared, "owner"), true);
+  assert.equal(await currentCapability(shared, "models.manage"), true);
   await requireOwner(owner.principal);
   await requireCapability(owner.principal, "models.manage");
   await requireCapability(manager.principal, "models.manage");

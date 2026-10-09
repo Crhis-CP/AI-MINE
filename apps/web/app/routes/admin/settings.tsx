@@ -130,7 +130,7 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
   const { run } = useAdminAction();
   const me = useAdminMe();
   return (
-    <AdminPage title="自动运行与通知" subtitle="分别管理资讯、法规的暂停状态，以及既有通知与请求频率。">
+    <AdminPage title="设置" subtitle="通知目的地、付费请求上限，以及资讯线与法规线各自的暂停。这些都可以在这里改，不用改代码。">
       <RuntimeControls
         initial={s.runtime}
         canManage={!!me.owner}

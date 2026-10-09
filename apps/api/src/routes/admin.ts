@@ -343,6 +343,7 @@ export function registerAdmin(app: FastifyInstance) {
   app.post(
     "/api/admin/models/:capability",
     adminHandler(async (req, _reply, admin) => {
+      await requireCapability(admin, "models.manage");
       const b = body<{ model: string | null; reason: string }>(req);
       return switchModel(param(req, "capability"), b.model ?? null, String(b.reason ?? ""), actorOf(admin));
     }),

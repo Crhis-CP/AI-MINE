@@ -23,29 +23,30 @@ export const meta: Route.MetaFunction = () => [{ title: `${SITE.name} 后台` },
 
 export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
 
-const NAV: Array<{ group: string; items: Array<{ to: string; label: string }> }> = [
+const NAV: Array<{ group: string; items: Array<{ to: string; label: string; end?: boolean; owner?: boolean }> }> = [
   {
     group: "内容",
     items: [
-      { to: "/admin/sources", label: "信源" },
       { to: "/admin/content", label: "内容" },
+      { to: "/admin/sources", label: "信源" },
       { to: "/admin/feedback", label: "反馈" },
     ],
   },
   {
-    group: "设置",
+    group: "系统",
     items: [
-      { to: "/admin/usage-models", label: "用量与模型密钥" },
-      { to: "/admin/site", label: "网站资料" },
+      { to: "/admin/usage-models", label: "模型与评测", end: true },
+      { to: "/admin/usage-models/settings", label: "设置" },
+      { to: "/admin/site", label: "网站资料", owner: true },
     ],
   },
 ];
 
-const ACCOUNT = { to: "/admin/account", label: "我的账号" };
+const ACCOUNT: { to: string; label: string; end?: boolean } = { to: "/admin/account", label: "我的账号" };
 
-function NavItem({ to, label }: { to: string; label: string }) {
+function NavItem({ to, label, end }: { to: string; label: string; end?: boolean }) {
   return (
-    <NavLink to={to} prefetch="intent" className="group relative block">
+    <NavLink to={to} end={end} prefetch="intent" className="group relative block">
       {({ isActive }) => (
         <span
           className={`relative flex items-center justify-between rounded-control px-3 py-[7px] text-[13.5px] transition-colors ${isActive ? "font-medium text-ink" : "text-ink-3 hover:text-ink"}`}
@@ -70,7 +71,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
   const location = useLocation();
   const groups = me.mustChangePassword
     ? []
-    : NAV.map((group) => ({ ...group, items: group.items.filter((item) => item.to !== "/admin/site" || me.owner) })).filter((group) => group.items.length);
+    : NAV.map((group) => ({ ...group, items: group.items.filter((item) => !item.owner || me.owner) })).filter((group) => group.items.length);
   const flat = [...groups.flatMap((g) => g.items), ACCOUNT];
   return (
     <div className="flex min-h-dvh bg-bg">
@@ -86,7 +87,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
               <div className="mb-1 px-3 text-[11.5px] font-medium tracking-wide text-ink-4">{g.group}</div>
               <div className="space-y-0.5">
                 {g.items.map((i) => (
-                  <NavItem key={i.to} to={i.to} label={i.label} />
+                  <NavItem key={i.to} to={i.to} label={i.label} end={i.end} />
                 ))}
               </div>
             </div>
@@ -117,7 +118,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
           </div>
           <nav className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
             {flat.map((i) => {
-              const active = location.pathname === i.to || location.pathname.startsWith(`${i.to}/`);
+              const active = location.pathname === i.to || (!i.end && location.pathname.startsWith(`${i.to}/`));
               return (
                 <NavLink
                   key={i.to}

@@ -41,6 +41,29 @@ export default function SiteSettings({ loaderData }: Route.ComponentProps) {
         </a>
       }
     >
+      <Card title="读者看到的站点文案" className="mb-5">
+        <p className="mb-3 text-sm text-ink-3">
+          站名、副标题和首页标题随当前网站版本发布。这一页可以直接改的是下面的公开介绍、联系方式和金属价格入口，保存后读者页会读到新内容。
+        </p>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <div>
+            <dt className="text-ink-3">站名</dt>
+            <dd className="mt-1 font-medium text-ink">{SITE.name}</dd>
+          </div>
+          <div>
+            <dt className="text-ink-3">副标题</dt>
+            <dd className="mt-1 font-medium text-ink">{SITE.tagline}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-ink-3">首页标题</dt>
+            <dd className="mt-1 font-medium text-ink">{SITE.homeTitle}</dd>
+          </div>
+          <div className="sm:col-span-2">
+            <dt className="text-ink-3">一句话介绍</dt>
+            <dd className="mt-1 text-ink">{SITE.description}</dd>
+          </div>
+        </dl>
+      </Card>
       {!protectedInfo.productionFilingConfigured && (
         <p role="status" className="mb-5 rounded-control border border-amber/30 bg-amber/10 p-4 text-sm text-amber-ink">
           公开站在生产环境不得开放：当前记录的备案配置尚不齐全，请在部署核对时补齐真实资料。

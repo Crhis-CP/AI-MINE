@@ -11,7 +11,7 @@ import type { Route } from "./+types/models";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { bj, money, num } from "../../features/admin/format";
-import { AdminPage, Badge, Button, Card, DataTable, Empty, Field, FilterChips, ReasonDialog, Select, Input } from "../../features/admin/ui";
+import { AdminPage, Badge, Button, Card, DataTable, Empty, Field, FilterChips, ReasonDialog, Select } from "../../features/admin/ui";
 
 interface Usage {
   purpose: string;
@@ -88,8 +88,6 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   const { run, pending } = useAdminAction();
   const revalidator = useRevalidator();
   const me = useAdminMe() as ReturnType<typeof useAdminMe> & { owner?: boolean; modelsManage?: boolean };
-  const [evaluation, setEvaluation] = useState(""),
-    [emergency, setEmergency] = useState(false);
   const closeTarget = useCallback(() => setTarget(null), []);
   const command = async ({ kind, id, body }: ModelCommand) => {
     const client = createPrivateClient({ baseUrl: window.location.origin });
@@ -151,7 +149,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   return (
     <AdminPage
       title="模型与评测"
-      subtitle="管理供应商接入、各处理环节的模型和评测依据。已有结果保持原样，指派只影响后续新任务。"
+      subtitle="每个处理环节当前用哪个模型。从已配置的模型里选择，或选用已接入并通过连接测试的模型。切换只影响之后的新任务，已有结果不重算。"
       actions={
         <FilterChips
           param="days"
@@ -190,9 +188,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                   disabled={!me.modelsManage && !me.owner}
                   onClick={() => {
                     setTarget(c);
-                    setChoice("");
-                    setEvaluation("");
-                    setEmergency(false);
+                    setChoice(c.current.source === "admin" ? c.current.model : "__default");
                   }}
                 >
                   切换
@@ -306,50 +302,40 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
       <ReasonDialog
         open={!!target}
         title={`切换模型：${target?.label ?? ""}`}
-        description="请选择通过当前版本连接测试的接入，并提供对应评测。精选评分必须先完成同批样本比较。"
+        description="只影响之后的新任务。选“恢复默认”会回到环境变量或代码默认。这里不改评分是否生效。"
         confirmLabel="切换"
         busy={pending === "switch"}
         onClose={closeTarget}
         onSubmit={async (reason) =>
           (await run(
             "POST",
-            `/api/admin/model-routes/${target!.key}`,
-            { model: choice, expected_revision: target!.routeRevision, evaluation_id: evaluation.trim() || null, emergency_confirmed: emergency, reason },
-            {
-              label: "switch",
-              success: "已指派，后续新任务使用新模型",
-              send: (_url, init) =>
-                createPrivateClient({ baseUrl: window.location.origin }).POST("/api/admin/model-routes/{capability}", {
-                  headers: init.headers,
-                  signal: init.signal,
-                  params: { path: { capability: target!.key } },
-                  body: privateSchemas.ModelRouteChange.parse(JSON.parse(String(init.body))),
-                }),
-            },
+            `/api/admin/models/${target!.key}`,
+            { model: choice === "__default" ? null : choice, reason },
+            { label: "switch", success: "已切换，之后的新任务使用这个模型" },
           )) !== null
         }
       >
         <Field label="模型">
           <Select value={choice} onChange={(e) => setChoice(e.target.value)}>
-            <option value="">请选择接入</option>
+            {m.choices
+              .filter((x) => x.vision === !!target?.vision)
+              .map((x) => (
+                <option key={x.key} value={x.key}>
+                  {x.key}（{x.service}）
+                </option>
+              ))}
             {m.registry?.connections
-              .filter((x) => x.enabled && x.test_status === "passed" && (!target?.vision || x.vision))
+              .filter((x) => x.enabled && x.test_status === "passed" && x.vision === !!target?.vision)
               .map((x) => (
                 <option key={x.id} value={x.key}>
                   {x.name} · {x.model}
                 </option>
               ))}
+            <option value="__default">
+              恢复默认（{target?.env} 或 {target?.defaultModel}）
+            </option>
           </Select>
         </Field>
-        <Field label="评测记录编号">
-          <Input value={evaluation} onChange={(e) => setEvaluation(e.target.value)} placeholder="已完成且匹配当前配置的评测记录" />
-        </Field>
-        {target?.key !== "score" && me.owner && (
-          <label className="mt-3 flex items-start gap-2 text-[13px]">
-            <input type="checkbox" checked={emergency} onChange={(e) => setEmergency(e.target.checked)} />
-            紧急恢复：本次未完成评测，明确记录为待评测。
-          </label>
-        )}
       </ReasonDialog>
     </AdminPage>
   );
