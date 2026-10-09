@@ -14,7 +14,7 @@ TASK-0117 的 `acquirePolicyOriginal(input, profile, get?)` 复用受限取页�
 TASK-0120 的纯 `validatePolicyFulltextCandidate(plan,candidates)` 消费 0119 的精确计划与扁平逐 part 候选数组；`PolicyPartCandidateSchema` / `PolicyPartCandidate` 是严格候选边界。缺项、重复、错哈希、非逐字引文、字符损坏和确定性不变量变化不给 assembled，独立合法部分保留在 accepted；只在全覆盖时按资源与计划顺序装配块，不假定一个 nodeId 只有一个 part。
 校验仅证明相对计划的结构与已识别文字标记一致，不能证明事实含义、否定/情态、完整语义或来源合法身份。输出固定 semantic_verified=false/runtime_authorization=none；运行器必须另核真实回执、当前原件、许可和控制状态，随后仍需 AI-19/21。
 
-TASK-0101 的 `policy/interpretation-runtime.ts` 内部端口 导出 `runPolicyInterpretation(fulltextRunId,{root,maxRequests=2,related?})` 和 `loadPolicyInterpretation(fulltextRunId)`。执行器复用0121当前全文/CAS与0100网关，不注册队列、不切模型。AI19逐原文组核对并最多6子输入归并，AI18/20一次产出候选，AI21每个结论面对所有原文组；限定只改写一次并重新完整核验，反证/缺组/无支持阻止通过。候选日期用现有严格日期解析核对字面组件；不猜日/月歧义、时间或时区，关系目标须唯一且有实际输入依据，comparisons固定为空。
+TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyInterpretation(fulltextRunId,{root,maxRequests=2,related?})` 和 `loadPolicyInterpretation(fulltextRunId)`。执行器复用0121当前全文/CAS与0100网关，不注册队列、不切模型。AI19逐原文组核对并最多6子输入归并，AI18/20一次产出候选，AI21每个结论面对所有原文组；限定只改写一次并重新完整核验，反证/缺组/无支持阻止通过。候选日期用现有严格日期解析核对字面组件；不猜日/月歧义、时间或时区，关系目标须唯一且有实际输入依据，comparisons固定为空。
 `partial` 表示本轮调用份额已用完，可从实际回执/检查点继续；semantic_verified/semantic_failed/excluded/uncertain为已到达的候选结果；blocked_unknown/waiting_receipt/provider_unavailable/invalid_output/stale/blocked_capacity不当作成功或摘要降级。阶段引用限该次真实parts/children/root-quotes；恢复也核对真实receipt输入与响应，不按序号猜attempt。被拒的同一阶段输入不自动再购买；暂停途中已收到的相同输入可在明确恢复后免费重验。
 可信读取返回run、candidate、claims、逐组verification、recipeVersion/contentHash和模型证据。candidate.evidence的part_id经run.plan.parts定位resourceUrl/nodePath；私有modelEvidence含实际receipt/attempt/service/请求模型及provider报告模型，models只取实际报告值，报告缺失则modelEvidenceComplete=false。semantic_verified只表示本链模型核验矩阵完整通过，不是法律权威或Owner质量资格；publication_authorized永远false。0122另行核质量资格并写公开投影，0123复用既有队列接调度。
 
@@ -26,4 +26,31 @@ TASK-0101 的 `policy/interpretation-runtime.ts` 内部端口 导出 `runPolicyI
 
 `setPolicyProcessingPaused` 使用控制版本、原因及操作人，并写既有审计。当前原件、来源权限或处理控制变化会阻止候选写回；响应和费用回执仍保留。该内部端口尚未接管理页面/自动生产调度。
 
-后续阶段可用`readPolicyFulltextRun(runId)`取得当前program_validated运行及待重新核对的output；`withCurrentPolicyRun(run, callback(tx))`提供同一原件/许可/控制CAS事务。`readPolicyResponse({receiptId,attemptId})`从既有回执端口读取精确物理响应、请求manifest与knownUsage；`settlePolicyResponse(tx,receipt,accepted)`支持四个policy用途，accepted=null只核对不改变旧结算。后续阶段另用自己的派生检查点表，不混入fulltext_parts。
+后续阶段可用`readPolicyFulltextRun(runId)`取得当前program_validated运行及待重新核对的output；`withCurrentPolicyRun(run, callback(tx))`提供同一原件/许可/控制CAS事务。`readPolicyResponse({receiptId,attemptId})`从既有回执端口读取精确物理响应、请求manifest与knownUsage；`settlePolicyResponse(tx,receipt,accepted)`支持法规各阶段用途（含policy_vision），accepted=null只核对不改变旧结算。后续阶段另用自己的派生检查点表，不混入fulltext_parts。
+
+## 自动取得与发现依据（TASK-0123）
+
+`capturePolicyMaterial(sourceId,materialId,get?)` 消费来源显式 policyProfile 与 content 真实材料引用，取得唯一标题/身份标识等字段，再调用原件取得端口。无 profile、普通新闻标识或缺字段不能通过身份门；全文未获准时只登记无正文基本事实。取页时间不能代替首次发现时间。
+
+`readPolicyMetadataObservation(expressionId)` 是内部可信元数据端口，返回当前原件可回读字段依据，以及 material_discoveries 的真实最早 discovered_at；无依据返回 null。其结果供 publication 独立基本事实资格判断，不公开私有源配置、许可或模型字段。两张证据表只追加，workflow 表供独立 policy 队列续跑；HTTP 读取不会调用取得或排队。
+
+
+`advancePolicyMaterial` 每次推进一个有限阶段，独立 policy 队列经现有 `jobs/content` 组合入口转发。初始取得先尝试独立基本事实发布，完整输出仍只交可信发布端；partial续跑，未知回执与异常停止自动付费，同 URL 按来源显式 recheckMinutes 复查。视觉extracted后须重新通过完整全文计划，不能用视觉结果替代目录完整性。新调度不改新闻成功计数、首次材料入库或公开读取路径。
+
+## PDF视觉候选（TASK-0126）
+
+内部文件`policy/vision-runtime.ts`提供`runPolicyVision(expressionId, extractionProfile, {root,maxRequests=2})`；只在worker明确调用，不注册新队列或新增包出口。`partial`可按既有队列续跑；`extracted`证明全部页面的结构候选与原页复核均齐全；`incomplete`带具体缺口；`needs_configuration`表示缺明确视觉路由。容量、未知用量、busy、暂停、原件/许可变化及拒收分别保留blocked_capacity/blocked_unknown/waiting_receipt/paused/stale/invalid_output，不自动降分辨率、截断或重购拒收答案。
+
+渲染沿固定PDF.js的[官方Node canvasFactory API](https://github.com/mozilla/pdf.js/blob/v6.4.299/examples/node/pdf2png/pdf2png.mjs)，实际锁定canvas版本也进入配方；每页按scale=3输出PNG，页数、文字定位、每次图件出现坐标、链接与内嵌附件来自原bytes。逐页识别后再次发送原页及相邻页核对完整文字、数字、每个单元/合并跨度、图件、阅读顺序和跨页关系。表格矩阵无重叠/无空洞，真实文字层逐项绑定、纯文字页字面字符/数字守恒；跨页条款/表格只有两侧核验通过才连接。重复图件位置不去重，不用总数近似集合。内嵌文件、未定位的图形操作、未知附件地址/页码、复杂图形/公式等无法无损表达的部分保持缺口。
+
+复用`withCurrentPolicyOriginal({snapshot,expressionId,controlVersion},callback)`的原件/许可/人工暂停CAS；全文CAS继续转发此公共内部实现。渲染页和视觉阶段存policy私有表；`policy_vision`仍经同一网关与paidRequest，每张PNG的实际hash/长度/尺寸/配方、原PDF material及完整传输body的hash/字节数绑定物理回执。缓存恢复严格比较实际请求manifest、system/user hashes与实际响应，不按receipt序号推测attempt。图片不进入HTTP公开投影。
+
+`loadPolicyVision` / `loadPolicyVisionProof(runId)`只读重放当前原件与真实回执，零模型调用、零候选写入。0117读取完整视觉产物替换该PDF的未核版面节点，并仅在完整目录证据齐全时关闭直接PDF目录；其他资源缺口仍阻止全文计划。AI17 plan.context的visualRunId/visualContentHash绑定实例，recipeVersion另纳入稳定视觉配方；0101重验视觉结果，并把实际AI23模型证据加入全部调用集合，0122按精确内容配方核Owner资格。此层固定semantic_verified=false/publication_authorized=false，扫描识别不等于全文语义或质量验收。
+
+最后需要部署端明确选择`POLICY_VISION_MODEL`（或已审计`models.policy_vision`设置）为已登记且支持视觉的模型。没有默认文本替代。选择`default`时还须`LLM_VISION=true`且该实际模型/端点确实支持图片；命名预设使用已有对应凭据通道，不读/变更现有秘密。真实样本的数字、表格、扫描图件能力资格仍由Owner最后验收，不因本地假provider通过而授予。没有新增供应商、依赖、真实付费调用或生产启用。
+
+## 公开投影与读取（TASK-0122）
+
+`publication/policies-publish.ts` 的 `publishPolicyPublication({expressionId,fulltextRunId?})` 只消费当前持久物证、全文检查点及可回读的0101语义/实际模型依据。基本事实来自0123取得字段；完整解读须匹配 `policy/quality.ts` 中真实Owner审阅记录的来源、语言、完整配方、模型集合与期限。新安装不附任何资格，测试记录仅存在隔离库。`policyPublicationControl(db?)` 在写事务内锁独立法规公开开关；`setPolicyPublicationPaused` 及逐文书 `setPolicyPublicationState` 要求原因、操作人与既有审计。读请求不看采集/处理/公开暂停，也不写库、排队或调用模型。
+
+公开层为随机代理ID与严格0098 DTO；当前许可、到期、自动排除和人工撤回对列表、详情、正文、历史、搜索与汇总逐次生效。`policyPublicVersions` / `policyPublicMembers(editionIds)` 给报告使用精确仍合格的公开版本及真实首次发现时刻，不以读取时间补齐。正文游标区分表达、修订和明确历史选择；列表游标只绑定筛选及排序锚点。报告继续读固定修订时，成员资格变化或当前报告换版返回409，不留下已撤回成员的标题或摘要。跨文书脉络的可信组建写口仍待后续功能接入，读口不推测关系。

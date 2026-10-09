@@ -288,7 +288,13 @@ import { appendSourcePolicy, readCurrentSourcePolicy } from "../sources/permissi
 export { policySourceCoverage } from "../sources/policy-coverage.ts";
 import { SOURCE_PURPOSES, SourcePolicySchema } from "@amp/contracts/source-policy";
 import { SourceCreateRequest } from "@amp/contracts/http/private";
-export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "../sources/permission-store.ts";
+export {
+  readCurrentSourcePolicy,
+  readCurrentPublicPolicy,
+  publicProcessingAllowed,
+  lockCurrentSourcePolicies,
+  evaluateSourcePolicy,
+} from "../sources/permission-store.ts";
 export { parseSourceDate } from "../sources/date-extraction.ts";
 
 /** Explicit permission edit; no HTTP caller is activated by this storage capability. */
@@ -305,4 +311,13 @@ export async function saveSourcePolicy(id: string, input: { policy: Record<strin
     await audit(actor, "source.permission", `source:${id}`, input.reason, change.before, change.after, undefined, tx);
     return change.after;
   });
+}
+
+import { stableJson } from "../lib/ids.ts";
+
+/** A policy observation is accepted only against the still-current explicit source configuration. */
+export async function lockPolicySourceConfiguration(tx: Tx, expected: Pick<SourceRow, "id" | "kind" | "config">) {
+  const [row] = await tx`SELECT kind,config,lane,enabled FROM sources WHERE id=${expected.id} FOR SHARE`;
+  if (!row || row.lane !== "policy" || !row.enabled || row.kind !== expected.kind || stableJson(row.config) !== stableJson(expected.config))
+    throw new Error("Policy source configuration changed or paused");
 }

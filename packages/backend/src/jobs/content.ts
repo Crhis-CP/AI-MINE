@@ -316,3 +316,6 @@ export async function requeueFailed(group: string | null): Promise<{ requeued: n
   for (const r of rows.slice(0, 500)) await queueProcessing(r.id);
   return { requeued: rows.length };
 }
+
+// Policy processing shares only this frozen composition entry; its queues and state remain separate.
+export { registerPolicyJobs, sweepPolicyMaterials } from "./policy.ts";

@@ -21,6 +21,7 @@ export type OriginalNode = {
   html?: string;
   page?: number;
   transform?: number[];
+  visualLocations?: { page: number; bbox: number[]; imageHash: string }[];
   selector?: string;
 };
 export type ResourceExtraction = {
@@ -30,7 +31,13 @@ export type ResourceExtraction = {
   nodes: OriginalNode[];
   gaps: string[];
 };
-export type PolicyExtraction = { revisionId: string; state: ResourceExtraction["state"]; gaps: string[]; resources: ResourceExtraction[] };
+export type PolicyExtraction = {
+  revisionId: string;
+  state: ResourceExtraction["state"];
+  gaps: string[];
+  resources: ResourceExtraction[];
+  visualProof?: { runId: string; contentHash: string; recipe: string };
+};
 export const EXTRACTION_RECIPE = `html-policy-1/pdfjs-${version}`;
 const sql = dbOf("policy"),
   normalized = (value: string) => value.replace(/\s+/g, " ").trim();
@@ -127,7 +134,7 @@ export async function extractPolicyOriginal(expressionId: string, profileValue: 
   const profileHash = sha256(stableJson(profile));
   const cached =
     await sql`SELECT result FROM policy.document_extractions WHERE revision_id=${snapshot.revisionId} AND recipe=${EXTRACTION_RECIPE} AND profile_hash=${profileHash}`;
-  if (cached.length) return cached[0]!.result as PolicyExtraction;
+  if (cached.length) return withVisualExtraction(expressionId, profile, cached[0]!.result as PolicyExtraction);
   const resources: ResourceExtraction[] = [];
   for (const resource of snapshot.resources) {
     try {
@@ -149,5 +156,25 @@ export async function extractPolicyOriginal(expressionId: string, profileValue: 
     if (current?.current_revision_id !== snapshot.revisionId) throw new Error("Policy original head changed");
     await tx`INSERT INTO policy.document_extractions(revision_id,recipe,profile_hash,result) VALUES(${snapshot.revisionId},${EXTRACTION_RECIPE},${profileHash},${tx.json(result)}) ON CONFLICT DO NOTHING`;
   });
-  return result;
+  return withVisualExtraction(expressionId, profile, result);
+}
+
+async function withVisualExtraction(expressionId: string, profile: ExtractionProfile, result: PolicyExtraction): Promise<PolicyExtraction> {
+  if (!result.resources.some((resource) => resource.gaps.some((gap) => gap.includes("PDF") || gap.includes("图件")))) return result;
+  const { loadPolicyVision } = await import("./vision-runtime.ts"),
+    visual = await loadPolicyVision(expressionId, profile);
+  if (!visual || visual.revisionId !== result.revisionId) return result;
+  const resources = result.resources.map((resource) => visual.resources.find((r) => r.url === resource.url && r.sha256 === resource.sha256) ?? resource),
+    gaps = result.gaps.filter((gap) => !visual.catalogueClosed || gap !== "附件目录尚未闭合");
+  return {
+    ...result,
+    resources,
+    gaps,
+    state: resources.some((r) => r.state === "blocked_capacity")
+      ? "blocked_capacity"
+      : gaps.length || resources.some((r) => r.state !== "extracted")
+        ? "incomplete"
+        : "extracted",
+    visualProof: { runId: visual.runId, contentHash: visual.contentHash, recipe: visual.recipe },
+  };
 }

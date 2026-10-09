@@ -73,18 +73,30 @@ test("all current migration tables and serial sequences have one explicit classi
       "policy.processing_controls",
       "policy.fulltext_runs",
       "policy.fulltext_parts",
+      "policy.quality_releases",
+      "publication.policy_ids",
+      "publication.policy_documents",
+      "publication.policy_publication_control",
+      "publication.policy_quality_windows",
+      "publication.policy_editions",
+      "policy.interpretation_runs",
+      "policy.interpretation_stages",
       "publication.policy_reports",
       "publication.policy_report_revisions",
       "publication.policy_report_members",
-      "policy.interpretation_runs",
-      "policy.interpretation_stages",
+      "policy.material_discoveries",
+      "policy.metadata_observations",
+      "policy.material_workflows",
+      "policy.vision_runs",
+      "policy.vision_pages",
+      "policy.vision_stages",
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
   assert.deepEqual(Object.keys(SEQUENCES).sort(), serials.map((name) => `public.${name}`).sort());
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 23);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 27);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["enrichment.translation_segments"], {
     module: "enrichment",
@@ -223,6 +235,25 @@ test("only the exact current source projection may expose its three public colum
       }
     } finally {
       spec.publicColumns = original;
+    }
+  }
+});
+
+test("policy public head access is limited to identity and current revision, never originals or controls", () => {
+  for (const name of ["policy.expressions", "policy.document_revisions", "policy.quality_releases"]) {
+    const rule = TABLE_GRANTS[name],
+      previous = rule.publicColumns;
+    try {
+      for (const columns of [["*"], ["id", "current_revision_id", "language"], ["id", "current_revision_id", "paused"]]) {
+        rule.publicColumns = columns;
+        assert.ok(catalogProblems(catalog(), "fixture").some((p) => p.includes("Public columns outside")));
+      }
+      if (name !== "policy.expressions") {
+        rule.publicColumns = ["id", "current_revision_id"];
+        assert.ok(catalogProblems(catalog(), "fixture").some((p) => p.includes("Public columns outside")));
+      }
+    } finally {
+      rule.publicColumns = previous;
     }
   }
 });

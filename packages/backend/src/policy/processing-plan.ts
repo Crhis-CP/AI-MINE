@@ -3,7 +3,15 @@ import * as cheerio from "cheerio";
 import type { PolicyExtraction } from "./extraction.ts";
 
 export const POLICY_PLAN_LIMITS = Object.freeze({ documentBytes: 2_000_000, nodes: 8192, requestBytes: 2000, requestParts: 12, planBytes: 8 * 1024 * 1024 });
-export type PolicyPlanContext = { sourceId: string; expressionId: string; language: string; identityHash: string; recipeVersion: string };
+export type PolicyPlanContext = {
+  sourceId: string;
+  expressionId: string;
+  language: string;
+  identityHash: string;
+  recipeVersion: string;
+  visualRunId?: string;
+  visualContentHash?: string;
+};
 export type PolicyPart = {
   partId: string;
   resourceUrl: string;
@@ -16,6 +24,7 @@ export type PolicyPart = {
   byteLength: number;
   page?: number;
   transform?: number[];
+  visualLocations?: { page: number; bbox: number[]; imageHash: string }[];
 };
 export type PolicyFulltextRequest = { id: string; partIds: string[]; sourceBytes: number };
 export type PolicyFulltextPlan = {
@@ -109,6 +118,13 @@ export function buildPolicyFulltextPlan(extraction: PolicyExtraction, context: P
   });
   if (!extraction.revisionId || Object.values(context).some((value) => !value.trim()) || !hash.test(context.identityHash))
     gaps.push("missing_processing_identity");
+  if (extraction.visualProof && (context.visualRunId !== extraction.visualProof.runId || context.visualContentHash !== extraction.visualProof.contentHash))
+    gaps.push("visual_proof_not_bound");
+  if (
+    Boolean(context.visualRunId) !== Boolean(context.visualContentHash) ||
+    (context.visualRunId && (!hash.test(context.visualRunId) || !hash.test(context.visualContentHash!)))
+  )
+    gaps.push("invalid_visual_proof");
   if (extraction.state !== "extracted") gaps.push("original_extraction_incomplete");
   if (!extraction.resources.length) gaps.push("original_resources_missing");
   const parts: PolicyPart[] = [];
@@ -157,6 +173,7 @@ export function buildPolicyFulltextPlan(extraction: PolicyExtraction, context: P
           byteLength,
           ...(node.page === undefined ? {} : { page: node.page }),
           ...(node.transform === undefined ? {} : { transform: [...node.transform] }),
+          ...(node.visualLocations === undefined ? {} : { visualLocations: structuredClone(node.visualLocations) }),
         });
       }
     }

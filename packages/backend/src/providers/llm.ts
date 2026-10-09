@@ -218,10 +218,15 @@ function isConnectFailure(error: unknown): boolean {
 }
 
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
-  if (["policy_fulltext", "policy_group", "policy_interpret", "policy_verify"].includes(opts.purpose) && (!opts.policyContext || !opts.beforeRequest))
+  if (
+    ["policy_fulltext", "policy_group", "policy_interpret", "policy_verify", "policy_vision"].includes(opts.purpose) &&
+    (!opts.policyContext || !opts.beforeRequest)
+  )
     throw new Error("Policy capabilities require the policy gateway");
   const spec = MODELS[opts.model];
   if (!spec) throw new Error(`Unknown model ${opts.model}`);
+  if (opts.purpose === "policy_vision" && (!spec.vision || "messages" in (spec.extra ?? {}) || "model" in (spec.extra ?? {})))
+    throw new Error("Policy vision requires explicit image capability and immutable input messages");
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
   const baseUrl = credential("models", spec.baseUrlEnv);
   const apiKey = credential("models", spec.apiKeyEnv);
@@ -244,6 +249,8 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     ...(spec.jsonMode && opts.json !== false ? { response_format: { type: "json_object" } } : {}),
     ...(spec.extra ?? {}),
   };
+  const requestBody = JSON.stringify(body),
+    imageTransport = opts.purpose === "policy_vision" ? { transportHash: sha256(requestBody), transportBytes: Buffer.byteLength(requestBody) } : {};
 
   const receipt = await paidRequest(
     {
@@ -253,6 +260,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       subject: opts.subject,
       policy: opts.policyContext,
       identity: {
+        ...imageTransport,
         ...(opts.policyContext ? { policy: opts.policyContext } : {}),
         model: spec.model,
         promptVersion: opts.promptVersion,
@@ -263,6 +271,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         extra: spec.extra ?? null,
       },
       requestSummary: {
+        ...imageTransport,
         ...(opts.policyContext ?? {}),
         promptVersion: opts.promptVersion,
         systemHash: sha256(opts.system),
@@ -289,7 +298,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
           method: "POST",
           headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify(body),
+          body: requestBody,
           signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
         });
       } catch (error) {

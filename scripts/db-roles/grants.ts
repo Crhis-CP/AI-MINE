@@ -165,7 +165,13 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         spec.publicColumns.length === 3 &&
         new Set(spec.publicColumns).size === 3 &&
         spec.publicColumns.every((column) => ["source_id", "permission_version", "public_policy"].includes(column));
-      if (spec.publicColumns.length && ((identity.schema !== "publication" && !sourceProjection) || spec.access !== "business"))
+      const policyHead =
+        name === "policy.expressions" &&
+        spec.module === "policy" &&
+        spec.publicColumns.length === 2 &&
+        new Set(spec.publicColumns).size === 2 &&
+        spec.publicColumns.every((column) => ["id", "current_revision_id"].includes(column));
+      if (spec.publicColumns.length && ((identity.schema !== "publication" && !sourceProjection && !policyHead) || spec.access !== "business"))
         problems.push(`Public columns outside approved projections: ${name}`);
     }
   }

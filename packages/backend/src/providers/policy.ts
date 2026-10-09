@@ -4,11 +4,11 @@ import { SourceInputManifestSchema, type IssueProcessingPermitInputSchema, type 
 import { readCurrentSourcePolicy, readSourceDateContext, evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { createPermitIssuer } from "../sources/permissions.ts";
 import { createPermitVerifier, type PermitPorts } from "./permissions.ts";
-import { chatJson, type ChatJsonResult } from "./llm.ts";
+import { chatJson, type ChatJsonResult, type ContentPart } from "./llm.ts";
 import { modelFor } from "../editorial/models.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
-const Purpose = z.enum(["policy_fulltext", "policy_group", "policy_interpret", "policy_verify"]);
+const Purpose = z.enum(["policy_fulltext", "policy_group", "policy_interpret", "policy_verify", "policy_vision"]);
 export type PolicyPurpose = z.infer<typeof Purpose>;
 const Reference = z.strictObject({ id: z.string().min(1), version: z.string().min(1) });
 export type PolicyInputReference = z.infer<typeof Reference>;
@@ -16,12 +16,73 @@ const Prepared = z.strictObject({
   manifest: SourceInputManifestSchema.refine((m) => m.lane === "policy", "Policy input must belong to policy"),
   system: z.string(),
   user: z.string().min(1),
+  images: z
+    .array(
+      z.strictObject({
+        materialId: z.string().min(1),
+        locationId: z.string().min(1),
+        sha256: z.string().regex(/^[a-f0-9]{64}$/),
+        byteLength: z.number().int().positive(),
+        recipe: z.string().min(1),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+        dataUrl: z.string().startsWith("data:image/png;base64,"),
+      }),
+    )
+    .min(1)
+    .max(3)
+    .optional(),
   promptVersion: z.string().min(1),
   recipeVersion: z.string().min(1),
   controlRevision: z.string().min(1),
   processingAllowed: z.boolean(),
 });
 export type PreparedPolicyInput = z.infer<typeof Prepared>;
+/** The exact array serialized by chatJson; both fresh sends and recovery hash these transmitted bytes. */
+export function policyUserContent(input: PreparedPolicyInput): string | ContentPart[] {
+  if (!input.images) return input.user;
+  return [{ type: "text", text: input.user }, ...input.images.map((image): ContentPart => ({ type: "image_url", image_url: { url: image.dataUrl } }))];
+}
+export function policyUserHash(input: PreparedPolicyInput) {
+  const content = policyUserContent(input);
+  return sha256(typeof content === "string" ? content : JSON.stringify(content));
+}
+function validateImages(input: PreparedPolicyInput, purpose: PolicyPurpose) {
+  if (purpose !== "policy_vision") {
+    if (input.images) throw new Error("Images require explicit policy vision capability");
+    return;
+  }
+  if (!input.images?.length) throw new Error("Policy vision requires original-page bytes");
+  let size = 0,
+    pixels = 0;
+  const ids = new Set<string>();
+  for (const image of input.images) {
+    const encoded = image.dataUrl.slice("data:image/png;base64,".length),
+      bytes = Buffer.from(encoded, "base64");
+    if (
+      bytes.toString("base64") !== encoded ||
+      bytes.length !== image.byteLength ||
+      sha256(bytes) !== image.sha256 ||
+      bytes.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a" ||
+      bytes.length < 24 ||
+      bytes.readUInt32BE(16) !== image.width ||
+      bytes.readUInt32BE(20) !== image.height ||
+      ids.has(image.locationId)
+    )
+      throw new Error("Policy image integrity mismatch");
+    ids.add(image.locationId);
+    size += bytes.length;
+    pixels += image.width * image.height;
+    if (
+      !input.manifest.materials.some((m) => m.material_id === image.materialId) ||
+      !input.manifest.upstream_artifacts.some(
+        (a) => a.kind === "policy_page_image" && a.id === image.locationId && a.content_hash === image.sha256 && a.version === image.recipe,
+      )
+    )
+      throw new Error("Policy image lacks original permission or rendering binding");
+  }
+  if (size > 16 * 1024 * 1024 || pixels > 40_000_000) throw new Error("Policy image input exceeds capacity; do not downscale or truncate");
+}
 export interface PolicyGatewayPorts {
   root: AbortSignal;
   /** Rebuild from current stored originals/plan/control state; never echo caller-provided text or completeness flags. */
@@ -54,6 +115,7 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
         const input = Prepared.parse(await ports.resolve(structuredClone(ref), purpose));
         if (!input.processingAllowed) throw new Error("Policy processing is paused");
         if (Buffer.byteLength(input.system + input.user, "utf8") > 32_000) throw new Error("Policy input exceeds capacity; do not truncate");
+        validateImages(input, purpose);
         return input;
       };
       const input = await load(),
@@ -128,7 +190,7 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
           subject: `policy:${ref.id}@${ref.version}`,
           promptVersion: input.promptVersion,
           system: input.system,
-          user: input.user,
+          user: policyUserContent(input),
           schema: options.schema,
           maxTokens: options.maxTokens ?? 4096,
           timeoutMs: options.timeoutMs,

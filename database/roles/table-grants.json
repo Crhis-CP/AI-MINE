@@ -349,7 +349,7 @@
     "policy.expressions": {
       "module": "policy",
       "access": "business",
-      "publicColumns": [],
+      "publicColumns": ["id", "current_revision_id"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
@@ -409,6 +409,91 @@
         "worker": ["SELECT", "INSERT"]
       }
     },
+    "policy.quality_releases": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.policy_ids": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_documents": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "withdrawn", "first_public_at", "automatic_excluded"],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_quality_windows": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "valid_until", "revoked"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.policy_editions": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [
+        "id",
+        "policy_id",
+        "native_expression_id",
+        "native_revision_id",
+        "source_id",
+        "permission_version",
+        "policy_version_id",
+        "expression_ids",
+        "revision_ids",
+        "public_resources",
+        "basic_card",
+        "basic_detail",
+        "complete_card",
+        "complete_detail",
+        "reading",
+        "quality_id",
+        "released_at",
+        "source_language",
+        "preferred_source_language",
+        "discovered_at",
+        "original_content_key"
+      ],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.interpretation_runs": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.interpretation_stages": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
     "publication.policy_reports": {
       "module": "publication",
       "access": "business",
@@ -436,7 +521,25 @@
         "worker": ["SELECT", "INSERT"]
       }
     },
-    "policy.interpretation_runs": {
+    "policy.material_discoveries": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.metadata_observations": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.material_workflows": {
       "module": "policy",
       "access": "business",
       "publicColumns": [],
@@ -445,7 +548,34 @@
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
     },
-    "policy.interpretation_stages": {
+    "publication.policy_publication_control": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "policy.vision_runs": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.vision_pages": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.vision_stages": {
       "module": "policy",
       "access": "business",
       "publicColumns": [],

@@ -107,6 +107,18 @@ async function currentFulltext(runId: string) {
     candidates.push(point.candidate);
   }
   for (const proof of proofs.values()) models.push(modelEvidence(proof));
+  if (loaded.run.plan.context.visualRunId) {
+    const { loadPolicyVisionProof } = await import("./vision-runtime.ts"),
+      visual = await loadPolicyVisionProof(loaded.run.plan.context.visualRunId);
+    if (
+      !visual ||
+      visual.revisionId !== loaded.run.snapshot.revisionId ||
+      visual.contentHash !== loaded.run.plan.context.visualContentHash ||
+      !loaded.run.plan.context.recipeVersion.endsWith(`/vision:${visual.recipe}`)
+    )
+      throw new StageBlocked("invalid_fulltext_proof");
+    models.push(...visual.modelEvidence);
+  }
   const fulltext = validatePolicyFulltextCandidate(loaded.run.plan, candidates);
   if (fulltext.status !== "program_validated") throw new StageBlocked("fulltext_incomplete");
   return { run: loaded.run, fulltext, models };
