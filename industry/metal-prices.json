@@ -49,7 +49,7 @@
       "staleDays": 14,
       "hosts": ["www.cbr.ru", "bank.gov.ua"],
       "officialUrl": "https://www.cbr.ru/hd_base/metall/metall_base_new/",
-      "terms": { "name": "俄罗斯银行网站使用条件", "url": "https://www.cbr.ru/about/" },
+      "terms": { "name": "俄罗斯银行：关于网站（О сайте）", "url": "https://www.cbr.ru/about/" },
       "attribution": ["来源：俄罗斯银行（Bank of Russia）贵金属核算价 https://www.cbr.ru/hd_base/metall/metall_base_new/"],
       "license": [
         "俄罗斯银行网站的资料可以注明来源转载；网络媒体要链接到具体页面，本站在脚注里链接贵金属核算价的数据页。",
