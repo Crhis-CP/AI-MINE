@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
+import { compareCbrWithNbu } from "../packages/backend/src/publication/metal-prices/nbu.ts";
 import { cbrFetcher } from "../packages/backend/src/publication/metal-prices/cbr.ts";
 import type { PageGetter } from "../packages/backend/src/publication/metal-prices/types.ts";
 import { refreshMetalPrices } from "../packages/backend/src/publication/metal-prices/refresh.ts";
@@ -27,6 +28,7 @@ const only = () => ({
 const footnote = "俄央行核算价：俄罗斯银行（俄罗斯央行）每个工作日公布的贵金属核算价，原为卢布/克，本站按它同一天公布的美元汇率换算成美元/盎司。来源：{link}。";
 
 test("CBR registration keeps four converted quotes and a hidden raw rate, with the approved daily footnote", () => {
+  assert.equal(source.enabled, true);
   assert.deepEqual(
     [source.name, source.section, source.frequency, source.currency, source.staleDays, source.decimals],
     ["俄罗斯银行（俄罗斯央行）", "international", "day", "RUB", 14, 2],
@@ -332,4 +334,156 @@ test("CBR transport, XML and impossible dates fail the source before writes, whi
   assert.equal(result.cbr.ok, false);
   assert.equal(result.nbs.ok, true);
   assert.equal(result.nbs.inserted, 5);
+});
+
+// NBU replies are invented from the CBR fixture, never copied from the official comparison recordings.
+function invented(day: string, multiplier = 1, palladiumOnly = false) {
+  const effective = new Date(Date.parse(`${day}T00:00:00Z`) + 86400_000).toISOString().slice(0, 10),
+    date = day.split("-").reverse().join(".");
+  const records = [...metalXml.matchAll(/<Record Date="([^"]+)" Code="([^"]+)"><Buy>([^<]+)<\/Buy>/g)].filter(
+    (record) => record[1] === effective.split("-").reverse().join("."),
+  );
+  const fx = Number(
+    usdXml(effective)
+      .match(/<CharCode>USD<\/CharCode>.*?<Value>([^<]+)<\/Value>/)![1]
+      .replace(",", "."),
+  );
+  const usd = 987.654321;
+  return [
+    { r030: 840, txt: "synthetic USD", rate: usd, cc: "USD", exchangedate: date },
+    ...["XAU", "XAG", "XPT", "XPD"].map((cc, i) => ({
+      r030: 959 + i,
+      txt: `synthetic ${cc}`,
+      cc,
+      exchangedate: date,
+      rate:
+        ((Number(records.find((r) => r[2] === String(i + 1))![3].replace(",", ".")) * 31.1034768) / fx) *
+        usd *
+        (!palladiumOnly || cc === "XPD" ? multiplier : 1),
+    })),
+  ];
+}
+function compared(reply: (day: string) => unknown = (date) => invented(date), response: Partial<Awaited<ReturnType<PageGetter>>> = {}) {
+  const cbr = recorded(),
+    nbuCalls: string[] = [],
+    figures: string[] = [];
+  const get: PageGetter = async (url, opts) => {
+    if (new URL(url).hostname !== "bank.gov.ua") return cbr.get(url, opts);
+    assert.equal(opts?.maxRedirects, 0);
+    nbuCalls.push(url);
+    const compact = new URL(url).searchParams.get("date")!,
+      day = `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`;
+    const data = reply(day);
+    if (Array.isArray(data)) figures.push(...data.map((r) => String(r.rate)));
+    return { url, status: 200, text: () => JSON.stringify(data), ...response };
+  };
+  return { get, nbuCalls, figures };
+}
+
+test("comparison within 5% stores raw CBR figures, requests fixing dates once, and exposes no invented NBU rate", async () => {
+  const get = compared((date) => invented(date, 1.04));
+  const result = (await refreshMetalPrices({ source: "cbr", get: get.get, now: NOW })).cbr;
+  assert.deepEqual([result.ok, result.inserted], [true, 10]);
+  assert.deepEqual(
+    get.nbuCalls,
+    ["2026-10-02", "2026-10-05"].map((date) => `https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?date=${date.replaceAll("-", "")}&json`),
+  );
+  const second = await capture(get.get);
+  assert.equal(second.ok, true);
+  assert.equal(get.nbuCalls.length, 2);
+  const serialized = JSON.stringify({ result, second, rows: await rows(), registry: raw });
+  for (const value of new Set(get.figures)) assert.ok(!serialized.includes(value), "comparison rate escaped into a durable or public shape");
+});
+
+test("one divergent metal holds the day, later days proceed, and the skipped day is never requested again", async () => {
+  const initial = compared();
+  assert.equal((await capture(initial.get, new Date("2026-10-02T02:00:00Z"))).inserted, 10);
+  const get = compared((date) => invented(date, date === "2026-10-02" ? 1.06 : 1, true));
+  const result = await capture(get.get);
+  assert.equal(result.ok, false);
+  assert.deepEqual([result.periods[1].inserted, result.periods[2].inserted], [0, 5]);
+  assert.match(result.periods[1].held!, /^钯与乌克兰央行的同类价格差 \d+\.\d+%，超过 5%$/);
+  assert.equal(result.periods[2].held, null);
+  const data = await rows();
+  const serialized = JSON.stringify({ result, rows: data, registry: raw });
+  for (const value of new Set(get.figures)) assert.ok(!serialized.includes(value), "held-period record leaked a comparison rate");
+  assert.equal(
+    data.some((row) => row.period_start === "2026-10-02"),
+    false,
+  );
+  assert.equal(
+    data.some((row) => row.period_start === "2026-10-05"),
+    true,
+  );
+  get.nbuCalls.length = 0;
+  await capture(get.get);
+  assert.deepEqual(get.nbuCalls, []);
+});
+
+test("unavailable, malformed or inconsistent comparisons record a safe note and permit the CBR period", async () => {
+  const change = (edit: (data: ReturnType<typeof invented>) => void) =>
+    compared((date) => {
+      const data = invented(date);
+      edit(data);
+      return data;
+    });
+  const cases = [
+    compared(() => {
+      throw new Error("private-provider-number-123456.789");
+    }),
+    compared(undefined, { status: 404 }),
+    compared(undefined, { url: "https://example.com/redirect" }),
+    compared(undefined, { text: () => "not JSON private-provider-number-123456.789" }),
+    change((data) => {
+      data.pop();
+    }),
+    change((data) => {
+      data.push(data[1]);
+    }),
+    change((data) => {
+      data[1].rate = 0;
+    }),
+    change((data) => {
+      data[1].exchangedate = "01.01.2000";
+    }),
+  ];
+  for (const get of cases) {
+    await sql`TRUNCATE publication.metal_prices`;
+    const result = await capture(get.get);
+    assert.deepEqual([result.ok, result.inserted], [true, 10]);
+    assert.ok(result.periods.every((p) => p.notes[0].startsWith("乌克兰央行比对没做成：")));
+    assert.ok(!JSON.stringify(result).includes("123456.789"));
+    const serialized = JSON.stringify({ result, rows: await rows(), registry: raw });
+    for (const value of new Set(get.figures.filter((value) => value !== "0"))) assert.ok(!serialized.includes(value), "failed comparison leaked a rate");
+  }
+});
+
+test("an exact 5% rational boundary is accepted, a strict excess is held, and existing CBR hold reasons skip comparison", async () => {
+  const copy = only();
+  for (const item of copy.items) if (item.convert) item.convert.factor = "1";
+  const exact = day(1, { rows: day(1).rows.map((row) => ({ ...row, value: "1" })) });
+  const get =
+    (usd: number): PageGetter =>
+    async (url) => ({
+      url,
+      status: 200,
+      text: () => JSON.stringify(["USD", "XAU", "XAG", "XPT", "XPD"].map((cc) => ({ cc, rate: cc === "USD" ? usd : 20, exchangedate: "01.10.2026" }))),
+    });
+  await compareCbrWithNbu(parseMetalPriceRegistry(copy), exact, get(21));
+  assert.deepEqual(exact.held, []);
+  await compareCbrWithNbu(parseMetalPriceRegistry(copy), exact, get(19));
+  assert.deepEqual(exact.held, []);
+  await compareCbrWithNbu(parseMetalPriceRegistry(copy), exact, get(21.000001));
+  assert.equal(exact.held.length, 4);
+  assert.match(exact.held.join("；"), />5\.00%/);
+  const lower = { ...exact, held: [] };
+  await compareCbrWithNbu(parseMetalPriceRegistry(copy), lower, get(18.999999));
+  assert.equal(lower.held.length, 4);
+  const base = recorded({ usd: { "2026-10-03": usdXml("2026-10-04").replace('Date="03.10.2026"', 'Date="04.10.2026"') } });
+  const observed = compared();
+  await capture(async (url, opts) => (new URL(url).hostname === "bank.gov.ua" ? observed.get(url, opts) : base.get(url, opts)));
+  assert.equal(
+    observed.nbuCalls.some((url) => url.includes("date=20261002")),
+    false,
+  );
 });
