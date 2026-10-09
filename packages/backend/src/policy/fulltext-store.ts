@@ -1,5 +1,5 @@
 import { dbOf, type Tx } from "../db.ts";
-import { assertOriginalPermissions, type readPolicyOriginal } from "./originals.ts";
+import { assertOriginalPermissions, readPolicyOriginal as readCurrentOriginal, type readPolicyOriginal } from "./originals.ts";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { audit } from "../admin/auth.ts";
 import { settlePolicyResponse } from "../providers/receipts.ts";
@@ -35,7 +35,7 @@ export async function setPolicyProcessingPaused(expressionId: string, change: { 
     return Number(row.version);
   });
 }
-async function current<T>(run: FulltextRun, action: (tx: Tx) => Promise<T>) {
+export async function withCurrentPolicyRun<T>(run: FulltextRun, action: (tx: Tx) => Promise<T>) {
   return sql.begin(async (tx) => {
     const s = run.snapshot;
     await assertOriginalPermissions(tx, s.sourceId, s.permissionVersion, s.manifest.resources, s.manifest.identity, true);
@@ -70,17 +70,17 @@ export async function beginPolicyFulltext(snapshot: PolicyOriginal, plan: Policy
     controlVersion: control.version,
     recipeHash,
   };
-  await current(run, async (tx) => {
+  await withCurrentPolicyRun(run, async (tx) => {
     await tx`INSERT INTO policy.fulltext_runs(id,expression_id,revision_id,control_version,recipe_hash,plan)
       VALUES(${run.id},${plan.context.expressionId},${snapshot.revisionId},${control.version},${recipeHash},${tx.json(plan)}) ON CONFLICT DO NOTHING`;
   });
   return run;
 }
 export async function assertPolicyRunCurrent(run: FulltextRun) {
-  await current(run, async () => {});
+  await withCurrentPolicyRun(run, async () => {});
 }
 export async function fulltextCheckpoints(run: FulltextRun) {
-  return current(
+  return withCurrentPolicyRun(
     run,
     (tx) => tx<{ partId: string; sourceHash: string; candidate: unknown; receiptId: number; attemptId: string }[]>`
     SELECT part_id AS "partId",source_hash AS "sourceHash",candidate,receipt_id AS "receiptId",attempt_id AS "attemptId" FROM policy.fulltext_parts
@@ -93,7 +93,7 @@ export async function saveFulltextResponse(
   parts: { partId: string; sourceHash: string; candidate: unknown }[],
   allAccepted: boolean | null,
 ) {
-  return current(run, async (tx) => {
+  return withCurrentPolicyRun(run, async (tx) => {
     const settled = await settlePolicyResponse(tx, receipt, allAccepted);
     if (!settled) throw new Error("Policy response has no actual matching attempt");
     if (receipt.attemptId !== null)
@@ -105,7 +105,22 @@ export async function saveFulltextResponse(
 }
 export async function finishPolicyFulltext(run: FulltextRun, output: unknown, complete: boolean) {
   if (Buffer.byteLength(stableJson(output), "utf8") > 8 * 1024 * 1024) throw new Error("Policy output exceeds capacity");
-  await current(run, async (tx) => {
+  await withCurrentPolicyRun(run, async (tx) => {
     await tx`UPDATE policy.fulltext_runs SET status=${complete ? "program_validated" : "partial"},output=${tx.json(output as never)},updated_at=now() WHERE id=${run.id}`;
   });
+}
+
+/** A following policy stage must consume a current program-validated run, then validate its output contract. */
+export async function readPolicyFulltextRun(runId: string) {
+  const [row] = await sql<
+    { id: string; expression_id: string; revision_id: string; control_version: number; recipe_hash: string; plan: PolicyFulltextPlan; output: unknown }[]
+  >`
+    SELECT id,expression_id,revision_id,control_version,recipe_hash,plan,output FROM policy.fulltext_runs WHERE id=${runId} AND status='program_validated'`;
+  if (!row) return null;
+  const snapshot = await readCurrentOriginal(row.expression_id);
+  if (!snapshot || snapshot.revisionId !== row.revision_id || row.plan.revisionId !== row.revision_id || row.plan.context.expressionId !== row.expression_id)
+    return null;
+  const run: FulltextRun = { id: row.id, plan: row.plan, snapshot, controlVersion: row.control_version, recipeHash: row.recipe_hash };
+  await assertPolicyRunCurrent(run);
+  return { run, output: row.output };
 }

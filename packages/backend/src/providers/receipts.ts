@@ -228,10 +228,30 @@ export async function readPolicyPartResponses(partIds: string[], recipe: string)
   );
 }
 
+/** Exact current physical response for downstream policy checkpoints; no ordinal or subject guessing. */
+export async function readPolicyResponse(receipt: { receiptId: number; attemptId: string }) {
+  const [row] = await sql<
+    {
+      receiptId: number;
+      attemptId: string;
+      purpose: string;
+      status: string;
+      response: unknown;
+      request: Record<string, unknown>;
+      usage: Record<string, unknown> | null;
+    }[]
+  >`
+    SELECT r.id AS "receiptId",a.id::text AS "attemptId",r.purpose,r.status,a.response,r.request,a.usage
+    FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.id=r.response_attempt_id AND a.attempt=r.attempts
+    WHERE r.id=${receipt.receiptId} AND a.id::text=${receipt.attemptId} AND a.status='received' AND a.response=r.response
+      AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify') AND r.origin='live' AND a.origin='live'`;
+  return row ? { ...row, knownUsage: knownTranslationUsage(row.usage) } : null;
+}
+
 export async function settlePolicyResponse(db: Db, receipt: { receiptId: number; attemptId: string | null }, accepted: boolean | null) {
   const [row] = await db<{ usage: Record<string, unknown> | null }[]>`SELECT a.usage FROM receipts r JOIN receipt_attempts a ON a.id=r.response_attempt_id
     WHERE r.id=${receipt.receiptId} AND a.id::text=${receipt.attemptId} AND a.receipt_id=r.id AND a.attempt=r.attempts
-      AND r.purpose='policy_fulltext' AND a.status='received' AND a.response=r.response FOR UPDATE OF r,a`;
+      AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify') AND a.status='received' AND a.response=r.response FOR UPDATE OF r,a`;
   if (!row) return null;
   if (accepted) await completeReceipt(db, receipt.receiptId);
   else if (accepted === false && knownTranslationUsage(row.usage))
