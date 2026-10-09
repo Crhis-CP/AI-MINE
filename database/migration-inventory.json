@@ -191,6 +191,14 @@
     {
       "name": "policy/202610090300_policy_fulltext.sql",
       "dependsOn": ["policy/202610090200_policy_extractions.sql"]
+    },
+    {
+      "name": "policy/202610090500_policy_quality.sql",
+      "dependsOn": ["policy/202610090300_policy_fulltext.sql"]
+    },
+    {
+      "name": "publication/202610090500_policy_publication.sql",
+      "dependsOn": ["policy/202610090500_policy_quality.sql"]
     }
   ]
 }

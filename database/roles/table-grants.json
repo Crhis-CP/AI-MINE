@@ -349,7 +349,7 @@
     "policy.expressions": {
       "module": "policy",
       "access": "business",
-      "publicColumns": [],
+      "publicColumns": ["id", "current_revision_id"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
@@ -407,6 +407,71 @@
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.quality_releases": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.policy_ids": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_documents": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "withdrawn", "first_public_at"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_quality_windows": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "valid_until", "revoked"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.policy_editions": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [
+        "id",
+        "policy_id",
+        "native_expression_id",
+        "native_revision_id",
+        "source_id",
+        "permission_version",
+        "policy_version_id",
+        "expression_ids",
+        "revision_ids",
+        "public_resources",
+        "basic_card",
+        "basic_detail",
+        "complete_card",
+        "complete_detail",
+        "reading",
+        "quality_id",
+        "released_at",
+        "source_language",
+        "preferred_source_language"
+      ],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
       }
     }
   },
