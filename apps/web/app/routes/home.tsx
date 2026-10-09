@@ -9,7 +9,7 @@ import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Wordmark } from "../components/Logo";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
-import { CategoryTabs, SearchField, SearchIconLink } from "../features/feed/Filters";
+import { CategoryTabs, JurisdictionFilter, SearchField, SearchIconLink } from "../features/feed/Filters";
 import { DayList } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 import { beijingDate, beijingWeekday } from "../lib/format";
@@ -23,9 +23,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   const categoryParam = url.searchParams.get("category");
   const channel = isChannelKey(channelParam) ? channelParam : "all";
   const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
+  const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
   const upstream = new Headers();
-  const query = { channel: channel === "all" ? undefined : channel, category: category ?? undefined, tag: tag ?? undefined };
+  const query = {
+    channel: channel === "all" ? undefined : channel,
+    category: category ?? undefined,
+    tag: tag ?? undefined,
+    jurisdiction: jurisdiction ?? undefined,
+  };
   const data = await loadOr404(
     () =>
       createPublicClient({ baseUrl: apiBaseFor("/api/site/timeline") })
@@ -46,12 +52,12 @@ export async function loader({ request }: Route.LoaderArgs) {
   );
   // Until the first pick exists, the unfiltered home page shows the newest items of 全部动态 instead of
   // an empty feed; it switches back to picks by itself (Owner, 2026-10-05; DEC-13).
-  const waiting = data.cards.length === 0 && channel === "all" && !category && !tag;
+  const waiting = data.cards.length === 0 && channel === "all" && !category && !tag && !jurisdiction;
   const latest = waiting ? await loadLatest(request.signal) : null;
   // A failed read must not be cached: the next request tries 全部动态 again.
   const seconds = latest === "failed" ? 0 : 60;
   return withHeaders(
-    { data, waiting, latest: typeof latest === "object" ? latest : null, filters: { channel, category, tag, topic: null } },
+    { data, waiting, latest: typeof latest === "object" ? latest : null, filters: { channel, category, tag, topic: null, jurisdiction } },
     { headers: releaseBoundCache(data.refreshAt, seconds, Date.now(), upstream) },
   );
 }
@@ -70,7 +76,7 @@ function loadLatest(signal: AbortSignal) {
 
 export function meta({ loaderData }: Route.MetaArgs) {
   const f = loaderData?.filters;
-  const path = listPath("/", { channel: f && f.channel !== "all" ? f.channel : null, category: f?.category, tag: f?.tag });
+  const path = listPath("/", { channel: f && f.channel !== "all" ? f.channel : null, category: f?.category, tag: f?.tag, jurisdiction: f?.jurisdiction });
   return pageMeta({ path, jsonLd: path === "/" ? organizationLd() : undefined });
 }
 
@@ -105,10 +111,11 @@ export default function Home() {
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
           <CategoryTabs base={tabsBase} allTo={allTo} category={filters.category} channel={filters.channel} layoutId="home-cat-desk" className="min-w-0" />
-          <SearchField variant="track" keep={{ category: filters.category }} />
+          <SearchField variant="track" keep={{ category: filters.category, jurisdiction: filters.jurisdiction }} />
         </div>
       </div>
 
+      <JurisdictionFilter base={tabsBase} value={filters.jurisdiction} />
       {data.hot && <HotTopics entries={data.hot} />}
 
       <h2 className="mt-6 text-[20px] font-bold text-ink lg:hidden">{filters.tag || latest ? title : "最新精选"}</h2>

@@ -4,6 +4,7 @@
 // extraction first. A provider outage makes an article wait and retry with backoff; only a permanent
 // refusal or exhausted retries end in "failed", which the admin re-queues in bulk. Paused paid calls and
 // switched-off model calls only make it wait, without using up its attempts.
+import { needsGeographyAnalysis } from "../editorial/geography.ts";
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { config } from "../config.ts";
@@ -87,7 +88,10 @@ const PRIORITY = { live: 0, liveSignal: -1, history: -2 } as const;
  * (paid) request; the same tag reuses its receipt. With `db`, the job commits with the caller's write.
  * Posts of non-editorial sources skip the analysis queue: they only need recording and grouping.
  */
-export async function queueProcessing(articleId: string, opts: { step?: Step; attemptTag?: string; db?: Db } = {}): Promise<string | null> {
+export async function queueProcessing(
+  articleId: string,
+  opts: { step?: Step; attemptTag?: string; db?: Db; lowPriority?: boolean } = {},
+): Promise<string | null> {
   const db = opts.db ?? sql;
   const r = await route(articleId, db);
   if (!r) return null;
@@ -105,12 +109,17 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   const step = opts.step ?? r.step;
   await db`UPDATE articles SET processing_queued_at = now() WHERE id = ${articleId}`;
   if (step === "extract")
-    return enqueue(QUEUES.extractBody, { articleId }, { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live }, opts.db);
+    return enqueue(
+      QUEUES.extractBody,
+      { articleId },
+      { singletonKey: articleId, priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.live },
+      opts.db,
+    );
   if (r.signal && !opts.attemptTag) {
     return enqueue(
       QUEUES.group,
       { articleId, signalOnly: true },
-      { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.liveSignal },
+      { singletonKey: articleId, priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.liveSignal },
       opts.db,
     );
   }
@@ -118,7 +127,10 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   return enqueue(
     QUEUES.analyze,
     tagged ? { articleId, attemptTag: opts.attemptTag } : { articleId },
-    { singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live },
+    {
+      singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId,
+      priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.live,
+    },
     opts.db,
   );
 }
@@ -319,3 +331,20 @@ export async function requeueFailed(group: string | null): Promise<{ requeued: n
 
 // Policy processing shares only this frozen composition entry; its queues and state remain separate.
 export { registerPolicyJobs, sweepPolicyMaterials } from "./policy.ts";
+
+/** Explicit low-priority preparation; dry-run is the default and no automatic paid sweep is enabled. */
+export async function prepareGeographyBackfill(options: { limit?: number; enqueue?: boolean } = {}) {
+  const limit = options.limit ?? 20;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("Invalid geography backfill bound");
+  const rows = await sql<
+    { id: string; revision: number }[]
+  >`SELECT id,revision FROM articles WHERE processing_state IN ('analyzed','published') AND processing_queued_at IS NULL ORDER BY discovered_at DESC,id LIMIT ${limit}`;
+  const candidates: { id: string; revision: number }[] = [];
+  let enqueued = 0;
+  for (const row of rows) {
+    const current = await route(row.id, sql);
+    if (current?.news && !current.signal && (await needsGeographyAnalysis(row.id, row.revision))) candidates.push(row);
+  }
+  if (options.enqueue === true) for (const candidate of candidates) if (await queueProcessing(candidate.id, { step: "analyze", lowPriority: true })) enqueued++;
+  return { candidates, enqueued };
+}

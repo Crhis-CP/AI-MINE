@@ -610,6 +610,15 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
       }
+    },
+    "publication.news_geography": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["article_id", "article_revision", "analysis_id", "recipe", "state", "jurisdictions", "primary_jurisdiction"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

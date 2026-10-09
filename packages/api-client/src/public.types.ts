@@ -3032,6 +3032,7 @@ export interface components {
           | null;
         /** @enum {string} */
         channel: "all" | "news" | "firstParty";
+        jurisdiction?: string | null;
         q: string | null;
         /** @enum {string} */
         tab: "time" | "relevance";
@@ -3065,6 +3066,7 @@ export interface components {
           | null;
         /** @enum {string} */
         channel: "all" | "news" | "firstParty";
+        jurisdiction?: string | null;
         q: string | null;
         /** @enum {string} */
         tab: "time" | "relevance";
@@ -3115,6 +3117,7 @@ export interface components {
         | null;
       /** @enum {string} */
       channel: "all" | "news" | "firstParty";
+      jurisdiction?: string | null;
       tag: string | null;
       topic?: string | null;
     };
@@ -3134,6 +3137,7 @@ export interface components {
         | null;
       /** @enum {string} */
       channel: "all" | "news" | "firstParty";
+      jurisdiction?: string | null;
       tag: string | null;
       topic?: string | null;
     };
@@ -4043,6 +4047,7 @@ export interface operations {
           | "technology_processing"
           | "exploration_resource";
         channel?: "all" | "news" | "firstParty";
+        jurisdiction?: string;
         page?: number;
         q?: string;
         tab?: "time" | "relevance";
@@ -4142,6 +4147,7 @@ export interface operations {
           | "exploration_resource";
         channel?: "all" | "news" | "firstParty";
         cursor?: string;
+        jurisdiction?: string;
         limit?: number;
         tag?: string;
         topic?: string;

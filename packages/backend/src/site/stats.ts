@@ -10,6 +10,7 @@ const sql = dbOf("publication");
 
 export type { SiteStats };
 export { loadMetalPrices } from "../publication/metal-prices/read.ts";
+export { currentNewsJurisdictionCounts } from "../publication/items.ts";
 
 const stats = cached(() => querySiteStats(new Date()), { freshMs: 10 * 60_000, maxStaleMs: 60 * 60_000 });
 

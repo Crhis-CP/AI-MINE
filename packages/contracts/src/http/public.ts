@@ -22,6 +22,7 @@ export const SiteFilters = z.strictObject({
   category: z.enum(CATEGORY_KEYS).nullable(),
   tag: z.string().nullable(),
   topic: z.string().nullable().optional(),
+  jurisdiction: z.string().max(16).nullable().optional(),
 });
 /** ADR-0025 future shapes only; current aliases/registry remain unchanged until atomic activation. */
 export const SourceDatedItemTime = SourceTimeProjection.extend({ firstPublicAt: z.iso.datetime({ offset: true }).nullable() });
@@ -61,6 +62,7 @@ export const PoolQuery = z.object({
   category: z.enum(CATEGORY_KEYS).optional(),
   tag: z.string().optional(),
   topic: z.string().optional(),
+  jurisdiction: z.string().max(16).optional(),
   q: z.string().optional(),
   tab: z.enum(["time", "relevance"]).optional(),
   page: z.number().optional(),
@@ -114,7 +116,7 @@ const TimelineResponseCore = z.strictObject({
 export const SourceDatedTimelineResponse = TimelineResponseCore.extend({ cards: z.array(SourceDatedTimelineCard) });
 export const TimelineResponse = TimelineResponseCore;
 
-export const TimelineQuery = PoolQuery.pick({ channel: true, category: true, tag: true, topic: true }).extend({
+export const TimelineQuery = PoolQuery.pick({ channel: true, category: true, tag: true, topic: true, jurisdiction: true }).extend({
   cursor: z.string().optional(),
   limit: z.number().optional(),
 });

@@ -6,7 +6,7 @@ import { apiBaseFor } from "../../api-target.ts";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
-import { CategoryTabs, SearchField } from "../features/feed/Filters";
+import { CategoryTabs, JurisdictionFilter, SearchField } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState } from "../components/ui/Page";
@@ -17,6 +17,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const categoryParam = url.searchParams.get("category");
   const channel = isChannelKey(channelParam) ? channelParam : "all";
   const category = categoryParam && isCategoryKey(categoryParam) ? categoryParam : null;
+  const jurisdiction = url.searchParams.get("jurisdiction")?.trim() || null;
   const tag = url.searchParams.get("tag")?.trim() || null;
   const q = url.searchParams.get("q")?.trim().slice(0, 200) || null;
   const tab = url.searchParams.get("tab") === "relevance" ? "relevance" : null;
@@ -26,6 +27,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     channel: channel === "all" ? undefined : channel,
     category: category ?? undefined,
     tag: tag ?? undefined,
+    jurisdiction: jurisdiction ?? undefined,
     q: q ?? undefined,
     tab: tab ?? undefined,
     page: page > 1 ? page : undefined,
@@ -51,11 +53,12 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const page = loaderData?.data.page ?? 1;
   return pageMeta({
     title: q ? `搜索：${q}` : `全部${withSubject("动态")}`,
-    description: `${SITE.name} 收录的全部${withSubject("动态")}，可按类别与标签筛选，支持中英文搜索。`,
+    description: `${SITE.name} 收录的全部${withSubject("动态")}，可按国家、地区、类别与标签筛选，支持中英文搜索。`,
     path: listPath("/all", {
       channel: f && f.channel !== "all" ? f.channel : null,
       category: f?.category,
       tag: f?.tag,
+      jurisdiction: f?.jurisdiction,
       q,
       tab: f?.tab === "relevance" ? "relevance" : null,
       page: page > 1 ? page : null,
@@ -85,7 +88,7 @@ export default function AllPage() {
   const navigation = useNavigation();
   const f = data.filters;
   const busy = navigation.state === "loading" && navigation.location?.pathname === "/all";
-  const keep = { channel: f.channel === "all" ? null : f.channel, category: f.category };
+  const keep = { channel: f.channel === "all" ? null : f.channel, category: f.category, jurisdiction: f.jurisdiction ?? null };
   const searchTabHref = (tab: "time" | "relevance") => {
     const sp = new URLSearchParams(params);
     sp.delete("page");
@@ -123,6 +126,7 @@ export default function AllPage() {
         </div>
       </div>
 
+      <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
       {f.q && (
         <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2 lg:mt-0">
           <PillTabs
