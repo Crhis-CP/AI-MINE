@@ -274,6 +274,18 @@
     ]
   },
   {
+    "route": "GET /api/site/metal-prices",
+    "fixture": "合成的国家统计局一期铜铝价格，仅验证公开只读投影，不代表真实行情",
+    "cases": [
+      {
+        "url": "/api/site/metal-prices",
+        "status": 200,
+        "contains": ["nbs.copper", "nbs.aluminum", "110000.0", "24000.0"],
+        "array": "metals"
+      }
+    ]
+  },
+  {
     "route": "GET /api/site/stories/:publicId",
     "fixture": "直接SQL夹具：事件/事实/热度/关联与别名",
     "cases": [

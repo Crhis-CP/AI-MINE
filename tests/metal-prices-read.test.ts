@@ -9,6 +9,7 @@ import { parseMetalPriceRegistry } from "../packages/backend/src/publication/met
 import { nbsFetcher, NBS_LIST_URL } from "../packages/backend/src/publication/metal-prices/nbs.ts";
 import { worldbankFetcher, WORLDBANK_LIST_URL } from "../packages/backend/src/publication/metal-prices/worldbank.ts";
 import { storePeriod } from "../packages/backend/src/publication/metal-prices/store.ts";
+import { buildApp } from "../apps/api/src/app.ts";
 
 const sql = dbOf("publication"),
   NOW = new Date("2026-10-06T04:00:00Z");
@@ -178,4 +179,25 @@ test("daily conversion uses matching rates, skips missing-rate dates and compare
   assert.equal(quote(await read(NOW, enabled), "cbr.gold").change?.previous.period.start, "2026-10-05");
   await sql`UPDATE publication.metal_prices SET unit='Synthetic wrong rate unit' WHERE series_key='cbr.usd' AND period_start='2026-10-07'`;
   await assert.rejects(read(NOW, enabled), /unit\/currency mismatch/);
+});
+
+test("site-only price HTTP matches the reader, ignores generation time in ETags, and fails uncached on wrong units", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
+  await seed("nbs.copper", "2026-09-11", "2026-09-20", "100.0");
+  const app = await buildApp("public-api");
+  t.after(() => app.close());
+  const first = await app.inject({ method: "GET", url: "/api/site/metal-prices" });
+  assert.equal(first.statusCode, 200);
+  assert.deepEqual(first.json(), await read());
+  assert.equal(first.headers["cache-control"], "public, max-age=300, s-maxage=300");
+  const etag = first.headers.etag!;
+  assert.match(etag, /^W\/"metals-/);
+  t.mock.timers.tick(1000);
+  const unchanged = await app.inject({ method: "GET", url: "/api/site/metal-prices", headers: { "if-none-match": etag } });
+  assert.equal(unchanged.statusCode, 304);
+  assert.equal(unchanged.body, "");
+  await sql`UPDATE publication.metal_prices SET unit='Synthetic mismatch' WHERE series_key='nbs.copper'`;
+  const failed = await app.inject({ method: "GET", url: "/api/site/metal-prices", headers: { "if-none-match": etag } });
+  assert.equal(failed.statusCode, 503);
+  assert.match(String(failed.headers["cache-control"]), /no-store/);
 });

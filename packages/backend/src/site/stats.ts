@@ -9,6 +9,7 @@ import { selectedCondition } from "../publication/items.ts";
 const sql = dbOf("publication");
 
 export type { SiteStats };
+export { loadMetalPrices } from "../publication/metal-prices/read.ts";
 
 const stats = cached(() => querySiteStats(new Date()), { freshMs: 10 * 60_000, maxStaleMs: 60 * 60_000 });
 

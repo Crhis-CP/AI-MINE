@@ -6,7 +6,7 @@
 
 `db-role-matrix.test.ts`使用独立于授权规划器的D4权限预期，逐个真实登录检查48表的SELECT/INSERT/UPDATE/DELETE、受限列、15序列的SELECT/nextval/setval、跨角色SET ROLE、公开DDL/TEMP。零行写语句只验证ACL；worker/private_ops在三张RLS表另外实际插入、读到和更新行，再回滚，避免把0行当放行成功。
 
-`public-role-routes.json`逐条登记固定输入中实际注册的56条GET、可重放示例、夹具和内容断言；用合成IndexNow key覆盖条件注册。与运行时公开工厂路由表严格集合比较，新增或漏掉路由都会失败。JSON是登记数据，9b的public-role-routes.test.ts通过后才算HTTP覆盖证据。
+`public-role-routes.json`逐条登记固定输入中实际注册的57条GET、可重放示例、夹具和内容断言；用合成IndexNow key覆盖条件注册。与运行时公开工厂路由表严格集合比较，新增或漏掉路由都会失败。JSON是登记数据，9b的public-role-routes.test.ts通过后才算HTTP覆盖证据。
 
 数据库内容端点检查具体PR9标记、非空数组、图像签名或数值，覆盖三类报告、正文独有搜索、事件别名、真实snapshot分页与changes游标；更新release状态由独立夹具管理员完成。静态品牌/manifest/OpenAPI/规则等、空contactEmail的security.txt404、stateless MCP GET405、v1固定兜底404均写明无业务数据分支，不能计为有数据查询；另做真实只读MCP工具POST。
 

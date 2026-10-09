@@ -72,7 +72,10 @@ if (process.argv.includes("--routes")) {
   registerHooks({
     resolve(specifier, context, next) {
       if (specifier === "@amp/backend/site/stats")
-        return { url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats}", shortCircuit: true };
+        return {
+          url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats};export async function loadMetalPrices(){}",
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/events/hot-read")
         return { url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot}", shortCircuit: true };
       if (specifier === "@amp/backend/publication/timeline")
