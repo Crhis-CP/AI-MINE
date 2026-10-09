@@ -100,3 +100,18 @@ test("explicit pg_catalog.round preserves argument access without trusting shado
     assert.ok(sqlOwnership(`SELECT ${name}(value,1) FROM publication.metal_prices`).unknown.length, name);
   assert.ok(sqlOwnership("SELECT pg_catalog.round(custom_mutator(),1)").unknown.includes("opaque SQL function custom_mutator"));
 });
+
+test("explicit pg_catalog.pg_column_size preserves argument reads and rejects shadowed or opaque functions", () => {
+  const query = "SELECT pg_catalog.pg_column_size((SELECT raw FROM articles LIMIT 1))";
+  assert.deepEqual(sqlOwnership(query).unknown, []);
+  assert.deepEqual(relations(query), ["read:public.articles"]);
+  for (const name of [
+    "pg_column_size",
+    "public.pg_column_size",
+    'pg_catalog."pg_column_size"',
+    '"pg_catalog".pg_column_size',
+    "other.pg_catalog.pg_column_size",
+  ])
+    assert.ok(sqlOwnership(`SELECT ${name}(raw) FROM articles`).unknown.length, name);
+  assert.ok(sqlOwnership("SELECT pg_catalog.pg_column_size(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
+});

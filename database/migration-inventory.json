@@ -179,6 +179,10 @@
     {
       "name": "policy/202610090100_policy_originals.sql",
       "dependsOn": ["sources/202610081510_source_lane.sql"]
+    },
+    {
+      "name": "content/202610090100_source_date_observation_seen.sql",
+      "dependsOn": ["content/202610042020_source_date_evidence.sql"]
     }
   ]
 }

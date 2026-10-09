@@ -172,9 +172,10 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
     const items = arr(doc.rss?.channel?.item ?? doc["rdf:RDF"]?.item);
     const dateItems = arr(dateDoc.rss?.channel?.item ?? dateDoc["rdf:RDF"]?.item);
     for (const [index, it] of items.entries()) {
-      const link = text(it.link) || text(it.guid);
+      const href = text(it.link) || text(it.guid);
       const title = collapseWhitespace(stripTags(text(it.title)));
-      if (!link || !title) continue;
+      if (!href || !title) continue;
+      const link = new URL(href, url).toString();
       const contentEncoded = text(it["content:encoded"]);
       const description = text(it.description);
       const bodyHtmlRaw = contentEncoded || (summaryIsBody ? description : "");
@@ -222,7 +223,15 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
       const summary = text(e.summary);
       const bodyHtml = content ? sanitizeBody(content, link) : null;
       const entryUrl = new URL(link, url).toString();
-      const sourceDateObservation = observeSourceDate(source, entryUrl, text(dateEntries[index]?.published), `feed.entry[${index}].published`, { observedAt });
+      const dateField = source.config.publishedAtField === "updated" ? "updated" : "published";
+      const sourceDateObservation = observeSourceDate(
+        source,
+        entryUrl,
+        text(dateEntries[index]?.[dateField]),
+        `${dateField === "updated" ? "Atom updated:" : ""}feed.entry[${index}].${dateField}`,
+        { observedAt },
+      );
+      if (dateField === "updated" && !source.config.sourceDate?.basis?.trim()) sourceDateObservation.basis = "Atom updated";
       const time = previewSourceDate(sourceDateObservation);
       out.push({
         url: entryUrl,

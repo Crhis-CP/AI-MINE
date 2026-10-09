@@ -280,6 +280,15 @@
         "worker": ["SELECT"]
       }
     },
+    "content.source_date_observation_seen": {
+      "module": "content",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
     "content.source_date_observations": {
       "module": "content",
       "access": "business",

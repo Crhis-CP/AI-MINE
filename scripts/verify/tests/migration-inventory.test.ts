@@ -117,6 +117,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610082354_metal_prices_cbr.sql"],
       },
       {
+        name: "content/202610090100_source_date_observation_seen.sql",
+        module: "content",
+        schemas: ["content"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "content/202610042020_source_date_evidence.sql"],
+      },
+      {
         name: "policy/202610090100_policy_originals.sql",
         module: "policy",
         schemas: ["policy"],

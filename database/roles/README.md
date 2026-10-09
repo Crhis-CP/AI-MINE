@@ -69,3 +69,5 @@ ai.translation_receipt_observations仅为gateway私有状态：worker写、priva
 publication.metal_prices（金属价格，TASK-0044、TASK-0077）归publication：public_read只有schema使用权及站内价格接口需要的11列SELECT（series_key、currency、unit、period_start、period_end、period_label、value、release_label、release_url、released_on、first_fetched_at）；其余8列不可读，SELECT *及任何写入均被拒。worker读、插、改但不能DELETE；private_ops/backup只读，auth/feedback_write无权，其他角色和表不变。价格读取、契约与页面由后续卡实现。
 
 信源的业务线（sources.lane，TASK-0093）按列授予公开登录：公开读取层只用它把法规线信源排除在资讯热度证据之外；不含采集配置或许可内容。
+
+TASK-0110：日期证据表保持worker只读、只插；新表`content.source_date_observation_seen`仅记录最后观察时刻，worker可读/插/改，private_ops与backup只读，公开角色无权；一次性清理仅用migrate角色。

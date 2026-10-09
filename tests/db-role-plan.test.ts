@@ -61,6 +61,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "sources.source_policy_current",
       "sources.source_policy_versions",
       "content.source_date_observations",
+      "content.source_date_observation_seen",
       "ai.translation_receipt_observations",
       "publication.metal_prices",
       "policy.instruments",
