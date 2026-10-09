@@ -50,6 +50,25 @@ function extraFromEnv(value: string | undefined): Record<string, unknown> | unde
   }
 }
 
+/** AIHOT's four built-in providers. Presets stay in this list; a later key does not change the admin page. */
+export const BUILTIN_MODEL_FAMILIES = [
+  { id: "deepseek", label: "DeepSeek", presets: ["deepseek-flash", "deepseek-flash-think"] },
+  { id: "glm", label: "智谱 GLM", presets: ["glm-5.3-flash", "glm-5.3-flash-selection"] },
+  { id: "qwen", label: "通义千问", presets: ["qwen3.8-flash", "qwen3.7-flash", "qwen3-vl-flash"] },
+  { id: "mimo", label: "小米 MiMo", presets: ["mimo-v2.6-flash"] },
+] as const;
+
+/** True only when this preset has an address, a model name and a key. The key itself is not returned. */
+export function modelPresetReady(key: string): boolean {
+  const spec = MODELS[key];
+  if (!spec?.model) return false;
+  try {
+    return !!(credential("models", spec.baseUrlEnv) && credential("models", spec.apiKeyEnv));
+  } catch {
+    return false;
+  }
+}
+
 export const MODELS: Record<string, ModelSpec> = {
   // Read from the environment at call time.
   default: {

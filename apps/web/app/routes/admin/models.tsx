@@ -43,7 +43,13 @@ interface Models {
     current: { model: string; source: "admin" | "env" | "default" };
     usage: Usage[];
   }>;
-  choices: Array<{ key: string; service: string; vision: boolean }>;
+  choices: Array<{ key: string; service: string; vision: boolean; model?: string; ready?: boolean }>;
+  families?: Array<{
+    id: string;
+    label: string;
+    presets: Array<{ key: string; service: string; vision: boolean; model?: string; ready?: boolean }>;
+  }>;
+  deploymentReady?: boolean;
   history: Array<{
     at: string;
     actor: string;
@@ -149,7 +155,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   return (
     <AdminPage
       title="模型与评测"
-      subtitle="每个处理环节当前用哪个模型。从已配置的模型里选择，或选用已接入并通过连接测试的模型。切换只影响之后的新任务，已有结果不重算。"
+      subtitle="每个处理环节当前用哪个模型。测试站默认走已经接入的这一路。下面四家是 AIHOT 内置模型，已接入的可以切换，尚未接入的位置留着。切换只影响之后的新任务，已有结果不重算。"
       actions={
         <FilterChips
           param="days"
@@ -161,6 +167,27 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
         />
       }
     >
+      <Card title="内置模型">
+        <p className="text-[13px] leading-6 text-ink-2">
+          沿用 AIHOT 的四家模型。测试站各环节默认使用已经接入的部署模型
+          {m.deploymentReady ? "（这一路已接入）" : ""}
+          ，不会因为这一页改去尚未接入的模型。以后补上接口即可切换，不用改页面结构。
+        </p>
+        <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+          {(m.families ?? []).map((family) => {
+            const ready = family.presets.some((preset) => preset.ready);
+            return (
+              <li key={family.id} className="rounded-md border border-line px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-ink">{family.label}</span>
+                  <Badge tone={ready ? "ok" : "muted"}>{ready ? "已接入" : "尚未接入"}</Badge>
+                </div>
+                <div className="mt-1 font-mono text-[12px] text-ink-3">{family.presets.map((preset) => preset.key).join("、")}</div>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
       <ModelConnections registry={m.registry} owner={!!me.owner} manage={!!me.modelsManage || !!me.owner} onCommand={command} onReadProbe={readProbe} />
       <ModelFallbacks data={m.fallbacks} manage={!!me.modelsManage || !!me.owner} onChange={changeFallback} />
       <div className="grid gap-5">
@@ -302,7 +329,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
       <ReasonDialog
         open={!!target}
         title={`切换模型：${target?.label ?? ""}`}
-        description="只影响之后的新任务。选“恢复默认”会回到环境变量或代码默认。这里不改评分是否生效。"
+        description="只影响之后的新任务，已经在跑的内容不重算。选“恢复默认”回到当前部署模型。尚未接入的内置模型不能选。这里不改评分是否生效。"
         confirmLabel="切换"
         busy={pending === "switch"}
         onClose={closeTarget}
@@ -317,13 +344,18 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
       >
         <Field label="模型">
           <Select value={choice} onChange={(e) => setChoice(e.target.value)}>
-            {m.choices
-              .filter((x) => x.vision === !!target?.vision)
-              .map((x) => (
-                <option key={x.key} value={x.key}>
-                  {x.key}（{x.service}）
-                </option>
-              ))}
+            <option value="__default">恢复默认（当前部署模型）</option>
+            {(m.families ?? []).map((family) => (
+              <optgroup key={family.id} label={family.label}>
+                {family.presets
+                  .filter((preset) => preset.vision === !!target?.vision)
+                  .map((preset) => (
+                    <option key={preset.key} value={preset.key} disabled={!preset.ready}>
+                      {preset.ready ? `${preset.key}（${preset.model ?? preset.service}）` : `${preset.key}（内置，尚未接入）`}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
             {m.registry?.connections
               .filter((x) => x.enabled && x.test_status === "passed" && x.vision === !!target?.vision)
               .map((x) => (
@@ -331,9 +363,6 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                   {x.name} · {x.model}
                 </option>
               ))}
-            <option value="__default">
-              恢复默认（{target?.env} 或 {target?.defaultModel}）
-            </option>
           </Select>
         </Field>
       </ReasonDialog>

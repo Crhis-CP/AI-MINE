@@ -6,7 +6,7 @@ import { audit } from "./auth.ts";
 // new work only.
 import { dbOf, type Db } from "../db.ts";
 import { CAPABILITIES, invalidateModelCache, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
-import { MODELS, environmentModelMetadata } from "../providers/llm.ts";
+import { BUILTIN_MODEL_FAMILIES, MODELS, environmentModelMetadata, modelPresetReady } from "../providers/llm.ts";
 
 import { modelRouteRevisions } from "./model-registry.ts";
 
@@ -92,8 +92,13 @@ export async function modelsOverview(days = 7) {
         estimate: priced(u),
       })),
   }));
-  const choices = Object.values(MODELS).map((m) => environmentModelMetadata(m.key)!);
-  return { days, capabilities, choices, history, benches };
+  const choices = Object.values(MODELS).map((m) => ({ ...environmentModelMetadata(m.key)!, ready: modelPresetReady(m.key) }));
+  const families = BUILTIN_MODEL_FAMILIES.map((family) => ({
+    id: family.id,
+    label: family.label,
+    presets: family.presets.map((key) => ({ ...environmentModelMetadata(key)!, ready: modelPresetReady(key) })),
+  }));
+  return { days, capabilities, choices, families, deploymentReady: modelPresetReady("default"), history, benches };
 }
 
 /** AIHOT switch: pick a configured model, or a registered connection that already passed its test. Applies to new work only. */
@@ -106,6 +111,8 @@ export async function switchModel(capability: string, model: string | null, reas
     if (!spec) throw Object.assign(new Error("请选择已经配置的模型"), { statusCode: 400 });
     if (!!c.vision !== !!spec.vision)
       throw Object.assign(new Error(c.vision ? "这个环节需要能看图的模型" : "只看图的模型不能用于这个环节"), { statusCode: 400 });
+    if (!registeredModelId(model) && !modelPresetReady(model))
+      throw Object.assign(new Error("这个模型已内置，当前还没有可用的接口，不能切换过去"), { statusCode: 400 });
   }
   const before = (await modelSources())[capability];
   if (model === null) await sql`DELETE FROM settings WHERE key = ${`models.${capability}`}`;

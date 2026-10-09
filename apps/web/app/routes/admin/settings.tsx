@@ -39,13 +39,14 @@ interface Settings {
     used_day: number;
     used_hour: number;
   }>;
+  settingsUnavailable?: boolean;
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
   const path = "/api/admin/usage-protection",
     client = createPrivateClient({ baseUrl: apiBaseFor(path) });
   const [settings, runtime, monthly, protection] = await Promise.all([
-    adminGet<Omit<Settings, "runtime" | "monthly" | "protection">>(request, "/api/admin/settings"),
+    adminGet<Omit<Settings, "runtime" | "monthly" | "protection">>(request, "/api/admin/settings").catch(() => null),
     adminGet<unknown>(request, "/api/admin/lane-controls")
       .then((value) => LaneControlsResponse.parse(value))
       .catch(() => null),
@@ -56,7 +57,14 @@ export async function loader({ request }: Route.LoaderArgs) {
       .then((value) => privateSchemas.UsageProtectionOverview.parse(value))
       .catch(() => null),
   ]);
-  return { ...settings, runtime, monthly, protection };
+  return {
+    targets: settings?.targets ?? [],
+    budgets: settings?.budgets ?? [],
+    settingsUnavailable: settings == null,
+    runtime,
+    monthly,
+    protection,
+  };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: `自动运行与通知 · ${SITE.name} 后台` }];
@@ -130,7 +138,7 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
   const { run } = useAdminAction();
   const me = useAdminMe();
   return (
-    <AdminPage title="设置" subtitle="通知目的地、付费请求上限，以及资讯线与法规线各自的暂停。这些都可以在这里改，不用改代码。">
+    <AdminPage title="设置" subtitle="通知目的地、付费请求上限和费用保护都从已保存的记录读取，以及资讯线与法规线各自的暂停。不用改服务器。">
       <RuntimeControls
         initial={s.runtime}
         canManage={!!me.owner}
@@ -145,50 +153,58 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
       />
       <UsageProtection data={s.protection} />
       <MonthlyUsage entries={s.monthly} pushTime={s.protection?.configuration?.config.usage_report.push_time} />
-      <Card title="通知目的地" pad={false}>
-        <DataTable
-          rows={s.targets}
-          rowKey={(t) => t.key}
-          columns={[
-            {
-              key: "k",
-              label: "目的地",
-              render: (t) => (
-                <div>
-                  <div className="font-medium text-ink">{t.note ?? t.key}</div>
-                  <div className="font-mono text-[11.5px] text-ink-4">
-                    {t.key} · {t.config_ref}
-                  </div>
-                </div>
-              ),
-            },
-            { key: "e", label: "状态", render: (t) => (t.enabled ? <Badge tone="ok">启用于 {bj(t.enabled_at)}</Badge> : <Badge>停用</Badge>) },
-            { key: "d", label: "7 天投递", align: "right", render: (t) => num(t.deliveries_7d) },
-            { key: "a", label: "", align: "right", render: (t) => <TargetToggle t={t} /> },
-          ]}
-        />
-      </Card>
-      <Card className="mt-5" title="付费请求上限" right={<span>已用：近 1 小时 / 近 24 小时</span>} pad={false}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-[13px]">
-            <thead>
-              <tr className="border-b border-line text-left text-[12px] text-ink-3">
-                <th className="px-3 py-2 font-medium">服务</th>
-                <th className="px-3 py-2 font-medium">每分钟</th>
-                <th className="px-3 py-2 font-medium">每小时</th>
-                <th className="px-3 py-2 font-medium">每天</th>
-                <th className="px-3 py-2 text-right font-medium">已用</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {s.budgets.map((b) => (
-                <BudgetRow key={`${b.service}-${b.updated_at}`} b={b} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {s.settingsUnavailable ? (
+        <Card title="通知与请求上限" className="mt-5">
+          <p className="text-[13px] text-ink-2">通知目的地和付费请求上限暂时无法读取。页面其余部分仍可用，不会把读不到的记录显示成 0。</p>
+        </Card>
+      ) : (
+        <>
+          <Card title="通知目的地" pad={false}>
+            <DataTable
+              rows={s.targets}
+              rowKey={(t) => t.key}
+              columns={[
+                {
+                  key: "k",
+                  label: "目的地",
+                  render: (t) => (
+                    <div>
+                      <div className="font-medium text-ink">{t.note ?? t.key}</div>
+                      <div className="font-mono text-[11.5px] text-ink-4">
+                        {t.key} · {t.config_ref}
+                      </div>
+                    </div>
+                  ),
+                },
+                { key: "e", label: "状态", render: (t) => (t.enabled ? <Badge tone="ok">启用于 {bj(t.enabled_at)}</Badge> : <Badge>停用</Badge>) },
+                { key: "d", label: "7 天投递", align: "right", render: (t) => num(t.deliveries_7d) },
+                { key: "a", label: "", align: "right", render: (t) => <TargetToggle t={t} /> },
+              ]}
+            />
+          </Card>
+          <Card className="mt-5" title="付费请求上限" right={<span>已用：近 1 小时 / 近 24 小时</span>} pad={false}>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-[13px]">
+                <thead>
+                  <tr className="border-b border-line text-left text-[12px] text-ink-3">
+                    <th className="px-3 py-2 font-medium">服务</th>
+                    <th className="px-3 py-2 font-medium">每分钟</th>
+                    <th className="px-3 py-2 font-medium">每小时</th>
+                    <th className="px-3 py-2 font-medium">每天</th>
+                    <th className="px-3 py-2 text-right font-medium">已用</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {s.budgets.map((b) => (
+                    <BudgetRow key={`${b.service}-${b.updated_at}`} b={b} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
     </AdminPage>
   );
 }
