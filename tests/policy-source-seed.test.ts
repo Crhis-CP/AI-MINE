@@ -40,6 +40,19 @@ const entry = (n: number, overrides: Partial<PolicySource> = {}): PolicySource =
   ...overrides,
 });
 const id = (e: PolicySource) => `policy-${e.id.toLowerCase()}`;
+const createFixtureSource = (e: PolicySource, lane: "news" | "policy" = "news", prefix = "/") =>
+  createSource(
+    {
+      id: id(e),
+      name: e.name.zh,
+      kind: e.collect!.kind,
+      config: e.collect!.config,
+      permission_scope: { hosts: ["127.0.0.1"], path_prefixes: [prefix], document_types: [], excluded_content: [] },
+      attachments_in_scope: true,
+    },
+    "fixture",
+    { lane },
+  );
 const source = async (e: PolicySource) => (await sql`SELECT * FROM sources WHERE id=${id(e)}`)[0]!;
 const snapshot = async () => ({
   sources: await sql`SELECT * FROM sources ORDER BY id`,
@@ -118,17 +131,7 @@ test("live fixture preview enables only eligible policy sources and writes separ
     overseas = entry(13, { status: "needs_overseas" }),
     news = entry(14);
   await seedPolicySources([ok, empty, held, overseas]);
-  await createSource(
-    {
-      id: id(news),
-      name: "既有资讯源",
-      kind: "web_list",
-      config: news.collect!.config,
-      permission_scope: { hosts: ["127.0.0.1"], path_prefixes: ["/"], document_types: [], excluded_content: [] },
-      attachments_in_scope: true,
-    },
-    "fixture",
-  );
+  await createFixtureSource(news);
   const result = await enablePolicySources([ok, empty, held, overseas, news], { country: "CN", limit: 5 });
   assert.equal(result.ok, false);
   assert.equal(result.results.filter((r) => r.status === "enabled").length, 1);
@@ -144,4 +147,9 @@ test("live fixture preview enables only eligible policy sources and writes separ
   const listed = await listPolicySources([ok, news]);
   assert.equal(listed[0]?.source?.enabled, true);
   assert.equal(listed[1]?.source, null, "news rows cannot enter the policy listing");
+  const denied = entry(15, { entry: `${base}/landing` });
+  await createFixtureSource(denied, "policy", "/landing");
+  const callsBeforeDenied = requests;
+  assert.equal((await enablePolicySources([denied], { ids: [denied.id] })).ok, false);
+  assert.equal(requests, callsBeforeDenied, "permission must cover the actual collection URL, not only the catalogue page");
 });

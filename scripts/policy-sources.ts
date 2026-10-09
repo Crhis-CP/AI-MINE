@@ -37,7 +37,7 @@ export async function listPolicySources(entries: readonly PolicySource[] = POLIC
   }));
 }
 
-async function permittedVersion(id: string, entry: PolicySource) {
+async function permittedVersion(id: string, url: string) {
   const policy = await readCurrentSourcePolicy(id);
   if (!policy) throw new Error("permission");
   for (const capability of ["fetch", "store_metadata", "process_locally"] as const) {
@@ -46,7 +46,7 @@ async function permittedVersion(id: string, entry: PolicySource) {
       lane: "policy",
       expected_permission_version: policy.permission_version,
       capability,
-      resource: { url: entry.entry, document_type: null, attachment: false },
+      resource: { url, document_type: null, attachment: false },
     });
     if (result.decision !== "allow") throw new Error("permission");
   }
@@ -76,9 +76,10 @@ export async function enablePolicySources(entries: readonly PolicySource[], opti
       continue;
     }
     try {
-      const permissionVersion = await permittedVersion(source.id, entry);
+      const requestUrl = String(source.config.feedUrl ?? source.config.url ?? source.config.listUrl ?? source.config.endpoint ?? "");
+      const permissionVersion = await permittedVersion(source.id, requestUrl);
       const preview = await previewSource(source);
-      if ((await permittedVersion(source.id, entry)) !== permissionVersion) throw new Error("permission");
+      if ((await permittedVersion(source.id, requestUrl)) !== permissionVersion) throw new Error("permission");
       const samples = preview.items.slice(0, 3).map(({ title, url, publishedAt }) => ({ title, url, publishedAt }));
       if (!options.dryRun) await audit(actor, "source.preview", `source:${source.id}`, null, null, { count: preview.count, samples });
       if (!preview.count) {
