@@ -32,6 +32,7 @@ const PUBLIC_TABLES = new Set(
 );
 const IDENTITY = new Set(["admin_users", "admin_sessions"]);
 function permitted(role: DatabaseRole, table: string, operation: "SELECT" | "INSERT" | "UPDATE" | "DELETE") {
+  if (role === "ops_read") return false; // The observer has no legacy table access.
   if (role === "migrate") return true;
   if (role === "backup") return operation === "SELECT";
   if (role === "public_read") return operation === "SELECT" && (PUBLIC_TABLES.has(table) || table in PUBLIC_COLUMNS);

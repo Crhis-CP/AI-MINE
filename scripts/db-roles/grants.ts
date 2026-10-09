@@ -53,7 +53,7 @@ export function quoteRelation(value: string): string {
   return `${schema === "public" ? "public" : quote(schema)}.${quote(local)}`;
 }
 
-const APP_ROLES = ["private_ops", "worker", "auth", "feedback_write"] as const;
+const APP_ROLES = ["private_ops", "worker", "auth", "feedback_write", "ops_read"] as const;
 const PRIVILEGES = ["SELECT", "INSERT", "UPDATE", "DELETE"] as const;
 export interface TableGrant {
   module: string;
@@ -102,7 +102,7 @@ export function roleState(name: string, role: DatabaseRole, limit = 10): RoleSta
     replication: false,
     bypassrls: role === "backup",
     inherit: false,
-    connectionLimit: role === "public_read" ? limit : -1,
+    connectionLimit: role === "public_read" ? limit : role === "ops_read" ? 2 : -1,
   };
 }
 const rls = ["articles", "translations", "settings"];
@@ -161,7 +161,14 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
             !(
               (role === "auth" && ["identity", "audit"].includes(spec.access)) ||
               (["private_ops", "worker"].includes(role) && ["business", "audit"].includes(spec.access)) ||
-              (capabilityProjection && ["private_ops", "worker"].includes(role) && values.length === 1 && values[0] === "SELECT")
+              (capabilityProjection && ["private_ops", "worker"].includes(role) && values.length === 1 && values[0] === "SELECT") ||
+              (role === "ops_read" &&
+                name === "ops.operational_snapshots" &&
+                spec.module === "platform/ops" &&
+                spec.access === "business" &&
+                spec.publicColumns.length === 0 &&
+                values.length === 1 &&
+                values[0] === "SELECT")
             )
           )
             problems.push(`Permissions exceed access classification: ${name}/${role}`);
@@ -246,7 +253,7 @@ export function planRoleGrants(c: Catalog, prefix = "amp", publicConnections = 1
   for (const role of DATABASE_ROLES)
     if (!c.roles.some((r) => r.name === roles[role]))
       add(
-        `CREATE ROLE ${quote(roles[role])} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION ${role === "backup" ? "BYPASSRLS" : "NOBYPASSRLS"} CONNECTION LIMIT ${role === "public_read" ? publicConnections : -1}`,
+        `CREATE ROLE ${quote(roles[role])} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION ${role === "backup" ? "BYPASSRLS" : "NOBYPASSRLS"} CONNECTION LIMIT ${role === "public_read" ? publicConnections : role === "ops_read" ? 2 : -1}`,
       );
   add(`ALTER DATABASE ${quote(c.database)} OWNER TO ${quote(roles.migrate)}`);
   add(`REVOKE ALL ON DATABASE ${quote(c.database)} FROM ${all}`);

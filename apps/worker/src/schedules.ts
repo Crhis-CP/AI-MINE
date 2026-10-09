@@ -15,7 +15,7 @@ import { submitIndexNow } from "@amp/backend/operations/indexnow";
 import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
-import { sourceHealthWeekly, usageWeekly, usageMonthly } from "@amp/backend/operations/reports";
+import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots } from "@amp/backend/operations/reports";
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
 import { refreshMetalPrices } from "@amp/backend/jobs/publication";
@@ -30,6 +30,7 @@ interface Scheduled {
 const collecting = process.env.COLLECT_ENABLED !== "false";
 
 export const SCHEDULES: Scheduled[] = [
+  { name: "ops.read-snapshots", cron: "*/2 * * * *", run: refreshOperationalSnapshots },
   { name: "content.sweep", cron: "*/5 * * * *", run: sweepUnprocessed },
   { name: "policy.pipeline.sweep", cron: "* * * * *", run: sweepPolicyMaterials },
   // Repair missing per-item translation dispatch; this cron never calls a model itself.

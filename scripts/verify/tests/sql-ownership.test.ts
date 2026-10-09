@@ -130,3 +130,19 @@ test("explicit zero-argument pg_catalog.clock_timestamp is the database clock, n
   assert.ok(sqlOwnership("SELECT pg_catalog.clock_timestamp(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
   assert.ok(sqlOwnership("SELECT pg_catalog.clock_timestamp(1)").unknown.includes("opaque SQL function clock_timestamp"));
 });
+
+test("fixed positive local timeout bounds do not change ownership; other context settings remain unknown", () => {
+  for (const statement of ["SET LOCAL statement_timeout='2s'", "SET LOCAL lock_timeout='250ms'"]) assert.deepEqual(sqlOwnership(statement).unknown, []);
+  for (const statement of [
+    "SET statement_timeout='2s'",
+    "SET LOCAL statement_timeout='0'",
+    "SET LOCAL statement_timeout='24h'",
+    "SET LOCAL search_path='public'",
+    "SET LOCAL role='admin'",
+    `SET LOCAL "statement_timeout"='2s'`,
+    "SET LOCAL statement_timeout=§0§",
+    "SET LOCAL statement_timeout='2s'; SET LOCAL search_path='private'",
+    "SET LOCAL statement_timeout=custom_mutator()",
+  ])
+    assert.ok(sqlOwnership(statement, [{ kind: "value" }]).unknown.length, statement);
+});

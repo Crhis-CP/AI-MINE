@@ -15,7 +15,8 @@
     "./http/private": "./src/http/private.ts",
     "./mining-taxonomy": "./src/mining-taxonomy.ts",
     "./source-policy": "./src/source-policy.ts",
-    "./time-assertion": "./src/time-assertion.ts"
+    "./time-assertion": "./src/time-assertion.ts",
+    "./ops-mcp": "./src/ops-mcp.ts"
   },
   "dependencies": {
     "zod": "4.6.5"

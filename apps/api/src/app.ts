@@ -8,6 +8,7 @@ import { registerSite } from "./routes/site.ts";
 import { registerPolicies } from "./routes/policies.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
+import { registerOperationsMcp } from "./routes/mcp-ops.ts";
 import { registerAdmin } from "./routes/admin.ts";
 import { registerV1, registerV1Fallbacks } from "./routes/v1.ts";
 import { registerFeeds } from "./routes/feeds.ts";
@@ -105,6 +106,7 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
 
   if (privateRoutes) {
     registerAdmin(app);
+    registerOperationsMcp(app);
     registerAdminAuth(app);
   }
   if (publicRoutes) {

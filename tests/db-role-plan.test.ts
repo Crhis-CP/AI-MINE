@@ -116,6 +116,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "policy.vision_pages",
       "policy.vision_stages",
       "publication.news_geography",
+      "ops.operational_snapshots",
       "acquisition.crawl_hosts",
       "acquisition.robots_observations",
       "acquisition.crawl_sessions",
@@ -143,7 +144,7 @@ test("all current migration tables and serial sequences have one explicit classi
   });
 });
 
-test("the plan separates seven identities, column reads, append-only audit, owners and worker defaults", () => {
+test("the plan separates eight identities, column reads, append-only audit, owners and worker defaults", () => {
   const { roles, statements } = planRoleGrants(catalog(), "fixture", 2);
   const sql = statements.join(";\n");
   assert.deepEqual(Object.keys(roles), DATABASE_ROLES);
@@ -294,4 +295,12 @@ test("capability readers may inspect only the exact secret-free identity project
   assert.doesNotThrow(() => planRoleGrants(current, "fixture", 2));
   current.tables.find((t) => t.name === "identity.account_access")!.columns.push("password_hash");
   assert.throws(() => planRoleGrants(current, "fixture", 2), /Permissions exceed/);
+});
+
+test("the observer role is confined to the fixed operational snapshot projection", () => {
+  const plan = planRoleGrants(catalog(), "fixture", 2).statements;
+  assert.ok(plan.some((s) => s.includes('CREATE ROLE "fixture_ops_read" LOGIN NOINHERIT') && s.endsWith("CONNECTION LIMIT 2")));
+  const business = plan.filter((s) => s.startsWith("GRANT ") && s.endsWith('TO "fixture_ops_read"') && s.includes(" ON TABLE "));
+  assert.deepEqual(business, ['GRANT SELECT ON TABLE "ops"."operational_snapshots" TO "fixture_ops_read"']);
+  assert.ok(!plan.some((s) => s.startsWith("GRANT ") && /INSERT|UPDATE|DELETE|CREATE|ALL/.test(s) && s.endsWith('TO "fixture_ops_read"')));
 });

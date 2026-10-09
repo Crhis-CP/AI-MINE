@@ -60,3 +60,6 @@ export async function sourceHealthWeekly(now = Date.now()) {
   await sendAlert("📊 信源周报", lines);
   return { failing: failing.length, silent: silent.length };
 }
+
+export { refreshOperationalSnapshots } from "./operational-snapshots.ts";
+export { readOperationalSnapshot, OperationsReadUnavailable } from "./read-snapshots.ts";

@@ -1,5 +1,5 @@
 {
-  "roles": ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup"],
+  "roles": ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup", "ops_read"],
   "tables": {
     "admin_sessions": {
       "module": "identity",
@@ -794,6 +794,15 @@
       "publicColumns": [],
       "permissions": {
         "auth": ["SELECT", "INSERT"]
+      }
+    },
+    "ops.operational_snapshots": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "worker": ["SELECT", "INSERT", "UPDATE"],
+        "ops_read": ["SELECT"]
       }
     }
   },

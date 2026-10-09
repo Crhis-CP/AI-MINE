@@ -2,15 +2,15 @@
 import { isIP } from "node:net";
 import postgres from "postgres";
 
-export const DATABASE_ROLES = ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup"] as const;
+export const DATABASE_ROLES = ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup", "ops_read"] as const;
 export type DatabaseRole = (typeof DATABASE_ROLES)[number];
 export type QueryRole = Exclude<DatabaseRole, "backup">;
 export const PROCESS_DATABASE_ROLES = {
   "public-api": ["public_read", "feedback_write"],
-  "private-api": ["private_ops", "auth"],
+  "private-api": ["private_ops", "auth", "ops_read"],
   worker: ["worker", "backup"],
   migrate: ["migrate"],
-  test: ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate"],
+  test: ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "ops_read"],
   web: [],
   fetcher: [],
 } as const satisfies Record<string, readonly DatabaseRole[]>;
@@ -131,6 +131,8 @@ export function databaseConfig(processRole: ProcessRole, env: Environment = proc
   const split = keys.length > 0;
   const urls = new Map<DatabaseRole, string>();
   for (const role of allowed) {
+    // An observer must never inherit a shared writer address. Missing optional observer config leaves only this feature unavailable.
+    if (role === "ops_read" && processRole !== "test" && env.DATABASE_URL_OPS_READ === undefined) continue;
     const key = split ? variable(role) : "DATABASE_URL";
     const value = env[key];
     if (!value?.trim()) throw new Error(`Missing ${key} for ${processRole}`);
@@ -179,7 +181,7 @@ export function createDatabaseAccess(processRole: ProcessRole, env: Environment 
       let sql = pools.get(url);
       if (!sql) {
         try {
-          sql = connection(url, config.poolMax);
+          sql = connection(url, role === "ops_read" ? Math.min(2, config.poolMax) : config.poolMax);
         } catch {
           // Driver option errors can echo raw URL/PG* values. Do not retain the error as a cause either.
           throw new Error("Invalid PostgreSQL connection configuration");
