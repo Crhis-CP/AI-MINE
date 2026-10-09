@@ -38,10 +38,9 @@ export async function assertOriginalPermissions(
   }
 }
 
-export async function recordPolicyOriginal(input: unknown) {
-  const value = PolicyOriginalInput.parse(input),
-    { identity } = value;
-  for (const resource of value.resources) if (resource.body) resource.body = Uint8Array.from(resource.body);
+type IdentityInput = Pick<PolicyOriginalInput, "identity" | "sourceId" | "versionKey" | "language" | "kind">;
+function originalIdentity(value: IdentityInput) {
+  const { identity } = value;
   const key =
     identity.documentNumber === null
       ? { source: value.sourceId, url: identity.officialUrl }
@@ -55,6 +54,20 @@ export async function recordPolicyOriginal(input: unknown) {
     versionKey = value.versionKey ?? `unverified:${identity.officialUrl}`;
   const versionId = sha256(stableJson([instrumentId, versionKey])),
     expressionId = sha256(stableJson([versionId, value.language, value.kind]));
+  return { key, instrumentId, versionKey, versionId, expressionId };
+}
+/** Compare-and-set acquisition callers must use the identity computed by the original store itself. */
+export async function lookupPolicyOriginalHead(value: IdentityInput): Promise<string | null> {
+  const { expressionId } = originalIdentity(value);
+  const [row] = await sql`SELECT current_revision_id FROM policy.expressions WHERE id=${expressionId}`;
+  return row?.current_revision_id ?? null;
+}
+
+export async function recordPolicyOriginal(input: unknown) {
+  const value = PolicyOriginalInput.parse(input),
+    { identity } = value;
+  for (const resource of value.resources) if (resource.body) resource.body = Uint8Array.from(resource.body);
+  const { key, instrumentId, versionKey, versionId, expressionId } = originalIdentity(value);
   const resources = value.resources.map(({ body, ...resource }) => ({ ...resource, sha256: body ? digest(body) : null, bytes: body?.byteLength ?? 0 }));
   const manifest: Manifest = {
     officialTitle: value.officialTitle,

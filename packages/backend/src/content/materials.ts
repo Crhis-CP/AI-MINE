@@ -263,3 +263,42 @@ export async function commitBodyResult<T>(body: Pick<CurrentBody, "id" | "revisi
   });
   return result.value;
 }
+
+/** Stored material references only; policy owns its processing and never changes the news state. */
+export interface PolicyMaterialReference {
+  materialId: string;
+  sourceId: string;
+  materialRevision: number;
+  url: string;
+  originalTitle: string;
+  discoveredAt: Date;
+  sourceDiscoveredAt: Date;
+}
+export async function policyMaterialReferences(sourceIds: string[], after = { materialId: "", sourceId: "" }, limit = 50): Promise<PolicyMaterialReference[]> {
+  if (!sourceIds.length) return [];
+  return sql<PolicyMaterialReference[]>`SELECT a.id AS "materialId", d.source_id AS "sourceId", a.revision AS "materialRevision",
+    a.url, a.title AS "originalTitle", a.discovered_at AS "discoveredAt", min(d.discovered_at) AS "sourceDiscoveredAt"
+    FROM articles a JOIN article_discoveries d ON d.article_id=a.id
+    WHERE d.source_id=ANY(${sourceIds}::text[]) AND (a.id,d.source_id)>(${after.materialId},${after.sourceId})
+    GROUP BY a.id,d.source_id ORDER BY a.id,d.source_id LIMIT ${Math.min(Math.max(limit, 1), 100)}`;
+}
+export async function policyMaterialReference(materialId: string, sourceId: string): Promise<PolicyMaterialReference | null> {
+  const [row] = await sql<PolicyMaterialReference[]>`SELECT a.id AS "materialId", d.source_id AS "sourceId", a.revision AS "materialRevision",
+    a.url,a.title AS "originalTitle",a.discovered_at AS "discoveredAt",min(d.discovered_at) AS "sourceDiscoveredAt"
+    FROM articles a JOIN article_discoveries d ON d.article_id=a.id
+    WHERE a.id=${materialId} AND d.source_id=${sourceId} GROUP BY a.id,d.source_id`;
+  return row ?? null;
+}
+
+/** Keep the real stored discovery/revision stable while policy records its provenance. */
+export async function lockPolicyMaterial(tx: Tx, reference: PolicyMaterialReference): Promise<void> {
+  const [row] = await tx`SELECT a.revision,a.url,a.discovered_at FROM articles a
+    WHERE a.id=${reference.materialId} AND EXISTS(SELECT 1 FROM article_discoveries d WHERE d.article_id=a.id AND d.source_id=${reference.sourceId}) FOR SHARE`;
+  if (
+    !row ||
+    row.revision !== reference.materialRevision ||
+    row.url !== reference.url ||
+    row.discovered_at.toISOString() !== reference.discoveredAt.toISOString()
+  )
+    throw new Error("Policy material changed");
+}
