@@ -1,5 +1,8 @@
 import { sourceTargetsSchemas, sourceTargetsRoutes } from "./source-targets.ts";
 export { SourceTarget, SourceTargetEvidence, SourceTargetsQuery, SourceTargetsResponse } from "./source-targets.ts";
+import { modelFallbackSchemas, modelFallbackRoutes } from "./model-fallback.ts";
+export * from "./model-fallback.ts";
+
 import { usageProtectionSchemas, usageProtectionRoutes } from "./usage-protection.ts";
 export * from "./usage-protection.ts";
 import { siteInformationPrivateSchemas, siteInformationPrivateRoutes } from "./site-information.ts";
@@ -191,6 +194,7 @@ export const schemas = {
   ...usageProtectionSchemas,
   ...usageMonthlySchemas,
   ...modelRegistrySchemas,
+  ...modelFallbackSchemas,
   ...runtimeControlSchemas,
   SourcePolicy: SourcePolicySchema,
   SourceCreateRequest,
@@ -213,6 +217,7 @@ export const routes = {
   ...usageProtectionRoutes,
   ...usageMonthlyRoutes,
   ...modelRegistryRoutes,
+  ...modelFallbackRoutes,
   ...runtimeControlRoutes,
   createSource: {
     method: "POST" as const,

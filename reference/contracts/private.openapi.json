@@ -1658,6 +1658,400 @@
         ],
         "type": "object"
       },
+      "ModelFallbackChange": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "type": "array"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "backup_model",
+          "source_ids",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelFallbackChangeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source_ids": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "type": "array"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "backup_model",
+          "source_ids",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelFallbackChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalKind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "selection",
+                  "policy",
+                  "capability"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "model",
+          "name",
+          "modelName",
+          "sourceIds",
+          "approvalKind",
+          "eligible",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelFallbackChoiceInput": {
+        "additionalProperties": false,
+        "properties": {
+          "approvalKind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "selection",
+                  "policy",
+                  "capability"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "modelName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "model",
+          "name",
+          "modelName",
+          "sourceIds",
+          "approvalKind",
+          "eligible",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelFallbackOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ModelFallbackRoute"
+            },
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "lane": {
+                  "enum": [
+                    "news",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "lane"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "routes",
+          "sources"
+        ],
+        "type": "object"
+      },
+      "ModelFallbackOverviewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/ModelFallbackRouteInput"
+            },
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "lane": {
+                  "enum": [
+                    "news",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "lane"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "routes",
+          "sources"
+        ],
+        "type": "object"
+      },
+      "ModelFallbackRoute": {
+        "additionalProperties": false,
+        "properties": {
+          "backupModel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capability": {
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/ModelFallbackChoice"
+            },
+            "type": "array"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "primaryModel": {
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "ready",
+              "stale",
+              "blocked"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "label",
+          "revision",
+          "primaryModel",
+          "backupModel",
+          "sourceIds",
+          "state",
+          "detail",
+          "choices"
+        ],
+        "type": "object"
+      },
+      "ModelFallbackRouteInput": {
+        "additionalProperties": false,
+        "properties": {
+          "backupModel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capability": {
+            "type": "string"
+          },
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/ModelFallbackChoiceInput"
+            },
+            "type": "array"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "primaryModel": {
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "ready",
+              "stale",
+              "blocked"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "label",
+          "revision",
+          "primaryModel",
+          "backupModel",
+          "sourceIds",
+          "state",
+          "detail",
+          "choices"
+        ],
+        "type": "object"
+      },
       "ModelProbeRecord": {
         "additionalProperties": false,
         "properties": {
@@ -11724,6 +12118,161 @@
             "description": "Problem response"
           },
           "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-fallbacks": {
+      "get": {
+        "operationId": "modelFallbacks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelFallbackOverview"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-fallbacks/{capability}": {
+      "put": {
+        "operationId": "changeModelFallback",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capability",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelFallbackChangeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelFallbackRoute"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
             "content": {
               "application/problem+json": {
                 "schema": {

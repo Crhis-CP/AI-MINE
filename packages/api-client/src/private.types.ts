@@ -191,6 +191,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/model-fallbacks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["modelFallbacks"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/model-fallbacks/{capability}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["changeModelFallback"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/model-routes/{capability}": {
     parameters: {
       query?: never;
@@ -804,6 +836,78 @@ export interface components {
       /** Format: uri */
       supplier_basis?: string;
       vision: boolean;
+    };
+    ModelFallbackChange: {
+      backup_model: string | null;
+      expected_revision: number;
+      reason: string;
+      source_ids: string[];
+    };
+    ModelFallbackChangeInput: {
+      backup_model: string | null;
+      expected_revision: number;
+      reason: string;
+      source_ids: string[];
+    };
+    ModelFallbackChoice: {
+      approvalKind: ("selection" | "policy" | "capability") | null;
+      eligible: boolean;
+      model: string;
+      modelName: string;
+      name: string;
+      reason: string | null;
+      sourceIds: string[];
+    };
+    ModelFallbackChoiceInput: {
+      approvalKind: ("selection" | "policy" | "capability") | null;
+      eligible: boolean;
+      model: string;
+      modelName: string;
+      name: string;
+      reason: string | null;
+      sourceIds: string[];
+    };
+    ModelFallbackOverview: {
+      routes: components["schemas"]["ModelFallbackRoute"][];
+      sources: {
+        id: string;
+        /** @enum {string} */
+        lane: "news" | "policy";
+        name: string;
+      }[];
+    };
+    ModelFallbackOverviewInput: {
+      routes: components["schemas"]["ModelFallbackRouteInput"][];
+      sources: {
+        id: string;
+        /** @enum {string} */
+        lane: "news" | "policy";
+        name: string;
+      }[];
+    };
+    ModelFallbackRoute: {
+      backupModel: string | null;
+      capability: string;
+      choices: components["schemas"]["ModelFallbackChoice"][];
+      detail: string | null;
+      label: string;
+      primaryModel: string;
+      revision: number;
+      sourceIds: string[];
+      /** @enum {string} */
+      state: "none" | "ready" | "stale" | "blocked";
+    };
+    ModelFallbackRouteInput: {
+      backupModel: string | null;
+      capability: string;
+      choices: components["schemas"]["ModelFallbackChoiceInput"][];
+      detail: string | null;
+      label: string;
+      primaryModel: string;
+      revision: number;
+      sourceIds: string[];
+      /** @enum {string} */
+      state: "none" | "ready" | "stale" | "blocked";
     };
     ModelProbeRecord: {
       /** Format: uuid */
@@ -3500,6 +3604,142 @@ export interface operations {
       };
       /** @description Problem response */
       500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  modelFallbacks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelFallbackOverview"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  changeModelFallback: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        capability: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModelFallbackChangeInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelFallbackRoute"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
         headers: {
           [name: string]: unknown;
         };
