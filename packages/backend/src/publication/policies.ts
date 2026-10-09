@@ -1,3 +1,4 @@
+import { POLICY_MODEL_BINDING_VERSION } from "../policy/model-evidence.ts";
 import type { z } from "zod";
 import { createHash } from "node:crypto";
 import { Policy, PolicyCard, PolicyReadingPage, type PolicyHistoryPage, PolicyJurisdiction } from "@amp/contracts/http/public";
@@ -40,6 +41,7 @@ type Edition = {
   complete_detail?: unknown;
   reading?: Record<string, { revision: string; language: string; mode: "original" | "official_translation" | "ai_translation"; blocks: unknown[] }>;
   quality_id: string | null;
+  binding_version: string | null;
   valid_until: Date | null;
   revoked: boolean | null;
   withdrawn: boolean;
@@ -49,7 +51,7 @@ type Edition = {
 };
 type View = { row: Edition; card: PolicyCard; complete: boolean; readable: Record<"original" | "official_translation" | "ai_translation", boolean> };
 const columns = sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id,e.source_id,e.permission_version,e.policy_version_id,e.original_content_key,e.source_language,e.preferred_source_language,e.expression_ids,e.revision_ids,
- e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.valid_until,q.revoked,d.withdrawn,d.automatic_excluded,e.released_at,e.discovered_at`;
+ e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.binding_version,q.valid_until,q.revoked,d.withdrawn,d.automatic_excluded,e.released_at,e.discovered_at`;
 const join = sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
  LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id`;
 function context() {
@@ -83,7 +85,9 @@ async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOn
   const originalAllowed = await allowed("public_original_fulltext"),
     translationAllowed = await allowed("public_translation");
   const processingAllowed = (await Promise.all(row.public_resources.map((r) => publicProcessingAllowed(row.source_id, r, ctx.now)))).every(Boolean);
-  const expiredQuality = row.quality_id !== null && (row.revoked || !row.valid_until || row.valid_until.getTime() <= ctx.now);
+  const expiredQuality =
+    row.quality_id !== null &&
+    (row.binding_version !== POLICY_MODEL_BINDING_VERSION || row.revoked || !row.valid_until || row.valid_until.getTime() <= ctx.now);
   const complete = !!row.complete_card && row.quality_id !== null && !expiredQuality && originalAllowed && translationAllowed && processingAllowed;
   const card = complete ? row.complete_card : row.basic_card;
   return card

@@ -20,7 +20,7 @@ import { validateProfile, type ExtractionProfile, type ResourceExtraction } from
 import { renderPolicyPdf, PDF_RENDER_RECIPE, VisionCapacityError, type PageImage, type RenderedPdf } from "./vision-render.ts";
 import { checkVisionPage, checkVisionVerification, assembleVisionNodes, type VisionPageCandidate, type VisionVerification } from "./vision-schema.ts";
 import { createVisionRun, storedVisionRun, visionCheckpoints, saveVisionStage, finishVision, visionRunReference, type VisionRun } from "./vision-store.ts";
-import type { ModelEvidence } from "./interpretation-runtime.ts";
+import { policyModelEvidence, policyVisionContentHash, type ModelEvidence } from "./model-evidence.ts";
 
 const EXTRACT = "policy-vision-extract",
   VERIFY = "policy-vision-check";
@@ -130,17 +130,6 @@ function decoded(proof: Proof) {
   if (!choice?.message?.content || choice.finish_reason !== "stop") throw new Error("visual_output_incomplete");
   return extractJson(choice.message.content);
 }
-function evidence(proof: Proof): ModelEvidence {
-  const reported = (proof.response as { model?: unknown })?.model;
-  return {
-    receiptId: proof.receiptId,
-    attemptId: proof.attemptId,
-    service: proof.service,
-    requestedModel: proof.model,
-    reportedModel: typeof reported === "string" && reported.trim() ? reported : null,
-  };
-}
-
 /** A bounded worker invocation. No model is selected implicitly, and no scheduler/retry loop is created. */
 export async function runPolicyVision(
   expressionId: string,
@@ -255,7 +244,7 @@ export async function runPolicyVision(
       )
         throw new Blocked("blocked_unknown");
       if (!accepted) throw new Blocked("invalid_output", ["visual_candidate_rejected"]);
-      models.set(`${proof.receiptId}:${proof.attemptId}`, evidence(proof));
+      models.set(`${proof.receiptId}:${proof.attemptId}`, policyModelEvidence(proof));
       return result as T;
     };
     const resources: ResourceExtraction[] = [],
@@ -320,7 +309,7 @@ export async function runPolicyVision(
         publication_authorized: false as const,
       };
     await withCurrentPolicyOriginal(current, async () => {});
-    const contentHash = options.readOnly ? sha256(stableJson(output)) : await finishVision(current, output);
+    const contentHash = options.readOnly ? policyVisionContentHash(output) : await finishVision(current, output);
     return { ...output, contentHash, requestsAttempted };
   } catch (error) {
     if (error instanceof RuntimeControlPaused) return blocked("paused");

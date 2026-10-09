@@ -1,3 +1,4 @@
+import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -80,7 +81,7 @@ async function seedPolicy(f: PublicFixture, label: string) {
   const quality = `mcp-quality-${label}`,
     edition = `mcp-edition-${label}`;
   await f.admin`INSERT INTO publication.policy_documents(id,first_public_at) VALUES(${id},now())`;
-  await f.admin`INSERT INTO publication.policy_quality_windows(id,valid_until) VALUES(${quality},now()+interval '1 day')`;
+  await f.admin`INSERT INTO publication.policy_quality_windows(id,valid_until,binding_version) VALUES(${quality},now()+interval '1 day',${POLICY_MODEL_BINDING_VERSION})`;
   await f.admin`INSERT INTO publication.policy_editions(id,content_hash,policy_id,native_expression_id,native_revision_id,source_id,permission_version,policy_version_id,source_language,preferred_source_language,
     expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id)
     VALUES(${edition},${label},${id},${record.expressionId},${record.revisionId},${sourceId},1,${complete.selected_policy_version_id},'en','en',${complete.expressions.map((e: Json) => e.id)},${complete.expressions.map((e: Json) => e.document_revision_id)},
@@ -96,7 +97,7 @@ function rpc(body: string): Json {
 
 test("all public MCP tools run under public_read; rights, current withdrawal and version bindings never trigger processing", async (t) => {
   const f = await publicRoleFixture(t),
-    restore = injectDb({ policy: f.admin, sources: f.admin, publication: f.admin });
+    restore = injectDb({ ops: f.admin, policy: f.admin, sources: f.admin, publication: f.admin });
   let a: Awaited<ReturnType<typeof seedPolicy>>, b: Awaited<ReturnType<typeof seedPolicy>>;
   try {
     a = await seedPolicy(f, "a");

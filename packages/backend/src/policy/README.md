@@ -62,3 +62,11 @@ TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyI
 确定性关系校验版本进入`policyInterpretationQualityRecipe(modelRecipe)`，与付费prompt/input hash分离；原模型配置及已有回执不变，资格复核可免费重放。模型没有旧法原文时不生成新旧法对比。
 
 公开导航按仍有效的两端版本和资格即时构图，来源完整解读失格就移除其法定关系；目标如只剩独立基本事实，仅使用其当前基本标题/文号，不沿用旧解读。每个参与文书拥有永不回收的随机锚点ID，连通组件采用最早有效锚点为当前链接，旧锚点URL仍解析其当前组件，失效桥不会继续串联不相连文书。线程只保存阅读关系，没有统一法律状态。
+
+## 物理模型资格（TASK-0140）
+
+`model-evidence.ts`统一从`readPolicyResponse({receiptId,attemptId})`的当前实际响应和对应物理快照读取service、requested/reported model、configuration_hash、connection_id/revision。资格键`pmodel1:<sha256>`绑定前四项；registered服务的ID还须与实际快照ID相同且有正修订，环境接入允许ID/修订为空但不能缺配置hash。任一实际模型证据不完整，候选仍可保存和免费重放，但`modelEvidenceComplete=false`，不能新增完整解读。相同reported名不会跨端点、JSON/视觉能力、额外参数或不同registered ID借用资格。
+
+`models`是上述资格键集合，不再是供应商报告名称的集合；安装工程入口只接受新格式，历史字符串记录不修改或补造。独立`policyInterpretationQualityRecipe`追加`physical-model-1`，不会改变付费prompt、输入或处理配方。视觉输出的内容hash保留原五字段模型身份投影，新增物理配置证据另外核验；因此资格规则升级不改变已绑定的视觉→全文内容身份。
+
+公开质量窗口新增可空`binding_version`，历史为null。所有公开读取与保留complete分支要求当前版本、期限及用途；旧窗口即时只给独立基本事实，旧正文和模型结论停止公开。metadata重试复用同一当前原件已存的独立基本事实，不创建更新的占位版本遮住原内容。新资格安装并免费重验后更新资格引用，首次发现和原公开时间不刷新，历史资格ID不会伪造为新资格。测试中的评审记录仅为隔离合成数据，不是实际Owner批准；没有生产资格迁移或真实模型调用。

@@ -267,6 +267,10 @@
     {
       "name": "ai-gateway/202610091300_usage_protection.sql",
       "dependsOn": ["ai-gateway/202610091210_model_attempt_snapshot.sql", "ai-gateway/202610091100_usage_reports.sql"]
+    },
+    {
+      "name": "publication/202610091300_policy_quality_binding.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
     }
   ]
 }

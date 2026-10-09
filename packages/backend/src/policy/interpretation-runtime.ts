@@ -29,7 +29,8 @@ import { sha256, stableJson } from "../lib/ids.ts";
 const PROMPTS = ["policy-group-check", "policy-group-merge", "policy-interpret", "policy-verify"] as const;
 export const interpretationRecipe = () => sha256(stableJson(["policy-interpretation-1", ...PROMPTS.map((name) => promptVersion(name))]));
 type Proof = NonNullable<Awaited<ReturnType<typeof readPolicyResponse>>>;
-export type ModelEvidence = { receiptId: number; attemptId: string; service: string; requestedModel: string | null; reportedModel: string | null };
+import { policyModelEvidence, policyModelQualification, type ModelEvidence } from "./model-evidence.ts";
+export type { ModelEvidence } from "./model-evidence.ts";
 type BlockedStatus =
   | "paused"
   | "waiting_control"
@@ -72,16 +73,6 @@ function decoded(proof: Proof) {
   if (!choice?.message?.content || (choice.finish_reason && choice.finish_reason !== "stop")) throw new StageBlocked("invalid_output");
   return extractJson(choice.message.content);
 }
-function modelEvidence(proof: Proof): ModelEvidence {
-  const model = (proof.response as { model?: unknown })?.model;
-  return {
-    receiptId: proof.receiptId,
-    attemptId: proof.attemptId,
-    service: proof.service,
-    requestedModel: proof.model,
-    reportedModel: typeof model === "string" && model.trim() ? model : null,
-  };
-}
 async function currentFulltext(runId: string) {
   const loaded = await readPolicyFulltextRun(runId);
   if (!loaded) return null;
@@ -109,7 +100,7 @@ async function currentFulltext(runId: string) {
     if (!raw.parts?.some((part) => stableJson(part) === stableJson(point.candidate))) throw new StageBlocked("invalid_fulltext_proof");
     candidates.push(point.candidate);
   }
-  for (const proof of proofs.values()) models.push(modelEvidence(proof));
+  for (const proof of proofs.values()) models.push(policyModelEvidence(proof));
   if (loaded.run.plan.context.visualRunId) {
     const { loadPolicyVisionProof } = await import("./vision-runtime.ts"),
       visual = await loadPolicyVisionProof(loaded.run.plan.context.visualRunId);
@@ -241,7 +232,7 @@ async function runInterpretation(
         if (!proof || !proofMatches(proof, stage, input)) throw new StageBlocked("invalid_receipt_proof");
       }
     }
-    models.push(modelEvidence(proof));
+    models.push(policyModelEvidence(proof));
     let result: unknown,
       accepted = false;
     try {
@@ -294,8 +285,7 @@ async function runInterpretation(
       recipeVersion,
       manifestHash: run.plan.manifestHash,
       modelEvidence: uniqueModels,
-      models: [...new Set(uniqueModels.flatMap((m) => (m.reportedModel ? [m.reportedModel] : [])))].sort(),
-      modelEvidenceComplete: uniqueModels.every((m) => !!m.reportedModel),
+      ...policyModelQualification(uniqueModels),
       related,
     };
     await assertPolicyRunCurrent(run);

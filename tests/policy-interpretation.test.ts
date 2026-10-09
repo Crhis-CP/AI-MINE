@@ -1,3 +1,4 @@
+import { policyModelQualification } from "../packages/backend/src/policy/model-evidence.ts";
 import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
@@ -214,9 +215,17 @@ test("complete bounded chain resumes durable stages, verifies every conclusion a
   assert.equal(loaded!.contentHash, complete.contentHash);
   assert.equal(requests.length, after);
   assert.ok(loaded!.modelEvidence.length > groups.length);
-  assert.deepEqual(loaded!.models, ["reported-test-model"]);
+  assert.deepEqual(loaded!.models, policyModelQualification(loaded!.modelEvidence).models);
+  assert.ok(loaded!.models.length > 0 && loaded!.models.every((key) => /^pmodel1:[a-f0-9]{64}$/u.test(key)));
   assert.equal(loaded!.modelEvidenceComplete, true);
   assert.ok(loaded!.modelEvidence.every((m) => m.requestedModel === "unchanged-stage-model"));
+  const physical = loaded!.modelEvidence[0]!;
+  await sql`UPDATE receipts SET request=request||${sql.json({ configuration_hash: sha256("logical request is not proof") })} WHERE id=${physical.receiptId}`;
+  await sql`DELETE FROM ai.model_attempt_snapshots WHERE attempt_id=${physical.attemptId}::bigint`;
+  const missing = await loadPolicyInterpretation(f.runId);
+  assert.equal(missing?.semantic_verified, true);
+  assert.equal(missing?.modelEvidenceComplete, false);
+  assert.equal(requests.length, after, "missing physical evidence does not trigger a paid retry");
 });
 
 test("a late exception veto overrides earlier support; limitations require rewriting and a new full matrix", async () => {

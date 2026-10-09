@@ -439,7 +439,7 @@
     "publication.policy_quality_windows": {
       "module": "publication",
       "access": "business",
-      "publicColumns": ["id", "valid_until", "revoked"],
+      "publicColumns": ["id", "valid_until", "revoked", "binding_version"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT"]

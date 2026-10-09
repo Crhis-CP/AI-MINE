@@ -1,3 +1,4 @@
+import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
@@ -131,7 +132,7 @@ test("current qualified relations produce stable navigation and every public out
   full.original_url = source.f.url;
   full.relationships = [{ ...candidate.relationships[0]!, target_policy_id: null, evidence_ids: [full.evidence[0]!.evidence_id] }];
   const card = PolicyCard.parse(Object.fromEntries(Object.keys(PolicyCard.shape).map((k) => [k, full[k as keyof Policy]])));
-  await roles.admin`INSERT INTO publication.policy_quality_windows VALUES('synthetic-relations',now()+interval '1 hour',false)`;
+  await roles.admin`INSERT INTO publication.policy_quality_windows(id,valid_until,revoked,binding_version) VALUES('synthetic-relations',now()+interval '1 hour',false,${POLICY_MODEL_BINDING_VERSION})`;
   await roles.admin`UPDATE publication.policy_editions SET complete_card=${roles.admin.json(card)},complete_detail=${roles.admin.json(full)},quality_id='synthetic-relations' WHERE id=${source.p.editionId}`;
   await roles.admin.begin((tx) => savePolicyRelationships(tx, source.p.policyId, source.p.editionId, links, { e: full.evidence[0]!.evidence_id }));
   const get = async () => Policy.parse(await (await app.request(`/api/site/policies/${source.p.policyId}`)).json());

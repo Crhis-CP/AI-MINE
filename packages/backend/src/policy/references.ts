@@ -1,3 +1,4 @@
+import { POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
 import * as cheerio from "cheerio";
 import type { PolicyPart } from "./processing-plan.ts";
 const address = (value: string, base?: string) => {
@@ -31,4 +32,4 @@ export function explicitPolicyReference(part: PolicyPart, citation: string, offi
 }
 
 /** Deterministic qualification version; deliberately separate from the paid model-input recipe. */
-export const policyInterpretationQualityRecipe = (modelRecipe: string) => `${modelRecipe}/explicit-reference-2`;
+export const policyInterpretationQualityRecipe = (modelRecipe: string) => `${modelRecipe}/explicit-reference-2/${POLICY_MODEL_BINDING_VERSION}`;

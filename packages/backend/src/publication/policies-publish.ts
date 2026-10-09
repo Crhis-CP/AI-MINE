@@ -1,9 +1,10 @@
+import { POLICY_MODEL_BINDING_VERSION } from "../policy/model-evidence.ts";
 import { runtimeControlSnapshot, assertRuntimeControl } from "../operations/lane-controls.ts";
 import { dbOf, type Db } from "../db.ts";
 import { newShortId } from "../lib/ids.ts";
 const sql = dbOf("publication");
-export async function recordPolicyQualityWindow(id: string, validUntil: string, revoked: boolean, db: Db = sql) {
-  await db`INSERT INTO publication.policy_quality_windows(id,valid_until,revoked) VALUES(${id},${validUntil},${revoked})
+export async function recordPolicyQualityWindow(id: string, validUntil: string, revoked: boolean, db: Db = sql, bindingVersion: string | null = null) {
+  await db`INSERT INTO publication.policy_quality_windows(id,valid_until,revoked,binding_version) VALUES(${id},${validUntil},${revoked},${bindingVersion})
  ON CONFLICT(id) DO UPDATE SET valid_until=EXCLUDED.valid_until,revoked=EXCLUDED.revoked`;
 }
 export async function policyPublicId(kind: string, internalId: string, db: Db = sql) {
@@ -156,10 +157,16 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     else if (doc!.automatic_excluded) return pending("identity");
     // A metadata retry cannot supersede an existing complete edition of the same current original.
     if (!complete) {
-      const [prior] = await db`SELECT e.id FROM publication.policy_editions e JOIN publication.policy_quality_windows q ON q.id=e.quality_id
-    WHERE e.policy_id=${policyId} AND e.native_revision_id=${snapshot.revisionId} AND e.complete_detail IS NOT NULL AND NOT q.revoked AND q.valid_until>now() ORDER BY e.released_at DESC LIMIT 1`;
-      if (prior && (await allowed("public_original_fulltext", true, db)) && (await allowed("public_translation", true, db)))
-        return { status: "published" as const, mode: "complete" as const, policyId, editionId: String(prior.id) };
+      const [prior] = await db`SELECT e.id,
+       (NOT q.revoked AND q.valid_until>now() AND q.binding_version=${POLICY_MODEL_BINDING_VERSION}) AS qualified
+       FROM publication.policy_editions e LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id
+       WHERE e.policy_id=${policyId} AND e.native_revision_id=${snapshot.revisionId} AND e.complete_detail IS NOT NULL ORDER BY e.released_at DESC LIMIT 1`;
+      if (prior) {
+        if (prior.qualified && (await allowed("public_original_fulltext", true, db)) && (await allowed("public_translation", true, db)))
+          return { status: "published" as const, mode: "complete" as const, policyId, editionId: String(prior.id) };
+        // Keep the independently evidenced basic projection. A newer placeholder must not hide this same content after a new qualification restores it.
+        return { status: "published" as const, mode: "basic_facts" as const, policyId, editionId: String(prior.id), pending: "quality" as const };
+      }
     }
     const editionId = await policyPublicId("edition", `${policyId}:${contentHash}`, db),
       ids: PublicIds = {

@@ -1,3 +1,4 @@
+import { policyVisionContentHash, type ModelEvidence } from "./model-evidence.ts";
 import { dbOf } from "../db.ts";
 import { withCurrentPolicyOriginal, type OriginalRun } from "./fulltext-store.ts";
 import { settlePolicyResponse } from "../providers/receipts.ts";
@@ -80,8 +81,8 @@ export async function saveVisionStage(run: VisionRun, point: Omit<VisionCheckpoi
     return true;
   });
 }
-export async function finishVision(run: VisionRun, output: Record<string, unknown>) {
-  const contentHash = sha256(stableJson(output));
+export async function finishVision(run: VisionRun, output: Record<string, unknown> & { modelEvidence: ModelEvidence[] }) {
+  const contentHash = policyVisionContentHash(output);
   await withCurrentPolicyOriginal(run, async (tx) => {
     await tx`UPDATE policy.vision_runs SET status=${String(output.status)},output=${tx.json(output as never)},content_hash=${contentHash},updated_at=now() WHERE id=${run.id}`;
   });

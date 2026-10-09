@@ -1,3 +1,4 @@
+import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
 import { policyInterpretationQualityRecipe } from "../packages/backend/src/policy/references.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
@@ -85,7 +86,7 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
   await advancePolicyMaterial({ lane: "policy", sourceId: f.sourceId, materialId: f.materialId }, "acquire", ports, { root, collectionEnabled: true });
   assert.equal(requests.length, before, "periodic unchanged recheck only republishes trusted saved output");
   const loaded = (await loadPolicyInterpretation(final.fulltext_run_id))!;
-  await installPolicyQualityRelease({
+  const qualityInput = {
     sourceIds: [f.sourceId],
     languages: [loaded.run.snapshot.language],
     fulltextRecipe: loaded.run.plan.context.recipeVersion,
@@ -96,7 +97,8 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
     evaluationHash: sha256(`synthetic-only:${loaded.contentHash}`),
     reviewedAt: new Date(Date.now() - 1000).toISOString(),
     validUntil: new Date(Date.now() + 3600_000).toISOString(),
-  });
+  };
+  const qualityId = await installPolicyQualityRelease(qualityInput);
   await advancePolicyMaterial({ lane: "policy", sourceId: f.sourceId, materialId: f.materialId }, "acquire", ports, { root, collectionEnabled: true });
   const complete = await publishPolicyPublication({ expressionId: final.expression_id!, fulltextRunId: final.fulltext_run_id });
   assert.equal(complete.status, "published");
@@ -118,6 +120,23 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
   assert.equal(retry.status, "published");
   assert.equal("editionId" in retry && retry.editionId, complete.editionId);
   assert.equal("mode" in retry && retry.mode, "complete");
+  const [timeBefore] = await sql`SELECT released_at,discovered_at FROM publication.policy_editions WHERE id=${complete.editionId}`;
+  // A pre-upgrade window has no physical binding. Reading and the metadata-preservation branch must downgrade it immediately.
+  await sql`UPDATE publication.policy_quality_windows SET binding_version=NULL WHERE id=${qualityId}`;
+  await sql`UPDATE policy.quality_releases SET models=ARRAY['synthetic-model'] WHERE id=${qualityId}`;
+  assert.equal((await policyDetail(complete.policyId, {})).interpretation_state, "basic_facts");
+  const legacyRetry = await publishPolicyPublication({ expressionId: final.expression_id! });
+  assert.equal("mode" in legacyRetry && legacyRetry.mode, "basic_facts");
+  const replacement = await installPolicyQualityRelease(qualityInput);
+  const restored = await publishPolicyPublication({ expressionId: final.expression_id!, fulltextRunId: final.fulltext_run_id });
+  assert.equal("mode" in restored && restored.mode, "complete");
+  assert.equal((await policyDetail(complete.policyId, {})).interpretation_state, "complete");
+  assert.equal(
+    (await sql`SELECT binding_version FROM publication.policy_quality_windows WHERE id=${replacement}`)[0].binding_version,
+    POLICY_MODEL_BINDING_VERSION,
+  );
+  assert.equal("editionId" in restored && restored.editionId, complete.editionId);
+  assert.deepEqual((await sql`SELECT released_at,discovered_at FROM publication.policy_editions WHERE id=${complete.editionId}`)[0], timeBefore);
   assert.equal(requests.length, before, "quality recheck and reading must never call a model");
 });
 

@@ -1,3 +1,4 @@
+import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
@@ -110,7 +111,7 @@ test("real public role reads gated policies; revocation, expiry, version selecti
       const quality = `quality-${label}`,
         edition = `edition-${label}`;
       await f.admin`INSERT INTO publication.policy_documents(id,first_public_at) VALUES(${id},now())`;
-      await f.admin`INSERT INTO publication.policy_quality_windows(id,valid_until) VALUES(${quality},now()+interval '1 day')`;
+      await f.admin`INSERT INTO publication.policy_quality_windows(id,valid_until,binding_version) VALUES(${quality},now()+interval '1 day',${POLICY_MODEL_BINDING_VERSION})`;
       await f.admin`INSERT INTO publication.policy_editions(id,content_hash,policy_id,native_expression_id,native_revision_id,source_id,permission_version,policy_version_id,source_language,preferred_source_language,
     expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id)
     VALUES(${edition},${label},${id},${record.expressionId},${record.revisionId},${sourceId},1,${dto.selected_policy_version_id},'en','en',${dto.expressions.map((e: { id: string }) => e.id)},${dto.expressions.map((e: { document_revision_id: string }) => e.document_revision_id)},
@@ -119,6 +120,12 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     };
     const a = await seed("one"),
       b = await seed("two");
+    await f.admin`UPDATE publication.policy_quality_windows SET binding_version=NULL WHERE id=${a.quality}`;
+    const legacy = Policy.parse(await (await app.request(`/api/site/policies/${a.id}`)).json());
+    assert.equal(legacy.interpretation_state, "basic_facts");
+    assert.equal(legacy.guide, null);
+    assert.equal(legacy.reading, null);
+    await f.admin`UPDATE publication.policy_quality_windows SET binding_version=${POLICY_MODEL_BINDING_VERSION} WHERE id=${a.quality}`;
     const rss = await app.request("/feed/policies.xml?reader=ignored"),
       rssBody = await rss.text();
     assert.equal(rss.status, 200);
