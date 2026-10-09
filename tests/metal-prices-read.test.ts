@@ -171,10 +171,8 @@ test("latest groups, notes and footnote numbering follow enabled registry order 
 });
 
 test("recorded daily conversions match hand calculations, cross weekends and skip held or missing-rate dates", async () => {
-  const enabled = structuredClone(raw);
-  enabled.sources.find((s: { key: string }) => s.key === "cbr").enabled = true;
-  const read = () => loadMetalPrices(NOW, enabled);
   const fetcher = cbrFetcher(registry, async (url) => {
+    if (new URL(url).hostname === "bank.gov.ua") return { url, status: 503, text: () => "Synthetic comparison unavailable" };
     const day = new URL(url).searchParams.get("date_req")?.split("/").reverse().join("-");
     return { url, status: 200, text: () => new TextDecoder("windows-1251").decode(fixture(`cbr/${day ? `usd-${day}` : "metal"}.xml`)) };
   });
