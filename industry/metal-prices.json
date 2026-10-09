@@ -38,6 +38,29 @@
       ],
       "license": ["按 CC BY 4.0 许可使用，品种名称与规格为本站据英文翻译，数值保留两位小数。"],
       "decimals": 2
+    },
+    {
+      "key": "cbr",
+      "name": "俄罗斯银行（俄罗斯央行）",
+      "section": "international",
+      "frequency": "day",
+      "currency": "RUB",
+      "delay": "每个俄罗斯工作日定价，次日起适用；节假日没有新定价",
+      "staleDays": 14,
+      "hosts": ["www.cbr.ru", "bank.gov.ua"],
+      "officialUrl": "https://www.cbr.ru/hd_base/metall/metall_base_new/",
+      "terms": { "name": "俄罗斯银行网站使用条件", "url": "https://www.cbr.ru/about/" },
+      "attribution": ["来源：俄罗斯银行（Bank of Russia）贵金属核算价 https://www.cbr.ru/hd_base/metall/metall_base_new/"],
+      "license": [
+        "俄罗斯银行网站的资料可以注明来源转载；网络媒体要链接到具体页面，本站在脚注里链接贵金属核算价的数据页。",
+        "它的公开信息不作商业用途；本站免费、没有广告，这一点变了要重新核对条款。",
+        "库里存它公布的卢布/克原数与同一天的美元官方汇率，页面上的美元/盎司是本站按这两个数换算的。"
+      ],
+      "decimals": 2,
+      "benchmark": "俄罗斯银行贵金属核算价",
+      "unit": "卢布/克",
+      "sourceUnit": "卢布/克",
+      "enabled": false
     }
   ],
   "items": [
@@ -251,6 +274,56 @@
       "spec": "粉矿，含铁 62%",
       "grade": "fines, 62% Fe",
       "deliveryBasis": "c.f.r. China"
+    },
+    {
+      "key": "cbr.gold",
+      "source": "cbr",
+      "sourceName": "1",
+      "name": "金",
+      "metal": "gold",
+      "quote": "俄央行核算价",
+      "footnote": "cbr",
+      "convert": { "rate": "cbr.usd", "factor": "31.1034768", "unit": "美元/盎司", "currency": "USD" }
+    },
+    {
+      "key": "cbr.silver",
+      "source": "cbr",
+      "sourceName": "2",
+      "name": "银",
+      "metal": "silver",
+      "quote": "俄央行核算价",
+      "footnote": "cbr",
+      "convert": { "rate": "cbr.usd", "factor": "31.1034768", "unit": "美元/盎司", "currency": "USD" }
+    },
+    {
+      "key": "cbr.platinum",
+      "source": "cbr",
+      "sourceName": "3",
+      "name": "铂",
+      "metal": "platinum",
+      "quote": "俄央行核算价",
+      "footnote": "cbr",
+      "convert": { "rate": "cbr.usd", "factor": "31.1034768", "unit": "美元/盎司", "currency": "USD" }
+    },
+    {
+      "key": "cbr.palladium",
+      "source": "cbr",
+      "sourceName": "4",
+      "name": "钯",
+      "metal": "palladium",
+      "quote": "俄央行核算价",
+      "footnote": "cbr",
+      "convert": { "rate": "cbr.usd", "factor": "31.1034768", "unit": "美元/盎司", "currency": "USD" }
+    },
+    {
+      "key": "cbr.usd",
+      "source": "cbr",
+      "sourceName": "USD",
+      "name": "美元汇率",
+      "rate": true,
+      "benchmark": "俄罗斯银行官方汇率",
+      "unit": "卢布/美元",
+      "sourceUnit": "卢布/美元"
     }
   ],
   "metals": [
@@ -268,12 +341,21 @@
     { "key": "sulfuric_acid", "name": "硫酸" }
   ],
   "intro": "官方机构定期发布的金属价格，注明出处。不是实时行情。",
-  "frequencies": [{ "key": "ten_day", "tag": "旬", "compare": "旬价比上一旬" }, { "key": "month", "tag": "月", "compare": "月价比上个月" }],
+  "frequencies": [
+    { "key": "day", "tag": "日", "compare": "日价比上一个定价日" },
+    { "key": "ten_day", "tag": "旬", "compare": "旬价比上一旬" },
+    { "key": "month", "tag": "月", "compare": "月价比上个月" }
+  ],
   "footnotes": [
     { "key": "monthly_average", "text": "月均价：世界银行公布的当月每日现货价格的平均值，不是某一天的价格。" },
     { "key": "london_pm", "text": "伦敦下午定价：世界银行对这项白银价格的原文是 London afternoon fixing，指伦敦市场每个工作日定出的白银基准价。" },
     { "key": "lme", "text": "LME：伦敦金属交易所（London Metal Exchange）。结算价是它每个交易日公布的官方价格；表中是世界银行按月公布的月平均价。" },
-    { "key": "cfr", "text": "CFR：成本加运费，指运到中国港口的价格，含海运费、不含保险。干吨：扣除水分后计重的吨。" }
+    { "key": "cfr", "text": "CFR：成本加运费，指运到中国港口的价格，含海运费、不含保险。干吨：扣除水分后计重的吨。" },
+    {
+      "key": "cbr",
+      "text": "俄央行核算价：俄罗斯银行（俄罗斯央行）每个工作日公布的贵金属核算价，原为卢布/克，本站按它同一天公布的美元汇率换算成美元/盎司。来源：{link}。",
+      "link": { "name": "俄罗斯银行 贵金属核算价", "url": "https://www.cbr.ru/hd_base/metall/metall_base_new/" }
+    }
   ],
   "notes": [
     { "text": "每行前面的“{tags}”表示多久更新一次；旬是每月的上、中、下旬，约十天一期。" },

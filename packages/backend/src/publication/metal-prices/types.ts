@@ -34,6 +34,8 @@ export interface FetchedPeriod {
   rows: PriceRow[];
   /** The source's own reasons to hold the period back whole, from pages that read fine; empty: none. */
   held: string[];
+  /** Fetcher observations that do not hold a period back. */
+  notes?: string[];
   /** Series held back alone, with the source's reasons (TASK-0046): their rows are neither checked nor stored. */
   heldSeries?: { key: string; reason: string }[];
 }

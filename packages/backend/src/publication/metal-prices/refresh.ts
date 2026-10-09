@@ -125,13 +125,14 @@ export async function refreshMetalPrices(
         const unchanged = one.period.start === newest && rows.length === kept.length && rows.every((row) => known.get(row.key) === row.value);
         const compareWithPrevious = !unchanged && one.period.start !== opts.force?.periodStart;
         const { reasons, notes } = checkPeriod({ fetched: { ...one, rows }, source, items: kept, previous, newest, compareWithPrevious, now });
-        entry.notes = notes;
+        entry.notes = [...(one.notes ?? []), ...notes];
         const held = [...one.held, ...(kept.length ? [] : ["这一期启用的品种全被单独扣下"]), ...reasons];
         if (held.length) {
           entry.held = held.join("；");
           // A held new period keeps every later one waiting: with them stored it would be older than the store and never
           // get in. The stored newest period read again does not, as it is stored already.
-          if (!newest || one.period.start > newest) waiting = one.period.label;
+          // A rejected daily fixing must not indefinitely block later days; daily gaps are not back-filled.
+          if (source.frequency !== "day" && (!newest || one.period.start > newest)) waiting = one.period.label;
           continue;
         }
         if (unchanged && !stored.size) entry.notes.push("和库里已有的一样，不另存");
