@@ -1,4 +1,4 @@
-# 金属价格夹具（TASK-0044、0046、0049、0068）
+# 金属价格夹具（TASK-0044、0046、0049、0068、0082）
 
 金属价格表的解析测试用这些夹具。它们是从三个官方网站的原件裁出来的。原件在 2026-10-06 由 Owner Mac 上的本地会话在上海服务器（正式站所在的腾讯云主机）上录下，只做了只读请求，请求头的 User-Agent 是 `Mozilla/5.0 (compatible; AIMiningPolicyBot/1.0; +https://aiminingpolicy.com/about)`。原件不进 Git，留在服务器的 `/opt/aimine/.ops/fixtures-raw/2026-10-06/`；裁剪件也留了一份在 `/opt/aimine/.ops/fixtures-cropped/2026-10-06/`。
 
@@ -57,3 +57,25 @@
 - “月平均价”依据是[2026年10月版Pink Sheet](https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Pink-Sheet-October-2026.pdf)月度栏表头“Monthly Averages”（TASK-0068记录的2026-10-06 13:56Z核对）；不是裁剪XLSX前四行的文字。Excel Description中的六项LME说明写“settlement price”，没有daily；金、铂写“spot average of daily rates”。
 - 本轮纯读现有裁剪XLSX核对：第5行名称、第6行单位；A806/A807是2026M08/2026M09；白银9月原数为`64.599999999999994`，不得先转浮点再写回。金的现行说明是“spot average of daily rates, from June 2025”，后段99.5%属于历史说明，不写为现行规格；铁矿石原单位保留`($/dmtu)`，现行说明明确“spot in US dollar/dry ton”和“fines, 62% Fe, c.f.r. China”，不做单位换算。
 - 月度页面单元格是“Monthly prices October 2026 (XLS)”，其中br形成空格；单元格没有发布日期，工作表A4的更新时间不得补成发布日期。上述核对不代表来源已部署或持续取数。
+
+## 商务预报原件与请求（TASK-0082）
+
+信息来源：商务预报。2026-10-08/09 UTC 在正式站所在的上海主机只读录制，未改服务、容器、数据库或配置。原件、headers、逐项 metadata 与 `record.tsv` 分别留在 `/opt/aimine/.ops/fixtures-raw/2026-10-08/task0082/`（robots）和 `/opt/aimine/.ops/fixtures-raw/2026-10-09/task0082/`（其余）；集成人保存合并索引。User-Agent 沿用本文件开头。除 robots 为 404，其余均 200、最终 URL 同请求，无跳转、验证页、Cookie 或令牌。
+
+| 保存名 | URL | UTC 抓取时间 | 方法 / 状态 | 字节 | SHA-256 |
+|---|---|---|---|---:|---|
+| `mofcom-robots.txt` | https://cif.mofcom.gov.cn/robots.txt | 2026-10-08T23:59:38.944087+00:00 | GET / 404 | 72483 | `38618d36517e7205e160509cb2c0a78765946101480c3f5b455446af533b193c` |
+| `mofcom-data.html` | https://cif.mofcom.gov.cn/cif/html/dataCenter2021/index.html?jgsczlzdjc_yousejinshu_224011 | 2026-10-09T00:00:27.375345+00:00 | GET / 200 | 25248 | `11410460d63af187f07fdbe451024b481a413d7fe3a284050e9409238c58810b` |
+| `mofcom-terms.html` | https://cif.mofcom.gov.cn/cif/html//sczldt_pc/2026/9/1790747534085.html | 2026-10-09T00:00:27.560757+00:00 | GET / 200 | 19077 | `0396a382e32964bb1ac3645ce3485bf0508e3ef76d6874d47a724bcd009f8fb0` |
+| `mofcom-zhouduData.js` | https://cif.mofcom.gov.cn/cif/resDataIndex/js/zhouduData.js | 2026-10-09T00:01:23.156492+00:00 | GET / 200 | 4265 | `131b6053b8fb550da461805821dc59da7db128ade2fb33d800374f57794f24b3` |
+| `mofcom-dataCenterCtrl.js` | https://cif.mofcom.gov.cn/cif/resDataIndex/js/dataCenterCtrl.js | 2026-10-09T00:01:23.355953+00:00 | GET / 200 | 114902 | `b7ba5631b1818746edc7023c16e30dde41c9289534c80ecd89610f3222161b1e` |
+| `mofcom-week-224011.json` | https://cif.mofcom.gov.cn/cif/getWeekLineChart2019.fhtml | 2026-10-09T00:02:20.320090+00:00 | POST / 200 | 3996 | `377c834a051965b0828cf11b2104453f14d9c63121bfb573be87b68bb34bf555` |
+| `mofcom-week-224012.json` | https://cif.mofcom.gov.cn/cif/getWeekLineChart2019.fhtml | 2026-10-09T00:02:20.480230+00:00 | POST / 200 | 3959 | `a499dd3fcff68f9f96d047482a48df9987f18831a01cbbc09ea82ad3762d1c7b` |
+| `mofcom-week-224014.json` | https://cif.mofcom.gov.cn/cif/getWeekLineChart2019.fhtml | 2026-10-09T00:02:20.661185+00:00 | POST / 200 | 3929 | `6a942f5ade96e4b59b2349bf0a0d0647b92d44b066a66d244b5088afaf83061a` |
+
+- 只静态读取数据页引用的同主机 `zhouduData.js` 与 `dataCenterCtrl.js`，未执行网站脚本。前者列出 224011 铜(1#)、224012 铝(A00)、224014 锌(1#)；后者的生产资料周度请求是 POST `/cif/getWeekLineChart2019.fhtml`，表单体 `indexId=<编号>&startDate=&endDate=&flg=2`。本次三个请求均逐字采用这组参数；`curl --data` 的 Content-Type 为 `application/x-www-form-urlencoded`，无需 Referer。空的日期范围由官网返回过去六个月；运行抓取照录制请求，不猜额外参数。
+- 回应为普通 JSON，无回调包装。读取 `datas[].DATADATE / DATA / NAME / UNIT`，分别是完整日历日期、价格原文、品名、单位；顶层 `unit` 同为“元/吨”，`title` 为“全国铜（1#）价格走势”等。`table` 中的变化字段不读取；顶层 `startDate/endDate` 为整次查询范围，不是某一点的周区间。
+- 三个 `datas` 都是 25 点，日期集合完全一致，2026-04-10 至 2026-09-25 相邻均 7 天。最新两期为 9 月 18 日、25 日，铜原数 108664 / 111975，铝 24204 / 24340，锌 26085 / 26689。三个 `sourceName` 直接取回应 NAME；没有纯度说明，不搬其他来源的规格。
+- 数据页称该栏目为“生产资料 / 周度监测数据”，这一栏目实际署名“数据来源：商务部内贸统计监测平台”。回应只给日期与价格，没有定义每点是哪几天或统计取值方式；保留单日期一期，起止同日。转载说明文章标题的“9月21日-27日”针对文中煤、油、钢材六项，没有铜铝锌，不据此推算三个指数的周区间（集成人确认）。`--force-period` 使用该点的完整日期，如 `2026-09-25`。
+- [文章页转载说明](https://cif.mofcom.gov.cn/cif/html//sczldt_pc/2026/9/1790747534085.html)原文：“凡本站及其子站注明"信息来源:商务部市场运行和消费促进司”的所有作品，其版权属于商务预报所有。其他媒体、网站或个人转载使用时不要断章取义，并请同时注明:"信息来源:商务预报”。” 数据页没有另写条款或排除数据；登记依任务卡使用此说明并注明出处，不宣称本站可再授权。
+- `mofcom/week-224011.json`、`week-224012.json`、`week-224014.json` 均小于 64 KiB，逐字节复制完整原回应，未裁剪、重排或改写，哈希与上表同编号原件相同。数据页、脚本、文章与 headers 不进 Git，只保留上述地址和哈希。原件在服务器保留。
