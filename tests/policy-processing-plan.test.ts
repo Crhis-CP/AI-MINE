@@ -63,6 +63,41 @@ test("identical text under one body selector remains two independently covered o
   assert.equal(plan.requests.flatMap((request) => request.partIds).length, 2);
 });
 
+test("long tables preserve all rows, merged cells, headers, units and decisive footnotes across requests", () => {
+  const rows = Array.from(
+    { length: 8 },
+    (_, i) =>
+      `<tr data-row="${i}">${i === 0 ? '<td rowspan="2">适用区域</td>' : i === 1 ? "" : "<td>其他区域</td>"}<td>${i}: ${"完整条文 ".repeat(50)}</td></tr>`,
+  ).join("");
+  const html = `<table><caption>金额：USD</caption><thead><tr><th>地区</th><th>义务</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="2">例外：经书面批准后不适用。</td></tr></tfoot></table>`;
+  const input = extraction(["前言", "表格", "文末"]);
+  input.resources[0]!.nodes[1]!.html = html;
+  const plan = buildPolicyFulltextPlan(input, context);
+  assert.equal(plan.status, "planned");
+  if (plan.status !== "planned") return;
+  const fragments = plan.parts.filter((part) => part.nodeId === "node-1");
+  assert.ok(fragments.length > 1);
+  const covered: number[] = [];
+  for (const part of fragments) {
+    assert.ok(part.byteLength <= POLICY_PLAN_LIMITS.requestBytes);
+    assert.match(part.source, /<caption>金额：USD<\/caption>/);
+    assert.match(part.source, /<thead><tr><th>地区<\/th><th>义务<\/th><\/tr><\/thead>/);
+    assert.match(part.source, /<tfoot><tr><td colspan="2">例外：经书面批准后不适用。/);
+    const indexes = [...part.source.matchAll(/<tr data-row="(\d+)"/g)].map((match) => Number(match[1]));
+    if (indexes.includes(0)) {
+      assert.ok(indexes.includes(1));
+      assert.match(part.source, /rowspan="2"/);
+    }
+    covered.push(...indexes);
+  }
+  assert.deepEqual(covered, [0, 1, 2, 3, 4, 5, 6, 7]);
+  assert.equal(plan.parts.at(-1)?.source, "文末");
+  input.resources[0]!.nodes[1]!.html = html.replace('rowspan="2"', 'rowspan="0"');
+  const blocked = buildPolicyFulltextPlan(input, context);
+  assert.equal(blocked.status, "blocked_capacity");
+  assert.deepEqual(blocked.requests, []);
+});
+
 test("unclosed extraction, missing evidence, duplicate and unordered nodes yield no executable request", () => {
   const variants = [extraction(["正文"]), extraction(["正文"]), extraction(["正文", "末尾"]), extraction(["正文", "末尾"])];
   variants[0]!.resources[0]!.gaps.push("PDF 版面尚未核验");
