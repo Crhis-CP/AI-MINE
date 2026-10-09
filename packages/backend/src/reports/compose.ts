@@ -11,6 +11,7 @@ import { dbOf } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
+export { composePolicyReports } from "../publication/policy-report-job.ts";
 
 const sql = dbOf("reports");
 

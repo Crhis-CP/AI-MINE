@@ -10,6 +10,12 @@ import {
 } from "./policy-report-plan.ts";
 import { policyReportsToRecheck, savePolicyReport } from "./policy-report-store.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { policyPublicVersions } from "./policies.ts";
+
+/** Existing worker entry calls this with the same read-time-qualified public projection. */
+export async function composePolicyReports(now = new Date()) {
+  return reconcilePolicyReportPeriods(policyPublicVersions, now);
+}
 
 /** Hourly worker reconciliation only: no reader-triggered writes and no model invocation. */
 export async function reconcilePolicyReportPeriods(readVersions: () => Promise<PublicPolicyReportVersion[]>, now = new Date()) {
@@ -20,7 +26,7 @@ export async function reconcilePolicyReportPeriods(readVersions: () => Promise<P
   const ready = periods.filter((p) => Date.parse(policyReportPeriod(p.kind, p.period_key).end) + 8 * 3600_000 <= now.getTime());
   if (!ready.length) return [];
   const editions = await readVersions(),
-    results: { kind: PolicyReportKind; periodKey: string; id: string; revision: number; created: boolean }[] = [];
+    results: ({ kind: PolicyReportKind; periodKey: string } & Awaited<ReturnType<typeof savePolicyReport>>)[] = [];
   for (const { kind, period_key } of ready) {
     const period = policyReportPeriod(kind, period_key),
       coverage = await policySourceCoverage(period.start, period.end);

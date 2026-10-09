@@ -12,6 +12,8 @@ import {
 } from "../packages/backend/src/publication/policy-report-plan.ts";
 import { policyReportsToRecheck, savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
 import { policySourceCoverage } from "../packages/backend/src/sources/policy-coverage.ts";
+import { setPolicyPublicationPaused } from "../packages/backend/src/publication/policies-publish.ts";
+import { reconcilePolicyReportPeriods } from "../packages/backend/src/publication/policy-report-job.ts";
 
 const sql = dbOf("publication");
 after(closeDb);
@@ -149,4 +151,34 @@ test("coverage counts real registrations but never substitutes successful HTTP f
   assert.equal(china.missing_receipt_count, 1);
   assert.equal(china.failures.length, 1);
   assert.doesNotMatch(JSON.stringify(rows), /do-not-publish|private_token|资讯来源/);
+});
+
+test("publication pause prevents new reports and members but permits withdrawal corrections; hourly work waits for Beijing 08:00", async () => {
+  await sql`TRUNCATE publication.policy_report_members,publication.policy_report_revisions,publication.policy_reports`;
+  const one = edition("paused-member-1", "2026-10-06", "2026-10-06T00:00:00Z"),
+    two = edition("paused-member-2", "2026-10-07", "2026-10-07T00:00:00Z");
+  let version = await setPolicyPublicationPaused({ expectedVersion: 1, paused: true, actor: "test", reason: "Synthetic publication pause" });
+  const first = await savePolicyReport(planPolicyReport("weekly", "2026-W41", [one], [], issuer, now));
+  assert.equal(first.paused, true);
+  assert.equal((await sql`SELECT id FROM publication.policy_reports`).length, 0);
+  version = await setPolicyPublicationPaused({ expectedVersion: version, paused: false, actor: "test", reason: "Synthetic resume" });
+  const initial = await savePolicyReport(planPolicyReport("weekly", "2026-W41", [one], [], issuer, now));
+  version = await setPolicyPublicationPaused({ expectedVersion: version, paused: true, actor: "test", reason: "Synthetic pause again" });
+  const adding = await savePolicyReport(planPolicyReport("weekly", "2026-W41", [one, two], [], issuer, now));
+  assert.equal(adding.paused, true);
+  assert.equal(adding.revision, initial.revision);
+  const removing = await savePolicyReport(planPolicyReport("weekly", "2026-W41", [], [], issuer, now));
+  assert.equal(removing.paused, false);
+  assert.equal(removing.revision, initial.revision + 1);
+  await setPolicyPublicationPaused({ expectedVersion: version, paused: false, actor: "test", reason: "Synthetic final resume" });
+  await sql`TRUNCATE publication.policy_report_members,publication.policy_report_revisions,publication.policy_reports`;
+  const before = await reconcilePolicyReportPeriods(async () => [one], new Date("2026-10-11T23:59:59Z"));
+  assert.equal(
+    before.some((r) => r.kind === "weekly" && r.periodKey === "2026-W41"),
+    false,
+  );
+  const onTime = await reconcilePolicyReportPeriods(async () => [one], new Date("2026-10-12T00:00:00Z"));
+  assert.equal(onTime.find((r) => r.kind === "weekly" && r.periodKey === "2026-W41")?.created, true);
+  const again = await reconcilePolicyReportPeriods(async () => [one], new Date("2026-10-12T01:00:00Z"));
+  assert.ok(again.every((r) => !r.created));
 });

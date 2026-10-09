@@ -10,6 +10,10 @@ import { policyDetail, policyPublicVersions } from "../packages/backend/src/publ
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { matchingPolicyQuality } from "../packages/backend/src/policy/quality.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
+import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
+import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
+import { composePolicyReports } from "../packages/backend/src/publication/policy-report-job.ts";
+import { policyReport } from "../packages/backend/src/publication/policies-reports.ts";
 const sql = dbOf("policy"),
   discovered = new Date("2026-01-02T03:04:05Z");
 after(closeDb);
@@ -131,6 +135,35 @@ test("real capture publishes only independently proven facts, is idempotent and 
   assert.equal(recaptured.status, "captured");
   assert.equal((await publishPolicyPublication({ expressionId: captured.expressionId })).status, "published");
   assert.deepEqual([...new Set((await policyPublicVersions()).map((v) => v.originalRevisionKey))], [originalKey]);
+  const reportTime = new Date(Date.now() + 1000),
+    reportDraft = planPolicyReport(
+      "weekly",
+      "2026-W01",
+      await policyPublicVersions(),
+      [],
+      { name: "Synthetic compiler", url: "https://example.invalid" },
+      reportTime,
+    );
+  const report = await savePolicyReport(reportDraft);
+  assert.ok(report.id);
+  done();
+  const workerDb = injectDb({ publication: sessions.worker, policy: sessions.worker, sources: sessions.worker });
+  try {
+    assert.ok((await composePolicyReports(reportTime)).some((r) => r.id === report.id));
+  } finally {
+    workerDb();
+  }
+  const publicDb = injectDb({ publication: sessions.public_read, policy: sessions.public_read, sources: sessions.public_read });
+  try {
+    const reading = await policyReport(report.id, { limit: 20 });
+    assert.equal(reading.item_count, 1);
+    assert.equal(reading.pending_interpretations[0]?.id, a.policyId);
+    assert.equal(reading.groups.flatMap((g) => g.documents).length, 1);
+  } finally {
+    publicDb();
+  }
+  const finalAdmin = injectDb({ policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+  t.after(finalAdmin);
   const version = await setPolicyPublicationPaused({ expectedVersion: 1, paused: true, reason: "Synthetic pause", actor: "test" });
   assert.deepEqual(await publishPolicyPublication({ expressionId: captured.expressionId }), { status: "pending", reason: "paused" });
   assert.equal((await policyDetail(a.policyId, {})).id, a.policyId);
@@ -139,4 +172,7 @@ test("real capture publishes only independently proven facts, is idempotent and 
   assert.deepEqual(await publishPolicyPublication({ expressionId: captured.expressionId }), { status: "pending", reason: "withdrawn" });
   await assert.rejects(policyDetail(a.policyId, {}), /policy_withdrawn/);
   assert.equal((await policyPublicVersions()).length, 0);
+  const withdrawn = await policyReport(report.id, { limit: 20 });
+  assert.equal(withdrawn.item_count, 0);
+  assert.doesNotMatch(JSON.stringify(withdrawn), /Official mining decree|1\/2026/);
 });

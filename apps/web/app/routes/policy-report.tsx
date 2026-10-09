@@ -2,27 +2,30 @@ import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { Route } from "./+types/policy-report";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { PolicyReportDetailQuery } from "@amp/contracts/http/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { pageMeta } from "../lib/seo.ts";
 import { PolicyError, policyCache, PolicyTabs, Section, timeLabel, policyHref, actionClass, usePolicyRecheck } from "../features/policy/PolicyUI";
 export async function loader({ request, params }: Route.LoaderArgs) {
+  const parsed = PolicyReportDetailQuery.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  if (!parsed.success) throw withHeaders(null, { status: 400 });
   const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports/{id}", {
-    params: { path: { id: params.id } },
+    params: { path: { id: params.id }, query: parsed.data },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
   });
   if (!result.response.ok) throw withHeaders(null, { status: [404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
-  return publicSchemas.PolicyReport.parse(result.data);
+  return { report: publicSchemas.PolicyReport.parse(result.data), query: parsed.data };
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
 export function meta({ loaderData, params }: Route.MetaArgs) {
-  return pageMeta({ title: loaderData?.title ?? "法规汇总", path: `/policies/reports/${params.id}` });
+  return pageMeta({ title: loaderData?.report.title ?? "法规汇总", path: `/policies/reports/${params.id}` });
 }
 export default function PolicyReportPage() {
-  const initial = useLoaderData<typeof loader>();
-  return <Report key={initial.content_version} initial={initial} />;
+  const { report, query } = useLoaderData<typeof loader>();
+  return <Report key={`${report.content_version}:${JSON.stringify(query)}`} initial={report} query={query} />;
 }
-function Report({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
+function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>>["report"]; query: Awaited<ReturnType<typeof loader>>["query"] }) {
   const [report, setReport] = useState(initial),
     [failed, setFailed] = useState(false),
     [invalid, setInvalid] = useState(false),
@@ -34,7 +37,8 @@ function Report({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
     setFailed(false);
     try {
       const response = await createPublicClient({ baseUrl: location.origin }).GET("/api/site/policies/reports/{id}", {
-        params: { path: { id: report.id }, query: { cursor: report.next_cursor, limit: 20 } },
+        params: { path: { id: report.id }, query: { ...query, cursor: report.next_cursor } },
+        signal: AbortSignal.timeout(15_000),
       });
       if ([404, 409, 410].includes(response.response.status)) return setInvalid(true);
       if (!response.response.ok) throw new Error("unavailable");
@@ -43,10 +47,29 @@ function Report({ initial }: { initial: Awaited<ReturnType<typeof loader>> }) {
       const groups = structuredClone(report.groups);
       for (const incoming of next.groups) {
         const existing = groups.find((g) => g.kind === incoming.kind);
-        if (existing) existing.documents.push(...incoming.documents);
-        else groups.push(incoming);
+        if (!existing) groups.push(incoming);
+        else
+          for (const document of incoming.documents) {
+            const previous = existing.documents.find((d) => d.policy.id === document.policy.id);
+            if (!previous) existing.documents.push(document);
+            else
+              for (const version of document.versions)
+                if (
+                  !previous.versions.some(
+                    (v) =>
+                      v.policy_version_id === version.policy_version_id &&
+                      v.expression_id === version.expression_id &&
+                      v.document_revision_id === version.document_revision_id,
+                  )
+                )
+                  previous.versions.push(version);
+          }
       }
-      setReport({ ...next, groups });
+      setReport({
+        ...next,
+        groups,
+        pending_interpretations: [...new Map([...report.pending_interpretations, ...next.pending_interpretations].map((p) => [p.id, p])).values()],
+      });
     } catch {
       setFailed(true);
     } finally {

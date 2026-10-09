@@ -8,7 +8,7 @@ import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
 import { linkRelatedStories } from "@amp/backend/events/group";
-import { catchUpReports, composeDaily, composeMonthly, composeWeekly } from "@amp/backend/reports/compose";
+import { catchUpReports, composeDaily, composeMonthly, composeWeekly, composePolicyReports } from "@amp/backend/reports/compose";
 import { addDays, beijingDate, isoWeekLabel } from "@amp/contracts/time";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
@@ -50,6 +50,8 @@ export const SCHEDULES: Scheduled[] = [
     },
   },
   { name: "reports.catch-up", cron: "15 * * * *", run: () => catchUpReports() },
+  // The policy composer checks natural period closure and the Beijing 08:00 first-issue time.
+  { name: "policy.reports", cron: "0 * * * *", missed: "once", run: () => composePolicyReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },
   // IndexNow for new indexable pages (off unless INDEXNOW_SUBMIT_ENABLED).
   { name: "seo.indexnow", cron: "50 5 * * *", missed: "once", run: () => submitIndexNow() },
