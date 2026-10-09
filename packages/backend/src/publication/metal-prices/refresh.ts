@@ -3,6 +3,7 @@
 // reasons or the check's; a failing source fails alone. The return value is the run record the schedule keeps in
 // job_runs.detail.
 import { checkPeriod } from "./check.ts";
+import { cbrFetcher } from "./cbr.ts";
 import { nbsFetcher } from "./nbs.ts";
 import { loadMetalPriceRegistry, type MetalPriceSource, type MetalPriceSourceKey, parseMetalPriceRegistry } from "./registry.ts";
 import { fetchedAt, latestValues, newestStart, previousValues, previewLatestValues, previewPeriod, storedValues, storePeriod } from "./store.ts";
@@ -10,7 +11,7 @@ import type { FetchedPeriod, PageGetter } from "./types.ts";
 import { worldbankFetcher } from "./worldbank.ts";
 
 /** Each source's fetcher by its key: a source is added by its registry entry and a line here (TASK-0046). */
-const FETCHERS: Partial<Record<MetalPriceSourceKey, typeof nbsFetcher>> = { nbs: nbsFetcher, worldbank: worldbankFetcher };
+const FETCHERS: Partial<Record<MetalPriceSourceKey, typeof nbsFetcher>> = { nbs: nbsFetcher, worldbank: worldbankFetcher, cbr: cbrFetcher };
 
 /** One period of a source in the run record; TASK-0046 adds the series held back alone. */
 export interface MetalPricePeriodRun {
