@@ -111,3 +111,9 @@ TASK-0129运行控制：`operations/lane-controls.ts`提供27条分线/阶段/�
 登录要求一次性、同来源、同cookie的nonce；source/account限速在密码派生前执行，全球流量只延迟和脱敏告警。会话最长12小时，后台连续30分钟不活动失效。真实DB不可用返回503且不清cookie。旧admin@local仅保留原有登录资格；具名密码一旦安装，就不能再以环境旧密码登录该账号。Feishu allowlist不会赋予Owner；已明确绑定的union身份继续兼容，其他邮箱不能认领密码账户或Owner。
 
 首位Owner及遗失恢复只在 `scripts/accounts/owner-access.ts` 的受控服务器交互入口执行；没有HTTP自助认领或恢复口。本机没有执行真实开通/恢复，部署时须核对具体Owner身份和安全恢复渠道。
+
+### 网站资料（TASK-0145）
+
+`site/stats`转发`loadSiteInformation(db?)`公开只读口；`admin/settings`转发`readManagedSiteInformation(principal)`、`saveSiteInformation(principal,input,commandKey)`及`protectedSiteInformation(now?)`。新增资料只有关于正文/联系邮箱/联系页面/官方入口，初始值复用当前ABOUT.lead与价格登记清单，不在GET建库。保存先在private_ops事务取得当前Owner能力共享锁，再锁单例资料、验证revision并同事务写公开记录、不可重放的命令回执与前后审计。public_read只读资料表明确列，不可读取命令表或写入。
+
+关于页读取/api/site/information并重新核验缓存；已有价格接口只替换officialLinks，不改变报价来源/字段/采集许可，价格页仍每5分钟与重新可见/聚焦时刷新。联系邮箱同时用于已有security.txt与llms.txt路径，空值不展示、不回退旧值。保护信息仅核程序当前配置存在性及展示策略，不代表已经在线核验资质。当前ICP/公安/新闻许可读取现有构建常量，保留原展示，明确来源；NEWS_LICENSE_VALID_UNTIL是新增受控运行日期（YYYY-MM-DD），缺失/无效分别展示未记录/无法核对，余天按北京时间算。后台不能修改该日期或号码，未自动启用任何新的通知/部署动作。

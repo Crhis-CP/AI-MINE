@@ -68,9 +68,6 @@
   "apps/web/app/root.tsx": {
     "lint/security/noDangerouslySetInnerHtml": 1
   },
-  "apps/web/app/routes/about.tsx": {
-    "lint/suspicious/noArrayIndexKey": 1
-  },
   "apps/web/app/routes/admin-login.tsx": {
     "lint/a11y/noAutofocus": 1
   },

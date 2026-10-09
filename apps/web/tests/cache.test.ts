@@ -133,6 +133,27 @@ function syntheticPrices() {
   return publicSchemas.MetalPrices.parse(data);
 }
 
+const siteInformationFixture = publicSchemas.SiteInformation.parse({
+  revision: 1,
+  updatedAt: "2026-10-09T00:00:00Z",
+  about: "合成网站资料介绍",
+  contactEmail: null,
+  contactPage: null,
+  metalLinks: [{ name: "合成官方入口", url: "https://source.invalid/metals", note: "合成说明" }],
+});
+const protectedSiteFixture = {
+  siteUrl: "https://public.preview.test",
+  siteUrlOrigin: "runtime",
+  icp: { configured: true, origin: "build", footerDisplayed: true, aboutDisplayed: false },
+  publicSecurity: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
+  newsLicense: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
+  newsLicenseValidUntil: null,
+  newsLicenseDateState: "not_recorded",
+  remainingDays: null,
+  warningDays: 60,
+  productionFilingConfigured: false,
+};
+
 const apiCookies: Array<string | undefined> = [];
 const privateCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
@@ -143,6 +164,7 @@ const privateApi = createServer((req, res) => {
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
   if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
   if (privatePageFixtures) {
+    if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
     if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false }));
     if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 888, feedback: 888, runs: 888 }));
     if (req.url?.startsWith("/api/admin/models?"))
@@ -263,6 +285,7 @@ const api = createServer((req, res) => {
     }
     return res.end(JSON.stringify(syntheticPrices()));
   }
+  if (url.pathname === "/api/site/information") return res.end(JSON.stringify(siteInformationFixture));
   if (url.pathname === "/api/site/meta") {
     metaCalls++;
     const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
@@ -484,10 +507,8 @@ test("HTML and navigation share freshness; cookies do not personalize public res
   assert.match(await html.text(), /精选/);
   const plain = await fetch(`${origin}/about.data`);
   const signedIn = await fetch(`${origin}/about.data?_routes=root`, { headers: { cookie: "admin_session=private; amp_vid=reader" } });
-  assert.match(plain.headers.get("Cache-Control")!, /^public,/);
-  assert.match(plain.headers.get("X-Accel-Expires")!, /^@\d+$/);
-  assert.equal(plain.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
-  assert.equal(Date.parse(plain.headers.get("Date")!) / 1000 + 300, Number(plain.headers.get("X-Accel-Expires")!.slice(1)));
+  assert.equal(plain.headers.get("Cache-Control"), "no-cache", "editable about material must be revalidated after saving");
+  assert.equal(plain.headers.get("X-Accel-Expires"), "0");
   assert.equal(signedIn.headers.get("Set-Cookie"), null);
   assert.equal(await signedIn.text(), await plain.text());
   assert.ok(apiCookies.every((cookie) => !cookie));
@@ -1295,7 +1316,10 @@ test("six private groups reuse existing capabilities and old bookmarks have only
         assert.match(logout, /action="\/api\/auth\/logout"/);
         assert.doesNotMatch(main, /type="password"|<input/);
       } else if (path.endsWith("site")) {
-        assert.match(main, /网站资料管理暂未开放/);
+        assert.match(main, /公开介绍/);
+        assert.match(main, /保存网站资料/);
+        assert.match(main, /受保护的展示配置/);
+        assert.doesNotMatch(main, /name="(?:icp|publicSecurity|newsLicense)"/);
         assert.doesNotMatch(main, /<form|<input|<textarea|<select/);
       } else {
         assert.match(main, /通知目的地/);
@@ -1303,6 +1327,23 @@ test("six private groups reuse existing capabilities and old bookmarks have only
         assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/settings"));
       }
     }
+  } finally {
+    privatePageFixtures = false;
+  }
+});
+
+test("site information page loads its real contract and keeps protected fields outside the edit form", async () => {
+  privatePageFixtures = true;
+  try {
+    const res = await fetchWithHost(origin + "/admin/site", PRIVATE_HOST);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /合成网站资料介绍/);
+    assert.match(html, /保存网站资料/);
+    const form = html.match(/<form\b[^>]*class="space-y-5"[\s\S]*?<\/form>/)?.[0];
+    assert.ok(form);
+    assert.doesNotMatch(form, /ICP备案|公安联网备案|新闻信息服务许可证/);
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store");
   } finally {
     privatePageFixtures = false;
   }

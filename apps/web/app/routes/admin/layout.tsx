@@ -68,7 +68,9 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
   const { me } = loaderData;
   const navigation = useNavigation();
   const location = useLocation();
-  const groups = me.mustChangePassword ? [] : NAV;
+  const groups = me.mustChangePassword
+    ? []
+    : NAV.map((group) => ({ ...group, items: group.items.filter((item) => item.to !== "/admin/site" || me.owner) })).filter((group) => group.items.length);
   const flat = [...groups.flatMap((g) => g.items), ACCOUNT];
   return (
     <div className="flex min-h-dvh bg-bg">

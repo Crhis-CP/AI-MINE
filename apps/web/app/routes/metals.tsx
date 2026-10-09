@@ -229,23 +229,25 @@ export default function MetalsPage() {
               </section>
             </>
           )}
-          <section className="mt-7" aria-labelledby="metals-official-links">
-            <h2 id="metals-official-links" className="text-[15px] font-semibold text-ink">
-              官方查询入口
-            </h2>
-            <ul className="mt-3 space-y-2.5 text-[13px] leading-relaxed">
-              {prices.officialLinks.map((entry) => (
-                <li key={entry.url}>
-                  <a href={entry.url} target="_blank" rel="noopener noreferrer" className="font-medium text-accent hover:underline">
-                    {entry.name}
-                    <IconExternal size={12} className="ml-1 inline" />
-                    <NewWindow />
-                  </a>
-                  <span className="ml-2 text-ink-3">{entry.note}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+          {prices.officialLinks.length > 0 && (
+            <section className="mt-7" aria-labelledby="metals-official-links">
+              <h2 id="metals-official-links" className="text-[15px] font-semibold text-ink">
+                官方查询入口
+              </h2>
+              <ul className="mt-3 space-y-2.5 text-[13px] leading-relaxed">
+                {prices.officialLinks.map((entry) => (
+                  <li key={entry.url}>
+                    <a href={entry.url} target="_blank" rel="noopener noreferrer" className="font-medium text-accent hover:underline">
+                      {entry.name}
+                      <IconExternal size={12} className="ml-1 inline" />
+                      <NewWindow />
+                    </a>
+                    <span className="ml-2 text-ink-3">{entry.note}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </>
       )}
       <Link to="/all?category=commodity_market" className="mt-7 inline-block text-[14px] font-medium text-accent hover:underline">
