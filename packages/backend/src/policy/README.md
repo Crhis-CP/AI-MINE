@@ -16,7 +16,7 @@ TASK-0120 的纯 `validatePolicyFulltextCandidate(plan,candidates)` 消费 0119 
 
 ## 全文实际执行（TASK-0121）
 
-`@amp/backend/policy/fulltext` 的 `runPolicyFulltext(expressionId, extractionProfile, {root,maxRequests?})` 将当前原件、完整提取、0119计划、既有网关与0120程序校验接通。每次默认最多尝试2个模型请求，是可续跑的公平参数；所有部分合法才写program_validated，semantic_verified仍为false、runtime_authorization仍为none。requestsAttempted是本轮调用尝试数，实际付费与用量以物理回执为准。
+`policy/fulltext-runtime.ts` 内部模块的 `runPolicyFulltext(expressionId, extractionProfile, {root,maxRequests?})` 将当前原件、完整提取、0119计划、既有网关与0120程序校验接通。每次默认最多尝试2个模型请求，是可续跑的公平参数；所有部分合法才写program_validated，semantic_verified仍为false、runtime_authorization仍为none。requestsAttempted是本轮调用尝试数，实际付费与用量以物理回执为准。
 
 原件资源身份为sha256([expressionId,resourceUrl])，整数修订来自document_revisions.sequence，内容hash为原始资源字节hash；不借新闻修订。计划、处理控制和不可变部分检查点保存在policy schema。提示词仅industry/prompts/policy-fulltext.md；模型沿已配置policy_fulltext。已记录的真实响应可恢复检查点，原文不变的部分可跨取得修订复用；同部分的确认付费尝试在既有网关来源锁内最多两次，不因分组、取得修订或配方改变重置，unknown/busy阻止新付费。
 

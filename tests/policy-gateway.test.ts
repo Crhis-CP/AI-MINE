@@ -4,7 +4,7 @@ import { after, test } from "node:test";
 import { z } from "zod";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
-import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput, type PolicyPurpose } from "@amp/backend/providers/policy";
+import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput, type PolicyPurpose } from "../packages/backend/src/providers/policy.ts";
 import { ReceiptBusyError, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { markReceiptsCompleted, chatJson } from "@amp/backend/providers/llm";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
