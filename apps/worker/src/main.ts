@@ -2,7 +2,7 @@
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { ensureQueue, getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { registerContentJobs } from "@amp/backend/jobs/content";
-import { registerSourceJobs } from "@amp/backend/jobs/sources";
+import { registerSourceJobs, ensureSourceQueues } from "@amp/backend/jobs/sources";
 import { registerEventJobs } from "@amp/backend/jobs/events";
 import { registerNotifyJobs } from "@amp/backend/jobs/notify";
 import { registerPublicationJobs } from "@amp/backend/jobs/publication";
@@ -15,6 +15,7 @@ await initializeDb("worker");
 await ensureContentTargets();
 const boss = await getBoss();
 for (const queue of Object.values(QUEUES)) await ensureQueue(queue);
+await ensureSourceQueues();
 await registerContentJobs(boss);
 if (process.env.COLLECT_ENABLED !== "false") await registerSourceJobs(boss);
 await registerEventJobs(boss);

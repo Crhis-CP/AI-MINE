@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { dbOf, type Db, type Tx } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { enqueueSourceFetch } from "../jobs/source-queues.ts";
 import { republishKey } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
 import { fetchJsonList } from "../sources/json-list.ts";
@@ -11,7 +12,6 @@ import { assertSupportedConfig, sourceDateConfigHash } from "../sources/config-k
 import type { SourceRow } from "../sources/types.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit } from "./auth.ts";
-
 const sql = dbOf("sources");
 
 export class Conflict extends Error {
@@ -252,12 +252,12 @@ export async function createSource(input: unknown, actor: string, opts: { lane?:
 }
 
 export async function fetchNow(id: string, actor: string) {
-  const [s] = await sql<{ id: string; kind: string }[]>`SELECT id, kind FROM sources WHERE id = ${id}`;
+  const [s] = await sql<{ id: string; kind: string; lane: SourceRow["lane"] }[]>`SELECT id, kind, lane FROM sources WHERE id = ${id}`;
   if (!s) return null;
   const jobId =
     s.kind === "mp_account"
       ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual" }, { singletonKey: `mp:${id}` })
-      : await enqueue(QUEUES.fetchSource, { sourceId: id, force: true }, { singletonKey: `manual:${id}` });
+      : await enqueueSourceFetch(s.lane, { sourceId: id, force: true });
   await audit(actor, "source.fetch", `source:${id}`, null, null, { jobId });
   return { jobId };
 }

@@ -10,6 +10,7 @@ import { getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { registerContentJobs } from "@amp/backend/jobs/content";
 import { registerPublicationJobs } from "@amp/backend/jobs/publication";
+import { SOURCE_QUEUES } from "@amp/backend/jobs/sources";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { automaticFeedFixture, authoredSummary, authoredTitle, FEED_CASES } from "./automatic-feed-fixture.ts";
 
@@ -149,7 +150,7 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     const modelCalls = fixture.calls.length;
     const fetch = await admin.inject({ method: "POST", url: `/api/admin/sources/${sourceId}/fetch`, headers });
     assert.equal(fetch.statusCode, 200, fetch.body);
-    await waitFor("duplicate collection settled", () => settled(QUEUES.fetchSource, 1));
+    await waitFor("duplicate collection settled", () => settled(SOURCE_QUEUES.news, 1));
     assert.equal(fixture.feedRequests.length, 2);
     assert.equal(fixture.calls.length, modelCalls, "unchanged source bytes do not cause another paid request");
     assert.equal((await sql`SELECT count(*)::int AS n FROM articles WHERE source_id=${sourceId}`)[0].n, 3);

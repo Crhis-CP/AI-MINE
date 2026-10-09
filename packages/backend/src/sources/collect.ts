@@ -4,6 +4,8 @@ import { dbOf } from "../db.ts";
 import { identityKeyFor, upsertMaterial, materialDateHeads } from "@amp/backend/content/materials";
 import { readCurrentSourcePolicy, evaluateSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { enqueueSourceFetch, collectionEnabled, type CollectionLane } from "../jobs/source-queues.ts";
+import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { queueProcessing } from "../jobs/content.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { fetchRss } from "./rss.ts";
@@ -136,9 +138,11 @@ async function store(
   return { created, revised };
 }
 
-export async function collectSource(sourceId: string, opts: { force?: boolean } = {}): Promise<CollectResult> {
+export async function collectSource(sourceId: string, opts: { force?: boolean; lane?: CollectionLane } = {}): Promise<CollectResult> {
   const source = await readSourceDateContext(sourceId);
   if (!source) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "missing" };
+  if (!collectionEnabled(source.lane) || (opts.lane && source.lane !== opts.lane))
+    return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "lane-paused-or-changed" };
   if (!source.enabled) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "paused" };
   if (source.kind === "mp_account" || source.kind === "external") {
     // WeChat accounts are reconciled by the mp job; external sources only receive reports.
@@ -281,21 +285,38 @@ export async function collectSource(sourceId: string, opts: { force?: boolean } 
   }
 }
 
-/** Every minute: enqueue due sources (enabled, not WeChat/external), oldest due first. */
-export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDULE_BATCH || 40)): Promise<{ enqueued: number }> {
+const policyJurisdictions = new Map(POLICY_SOURCES.map((source) => [`policy-${source.id.toLowerCase()}`, source.jurisdiction]));
+/** Each lane receives its own batch; policy countries take turns before any country takes a second slot. */
+export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDULE_BATCH || 40), lane?: CollectionLane): Promise<{ enqueued: number }> {
+  if (!lane) {
+    const batches = await Promise.all((["news", "policy"] as const).map((line) => scheduleDueSources(limit, line)));
+    return { enqueued: batches.reduce((n, batch) => n + batch.enqueued, 0) };
+  }
+  if (!collectionEnabled(lane)) return { enqueued: 0 };
   const kinds: string[] = (process.env.COLLECT_KINDS || "rss,web_list,json_list").split(",");
-  // Listings fetched through Jina Reader are paid; development can leave them out.
   const skipJina = process.env.COLLECT_SKIP_JINA === "true";
   const rows = await sql<{ id: string }[]>`
     SELECT id FROM sources
-    WHERE enabled AND kind = ANY(${kinds}::text[]) AND (next_fetch_at IS NULL OR next_fetch_at <= now())
+    WHERE enabled AND lane = ${lane} AND kind = ANY(${kinds}::text[]) AND (next_fetch_at IS NULL OR next_fetch_at <= now())
       AND (NOT ${skipJina} OR config::text NOT LIKE '%r.jina.ai%')
-    ORDER BY next_fetch_at NULLS FIRST LIMIT ${limit}`;
-  for (const r of rows) {
-    await enqueue(QUEUES.fetchSource, { sourceId: r.id }, { singletonKey: r.id });
+    ORDER BY next_fetch_at NULLS FIRST, id`;
+  const countrySlots = new Map<string, number>();
+  const ordered = rows
+    .map((row, index) => {
+      const country = policyJurisdictions.get(row.id) ?? row.id;
+      const round = lane === "policy" ? (countrySlots.get(country) ?? 0) : 0;
+      countrySlots.set(country, round + 1);
+      return { ...row, round, index };
+    })
+    .sort((a, b) => a.round - b.round || a.index - b.index)
+    .slice(0, limit);
+  let enqueued = 0;
+  for (const r of ordered) {
+    const jobId = await enqueueSourceFetch(lane, { sourceId: r.id });
     await sql`UPDATE sources SET next_fetch_at = now() + interval '10 minutes' WHERE id = ${r.id}`;
+    if (jobId) enqueued += 1;
   }
-  return { enqueued: rows.length };
+  return { enqueued };
 }
 
 /**
