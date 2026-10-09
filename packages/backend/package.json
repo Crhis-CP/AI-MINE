@@ -56,6 +56,7 @@
     "./publication/policies": "./src/publication/policies.ts",
     "./publication/policies-publish": "./src/publication/policies-publish.ts",
     "./policy/fulltext": "./src/policy/fulltext-runtime.ts",
+    "./policy/interpretation": "./src/policy/interpretation-runtime.ts",
     "./providers/policy": "./src/providers/policy.ts",
     "./providers/llm": "./src/providers/llm.ts",
     "./providers/receipts": "./src/providers/receipts.ts",
