@@ -136,6 +136,7 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
           policyContext: {
             lane: "policy",
             category: purpose === "policy_fulltext" ? "policy_fulltext" : "policy_interpret",
+            partIds: input.manifest.upstream_artifacts.filter((a) => a.kind === "policy_part").map((a) => a.id),
             sourceIds: [...new Set(input.manifest.materials.map((m) => m.source_id))].sort(),
             manifestHash,
             inputFingerprint,

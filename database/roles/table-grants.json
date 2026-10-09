@@ -381,6 +381,33 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
       }
+    },
+    "policy.processing_controls": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.fulltext_runs": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.fulltext_parts": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {
