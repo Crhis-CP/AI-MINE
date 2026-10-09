@@ -3,6 +3,8 @@
 import { dbOf } from "../db.ts";
 import { beijingDay, sendAlert } from "../notify/feishu.ts";
 
+export { usageWeekly } from "./usage-weekly.ts";
+
 const sql = dbOf("reports");
 
 const pct = (a: number, b: number) => (b ? `${a >= b ? "+" : ""}${(((a - b) / b) * 100).toFixed(0)}%` : "—");

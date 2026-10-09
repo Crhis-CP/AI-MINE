@@ -15,7 +15,7 @@ import { submitIndexNow } from "@amp/backend/operations/indexnow";
 import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
-import { sourceHealthWeekly } from "@amp/backend/operations/reports";
+import { sourceHealthWeekly, usageWeekly } from "@amp/backend/operations/reports";
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
 import { refreshMetalPrices } from "@amp/backend/jobs/publication";
@@ -64,6 +64,7 @@ export const SCHEDULES: Scheduled[] = [
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },
   ...(backupConfigured() ? [{ name: "ops.backup", cron: "10 4 * * *", missed: "once" as const, run: () => runBackup() }] : []),
   { name: "reports.source-health", cron: "0 9 * * 1", missed: "once", run: () => sourceHealthWeekly() },
+  { name: "reports.usage-weekly", cron: "5 9 * * 1", missed: "once", run: () => usageWeekly() },
   ...(collecting
     ? [
         { name: "sources.schedule", cron: "* * * * *", run: () => scheduleDueSources() },
