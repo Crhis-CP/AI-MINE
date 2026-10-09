@@ -37,7 +37,7 @@ test("real private roles expose read-only usage to administrators and Owner-only
       method,
       headers: {
         "x-forwarded-host": "usage.synthetic.invalid",
-        cookie: `amp_admin=usage-http-${role}`,
+        cookie: `__Host-amp_admin=usage-http-${role}`,
         ...(body ? { "content-type": "application/json", ...(csrf ? { "x-csrf-token": "synthetic-csrf" } : {}) } : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),

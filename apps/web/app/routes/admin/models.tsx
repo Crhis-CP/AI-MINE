@@ -1,6 +1,7 @@
 import { useRevalidator } from "react-router";
 import { SITE } from "@amp/industry/site";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { ModelFallbacks, type FallbackOverview, type FallbackChange } from "../../features/admin/ModelFallbacks";
 import { ModelConnections, type ModelRegistry, type ModelCommand } from "../../features/admin/ModelConnections";
 import { adminBody, type AdminSend } from "../../lib/admin-response";
 import { apiBaseFor } from "../../../api-target";
@@ -65,7 +66,16 @@ export async function loader({ request }: Route.LoaderArgs) {
   } catch (error) {
     if (error instanceof Response && error.status === 302) throw error;
   }
-  return { ...models, registry };
+  let fallbacks: FallbackOverview | null = null;
+  try {
+    const fallbackPath = "/api/admin/model-fallbacks";
+    fallbacks = privateSchemas.ModelFallbackOverview.parse(
+      await adminGet(request, fallbackPath, (_url, init) => client.GET(fallbackPath, { headers: init.headers, signal: init.signal })),
+    );
+  } catch (error) {
+    if (error instanceof Response && error.status === 302) throw error;
+  }
+  return { ...models, registry, fallbacks };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: `模型与评测 · ${SITE.name} 后台` }];
@@ -109,6 +119,22 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
       success: kind === "test" ? "测试已提交，可在下方查看结果" : "模型接入已保存",
     });
   };
+  const changeFallback = async (capability: string, value: FallbackChange) => {
+    const client = createPrivateClient({ baseUrl: window.location.origin });
+    return run("PUT", `/api/admin/model-fallbacks/${encodeURIComponent(capability)}`, value, {
+      send: (_url, init) =>
+        client.PUT("/api/admin/model-fallbacks/{capability}", {
+          headers: init.headers,
+          signal: init.signal,
+          params: { path: { capability } },
+          body: privateSchemas.ModelFallbackChange.parse(value),
+        }),
+      parse: (result) => privateSchemas.ModelFallbackRoute.parse(result),
+      success: "备用设置已保存",
+      label: `fallback-${capability}-${value.expected_revision}-${value.backup_model ?? "none"}-${value.source_ids.join(",")}-${value.reason}`,
+      onConflict: () => undefined,
+    });
+  };
   const readProbe = async (id: string) => {
     const client = createPrivateClient({ baseUrl: window.location.origin });
     const result = await client.GET("/api/admin/model-connection-tests/{id}", { params: { path: { id } } });
@@ -137,6 +163,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
       }
     >
       <ModelConnections registry={m.registry} owner={!!me.owner} manage={!!me.modelsManage || !!me.owner} onCommand={command} onReadProbe={readProbe} />
+      <ModelFallbacks data={m.fallbacks} manage={!!me.modelsManage || !!me.owner} onChange={changeFallback} />
       <div className="grid gap-5">
         {m.capabilities.map((c) => {
           const total = c.usage.reduce((a, u) => a + u.calls, 0);
