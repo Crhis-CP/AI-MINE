@@ -22,6 +22,12 @@ const PublicPolicy = z.strictObject({
   expires_at: SourcePolicySchema.shape.expires_at,
   licence_label_zh: SourcePolicySchema.shape.licence_label_zh,
   grants: z.record(z.enum(publicPurposes), z.array(z.strictObject({ scope: PermissionScopeSchema, expires_at: SourcePolicySchema.shape.expires_at }))),
+  processing: z
+    .strictObject({
+      decision: PermissionDecisionSchema,
+      grants: z.array(z.strictObject({ scope: PermissionScopeSchema, expires_at: SourcePolicySchema.shape.expires_at })),
+    })
+    .optional(),
 });
 
 export class SourcePolicyConflict extends Error {
@@ -31,6 +37,12 @@ export class SourcePolicyConflict extends Error {
 /** The caller cannot supply this projection or copy private evidence into the public login. */
 function publicProjection(policy: SourcePolicy) {
   return PublicPolicy.parse({
+    processing: {
+      decision: policy.permissions.process_locally,
+      grants: policy.evidence
+        .filter((e) => e.capabilities.includes("process_locally") && !["source_objection", "owner_instruction", "legal_requirement"].includes(e.kind))
+        .map((e) => ({ scope: e.scope, expires_at: e.valid_until })),
+    },
     source_id: policy.source_id,
     permission_version: policy.permission_version,
     permissions: Object.fromEntries(publicPurposes.map((purpose) => [purpose, policy.permissions[purpose]])),
@@ -69,6 +81,28 @@ export async function readCurrentPublicPolicy(sourceId: string, db: Db = sql) {
   if (policy.source_id !== row.source_id || policy.permission_version !== Number(row.permission_version))
     throw new Error("Public source policy identity mismatch");
   return policy;
+}
+
+/** Only the minimum eligibility projection is readable here, never the private processing permission evidence. */
+export async function publicProcessingAllowed(sourceId: string, resource: z.infer<typeof EvaluateSourcePolicyInputSchema>["resource"], now = Date.now()) {
+  const policy = await readCurrentPublicPolicy(sourceId);
+  if (
+    policy?.processing?.decision !== "allow" ||
+    policy.conditions.length ||
+    policy.scope.excluded_content.length ||
+    (policy.expires_at !== null && Date.parse(policy.expires_at) <= now) ||
+    (resource.attachment && !policy.attachments_in_scope)
+  )
+    return false;
+  const url = new URL(resource.url),
+    matches = (scope: SourcePolicy["scope"]) =>
+      scope.hosts.includes(url.hostname) &&
+      scope.path_prefixes.some((p) => url.pathname.startsWith(p)) &&
+      (!scope.document_types.length || (resource.document_type !== null && scope.document_types.includes(resource.document_type)));
+  return (
+    matches(policy.scope) &&
+    policy.processing.grants.some((g) => !g.scope.excluded_content.length && matches(g.scope) && (g.expires_at === null || Date.parse(g.expires_at) > now))
+  );
 }
 
 /** All permission edits hold this source's exclusive transaction lock through audit and commit. */

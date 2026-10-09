@@ -287,7 +287,13 @@ export async function lockSourceDateConfiguration(tx: Tx, sourceId: string, expe
 import { appendSourcePolicy, readCurrentSourcePolicy } from "../sources/permission-store.ts";
 import { SOURCE_PURPOSES, SourcePolicySchema } from "@amp/contracts/source-policy";
 import { SourceCreateRequest } from "@amp/contracts/http/private";
-export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "../sources/permission-store.ts";
+export {
+  readCurrentSourcePolicy,
+  readCurrentPublicPolicy,
+  publicProcessingAllowed,
+  lockCurrentSourcePolicies,
+  evaluateSourcePolicy,
+} from "../sources/permission-store.ts";
 export { parseSourceDate } from "../sources/date-extraction.ts";
 
 /** Explicit permission edit; no HTTP caller is activated by this storage capability. */

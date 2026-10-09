@@ -13168,6 +13168,42 @@
             }
           },
           {
+            "in": "query",
+            "name": "edition",
+            "required": false,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "jurisdiction",
+            "required": false,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "theme",
+            "required": false,
+            "schema": {
+              "enum": [
+                "investment_company",
+                "mineral_rights",
+                "land_construction",
+                "safety_environment",
+                "labour_community",
+                "tax_finance",
+                "trade_transport"
+              ],
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "id",
             "required": true,

@@ -5,6 +5,7 @@ import { OAUTH_PROBE_PATHS, resolveRedirect } from "@amp/contracts/http-policy";
 import { config } from "@amp/backend/config";
 import { dbOf } from "@amp/backend/db";
 import { registerSite } from "./routes/site.ts";
+import { registerPolicies } from "./routes/policies.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
 import { registerAdmin } from "./routes/admin.ts";
@@ -111,6 +112,7 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     registerMcp(app);
     registerOg(app);
     registerSite(app);
+    registerPolicies(app);
     registerStatic(app);
     registerV1(app);
     registerV1Fallbacks(app);

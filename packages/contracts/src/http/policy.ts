@@ -415,6 +415,11 @@ export const PolicyReadingQuery = z.strictObject({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 export const PolicyHistoryQuery = z.strictObject({ cursor: text.optional(), limit: z.coerce.number().int().min(1).max(50).default(20) });
+export const PolicyReportDetailQuery = PolicyHistoryQuery.extend({
+  edition: z.coerce.number().int().positive().optional(),
+  jurisdiction: text.optional(),
+  theme: PolicyTheme.optional(),
+});
 export const PolicyReportQuery = z.strictObject({
   kind: z.enum(["weekly", "monthly"]),
   jurisdiction: text.optional(),
@@ -446,7 +451,7 @@ export const policyRoutes = {
   sitePolicyReading: route("sitePolicyReading", "/api/site/policies/:id/reading", PolicyReadingPage, PolicyReadingQuery),
   sitePolicyHistory: route("sitePolicyHistory", "/api/site/policies/:id/history", PolicyHistoryPage, PolicyHistoryQuery),
   sitePolicyReports: route("sitePolicyReports", "/api/site/policies/reports", PolicyReportList, PolicyReportQuery),
-  sitePolicyReport: route("sitePolicyReport", "/api/site/policies/reports/:id", PolicyReport, PolicyHistoryQuery),
+  sitePolicyReport: route("sitePolicyReport", "/api/site/policies/reports/:id", PolicyReport, PolicyReportDetailQuery),
   sitePolicyThread: route("sitePolicyThread", "/api/site/policy-threads/:id", PolicyThread),
   siteJurisdictions: route("siteJurisdictions", "/api/site/jurisdictions", PolicyJurisdictionList),
   publicPolicies: route("publicPolicies", "/api/v1/policies", PolicyCursorResponse, PolicyCursorQuery),
