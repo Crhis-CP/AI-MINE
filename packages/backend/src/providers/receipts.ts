@@ -235,17 +235,33 @@ export async function readPolicyResponse(receipt: { receiptId: number; attemptId
       receiptId: number;
       attemptId: string;
       purpose: string;
+      model: string | null;
+      service: string;
       status: string;
       response: unknown;
       request: Record<string, unknown>;
       usage: Record<string, unknown> | null;
     }[]
   >`
-    SELECT r.id AS "receiptId",a.id::text AS "attemptId",r.purpose,r.status,a.response,r.request,a.usage
+    SELECT r.id AS "receiptId",a.id::text AS "attemptId",r.purpose,a.model,a.service,r.status,a.response,r.request,a.usage
     FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.id=r.response_attempt_id AND a.attempt=r.attempts
     WHERE r.id=${receipt.receiptId} AND a.id::text=${receipt.attemptId} AND a.status='received' AND a.response=r.response
       AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify') AND r.origin='live' AND a.origin='live'`;
   return row ? { ...row, knownUsage: knownTranslationUsage(row.usage) } : null;
+}
+
+/** Recover a just-failed JSON parse from the real response pointer; callers still verify the exact input hashes. */
+export async function readPolicyResponseForReceipt(receiptId: number) {
+  const [row] = await sql<{ attemptId: string | null }[]>`SELECT response_attempt_id::text AS "attemptId" FROM receipts WHERE id=${receiptId}`;
+  return row?.attemptId ? readPolicyResponse({ receiptId, attemptId: row.attemptId }) : null;
+}
+
+/** Same immutable derived input after a restart/control renewal; the consumer still verifies every input hash. */
+export async function readPolicyStageResponses(stageId: string) {
+  const rows = await sql<{ receiptId: number; attemptId: string }[]>`SELECT id AS "receiptId",response_attempt_id::text AS "attemptId" FROM receipts
+    WHERE purpose IN ('policy_group','policy_interpret','policy_verify') AND origin='live' AND response_attempt_id IS NOT NULL
+      AND request->'manifest'->'upstream_artifacts' @> ${sql.json([{ kind: "policy_stage_input", id: stageId }])}::jsonb ORDER BY id DESC`;
+  return (await Promise.all(rows.map((row) => readPolicyResponse(row)))).filter((row) => row !== null);
 }
 
 export async function settlePolicyResponse(db: Db, receipt: { receiptId: number; attemptId: string | null }, accepted: boolean | null) {
