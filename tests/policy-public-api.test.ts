@@ -7,7 +7,16 @@ import { injectDb } from "@amp/backend/db";
 import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
-import { Policy, PolicyCard, PolicyListResponse, PolicyScopeList, PolicyReadingPage, PolicyCursorResponse, PolicyReport } from "@amp/contracts/http/public";
+import {
+  Policy,
+  PolicyCard,
+  PolicyListResponse,
+  PolicyScopeList,
+  PolicyReadingPage,
+  PolicyCursorResponse,
+  PolicyReport,
+  PolicyJurisdictionList,
+} from "@amp/contracts/http/public";
 import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
 import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
 import { newShortId } from "@amp/backend/lib/ids";
@@ -31,6 +40,9 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     const scope = await app.request("/api/site/policies/scope");
     assert.equal(scope.status, 200);
     assert.ok(PolicyScopeList.parse(await scope.json()).items.every((x: { readable_count: number }) => x.readable_count === 0));
+    const countriesResponse = await app.request("/api/site/jurisdictions");
+    assert.equal(countriesResponse.status, 200);
+    assert.ok(PolicyJurisdictionList.parse(await countriesResponse.json()).every((j) => j.policy_count === 0));
     const seed = async (label: string) => {
       const sourceId = `policy-read-${label}`,
         id = `pol_${newShortId(12)}`,
@@ -207,6 +219,8 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     assert.ok(!JSON.stringify(redactedReport).includes(c.id));
     assert.ok(!(await (await app.request("/feed/policies.xml")).text()).includes(c.id));
     assert.ok(!(await (await app.request("/sitemap.xml")).text()).includes(c.id));
+    const countries = PolicyJurisdictionList.parse(await (await app.request("/api/site/jurisdictions")).json());
+    assert.equal(countries.find((j) => j.code === "AR")?.policy_count, 2);
     const after = await counts();
     assert.deepEqual(
       { ...after, editions: before!.editions, revisions: before!.revisions },

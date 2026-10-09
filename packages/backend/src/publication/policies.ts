@@ -7,6 +7,7 @@ import { currentPolicyHeads } from "../policy/public-state.ts";
 import { readCurrentPublicPolicy, evaluateSourcePolicy, publicProcessingAllowed } from "@amp/backend/admin/sources";
 import { stableJson, sha256 } from "../lib/ids.ts";
 import { encodeCursor, decodeCursor, queryBinding } from "../lib/cursor.ts";
+import { currentNewsJurisdictionCounts } from "./news-geography.ts";
 import { decoratePolicyNavigation, decoratePolicyRelationships, readPolicyThread } from "./policy-relations.ts";
 const sql = dbOf("publication");
 export class PolicyReadError extends Error {
@@ -182,7 +183,16 @@ export async function policyScope(jurisdictions = false) {
       kind: j.kind,
       ...("parent" in j && j.parent ? { parent: j.parent } : {}),
     });
-  if (jurisdictions) throw new PolicyReadError(503, "jurisdiction_counts_unavailable");
+  if (jurisdictions) {
+    const news = await currentNewsJurisdictionCounts();
+    return JURISDICTIONS.filter((j) => j.news_scope || j.policy_scope).map((j) => ({
+      ...jurisdiction(j),
+      news_scope: j.news_scope,
+      policy_scope: j.policy_scope,
+      news_count: news.counts[j.id] ?? 0,
+      policy_count: counts.get(j.id) ?? 0,
+    }));
+  }
   return {
     items: JURISDICTIONS.filter((j) => j.policy_scope).map((j) => ({ jurisdiction: jurisdiction(j), readable_count: counts.get(j.id) ?? 0 })),
     note: "篇数仅统计当前实际可公开文书；登记范围不代表已完成供稿。",
