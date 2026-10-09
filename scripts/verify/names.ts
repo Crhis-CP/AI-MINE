@@ -274,6 +274,12 @@ export async function mcpRequests(): Promise<McpRequest[]> {
     [T.hot, { limit: 3 }, true],
     [T.story, { public_id: "no-such-story" }, false],
     [T.daily, {}, false],
+    [T.item, { id: "no-such-item" }, false],
+    [T.report, { kind: "weekly", key: "latest" }, false],
+    [T.topics, { limit: 2 }, true],
+    [T.policy, { id: "no-such-policy" }, false],
+    [T.policies, { limit: 2 }, true],
+    [T.policyThread, { id: "no-such-thread" }, false],
   ];
   return [
     {

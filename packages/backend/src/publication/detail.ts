@@ -16,6 +16,8 @@ interface DetailRow extends ItemRow {
   body_status: string;
   content_revision: number;
   source_site_fulltext: boolean;
+  source_syndicate_fulltext: boolean;
+  machine_summary: string | null;
   translation: StoredTranslation;
 }
 
@@ -44,6 +46,7 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
     SELECT ${ITEM_COLUMNS}, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
+      s.syndicate_fulltext AS source_syndicate_fulltext,p.summary AS machine_summary,
       jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
         'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
     ${ITEM_FROM}
@@ -150,5 +153,30 @@ export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDe
       ? { ...detail.body, zh: bodyLanguage === "zh" ? detail.body.zh : null, original: bodyLanguage === "original" ? detail.body.original : null }
       : null,
     outline: selectedHtml ? withOutline(selectedHtml).outline : [],
+  };
+}
+
+/** Machine reading never inherits the website's source-excerpt fallback or its full-text licence. */
+export async function machineItemDetail(id: string, language: "zh" | "original" = "zh", now = new Date()) {
+  const found = await loadItemDetail(id, now);
+  if (found.kind !== "found" || (found.row.selected && (!found.row.visible_after || found.row.visible_after > now))) return null;
+  const { score: _score, ...view } = siteItemDetail(found.detail, language === "original"),
+    allowed = found.row.syndicate && found.row.source_syndicate_fulltext && found.row.source_site_fulltext && view.readingMode === "full";
+  const html = view.body?.zh ?? view.body?.original ?? null,
+    capacity = html !== null && Buffer.byteLength(html) > 256 * 1024,
+    readable = allowed && html !== null && !capacity;
+  return {
+    item: { ...view, summary: found.row.machine_summary, body: readable ? view.body : null, outline: readable ? view.outline : [] },
+    reading: {
+      redistribution: allowed ? ("allowed" as const) : ("restricted" as const),
+      state: readable ? (view.body?.complete ? ("complete" as const) : ("partial" as const)) : ("link_only" as const),
+      reason: !allowed
+        ? "全文站外再分发未获许可，请到本站或原文阅读。"
+        : capacity
+          ? "正文超过单次机器输出容量，请到本站或原文完整阅读。"
+          : !html
+            ? "所选语言正文当前不可用，请到本站或原文阅读。"
+            : null,
+    },
   };
 }
