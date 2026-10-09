@@ -300,8 +300,9 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       !relationNames.has(n) &&
       !(tokens[n].kind === "word" && syntax.has(value(n)))
     ) {
-      const catalogFormatter = wordAt(n, "to_char") && punctuation(n - 1, ".") && wordAt(n - 2, "pg_catalog") && !punctuation(n - 3, ".");
-      if (tokens[n].kind === "quoted" || (!functions.has(value(n)) && !catalogFormatter) || (punctuation(n - 1, ".") && value(n - 2) !== "pg_catalog"))
+      const catalogScalar =
+        ["to_char", "pg_column_size"].some((name) => wordAt(n, name)) && punctuation(n - 1, ".") && wordAt(n - 2, "pg_catalog") && !punctuation(n - 3, ".");
+      if (tokens[n].kind === "quoted" || (!functions.has(value(n)) && !catalogScalar) || (punctuation(n - 1, ".") && value(n - 2) !== "pg_catalog"))
         unknown.push(`opaque SQL function ${value(n)}`);
     }
   return { relations, unknown: [...new Set(unknown)], shape: tokens.map((t) => (t.kind === "value" || t.kind === "hole" ? "?" : t.text)).join(" ") };

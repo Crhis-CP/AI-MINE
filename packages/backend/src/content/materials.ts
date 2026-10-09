@@ -6,7 +6,7 @@ import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult } from "@amp/contracts/time-assertion";
 import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
-export { updateMaterialSourceDate, materialDateHeads } from "./date-evidence.ts";
+export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
 
 const sql = dbOf("content");
 
