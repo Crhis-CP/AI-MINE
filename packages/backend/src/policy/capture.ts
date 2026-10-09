@@ -23,7 +23,7 @@ type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedRespons
 export async function capturePolicyMaterial(sourceId: string, materialId: string, get: Get = guardedFetch) {
   const source = await readSourceDateContext(sourceId),
     material = await policyMaterialReference(materialId, sourceId);
-  if (!source || source.lane !== "policy" || !source.enabled || !material) return { status: "unavailable" as const };
+  if (source?.lane !== "policy" || !source.enabled || !material) return { status: "unavailable" as const };
   const configured = policyProfile(source),
     permission = await readCurrentSourcePolicy(sourceId);
   if (!configured) return { status: "needs_configuration" as const };

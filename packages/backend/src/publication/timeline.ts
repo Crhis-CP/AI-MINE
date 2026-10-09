@@ -229,3 +229,7 @@ export async function nextRelease(q: TimelineQuery, now: Date): Promise<string |
     WHERE p.visibility = 'public' AND p.selected AND p.visible_after > ${now} ${filterSql(q)}`;
   return row?.t ? row.t.toISOString() : null;
 }
+
+// Policy HTTP composition uses this existing frozen publication entry.
+export { listPolicies, policyScope, policyDetail, policyReading, policyHistory, policyThread, PolicyReadError } from "./policies.ts";
+export { listPolicyReports, policyReport } from "./policies-reports.ts";

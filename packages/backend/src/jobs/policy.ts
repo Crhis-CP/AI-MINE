@@ -1,5 +1,6 @@
 import type { PgBoss } from "pg-boss";
 import { z } from "zod";
+import { publishPolicyPublication } from "../publication/policies-publish.ts";
 import { sourceCollectionEnabled } from "../config.ts";
 import { ensureQueue, enqueue, recordRun, shutdownSignal } from "./queue.ts";
 import {
@@ -28,7 +29,7 @@ export async function sweepPolicyMaterials() {
   }
   return { ...discovery, enqueued };
 }
-export async function registerPolicyJobs(boss: PgBoss, ports: PolicyAutomationPorts) {
+export async function registerPolicyJobs(boss: PgBoss, ports: PolicyAutomationPorts = { publish: publishPolicyPublication }) {
   await ensurePolicyQueues();
   for (const stage of POLICY_STAGES)
     await boss.work<PolicyJob>(`policy.${stage}`, { localConcurrency: 2, pollingIntervalSeconds: 2 }, async ([job]) => {

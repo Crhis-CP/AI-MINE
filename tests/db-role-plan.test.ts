@@ -76,6 +76,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "policy.quality_releases",
       "publication.policy_ids",
       "publication.policy_documents",
+      "publication.policy_publication_control",
       "publication.policy_quality_windows",
       "publication.policy_editions",
       "policy.interpretation_runs",

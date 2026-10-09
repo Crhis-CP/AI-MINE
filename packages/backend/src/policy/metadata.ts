@@ -60,7 +60,7 @@ export async function readPolicyMetadataObservation(expressionId: string): Promi
   const metadata = row.metadata,
     source = await readSourceDateContext(row.source_id),
     current = await readCurrentSourcePolicy(row.source_id);
-  if (!source || source.lane !== "policy" || !current || current.permission_version !== Number(row.permission_version)) return null;
+  if (source?.lane !== "policy" || !current || current.permission_version !== Number(row.permission_version)) return null;
   const configured = policyProfile(source),
     material = await policyMaterialReference(metadata.materialId, metadata.sourceId);
   if (

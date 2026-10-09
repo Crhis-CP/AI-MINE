@@ -1,7 +1,7 @@
 // Cron-style schedules (Asia/Shanghai). Each run is recorded in job_runs; missed slots run once.
 import type { PgBoss } from "pg-boss";
 import { ensureQueue, recordRun } from "@amp/backend/jobs/queue";
-import { sweepUnprocessed } from "@amp/backend/jobs/content";
+import { sweepUnprocessed, sweepPolicyMaterials } from "@amp/backend/jobs/content";
 import { translatePending } from "@amp/backend/editorial/translate";
 import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect";
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
@@ -31,6 +31,7 @@ const collecting = process.env.COLLECT_ENABLED !== "false";
 
 export const SCHEDULES: Scheduled[] = [
   { name: "content.sweep", cron: "*/5 * * * *", run: sweepUnprocessed },
+  { name: "policy.pipeline.sweep", cron: "* * * * *", run: sweepPolicyMaterials },
   // Repair missing per-item translation dispatch; this cron never calls a model itself.
   { name: "content.translate", cron: "*/5 * * * *", run: () => translatePending() },
   { name: "hot.rank", cron: "*/5 * * * *", run: () => computeHotRanking() },

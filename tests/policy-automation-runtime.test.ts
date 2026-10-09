@@ -5,6 +5,10 @@ import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { getBoss, stopBoss, recordRun } from "@amp/backend/jobs/queue";
+import { publishPolicyPublication } from "../packages/backend/src/publication/policies-publish.ts";
+import { listPolicies, policyDetail, policyReading } from "../packages/backend/src/publication/policies.ts";
+import { installPolicyQualityRelease } from "../packages/backend/src/policy/quality.ts";
+import { sha256 } from "../packages/backend/src/lib/ids.ts";
 import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
 import { readPolicyWorkflow, advancePolicyMaterial, discoverPolicyWorkflows, type PolicyAutomationPorts } from "../packages/backend/src/policy/automation.ts";
 import { loadPolicyInterpretation } from "../packages/backend/src/policy/interpretation-runtime.ts";
@@ -40,7 +44,7 @@ const published: { expressionId: string; fulltextRunId?: string }[] = [];
 const publish: PolicyAutomationPorts["publish"] = async (input) => {
   published.push(input);
   if (input.fulltextRunId) assert.equal((await loadPolicyInterpretation(input.fulltextRunId))?.status, "semantic_verified");
-  return { status: "published", mode: "basic_facts", pending: "quality", policyId: "synthetic-id", editionId: "synthetic-edition" };
+  return publishPolicyPublication(input);
 };
 const root = new AbortController().signal;
 
@@ -60,6 +64,10 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
   const final = await readPolicyWorkflow(f.sourceId, f.materialId);
   assert.equal(final?.status, "semantic_verified");
   assert.equal(final.reason, "quality");
+  const publicList = await listPolicies({ page: 1, page_size: 20 });
+  const visible = publicList.items.find((item) => item.original_url === f.url);
+  assert.equal(visible?.interpretation_state, "basic_facts", "synthetic execution does not grant real quality qualification");
+  assert.equal(visible?.summary, null);
   assert.ok(final.fulltext_run_id);
   assert.ok(published.some((input) => input.fulltextRunId === final.fulltext_run_id));
   assert.ok(requests.length >= 4);
@@ -75,6 +83,41 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
   const before = requests.length;
   await advancePolicyMaterial({ lane: "policy", sourceId: f.sourceId, materialId: f.materialId }, "acquire", ports, { root, collectionEnabled: true });
   assert.equal(requests.length, before, "periodic unchanged recheck only republishes trusted saved output");
+  const loaded = (await loadPolicyInterpretation(final.fulltext_run_id))!;
+  await installPolicyQualityRelease({
+    sourceIds: [f.sourceId],
+    languages: [loaded.run.snapshot.language],
+    fulltextRecipe: loaded.run.plan.context.recipeVersion,
+    interpretationRecipe: loaded.recipeVersion,
+    models: loaded.models,
+    reviewedBy: "owner",
+    reviewEvidence: "SYNTHETIC isolated test qualification only; no actual Owner quality approval",
+    evaluationHash: sha256(`synthetic-only:${loaded.contentHash}`),
+    reviewedAt: new Date(Date.now() - 1000).toISOString(),
+    validUntil: new Date(Date.now() + 3600_000).toISOString(),
+  });
+  await advancePolicyMaterial({ lane: "policy", sourceId: f.sourceId, materialId: f.materialId }, "acquire", ports, { root, collectionEnabled: true });
+  const complete = await publishPolicyPublication({ expressionId: final.expression_id!, fulltextRunId: final.fulltext_run_id });
+  assert.equal(complete.status, "published");
+  if (complete.status !== "published") return;
+  assert.equal(complete.mode, "complete");
+  const detail = await policyDetail(complete.policyId, {});
+  assert.equal(detail.interpretation_state, "complete");
+  assert.ok(detail.guide);
+  assert.ok(detail.impacts.length);
+  assert.ok(detail.reading?.next_cursor);
+  const reading = await policyReading(complete.policyId, {
+    expression_id: detail.reading!.expression_id,
+    document_revision_id: detail.reading!.document_revision_id,
+    cursor: detail.reading!.next_cursor!,
+    limit: 20,
+  });
+  assert.ok(reading.blocks.length);
+  const retry = await publishPolicyPublication({ expressionId: final.expression_id! });
+  assert.equal(retry.status, "published");
+  assert.equal("editionId" in retry && retry.editionId, complete.editionId);
+  assert.equal("mode" in retry && retry.mode, "complete");
+  assert.equal(requests.length, before, "quality recheck and reading must never call a model");
 });
 
 test("unknown paid outcomes stay blocked across unchanged reacquisition, while a changed original starts from its current revision", async () => {
@@ -139,4 +182,33 @@ test("official landing-page metadata binds the linked PDF, and missing actual vi
   for (const stage of ["acquire", "fulltext", "vision"] as const) await advancePolicyMaterial(job, stage, ports, { root, collectionEnabled: true });
   assert.equal((await readPolicyWorkflow(f.sourceId, f.materialId))?.status, "needs_configuration");
   assert.equal(requests.length, before);
+});
+
+test("collection and model switches leave resumable work without making a new network or model request", async () => {
+  const f = await fixture(),
+    job = { lane: "policy" as const, sourceId: f.sourceId, materialId: f.materialId };
+  await discoverPolicyWorkflows();
+  let modelCalls = 0;
+  const ports: PolicyAutomationPorts = {
+    publish,
+    capture: (sourceId, materialId) => capturePolicyMaterial(sourceId, materialId, f.get),
+    fulltext: async () => {
+      modelCalls++;
+      throw new Error("model switch must be checked before runtime dispatch");
+    },
+  };
+  await advancePolicyMaterial(job, "acquire", ports, { root, collectionEnabled: false });
+  assert.equal(f.hits(), 0);
+  assert.equal((await readPolicyWorkflow(f.sourceId, f.materialId))?.status, "collection_paused");
+  await advancePolicyMaterial(job, "acquire", ports, { root, collectionEnabled: true });
+  config.modelCallsEnabled = false;
+  try {
+    await advancePolicyMaterial(job, "fulltext", ports, { root, collectionEnabled: true });
+    const row = await readPolicyWorkflow(f.sourceId, f.materialId);
+    assert.equal(row?.stage, "fulltext");
+    assert.equal(row?.status, "pending");
+    assert.equal(modelCalls, 0);
+  } finally {
+    config.modelCallsEnabled = true;
+  }
 });
