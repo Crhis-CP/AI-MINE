@@ -43,3 +43,5 @@ robots缓存24小时，404允许；暂不可取得保留明确延后。匹配规
 `directoryMaterialState(source,materialId)` 和 `directoryCoverageEvidence(sourceIds,start,end)` 经既有 `@amp/backend/sources/collect` 转发。当前轮未闭合先让出原件取得；同元数据保留唤醒键和 next_check_at，标记变化或退出后重新列入获得新键，旧事件与重复事件不会重置复查时点。成功检查后的回扫最多7日，明确更短的来源间隔仍保留。公开读取不调用这些写路径。
 
 coverage按真实结构轮回执计 complete/incomplete，报告期末尚未完成的轮计 incomplete；没有适用证据的来源计 missing。成功HTTP不替代完整回执。目录记录数/当前记录数/不同文书数保存在回执；原件取得成功由 policy 工作流及原件回执单独证明，公开数仍由 publication 合格版本计算。源码没有为真实来源虚构分页字段或启用 held 来源，尚未配置结构profile的web/json法规来源会明确报缺配置，RSS成功也不产生完整目录证明。
+
+TASK0144补充真实WordPress目录家族：`pageNumber: {kind:"link_neighbors",header:"link",parameter:"page"}`从响应前后页链接核页码，要求同一集合，拒绝跨主机/改分类、矛盾或缺失关系；不是照抄请求page。`recordScope:{field,anyOf}`逐条核对官方分类，越界使整轮失败，不过滤后假装总数一致。来源声明0记录/0页时保留declaredTotalPages=0，并以一次物理空响应完成校验。读取配方已升为directory-v2，恢复中的旧配方从首页重开。真实配置覆盖与缺口见`docs/research/policy-directory-profiles.md`；当前AR-008仍无全轮complete证明，BLM缺总记录字段不填猜测。

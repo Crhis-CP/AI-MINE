@@ -110,7 +110,7 @@ export async function appendDirectoryPage(scan: DirectoryScan, page: DirectoryPa
       await tx`SELECT record_id FROM acquisition.directory_records WHERE scan_id=${scan.id} AND record_id=ANY(${page.entries.map((e) => e.recordId)}::text[])`;
     if (duplicates.length) throw new Error("Directory record ID repeats across pages");
     await tx`INSERT INTO acquisition.directory_pages(scan_id,page_number,purpose,fetched_at,url,body_hash,body,fingerprint,evidence)
-      VALUES(${scan.id},${page.page},'data',${page.fetchedAt},${page.url},${page.bodyHash},${await retainedBody(tx, scan, source, page)},${page.fingerprint},${tx.json({ totalPages: page.totalPages, totalRecords: page.totalRecords, actualCount: page.entries.length, recordIds: page.entries.map((e) => e.recordId) })})`;
+      VALUES(${scan.id},${page.page},'data',${page.fetchedAt},${page.url},${page.bodyHash},${await retainedBody(tx, scan, source, page)},${page.fingerprint},${tx.json({ totalPages: page.totalPages, declaredTotalPages: page.declaredTotalPages, totalRecords: page.totalRecords, actualCount: page.entries.length, recordIds: page.entries.map((e) => e.recordId) })})`;
     for (const entry of page.entries) {
       await tx`INSERT INTO acquisition.directory_seen(source_id,id_namespace,record_id,first_seen_at,page_scan_id)
         VALUES(${scan.source_id},${scan.contract.idNamespace},${entry.recordId},${page.fetchedAt},${scan.id}) ON CONFLICT DO NOTHING`;
@@ -237,6 +237,7 @@ export async function applyDirectoryScan(scan: DirectoryScan, probe: DirectoryPa
       ON CONFLICT(source_id) DO UPDATE SET scan_id=EXCLUDED.scan_id,applied_at=EXCLUDED.applied_at`;
     await receipt(tx, current, "complete", {
       totalPages: current.total_pages,
+      declaredTotalPages: probe.declaredTotalPages,
       directoryRecords: current.total_records,
       currentRecords: records.length,
       documentCount,

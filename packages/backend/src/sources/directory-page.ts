@@ -3,13 +3,15 @@ import { createHash } from "node:crypto";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "@amp/backend/lib/url";
 import { crawlFetch } from "../acquisition/crawl.ts";
-import type { GuardedFetchOptions } from "../lib/http-fetch.ts";
+import type { GuardedFetchOptions, GuardedResponse } from "../lib/http-fetch.ts";
 import { getPath, jsonListDocument, parseSourceJson, rawDateAt } from "./json-list.ts";
+import { linkPageNumber } from "./directory-links.ts";
 import { htmlListDocument } from "./web-list.ts";
 import type { SourceRow, Candidate } from "./types.ts";
-import type { DirectoryProfile, DirectoryField } from "./directory-profile.ts";
+import type { DirectoryProfile, DirectoryField, DirectoryCount } from "./directory-profile.ts";
 export type DirectoryEntry = {
   recordId: string;
+  scopeValues?: Array<string | number>;
   documentId: string | null;
   language: string | null;
   role: "current" | "history";
@@ -26,6 +28,7 @@ export type DirectoryPage = {
   fingerprint: string;
   page: number;
   totalPages: number;
+  declaredTotalPages: number;
   totalRecords: number;
   entries: DirectoryEntry[];
 };
@@ -62,7 +65,7 @@ function scalar(field: DirectoryField, context: Context) {
   if (typeof raw !== "string" || !raw.trim()) throw new DirectoryStructureError("来源标识或结构字段缺失");
   return raw.trim();
 }
-function count(spec: DirectoryProfile["pageNumber"], context: Context) {
+function count(spec: DirectoryCount, context: Context) {
   let raw = scalar(spec.field, context);
   if (spec.groupSeparator) {
     const escaped = spec.groupSeparator.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -119,11 +122,19 @@ export async function readDirectoryPage(source: SourceRow, profile: DirectoryPro
     body: request.body ? JSON.stringify(request.body) : undefined,
     timeoutMs: 25_000,
     crawlKey: probeKey,
-    crawlResponseHeaders: [profile.pageNumber.field, profile.totalPages.field, profile.totalRecords.field].flatMap((f) =>
-      f.kind === "header" ? [f.name.toLowerCase()] : [],
-    ),
+    crawlResponseHeaders: [
+      ...[profile.totalPages.field, profile.totalRecords.field, ...("field" in profile.pageNumber ? [profile.pageNumber.field] : [])].flatMap((f) =>
+        f.kind === "header" ? [f.name.toLowerCase()] : [],
+      ),
+      ...("kind" in profile.pageNumber ? [profile.pageNumber.header] : []),
+    ],
   };
   const response = await crawlFetch(request.url, options);
+  return decodeDirectoryPage(source, profile, page, response);
+}
+
+/** Deterministic replay of the same official response; no synthetic defaults for missing source totals. */
+export function decodeDirectoryPage(source: SourceRow, profile: DirectoryProfile, page: number, response: GuardedResponse): DirectoryPage {
   const evidence = {
     url: response.url,
     fetchedAt: response.fetchedAt ?? new Date().toISOString(),
@@ -155,9 +166,13 @@ export async function readDirectoryPage(source: SourceRow, profile: DirectoryPro
       rawRecords = htmlListDocument(html, base, source, fetchedAt).map((row) => ({ ...row, data: null }));
     }
     const context: Context = { html, data, headers: response.headers },
-      actualPage = count(profile.pageNumber, context),
-      totalPages = count(profile.totalPages, context),
-      totalRecords = count(profile.totalRecords, context);
+      declaredTotalPages = count(profile.totalPages, context),
+      totalRecords = count(profile.totalRecords, context),
+      totalPages = declaredTotalPages === 0 && totalRecords === 0 ? 1 : declaredTotalPages,
+      actualPage =
+        "kind" in profile.pageNumber
+          ? linkPageNumber(response, profile.pageNumber.parameter, declaredTotalPages, totalRecords)
+          : count(profile.pageNumber, context);
     if (actualPage !== page || totalPages < 1 || page < profile.request.firstPage || page >= profile.request.firstPage + totalPages)
       throw new DirectoryStructureError("来源页码或总页数不一致");
     if (totalPages > profile.maxPages || totalRecords > profile.maxRecords) throw new DirectoryStructureError("目录超出已配置工程容量；未计完整");
@@ -167,6 +182,19 @@ export async function readDirectoryPage(source: SourceRow, profile: DirectoryPro
         candidate = row.candidate;
       candidate.url = httpUrl(candidate.url);
       const recordId = profile.recordId.kind === "url" ? identityKeyForUrl(candidate.url) : scalar(profile.recordId, ctx);
+      let scopeValues: Array<string | number> | undefined;
+      if (profile.recordScope) {
+        const raw = value(profile.recordScope.field, ctx),
+          values = Array.isArray(raw) ? raw : [raw];
+        if (
+          !values.length ||
+          values.length > 100 ||
+          !values.every((v) => typeof v === "string" || (typeof v === "number" && Number.isSafeInteger(v))) ||
+          !values.some((v) => profile.recordScope!.anyOf.some((allowed) => allowed === v))
+        )
+          throw new DirectoryStructureError("目录记录不属于声明的官方分类范围");
+        scopeValues = values as Array<string | number>;
+      }
       if (!recordId) throw new DirectoryStructureError("来源记录标识不可用");
       let role: "current" | "history" = "current";
       if (profile.role.mode === "field") {
@@ -177,6 +205,7 @@ export async function readDirectoryPage(source: SourceRow, profile: DirectoryPro
       }
       const entry = {
         recordId,
+        ...(scopeValues ? { scopeValues } : {}),
         documentId: profile.documentId ? scalar(profile.documentId, ctx) : null,
         language: profile.language ? scalar(profile.language, ctx) : null,
         role,
@@ -195,6 +224,7 @@ export async function readDirectoryPage(source: SourceRow, profile: DirectoryPro
           candidate.url,
           candidate.title,
           candidate.sourceDateObservation?.raw ?? null,
+          scopeValues ?? null,
         ]),
       );
       return { ...entry, hash };
@@ -209,9 +239,10 @@ export async function readDirectoryPage(source: SourceRow, profile: DirectoryPro
       body: response.body,
       page: actualPage,
       totalPages,
+      declaredTotalPages,
       totalRecords,
       entries,
-      fingerprint: sha256(stableJson([actualPage, totalPages, totalRecords, entries.map((e) => [e.recordId, e.hash])])),
+      fingerprint: sha256(stableJson([actualPage, declaredTotalPages, totalPages, totalRecords, entries.map((e) => [e.recordId, e.hash])])),
     };
   } catch (error) {
     const failure = error instanceof DirectoryStructureError ? error : new DirectoryStructureError(String(error));
