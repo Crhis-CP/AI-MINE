@@ -7,6 +7,7 @@ import { policyProfile } from "./automation-profile.ts";
 import { capturePolicyMaterial } from "./capture.ts";
 import { runPolicyFulltext } from "./fulltext-runtime.ts";
 import { processingControl } from "./fulltext-store.ts";
+import { runPolicyVision } from "./vision-runtime.ts";
 import { runPolicyInterpretation } from "./interpretation-runtime.ts";
 import type { ExtractionProfile } from "./extraction.ts";
 
@@ -111,8 +112,7 @@ export async function advancePolicyMaterial(
     return save(row, "acquire", result.status, "全文尚未通过完整性要求", interval);
   }
   if (stage === "vision") {
-    if (!ports.vision) return save(row, "acquire", "needs_configuration", "原件视觉处理尚未配置", interval);
-    const vision = await ports.vision(row.expression_id, profile.extraction, { root: options.root, maxRequests: 2 });
+    const vision = await (ports.vision ?? runPolicyVision)(row.expression_id, profile.extraction, { root: options.root, maxRequests: 2 });
     if (vision.status === "partial") return save(row, "vision", "partial", null, 0);
     if (vision.status === "extracted") return save(row, "fulltext", "pending", "vision_extracted", 0);
     return save(row, "acquire", vision.status === "not_required" ? "incomplete" : vision.status, "原件版面或图件尚未完整", interval);

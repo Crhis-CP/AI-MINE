@@ -1,5 +1,6 @@
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
@@ -117,4 +118,25 @@ test("vision partial resumes independently, extracted returns to fulltext and re
   assert.equal((await readPolicyWorkflow(f.sourceId, f.materialId))?.status, "incomplete");
   await advancePolicyMaterial(job, "acquire", ports, { root, collectionEnabled: true });
   assert.equal(visionCalls, 2);
+});
+
+test("official landing-page metadata binds the linked PDF, and missing actual visual configuration stops without a text-model fallback", async () => {
+  const f = await fixture(),
+    job = { lane: "policy" as const, sourceId: f.sourceId, materialId: f.materialId };
+  f.profile.originalLinkSelector = "a.original";
+  await sql`UPDATE sources SET config=${sql.json({ policyProfile: f.profile })} WHERE id=${f.sourceId}`;
+  const pdf = readFileSync("tests/fixtures/policy/text.pdf"),
+    url = `${f.url}.pdf`;
+  const get = async (address: string) => {
+    if (address === url) return { status: 200, url, headers: new Headers({ "content-type": "application/pdf" }), body: pdf, text: () => "" };
+    const response = await f.get(address);
+    response.body = Buffer.from(response.body.toString().replace("</html>", `<a class="original" href="${url}">Original</a></html>`));
+    return response;
+  };
+  const ports: PolicyAutomationPorts = { publish, capture: (sourceId, materialId) => capturePolicyMaterial(sourceId, materialId, get) };
+  await discoverPolicyWorkflows();
+  const before = requests.length;
+  for (const stage of ["acquire", "fulltext", "vision"] as const) await advancePolicyMaterial(job, stage, ports, { root, collectionEnabled: true });
+  assert.equal((await readPolicyWorkflow(f.sourceId, f.materialId))?.status, "needs_configuration");
+  assert.equal(requests.length, before);
 });
