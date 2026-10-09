@@ -735,7 +735,7 @@
       {
         "url": "/sitemap.xml",
         "status": 200,
-        "contains": ["pr9-editorial-public-full", "$STORY", "/daily/$DAILY"]
+        "contains": ["pr9-editorial-public-full", "$STORY", "/daily/$DAILY", "/metals"]
       }
     ]
   },

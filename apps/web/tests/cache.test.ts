@@ -62,6 +62,74 @@ const footerItem = {
   hasTranslation: false,
   bodyLanguage: "zh",
 };
+let priceMode: "full" | "stale" | "partial" | "empty" | "error" = "full";
+function syntheticPrices() {
+  const period = { start: "2026-09-11", end: "2026-09-20", label: "合成报价期" };
+  const q = (key: string, source: string, value: string | null, percent: string | null, decimals: number | null = null) => ({
+    key,
+    source,
+    title: `合成报价 ${key} · 最后一段`,
+    spec: key === "a" ? "合成规格" : null,
+    footnote: key === "a" ? 1 : null,
+    value,
+    unit: "合成单位",
+    currency: "CNY",
+    decimals,
+    period: value ? period : null,
+    change: percent ? { percent, previous: { value: "100.0", period } } : null,
+  });
+  const data = publicSchemas.MetalPrices.parse({
+    generatedAt: "2026-10-06T04:00:00Z",
+    intro: "合成价格测试导语",
+    sources: ["甲", "乙"].map((tag) => ({
+      key: tag,
+      name: `合成来源${tag}`,
+      tag,
+      status: "fresh",
+      latest: { label: "合成报价期", release: { label: "合成发布", url: "https://source.invalid/release", date: null } },
+    })),
+    latest: [
+      { tag: "甲", label: "合成新期", stale: false, extras: [{ metals: ["合成乙"], label: "合成旧期", stale: false }] },
+      { tag: "乙", label: "合成新期", stale: false, extras: [] },
+    ],
+    metals: [
+      { key: "first", name: "合成甲", quotes: [q("a", "甲", "108770.0", "1.0"), q("b", "乙", "64.599999999999994", "-1.6", 2)] },
+      { key: "second", name: "合成乙", quotes: [q("c", "甲", "200.0", "0.0"), q("d", "乙", null, null)] },
+    ],
+    notes: [
+      { ref: 1, text: "合成脚注见{link}。", link: { name: "合成许可", url: "https://source.invalid/license" } },
+      { ref: null, text: "合成普通说明", link: null },
+    ],
+    officialLinks: ["甲", "乙"].map((name, i) => ({ name: `合成官方入口${name}`, note: `合成入口说明${name}`, url: `https://source.invalid/official-${i}` })),
+  });
+  if (priceMode === "stale") {
+    data.sources[0]!.status = "stale";
+    data.latest[0]!.stale = true;
+  }
+  if (priceMode === "empty" || priceMode === "partial") {
+    const stopped = new Set(priceMode === "empty" ? data.sources.map((source) => source.key) : ["乙"]);
+    for (const source of data.sources)
+      if (stopped.has(source.key)) {
+        source.status = "empty";
+        source.latest = null;
+      }
+    for (const latest of data.latest)
+      if (stopped.has(latest.tag)) {
+        latest.label = null;
+        latest.stale = false;
+        latest.extras = [];
+      }
+    for (const metal of data.metals)
+      for (const quote of metal.quotes)
+        if (stopped.has(quote.source)) {
+          quote.value = null;
+          quote.period = null;
+          quote.change = null;
+        }
+  }
+  return publicSchemas.MetalPrices.parse(data);
+}
+
 const apiCookies: Array<string | undefined> = [];
 const privateCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
@@ -135,6 +203,13 @@ const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   apiCookies.push(req.headers.cookie);
   res.setHeader("Content-Type", "application/json");
+  if (url.pathname === "/api/site/metal-prices") {
+    if (priceMode === "error") {
+      res.statusCode = 503;
+      return res.end(JSON.stringify({ code: "temporarily_unavailable" }));
+    }
+    return res.end(JSON.stringify(syntheticPrices()));
+  }
   if (url.pathname === "/api/site/meta") {
     metaCalls++;
     const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
@@ -656,26 +731,63 @@ test("until the first pick exists the unfiltered home page shows the newest item
   }
 });
 
-test("金属价格 shows the official LME entry and the notice, never a number or a table", async () => {
-  const res = await fetch(`${origin}/metals`);
+test("金属价格 renders registry-driven quotes, exact decimal text, footnotes and all five states", async () => {
+  priceMode = "full";
+  const res = await fetch(`${origin}/metals`),
+    html = await res.text();
   assert.equal(res.status, 200);
-  const html = await res.text();
-  const start = html.indexOf(">", html.indexOf("data-metals")) + 1;
-  const article = html.slice(start, html.indexOf("</article>", start));
-  const text = article.replace(/<[^>]+>/g, "");
-  for (const line of [
-    "金属价格",
-    "通过伦敦金属交易所（LME）官方入口查看金属行情。",
-    "LME 官方金属行情",
-    "本站目前不展示或转售 LME 报价。行情的时间、计价单位与使用规则以 LME 官方页面为准。",
-    "站内价格表尚未开通，暂无已授权价格数据。",
-    "浏览矿业市场动态",
-  ])
-    assert.ok(text.includes(line), line);
-  assert.doesNotMatch(text, /\d/);
-  assert.doesNotMatch(article, /<table/);
-  assert.match(article, /<a href="https:\/\/www\.lme\.com\/metals" target="_blank" rel="noopener noreferrer"/);
-  assert.match(article, /href="\/all\?category=commodity_market"/);
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
+  const table = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
+  const text = table.replace(/<[^>]+>/g, "");
+  assert.match(text, /品种报价价格较上期规格/);
+  assert.match(table, /scope="rowgroup" rowspan="2"/i);
+  for (const value of ["合成甲", "合成乙", "合成报价 a", "甲", "乙", "合成规格", "108,770.0", "64.60", "+1.0%", "−1.6%", "0.0%", "暂缺"])
+    assert.ok(text.includes(value), value);
+  assert.match(table, /text-hot[^>]*>\+1.0%/);
+  assert.match(table, /text-ok[^>]*>−1.6%/);
+  assert.match(table, /text-ink-3[^>]*>0.0%/);
+  assert.doesNotMatch(table, /2026-|合成报价期/);
+  assert.match(html, /href="#n1"[^>]*aria-label="见说明第 1 条"/);
+  assert.match(html, /id="n1"/);
+  assert.match(html, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
+  assert.ok(html.includes("合成旧期") && html.includes("合成普通说明"));
+  assert.ok(!html.slice(html.indexOf("data-metals"), html.indexOf("</article>")).includes("{link}"));
+  const links = [...html.matchAll(/<a href="(https:\/\/source.invalid\/official-\d+)"[^>]*>([\s\S]*?)<\/a>/g)];
+  assert.equal(links.length, syntheticPrices().officialLinks.length);
+  for (const [, url, label] of links) {
+    const link = syntheticPrices().officialLinks.find((link) => link.url === url)!;
+    assert.ok(label!.includes(link.name));
+    assert.ok(!label!.includes(link.note));
+  }
+  try {
+    for (const mode of ["stale", "partial", "empty", "error"] as const) {
+      priceMode = mode;
+      const response = await fetch(`${origin}/metals`),
+        body = await response.text();
+      assert.equal(response.status, mode === "error" ? 503 : 200);
+      if (mode === "stale") {
+        assert.ok(body.includes("数据已陈旧"));
+        assert.ok(body.includes("108,770.0"));
+      }
+      if (mode === "partial") {
+        assert.ok(body.includes("暂无已授权价格数据"));
+        assert.ok(body.includes("暂缺"));
+        assert.ok(body.includes("108,770.0"));
+      }
+      if (mode === "empty") {
+        assert.ok(body.includes("暂无已授权价格数据"));
+        assert.doesNotMatch(body, /<table|id="metals-notes"/);
+        assert.ok(body.includes("合成官方入口甲"));
+      }
+      if (mode === "error") {
+        assert.match(response.headers.get("Cache-Control") ?? "", /no-store/);
+        assert.ok(body.includes("价格数据暂时无法读取"));
+        assert.doesNotMatch(body, /<table|暂无已授权价格数据|合成价格测试导语|合成官方入口/);
+      }
+    }
+  } finally {
+    priceMode = "full";
+  }
   // Desktop sidebar entry; on phones the bottom bar keeps “更多” highlighted.
   assert.match(html, /<aside[\s\S]*href="\/metals"[\s\S]*<\/aside>/);
   const tabbar = html.slice(html.indexOf('aria-label="底部导航"'));
