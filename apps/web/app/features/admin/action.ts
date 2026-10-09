@@ -9,6 +9,9 @@ export interface AdminMe {
   name: string;
   csrf: string;
   dev: boolean;
+  owner?: boolean;
+  modelsManage?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export class AdminError extends Error {

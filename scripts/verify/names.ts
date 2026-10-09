@@ -223,6 +223,8 @@ export const SITE_OUTPUTS: ReadonlyArray<readonly [path: string, statuses: reado
   ["/daily", [200]],
   ["/daily/archive", [200]],
   ["/topics", [200]],
+  ["/metals", [200]],
+  ["/api/site/metal-prices", [200]],
   ["/starred", [200]],
   ["/agent", [200]],
   ["/about", [200]],
@@ -272,6 +274,12 @@ export async function mcpRequests(): Promise<McpRequest[]> {
     [T.hot, { limit: 3 }, true],
     [T.story, { public_id: "no-such-story" }, false],
     [T.daily, {}, false],
+    [T.item, { id: "no-such-item" }, false],
+    [T.report, { kind: "weekly", key: "latest" }, false],
+    [T.topics, { limit: 2 }, true],
+    [T.policy, { id: "no-such-policy" }, false],
+    [T.policies, { limit: 2 }, true],
+    [T.policyThread, { id: "no-such-thread" }, false],
   ];
   return [
     {

@@ -24,6 +24,30 @@
     "workbook_sheet_code",
     "workbook_sheet"
   ],
+  "source_target_fields": [
+    "target_id",
+    "record_ids",
+    "primary_country",
+    "country",
+    "country_name",
+    "subnational",
+    "institution",
+    "source_type",
+    "topic",
+    "normalized_url"
+  ],
+  "source_record_fields": [
+    "record_id",
+    "target_id",
+    "country",
+    "country_name",
+    "subnational",
+    "institution_display",
+    "original_url",
+    "normalized_url",
+    "workbook_sheet",
+    "original_row"
+  ],
   "mirrors": {
     "records": "source-records-321.csv",
     "targets": "source-targets-320.csv"

@@ -1,6 +1,6 @@
 // Web list pages: HTML with selectors, and Markdown through Jina Reader.
 import * as cheerio from "cheerio";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import { crawlFetch as guardedFetch, crawlExternal, crawlReadKey } from "../acquisition/crawl.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { readable, type ExtractedBody } from "../content/extract.ts";
 import { jinaRead } from "../providers/jina.ts";
@@ -152,12 +152,17 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
   if (!url) throw new FetchError("url missing");
   if (url.startsWith(JINA_PREFIX)) {
     const target = url.slice(JINA_PREFIX.length);
-    const page = await jinaRead(target, {
-      purpose: "source_listing",
-      subject: `source:${source.id}`,
-      cacheToleranceSeconds: source.config.cacheToleranceSeconds,
-      perRead: true,
-    });
+    const page = await crawlExternal(target, "source_listing", () =>
+      jinaRead(target, {
+        purpose: "source_listing",
+        lane: source.lane,
+        runtimeControl: source.collectionControl,
+        subject: `source:${source.id}`,
+        cacheToleranceSeconds: source.config.cacheToleranceSeconds,
+        perRead: true,
+        readKey: crawlReadKey(),
+      }),
+    );
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
   const res = await guardedFetch(url, {
@@ -207,25 +212,26 @@ export function fromMarkdown(md: string, base: string, source: SourceRow): Candi
   return out;
 }
 
-export function fromHtml(html: string, base: string, source: SourceRow): Candidate[] {
+export function htmlListDocument(html: string, base: string, source: SourceRow, observedAt?: string) {
   const c = source.config;
   const $ = cheerio.load(html);
-  const out: Candidate[] = [];
-  const seen = new Set<string>();
-  const listing = String(c.url ?? base).replace(JINA_PREFIX, "");
-  // Sections of the listing page are posts only for sources that keep fragments as identity.
-  const sectionsArePosts = c.preserveUrlFragment === true;
+  const out: { html: string; candidate: Candidate | null }[] = [];
   const itemSel: string | undefined = c.itemSelector;
   const nodes = itemSel ? $(itemSel).toArray() : $("a[href]").toArray();
   for (const node of nodes) {
     const el = $(node);
     const linkEl = c.linkSelector ? (el.is(c.linkSelector) ? el : el.find(c.linkSelector).first()) : el.is("a") ? el : el.find("a[href]").first();
     const url = absolute(linkEl.attr("href"), base);
-    if (!url || seen.has(url) || !allowed(url, source)) continue;
-    if (!sectionsArePosts && listingItself(url, listing)) continue;
+    if (!url) {
+      out.push({ html: $.html(node), candidate: null });
+      continue;
+    }
     const titleEl = c.titleSelector ? (el.is(c.titleSelector) ? el : el.find(c.titleSelector).first()) : linkEl;
     const title = collapseWhitespace(titleEl.text() || linkEl.attr("title") || "");
-    if (!title) continue;
+    if (!title) {
+      out.push({ html: $.html(node), candidate: null });
+      continue;
+    }
     let raw = "",
       locator = "listing publication field absent";
     if (c.publishedAtSelector) {
@@ -236,12 +242,27 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
       raw = new RegExp(c.publishedAtRegex).exec($.html(el))?.[1] ?? "";
       locator = `regex:${c.publishedAtRegex}`;
     }
-    const sourceDateObservation = observeSourceDate(source, url, raw, locator);
-    seen.add(url);
+    const sourceDateObservation = observeSourceDate(source, url, raw, locator, { observedAt });
     const time = previewSourceDate(sourceDateObservation);
-    out.push({ url, title, publishedAt: sourcePublishedAt(time, c.publishedAtUtcOffset), sourceDateObservation });
+    out.push({ html: $.html(node), candidate: { url, title, publishedAt: sourcePublishedAt(time, c.publishedAtUtcOffset), sourceDateObservation } });
   }
   return out;
+}
+
+export function fromHtml(html: string, base: string, source: SourceRow): Candidate[] {
+  const seen = new Set<string>(),
+    listing = String(source.config.url ?? base).replace(JINA_PREFIX, "");
+  return htmlListDocument(html, base, source).flatMap(({ candidate }) => {
+    if (
+      !candidate ||
+      seen.has(candidate.url) ||
+      !allowed(candidate.url, source) ||
+      (!source.config.preserveUrlFragment && listingItself(candidate.url, listing))
+    )
+      return [];
+    seen.add(candidate.url);
+    return [candidate];
+  });
 }
 
 export async function fetchWebList(source: SourceRow): Promise<Candidate[]> {
@@ -277,17 +298,25 @@ export async function fetchDetail(
   summary: string | null;
   body: ExtractedBody | null;
 }> {
-  const observedAt = new Date().toISOString();
+  let observedAt = new Date().toISOString();
   const d = source.config.detail ?? {};
   const jinaListing = String(source.config.url ?? "").startsWith(JINA_PREFIX);
   const dateInJina = need.date && jinaListing && !!d.publishedAtRegex;
   const titleInJina = need.title && jinaListing && !!d.titleRegex;
-  const jina = dateInJina || titleInJina ? (await jinaRead(url, { purpose: "source_detail", subject: `source:${source.id}` })).raw : null;
+  const jina =
+    dateInJina || titleInJina
+      ? (
+          await crawlExternal(url, "source_detail", () =>
+            jinaRead(url, { purpose: "source_detail", lane: source.lane, runtimeControl: source.collectionControl, subject: `source:${source.id}` }),
+          )
+        ).raw
+      : null;
   let html: string | null = null;
   let body: ExtractedBody | null = null;
   if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary) {
     const res = await guardedFetch(url, { timeoutMs: 20_000 });
     if (res.status === 200) {
+      observedAt = res.fetchedAt ?? observedAt;
       html = res.text();
       if (need.body && /html/.test(res.headers.get("content-type") ?? "")) {
         try {

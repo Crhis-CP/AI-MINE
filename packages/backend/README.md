@@ -86,3 +86,39 @@ R-03/R-10最小接线：collectSource支持config.language明确声明，经BCP4
 升级时若旧进程尚未写任何段检查点或观察，claim事务按原subject精确恢复本材料/修订的观察；pending/unknown只接当前实际ordinal，received/completed须核原response指针与字节。无证明仍留null并阻止新付费，不猜共享材料归属，也不改变付费缓存键。
 
 首次入库静默提醒（TASK-0115）只描述`articles.discovered_at`没有新值，不把成功抓取、首次入库和公开互相推导。`collectFindings`的可选内部观察回调复用本轮已有读数；`checkAlerts`仅在正常检查取得晚于静默起点且不晚于当前时间的新首次入库时报告恢复。采集关闭、来源全暂停或worker启动宽限不构成恢复证据，原提醒状态保留；旧持久停机标题不用于恢复文案。此观察不增加查询、持久字段或公开接口，也不改阈值、重复频率及其他提醒。
+
+### 采集分线调度（TASK-0111）
+
+`news.sources.fetch` 与 `policy.sources.fetch` 分别领取，每线有独立采集开关与并发；定时与手动入队用同一来源单例，旧 `sources.fetch` 在 pg-boss 事务中转投与完成。事务失败不会先确认旧消息。原 `sources.schedule` 仍记录资讯调度，法规使用 `policy.sources.schedule`，新闻静默和真实新增口径不变。每线独立取批次，法规按登记法域交错选最早到期来源；成功与失败继续持久更新 next_fetch_at。环境开关仅为部署配置，不替代带原因、操作人和到期时间的暂停管理，也不改变来源许可。
+
+### 法规模型调用（TASK-0100）
+
+`providers/policy.ts` 内部模块的 `createPolicyGateway({root, resolve})` 返回 `chat({input:{id,version}, purpose, schema})`，purpose 为 policy_fulltext/group/interpret/verify。`resolve` 是可信政策模块端口：从当前原件、完整输入计划与控制修订重建 PreparedPolicyInput（SourceInputManifest、system/user、promptVersion、recipeVersion、controlRevision、processingAllowed），不能照抄调用方声明。网关复核实际输入指纹、逐来源当前用途许可和临时 ProcessingPermit，并调用现有 chatJson/paidRequest。四个新模型能力沿用现有管理员/环境/default 优先级，不改任何既有选择。
+
+回执保存 policy lane、类别、来源集合、输入 manifest 及指纹。一个来源存在 pending/unknown 或未返回明确用量的已收响应时，新付费调用不能通过改变输入或模型绕过；已有原始响应仍可复用。每次尝试的 usage/cost 沿用现有账本，缺少实际费用保持未知，现有价格表估算仍与实际区分。返回后输入/许可/暂停改变时抛 PolicyInputChangedError，携带真实回执与尝试 ID，不返回可晋升候选。调用方应把正常返回的回执与业务结果在同一现有事务中结算，网关不授予发布资格。完整输入门、逐原文部分的付费尝试上限与输出业务校验属于政策处理计划/能力消费者。
+
+
+TASK-0129运行控制：`operations/lane-controls.ts`提供27条分线/阶段/持有者记录与行级revision。runtimeControlSnapshot捕获news/policy及all的全部相关持有者版本；assertRuntimeControl在调用方READ COMMITTED事务持有共享锁，拒绝暂停或期间发生过控制变化的结果升格。部署/系统读取laneControlHolderRevisions并只更新自己；修改返回该事务实际生成的版本供后续释放，不能读到另一部署的新版本后误解锁。期限过期只告警，不能自动恢复。
+
+中央paidRequest先复用既有物理回执，再检查新调用的控制；收到了响应仍先存用量/费用。chatJson可带runtimeControl，只用于claim前围栏，不进入prompt、logical key或传输。确知的lane仅写新request元数据，不推断改写历史。模型处理暂停不关闭普通采集/清洗或已公开读路径。新增原件/材料和采集成功游标、模型分析/翻译/视觉、向量批次及公开晋升分别在相应事务核对控制；向量存储使用events/embedding-store，来源成功游标使用admin/sources的recordSourceCollectionSuccess，不新增跨模块写。
+
+公开暂停不阻止撤回/收紧；延后的来源重投、正文和法规阶段保留待办并延后续跑，不耗尽为终态失败。日常HTTP只能控制owner持有者的processing或collection+processing，all操作显式确认且all自动处理期限最多24小时；真实Owner账号能力另由0138绑定，现有session+CSRF不等于Owner角色。
+
+### TASK-0138 具名账号
+
+既有 `admin/auth` 出口提供 `currentAccount/listAccounts/createAdministrator/changeAdministrator/changeOwnPassword`。HTTP身份只来自当前会话；Owner的账号操作在相同事务重核能力，目标账户的版本与会话撤销用同一锁。create/action接受可选commandKey（HTTP必需），同编号同载荷重放既有结果，载荷不符拒绝；密码只存Argon2id，命令摘要也是独立慢哈希，响应与审计不含密码。
+
+登录要求一次性、同来源、同cookie的nonce；source/account限速在密码派生前执行，全球流量只延迟和脱敏告警。会话最长12小时，后台连续30分钟不活动失效。真实DB不可用返回503且不清cookie。旧admin@local仅保留原有登录资格；具名密码一旦安装，就不能再以环境旧密码登录该账号。Feishu allowlist不会赋予Owner；已明确绑定的union身份继续兼容，其他邮箱不能认领密码账户或Owner。
+
+首位Owner及遗失恢复只在 `scripts/accounts/owner-access.ts` 的受控服务器交互入口执行；没有HTTP自助认领或恢复口。本机没有执行真实开通/恢复，部署时须核对具体Owner身份和安全恢复渠道。
+
+### 网站资料（TASK-0145）
+
+`site/stats`转发`loadSiteInformation(db?)`公开只读口；`admin/settings`转发`readManagedSiteInformation(principal)`、`saveSiteInformation(principal,input,commandKey)`及`protectedSiteInformation(now?)`。新增资料只有关于正文/联系邮箱/联系页面/官方入口，初始值复用当前ABOUT.lead与价格登记清单，不在GET建库。保存先在private_ops事务取得当前Owner能力共享锁，再锁单例资料、验证revision并同事务写公开记录、同一命令不重复执行的记录与前后审计。public_read只读资料表明确列，不可读取命令表或写入。
+
+关于页读取/api/site/information并重新核验缓存；已有价格接口只替换officialLinks，不改变报价来源/字段/采集许可，价格页仍每5分钟与重新可见/聚焦时刷新。联系邮箱同时用于已有security.txt与llms.txt路径，空值不展示、不回退旧值。保护信息仅核程序当前配置存在性及展示策略，不代表已经在线核验资质。当前ICP/公安/新闻许可读取现有构建常量，保留原展示，明确来源；NEWS_LICENSE_VALID_UNTIL是新增受控运行日期（YYYY-MM-DD），缺失/无效分别展示未记录/无法核对，余天按北京时间算。后台不能修改该日期或号码，未自动启用任何新的通知/部署动作。
+
+TASK-0139费用保护：`admin/settings`既有入口转发usageProtectionOverview/changeUsageProtection/changeUsagePrice/recoverUsageBreaker；读取仍为管理员，三个写口在同事务requireOwner并校验版本和记录理由。`providers/usage-protection.ts`内部readUsageProtection(db?)可复用调用方只读事务，提供配置/价格/真实已开范围/缺项，未计价金额不填0。`admin/models`内部规范身份读取modelConfigurationIdentity(key,db?)/currentModelConfiguration(capability,db?)仅返回key/service/requestedModel/configuration_hash，不暴露密钥或质量资格。
+
+paidRequest先免费复用回执，再按已核CNY价格做保守预留；chatJson每次实际attempt绑定非秘密transport配置hash。旧无hash unknown/pending不能因迁移而变新key重复付费，已有received可免费接续。重复输入、单对象、日总异常按明确lane/能力/来源/对象持久熔断；未知费用仍占用，Owner只恢复所选范围，人工/部署/system暂停互不释放。taskBudget={key,limit_micros}是来源研究的可选固定任务上界，同任务已结算+未知+在途+新预留原子比较；任务执行器提供不可变key/限额，不是月度额度。usageProtectionTick与usageMonthly由现有worker调度，HTTP不运行模型、发送通知或补算费用。
+

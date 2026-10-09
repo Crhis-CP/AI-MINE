@@ -1,6 +1,6 @@
 // RSS 2.0 / Atom / RDF feeds.
 import { XMLParser } from "fast-xml-parser";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
@@ -129,7 +129,7 @@ export interface RssRead {
 }
 
 export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}): Promise<RssRead> {
-  const observedAt = new Date().toISOString();
+  let observedAt = new Date().toISOString();
   const url = String(source.config.feedUrl ?? "");
   if (!url) throw new FetchError("feedUrl missing");
   // Config changes can alter parsing/filtering even when the upstream bytes did not change.
@@ -153,6 +153,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
     return { candidates: [], validator, notModified: true };
   }
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
+  observedAt = res.fetchedAt ?? observedAt;
   let doc: Record<string, any>;
   let dateDoc: DateDocument;
   try {
@@ -172,9 +173,10 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
     const items = arr(doc.rss?.channel?.item ?? doc["rdf:RDF"]?.item);
     const dateItems = arr(dateDoc.rss?.channel?.item ?? dateDoc["rdf:RDF"]?.item);
     for (const [index, it] of items.entries()) {
-      const link = text(it.link) || text(it.guid);
+      const href = text(it.link) || text(it.guid);
       const title = collapseWhitespace(stripTags(text(it.title)));
-      if (!link || !title) continue;
+      if (!href || !title) continue;
+      const link = new URL(href, url).toString();
       const contentEncoded = text(it["content:encoded"]);
       const description = text(it.description);
       const bodyHtmlRaw = contentEncoded || (summaryIsBody ? description : "");
@@ -222,7 +224,15 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
       const summary = text(e.summary);
       const bodyHtml = content ? sanitizeBody(content, link) : null;
       const entryUrl = new URL(link, url).toString();
-      const sourceDateObservation = observeSourceDate(source, entryUrl, text(dateEntries[index]?.published), `feed.entry[${index}].published`, { observedAt });
+      const dateField = source.config.publishedAtField === "updated" ? "updated" : "published";
+      const sourceDateObservation = observeSourceDate(
+        source,
+        entryUrl,
+        text(dateEntries[index]?.[dateField]),
+        `${dateField === "updated" ? "Atom updated:" : ""}feed.entry[${index}].${dateField}`,
+        { observedAt },
+      );
+      if (dateField === "updated" && !source.config.sourceDate?.basis?.trim()) sourceDateObservation.basis = "Atom updated";
       const time = previewSourceDate(sourceDateObservation);
       out.push({
         url: entryUrl,

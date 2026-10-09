@@ -1,3 +1,6 @@
+import { registerSourceTargets } from "./routes/admin-source-targets.ts";
+import { registerAdminSite } from "./routes/admin-site.ts";
+import { registerSiteInformation } from "./routes/site-information.ts";
 import Fastify, { type FastifyInstance } from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { randomUUID } from "node:crypto";
@@ -5,8 +8,12 @@ import { OAUTH_PROBE_PATHS, resolveRedirect } from "@amp/contracts/http-policy";
 import { config } from "@amp/backend/config";
 import { dbOf } from "@amp/backend/db";
 import { registerSite } from "./routes/site.ts";
+import { registerPolicies } from "./routes/policies.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
+import { registerOperationsMcp } from "./routes/mcp-ops.ts";
+import { registerUsageProtection } from "./routes/admin-usage-protection.ts";
+
 import { registerAdmin } from "./routes/admin.ts";
 import { registerV1, registerV1Fallbacks } from "./routes/v1.ts";
 import { registerFeeds } from "./routes/feeds.ts";
@@ -104,13 +111,20 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
 
   if (privateRoutes) {
     registerAdmin(app);
+    registerSourceTargets(app);
+    registerOperationsMcp(app);
+    registerUsageProtection(app);
+
     registerAdminAuth(app);
+    registerAdminSite(app);
   }
   if (publicRoutes) {
     registerFeeds(app);
     registerMcp(app);
     registerOg(app);
     registerSite(app);
+    registerSiteInformation(app);
+    registerPolicies(app);
     registerStatic(app);
     registerV1(app);
     registerV1Fallbacks(app);

@@ -1,5 +1,5 @@
 import { SITE, withSubject } from "@amp/industry/site";
-import { useLoaderData } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import type { Route } from "./+types/report-latest";
 import type { ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
@@ -36,6 +36,9 @@ export default function ReportLatestPage() {
   const { kind, report, index, today } = useLoaderData<typeof loader>();
   return (
     <ReportLayout kind={kind} index={index} current={report?.key ?? null} today={today}>
+      <Link to="/policies" className="mb-4 block text-[13px] text-accent">
+        法规政策动态 →
+      </Link>
       {report ? (
         <ReportPaper report={report} index={index} />
       ) : (

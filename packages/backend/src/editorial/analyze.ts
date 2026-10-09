@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
@@ -14,7 +15,7 @@ import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SELECTION } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
-import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
+import { chatJson, modelSpecFor, ModelOutputError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { collapseWhitespace, normalizedUppercase } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
@@ -39,6 +40,8 @@ import {
 } from "./writing.ts";
 import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
 import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } from "./prompts.ts";
+import { GEOGRAPHY_DICTIONARY, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
+import { stableJson } from "../lib/ids.ts";
 
 const sql = dbOf("enrichment");
 
@@ -53,6 +56,7 @@ const STRUCTURE_CONFIG = {
   categoryTags: CATEGORY_TAGS.join("、"),
   topicTags: TOPIC_TAGS.join("、"),
   entityTags: ENTITY_TAGS.join("、"),
+  jurisdictions: GEOGRAPHY_DICTIONARY,
   entities: Object.entries(ENTITIES)
     .map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`)
     .join("，"),
@@ -171,6 +175,7 @@ const StructureSchema = z.object({
   tags: z.array(z.string()).max(12).catch([]),
   subjects: z.array(z.string()).max(6).catch([]),
   fact: FactSchema,
+  geography: z.unknown().optional(),
 });
 
 const UnderstandSchema = z.object({
@@ -211,6 +216,7 @@ export interface AnalysisRun {
     tags: string[];
     subjects: string[];
     fact: z.infer<typeof FactSchema>;
+    geography: NewsGeography;
     receiptId: number;
     reused: boolean;
   } | null;
@@ -223,7 +229,7 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
 
-type StepOpts = { attemptTag?: string; scoreModel?: string };
+type StepOpts = { attemptTag?: string; scoreModel?: string; runtimeControl?: RuntimeControlSnapshot };
 type ReceiptObserver = (receiptId: number) => void;
 export class AnalysisInterruptedError extends Error {}
 
@@ -244,6 +250,7 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
     model,
     purpose: "prefilter_article",
     subject: subjectOf(a),
+    sourceIds: a.sourceId ? [a.sourceId] : [],
     promptVersion: PROMPT_VERSIONS.prefilter,
     system: PREFILTER_SYSTEM,
     user: prefilterUser(a),
@@ -251,6 +258,7 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
     temperature: 0,
     maxTokens: 512,
     attemptTag: opts.attemptTag,
+    runtimeControl: opts.runtimeControl,
   });
   // A BLOCK without material to back it counts as UNKNOWN (which goes on).
   const label = res.data.label === "BLOCK" && missingEvidence(a) ? "UNKNOWN" : res.data.label;
@@ -285,6 +293,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
         model,
         purpose: "score_article",
         subject: subjectOf(a),
+        sourceIds: a.sourceId ? [a.sourceId] : [],
         promptVersion: PROMPT_VERSIONS.score,
         system: SCORE_SYSTEM,
         user: input,
@@ -294,6 +303,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
         timeoutMs: call.timeoutMs,
         // Each call is its own paid request; an explicit re-evaluation gets new ones.
         attemptTag: tagged(opts.attemptTag, `score-${i + 1}`),
+        runtimeControl: opts.runtimeControl,
       });
       onReceipt?.(res.receiptId);
       values.push(res.data.attentionScore);
@@ -326,17 +336,37 @@ export async function runSelectionScores(
 async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["structure"]>> {
   const model = await modelFor("structure");
   checkAnalysisRunning();
+  const inputFor = (material: ReturnType<typeof geographyMaterial>) =>
+    stableJson({
+      source: { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty },
+      url: a.url,
+      publishedAt: a.publishedAt?.toISOString() ?? null,
+      segments: material.segments,
+      complete_material: material.complete,
+    });
+  let material = geographyMaterial(a),
+    user = inputFor(material),
+    overflow = Buffer.byteLength(STRUCTURE_SYSTEM + user) - 32000;
+  if (overflow > 0) {
+    const bodyBudget = 22000 - overflow - 128;
+    if (bodyBudget < 1024) throw new ModelOutputError("Bounded structure metadata exceeds capacity");
+    material = geographyMaterial(a, bodyBudget);
+    user = inputFor(material);
+  }
+  if (Buffer.byteLength(STRUCTURE_SYSTEM + user) > 32000) throw new ModelOutputError("Bounded structure input exceeds capacity");
   const res = await chatJson({
     model,
     purpose: "structure_article",
     subject: subjectOf(a),
+    sourceIds: a.sourceId ? [a.sourceId] : [],
     promptVersion: PROMPT_VERSIONS.structure,
     system: STRUCTURE_SYSTEM,
-    user: buildMaterial(a),
+    user,
     schema: StructureSchema,
     temperature: 0.2,
-    maxTokens: 800,
+    maxTokens: 1500,
     attemptTag: tagged(opts.attemptTag, "structure"),
+    runtimeControl: opts.runtimeControl,
   });
   const subjects = [...new Set(res.data.subjects.map((s) => s.trim().toLowerCase()).filter((s) => s in ENTITIES))];
   return {
@@ -345,6 +375,7 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     tags: normalizeTags(res.data.tags),
     subjects,
     fact: res.data.fact,
+    geography: validateGeography(res.data.geography, a, material.bodyBudget),
     receiptId: res.receiptId,
     reused: res.reused,
   };
@@ -360,6 +391,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
       model,
       purpose: "understand_article",
       subject: subjectOf(a),
+      sourceIds: a.sourceId ? [a.sourceId] : [],
       promptVersion: PROMPT_VERSIONS.understand,
       system: UNDERSTAND_SYSTEM,
       user: image ? [{ type: "text", text }, image] : text,
@@ -368,10 +400,11 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
       maxTokens: 16_384,
       timeoutMs: 180_000,
       attemptTag: tagged(opts.attemptTag, "understand"),
+      runtimeControl: opts.runtimeControl,
     });
   };
   // A model that is known not to read images gets the text only.
-  const image = MODELS[model]?.vision === false ? null : await firstImagePart(a);
+  const image = (await modelSpecFor(model))?.vision === false ? null : await firstImagePart(a);
   let res: Awaited<ReturnType<typeof call>>;
   try {
     res = await call(image);
@@ -415,6 +448,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     model,
     purpose: "summarize_article",
     subject: subjectOf(a),
+    sourceIds: a.sourceId ? [a.sourceId] : [],
     promptVersion: PROMPT_VERSIONS.summarize,
     system: "",
     user: buildArticlePrompt(t),
@@ -424,6 +458,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     temperature: 0.2,
     maxTokens: 2048,
     attemptTag: tagged(opts.attemptTag, "summarize"),
+    runtimeControl: opts.runtimeControl,
   });
   const p = res.data;
   const copy = finalizeCopy(t, { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh });
@@ -520,6 +555,7 @@ export function normalizeAnalysis(run: AnalysisRun) {
     summaryZh,
     reasonZh: run.writing?.reasonZh ?? null,
     fact: run.structure?.fact ?? null,
+    geography: run.structure?.geography ?? null,
   };
 }
 
@@ -541,6 +577,8 @@ const isCompleteJudgement = (output: unknown) => !!output && typeof output === "
  * is kept for traceability but never overwrites a newer input (stale = true).
  */
 export async function analyzeArticle(articleId: string, opts: StepOpts = {}, afterScope?: () => Promise<unknown>): Promise<AnalyzeResult | null> {
+  const runtimeControl = await runtimeControlSnapshot("news", ["processing"]);
+  opts = { ...opts, runtimeControl };
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
@@ -552,6 +590,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
   // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
   await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, runtimeControl);
     const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]>`
       SELECT input_revision, prompt_version, output, receipt_ids, relevance FROM analyses WHERE article_id = ${articleId}
       ORDER BY input_revision DESC, id DESC LIMIT 1`;
@@ -584,8 +623,10 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
     ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
     ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
     fact: out.fact,
+    geography: out.geography,
   };
   const committed = await commitProcessingResult(articleId, input.revision, out.relevance === "block" ? "blocked" : "analyzed", async (tx) => {
+    await assertRuntimeControl(tx, runtimeControl);
     // Enrichment owns the statement; content owns the locked transaction executing it.
     const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,

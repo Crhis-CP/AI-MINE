@@ -4,7 +4,7 @@ import { dbOf } from "./module-db.ts";
 import { closeProcessDb } from "./db-bootstrap.ts";
 
 export { dbOf, injectDb } from "./module-db.ts";
-export { initializeDb, DB_MODULES } from "./db-bootstrap.ts";
+export { initializeDb, DB_MODULES, operationsReadDatabase } from "./db-bootstrap.ts";
 
 export type Sql = Database;
 export type Tx = postgres.TransactionSql;

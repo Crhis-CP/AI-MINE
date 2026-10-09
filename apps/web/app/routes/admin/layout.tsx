@@ -1,6 +1,6 @@
 import { SITE } from "@amp/industry/site";
 import { motion } from "motion/react";
-import { NavLink, Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
+import { redirect, NavLink, Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
 import type { Route } from "./+types/layout";
 import { ThemeSwitch } from "../../components/shell/ThemeSwitch";
 import { Wordmark } from "../../components/Logo";
@@ -10,7 +10,10 @@ import { Toaster } from "../../features/admin/toast";
 import { adminGet } from "../../lib/admin.server";
 
 export async function loader({ request }: Route.LoaderArgs) {
-  return { me: await adminGet<AdminMe>(request, "/api/admin/me") };
+  const me = await adminGet<AdminMe>(request, "/api/admin/me");
+  const path = new URL(request.url).pathname;
+  if (me.mustChangePassword && path !== "/admin/account") throw redirect("/admin/account");
+  return { me };
 }
 
 // Keep identity revalidation after navigation and commands.
@@ -38,7 +41,7 @@ const NAV: Array<{ group: string; items: Array<{ to: string; label: string }> }>
   },
 ];
 
-const ACCOUNT = { to: "/admin/accounts", label: "账号" };
+const ACCOUNT = { to: "/admin/account", label: "我的账号" };
 
 function NavItem({ to, label }: { to: string; label: string }) {
   return (
@@ -65,7 +68,10 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
   const { me } = loaderData;
   const navigation = useNavigation();
   const location = useLocation();
-  const flat = [...NAV.flatMap((g) => g.items), ACCOUNT];
+  const groups = me.mustChangePassword
+    ? []
+    : NAV.map((group) => ({ ...group, items: group.items.filter((item) => item.to !== "/admin/site" || me.owner) })).filter((group) => group.items.length);
+  const flat = [...groups.flatMap((g) => g.items), ACCOUNT];
   return (
     <div className="flex min-h-dvh bg-bg">
       <NavigationProgress active={navigation.state === "loading"} />
@@ -75,7 +81,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
           <span className="text-[15px] font-semibold tracking-tight text-ink">后台</span>
         </a>
         <nav className="flex-1 space-y-4 overflow-y-auto">
-          {NAV.map((g) => (
+          {groups.map((g) => (
             <div key={g.group}>
               <div className="mb-1 px-3 text-[11.5px] font-medium tracking-wide text-ink-4">{g.group}</div>
               <div className="space-y-0.5">
@@ -94,6 +100,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
             {me.dev && <span className="rounded bg-amber/15 px-1.5 text-[11px] font-medium text-amber">开发</span>}
           </div>
           <form method="post" action="/api/auth/logout" className="mt-1.5">
+            <input type="hidden" name="csrf" value={me.csrf} />
             <button type="submit" className="text-ink-4 hover:text-ink-2">
               退出登录
             </button>

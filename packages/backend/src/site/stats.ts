@@ -9,6 +9,8 @@ import { selectedCondition } from "../publication/items.ts";
 const sql = dbOf("publication");
 
 export type { SiteStats };
+export { loadMetalPrices } from "../publication/metal-prices/read.ts";
+export { currentNewsJurisdictionCounts } from "../publication/items.ts";
 
 const stats = cached(() => querySiteStats(new Date()), { freshMs: 10 * 60_000, maxStaleMs: 60 * 60_000 });
 
@@ -37,3 +39,5 @@ async function querySiteStats(now: Date): Promise<SiteStats> {
   };
   return value;
 }
+
+export { loadSiteInformation } from "../publication/site-information.ts";

@@ -6,7 +6,7 @@
   "files": {
     // The handoff documents, the upstream lock and the reference spec are kept byte for byte, and so are the metal
     // price fixtures cut from the official sources' pages and files (TASK-0044).
-    "includes": ["**", "!docs", "!upstream", "!reference", "!pnpm-lock.yaml", "!tests/fixtures/metal-prices"]
+    "includes": ["**", "!docs", "!upstream", "!reference", "!pnpm-lock.yaml", "!tests/fixtures/metal-prices", "!industry/source-targets.json"]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 160 },
   "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always", "trailingCommas": "all" } },

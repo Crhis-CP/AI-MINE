@@ -67,6 +67,8 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
       reply = await chatJson({
         model: recipe.model,
         purpose: "translate_body",
+        sourceIds: [body.source_id],
+        runtimeControl: run.runtimeControl,
         subject: `article:${articleId}@${body!.revision}#${segment.index}`,
         promptVersion: recipe.promptVersion,
         system: recipe.system,

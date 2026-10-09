@@ -5,6 +5,75 @@ import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts
 import { CATEGORY_LABELS, CHANNEL_LABELS } from "@amp/industry/taxonomy";
 import { IconClose, IconSearch } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+
+/** The selector describes event/impact geography; publication-source tags are not an input. */
+export function JurisdictionFilter({ base, value }: { base: string; value: string | null }) {
+  const [params] = useSearchParams(),
+    navigation = useNavigation();
+  const [choices, setChoices] = useState<{ code: string; label: string; kind: string; news_count: number }[] | null>(null),
+    [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    createPublicClient({ baseUrl: window.location.origin })
+      .GET("/api/site/jurisdictions", { signal: controller.signal })
+      .then((response) => {
+        if (!response.response.ok) throw new Error("jurisdictions unavailable");
+        if (!controller.signal.aborted) setChoices(publicSchemas.PolicyJurisdictionList.parse(response.data));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+    return () => controller.abort();
+  }, []);
+  const keep = [...new Set(params.keys())]
+    .filter((key) => !["jurisdiction", "page", "cursor", "deep", "anchorAt", "_routes"].includes(key))
+    .map((key) => [key, params.get(key)!] as const);
+  return (
+    <Form method="get" action={base} className="my-3 flex flex-wrap items-center gap-2 text-[13px]">
+      {keep.map(([key, value]) => (
+        <input key={key} type="hidden" name={key} value={value} />
+      ))}
+      <label className="flex items-center gap-2">
+        国家 / 地区
+        <select
+          name="jurisdiction"
+          defaultValue={value ?? ""}
+          key={`${value ?? "all"}:${choices ? "ready" : "loading"}`}
+          className="max-w-[220px] rounded-md border border-line-strong bg-surface px-3 py-2 text-ink"
+        >
+          <option value="">全部国家 / 地区</option>
+          {value && !["unknown", "none"].includes(value) && !choices?.some((j) => j.code === value) && <option value={value}>当前国家条件</option>}
+          {[
+            { label: "国家", kind: "country" },
+            { label: "中国省区", kind: "subdivision" },
+            { label: "国际组织", kind: "organization" },
+          ].map(({ label, kind }) => (
+            <optgroup key={kind} label={label}>
+              {(choices ?? [])
+                .filter((j) => j.kind === kind)
+                .map((j) => (
+                  <option key={j.code} value={j.code}>
+                    {j.label}（{j.news_count}）
+                  </option>
+                ))}
+            </optgroup>
+          ))}
+          <optgroup label="其他归属">
+            <option value="unknown">国家尚未完全确定</option>
+            <option value="none">未限定国家</option>
+          </optgroup>
+        </select>
+      </label>
+      <button type="submit" disabled={navigation.state === "loading"} className="rounded-md border border-line-strong px-3 py-2 text-ink disabled:opacity-50">
+        筛选
+      </button>
+      <span className="text-ink-4">
+        {failed ? "国家选项暂时不可用，当前筛选仍保留。" : choices ? "按事件或影响地区 · 数字为已识别资讯数" : "正在读取国家选项…"}
+      </span>
+    </Form>
+  );
+}
 
 /** Same page with some query parameters changed (paging state dropped). */
 export function hrefWith(base: string, params: URLSearchParams, patch: Record<string, string | null>) {
@@ -179,9 +248,10 @@ export function SearchField({
 
 /** Mobile home: the search icon at the end of the category row opens search on 全部动态. */
 export function SearchIconLink() {
+  const [params] = useSearchParams();
   return (
     <Link
-      to="/all?search=1"
+      to={hrefWith("/all", params, { search: "1" })}
       aria-label="搜索"
       className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
     >

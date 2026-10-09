@@ -1,8 +1,15 @@
+import {
+  runtimeControlSnapshot,
+  assertRuntimeControl,
+  RuntimeControlPaused,
+  RuntimeControlStale,
+  type RuntimeControlSnapshot,
+} from "../operations/lane-controls.ts";
 // WeChat official accounts. Dajiala (极致了, a paid service) supplies each account's latest posts and
 // article bodies; every enabled account is checked once per source interval.
 import { dbOf } from "../db.ts";
 import { upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
-import { readCurrentSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
+import { recordSourceCollectionSuccess, readCurrentSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { requireDateCollection } from "./collect.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
@@ -23,11 +30,16 @@ const BODY_RETRIES = 3;
 const BODY_RETRY_WINDOW_MS = 3 * 86400_000;
 
 /** The article body, and when it is missing for a reason that may pass (rate limit, server error, lost answer), that reason. */
-async function fetchBody(url: string, sourceId: string, identity: string): Promise<{ body: MpArticle | null; passing: string | null }> {
+async function fetchBody(
+  url: string,
+  sourceId: string,
+  identity: string,
+  control: RuntimeControlSnapshot,
+): Promise<{ body: MpArticle | null; passing: string | null }> {
   try {
-    return { body: await mpArticle(url, { subject: sourceId, identity }), passing: null };
+    return { body: await mpArticle(url, { subject: sourceId, identity, lane: control.lane, runtimeControl: control }), passing: null };
   } catch (error) {
-    if (error instanceof BudgetExceededError) throw error;
+    if (error instanceof BudgetExceededError || error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) throw error;
     const final = error instanceof ProviderRejectedError && !error.retryable;
     return { body: null, passing: final ? null : String(error instanceof Error ? error.message : error).slice(0, 200) };
   }
@@ -37,6 +49,8 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
   const source = await readSourceDateContext(sourceId);
   if (source?.kind !== "mp_account") return { sourceId, status: "missing" as const };
   if (!source.enabled) return { sourceId, status: "paused" as const };
+  const control = await runtimeControlSnapshot(source.lane, ["collection"]);
+  if (control.paused) return { sourceId, status: "paused" as const };
   const ghid = source.config.ghid ?? source.config.wxid;
   if (!ghid) return { sourceId, status: "unconfigured" as const };
   const [run] = await sql<{ id: number }[]>`INSERT INTO fetch_runs (source_id, detail) VALUES (${sourceId}, ${sql.json({ reason })}) RETURNING id`;
@@ -47,7 +61,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
     if (!permission) throw new Error("Source date permission missing");
     // One paid list call per account per 10-minute window, whoever asks.
     const window = `${reason === "schedule" ? "s" : "m"}:${Math.floor(Date.now() / 600_000)}`;
-    const history = await mpHistory(ghid, { subject: sourceId, window });
+    const history = await mpHistory(ghid, { subject: sourceId, window, lane: source.lane, runtimeControl: control });
     const posts = [...history.posts].sort((a, b) => b.post_time - a.post_time);
     let fetched = 0;
     for (const p of posts) {
@@ -90,7 +104,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       }
       fetched += 1;
       // Without a body the post is listed anyway; analysis works from title and digest.
-      const { body, passing } = await fetchBody(p.url, sourceId, p.sn ?? p.url);
+      const { body, passing } = await fetchBody(p.url, sourceId, p.sn ?? p.url, control);
       if (known && !body?.content) {
         await sql`UPDATE articles SET raw = CASE WHEN ${!!passing}
           THEN jsonb_set(raw, '{dajiala,bodyRetry}', ${sql.json({ attempts: known.retry!.attempts + 1, error: passing })})
@@ -104,31 +118,35 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
             .replace(/\n{3,}/g, "\n\n")
             .trim()
         : null;
-      const res = await upsertMaterial({
-        sourceId,
-        url: p.url,
-        title: p.title,
-        author: body?.author ?? null,
-        language: "zh",
-        publishedAt,
-        ...date,
-        excerpt: p.digest ?? body?.desc ?? null,
-        bodyHtml: html,
-        bodyText: text || null,
-        bodyStatus: text ? "ok" : "none",
-        via: "fetch",
-        backfill: firstCheck ? "first-import" : null,
-        raw: {
-          dajiala: {
-            position: p.position,
-            sn: p.sn ?? null,
-            original: p.original ?? null,
-            itemShowType: p.item_show_type ?? null,
-            cover: p.cover_url ?? null,
-            ...(passing ? { bodyRetry: { attempts: 1, error: passing } } : {}),
+      const res = await upsertMaterial(
+        {
+          sourceId,
+          url: p.url,
+          title: p.title,
+          author: body?.author ?? null,
+          language: "zh",
+          publishedAt,
+          ...date,
+          excerpt: p.digest ?? body?.desc ?? null,
+          bodyHtml: html,
+          bodyText: text || null,
+          bodyStatus: text ? "ok" : "none",
+          via: "fetch",
+          backfill: firstCheck ? "first-import" : null,
+          raw: {
+            dajiala: {
+              position: p.position,
+              sn: p.sn ?? null,
+              original: p.original ?? null,
+              itemShowType: p.item_show_type ?? null,
+              cover: p.cover_url ?? null,
+              ...(passing ? { bodyRetry: { attempts: 1, error: passing } } : {}),
+            },
           },
         },
-      });
+        undefined,
+        control,
+      );
       // A body fetched again arrives as a new revision (analysed again); stop retrying it.
       if (known) await sql`UPDATE articles SET raw = raw #- '{dajiala,bodyRetry}' WHERE id = ${known.id}`;
       if (res.created || res.revised || res.sourceTimeChanged) {
@@ -143,13 +161,17 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       lastPostTime: posts[0]?.post_time ?? source.cursor?.lastPostTime ?? null,
       remainMoney: history.remainMoney,
     };
-    await sql`
-      UPDATE sources SET last_fetch_at = now(), last_ok_at = now(), fail_count = 0, last_error = NULL, health = 'ok', cursor = ${sql.json(cursor as never)},
-        next_fetch_at = now() + make_interval(mins => interval_minutes), updated_at = now()
-      WHERE id = ${sourceId}`;
-    await sql`UPDATE fetch_runs SET status = 'ok', finished_at = now(), found_count = ${posts.length}, new_count = ${created} WHERE id = ${run!.id}`;
+    await sql.begin(async (tx) => {
+      await assertRuntimeControl(tx, control);
+      await recordSourceCollectionSuccess(sourceId, cursor, tx);
+      await tx`UPDATE fetch_runs SET status = 'ok', finished_at = now(), found_count = ${posts.length}, new_count = ${created} WHERE id = ${run!.id}`;
+    });
     return { sourceId, status: "ok" as const, found: posts.length, created, reused: history.reused };
   } catch (error) {
+    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+      await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),new_count=${created},error='运行控制暂停或变化' WHERE id=${run!.id}`;
+      return { sourceId, status: "paused" as const };
+    }
     const message = String(error instanceof Error ? error.message : error).slice(0, 500);
     const soft = error instanceof BudgetExceededError || (error instanceof ProviderRejectedError && error.retryable);
     await sql`

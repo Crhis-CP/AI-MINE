@@ -1,6 +1,7 @@
+import { validNewsJurisdiction } from "@amp/industry/jurisdictions";
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
-import { routes as contracts, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
+import { routes as contracts, MetalPrices, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
@@ -12,7 +13,7 @@ import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/gro
 import { loadTopicTags } from "@amp/backend/publication/topics";
 import { loadHotStrip } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
-import { loadSiteStats } from "@amp/backend/site/stats";
+import { loadSiteStats, loadMetalPrices } from "@amp/backend/site/stats";
 import { itemAvailability } from "@amp/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage } from "@amp/backend/publication/topics";
 import { registerFeedback } from "./feedback.ts";
@@ -51,6 +52,7 @@ export function siteHandler(fn: Handler): Handler {
 }
 
 export interface FilterParams {
+  jurisdiction?: string | null;
   channel: ChannelKey;
   category: CategoryKey | null;
   tag: string | null;
@@ -59,6 +61,8 @@ export interface FilterParams {
 }
 
 export async function parseFilters(q: Record<string, string>): Promise<FilterParams> {
+  const jurisdiction = q.jurisdiction?.trim() || null;
+  if (jurisdiction && !validNewsJurisdiction(jurisdiction)) throw new BadRequest("invalid jurisdiction");
   const channel = q.channel ?? "all";
   if (!isChannelKey(channel)) throw new BadRequest("invalid channel");
   const category = q.category ?? null;
@@ -70,7 +74,7 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
     topicTags = await loadTopicTags(topic);
     if (!topicTags) throw new BadRequest("unknown topic");
   }
-  return { channel, category: category as CategoryKey | null, tag, topic, topicTags };
+  return { channel, category: category as CategoryKey | null, tag, topic, topicTags, ...(jurisdiction ? { jurisdiction } : {}) };
 }
 
 export function registerSite(app: FastifyInstance) {
@@ -88,7 +92,7 @@ export function registerSite(app: FastifyInstance) {
       const q = looseQuery(req);
       const filters = await parseFilters(q);
       const limit = Math.min(Math.max(Number(q.limit) || 20, 1), 40);
-      const unfiltered = filters.channel === "all" && !filters.category && !filters.tag && !filters.topic && !q.cursor;
+      const unfiltered = filters.channel === "all" && !filters.category && !filters.tag && !filters.topic && !filters.jurisdiction && !q.cursor;
       const [data, hot] = await Promise.all([loadTimeline({ ...filters, cursor: q.cursor || null, limit }), unfiltered ? loadHotStrip() : null]);
       const body = { ...data, hot, generatedAt: new Date().toISOString() };
       TimelineResponse.parse(JSON.parse(JSON.stringify(body)));
@@ -197,6 +201,16 @@ export function registerSite(app: FastifyInstance) {
       const stats = await loadSiteStats();
       SiteStats.parse(stats);
       return sendJsonWithEtag(req, reply, stats, { etagPrefix: "stats", cacheControl: "public, max-age=300, s-maxage=300" });
+    }),
+  );
+
+  app.get(
+    contracts.siteMetalPrices.url,
+    contracts.siteMetalPrices,
+    siteHandler(async (req, reply) => {
+      const prices = MetalPrices.parse(await loadMetalPrices());
+      const { generatedAt: _generatedAt, ...content } = prices;
+      return sendJsonWithEtag(req, reply, prices, { etagPrefix: "metals", etagOf: content, cacheControl: "public, max-age=300, s-maxage=300" });
     }),
   );
 

@@ -5,3 +5,5 @@
 这里是待接入的业务输入，不是采集配置、有效许可回执或已接通信源。文件不被运行加载器自动读取，默认停用；不能把首页当 RSS、猜选择器、把 old_* 或历史权限继承为新系统状态。后续根据实测取得配置接入，启用仍由私有页面显式完成。AI行业示范来源已从 industry/sources.json 移除；该配置清单暂为空，后续只加入已核实的采集配置。初始化强制新来源 enabled=false、next_fetch_at=NULL，忽略种子里的启用标记；重跑不覆盖数据库中已有来源的修改。原始目标尚未作为采集配置导入。
 
 重建：`node scripts/verify/industry-data.ts`；检查：`node scripts/verify/industry-data.ts --check`。法域运行数据由同一脚本从权威字典投影，字段列表在 provenance.json，覆盖计数和历史观察不进入运行字典。
+
+TASK-0150另生成`industry/source-targets.json`，只白名单投影原表身份、地址和321到320的对应关系，用于私有只读对账。该投影不含old_*、旧来源ID、旧候选入口或权限/运行状态，不生成采集配置也不启用来源。CSV原字节镜像不变，生成器逐字段与权威输入校验。

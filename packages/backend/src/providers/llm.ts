@@ -1,10 +1,26 @@
+import type { TaskBudget } from "./usage-protection.ts";
+import { CAPABILITIES } from "../editorial/models.ts";
+import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
+import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // OpenAI-compatible chat calls, always through receipts. One model is enough: `default` is whatever the
 // deployment names in LLM_BASE_URL / LLM_API_KEY / LLM_MODEL, and every capability uses it unless an
 // environment variable or the admin's model page picks one of the named presets below.
 import type { z } from "zod";
+import { resolveRegisteredModel, registeredModelSpec, modelConfigurationHash, type RegisteredAccess } from "./model-registry.ts";
+import { redactModelSecret } from "./model-vault.ts";
+import { guardedFetch, type GuardedFetchOptions } from "../lib/http-fetch.ts";
 import { config, credential } from "../config.ts";
-import { sha256 } from "../lib/ids.ts";
-import { completeReceipt, paidRequest, ProviderRejectedError, rejectReceivedResponse, type TranslationObservation } from "./receipts.ts";
+import { sha256, stableJson } from "../lib/ids.ts";
+import {
+  completeReceipt,
+  paidRequest,
+  ProviderRejectedError,
+  UsageProtectionError,
+  rejectReceivedResponse,
+  type TranslationObservation,
+  type PolicyReceiptContext,
+  type ModelAttemptSnapshot,
+} from "./receipts.ts";
 import { dbOf } from "../db.ts";
 
 const sql = dbOf("ai-gateway");
@@ -128,10 +144,47 @@ export const MODELS: Record<string, ModelSpec> = {
   },
 };
 
+function environmentConfiguration(spec: ModelSpec, baseUrl: string) {
+  const model = typeof spec.extra?.model === "string" ? spec.extra.model : spec.model;
+  const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
+  return { model, configuration_hash: sha256(stableJson(["openai-compatible", endpoint, model, !!spec.vision, spec.jsonMode, spec.extra ?? null])) };
+}
+/** Non-secret setup metadata. It does not claim that a credential, connection test or quality release exists. */
+export function environmentModelMetadata(key: string) {
+  const spec = MODELS[key];
+  if (!spec) return null;
+  try {
+    const base = credential("models", spec.baseUrlEnv);
+    return {
+      key,
+      service: spec.service,
+      model: spec.model,
+      vision: !!spec.vision,
+      ...(base && spec.model ? environmentConfiguration(spec, base) : { configuration_hash: null }),
+    };
+  } catch {
+    return { key, service: spec.service, model: spec.model, vision: !!spec.vision, configuration_hash: null };
+  }
+}
 export type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
 
+export type RegisteredModelTransport = (
+  url: string,
+  options: GuardedFetchOptions,
+) => Promise<{ status: number; headers: { get(name: string): string | null }; text(): string | Promise<string> }>;
+export async function modelSpecFor(key: string) {
+  return (await registeredModelSpec(key)) ?? MODELS[key] ?? null;
+}
 export interface ChatJsonOptions<S extends z.ZodType> {
+  taskBudget?: TaskBudget;
+  sourceIds?: string[];
+  usageObject?: { kind: "article" | "policy"; id: string };
   model: string;
+  /** Trusted worker connection test only; the persisted probe must bind this exact revision. */
+  registeredProbe?: RegisteredAccess;
+  registeredTransport?: RegisteredModelTransport;
+  usagePurpose?: "production" | "research" | "evaluation" | "experiment";
+  lane?: "news" | "policy";
   purpose: string;
   subject: string;
   promptVersion: string;
@@ -144,6 +197,10 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   timeoutMs?: number;
   maxRejectedOutputs?: 1 | 3;
   translationObservations?: TranslationObservation[];
+  policyContext?: PolicyReceiptContext;
+  runtimeControl?: RuntimeControlSnapshot;
+  /** Recheck the trusted input and current permissions immediately before any new paid send. */
+  beforeRequest?: () => Promise<void>;
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
   json?: boolean;
   parse?: (content: string) => unknown;
@@ -208,16 +265,24 @@ function isConnectFailure(error: unknown): boolean {
 }
 
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
-  const spec = MODELS[opts.model];
+  if (
+    ["policy_fulltext", "policy_group", "policy_interpret", "policy_verify", "policy_vision"].includes(opts.purpose) &&
+    (!opts.policyContext || !opts.beforeRequest)
+  )
+    throw new Error("Policy capabilities require the policy gateway");
+  const registered = await resolveRegisteredModel(opts.model, opts.registeredProbe);
+  const spec: ModelSpec | null = registered ? { ...registered, baseUrlEnv: "", apiKeyEnv: "" } : (MODELS[opts.model] ?? null);
   if (!spec) throw new Error(`Unknown model ${opts.model}`);
+  if (opts.purpose === "policy_vision" && (!spec.vision || "messages" in (spec.extra ?? {}) || "model" in (spec.extra ?? {})))
+    throw new Error("Policy vision requires explicit image capability and immutable input messages");
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
-  const baseUrl = credential("models", spec.baseUrlEnv);
-  const apiKey = credential("models", spec.apiKeyEnv);
+  const baseUrl = registered?.baseUrl ?? credential("models", spec.baseUrlEnv);
+  const apiKey = registered?.apiKey ?? credential("models", spec.apiKeyEnv);
   if (!baseUrl || !apiKey || !spec.model)
     throw new Error(`Model ${opts.model} is not configured (${spec.baseUrlEnv}, ${spec.apiKeyEnv}${spec.key === "default" ? ", LLM_MODEL" : ""})`);
 
   const temperature = opts.temperature ?? 0.2;
-  const maxTokens = Math.max(opts.maxTokens ?? 1500, 512) + (spec.key.endsWith("-think") ? 4000 : 0);
+  const maxTokens = Math.max(opts.maxTokens ?? 1500, opts.registeredProbe ? 16 : 512) + (spec.key.endsWith("-think") ? 4000 : 0);
   const userText = typeof opts.user === "string" ? opts.user : JSON.stringify(opts.user);
   const body: Record<string, unknown> = {
     model: spec.model,
@@ -232,14 +297,86 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     ...(spec.jsonMode && opts.json !== false ? { response_format: { type: "json_object" } } : {}),
     ...(spec.extra ?? {}),
   };
+  const requestBody = JSON.stringify(body),
+    imageTransport = opts.purpose === "policy_vision" ? { transportHash: sha256(requestBody), transportBytes: Buffer.byteLength(requestBody) } : {};
 
+  if (typeof body.model !== "string" || !body.model) throw new Error("Model transport requires an explicit requested model");
+  const configurationHash = registered ? modelConfigurationHash(registered.config) : environmentConfiguration(spec, baseUrl).configuration_hash;
+  const registeredIdentity = { configuration_hash: configurationHash, ...(registered ? { connection_id: registered.id } : {}) };
+  const registeredSummary: ModelAttemptSnapshot = {
+    connection_id: registered?.id ?? null,
+    connection_revision: registered?.revision ?? null,
+    key_fingerprint: registered?.fingerprint ?? null,
+    configuration_hash: configurationHash,
+    ...(registered
+      ? {
+          pricing: {
+            input: registered.config.input_cny_per_million,
+            output: registered.config.output_cny_per_million,
+            currency: "CNY",
+            basis: registered.config.billing_basis,
+          },
+        }
+      : {}),
+  };
+  const costLane =
+    opts.policyContext?.lane ??
+    opts.runtimeControl?.lane ??
+    opts.lane ??
+    (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
   const receipt = await paidRequest(
     {
+      taskBudget: opts.taskBudget,
+      modelSnapshot: registeredSummary,
+      usageContext: costLane
+        ? {
+            lane: costLane,
+            capability: opts.purpose,
+            sourceIds: opts.sourceIds ?? opts.policyContext?.sourceIds ?? [],
+            object:
+              opts.usageObject ??
+              (/^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.test(opts.subject)
+                ? { kind: "article", id: /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(opts.subject)![1]! }
+                : null),
+          }
+        : undefined,
+      costBounds: {
+        input_tokens: Buffer.byteLength(
+          JSON.stringify({
+            ...body,
+            messages: (body.messages as Array<{ role: string; content: string | ContentPart[] }>).map((m) => ({
+              ...m,
+              content: typeof m.content === "string" ? m.content : m.content.map((p) => (p.type === "image_url" ? { type: "image_url" } : p)),
+            })),
+          }),
+        ),
+        output_tokens: Number(body.max_tokens),
+        images: Array.isArray(opts.user) ? opts.user.filter((p) => p.type === "image_url").length : 0,
+      },
       service: spec.service,
-      model: spec.model,
+      model: body.model,
       purpose: opts.purpose,
       subject: opts.subject,
+      policy: opts.policyContext,
+      runtimeControl: opts.runtimeControl,
+      legacyModel: spec.model,
+      legacyIdentity: {
+        ...imageTransport,
+        ...(registered ? registeredIdentity : {}),
+        ...(opts.policyContext ? { policy: opts.policyContext } : {}),
+        model: spec.model,
+        promptVersion: opts.promptVersion,
+        system: sha256(opts.system),
+        user: sha256(userText),
+        temperature,
+        maxTokens,
+        extra: spec.extra ?? null,
+      },
       identity: {
+        transportHash: sha256(requestBody),
+        ...registeredIdentity,
+        ...imageTransport,
+        ...(opts.policyContext ? { policy: opts.policyContext } : {}),
         model: spec.model,
         promptVersion: opts.promptVersion,
         system: sha256(opts.system),
@@ -249,6 +386,11 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         extra: spec.extra ?? null,
       },
       requestSummary: {
+        ...(opts.usagePurpose ? { usage_purpose: opts.usagePurpose } : {}),
+        ...(opts.lane ? { lane: opts.lane } : {}),
+        ...registeredSummary,
+        ...imageTransport,
+        ...(opts.policyContext ?? {}),
         promptVersion: opts.promptVersion,
         systemHash: sha256(opts.system),
         userHash: sha256(userText),
@@ -261,37 +403,78 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       translationObservations: opts.translationObservations,
     },
     async () => {
-      const started = Date.now();
-      let res: Response;
-      try {
-        res = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
-        });
-      } catch (error) {
-        if (isConnectFailure(error)) throw new ProviderRejectedError(`connect failed: ${String(error)}`, null, true);
-        throw error;
-      }
-      const text = await res.text();
-      if (!res.ok) {
-        const retryable = res.status === 429 || res.status >= 500;
-        throw new ProviderRejectedError(`HTTP ${res.status}: ${text.slice(0, 500)}`, res.status, retryable);
-      }
-      let json: Record<string, unknown>;
-      try {
-        json = JSON.parse(text);
-      } catch {
-        json = { unparsable: text.slice(0, 20000) };
-      }
-      const usage = (json.usage as Record<string, unknown> | undefined) ?? null;
-      return {
-        response: { ...json, _latencyMs: Date.now() - started },
-        requestId: (json.id as string | undefined) ?? res.headers.get("x-request-id"),
-        usage,
-        cost: null,
+      const send = async () => {
+        if (opts.beforeRequest) {
+          try {
+            await opts.beforeRequest();
+          } catch (error) {
+            if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+              throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
+            throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false);
+          }
+        }
+        const started = Date.now();
+        let res: { status: number; headers: { get(name: string): string | null }; text(): string | Promise<string> };
+        try {
+          res = registered
+            ? await (opts.registeredTransport ?? guardedFetch)(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+                method: "POST",
+                headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+                body: requestBody,
+                timeoutMs: opts.timeoutMs ?? 120_000,
+                maxBytes: 8 * 1024 * 1024,
+                maxRedirects: 0,
+                route: "direct",
+              })
+            : await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
+                method: "POST",
+                headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+                body: requestBody,
+                signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
+              });
+        } catch (error) {
+          if (isConnectFailure(error)) throw new ProviderRejectedError(`connect failed: ${registered ? "模型连接失败" : String(error)}`, null, true);
+          if (registered) throw new Error("模型服务请求结果未知");
+          throw error;
+        }
+        const text = redactModelSecret(await res.text(), apiKey);
+        if (res.status < 200 || res.status >= 300) {
+          const retryable = res.status === 429 || res.status >= 500;
+          throw new ProviderRejectedError(`HTTP ${res.status}: ${text.slice(0, 500)}`, res.status, retryable);
+        }
+        let json: Record<string, unknown>;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          json = { unparsable: text.slice(0, 20000) };
+        }
+        const usage = (json.usage as Record<string, unknown> | undefined) ?? null;
+        return {
+          response: { ...json, _latencyMs: Date.now() - started },
+          requestId: (json.id as string | undefined) ?? (res.headers.get("x-request-id") ? redactModelSecret(res.headers.get("x-request-id")!, apiKey) : null),
+          usage,
+          cost:
+            registered && [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0)
+              ? {
+                  amount:
+                    (Number(usage!.prompt_tokens) * Number(registered.config.input_cny_per_million) +
+                      Number(usage!.completion_tokens) * Number(registered.config.output_cny_per_million)) /
+                    1e6,
+                  currency: "CNY",
+                  basis: "estimated" as const,
+                }
+              : null,
+        };
       };
+      if (!registered) return send();
+      return sql.begin(async (tx) => {
+        try {
+          await registered.assertCurrent(tx);
+        } catch {
+          throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false);
+        }
+        return send();
+      });
     },
   );
 

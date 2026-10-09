@@ -2,10 +2,23 @@
 // Every route goes through adminHandler (session + CSRF); manual changes are audited in the modules.
 import { readFile } from "node:fs/promises";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { actorOf } from "@amp/backend/admin/auth";
+import { actorOf, requireOwner, requireCapability } from "@amp/backend/admin/auth";
 
-import { importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
-import { modelsOverview, switchModel } from "@amp/backend/admin/models";
+import { registerSelectionCalibration } from "./selection-calibration.ts";
+import { withSelectionTool, importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
+import {
+  modelsOverview,
+  switchModel,
+  listModelConnections,
+  createModelConnection,
+  updateModelConnection,
+  disableModelConnection,
+  requestModelConnectionProbe,
+  readModelConnectionProbe,
+  assignRegisteredModel,
+  queueModelConnectionProbe,
+  type ModelRegistryGuards,
+} from "@amp/backend/admin/models";
 
 import { contentChain, detachFromFact, mergeStories, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@amp/backend/admin/content";
 import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
@@ -18,8 +31,21 @@ import {
   SourceCreateRequest,
   SourceCreateResponse,
   SourceDetailResponse,
+  LaneControlActionRequest,
+  LaneControlsResponse,
+  MonthlyUsageList,
+  MonthlyUsageEntry,
+  UsageMonth,
 } from "@amp/contracts/http/private";
-import { listBudgets, listTargets, setTargetEnabled, updateBudget } from "@amp/backend/admin/settings";
+import {
+  listBudgets,
+  listTargets,
+  setTargetEnabled,
+  updateBudget,
+  listLaneControls,
+  changeOwnerLaneControls,
+  monthlyUsageReports,
+} from "@amp/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
@@ -35,7 +61,105 @@ const notFound = (req: FastifyRequest, reply: FastifyReply) => sendProblem(req, 
 const orNotFound = <T>(req: FastifyRequest, reply: FastifyReply, value: T | null) => (value === null || value === undefined ? notFound(req, reply) : value);
 const page = (req: FastifyRequest) => Math.max(1, Number(q(req).page) || 1);
 
+const modelGuards: ModelRegistryGuards = {
+  manage: (principal, db) => requireCapability(principal, "models.manage", db),
+  owner: (principal, db) => requireOwner(principal, db),
+};
+
 export function registerAdmin(app: FastifyInstance) {
+  registerSelectionCalibration(app);
+  app.get(
+    contracts.modelRegistry.url,
+    contracts.modelRegistry,
+    adminHandler(async (_req, _reply, admin) => listModelConnections(admin, modelGuards)),
+  );
+  app.post(
+    contracts.createModelConnection.url,
+    contracts.createModelConnection,
+    adminHandler(async (req, _reply, admin) => createModelConnection(req.body, admin, modelGuards)),
+  );
+  app.put(
+    contracts.updateModelConnection.url,
+    contracts.updateModelConnection,
+    adminHandler(async (req, _reply, admin) => updateModelConnection(param(req, "id"), req.body, admin, modelGuards)),
+  );
+  app.post(
+    contracts.disableModelConnection.url,
+    contracts.disableModelConnection,
+    adminHandler(async (req, _reply, admin) => disableModelConnection(param(req, "id"), req.body, admin, modelGuards)),
+  );
+  app.post(
+    contracts.probeModelConnection.url,
+    contracts.probeModelConnection,
+    adminHandler(async (req, _reply, admin) => {
+      const test = await requestModelConnectionProbe(param(req, "id"), req.body, admin, modelGuards);
+      await queueModelConnectionProbe(test);
+      return test;
+    }),
+  );
+  app.get(
+    contracts.modelConnectionProbe.url,
+    contracts.modelConnectionProbe,
+    adminHandler(async (req, _reply, admin) => readModelConnectionProbe(param(req, "id"), admin, modelGuards)),
+  );
+  app.post(
+    contracts.assignRegisteredModel.url,
+    contracts.assignRegisteredModel,
+    adminHandler(async (req, _reply, admin) => assignRegisteredModel(param(req, "capability"), req.body, admin, modelGuards)),
+  );
+
+  app.get(
+    contracts.usageMonthlyList.url,
+    contracts.usageMonthlyList,
+    adminHandler(async (req, reply) => {
+      try {
+        return MonthlyUsageList.parse({ items: await monthlyUsageReports() });
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "月度用量历史暂时无法读取" });
+      }
+    }),
+  );
+  app.get(
+    contracts.usageMonthlyDetail.url,
+    contracts.usageMonthlyDetail,
+    adminHandler(async (req, reply) => {
+      const month = UsageMonth.safeParse(param(req, "month"));
+      if (!month.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请使用有效的年月" });
+      try {
+        const result = (await monthlyUsageReports(month.data))[0];
+        return result ? MonthlyUsageEntry.parse(result) : notFound(req, reply);
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "月度用量报告暂时无法读取" });
+      }
+    }),
+  );
+  app.get(
+    contracts.laneControls.url,
+    contracts.laneControls,
+    adminHandler(async (req, reply) => {
+      try {
+        return LaneControlsResponse.parse(await listLaneControls());
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "运行控制状态暂时不可用" });
+      }
+    }),
+  );
+  app.post(
+    contracts.laneControlAction.url,
+    {
+      ...contracts.laneControlAction,
+      errorHandler(error, req, reply) {
+        if (error.statusCode === 400) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });
+        req.log.error({ err: error }, "runtime control action failed");
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "运行控制暂时不可用，请稍后再试" });
+      },
+    },
+    adminHandler(async (req, reply, admin) => {
+      const parsed = LaneControlActionRequest.safeParse(req.body);
+      if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });
+      return LaneControlsResponse.parse(await changeOwnerLaneControls(parsed.data, actorOf(admin), (tx) => requireOwner(admin, tx)));
+    }),
+  );
   // Sources (F18)
   app.get(
     "/api/admin/sources",
@@ -227,24 +351,26 @@ export function registerAdmin(app: FastifyInstance) {
   // SelectBench
   app.get(
     "/api/admin/selectbench",
-    adminHandler(async () => ({ runs: await listSelectBenchRuns() })),
+    adminHandler(async (_req, _reply, principal) => withSelectionTool(principal, async (tx) => ({ runs: await listSelectBenchRuns(tx) }))),
   );
   app.get(
     "/api/admin/selectbench/:id",
-    adminHandler(async (req, reply) => {
-      const f = q(req);
-      return orNotFound(
-        req,
-        reply,
-        await selectBenchRun(param(req, "id"), { model: f.model, outcome: f.outcome, stratum: f.stratum, disagree: f.disagree === "1" }),
-      );
-    }),
+    adminHandler(async (req, reply, principal) =>
+      withSelectionTool(principal, async (tx) => {
+        const f = q(req);
+        return orNotFound(
+          req,
+          reply,
+          await selectBenchRun(param(req, "id"), { model: f.model, outcome: f.outcome, stratum: f.stratum, disagree: f.disagree === "1" }, tx),
+        );
+      }),
+    ),
   );
   app.post(
     "/api/admin/selectbench/import",
     adminHandler(async (req, _reply, admin) => {
       const b = body<{ label: string; report: unknown }>(req);
-      return importSelectBenchRun(b.report, String(b.label || "导入的对比运行"), actorOf(admin));
+      return withSelectionTool(admin, (tx) => importSelectBenchRun(b.report, String(b.label || "导入的对比运行"), actorOf(admin), tx));
     }),
   );
 

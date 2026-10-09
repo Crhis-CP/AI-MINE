@@ -1,0 +1,28 @@
+{
+  "content_version": "synthetic-report-v1",
+  "generated_at": "2026-10-13T00:00:00Z",
+  "status": "available",
+  "items": [
+    {
+      "id": "report-fixture",
+      "type": "policy_weekly",
+      "period_key": "2026-W41",
+      "title": "【合成预览】法规周报",
+      "summary": "【合成预览】用于检查固定版本、版本引用与来源覆盖说明。",
+      "period_start": "2026-10-04T16:00:00Z",
+      "period_end": "2026-10-11T16:00:00Z",
+      "timezone": "Asia/Shanghai",
+      "issued_at": "2026-10-13T00:00:00Z",
+      "edition": 1,
+      "correction_of": null,
+      "item_count": 2,
+      "status": "compiled",
+      "coverage_note": "【合成预览】所有条目、时间与覆盖数均为样例，不是真实汇总。",
+      "ai_label": "ai_generated"
+    }
+  ],
+  "page": 1,
+  "page_size": 20,
+  "total": 1,
+  "has_more": false
+}

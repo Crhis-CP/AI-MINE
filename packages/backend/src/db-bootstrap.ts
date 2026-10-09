@@ -93,6 +93,11 @@ export function queueConnection(): QueueConnection {
   return active!.queue;
 }
 
+/** Dedicated observer handle: optional and never falls back to a writer role. */
+export function operationsReadDatabase() {
+  return currentAccess().dbFor("ops_read");
+}
+
 /** Reserved for the worker's pg_dump invocation, never a module query connection. */
 export function backupDatabaseUrl(): string {
   return currentAccess().backupUrl();

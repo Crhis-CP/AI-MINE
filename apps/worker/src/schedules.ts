@@ -1,21 +1,21 @@
 // Cron-style schedules (Asia/Shanghai). Each run is recorded in job_runs; missed slots run once.
 import type { PgBoss } from "pg-boss";
 import { ensureQueue, recordRun } from "@amp/backend/jobs/queue";
-import { sweepUnprocessed } from "@amp/backend/jobs/content";
+import { sweepUnprocessed, sweepPolicyMaterials } from "@amp/backend/jobs/content";
 import { translatePending } from "@amp/backend/editorial/translate";
 import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect";
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
 import { linkRelatedStories } from "@amp/backend/events/group";
-import { catchUpReports, composeDaily, composeMonthly, composeWeekly } from "@amp/backend/reports/compose";
+import { catchUpReports, composeDaily, composeMonthly, composeWeekly, composePolicyReports } from "@amp/backend/reports/compose";
 import { addDays, beijingDate, isoWeekLabel } from "@amp/contracts/time";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
 import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
-import { sourceHealthWeekly } from "@amp/backend/operations/reports";
+import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots, usageProtectionTick } from "@amp/backend/operations/reports";
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
 import { refreshMetalPrices } from "@amp/backend/jobs/publication";
@@ -30,7 +30,9 @@ interface Scheduled {
 const collecting = process.env.COLLECT_ENABLED !== "false";
 
 export const SCHEDULES: Scheduled[] = [
+  { name: "ops.read-snapshots", cron: "*/2 * * * *", run: refreshOperationalSnapshots },
   { name: "content.sweep", cron: "*/5 * * * *", run: sweepUnprocessed },
+  { name: "policy.pipeline.sweep", cron: "* * * * *", run: sweepPolicyMaterials },
   // Repair missing per-item translation dispatch; this cron never calls a model itself.
   { name: "content.translate", cron: "*/5 * * * *", run: () => translatePending() },
   { name: "hot.rank", cron: "*/5 * * * *", run: () => computeHotRanking() },
@@ -49,6 +51,8 @@ export const SCHEDULES: Scheduled[] = [
     },
   },
   { name: "reports.catch-up", cron: "15 * * * *", run: () => catchUpReports() },
+  // The policy composer checks natural period closure and the Beijing 08:00 first-issue time.
+  { name: "policy.reports", cron: "0 * * * *", missed: "once", run: () => composePolicyReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },
   // IndexNow for new indexable pages (off unless INDEXNOW_SUBMIT_ENABLED).
   { name: "seo.indexnow", cron: "50 5 * * *", missed: "once", run: () => submitIndexNow() },
@@ -59,14 +63,19 @@ export const SCHEDULES: Scheduled[] = [
     cron: "*/10 * * * *",
     run: async () => ({ receipts: await markStalePendingReceipts(), released: await autoReleaseUnknownReceipts(), deliveries: await markStaleDeliveries() }),
   },
+  { name: "ops.usage-protection", cron: "*/5 * * * *", run: () => usageProtectionTick() },
   { name: "ops.alerts", cron: "*/10 * * * *", run: () => checkAlerts() },
   // One message with the follow-ups that do not touch readers (nothing when there are none).
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },
   ...(backupConfigured() ? [{ name: "ops.backup", cron: "10 4 * * *", missed: "once" as const, run: () => runBackup() }] : []),
   { name: "reports.source-health", cron: "0 9 * * 1", missed: "once", run: () => sourceHealthWeekly() },
+  { name: "reports.usage-weekly", cron: "5 9 * * 1", missed: "once", run: () => usageWeekly() },
+  // The job checks the Owner-configured Beijing push time; notification claiming prevents duplicate delivery.
+  { name: "reports.usage-monthly", cron: "* * * * *", missed: "once", run: () => usageMonthly() },
   ...(collecting
     ? [
-        { name: "sources.schedule", cron: "* * * * *", run: () => scheduleDueSources() },
+        { name: "sources.schedule", cron: "* * * * *", run: () => scheduleDueSources(undefined, "news") },
+        { name: "policy.sources.schedule", cron: "* * * * *", run: () => scheduleDueSources(undefined, "policy") },
         { name: "sources.adapt-intervals", cron: "20 4 * * *", run: adaptIntervals },
         // WeChat official accounts (paid), each once per its interval.
         { name: "sources.mp-reconcile", cron: "*/15 * * * *", run: () => scheduleMpReconcile() },

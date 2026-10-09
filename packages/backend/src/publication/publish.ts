@@ -1,3 +1,4 @@
+import { requireRuntimeRunning, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
 // Rebuilding only re-reads stored results; it never calls a model.
@@ -16,6 +17,7 @@ import { readStoredTranslation } from "../editorial/translation-store.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
+import { projectNewsGeography } from "./news-geography.ts";
 
 const sql = dbOf("publication");
 
@@ -353,6 +355,15 @@ export async function publishArticleTx(
         fact_id: previous.fact_id,
         indexable: previous.indexable,
       });
+  const wasPublic = !!previous && previous.visibility !== "withdrawn" && previous.eligible;
+  const reduced =
+    wasPublic &&
+    (visibility === "withdrawn" ||
+      !eligible ||
+      (previous!.visibility === "public" && visibility !== "public") ||
+      (previous!.selected && !selected) ||
+      (previous!.body_mode === "full" && bodyMode !== "full"));
+  if (visibility === "public" && eligible && !reduced) await requireRuntimeRunning("news", ["publication"], tx);
   const revision = previous ? previous.revision + (changed ? 1 : 0) : 1;
 
   await tx`
@@ -390,6 +401,7 @@ export async function publishArticleTx(
         EXCLUDED.indexable, EXCLUDED.story_id, EXCLUDED.fact_id, EXCLUDED.search_text,
         EXCLUDED.sort_at)`;
 
+  await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
   if (eligible) {
     const body = bodyMode === "full" ? (article.body_text ?? "").slice(0, 12000).toLowerCase() : "";
@@ -440,14 +452,6 @@ export async function publishArticleTx(
     ledger = "remove";
   }
 
-  const wasPublic = !!previous && previous.visibility !== "withdrawn" && previous.eligible;
-  const reduced =
-    wasPublic &&
-    (visibility === "withdrawn" ||
-      !eligible ||
-      (previous!.visibility === "public" && visibility !== "public") ||
-      (previous!.selected && !selected) ||
-      (previous!.body_mode === "full" && bodyMode !== "full"));
   return { articleId, changed, selected, visibility, ledger, reduced };
 }
 
@@ -461,13 +465,14 @@ export async function publishArticleTx(
 export async function republishSource(
   sourceId: string,
   onProgress?: (done: number, total: number) => Promise<void>,
-): Promise<{ total: number; changed: number; reduced: number; failed: number; failedIds: string[] }> {
+): Promise<{ total: number; changed: number; reduced: number; failed: number; failedIds: string[]; deferred: number }> {
   const { total } = one(await sql<{ total: number }[]>`SELECT count(*)::int AS total FROM publications WHERE source_id = ${sourceId}`);
   let after = "";
   let done = 0;
   let changed = 0;
   let reduced = 0;
   const retry: string[] = [];
+  const deferred = new Set<string>();
   const attempt = async (articleId: string): Promise<boolean> => {
     // Stopping mid-way is safe: the job is retried after the restart and re-derives from the start.
     if (shutdownSignal.signal.aborted) throw new Error("worker is stopping; republish resumes after restart");
@@ -477,6 +482,10 @@ export async function republishSource(
       if (r?.reduced) reduced += 1;
       return true;
     } catch (error) {
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+        deferred.add(articleId);
+        return true;
+      }
       if (shutdownSignal.signal.aborted) throw error;
       return false;
     }
@@ -493,5 +502,5 @@ export async function republishSource(
   // A passing failure (a lock wait, a dropped connection) gets one more try; it costs no model call.
   const failedIds: string[] = [];
   for (const articleId of retry) if (!(await attempt(articleId))) failedIds.push(articleId);
-  return { total, changed, reduced, failed: failedIds.length, failedIds: failedIds.slice(0, 20) };
+  return { total, changed, reduced, failed: failedIds.length, failedIds: failedIds.slice(0, 20), deferred: deferred.size };
 }

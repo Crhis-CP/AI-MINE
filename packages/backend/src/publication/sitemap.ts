@@ -1,24 +1,14 @@
-// Sitemap from the same public metadata as pages: reports, topics and their pages,
-// the latest 500 stories and indexable items. Cached ~5 minutes and rebuilt in the
-// background after that (crawlers get the previous copy meanwhile); if the database fails, the last
-// successful sitemap is served (never an empty one). Bounded.
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { config } from "../config.ts";
+// Read current qualified metadata on every request. Withdrawals must not survive in a disk fallback.
 import { dbOf } from "../db.ts";
-import { cached } from "../lib/cache.ts";
 import { escapeXml } from "../lib/text.ts";
 import { siteUrl } from "./links.ts";
 import { topicPageCounts } from "./topics.ts";
+import { policyDiscoveryEntries } from "./policies.ts";
+import { policyReport } from "./policies-reports.ts";
 
 const sql = dbOf("publication");
 
 const MAX_URLS = 45_000;
-const TTL_MS = 5 * 60 * 1000;
-const CACHE_FILE = path.join(config.dataDir, "sitemap-last.xml");
-
-let lastGood: string | null = null;
-
 interface Entry {
   loc: string;
   lastmod?: Date | null;
@@ -26,7 +16,7 @@ interface Entry {
   priority?: number;
 }
 
-async function build(): Promise<string> {
+async function entriesForSitemap(): Promise<Entry[]> {
   const entries: Entry[] = [];
   const [latestItem] = await sql<{ t: Date | null }[]>`SELECT max(timeline_at) AS t FROM publications WHERE visibility = 'public' AND selected`;
   const [latestDaily] = await sql<{ key: string | null; t: Date | null }[]>`SELECT max(key) AS key, max(generated_at) AS t FROM reports WHERE kind = 'daily'`;
@@ -40,6 +30,8 @@ async function build(): Promise<string> {
     { loc: "/weekly", changefreq: "weekly", priority: 0.7 },
     { loc: "/monthly", changefreq: "monthly", priority: 0.6 },
     { loc: "/topics", changefreq: "daily", priority: 0.7 },
+    { loc: "/metals", changefreq: "daily", priority: 0.7 },
+    { loc: "/policies", changefreq: "daily", priority: 0.8 },
     { loc: "/agent", lastmod: now, changefreq: "weekly", priority: 0.7 },
     { loc: "/about", changefreq: "monthly", priority: 0.5 },
     { loc: "/terms", changefreq: "monthly", priority: 0.4 },
@@ -67,12 +59,35 @@ async function build(): Promise<string> {
       WHERE f.story_id = stories.id AND fa.role IN ('primary', 'report') AND p.visibility = 'public' AND p.eligible)
     ORDER BY latest_at DESC NULLS LAST LIMIT 500`;
   for (const s of stories) entries.push({ loc: `/story/${s.public_id}`, lastmod: s.latest_at, changefreq: "daily", priority: 0.5 });
+  for (const policy of await policyDiscoveryEntries())
+    entries.push({ loc: `/policies/${encodeURIComponent(policy.id)}`, lastmod: policy.lastModified, changefreq: "monthly", priority: 0.6 });
+  const policyReports = await sql<{ id: string }[]>`SELECT id FROM publication.policy_reports WHERE current_revision>0 ORDER BY period_key DESC,id`;
+  for (const row of policyReports) {
+    const report = await policyReport(row.id, { limit: 1 });
+    if (report.item_count)
+      entries.push({ loc: `/policies/reports/${encodeURIComponent(row.id)}`, lastmod: new Date(report.issued_at), changefreq: "monthly", priority: 0.6 });
+  }
   const items = await sql<{ id: string; t: Date }[]>`
-    SELECT article_id AS id, updated_at AS t FROM publications WHERE visibility = 'public' AND indexable ORDER BY timeline_at DESC LIMIT ${MAX_URLS - entries.length}`;
+    SELECT article_id AS id, updated_at AS t FROM publications WHERE visibility = 'public' AND indexable ORDER BY timeline_at DESC,article_id`;
   for (const it of items) entries.push({ loc: `/items/${it.id}`, lastmod: it.t, changefreq: "monthly", priority: 0.5 });
+  return entries;
+}
 
+export class SitemapPageNotFound extends Error {}
+
+/** Split instead of silently dropping entries after the single-file capacity. */
+export function renderSitemap(entries: Entry[], page?: number, capacity = MAX_URLS): string {
+  if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > MAX_URLS) throw new Error("Invalid sitemap capacity");
+  const pages = Math.max(1, Math.ceil(entries.length / capacity));
+  if (page !== undefined && (!Number.isSafeInteger(page) || page < 1 || page > pages)) throw new SitemapPageNotFound("Sitemap page not found");
+  if (page === undefined && pages > 1)
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemaps/0.9">\n${Array.from(
+      { length: pages },
+      (_, i) => `<sitemap><loc>${escapeXml(siteUrl(`/sitemaps/${i + 1}.xml`))}</loc></sitemap>`,
+    ).join("\n")}\n</sitemapindex>\n`;
+  const start = ((page ?? 1) - 1) * capacity;
   const body = entries
-    .slice(0, MAX_URLS)
+    .slice(start, start + capacity)
     .map((e) => {
       const parts = [`<loc>${escapeXml(siteUrl(e.loc))}</loc>`];
       if (e.lastmod) parts.push(`<lastmod>${e.lastmod.toISOString()}</lastmod>`);
@@ -81,26 +96,9 @@ async function build(): Promise<string> {
       return `<url>\n${parts.join("\n")}\n</url>`;
     })
     .join("\n");
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemaps/0.9">\n${body}\n</urlset>\n`;
 }
 
-const sitemap = cached(refreshSitemap, { freshMs: TTL_MS, maxStaleMs: 60 * 60_000 });
-
-export function sitemapXml(): Promise<string> {
-  return sitemap.get();
-}
-
-async function refreshSitemap(): Promise<string> {
-  try {
-    const xml = await build();
-    lastGood = xml;
-    await mkdir(path.dirname(CACHE_FILE), { recursive: true });
-    await writeFile(CACHE_FILE, xml).catch(() => {});
-    return xml;
-  } catch (error) {
-    if (lastGood) return lastGood;
-    const last = await readFile(CACHE_FILE, "utf8").catch(() => null);
-    if (last) return last;
-    throw error;
-  }
+export async function sitemapXml(page?: number): Promise<string> {
+  return renderSitemap(await entriesForSitemap(), page);
 }

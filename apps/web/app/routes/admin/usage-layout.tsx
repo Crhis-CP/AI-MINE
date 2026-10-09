@@ -3,7 +3,7 @@ import { NavLink, Outlet } from "react-router";
 const PAGES = [
   ["/admin/usage-models", "模型与近期用量"],
   ["/admin/usage-models/reconciliation", "费用与投递核对"],
-  ["/admin/usage-models/settings", "通知与请求频率"],
+  ["/admin/usage-models/settings", "自动运行与通知"],
 ] as const;
 
 export default function UsageLayout() {
@@ -21,7 +21,9 @@ export default function UsageLayout() {
           </NavLink>
         ))}
       </nav>
-      <p className="px-4 pt-3 text-[12px] text-ink-3 lg:px-6">密钥录入与月度用量管理尚未开放；目前提供近期模型用量、既有模型配置与核对功能。</p>
+      <p className="px-4 pt-3 text-[12px] text-ink-3 lg:px-6">
+        近期用量与月度报告分别记录；费用缺项、暂停保护和发送状态会明确显示。模型接入可安全录入密钥，并按评测结果指派。
+      </p>
       <Outlet />
     </>
   );

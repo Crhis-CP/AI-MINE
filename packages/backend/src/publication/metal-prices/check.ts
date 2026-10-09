@@ -6,8 +6,8 @@ import { beijingDate } from "@amp/contracts/time";
 import { onSourceHost } from "./registry.ts";
 import type { PeriodCheckInput, PeriodCheckResult } from "./types.ts";
 
-/** How far a value may move from the previous period's: ten-day prices (the bureau), monthly ones (World Bank, IMF). */
-const RATIO = { ten_day: [0.67, 1.5], month: [0.5, 2] } as const;
+/** How far a value may move from the previous period's: daily (Bank of Russia), ten-day (the bureau), monthly (World Bank, IMF). */
+const RATIO = { day: [0.5, 2], week: [0.67, 1.5], ten_day: [0.67, 1.5], month: [0.5, 2] } as const;
 
 export function checkPeriod({ fetched, source, items, previous, newest, compareWithPrevious = true, now }: PeriodCheckInput): PeriodCheckResult {
   const { period, release, rows } = fetched;

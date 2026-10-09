@@ -142,11 +142,19 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
         if (!punctuation(cursor++, ",")) break;
       }
     }
+  // Only these complete positive transaction-local timeout statements are ownership-neutral.
+  const boundedTimeout =
+    tokens.length === 5 &&
+    wordAt(0, "set") &&
+    wordAt(1, "local") &&
+    punctuation(3, "=") &&
+    tokens[4]?.kind === "value" &&
+    ((wordAt(2, "statement_timeout") && tokens[4].text === "2s") || (wordAt(2, "lock_timeout") && tokens[4].text === "250ms"));
   const changedContext = tokens.some(
     (t, n) =>
       t.kind === "word" &&
       (["search_path", "set_config", "reset", "discard"].includes(t.text) ||
-        (t.text === "set" && (n === 0 || punctuation(n - 1, ";")) && !(wordAt(n + 1, "local") && wordAt(n + 2, "plan_cache_mode")))),
+        (t.text === "set" && (n === 0 || punctuation(n - 1, ";")) && !boundedTimeout && !(wordAt(n + 1, "local") && wordAt(n + 2, "plan_cache_mode")))),
   );
   if (changedContext) unknown.push("SQL context or search_path change");
   const read = (at: number, mode: Relation["mode"], allowFunction = true): void => {
@@ -300,8 +308,12 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       !relationNames.has(n) &&
       !(tokens[n].kind === "word" && syntax.has(value(n)))
     ) {
-      const catalogFormatter = wordAt(n, "to_char") && punctuation(n - 1, ".") && wordAt(n - 2, "pg_catalog") && !punctuation(n - 3, ".");
-      if (tokens[n].kind === "quoted" || (!functions.has(value(n)) && !catalogFormatter) || (punctuation(n - 1, ".") && value(n - 2) !== "pg_catalog"))
+      const catalogScalar =
+        (["to_char", "round", "pg_column_size"].some((name) => wordAt(n, name)) || (wordAt(n, "clock_timestamp") && punctuation(n + 2, ")"))) &&
+        punctuation(n - 1, ".") &&
+        wordAt(n - 2, "pg_catalog") &&
+        !punctuation(n - 3, ".");
+      if (tokens[n].kind === "quoted" || (!functions.has(value(n)) && !catalogScalar) || (punctuation(n - 1, ".") && value(n - 2) !== "pg_catalog"))
         unknown.push(`opaque SQL function ${value(n)}`);
     }
   return { relations, unknown: [...new Set(unknown)], shape: tokens.map((t) => (t.kind === "value" || t.kind === "hole" ? "?" : t.text)).join(" ") };

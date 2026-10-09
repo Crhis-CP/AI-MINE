@@ -22,7 +22,13 @@ import {
   type AnalyzeInputArticle,
 } from "@amp/backend/editorial/analyze";
 import { modelFor } from "@amp/backend/editorial/models";
-import { importSelectBenchRun } from "@amp/backend/admin/selectbench";
+import {
+  importSelectBenchRun,
+  exportSelectionGold,
+  recordSelectionEvaluation,
+  selectionModelIdentity,
+  type SelectionEvaluationMetadata,
+} from "@amp/backend/admin/selectbench";
 
 await initializeDb("worker");
 
@@ -31,6 +37,7 @@ const sql = dbOf("ai-gateway");
 const { values } = parseArgs({
   options: {
     gold: { type: "string", default: ".data/gold.jsonl" },
+    dataset: { type: "string" },
     models: { type: "string" },
     n: { type: "string", default: "200" },
     split: { type: "string", default: "all" },
@@ -43,17 +50,32 @@ const { values } = parseArgs({
 
 interface GoldRow {
   caseId: string;
-  material: { title: string; originalTitle: string | null; publishedAt: string | null; sourceName: string; bodyZh: string | null; bodyOriginal: string | null };
+  analysisInput?: AnalyzeInputArticle;
+  sampleRevision?: number;
+  labelRevision?: number;
+  inputHash?: string;
+  material: {
+    title: string;
+    originalTitle: string | null;
+    publishedAt: string | Date | null;
+    discoveredAt?: string | Date | null;
+    sourceName: string;
+    bodyZh: string | null;
+    bodyOriginal: string | null;
+  };
   sourceFacts: { sourceKind: string; sourceTier?: string; firstParty?: boolean; language?: string | null };
   /** Optional: a split (e.g. development / holdout) and a stratum for reading the mistakes. */
   samplingContext?: { benchmarkSplit?: string; samplingStratum?: string };
   gold: { decision: "select" | "reject" | "either" };
 }
 
-const rows: GoldRow[] = readFileSync(path.resolve(REPO_ROOT, values.gold!), "utf8")
-  .split("\n")
-  .filter((l) => l.trim() && !l.trim().startsWith("//"))
-  .map((l) => JSON.parse(l));
+const dataset = values.dataset ? await exportSelectionGold(values.dataset) : null;
+const rows: GoldRow[] =
+  dataset?.rows ??
+  readFileSync(path.resolve(REPO_ROOT, values.gold!), "utf8")
+    .split("\n")
+    .filter((l) => l.trim() && !l.trim().startsWith("//"))
+    .map((l) => JSON.parse(l));
 
 // Deterministic stratified sample.
 function rng(seed: number) {
@@ -69,6 +91,15 @@ const shuffled = pool
 const sample = shuffled.slice(0, Number(values.n));
 
 function toInput(r: GoldRow): AnalyzeInputArticle {
+  if (r.analysisInput) {
+    const a = r.analysisInput;
+    return {
+      ...a,
+      id: `gold-${r.caseId}`,
+      publishedAt: a.publishedAt instanceof Date ? a.publishedAt : a.publishedAt ? new Date(String(a.publishedAt)) : null,
+      discoveredAt: a.discoveredAt instanceof Date ? a.discoveredAt : a.discoveredAt ? new Date(String(a.discoveredAt)) : null,
+    };
+  }
   const m = r.material;
   const body = m.bodyOriginal || m.bodyZh || null;
   return {
@@ -78,7 +109,8 @@ function toInput(r: GoldRow): AnalyzeInputArticle {
     title: m.originalTitle || m.title,
     url: "https://example.invalid/" + r.caseId,
     author: null,
-    publishedAt: m.publishedAt ? new Date(m.publishedAt) : null,
+    publishedAt: m.publishedAt instanceof Date ? m.publishedAt : m.publishedAt ? new Date(m.publishedAt) : null,
+    discoveredAt: m.discoveredAt instanceof Date ? m.discoveredAt : m.discoveredAt ? new Date(m.discoveredAt) : null,
     bodyText: body,
     excerpt: null,
     media: [],
@@ -134,8 +166,12 @@ const models = values.models
 if (!models.length) throw new Error("--models did not name any models");
 
 const report: Record<string, unknown> = {};
+const identities: Record<string, string | null> = {},
+  afterIdentities: Record<string, string | null> = {},
+  manifest: SelectionEvaluationMetadata["cases"] = {};
 for (const model of models) {
   const started = Date.now();
+  identities[model] = await selectionModelIdentity(model);
   // Two gold cases can have different source metadata / thresholds while rendering the same score prompt.
   // Share only that score result (including a failure); prefilter and threshold semantics remain per case.
   const scoreRequests = new Map<string, Promise<{ scores: AnalysisRun["scores"]; receiptIds: number[]; error: string | null }>>();
@@ -283,6 +319,15 @@ for (const model of models) {
     error: x.error,
   }));
   report[model] = { summary, sweep, mistakes, cases };
+  afterIdentities[model] = await selectionModelIdentity(model);
+  if (dataset)
+    manifest[model] = results.map((x) => ({
+      caseId: x.r.caseId,
+      inputHash: x.r.inputHash!,
+      sampleRevision: x.r.sampleRevision!,
+      labelRevision: x.r.labelRevision!,
+      receiptIds: x.receiptIds,
+    }));
 }
 const outDir = path.join(REPO_ROOT, ".data/eval");
 mkdirSync(outDir, { recursive: true });
@@ -297,6 +342,15 @@ if (!values["no-import"]) {
     values.label ?? `${values.split} ${sample.length} 条 · ${Object.keys(report).join(" / ")}`,
     "script:eval-selection",
   );
+  if (dataset)
+    await recordSelectionEvaluation(run.id, {
+      datasetId: dataset.datasetId,
+      datasetVersion: dataset.datasetVersion,
+      synthetic: dataset.synthetic,
+      modelConfigurations: identities,
+      modelConfigurationAfter: afterIdentities,
+      cases: manifest,
+    });
   console.log(`SelectBench run: ${run.id}`);
 }
 await closeDb();

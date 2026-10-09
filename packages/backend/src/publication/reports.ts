@@ -5,10 +5,46 @@ import { dbOf } from "../db.ts";
 import { cached, type Cached } from "../lib/cache.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { SITE, withSubject } from "@amp/industry/site";
+import { isValidDate, isoWeekRange } from "@amp/contracts/time";
 
 const sql = dbOf("publication");
 
 export type { ReportKind };
+export function isPublicReportKey(kind: ReportKind, key: string) {
+  return key === "latest" || (kind === "daily" ? isValidDate(key) : kind === "weekly" ? isoWeekRange(key) !== null : /^\d{4}-(0[1-9]|1[0-2])$/.test(key));
+}
+
+/** Same published report DTO, bounded to its existing public fields; no generation or cached citation qualification. */
+export async function machineReport(kind: ReportKind, key = "latest") {
+  if (!isPublicReportKey(kind, key)) return null;
+  const selectedKey = key === "latest" ? (await reportIndexRows(kind, 1))[0]?.key : key;
+  if (!selectedKey) return null;
+  const report = await loadReport(kind, selectedKey);
+  if (!report) return null;
+  const { metrics: _metrics, ...view } = report;
+  const removed = [...view.stories, ...view.flashes].some((item) => !item.available);
+  return {
+    report: {
+      ...view,
+      title: removed ? `${SITE.name} ${kind === "daily" ? "日报" : kind === "weekly" ? "周报" : "月报"} · ${selectedKey}` : view.title,
+      lead: removed ? null : view.lead,
+      overview: removed ? null : view.overview,
+      highlights: view.highlights.filter((item) => item.available),
+      flashes: view.flashes.filter((item) => item.available),
+      stories: view.stories.filter((item) => item.available).map((item) => ({ ...item, label: removed ? "仍公开的报道" : item.label })),
+      sections: view.sections
+        .map((section) => ({
+          ...section,
+          label: removed ? "仍公开的报道" : section.label,
+          summary: removed ? null : section.summary,
+          items: section.items.filter((item) => item.available),
+        }))
+        .filter((section) => section.items.length),
+    },
+    limitation: removed ? "部分引用已撤回，当前只提供仍可公开的引用，综合文字暂不输出。" : null,
+    attribution: { name: SITE.name, url: siteUrl(`/${kind}/${selectedKey}`) },
+  };
+}
 
 interface ReportRow {
   kind: ReportKind;
@@ -310,7 +346,7 @@ export async function v1Daily(date: string | "latest") {
       windowStart: r.window_start.toISOString(),
       windowEnd: r.window_end.toISOString(),
       attribution: attribution(url),
-      lead: c.lead ? { title: String(c.lead.title), leadParagraph: String(c.lead.leadParagraph) } : null,
+      lead: c.lead && raw.every(ok) ? { title: String(c.lead.title), leadParagraph: String(c.lead.leadParagraph) } : null,
       sections: (c.sections ?? []).map((s: any) => ({
         label: String(s.label),
         items: (s.items ?? []).filter(ok).map((i: any) => ({

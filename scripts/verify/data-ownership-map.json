@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "e6674a24f09f40327cbc00018ed3ad99f65438b564994d9adeed962abc94c41e",
+  "grantCatalogueSha256": "25acac9ec8004b3e10a46dea97c6e07bc9609caffc59eabdcad80000990b1566",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -214,6 +214,10 @@
       "module": "sources",
       "access": "business"
     },
+    "content.source_date_observation_seen": {
+      "module": "content",
+      "access": "business"
+    },
     "content.source_date_observations": {
       "module": "content",
       "access": "business"
@@ -224,6 +228,302 @@
     },
     "publication.metal_prices": {
       "module": "publication",
+      "access": "business"
+    },
+    "policy.instruments": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.versions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.expressions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.document_revisions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.original_resources": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.document_extractions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.processing_controls": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.fulltext_runs": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.fulltext_parts": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.quality_releases": {
+      "module": "policy",
+      "access": "business"
+    },
+    "publication.policy_ids": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.policy_documents": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.policy_quality_windows": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.policy_editions": {
+      "module": "publication",
+      "access": "business"
+    },
+    "policy.interpretation_runs": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.interpretation_stages": {
+      "module": "policy",
+      "access": "business"
+    },
+    "publication.policy_reports": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.policy_report_revisions": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.policy_report_members": {
+      "module": "publication",
+      "access": "business"
+    },
+    "policy.material_discoveries": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.metadata_observations": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.material_workflows": {
+      "module": "policy",
+      "access": "business"
+    },
+    "publication.policy_publication_control": {
+      "module": "publication",
+      "access": "business"
+    },
+    "policy.vision_runs": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.vision_pages": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.vision_stages": {
+      "module": "policy",
+      "access": "business"
+    },
+    "acquisition.crawl_hosts": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.robots_observations": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.crawl_sessions": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.crawl_requests": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.crawl_checkpoints": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "publication.policy_relations": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.policy_threads": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.news_geography": {
+      "module": "publication",
+      "access": "business"
+    },
+    "ops.lane_controls": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ops.lane_control_conflicts": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "ai.usage_observation": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.local_reuse_daily": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_monthly_reports": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.model_connections": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.model_connection_tests": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.model_routes": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.model_attempt_snapshots": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "identity.account_access": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.password_accounts": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.account_policy": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.auth_attempts": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.login_nonces": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.account_commands": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "ops.operational_snapshots": {
+      "module": "platform/ops",
+      "access": "business"
+    },
+    "acquisition.directory_scans": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.directory_pages": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.directory_seen": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.directory_records": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.directory_heads": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.directory_bindings": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.directory_receipts": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "ai.usage_control_versions": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_prices": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_attempts": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_breakers": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_protection_events": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_notice_progress": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_sums": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "publication.site_information": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.site_information_commands": {
+      "module": "publication",
+      "access": "business"
+    },
+    "ai.selection_tool_control": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_datasets": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_samples": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_labels": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_submissions": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_run_evidence": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_records": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_commands": {
+      "module": "ai-gateway",
       "access": "business"
     }
   },

@@ -1,8 +1,10 @@
+import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
 import { dbOf, type Db, type Tx } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { enqueueSourceFetch } from "../jobs/source-queues.ts";
 import { republishKey } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
 import { fetchJsonList } from "../sources/json-list.ts";
@@ -11,7 +13,6 @@ import { assertSupportedConfig, sourceDateConfigHash } from "../sources/config-k
 import type { SourceRow } from "../sources/types.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit } from "./auth.ts";
-
 const sql = dbOf("sources");
 
 export class Conflict extends Error {
@@ -69,7 +70,7 @@ export async function sourceDetail(id: string) {
 }
 
 /** Fetches a source (saved or draft) and returns what it would collect, without storing anything. */
-export async function previewSource(draft: Pick<SourceRow, "id" | "kind" | "config"> & Partial<SourceRow>) {
+async function previewSourceUnpaced(draft: Pick<SourceRow, "id" | "kind" | "config"> & Partial<SourceRow>) {
   const source = { name: draft.id, enabled: true, cursor: null, tier: "T2", participation_mode: "editorial", ...draft } as SourceRow;
   assertSupportedConfig(source.kind, source.config);
   const started = Date.now();
@@ -195,18 +196,26 @@ export async function findDuplicateSource(kind: string, config: Record<string, u
   return rows.find((r) => sourceIdentity(r.config) === identity) ?? null;
 }
 
-export async function createSource(input: unknown, actor: string) {
-  const s = SourceCreateRequest.parse(input);
-  assertSupportedConfig(s.kind, s.config);
+/** Validate a complete seed batch before any source is created, using the same rules as the HTTP entry. */
+export function validateSourceCreate(input: unknown) {
+  const source = SourceCreateRequest.parse(input);
+  assertSupportedConfig(source.kind, source.config);
+  return source;
+}
+
+export async function createSource(input: unknown, actor: string, opts: { lane?: "news" | "policy" } = {}) {
+  const lane = opts.lane ?? "news";
+  if (lane !== "news" && lane !== "policy") throw new Error("业务线必须是 news 或 policy");
+  const s = validateSourceCreate(input);
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(23622, hashtext(${s.kind + ":" + (sourceIdentity(s.config) ?? s.id)}))`;
     const dup = await findDuplicateSource(s.kind, s.config, tx);
     if (dup) return { created: false as const, duplicate: dup };
     await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${s.id}))`;
     const [row] = await tx`
-      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at,source_date_config_hash)
+      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at,source_date_config_hash,lane)
       VALUES (${s.id},${s.name},${s.kind},${tx.json(s.config as never)},${s.tier},${s.participation_mode},${s.interval_minutes},${s.first_party},${s.tags},
-        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL,${sourceDateConfigHash(s.kind, s.config)}) ON CONFLICT (id) DO NOTHING RETURNING *`;
+        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL,${sourceDateConfigHash(s.kind, s.config)},${lane}) ON CONFLICT (id) DO NOTHING RETURNING *`;
     if (!row) throw new Conflict(`信源 ID ${s.id} 已存在`);
     const at = new Date().toISOString();
     const permission = SourcePolicySchema.parse({
@@ -238,18 +247,19 @@ export async function createSource(input: unknown, actor: string) {
       licence_label_zh: "负责人声明许可；来源异议或指示可逐项收紧",
     });
     await appendSourcePolicy(tx, null, permission);
-    await audit(actor, "source.create", `source:${s.id}`, null, null, s, undefined, tx);
+    await audit(actor, "source.create", `source:${s.id}`, null, null, { ...s, lane }, undefined, tx);
     return { created: true as const, source: row };
   });
 }
 
 export async function fetchNow(id: string, actor: string) {
-  const [s] = await sql<{ id: string; kind: string }[]>`SELECT id, kind FROM sources WHERE id = ${id}`;
+  const [s] = await sql<{ id: string; kind: string; lane: SourceRow["lane"] }[]>`SELECT id, kind, lane FROM sources WHERE id = ${id}`;
   if (!s) return null;
+  await requireRuntimeRunning(s.lane, ["collection"]);
   const jobId =
     s.kind === "mp_account"
       ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual" }, { singletonKey: `mp:${id}` })
-      : await enqueue(QUEUES.fetchSource, { sourceId: id, force: true }, { singletonKey: `manual:${id}` });
+      : await enqueueSourceFetch(s.lane, { sourceId: id, force: true });
   await audit(actor, "source.fetch", `source:${id}`, null, null, { jobId });
   return { jobId };
 }
@@ -260,8 +270,8 @@ export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]
 }
 
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
-export async function readSourceDateContext(sourceId: string): Promise<SourceRow | null> {
-  const [source] = await sql<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, lane, first_party,
+export async function readSourceDateContext(sourceId: string, db: Db = sql): Promise<SourceRow | null> {
+  const [source] = await db<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, lane, first_party,
     interval_minutes, enabled, cursor, fail_count FROM sources WHERE id = ${sourceId}`;
   return source ?? null;
 }
@@ -277,9 +287,16 @@ export async function lockSourceDateConfiguration(tx: Tx, sourceId: string, expe
 }
 
 import { appendSourcePolicy, readCurrentSourcePolicy } from "../sources/permission-store.ts";
+export { policySourceCoverage } from "../sources/policy-coverage.ts";
 import { SOURCE_PURPOSES, SourcePolicySchema } from "@amp/contracts/source-policy";
 import { SourceCreateRequest } from "@amp/contracts/http/private";
-export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "../sources/permission-store.ts";
+export {
+  readCurrentSourcePolicy,
+  readCurrentPublicPolicy,
+  publicProcessingAllowed,
+  lockCurrentSourcePolicies,
+  evaluateSourcePolicy,
+} from "../sources/permission-store.ts";
 export { parseSourceDate } from "../sources/date-extraction.ts";
 
 /** Explicit permission edit; no HTTP caller is activated by this storage capability. */
@@ -297,3 +314,39 @@ export async function saveSourcePolicy(id: string, input: { policy: Record<strin
     return change.after;
   });
 }
+
+import { stableJson } from "../lib/ids.ts";
+
+/** A policy observation is accepted only against the still-current explicit source configuration. */
+export async function lockPolicySourceConfiguration(tx: Tx, expected: Pick<SourceRow, "id" | "kind" | "config">) {
+  const [row] = await tx`SELECT kind,config,lane,enabled FROM sources WHERE id=${expected.id} FOR SHARE`;
+  if (!row || row.lane !== "policy" || !row.enabled || row.kind !== expected.kind || stableJson(row.config) !== stableJson(expected.config))
+    throw new Error("Policy source configuration changed or paused");
+}
+
+/** Acquisition reports success through the sources-owned port, within its original control transaction. */
+export async function recordSourceCollectionSuccess(sourceId: string, cursor: Record<string, unknown>, db: Db) {
+  await db`UPDATE sources SET last_fetch_at=now(),last_ok_at=now(),fail_count=0,last_error=NULL,health='ok',cursor=${db.json(cursor as never)},updated_at=now(),
+   next_fetch_at=now()+make_interval(mins=>interval_minutes) WHERE id=${sourceId}`;
+}
+
+import { withSourceCrawl, CrawlDeferred } from "../acquisition/crawl.ts";
+export async function previewSource(draft: Parameters<typeof previewSourceUnpaced>[0]) {
+  const source = { name: draft.id, enabled: true, cursor: null, tier: "T2", participation_mode: "editorial", lane: "news", ...draft } as SourceRow;
+  try {
+    return await withSourceCrawl(source, `preview:${source.id}`, () => previewSourceUnpaced(draft));
+  } catch (error) {
+    if (error instanceof CrawlDeferred) return { ms: 0, count: 0, items: [], status: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason };
+    throw error;
+  }
+}
+
+/** Scheduler wait does not count as a fetch success/failure or change source enablement. */
+export async function deferSourceFetch(sourceId: string, retryAt: Date) {
+  await sql`UPDATE sources SET next_fetch_at=${retryAt} WHERE id=${sourceId} AND enabled`;
+}
+
+export { sourceTargets } from "../sources/target-catalogue.ts";
+
+export { sourceCoverage } from "../sources/coverage-matrix.ts";
+export { exportSourceTargets } from "./source-exports.ts";

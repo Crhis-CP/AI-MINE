@@ -132,11 +132,12 @@ test("health works on both roots regardless of forwarded hostname; public redire
 
 test("a matching private host reaches the real password/session guard without bypassing login", async () => {
   assert.equal((await privateApp.inject({ url: "/api/admin/me", headers: forwarded })).statusCode, 401);
+  const nonce = await privateApp.inject({ url: "/api/auth/password-nonce", headers: forwarded });
   const login = await privateApp.inject({
     method: "POST",
     url: "/api/auth/password",
-    headers: { ...forwarded, "content-type": "application/x-www-form-urlencoded" },
-    payload: new URLSearchParams({ password: config.adminPassword!, return: "/admin" }).toString(),
+    headers: { ...forwarded, cookie: String(nonce.headers["set-cookie"]).split(";")[0]!, "content-type": "application/x-www-form-urlencoded" },
+    payload: new URLSearchParams({ login_name: "admin@local", login_nonce: nonce.json().token, password: config.adminPassword!, return: "/admin" }).toString(),
   });
   assert.equal(login.statusCode, 303);
   assert.equal(login.headers.location, "/admin");

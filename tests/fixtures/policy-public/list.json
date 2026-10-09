@@ -1,0 +1,200 @@
+{
+  "content_version": "fixture-v1",
+  "generated_at": "2026-10-09T00:00:00Z",
+  "items": [
+    {
+      "id": "policy-complete-fixture",
+      "title": "【合成预览】融资信息报告规则",
+      "original_title": "Synthetic Mining Rule",
+      "jurisdictions": [
+        {
+          "code": "AR",
+          "label": "阿根廷",
+          "kind": "country"
+        }
+      ],
+      "authority": {
+        "id": "authority-fixture",
+        "name": "合成发布机关"
+      },
+      "instrument_number": null,
+      "nature": {
+        "code": "regulation",
+        "label": "法规"
+      },
+      "themes": [
+        {
+          "code": "tax_finance",
+          "label": "财税与资金"
+        }
+      ],
+      "change_kind": null,
+      "published_time": {
+        "raw": "2026-10-08",
+        "local_date": "2026-10-08",
+        "local_time": null,
+        "timezone": null,
+        "utc": null,
+        "precision": "date",
+        "meaning": "published",
+        "meaning_label": "来源发布",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-08",
+        "beijing_date": "2026-10-08"
+      },
+      "sort_time": {
+        "raw": "2026-10-08",
+        "local_date": "2026-10-08",
+        "local_time": null,
+        "timezone": null,
+        "utc": null,
+        "precision": "date",
+        "meaning": "published",
+        "meaning_label": "来源发布",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-08",
+        "beijing_date": "2026-10-08"
+      },
+      "sort_kind": "published",
+      "first_public_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "site_public",
+        "meaning_label": "本站收录",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "first_public_basis": "live",
+      "source_checked_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "checked",
+        "meaning_label": "原文核对",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "is_backfill": false,
+      "legal_brief": {
+        "stage": "published",
+        "in_force": "no",
+        "repeal": "unknown"
+      },
+      "interpretation_state": "complete",
+      "summary": "【合成预览】用于核对完整解读、条件、证据与正文的展示。",
+      "applicability_summary": null,
+      "thread_id": null,
+      "original_url": "https://example.invalid/policy/1",
+      "attributions": [
+        {
+          "name": "合成发布机关",
+          "url": "https://example.invalid/policy/1"
+        }
+      ],
+      "ai_label": "ai_generated"
+    },
+    {
+      "id": "policy-fixture",
+      "title": "【合成预览】矿业经营规则通知",
+      "original_title": "Synthetic Mining Rule",
+      "jurisdictions": [
+        {
+          "code": "AR",
+          "label": "阿根廷",
+          "kind": "country"
+        }
+      ],
+      "authority": {
+        "id": "authority-fixture",
+        "name": "合成发布机关"
+      },
+      "instrument_number": null,
+      "nature": {
+        "code": "unknown",
+        "label": "尚未确认"
+      },
+      "themes": [],
+      "change_kind": null,
+      "published_time": {
+        "raw": "",
+        "local_date": null,
+        "local_time": null,
+        "timezone": null,
+        "utc": null,
+        "precision": "unknown",
+        "meaning": "published",
+        "meaning_label": "来源发布",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "来源发布日期尚未确认",
+        "beijing_date": null
+      },
+      "sort_time": null,
+      "sort_kind": null,
+      "first_public_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "site_public",
+        "meaning_label": "本站收录",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "first_public_basis": "live",
+      "source_checked_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "checked",
+        "meaning_label": "原文核对",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "is_backfill": false,
+      "legal_brief": {
+        "stage": "unknown",
+        "in_force": "unknown",
+        "repeal": "unknown"
+      },
+      "interpretation_state": "basic_facts",
+      "summary": "【合成预览】仅展示文书身份、来源入口和已知事实；日期未知保持未知。",
+      "applicability_summary": null,
+      "thread_id": null,
+      "original_url": "https://example.invalid/policy/1",
+      "attributions": [
+        {
+          "name": "合成发布机关",
+          "url": "https://example.invalid/policy/1"
+        }
+      ],
+      "ai_label": "ai_generated"
+    }
+  ],
+  "page": 1,
+  "page_size": 20,
+  "total": 2,
+  "has_more": false
+}

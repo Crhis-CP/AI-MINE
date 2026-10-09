@@ -59,7 +59,7 @@ function reject(reason: Reason): never {
 }
 const ISO = /^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)(Z|[+-]\d{2}:?\d{2})?)?$/i;
 const RFC =
-  /^(?:(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s+)?(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\s+(\d{2}:\d{2}(?::\d{2})?)(?:\s+(UT|UTC|GMT|[A-Z]{1,5}|[+-]\d{4}))?$/i;
+  /^(?:(Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s+)?(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\s+(\d{2}:\d{2}(?::\d{2})?)(?:\s+(UT|UTC|GMT|[A-Z]{1,5}|[+-]\d{2}:?\d{2}))?$/i;
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const DAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const DECLARED: Record<string, [string, "ymd" | "dmy" | "mdy"]> = {
@@ -68,9 +68,24 @@ const DECLARED: Record<string, [string, "ymd" | "dmy" | "mdy"]> = {
   "YYYY.MM.DD": ["(\\d{4})\\.(\\d{1,2})\\.(\\d{1,2})", "ymd"],
   YYYYMMDD: ["(\\d{4})(\\d{2})(\\d{2})", "ymd"],
   YYYY年M月D日: ["(\\d{4})年(\\d{1,2})月(\\d{1,2})日", "ymd"],
-  "DD/MM/YYYY": ["(\\d{2})/(\\d{2})/(\\d{4})", "dmy"],
+  "DD/MM/YYYY": ["(\\d{1,2})/(\\d{1,2})/(\\d{4})", "dmy"],
+  "DD.MM.YYYY": ["(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})", "dmy"],
+  "DD-MM-YYYY": ["(\\d{1,2})-(\\d{1,2})-(\\d{4})", "dmy"],
   "MM/DD/YYYY": ["(\\d{2})/(\\d{2})/(\\d{4})", "mdy"],
 };
+// Month names are considered only with a declared format and one of these languages; never guess a locale.
+const NAMED_MONTHS: Record<string, string> = {
+  en: "january/jan february/feb march/mar april/apr may june/jun july/jul august/aug september/sep/sept october/oct november/nov december/dec",
+  es: "enero/ene febrero/feb marzo/mar abril/abr mayo/may junio/jun julio/jul agosto/ago septiembre/setiembre/sep/sept/set octubre/oct noviembre/nov diciembre/dic",
+  pt: "janeiro/jan fevereiro/fev março/mar abril/abr maio/mai junho/jun julho/jul agosto/ago setembro/set outubro/out novembro/nov dezembro/dez",
+  fr: "janvier/janv/jan février/févr/fev mars/mar avril/avr mai juin juillet/juil août septembre/sept octobre/oct novembre/nov décembre/déc",
+  nl: "januari/jan februari/feb maart/mrt april/apr mei juni/jun juli/jul augustus/aug september/sep oktober/okt november/nov december/dec",
+  id: "januari/jan februari/feb maret/mar april/apr mei juni/jun juli/jul agustus/agu/ags september/sep oktober/okt november/nov desember/des",
+  ru: "январь/января/янв февраль/февраля/фев март/марта/мар апрель/апреля/апр май/мая июнь/июня/июн июль/июля/июл август/августа/авг сентябрь/сентября/сен/сент октябрь/октября/окт ноябрь/ноября/ноя декабрь/декабря/дек",
+  de: "januar/jan februar/feb märz/mär/mrz april/apr mai juni/jun juli/jul august/aug september/sep/sept oktober/okt november/nov dezember/dez",
+};
+const monthWord = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\.$/, "");
+const NAMED_FORMATS = new Set(["D MMMM YYYY", "MMMM D, YYYY", "D MMM YYYY", "DD-MMM-YYYY"]);
 const dayOf = (year: string, month: string, day: string) => `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 const fraction = (clock: string) => clock.split(".")[1] ?? "";
 function at(wholeSecond: number, subsecond: string): string {
@@ -133,16 +148,40 @@ function epoch(raw: string, milliseconds: boolean): string {
   return date.toISOString().replace("Z", `${rest ? rest.toString().padStart(digits, "0") : ""}Z`);
 }
 function declared(raw: string, pattern: string | null, language: string | null): Fields {
-  if (!pattern || !language?.trim()) reject("missing_format_language");
-  const time = / (HH:mm(?::ss)?)$/.exec(pattern),
+  if (!pattern) reject("missing_format_language");
+  const time = / (HH:mm(?::ss)?)(?: (Z))?$/.exec(pattern),
     format = time ? pattern.slice(0, -time[0].length) : pattern;
-  const entry = Object.hasOwn(DECLARED, format) ? DECLARED[format] : undefined;
+  const named = NAMED_FORMATS.has(format);
+  let months: string[] | undefined;
+  let entry = Object.hasOwn(DECLARED, format) ? DECLARED[format] : undefined;
+  if (named) {
+    let locale = "";
+    try {
+      locale = new Intl.Locale(language ?? "").language;
+    } catch {
+      /* Unsupported declarations remain unknown. */
+    }
+    if (!Object.hasOwn(NAMED_MONTHS, locale)) reject("unrecognized_format");
+    months = NAMED_MONTHS[locale]!.split(" ").map(monthWord);
+    const word = "([\\p{L}\\p{M}]+\\.?)",
+      glue = locale === "es" || locale === "pt" ? "\\s+(?:de\\s+)?" : "\\s+";
+    const tail = locale === "ru" ? "(?:\\s+г\\.?)?" : "";
+    entry =
+      format === "MMMM D, YYYY"
+        ? [`${word}\\s+(\\d{1,2}),\\s+(\\d{4})${tail}`, "mdy"]
+        : format === "DD-MMM-YYYY"
+          ? [`(\\d{2})-${word}-(\\d{4})${tail}`, "dmy"]
+          : [`(\\d{1,2})${glue}${word}${glue}(\\d{4})${tail}`, "dmy"];
+  } else if (!language?.trim()) reject("missing_format_language");
   if (!entry) reject("unsupported_format");
-  const suffix = time ? (time[1] === "HH:mm" ? " (\\d{2}:\\d{2})" : " (\\d{2}:\\d{2}:\\d{2})") : "";
-  const match = new RegExp(`^${entry[0]}${suffix}$`).exec(raw);
+  const clockPattern = time ? (time[1] === "HH:mm" ? " (\\d{2}:\\d{2})" : " (\\d{2}:\\d{2}:\\d{2})") : "";
+  const suffix = `${clockPattern}${time?.[2] ? "\\s*(Z|UT|UTC|GMT|[+-]\\d{2}:?\\d{2})" : ""}`;
+  const match = new RegExp(`^${entry[0]}${suffix}$`, "iu").exec(raw);
   if (!match) reject("unrecognized_format");
-  const [, a, b, c, clock] = match;
-  return { day: entry[1] === "ymd" ? dayOf(a, b, c) : entry[1] === "dmy" ? dayOf(c, b, a) : dayOf(c, a, b), clock: clock ?? null };
+  const [, a, b, c, clock, offset] = match;
+  const month = months ? String(months.findIndex((aliases) => aliases.split("/").includes(monthWord(entry[1] === "mdy" ? a : b))) + 1) : null;
+  if (month === "0") reject("unrecognized_format");
+  return { day: entry[1] === "ymd" ? dayOf(a, b, c) : entry[1] === "dmy" ? dayOf(c, month ?? b, a) : dayOf(c, month ?? a, b), clock: clock ?? null, offset };
 }
 
 // No declared format, neither ISO nor RFC: the first year-month-day in the text, as the upstream reads it
@@ -212,7 +251,7 @@ function parseRawDate(source: UnboundInput, validate: (value: UnboundResult) => 
       if (!rfc) reject("unrecognized_format");
       context.language = "en";
       fields = { day: dayOf(rfc[4], String(MONTHS.indexOf(rfc[3].toLowerCase()) + 1), rfc[2]), clock: rfc[5], weekday: rfc[1], offset: rfc[6] };
-      if (fields.offset && !/^(?:Z|UT|UTC|GMT|[+-]\d{4})$/i.test(fields.offset)) fields.offset = undefined;
+      if (fields.offset && !/^(?:Z|UT|UTC|GMT|[+-]\d{2}:?\d{2})$/i.test(fields.offset)) fields.offset = undefined;
     }
     if (!isValidDate(fields.day)) reject("invalid_calendar");
     if (fields.weekday && DAYS[new Date(`${fields.day}T00:00:00Z`).getUTCDay()] !== fields.weekday.toLowerCase()) reject("weekday_conflict");

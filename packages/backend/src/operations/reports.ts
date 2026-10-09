@@ -3,6 +3,9 @@
 import { dbOf } from "../db.ts";
 import { beijingDay, sendAlert } from "../notify/feishu.ts";
 
+export { usageWeekly } from "./usage-weekly.ts";
+export { usageMonthly } from "./usage-monthly.ts";
+
 const sql = dbOf("reports");
 
 const pct = (a: number, b: number) => (b ? `${a >= b ? "+" : ""}${(((a - b) / b) * 100).toFixed(0)}%` : "—");
@@ -57,3 +60,7 @@ export async function sourceHealthWeekly(now = Date.now()) {
   await sendAlert("📊 信源周报", lines);
   return { failing: failing.length, silent: silent.length };
 }
+
+export { refreshOperationalSnapshots } from "./operational-snapshots.ts";
+export { readOperationalSnapshot, OperationsReadUnavailable } from "./read-snapshots.ts";
+export { usageProtectionTick, deliverUsageProtectionEvents } from "./usage-protection.ts";

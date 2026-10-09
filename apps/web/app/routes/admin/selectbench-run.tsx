@@ -1,8 +1,11 @@
 import { SITE } from "@amp/industry/site";
 import { Fragment, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, redirect, useNavigate, useSearchParams } from "react-router";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
+import { readSelectionTool, readSelectionEvidence } from "../../features/admin/SelectionApi.server";
+import { useSelectionActions } from "../../features/admin/SelectionActions";
+import { SelectionRunConfirmation } from "../../features/admin/SelectionCalibration";
 import { adminGet } from "../../lib/admin.server";
 import { bj, num, pct } from "../../features/admin/format";
 import { AdminPage, Badge, Card, Empty, FilterChips, Select } from "../../features/admin/ui";
@@ -33,7 +36,12 @@ interface Data {
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   if (!params.runId) throw new Response("Not found", { status: 404 });
-  return adminGet<Data>(request, `/api/admin/selectbench/${encodeURIComponent(params.runId)}${new URL(request.url).search}`);
+  if (!(await readSelectionTool(request)).enabled) throw redirect("/admin/selectbench");
+  const [data, evidence] = await Promise.all([
+    adminGet<Data>(request, `/api/admin/selectbench/${encodeURIComponent(params.runId)}${new URL(request.url).search}`),
+    readSelectionEvidence(request, params.runId),
+  ]);
+  return { ...data, evidence };
 }
 
 export const meta: MetaFunction<typeof loader> = ({ loaderData }) => [{ title: `${loaderData?.run.label ?? "SelectBench"} · ${SITE.name} 后台` }];
@@ -58,10 +66,18 @@ function verdict(d: Decision | undefined, gold: string) {
 }
 
 export default function SelectBenchRun({ loaderData: d }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
+  const { execute } = useSelectionActions();
   const [sp] = useSearchParams();
   const navigate = useNavigate();
   const [open, setOpen] = useState<string | null>(null);
   const model = sp.get("model") ?? d.run.models[0]!;
+  const rawSweep = (d.run.summary[model] as unknown as { sweep?: unknown })?.sweep;
+  const sweep = Array.isArray(rawSweep)
+    ? rawSweep.filter(
+        (row): row is { t: number; acc: number; P: number; R: number; F1: number; sel: number } =>
+          !!row && ["t", "acc", "P", "R", "F1", "sel"].every((k) => typeof row[k] === "number" && Number.isFinite(row[k])),
+      )
+    : [];
   const set = (k: string, v: string | null) => {
     const next = new URLSearchParams(sp);
     if (v) next.set(k, v);
@@ -80,6 +96,9 @@ export default function SelectBenchRun({ loaderData: d }: { loaderData: Awaited<
         </>
       }
     >
+      <div className="mb-5">
+        <SelectionRunConfirmation evidence={d.evidence} onConfirm={(input) => execute("holdout", input)} />
+      </div>
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {d.run.models.map((m) => {
           const s = d.run.summary[m] ?? {};
@@ -95,11 +114,44 @@ export default function SelectBenchRun({ loaderData: d }: { loaderData: Awaited<
                 准确 {pct(s.accuracy)} · 精确 {pct(s.precision)} · 召回 {pct(s.recall)}
               </div>
               <div className="num mt-0.5 text-[12px] text-ink-4">
-                误选 {s.fp ?? "—"} · 漏选 {s.fn ?? "—"} · 失败 {s.errors ?? 0}
+                误选 {s.fp ?? "—"} · 漏选 {s.fn ?? "—"} · 失败 {s.errors ?? "未记录"}
               </div>
             </button>
           );
         })}
+      </div>
+      <div className="mb-5">
+        <Card title="门槛扫描（只读）" pad={false}>
+          {sweep.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[580px] text-sm">
+                <thead>
+                  <tr className="border-b border-line text-left">
+                    {["门槛", "准确率", "查准率", "查全率", "F1", "入选比例"].map((label) => (
+                      <th key={label} className="px-3 py-2 font-medium">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sweep.map((row) => (
+                    <tr key={row.t} className="border-b border-line/60 last:border-0">
+                      <td className="px-3 py-2 num">{row.t}</td>
+                      {[row.acc, row.P, row.R, row.F1, row.sel].map((value, i) => (
+                        <td key={i} className="px-3 py-2 num">
+                          {pct(value)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty>此运行没有保存门槛扫描结果。</Empty>
+          )}
+        </Card>
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <FilterChips
@@ -142,7 +194,7 @@ export default function SelectBenchRun({ loaderData: d }: { loaderData: Awaited<
               <thead>
                 <tr className="border-b border-line text-left text-[12px] text-ink-3">
                   <th className="px-3 py-2 font-medium">样本</th>
-                  <th className="px-3 py-2 font-medium">金标</th>
+                  <th className="px-3 py-2 font-medium">{d.evidence.origin === "trusted_runner" ? "运行时标注" : "报告标签"}</th>
                   {d.run.models.map((m) => (
                     <th key={m} className="px-3 py-2 font-medium">
                       {m}

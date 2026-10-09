@@ -1,3 +1,5 @@
+import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
+import { geographyRecipe } from "../editorial/geography.ts";
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
 import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
@@ -155,4 +157,31 @@ export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<
   if (ids.length === 0) return new Map();
   const rows = await db<ItemRow[]>`SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${db(ids)}`;
   return new Map(rows.map((r) => [r.id, r]));
+}
+
+/** Both branches bind to the article's current source revision, not the publication's independent revision counter. */
+export function newsJurisdictionScope(value: string | null | undefined) {
+  return { jurisdictionCodes: jurisdictionDescendants(value ?? ""), jurisdictionRecipe: geographyRecipe() };
+}
+export function jurisdictionCondition(value: string | null, descendants: string[] | undefined, recipe: string) {
+  return sql`AND EXISTS(SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g ON g.article_id=ga.id AND g.article_revision=ga.revision
+    AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
+    WHERE ga.id=p.article_id AND (${value}::text IS NULL OR (${value}='unknown' AND (g.state IS NULL OR g.state IN ('unknown','partial')))
+    OR (${value}='none' AND g.state='none') OR (g.jurisdictions && coalesce(${descendants ?? null}::text[],'{}'::text[]))))`;
+}
+/** Cross-lane facet port: known membership only; unknown also counts partially inspected material. No cache or paid work. */
+export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<string, number>; unknown: number }> {
+  const now = new Date(),
+    rows = await sql<{ codes: string[] | null; state: string | null; n: number }[]>`
+    SELECT g.jurisdictions AS codes,g.state,count(*)::int AS n FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
+    LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}
+    WHERE p.channel='news' AND s.lane='news' AND s.participation_mode='editorial' AND p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
+    GROUP BY g.jurisdictions,g.state`;
+  const counts = Object.fromEntries(JURISDICTIONS.map((j) => [j.id, 0]));
+  let unknown = 0;
+  for (const row of rows) {
+    if (!row.state || row.state === "unknown" || row.state === "partial") unknown += row.n;
+    for (const j of JURISDICTIONS) if (row.codes?.some((code) => jurisdictionDescendants(j.id).includes(code))) counts[j.id]! += row.n;
+  }
+  return { counts, unknown };
 }

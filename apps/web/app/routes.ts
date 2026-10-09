@@ -26,6 +26,12 @@ const publicRoutes = [
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
   route("metals", "routes/metals.tsx"),
+  route("policy-threads/:id", "routes/policy-thread.tsx"),
+  route("policies", "routes/policies.tsx"),
+  route("policies/reports", "routes/policy-reports.tsx"),
+  route("policies/reports/:id", "routes/policy-report.tsx"),
+  route("policies/:id/history", "routes/policy-history.tsx"),
+  route("policies/:id", "routes/policy.tsx"),
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;
 
@@ -36,6 +42,7 @@ const privateRoutes = [
     route("admin/content", "routes/admin/content.tsx"),
     route("admin/content/:id", "routes/admin/content-item.tsx"),
     route("admin/sources", "routes/admin/sources.tsx"),
+    route("admin/sources/targets", "routes/admin/source-targets.tsx"),
     route("admin/sources/new", "routes/admin/source-new.tsx"),
     route("admin/sources/:id", "routes/admin/source.tsx"),
     route("admin/feedback", "routes/admin/feedback.tsx"),
@@ -47,6 +54,9 @@ const privateRoutes = [
     route("admin/models", "routes/admin/models-redirect.tsx"),
     route("admin/settings", "routes/admin/settings-redirect.tsx"),
     route("admin/accounts", "routes/admin/accounts.tsx"),
+    route("admin/account", "routes/admin/account.tsx"),
+    route("admin/selectbench", "routes/admin/selectbench.tsx"),
+    route("admin/selectbench/:runId", "routes/admin/selectbench-run.tsx"),
     route("admin/site", "routes/admin/site.tsx"),
   ]),
 ] satisfies RouteConfig;

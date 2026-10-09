@@ -1,3 +1,15 @@
+import {
+  admitUsage,
+  reserveUsageAttempt,
+  settleUsageAttempt,
+  authorizeUsageSend,
+  type UsageContext,
+  type UsageReservation,
+  type TaskBudget,
+} from "./usage-protection.ts";
+import { rateYuan, type UsageBounds } from "./usage-pricing.ts";
+
+import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Paid requests (models, Jina, Dajiala) go through here.
 //
 // 1. A logical request has a stable key bound to task, input revision, provider, model, prompt and config.
@@ -7,6 +19,7 @@
 //    caller or a timer. Only evidence that it was not billed can permit another paid attempt.
 import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { recordLocalReuse } from "./usage-accounting.ts";
 
 const sql = dbOf("ai-gateway");
 
@@ -20,6 +33,16 @@ export class BudgetExceededError extends Error {
   }
 }
 
+export class UsageProtectionError extends BudgetExceededError {
+  readonly reason: string;
+  readonly usageCode: string | null;
+  constructor(service: string, reason: string, usageCode: string | null = null) {
+    super(service, "usage_protection", 60);
+    this.reason = reason;
+    this.usageCode = usageCode;
+    this.message = reason;
+  }
+}
 export class ReceiptBusyError extends Error {}
 export class ReceiptAttemptSupersededError extends Error {}
 export class ReceiptCooldownError extends Error {
@@ -66,16 +89,44 @@ export interface CallOutcome {
   response: unknown;
   requestId?: string | null;
   usage?: Record<string, unknown> | null;
-  cost?: { amount: number; currency: string; basis: "actual" | "estimated" } | null;
+  cost?: { amount: number | string; currency: string; basis: "actual" | "estimated" } | null;
 }
 
+export interface PolicyReceiptContext {
+  lane: "policy";
+  category: "policy_fulltext" | "policy_interpret";
+  sourceIds: string[];
+  manifestHash: string;
+  inputFingerprint: string;
+  permissionVersions: Record<string, number>;
+  partIds?: string[];
+  manifest: unknown;
+}
+
+export interface ModelAttemptSnapshot {
+  connection_id: string | null;
+  connection_revision: number | null;
+  configuration_hash: string;
+  key_fingerprint: string | null;
+  pricing?: { input: string; output: string; currency: "CNY"; basis: string };
+}
 export interface ReceiptRequest {
+  usageContext?: UsageContext;
+  costBounds?: UsageBounds;
+  taskBudget?: TaskBudget;
+  modelSnapshot?: ModelAttemptSnapshot;
   service: string;
+  lane?: "news" | "policy";
+  runtimeControl?: RuntimeControlSnapshot;
   model?: string | null;
   purpose: string;
   subject?: string | null;
   /** Everything that determines the output. Hashed into the logical key; only a redacted summary is stored. */
   identity: unknown;
+  /** Exact pre-configuration-hash identity, only for safe cache migration. */
+  legacyIdentity?: unknown;
+  legacyModel?: string | null;
+  policy?: PolicyReceiptContext;
   /** Stored for diagnosis; must not contain secrets. */
   requestSummary?: Record<string, unknown>;
   /** Distinguishes an explicit re-run (e.g. admin "re-evaluate") from recovery of the same request. */
@@ -163,7 +214,7 @@ async function observeOriginalTranslation(db: Db, stage: string | null) {
 }
 
 export function logicalKeyFor(req: ReceiptRequest): string {
-  const identity = sha256(stableJson(req.identity));
+  const identity = sha256(stableJson(req.policy ? { input: req.identity, policy: req.policy } : req.identity));
   return [req.service, req.purpose, req.model ?? "-", identity, req.attemptTag ?? "0"].join(":");
 }
 
@@ -178,6 +229,109 @@ interface ReceiptRow {
   response_bound: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+export class PolicyPartLimitError extends Error {
+  readonly partIds: string[];
+  constructor(partIds: string[]) {
+    super("Policy parts already have two confirmed paid attempts");
+    this.partIds = partIds;
+  }
+}
+async function checkPolicyPartLimit(tx: Db, req: ReceiptRequest) {
+  const ids = req.purpose === "policy_fulltext" ? req.policy?.partIds : null;
+  if (!ids?.length) return;
+  const rows = await tx<{ parts: string[]; usage: Record<string, unknown> | null }[]>`SELECT r.request->'partIds' AS parts,a.usage
+    FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.purpose='policy_fulltext'
+      AND r.request->'partIds' ?| ${ids}::text[] AND a.status='received'`;
+  const blocked = ids.filter((id) => rows.filter((row) => row.parts.includes(id) && knownTranslationUsage(row.usage)).length >= 2);
+  if (blocked.length) throw new PolicyPartLimitError(blocked);
+}
+
+type PolicyReceiptRecord = {
+  receiptId: number;
+  attemptId: string;
+  response: unknown;
+  request: { manifest?: { upstream_artifacts?: { kind: string; id: string; version: string; content_hash: string; manifest_id: string }[] } };
+};
+/** Recorded physical responses are authoritative; never synthesize an attempt from an ordinal. */
+export async function readPolicyPartResponses(partIds: string[], recipe: string) {
+  if (!partIds.length) return [];
+  const rows = await sql<PolicyReceiptRecord[]>`
+    SELECT r.id AS "receiptId",a.id::text AS "attemptId",a.response,r.request
+    FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.id=r.response_attempt_id
+    WHERE r.purpose='policy_fulltext' AND a.status='received' AND a.response IS NOT NULL
+      AND r.request->'partIds' ?| ${partIds}::text[] ORDER BY a.started_at DESC`;
+  return rows.filter((row) =>
+    row.request.manifest?.upstream_artifacts?.some((a) => a.kind === "policy_part" && partIds.includes(a.id) && a.version === recipe),
+  );
+}
+
+/** Exact current physical response for downstream policy checkpoints; no ordinal or subject guessing. */
+export async function readPolicyResponse(receipt: { receiptId: number; attemptId: string }) {
+  const [row] = await sql<
+    {
+      receiptId: number;
+      attemptId: string;
+      purpose: string;
+      model: string | null;
+      service: string;
+      configuration_hash: string | null;
+      connection_id: string | null;
+      connection_revision: number | null;
+      status: string;
+      response: unknown;
+      request: Record<string, unknown>;
+      usage: Record<string, unknown> | null;
+    }[]
+  >`
+    SELECT r.id AS "receiptId",a.id::text AS "attemptId",r.purpose,a.model,a.service,r.status,a.response,r.request,a.usage,ms.configuration_hash,ms.connection_id,ms.connection_revision
+    FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.id=r.response_attempt_id AND a.attempt=r.attempts
+    LEFT JOIN ai.model_attempt_snapshots ms ON ms.attempt_id=a.id
+    WHERE r.id=${receipt.receiptId} AND a.id::text=${receipt.attemptId} AND a.status='received' AND a.response=r.response
+      AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify','policy_vision') AND r.origin='live' AND a.origin='live'`;
+  return row ? { ...row, knownUsage: knownTranslationUsage(row.usage) } : null;
+}
+
+/** Recover a just-failed JSON parse from the real response pointer; callers still verify the exact input hashes. */
+export async function readPolicyResponseForReceipt(receiptId: number) {
+  const [row] = await sql<{ attemptId: string | null }[]>`SELECT response_attempt_id::text AS "attemptId" FROM receipts WHERE id=${receiptId}`;
+  return row?.attemptId ? readPolicyResponse({ receiptId, attemptId: row.attemptId }) : null;
+}
+
+/** Same immutable derived input after a restart/control renewal; the consumer still verifies every input hash. */
+export async function readPolicyStageResponses(stageId: string) {
+  const rows = await sql<{ receiptId: number; attemptId: string }[]>`SELECT id AS "receiptId",response_attempt_id::text AS "attemptId" FROM receipts
+    WHERE purpose IN ('policy_group','policy_interpret','policy_verify','policy_vision') AND origin='live' AND response_attempt_id IS NOT NULL
+      AND request->'manifest'->'upstream_artifacts' @> ${sql.json([{ kind: "policy_stage_input", id: stageId }])}::jsonb ORDER BY id DESC`;
+  return (await Promise.all(rows.map((row) => readPolicyResponse(row)))).filter((row) => row !== null);
+}
+
+export async function settlePolicyResponse(db: Db, receipt: { receiptId: number; attemptId: string | null }, accepted: boolean | null) {
+  const [row] = await db<{ usage: Record<string, unknown> | null }[]>`SELECT a.usage FROM receipts r JOIN receipt_attempts a ON a.id=r.response_attempt_id
+    WHERE r.id=${receipt.receiptId} AND a.id::text=${receipt.attemptId} AND a.receipt_id=r.id AND a.attempt=r.attempts
+      AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify','policy_vision') AND a.status='received' AND a.response=r.response FOR UPDATE OF r,a`;
+  if (!row) return null;
+  if (accepted) await completeReceipt(db, receipt.receiptId);
+  else if (accepted === false && knownTranslationUsage(row.usage))
+    await db`UPDATE receipts SET status='failed',error='policy candidate rejected',updated_at=now() WHERE id=${receipt.receiptId}`;
+  return { knownUsage: knownTranslationUsage(row.usage) };
+}
+
+async function checkPolicyReceipts(tx: Db, context?: PolicyReceiptContext) {
+  if (!context) return;
+  const rows = await tx<
+    { id: number; status: string; attempt_id: string | null; attempt_status: string | null; usage: Record<string, unknown> | null; response: unknown }[]
+  >`
+    SELECT r.id,r.status,a.id::text AS attempt_id,a.status AS attempt_status,a.usage,a.response
+    FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
+    WHERE r.request->>'lane'='policy' AND r.request->'sourceIds' ?| ${context.sourceIds}::text[]
+      AND (r.status IN ('pending','unknown') OR a.status IN ('pending','unknown','received')) ORDER BY r.id`;
+  for (const row of rows) {
+    if (row.status === "pending" || row.attempt_status === "pending") throw new ReceiptBusyError(`Policy source receipt ${row.id} is in flight`);
+    if (row.status === "unknown" || row.attempt_status === "unknown" || (row.attempt_status === "received" && !knownTranslationUsage(row.usage)))
+      throw new ReceiptUnknownError(row.id, "Policy source has unresolved request or usage; regrouping cannot permit another payment", row.attempt_id);
+  }
 }
 
 async function checkBudget(tx: Db, service: string): Promise<void> {
@@ -201,6 +355,42 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
   if (c.day >= budget.per_day) throw new BudgetExceededError(service, "day", 3600);
 }
 
+async function legacyModelReceipt(db: Db, req: ReceiptRequest) {
+  if (req.legacyIdentity === undefined) return null;
+  const legacyKey = logicalKeyFor({ ...req, model: req.legacyModel ?? req.model, identity: req.legacyIdentity });
+  const [exact] = await db<
+    ReceiptRow[]
+  >`SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
+ (a.id IS NOT NULL AND a.status='received' AND a.response IS NOT NULL AND a.response=r.response) AS response_bound,
+ CASE WHEN a.attempt=r.attempts AND a.status='received' AND a.response=r.response THEN a.id::text ELSE NULL END AS attempt_id
+ FROM receipts r LEFT JOIN receipt_attempts a ON a.id=r.response_attempt_id AND a.receipt_id=r.id
+ LEFT JOIN receipt_attempts ca ON ca.receipt_id=r.id AND ca.attempt=r.attempts
+ WHERE r.logical_key=${legacyKey} AND r.status IN ('received','completed') FOR UPDATE OF r`;
+  if (exact) {
+    if (exact.response_bound && exact.attempt_id === null) throw new ReceiptAttemptSupersededError("Legacy receipt stores an older physical attempt");
+    await recordLocalReuse(db, {
+      service: req.service,
+      model: req.model,
+      purpose: req.purpose,
+      lane: req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane ?? "unknown",
+    });
+    return { kind: "reuse" as const, row: exact };
+  }
+  const hash = typeof req.requestSummary?.userHash === "string" ? req.requestSummary.userHash : null;
+  const [unresolved] = await db<
+    ReceiptRow[]
+  >`SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,a.id::text AS current_attempt_id,false AS response_bound,a.id::text AS attempt_id
+ FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts LEFT JOIN ai.model_attempt_snapshots ms ON ms.attempt_id=a.id
+ WHERE r.model IS NOT NULL AND r.status IN ('pending','unknown') AND ms.configuration_hash IS NULL
+ AND (r.request->>'lane' IS NULL OR r.request->>'lane'=${req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane ?? null})
+ AND (r.logical_key=${legacyKey} OR (r.purpose=${req.purpose} AND r.subject IS NOT DISTINCT FROM ${req.subject ?? null} AND ${hash}::text IS NOT NULL AND r.request->>'userHash'=${hash}))
+ ORDER BY r.id LIMIT 1 FOR UPDATE OF r`;
+  if (!unresolved) return null;
+  if (unresolved.status === "pending" && Date.now() - unresolved.updated_at.getTime() < PENDING_STALE_MS) return { kind: "busy" as const, row: unresolved };
+  if (unresolved.status === "pending") await markUnknown(db, unresolved.id, "Legacy attempt outcome remains unknown after configuration hashing upgrade");
+  return { kind: "unknown" as const, row: unresolved };
+}
+
 /**
  * Runs a paid request at most once per logical key and returns its raw response.
  * The caller parses the response and commits business results, then calls completeReceipt.
@@ -208,11 +398,45 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
 export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallOutcome>): Promise<ReceiptResult> {
   if (req.maxRejectedOutputs !== undefined && (![1, 3].includes(req.maxRejectedOutputs) || req.purpose !== "translate_body"))
     throw new Error("Only translation may opt into a rejected-output limit");
+  const knownLane = req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane;
+  if (knownLane && !["news", "policy"].includes(knownLane)) throw new Error("Invalid receipt lane");
+  const { lane: _summaryLane, ...summary } = req.requestSummary ?? {};
+  const requestMetadata = {
+    ...(req.usageContext ? { sourceIds: req.usageContext.sourceIds, usage_object: req.usageContext.object } : {}),
+    ...summary,
+    ...(req.policy ?? {}),
+    ...(knownLane ? { lane: knownLane } : {}),
+  };
   const logicalKey = logicalKeyFor(req);
+  const usageInputKey = sha256(stableJson([req.service, req.model ?? null, req.purpose, req.identity]));
+  const article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(req.subject ?? "");
+  const usageContext =
+    req.usageContext ??
+    (knownLane
+      ? {
+          lane: knownLane,
+          capability: req.purpose,
+          sourceIds: req.policy?.sourceIds ?? [],
+          object: article ? { kind: "article" as const, id: article[1]! } : null,
+        }
+      : null);
+  const usageAdmission = (tx: Db) =>
+    admitUsage(tx, {
+      context: usageContext,
+      subject: req.subject,
+      taskBudget: req.taskBudget,
+      logicalKey: usageInputKey,
+      service: req.service,
+      model: req.model,
+      configurationHash: req.modelSnapshot?.configuration_hash,
+      bounds: req.costBounds,
+      registeredPricing: req.modelSnapshot?.pricing,
+    });
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
   const claimed = await sql.begin(async (tx) => {
+    for (const sourceId of [...new Set(req.policy?.sourceIds ?? [])].sort()) await tx`SELECT pg_advisory_xact_lock(hashtext(${`policy-source:${sourceId}`}))`;
     // A changed recipe/input key cannot route around an unresolved call in this material stage.
     if (stage) await tx`SELECT pg_advisory_xact_lock(hashtext(${"translation:" + stage}))`;
     for (const receipt of req.translationObservations ?? []) await observeTranslation(tx, stage, receipt);
@@ -231,6 +455,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (existing.status === "received" || existing.status === "completed") {
         if (existing.response_bound && existing.attempt_id === null) throw new ReceiptAttemptSupersededError(`Receipt ${existing.id} stores an older attempt`);
         await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.attempt_id });
+        await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
         return { kind: "reuse" as const, row: existing };
       }
       if (existing.status === "pending") {
@@ -247,6 +472,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (req.maxRejectedOutputs !== undefined) {
         if (existing.has_response && !existing.response_bound) {
           await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: null });
+          await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
           return { kind: "reuse" as const, row: existing };
         }
         const [count] = await tx`SELECT count(*)::int AS n,
@@ -262,26 +488,61 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (stage && !existing.has_response)
         await tx`UPDATE ai.translation_receipt_observations SET known_unbilled=true
         WHERE receipt_id=${existing.id_text} AND receipt_version=(SELECT attempts FROM receipts WHERE id=${existing.id_text}) AND attempt_id IS NULL`;
+      const legacy = await legacyModelReceipt(tx, req);
+      if (legacy) return legacy;
+      await checkPolicyReceipts(tx, req.policy);
+      await checkPolicyPartLimit(tx, req);
       await checkBudget(tx, req.service);
+      const control = await requireRuntimeRunning(
+        knownLane ?? "news",
+        [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
+        tx,
+      );
+      if (req.runtimeControl) {
+        if (req.runtimeControl.lane !== control.lane || !control.switches.every((s) => req.runtimeControl!.switches.includes(s)))
+          throw new Error("Runtime control scope mismatch");
+        await assertRuntimeControl(tx, req.runtimeControl);
+      }
+      const usage = await usageAdmission(tx);
+      if (!usage.reservation) return { kind: "usage_blocked" as const, reason: usage.blocked!, code: usage.code };
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
-      const attemptId = await startAttempt(tx, existing.id, r!.attempts, req);
+      const attemptId = await startAttempt(tx, existing.id, r!.attempts, req, usage.reservation);
+      await reserveUsageAttempt(tx, attemptId, existing.id, usage.reservation);
       await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId });
-      return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts };
+      return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts, control };
     }
     const blocked = await translationBlocker(tx, stage, logicalKey);
     if (blocked) return blocked;
+    const legacy = await legacyModelReceipt(tx, req);
+    if (legacy) return legacy;
+    await checkPolicyReceipts(tx, req.policy);
+    await checkPolicyPartLimit(tx, req);
     await checkBudget(tx, req.service);
+    const control = await requireRuntimeRunning(
+      knownLane ?? "news",
+      [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
+      tx,
+    );
+    if (req.runtimeControl) {
+      if (req.runtimeControl.lane !== control.lane || !control.switches.every((s) => req.runtimeControl!.switches.includes(s)))
+        throw new Error("Runtime control scope mismatch");
+      await assertRuntimeControl(tx, req.runtimeControl);
+    }
+    const usage = await usageAdmission(tx);
+    if (!usage.reservation) return { kind: "usage_blocked" as const, reason: usage.blocked!, code: usage.code };
     const [row] = await tx<{ id: number; id_text: string }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
       VALUES (${logicalKey}, ${req.service}, ${req.model ?? null}, ${req.purpose}, ${req.subject ?? null}, 'pending',
-              ${tx.json((req.requestSummary ?? {}) as never)}, 1)
+              ${tx.json(requestMetadata as never)}, 1)
       RETURNING id,id::text AS id_text`;
-    const attemptId = await startAttempt(tx, row!.id, 1, req);
+    const attemptId = await startAttempt(tx, row!.id, 1, req, usage.reservation);
+    await reserveUsageAttempt(tx, attemptId, row!.id, usage.reservation);
     await observeTranslation(tx, stage, { receiptId: row!.id_text, attemptId });
-    return { kind: "call" as const, id: row!.id, attemptId, attempt: 1 };
+    return { kind: "call" as const, id: row!.id, attemptId, attempt: 1, control };
   });
 
+  if (claimed.kind === "usage_blocked") throw new UsageProtectionError(req.service, claimed.reason, claimed.code ?? null);
   if (claimed.kind === "reuse") return { receiptId: claimed.row.id, response: claimed.row.response, reused: true, attemptId: claimed.row.attempt_id };
   if (claimed.kind === "limited") throw new ReceiptOutputLimitError(claimed.id, claimed.rejected);
   if (claimed.kind === "cooldown") throw new ReceiptCooldownError(claimed.id, claimed.seconds);
@@ -298,21 +559,35 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   const started = Date.now();
   let outcome: CallOutcome;
   try {
+    try {
+      const blocked = await sql.begin(async (tx) => {
+        await assertRuntimeControl(tx, claimed.control);
+        return authorizeUsageSend(tx, attemptId);
+      });
+      if (blocked) throw new UsageProtectionError(req.service, blocked);
+    } catch (error) {
+      throw error instanceof UsageProtectionError ? error : new UsageProtectionError(req.service, "新的付费调用已暂停或控制版本发生变化");
+    }
     outcome = await call();
   } catch (error) {
-    const status = error instanceof ProviderRejectedError ? "failed" : "unknown";
+    const status = error instanceof ProviderRejectedError || error instanceof UsageProtectionError ? "failed" : "unknown";
     // "unknown": the request may have reached the provider (timeout, reset): do not re-send automatically.
     const message = (error instanceof ProviderRejectedError ? error.message : String(error)).slice(0, 2000);
     await sql.begin(async (tx) => {
       await tx`UPDATE receipts SET status = ${status}, error = ${message}, updated_at = now() WHERE id = ${receiptId} AND attempts=${attempt}`;
       await tx`UPDATE receipt_attempts SET status = ${status}, error = ${message}, latency_ms = ${Date.now() - started}, finished_at = now() WHERE id = ${attemptId}`;
+      await settleUsageAttempt(tx, attemptId, status);
     });
+    if (req.policy && status === "unknown") throw new ReceiptUnknownError(receiptId, message, attemptId);
     throw error;
   }
 
   const current = await sql.begin(async (tx) => {
     // Same lock order as stale recovery and settlement: receipt before its attempt.
     await tx`SELECT id FROM receipts WHERE id=${receiptId} FOR UPDATE`;
+    const recordedCost = await settleUsageAttempt(tx, attemptId, { usage: outcome.usage ?? null, cost: outcome.cost ?? null });
+    // Keep actual foreign-currency bills; never turn them into guessed CNY. The protection ledger retains unknown reservation.
+    if (!outcome.cost || outcome.cost.basis === "estimated") outcome.cost = recordedCost;
     // Always retain this attempt's actual return, even when a newer attempt already owns the receipt.
     await tx`UPDATE receipt_attempts SET status='received',response=${tx.json((outcome.response ?? null) as never)},
       request_id=${outcome.requestId ?? null},usage=${outcome.usage ? tx.json(outcome.usage as never) : null},
@@ -325,13 +600,25 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     return changed.count === 1;
   });
   if (!current) throw new ReceiptAttemptSupersededError(`Receipt ${receiptId} attempt ${attemptId} is no longer current`);
+  await sql.begin((tx) => assertRuntimeControl(tx, claimed.control));
   return { receiptId, response: outcome.response, reused: false, attemptId };
 }
 
-async function startAttempt(tx: Db, receiptId: number, attempt: number, req: ReceiptRequest): Promise<string> {
+async function startAttempt(tx: Db, receiptId: number, attempt: number, req: ReceiptRequest, usage: UsageReservation): Promise<string> {
   const [row] = await tx<{ id: string }[]>`
     INSERT INTO receipt_attempts (receipt_id, attempt, service, model, status) VALUES (${receiptId}, ${attempt}, ${req.service}, ${req.model ?? null}, 'pending')
     RETURNING id::text AS id`;
+  if (req.modelSnapshot) {
+    const snapshot = req.modelSnapshot;
+    const pricing = snapshot.pricing ?? {
+      input: rateYuan(usage.quote.price.input_per_million_micros!),
+      output: rateYuan(usage.quote.price.output_per_million_micros!),
+      currency: "CNY",
+      basis: usage.quote.price.basis_url,
+    };
+    await tx`INSERT INTO ai.model_attempt_snapshots(attempt_id,connection_id,connection_revision,configuration_hash,key_fingerprint,pricing)
+      VALUES(${row!.id},${snapshot.connection_id},${snapshot.connection_revision},${snapshot.configuration_hash},${snapshot.key_fingerprint},${tx.json(pricing)})`;
+  }
   return row!.id;
 }
 

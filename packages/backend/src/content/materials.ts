@@ -1,3 +1,5 @@
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
+import { readSourceDateContext } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
 import { dbOf, type Db, type Tx } from "../db.ts";
@@ -6,7 +8,7 @@ import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult } from "@amp/contracts/time-assertion";
 import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
-export { updateMaterialSourceDate, materialDateHeads } from "./date-evidence.ts";
+export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
 
 const sql = dbOf("content");
 
@@ -116,13 +118,18 @@ export function identityKeyFor(m: MaterialInput): string {
  * stored content really changes. Concurrent reports of the same material are serialised on the row,
  * so every change gets its own revision number. Returns whether processing is needed.
  */
-export async function upsertMaterial(m: MaterialInput, db: Db = sql): Promise<MaterialResult> {
+export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionControl?: RuntimeControlSnapshot): Promise<MaterialResult> {
+  const source = await readSourceDateContext(m.sourceId, db);
+  if (!source) throw new Error("Material source missing");
+  const control = collectionControl ?? (await runtimeControlSnapshot(source.lane, ["collection"], db));
+  if (control.lane !== source.lane || control.switches.length !== 1 || control.switches[0] !== "collection") throw new Error("Material control scope mismatch");
   const date = MaterialSourceDateInput.parse({
     sourceDateObservation: m.sourceDateObservation,
     expectedSourceDateVersion: m.expectedSourceDateVersion,
     permissionVersion: m.permissionVersion,
   });
   const run = async (tx: Tx) => {
+    await assertRuntimeControl(tx, control);
     await prepareDateMutation(tx, m.sourceId, date);
     const result = await upsertIn(tx, m);
     // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
@@ -262,4 +269,70 @@ export async function commitBodyResult<T>(body: Pick<CurrentBody, "id" | "revisi
     return { value: await write(tx) };
   });
   return result.value;
+}
+
+/** Stored material references only; policy owns its processing and never changes the news state. */
+export interface PolicyMaterialReference {
+  materialId: string;
+  sourceId: string;
+  materialRevision: number;
+  url: string;
+  originalTitle: string;
+  discoveredAt: Date;
+  sourceDiscoveredAt: Date;
+}
+export async function policyMaterialReferences(sourceIds: string[], after = { materialId: "", sourceId: "" }, limit = 50): Promise<PolicyMaterialReference[]> {
+  if (!sourceIds.length) return [];
+  return sql<PolicyMaterialReference[]>`SELECT a.id AS "materialId", d.source_id AS "sourceId", a.revision AS "materialRevision",
+    a.url, a.title AS "originalTitle", a.discovered_at AS "discoveredAt", min(d.discovered_at) AS "sourceDiscoveredAt"
+    FROM articles a JOIN article_discoveries d ON d.article_id=a.id
+    WHERE d.source_id=ANY(${sourceIds}::text[]) AND (a.id,d.source_id)>(${after.materialId},${after.sourceId})
+    GROUP BY a.id,d.source_id ORDER BY a.id,d.source_id LIMIT ${Math.min(Math.max(limit, 1), 100)}`;
+}
+export async function policyMaterialReference(materialId: string, sourceId: string): Promise<PolicyMaterialReference | null> {
+  const [row] = await sql<PolicyMaterialReference[]>`SELECT a.id AS "materialId", d.source_id AS "sourceId", a.revision AS "materialRevision",
+    a.url,a.title AS "originalTitle",a.discovered_at AS "discoveredAt",min(d.discovered_at) AS "sourceDiscoveredAt"
+    FROM articles a JOIN article_discoveries d ON d.article_id=a.id
+    WHERE a.id=${materialId} AND d.source_id=${sourceId} GROUP BY a.id,d.source_id`;
+  return row ?? null;
+}
+
+/** Keep the real stored discovery/revision stable while policy records its provenance. */
+export async function lockPolicyMaterial(tx: Tx, reference: PolicyMaterialReference): Promise<void> {
+  const [row] = await tx`SELECT a.revision,a.url,a.discovered_at FROM articles a
+    WHERE a.id=${reference.materialId} AND EXISTS(SELECT 1 FROM article_discoveries d WHERE d.article_id=a.id AND d.source_id=${reference.sourceId}) FOR SHARE`;
+  if (
+    !row ||
+    row.revision !== reference.materialRevision ||
+    row.url !== reference.url ||
+    row.discovered_at.toISOString() !== reference.discoveredAt.toISOString()
+  )
+    throw new Error("Policy material changed");
+}
+
+/** Directory-native identities stay separate from a legacy URL-only discovery of another record. */
+export async function materialDateIdentityHeads(sourceId: string, identities: string[], db: Db = sql) {
+  if (!identities.length) return [];
+  return db<{ id: string; identity_key: string; revision: number; source_date_version: string }[]>`
+    SELECT id,identity_key,revision,source_date_version FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
+}
+
+/** Freeze only the source material used by the score input; same transaction fences concurrent source revisions/date changes. */
+export async function selectionMaterialSnapshot(articleId: string, db: Db = sql) {
+  const [row] = await db<
+    {
+      id: string;
+      revision: number;
+      source_date_version: number;
+      source_id: string;
+      title: string;
+      body_text: string | null;
+      excerpt: string | null;
+      language: string | null;
+      published_at: Date | null;
+      discovered_at: Date;
+    }[]
+  >`
+  SELECT id,revision,source_date_version,source_id,title,body_text,excerpt,language,published_at,discovered_at FROM articles WHERE id=${articleId} FOR SHARE`;
+  return row ?? null;
 }

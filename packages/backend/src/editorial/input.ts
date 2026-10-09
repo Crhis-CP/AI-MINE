@@ -8,6 +8,7 @@ import type { ContentPart } from "../providers/llm.ts";
 const sql = dbOf("enrichment");
 
 export interface AnalyzeInputArticle {
+  sourceId?: string;
   id: string;
   revision: number;
   title: string;
@@ -38,6 +39,7 @@ export interface AnalyzeInputArticle {
 export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise<AnalyzeInputArticle | null> {
   const [row] = await db<
     {
+      source_id: string;
       id: string;
       revision: number;
       title: string;
@@ -59,7 +61,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
       translation_zh: string | null;
     }[]
   >`
-    SELECT a.id, a.revision, a.title, a.url, a.author, a.published_at, a.discovered_at, a.body_text, a.excerpt, a.body_status, a.media,
+    SELECT a.source_id, a.id, a.revision, a.title, a.url, a.author, a.published_at, a.discovered_at, a.body_text, a.excerpt, a.body_status, a.media,
            s.name AS source_name, s.kind AS source_kind, s.tier, s.first_party, s.tags AS source_tags, s.owner_entity_id, s.config,
            tr.body_text AS translation_zh
     FROM articles a JOIN sources s ON s.id = a.source_id
@@ -67,6 +69,7 @@ export async function loadAnalyzeInput(articleId: string, db: Db = sql): Promise
     WHERE a.id = ${articleId}`;
   if (!row) return null;
   return {
+    sourceId: row.source_id,
     id: row.id,
     revision: row.revision,
     title: row.title,

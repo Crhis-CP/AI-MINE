@@ -1,3 +1,4 @@
+import { loadSiteInformation } from "@amp/backend/site/stats";
 // Discovery and static files: sitemap, llms.txt, robots, security.txt, the web manifest, the OpenAPI
 // document, icons and the IndexNow key.
 import { readFile, stat } from "node:fs/promises";
@@ -8,7 +9,7 @@ import { SITE } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { REPO_ROOT, config } from "@amp/backend/config";
 import { applyPublicHeaders, sendTextWithEtag } from "../http/respond.ts";
-import { sitemapXml } from "@amp/backend/publication/sitemap";
+import { sitemapXml, SitemapPageNotFound } from "@amp/backend/publication/sitemap";
 import { llmsTxt, loadLlmsAvailability } from "@amp/backend/publication/llms";
 
 const REF = path.join(REPO_ROOT, "reference");
@@ -106,22 +107,30 @@ async function openApiJson(): Promise<string> {
 }
 
 export function registerStatic(app: FastifyInstance) {
-  app.get("/sitemap.xml", async (req, reply) => {
+  const sendSitemap = async (req: FastifyRequest, reply: FastifyReply, page?: number) => {
     try {
-      const xml = await sitemapXml();
+      const xml = await sitemapXml(page);
       return sendTextWithEtag(req, reply, xml, {
         etagPrefix: "sitemap",
-        cacheControl: "public, max-age=0, s-maxage=300, must-revalidate",
+        cacheControl: "public, max-age=0, must-revalidate",
         contentType: "application/xml",
       });
     } catch (error) {
+      if (error instanceof SitemapPageNotFound) return reply.code(404).header("Cache-Control", "no-store").send("Not found");
       req.log.error({ err: error }, "sitemap unavailable");
       return reply.code(503).header("Retry-After", "300").header("Cache-Control", "no-store").send("Sitemap temporarily unavailable");
     }
+  };
+  app.get("/sitemap.xml", (req, reply) => sendSitemap(req, reply));
+  app.get("/sitemaps/:file", (req, reply) => {
+    const file = (req.params as { file: string }).file;
+    if (!/^[1-9][0-9]*\.xml$/.test(file)) return reply.code(404).send("Not found");
+    return sendSitemap(req, reply, Number(file.slice(0, -4)));
   });
 
   app.get("/llms.txt", async (req, reply) => {
-    const text = llmsTxt(await loadLlmsAvailability());
+    const [availability, information] = await Promise.all([loadLlmsAvailability(), loadSiteInformation()]);
+    const text = llmsTxt({ ...availability, contactEmail: information.contactEmail });
     applyPublicHeaders(reply, { cors: false });
     return sendTextWithEtag(req, reply, text, {
       etagPrefix: "llms",
@@ -134,11 +143,16 @@ export function registerStatic(app: FastifyInstance) {
     sendTextWithEtag(req, reply, robotsTxt(), { etagPrefix: "robots", cacheControl: "public, max-age=3600", contentType: "text/plain; charset=utf-8" }),
   );
 
-  app.get("/.well-known/security.txt", (req, reply) => {
-    if (!SITE.contactEmail) return reply.code(404).type("text/plain; charset=utf-8").send("Not found");
+  app.get("/.well-known/security.txt", async (req, reply) => {
+    const { contactEmail } = await loadSiteInformation();
+    if (!contactEmail) return reply.code(404).type("text/plain; charset=utf-8").send("Not found");
     const expires = new Date(Date.now() + 180 * 86400_000).toISOString();
-    const text = `Contact: mailto:${SITE.contactEmail}\nExpires: ${expires}\nPreferred-Languages: zh, en\nCanonical: ${config.siteUrl}/.well-known/security.txt\n`;
-    return sendTextWithEtag(req, reply, text, { etagPrefix: "security", cacheControl: "public, max-age=86400", contentType: "text/plain; charset=utf-8" });
+    const text = `Contact: mailto:${contactEmail}\nExpires: ${expires}\nPreferred-Languages: zh, en\nCanonical: ${config.siteUrl}/.well-known/security.txt\n`;
+    return sendTextWithEtag(req, reply, text, {
+      etagPrefix: "security",
+      cacheControl: "public, max-age=0, must-revalidate",
+      contentType: "text/plain; charset=utf-8",
+    });
   });
 
   app.get("/manifest.webmanifest", (req, reply) =>

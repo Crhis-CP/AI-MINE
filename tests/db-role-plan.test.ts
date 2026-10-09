@@ -20,11 +20,27 @@ function catalog(): Catalog {
     actor: "bootstrap",
     superuser: true,
     databaseOwner: "bootstrap",
-    schemas: { public: "pg_database_owner", enrichment: "bootstrap", sources: "bootstrap", content: "bootstrap", ai: "bootstrap", publication: "bootstrap" },
+    schemas: {
+      public: "pg_database_owner",
+      enrichment: "bootstrap",
+      sources: "bootstrap",
+      content: "bootstrap",
+      ai: "bootstrap",
+      publication: "bootstrap",
+      policy: "bootstrap",
+      ops: "bootstrap",
+      identity: "bootstrap",
+      acquisition: "bootstrap",
+    },
     tables: Object.entries(TABLE_GRANTS).map(([name, grant]) => ({
       name,
       owner: "bootstrap",
-      columns: grant.publicColumns[0] === "*" || !grant.publicColumns.length ? ["id"] : grant.publicColumns,
+      columns:
+        name === "identity.account_access"
+          ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
+          : grant.publicColumns[0] === "*" || !grant.publicColumns.length
+            ? ["id"]
+            : grant.publicColumns,
       rls: false,
     })),
     sequences: Object.entries(SEQUENCES).map(([name, table]) => ({ name, table, owner: "bootstrap" })),
@@ -53,15 +69,92 @@ test("all current migration tables and serial sequences have one explicit classi
       "sources.source_policy_current",
       "sources.source_policy_versions",
       "content.source_date_observations",
+      "content.source_date_observation_seen",
       "ai.translation_receipt_observations",
+      "ai.selection_tool_control",
+      "ai.selection_datasets",
+      "ai.selection_samples",
+      "ai.selection_labels",
+      "ai.selection_submissions",
+      "ai.selection_run_evidence",
+      "ai.selection_records",
+      "ai.selection_commands",
+
+      "ai.model_connections",
+      "ai.model_connection_tests",
+      "ai.model_routes",
+      "ai.model_attempt_snapshots",
+      "ai.usage_control_versions",
+      "ai.usage_prices",
+      "ai.usage_attempts",
+      "ai.usage_breakers",
+      "ai.usage_protection_events",
+      "ai.usage_notice_progress",
+      "ai.usage_sums",
+
       "publication.metal_prices",
+      "policy.instruments",
+      "policy.versions",
+      "policy.expressions",
+      "policy.document_revisions",
+      "policy.original_resources",
+      "policy.document_extractions",
+      "policy.processing_controls",
+      "policy.fulltext_runs",
+      "policy.fulltext_parts",
+      "policy.quality_releases",
+      "publication.policy_ids",
+      "publication.policy_documents",
+      "publication.policy_publication_control",
+      "publication.policy_quality_windows",
+      "publication.site_information",
+      "publication.site_information_commands",
+      "publication.policy_relations",
+      "publication.policy_threads",
+      "ops.lane_controls",
+      "ops.lane_control_conflicts",
+      "identity.account_access",
+      "identity.password_accounts",
+      "identity.account_policy",
+      "identity.auth_attempts",
+      "identity.login_nonces",
+      "identity.account_commands",
+      "ai.usage_observation",
+      "ai.local_reuse_daily",
+      "ai.usage_monthly_reports",
+      "publication.policy_editions",
+      "policy.interpretation_runs",
+      "policy.interpretation_stages",
+      "publication.policy_reports",
+      "publication.policy_report_revisions",
+      "publication.policy_report_members",
+      "policy.material_discoveries",
+      "policy.metadata_observations",
+      "policy.material_workflows",
+      "policy.vision_runs",
+      "policy.vision_pages",
+      "policy.vision_stages",
+      "publication.news_geography",
+      "ops.operational_snapshots",
+      "acquisition.directory_scans",
+      "acquisition.directory_pages",
+      "acquisition.directory_seen",
+      "acquisition.directory_records",
+      "acquisition.directory_heads",
+      "acquisition.directory_bindings",
+      "acquisition.directory_receipts",
+      "acquisition.crawl_hosts",
+      "acquisition.robots_observations",
+      "acquisition.crawl_sessions",
+      "acquisition.crawl_requests",
+      "acquisition.crawl_checkpoints",
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
   assert.deepEqual(Object.keys(SEQUENCES).sort(), serials.map((name) => `public.${name}`).sort());
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 19);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 31);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["enrichment.translation_segments"], {
     module: "enrichment",
@@ -77,7 +170,7 @@ test("all current migration tables and serial sequences have one explicit classi
   });
 });
 
-test("the plan separates seven identities, column reads, append-only audit, owners and worker defaults", () => {
+test("the plan separates eight identities, column reads, append-only audit, owners and worker defaults", () => {
   const { roles, statements } = planRoleGrants(catalog(), "fixture", 2);
   const sql = statements.join(";\n");
   assert.deepEqual(Object.keys(roles), DATABASE_ROLES);
@@ -95,7 +188,7 @@ test("the plan separates seven identities, column reads, append-only audit, owne
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "content"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "ai"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "publication"')).length, 4);
-  assert.equal(defaults.length, 28);
+  assert.equal(defaults.length, 44);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "ai"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.doesNotMatch(sql, /GRANT .* TO PUBLIC/);
@@ -202,4 +295,38 @@ test("only the exact current source projection may expose its three public colum
       spec.publicColumns = original;
     }
   }
+});
+
+test("policy public head access is limited to identity and current revision, never originals or controls", () => {
+  for (const name of ["policy.expressions", "policy.document_revisions", "policy.quality_releases"]) {
+    const rule = TABLE_GRANTS[name],
+      previous = rule.publicColumns;
+    try {
+      for (const columns of [["*"], ["id", "current_revision_id", "language"], ["id", "current_revision_id", "paused"]]) {
+        rule.publicColumns = columns;
+        assert.ok(catalogProblems(catalog(), "fixture").some((p) => p.includes("Public columns outside")));
+      }
+      if (name !== "policy.expressions") {
+        rule.publicColumns = ["id", "current_revision_id"];
+        assert.ok(catalogProblems(catalog(), "fixture").some((p) => p.includes("Public columns outside")));
+      }
+    } finally {
+      rule.publicColumns = previous;
+    }
+  }
+});
+
+test("capability readers may inspect only the exact secret-free identity projection", () => {
+  const current = catalog();
+  assert.doesNotThrow(() => planRoleGrants(current, "fixture", 2));
+  current.tables.find((t) => t.name === "identity.account_access")!.columns.push("password_hash");
+  assert.throws(() => planRoleGrants(current, "fixture", 2), /Permissions exceed/);
+});
+
+test("the observer role is confined to the fixed operational snapshot projection", () => {
+  const plan = planRoleGrants(catalog(), "fixture", 2).statements;
+  assert.ok(plan.some((s) => s.includes('CREATE ROLE "fixture_ops_read" LOGIN NOINHERIT') && s.endsWith("CONNECTION LIMIT 2")));
+  const business = plan.filter((s) => s.startsWith("GRANT ") && s.endsWith('TO "fixture_ops_read"') && s.includes(" ON TABLE "));
+  assert.deepEqual(business, ['GRANT SELECT ON TABLE "ops"."operational_snapshots" TO "fixture_ops_read"']);
+  assert.ok(!plan.some((s) => s.startsWith("GRANT ") && /INSERT|UPDATE|DELETE|CREATE|ALL/.test(s) && s.endsWith('TO "fixture_ops_read"')));
 });

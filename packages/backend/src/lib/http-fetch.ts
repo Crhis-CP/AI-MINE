@@ -39,12 +39,19 @@ function dispatcherFor(viaProxy: boolean): Dispatcher | undefined {
 
 export interface GuardedFetchOptions {
   method?: string;
+  /** Separate physical directory verification from a resumable earlier page read. */
+  crawlKey?: string;
+  crawlResponseHeaders?: string[];
+  /** Explicit collector resource binding; unused by model transports. */
+  sourceResource?: { documentType: string | null; attachment: boolean };
   headers?: Record<string, string>;
   body?: string;
   timeoutMs?: number;
   maxBytes?: number;
   /** Follow redirects manually so every hop passes the SSRF guard. */
   maxRedirects?: number;
+  /** Collector scheduler handles each redirect as its own paced request. Other transports keep existing behavior. */
+  followRedirects?: boolean;
   /** "egress" by default; see EgressRoute. */
   route?: EgressRoute;
   /** GET only: repeat a dropped connection once with a fresh time budget; not timeouts, connect failures or HTTP errors. */
@@ -52,6 +59,7 @@ export interface GuardedFetchOptions {
 }
 
 export interface GuardedResponse {
+  fetchedAt?: string;
   status: number;
   url: string;
   headers: Headers;
@@ -101,7 +109,7 @@ async function fetchOnce(input: string, opts: GuardedFetchOptions, attempt?: { r
     });
     // A truncated error page is still an HTTP error, not permission to retry (including Retry-After).
     if (attempt) attempt.receivedHttpError = res.status >= 400;
-    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+    if (opts.followRedirects !== false && res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       // Release the connection even when the next URL is refused or the redirect limit is reached.
       await res.body?.cancel();
       if (hop >= maxRedirects) throw new Error(`Too many redirects for ${input}`);
@@ -144,7 +152,7 @@ async function withinDeadline<T>(work: Promise<T>, signal: AbortSignal): Promise
   }
 }
 
-function decodeBody(body: Buffer, contentType: string | null): string {
+export function decodeBody(body: Buffer, contentType: string | null): string {
   const m = /charset=([\w-]+)/i.exec(contentType ?? "");
   let charset = m?.[1]?.toLowerCase() ?? "utf-8";
   if (!m) {

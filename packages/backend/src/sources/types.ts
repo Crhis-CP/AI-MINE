@@ -1,6 +1,8 @@
+import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import type { MaterialInput } from "../content/materials.ts";
 
 export interface SourceRow {
+  collectionControl?: RuntimeControlSnapshot;
   id: string;
   name: string;
   kind: "rss" | "web_list" | "json_list" | "mp_account" | "external";

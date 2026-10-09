@@ -32,6 +32,7 @@ const PUBLIC_TABLES = new Set(
 );
 const IDENTITY = new Set(["admin_users", "admin_sessions"]);
 function permitted(role: DatabaseRole, table: string, operation: "SELECT" | "INSERT" | "UPDATE" | "DELETE") {
+  if (role === "ops_read") return false; // The observer has no legacy table access.
   if (role === "migrate") return true;
   if (role === "backup") return operation === "SELECT";
   if (role === "public_read") return operation === "SELECT" && (PUBLIC_TABLES.has(table) || table in PUBLIC_COLUMNS);
@@ -55,6 +56,7 @@ test("every real role has exactly the approved table, column, sequence and cross
     catalog.tables.filter((row) => !row.name.startsWith("public.")).map((row) => row.name),
     [
       "ai.translation_receipt_observations",
+      "content.source_date_observation_seen",
       "content.source_date_observations",
       "enrichment.translation_segments",
       "publication.metal_prices",
@@ -143,7 +145,31 @@ test("every real role has exactly the approved table, column, sequence and cross
               : `DELETE FROM ${name} WHERE false RETURNING 1`;
       await permission(sql, statement, allowed, `${role} ${operation} source_date_observations`);
     }
+    for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
+      const name = 'content."source_date_observation_seen"';
+      const allowed =
+        role === "migrate" || (operation === "SELECT" && ["worker", "private_ops", "backup"].includes(role)) || (role === "worker" && operation !== "DELETE");
+      const statement =
+        operation === "SELECT"
+          ? `SELECT * FROM ${name} LIMIT 1`
+          : operation === "INSERT"
+            ? `INSERT INTO ${name} SELECT * FROM ${name} WHERE false RETURNING 1`
+            : operation === "UPDATE"
+              ? `UPDATE ${name} SET last_observed_at=last_observed_at WHERE false RETURNING 1`
+              : `DELETE FROM ${name} WHERE false RETURNING 1`;
+      await permission(sql, statement, allowed, `${role} ${operation} source_date_observation_seen`);
+    }
     // Metal prices are updated in place but never deleted (TASK-0044).
+    if (role === "public_read") {
+      await permission(
+        sql,
+        'SELECT series_key, currency, unit, period_start, period_end, period_label, value, release_label, release_url, released_on, first_fetched_at FROM publication."metal_prices" LIMIT 1',
+        true,
+        "public_read reads only the eleven site-price columns",
+      );
+      for (const column of ["source", "name_zh", "grade", "benchmark", "delivery_basis", "source_unit", "period_type", "fetched_at"])
+        await permission(sql, `SELECT ${quote(column)} FROM publication."metal_prices" LIMIT 1`, false, `public_read cannot read metal_prices.${column}`);
+    }
     for (const operation of ["SELECT", "INSERT", "UPDATE", "DELETE"] as const) {
       const name = 'publication."metal_prices"';
       const allowed =

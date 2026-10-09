@@ -495,6 +495,8 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 | 依赖与配置 | `packages/backend/package.json` 的 `highs`、`hyparquet`（只有模型榜用）；`.env.example` 的 `ARTIFICIAL_ANALYSIS_API_KEY`；`GITHUB_TOKEN` 除模型榜外只在 `sources/json-list.ts:136` 给 GitHub 类信源用，随 AI 示范源一起清理 |
 | 文档 | `docs/leaderboard.md`、`docs/assets/board-*.png`、README 与 `docs/architecture.md`、`docs/customize.md` 第 6 节中的相关段落 |
 
+模型榜仍删除；金属价格只借用其登记、逐来源抓取、合理性检查与刷新结构。例外是`fetch/unzip.ts`已改造移植至`packages/backend/src/publication/metal-prices/unzip.ts`并加解压后大小上限，见TASK-0046与`upstream/aihot.lock.json`，不恢复模型榜功能。
+
 ### 4.2 Codex 重置监控（monitor）
 
 | 类别 | 需删除或修改的位置 |
@@ -743,7 +745,7 @@ AIHOT 的 7 个内容类型与五轴权重（AI 领域；每行之和为 10；�
 | 有界工具循环、AI 信源研究与扩源（F-AI-04、F-SRC-08/09） | 只有单次 `chatJson` | ai-gateway 的有界循环执行器（工具白名单由调用方注入，步数、请求数、token、时长、费用上限，每步走回执与许可；抓取经 acquisition/fetcher）；**只用于离线信源研究，产物是待准入的候选配置；生产主链路与政策解读不用**（DEC-16） | ai-gateway、sources | M3 |
 | 只读运维 MCP（F-OPS-04） | 只有面向读者与外部 Agent 的公开 MCP | `platform/ops` 提供脱敏只读的运行状态、队列、用量与熔断状态、发布版本、审计、错误样本（服务身份，不给任意 SQL 或 shell） | platform/ops | M2 |
 | 外部推送入口（F-ACQ-07） | `ingest/items.ts` + `/api/ingest/items`（令牌、每次 ≤50 条、限流、未知来源自动建为隔离信源） | **首版关闭（候选）**；启用时并入 acquisition 的 `external_push`、移出公开端口、默认隔离、走许可与同一入库口，移植上游 #21、#27 | acquisition | 候选 |
-| 金属价格官方入口（F-RDR-12，DEC-07） | 没有（被删模型榜的“来源目录 + 外链官方 + 署名/许可折叠”版式可借鉴） | 站点资料维护入口配置，`apps/web` 展示官方入口与说明，不出任何数字、不放空表格框架；站内价格表待 Owner 批准数据源与授权 | publication、`apps/web` | M3 |
+| 金属价格（F-RDR-12，DEC-07） | 借用已删除模型榜的登记、抓取器、检查与刷新做法；模型榜本身仍删除 | 档1官方入口，档2按PG-11第四版分品种、频率标签、脚注、较上期；四个登记的免费官方来源，价格仅在站内；真实截图确认后上线 | publication、`apps/web` | M3 |
 | 主题、事件页、Agent 接入页、政策页（F-RDR-09/11/13/17/18） | 有 `topics`、`story`、`agent` 页面雏形 | 按读者站 PG 规格改造；事件页与热度走势沿用 AIHOT 结构并矿业化（2.10、2.11）；政策页新建（法规线 M1 起并行，页面 M3） | `apps/web` | M3 |
 
 ### 5.16 密钥、备份、出网与公开写入口：AIHOT 做法与本包规则

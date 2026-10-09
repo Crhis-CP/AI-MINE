@@ -21,9 +21,17 @@ import { chatJson } from "../providers/llm.ts";
 import { BudgetExceededError, ReceiptBusyError, completeReceipt } from "../providers/receipts.ts";
 import { embeddingsAvailable, ensureEmbeddings } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
-import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { enqueue, ensureQueue, QUEUES } from "../jobs/queue.ts";
 import { publishArticle } from "../publication/publish.ts";
 import { mergeStoryInto } from "./merge.ts";
+import {
+  assertRuntimeControl,
+  requireRuntimeRunning,
+  runtimeControlSnapshot,
+  RuntimeControlPaused,
+  RuntimeControlStale,
+  type RuntimeControlSnapshot,
+} from "../operations/lane-controls.ts";
 import {
   BATCH_SYSTEM,
   BatchSchema,
@@ -51,6 +59,8 @@ import {
 } from "./relate.ts";
 
 const sql = dbOf("events");
+export const EVENT_CONTINUATIONS = { consolidate: "news.events.consolidate", rematch: "news.events.rematch" } as const;
+export const EVENT_CONTINUATION_OPTIONS = { policy: "short" as const, retryLimit: 4, retryDelay: 60, expireInSeconds: 600 };
 
 export const GROUP_PROMPT_VERSION = RELATE_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */
@@ -437,8 +447,9 @@ async function currentMembership(articleId: string): Promise<{ factId: number; s
  * An explicit regroup starts from a clean slate: automatic memberships and heat evidence go, manual
  * ones stay. Returns the stories the report was a report of.
  */
-async function resetAutomatic(articleId: string): Promise<number[]> {
+async function resetAutomatic(articleId: string, control: RuntimeControlSnapshot): Promise<number[]> {
   return sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, control);
     await tx`SELECT 1 FROM articles WHERE id = ${articleId} FOR UPDATE`;
     const left = await tx<{ story_id: number }[]>`
       SELECT DISTINCT f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
@@ -453,7 +464,7 @@ async function resetAutomatic(articleId: string): Promise<number[]> {
  * Stories the report sat in before (its reset, or an earlier decision) that hold no report now keep
  * their address: each merges into the report's story, so its public id redirects there.
  */
-async function redirectEmptiedStories(articleId: string, left: number[], storyId: number): Promise<number[]> {
+async function redirectEmptiedStories(articleId: string, left: number[], storyId: number, control: RuntimeControlSnapshot): Promise<number[]> {
   const emptied = await sql<{ id: number }[]>`
     SELECT st.id FROM stories st
     WHERE (st.id = ANY(${left}::bigint[]) OR st.id IN (SELECT d.story_id FROM grouping_decisions d WHERE d.article_id = ${articleId}))
@@ -461,7 +472,12 @@ async function redirectEmptiedStories(articleId: string, left: number[], storyId
       AND NOT EXISTS (SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id WHERE f.story_id = st.id AND fa.role IN ('primary', 'report'))`;
   const redirected: number[] = [];
   for (const { id } of emptied) {
-    if (await mergeStoryInto(Number(id), storyId, `报道已全部移走，旧地址跳到报道所在事件（最后一篇 ${articleId}）`, "grouping")) redirected.push(Number(id));
+    if (
+      await mergeStoryInto(Number(id), storyId, `报道已全部移走，旧地址跳到报道所在事件（最后一篇 ${articleId}）`, "grouping", (tx) =>
+        assertRuntimeControl(tx, control),
+      )
+    )
+      redirected.push(Number(id));
   }
   return redirected;
 }
@@ -594,6 +610,8 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
   if (live.size < 2) return [];
   const roots = (await Promise.all([...live].map(storyRoot))).filter((r): r is StoryRoot => !!r && !r.roundup);
   if (roots.length < 2) return [];
+  await requireRuntimeRunning("news", ["publication"]);
+  const control = await runtimeControlSnapshot("news", ["processing", "publication"]);
   roots.sort((x, y) => x.at.getTime() - y.at.getTime() || x.storyId - y.storyId);
   const [anchor, ...others] = roots as [StoryRoot, ...StoryRoot[]];
   const out: Consolidation[] = [];
@@ -615,6 +633,7 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
         anchor.storyId,
         `同一事件（${first.relation}，复核 ${second.relation}）：${other.report.title}｜${anchor.report.title}`,
         "grouping",
+        (tx) => assertRuntimeControl(tx, control),
       );
     }
     out.push({ ...base, merge, first: first.relation, second: second.relation, difference: first.difference || second.difference });
@@ -638,7 +657,9 @@ const startedByRoundup = (story: ReturnType<typeof sql>) => sql`EXISTS (
  * added; a merged story drops out where links are read.
  */
 export async function linkRelatedStories(): Promise<{ added: number }> {
-  const [row] = await sql<{ added: number }[]>`
+  return sql.begin(async (tx) => {
+    await requireRuntimeRunning("news", ["publication"], tx);
+    const [row] = await tx<{ added: number }[]>`
     WITH latest AS (
       SELECT DISTINCT ON (article_id) article_id, verdict, candidates FROM grouping_decisions
       WHERE created_at > now() - make_interval(days => ${RECALL_DAYS}) ORDER BY article_id, id DESC),
@@ -664,7 +685,8 @@ export async function linkRelatedStories(): Promise<{ added: number }> {
       SELECT x, y, 'related' FROM linked UNION ALL SELECT y, x, 'related' FROM linked
       ON CONFLICT (story_id, other_id) DO NOTHING RETURNING 1)
     SELECT count(*)::int AS added FROM added`;
-  return { added: row?.added ?? 0 };
+    return { added: row?.added ?? 0 };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -729,7 +751,9 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     await publishArticle(articleId);
     return { verdict: "manual", factId: manual.factId };
   }
-  const left = opts.force || a.regroup_pending ? await resetAutomatic(articleId) : [];
+  const publication = await requireRuntimeRunning("news", ["publication"]),
+    processing = await runtimeControlSnapshot("news", ["processing"]);
+  const left = opts.force || a.regroup_pending ? await resetAutomatic(articleId, await runtimeControlSnapshot("news", ["processing", "publication"])) : [];
 
   // History founds no event and adds no heat (isHistorical); a regroup takes it out of any it joined.
   if (isHistorical(a)) {
@@ -833,6 +857,8 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   // Written under the article's row lock after reading the manual state again: a detach or other
   // manual decision made while the model was answering wins (detachFromFact takes the same lock).
   const written = await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, publication);
+    if (receipts.length) await assertRuntimeControl(tx, processing);
     await tx`SELECT 1 FROM articles WHERE id = ${articleId} FOR UPDATE`;
     const late = await manualDecision(tx, articleId);
     if (late) {
@@ -864,9 +890,17 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
       result.storyId = (await liveStory(written.storyId!)) ?? written.storyId!;
     } catch (error) {
       result.consolidationError = String(error).slice(0, 300);
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+        await ensureQueue(EVENT_CONTINUATIONS.consolidate, EVENT_CONTINUATION_OPTIONS);
+        await enqueue(
+          EVENT_CONTINUATIONS.consolidate,
+          { storyIds: [...tied].sort((a, b) => a - b) },
+          { singletonKey: [...tied].sort((a, b) => a - b).join(":"), startAfter: 60 },
+        );
+      }
     }
   }
-  const redirected = await redirectEmptiedStories(articleId, left, result.storyId!);
+  const redirected = await redirectEmptiedStories(articleId, left, result.storyId!, publication);
   if (redirected.length) result.redirected = redirected;
   // A new fact may be what discussion posts of the last hours were about before any report came.
   if (verdict === "new-story" || verdict === "new-fact-in-story") {
@@ -874,6 +908,10 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
       result.rematched = await rematchSignals(articleId, reportText(title, an.summary_zh));
     } catch (error) {
       result.rematchError = String(error).slice(0, 300);
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+        await ensureQueue(EVENT_CONTINUATIONS.rematch, EVENT_CONTINUATION_OPTIONS);
+        await enqueue(EVENT_CONTINUATIONS.rematch, { articleId }, { singletonKey: articleId, startAfter: 60 });
+      }
     }
   }
   return result;
@@ -893,6 +931,12 @@ const unattachedSignal = sql`
 /** The text a discussion post is recalled by: its title and the start of its body. */
 const signalText = (a: { title: string; body_text: string | null }) => reportText(a.title, a.body_text?.slice(0, 300) ?? null);
 
+/** Resume matching from the current stored text; queue payloads do not cache old titles or bodies. */
+export async function resumeSignalRematch(articleId: string) {
+  const current = (await reportTexts([articleId])).get(articleId);
+  return current ? rematchSignals(articleId, current) : 0;
+}
+
 /**
  * Discussion posts often come before the first report (Techmeme, reactions): they found no story
  * then and were left. When a report founds a fact, the recent unattached posts close to it are
@@ -900,6 +944,7 @@ const signalText = (a: { title: string; body_text: string | null }) => reportTex
  */
 async function rematchSignals(articleId: string, queryText: string): Promise<number> {
   if (!embeddingsAvailable()) return 0;
+  await requireRuntimeRunning("news", ["publication"]);
   const mine = (await vectorsFor([{ id: articleId, text: queryText }])).get(articleId);
   if (!mine) return 0;
   const posts = await sql<{ id: string; title: string; body_text: string | null }[]>`
@@ -923,6 +968,8 @@ async function rematchSignals(articleId: string, queryText: string): Promise<num
  */
 async function groupSignal(a: ArticleRow, source: { id: string }, observedAt: Date): Promise<GroupResult> {
   if (!embeddingsAvailable()) return { verdict: "signal-unmatched" };
+  const publication = await requireRuntimeRunning("news", ["publication"]),
+    processing = await runtimeControlSnapshot("news", ["processing"]);
   const recalled = await recallFacts(a.id, signalText(a), SIGNAL_MIN_COSINE, SIGNAL_TOP_FACTS);
   if (recalled.length === 0) {
     // Recorded, so a post that found nothing is told apart from one never decided.
@@ -938,8 +985,11 @@ async function groupSignal(a: ArticleRow, source: { id: string }, observedAt: Da
       confidence: verdicts?.get(r.factId)?.confidence,
     }));
   if (top.score >= SIGNAL_AUTO_COSINE) {
-    await recordSignal(sql, top.storyId, a.id, source, "signal", observedAt);
-    await recordDecision(sql, a.id, top.factId, top.storyId, "signal", asCandidates(), null);
+    await sql.begin(async (tx) => {
+      await assertRuntimeControl(tx, publication);
+      await recordSignal(tx, top.storyId, a.id, source, "signal", observedAt);
+      await recordDecision(tx, a.id, top.factId, top.storyId, "signal", asCandidates(), null);
+    });
     return { verdict: "signal", storyId: top.storyId };
   }
   const cands = await candidateViews(recalled);
@@ -947,8 +997,12 @@ async function groupSignal(a: ArticleRow, source: { id: string }, observedAt: Da
   const query: ReportView = { title: a.title, source: a.source_name, firstParty: false, at: observedAt, summary: a.body_text?.slice(0, 300) ?? null };
   const { verdicts, receiptId } = await judgeSignal(a.id, query, cands);
   const target = signalTarget(cands, verdicts);
-  if (target) await recordSignal(sql, target.storyId, a.id, source, "signal", observedAt);
-  await recordDecision(sql, a.id, target?.factId ?? null, target?.storyId ?? null, target ? "signal" : "signal-unmatched", asCandidates(verdicts), receiptId);
-  await completeReceipt(sql, receiptId);
+  await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, publication);
+    await assertRuntimeControl(tx, processing);
+    if (target) await recordSignal(tx, target.storyId, a.id, source, "signal", observedAt);
+    await recordDecision(tx, a.id, target?.factId ?? null, target?.storyId ?? null, target ? "signal" : "signal-unmatched", asCandidates(verdicts), receiptId);
+    await completeReceipt(tx, receiptId);
+  });
   return target ? { verdict: "signal", storyId: target.storyId } : { verdict: "signal-unmatched" };
 }

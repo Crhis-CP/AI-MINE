@@ -4,7 +4,7 @@ import { dbOf } from "../db.ts";
 
 import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
-import { ensureQueue, QUEUES } from "./queue.ts";
+import { ensureQueue, enqueue, QUEUES } from "./queue.ts";
 
 // The metal price refresh, run by the schedule metals.prices (TASK-0069).
 export { refreshMetalPrices } from "../publication/metal-prices/refresh.ts";
@@ -28,6 +28,11 @@ export async function registerPublicationJobs(boss: PgBoss) {
     const result = await republishSource(sourceId, (done, total) => progress(sourceId, { status: "running", done, total, startedAt }));
     // The hot board may show one of the source's articles: re-rank now rather than within five minutes.
     if (result.reduced > 0) await computeHotRanking();
+    if (result.deferred) {
+      await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: `runtime:${sourceId}`, startAfter: new Date(Date.now() + 60_000) });
+      await progress(sourceId, { status: "running", ...result, startedAt, reason: "公开暂停，等待恢复" });
+      return result;
+    }
     await progress(sourceId, { status: "done", ...result, startedAt, finishedAt: new Date().toISOString() });
     return result;
   });

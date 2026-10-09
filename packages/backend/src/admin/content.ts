@@ -1,3 +1,4 @@
+import { GeographyCandidate } from "../editorial/geography.ts";
 // Content diagnostics and corrections (F19). Find any item by id, URL or title and see its whole
 // chain: source → discoveries → revisions → model receipts → decisions → publication and sync
 // ledger → grouping → deliveries. Visibility changes and manual corrections go through editorial
@@ -142,6 +143,7 @@ const FieldsSchema = z
     reason: z.string().max(1000),
     category: z.enum(CATEGORY_KEYS).nullable(),
     tags: z.array(z.string().max(60)).max(20),
+    geography: z.strictObject({ revision: z.number().int().positive(), value: GeographyCandidate }),
     selected: z.boolean(),
     silent: z.boolean(),
     // 收录 (AI-01 人工覆盖): "pass" admits despite a model BLOCK, "block" keeps the item off every public page.

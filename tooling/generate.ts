@@ -23,7 +23,13 @@ function ordered(value: unknown): unknown {
   );
 }
 const format = (file: string, content: string) =>
-  execFileSync("pnpm", ["exec", "biome", "format", `--stdin-file-path=${file}`], { cwd: root, input: content, encoding: "utf8" });
+  execFileSync(path.join(root, "node_modules/.bin/biome"), ["format", `--stdin-file-path=${file}`], {
+    cwd: root,
+    input: content,
+    encoding: "utf8",
+    maxBuffer: 8 * 1024 * 1024,
+    timeout: 30_000,
+  });
 
 for (const [audience, contracts] of [
   ["public", publicContracts],

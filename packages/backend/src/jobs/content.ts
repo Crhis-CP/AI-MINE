@@ -1,9 +1,11 @@
+import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Content processing: body extraction when the source needs it → analysis → publish → event grouping.
 // Every article reaches the queues through queueProcessing, which records when it was queued, so the
 // safety net only picks up articles nothing is working on and sends those still waiting for a body to
 // extraction first. A provider outage makes an article wait and retry with backoff; only a permanent
 // refusal or exhausted retries end in "failed", which the admin re-queues in bulk. Paused paid calls and
 // switched-off model calls only make it wait, without using up its attempts.
+import { needsGeographyAnalysis } from "../editorial/geography.ts";
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { config } from "../config.ts";
@@ -87,7 +89,10 @@ const PRIORITY = { live: 0, liveSignal: -1, history: -2 } as const;
  * (paid) request; the same tag reuses its receipt. With `db`, the job commits with the caller's write.
  * Posts of non-editorial sources skip the analysis queue: they only need recording and grouping.
  */
-export async function queueProcessing(articleId: string, opts: { step?: Step; attemptTag?: string; db?: Db } = {}): Promise<string | null> {
+export async function queueProcessing(
+  articleId: string,
+  opts: { step?: Step; attemptTag?: string; db?: Db; lowPriority?: boolean } = {},
+): Promise<string | null> {
   const db = opts.db ?? sql;
   const r = await route(articleId, db);
   if (!r) return null;
@@ -105,12 +110,17 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   const step = opts.step ?? r.step;
   await db`UPDATE articles SET processing_queued_at = now() WHERE id = ${articleId}`;
   if (step === "extract")
-    return enqueue(QUEUES.extractBody, { articleId }, { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live }, opts.db);
+    return enqueue(
+      QUEUES.extractBody,
+      { articleId },
+      { singletonKey: articleId, priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.live },
+      opts.db,
+    );
   if (r.signal && !opts.attemptTag) {
     return enqueue(
       QUEUES.group,
       { articleId, signalOnly: true },
-      { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.liveSignal },
+      { singletonKey: articleId, priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.liveSignal },
       opts.db,
     );
   }
@@ -118,7 +128,10 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   return enqueue(
     QUEUES.analyze,
     tagged ? { articleId, attemptTag: opts.attemptTag } : { articleId },
-    { singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live },
+    {
+      singletonKey: tagged ? `manual:analyze:${articleId}:${opts.attemptTag}` : articleId,
+      priority: opts.lowPriority || r.historical ? PRIORITY.history : PRIORITY.live,
+    },
     opts.db,
   );
 }
@@ -205,10 +218,21 @@ export async function afterFailure(articleId: string, error: unknown): Promise<{
   // failure and must neither consume processing_attempts nor turn an incomplete chain terminal.
   if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
   const message = String(error instanceof Error ? error.message : error).slice(0, 500);
-  if (error instanceof ReceiptBusyError || error instanceof BudgetExceededError || !config.modelCallsEnabled) {
+  if (
+    error instanceof RuntimeControlPaused ||
+    error instanceof RuntimeControlStale ||
+    error instanceof ReceiptBusyError ||
+    error instanceof BudgetExceededError ||
+    !config.modelCallsEnabled
+  ) {
     // Not the article's fault: the same request is in flight, the budget window is full, or model calls are
     // switched off. A Chinese original stays public meanwhile and is judged once calls are back on.
-    const seconds = error instanceof BudgetExceededError ? error.retryAfterSeconds : error instanceof ReceiptBusyError ? 60 : MODELS_OFF_WAIT_SECONDS;
+    const seconds =
+      error instanceof BudgetExceededError
+        ? error.retryAfterSeconds
+        : error instanceof ReceiptBusyError || error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale
+          ? 60
+          : MODELS_OFF_WAIT_SECONDS;
     const retryAt = new Date(Date.now() + seconds * 1000);
     await sql`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
     return { state: "waiting", retryAt };
@@ -232,15 +256,20 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
   await ensureQueue(QUEUES.translate);
   await boss.work<{ articleId: string }>(QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
     if (!job) return;
-    const revision = await prepareTranslation(job.data.articleId);
-    if (revision === null) return { state: "not-needed-or-not-permitted" };
-    const result = await translateArticle(job.data.articleId, revision);
-    if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
-    const publication = await publishArticle(job.data.articleId);
-    const r = await route(job.data.articleId, sql);
-    if (publication?.visibility === "public" && r && !r.historical)
-      await enqueue(QUEUES.group, { articleId: job.data.articleId }, { singletonKey: job.data.articleId, priority: PRIORITY.live });
-    return result;
+    try {
+      const revision = await prepareTranslation(job.data.articleId);
+      if (revision === null) return { state: "not-needed-or-not-permitted" };
+      const result = await translateArticle(job.data.articleId, revision);
+      if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
+      const publication = await publishArticle(job.data.articleId);
+      const r = await route(job.data.articleId, sql);
+      if (publication?.visibility === "public" && r && !r.historical)
+        await enqueue(QUEUES.group, { articleId: job.data.articleId }, { singletonKey: job.data.articleId, priority: PRIORITY.live });
+      return result;
+    } catch (error) {
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(job.data.articleId, error);
+      throw error;
+    }
   });
   await ensureQueue(QUEUES.analyze);
   await boss.work<{ articleId: string; attemptTag?: string }>(QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
@@ -264,14 +293,24 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
  */
 export async function registerExtractionJobs(boss: PgBoss) {
   await ensureQueue(QUEUES.extractBody);
-  await boss.work<{ articleId: string }>(QUEUES.extractBody, { localConcurrency: 4, pollingIntervalSeconds: 2 }, async ([job]) => {
+  await boss.work<{ articleId: string; crawlSessionId?: string }>(QUEUES.extractBody, { localConcurrency: 4, pollingIntervalSeconds: 2 }, async ([job]) => {
     if (!job) return;
     const { articleId } = job.data;
     try {
-      const state = await extractArticleBody(articleId);
+      const state = await extractArticleBody(articleId, undefined, job.data.crawlSessionId);
       await queueProcessing(articleId, { step: "analyze" });
       return { state };
     } catch (error) {
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(articleId, error);
+      if (error instanceof CrawlObsolete) return { state: "obsolete" };
+      if (error instanceof CrawlDeferred) {
+        await enqueue(
+          QUEUES.extractBody,
+          { articleId, crawlSessionId: error.sessionId },
+          { startAfter: error.retryAt, singletonKey: `${articleId}:${error.reservationId}:${error.retryAt.toISOString()}` },
+        );
+        return { state: "deferred", retryAt: error.retryAt.toISOString() };
+      }
       const message = String(error instanceof Error ? error.message : error).slice(0, 500);
       const [a] = await sql<{ processing_attempts: number }[]>`
         UPDATE articles SET processing_attempts = processing_attempts + 1, processing_error = ${`extract: ${message}`},
@@ -316,3 +355,26 @@ export async function requeueFailed(group: string | null): Promise<{ requeued: n
   for (const r of rows.slice(0, 500)) await queueProcessing(r.id);
   return { requeued: rows.length };
 }
+
+// Policy processing shares only this frozen composition entry; its queues and state remain separate.
+export { registerPolicyJobs, sweepPolicyMaterials } from "./policy.ts";
+
+/** Explicit low-priority preparation; dry-run is the default and no automatic paid sweep is enabled. */
+export async function prepareGeographyBackfill(options: { limit?: number; enqueue?: boolean } = {}) {
+  const limit = options.limit ?? 20;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("Invalid geography backfill bound");
+  const rows = await sql<
+    { id: string; revision: number }[]
+  >`SELECT id,revision FROM articles WHERE processing_state IN ('analyzed','published') AND processing_queued_at IS NULL ORDER BY discovered_at DESC,id LIMIT ${limit}`;
+  const candidates: { id: string; revision: number }[] = [];
+  let enqueued = 0;
+  for (const row of rows) {
+    const current = await route(row.id, sql);
+    if (current?.news && !current.signal && (await needsGeographyAnalysis(row.id, row.revision))) candidates.push(row);
+  }
+  if (options.enqueue === true) for (const candidate of candidates) if (await queueProcessing(candidate.id, { step: "analyze", lowPriority: true })) enqueued++;
+  return { candidates, enqueued };
+}
+
+export { registerModelConnectionProbeJobs, runModelConnectionProbe, sweepModelConnectionProbes } from "../providers/model-probe.ts";
+import { CrawlDeferred, CrawlObsolete } from "../acquisition/crawl.ts";

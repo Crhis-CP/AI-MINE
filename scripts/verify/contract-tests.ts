@@ -71,8 +71,24 @@ if (process.argv.includes("--routes")) {
   state.timelineError = new InvalidCursorError("fixture cursor");
   registerHooks({
     resolve(specifier, context, next) {
+      if (specifier === "@amp/backend/admin/auth")
+        return {
+          url:
+            "data:text/javascript," +
+            encodeURIComponent(
+              `export * from "${new URL("../../packages/backend/src/admin/auth.ts", import.meta.url).href}"; export async function passwordLoginAvailable(){return false;}`,
+            ),
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/site/stats")
-        return { url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats}", shortCircuit: true };
+        return {
+          url:
+            "data:text/javascript," +
+            encodeURIComponent(
+              `export * from "${new URL("../../packages/backend/src/site/stats.ts", import.meta.url).href}"; export async function loadSiteStats(){return globalThis.contractStats};export async function loadMetalPrices(){}`,
+            ),
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/events/hot-read")
         return { url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot}", shortCircuit: true };
       if (specifier === "@amp/backend/publication/timeline")
@@ -80,6 +96,7 @@ if (process.argv.includes("--routes")) {
           url:
             "data:text/javascript," +
             encodeURIComponent(`
+            export * from "${new URL("../../packages/backend/src/publication/timeline.ts", import.meta.url).href}";
             export async function loadTimeline(query) {
               globalThis.timelineQueries.push(query);
               if (query.cursor === "invalid") throw globalThis.timelineError;
@@ -261,10 +278,70 @@ if (process.argv.includes("--routes")) {
   });
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [
-      ["public", ["/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
+      [
+        "public",
+        [
+          "/api/site/information",
+          "/api/site/jurisdictions",
+          "/api/site/metal-prices",
+          "/api/site/policies",
+          "/api/site/policies/reports",
+          "/api/site/policies/reports/{id}",
+          "/api/site/policies/scope",
+          "/api/site/policies/{id}",
+          "/api/site/policies/{id}/history",
+          "/api/site/policies/{id}/reading",
+          "/api/site/policy-threads/{id}",
+          "/api/site/pool",
+          "/api/site/stats",
+          "/api/site/timeline",
+          "/api/v1/policies",
+          "/api/v1/policies/{id}",
+          "/api/v1/policies/{id}/history",
+        ],
+        "LoginOptions",
+      ],
       [
         "private",
-        ["/api/admin/receipts/{id}/release", "/api/admin/runs", "/api/admin/sources", "/api/admin/sources/{id}", "/api/auth/options"],
+        [
+          "/api/admin/account",
+          "/api/admin/account/password",
+          "/api/admin/accounts",
+          "/api/admin/accounts/{id}/actions",
+          "/api/admin/breakers/{id}/recover",
+          "/api/admin/lane-controls",
+          "/api/admin/lane-controls/actions",
+          "/api/admin/model-connection-tests/{id}",
+          "/api/admin/model-connections",
+          "/api/admin/model-connections/{id}",
+          "/api/admin/model-connections/{id}/disable",
+          "/api/admin/model-connections/{id}/test",
+          "/api/admin/model-fallbacks",
+          "/api/admin/model-fallbacks/{capability}",
+          "/api/admin/model-routes/{capability}",
+          "/api/admin/receipts/{id}/release",
+          "/api/admin/runs",
+          "/api/admin/selectbench/control",
+          "/api/admin/selectbench/holdout-confirm",
+          "/api/admin/selectbench/samples",
+          "/api/admin/selectbench/samples/{datasetId}/{caseId}",
+          "/api/admin/selectbench/standard-review",
+          "/api/admin/selectbench/standards",
+          "/api/admin/selectbench/{id}/evidence",
+          "/api/admin/site",
+          "/api/admin/source-coverage",
+          "/api/admin/source-targets",
+          "/api/admin/source-targets/export",
+          "/api/admin/sources",
+          "/api/admin/sources/{id}",
+          "/api/admin/usage-config",
+          "/api/admin/usage-prices",
+          "/api/admin/usage-protection",
+          "/api/admin/usage/reports",
+          "/api/admin/usage/reports/{month}",
+          "/api/auth/options",
+          "/api/auth/password-nonce",
+        ],
         "PoolResponse",
       ],
     ] as const) {
@@ -274,7 +351,7 @@ if (process.argv.includes("--routes")) {
       assert.deepEqual(Object.keys(doc.paths), routes);
       assert.ok(!json.includes(absent));
       for (const route of routes)
-        for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post).responses)) {
+        for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post ?? doc.paths[route].put).responses)) {
           if (Number(status) >= 400) assert.deepEqual(Object.keys((response as { content: object }).content), ["application/problem+json"]);
         }
     }

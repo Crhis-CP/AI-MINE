@@ -66,6 +66,8 @@ sources.source_policy_versions由private_ops只追加，worker只读；current�
 
 ai.translation_receipt_observations仅为gateway私有状态：worker写、private_ops/backup只读、public_read/auth/feedback_write无读取权；不增加跨schema FK，不改付费缓存身份。receipt_version只是观察到的计数版本，actual attempt仍由可空的稳定ID单独核对；known_unbilled仅继承已有明确未计费状态，不产生新的计费判断。
 
-publication.metal_prices（金属价格，TASK-0044）归 publication：worker 读、插、改，没有 DELETE（只增不删，修订另起一行）；private_ops/backup 只读；public_read/auth/feedback_write 没有 publication schema 使用权，读者接口要用的列由 TASK-0045 登记 publicColumns 后才开放。
+publication.metal_prices（金属价格，TASK-0044、TASK-0077）归publication：public_read只有schema使用权及站内价格接口需要的11列SELECT（series_key、currency、unit、period_start、period_end、period_label、value、release_label、release_url、released_on、first_fetched_at）；其余8列不可读，SELECT *及任何写入均被拒。worker读、插、改但不能DELETE；private_ops/backup只读，auth/feedback_write无权，其他角色和表不变。价格读取、契约与页面由后续卡实现。
 
 信源的业务线（sources.lane，TASK-0093）按列授予公开登录：公开读取层只用它把法规线信源排除在资讯热度证据之外；不含采集配置或许可内容。
+
+TASK-0110：日期证据表保持worker只读、只插；新表`content.source_date_observation_seen`仅记录最后观察时刻，worker可读/插/改，private_ops与backup只读，公开角色无权；一次性清理仅用migrate角色。

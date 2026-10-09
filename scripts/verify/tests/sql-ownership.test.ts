@@ -91,3 +91,58 @@ test("only explicit unquoted pg_catalog.to_char is a known scalar formatter", ()
     assert.ok(sqlOwnership(query(name)).unknown.length, name);
   assert.ok(sqlOwnership("SELECT pg_catalog.to_char(custom_mutator(), 'x') FROM receipts").unknown.includes("opaque SQL function custom_mutator"));
 });
+
+test("explicit pg_catalog.round preserves argument access without trusting shadowed functions", () => {
+  const query = "SELECT pg_catalog.round((SELECT value FROM publication.metal_prices LIMIT 1),1)";
+  assert.deepEqual(sqlOwnership(query).unknown, []);
+  assert.deepEqual(relations(query), ["read:publication.metal_prices"]);
+  for (const name of ["round", "public.round", 'pg_catalog."round"', '"pg_catalog".round', "other.pg_catalog.round"])
+    assert.ok(sqlOwnership(`SELECT ${name}(value,1) FROM publication.metal_prices`).unknown.length, name);
+  assert.ok(sqlOwnership("SELECT pg_catalog.round(custom_mutator(),1)").unknown.includes("opaque SQL function custom_mutator"));
+});
+
+test("explicit pg_catalog.pg_column_size preserves argument reads and rejects shadowed or opaque functions", () => {
+  const query = "SELECT pg_catalog.pg_column_size((SELECT raw FROM articles LIMIT 1))";
+  assert.deepEqual(sqlOwnership(query).unknown, []);
+  assert.deepEqual(relations(query), ["read:public.articles"]);
+  for (const name of [
+    "pg_column_size",
+    "public.pg_column_size",
+    'pg_catalog."pg_column_size"',
+    '"pg_catalog".pg_column_size',
+    "other.pg_catalog.pg_column_size",
+  ])
+    assert.ok(sqlOwnership(`SELECT ${name}(raw) FROM articles`).unknown.length, name);
+  assert.ok(sqlOwnership("SELECT pg_catalog.pg_column_size(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
+});
+
+test("explicit zero-argument pg_catalog.clock_timestamp is the database clock, not a shadowed function", () => {
+  assert.deepEqual(sqlOwnership("SELECT pg_catalog.clock_timestamp() AS now").unknown, []);
+  assert.deepEqual(relations("SELECT pg_catalog.clock_timestamp() AS now"), []);
+  for (const name of [
+    "clock_timestamp",
+    "public.clock_timestamp",
+    'pg_catalog."clock_timestamp"',
+    '"pg_catalog".clock_timestamp',
+    "other.pg_catalog.clock_timestamp",
+  ])
+    assert.ok(sqlOwnership(`SELECT ${name}()`).unknown.length, name);
+  assert.ok(sqlOwnership("SELECT pg_catalog.clock_timestamp(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
+  assert.ok(sqlOwnership("SELECT pg_catalog.clock_timestamp(1)").unknown.includes("opaque SQL function clock_timestamp"));
+});
+
+test("fixed positive local timeout bounds do not change ownership; other context settings remain unknown", () => {
+  for (const statement of ["SET LOCAL statement_timeout='2s'", "SET LOCAL lock_timeout='250ms'"]) assert.deepEqual(sqlOwnership(statement).unknown, []);
+  for (const statement of [
+    "SET statement_timeout='2s'",
+    "SET LOCAL statement_timeout='0'",
+    "SET LOCAL statement_timeout='24h'",
+    "SET LOCAL search_path='public'",
+    "SET LOCAL role='admin'",
+    `SET LOCAL "statement_timeout"='2s'`,
+    "SET LOCAL statement_timeout=§0§",
+    "SET LOCAL statement_timeout='2s'; SET LOCAL search_path='private'",
+    "SET LOCAL statement_timeout=custom_mutator()",
+  ])
+    assert.ok(sqlOwnership(statement, [{ kind: "value" }]).unknown.length, statement);
+});

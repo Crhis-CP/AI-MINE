@@ -1,5 +1,5 @@
 // Metal prices (TASK-0044), layer one: the table refuses a row without what a price needs (hard rule 1, the database
-// half), and the registry in the industry pack is checked whole on reading: only the four official hosts, no unknown
+// half), and the registry in the industry pack is checked whole on reading: only the registered official hosts, no unknown
 // or missing fields, every series on a registered source (hard rule 3, the registry half). No network.
 import "./setup.ts";
 import assert from "node:assert/strict";
@@ -9,6 +9,7 @@ import path from "node:path";
 import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { loadMetalPriceRegistry, METAL_PRICE_HOSTS, parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
+import { nbsFetcher, NBS_LIST_URL } from "../packages/backend/src/publication/metal-prices/nbs.ts";
 
 const sql = dbOf("publication");
 after(() => closeDb());
@@ -48,7 +49,7 @@ test("the price table refuses a row without source, benchmark, unit, currency or
     { source: "lme" },
     // Each of these two breaks one value list only: an unknown source, and a period type no source uses.
     { source: "wb", series_key: "wb.copper", currency: "USD", period_type: "month", period_start: "2026-08-01", period_end: "2026-08-31" },
-    { source: "worldbank", series_key: "wb.copper", currency: "USD", period_type: "week", period_start: "2026-08-01", period_end: "2026-08-31" },
+    { source: "worldbank", series_key: "wb.copper", currency: "USD", period_type: "quarter", period_start: "2026-08-01", period_end: "2026-08-31" },
     ...["name_zh", "grade", "benchmark", "delivery_basis", "unit", "source_unit", "period_label", "release_label"].map((column) => ({ [column]: " " })),
     { currency: "EUR" },
     { period_end: "2026-09-10" },
@@ -76,29 +77,80 @@ test("the price table refuses a row without source, benchmark, unit, currency or
 
 const text = readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8");
 
-test("the real registry: the bureau's ten series on its one official host, source defaults filled into each series", () => {
+const STEEL = "rebar wire_rod medium_plate hr_coil seamless_pipe angle_steel".split(" ").map((key) => `nbs.${key}`);
+const inOrder = (actual: string[], expected: string[]) =>
+  assert.deepEqual(
+    actual.filter((key) => expected.includes(key)),
+    expected,
+  );
+test("the fourth-version registry preserves source facts, five active bureau quotes and the approved presentation", () => {
   const registry = loadMetalPriceRegistry();
   assert.deepEqual(registry, parseMetalPriceRegistry(JSON.parse(text)));
-  assert.deepEqual([...METAL_PRICE_HOSTS].sort(), ["thedocs.worldbank.org", "www.imf.org", "www.stats.gov.cn", "www.worldbank.org"]);
-  // Only the bureau's part: later cards add the World Bank and the IMF to the same file.
-  const nbs = registry.sources.find((source) => source.key === "nbs")!;
-  const items = registry.items.filter((item) => item.source === "nbs");
+  for (const host of ["thedocs.worldbank.org", "www.imf.org", "www.stats.gov.cn", "www.worldbank.org", "www.cbr.ru", "bank.gov.ua", "cif.mofcom.gov.cn"])
+    assert.ok(METAL_PRICE_HOSTS.some((known) => known === host));
+  const nbs = registry.sources.find((source) => source.key === "nbs")!,
+    items = registry.items.filter((item) => item.source === "nbs");
   assert.deepEqual(
-    [nbs.section, nbs.frequency, nbs.currency, nbs.staleDays, nbs.hosts, nbs.decimals, nbs.lmeNote, nbs.enabled],
-    ["domestic", "ten_day", "CNY", 20, ["www.stats.gov.cn"], null, null, true],
+    [nbs.section, nbs.frequency, nbs.currency, nbs.staleDays, nbs.hosts, nbs.decimals, nbs.enabled],
+    ["domestic", "ten_day", "CNY", 20, ["www.stats.gov.cn"], null, true],
   );
   assert.deepEqual(nbs.attribution, ["转自国家统计局网站 https://www.stats.gov.cn", "原文数据来源：中国统计信息服务中心、卓创资讯"]);
-  assert.equal(
-    items.map((item) => item.key).join(" "),
-    "nbs.copper nbs.aluminum nbs.lead nbs.zinc nbs.rebar nbs.wire_rod nbs.medium_plate nbs.hr_coil nbs.seamless_pipe nbs.angle_steel",
+  const active = items.filter((item) => item.enabled);
+  assert.deepEqual(
+    active.map((item) => [item.metal, item.quote, item.spec]),
+    [
+      ["copper", "国内 · 电解铜 1#", "铜含量不低于 99.95%"],
+      ["aluminum", "国内 · 铝锭 A00", "铝含量不低于 99.70%"],
+      ["lead", "国内 · 铅锭 1#", "铅含量不低于 99.994%"],
+      ["zinc", "国内 · 锌锭 0#", "锌含量不低于 99.995%"],
+      ["sulfuric_acid", "国内 · 硫酸（98%）", null],
+    ],
   );
-  for (const item of items)
-    assert.deepEqual(
-      [item.source, item.enabled, item.benchmark, item.deliveryBasis, item.unit, item.sourceUnit, item.descriptionIncludes],
-      ["nbs", true, "全国流通领域市场价格", null, "元/吨", "吨", []],
-    );
-  // The bureau does not say how the period's price is taken: nothing calls it a ten-day average.
-  assert.doesNotMatch(text, /旬均价/);
+  assert.deepEqual(
+    items.filter((item) => !item.enabled).map((item) => item.key),
+    STEEL,
+  );
+  for (const item of items) assert.deepEqual([item.benchmark, item.deliveryBasis, item.unit, item.sourceUnit], ["全国流通领域市场价格", null, "元/吨", "吨"]);
+  inOrder(
+    registry.metals.map((metal) => metal.key),
+    "gold silver platinum palladium copper aluminum zinc lead tin nickel iron_ore sulfuric_acid".split(" "),
+  );
+  assert.equal(registry.intro, "官方机构定期发布的金属价格，注明出处。不是实时行情。");
+  assert.deepEqual(
+    registry.frequencies.find((f) => f.key === "ten_day"),
+    { key: "ten_day", tag: "旬", compare: "旬价比上一旬" },
+  );
+  const domesticNotes = registry.notes.filter((note) => note.sources?.includes("nbs"));
+  assert.ok(domesticNotes.some((note) => note.text.includes("转自国家统计局网站 https://www.stats.gov.cn")));
+  assert.ok(registry.notes.some((note) => note.text === "本栏数据不授权转载，需要使用请到各官方网站查阅原数。"));
+  inOrder(
+    registry.officialLinks.map((link) => link.name),
+    [
+      "国家统计局 数据发布",
+      "世界银行 大宗商品价格",
+      "IMF 初级商品价格",
+      "LME 官方金属行情",
+      "上海黄金交易所 每日行情",
+      "上海期货交易所",
+      "伦敦金银市场协会（LBMA）",
+    ],
+  );
+  inOrder(
+    registry.officialLinks.map((link) => link.url),
+    [
+      "https://www.stats.gov.cn/sj/zxfb/index.html",
+      "https://www.worldbank.org/en/research/commodity-markets",
+      "https://www.imf.org/en/research/commodity-prices",
+      "https://www.lme.com/metals",
+      "https://www.sge.com.cn/sjzx/quotation_daily_new",
+      "https://www.shfe.com.cn/",
+      "https://www.lbma.org.uk/",
+    ],
+  );
+  assert.equal(registry.officialLinks.find((link) => link.name === "上海期货交易所")?.url, "https://www.shfe.com.cn/");
+  assert.ok(registry.officialLinks.every((link) => new URL(link.url).protocol === "https:"));
+  assert.doesNotMatch(text, /旬均价|涨跌幅/);
+  assert.doesNotMatch(JSON.stringify({ items, domesticNotes }), /平均|均价|月均/);
 });
 
 test("a bad registry is refused whole with the field named; a stopped series stays registered", () => {
@@ -128,6 +180,34 @@ test("a bad registry is refused whole with the field named; a stopped series sta
     ["items", data().items.map((item: object) => ({ ...item, enabled: false })), /sources\.0\.enabled: no enabled item/],
     ["items", [], /items/],
   ];
+  for (const field of ["metals", "intro", "frequencies", "footnotes", "notes", "officialLinks"]) cases.push([field, undefined, new RegExp(field)]);
+  cases.push(
+    ["intro", " ", /intro/],
+    ["items.0.metal", undefined, /items\.0\.metal/],
+    ["items.0.quote", undefined, /items\.0\.quote/],
+    ["items.0.metal", "missing", /items\.0\.metal/],
+    ["items.0.footnote", "missing", /items\.0\.footnote/],
+    ["metals.1", data().metals[0], /metals\.1\.key/],
+    ["frequencies", [{ key: "month", tag: "月", compare: "月价比上个月" }], /sources\.0\.frequency/],
+    ["notes.0.text", "{link}", /notes\.0\.text/],
+    ["notes.0.link", { name: "link", url: "https://example.test" }, /notes\.0\.text/],
+    ["notes.0.text", "{other}", /notes\.0\.text/],
+    ["notes.2.sources", ["foo"], /notes\.2\.sources/],
+    ["officialLinks.0.url", "http://example.test", /officialLinks\.0\.url/],
+  );
+  const foot = { key: "test", text: "fixture" };
+  cases.push(
+    ["footnotes", [foot, foot], /footnotes\.1\.key/],
+    ["footnotes", [{ ...foot, text: "{tags}" }], /footnotes\.0\.text/],
+    ["footnotes", [{ ...foot, text: "{link}" }], /footnotes\.0\.text/],
+    ["footnotes", [{ ...foot, text: "{link}{link}", link: { name: "link", url: "https://example.test" } }], /footnotes\.0\.text/],
+    ["footnotes", [{ ...foot, text: "{link}", link: { name: "link", url: "http://example.test" } }], /footnotes\.0\.link/],
+  );
+  const frequency = data().frequencies.find((f: { key: string }) => f.key === "ten_day");
+  cases.push(
+    ["frequencies", [frequency, frequency], /frequencies\.1\.key/],
+    ["frequencies", [frequency, { key: "month", tag: frequency.tag, compare: "fixture" }], /frequencies\.1\.tag/],
+  );
   for (const [at, value, expected] of cases) {
     const d = data(),
       keys = at.split("."),
@@ -140,8 +220,34 @@ test("a bad registry is refused whole with the field named; a stopped series sta
   const stopped = data();
   stopped.items[3].enabled = false;
   const kept = parseMetalPriceRegistry(stopped).items;
-  assert.deepEqual([kept.length, kept.filter((item) => item.source === "nbs" && !item.enabled).map((item) => item.key)], [stopped.items.length, ["nbs.zinc"]]);
+  assert.deepEqual(
+    [kept.length, kept.filter((item) => item.source === "nbs" && !item.enabled).map((item) => item.key)],
+    [stopped.items.length, ["nbs.zinc", ...STEEL]],
+  );
   const dir = mkdtempSync(path.join(tmpdir(), "metal-prices-"));
   writeFileSync(path.join(dir, "broken.json"), text.slice(0, -10));
   assert.throws(() => loadMetalPriceRegistry(path.join(dir, "broken.json")), SyntaxError);
+});
+
+test("unregistered but known note sources are allowed, and the real bureau fixture includes sulfuric acid", async () => {
+  const data = JSON.parse(text);
+  data.sources = data.sources.filter((source: { key: string }) => source.key === "nbs");
+  data.items = data.items.filter((item: { source: string }) => item.source === "nbs");
+  data.notes.push({ text: "optional source", sources: ["worldbank"] });
+  const registry = parseMetalPriceRegistry(data);
+  const fixture = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/nbs/${name}.html`, import.meta.url), "utf8");
+  const get = async (url: string) => ({
+    status: 200,
+    url,
+    text: () => fixture(url === NBS_LIST_URL ? "list" : url.includes("1965293") ? "release-previous" : "release-latest"),
+  });
+  const periods = await nbsFetcher(registry, get).fetch(async () => "2026-09-01");
+  assert.deepEqual(
+    periods.map((period) => period.rows.map((row) => [row.key, row.unit, row.value])),
+    [
+      ["110492.5", "24356.3", "16006.3", "26991.9", "1835.7"],
+      ["108770.0", "24191.7", "15883.3", "26257.5", "1777.3"],
+    ].map((values) => values.map((value, i) => [`nbs.${["copper", "aluminum", "lead", "zinc", "sulfuric_acid"][i]}`, "吨", value])),
+  );
+  assert.ok(periods.every((period) => period.held.length === 0));
 });

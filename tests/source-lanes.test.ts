@@ -13,7 +13,8 @@ import { queueProcessing, sweepUnprocessed } from "@amp/backend/jobs/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { checkAlerts, collectFindings } from "@amp/backend/operations/alerts";
 import { loadSiteStats } from "@amp/backend/site/stats";
-import { adaptIntervals, collectSource } from "@amp/backend/sources/collect";
+import { adaptIntervals } from "@amp/backend/sources/collect";
+import { collectSource } from "./crawl-fixture.ts";
 import { sourceClocks } from "@amp/backend/events/hot";
 import { grantDateFixture } from "./source-date-fixture.ts";
 

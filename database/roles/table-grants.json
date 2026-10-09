@@ -1,5 +1,5 @@
 {
-  "roles": ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup"],
+  "roles": ["public_read", "feedback_write", "private_ops", "auth", "worker", "migrate", "backup", "ops_read"],
   "tables": {
     "admin_sessions": {
       "module": "identity",
@@ -280,6 +280,15 @@
         "worker": ["SELECT"]
       }
     },
+    "content.source_date_observation_seen": {
+      "module": "content",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
     "content.source_date_observations": {
       "module": "content",
       "access": "business",
@@ -301,10 +310,714 @@
     "publication.metal_prices": {
       "module": "publication",
       "access": "business",
+      "publicColumns": [
+        "series_key",
+        "currency",
+        "unit",
+        "period_start",
+        "period_end",
+        "period_label",
+        "value",
+        "release_label",
+        "release_url",
+        "released_on",
+        "first_fetched_at"
+      ],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.instruments": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.versions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.expressions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": ["id", "current_revision_id"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.document_revisions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.original_resources": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.document_extractions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.processing_controls": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.fulltext_runs": {
+      "module": "policy",
+      "access": "business",
       "publicColumns": [],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.fulltext_parts": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.quality_releases": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.policy_ids": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_documents": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "withdrawn", "first_public_at", "automatic_excluded"],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_quality_windows": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "valid_until", "revoked", "binding_version"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.policy_editions": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [
+        "id",
+        "policy_id",
+        "native_expression_id",
+        "native_revision_id",
+        "source_id",
+        "permission_version",
+        "policy_version_id",
+        "expression_ids",
+        "revision_ids",
+        "public_resources",
+        "basic_card",
+        "basic_detail",
+        "complete_card",
+        "complete_detail",
+        "reading",
+        "quality_id",
+        "released_at",
+        "source_language",
+        "preferred_source_language",
+        "discovered_at",
+        "original_content_key"
+      ],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.interpretation_runs": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.interpretation_stages": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.policy_reports": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "kind", "period_key", "current_revision"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_report_revisions": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["report_id", "revision", "revision_id", "previous_revision", "content_hash", "generated_at", "card", "coverage", "attributions"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.policy_report_members": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["report_id", "report_revision", "edition_id", "label", "available_by_cutoff", "position"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.material_discoveries": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.metadata_observations": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.material_workflows": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_publication_control": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "policy.vision_runs": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.vision_pages": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.vision_stages": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.crawl_hosts": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.robots_observations": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.crawl_sessions": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.crawl_requests": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.crawl_checkpoints": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "publication.policy_relations": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [
+        "source_edition_id",
+        "source_policy_id",
+        "target_edition_id",
+        "target_policy_id",
+        "target_original_key",
+        "relation",
+        "target_citation",
+        "evidence_ids"
+      ],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.policy_threads": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "anchor_policy_id", "created_at"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.news_geography": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["article_id", "article_revision", "analysis_id", "recipe", "state", "jurisdictions", "primary_jurisdiction"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ops.lane_controls": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT", "UPDATE"]
+      }
+    },
+    "ops.lane_control_conflicts": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.usage_observation": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.local_reuse_daily": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.usage_monthly_reports": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.model_connections": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "UPDATE"]
+      }
+    },
+    "ai.model_connection_tests": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "UPDATE"]
+      }
+    },
+    "ai.model_routes": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.model_attempt_snapshots": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "identity.account_access": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"],
+        "auth": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "identity.password_accounts": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "identity.account_policy": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "UPDATE"]
+      }
+    },
+    "identity.auth_attempts": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT", "DELETE"]
+      }
+    },
+    "identity.login_nonces": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "identity.account_commands": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT"]
+      }
+    },
+    "ops.operational_snapshots": {
+      "module": "platform/ops",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "worker": ["SELECT", "INSERT", "UPDATE"],
+        "ops_read": ["SELECT"]
+      }
+    },
+    "acquisition.directory_scans": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "acquisition.directory_pages": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_seen": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_records": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_heads": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "acquisition.directory_bindings": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_receipts": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.usage_control_versions": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.usage_prices": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.usage_attempts": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.usage_breakers": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.usage_protection_events": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.usage_notice_progress": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.usage_sums": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.site_information": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "revision", "value", "updated_at"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.site_information_commands": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_tool_control": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.selection_datasets": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_samples": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_labels": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.selection_submissions": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_run_evidence": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_records": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.selection_commands": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
       }
     }
   },
