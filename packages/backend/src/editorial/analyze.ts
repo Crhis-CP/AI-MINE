@@ -1,3 +1,4 @@
+import { prepareNewsFallback, type NewsFallbackInput } from "../providers/news-fallback.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
@@ -195,7 +196,7 @@ export interface AnalysisRun {
    * The independent score calls and the tier threshold they are held against; absent when the material
    * is not scored. `refused`: the model's content filter declined it, so it is not selected.
    */
-  scores: { model: string; threshold: number; values: number[]; receiptIds: number[]; reused: boolean; refused?: boolean } | null;
+  scores: { model: string; models?: string[]; threshold: number; values: number[]; receiptIds: number[]; reused: boolean; refused?: boolean } | null;
   /** The reader-facing copy: `understand` (selected, near-selected), `summarize`, `none`. */
   writing: {
     kind: "understand" | "summarize" | "none";
@@ -229,7 +230,7 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
 
-type StepOpts = { attemptTag?: string; scoreModel?: string; runtimeControl?: RuntimeControlSnapshot };
+type StepOpts = { attemptTag?: string; scoreModel?: string; runtimeControl?: RuntimeControlSnapshot; fallbackInput?: NewsFallbackInput };
 type ReceiptObserver = (receiptId: number) => void;
 export class AnalysisInterruptedError extends Error {}
 
@@ -254,6 +255,7 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
     promptVersion: PROMPT_VERSIONS.prefilter,
     system: PREFILTER_SYSTEM,
     user: prefilterUser(a),
+    fallbackPermit: opts.fallbackInput?.({ system: PREFILTER_SYSTEM, user: prefilterUser(a) }),
     schema: PrefilterSchema,
     temperature: 0,
     maxTokens: 512,
@@ -284,6 +286,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
   const input = buildScoreInput(a);
   const values: number[] = [];
   const receiptIds: number[] = [];
+  const models: string[] = [];
   let reused = true;
   // One after the other: the second call reuses the provider's cached prompt.
   for (let i = 0; i < SCORE_CALLS; i++) {
@@ -297,6 +300,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
         promptVersion: PROMPT_VERSIONS.score,
         system: SCORE_SYSTEM,
         user: input,
+        fallbackPermit: opts.fallbackInput?.({ system: SCORE_SYSTEM, user: input }),
         schema: ScoreSchema,
         temperature: call.temperature,
         maxTokens: call.maxTokens,
@@ -307,17 +311,19 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
       });
       onReceipt?.(res.receiptId);
       values.push(res.data.attentionScore);
+      models.push(res.model);
       receiptIds.push(res.receiptId);
       reused &&= res.reused;
     } catch (error) {
       const receiptId = observableReceiptId(error);
       if (receiptId !== null) onReceipt?.(receiptId);
       // The model's content filter declines the material (Zhipu 1301): not scored, so not selected.
-      if (isContentFilter(error)) return { model, threshold, values, receiptIds, reused: false, refused: true };
+      if (isContentFilter(error))
+        return { model: [...new Set(models)].join("+") || model, models, threshold, values, receiptIds, reused: false, refused: true };
       throw error;
     }
   }
-  return { model, threshold, values, receiptIds, reused };
+  return { model: [...new Set(models)].join("+"), models, threshold, values, receiptIds, reused };
 }
 
 /**
@@ -362,6 +368,7 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     promptVersion: PROMPT_VERSIONS.structure,
     system: STRUCTURE_SYSTEM,
     user,
+    fallbackPermit: opts.fallbackInput?.({ system: STRUCTURE_SYSTEM, user }),
     schema: StructureSchema,
     temperature: 0.2,
     maxTokens: 1500,
@@ -395,6 +402,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
       promptVersion: PROMPT_VERSIONS.understand,
       system: UNDERSTAND_SYSTEM,
       user: image ? [{ type: "text", text }, image] : text,
+      fallbackPermit: image ? undefined : opts.fallbackInput?.({ system: UNDERSTAND_SYSTEM, user: text }),
       schema: UnderstandSchema,
       temperature: 0.2,
       maxTokens: 16_384,
@@ -452,6 +460,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     promptVersion: PROMPT_VERSIONS.summarize,
     system: "",
     user: buildArticlePrompt(t),
+    fallbackPermit: opts.fallbackInput?.({ system: "", user: buildArticlePrompt(t) }),
     schema: SummarizeSchema,
     json: false,
     parse: parseTranslateOutput,
@@ -584,6 +593,13 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
   checkAnalysisRunning();
+  opts = {
+    ...opts,
+    fallbackInput:
+      input.translationZh && !input.bodyText
+        ? undefined
+        : await prepareNewsFallback({ root: shutdownSignal.signal, expected: input, current: () => loadAnalyzeInput(articleId), articles: [input] }),
+  };
   const prefilter = await runSelectionPrefilter(input, opts);
   // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
   // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
@@ -618,6 +634,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
     prefilter: { label: run.prefilter.label, reason: run.prefilter.reason },
     scores: out.scores,
     scoreModel: out.scoreModel,
+    scoreModels: run.scores?.models ?? [],
     threshold: out.threshold,
     ...(out.scoreRefused ? { scoreRefused: true } : {}),
     ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
@@ -641,4 +658,12 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   });
   const reused = run.prefilter.reused && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
   return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };
+}
+
+/** Provenance only: consumers must also match the publication and current content revision. */
+export async function analysisMaterialRevisions(ids: number[]) {
+  if (!ids.length) return [];
+  return sql<
+    { id: number; article_id: string; input_revision: number }[]
+  >`SELECT id,article_id,input_revision FROM analyses WHERE id=ANY(${ids}::bigint[]) ORDER BY id`;
 }

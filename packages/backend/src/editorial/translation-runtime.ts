@@ -1,3 +1,4 @@
+import { prepareNewsFallback } from "../providers/news-fallback.ts";
 // Strict segment runner used by the per-item worker; network calls stay outside content locks.
 import { z } from "zod";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
@@ -46,6 +47,7 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     return { status: "partial" as const, revision: body.revision, reason: "pending_capacity" };
   const run = await beginTranslation(body, recipe.id);
   if (!run) return { status: "skipped" as const, revision: body?.revision };
+  const fallbackInput = await prepareNewsFallback({ root: shutdownSignal.signal, expected: body, current: () => readCurrentBody(articleId), articles: [body] });
   const saved = await translationCheckpoints(run);
   let inheritedObservations = await translationObservations(body);
   const leaves = translationLeaves(
@@ -60,6 +62,7 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     const checkpoint = saved.find((row) => row.index === segment.index && row.sourceHash === segment.sourceHash);
     if (checkpoint?.state === "complete") continue;
     const part = shield(segment.html).html;
+    const user = JSON.stringify({ text: part, ...(segment.reference ? { referenceOnly: segment.reference } : {}) });
     let reply: ChatJsonResult<unknown>;
     try {
       const observations = inheritedObservations;
@@ -72,7 +75,8 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
         subject: `article:${articleId}@${body!.revision}#${segment.index}`,
         promptVersion: recipe.promptVersion,
         system: recipe.system,
-        user: JSON.stringify({ text: part, ...(segment.reference ? { referenceOnly: segment.reference } : {}) }),
+        user,
+        fallbackPermit: fallbackInput?.({ system: recipe.system, user }),
         // Retain usage before strict validation: unusable output without known usage must not buy a retry.
         schema: z.unknown(),
         parse: (content) => content,

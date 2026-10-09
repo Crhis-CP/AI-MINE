@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // The judging and writing steps (editorial/analyze.ts): the prefilter decides relevance, two scores
 // against the tier threshold decide 精选, selected and near-selected items are written by the content
 // understanding and the rest by the title/summary prompts, a structure step gives the category, subjects
@@ -174,6 +175,8 @@ Object.assign(process.env, {
 });
 
 before(async () => {
+  for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"])
+    await installUsageFixtureForModel(model);
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES
     (${SOURCE}, 'Test analyze source', 'rss', 'T1', 'editorial', '2100-01-01')`;
 });

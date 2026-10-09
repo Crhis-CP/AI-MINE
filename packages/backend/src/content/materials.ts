@@ -336,3 +336,10 @@ export async function selectionMaterialSnapshot(articleId: string, db: Db = sql)
   SELECT id,revision,source_date_version,source_id,title,body_text,excerpt,language,published_at,discovered_at FROM articles WHERE id=${articleId} FOR SHARE`;
   return row ?? null;
 }
+
+/** Current stored bytes used by a news model request; discoveries are not extra material sources. */
+export async function newsMaterialBindings(articleIds: string[]) {
+  if (!articleIds.length) return [];
+  return sql<{ id: string; source_id: string; revision: number; content_hash: string | null; url: string; source_date_version: string }[]>`
+    SELECT id,source_id,revision,content_hash,url,source_date_version FROM articles WHERE id=ANY(${articleIds}::text[]) ORDER BY id`;
+}

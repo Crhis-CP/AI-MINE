@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { gate, stub, tag } from "./setup.ts";
 // A selected item released across the 08:00 boundary must appear in the next issue exactly once.
@@ -23,6 +24,7 @@ process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
 
 before(async () => {
+  for (const model of ["deepseek-flash"]) await installUsageFixtureForModel(model);
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at)
             VALUES (${SOURCE}, 'Report boundary test', 'rss', 'T1', 'editorial', '2100-01-01')`;
 });
@@ -172,6 +174,7 @@ test("daily composition waits for a pre-cutoff release to commit instead of losi
   try {
     const pid = await Promise.race([written.promise, publication.then(() => assert.fail("publication exited before the commit gate"))]);
     t.mock.timers.setTime(new Date("2020-01-04T00:00:10Z").getTime());
+    await installUsageFixtureForModel("deepseek-flash");
     report = composeDaily("2020-01-04");
     await waitForBlocked(pid, report);
     commit.open();

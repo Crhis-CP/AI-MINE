@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -49,6 +50,7 @@ await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
 process.env.DEEPSEEK_BASE_URL = `http://127.0.0.1:${(provider.address() as { port: number }).port}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
 before(async () => {
+  for (const model of ["deepseek-flash"]) await installUsageFixtureForModel(model);
   await sql`INSERT INTO sources(id,name,kind,site_fulltext) VALUES(${SOURCE},'Self-authored checkpoint fixture','rss',true)`;
 });
 after(async () => {

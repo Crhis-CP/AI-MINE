@@ -1,3 +1,4 @@
+import { reportFallbackInput } from "./fallback-input.ts";
 // Daily, weekly and monthly reports. Windows are Beijing calendar based and written into the report;
 // missed schedule points are caught up; regeneration creates a revision. The editors' prompts are in
 // the industry pack (industry/prompts/report-*.md), the sections follow its categories.
@@ -141,12 +142,16 @@ async function writeLead(kind: string, key: string, entries: ReportEntry[], mode
     .slice(0, 30)
     .map((e, i) => `${i + 1}. ${e.title}｜${e.summary.slice(0, 120)}`)
     .join("\n");
+  const fallbackInput = await reportFallbackInput(entries.slice(0, 30));
+  const system = promptText("report-daily-lead");
   const res = await chatJson({
     model,
     purpose: "report_lead",
+    sourceIds: [...new Set(entries.slice(0, 30).map((e) => e.sourceId))],
+    fallbackPermit: fallbackInput?.({ system, user: list }),
     subject: `report:${kind}:${key}`,
     promptVersion: REPORT_VERSION,
-    system: promptText("report-daily-lead"),
+    system,
     user: list,
     schema: LeadSchema,
     temperature: 0.3,
@@ -156,7 +161,7 @@ async function writeLead(kind: string, key: string, entries: ReportEntry[], mode
     .map((h) => entries[Number(h) - 1])
     .filter((e): e is ReportEntry => !!e)
     .map((e) => e.itemId);
-  return { lead: { title: res.data.title, leadParagraph: res.data.leadParagraph }, highlights, receiptId: res.receiptId };
+  return { lead: { title: res.data.title, leadParagraph: res.data.leadParagraph }, highlights, receiptId: res.receiptId, model: res.model };
 }
 
 async function saveReport(
@@ -212,6 +217,7 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
   const ordered = sections.flatMap((s) => s.items).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const model = await modelFor("report");
   const lead = ordered.length ? await writeLead("daily", date, ordered, model) : null;
+  const actualModel = lead?.model ?? model;
   const content = {
     date,
     lead: lead?.lead ?? null,
@@ -226,9 +232,9 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     },
     windowStart: start.toISOString(),
     windowEnd: end.toISOString(),
-    generator: { version: REPORT_VERSION, model, repeatsSuppressed: all.length - fresh.length },
+    generator: { version: REPORT_VERSION, model: actualModel, repeatsSuppressed: all.length - fresh.length },
   };
-  await saveReport("daily", date, start, end, content, reason, model, { publication, ...(lead ? { processing } : {}) });
+  await saveReport("daily", date, start, end, content, reason, actualModel, { publication, ...(lead ? { processing } : {}) });
   if (lead) await completeReceipt(sql, lead.receiptId);
   return { key: date, entries: ordered.length };
 }
@@ -273,18 +279,24 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   let overview = "";
   let receiptId: number | null = null;
   const model = await modelFor("report");
+  let actualModel = model;
   if (top.length) {
+    const prompt = periodPrompt(kind, startDate, endDateInclusive, top);
+    const fallbackInput = await reportFallbackInput(top);
     const res = await chatJson({
       model,
       purpose: `report_${kind}`,
       subject: `report:${kind}:${key}`,
       promptVersion: REPORT_VERSION,
-      ...periodPrompt(kind, startDate, endDateInclusive, top),
+      ...prompt,
+      sourceIds: [...new Set(top.map((e) => e.sourceId))],
+      fallbackPermit: fallbackInput?.(prompt),
       schema: PeriodSchema,
       temperature: 0.3,
       maxTokens: 2500,
     });
     receiptId = res.receiptId;
+    actualModel = res.model;
     headline = res.data.headline.trim();
     overview = res.data.overview;
     themes = res.data.themes.map((t) => ({
@@ -307,9 +319,9 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
     themes,
     storyOrder: top.map((e) => e.itemId),
     metrics: { totalStories: themes.reduce((n, t) => n + t.storyRefs.length, 0), selectedCount: all.length, reportsCovered: Number(dailyCount) },
-    generator: { version: REPORT_VERSION, model },
+    generator: { version: REPORT_VERSION, model: actualModel },
   };
-  await saveReport(kind, key, start, end, content, reason, model, { publication, ...(receiptId ? { processing } : {}) });
+  await saveReport(kind, key, start, end, content, reason, actualModel, { publication, ...(receiptId ? { processing } : {}) });
   if (receiptId) await completeReceipt(sql, receiptId);
   return { key, entries: top.length };
 }

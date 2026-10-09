@@ -136,3 +136,5 @@ paidRequest先免费复用回执，再按已核CNY价格做保守预留；chatJs
 
 批准文件字段：`runId`、`capability`（非 score/policy）、`modelKey`、`goldHash`（已存按 case_id 排序的 `[case_id,gold]` 数组之 stableJson SHA-256）、`reviewEvidence`、`validUntil`、`reason`，以及本人真实完成后才填写 true 的 `heldOutReviewed/sealedReviewed/shadowReviewed/canaryReviewed/qualityAccepted`。后端从实际物理回执重建样本/模型配置、提示、输出合同、实际响应白名单和来源范围，文件不能自行扩大来源或模型身份。每次使用重新核验样本及回执哈希；提示变化、到期、撤销即失效。撤销使用 `node scripts/model-route-qualification.ts revoke /安全位置/撤销.json`，字段为 `runId/approvalId/reason`。批准只是资格记录；仍需在模型页主动指定备用和来源。真实金标、质量批准与供应商选择未在本次开发中安装。
 
+TASK-0148新闻备用输入通过内部`providers/news-fallback.ts`在主请求前绑定实际请求、来源材料修订/字节/日期版本与许可版本，备用授权和发送前回读各拥有模块；不在主请求失败后把新材料当成旧输入。`content/materials.newsMaterialBindings`仅返回真实文章来源，`editorial/analyze.analysisMaterialRevisions`与`publication/publish.newsCompositionPublications`提供报告的当前投影/原分析修订依据。缺依据、换版或许可改变时无备用发送；图像、旧分组框架和增量摘要缺原始输入绑定，保持主路由，不能声称这些环节已具安全自动回退。
+

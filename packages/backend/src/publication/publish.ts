@@ -504,3 +504,13 @@ export async function republishSource(
   for (const articleId of retry) if (!(await attempt(articleId))) failedIds.push(articleId);
   return { total, changed, reduced, failed: failedIds.length, failedIds: failedIds.slice(0, 20), deferred: deferred.size };
 }
+
+/** Private composition provenance, restricted to the still eligible news projection. No model work on reads. */
+export async function newsCompositionPublications(articleIds: string[]) {
+  if (!articleIds.length) return [];
+  return sql<
+    { article_id: string; analysis_id: number | null; revision: number; source_id: string; title: string; summary: string | null; category: string | null }[]
+  >`
+    SELECT article_id,analysis_id,revision,source_id,title,summary,category FROM publications
+    WHERE article_id=ANY(${articleIds}::text[]) AND visibility='public' AND eligible AND channel='news' ORDER BY article_id`;
+}
