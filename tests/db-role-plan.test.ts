@@ -73,6 +73,8 @@ test("all current migration tables and serial sequences have one explicit classi
       "policy.processing_controls",
       "policy.fulltext_runs",
       "policy.fulltext_parts",
+      "policy.interpretation_runs",
+      "policy.interpretation_stages",
       "policy.material_discoveries",
       "policy.metadata_observations",
       "policy.material_workflows",

@@ -14,6 +14,10 @@ TASK-0117 的 `acquirePolicyOriginal(input, profile, get?)` 复用受限取页�
 TASK-0120 的纯 `validatePolicyFulltextCandidate(plan,candidates)` 消费 0119 的精确计划与扁平逐 part 候选数组；`PolicyPartCandidateSchema` / `PolicyPartCandidate` 是严格候选边界。缺项、重复、错哈希、非逐字引文、字符损坏和确定性不变量变化不给 assembled，独立合法部分保留在 accepted；只在全覆盖时按资源与计划顺序装配块，不假定一个 nodeId 只有一个 part。
 校验仅证明相对计划的结构与已识别文字标记一致，不能证明事实含义、否定/情态、完整语义或来源合法身份。输出固定 semantic_verified=false/runtime_authorization=none；运行器必须另核真实回执、当前原件、许可和控制状态，随后仍需 AI-19/21。
 
+TASK-0101 的 `@amp/backend/policy/interpretation` 导出 `runPolicyInterpretation(fulltextRunId,{root,maxRequests=2,related?})` 和 `loadPolicyInterpretation(fulltextRunId)`。执行器复用0121当前全文/CAS与0100网关，不注册队列、不切模型。AI19逐原文组核对并最多6子输入归并，AI18/20一次产出候选，AI21每个结论面对所有原文组；限定只改写一次并重新完整核验，反证/缺组/无支持阻止通过。候选日期用现有严格日期解析核对字面组件；不猜日/月歧义、时间或时区，关系目标须唯一且有实际输入依据，comparisons固定为空。
+`partial` 表示本轮调用份额已用完，可从实际回执/检查点继续；semantic_verified/semantic_failed/excluded/uncertain为已到达的候选结果；blocked_unknown/waiting_receipt/provider_unavailable/invalid_output/stale/blocked_capacity不当作成功或摘要降级。阶段引用限该次真实parts/children/root-quotes；恢复也核对真实receipt输入与响应，不按序号猜attempt。被拒的同一阶段输入不自动再购买；暂停途中已收到的相同输入可在明确恢复后免费重验。
+可信读取返回run、candidate、claims、逐组verification、recipeVersion/contentHash和模型证据。candidate.evidence的part_id经run.plan.parts定位resourceUrl/nodePath；私有modelEvidence含实际receipt/attempt/service/请求模型及provider报告模型，models只取实际报告值，报告缺失则modelEvidenceComplete=false。semantic_verified只表示本链模型核验矩阵完整通过，不是法律权威或Owner质量资格；publication_authorized永远false。0122另行核质量资格并写公开投影，0123复用既有队列接调度。
+
 ## 全文实际执行（TASK-0121）
 
 `policy/fulltext-runtime.ts` 内部模块的 `runPolicyFulltext(expressionId, extractionProfile, {root,maxRequests?})` 将当前原件、完整提取、0119计划、既有网关与0120程序校验接通。每次默认最多尝试2个模型请求，是可续跑的公平参数；所有部分合法才写program_validated，semantic_verified仍为false、runtime_authorization仍为none。requestsAttempted是本轮调用尝试数，实际付费与用量以物理回执为准。
