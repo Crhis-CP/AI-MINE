@@ -32,11 +32,42 @@ interface Authority {
 export function industryDataOutputs(root = ROOT): Map<string, Buffer> {
   const read = (name: string) => readFileSync(path.join(root, "docs/data", name));
   const authority = JSON.parse(read("jurisdictions-36.json").toString()) as Authority;
-  const seed = JSON.parse(read("source-targets-320.json").toString()) as { records: unknown[]; targets: unknown[] };
+  const seed = JSON.parse(read("source-targets-320.json").toString()) as { records: Record<string, unknown>[]; targets: Record<string, unknown>[] };
   const json = (value: unknown) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
   const mirrors = { records: "source-records-321.csv", targets: "source-targets-320.csv" };
   const inputs = ["jurisdictions-36.json", "jurisdiction-scope.json", "source-targets-320.json", ...Object.values(mirrors)];
+  const targetFields = [
+    "target_id",
+    "record_ids",
+    "primary_country",
+    "country",
+    "country_name",
+    "subnational",
+    "institution",
+    "source_type",
+    "topic",
+    "normalized_url",
+  ];
+  const recordFields = [
+    "record_id",
+    "target_id",
+    "country",
+    "country_name",
+    "subnational",
+    "institution_display",
+    "original_url",
+    "normalized_url",
+    "workbook_sheet",
+    "original_row",
+  ];
   return new Map([
+    [
+      "industry/source-targets.json",
+      json({
+        records: seed.records.map((row) => Object.fromEntries(recordFields.map((key) => [key, row[key] ?? null]))),
+        targets: seed.targets.map((row) => Object.fromEntries(targetFields.map((key) => [key, row[key] ?? null]))),
+      }),
+    ],
     [
       "industry/jurisdictions/data.json",
       json({
@@ -52,6 +83,8 @@ export function industryDataOutputs(root = ROOT): Map<string, Buffer> {
         purpose: "owner-input-mirrors-and-jurisdiction-projection",
         inputs: Object.fromEntries(inputs.map((name) => [`docs/data/${name}`, createHash("sha256").update(read(name)).digest("hex")])),
         dictionary_fields: FIELDS,
+        source_target_fields: targetFields,
+        source_record_fields: recordFields,
         mirrors,
         records: seed.records.length,
         targets: seed.targets.length,

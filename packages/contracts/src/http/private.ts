@@ -1,3 +1,5 @@
+import { sourceTargetsSchemas, sourceTargetsRoutes } from "./source-targets.ts";
+export { SourceTarget, SourceTargetEvidence, SourceTargetsQuery, SourceTargetsResponse } from "./source-targets.ts";
 import { usageProtectionSchemas, usageProtectionRoutes } from "./usage-protection.ts";
 export * from "./usage-protection.ts";
 import { siteInformationPrivateSchemas, siteInformationPrivateRoutes } from "./site-information.ts";
@@ -183,6 +185,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...sourceTargetsSchemas,
   ...siteInformationPrivateSchemas,
   ...accountSchemas,
   ...usageProtectionSchemas,
@@ -204,6 +207,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...sourceTargetsRoutes,
   ...siteInformationPrivateRoutes,
   ...accountRoutes,
   ...usageProtectionRoutes,

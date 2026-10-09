@@ -345,3 +345,5 @@ export async function previewSource(draft: Parameters<typeof previewSourceUnpace
 export async function deferSourceFetch(sourceId: string, retryAt: Date) {
   await sql`UPDATE sources SET next_fetch_at=${retryAt} WHERE id=${sourceId} AND enabled`;
 }
+
+export { sourceTargets } from "../sources/target-catalogue.ts";

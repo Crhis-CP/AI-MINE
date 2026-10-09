@@ -1,3 +1,4 @@
+import { registerSourceTargets } from "./routes/admin-source-targets.ts";
 import { registerAdminSite } from "./routes/admin-site.ts";
 import { registerSiteInformation } from "./routes/site-information.ts";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -108,6 +109,7 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
 
   if (privateRoutes) {
     registerAdmin(app);
+    registerSourceTargets(app);
     registerOperationsMcp(app);
     registerAdminAuth(app);
     registerAdminSite(app);

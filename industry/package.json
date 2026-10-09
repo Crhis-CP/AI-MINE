@@ -20,6 +20,7 @@
     "./brand/nameplates/weekly.svg": "./brand/nameplates/weekly.svg",
     "./jurisdictions": "./jurisdictions/index.ts",
     "./policy-sources": "./policy-sources.ts",
-    "./mining-taxonomy": "./mining-taxonomy.ts"
+    "./mining-taxonomy": "./mining-taxonomy.ts",
+    "./source-targets": "./source-targets.ts"
   }
 }

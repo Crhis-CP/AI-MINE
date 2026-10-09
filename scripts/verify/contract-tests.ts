@@ -82,7 +82,11 @@ if (process.argv.includes("--routes")) {
         };
       if (specifier === "@amp/backend/site/stats")
         return {
-          url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats};export async function loadMetalPrices(){}",
+          url:
+            "data:text/javascript," +
+            encodeURIComponent(
+              `export * from "${new URL("../../packages/backend/src/site/stats.ts", import.meta.url).href}"; export async function loadSiteStats(){return globalThis.contractStats};export async function loadMetalPrices(){}`,
+            ),
           shortCircuit: true,
         };
       if (specifier === "@amp/backend/events/hot-read")
@@ -277,6 +281,7 @@ if (process.argv.includes("--routes")) {
       [
         "public",
         [
+          "/api/site/information",
           "/api/site/jurisdictions",
           "/api/site/metal-prices",
           "/api/site/policies",
@@ -314,6 +319,8 @@ if (process.argv.includes("--routes")) {
           "/api/admin/model-routes/{capability}",
           "/api/admin/receipts/{id}/release",
           "/api/admin/runs",
+          "/api/admin/site",
+          "/api/admin/source-targets",
           "/api/admin/sources",
           "/api/admin/sources/{id}",
           "/api/admin/usage-config",

@@ -255,6 +255,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/source-targets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["sourceTargets"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/sources": {
     parameters: {
       query?: never;
@@ -1983,6 +1999,144 @@ export interface components {
       /** Format: date-time */
       updated_at: string;
     };
+    SourceTarget: {
+      countries: string[];
+      country_names: string[];
+      id: string;
+      institutions: string[];
+      record_ids: string[];
+      records: {
+        id: string;
+        name: string;
+        row: number;
+        sheet: string;
+        url: string | null;
+      }[];
+      source_types: string[];
+      sources: components["schemas"]["SourceTargetEvidence"][];
+      /** @enum {string} */
+      state: "unmatched" | "configured" | "observed" | "needs_address";
+      subnational: string[];
+      topics: string[];
+      url: string | null;
+    };
+    SourceTargetEvidence: {
+      body_records: number;
+      enabled: boolean;
+      /** Format: uri */
+      entry_url: string;
+      fetch_failures_7d: number;
+      fetch_successes_7d: number;
+      health: string;
+      kind: string;
+      /** @enum {string} */
+      lane: "news" | "policy";
+      last_fetch_success: string | null;
+      last_material_discovery: string | null;
+      material_records: number;
+      name: string;
+      original_records: number;
+      publication_records: number;
+      source_id: string;
+    };
+    SourceTargetEvidenceInput: {
+      body_records: number;
+      enabled: boolean;
+      /** Format: uri */
+      entry_url: string;
+      fetch_failures_7d: number;
+      fetch_successes_7d: number;
+      health: string;
+      kind: string;
+      /** @enum {string} */
+      lane: "news" | "policy";
+      last_fetch_success: string | null;
+      last_material_discovery: string | null;
+      material_records: number;
+      name: string;
+      original_records: number;
+      publication_records: number;
+      source_id: string;
+    };
+    SourceTargetInput: {
+      countries: string[];
+      country_names: string[];
+      id: string;
+      institutions: string[];
+      record_ids: string[];
+      records: {
+        id: string;
+        name: string;
+        row: number;
+        sheet: string;
+        url: string | null;
+      }[];
+      source_types: string[];
+      sources: components["schemas"]["SourceTargetEvidenceInput"][];
+      /** @enum {string} */
+      state: "unmatched" | "configured" | "observed" | "needs_address";
+      subnational: string[];
+      topics: string[];
+      url: string | null;
+    };
+    SourceTargetsResponse: {
+      /** Format: date-time */
+      as_of: string;
+      countries: {
+        id: string;
+        name: string;
+      }[];
+      counts: {
+        configured: number;
+        needs_address: number;
+        observed: number;
+        unmatched: number;
+      };
+      coverage: {
+        configured: number;
+        country: string;
+        name: string;
+        observed: number;
+        total: number;
+      }[];
+      items: components["schemas"]["SourceTarget"][];
+      limitations: string[];
+      page: number;
+      /** @constant */
+      page_size: 50;
+      total: number;
+      total_original_records: number;
+      total_targets: number;
+    };
+    SourceTargetsResponseInput: {
+      /** Format: date-time */
+      as_of: string;
+      countries: {
+        id: string;
+        name: string;
+      }[];
+      counts: {
+        configured: number;
+        needs_address: number;
+        observed: number;
+        unmatched: number;
+      };
+      coverage: {
+        configured: number;
+        country: string;
+        name: string;
+        observed: number;
+        total: number;
+      }[];
+      items: components["schemas"]["SourceTargetInput"][];
+      limitations: string[];
+      page: number;
+      /** @constant */
+      page_size: 50;
+      total: number;
+      total_original_records: number;
+      total_targets: number;
+    };
     UsageBreaker: {
       config_version: number;
       /** Format: date-time */
@@ -3677,6 +3831,67 @@ export interface operations {
       };
       /** @description Problem response */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  sourceTargets: {
+    parameters: {
+      query?: {
+        country?: string;
+        page?: number;
+        q?: string;
+        state?: "unmatched" | "configured" | "observed" | "needs_address";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceTargetsResponse"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
         headers: {
           [name: string]: unknown;
         };
