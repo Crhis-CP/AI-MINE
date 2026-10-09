@@ -182,7 +182,7 @@ test("intake recovery needs a new discovery, surviving switches, warmup and lega
 // These metals.prices runs are this file's own, at a fixed far-future hour, and removed after each test: no run another
 // test writes falls in the 30 days the reader looks back from NOW.
 const NOW = Date.parse("2100-01-10T01:00:00Z"); // 09:00 in Beijing, when the digest goes out
-const WHERE = "看 job_runs 里 metals.prices 的运行记录";
+const WHERE = "看 job_runs 里 metals.prices 的运行记录，或在 worker 容器里跑 scripts/metal-prices-check.ts";
 const seeded: number[] = [];
 
 /** A period of a source's entry, as the refresh writes it. */
@@ -324,7 +324,7 @@ test("metal prices: a source not fetched for over a day is in the digest, with i
     await seed({ hours: 10, record: { nbs: { ...stored, periods: undefined } as never } });
     const unread = await metals();
     assert.equal(unread?.title, "金属价格的运行记录读不出来，没法判断有没有抓到");
-    assert.match(unread?.detail ?? "", /^TypeError: .+；看 job_runs 里 metals\.prices 的运行记录$/);
+    assert.match(unread?.detail ?? "", /^TypeError: .+；看 job_runs 里 metals\.prices 的运行记录，或在 worker 容器里跑 scripts\/metal-prices-check\.ts$/);
     // No run at all (not deployed yet), or collection off (the schedule does not run): nothing.
     await seed();
     assert.equal(await metals(), undefined);

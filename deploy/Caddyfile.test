@@ -1,9 +1,9 @@
-# Offline HTTP counterpart: the same two Host authorities forward through the same web process.
+# Offline HTTP counterpart: the main Host forwards both reader and private paths to the web process.
 {
 	auto_https off
 	admin off
 }
-http://{$SITE_DOMAIN}:{$EDGE_PORT}, http://{$PRIVATE_HOSTNAME}:{$EDGE_PORT} {
+http://{$SITE_DOMAIN}:{$EDGE_PORT} {
 	bind 127.0.0.1
 	encode zstd gzip
 	reverse_proxy {$WEB_UPSTREAM}
@@ -12,6 +12,11 @@ http://{$SITE_DOMAIN}:{$EDGE_PORT}, http://{$PRIVATE_HOSTNAME}:{$EDGE_PORT} {
 # The www counterpart redirects to the bare domain. Without bind, Caddy would put www on a second
 # server listening on every interface, and requests to 127.0.0.1 would get an empty 200, not the redirect.
 http://www.{$SITE_DOMAIN}:{$EDGE_PORT} {
+	bind 127.0.0.1
+	redir http://{$SITE_DOMAIN}:{$EDGE_PORT}{uri} permanent
+}
+
+http://admin.{$SITE_DOMAIN}:{$EDGE_PORT} {
 	bind 127.0.0.1
 	redir http://{$SITE_DOMAIN}:{$EDGE_PORT}{uri} permanent
 }

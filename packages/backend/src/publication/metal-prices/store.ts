@@ -45,6 +45,34 @@ export async function fetchedAt(source: string, release: string): Promise<Date |
   return row?.at ?? null;
 }
 
+/** The same-version changes storePeriod would make, without a transaction or any writes (TASK-0076). */
+export async function previewPeriod(source: MetalPriceSource, items: MetalPriceItem[], fetched: FetchedPeriod) {
+  const before = await storedValues(source.key, fetched);
+  const rows = items.map((item) => ({ key: item.key, value: fetched.rows.find((row) => row.key === item.key)!.value.replace(/^0+(?=\d)/, "") }));
+  return {
+    inserted: rows.filter((row) => !before.has(row.key)).length,
+    touched: rows.filter((row) => before.get(row.key) === row.value).length,
+    changed: rows
+      .filter((row) => before.has(row.key) && before.get(row.key) !== row.value)
+      .map((row) => ({ key: row.key, before: before.get(row.key)!, after: row.value })),
+  };
+}
+
+/** Latest-version values after a simulated write; touching an older version does not make it the latest. */
+export async function previewLatestValues(source: string, { period, release, rows }: FetchedPeriod, now: Date) {
+  const saved = await sql<{ series_key: string; value: string; release_label: string; first_fetched_at: Date }[]>`
+    SELECT series_key, value::text AS value, release_label, first_fetched_at FROM publication.metal_prices
+    WHERE source = ${source} AND period_start = ${period.start} ORDER BY first_fetched_at DESC`;
+  const values = new Map([...saved].reverse().map((row) => [row.series_key, row.value]));
+  for (const row of rows) {
+    const latest = saved.find((one) => one.series_key === row.key);
+    const exists = saved.some((one) => one.series_key === row.key && one.release_label === release.label);
+    if (!latest || latest.release_label === release.label || (!exists && now > latest.first_fetched_at))
+      values.set(row.key, row.value.replace(/^0+(?=\d)/, ""));
+  }
+  return values;
+}
+
 /**
  * A row of the same version (release) read again moves fetched_at only, or takes the new value too when the source now
  * writes it differently (before and after are returned); a new version of a period is a row beside the old one.
