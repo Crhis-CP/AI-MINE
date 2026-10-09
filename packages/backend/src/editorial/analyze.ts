@@ -15,7 +15,7 @@ import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SELECTION } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
-import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
+import { chatJson, modelSpecFor, ModelOutputError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { collapseWhitespace, normalizedUppercase } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
@@ -400,7 +400,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
     });
   };
   // A model that is known not to read images gets the text only.
-  const image = MODELS[model]?.vision === false ? null : await firstImagePart(a);
+  const image = (await modelSpecFor(model))?.vision === false ? null : await firstImagePart(a);
   let res: Awaited<ReturnType<typeof call>>;
   try {
     res = await call(image);

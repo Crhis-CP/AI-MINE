@@ -32,6 +32,7 @@ export function assertProcessEnvironmentSource(env: Environment): void {
 }
 
 const PUBLIC_API_FORBIDDEN = new Set([
+  "MODEL_REGISTRY_ENCRYPTION_KEY",
   "SESSION_SECRET",
   "ADMIN_PASSWORD",
   "ADMIN_FEISHU_UNION_IDS",

@@ -1,3 +1,5 @@
+import { modelRegistrySchemas, modelRegistryRoutes } from "./model-registry.ts";
+export * from "./model-registry.ts";
 import { runtimeControlSchemas, runtimeControlRoutes } from "./runtime-controls.ts";
 export { LaneControl, LaneControlsResponse, LaneControlActionRequest } from "./runtime-controls.ts";
 export { MonthlyUsageReport, MonthlyUsageEntry, MonthlyUsageList, UsageMonth, UsageTotals } from "./usage-monthly.ts";
@@ -167,6 +169,7 @@ export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
   ...usageMonthlySchemas,
+  ...modelRegistrySchemas,
   ...runtimeControlSchemas,
   SourcePolicy: SourcePolicySchema,
   SourceCreateRequest,
@@ -184,6 +187,7 @@ export const schemas = {
 };
 export const routes = {
   ...usageMonthlyRoutes,
+  ...modelRegistryRoutes,
   ...runtimeControlRoutes,
   createSource: {
     method: "POST" as const,

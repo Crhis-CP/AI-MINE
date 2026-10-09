@@ -288,7 +288,21 @@ if (process.argv.includes("--routes")) {
       ],
       [
         "private",
-        ["/api/admin/receipts/{id}/release", "/api/admin/runs", "/api/admin/sources", "/api/admin/sources/{id}", "/api/auth/options"],
+        [
+          "/api/admin/lane-controls",
+          "/api/admin/lane-controls/actions",
+          "/api/admin/model-connection-tests/{id}",
+          "/api/admin/model-connections",
+          "/api/admin/model-connections/{id}",
+          "/api/admin/model-connections/{id}/disable",
+          "/api/admin/model-connections/{id}/test",
+          "/api/admin/model-routes/{capability}",
+          "/api/admin/receipts/{id}/release",
+          "/api/admin/runs",
+          "/api/admin/sources",
+          "/api/admin/sources/{id}",
+          "/api/auth/options",
+        ],
         "PoolResponse",
       ],
     ] as const) {
@@ -298,7 +312,7 @@ if (process.argv.includes("--routes")) {
       assert.deepEqual(Object.keys(doc.paths), routes);
       assert.ok(!json.includes(absent));
       for (const route of routes)
-        for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post).responses)) {
+        for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post ?? doc.paths[route].put).responses)) {
           if (Number(status) >= 400) assert.deepEqual(Object.keys((response as { content: object }).content), ["application/problem+json"]);
         }
     }

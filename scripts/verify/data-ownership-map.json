@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "7c1c1d387010eb19531d7cb7d148f8664ab9a7600f345ab339a7b7cabf8e15af",
+  "grantCatalogueSha256": "246c9c32b78a482ffff5d4bcb4fbb951d11c39463c515dde8b867e30c2a91e70",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -363,6 +363,18 @@
       "access": "business"
     },
     "ai.usage_monthly_reports": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.model_connections": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.model_connection_tests": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.model_routes": {
       "module": "ai-gateway",
       "access": "business"
     }

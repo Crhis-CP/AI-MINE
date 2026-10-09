@@ -9,6 +9,9 @@ export const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 
 const env = process.env;
 
+/** Protected server configuration; callers must never serialize returned secrets. */
+export const environmentValue = (name: string) => env[name];
+
 export const isProduction = env.NODE_ENV === "production";
 
 function str(name: string, fallback?: string): string {

@@ -472,6 +472,1000 @@
         ],
         "type": "object"
       },
+      "ModelConnectionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "input_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "interface": {
+            "enum": [
+              "deepseek",
+              "openai-compatible"
+            ],
+            "type": "string"
+          },
+          "json_mode": {
+            "type": "boolean"
+          },
+          "model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "output_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "owner_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "secret": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "supplier_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "vision": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "interface",
+          "endpoint",
+          "model",
+          "input_cny_per_million",
+          "output_cny_per_million",
+          "billing_basis",
+          "vision",
+          "json_mode",
+          "secret",
+          "reason",
+          "owner_confirmed",
+          "supplier_basis"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionCreateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "input_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "interface": {
+            "enum": [
+              "deepseek",
+              "openai-compatible"
+            ],
+            "type": "string"
+          },
+          "json_mode": {
+            "type": "boolean"
+          },
+          "model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "output_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "owner_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "secret": {
+            "maxLength": 8192,
+            "minLength": 1,
+            "type": "string"
+          },
+          "supplier_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "vision": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "interface",
+          "endpoint",
+          "model",
+          "input_cny_per_million",
+          "output_cny_per_million",
+          "billing_basis",
+          "vision",
+          "json_mode",
+          "secret",
+          "reason",
+          "owner_confirmed",
+          "supplier_basis"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionDisable": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionDisableInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionProbe": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "lane"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionProbeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "lane"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "configuration_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "input_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "interface": {
+            "enum": [
+              "deepseek",
+              "openai-compatible"
+            ],
+            "type": "string"
+          },
+          "json_mode": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "output_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "test_status": {
+            "enum": [
+              "untested",
+              "passed",
+              "failed",
+              "unknown",
+              "running",
+              "queued",
+              "paused"
+            ],
+            "type": "string"
+          },
+          "tested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "vision": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "interface",
+          "endpoint",
+          "model",
+          "input_cny_per_million",
+          "output_cny_per_million",
+          "billing_basis",
+          "vision",
+          "json_mode",
+          "id",
+          "key",
+          "revision",
+          "enabled",
+          "fingerprint",
+          "configuration_hash",
+          "test_status",
+          "tested_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionRecordInput": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "configuration_hash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "input_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "interface": {
+            "enum": [
+              "deepseek",
+              "openai-compatible"
+            ],
+            "type": "string"
+          },
+          "json_mode": {
+            "type": "boolean"
+          },
+          "key": {
+            "type": "string"
+          },
+          "model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "output_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "test_status": {
+            "enum": [
+              "untested",
+              "passed",
+              "failed",
+              "unknown",
+              "running",
+              "queued",
+              "paused"
+            ],
+            "type": "string"
+          },
+          "tested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "updated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "vision": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "interface",
+          "endpoint",
+          "model",
+          "input_cny_per_million",
+          "output_cny_per_million",
+          "billing_basis",
+          "vision",
+          "json_mode",
+          "id",
+          "key",
+          "revision",
+          "enabled",
+          "fingerprint",
+          "configuration_hash",
+          "test_status",
+          "tested_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "input_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "interface": {
+            "enum": [
+              "deepseek",
+              "openai-compatible"
+            ],
+            "type": "string"
+          },
+          "json_mode": {
+            "type": "boolean"
+          },
+          "model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "output_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "owner_confirmed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "secret": {
+            "maxLength": 8192,
+            "type": "string"
+          },
+          "supplier_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "vision": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "interface",
+          "endpoint",
+          "model",
+          "input_cny_per_million",
+          "output_cny_per_million",
+          "billing_basis",
+          "vision",
+          "json_mode",
+          "expected_revision",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelConnectionUpdateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "billing_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "input_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "interface": {
+            "enum": [
+              "deepseek",
+              "openai-compatible"
+            ],
+            "type": "string"
+          },
+          "json_mode": {
+            "type": "boolean"
+          },
+          "model": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          },
+          "output_cny_per_million": {
+            "pattern": "^(0|[1-9]\\d{0,7})(\\.\\d{1,8})?$",
+            "type": "string"
+          },
+          "owner_confirmed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "secret": {
+            "maxLength": 8192,
+            "type": "string"
+          },
+          "supplier_basis": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "vision": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "interface",
+          "endpoint",
+          "model",
+          "input_cny_per_million",
+          "output_cny_per_million",
+          "billing_basis",
+          "vision",
+          "json_mode",
+          "expected_revision",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "ModelProbeRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          },
+          "receipt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "passed",
+              "failed",
+              "unknown",
+              "paused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "revision",
+          "lane",
+          "status",
+          "detail",
+          "receipt_id",
+          "created_at",
+          "finished_at"
+        ],
+        "type": "object"
+      },
+      "ModelProbeRecordInput": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          },
+          "receipt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "passed",
+              "failed",
+              "unknown",
+              "paused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "connection_id",
+          "revision",
+          "lane",
+          "status",
+          "detail",
+          "receipt_id",
+          "created_at",
+          "finished_at"
+        ],
+        "type": "object"
+      },
+      "ModelRegistryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "connections": {
+            "items": {
+              "$ref": "#/components/schemas/ModelConnectionRecord"
+            },
+            "type": "array"
+          },
+          "storage": {
+            "enum": [
+              "ready",
+              "storage_unavailable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage",
+          "connections"
+        ],
+        "type": "object"
+      },
+      "ModelRegistryResponseInput": {
+        "additionalProperties": false,
+        "properties": {
+          "connections": {
+            "items": {
+              "$ref": "#/components/schemas/ModelConnectionRecordInput"
+            },
+            "type": "array"
+          },
+          "storage": {
+            "enum": [
+              "ready",
+              "storage_unavailable"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "storage",
+          "connections"
+        ],
+        "type": "object"
+      },
+      "ModelRouteChange": {
+        "additionalProperties": false,
+        "properties": {
+          "emergency_confirmed": {
+            "type": "boolean"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "expected_revision",
+          "reason",
+          "evaluation_id",
+          "emergency_confirmed"
+        ],
+        "type": "object"
+      },
+      "ModelRouteChangeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "emergency_confirmed": {
+            "type": "boolean"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "expected_revision",
+          "reason",
+          "evaluation_id",
+          "emergency_confirmed"
+        ],
+        "type": "object"
+      },
+      "ModelRouteRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "unevaluated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "capability",
+          "model",
+          "revision",
+          "unevaluated"
+        ],
+        "type": "object"
+      },
+      "ModelRouteRecordInput": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "unevaluated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "capability",
+          "model",
+          "revision",
+          "unevaluated"
+        ],
+        "type": "object"
+      },
       "MonthlyUsageEntry": {
         "additionalProperties": false,
         "properties": {
@@ -5407,6 +6401,651 @@
             "description": "Problem response"
           },
           "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-connection-tests/{id}": {
+      "get": {
+        "operationId": "modelConnectionProbe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelProbeRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-connections": {
+      "get": {
+        "operationId": "modelRegistry",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelRegistryResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createModelConnection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelConnectionCreateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConnectionRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-connections/{id}": {
+      "put": {
+        "operationId": "updateModelConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelConnectionUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConnectionRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-connections/{id}/disable": {
+      "post": {
+        "operationId": "disableModelConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelConnectionDisableInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelConnectionRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-connections/{id}/test": {
+      "post": {
+        "operationId": "probeModelConnection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelConnectionProbeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelProbeRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/model-routes/{capability}": {
+      "post": {
+        "operationId": "assignRegisteredModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capability",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelRouteChangeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelRouteRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
             "content": {
               "application/problem+json": {
                 "schema": {

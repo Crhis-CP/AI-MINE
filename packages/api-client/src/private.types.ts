@@ -31,6 +31,102 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/model-connection-tests/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["modelConnectionProbe"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/model-connections": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["modelRegistry"];
+    put?: never;
+    post: operations["createModelConnection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/model-connections/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["updateModelConnection"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/model-connections/{id}/disable": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["disableModelConnection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/model-connections/{id}/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["probeModelConnection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/model-routes/{capability}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["assignRegisteredModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/receipts/{id}/release": {
     parameters: {
       query?: never;
@@ -262,6 +358,226 @@ export interface components {
     LoginOptionsInput: {
       feishu: boolean;
       password: boolean;
+    };
+    ModelConnectionCreate: {
+      /** Format: uri */
+      billing_basis: string;
+      /** Format: uri */
+      endpoint: string;
+      input_cny_per_million: string;
+      /** @enum {string} */
+      interface: "deepseek" | "openai-compatible";
+      json_mode: boolean;
+      model: string;
+      name: string;
+      output_cny_per_million: string;
+      /** @constant */
+      owner_confirmed: true;
+      reason: string;
+      secret: string;
+      /** Format: uri */
+      supplier_basis: string;
+      vision: boolean;
+    };
+    ModelConnectionCreateInput: {
+      /** Format: uri */
+      billing_basis: string;
+      /** Format: uri */
+      endpoint: string;
+      input_cny_per_million: string;
+      /** @enum {string} */
+      interface: "deepseek" | "openai-compatible";
+      json_mode: boolean;
+      model: string;
+      name: string;
+      output_cny_per_million: string;
+      /** @constant */
+      owner_confirmed: true;
+      reason: string;
+      secret: string;
+      /** Format: uri */
+      supplier_basis: string;
+      vision: boolean;
+    };
+    ModelConnectionDisable: {
+      expected_revision: number;
+      reason: string;
+    };
+    ModelConnectionDisableInput: {
+      expected_revision: number;
+      reason: string;
+    };
+    ModelConnectionProbe: {
+      expected_revision: number;
+      /** @enum {string} */
+      lane: "news" | "policy";
+    };
+    ModelConnectionProbeInput: {
+      expected_revision: number;
+      /** @enum {string} */
+      lane: "news" | "policy";
+    };
+    ModelConnectionRecord: {
+      /** Format: uri */
+      billing_basis: string;
+      configuration_hash: string;
+      enabled: boolean;
+      /** Format: uri */
+      endpoint: string;
+      fingerprint: string;
+      /** Format: uuid */
+      id: string;
+      input_cny_per_million: string;
+      /** @enum {string} */
+      interface: "deepseek" | "openai-compatible";
+      json_mode: boolean;
+      key: string;
+      model: string;
+      name: string;
+      output_cny_per_million: string;
+      revision: number;
+      /** @enum {string} */
+      test_status: "untested" | "passed" | "failed" | "unknown" | "running" | "queued" | "paused";
+      tested_at: string | null;
+      /** Format: date-time */
+      updated_at: string;
+      vision: boolean;
+    };
+    ModelConnectionRecordInput: {
+      /** Format: uri */
+      billing_basis: string;
+      configuration_hash: string;
+      enabled: boolean;
+      /** Format: uri */
+      endpoint: string;
+      fingerprint: string;
+      /** Format: uuid */
+      id: string;
+      input_cny_per_million: string;
+      /** @enum {string} */
+      interface: "deepseek" | "openai-compatible";
+      json_mode: boolean;
+      key: string;
+      model: string;
+      name: string;
+      output_cny_per_million: string;
+      revision: number;
+      /** @enum {string} */
+      test_status: "untested" | "passed" | "failed" | "unknown" | "running" | "queued" | "paused";
+      tested_at: string | null;
+      /** Format: date-time */
+      updated_at: string;
+      vision: boolean;
+    };
+    ModelConnectionUpdate: {
+      /** Format: uri */
+      billing_basis: string;
+      enabled?: boolean;
+      /** Format: uri */
+      endpoint: string;
+      expected_revision: number;
+      input_cny_per_million: string;
+      /** @enum {string} */
+      interface: "deepseek" | "openai-compatible";
+      json_mode: boolean;
+      model: string;
+      name: string;
+      output_cny_per_million: string;
+      owner_confirmed?: boolean;
+      reason: string;
+      secret?: string;
+      /** Format: uri */
+      supplier_basis?: string;
+      vision: boolean;
+    };
+    ModelConnectionUpdateInput: {
+      /** Format: uri */
+      billing_basis: string;
+      enabled?: boolean;
+      /** Format: uri */
+      endpoint: string;
+      expected_revision: number;
+      input_cny_per_million: string;
+      /** @enum {string} */
+      interface: "deepseek" | "openai-compatible";
+      json_mode: boolean;
+      model: string;
+      name: string;
+      output_cny_per_million: string;
+      owner_confirmed?: boolean;
+      reason: string;
+      secret?: string;
+      /** Format: uri */
+      supplier_basis?: string;
+      vision: boolean;
+    };
+    ModelProbeRecord: {
+      /** Format: uuid */
+      connection_id: string;
+      /** Format: date-time */
+      created_at: string;
+      detail: string | null;
+      finished_at: string | null;
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      lane: "news" | "policy";
+      receipt_id: string | null;
+      revision: number;
+      /** @enum {string} */
+      status: "queued" | "running" | "passed" | "failed" | "unknown" | "paused";
+    };
+    ModelProbeRecordInput: {
+      /** Format: uuid */
+      connection_id: string;
+      /** Format: date-time */
+      created_at: string;
+      detail: string | null;
+      finished_at: string | null;
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      lane: "news" | "policy";
+      receipt_id: string | null;
+      revision: number;
+      /** @enum {string} */
+      status: "queued" | "running" | "passed" | "failed" | "unknown" | "paused";
+    };
+    ModelRegistryResponse: {
+      connections: components["schemas"]["ModelConnectionRecord"][];
+      /** @enum {string} */
+      storage: "ready" | "storage_unavailable";
+    };
+    ModelRegistryResponseInput: {
+      connections: components["schemas"]["ModelConnectionRecordInput"][];
+      /** @enum {string} */
+      storage: "ready" | "storage_unavailable";
+    };
+    ModelRouteChange: {
+      emergency_confirmed: boolean;
+      evaluation_id: string | null;
+      expected_revision: number;
+      model: string;
+      reason: string;
+    };
+    ModelRouteChangeInput: {
+      emergency_confirmed: boolean;
+      evaluation_id: string | null;
+      expected_revision: number;
+      model: string;
+      reason: string;
+    };
+    ModelRouteRecord: {
+      capability: string;
+      model: string;
+      revision: number;
+      unevaluated: boolean;
+    };
+    ModelRouteRecordInput: {
+      capability: string;
+      model: string;
+      revision: number;
+      unevaluated: boolean;
     };
     MonthlyUsageEntry: {
       notification_at: string | null;
@@ -1268,6 +1584,554 @@ export interface operations {
       };
       /** @description Problem response */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  modelConnectionProbe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelProbeRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  modelRegistry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelRegistryResponse"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  createModelConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModelConnectionCreateInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelConnectionRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  updateModelConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModelConnectionUpdateInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelConnectionRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  disableModelConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModelConnectionDisableInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelConnectionRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  probeModelConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModelConnectionProbeInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelProbeRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  assignRegisteredModel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        capability: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ModelRouteChangeInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelRouteRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
         headers: {
           [name: string]: unknown;
         };

@@ -664,6 +664,33 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "ai.model_connections": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "UPDATE"]
+      }
+    },
+    "ai.model_connection_tests": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "UPDATE"]
+      }
+    },
+    "ai.model_routes": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
     }
   },
   "sequences": {

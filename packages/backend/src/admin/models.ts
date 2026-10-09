@@ -3,9 +3,8 @@
 // and the SelectBench runs that compare models on the same batch. A switch is audited and applies to
 // new work only.
 import { dbOf } from "../db.ts";
-import { CAPABILITIES, invalidateModelCache, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
+import { CAPABILITIES, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
 import { MODELS } from "../providers/llm.ts";
-import { audit } from "./auth.ts";
 
 const sql = dbOf("ai-gateway");
 
@@ -90,25 +89,20 @@ export async function modelsOverview(days = 7) {
   return { days, capabilities, choices, history, benches };
 }
 
-/** Switches a capability to another registered model (or back to the environment/default when null). */
-export async function switchModel(capability: string, model: string | null, reason: string, actor: string) {
-  const c = (CAPABILITIES as Record<string, Capability>)[capability];
-  if (!c) throw Object.assign(new Error("unknown capability"), { statusCode: 400 });
-  if (!reason.trim()) throw Object.assign(new Error("a reason is required"), { statusCode: 400 });
-  if (model !== null) {
-    const spec = MODELS[model];
-    if (!spec) throw Object.assign(new Error("unknown model"), { statusCode: 400 });
-    if (!!c.vision !== !!spec.vision)
-      throw Object.assign(new Error(c.vision ? "this capability needs a vision model" : "a vision-only model cannot do this"), { statusCode: 400 });
-  }
-  const before = (await modelSources())[capability];
-  if (model === null) await sql`DELETE FROM settings WHERE key = ${`models.${capability}`}`;
-  else {
-    await sql`INSERT INTO settings (key, value, updated_by) VALUES (${`models.${capability}`}, ${sql.json({ model })}, ${actor})
-              ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`;
-  }
-  invalidateModelCache();
-  const after = (await modelSources())[capability];
-  await audit(actor, "models.switch", `capability:${capability}`, reason, before ?? null, after ?? null);
-  return { capability, before, after };
+/** Legacy mutation is closed; all new assignments require the OP12 CAS and permission port. */
+export async function switchModel(_capability: string, _model: string | null, _reason: string, _actor: string) {
+  throw Object.assign(new Error("请通过模型接入页使用权限和版本核对后的指派操作"), { statusCode: 403 });
 }
+
+export {
+  listModelConnections,
+  createModelConnection,
+  updateModelConnection,
+  disableModelConnection,
+  requestModelConnectionProbe,
+  readModelConnectionProbe,
+  assignRegisteredModel,
+  modelRouteRevisions,
+  type ModelRegistryGuards,
+} from "./model-registry.ts";
+export { queueModelConnectionProbe } from "../providers/model-probe.ts";

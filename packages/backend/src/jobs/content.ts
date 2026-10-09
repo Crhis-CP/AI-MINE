@@ -366,3 +366,5 @@ export async function prepareGeographyBackfill(options: { limit?: number; enqueu
   if (options.enqueue === true) for (const candidate of candidates) if (await queueProcessing(candidate.id, { step: "analyze", lowPriority: true })) enqueued++;
   return { candidates, enqueued };
 }
+
+export { registerModelConnectionProbeJobs, runModelConnectionProbe } from "../providers/model-probe.ts";

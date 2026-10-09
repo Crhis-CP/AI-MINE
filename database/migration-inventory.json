@@ -231,6 +231,10 @@
     {
       "name": "ai-gateway/202610091100_usage_reports.sql",
       "dependsOn": ["0022_receipt_attempts_budgets.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091200_model_registry.sql",
+      "dependsOn": ["ai-gateway/202610051210_translation_receipt_observations.sql"]
     }
   ]
 }
