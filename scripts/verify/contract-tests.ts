@@ -264,7 +264,28 @@ if (process.argv.includes("--routes")) {
   });
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [
-      ["public", ["/api/site/metal-prices", "/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
+      [
+        "public",
+        [
+          "/api/site/jurisdictions",
+          "/api/site/metal-prices",
+          "/api/site/policies",
+          "/api/site/policies/reports",
+          "/api/site/policies/reports/{id}",
+          "/api/site/policies/scope",
+          "/api/site/policies/{id}",
+          "/api/site/policies/{id}/history",
+          "/api/site/policies/{id}/reading",
+          "/api/site/policy-threads/{id}",
+          "/api/site/pool",
+          "/api/site/stats",
+          "/api/site/timeline",
+          "/api/v1/policies",
+          "/api/v1/policies/{id}",
+          "/api/v1/policies/{id}/history",
+        ],
+        "LoginOptions",
+      ],
       [
         "private",
         ["/api/admin/receipts/{id}/release", "/api/admin/runs", "/api/admin/sources", "/api/admin/sources/{id}", "/api/auth/options"],

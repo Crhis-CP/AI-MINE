@@ -1,0 +1,293 @@
+{
+  "items": [
+    {
+      "jurisdiction": {
+        "code": "CN",
+        "label": "中国",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "US",
+        "label": "美国",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "AU",
+        "label": "澳大利亚",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "AR",
+        "label": "阿根廷",
+        "kind": "country"
+      },
+      "readable_count": 2
+    },
+    {
+      "jurisdiction": {
+        "code": "SR",
+        "label": "苏里南",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "CO",
+        "label": "哥伦比亚",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "GY",
+        "label": "圭亚那",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "GH",
+        "label": "加纳",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "ZA",
+        "label": "南非",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "CD",
+        "label": "刚果（金）",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "ZM",
+        "label": "赞比亚",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "MN",
+        "label": "蒙古",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "KG",
+        "label": "吉尔吉斯斯坦",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "TJ",
+        "label": "塔吉克斯坦",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "KZ",
+        "label": "哈萨克斯坦",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "RS",
+        "label": "塞尔维亚",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "CL",
+        "label": "智利",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "CA",
+        "label": "加拿大",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "PE",
+        "label": "秘鲁",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "RU",
+        "label": "俄罗斯",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "MZ",
+        "label": "莫桑比克",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "ZW",
+        "label": "津巴布韦",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "ID",
+        "label": "印度尼西亚",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "TZ",
+        "label": "坦桑尼亚",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "VE",
+        "label": "委内瑞拉",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "EC",
+        "label": "厄瓜多尔",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "SG",
+        "label": "新加坡",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "UZ",
+        "label": "乌兹别克斯坦",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "GB",
+        "label": "英国",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "IR",
+        "label": "伊朗",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "CH",
+        "label": "瑞士",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "BO",
+        "label": "玻利维亚",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "ML",
+        "label": "马里",
+        "kind": "country"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "EU",
+        "label": "欧盟",
+        "kind": "organization"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "UN",
+        "label": "联合国",
+        "kind": "organization"
+      },
+      "readable_count": 0
+    },
+    {
+      "jurisdiction": {
+        "code": "OECD",
+        "label": "经济合作与发展组织",
+        "kind": "organization"
+      },
+      "readable_count": 0
+    }
+  ],
+  "note": "【合成预览】所有篇数仅为示意；篇数不代表来源或法域覆盖完成率，不能据此判断有无新法规。"
+}

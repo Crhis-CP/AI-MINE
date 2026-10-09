@@ -1,0 +1,34 @@
+{
+  "content_version": "fixture-v1",
+  "generated_at": "2026-10-09T00:00:00Z",
+  "subject_id": "policy-complete-fixture",
+  "document_revision_id": "revision-zh",
+  "expression_id": "expression-zh",
+  "language": "zh-CN",
+  "mode": "ai_translation",
+  "resource_completeness": "complete",
+  "total_blocks": 2,
+  "blocks": [
+    {
+      "block_id": "node-1",
+      "kind": "heading",
+      "text": "【合成预览】第一条",
+      "table_rows": null,
+      "evidence_ids": [
+        "e1"
+      ],
+      "links": []
+    },
+    {
+      "block_id": "node-2",
+      "kind": "paragraph",
+      "text": "【合成预览】银行在指定条件下对列明融资活动履行报告义务，例外条件应与正文一起阅读。",
+      "table_rows": null,
+      "evidence_ids": [
+        "e1"
+      ],
+      "links": []
+    }
+  ],
+  "next_cursor": null
+}

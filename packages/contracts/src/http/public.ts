@@ -3,6 +3,8 @@ import { SourceTimeProjection } from "../time-assertion.ts";
 import { isValidDate } from "../time.ts";
 import { CATEGORY_KEYS, CHANNEL_KEYS } from "../taxonomy.ts";
 import { Problem, ProblemResponse } from "./common.ts";
+import { policySchemas, policyRoutes } from "./policy.ts";
+export * from "./policy.ts";
 
 /** Existing about-page figures, read from the public publication layer. */
 export const SiteStats = z.strictObject({
@@ -241,6 +243,7 @@ export const MetalPrices = z
 export type MetalPrices = z.infer<typeof MetalPrices>;
 
 export const schemas = {
+  ...policySchemas,
   SiteStats,
   SiteFilters,
   FeedItemSummary,
@@ -254,6 +257,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...policyRoutes,
   siteTimeline: {
     method: "GET" as const,
     url: "/api/site/timeline",
