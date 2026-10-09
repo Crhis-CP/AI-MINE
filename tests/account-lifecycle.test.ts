@@ -126,7 +126,7 @@ test("named accounts, forced password changes, role revocation, capacity race an
   await denied(dbs.private_ops, "SELECT password_hash FROM identity.password_accounts");
   await denied(dbs.public_read, "SELECT * FROM identity.login_nonces");
   await dbs.auth`UPDATE admin_sessions SET last_seen_at=now()-interval '31 minutes' WHERE user_id=${setup.userId}`;
-  assert.equal(await sessionPrincipal(`${SESSION_COOKIE}=${token}`), null);
+  assert.ok(await sessionPrincipal(`${SESSION_COOKIE}=${token}`));
   const recovered = await recoverOwnerPassword("isolated synthetic recovery drill");
   assert.equal(await sessionPrincipal(`${SESSION_COOKIE}=${token}`), null);
   const recovery = await namedPasswordLogin(recovered.loginName, recovered.temporaryPassword, "/admin", undefined, "synthetic-recovery");
@@ -144,9 +144,8 @@ test("single-use login nonce and per-account/source rate controls are persistent
     dispose = injectDb({ identity: dbs.auth });
   t.after(dispose);
   const n = await issueLoginNonce("source-a");
-  await assert.rejects(consumeLoginNonce(n.token, n.token, "other-source"));
-  await assert.rejects(consumeLoginNonce(n.token, "wrong", "source-a"));
-  await consumeLoginNonce(n.token, n.token, "source-a");
+  await assert.rejects(consumeLoginNonce(n.token, "wrong", "other-source"));
+  await consumeLoginNonce(n.token, n.token, "other-source");
   await assert.rejects(consumeLoginNonce(n.token, n.token, "source-a"));
   for (let i = 0; i < 5; i++) await consumeAccountAttempt("login", "same-user", `source-${i}`);
   await assert.rejects(consumeAccountAttempt("login", "same-user", "source-next"), (e) => (e as { statusCode: number }).statusCode === 429);

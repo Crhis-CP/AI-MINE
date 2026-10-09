@@ -45,11 +45,12 @@ export async function issueLoginNonce(source: string) {
   await sql`DELETE FROM identity.login_nonces WHERE expires_at<now()-interval '1 day'`;
   return { token, expires_at: expires.toISOString() };
 }
-export async function consumeLoginNonce(value: string, cookie: string | undefined, source: string) {
+/** The HttpOnly cookie is the ticket. The visitor address is not checked: the CDN may use a different address for the page and the submit. */
+export async function consumeLoginNonce(value: string, cookie: string | undefined, _source: string) {
   if (!/^[A-Za-z0-9_-]{43}$/u.test(value) || !cookie || !timingSafeEqual(Buffer.from(sha256(value), "hex"), Buffer.from(sha256(cookie), "hex")))
     throw new AccountLoginVerification();
   const rows =
-    await sql`UPDATE identity.login_nonces SET used_at=now() WHERE token_hash=${sha256(value)} AND source_hash=${sourceHash(source)} AND used_at IS NULL AND expires_at>now() RETURNING token_hash`;
+    await sql`UPDATE identity.login_nonces SET used_at=now() WHERE token_hash=${sha256(value)} AND used_at IS NULL AND expires_at>now() RETURNING token_hash`;
   if (rows.length !== 1) throw new AccountLoginVerification();
 }
 export async function clearAccountLoginAttempts(db: Db, loginName: string) {

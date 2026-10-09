@@ -12,7 +12,8 @@ const sql = dbOf("identity");
 export const SESSION_COOKIE = isProduction ? "__Host-amp_admin" : "amp_admin";
 export const LOGIN_NONCE_COOKIE = isProduction ? "__Host-amp_login_nonce" : "amp_login_nonce";
 export const STATE_COOKIE = "amp_oauth_state";
-export const SESSION_DAYS = 0.5;
+/** AIHOT keeps an administrator signed in for 30 days. The cookie lifetime uses the same number. */
+export const SESSION_DAYS = 30;
 /** Register this callback in the Feishu open platform when Feishu sign-in is used. */
 export const CALLBACK_URL = `${config.siteUrl}/api/auth/callback`;
 
@@ -127,7 +128,7 @@ export async function createAccountSession(userId: number, userAgent: string | u
     const access = await readAccountAccess(userId, tx);
     if (access?.active === false) throw new LoginRejected("账号或密码不正确，请检查后重试。");
     const token = randomBytes(32).toString("base64url");
-    await tx`INSERT INTO admin_sessions(id_hash,user_id,csrf_token,expires_at,user_agent,last_seen_at) VALUES(${sha256(token)},${userId},${randomBytes(18).toString("base64url")},now()+interval '12 hours',${userAgent?.slice(0, 300) ?? null},now())`;
+    await tx`INSERT INTO admin_sessions(id_hash,user_id,csrf_token,expires_at,user_agent,last_seen_at) VALUES(${sha256(token)},${userId},${randomBytes(18).toString("base64url")},now()+${SESSION_DAYS} * interval '1 day',${userAgent?.slice(0, 300) ?? null},now())`;
     await tx`UPDATE admin_users SET last_login_at=now() WHERE id=${userId}`;
     return token;
   };
@@ -175,8 +176,7 @@ export async function sessionPrincipal(cookieHeader: string | undefined): Promis
     >`
       WITH live AS (
        UPDATE admin_sessions s SET last_seen_at=now()
-       WHERE s.id_hash=${sha256(token)} AND s.expires_at>now() AND s.created_at>now()-interval '12 hours'
-        AND coalesce(s.last_seen_at,s.created_at)>now()-interval '30 minutes'
+       WHERE s.id_hash=${sha256(token)} AND s.expires_at>now()
         AND NOT EXISTS(SELECT 1 FROM identity.account_access a WHERE a.user_id=s.user_id AND NOT a.active)
        RETURNING s.user_id,s.csrf_token
       ) SELECT s.user_id, s.csrf_token, u.display_name AS name, u.email,access.revision AS access_revision,access.must_change_password FROM live s JOIN admin_users u ON u.id = s.user_id
