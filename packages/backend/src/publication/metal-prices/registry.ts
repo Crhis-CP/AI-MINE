@@ -7,13 +7,13 @@ import { z } from "zod";
 import { REPO_ROOT } from "../../config.ts";
 
 /** Hard rule 3: the only hosts a fetch address or release link may use; each source lists its own from these. */
-export const METAL_PRICE_HOSTS = ["www.stats.gov.cn", "www.worldbank.org", "thedocs.worldbank.org", "www.imf.org"] as const;
+export const METAL_PRICE_HOSTS = ["www.stats.gov.cn", "www.worldbank.org", "thedocs.worldbank.org", "www.imf.org", "www.cbr.ru", "bank.gov.ua"] as const;
 
-const SOURCE_KEYS = ["nbs", "worldbank", "imf"] as const;
+const SOURCE_KEYS = ["nbs", "worldbank", "imf", "cbr"] as const;
 export type MetalPriceSourceKey = (typeof SOURCE_KEYS)[number];
 /** Series key prefix and period type of each source: the same pairs publication.metal_prices checks. */
-const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = { nbs: "nbs", worldbank: "wb", imf: "imf" };
-const PERIOD_TYPE: Record<MetalPriceSourceKey, "ten_day" | "month"> = { nbs: "ten_day", worldbank: "month", imf: "month" };
+const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = { nbs: "nbs", worldbank: "wb", imf: "imf", cbr: "cbr" };
+const PERIOD_TYPE: Record<MetalPriceSourceKey, "ten_day" | "month" | "day"> = { nbs: "ten_day", worldbank: "month", imf: "month", cbr: "day" };
 
 const text = z.string().regex(/\S/, "must not be blank");
 const texts = z.array(text).min(1);
@@ -27,8 +27,8 @@ const Source = z.strictObject({
   key: z.enum(SOURCE_KEYS),
   name: text,
   section: z.enum(["domestic", "international"]),
-  frequency: z.enum(["ten_day", "month"]),
-  currency: z.enum(["CNY", "USD"]),
+  frequency: z.enum(["ten_day", "month", "day"]),
+  currency: z.enum(["CNY", "USD", "RUB"]),
   delay: text,
   staleDays: z.int().positive(),
   hosts: z.array(z.enum(METAL_PRICE_HOSTS)).min(1),
@@ -43,7 +43,7 @@ const Source = z.strictObject({
 });
 
 const Item = z.strictObject({
-  key: z.string().regex(/^(nbs|wb|imf)\.[a-z0-9_]+$/),
+  key: z.string().regex(/^(nbs|wb|imf|cbr)\.[a-z0-9_]+$/),
   source: z.enum(SOURCE_KEYS),
   /** The product name as the source writes it, matched exactly after normalizeSourceName. */
   sourceName: text,
@@ -55,6 +55,18 @@ const Item = z.strictObject({
   footnote: text.optional(),
   /** Words the source's own description of the series must still contain (the World Bank's benchmark notes). */
   descriptionIncludes: texts.optional(),
+  rate: z.boolean().default(false),
+  convert: z
+    .strictObject({
+      rate: text,
+      factor: z
+        .string()
+        .regex(/^\d+(?:\.\d+)?$/)
+        .refine((value) => /[1-9]/.test(value), "must be positive"),
+      unit: text,
+      currency: z.enum(["CNY", "USD"]),
+    })
+    .optional(),
   enabled,
   ...itemDefaults,
 });
@@ -110,8 +122,8 @@ const Registry = z
     }
     for (const [i, item] of items.entries()) {
       const source = sources.find((candidate) => candidate.key === item.source);
-      if (item.enabled && !item.metal) issue(["items", i, "metal"], "enabled item needs a metal");
-      if (item.enabled && !item.quote) issue(["items", i, "quote"], "enabled item needs a quote");
+      if (item.enabled && !item.rate && !item.metal) issue(["items", i, "metal"], "enabled item needs a metal");
+      if (item.enabled && !item.rate && !item.quote) issue(["items", i, "quote"], "enabled item needs a quote");
       if (item.metal && !metals.some((metal) => metal.key === item.metal)) issue(["items", i, "metal"], "unknown metal");
       if (item.footnote && !footnotes.some((footnote) => footnote.key === item.footnote)) issue(["items", i, "footnote"], "unknown footnote");
       if (items.findIndex((other) => other.key === item.key) !== i) issue(["items", i, "key"], `duplicate item ${item.key}`);
@@ -119,6 +131,16 @@ const Registry = z
         issue(["items", i, "source"], `unknown source ${item.source}`);
         continue;
       }
+      if (item.rate)
+        for (const field of ["metal", "quote", "spec", "footnote", "convert"] as const)
+          if (item[field] !== undefined) issue(["items", i, field], "a rate cannot carry quote presentation or conversion");
+      if (item.convert) {
+        const rate = items.find((candidate) => candidate.key === item.convert!.rate);
+        if (!rate?.rate || rate.source !== item.source) issue(["items", i, "convert", "rate"], "must reference a rate on the same source");
+        else if (item.enabled && !rate.enabled) issue(["items", i, "convert", "rate"], "enabled quote needs an enabled rate");
+      }
+      if (item.enabled && source.currency !== "CNY" && source.currency !== "USD" && !item.rate && !item.convert)
+        issue(["items", i, "convert"], "this source currency requires conversion or a rate");
       if (!item.key.startsWith(`${SERIES_PREFIX[item.source]}.`)) issue(["items", i, "key"], `${item.key} does not start with ${SERIES_PREFIX[item.source]}.`);
       const name = normalizeSourceName(item.sourceName);
       if (items.findIndex((other) => other.source === item.source && normalizeSourceName(other.sourceName) === name) !== i)
@@ -139,6 +161,7 @@ const Registry = z
       return {
         ...item,
         grade: item.grade ?? null,
+        convert: item.convert ?? null,
         metal: item.metal ?? null,
         quote: item.quote ?? null,
         spec: item.spec ?? null,

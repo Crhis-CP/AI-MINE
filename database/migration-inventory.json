@@ -163,6 +163,10 @@
     {
       "name": "publication/202610060435_metal_prices.sql",
       "dependsOn": ["ai-gateway/202610051210_translation_receipt_observations.sql"]
+    },
+    {
+      "name": "publication/202610082354_metal_prices_cbr.sql",
+      "dependsOn": ["publication/202610060435_metal_prices.sql"]
     }
   ]
 }

@@ -1,5 +1,5 @@
 // Metal prices (TASK-0044), layer one: the table refuses a row without what a price needs (hard rule 1, the database
-// half), and the registry in the industry pack is checked whole on reading: only the four official hosts, no unknown
+// half), and the registry in the industry pack is checked whole on reading: only the registered official hosts, no unknown
 // or missing fields, every series on a registered source (hard rule 3, the registry half). No network.
 import "./setup.ts";
 import assert from "node:assert/strict";
@@ -86,7 +86,7 @@ const inOrder = (actual: string[], expected: string[]) =>
 test("the fourth-version registry preserves source facts, five active bureau quotes and the approved presentation", () => {
   const registry = loadMetalPriceRegistry();
   assert.deepEqual(registry, parseMetalPriceRegistry(JSON.parse(text)));
-  for (const host of ["thedocs.worldbank.org", "www.imf.org", "www.stats.gov.cn", "www.worldbank.org"])
+  for (const host of ["thedocs.worldbank.org", "www.imf.org", "www.stats.gov.cn", "www.worldbank.org", "www.cbr.ru", "bank.gov.ua"])
     assert.ok(METAL_PRICE_HOSTS.some((known) => known === host));
   const nbs = registry.sources.find((source) => source.key === "nbs")!,
     items = registry.items.filter((item) => item.source === "nbs");
