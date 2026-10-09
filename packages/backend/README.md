@@ -122,3 +122,17 @@ TASK-0139费用保护：`admin/settings`既有入口转发usageProtectionOvervie
 
 paidRequest先免费复用回执，再按已核CNY价格做保守预留；chatJson每次实际attempt绑定非秘密transport配置hash。旧无hash unknown/pending不能因迁移而变新key重复付费，已有received可免费接续。重复输入、单对象、日总异常按明确lane/能力/来源/对象持久熔断；未知费用仍占用，Owner只恢复所选范围，人工/部署/system暂停互不释放。taskBudget={key,limit_micros}是来源研究的可选固定任务上界，同任务已结算+未知+在途+新预留原子比较；任务执行器提供不可变key/限额，不是月度额度。usageProtectionTick与usageMonthly由现有worker调度，HTTP不运行模型、发送通知或补算费用。
 
+### TASK-0148 按环节主备
+
+现有 `admin/models` 出口追加 `modelFallbacks/changeModelFallback`，HTTP 使用模型配置能力、CSRF、revision CAS 与同事务审计。主模型继续由原 `modelFor/settings` 决定；没有种子备用。后台列出所有登记接入并给出不可选原因。备用须为另一当前测试通过的接入，明确限定本业务线来源；主/备配置、测试修订或质量证据变化会立即阻止新回退。正在作为备用的接入同主接入一样不能直接修改运行参数或停用，须先解除指派。
+
+`chatJson` 的内部 `fallbackPermit` 由可信调用者捕获实际原输入及当前重建口产生。每个目标配置独立签发来源许可，运行器不将主供应商的授权回调用到另一供应商。仅真实物理回执证明 `connect_before_send`，或 `content_filter` 响应费用已结清，才有一次备用机会。HTTP 非 2xx 缺少计费证明时保留 unknown；暂停、费用熔断、许可/配置失效、pending/unknown、发送后超时不触发回退。备用决定先持久化；重启先走同一备用回执，成功免费复用，unknown 等待原回执核对，连接失败也不再发送第二次。处理控制在发送前阻止的调用不消耗这次实际发送额度。原失败、备用尝试和各自费用都保留。研究、评测、实验及连接测试不自动回退。
+
+备用实际响应的模型名及供应商版本标记须与其质量物证一致；漂移只保留私有回执，该配置修订进入阻塞，须重新评测与显式指派。等待资格/许可或内容过滤时，资讯/事件任务保留可恢复等待，不耗普通失败次数；法规返回现有 `provider_unavailable` 状态。读者请求不调用模型。
+
+评分复用 `admin/selectbench.readApprovedSelectionCalibration`，主备须同样本集/版本、当前标准/预筛/门槛，来源取已确认覆盖的交集；来源处理许可另核。法规复用现有 Owner 质量发布，按真实物理模型键、原文语言、全文和解读配方核对；视觉需要图像能力，输出仍经过完整法规公开资格。不同配置同名模型、缺少实际响应模型、缺失 Owner 质量发布都不能借主路由资格。
+
+其他环节沿已有 SelectBench 保存 nullable `model_route_approvals`；旧上传 summary 不带资格。先用现有评测/样本流程保存实际完成的回执与金标，再在受控服务器交互终端执行 `node scripts/model-route-qualification.ts approve /安全位置/已审阅.json`。脚本要求负责人具名密码登录，密码不回显、不接收在参数中；安装和撤销均复核真实 Owner 身份并审计，登录会话结束时撤销。它不会发出模型请求；已付且确认为同输入的生产结果也可用于免费评测，不强制另购同一答案。
+
+批准文件字段：`runId`、`capability`（非 score/policy）、`modelKey`、`goldHash`（已存按 case_id 排序的 `[case_id,gold]` 数组之 stableJson SHA-256）、`reviewEvidence`、`validUntil`、`reason`，以及本人真实完成后才填写 true 的 `heldOutReviewed/sealedReviewed/shadowReviewed/canaryReviewed/qualityAccepted`。后端从实际物理回执重建样本/模型配置、提示、输出合同、实际响应白名单和来源范围，文件不能自行扩大来源或模型身份。每次使用重新核验样本及回执哈希；提示变化、到期、撤销即失效。撤销使用 `node scripts/model-route-qualification.ts revoke /安全位置/撤销.json`，字段为 `runId/approvalId/reason`。批准只是资格记录；仍需在模型页主动指定备用和来源。真实金标、质量批准与供应商选择未在本次开发中安装。
+

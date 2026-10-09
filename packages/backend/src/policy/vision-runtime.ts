@@ -1,3 +1,5 @@
+import { isModelRouteWaiting } from "../providers/model-fallback.ts";
+import { currentInterpretationQualification } from "./fallback-quality.ts";
 import { runtimeControlSnapshot, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { z } from "zod";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -187,6 +189,11 @@ export async function runPolicyVision(
       models = new Map<string, ModelEvidence>(),
       inflight = new Map<string, Stage>();
     const gateway = createPolicyGateway({
+      fallbackPolicy: {
+        language: current.snapshot.language,
+        fulltextRecipe: `${promptVersion("policy-fulltext")}/candidate-v1/vision:${recipe}`,
+        interpretationRecipe: currentInterpretationQualification(),
+      },
       runtimeControl: run!.runtimeControl,
       root: options.root,
       resolve: async (ref, purpose) => {
@@ -320,7 +327,7 @@ export async function runPolicyVision(
     if (error instanceof VisionCapacityError) return blocked("blocked_capacity", [error.message]);
     if (error instanceof ReceiptUnknownError) return blocked("blocked_unknown");
     if (error instanceof ReceiptBusyError) return blocked("waiting_receipt");
-    if (error instanceof ProviderRejectedError) return blocked("provider_unavailable");
+    if (error instanceof ProviderRejectedError || isModelRouteWaiting(error)) return blocked("provider_unavailable");
     if (error instanceof PolicyRunStaleError || error instanceof PolicyInputChangedError || error instanceof SourcePolicyConflict) return blocked("stale");
     throw error;
   }

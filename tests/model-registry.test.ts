@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -47,12 +48,15 @@ const connection = {
   vision: false,
   json_mode: true,
 };
-const create = () =>
-  createModelConnection(
+const create = async () => {
+  const row = await createModelConnection(
     { ...connection, secret, owner_confirmed: true, supplier_basis: "https://fixture.invalid/quote", reason: "synthetic fixture" },
     owner,
     guards,
   );
+  await installUsageFixtureForModel(row.key, sql);
+  return row;
+};
 let calls = 0;
 const transport: RegisteredModelTransport = async (_url, options) => {
   calls++;
@@ -164,7 +168,8 @@ test("CAS routing requires test, explicit emergency/evaluation and score calibra
   await runModelConnectionProbe(probe.id, { transport });
   await assert.rejects(assignRegisteredModel("translate", { ...input, emergency_confirmed: false }, manager, guards));
   await assert.rejects(assignRegisteredModel("score", input, manager, guards));
-  const assigned = await assignRegisteredModel("translate", input, manager, guards);
+  await assert.rejects(assignRegisteredModel("translate", input, manager, guards));
+  const assigned = await assignRegisteredModel("translate", input, owner, guards);
   assert.equal(assigned.unevaluated, true);
   assert.equal(await modelFor("translate"), row.key);
   await assert.rejects(
@@ -175,6 +180,7 @@ test("CAS routing requires test, explicit emergency/evaluation and score calibra
   const result = await chatJson({
     model: await modelFor("translate"),
     purpose: "synthetic_registry",
+    lane: "news" as const,
     subject: "test",
     promptVersion: "test",
     system: "",
@@ -287,6 +293,7 @@ test("configuration hash binds evaluation and output identity; price edits do no
   const opts = {
     model: row.key,
     purpose: "synthetic_registry",
+    lane: "news" as const,
     subject: "cache-case",
     promptVersion: "test",
     system: "",
@@ -302,6 +309,7 @@ test("configuration hash binds evaluation and output identity; price edits do no
     guards,
   );
   assert.equal(changed.configuration_hash, row.configuration_hash);
+  await installUsageFixtureForModel(row.key, sql);
   const probe = await requestModelConnectionProbe(row.id, { expected_revision: 2, lane: "news" }, manager, guards);
   await runModelConnectionProbe(probe.id, { transport });
   const before = calls,
@@ -325,13 +333,21 @@ test("each physical retry binds its own revision, fingerprint and prices; policy
   const opts = {
     model: row.key,
     purpose: "synthetic_retry",
+    lane: "news" as const,
     subject: `retry:${row.id}`,
     promptVersion: "test",
     system: "",
     user: row.id,
     schema: z.strictObject({ ok: z.literal(true) }),
   };
-  await assert.rejects(chatJson({ ...opts, registeredTransport: async () => ({ status: 503, headers: new Headers(), text: () => "unavailable" }) }));
+  await assert.rejects(
+    chatJson({
+      ...opts,
+      registeredTransport: async () => {
+        throw Object.assign(new Error("synthetic connect before send"), { code: "ECONNREFUSED" });
+      },
+    }),
+  );
   const changed = await updateModelConnection(
     row.id,
     {
@@ -346,6 +362,7 @@ test("each physical retry binds its own revision, fingerprint and prices; policy
     owner,
     guards,
   );
+  await installUsageFixtureForModel(row.key, sql);
   const probe = await requestModelConnectionProbe(row.id, { expected_revision: 2, lane: "policy" }, owner, guards);
   await runModelConnectionProbe(probe.id, { transport });
   const second = await chatJson({ ...opts, registeredTransport: transport });

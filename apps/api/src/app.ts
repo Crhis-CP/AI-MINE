@@ -1,6 +1,8 @@
 import { registerSourceTargets } from "./routes/admin-source-targets.ts";
 import { registerAdminSite } from "./routes/admin-site.ts";
 import { registerSiteInformation } from "./routes/site-information.ts";
+import { registerAdminModelFallback } from "./routes/admin-model-fallback.ts";
+
 import Fastify, { type FastifyInstance } from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { randomUUID } from "node:crypto";
@@ -112,6 +114,8 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
   if (privateRoutes) {
     registerAdmin(app);
     registerSourceTargets(app);
+    registerAdminModelFallback(app);
+
     registerOperationsMcp(app);
     registerUsageProtection(app);
 

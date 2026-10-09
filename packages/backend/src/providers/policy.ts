@@ -1,3 +1,5 @@
+import { createFallbackPermitPort } from "./model-fallback-permit.ts";
+import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Policy workers provide immutable references. Only their trusted resolver prepares the actual model input.
 import { z } from "zod";
@@ -5,7 +7,7 @@ import { SourceInputManifestSchema, type IssueProcessingPermitInputSchema, type 
 import { readCurrentSourcePolicy, readSourceDateContext, evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { createPermitIssuer } from "../sources/permissions.ts";
 import { createPermitVerifier, type PermitPorts } from "./permissions.ts";
-import { chatJson, type ChatJsonResult, type ContentPart } from "./llm.ts";
+import { chatJson, type ChatJsonResult, type ContentPart, type RegisteredModelTransport } from "./llm.ts";
 import { modelFor } from "../editorial/models.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
@@ -86,6 +88,9 @@ function validateImages(input: PreparedPolicyInput, purpose: PolicyPurpose) {
   if (size > 16 * 1024 * 1024 || pixels > 40_000_000) throw new Error("Policy image input exceeds capacity; do not downscale or truncate");
 }
 export interface PolicyGatewayPorts {
+  /** Optional transport adapter for isolated provider verification; ordinary workers use the guarded sender. */
+  registeredTransport?: RegisteredModelTransport;
+  fallbackPolicy?: PolicyFallbackContext;
   runtimeControl?: RuntimeControlSnapshot;
   root: AbortSignal;
   /** Rebuild from current stored originals/plan/control state; never echo caller-provided text or completeness flags. */
@@ -189,6 +194,7 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
         await authorize();
         const result = await chatJson({
           model: await modelFor(purpose),
+          registeredTransport: ports.registeredTransport,
           purpose,
           subject: `policy:${ref.id}@${ref.version}`,
           usageObject: input.usageObject,
@@ -199,6 +205,15 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
           maxTokens: options.maxTokens ?? 4096,
           timeoutMs: options.timeoutMs,
           beforeRequest: authorize,
+          fallbackPolicy: ports.fallbackPolicy,
+          fallbackPermit: createFallbackPermitPort({
+            root: ports.root,
+            snapshot: { manifest: input.manifest, inputFingerprint },
+            current: async () => {
+              const value = await current();
+              return { manifest: value.manifest, inputFingerprint: fingerprint(value) };
+            },
+          }),
           runtimeControl: ports.runtimeControl,
           policyContext: {
             lane: "policy",

@@ -83,6 +83,8 @@ test("all current migration tables and serial sequences have one explicit classi
       "ai.model_connections",
       "ai.model_connection_tests",
       "ai.model_routes",
+      "ai.model_fallback_routes",
+      "ai.model_fallback_resolutions",
       "ai.model_attempt_snapshots",
       "ai.usage_control_versions",
       "ai.usage_prices",

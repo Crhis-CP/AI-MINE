@@ -350,3 +350,7 @@ export { sourceTargets } from "../sources/target-catalogue.ts";
 
 export { sourceCoverage } from "../sources/coverage-matrix.ts";
 export { exportSourceTargets } from "./source-exports.ts";
+/** Explicit source choices for model routing; contains no connection or permission secrets. */
+export async function modelFallbackSources(db: Db = sql) {
+  return db<{ id: string; name: string; lane: "news" | "policy" }[]>`SELECT id,name,lane FROM sources ORDER BY lane,name,id`;
+}

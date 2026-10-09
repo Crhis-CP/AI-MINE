@@ -283,6 +283,10 @@
     {
       "name": "ai-gateway/202610091600_selection_calibration.sql",
       "dependsOn": ["platform/identity/202610091100_password_accounts.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091800_model_fallback.sql",
+      "dependsOn": ["ai-gateway/202610091330_usage_task_budget.sql"]
     }
   ]
 }

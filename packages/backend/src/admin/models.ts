@@ -169,3 +169,5 @@ export async function pricingModelChoices() {
   );
   return [...registered, ...environment];
 }
+
+export { modelFallbacks, changeModelFallback } from "./model-fallback.ts";

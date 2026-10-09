@@ -1,4 +1,6 @@
-import type {FallbackPermitPort} from "./model-fallback-permit.ts";
+import { modelOutputContract } from "./model-fallback-contract.ts";
+import type { FallbackPermitPort } from "./model-fallback-permit.ts";
+import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import type { TaskBudget } from "./usage-protection.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
@@ -21,6 +23,7 @@ import {
   type TranslationObservation,
   type PolicyReceiptContext,
   type ModelAttemptSnapshot,
+  type ReceiptRequest,
 } from "./receipts.ts";
 import { dbOf } from "../db.ts";
 
@@ -177,7 +180,11 @@ export async function modelSpecFor(key: string) {
   return (await registeredModelSpec(key)) ?? MODELS[key] ?? null;
 }
 export interface ChatJsonOptions<S extends z.ZodType> {
-  fallbackPermit?:FallbackPermitPort;
+  fallbackPermit?: FallbackPermitPort;
+  fallbackPolicy?: PolicyFallbackContext;
+  /** Gateway recursion guard; no worker should use this to select a supplier directly. */
+  fallbackHop?: boolean;
+  maxPhysicalAttempts?: 1;
   taskBudget?: TaskBudget;
   sourceIds?: string[];
   usageObject?: { kind: "article" | "policy"; id: string };
@@ -263,7 +270,7 @@ export function escapeControlCharsInStrings(json: string): string {
 
 function isConnectFailure(error: unknown): boolean {
   const code = (error as { cause?: { code?: string } })?.cause?.code ?? (error as { code?: string })?.code;
-  return ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT", "ECONNRESET_BEFORE_SEND", "CERT_HAS_EXPIRED"].includes(code ?? "");
+  return ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "UND_ERR_CONNECT_TIMEOUT", "ECONNRESET_BEFORE_SEND"].includes(code ?? "");
 }
 
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
@@ -326,85 +333,90 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     opts.runtimeControl?.lane ??
     opts.lane ??
     (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
-  const receipt = await paidRequest(
-    {
-      taskBudget: opts.taskBudget,
-      modelSnapshot: registeredSummary,
-      usageContext: costLane
-        ? {
-            lane: costLane,
-            capability: opts.purpose,
-            sourceIds: opts.sourceIds ?? opts.policyContext?.sourceIds ?? [],
-            object:
-              opts.usageObject ??
-              (/^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.test(opts.subject)
-                ? { kind: "article", id: /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(opts.subject)![1]! }
-                : null),
-          }
-        : undefined,
-      costBounds: {
-        input_tokens: Buffer.byteLength(
-          JSON.stringify({
-            ...body,
-            messages: (body.messages as Array<{ role: string; content: string | ContentPart[] }>).map((m) => ({
-              ...m,
-              content: typeof m.content === "string" ? m.content : m.content.map((p) => (p.type === "image_url" ? { type: "image_url" } : p)),
-            })),
-          }),
-        ),
-        output_tokens: Number(body.max_tokens),
-        images: Array.isArray(opts.user) ? opts.user.filter((p) => p.type === "image_url").length : 0,
-      },
-      service: spec.service,
-      model: body.model,
-      purpose: opts.purpose,
-      subject: opts.subject,
-      policy: opts.policyContext,
-      runtimeControl: opts.runtimeControl,
-      legacyModel: spec.model,
-      legacyIdentity: {
-        ...imageTransport,
-        ...(registered ? registeredIdentity : {}),
-        ...(opts.policyContext ? { policy: opts.policyContext } : {}),
-        model: spec.model,
-        promptVersion: opts.promptVersion,
-        system: sha256(opts.system),
-        user: sha256(userText),
-        temperature,
-        maxTokens,
-        extra: spec.extra ?? null,
-      },
-      identity: {
-        transportHash: sha256(requestBody),
-        ...registeredIdentity,
-        ...imageTransport,
-        ...(opts.policyContext ? { policy: opts.policyContext } : {}),
-        model: spec.model,
-        promptVersion: opts.promptVersion,
-        system: sha256(opts.system),
-        user: sha256(userText),
-        temperature,
-        maxTokens,
-        extra: spec.extra ?? null,
-      },
-      requestSummary: {
-        ...(opts.usagePurpose ? { usage_purpose: opts.usagePurpose } : {}),
-        ...(opts.lane ? { lane: opts.lane } : {}),
-        ...registeredSummary,
-        ...imageTransport,
-        ...(opts.policyContext ?? {}),
-        promptVersion: opts.promptVersion,
-        systemHash: sha256(opts.system),
-        userHash: sha256(userText),
-        userChars: userText.length,
-        temperature,
-        maxTokens,
-      },
-      attemptTag: opts.attemptTag,
-      maxRejectedOutputs: opts.maxRejectedOutputs,
-      translationObservations: opts.translationObservations,
+  const { withModelFallback, ModelContentFiltered } = await import("./model-fallback.ts");
+  const contractHash = modelOutputContract(opts.schema, opts.parse);
+  const request: ReceiptRequest = {
+    maxPhysicalAttempts: opts.maxPhysicalAttempts,
+    taskBudget: opts.taskBudget,
+    modelSnapshot: registeredSummary,
+    usageContext: costLane
+      ? {
+          lane: costLane,
+          capability: opts.purpose,
+          sourceIds: opts.sourceIds ?? opts.policyContext?.sourceIds ?? [],
+          object:
+            opts.usageObject ??
+            (/^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.test(opts.subject)
+              ? { kind: "article", id: /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(opts.subject)![1]! }
+              : null),
+        }
+      : undefined,
+    costBounds: {
+      input_tokens: Buffer.byteLength(
+        JSON.stringify({
+          ...body,
+          messages: (body.messages as Array<{ role: string; content: string | ContentPart[] }>).map((m) => ({
+            ...m,
+            content: typeof m.content === "string" ? m.content : m.content.map((p) => (p.type === "image_url" ? { type: "image_url" } : p)),
+          })),
+        }),
+      ),
+      output_tokens: Number(body.max_tokens),
+      images: Array.isArray(opts.user) ? opts.user.filter((p) => p.type === "image_url").length : 0,
     },
-    async () => {
+    service: spec.service,
+    model: body.model,
+    purpose: opts.purpose,
+    subject: opts.subject,
+    policy: opts.policyContext,
+    runtimeControl: opts.runtimeControl,
+    legacyModel: spec.model,
+    legacyIdentity: {
+      ...imageTransport,
+      ...(registered ? registeredIdentity : {}),
+      ...(opts.policyContext ? { policy: opts.policyContext } : {}),
+      model: spec.model,
+      promptVersion: opts.promptVersion,
+      system: sha256(opts.system),
+      user: sha256(userText),
+      temperature,
+      maxTokens,
+      extra: spec.extra ?? null,
+    },
+    identity: {
+      transportHash: sha256(requestBody),
+      ...registeredIdentity,
+      ...imageTransport,
+      ...(opts.policyContext ? { policy: opts.policyContext } : {}),
+      model: spec.model,
+      promptVersion: opts.promptVersion,
+      system: sha256(opts.system),
+      user: sha256(userText),
+      temperature,
+      maxTokens,
+      extra: spec.extra ?? null,
+    },
+    requestSummary: {
+      contractHash,
+      sourceIds: opts.sourceIds ?? opts.policyContext?.sourceIds ?? [],
+      ...(opts.usagePurpose ? { usage_purpose: opts.usagePurpose } : {}),
+      ...(opts.lane ? { lane: opts.lane } : {}),
+      ...registeredSummary,
+      ...imageTransport,
+      ...(opts.policyContext ?? {}),
+      promptVersion: opts.promptVersion,
+      systemHash: sha256(opts.system),
+      userHash: sha256(userText),
+      userChars: userText.length,
+      temperature,
+      maxTokens,
+    },
+    attemptTag: opts.attemptTag,
+    maxRejectedOutputs: opts.maxRejectedOutputs,
+    translationObservations: opts.translationObservations,
+  };
+  const primary = async (): Promise<ChatJsonResult<z.infer<S>>> => {
+    const receipt = await paidRequest(request, async () => {
       const send = async () => {
         if (opts.beforeRequest) {
           try {
@@ -412,7 +424,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
           } catch (error) {
             if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
               throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
-            throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false);
+            throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false, "input_changed");
           }
         }
         const started = Date.now();
@@ -435,14 +447,15 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
                 signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
               });
         } catch (error) {
-          if (isConnectFailure(error)) throw new ProviderRejectedError(`connect failed: ${registered ? "模型连接失败" : String(error)}`, null, true);
+          if (isConnectFailure(error))
+            throw new ProviderRejectedError(`connect failed: ${registered ? "模型连接失败" : String(error)}`, null, true, "connect_before_send");
           if (registered) throw new Error("模型服务请求结果未知");
           throw error;
         }
         const text = redactModelSecret(await res.text(), apiKey);
         if (res.status < 200 || res.status >= 300) {
           const retryable = res.status === 429 || res.status >= 500;
-          throw new ProviderRejectedError(`HTTP ${res.status}: ${text.slice(0, 500)}`, res.status, retryable);
+          throw new ProviderRejectedError(`HTTP ${res.status}: ${text.slice(0, 500)}`, res.status, retryable, "unproven");
         }
         let json: Record<string, unknown>;
         try {
@@ -473,32 +486,50 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         try {
           await registered.assertCurrent(tx);
         } catch {
-          throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false);
+          throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false, "configuration_changed");
         }
         return send();
       });
-    },
-  );
+    });
 
-  const response = receipt.response as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: Record<string, unknown> };
-  const content = response.choices?.[0]?.message?.content ?? "";
-  let parsed: z.infer<S>;
-  try {
-    parsed = opts.schema.parse(opts.parse ? opts.parse(content) : extractJson(content));
-  } catch (error) {
-    // Unusable output: record it and let a later attempt pay for a fresh answer.
-    await rejectReceivedResponse(receipt.receiptId, `unusable output: ${String(error).slice(0, 500)}`, receipt.attemptId);
-    throw new ModelOutputError(`Model ${opts.model} returned unusable output for ${opts.subject}: ${String(error).slice(0, 300)}`, receipt.receiptId);
-  }
-  return {
-    data: parsed,
-    receiptId: receipt.receiptId,
-    reused: receipt.reused,
-    model: spec.key,
-    usage: response.usage ?? null,
-    finishReason: response.choices?.[0]?.finish_reason ?? null,
-    attemptId: receipt.attemptId,
+    const response = receipt.response as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: Record<string, unknown> };
+    if (response.choices?.[0]?.finish_reason === "content_filter") throw new ModelContentFiltered(receipt.receiptId, receipt.attemptId);
+    const content = response.choices?.[0]?.message?.content ?? "";
+    let parsed: z.infer<S>;
+    try {
+      parsed = opts.schema.parse(opts.parse ? opts.parse(content) : extractJson(content));
+    } catch (error) {
+      // Unusable output: record it and let a later attempt pay for a fresh answer.
+      await rejectReceivedResponse(receipt.receiptId, `unusable output: ${String(error).slice(0, 500)}`, receipt.attemptId);
+      throw new ModelOutputError(`Model ${opts.model} returned unusable output for ${opts.subject}: ${String(error).slice(0, 300)}`, receipt.receiptId);
+    }
+    return {
+      data: parsed,
+      receiptId: receipt.receiptId,
+      reused: receipt.reused,
+      model: spec.key,
+      usage: response.usage ?? null,
+      finishReason: response.choices?.[0]?.finish_reason ?? null,
+      attemptId: receipt.attemptId,
+    };
   };
+  return withModelFallback(
+    {
+      request,
+      model: opts.model,
+      purpose: opts.purpose,
+      configurationHash,
+      usagePurpose: opts.usagePurpose,
+      registeredProbe: opts.registeredProbe,
+      fallbackHop: opts.fallbackHop,
+      permit: opts.fallbackPermit,
+      policy: opts.fallbackPolicy,
+      contractHash,
+      vision: Array.isArray(opts.user) && opts.user.some((p) => p.type === "image_url"),
+    },
+    primary,
+    (model, authorize) => chatJson({ ...opts, model, beforeRequest: authorize, fallbackHop: true, maxPhysicalAttempts: 1 }),
+  );
 }
 
 export async function markReceiptsCompleted(ids: number[]): Promise<void> {

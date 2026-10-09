@@ -1,3 +1,5 @@
+import { isModelRouteWaiting } from "../providers/model-fallback.ts";
+import { currentInterpretationQualification } from "./fallback-quality.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { z } from "zod";
 import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
@@ -103,6 +105,7 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
     };
   };
   const gateway = createPolicyGateway({
+    fallbackPolicy: { language: plan.context.language, fulltextRecipe: plan.context.recipeVersion, interpretationRecipe: currentInterpretationQualification() },
     runtimeControl: run!.runtimeControl,
     root: options.root,
     resolve: async (ref, purpose) => {
@@ -184,7 +187,7 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
               ? "blocked_unknown"
               : error instanceof ReceiptBusyError
                 ? "waiting_receipt"
-                : error instanceof ProviderRejectedError
+                : error instanceof ProviderRejectedError || isModelRouteWaiting(error)
                   ? "provider_unavailable"
                   : error instanceof PolicyRunStaleError || error instanceof PolicyInputChangedError
                     ? "stale"

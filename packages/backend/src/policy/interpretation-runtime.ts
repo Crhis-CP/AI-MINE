@@ -1,3 +1,5 @@
+import { isModelRouteWaiting } from "../providers/model-fallback.ts";
+import { currentInterpretationQualification } from "./fallback-quality.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { z } from "zod";
 import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput } from "../providers/policy.ts";
@@ -195,6 +197,11 @@ async function runInterpretation(
   const models = [...loaded.models],
     inflight = new Map<string, InterpretationStage>();
   const gateway = createPolicyGateway({
+    fallbackPolicy: {
+      language: run.plan.context.language,
+      fulltextRecipe: run.plan.context.recipeVersion,
+      interpretationRecipe: currentInterpretationQualification(),
+    },
     runtimeControl: run!.runtimeControl,
     root: options.root,
     resolve: async (ref, purpose) => {
@@ -303,7 +310,7 @@ async function runInterpretation(
               ? "blocked_unknown"
               : error instanceof ReceiptBusyError
                 ? "waiting_receipt"
-                : error instanceof ProviderRejectedError
+                : error instanceof ProviderRejectedError || isModelRouteWaiting(error)
                   ? "provider_unavailable"
                   : error instanceof ModelOutputError
                     ? "invalid_output"

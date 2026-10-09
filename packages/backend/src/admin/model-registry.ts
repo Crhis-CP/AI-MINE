@@ -1,3 +1,4 @@
+import { hasAssignedBackup } from "./model-fallback.ts";
 import { environmentValue } from "../config.ts";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
@@ -74,7 +75,11 @@ export async function updateModelConnection(id: string, input: unknown, principa
     const config = ModelConnectionConfig.strip().parse(value);
     if (modelConfigurationHash(config) !== modelConfigurationHash(before.config) || value.enabled === false) {
       const [assigned] = await tx`SELECT key FROM settings WHERE key LIKE 'models.%' AND value->>'model'=${registeredModelKey(id)} LIMIT 1`;
-      if (assigned || Object.values(CAPABILITIES).some((c) => environmentValue(c.env) === registeredModelKey(id)))
+      if (
+        assigned ||
+        (await hasAssignedBackup(registeredModelKey(id), tx)) ||
+        Object.values(CAPABILITIES).some((c) => environmentValue(c.env) === registeredModelKey(id))
+      )
         throw new ModelConnectionUnavailable("请先切换使用此接入的环节，再修改运行配置或停用");
     }
     const secretId = value.secret ? randomUUID() : before.secret_id;
@@ -104,7 +109,7 @@ export async function disableModelConnection(id: string, input: unknown, princip
     checkRevision(before.revision, value.expected_revision);
     const [assigned] = await tx`SELECT key FROM settings WHERE key LIKE 'models.%' AND value->>'model'=${key} LIMIT 1`;
     const envAssigned = Object.values(CAPABILITIES).some((c) => environmentValue(c.env) === key);
-    if (assigned || envAssigned) throw new ModelConnectionUnavailable("请先将使用此接入的环节切换到其他模型");
+    if (assigned || envAssigned || (await hasAssignedBackup(key, tx))) throw new ModelConnectionUnavailable("请先将使用此接入的环节切换到其他模型");
     await tx`UPDATE ai.model_connections SET enabled=false,revision=revision+1,passed_revision=NULL,updated_at=now() WHERE id=${id}`;
     const record = await connectionRecord(await connectionRow(id, tx), tx);
     await audit(actorOf(principal), "models.connection.disable", id, value.reason, await connectionRecord(before, tx), record, undefined, tx);

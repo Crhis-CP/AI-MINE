@@ -1019,6 +1019,24 @@
         "private_ops": ["SELECT", "INSERT"],
         "worker": ["SELECT"]
       }
+    },
+    "ai.model_fallback_routes": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.model_fallback_resolutions": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

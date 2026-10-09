@@ -1,3 +1,4 @@
+import { isModelRouteWaiting } from "../providers/model-fallback.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Content processing: body extraction when the source needs it → analysis → publish → event grouping.
 // Every article reaches the queues through queueProcessing, which records when it was queued, so the
@@ -219,6 +220,7 @@ export async function afterFailure(articleId: string, error: unknown): Promise<{
   if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
   const message = String(error instanceof Error ? error.message : error).slice(0, 500);
   if (
+    isModelRouteWaiting(error) ||
     error instanceof RuntimeControlPaused ||
     error instanceof RuntimeControlStale ||
     error instanceof ReceiptBusyError ||
@@ -227,8 +229,9 @@ export async function afterFailure(articleId: string, error: unknown): Promise<{
   ) {
     // Not the article's fault: the same request is in flight, the budget window is full, or model calls are
     // switched off. A Chinese original stays public meanwhile and is judged once calls are back on.
-    const seconds =
-      error instanceof BudgetExceededError
+    const seconds = isModelRouteWaiting(error)
+      ? 300
+      : error instanceof BudgetExceededError
         ? error.retryAfterSeconds
         : error instanceof ReceiptBusyError || error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale
           ? 60

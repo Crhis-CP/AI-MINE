@@ -45,6 +45,7 @@ export class UsageProtectionError extends BudgetExceededError {
 }
 export class ReceiptBusyError extends Error {}
 export class ReceiptAttemptSupersededError extends Error {}
+export class ReceiptPhysicalLimitError extends Error {}
 export class ReceiptCooldownError extends Error {
   readonly receiptId: number;
   readonly retryAfterSeconds: number;
@@ -78,10 +79,19 @@ export class ReceiptUnknownError extends Error {
 export class ProviderRejectedError extends Error {
   readonly status: number | null;
   readonly retryable: boolean;
-  constructor(message: string, status: number | null, retryable: boolean) {
+  receiptId: number | null = null;
+  attemptId: string | null = null;
+  readonly failureKind: "provider_unbilled" | "connect_before_send" | "input_changed" | "configuration_changed" | "unproven";
+  constructor(
+    message: string,
+    status: number | null,
+    retryable: boolean,
+    failureKind: "provider_unbilled" | "connect_before_send" | "input_changed" | "configuration_changed" | "unproven" = "provider_unbilled",
+  ) {
     super(message);
     this.status = status;
     this.retryable = retryable;
+    this.failureKind = failureKind;
   }
 }
 
@@ -111,6 +121,8 @@ export interface ModelAttemptSnapshot {
   pricing?: { input: string; output: string; currency: "CNY"; basis: string };
 }
 export interface ReceiptRequest {
+  /** A backup receives one physical send, while durable received responses are always reusable. */
+  maxPhysicalAttempts?: 1;
   usageContext?: UsageContext;
   costBounds?: UsageBounds;
   taskBudget?: TaskBudget;
@@ -468,6 +480,19 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.current_attempt_id });
         return { kind: "unknown" as const, row: { ...existing, attempt_id: existing.current_attempt_id } };
       }
+      // A downstream validator may reject a filter response, but that never authorizes another send to the refusing route.
+      if (
+        existing.response_bound &&
+        (existing.response as { choices?: Array<{ finish_reason?: string }> } | null)?.choices?.[0]?.finish_reason === "content_filter"
+      ) {
+        await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
+        return { kind: "reuse" as const, row: existing };
+      }
+      if (req.maxPhysicalAttempts === 1) {
+        const [physical] =
+          await tx`SELECT count(*)::int AS n FROM receipt_attempts WHERE receipt_id=${existing.id} AND (failure_kind IS NULL OR failure_kind NOT IN ('usage_blocked','input_changed','configuration_changed'))`;
+        if (physical!.n >= 1) throw new ReceiptPhysicalLimitError("备用接入已尝试一次，保留原回执并等待处理");
+      }
       // Count rejected physical outputs under the claim lock, before creating another paid attempt.
       if (req.maxRejectedOutputs !== undefined) {
         if (existing.has_response && !existing.response_bound) {
@@ -570,15 +595,21 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     }
     outcome = await call();
   } catch (error) {
-    const status = error instanceof ProviderRejectedError || error instanceof UsageProtectionError ? "failed" : "unknown";
+    const knownUnbilled = error instanceof ProviderRejectedError && error.failureKind !== "unproven";
+    const status = knownUnbilled || error instanceof UsageProtectionError ? "failed" : "unknown";
+    const failureKind = error instanceof ProviderRejectedError ? error.failureKind : error instanceof UsageProtectionError ? "usage_blocked" : "unknown";
     // "unknown": the request may have reached the provider (timeout, reset): do not re-send automatically.
     const message = (error instanceof ProviderRejectedError ? error.message : String(error)).slice(0, 2000);
     await sql.begin(async (tx) => {
       await tx`UPDATE receipts SET status = ${status}, error = ${message}, updated_at = now() WHERE id = ${receiptId} AND attempts=${attempt}`;
-      await tx`UPDATE receipt_attempts SET status = ${status}, error = ${message}, latency_ms = ${Date.now() - started}, finished_at = now() WHERE id = ${attemptId}`;
+      await tx`UPDATE receipt_attempts SET status = ${status}, failure_kind=${failureKind}, error = ${message}, latency_ms = ${Date.now() - started}, finished_at = now() WHERE id = ${attemptId}`;
       await settleUsageAttempt(tx, attemptId, status);
     });
-    if (req.policy && status === "unknown") throw new ReceiptUnknownError(receiptId, message, attemptId);
+    if (status === "unknown") throw new ReceiptUnknownError(receiptId, "调用结果或费用尚未确认，已保留回执并停止自动重发", attemptId);
+    if (error instanceof ProviderRejectedError) {
+      error.receiptId = receiptId;
+      error.attemptId = attemptId;
+    }
     throw error;
   }
 
