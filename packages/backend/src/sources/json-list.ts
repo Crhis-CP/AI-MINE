@@ -7,7 +7,7 @@ import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
 import { feedPublishedAt } from "./published-at.ts";
 
 const primitiveSources = new WeakMap<object, Map<string, string>>();
-function parseSourceJson(text: string): unknown {
+export function parseSourceJson(text: string): unknown {
   return JSON.parse(text, function (this: object, key: string, value: unknown, context?: { source?: string }) {
     if (context?.source) {
       const fields = primitiveSources.get(this) ?? new Map<string, string>();
@@ -17,7 +17,7 @@ function parseSourceJson(text: string): unknown {
     return value;
   });
 }
-function rawDateAt(item: unknown, path: string | undefined): string {
+export function rawDateAt(item: unknown, path: string | undefined): string {
   if (!path) return "";
   const value = getPath(item, path);
   if (value === null || value === undefined) return "";
@@ -58,7 +58,9 @@ export function renderTemplate(template: string, item: unknown): string | null {
       missing = true;
       return "";
     }
-    return raw ? String(v) : encodeURIComponent(String(v)).replace(/%2F/g, "/");
+    const literal = typeof v === "number" ? rawDateAt(item, path) : "";
+    const value = literal && /^-?\d+$/.test(literal) ? literal : String(v);
+    return raw ? value : encodeURIComponent(value).replace(/%2F/g, "/");
   });
   return missing ? null : out;
 }
@@ -158,11 +160,17 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
   });
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
   observedAt = res.fetchedAt ?? observedAt;
+  return jsonListDocument(res.text(), source, observedAt).candidates;
+}
+
+/** The same raw parse and item mapping, with the original source items retained for structural receipts. */
+export function jsonListDocument(text: string, source: SourceRow, observedAt: string) {
+  const c = source.config;
   let data: unknown;
-  if (c.mode === "html_json_key" || c.mode === "html_window_var") data = embeddedJson(res.text(), source);
+  if (c.mode === "html_json_key" || c.mode === "html_window_var") data = embeddedJson(text, source);
   else {
     try {
-      data = parseSourceJson(res.text());
+      data = parseSourceJson(text);
     } catch {
       throw new FetchError("response is not JSON");
     }
@@ -215,5 +223,5 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
     });
   }
   if (items.length > 0 && out.length === 0 && !c.requireBoolean && !c.minNumeric) throw new FetchError("no items mapped (check title/url paths)");
-  return out;
+  return { data, items, candidates: out };
 }

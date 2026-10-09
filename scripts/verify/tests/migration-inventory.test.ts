@@ -207,6 +207,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "platform/ops/202610090900_lane_controls.sql"],
       },
       {
+        name: "acquisition/202610091100_directory_scans.sql",
+        module: "acquisition",
+        schemas: ["acquisition"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "acquisition/202610090900_host_pacing.sql"],
+      },
+      {
         name: "ai-gateway/202610091100_usage_reports.sql",
         module: "ai-gateway",
         schemas: ["ai"],
@@ -217,6 +223,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         module: "platform/identity",
         schemas: ["identity", "audit"],
         dependsOn: ["0038_publication_source_excerpt.sql", "platform/identity/202610091000_account_access.sql"],
+      },
+      {
+        name: "policy/202610091101_directory_workflows.sql",
+        module: "policy",
+        schemas: ["policy"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "policy/202610090700_policy_automation.sql", "acquisition/202610091100_directory_scans.sql"],
       },
       {
         name: "ai-gateway/202610091200_model_registry.sql",

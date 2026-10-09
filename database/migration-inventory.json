@@ -255,6 +255,14 @@
     {
       "name": "platform/ops/202610091600_operational_snapshots.sql",
       "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
+    },
+    {
+      "name": "acquisition/202610091100_directory_scans.sql",
+      "dependsOn": ["acquisition/202610090900_host_pacing.sql"]
+    },
+    {
+      "name": "policy/202610091101_directory_workflows.sql",
+      "dependsOn": ["policy/202610090700_policy_automation.sql", "acquisition/202610091100_directory_scans.sql"]
     }
   ]
 }

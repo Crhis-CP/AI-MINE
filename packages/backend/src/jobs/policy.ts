@@ -20,6 +20,7 @@ const Job = z.strictObject({
   sourceId: z.string().min(1),
   materialId: z.string().min(1),
   crawlSessionId: z.string().min(1).optional(),
+  directoryHash: z.string().min(1).optional(),
 });
 export async function ensurePolicyQueues() {
   for (const stage of POLICY_STAGES) await ensureQueue(`policy.${stage}`, { policy: "exclusive", retryLimit: 0, expireInSeconds: 600 });
@@ -52,7 +53,7 @@ export async function registerPolicyJobs(boss: PgBoss, ports: PolicyAutomationPo
             await deferPolicyWorkflow(data, error.retryAt);
             await enqueue(
               `policy.${stage}`,
-              { ...data, crawlSessionId: error.sessionId },
+              { ...data, directoryHash: undefined, ...(error.sessionId ? { crawlSessionId: error.sessionId } : {}) },
               { startAfter: error.retryAt, singletonKey: `${data.sourceId}:${data.materialId}:${error.reservationId}:${error.retryAt.toISOString()}` },
             );
             return { status: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason };

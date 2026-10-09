@@ -95,7 +95,15 @@ function retryAfter(value: string | null, now: Date) {
 const crawlTime = async (ctx: Context) => (ctx.virtualClock ? ctx.now() : crawlClock());
 async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap: number, robot = false): Promise<GuardedResponse> {
   const now = await crawlTime(ctx);
-  const key = stableJson([url, opts.method ?? "GET", opts.headers ?? {}, opts.body ?? null, robot ? Math.floor(now.getTime() / 86400_000) : null]);
+  const key = stableJson([
+    url,
+    opts.method ?? "GET",
+    opts.headers ?? {},
+    opts.body ?? null,
+    opts.crawlKey ?? null,
+    opts.crawlResponseHeaders ?? [],
+    robot ? Math.floor(now.getTime() / 86400_000) : null,
+  ]);
   const claim = await claimCrawlRequest(ctx.sessionId, key, url, gap, ctx.virtualClock ? now : undefined, opts.timeoutMs ?? 20_000);
   if ("cached" in claim && claim.cached) {
     if (!robot && claim.cached.status === 200 && !(await permitted(ctx, url, "store_fulltext", opts.sourceResource)))
@@ -115,7 +123,9 @@ async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap
     transportFinished = true;
     const observed = await crawlTime(ctx);
     const headers = Object.fromEntries(
-      ["content-type", "location", "retry-after", "etag", "last-modified"].flatMap((name) => (res.headers.has(name) ? [[name, res.headers.get(name)!]] : [])),
+      [...new Set(["content-type", "location", "retry-after", "etag", "last-modified", ...(opts.crawlResponseHeaders ?? [])])].flatMap((name) =>
+        res.headers.has(name) ? [[name, res.headers.get(name)!]] : [],
+      ),
     );
     if (res.status === 429 || res.status === 503) {
       const retryAt = retryAfter(res.headers.get("retry-after"), observed);

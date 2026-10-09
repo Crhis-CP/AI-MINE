@@ -3,6 +3,7 @@
 // articles, dates never found).
 import type { SourceRow } from "./types.ts";
 import { z } from "zod";
+import { directoryContract } from "./directory-profile.ts";
 import { SourceDateParseInput } from "@amp/contracts/time-assertion";
 import { sha256, stableJson } from "../lib/ids.ts";
 
@@ -25,6 +26,7 @@ export const SourceCrawlProfile = z.strictObject({ sensitive: z.boolean().option
 // Rules applied in collect.ts to every kind read through collectSource.
 const COLLECTED = [
   "policyProfile",
+  "directoryProfile",
   "crawlProfile",
   "sourceDate",
   "_amp",
@@ -188,6 +190,7 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
 export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string, unknown>): string[] {
   const allowed = new Set(KEYS[kind] ?? []);
   const out: string[] = [];
+  if (config.directoryProfile !== undefined && !directoryContract({ kind, config })) out.push("directoryProfile");
   if (config?.crawlProfile !== undefined && !SourceCrawlProfile.safeParse(config.crawlProfile).success) out.push("crawlProfile");
   for (const [key, value] of Object.entries(config ?? {})) {
     if (!allowed.has(key)) out.push(key);

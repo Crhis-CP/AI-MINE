@@ -24,6 +24,7 @@ import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { toDateCandidate, previewSourceDate } from "./date-extraction.ts";
 import { beijingDate } from "@amp/contracts/time";
 
+import { collectPolicyDirectory, DirectoryRoundFailed } from "../acquisition/directory-runtime.ts";
 const sql = dbOf("acquisition");
 
 export interface CollectResult {
@@ -184,105 +185,112 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
     let candidates: Candidate[];
     const nextCursor: Record<string, unknown> = { ...(source.cursor ?? {}) };
     let detail: Record<string, unknown> | null = null;
-    if (source.kind === "rss") {
-      const rss = await crawlStep("listing", String(source.config.feedUrl), () => fetchRss(source, opts));
-      candidates = rss.candidates;
-      // The first import has a smaller backfill cap than later runs: allow the next run to read
-      // the ordinary window before accepting 304s. Persist validators only after store succeeds.
-      if (!firstImport) nextCursor.rss = rss.validator;
-      else delete nextCursor.rss;
-      if (rss.notModified) detail = { notModified: true, httpStatus: 304 };
-    } else if (source.kind === "web_list") candidates = await crawlStep("listing", String(source.config.url), () => fetchWebList(source));
-    else candidates = await crawlStep("listing", String(source.config.url), () => fetchJsonList(source));
-    found = candidates.length;
-    candidates = candidates
-      .filter((c) => allowed(c.url, source))
-      .map((c) => rewriteUrl(c, source))
-      .filter((c) => !noiseFiltered(c, source));
-    if (source.config.sortByPublishedAt) candidates.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0));
-
-    // First import of a new source: bounded, and archived by source time (never "today", never pushed).
-    const backfillLimit = Number(source.config._amp?.initialBackfillLimit ?? 30);
-    const backfillMonths = Number(source.config._amp?.initialBackfillMonths ?? 12);
-    if (firstImport) {
-      const cutoff = Date.now() - backfillMonths * 30 * 86400000;
-      candidates = candidates
-        .filter((c) => {
-          if (c.publishedAt) return c.publishedAt.getTime() >= cutoff;
-          const time = c.sourceDateObservation ? previewSourceDate(c.sourceDateObservation) : null;
-          return !time?.local_date || time.local_date >= beijingDate(cutoff);
-        })
-        .slice(0, backfillLimit);
+    if (source.lane === "policy" && ["web_list", "json_list"].includes(source.kind)) {
+      const directory = await collectPolicyDirectory(source, permission.permission_version);
+      ({ created, revised } = directory);
+      found = directory.currentRecords;
+      detail = { directory };
     } else {
-      candidates = candidates.slice(0, MAX_ITEMS_PER_RUN);
-    }
+      if (source.kind === "rss") {
+        const rss = await crawlStep("listing", String(source.config.feedUrl), () => fetchRss(source, opts));
+        candidates = rss.candidates;
+        // The first import has a smaller backfill cap than later runs: allow the next run to read
+        // the ordinary window before accepting 304s. Persist validators only after store succeeds.
+        if (!firstImport) nextCursor.rss = rss.validator;
+        else delete nextCursor.rss;
+        if (rss.notModified) detail = { notModified: true, httpStatus: 304 };
+      } else if (source.kind === "web_list") candidates = await crawlStep("listing", String(source.config.url), () => fetchWebList(source));
+      else candidates = await crawlStep("listing", String(source.config.url), () => fetchJsonList(source));
+      found = candidates.length;
+      candidates = candidates
+        .filter((c) => allowed(c.url, source))
+        .map((c) => rewriteUrl(c, source))
+        .filter((c) => !noiseFiltered(c, source));
+      if (source.config.sortByPublishedAt) candidates.sort((a, b) => (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0));
 
-    // Detail pages only for material we have not seen (bounded per run), and only for what the listing lacks.
-    const d = source.config.detail;
-    const known = await storedTitles(candidates.map((c) => c.url));
-    const detailBudget = Number(d?.maxFetches ?? 0);
-    let detailUsed = 0;
-    for (const c of candidates) {
-      // Listing dates the source marks unreliable are dropped; the detail page's rule decides.
-      if (d?.publishedAtAuthoritative === true) {
-        c.publishedAt = null;
-        delete c.sourceDateObservation;
+      // First import of a new source: bounded, and archived by source time (never "today", never pushed).
+      const backfillLimit = Number(source.config._amp?.initialBackfillLimit ?? 30);
+      const backfillMonths = Number(source.config._amp?.initialBackfillMonths ?? 12);
+      if (firstImport) {
+        const cutoff = Date.now() - backfillMonths * 30 * 86400000;
+        candidates = candidates
+          .filter((c) => {
+            if (c.publishedAt) return c.publishedAt.getTime() >= cutoff;
+            const time = c.sourceDateObservation ? previewSourceDate(c.sourceDateObservation) : null;
+            return !time?.local_date || time.local_date >= beijingDate(cutoff);
+          })
+          .slice(0, backfillLimit);
+      } else {
+        candidates = candidates.slice(0, MAX_ITEMS_PER_RUN);
       }
-      const stored = known.get(c.url);
-      if (stored !== undefined) {
-        // The title came from the detail page: the listing's own rendering must not revise it back.
-        if (d?.titleSelector || d?.titleRegex) c.title = stored;
-        continue;
-      }
-      if (!d || detailUsed >= detailBudget) continue;
-      const need: DetailNeed = {
-        date: !c.publishedAt || d.upgradeDatePrecision === true,
-        title: !!(d.titleSelector || d.titleRegex) && (d.titleAuthoritative === true || needsTitle(c.title)),
-        summary: !!d.summarySelector && !c.excerpt,
-        body: source.participation_mode === "editorial" && !c.bodyText && (!c.bodyStatus || c.bodyStatus === "pending"),
-      };
-      if (!need.date && !need.title && !need.summary) continue;
-      detailUsed += 1;
-      try {
-        await requireDateCollection(source, permission.permission_version, c.url);
-        const got = await crawlStep(`detail:${c.url}`, c.url, () => fetchDetail(c.url, source, need));
-        if (got.title) c.title = got.title;
-        if (got.summary) c.excerpt = got.summary;
-        // The same Readability path as extraction, using bytes already fetched for the detail rules.
-        // A confirmed body enters through normal material revisions and skips the redundant fetch job.
-        if (got.body) {
-          c.bodyHtml = got.body.html;
-          c.bodyText = got.body.text;
-          c.bodyStatus = "ok";
-          if (!c.media?.length) c.media = got.body.images;
-        }
-        if (got.sourceDateObservation) {
-          if (!c.sourceDateObservation?.raw.trim()) c.sourceDateObservation = got.sourceDateObservation;
-          else
-            c.sourceDateObservation.alternatives = [
-              ...(c.sourceDateObservation.alternatives ?? []),
-              toDateCandidate(got.sourceDateObservation),
-              ...(got.sourceDateObservation.alternatives ?? []),
-            ];
-          const time = previewSourceDate(c.sourceDateObservation);
-          c.publishedAt = sourcePublishedAt(time, d.publishedAtUtcOffset);
-        }
-      } catch (error) {
-        if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
-        // detail is best effort
-      }
-    }
 
-    const language = Object.hasOwn(source.config, "language") ? normalizeSourceLanguage(source.config.language) : undefined;
-    ({ created, revised } = await store(
-      sourceId,
-      candidates,
-      firstImport ? "first-import" : null,
-      permission.permission_version,
-      language,
-      source.lane,
-      collectionControl,
-    ));
+      // Detail pages only for material we have not seen (bounded per run), and only for what the listing lacks.
+      const d = source.config.detail;
+      const known = await storedTitles(candidates.map((c) => c.url));
+      const detailBudget = Number(d?.maxFetches ?? 0);
+      let detailUsed = 0;
+      for (const c of candidates) {
+        // Listing dates the source marks unreliable are dropped; the detail page's rule decides.
+        if (d?.publishedAtAuthoritative === true) {
+          c.publishedAt = null;
+          delete c.sourceDateObservation;
+        }
+        const stored = known.get(c.url);
+        if (stored !== undefined) {
+          // The title came from the detail page: the listing's own rendering must not revise it back.
+          if (d?.titleSelector || d?.titleRegex) c.title = stored;
+          continue;
+        }
+        if (!d || detailUsed >= detailBudget) continue;
+        const need: DetailNeed = {
+          date: !c.publishedAt || d.upgradeDatePrecision === true,
+          title: !!(d.titleSelector || d.titleRegex) && (d.titleAuthoritative === true || needsTitle(c.title)),
+          summary: !!d.summarySelector && !c.excerpt,
+          body: source.participation_mode === "editorial" && !c.bodyText && (!c.bodyStatus || c.bodyStatus === "pending"),
+        };
+        if (!need.date && !need.title && !need.summary) continue;
+        detailUsed += 1;
+        try {
+          await requireDateCollection(source, permission.permission_version, c.url);
+          const got = await crawlStep(`detail:${c.url}`, c.url, () => fetchDetail(c.url, source, need));
+          if (got.title) c.title = got.title;
+          if (got.summary) c.excerpt = got.summary;
+          // The same Readability path as extraction, using bytes already fetched for the detail rules.
+          // A confirmed body enters through normal material revisions and skips the redundant fetch job.
+          if (got.body) {
+            c.bodyHtml = got.body.html;
+            c.bodyText = got.body.text;
+            c.bodyStatus = "ok";
+            if (!c.media?.length) c.media = got.body.images;
+          }
+          if (got.sourceDateObservation) {
+            if (!c.sourceDateObservation?.raw.trim()) c.sourceDateObservation = got.sourceDateObservation;
+            else
+              c.sourceDateObservation.alternatives = [
+                ...(c.sourceDateObservation.alternatives ?? []),
+                toDateCandidate(got.sourceDateObservation),
+                ...(got.sourceDateObservation.alternatives ?? []),
+              ];
+            const time = previewSourceDate(c.sourceDateObservation);
+            c.publishedAt = sourcePublishedAt(time, d.publishedAtUtcOffset);
+          }
+        } catch (error) {
+          if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
+          // detail is best effort
+        }
+      }
+
+      const language = Object.hasOwn(source.config, "language") ? normalizeSourceLanguage(source.config.language) : undefined;
+      ({ created, revised } = await store(
+        sourceId,
+        candidates,
+        firstImport ? "first-import" : null,
+        permission.permission_version,
+        language,
+        source.lane,
+        collectionControl,
+      ));
+    }
 
     if (firstImport) nextCursor.initializedAt = new Date().toISOString();
     nextCursor.lastOkAt = new Date().toISOString();
@@ -313,6 +321,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         next_fetch_at = now() + make_interval(mins => CASE WHEN ${budget} THEN 15 ELSE LEAST(interval_minutes * (fail_count + 2), 360) END),
         updated_at = now()
       WHERE id = ${sourceId}`;
+    if (error instanceof DirectoryRoundFailed) await deferSourceFetch(sourceId, new Date(Date.now() + 60_000));
     await sql`UPDATE fetch_runs SET status = 'failed', finished_at = now(), found_count = ${found}, new_count = ${created}, error = ${message} WHERE id = ${run!.id}`;
     return { sourceId, status: "failed", found, created, revised, error: message };
   }
@@ -405,3 +414,5 @@ async function pacedCollectSource(
   }
 }
 export { pacedCollectSource as collectSource };
+
+export { directoryMaterialState, directoryCoverageEvidence } from "../acquisition/directory-read.ts";

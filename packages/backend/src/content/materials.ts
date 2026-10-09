@@ -309,3 +309,10 @@ export async function lockPolicyMaterial(tx: Tx, reference: PolicyMaterialRefere
   )
     throw new Error("Policy material changed");
 }
+
+/** Directory-native identities stay separate from a legacy URL-only discovery of another record. */
+export async function materialDateIdentityHeads(sourceId: string, identities: string[], db: Db = sql) {
+  if (!identities.length) return [];
+  return db<{ id: string; identity_key: string; revision: number; source_date_version: string }[]>`
+    SELECT id,identity_key,revision,source_date_version FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
+}

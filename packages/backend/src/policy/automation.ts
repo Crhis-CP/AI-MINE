@@ -1,4 +1,6 @@
 import { runtimeControlSnapshot } from "../operations/lane-controls.ts";
+import { directoryMaterialState } from "@amp/backend/sources/collect";
+import { CrawlDeferred } from "../acquisition/crawl.ts";
 import { readSourceDateContext, sourceIdsOnLane } from "@amp/backend/admin/sources";
 import { policyMaterialReference, policyMaterialReferences } from "@amp/backend/content/materials";
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
@@ -16,7 +18,7 @@ import type { ExtractionProfile } from "./extraction.ts";
 const sql = dbOf("policy");
 export const POLICY_STAGES = ["acquire", "fulltext", "vision", "interpret", "publish"] as const;
 export type PolicyStage = (typeof POLICY_STAGES)[number];
-export type PolicyJob = { lane: "policy"; sourceId: string; materialId: string; crawlSessionId?: string };
+export type PolicyJob = { lane: "policy"; sourceId: string; materialId: string; crawlSessionId?: string; directoryHash?: string };
 export type PublishResult =
   | { status: "published"; mode: "basic_facts" | "complete"; policyId: string; editionId: string; pending?: "quality" | "interpretation" }
   | { status: "pending"; reason: "identity" | "permission" | "paused" | "withdrawn" | "stale" };
@@ -63,15 +65,18 @@ export async function advancePolicyMaterial(
   options: { root: AbortSignal; collectionEnabled: boolean },
 ) {
   options.root.throwIfAborted();
+  if (job.directoryHash && !(await wakeDirectoryMaterial(job))) return { status: "obsolete" };
   const row = await readPolicyWorkflow(job.sourceId, job.materialId);
   if (!row || row.stage !== stage) return { status: "obsolete" };
   const source = await readSourceDateContext(job.sourceId),
     material = await policyMaterialReference(job.materialId, job.sourceId);
   if (!source?.enabled || source.lane !== "policy" || !material) return save(row, "acquire", "unavailable", null, 60);
+  const target = await directoryMaterialState(source, job.materialId);
+  if (!target.current) return save(row, "acquire", "not_current", "来源当前目录未列出；保留原件和历史", 10080);
   const configured = policyProfile(source);
   if (!configured) return save(row, "acquire", "needs_configuration", "缺少明确的官方原件取得配置", 60);
   const { profile, profileHash } = configured,
-    interval = profile.recheckMinutes;
+    interval = Math.min(profile.recheckMinutes, 10080);
   const previousStatus = row.status,
     previousRevision = row.document_revision_id,
     previousProfile = row.profile_hash;
@@ -79,6 +84,7 @@ export async function advancePolicyMaterial(
     stage === "acquire" || !runnable.has(row.status) || row.profile_hash !== profileHash || row.material_revision !== material.materialRevision;
   if (needsAcquire) {
     if ((await runtimeControlSnapshot("policy", ["collection"])).paused) return save(row, "acquire", "pending", "采集已暂停", 1);
+    if (target.pending) throw new CrawlDeferred(new Date(Date.now() + 60_000), `directory-priority:${source.id}`, "directory_scan_pending");
     if (!options.collectionEnabled) return save(row, "acquire", "collection_paused", null, interval);
     const capture = await (ports.capture ?? capturePolicyMaterial)(job.sourceId, job.materialId, undefined, job.crawlSessionId);
     if (capture.status !== "captured") return save(row, "acquire", capture.status, null, interval);
@@ -99,7 +105,11 @@ export async function advancePolicyMaterial(
     }
     const control = await processingControl(capture.expressionId);
     if (control.paused) return save(row, "acquire", "paused", null, interval);
-    if (!changed && !runnable.has(previousStatus) && !["collection_paused", "paused", "needs_configuration", "unavailable"].includes(previousStatus))
+    if (
+      !changed &&
+      !runnable.has(previousStatus) &&
+      !["collection_paused", "paused", "needs_configuration", "unavailable", "not_current"].includes(previousStatus)
+    )
       return save(row, "acquire", previousStatus, row.reason, interval);
     return save(row, "fulltext", "pending", null, 0);
   }
@@ -155,9 +165,12 @@ export async function discoverPolicyWorkflows(limit = 50) {
       ? previous.cursor
       : { materialId: "", sourceId: "" };
   const rows = await policyMaterialReferences(await sourceIdsOnLane("policy"), cursor, limit);
-  for (const row of rows)
+  for (const row of rows) {
+    const source = await readSourceDateContext(row.sourceId);
+    if (!source || !(await directoryMaterialState(source, row.materialId)).current) continue;
     await sql`INSERT INTO policy.material_workflows(source_id,material_id,material_revision)
     VALUES(${row.sourceId},${row.materialId},${row.materialRevision}) ON CONFLICT DO NOTHING`;
+  }
   const last = rows.at(-1);
   return {
     scanned: rows.length,
@@ -178,4 +191,18 @@ export async function policyWorkflowFailed(job: PolicyJob, stage: PolicyStage) {
 /** A transport reservation is waiting, not a processing failure or a reason to discard checkpoints. */
 export async function deferPolicyWorkflow(job: PolicyJob, retryAt: Date) {
   await sql`UPDATE policy.material_workflows SET next_check_at=${retryAt},updated_at=now() WHERE source_id=${job.sourceId} AND material_id=${job.materialId}`;
+}
+
+/** Only a changed, still-current directory observation wakes acquisition; duplicate delivery keeps its due time. */
+export async function wakeDirectoryMaterial(job: PolicyJob) {
+  const source = await readSourceDateContext(job.sourceId),
+    material = await policyMaterialReference(job.materialId, job.sourceId);
+  if (!source?.enabled || source.lane !== "policy" || !material || !job.directoryHash) return false;
+  const target = await directoryMaterialState(source, job.materialId);
+  if (!target.current || target.hash !== job.directoryHash) return false;
+  const rows = await sql`INSERT INTO policy.material_workflows(source_id,material_id,material_revision,directory_hash)
+    VALUES(${job.sourceId},${job.materialId},${material.materialRevision},${job.directoryHash})
+    ON CONFLICT(source_id,material_id) DO UPDATE SET stage='acquire',directory_hash=EXCLUDED.directory_hash,next_check_at=now(),updated_at=now()
+    WHERE policy.material_workflows.directory_hash IS DISTINCT FROM EXCLUDED.directory_hash RETURNING material_id`;
+  return rows.length > 0;
 }

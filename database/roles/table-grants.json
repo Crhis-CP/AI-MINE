@@ -804,6 +804,69 @@
         "worker": ["SELECT", "INSERT", "UPDATE"],
         "ops_read": ["SELECT"]
       }
+    },
+    "acquisition.directory_scans": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "acquisition.directory_pages": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_seen": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_records": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_heads": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "acquisition.directory_bindings": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "acquisition.directory_receipts": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {

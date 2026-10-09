@@ -39,6 +39,9 @@ function dispatcherFor(viaProxy: boolean): Dispatcher | undefined {
 
 export interface GuardedFetchOptions {
   method?: string;
+  /** Separate physical directory verification from a resumable earlier page read. */
+  crawlKey?: string;
+  crawlResponseHeaders?: string[];
   /** Explicit collector resource binding; unused by model transports. */
   sourceResource?: { documentType: string | null; attachment: boolean };
   headers?: Record<string, string>;
