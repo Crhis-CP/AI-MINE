@@ -6482,6 +6482,2066 @@
         ],
         "type": "object"
       },
+      "SelectionCalibrationSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "accuracy": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "datasetVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "mistakes": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "modelConfigurationHash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "enum": [
+              "trusted_runner",
+              "legacy_or_upload"
+            ],
+            "type": "string"
+          },
+          "ownerConfirmedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "precision": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "prefilterVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ranAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "recall": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "runId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sampleCount": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "split": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "standardVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "runId",
+          "label",
+          "split",
+          "sampleCount",
+          "model",
+          "standardVersion",
+          "prefilterVersion",
+          "thresholdVersion",
+          "modelConfigurationHash",
+          "datasetVersion",
+          "accuracy",
+          "precision",
+          "recall",
+          "mistakes",
+          "ranAt",
+          "ownerConfirmedAt",
+          "synthetic",
+          "origin"
+        ],
+        "type": "object"
+      },
+      "SelectionCalibrationSummaryInput": {
+        "additionalProperties": false,
+        "properties": {
+          "accuracy": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "datasetVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "label": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "mistakes": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "modelConfigurationHash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "enum": [
+              "trusted_runner",
+              "legacy_or_upload"
+            ],
+            "type": "string"
+          },
+          "ownerConfirmedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "precision": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "prefilterVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ranAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "recall": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "runId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "sampleCount": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "split": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "standardVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "runId",
+          "label",
+          "split",
+          "sampleCount",
+          "model",
+          "standardVersion",
+          "prefilterVersion",
+          "thresholdVersion",
+          "modelConfigurationHash",
+          "datasetVersion",
+          "accuracy",
+          "precision",
+          "recall",
+          "mistakes",
+          "ranAt",
+          "ownerConfirmedAt",
+          "synthetic",
+          "origin"
+        ],
+        "type": "object"
+      },
+      "SelectionHoldoutConfirm": {
+        "additionalProperties": false,
+        "properties": {
+          "evidenceHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "runId": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "runId",
+          "model",
+          "evidenceHash",
+          "note"
+        ],
+        "type": "object"
+      },
+      "SelectionHoldoutConfirmInput": {
+        "additionalProperties": false,
+        "properties": {
+          "evidenceHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "runId": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "runId",
+          "model",
+          "evidenceHash",
+          "note"
+        ],
+        "type": "object"
+      },
+      "SelectionLabel": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "select",
+              "reject",
+              "either"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decision",
+          "note",
+          "revision",
+          "actor",
+          "at"
+        ],
+        "type": "object"
+      },
+      "SelectionLabelInput": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "select",
+              "reject",
+              "either"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decision",
+          "note",
+          "revision",
+          "actor",
+          "at"
+        ],
+        "type": "object"
+      },
+      "SelectionLabelRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "select",
+              "reject",
+              "either"
+            ],
+            "type": "string"
+          },
+          "expectedRevision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "sampleRevision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requestId",
+          "expectedRevision",
+          "sampleRevision",
+          "decision",
+          "note"
+        ],
+        "type": "object"
+      },
+      "SelectionLabelRequestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "select",
+              "reject",
+              "either"
+            ],
+            "type": "string"
+          },
+          "expectedRevision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "sampleRevision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requestId",
+          "expectedRevision",
+          "sampleRevision",
+          "decision",
+          "note"
+        ],
+        "type": "object"
+      },
+      "SelectionModelIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "configurationHash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "enum": [
+              "known",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "configurationHash",
+          "state",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "SelectionModelIdentityInput": {
+        "additionalProperties": false,
+        "properties": {
+          "configurationHash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "enum": [
+              "known",
+              "unknown"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "configurationHash",
+          "state",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "SelectionRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "accuracy": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "actor": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "contentHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "standard_review",
+              "holdout",
+              "calibration"
+            ],
+            "type": "string"
+          },
+          "mistakes": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modelConfigurationHash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "precision": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "prefilterVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "recall": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sampleCount": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "standardVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "changes_requested",
+              "rejected",
+              "confirmed"
+            ],
+            "type": "string"
+          },
+          "submissionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "standardVersion",
+          "prefilterVersion",
+          "thresholdVersion",
+          "contentHash",
+          "status",
+          "actor",
+          "at",
+          "note",
+          "submissionId",
+          "runId",
+          "model",
+          "modelConfigurationHash",
+          "sampleCount",
+          "accuracy",
+          "precision",
+          "recall",
+          "mistakes",
+          "synthetic"
+        ],
+        "type": "object"
+      },
+      "SelectionRecordInput": {
+        "additionalProperties": false,
+        "properties": {
+          "accuracy": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "actor": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "contentHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "standard_review",
+              "holdout",
+              "calibration"
+            ],
+            "type": "string"
+          },
+          "mistakes": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "modelConfigurationHash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "precision": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "prefilterVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "recall": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "runId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sampleCount": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "standardVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "approved",
+              "changes_requested",
+              "rejected",
+              "confirmed"
+            ],
+            "type": "string"
+          },
+          "submissionId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "standardVersion",
+          "prefilterVersion",
+          "thresholdVersion",
+          "contentHash",
+          "status",
+          "actor",
+          "at",
+          "note",
+          "submissionId",
+          "runId",
+          "model",
+          "modelConfigurationHash",
+          "sampleCount",
+          "accuracy",
+          "precision",
+          "recall",
+          "mistakes",
+          "synthetic"
+        ],
+        "type": "object"
+      },
+      "SelectionRunEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "datasetVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "modelConfigurations": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "models": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "confirmable": {
+                  "type": "boolean"
+                },
+                "evidenceHash": {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                "missing": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "model",
+                "evidenceHash",
+                "confirmable",
+                "missing"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "origin": {
+            "enum": [
+              "trusted_runner",
+              "legacy_or_upload"
+            ],
+            "type": "string"
+          },
+          "prefilterVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "standardVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "runId",
+          "standardVersion",
+          "prefilterVersion",
+          "thresholdVersion",
+          "modelConfigurations",
+          "datasetId",
+          "datasetVersion",
+          "synthetic",
+          "origin",
+          "missing",
+          "models"
+        ],
+        "type": "object"
+      },
+      "SelectionRunEvidenceInput": {
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "datasetVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "modelConfigurations": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "models": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "confirmable": {
+                  "type": "boolean"
+                },
+                "evidenceHash": {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                "missing": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "model": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "model",
+                "evidenceHash",
+                "confirmable",
+                "missing"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "origin": {
+            "enum": [
+              "trusted_runner",
+              "legacy_or_upload"
+            ],
+            "type": "string"
+          },
+          "prefilterVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "standardVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "runId",
+          "standardVersion",
+          "prefilterVersion",
+          "thresholdVersion",
+          "modelConfigurations",
+          "datasetId",
+          "datasetVersion",
+          "synthetic",
+          "origin",
+          "missing",
+          "models"
+        ],
+        "type": "object"
+      },
+      "SelectionSample": {
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "datasetId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelectionLabel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "materialCurrent": {
+            "type": "boolean"
+          },
+          "sampleRevision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "scorerInput": {
+            "type": "string"
+          },
+          "split": {
+            "enum": [
+              "development",
+              "holdout"
+            ],
+            "type": "string"
+          },
+          "stratum": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "datasetId",
+          "caseId",
+          "sampleRevision",
+          "split",
+          "stratum",
+          "scorerInput",
+          "materialCurrent",
+          "synthetic",
+          "label"
+        ],
+        "type": "object"
+      },
+      "SelectionSampleInput": {
+        "additionalProperties": false,
+        "properties": {
+          "caseId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "datasetId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelectionLabelInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "materialCurrent": {
+            "type": "boolean"
+          },
+          "sampleRevision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "scorerInput": {
+            "type": "string"
+          },
+          "split": {
+            "enum": [
+              "development",
+              "holdout"
+            ],
+            "type": "string"
+          },
+          "stratum": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "synthetic": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "datasetId",
+          "caseId",
+          "sampleRevision",
+          "split",
+          "stratum",
+          "scorerInput",
+          "materialCurrent",
+          "synthetic",
+          "label"
+        ],
+        "type": "object"
+      },
+      "SelectionSamples": {
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "datasetLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "pageSize": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionSample"
+            },
+            "type": "array"
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "total": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "datasetId",
+          "datasetLabel",
+          "synthetic",
+          "total",
+          "page",
+          "pageSize",
+          "samples"
+        ],
+        "type": "object"
+      },
+      "SelectionSamplesInput": {
+        "additionalProperties": false,
+        "properties": {
+          "datasetId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "datasetLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "page": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "pageSize": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "samples": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionSampleInput"
+            },
+            "type": "array"
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "total": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "datasetId",
+          "datasetLabel",
+          "synthetic",
+          "total",
+          "page",
+          "pageSize",
+          "samples"
+        ],
+        "type": "object"
+      },
+      "SelectionStandardReview": {
+        "additionalProperties": false,
+        "properties": {
+          "contentHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "approved",
+              "changes_requested",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "readComparison": {
+            "const": true,
+            "type": "boolean"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "standardVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "submissionId": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "submissionId",
+          "standardVersion",
+          "contentHash",
+          "readComparison",
+          "decision",
+          "note"
+        ],
+        "type": "object"
+      },
+      "SelectionStandardReviewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "contentHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "approved",
+              "changes_requested",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 4000,
+            "type": "string"
+          },
+          "readComparison": {
+            "const": true,
+            "type": "boolean"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          },
+          "standardVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "submissionId": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "submissionId",
+          "standardVersion",
+          "contentHash",
+          "readComparison",
+          "decision",
+          "note"
+        ],
+        "type": "object"
+      },
+      "SelectionStandards": {
+        "additionalProperties": false,
+        "properties": {
+          "calibrations": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionCalibrationSummary"
+            },
+            "type": "array"
+          },
+          "checks": {
+            "additionalProperties": false,
+            "properties": {
+              "ownerHoldout": {
+                "type": "boolean"
+              },
+              "ownerStandardReview": {
+                "type": "boolean"
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "versionsMatch": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ownerStandardReview",
+              "ownerHoldout",
+              "versionsMatch",
+              "ready"
+            ],
+            "type": "object"
+          },
+          "current": {
+            "additionalProperties": false,
+            "properties": {
+              "configuredForCurrent": {
+                "type": "boolean"
+              },
+              "contentHash": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "deploymentConfirmedVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "effectiveAt": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "model": {
+                "$ref": "#/components/schemas/SelectionModelIdentity"
+              },
+              "prefilterText": {
+                "type": "string"
+              },
+              "prefilterVersion": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "standardVersion": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "thresholdVersion": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "thresholds": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "standardVersion",
+              "contentHash",
+              "prefilterVersion",
+              "thresholdVersion",
+              "thresholds",
+              "text",
+              "prefilterText",
+              "deploymentConfirmedVersion",
+              "configuredForCurrent",
+              "effectiveAt",
+              "model"
+            ],
+            "type": "object"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionRecord"
+            },
+            "type": "array"
+          },
+          "reviewStatus": {
+            "enum": [
+              "draft",
+              "submitted",
+              "approved",
+              "changes_requested",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "submission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelectionSubmission"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool": {
+            "$ref": "#/components/schemas/SelectionToolState"
+          }
+        },
+        "required": [
+          "tool",
+          "current",
+          "submission",
+          "reviewStatus",
+          "records",
+          "calibrations",
+          "checks",
+          "missing"
+        ],
+        "type": "object"
+      },
+      "SelectionStandardsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "calibrations": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionCalibrationSummaryInput"
+            },
+            "type": "array"
+          },
+          "checks": {
+            "additionalProperties": false,
+            "properties": {
+              "ownerHoldout": {
+                "type": "boolean"
+              },
+              "ownerStandardReview": {
+                "type": "boolean"
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "versionsMatch": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ownerStandardReview",
+              "ownerHoldout",
+              "versionsMatch",
+              "ready"
+            ],
+            "type": "object"
+          },
+          "current": {
+            "additionalProperties": false,
+            "properties": {
+              "configuredForCurrent": {
+                "type": "boolean"
+              },
+              "contentHash": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "deploymentConfirmedVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "effectiveAt": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "model": {
+                "$ref": "#/components/schemas/SelectionModelIdentityInput"
+              },
+              "prefilterText": {
+                "type": "string"
+              },
+              "prefilterVersion": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "standardVersion": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "thresholdVersion": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              "thresholds": {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "standardVersion",
+              "contentHash",
+              "prefilterVersion",
+              "thresholdVersion",
+              "thresholds",
+              "text",
+              "prefilterText",
+              "deploymentConfirmedVersion",
+              "configuredForCurrent",
+              "effectiveAt",
+              "model"
+            ],
+            "type": "object"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/SelectionRecordInput"
+            },
+            "type": "array"
+          },
+          "reviewStatus": {
+            "enum": [
+              "draft",
+              "submitted",
+              "approved",
+              "changes_requested",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "submission": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SelectionSubmissionInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool": {
+            "$ref": "#/components/schemas/SelectionToolStateInput"
+          }
+        },
+        "required": [
+          "tool",
+          "current",
+          "submission",
+          "reviewStatus",
+          "records",
+          "calibrations",
+          "checks",
+          "missing"
+        ],
+        "type": "object"
+      },
+      "SelectionSubmission": {
+        "additionalProperties": false,
+        "properties": {
+          "changeNote": {
+            "type": "string"
+          },
+          "contentHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "materialReference": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "prefilterVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "standardVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "standardVersion",
+          "contentHash",
+          "prefilterVersion",
+          "thresholdVersion",
+          "submittedAt",
+          "materialReference",
+          "changeNote",
+          "synthetic"
+        ],
+        "type": "object"
+      },
+      "SelectionSubmissionInput": {
+        "additionalProperties": false,
+        "properties": {
+          "changeNote": {
+            "type": "string"
+          },
+          "contentHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "materialReference": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "prefilterVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "standardVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "submittedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "synthetic": {
+            "type": "boolean"
+          },
+          "thresholdVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "standardVersion",
+          "contentHash",
+          "prefilterVersion",
+          "thresholdVersion",
+          "submittedAt",
+          "materialReference",
+          "changeNote",
+          "synthetic"
+        ],
+        "type": "object"
+      },
+      "SelectionToolRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "expectedRevision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "expectedRevision",
+          "enabled",
+          "expiresAt",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "SelectionToolRequestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "expectedRevision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requestId",
+          "expectedRevision",
+          "enabled",
+          "expiresAt",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "SelectionToolState": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "expiresAt",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "SelectionToolStateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "expiresAt",
+          "revision"
+        ],
+        "type": "object"
+      },
       "SiteInformation": {
         "additionalProperties": false,
         "properties": {
@@ -12524,6 +14584,791 @@
             "description": "Problem response"
           },
           "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/selectbench/control": {
+      "get": {
+        "operationId": "selectionTool",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionToolState"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      },
+      "post": {
+        "operationId": "selectionToolChange",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectionToolRequestInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionToolState"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/selectbench/holdout-confirm": {
+      "post": {
+        "operationId": "selectionHoldout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectionHoldoutConfirmInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/selectbench/samples": {
+      "get": {
+        "operationId": "selectionSamples",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "datasetId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "maximum": 9007199254740991,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionSamples"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/selectbench/samples/{datasetId}/{caseId}": {
+      "post": {
+        "operationId": "selectionLabel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "datasetId",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "caseId",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectionLabelRequestInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionLabel"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/selectbench/standard-review": {
+      "post": {
+        "operationId": "selectionReview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectionStandardReviewInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/selectbench/standards": {
+      "get": {
+        "operationId": "selectionStandards",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionStandards"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/selectbench/{id}/evidence": {
+      "get": {
+        "operationId": "selectionRunEvidence",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectionRunEvidence"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
             "content": {
               "application/problem+json": {
                 "schema": {

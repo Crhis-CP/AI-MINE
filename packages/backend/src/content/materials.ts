@@ -316,3 +316,23 @@ export async function materialDateIdentityHeads(sourceId: string, identities: st
   return db<{ id: string; identity_key: string; revision: number; source_date_version: string }[]>`
     SELECT id,identity_key,revision,source_date_version FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
 }
+
+/** Freeze only the source material used by the score input; same transaction fences concurrent source revisions/date changes. */
+export async function selectionMaterialSnapshot(articleId: string, db: Db = sql) {
+  const [row] = await db<
+    {
+      id: string;
+      revision: number;
+      source_date_version: number;
+      source_id: string;
+      title: string;
+      body_text: string | null;
+      excerpt: string | null;
+      language: string | null;
+      published_at: Date | null;
+      discovered_at: Date;
+    }[]
+  >`
+  SELECT id,revision,source_date_version,source_id,title,body_text,excerpt,language,published_at,discovered_at FROM articles WHERE id=${articleId} FOR SHARE`;
+  return row ?? null;
+}

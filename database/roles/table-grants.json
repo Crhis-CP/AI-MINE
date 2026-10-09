@@ -947,6 +947,78 @@
       "permissions": {
         "private_ops": ["SELECT", "INSERT"]
       }
+    },
+    "ai.selection_tool_control": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.selection_datasets": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_samples": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_labels": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.selection_submissions": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_run_evidence": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "ai.selection_records": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.selection_commands": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
     }
   },
   "sequences": {

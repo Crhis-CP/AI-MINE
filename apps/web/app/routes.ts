@@ -55,6 +55,8 @@ const privateRoutes = [
     route("admin/settings", "routes/admin/settings-redirect.tsx"),
     route("admin/accounts", "routes/admin/accounts.tsx"),
     route("admin/account", "routes/admin/account.tsx"),
+    route("admin/selectbench", "routes/admin/selectbench.tsx"),
+    route("admin/selectbench/:runId", "routes/admin/selectbench-run.tsx"),
     route("admin/site", "routes/admin/site.tsx"),
   ]),
 ] satisfies RouteConfig;

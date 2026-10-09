@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "1966eadf5761aa3ff57c4506f783ad903eee0e56698635326e5f044acb7e0cf2",
+  "grantCatalogueSha256": "25acac9ec8004b3e10a46dea97c6e07bc9609caffc59eabdcad80000990b1566",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -493,6 +493,38 @@
     "publication.site_information_commands": {
       "module": "publication",
       "access": "business"
+    },
+    "ai.selection_tool_control": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_datasets": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_samples": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_labels": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_submissions": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_run_evidence": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_records": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.selection_commands": {
+      "module": "ai-gateway",
+      "access": "business"
     }
   },
   "externalTables": {
@@ -579,91 +611,91 @@
   },
   "splitFiles": {
     "apps/api/src/routes/admin.ts": {
-      "target": "\u5404\u6a21\u5757 privateRoutes\uff1asources\uff08\u5217\u8868/\u8be6\u60c5/\u65b0\u5efa/\u4fee\u6539\uff09\u3001acquisition\uff08\u8bd5\u6293\uff09\u3001editorial\uff08\u5185\u5bb9\u4e0b\u67b6\u4e0e\u4fee\u8ba2\uff09\u3001feedback\u3001ai-gateway\uff08\u9884\u7b97\u4e0e\u6a21\u578b\uff09\u3001publication\uff08\u7ad9\u70b9\u8d44\u6599\uff09\u3001platform/identity\uff08\u8d26\u53f7\uff09",
+      "target": "各模块 privateRoutes：sources（列表/详情/新建/修改）、acquisition（试抓）、editorial（内容下架与修订）、feedback、ai-gateway（预算与模型）、publication（站点资料）、platform/identity（账号）",
       "appendixLine": 61
     },
     "apps/api/src/routes/site.ts": {
-      "target": "publication\uff08\u8bfb\u8005\u6570\u636e\u3001\u66f4\u65b0\u65e5\u5fd7\u3001\u7ad9\u70b9\u8d44\u6599\uff09",
+      "target": "publication（读者数据、更新日志、站点资料）",
       "appendixLine": 69
     },
     "apps/api/src/routes/static.ts": {
-      "target": "publication\uff08sitemap\u3001llms\u3001robots\u3001manifest\u3001OpenAPI\u3001\u56fe\u6807\u3001security.txt\u3001IndexNow key\uff09",
+      "target": "publication（sitemap、llms、robots、manifest、OpenAPI、图标、security.txt、IndexNow key）",
       "appendixLine": 70
     },
     "apps/web/app/app.css": {
-      "target": "ui\uff08\u4ee4\u724c\u3001\u57fa\u7840\u6837\u5f0f\uff09+ \u5404 feature",
+      "target": "ui（令牌、基础样式）+ 各 feature",
       "appendixLine": 96
     },
     "apps/web/app/components/shell/nav.ts": {
-      "target": "\u516c\u5f00\u4e0e\u79c1\u6709\u8def\u7531\u7ec4\u5404\u4e00\u4efd",
+      "target": "公开与私有路由组各一份",
       "appendixLine": 107
     },
     "apps/web/app/root.tsx": {
-      "target": "\u516c\u5f00\u6839\u4e0e\u79c1\u6709\u8def\u7531\u7ec4\u6839",
+      "target": "公开根与私有路由组根",
       "appendixLine": 94
     },
     "apps/web/app/routes.ts": {
-      "target": "\u516c\u5f00/\u79c1\u6709\u8def\u7531\u7ec4\u5404\u4e00\u4efd\u6e05\u5355 + app/features/<f>/routes.ts",
+      "target": "公开/私有路由组各一份清单 + app/features/<f>/routes.ts",
       "appendixLine": 95
     },
     "apps/web/app/routes/admin/settings.tsx": {
-      "target": "\u7528\u91cf\u4e0e\u7194\u65ad \u2192 OP-13\uff1b\u544a\u8b66\u6e20\u9053 \u2192 OP-20\uff1b\u7f51\u7ad9\u8d44\u6599 \u2192 OP-17",
+      "target": "用量与熔断 → OP-13；告警渠道 → OP-20；网站资料 → OP-17",
       "appendixLine": 168
     },
     "apps/web/tests/cache.test.ts": {
-      "target": "apps/web\uff08\u516c\u5f00\u7f13\u5b58\u90e8\u5206 + \u79c1\u6709\u8def\u7531\u7ec4 no-store \u90e8\u5206\uff09",
+      "target": "apps/web（公开缓存部分 + 私有路由组 no-store 部分）",
       "appendixLine": 178
     },
     "apps/web/tests/request-cancellation.test.ts": {
-      "target": "apps/web\uff08\u516c\u5f00\u3001\u79c1\u6709\u4e24\u90e8\u5206\uff09",
+      "target": "apps/web（公开、私有两部分）",
       "appendixLine": 181
     },
     "apps/worker/src/schedules.ts": {
-      "target": "\u5404\u6a21\u5757 jobs.ts",
+      "target": "各模块 jobs.ts",
       "appendixLine": 80
     },
     "packages/backend/src/admin/content.ts": {
-      "target": "editorial\uff08\u67e5\u627e\u3001\u94fe\u8def\u3001\u4e0b\u67b6\u4e0e\u4eba\u5de5\u4fee\u8ba2\uff09+ publication\uff08setSeoIndexed\uff09+ content/enrichment\uff08rerun \u7684\u5404\u6b65\u9aa4\uff09",
+      "target": "editorial（查找、链路、下架与人工修订）+ publication（setSeoIndexed）+ content/enrichment（rerun 的各步骤）",
       "appendixLine": 310
     },
     "packages/backend/src/admin/runs.ts": {
-      "target": "platform/ops\uff08\u6295\u9012\u6838\u5b9e\uff09+ ai-gateway\uff08\u56de\u6267\u6838\u5bf9\uff09+ content\uff08\u5931\u8d25\u91cd\u6392\uff09",
+      "target": "platform/ops（投递核实）+ ai-gateway（回执核对）+ content（失败重排）",
       "appendixLine": 313
     },
     "packages/backend/src/admin/settings.ts": {
-      "target": "ai-gateway\uff08\u7528\u91cf\u4e0e\u7194\u65ad\u914d\u7f6e\uff09+ platform/ops\uff08\u544a\u8b66\u6e20\u9053\uff09",
+      "target": "ai-gateway（用量与熔断配置）+ platform/ops（告警渠道）",
       "appendixLine": 315
     },
     "packages/backend/src/admin/sources.ts": {
-      "target": "sources\uff08\u5217\u8868\u3001\u8be6\u60c5\u3001\u4fee\u6539\u3001\u5224\u91cd\u3001\u65b0\u5efa\uff09+ acquisition\uff08\u8bd5\u6293\u3001\u7acb\u5373\u91c7\u96c6\uff09",
+      "target": "sources（列表、详情、修改、判重、新建）+ acquisition（试抓、立即采集）",
       "appendixLine": 316
     },
     "packages/backend/src/jobs/content.ts": {
-      "target": "content\uff08queueProcessing\u3001sweepUnprocessed\u3001requeueFailed\u3001failureGroupSql\u3001\u6b63\u6587\u62bd\u53d6\u4efb\u52a1\uff09+ enrichment\uff08processArticle\u3001registerContentJobs\u3001settleNonEditorial\uff09",
+      "target": "content（queueProcessing、sweepUnprocessed、requeueFailed、failureGroupSql、正文抽取任务）+ enrichment（processArticle、registerContentJobs、settleNonEditorial）",
       "appendixLine": 241
     },
     "packages/backend/src/jobs/queue.ts": {
-      "target": "platform/queue\uff08\u961f\u5217\u3001\u505c\u673a\u4fe1\u53f7\u3001outbox\uff09+ platform/ops\uff08recordRun\uff09+ \u5404\u6a21\u5757 jobs.ts\uff08\u961f\u5217\u5b9a\u4e49\uff09",
+      "target": "platform/queue（队列、停机信号、outbox）+ platform/ops（recordRun）+ 各模块 jobs.ts（队列定义）",
       "appendixLine": 240
     },
     "packages/backend/src/lib/text.ts": {
-      "target": "SSRF \u4e0e\u5185\u7f51\u5224\u5b9a\u3001guardedLookup \u2192 acquisition\uff08fetch \u8fd0\u884c\u65f6\uff09\uff1bnormalizeUrl/identityKeyForUrl \u2192 content\uff1btext.ts \u2192 \u4f7f\u7528\u65b9",
+      "target": "SSRF 与内网判定、guardedLookup → acquisition（fetch 运行时）；normalizeUrl/identityKeyForUrl → content；text.ts → 使用方",
       "appendixLine": 204
     },
     "packages/backend/src/lib/url.ts": {
-      "target": "SSRF \u4e0e\u5185\u7f51\u5224\u5b9a\u3001guardedLookup \u2192 acquisition\uff08fetch \u8fd0\u884c\u65f6\uff09\uff1bnormalizeUrl/identityKeyForUrl \u2192 content\uff1btext.ts \u2192 \u4f7f\u7528\u65b9",
+      "target": "SSRF 与内网判定、guardedLookup → acquisition（fetch 运行时）；normalizeUrl/identityKeyForUrl → content；text.ts → 使用方",
       "appendixLine": 204
     },
     "packages/backend/src/providers/embeddings.ts": {
-      "target": "ai-gateway\uff08\u8c03\u7528\uff09+ events\uff08\u5b58\u50a8\u4e0e\u53ec\u56de\uff09",
+      "target": "ai-gateway（调用）+ events（存储与召回）",
       "appendixLine": 207
     },
     "packages/backend/src/sources/types.ts": {
-      "target": "sources\uff08\u4fe1\u6e90\u7c7b\u578b\uff09+ acquisition\uff08\u5019\u9009\u4e0e\u6293\u53d6\u9519\u8bef\uff09",
+      "target": "sources（信源类型）+ acquisition（候选与抓取错误）",
       "appendixLine": 224
     },
     "packages/contracts/src/site.ts": {
-      "target": "packages/contracts/src/<module>/\uff08Zod\uff09",
+      "target": "packages/contracts/src/<module>/（Zod）",
       "appendixLine": 336
     }
   }

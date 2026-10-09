@@ -7,6 +7,9 @@ import { usageProtectionSchemas, usageProtectionRoutes } from "./usage-protectio
 export * from "./usage-protection.ts";
 import { siteInformationPrivateSchemas, siteInformationPrivateRoutes } from "./site-information.ts";
 export { SiteInformation, SiteInformationUpdate, ProtectedSiteInformation, AdminSiteInformation } from "./site-information.ts";
+import { selectionCalibrationSchemas, selectionCalibrationRoutes } from "./selection-calibration.ts";
+export * from "./selection-calibration.ts";
+
 import { modelRegistrySchemas, modelRegistryRoutes } from "./model-registry.ts";
 export * from "./model-registry.ts";
 import { accountRoutes, accountSchemas } from "./accounts.ts";
@@ -190,6 +193,8 @@ export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 export const schemas = {
   ...sourceTargetsSchemas,
   ...siteInformationPrivateSchemas,
+  ...selectionCalibrationSchemas,
+
   ...accountSchemas,
   ...usageProtectionSchemas,
   ...usageMonthlySchemas,
@@ -213,6 +218,8 @@ export const schemas = {
 export const routes = {
   ...sourceTargetsRoutes,
   ...siteInformationPrivateRoutes,
+  ...selectionCalibrationRoutes,
+
   ...accountRoutes,
   ...usageProtectionRoutes,
   ...usageMonthlyRoutes,

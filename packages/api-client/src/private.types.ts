@@ -271,6 +271,118 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/selectbench/{id}/evidence": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["selectionRunEvidence"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/selectbench/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["selectionTool"];
+    put?: never;
+    post: operations["selectionToolChange"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/selectbench/holdout-confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["selectionHoldout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/selectbench/samples": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["selectionSamples"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/selectbench/samples/{datasetId}/{caseId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["selectionLabel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/selectbench/standard-review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["selectionReview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/selectbench/standards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["selectionStandards"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/site": {
     parameters: {
       query?: never;
@@ -1676,6 +1788,384 @@ export interface components {
       /** @constant */
       status: "failed";
       subject: string | null;
+    };
+    SelectionCalibrationSummary: {
+      accuracy: number | null;
+      datasetVersion: string | null;
+      label: string;
+      mistakes: number | null;
+      model: string;
+      modelConfigurationHash: string | null;
+      /** @enum {string} */
+      origin: "trusted_runner" | "legacy_or_upload";
+      ownerConfirmedAt: string | null;
+      precision: number | null;
+      prefilterVersion: string | null;
+      /** Format: date-time */
+      ranAt: string;
+      recall: number | null;
+      runId: string;
+      sampleCount: number | null;
+      split: string | null;
+      standardVersion: string | null;
+      synthetic: boolean;
+      thresholdVersion: string | null;
+    };
+    SelectionCalibrationSummaryInput: {
+      accuracy: number | null;
+      datasetVersion: string | null;
+      label: string;
+      mistakes: number | null;
+      model: string;
+      modelConfigurationHash: string | null;
+      /** @enum {string} */
+      origin: "trusted_runner" | "legacy_or_upload";
+      ownerConfirmedAt: string | null;
+      precision: number | null;
+      prefilterVersion: string | null;
+      /** Format: date-time */
+      ranAt: string;
+      recall: number | null;
+      runId: string;
+      sampleCount: number | null;
+      split: string | null;
+      standardVersion: string | null;
+      synthetic: boolean;
+      thresholdVersion: string | null;
+    };
+    SelectionHoldoutConfirm: {
+      evidenceHash: string;
+      model: string;
+      note: string;
+      /** Format: uuid */
+      requestId: string;
+      runId: string;
+    };
+    SelectionHoldoutConfirmInput: {
+      evidenceHash: string;
+      model: string;
+      note: string;
+      /** Format: uuid */
+      requestId: string;
+      runId: string;
+    };
+    SelectionLabel: {
+      actor: string;
+      /** Format: date-time */
+      at: string;
+      /** @enum {string} */
+      decision: "select" | "reject" | "either";
+      note: string;
+      revision: number;
+    };
+    SelectionLabelInput: {
+      actor: string;
+      /** Format: date-time */
+      at: string;
+      /** @enum {string} */
+      decision: "select" | "reject" | "either";
+      note: string;
+      revision: number;
+    };
+    SelectionLabelRequest: {
+      /** @enum {string} */
+      decision: "select" | "reject" | "either";
+      expectedRevision: number;
+      note: string;
+      /** Format: uuid */
+      requestId: string;
+      sampleRevision: number;
+    };
+    SelectionLabelRequestInput: {
+      /** @enum {string} */
+      decision: "select" | "reject" | "either";
+      expectedRevision: number;
+      note: string;
+      /** Format: uuid */
+      requestId: string;
+      sampleRevision: number;
+    };
+    SelectionModelIdentity: {
+      configurationHash: string | null;
+      model: string;
+      reason: string | null;
+      /** @enum {string} */
+      state: "known" | "unknown";
+    };
+    SelectionModelIdentityInput: {
+      configurationHash: string | null;
+      model: string;
+      reason: string | null;
+      /** @enum {string} */
+      state: "known" | "unknown";
+    };
+    SelectionRecord: {
+      accuracy: number | null;
+      actor: string;
+      /** Format: date-time */
+      at: string;
+      contentHash: string;
+      id: string;
+      /** @enum {string} */
+      kind: "standard_review" | "holdout" | "calibration";
+      mistakes: number | null;
+      model: string | null;
+      modelConfigurationHash: string | null;
+      note: string;
+      precision: number | null;
+      prefilterVersion: string;
+      recall: number | null;
+      runId: string | null;
+      sampleCount: number | null;
+      standardVersion: string;
+      /** @enum {string} */
+      status: "approved" | "changes_requested" | "rejected" | "confirmed";
+      submissionId: string | null;
+      synthetic: boolean;
+      thresholdVersion: string;
+    };
+    SelectionRecordInput: {
+      accuracy: number | null;
+      actor: string;
+      /** Format: date-time */
+      at: string;
+      contentHash: string;
+      id: string;
+      /** @enum {string} */
+      kind: "standard_review" | "holdout" | "calibration";
+      mistakes: number | null;
+      model: string | null;
+      modelConfigurationHash: string | null;
+      note: string;
+      precision: number | null;
+      prefilterVersion: string;
+      recall: number | null;
+      runId: string | null;
+      sampleCount: number | null;
+      standardVersion: string;
+      /** @enum {string} */
+      status: "approved" | "changes_requested" | "rejected" | "confirmed";
+      submissionId: string | null;
+      synthetic: boolean;
+      thresholdVersion: string;
+    };
+    SelectionRunEvidence: {
+      datasetId: string | null;
+      datasetVersion: string | null;
+      missing: string[];
+      modelConfigurations: {
+        [key: string]: string | null;
+      };
+      models: {
+        confirmable: boolean;
+        evidenceHash: string;
+        missing: string[];
+        model: string;
+      }[];
+      /** @enum {string} */
+      origin: "trusted_runner" | "legacy_or_upload";
+      prefilterVersion: string | null;
+      runId: string;
+      standardVersion: string | null;
+      synthetic: boolean;
+      thresholdVersion: string | null;
+    };
+    SelectionRunEvidenceInput: {
+      datasetId: string | null;
+      datasetVersion: string | null;
+      missing: string[];
+      modelConfigurations: {
+        [key: string]: string | null;
+      };
+      models: {
+        confirmable: boolean;
+        evidenceHash: string;
+        missing: string[];
+        model: string;
+      }[];
+      /** @enum {string} */
+      origin: "trusted_runner" | "legacy_or_upload";
+      prefilterVersion: string | null;
+      runId: string;
+      standardVersion: string | null;
+      synthetic: boolean;
+      thresholdVersion: string | null;
+    };
+    SelectionSample: {
+      caseId: string;
+      datasetId: string;
+      label: components["schemas"]["SelectionLabel"] | null;
+      materialCurrent: boolean;
+      sampleRevision: number;
+      scorerInput: string;
+      /** @enum {string} */
+      split: "development" | "holdout";
+      stratum: string | null;
+      synthetic: boolean;
+    };
+    SelectionSampleInput: {
+      caseId: string;
+      datasetId: string;
+      label: components["schemas"]["SelectionLabelInput"] | null;
+      materialCurrent: boolean;
+      sampleRevision: number;
+      scorerInput: string;
+      /** @enum {string} */
+      split: "development" | "holdout";
+      stratum: string | null;
+      synthetic: boolean;
+    };
+    SelectionSamples: {
+      datasetId: string | null;
+      datasetLabel: string | null;
+      page: number;
+      pageSize: number;
+      samples: components["schemas"]["SelectionSample"][];
+      synthetic: boolean;
+      total: number;
+    };
+    SelectionSamplesInput: {
+      datasetId: string | null;
+      datasetLabel: string | null;
+      page: number;
+      pageSize: number;
+      samples: components["schemas"]["SelectionSampleInput"][];
+      synthetic: boolean;
+      total: number;
+    };
+    SelectionStandardReview: {
+      contentHash: string;
+      /** @enum {string} */
+      decision: "approved" | "changes_requested" | "rejected";
+      note: string;
+      /** @constant */
+      readComparison: true;
+      /** Format: uuid */
+      requestId: string;
+      standardVersion: string;
+      submissionId: string;
+    };
+    SelectionStandardReviewInput: {
+      contentHash: string;
+      /** @enum {string} */
+      decision: "approved" | "changes_requested" | "rejected";
+      note: string;
+      /** @constant */
+      readComparison: true;
+      /** Format: uuid */
+      requestId: string;
+      standardVersion: string;
+      submissionId: string;
+    };
+    SelectionStandards: {
+      calibrations: components["schemas"]["SelectionCalibrationSummary"][];
+      checks: {
+        ownerHoldout: boolean;
+        ownerStandardReview: boolean;
+        ready: boolean;
+        versionsMatch: boolean;
+      };
+      current: {
+        configuredForCurrent: boolean;
+        contentHash: string;
+        deploymentConfirmedVersion: string | null;
+        effectiveAt: string | null;
+        model: components["schemas"]["SelectionModelIdentity"];
+        prefilterText: string;
+        prefilterVersion: string;
+        standardVersion: string;
+        text: string;
+        thresholds: {
+          [key: string]: number;
+        };
+        thresholdVersion: string;
+      };
+      missing: string[];
+      records: components["schemas"]["SelectionRecord"][];
+      /** @enum {string} */
+      reviewStatus: "draft" | "submitted" | "approved" | "changes_requested" | "rejected";
+      submission: components["schemas"]["SelectionSubmission"] | null;
+      tool: components["schemas"]["SelectionToolState"];
+    };
+    SelectionStandardsInput: {
+      calibrations: components["schemas"]["SelectionCalibrationSummaryInput"][];
+      checks: {
+        ownerHoldout: boolean;
+        ownerStandardReview: boolean;
+        ready: boolean;
+        versionsMatch: boolean;
+      };
+      current: {
+        configuredForCurrent: boolean;
+        contentHash: string;
+        deploymentConfirmedVersion: string | null;
+        effectiveAt: string | null;
+        model: components["schemas"]["SelectionModelIdentityInput"];
+        prefilterText: string;
+        prefilterVersion: string;
+        standardVersion: string;
+        text: string;
+        thresholds: {
+          [key: string]: number;
+        };
+        thresholdVersion: string;
+      };
+      missing: string[];
+      records: components["schemas"]["SelectionRecordInput"][];
+      /** @enum {string} */
+      reviewStatus: "draft" | "submitted" | "approved" | "changes_requested" | "rejected";
+      submission: components["schemas"]["SelectionSubmissionInput"] | null;
+      tool: components["schemas"]["SelectionToolStateInput"];
+    };
+    SelectionSubmission: {
+      changeNote: string;
+      contentHash: string;
+      id: string;
+      materialReference: string;
+      prefilterVersion: string;
+      standardVersion: string;
+      /** Format: date-time */
+      submittedAt: string;
+      synthetic: boolean;
+      thresholdVersion: string;
+    };
+    SelectionSubmissionInput: {
+      changeNote: string;
+      contentHash: string;
+      id: string;
+      materialReference: string;
+      prefilterVersion: string;
+      standardVersion: string;
+      /** Format: date-time */
+      submittedAt: string;
+      synthetic: boolean;
+      thresholdVersion: string;
+    };
+    SelectionToolRequest: {
+      enabled: boolean;
+      expectedRevision: number;
+      expiresAt: string | null;
+      reason: string;
+      /** Format: uuid */
+      requestId: string;
+    };
+    SelectionToolRequestInput: {
+      enabled: boolean;
+      expectedRevision: number;
+      expiresAt: string | null;
+      reason: string;
+      /** Format: uuid */
+      requestId: string;
+    };
+    SelectionToolState: {
+      enabled: boolean;
+      expiresAt: string | null;
+      revision: number;
+    };
+    SelectionToolStateInput: {
+      enabled: boolean;
+      expiresAt: string | null;
+      revision: number;
     };
     SiteInformation: {
       about: string;
@@ -3956,6 +4446,694 @@ export interface operations {
       };
       /** @description Problem response */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionRunEvidence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionRunEvidence"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionTool: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionToolState"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionToolChange: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SelectionToolRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionToolState"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionHoldout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SelectionHoldoutConfirmInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionSamples: {
+    parameters: {
+      query?: {
+        datasetId?: string;
+        page?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionSamples"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionLabel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        caseId: string;
+        datasetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SelectionLabelRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionLabel"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionReview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SelectionStandardReviewInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  selectionStandards: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionStandards"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
         headers: {
           [name: string]: unknown;
         };

@@ -4,7 +4,8 @@ import { readFile } from "node:fs/promises";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { actorOf, requireOwner, requireCapability } from "@amp/backend/admin/auth";
 
-import { importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
+import { registerSelectionCalibration } from "./selection-calibration.ts";
+import { withSelectionTool, importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
 import {
   modelsOverview,
   switchModel,
@@ -66,6 +67,7 @@ const modelGuards: ModelRegistryGuards = {
 };
 
 export function registerAdmin(app: FastifyInstance) {
+  registerSelectionCalibration(app);
   app.get(
     contracts.modelRegistry.url,
     contracts.modelRegistry,
@@ -349,24 +351,26 @@ export function registerAdmin(app: FastifyInstance) {
   // SelectBench
   app.get(
     "/api/admin/selectbench",
-    adminHandler(async () => ({ runs: await listSelectBenchRuns() })),
+    adminHandler(async (_req, _reply, principal) => withSelectionTool(principal, async (tx) => ({ runs: await listSelectBenchRuns(tx) }))),
   );
   app.get(
     "/api/admin/selectbench/:id",
-    adminHandler(async (req, reply) => {
-      const f = q(req);
-      return orNotFound(
-        req,
-        reply,
-        await selectBenchRun(param(req, "id"), { model: f.model, outcome: f.outcome, stratum: f.stratum, disagree: f.disagree === "1" }),
-      );
-    }),
+    adminHandler(async (req, reply, principal) =>
+      withSelectionTool(principal, async (tx) => {
+        const f = q(req);
+        return orNotFound(
+          req,
+          reply,
+          await selectBenchRun(param(req, "id"), { model: f.model, outcome: f.outcome, stratum: f.stratum, disagree: f.disagree === "1" }, tx),
+        );
+      }),
+    ),
   );
   app.post(
     "/api/admin/selectbench/import",
     adminHandler(async (req, _reply, admin) => {
       const b = body<{ label: string; report: unknown }>(req);
-      return importSelectBenchRun(b.report, String(b.label || "导入的对比运行"), actorOf(admin));
+      return withSelectionTool(admin, (tx) => importSelectBenchRun(b.report, String(b.label || "导入的对比运行"), actorOf(admin), tx));
     }),
   );
 
