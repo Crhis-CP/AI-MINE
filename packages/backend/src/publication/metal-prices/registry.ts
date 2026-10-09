@@ -7,13 +7,27 @@ import { z } from "zod";
 import { REPO_ROOT } from "../../config.ts";
 
 /** Hard rule 3: the only hosts a fetch address or release link may use; each source lists its own from these. */
-export const METAL_PRICE_HOSTS = ["www.stats.gov.cn", "www.worldbank.org", "thedocs.worldbank.org", "www.imf.org", "www.cbr.ru", "bank.gov.ua"] as const;
+export const METAL_PRICE_HOSTS = [
+  "www.stats.gov.cn",
+  "www.worldbank.org",
+  "thedocs.worldbank.org",
+  "www.imf.org",
+  "www.cbr.ru",
+  "bank.gov.ua",
+  "cif.mofcom.gov.cn",
+] as const;
 
-const SOURCE_KEYS = ["nbs", "worldbank", "imf", "cbr"] as const;
+const SOURCE_KEYS = ["nbs", "worldbank", "imf", "cbr", "mofcom"] as const;
 export type MetalPriceSourceKey = (typeof SOURCE_KEYS)[number];
 /** Series key prefix and period type of each source: the same pairs publication.metal_prices checks. */
-const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = { nbs: "nbs", worldbank: "wb", imf: "imf", cbr: "cbr" };
-const PERIOD_TYPE: Record<MetalPriceSourceKey, "ten_day" | "month" | "day"> = { nbs: "ten_day", worldbank: "month", imf: "month", cbr: "day" };
+const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = { nbs: "nbs", worldbank: "wb", imf: "imf", cbr: "cbr", mofcom: "mofcom" };
+const PERIOD_TYPE: Record<MetalPriceSourceKey, "ten_day" | "month" | "day" | "week"> = {
+  nbs: "ten_day",
+  worldbank: "month",
+  imf: "month",
+  cbr: "day",
+  mofcom: "week",
+};
 
 const text = z.string().regex(/\S/, "must not be blank");
 const texts = z.array(text).min(1);
@@ -27,7 +41,7 @@ const Source = z.strictObject({
   key: z.enum(SOURCE_KEYS),
   name: text,
   section: z.enum(["domestic", "international"]),
-  frequency: z.enum(["ten_day", "month", "day"]),
+  frequency: z.enum(["ten_day", "month", "day", "week"]),
   currency: z.enum(["CNY", "USD", "RUB"]),
   delay: text,
   staleDays: z.int().positive(),
@@ -43,10 +57,11 @@ const Source = z.strictObject({
 });
 
 const Item = z.strictObject({
-  key: z.string().regex(/^(nbs|wb|imf|cbr)\.[a-z0-9_]+$/),
+  key: z.string().regex(/^(nbs|wb|imf|cbr|mofcom)\.[a-z0-9_]+$/),
   source: z.enum(SOURCE_KEYS),
   /** The product name as the source writes it, matched exactly after normalizeSourceName. */
   sourceName: text,
+  sourceId: z.string().regex(/^\d+$/).optional(),
   name: text,
   grade: text.optional(),
   metal: text.optional(),
@@ -122,6 +137,7 @@ const Registry = z
     }
     for (const [i, item] of items.entries()) {
       const source = sources.find((candidate) => candidate.key === item.source);
+      if ((item.source === "mofcom") !== (item.sourceId !== undefined)) issue(["items", i, "sourceId"], "sourceId is required only for mofcom");
       if (item.enabled && !item.rate && !item.metal) issue(["items", i, "metal"], "enabled item needs a metal");
       if (item.enabled && !item.rate && !item.quote) issue(["items", i, "quote"], "enabled item needs a quote");
       if (item.metal && !metals.some((metal) => metal.key === item.metal)) issue(["items", i, "metal"], "unknown metal");

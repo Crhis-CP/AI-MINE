@@ -22,6 +22,30 @@
       "sourceUnit": "吨"
     },
     {
+      "key": "mofcom",
+      "name": "商务部“商务预报”",
+      "section": "domestic",
+      "frequency": "week",
+      "currency": "CNY",
+      "delay": "数据日期之后数日更新",
+      "staleDays": 21,
+      "hosts": ["cif.mofcom.gov.cn"],
+      "officialUrl": "https://cif.mofcom.gov.cn/cif/html/dataCenter2021/index.html?jgsczlzdjc_yousejinshu_224011",
+      "terms": {
+        "name": "商务预报转载说明",
+        "url": "https://cif.mofcom.gov.cn/cif/html//sczldt_pc/2026/9/1790747534085.html"
+      },
+      "attribution": ["信息来源：商务预报"],
+      "license": [
+        "商务预报网站文章页的版权说明写明：注明“信息来源:商务部市场运行和消费促进司”的作品，转载时请注明“信息来源:商务预报”；数据页生产资料周度区块标的是“数据来源：商务部内贸统计监测平台”，没有另写条款，本站据文章页的这一条使用，照发布的原数显示，不换算单位、不四舍五入。",
+        "本站不授权任何人转载或再使用本栏数据；需要使用，请到商务预报网站查阅原数。",
+        "商务预报每周给一个日期和价格，没有说明该日期对应的周区间与统计取值方法；本站只写来源日期，不推算周区间与统计含义。"
+      ],
+      "benchmark": "商务预报公布的全国价格",
+      "unit": "元/吨",
+      "sourceUnit": "元/吨"
+    },
+    {
       "key": "worldbank",
       "name": "世界银行",
       "section": "international",
@@ -49,7 +73,7 @@
       "staleDays": 14,
       "hosts": ["www.cbr.ru", "bank.gov.ua"],
       "officialUrl": "https://www.cbr.ru/hd_base/metall/metall_base_new/",
-      "terms": { "name": "俄罗斯银行网站使用条件", "url": "https://www.cbr.ru/about/" },
+      "terms": { "name": "俄罗斯银行：关于网站（О сайте）", "url": "https://www.cbr.ru/about/" },
       "attribution": ["来源：俄罗斯银行（Bank of Russia）贵金属核算价 https://www.cbr.ru/hd_base/metall/metall_base_new/"],
       "license": [
         "俄罗斯银行网站的资料可以注明来源转载；网络媒体要链接到具体页面，本站在脚注里链接贵金属核算价的数据页。",
@@ -324,6 +348,36 @@
       "benchmark": "俄罗斯银行官方汇率",
       "unit": "卢布/美元",
       "sourceUnit": "卢布/美元"
+    },
+    {
+      "key": "mofcom.copper",
+      "source": "mofcom",
+      "sourceId": "224011",
+      "sourceName": "铜（1#）",
+      "name": "铜",
+      "grade": "1#",
+      "metal": "copper",
+      "quote": "国内 · 铜 1#"
+    },
+    {
+      "key": "mofcom.aluminum",
+      "source": "mofcom",
+      "sourceId": "224012",
+      "sourceName": "铝（A00）",
+      "name": "铝",
+      "grade": "A00",
+      "metal": "aluminum",
+      "quote": "国内 · 铝 A00"
+    },
+    {
+      "key": "mofcom.zinc",
+      "source": "mofcom",
+      "sourceId": "224014",
+      "sourceName": "锌（1#）",
+      "name": "锌",
+      "grade": "1#",
+      "metal": "zinc",
+      "quote": "国内 · 锌 1#"
     }
   ],
   "metals": [
@@ -343,6 +397,11 @@
   "intro": "官方机构定期发布的金属价格，注明出处。不是实时行情。",
   "frequencies": [
     { "key": "day", "tag": "日", "compare": "日价比上一个定价日" },
+    {
+      "key": "week",
+      "tag": "周",
+      "compare": "周价比上一周"
+    },
     { "key": "ten_day", "tag": "旬", "compare": "旬价比上一旬" },
     { "key": "month", "tag": "月", "compare": "月价比上个月" }
   ],
@@ -361,8 +420,12 @@
     { "text": "每行前面的“{tags}”表示多久更新一次；旬是每月的上、中、下旬，约十天一期。" },
     { "text": "“电解铜 1#”“铝锭 A00”这类是国内常用的牌号，下面一行写的是该牌号的最低纯度。盎司指金衡盎司，约 31.1 克。" },
     {
-      "text": "国内价格来自国家统计局每旬发布的流通领域重要生产资料市场价格（数据来源：中国统计信息服务中心、卓创资讯），转自国家统计局网站 https://www.stats.gov.cn。",
+      "text": "国内每旬价格来自国家统计局发布的流通领域重要生产资料市场价格（数据来源：中国统计信息服务中心、卓创资讯），转自国家统计局网站 https://www.stats.gov.cn。",
       "sources": ["nbs"]
+    },
+    {
+      "text": "国内每周价格来自商务部“商务预报”网站公布的铜、铝、锌全国价格，信息来源：商务预报。",
+      "sources": ["mofcom"]
     },
     {
       "text": "国际价格来自世界银行每月发布的大宗商品价格（Pink Sheet，按 {link} 许可使用），表中是它公布的月平均价；铜、铝、锌、铅、锡、镍是它写明的 LME 结算价。品种名称与规格由本站翻译，数值保留两位小数。",
@@ -374,6 +437,11 @@
   ],
   "officialLinks": [
     { "name": "国家统计局 数据发布", "note": "流通领域重要生产资料市场价格，每旬发布。", "url": "https://www.stats.gov.cn/sj/zxfb/index.html" },
+    {
+      "name": "商务部 商务预报",
+      "note": "铜、铝、锌的全国价格，每周更新。",
+      "url": "https://cif.mofcom.gov.cn/cif/html/dataCenter2021/index.html?jgsczlzdjc_yousejinshu_224011"
+    },
     { "name": "世界银行 大宗商品价格", "note": "每月发布的大宗商品价格（Pink Sheet）。", "url": "https://www.worldbank.org/en/research/commodity-markets" },
     { "name": "IMF 初级商品价格", "note": "国际货币基金组织每月发布的初级商品价格数据。", "url": "https://www.imf.org/en/research/commodity-prices" },
     { "name": "LME 官方金属行情", "note": "铜、铝、镍、锌、铅、锡等金属的官方信息。", "url": "https://www.lme.com/metals" },

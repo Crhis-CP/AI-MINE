@@ -1,9 +1,11 @@
-// CBR registry, storage shape and daily refresh: synthetic local values until TASK-0089 adds recorded fixtures.
+// CBR registry, storage shape and daily refresh; recorded XML is local official capture, never a live test request.
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
+import { cbrFetcher } from "../packages/backend/src/publication/metal-prices/cbr.ts";
+import type { PageGetter } from "../packages/backend/src/publication/metal-prices/types.ts";
 import { refreshMetalPrices } from "../packages/backend/src/publication/metal-prices/refresh.ts";
 import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
 import type { FetchedPeriod } from "../packages/backend/src/publication/metal-prices/types.ts";
@@ -186,4 +188,148 @@ test("fetcher notes precede check notes and a held daily fixing leaves later day
     (await sql`SELECT DISTINCT period_start::text AS day FROM publication.metal_prices`).map((r) => r.day),
     ["2026-10-02"],
   );
+});
+
+const xmlBytes = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/cbr/${name}.xml`, import.meta.url));
+const decode = (bytes: Buffer) => new TextDecoder("windows-1251").decode(bytes);
+const metalXml = decode(xmlBytes("metal"));
+const usdXml = (date: string) => decode(xmlBytes(`usd-${date}`));
+const NOW = new Date("2026-10-06T02:00:00Z"),
+  EARLIER = new Date("2026-10-03T02:00:00Z");
+const LIST = "https://www.cbr.ru/scripts/xml_metall.asp?date_req1=05/09/2026&date_req2=06/10/2026";
+function recorded(opts: { metal?: string; usd?: Record<string, string>; status?: number; url?: string; utf8?: boolean } = {}) {
+  const calls: string[] = [];
+  const get: PageGetter = async (url, options) => {
+    calls.push(url);
+    assert.equal(options?.maxRedirects, 0);
+    const date = new URL(url).searchParams.get("date_req")?.split("/").reverse().join("-");
+    const bytes = date ? xmlBytes(`usd-${date}`) : xmlBytes("metal");
+    const text = date
+      ? (opts.usd?.[date] ?? (opts.utf8 ? bytes.toString("utf8") : decode(bytes)))
+      : (opts.metal ?? (opts.utf8 ? bytes.toString("utf8") : metalXml));
+    return { url: opts.url ?? url, status: opts.status ?? 200, text: () => text };
+  };
+  return { get, calls };
+}
+const capture = async (get: PageGetter = recorded().get, now = NOW) => (await refreshMetalPrices({ registry: only(), get, now })).cbr;
+const rows = () =>
+  sql`SELECT series_key, value::text AS value, unit, source_unit, currency, period_type, period_start::text, period_end::text, period_label, release_label, release_url, released_on FROM publication.metal_prices ORDER BY period_start, series_key`;
+
+test("recorded CBR XML stores the latest two fixing days as raw RUB values and source release facts", async () => {
+  const get = recorded(),
+    result = await capture(get.get),
+    data = await rows();
+  assert.deepEqual([result.ok, result.inserted, get.calls[0]], [true, 10, LIST]);
+  const expected = {
+    "2026-10-02": ["11143.31", "3204.64", "4636.32", "163.51", "83.4839"],
+    "2026-10-05": ["11441.31", "3267.29", "4761.6", "166.66", "84.9309"],
+  };
+  for (const [date, values] of Object.entries(expected)) {
+    const period = data.filter((r) => r.period_start === date),
+      effective = date === "2026-10-02" ? "03" : "06";
+    assert.deepEqual(
+      period.map((r) => r.value),
+      values,
+    );
+    assert.ok(period.every((r) => r.currency === "RUB" && r.period_type === "day" && r.period_end === date && r.released_on === null));
+    assert.ok(period.every((r) => r.unit === (r.series_key === "cbr.usd" ? "卢布/美元" : "卢布/克") && r.source_unit === r.unit));
+    assert.ok(
+      period.every(
+        (r) => r.period_label === `2026年10月${Number(date.slice(-2))}日定价` && r.release_label === `俄罗斯银行 2026年10月${Number(effective)}日起适用`,
+      ),
+    );
+    assert.ok(period.every((r) => r.release_url === `https://www.cbr.ru/scripts/xml_metall.asp?date_req1=${effective}/10/2026&date_req2=${effective}/10/2026`));
+  }
+  assert.match(usdXml("2026-10-06"), /<Name>Доллар США<\/Name>/);
+  const parser = cbrFetcher(parseMetalPriceRegistry(only()), recorded().get),
+    fallback = cbrFetcher(parseMetalPriceRegistry(only()), recorded({ utf8: true }).get);
+  assert.deepEqual(
+    await parser.fetch(async () => null, { now: NOW, fetchedAt: async () => null }),
+    await fallback.fetch(async () => null, { now: NOW, fetchedAt: async () => null }),
+  );
+});
+
+test("incremental daily refresh rereads the stored newest day and respects midnight in Beijing", async () => {
+  assert.equal((await capture(recorded().get, EARLIER)).inserted, 10);
+  const next = await capture();
+  assert.deepEqual([next.inserted, next.touched], [5, 5]);
+  assert.deepEqual([(await capture()).inserted, (await rows()).length], [0, 15]);
+  for (const [time, expected] of [
+    ["2026-10-05T15:59:59Z", "2026-10-02"],
+    ["2026-10-05T16:00:00Z", "2026-10-05"],
+  ]) {
+    const fetched = await cbrFetcher(parseMetalPriceRegistry(only()), recorded().get).fetch(async () => null, {
+      now: new Date(time),
+      fetchedAt: async () => null,
+    });
+    assert.equal(fetched.at(-1)!.period.start, expected);
+  }
+});
+
+test("a mismatched effective FX date holds one day without blocking later daily fixings or refetching skipped days", async () => {
+  const badLatest = await capture(recorded({ usd: { "2026-10-06": usdXml("2026-10-04") } }).get);
+  assert.deepEqual([badLatest.ok, badLatest.inserted], [false, 5]);
+  assert.match(badLatest.periods[1].held!, /文件日期/);
+  await sql`TRUNCATE publication.metal_prices`;
+  const badEarlier = await capture(recorded({ usd: { "2026-10-03": usdXml("2026-10-03").replace('Date="03.10.2026"', 'Date="04.10.2026"') } }).get);
+  assert.deepEqual([badEarlier.ok, badEarlier.periods[0].held?.includes("文件日期"), badEarlier.periods[1].held, badEarlier.inserted], [false, true, null, 5]);
+  const get = recorded();
+  await capture(get.get);
+  assert.equal(
+    get.calls.some((url) => url.includes("date_req=03/10/2026")),
+    false,
+  );
+});
+
+test("raw-number, Buy/Sell, nominal, missing and duplicate USD defects hold a whole day without converting values", async () => {
+  const edited = (replace: (row: string) => string) => metalXml.replace(/<Record Date="03\.10\.2026" Code="1">.*?<\/Record>/, replace);
+  const usd = usdXml("2026-10-03"),
+    match = usd.match(/<Valute\b[^>]*>.*?<CharCode>USD<\/CharCode>.*?<\/Valute>/)![0];
+  const cases = [
+    recorded({ metal: edited((s) => s.replace(/<Sell>.*?<\/Sell>/, "<Sell>1</Sell>")) }),
+    ...["11143.31", "11 143,31"].map((value) => recorded({ metal: edited((s) => s.replace(/11143,31/g, value)) })),
+    recorded({ usd: { "2026-10-03": usd.replace(/<Nominal>1<\/Nominal>/g, "<Nominal>10</Nominal>") } }),
+    recorded({ usd: { "2026-10-03": usd.replace(match, "") } }),
+    recorded({ usd: { "2026-10-03": usd.replace("</ValCurs>", `${match}</ValCurs>`) } }),
+  ];
+  for (const get of cases) {
+    await sql`TRUNCATE publication.metal_prices`;
+    const result = await capture(get.get);
+    assert.equal(result.ok, false);
+    assert.ok(result.periods[0].held);
+    assert.equal(result.periods[1].held, null);
+    assert.equal(result.inserted, 5);
+    assert.ok((await rows()).every((r) => r.period_start === "2026-10-05"));
+  }
+});
+
+test("CBR transport, XML and impossible dates fail the source before writes, while NBS continues", async () => {
+  const bad = [
+    recorded({ url: "https://example.com/blocked" }),
+    recorded({ status: 503 }),
+    recorded({ metal: "<html>verification</html>" }),
+    recorded({ metal: metalXml.replace(/<Record\b[^>]*>.*?<\/Record>/g, "") }),
+    recorded({ metal: metalXml.replace(/Date="\d{2}\.\d{2}\.\d{4}"/, 'Date="31.02.2026"') }),
+  ];
+  for (const get of bad) {
+    const result = await capture(get.get);
+    assert.equal(result.ok, false);
+    assert.ok(result.error);
+    assert.equal((await rows()).length, 0);
+  }
+  const nbs = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/nbs/${name}.html`, import.meta.url), "utf8");
+  const get: PageGetter = async (url) => ({
+    url,
+    status: url.startsWith("https://www.stats.gov.cn/") ? 200 : 503,
+    text: () => nbs(url.endsWith("index.html") ? "list" : "release-latest"),
+  });
+  const selected = {
+    ...raw,
+    sources: raw.sources.filter((s: { key: string }) => s.key !== "worldbank").map((s: { key: string }) => ({ ...s, enabled: true })),
+    items: raw.items.filter((i: { source: string }) => i.source !== "worldbank"),
+  };
+  const result = await refreshMetalPrices({ registry: selected, get, now: NOW });
+  assert.equal(result.cbr.ok, false);
+  assert.equal(result.nbs.ok, true);
+  assert.equal(result.nbs.inserted, 5);
 });

@@ -6,7 +6,7 @@ import type { MetalPriceItem, MetalPriceSource, MetalPriceSourceKey } from "./re
 /** A page request: guardedFetch in production, fixtures by address in tests. `url` is where any redirects ended. */
 export type PageGetter = (
   url: string,
-  opts?: { maxBytes?: number; maxRedirects?: number },
+  opts?: { maxBytes?: number; maxRedirects?: number; method?: string; body?: string; headers?: Record<string, string> },
 ) => Promise<{ status: number; url: string; text(): string; body?: Buffer }>;
 
 /** A period as its source names it: calendar days, both ends included. */
