@@ -22,6 +22,7 @@ export const PolicyAutomationProfile = z
     extraction: z.strictObject({
       bodySelector: text.nullable(),
       attachmentSelector: text.nullable(),
+      attachmentReferencePattern: text.max(300).optional(),
       maxBytes: z.number().int().positive(),
       maxResources: z.number().int().positive(),
       maxPages: z.number().int().positive(),

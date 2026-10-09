@@ -60,6 +60,27 @@ export async function acquirePolicyOriginal(inputValue: Input, profileValue: Ext
   if (original.body && /html/i.test(original.mediaType ?? "") && profile.attachmentSelector) {
     try {
       const $ = cheerio.load(decodeOriginal(original.body, original.mediaType));
+      const referenceLabels = (text: string) => {
+        const labels = new Set<string>();
+        for (const match of text.matchAll(new RegExp(profile.attachmentReferencePattern!, "giu"))) {
+          if (!match[1]?.trim() || labels.size >= profile.maxResources) throw new Error("Attachment references are not bounded labels");
+          labels.add(match[1].trim().toLocaleLowerCase());
+        }
+        return labels;
+      };
+      let referencesResolved = true;
+      if (profile.attachmentReferencePattern) {
+        const body = $(profile.bodySelector!);
+        if (body.length !== 1) throw new Error("Attachment reference body missing or ambiguous");
+        const referenced = referenceLabels(body.text()),
+          linked = referenceLabels(
+            $(profile.attachmentSelector)
+              .map((_, el) => $(el).text())
+              .get()
+              .join("\n"),
+          );
+        referencesResolved = [...referenced].every((label) => linked.has(label));
+      }
       const urls = [
         ...new Set(
           $(profile.attachmentSelector)
@@ -78,7 +99,7 @@ export async function acquirePolicyOriginal(inputValue: Input, profileValue: Ext
       } else {
         // Resolve the complete catalogue before issuing any attachment request.
         for (const url of urls.filter((url) => url !== original.url)) await fetch(url, true);
-        catalogueClosed = true;
+        catalogueClosed = referencesResolved;
       }
     } catch (error) {
       if (error instanceof Error && /permission denied|requires an uncredentialed/.test(error.message)) throw error;

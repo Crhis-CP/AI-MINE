@@ -168,3 +168,28 @@ test("empty response and unresolvable catalogue stay incomplete; a permission ch
   );
   assert.equal((await sql`SELECT count(*)::int AS n FROM policy.document_revisions WHERE source_id=${sourceId}`)[0].n, 2);
 });
+
+test("explicit source attachment references cannot be closed by an empty or unrelated link selector", async () => {
+  const reviewed = { ...profile, attachmentReferencePattern: "\\bAttachment\\s+(\\d+)\\b" };
+  const missing = await acquirePolicyOriginal(input(), reviewed, pages("<article><p>Attachment 1 contains mandatory thresholds.</p></article>").get);
+  assert.equal((await readPolicyOriginal(missing.expressionId))!.manifest.catalogueClosed, false);
+  assert.equal((await extractPolicyOriginal(missing.expressionId, reviewed)).state, "incomplete");
+  const mismatch = await acquirePolicyOriginal(
+    { ...input(), expectedHead: missing.revisionId },
+    reviewed,
+    pages('<article><p>Attachment 1 applies.</p><a data-annex href="/annex.pdf">Attachment 2</a></article>').get,
+  );
+  assert.equal((await readPolicyOriginal(mismatch.expressionId))!.manifest.catalogueClosed, false);
+  const linked = await acquirePolicyOriginal(
+    { ...input(), expectedHead: mismatch.revisionId },
+    reviewed,
+    pages('<article><p>Attachment 1 applies.</p><a data-annex href="/annex.pdf">Attachment 1</a></article>').get,
+  );
+  assert.equal((await readPolicyOriginal(linked.expressionId))!.manifest.catalogueClosed, true);
+  const noAnnex = await acquirePolicyOriginal(
+    { ...input(), expectedHead: linked.revisionId },
+    reviewed,
+    pages("<article><p>This standalone rule has no attached schedules.</p></article>").get,
+  );
+  assert.equal((await readPolicyOriginal(noAnnex.expressionId))!.manifest.catalogueClosed, true);
+});

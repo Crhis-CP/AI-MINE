@@ -743,8 +743,60 @@
           "allowUrlPrefixes": ["https://www.blm.gov/policy/"],
           "language": "en",
           "detail": {
-            "publishedAtSelector": "time[datetime]",
-            "maxFetches": 10
+            "publishedAtRegex": "<strong\\b[^>]*>Post Date/EMS Transmission:</strong>\\s*<time\\b[^>]*>(\\d{2}/\\d{2}/\\d{4})</time>",
+            "maxFetches": 10,
+            "publishedAtAuthoritative": true,
+            "sourceDate": {
+              "format": "declared",
+              "formatPattern": "MM/DD/YYYY",
+              "language": "en"
+            }
+          },
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://www.blm.gov/policy/instruction-memorandum",
+              "basis": "BLM describes its Instruction Memoranda as official directives supplementing its manuals and handbooks; the original detail page identifies the formal memorandum type.",
+              "singleObjectPattern": "^https://www\\.blm\\.gov/policy/(?:[a-z]{2}-)?p?im-?[0-9]{4}-[0-9]{3}(?:-change-[0-9]+)?$"
+            },
+            "identityMarker": {
+              "selector": ".policy-page .-policy-type",
+              "pattern": "^(?:Permanent )?Instruction Memorandum$"
+            },
+            "titleSelector": ".policy-page h1",
+            "numberSelector": ".policy-page .-policy-number",
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "US",
+                "evidenceUrl": "https://www.blm.gov/policy/instruction-memorandum",
+                "basis": "United States federal agency original directives; not inferred from the host location."
+              },
+              "authority": {
+                "value": "Bureau of Land Management",
+                "evidenceUrl": "https://www.blm.gov/policy/instruction-memorandum",
+                "basis": "BLM official directive catalogue and issuing agency shown on the original page."
+              },
+              "documentType": {
+                "value": "instruction_memorandum",
+                "evidenceUrl": "https://www.blm.gov/policy/instruction-memorandum",
+                "basis": "Exact formal Instruction Memorandum marker required on every captured document."
+              }
+            },
+            "language": "en",
+            "kind": "original",
+            "recheckMinutes": 360,
+            "extraction": {
+              "bodySelector": ".policy-page .layout__region--first",
+              "attachmentSelector": ".policy-page a[href*=\"/sites/\"][href*=\"/files/\"]",
+              "attachmentReferencePattern": "\\b(?:Attachments?|Enclosures?)\\s+(\\d+)\\b",
+              "maxBytes": 2097152,
+              "maxResources": 25,
+              "maxPages": 500,
+              "maxTextBytes": 2097152
+            }
           }
         }
       },

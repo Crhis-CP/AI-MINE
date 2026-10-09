@@ -9,6 +9,8 @@ import { assertOriginalPermissions, readPolicyOriginal } from "./originals.ts";
 export interface ExtractionProfile {
   bodySelector: string | null;
   attachmentSelector: string | null;
+  /** A reviewed source-specific expression whose first group names a referenced attachment. */
+  attachmentReferencePattern?: string;
   maxBytes: number;
   maxResources: number;
   maxPages: number;
@@ -44,6 +46,11 @@ const sql = dbOf("policy"),
 export function validateProfile(profile: ExtractionProfile) {
   for (const key of ["maxBytes", "maxResources", "maxPages", "maxTextBytes"] as const)
     if (!Number.isSafeInteger(profile[key]) || profile[key] <= 0) throw new Error(`Invalid policy extraction ${key}`);
+  if (profile.attachmentReferencePattern) {
+    if (!profile.bodySelector || !profile.attachmentSelector || profile.attachmentReferencePattern.length > 300)
+      throw new Error("Attachment reference checks require bounded declared body and catalogue selectors");
+    new RegExp(profile.attachmentReferencePattern, "giu");
+  }
 }
 export function decodeOriginal(bytes: Uint8Array, mediaType: string | null) {
   return new TextDecoder(/charset=["']?([\w-]+)/i.exec(mediaType ?? "")?.[1] ?? "utf-8", { fatal: true }).decode(bytes);
