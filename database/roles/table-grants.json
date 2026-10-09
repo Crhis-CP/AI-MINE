@@ -755,6 +755,46 @@
         "worker": ["SELECT"],
         "auth": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "identity.password_accounts": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "identity.account_policy": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "UPDATE"]
+      }
+    },
+    "identity.auth_attempts": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT", "DELETE"]
+      }
+    },
+    "identity.login_nonces": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "identity.account_commands": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "auth": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {

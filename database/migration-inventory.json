@@ -229,6 +229,10 @@
       "dependsOn": ["publication/202610090500_policy_publication.sql"]
     },
     {
+      "name": "platform/identity/202610091100_password_accounts.sql",
+      "dependsOn": ["platform/identity/202610091000_account_access.sql"]
+    },
+    {
       "name": "ai-gateway/202610091100_usage_reports.sql",
       "dependsOn": ["0022_receipt_attempts_budgets.sql"]
     },

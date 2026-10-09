@@ -24,7 +24,13 @@ for (const reason of ["not_installed", "schema_mismatch", "queue_missing"] as co
     if (version) await f.db`UPDATE pgboss.version SET version = version - 1`;
     assert.equal((await f.app.inject({ url: "/api/health" })).statusCode, 200);
     assert.equal((await f.app.inject({ url: "/api/auth/options" })).statusCode, 200);
-    const login = await f.app.inject({ method: "POST", url: "/api/auth/password", payload: { password: f.password, return: "/admin" } });
+    const nonce = await f.app.inject({ url: "/api/auth/password-nonce" });
+    const login = await f.app.inject({
+      method: "POST",
+      url: "/api/auth/password",
+      headers: { cookie: String(nonce.headers["set-cookie"]).split(";")[0]! },
+      payload: { login_name: "admin@local", login_nonce: nonce.json().token, password: f.password, return: "/admin" },
+    });
     assert.equal(login.statusCode, 303);
     assert.ok(login.headers["set-cookie"]);
     if (reason === "not_installed") assert.equal((await f.db`SELECT to_regnamespace('pgboss') AS schema`)[0].schema, null);
@@ -159,7 +165,7 @@ test("stable singleton dedupe stays 200/null and unrelated SQL errors are not re
   const response = await failure.request();
   assert.equal(response.statusCode, 500);
   assert.equal(response.json().code, "internal_error");
-  assert.match(response.json().detail, /unrelated_missing_fixture/);
+  assert.equal(response.json().detail, "服务暂时无法完成此操作，请稍后重试。");
   assert.equal(failure.attempts(), 1);
   assert.equal(await getBoss(), producer);
 });

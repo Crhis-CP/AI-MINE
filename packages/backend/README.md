@@ -103,3 +103,11 @@ TASK-0129运行控制：`operations/lane-controls.ts`提供27条分线/阶段/�
 中央paidRequest先复用既有物理回执，再检查新调用的控制；收到了响应仍先存用量/费用。chatJson可带runtimeControl，只用于claim前围栏，不进入prompt、logical key或传输。确知的lane仅写新request元数据，不推断改写历史。模型处理暂停不关闭普通采集/清洗或已公开读路径。新增原件/材料和采集成功游标、模型分析/翻译/视觉、向量批次及公开晋升分别在相应事务核对控制；向量存储使用events/embedding-store，来源成功游标使用admin/sources的recordSourceCollectionSuccess，不新增跨模块写。
 
 公开暂停不阻止撤回/收紧；延后的来源重投、正文和法规阶段保留待办并延后续跑，不耗尽为终态失败。日常HTTP只能控制owner持有者的processing或collection+processing，all操作显式确认且all自动处理期限最多24小时；真实Owner账号能力另由0138绑定，现有session+CSRF不等于Owner角色。
+
+### TASK-0138 具名账号
+
+既有 `admin/auth` 出口提供 `currentAccount/listAccounts/createAdministrator/changeAdministrator/changeOwnPassword`。HTTP身份只来自当前会话；Owner的账号操作在相同事务重核能力，目标账户的版本与会话撤销用同一锁。create/action接受可选commandKey（HTTP必需），同编号同载荷重放既有结果，载荷不符拒绝；密码只存Argon2id，命令摘要也是独立慢哈希，响应与审计不含密码。
+
+登录要求一次性、同来源、同cookie的nonce；source/account限速在密码派生前执行，全球流量只延迟和脱敏告警。会话最长12小时，后台连续30分钟不活动失效。真实DB不可用返回503且不清cookie。旧admin@local仅保留原有登录资格；具名密码一旦安装，就不能再以环境旧密码登录该账号。Feishu allowlist不会赋予Owner；已明确绑定的union身份继续兼容，其他邮箱不能认领密码账户或Owner。
+
+首位Owner及遗失恢复只在 `scripts/accounts/owner-access.ts` 的受控服务器交互入口执行；没有HTTP自助认领或恢复口。本机没有执行真实开通/恢复，部署时须核对具体Owner身份和安全恢复渠道。

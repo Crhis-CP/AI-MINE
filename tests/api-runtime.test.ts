@@ -118,20 +118,26 @@ test("a private production process logs in without public/image secrets and clos
   await app.ready();
   assert.deepEqual(await (await fetch(`${app.url}/api/auth/options`)).json(), { password: true, feishu: false });
   assert.equal((await fetch(`${app.url}/api/site/meta`)).status, 404);
+  const nonce = await fetch(`${app.url}/api/auth/password-nonce`);
+  const login_nonce = ((await nonce.json()) as { token: string }).token;
   const login = await fetch(`${app.url}/api/auth/password`, {
     method: "POST",
     redirect: "manual",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password: secrets.ADMIN_PASSWORD, return: "/admin" }),
+    headers: { "content-type": "application/json", cookie: nonce.headers.get("set-cookie")!.split(";")[0]! },
+    body: JSON.stringify({ login_name: "admin@local", login_nonce, password: secrets.ADMIN_PASSWORD, return: "/admin" }),
   });
   assert.equal(login.status, 303);
   const cookie = login.headers.get("set-cookie")?.split(";")[0];
   assert.ok(cookie);
   const me = await fetch(`${app.url}/api/admin/me`, { headers: { cookie } });
   assert.equal(me.status, 200);
-  assert.equal(((await me.json()) as { dev: boolean }).dev, false);
+  const principal = (await me.json()) as { dev: boolean; csrf: string };
+  assert.equal(principal.dev, false);
   assert.equal((await sql`SELECT count(*)::int AS n FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`)[0].n, 1);
-  assert.equal((await fetch(`${app.url}/api/auth/logout`, { method: "POST", redirect: "manual", headers: { cookie } })).status, 303);
+  assert.equal(
+    (await fetch(`${app.url}/api/auth/logout`, { method: "POST", redirect: "manual", headers: { cookie, "x-csrf-token": principal.csrf } })).status,
+    303,
+  );
   assert.equal(await app.stop(), 0, app.output());
   await noConnections();
   await sql`DELETE FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`;

@@ -236,7 +236,13 @@ test("private creation confirms an explicit scope atomically and the real evalua
   };
   try {
     assert.equal((await app.inject({ method: "POST", url: "/api/admin/sources", headers: forwarded, payload: {} })).statusCode, 401);
-    const login = await app.inject({ method: "POST", url: "/api/auth/password", headers: forwarded, payload: { password: config.adminPassword } });
+    const nonce = await app.inject({ url: "/api/auth/password-nonce", headers: forwarded });
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/password",
+      headers: { ...forwarded, cookie: String(nonce.headers["set-cookie"]).split(";")[0]! },
+      payload: { login_name: "admin@local", login_nonce: nonce.json().token, password: config.adminPassword },
+    });
     assert.equal(login.statusCode, 303);
     const cookie = String(login.headers["set-cookie"]).split(";")[0];
     const who = await app.inject({ url: "/api/admin/me", headers: { ...forwarded, cookie } });

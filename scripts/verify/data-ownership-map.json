@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "1f049110bc112ef8f9617a81590cc9181f5fe530cb73064087442ff29a497a9e",
+  "grantCatalogueSha256": "fbf884543bc8d111bd03b8c339bf70c27e065737954dbe1c5da4e136a1c52aa2",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -403,6 +403,26 @@
       "access": "business"
     },
     "identity.account_access": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.password_accounts": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.account_policy": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.auth_attempts": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.login_nonces": {
+      "module": "platform/identity",
+      "access": "identity"
+    },
+    "identity.account_commands": {
       "module": "platform/identity",
       "access": "identity"
     }

@@ -5,12 +5,14 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { config, credential, isProduction } from "../config.ts";
 import { dbOf, type Db } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
+import { lockAccountAccess, readAccountAccess } from "./account-access.ts";
 
 const sql = dbOf("identity");
 
-export const SESSION_COOKIE = "amp_admin";
+export const SESSION_COOKIE = isProduction ? "__Host-amp_admin" : "amp_admin";
+export const LOGIN_NONCE_COOKIE = isProduction ? "__Host-amp_login_nonce" : "amp_login_nonce";
 export const STATE_COOKIE = "amp_oauth_state";
-export const SESSION_DAYS = 30;
+export const SESSION_DAYS = 0.5;
 /** Register this callback in the Feishu open platform when Feishu sign-in is used. */
 export const CALLBACK_URL = `${config.siteUrl}/api/auth/callback`;
 
@@ -52,13 +54,19 @@ export function parseCookies(header: string | undefined): Record<string, string>
   const out: Record<string, string> = {};
   for (const part of (header ?? "").split(";")) {
     const i = part.indexOf("=");
-    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+    if (i > 0) {
+      try {
+        out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+      } catch {
+        /* Malformed cookies do not invalidate other cookies. */
+      }
+    }
   }
   return out;
 }
 
 export function cookie(name: string, value: string, maxAgeSeconds: number, secure: boolean): string {
-  return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure ? "; Secure" : ""}`;
+  return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=${name === STATE_COOKIE ? "Lax" : "Strict"}; Max-Age=${maxAgeSeconds}${secure ? "; Secure" : ""}`;
 }
 
 /** Where to send the browser to sign in; the signed state also carries where to return. */
@@ -113,11 +121,17 @@ async function feishuUser(code: string): Promise<FeishuUser> {
 
 export class LoginRejected extends Error {}
 
-async function createSession(userId: number, userAgent: string | undefined): Promise<string> {
-  const token = randomBytes(32).toString("base64url");
-  await sql`INSERT INTO admin_sessions (id_hash, user_id, csrf_token, expires_at, user_agent)
-            VALUES (${sha256(token)}, ${userId}, ${randomBytes(18).toString("base64url")}, ${new Date(Date.now() + SESSION_DAYS * 86400_000)}, ${userAgent?.slice(0, 300) ?? null})`;
-  return token;
+export async function createAccountSession(userId: number, userAgent: string | undefined, db?: Db): Promise<string> {
+  const create = async (tx: Db) => {
+    await lockAccountAccess(tx, userId);
+    const access = await readAccountAccess(userId, tx);
+    if (access?.active === false) throw new LoginRejected("账号或密码不正确，请检查后重试。");
+    const token = randomBytes(32).toString("base64url");
+    await tx`INSERT INTO admin_sessions(id_hash,user_id,csrf_token,expires_at,user_agent,last_seen_at) VALUES(${sha256(token)},${userId},${randomBytes(18).toString("base64url")},now()+interval '12 hours',${userAgent?.slice(0, 300) ?? null},now())`;
+    await tx`UPDATE admin_users SET last_login_at=now() WHERE id=${userId}`;
+    return token;
+  };
+  return db ? create(db) : sql.begin(create);
 }
 
 /** OAuth callback: verify state, identify the Feishu user, admit only allowlisted admins. */
@@ -131,34 +145,26 @@ export async function completeLogin(code: string, state: string, stateCookie: st
   const allowed = (u.union_id && config.adminUnionIds.includes(u.union_id)) || (email && config.adminEmails.includes(email));
   if (!allowed) throw new LoginRejected("这个飞书账号没有后台权限");
   const [existing] = await sql<{ id: number }[]>`
-    SELECT id FROM admin_users WHERE (${u.union_id ?? null}::text IS NOT NULL AND feishu_union_id = ${u.union_id ?? null}) OR (${email}::text IS NOT NULL AND email = ${email}) LIMIT 1`;
+    SELECT u.id FROM admin_users u WHERE (${u.union_id ?? null}::text IS NOT NULL AND u.feishu_union_id = ${u.union_id ?? null}) OR
+      (${email}::text IS NOT NULL AND u.email = ${email} AND u.email<>'admin@local' AND u.feishu_union_id IS NULL
+       AND NOT EXISTS(SELECT 1 FROM identity.password_accounts p WHERE p.user_id=u.id)
+       AND NOT EXISTS(SELECT 1 FROM identity.account_access a WHERE a.user_id=u.id AND a.role='owner'))
+      ORDER BY (u.feishu_union_id=${u.union_id ?? null}) DESC NULLS LAST LIMIT 1`;
   const [user] = existing
     ? await sql<{ id: number }[]>`UPDATE admin_users SET feishu_union_id = coalesce(feishu_union_id, ${u.union_id ?? null}), email = coalesce(email, ${email}),
-        display_name = coalesce(${u.name ?? null}, display_name), last_login_at = now() WHERE id = ${existing.id} RETURNING id`
+        display_name = coalesce(${u.name ?? null}, display_name) WHERE id = ${existing.id} RETURNING id`
     : await sql<
         { id: number }[]
-      >`INSERT INTO admin_users (feishu_union_id, email, display_name, last_login_at) VALUES (${u.union_id ?? null}, ${email}, ${u.name ?? null}, now()) RETURNING id`;
-  const token = await createSession(user!.id, userAgent);
+      >`INSERT INTO admin_users (feishu_union_id, email, display_name) VALUES (${u.union_id ?? null}, ${email}, ${u.name ?? null}) RETURNING id`;
+  const token = await createAccountSession(user!.id, userAgent);
   await audit(`admin:${user!.id}`, "auth.login", null, null, null, { union_id: u.union_id ?? null });
   return { token, returnTo, userId: user!.id };
 }
 
-/** The single password admin: one row, found by its reserved address. */
-const PASSWORD_ADMIN = "admin@local";
-
-/** Password sign-in: a constant-time comparison of digests, so the length leaks nothing either. */
-export async function passwordLogin(password: string, returnTo: string, userAgent: string | undefined) {
-  const expected = config.adminPassword;
-  if (!expected || expected.length < 12) throw new LoginRejected("还没有设置管理员密码（环境变量 ADMIN_PASSWORD，至少 12 位）");
-  const given = createHmac("sha256", "admin-password").update(password).digest();
-  const wanted = createHmac("sha256", "admin-password").update(expected).digest();
-  if (!timingSafeEqual(given, wanted)) throw new LoginRejected("密码不对");
-  const [user] = await sql<{ id: number }[]>`
-    INSERT INTO admin_users (email, display_name, last_login_at) VALUES (${PASSWORD_ADMIN}, '管理员', now())
-    ON CONFLICT (email) DO UPDATE SET last_login_at = now() RETURNING id`;
-  const token = await createSession(user!.id, userAgent);
-  await audit(`admin:${user!.id}`, "auth.login", null, null, null, { method: "password" });
-  return { token, returnTo: safeReturn(returnTo), userId: user!.id };
+/** Legacy callers retain the reserved login name; explicit accounts never fall back to its environment password. */
+export async function passwordLogin(password: string, returnTo: string, userAgent: string | undefined, loginName = "admin@local", source = "internal") {
+  const { namedPasswordLogin } = await import("./accounts.ts");
+  return namedPasswordLogin(loginName, password, returnTo, userAgent, source);
 }
 
 export async function sessionPrincipal(cookieHeader: string | undefined): Promise<AdminPrincipal | null> {
@@ -167,9 +173,15 @@ export async function sessionPrincipal(cookieHeader: string | undefined): Promis
     const [row] = await sql<
       { user_id: number; csrf_token: string; name: string | null; email: string | null; access_revision: number | null; must_change_password: boolean | null }[]
     >`
-      SELECT s.user_id, s.csrf_token, u.display_name AS name, u.email,access.revision AS access_revision,access.must_change_password FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id
+      WITH live AS (
+       UPDATE admin_sessions s SET last_seen_at=now()
+       WHERE s.id_hash=${sha256(token)} AND s.expires_at>now() AND s.created_at>now()-interval '12 hours'
+        AND coalesce(s.last_seen_at,s.created_at)>now()-interval '30 minutes'
+        AND NOT EXISTS(SELECT 1 FROM identity.account_access a WHERE a.user_id=s.user_id AND NOT a.active)
+       RETURNING s.user_id,s.csrf_token
+      ) SELECT s.user_id, s.csrf_token, u.display_name AS name, u.email,access.revision AS access_revision,access.must_change_password FROM live s JOIN admin_users u ON u.id = s.user_id
       LEFT JOIN identity.account_access access ON access.user_id=u.id
-      WHERE s.id_hash = ${sha256(token)} AND s.expires_at > now() AND (access.user_id IS NULL OR access.active)`;
+      WHERE (access.user_id IS NULL OR access.active)`;
     if (row)
       return {
         userId: row.user_id,
@@ -210,3 +222,6 @@ export function actorOf(p: AdminPrincipal): string {
 }
 
 export { currentCapability, requireCapability, requireOwner, AccountPermissionDenied } from "./account-access.ts";
+
+export { listAccounts, currentAccount, createAdministrator, changeAdministrator, changeOwnPassword, passwordLoginAvailable } from "./accounts.ts";
+export { issueLoginNonce, consumeLoginNonce, AccountRateLimited, AccountLoginVerification } from "./account-login.ts";
