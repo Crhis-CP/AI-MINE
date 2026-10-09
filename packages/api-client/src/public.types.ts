@@ -3780,7 +3780,10 @@ export interface operations {
     parameters: {
       query?: {
         cursor?: string;
+        edition?: number;
+        jurisdiction?: string;
         limit?: number;
+        theme?: "investment_company" | "mineral_rights" | "land_construction" | "safety_environment" | "labour_community" | "tax_finance" | "trade_transport";
       };
       header?: never;
       path: {

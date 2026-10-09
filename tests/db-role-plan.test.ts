@@ -80,13 +80,16 @@ test("all current migration tables and serial sequences have one explicit classi
       "publication.policy_editions",
       "policy.interpretation_runs",
       "policy.interpretation_stages",
+      "publication.policy_reports",
+      "publication.policy_report_revisions",
+      "publication.policy_report_members",
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
   assert.deepEqual(Object.keys(SEQUENCES).sort(), serials.map((name) => `public.${name}`).sort());
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 24);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 27);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["enrichment.translation_segments"], {
     module: "enrichment",
