@@ -80,6 +80,8 @@ test("worker snapshots and real observer login expose bounded metadata only; Own
     });
   assert.equal((await call("admin")).statusCode, 403);
   assert.equal((await call("owner", undefined, { "x-csrf-token": "wrong" })).statusCode, 403);
+  const protection = await call("owner", { dataset: "protection" });
+  assert.ok(rpc(protection.body).result.structuredContent.items.some((x: { state: string }) => x.state === "needs_configuration"));
   const before = Number((await f.admin`SELECT count(*) FROM receipt_attempts`)[0].count);
   const health = await call();
   assert.equal(health.statusCode, 200, health.body);

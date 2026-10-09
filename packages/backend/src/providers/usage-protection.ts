@@ -527,21 +527,21 @@ async function currentUsageIndicators(db: Db, configuration: Configuration, open
   });
   return out;
 }
-export async function readUsageProtection() {
+export async function readUsageProtection(db: Db = sql) {
   const [configuration, prices, breakers, events] = await Promise.all([
-    usageConfiguration(),
-    sql<{ id: string; version: number; price: unknown; updated_at: Date }[]>`SELECT id,version,price,updated_at FROM ai.usage_prices ORDER BY id`,
-    sql<{ id: string }[]>`SELECT id FROM ai.usage_breakers ORDER BY created_at DESC LIMIT 200`,
-    sql`SELECT id,kind,lane,payload,created_at,delivery_status,sent_at FROM ai.usage_protection_events ORDER BY created_at DESC LIMIT 200`,
+    usageConfiguration(db),
+    db<{ id: string; version: number; price: unknown; updated_at: Date }[]>`SELECT id,version,price,updated_at FROM ai.usage_prices ORDER BY id`,
+    db<{ id: string }[]>`SELECT id FROM ai.usage_breakers ORDER BY created_at DESC LIMIT 200`,
+    db`SELECT id,kind,lane,payload,created_at,delivery_status,sent_at FROM ai.usage_protection_events ORDER BY created_at DESC LIMIT 200`,
   ]);
-  const missing = !configuration ? ["费用保护配置尚未安装"] : (await usageCoverageGap(sql, configuration, new Date())) ? ["存在未纳入费用保护的历史回执"] : [];
-  const records = await Promise.all(breakers.map((r) => usageBreakerRecord(sql, r.id)));
+  const missing = !configuration ? ["费用保护配置尚未安装"] : (await usageCoverageGap(db, configuration, new Date())) ? ["存在未纳入费用保护的历史回执"] : [];
+  const records = await Promise.all(breakers.map((r) => usageBreakerRecord(db, r.id)));
   return UsageProtectionOverview.parse({
     as_of: new Date().toISOString(),
     indicators:
       configuration && !missing.length
         ? await currentUsageIndicators(
-            sql,
+            db,
             configuration,
             records.filter((r) => r.state === "open"),
             new Date(),

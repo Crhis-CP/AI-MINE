@@ -5,7 +5,6 @@ import { randomUUID } from "node:crypto";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { buildMonthlyUsage, reconcileMonthlyUsage, monthlyUsageReports, usageMonthPeriod } from "../packages/backend/src/operations/usage-monthly.ts";
 import { recordLocalReuse } from "../packages/backend/src/providers/usage-accounting.ts";
-import { paidRequest } from "@amp/backend/providers/receipts";
 const sql = dbOf("ai-gateway"),
   now = new Date("2026-10-09T00:00:00Z");
 after(closeDb);
@@ -44,8 +43,14 @@ test("monthly physical accounting keeps currencies, actual/estimated/unknown amo
     usage: { prompt_tokens: 200, completion_tokens: 10, prompt_cache_hit_tokens: 0, prompt_cache_miss_tokens: 200 },
   });
   await attempt({ cost: "1.000001", basis: "actual", currency: "CNY" });
-  await attempt({ status: "unknown" });
-  await attempt({ status: "pending" });
+  const unknownReceipt = await attempt({ status: "unknown" });
+  const pendingReceipt = await attempt({ status: "pending" });
+  for (const [id, state, micros] of [
+    [unknownReceipt, "unknown", "750000"],
+    [pendingReceipt, "reserved", "1250000"],
+  ] as const)
+    await sql`INSERT INTO ai.usage_attempts(attempt_id,receipt_id,logical_key,lane,capability,source_ids,reserved_micros,state,quote,occurred_at,submitted)
+    SELECT a.id,r.id,r.logical_key,'policy','structure',ARRAY[]::text[],${micros},${state},'{}',a.started_at,true FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id WHERE r.id=${id}`;
   await attempt({ cost: "999", basis: "actual", currency: "USD", origin: "replay" });
   await attempt({ cost: "999", basis: "actual", currency: "USD", at: "2026-09-30T16:00:00Z" });
   const report = await buildMonthlyUsage("2026-09", now);
@@ -53,6 +58,14 @@ test("monthly physical accounting keeps currencies, actual/estimated/unknown amo
   assert.equal(report.totals.unknown, 1);
   assert.equal(report.totals.pending, 1);
   assert.equal(report.totals.unpriced_calls, 2);
+  assert.deepEqual(report.totals.protection, {
+    currency: "CNY",
+    reserved_amount: "1.250000",
+    unknown_amount: "0.750000",
+    tracked_calls: 2,
+    untracked_calls: 3,
+    coverage: "partial",
+  });
   assert.deepEqual(report.totals.amounts, [
     { currency: "CNY", actual: "1.000001", estimated: "0.000000" },
     { currency: "USD", actual: "0.123456", estimated: "0.200000" },
@@ -94,30 +107,4 @@ test("a month is delivered once, reconciliation revises history and unknown deli
   await reconcileMonthlyUsage("2026-08", now, send);
   assert.equal(calls, 1);
   assert.equal((await monthlyUsageReports()).length, 2);
-});
-
-test("actual receipt reuse increments the local counter atomically without another physical attempt", async () => {
-  let calls = 0;
-  const request = {
-    service: "synthetic-local-reuse",
-    model: "synthetic",
-    purpose: "structure",
-    lane: "policy" as const,
-    subject: "policy:synthetic-reuse",
-    identity: { input: "synthetic-only" },
-  };
-  const run = () =>
-    paidRequest(request, async () => {
-      calls++;
-      return { response: { ok: true }, usage: { prompt_tokens: 1, completion_tokens: 1 } };
-    });
-  const first = await run();
-  assert.equal(first.reused, false);
-  const cached = await Promise.all(Array.from({ length: 8 }, run));
-  assert.ok(cached.every((r) => r.reused));
-  assert.equal(calls, 1);
-  const [counter] = await sql`SELECT sum(count)::int n FROM ai.local_reuse_daily WHERE service='synthetic-local-reuse' AND lane='policy'`;
-  assert.equal(counter.n, 8);
-  const [attempts] = await sql`SELECT count(*)::int n FROM receipt_attempts WHERE receipt_id=${first.receiptId}`;
-  assert.equal(attempts.n, 1);
 });

@@ -12,6 +12,16 @@ export const UsageTotals = z.strictObject({
   unknown: count,
   amounts: z.array(z.strictObject({ currency: z.string(), actual: amount, estimated: amount })),
   unpriced_calls: count,
+  protection: z
+    .strictObject({
+      currency: z.literal("CNY"),
+      reserved_amount: amount.nullable(),
+      unknown_amount: amount.nullable(),
+      tracked_calls: count,
+      untracked_calls: count,
+      coverage: z.enum(["none", "partial", "complete"]),
+    })
+    .optional(),
   input_tokens: count.nullable(),
   output_tokens: count.nullable(),
   token_reported_calls: count,

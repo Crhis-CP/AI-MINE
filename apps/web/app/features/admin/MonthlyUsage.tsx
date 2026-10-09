@@ -127,6 +127,29 @@ export function MonthlyUsage({ entries }: { entries: Entry[] | null }) {
       <p className="mt-3 text-[12px] leading-5 text-ink-3">
         不同币种分别显示；{r.totals.unpriced_calls}次调用尝试缺少可用金额，未补成0。费用记录仅作核对，不设置月度金额上限。
       </p>
+      <section className="mt-4 rounded-control border border-line p-3">
+        <h3 className="text-[13px] font-semibold">本期调用仍占用的金额 · 人民币</h3>
+        {r.totals.protection ? (
+          <>
+            <dl className="mt-2 grid grid-cols-2 gap-3 text-[13px]">
+              <div>
+                <dt className="text-ink-3">仍在预留</dt>
+                <dd className="num mt-1">{r.totals.protection.reserved_amount === null ? "尚无记录" : amount(r.totals.protection.reserved_amount)}</dd>
+              </div>
+              <div>
+                <dt className="text-ink-3">结果未知占用</dt>
+                <dd className="num mt-1">{r.totals.protection.unknown_amount === null ? "尚无记录" : amount(r.totals.protection.unknown_amount)}</dd>
+              </div>
+            </dl>
+            <p className="mt-2 text-[12px] leading-5 text-ink-3">
+              截至本次对账，覆盖{r.totals.protection.tracked_calls}次调用；{r.totals.protection.untracked_calls}
+              次缺少保护记录。占用不计为已花费用，缺记录不按零处理。
+            </p>
+          </>
+        ) : (
+          <p className="mt-2 text-[12px] text-ink-3">这版历史报告未记录预留与未知占用，后续对账按已有真实记录补充。</p>
+        )}
+      </section>
       <div className="mt-4 grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
         <section>
           <h3 className="text-[13px] font-semibold">供应商缓存</h3>

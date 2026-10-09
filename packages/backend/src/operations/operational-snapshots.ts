@@ -3,7 +3,7 @@ import { OpsDataset } from "@amp/contracts/ops-mcp";
 import { sourcesOperationalSnapshot } from "../sources/operational-snapshot.ts";
 import { processingOperationalSnapshot } from "../content/operational-snapshot.ts";
 import { acquisitionOperationalSnapshot } from "../acquisition/operational-snapshot.ts";
-import { usageOperationalSnapshot, evaluationsOperationalSnapshot } from "../providers/operational-snapshot.ts";
+import { usageOperationalSnapshot, evaluationsOperationalSnapshot, protectionOperationalSnapshot } from "../providers/operational-snapshot.ts";
 import { publicationOperationalSnapshot } from "../publication/operational-snapshot.ts";
 import { accountsOperationalSnapshot, auditOperationalSnapshot } from "../admin/operational-snapshot.ts";
 import { feedbackOperationalSnapshot } from "../feedback/operational-snapshot.ts";
@@ -34,6 +34,7 @@ const readers = {
   processing: processingOperationalSnapshot,
   acquisition: acquisitionOperationalSnapshot,
   usage: usageOperationalSnapshot,
+  protection: protectionOperationalSnapshot,
   publication: publicationOperationalSnapshot,
   audit: auditOperationalSnapshot,
   accounts: accountsOperationalSnapshot,

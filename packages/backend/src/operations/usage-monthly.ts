@@ -22,8 +22,16 @@ type Attempt = {
   source_ids: unknown;
   usage_purpose: string | null;
   usage_object: unknown;
+  protection_state: string | null;
+  reserved_micros: string | null;
 };
-type Accumulator = { totals: Totals; amounts: Map<string, { actual: bigint; estimated: bigint }>; cacheHits: number; cacheTotal: number };
+type Accumulator = {
+  totals: Totals;
+  amounts: Map<string, { actual: bigint; estimated: bigint }>;
+  cacheHits: number;
+  cacheTotal: number;
+  held: { reserved: bigint; unknown: bigint; tracked: number };
+};
 const empty = (): Accumulator => ({
   totals: {
     calls: 0,
@@ -46,6 +54,7 @@ const empty = (): Accumulator => ({
   amounts: new Map(),
   cacheHits: 0,
   cacheTotal: 0,
+  held: { reserved: 0n, unknown: 0n, tracked: 0 },
 });
 const integer = (value: unknown) => (typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null);
 const micro = (value: string | null) =>
@@ -60,6 +69,11 @@ const cacheTokens = (usage: Record<string, unknown> | null) => {
 function add(acc: Accumulator, row: Attempt) {
   const t = acc.totals;
   t.calls++;
+  if (row.protection_state && row.reserved_micros !== null && /^\d+$/.test(row.reserved_micros)) {
+    acc.held.tracked++;
+    if (row.protection_state === "reserved") acc.held.reserved += BigInt(row.reserved_micros);
+    if (row.protection_state === "unknown") acc.held.unknown += BigInt(row.reserved_micros);
+  }
   if (row.status in t && ["received", "failed", "pending", "unknown"].includes(row.status)) t[row.status as "received"]++;
   const cost = micro(row.cost);
   if (cost === null || !row.currency || !["actual", "estimated"].includes(row.cost_basis ?? "")) t.unpriced_calls++;
@@ -91,6 +105,14 @@ function add(acc: Accumulator, row: Attempt) {
 }
 const finish = (acc: Accumulator): Totals => ({
   ...acc.totals,
+  protection: {
+    currency: "CNY",
+    reserved_amount: acc.held.tracked || !acc.totals.calls ? decimal(acc.held.reserved) : null,
+    unknown_amount: acc.held.tracked || !acc.totals.calls ? decimal(acc.held.unknown) : null,
+    tracked_calls: acc.held.tracked,
+    untracked_calls: acc.totals.calls - acc.held.tracked,
+    coverage: acc.held.tracked === acc.totals.calls ? "complete" : acc.held.tracked ? "partial" : "none",
+  },
   cache_hit_rate: acc.cacheTotal ? acc.cacheHits / acc.cacheTotal : null,
   amounts: [...acc.amounts]
     .sort(([a], [b]) => a.localeCompare(b))
@@ -119,8 +141,8 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
   let unassigned = 0;
   for await (const rows of sql<
     Attempt[]
-  >`SELECT a.service,a.model,r.purpose,r.subject,coalesce(r.request->>'lane',r.request->'manifest'->>'lane') AS lane,r.request->'sourceIds' AS source_ids,r.request->>'usage_purpose' AS usage_purpose,r.request->'usage_object' AS usage_object,a.status,a.cost::text,a.currency,a.cost_basis,a.usage
-   FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id WHERE a.origin='live' AND a.started_at>=${start} AND a.started_at<${end} ORDER BY a.id`.cursor(
+  >`SELECT a.service,a.model,r.purpose,r.subject,coalesce(r.request->>'lane',r.request->'manifest'->>'lane') AS lane,r.request->'sourceIds' AS source_ids,r.request->>'usage_purpose' AS usage_purpose,r.request->'usage_object' AS usage_object,a.status,a.cost::text,a.currency,a.cost_basis,a.usage,u.state AS protection_state,u.reserved_micros::text AS reserved_micros
+   FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${start} AND a.started_at<${end} ORDER BY a.id`.cursor(
     500,
   )) {
     for (const row of rows) {
@@ -221,6 +243,7 @@ export async function buildMonthlyUsage(month: string, now = new Date()) {
     limitations: [
       "按当前保留的物理调用记录汇总；实际与当时估算分列，缺金额不按当前单价回填，不跨币种合计。",
       "单篇费用只统计有明确材料归属和金额的记录；未标明对象、来源或用途的历史调用不猜测归属，缺金额不计入平均数。",
+      "预留与未知占用单独列出截至本次对账仍占用的金额，不计为已花费用；没有保护记录的调用保留覆盖缺项。",
       "供应商未提供的token或缓存数据保留缺项，本地复用仅从明确记录开始时间起统计。",
     ],
   });
@@ -254,6 +277,7 @@ export async function reconcileMonthlyUsage(month: string, now = new Date(), sen
       const result = await send(`用量月报 · ${month}`, [
         `已记录${report.totals.calls}次调用，其中结果未知${report.totals.unknown}次、在途${report.totals.pending}次。`,
         ...report.totals.amounts.map((a) => `${a.currency}：实际 ${a.actual}；当时估算 ${a.estimated}`),
+        `保护记录：${report.totals.protection?.tracked_calls ?? 0}次；仍预留人民币 ${report.totals.protection?.reserved_amount ?? "未记录"}，未知占用 ${report.totals.protection?.unknown_amount ?? "未记录"}；与已花费用分开。`,
         `另有${report.totals.unpriced_calls}次缺少可用费用记录。`,
         `完整明细：${config.siteUrl}/admin/usage-models/settings`,
       ]);

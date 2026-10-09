@@ -872,6 +872,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -898,6 +908,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -924,6 +944,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -950,6 +980,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -976,6 +1016,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -1035,6 +1085,16 @@ export interface components {
         input_tokens: number | null;
         output_tokens: number | null;
         pending: number;
+        protection?: {
+          /** @enum {string} */
+          coverage: "none" | "partial" | "complete";
+          /** @constant */
+          currency: "CNY";
+          reserved_amount: string | null;
+          tracked_calls: number;
+          unknown_amount: string | null;
+          untracked_calls: number;
+        };
         provider_cache_miss_reported_calls: number;
         provider_cache_miss_tokens: number | null;
         provider_cache_reported_calls: number;
@@ -1062,6 +1122,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -1088,6 +1158,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -1114,6 +1194,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -1140,6 +1230,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -1166,6 +1266,16 @@ export interface components {
           input_tokens: number | null;
           output_tokens: number | null;
           pending: number;
+          protection?: {
+            /** @enum {string} */
+            coverage: "none" | "partial" | "complete";
+            /** @constant */
+            currency: "CNY";
+            reserved_amount: string | null;
+            tracked_calls: number;
+            unknown_amount: string | null;
+            untracked_calls: number;
+          };
           provider_cache_miss_reported_calls: number;
           provider_cache_miss_tokens: number | null;
           provider_cache_reported_calls: number;
@@ -1225,6 +1335,16 @@ export interface components {
         input_tokens: number | null;
         output_tokens: number | null;
         pending: number;
+        protection?: {
+          /** @enum {string} */
+          coverage: "none" | "partial" | "complete";
+          /** @constant */
+          currency: "CNY";
+          reserved_amount: string | null;
+          tracked_calls: number;
+          unknown_amount: string | null;
+          untracked_calls: number;
+        };
         provider_cache_miss_reported_calls: number;
         provider_cache_miss_tokens: number | null;
         provider_cache_reported_calls: number;

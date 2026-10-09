@@ -2183,6 +2183,64 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
@@ -2361,6 +2419,64 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
@@ -2541,6 +2657,64 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
@@ -2720,6 +2894,64 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
@@ -2898,6 +3130,64 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
@@ -3236,6 +3526,64 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "protection": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage": {
+                    "enum": [
+                      "none",
+                      "partial",
+                      "complete"
+                    ],
+                    "type": "string"
+                  },
+                  "currency": {
+                    "const": "CNY",
+                    "type": "string"
+                  },
+                  "reserved_amount": {
+                    "anyOf": [
+                      {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "tracked_calls": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "unknown_amount": {
+                    "anyOf": [
+                      {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "untracked_calls": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "currency",
+                  "reserved_amount",
+                  "unknown_amount",
+                  "tracked_calls",
+                  "untracked_calls",
+                  "coverage"
+                ],
+                "type": "object"
               },
               "provider_cache_miss_reported_calls": {
                 "maximum": 9007199254740991,
@@ -3429,6 +3777,64 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
@@ -3607,6 +4013,64 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
@@ -3787,6 +4251,64 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
@@ -3966,6 +4488,64 @@
                       "minimum": 0,
                       "type": "integer"
                     },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
+                    },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
                       "minimum": 0,
@@ -4144,6 +4724,64 @@
                       "maximum": 9007199254740991,
                       "minimum": 0,
                       "type": "integer"
+                    },
+                    "protection": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "coverage": {
+                          "enum": [
+                            "none",
+                            "partial",
+                            "complete"
+                          ],
+                          "type": "string"
+                        },
+                        "currency": {
+                          "const": "CNY",
+                          "type": "string"
+                        },
+                        "reserved_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "tracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "unknown_amount": {
+                          "anyOf": [
+                            {
+                              "pattern": "^\\d+(?:\\.\\d+)?$",
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "untracked_calls": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "reserved_amount",
+                        "unknown_amount",
+                        "tracked_calls",
+                        "untracked_calls",
+                        "coverage"
+                      ],
+                      "type": "object"
                     },
                     "provider_cache_miss_reported_calls": {
                       "maximum": 9007199254740991,
@@ -4482,6 +5120,64 @@
                 "maximum": 9007199254740991,
                 "minimum": 0,
                 "type": "integer"
+              },
+              "protection": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage": {
+                    "enum": [
+                      "none",
+                      "partial",
+                      "complete"
+                    ],
+                    "type": "string"
+                  },
+                  "currency": {
+                    "const": "CNY",
+                    "type": "string"
+                  },
+                  "reserved_amount": {
+                    "anyOf": [
+                      {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "tracked_calls": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "unknown_amount": {
+                    "anyOf": [
+                      {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "untracked_calls": {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "currency",
+                  "reserved_amount",
+                  "unknown_amount",
+                  "tracked_calls",
+                  "untracked_calls",
+                  "coverage"
+                ],
+                "type": "object"
               },
               "provider_cache_miss_reported_calls": {
                 "maximum": 9007199254740991,

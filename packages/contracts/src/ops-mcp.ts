@@ -9,6 +9,7 @@ export const OpsDataset = z.enum([
   "processing",
   "acquisition",
   "usage",
+  "protection",
   "publication",
   "audit",
   "accounts",
@@ -16,7 +17,22 @@ export const OpsDataset = z.enum([
   "evaluations",
   "queues",
 ]);
+const numericValues = z.record(z.string().regex(/^[a-z_]+$/), z.string().regex(/^\d+(?:\.\d+)?$/));
 export const OpsRows = {
+  protection: z
+    .array(
+      z.strictObject({
+        kind: z.enum(["indicator", "breaker", "coverage"]),
+        state: z.enum(["normal", "warning", "tripped", "open", "recovered", "needs_configuration"]),
+        lane: z.enum(["news", "policy"]).nullable(),
+        trigger: z.enum(["repeated_input", "object_cost", "daily_total"]).nullable(),
+        capability: key.nullable(),
+        source_id: key.nullable(),
+        current: numericValues,
+        threshold: numericValues,
+      }),
+    )
+    .max(501),
   runs: z.array(z.strictObject({ job: key, status: key, count, latest_at: stamp })).max(501),
   health: z.array(z.strictObject({ component: z.enum(["worker", "private-api", "backup_record"]), last_recorded_at: stamp })).max(3),
   sources: z
@@ -83,6 +99,7 @@ export const OPS_COVERAGE: Record<z.infer<typeof OpsDataset>, string> = {
   sources: "按来源ID最多500项配置状态与成功时间；不含地址、许可正文或未记录来源",
   processing: "当前材料按来源和处理状态统计，最多500组；包含两条业务线，不把已处理推断为已公开",
   acquisition: "最近24小时的来源采集状态分组，最多500组；延后/跳过不算采集成功",
+  protection: "采样时的费用预警、熔断与覆盖缺项；数值以人民币微元或标注的计数/比例为单位，不含回执正文、人员或恢复原因",
   usage: "北京时间本月真实物理尝试按服务/状态/币种/费用依据分列；未定价和未知保持缺项，不跨币种合计",
   publication: "资讯投影及法规当前投影状态计数；法规投影计数不代表当前质量资格通过",
   audit: "最近100次记录的动作类型和时刻；不含操作人、对象标识、原因、前后值和请求元数据",
