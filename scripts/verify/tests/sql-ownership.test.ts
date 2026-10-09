@@ -91,3 +91,12 @@ test("only explicit unquoted pg_catalog.to_char is a known scalar formatter", ()
     assert.ok(sqlOwnership(query(name)).unknown.length, name);
   assert.ok(sqlOwnership("SELECT pg_catalog.to_char(custom_mutator(), 'x') FROM receipts").unknown.includes("opaque SQL function custom_mutator"));
 });
+
+test("explicit pg_catalog.round preserves argument access without trusting shadowed functions", () => {
+  const query = "SELECT pg_catalog.round((SELECT value FROM publication.metal_prices LIMIT 1),1)";
+  assert.deepEqual(sqlOwnership(query).unknown, []);
+  assert.deepEqual(relations(query), ["read:publication.metal_prices"]);
+  for (const name of ["round", "public.round", 'pg_catalog."round"', '"pg_catalog".round', "other.pg_catalog.round"])
+    assert.ok(sqlOwnership(`SELECT ${name}(value,1) FROM publication.metal_prices`).unknown.length, name);
+  assert.ok(sqlOwnership("SELECT pg_catalog.round(custom_mutator(),1)").unknown.includes("opaque SQL function custom_mutator"));
+});
