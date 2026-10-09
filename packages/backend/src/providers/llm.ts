@@ -1,3 +1,4 @@
+import type {FallbackPermitPort} from "./model-fallback-permit.ts";
 import type { TaskBudget } from "./usage-protection.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
@@ -176,6 +177,7 @@ export async function modelSpecFor(key: string) {
   return (await registeredModelSpec(key)) ?? MODELS[key] ?? null;
 }
 export interface ChatJsonOptions<S extends z.ZodType> {
+  fallbackPermit?:FallbackPermitPort;
   taskBudget?: TaskBudget;
   sourceIds?: string[];
   usageObject?: { kind: "article" | "policy"; id: string };
