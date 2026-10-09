@@ -76,6 +76,7 @@ export interface PolicyReceiptContext {
   manifestHash: string;
   inputFingerprint: string;
   permissionVersions: Record<string, number>;
+  partIds?: string[];
   manifest: unknown;
 }
 
@@ -191,6 +192,53 @@ interface ReceiptRow {
   updated_at: Date;
 }
 
+export class PolicyPartLimitError extends Error {
+  readonly partIds: string[];
+  constructor(partIds: string[]) {
+    super("Policy parts already have two confirmed paid attempts");
+    this.partIds = partIds;
+  }
+}
+async function checkPolicyPartLimit(tx: Db, req: ReceiptRequest) {
+  const ids = req.purpose === "policy_fulltext" ? req.policy?.partIds : null;
+  if (!ids?.length) return;
+  const rows = await tx<{ parts: string[]; usage: Record<string, unknown> | null }[]>`SELECT r.request->'partIds' AS parts,a.usage
+    FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.purpose='policy_fulltext'
+      AND r.request->'partIds' ?| ${ids}::text[] AND a.status='received'`;
+  const blocked = ids.filter((id) => rows.filter((row) => row.parts.includes(id) && knownTranslationUsage(row.usage)).length >= 2);
+  if (blocked.length) throw new PolicyPartLimitError(blocked);
+}
+
+type PolicyReceiptRecord = {
+  receiptId: number;
+  attemptId: string;
+  response: unknown;
+  request: { manifest?: { upstream_artifacts?: { kind: string; id: string; version: string; manifest_id: string }[] } };
+};
+/** Recorded physical responses are authoritative; never synthesize an attempt from an ordinal. */
+export async function readPolicyPartResponses(partIds: string[], recipe: string) {
+  if (!partIds.length) return [];
+  const rows = await sql<PolicyReceiptRecord[]>`
+    SELECT r.id AS "receiptId",a.id::text AS "attemptId",a.response,r.request
+    FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.id=r.response_attempt_id
+    WHERE r.purpose='policy_fulltext' AND a.status='received' AND a.response IS NOT NULL
+      AND r.request->'partIds' ?| ${partIds}::text[] ORDER BY a.started_at DESC`;
+  return rows.filter((row) =>
+    row.request.manifest?.upstream_artifacts?.some((a) => a.kind === "policy_part" && partIds.includes(a.id) && a.version === recipe),
+  );
+}
+
+export async function settlePolicyResponse(db: Db, receipt: { receiptId: number; attemptId: string | null }, accepted: boolean | null) {
+  const [row] = await db<{ usage: Record<string, unknown> | null }[]>`SELECT a.usage FROM receipts r JOIN receipt_attempts a ON a.id=r.response_attempt_id
+    WHERE r.id=${receipt.receiptId} AND a.id::text=${receipt.attemptId} AND a.receipt_id=r.id AND a.attempt=r.attempts
+      AND r.purpose='policy_fulltext' AND a.status='received' AND a.response=r.response FOR UPDATE OF r,a`;
+  if (!row) return null;
+  if (accepted) await completeReceipt(db, receipt.receiptId);
+  else if (accepted === false && knownTranslationUsage(row.usage))
+    await db`UPDATE receipts SET status='failed',error='policy candidate rejected',updated_at=now() WHERE id=${receipt.receiptId}`;
+  return { knownUsage: knownTranslationUsage(row.usage) };
+}
+
 async function checkPolicyReceipts(tx: Db, context?: PolicyReceiptContext) {
   if (!context) return;
   const rows = await tx<
@@ -291,6 +339,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         await tx`UPDATE ai.translation_receipt_observations SET known_unbilled=true
         WHERE receipt_id=${existing.id_text} AND receipt_version=(SELECT attempts FROM receipts WHERE id=${existing.id_text}) AND attempt_id IS NULL`;
       await checkPolicyReceipts(tx, req.policy);
+      await checkPolicyPartLimit(tx, req);
       await checkBudget(tx, req.service);
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
@@ -301,6 +350,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     const blocked = await translationBlocker(tx, stage, logicalKey);
     if (blocked) return blocked;
     await checkPolicyReceipts(tx, req.policy);
+    await checkPolicyPartLimit(tx, req);
     await checkBudget(tx, req.service);
     const [row] = await tx<{ id: number; id_text: string }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
@@ -337,6 +387,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       await tx`UPDATE receipts SET status = ${status}, error = ${message}, updated_at = now() WHERE id = ${receiptId} AND attempts=${attempt}`;
       await tx`UPDATE receipt_attempts SET status = ${status}, error = ${message}, latency_ms = ${Date.now() - started}, finished_at = now() WHERE id = ${attemptId}`;
     });
+    if (req.policy && status === "unknown") throw new ReceiptUnknownError(receiptId, message, attemptId);
     throw error;
   }
 

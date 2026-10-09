@@ -187,6 +187,10 @@
     {
       "name": "policy/202610090200_policy_extractions.sql",
       "dependsOn": ["policy/202610090100_policy_originals.sql"]
+    },
+    {
+      "name": "policy/202610090300_policy_fulltext.sql",
+      "dependsOn": ["policy/202610090200_policy_extractions.sql"]
     }
   ]
 }

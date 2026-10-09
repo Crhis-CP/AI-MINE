@@ -89,7 +89,7 @@ export async function recordPolicyOriginal(input: unknown) {
 
 /** Read a current private snapshot only with current permission; a changed source policy requires reacquisition. */
 export async function readPolicyOriginal(expressionId: string) {
-  const [head] = await sql`SELECT r.id,r.source_id,r.permission_version,r.manifest,r.manifest_hash FROM policy.expressions e
+  const [head] = await sql`SELECT r.id,r.sequence,e.language,r.source_id,r.permission_version,r.manifest,r.manifest_hash FROM policy.expressions e
     JOIN policy.document_revisions r ON r.id=e.current_revision_id WHERE e.id=${expressionId}`;
   if (!head) return null;
   return sql.begin(async (tx) => {
@@ -112,6 +112,8 @@ export async function readPolicyOriginal(expressionId: string) {
       throw new Error("Policy original integrity mismatch");
     return {
       sourceId: String(head.source_id),
+      sequence: Number(head.sequence),
+      language: String(head.language),
       permissionVersion: Number(head.permission_version),
       revisionId: String(head.id),
       manifest,
