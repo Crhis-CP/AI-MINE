@@ -24,9 +24,12 @@ export class RuntimeControlInputError extends Error {
   readonly statusCode = 400;
 }
 export class RuntimeControlPaused extends Error {
+  readonly code = "conflict";
   readonly retryAfterSeconds = 60;
 }
-export class RuntimeControlStale extends Error {}
+export class RuntimeControlStale extends Error {
+  readonly code = "conflict";
+}
 export type RuntimeControlSnapshot = { lane: RuntimeLane; switches: RuntimeSwitch[]; version: string; paused: boolean };
 const switches: RuntimeSwitch[] = ["collection", "processing", "publication"],
   lanes = ["news", "policy", "all"] as const;
@@ -60,7 +63,7 @@ export async function listLaneControls() {
 }
 /** Expires only affect alerting. Every holder remains active until its own explicit CAS release. */
 export async function runtimeControlSnapshot(lane: RuntimeLane, requested: RuntimeSwitch[], db: Db = sql): Promise<RuntimeControlSnapshot> {
-  if (!requested.length || requested.some((s) => !switches.includes(s))) throw new Error("Invalid runtime control scope");
+  if (!["news", "policy"].includes(lane) || !requested.length || requested.some((s) => !switches.includes(s))) throw new Error("Invalid runtime control scope");
   const selected = (await rows(db)).filter((r) => (r.lane === lane || r.lane === "all") && requested.includes(r.switch));
   return {
     lane,
@@ -101,10 +104,10 @@ async function change(value: Change) {
     !value.reason.trim() ||
     !value.actor.trim()
   )
-    throw new RuntimeControlInputError("Invalid runtime control change");
+    throw new RuntimeControlInputError("运行控制参数不完整，请核对范围、原因与操作人");
   const expiry = value.expiresAt ? new Date(value.expiresAt) : null;
   if (value.action === "pause" && (!expiry || !Number.isFinite(expiry.getTime()) || expiry.getTime() <= Date.now()))
-    throw new RuntimeControlInputError("Pause expiry must be in the future");
+    throw new RuntimeControlInputError("暂停到期时间必须晚于当前时间");
   if (
     value.action === "pause" &&
     value.lane === "all" &&
@@ -112,7 +115,7 @@ async function change(value: Change) {
     value.switches.includes("processing") &&
     expiry!.getTime() > Date.now() + 24 * 3600_000
   )
-    throw new RuntimeControlInputError("All automatic work may be paused for at most 24 hours");
+    throw new RuntimeControlInputError("暂停全部业务线的全部自动处理最多 24 小时，请缩短期限");
   const result = await sql.begin(async (tx) => {
     await lock(tx, true);
     const before = (await rows(tx)).filter((r) => r.lane === value.lane && r.holder === value.holder && value.switches.includes(r.switch));
@@ -139,9 +142,10 @@ async function change(value: Change) {
       undefined,
       tx,
     );
-    return true;
+    return Object.fromEntries(before.map((r) => [r.switch, r.revision + 1])) as Partial<Record<RuntimeSwitch, number>>;
   });
-  if (!result) throw new LaneControlConflict("Runtime control version changed; no holder was released");
+  if (!result) throw new LaneControlConflict("运行状态已被其他操作修改，请刷新后重新选择；未解除任何暂停");
+  return result;
 }
 export async function changeOwnerLaneControls(input: unknown, actor: string) {
   const value = LaneControlActionRequest.parse(input);
@@ -157,10 +161,20 @@ export async function changeOwnerLaneControls(input: unknown, actor: string) {
   });
   return listLaneControls();
 }
+/** Internal controllers read their own exact inactive-or-active record versions before acquiring a new hold. */
+export async function laneControlHolderRevisions(lane: RuntimeLane | "all", holder: ControlHolder) {
+  return Object.fromEntries((await rows()).filter((r) => r.lane === lane && r.holder === holder).map((r) => [r.switch, r.revision])) as Record<
+    RuntimeSwitch,
+    number
+  >;
+}
 /** Trusted deployment code can only change its own holder, never Owner or system records. */
 export const changeDeploymentLaneControl = (input: Omit<Change, "holder">) => change({ ...input, holder: "deploy" });
 export const changeSystemLaneControl = (input: Omit<Change, "holder">) => change({ ...input, holder: "system" });
 export async function laneControlFindings(now = Date.now()) {
+  const laneName: Record<string, string> = { news: "资讯线", policy: "法规线", all: "全部业务线" };
+  const switchName: Record<string, string> = { collection: "采集", processing: "模型处理", publication: "新内容公开" };
+  const holderName: Record<string, string> = { owner: "负责人", deploy: "部署保护", system: "系统保护" };
   const held = (await rows()).filter((r) => r.paused && r.expires_at!.getTime() <= now);
   const conflicts = await sql<
     { id: string; lane: string; switch: string; holder: string; occurred_at: Date }[]
@@ -170,7 +184,7 @@ export async function laneControlFindings(now = Date.now()) {
       key: `lane-control.expired:${r.lane}:${r.switch}:${r.holder}`,
       level: "today" as const,
       title: "运行暂停已到期，仍保持暂停",
-      impact: `${r.lane}的${r.switch}由${r.holder}暂停，原因：${r.reason}`,
+      impact: `${laneName[r.lane]}的${switchName[r.switch]}由${holderName[r.holder]}暂停，原因：${r.reason}`,
       heals: "不会自动恢复",
       action: "核对后由原持有者明确恢复或续期",
       detail: `操作人${r.actor}；控制版本${r.revision}`,
@@ -180,10 +194,10 @@ export async function laneControlFindings(now = Date.now()) {
       key: `lane-control.conflict:${r.id}`,
       level: "today" as const,
       title: "运行保护恢复遇到版本变化，已保留暂停",
-      impact: `${r.holder}未能释放${r.lane}的${r.switch}保护，其他持有者不受影响`,
+      impact: `${holderName[r.holder]}未能释放${laneName[r.lane]}的${switchName[r.switch]}保护，其他持有者不受影响`,
       heals: "不会自动覆盖新的控制记录",
       action: "核对当前控制记录后明确恢复",
-      detail: `控制持有者${r.holder}`,
+      detail: `控制持有者：${holderName[r.holder]}`,
       since: r.occurred_at,
     })),
   ];

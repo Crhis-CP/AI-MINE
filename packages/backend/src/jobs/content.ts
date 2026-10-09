@@ -1,3 +1,4 @@
+import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Content processing: body extraction when the source needs it → analysis → publish → event grouping.
 // Every article reaches the queues through queueProcessing, which records when it was queued, so the
 // safety net only picks up articles nothing is working on and sends those still waiting for a body to
@@ -217,10 +218,21 @@ export async function afterFailure(articleId: string, error: unknown): Promise<{
   // failure and must neither consume processing_attempts nor turn an incomplete chain terminal.
   if (error instanceof AnalysisInterruptedError || shutdownSignal.signal.aborted) throw error;
   const message = String(error instanceof Error ? error.message : error).slice(0, 500);
-  if (error instanceof ReceiptBusyError || error instanceof BudgetExceededError || !config.modelCallsEnabled) {
+  if (
+    error instanceof RuntimeControlPaused ||
+    error instanceof RuntimeControlStale ||
+    error instanceof ReceiptBusyError ||
+    error instanceof BudgetExceededError ||
+    !config.modelCallsEnabled
+  ) {
     // Not the article's fault: the same request is in flight, the budget window is full, or model calls are
     // switched off. A Chinese original stays public meanwhile and is judged once calls are back on.
-    const seconds = error instanceof BudgetExceededError ? error.retryAfterSeconds : error instanceof ReceiptBusyError ? 60 : MODELS_OFF_WAIT_SECONDS;
+    const seconds =
+      error instanceof BudgetExceededError
+        ? error.retryAfterSeconds
+        : error instanceof ReceiptBusyError || error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale
+          ? 60
+          : MODELS_OFF_WAIT_SECONDS;
     const retryAt = new Date(Date.now() + seconds * 1000);
     await sql`UPDATE articles SET processing_state = 'new', processing_error = ${message}, processing_retry_at = ${retryAt}, processing_queued_at = NULL WHERE id = ${articleId}`;
     return { state: "waiting", retryAt };
@@ -244,15 +256,20 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
   await ensureQueue(QUEUES.translate);
   await boss.work<{ articleId: string }>(QUEUES.translate, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
     if (!job) return;
-    const revision = await prepareTranslation(job.data.articleId);
-    if (revision === null) return { state: "not-needed-or-not-permitted" };
-    const result = await translateArticle(job.data.articleId, revision);
-    if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
-    const publication = await publishArticle(job.data.articleId);
-    const r = await route(job.data.articleId, sql);
-    if (publication?.visibility === "public" && r && !r.historical)
-      await enqueue(QUEUES.group, { articleId: job.data.articleId }, { singletonKey: job.data.articleId, priority: PRIORITY.live });
-    return result;
+    try {
+      const revision = await prepareTranslation(job.data.articleId);
+      if (revision === null) return { state: "not-needed-or-not-permitted" };
+      const result = await translateArticle(job.data.articleId, revision);
+      if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
+      const publication = await publishArticle(job.data.articleId);
+      const r = await route(job.data.articleId, sql);
+      if (publication?.visibility === "public" && r && !r.historical)
+        await enqueue(QUEUES.group, { articleId: job.data.articleId }, { singletonKey: job.data.articleId, priority: PRIORITY.live });
+      return result;
+    } catch (error) {
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(job.data.articleId, error);
+      throw error;
+    }
   });
   await ensureQueue(QUEUES.analyze);
   await boss.work<{ articleId: string; attemptTag?: string }>(QUEUES.analyze, { localConcurrency: concurrency, pollingIntervalSeconds: 2 }, async ([job]) => {
@@ -284,6 +301,7 @@ export async function registerExtractionJobs(boss: PgBoss) {
       await queueProcessing(articleId, { step: "analyze" });
       return { state };
     } catch (error) {
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(articleId, error);
       const message = String(error instanceof Error ? error.message : error).slice(0, 500);
       const [a] = await sql<{ processing_attempts: number }[]>`
         UPDATE articles SET processing_attempts = processing_attempts + 1, processing_error = ${`extract: ${message}`},

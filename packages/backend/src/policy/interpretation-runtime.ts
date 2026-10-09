@@ -1,3 +1,4 @@
+import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { z } from "zod";
 import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput } from "../providers/policy.ts";
 import { extractJson, ModelOutputError } from "@amp/backend/providers/llm";
@@ -30,6 +31,8 @@ export const interpretationRecipe = () => sha256(stableJson(["policy-interpretat
 type Proof = NonNullable<Awaited<ReturnType<typeof readPolicyResponse>>>;
 export type ModelEvidence = { receiptId: number; attemptId: string; service: string; requestedModel: string | null; reportedModel: string | null };
 type BlockedStatus =
+  | "paused"
+  | "waiting_control"
   | "partial"
   | "blocked_unknown"
   | "invalid_output"
@@ -200,6 +203,7 @@ async function runInterpretation(
   const models = [...loaded.models],
     inflight = new Map<string, InterpretationStage>();
   const gateway = createPolicyGateway({
+    runtimeControl: run!.runtimeControl,
     root: options.root,
     resolve: async (ref, purpose) => {
       const stage = inflight.get(ref.id);
@@ -298,21 +302,29 @@ async function runInterpretation(
     return { ...result, contentHash, requestsAttempted };
   } catch (error) {
     const status: BlockedStatus | null =
-      error instanceof StageBlocked
-        ? error.status
-        : error instanceof ReceiptUnknownError
-          ? "blocked_unknown"
-          : error instanceof ReceiptBusyError
-            ? "waiting_receipt"
-            : error instanceof ProviderRejectedError
-              ? "provider_unavailable"
-              : error instanceof ModelOutputError
-                ? "invalid_output"
-                : error instanceof PolicyRunStaleError || error instanceof PolicyInputChangedError || error instanceof SourcePolicyConflict
-                  ? "stale"
-                  : error instanceof InterpretationCapacityError
-                    ? "blocked_capacity"
-                    : null;
+      error instanceof RuntimeControlPaused
+        ? "paused"
+        : error instanceof RuntimeControlStale
+          ? "waiting_control"
+          : error instanceof StageBlocked
+            ? error.status
+            : error instanceof ReceiptUnknownError
+              ? "blocked_unknown"
+              : error instanceof ReceiptBusyError
+                ? "waiting_receipt"
+                : error instanceof ProviderRejectedError
+                  ? "provider_unavailable"
+                  : error instanceof ModelOutputError
+                    ? "invalid_output"
+                    : error instanceof RuntimeControlPaused ||
+                        error instanceof RuntimeControlStale ||
+                        error instanceof PolicyRunStaleError ||
+                        error instanceof PolicyInputChangedError ||
+                        error instanceof SourcePolicyConflict
+                      ? "stale"
+                      : error instanceof InterpretationCapacityError
+                        ? "blocked_capacity"
+                        : null;
     if (!status) throw error;
     return { status, runId: fulltextRunId, requestsAttempted, semantic_verified: false, publication_authorized: false as const };
   }
@@ -326,7 +338,15 @@ export async function runPolicyInterpretation(
     return await runInterpretation(fulltextRunId, options);
   } catch (error) {
     const status: BlockedStatus | null =
-      error instanceof StageBlocked ? error.status : error instanceof PolicyRunStaleError || error instanceof SourcePolicyConflict ? "stale" : null;
+      error instanceof RuntimeControlPaused
+        ? "paused"
+        : error instanceof RuntimeControlStale
+          ? "waiting_control"
+          : error instanceof StageBlocked
+            ? error.status
+            : error instanceof PolicyRunStaleError || error instanceof SourcePolicyConflict
+              ? "stale"
+              : null;
     if (!status) throw error;
     return { status, runId: fulltextRunId, requestsAttempted: 0, semantic_verified: false, publication_authorized: false as const };
   }

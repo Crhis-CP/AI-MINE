@@ -1,3 +1,4 @@
+import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Policy workers provide immutable references. Only their trusted resolver prepares the actual model input.
 import { z } from "zod";
 import { SourceInputManifestSchema, type IssueProcessingPermitInputSchema, type ProcessingPermit } from "@amp/contracts/source-policy";
@@ -84,6 +85,7 @@ function validateImages(input: PreparedPolicyInput, purpose: PolicyPurpose) {
   if (size > 16 * 1024 * 1024 || pixels > 40_000_000) throw new Error("Policy image input exceeds capacity; do not downscale or truncate");
 }
 export interface PolicyGatewayPorts {
+  runtimeControl?: RuntimeControlSnapshot;
   root: AbortSignal;
   /** Rebuild from current stored originals/plan/control state; never echo caller-provided text or completeness flags. */
   resolve(ref: PolicyInputReference, purpose: PolicyPurpose): Promise<PreparedPolicyInput | null>;
@@ -195,6 +197,7 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
           maxTokens: options.maxTokens ?? 4096,
           timeoutMs: options.timeoutMs,
           beforeRequest: authorize,
+          runtimeControl: ports.runtimeControl,
           policyContext: {
             lane: "policy",
             category: purpose === "policy_fulltext" ? "policy_fulltext" : "policy_interpret",

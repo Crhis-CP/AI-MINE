@@ -1,3 +1,4 @@
+import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // OpenAI-compatible chat calls, always through receipts. One model is enough: `default` is whatever the
 // deployment names in LLM_BASE_URL / LLM_API_KEY / LLM_MODEL, and every capability uses it unless an
 // environment variable or the admin's model page picks one of the named presets below.
@@ -152,6 +153,7 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   maxRejectedOutputs?: 1 | 3;
   translationObservations?: TranslationObservation[];
   policyContext?: PolicyReceiptContext;
+  runtimeControl?: RuntimeControlSnapshot;
   /** Recheck the trusted input and current permissions immediately before any new paid send. */
   beforeRequest?: () => Promise<void>;
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
@@ -259,6 +261,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       purpose: opts.purpose,
       subject: opts.subject,
       policy: opts.policyContext,
+      runtimeControl: opts.runtimeControl,
       identity: {
         ...imageTransport,
         ...(opts.policyContext ? { policy: opts.policyContext } : {}),

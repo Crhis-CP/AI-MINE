@@ -1,3 +1,4 @@
+import { requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { guardedFetch, type GuardedFetchOptions, type GuardedResponse } from "../lib/http-fetch.ts";
@@ -7,7 +8,13 @@ import { decodeOriginal, validateProfile, type ExtractionProfile } from "./extra
 
 type Input = Omit<PolicyOriginalInput, "resources" | "catalogueClosed">;
 type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedResponse>;
-export async function acquirePolicyOriginal(inputValue: Input, profileValue: ExtractionProfile, get: Get = guardedFetch) {
+export async function acquirePolicyOriginal(
+  inputValue: Input,
+  profileValue: ExtractionProfile,
+  get: Get = guardedFetch,
+  collectionControl?: RuntimeControlSnapshot,
+) {
+  const runtime = collectionControl ?? (await requireRuntimeRunning("policy", ["collection"]));
   const input = structuredClone(inputValue),
     profile = { ...profileValue };
   validateProfile(profile);
@@ -106,5 +113,5 @@ export async function acquirePolicyOriginal(inputValue: Input, profileValue: Ext
     }
   }
   // A direct PDF may embed attachments; their catalogue is not established by merely downloading the PDF.
-  return recordPolicyOriginal({ ...input, catalogueClosed, resources });
+  return recordPolicyOriginal({ ...input, catalogueClosed, resources }, runtime);
 }

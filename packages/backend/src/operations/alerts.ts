@@ -4,7 +4,7 @@
 //   today  — money at risk or only the owner can act: sent at once, repeated at most daily, recovery reported.
 //   digest — follow-ups without reader impact: one 09:00 message a day, meant to be handed to the AI.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
-import { laneControlFindings } from "./lane-controls.ts";
+import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
 import { dbOf } from "../db.ts";
@@ -31,13 +31,16 @@ const clip = (text: string) => [...text].slice(0, 200).join("");
 /** Everything wrong right now, with its level. */
 export async function collectFindings(now = Date.now(), observeIntake?: (lastDiscoveredAt: Date | null) => void): Promise<Finding[]> {
   const out: Finding[] = await laneControlFindings(now);
+  const newsCollectionPaused = (await runtimeControlSnapshot("news", ["collection"])).paused;
+  const newsProcessingPaused = (await runtimeControlSnapshot("news", ["processing"])).paused;
+  const newsPublicationPaused = (await runtimeControlSnapshot("news", ["publication"])).paused;
 
   // ---- Readers affected now ----------------------------------------------------------------------
   // First discoveries are distinct from successful fetches and public updates. Reuse this same read
   // for recovery; a disabled or warming-up check supplies no evidence that intake recovered.
   const [hb] = await sql<{ value: { startedAt?: string } }[]>`SELECT value FROM settings WHERE key = 'heartbeat.worker'`;
   const settled = !hb?.value.startedAt || now - Date.parse(hb.value.startedAt) > 20 * 60_000;
-  if (settled && collecting()) {
+  if (settled && collecting() && !newsCollectionPaused) {
     // Policy arrivals must not conceal first-discovery silence on the news line (INV-42).
     const news = await sourceIdsOnLane("news");
     const [last] = await sql<{ at: Date | null }[]>`SELECT max(discovered_at) AS at FROM articles
@@ -59,7 +62,7 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
       });
     }
   }
-  if (settled && collecting() && modelsOn()) {
+  if (settled && collecting() && modelsOn() && !newsProcessingPaused && !newsPublicationPaused) {
     const [p] = await sql<{ waiting: number; oldest: Date | null; failed: number }[]>`
       SELECT count(*) FILTER (WHERE processing_state = 'new' AND discovered_at < now() - interval '2 hours')::int AS waiting,
              min(discovered_at) FILTER (WHERE processing_state = 'new') AS oldest,

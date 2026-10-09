@@ -1,3 +1,4 @@
+import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
@@ -254,6 +255,7 @@ export async function createSource(input: unknown, actor: string, opts: { lane?:
 export async function fetchNow(id: string, actor: string) {
   const [s] = await sql<{ id: string; kind: string; lane: SourceRow["lane"] }[]>`SELECT id, kind, lane FROM sources WHERE id = ${id}`;
   if (!s) return null;
+  await requireRuntimeRunning(s.lane, ["collection"]);
   const jobId =
     s.kind === "mp_account"
       ? await enqueue(QUEUES.mpCheck, { sourceId: id, reason: "manual" }, { singletonKey: `mp:${id}` })
@@ -268,8 +270,8 @@ export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]
 }
 
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
-export async function readSourceDateContext(sourceId: string): Promise<SourceRow | null> {
-  const [source] = await sql<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, lane, first_party,
+export async function readSourceDateContext(sourceId: string, db: Db = sql): Promise<SourceRow | null> {
+  const [source] = await db<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, lane, first_party,
     interval_minutes, enabled, cursor, fail_count FROM sources WHERE id = ${sourceId}`;
   return source ?? null;
 }
@@ -320,4 +322,10 @@ export async function lockPolicySourceConfiguration(tx: Tx, expected: Pick<Sourc
   const [row] = await tx`SELECT kind,config,lane,enabled FROM sources WHERE id=${expected.id} FOR SHARE`;
   if (!row || row.lane !== "policy" || !row.enabled || row.kind !== expected.kind || stableJson(row.config) !== stableJson(expected.config))
     throw new Error("Policy source configuration changed or paused");
+}
+
+/** Acquisition reports success through the sources-owned port, within its original control transaction. */
+export async function recordSourceCollectionSuccess(sourceId: string, cursor: Record<string, unknown>, db: Db) {
+  await db`UPDATE sources SET last_fetch_at=now(),last_ok_at=now(),fail_count=0,last_error=NULL,health='ok',cursor=${db.json(cursor as never)},updated_at=now(),
+   next_fetch_at=now()+make_interval(mins=>interval_minutes) WHERE id=${sourceId}`;
 }

@@ -85,7 +85,7 @@ test("exact reference needs genuine visible URI or its own href; neighbouring/pr
 });
 test("current qualified relations produce stable navigation and every public outlet removes a withdrawn or changed endpoint", async (t) => {
   const roles = await publicRoleFixture(t),
-    reset = injectDb({ policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+    reset = injectDb({ ops: roles.admin, policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
   t.after(reset);
   const app = await publicServer(t, roles);
   t.after(app.stop);

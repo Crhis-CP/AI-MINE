@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
@@ -228,7 +229,7 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
 
-type StepOpts = { attemptTag?: string; scoreModel?: string };
+type StepOpts = { attemptTag?: string; scoreModel?: string; runtimeControl?: RuntimeControlSnapshot };
 type ReceiptObserver = (receiptId: number) => void;
 export class AnalysisInterruptedError extends Error {}
 
@@ -256,6 +257,7 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
     temperature: 0,
     maxTokens: 512,
     attemptTag: opts.attemptTag,
+    runtimeControl: opts.runtimeControl,
   });
   // A BLOCK without material to back it counts as UNKNOWN (which goes on).
   const label = res.data.label === "BLOCK" && missingEvidence(a) ? "UNKNOWN" : res.data.label;
@@ -299,6 +301,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
         timeoutMs: call.timeoutMs,
         // Each call is its own paid request; an explicit re-evaluation gets new ones.
         attemptTag: tagged(opts.attemptTag, `score-${i + 1}`),
+        runtimeControl: opts.runtimeControl,
       });
       onReceipt?.(res.receiptId);
       values.push(res.data.attentionScore);
@@ -360,6 +363,7 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     temperature: 0.2,
     maxTokens: 1500,
     attemptTag: tagged(opts.attemptTag, "structure"),
+    runtimeControl: opts.runtimeControl,
   });
   const subjects = [...new Set(res.data.subjects.map((s) => s.trim().toLowerCase()).filter((s) => s in ENTITIES))];
   return {
@@ -392,6 +396,7 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
       maxTokens: 16_384,
       timeoutMs: 180_000,
       attemptTag: tagged(opts.attemptTag, "understand"),
+      runtimeControl: opts.runtimeControl,
     });
   };
   // A model that is known not to read images gets the text only.
@@ -448,6 +453,7 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     temperature: 0.2,
     maxTokens: 2048,
     attemptTag: tagged(opts.attemptTag, "summarize"),
+    runtimeControl: opts.runtimeControl,
   });
   const p = res.data;
   const copy = finalizeCopy(t, { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh });
@@ -566,6 +572,8 @@ const isCompleteJudgement = (output: unknown) => !!output && typeof output === "
  * is kept for traceability but never overwrites a newer input (stale = true).
  */
 export async function analyzeArticle(articleId: string, opts: StepOpts = {}, afterScope?: () => Promise<unknown>): Promise<AnalyzeResult | null> {
+  const runtimeControl = await runtimeControlSnapshot("news", ["processing"]);
+  opts = { ...opts, runtimeControl };
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
@@ -577,6 +585,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
   // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
   await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, runtimeControl);
     const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]>`
       SELECT input_revision, prompt_version, output, receipt_ids, relevance FROM analyses WHERE article_id = ${articleId}
       ORDER BY input_revision DESC, id DESC LIMIT 1`;
@@ -612,6 +621,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
     geography: out.geography,
   };
   const committed = await commitProcessingResult(articleId, input.revision, out.relevance === "block" ? "blocked" : "analyzed", async (tx) => {
+    await assertRuntimeControl(tx, runtimeControl);
     // Enrichment owns the statement; content owns the locked transaction executing it.
     const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,

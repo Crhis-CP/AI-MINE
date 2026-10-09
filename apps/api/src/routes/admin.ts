@@ -87,7 +87,14 @@ export function registerAdmin(app: FastifyInstance) {
   );
   app.post(
     contracts.laneControlAction.url,
-    contracts.laneControlAction,
+    {
+      ...contracts.laneControlAction,
+      errorHandler(error, req, reply) {
+        if (error.statusCode === 400) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });
+        req.log.error({ err: error }, "runtime control action failed");
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "运行控制暂时不可用，请稍后再试" });
+      },
+    },
     adminHandler(async (req, reply, admin) => {
       const parsed = LaneControlActionRequest.safeParse(req.body);
       if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });

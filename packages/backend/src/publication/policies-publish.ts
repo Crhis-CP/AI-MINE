@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot, assertRuntimeControl } from "../operations/lane-controls.ts";
 import { dbOf, type Db } from "../db.ts";
 import { newShortId } from "../lib/ids.ts";
 const sql = dbOf("publication");
@@ -283,10 +284,12 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
 
 /** Read/lock within the caller's write transaction; public readers never consult this control. */
 export async function policyPublicationControl(db: Db = sql) {
+  const runtime = await runtimeControlSnapshot("policy", ["publication"], db);
+  await assertRuntimeControl(db, runtime, false);
   await db`SELECT pg_advisory_xact_lock_shared(hashtext('policy-publication-control'))`;
   const [row] = await db<{ paused: boolean; version: number }[]>`SELECT paused,version FROM publication.policy_publication_control WHERE lane='policy'`;
   if (!row) throw new Error("Policy publication control unavailable");
-  return row;
+  return { ...row, paused: row.paused || runtime.paused };
 }
 export async function setPolicyPublicationPaused(input: { expectedVersion: number; paused: boolean; reason: string; actor: string }) {
   if (!input.reason.trim() || !input.actor.trim()) throw new Error("Publication control needs reason and actor");

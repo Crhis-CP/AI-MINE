@@ -1,3 +1,4 @@
+import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Jina Reader (r.jina.ai): browser-rendered page text. Paid per request, reached through the egress
 // proxy, always behind receipts and the per-minute/hour/day budget (any zero stops it).
 import { credential } from "../config.ts";
@@ -30,7 +31,15 @@ export function parseJinaText(text: string): JinaPage {
  */
 export async function jinaRead(
   targetUrl: string,
-  opts: { purpose: string; subject: string; format?: "markdown" | "html"; cacheToleranceSeconds?: number; perRead?: boolean },
+  opts: {
+    purpose: string;
+    subject: string;
+    lane?: "news" | "policy";
+    runtimeControl?: RuntimeControlSnapshot;
+    format?: "markdown" | "html";
+    cacheToleranceSeconds?: number;
+    perRead?: boolean;
+  },
 ): Promise<JinaPage & { receiptId: number; raw: string }> {
   const key = credential("collectors", "JINA_API_KEY");
   if (!key) throw new Error("JINA_API_KEY is not configured");
@@ -43,6 +52,8 @@ export async function jinaRead(
   const receipt = await paidRequest(
     {
       service: "jina",
+      lane: opts.lane,
+      runtimeControl: opts.runtimeControl,
       model: null,
       purpose: opts.purpose,
       subject: opts.subject,

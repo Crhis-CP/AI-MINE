@@ -154,6 +154,8 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
     const target = url.slice(JINA_PREFIX.length);
     const page = await jinaRead(target, {
       purpose: "source_listing",
+      lane: source.lane,
+      runtimeControl: source.collectionControl,
       subject: `source:${source.id}`,
       cacheToleranceSeconds: source.config.cacheToleranceSeconds,
       perRead: true,
@@ -282,7 +284,10 @@ export async function fetchDetail(
   const jinaListing = String(source.config.url ?? "").startsWith(JINA_PREFIX);
   const dateInJina = need.date && jinaListing && !!d.publishedAtRegex;
   const titleInJina = need.title && jinaListing && !!d.titleRegex;
-  const jina = dateInJina || titleInJina ? (await jinaRead(url, { purpose: "source_detail", subject: `source:${source.id}` })).raw : null;
+  const jina =
+    dateInJina || titleInJina
+      ? (await jinaRead(url, { purpose: "source_detail", subject: `source:${source.id}`, lane: source.lane, runtimeControl: source.collectionControl })).raw
+      : null;
   let html: string | null = null;
   let body: ExtractedBody | null = null;
   if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary) {

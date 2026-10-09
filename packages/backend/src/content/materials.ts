@@ -1,3 +1,5 @@
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
+import { readSourceDateContext } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
 import { dbOf, type Db, type Tx } from "../db.ts";
@@ -116,13 +118,18 @@ export function identityKeyFor(m: MaterialInput): string {
  * stored content really changes. Concurrent reports of the same material are serialised on the row,
  * so every change gets its own revision number. Returns whether processing is needed.
  */
-export async function upsertMaterial(m: MaterialInput, db: Db = sql): Promise<MaterialResult> {
+export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionControl?: RuntimeControlSnapshot): Promise<MaterialResult> {
+  const source = await readSourceDateContext(m.sourceId, db);
+  if (!source) throw new Error("Material source missing");
+  const control = collectionControl ?? (await runtimeControlSnapshot(source.lane, ["collection"], db));
+  if (control.lane !== source.lane || control.switches.length !== 1 || control.switches[0] !== "collection") throw new Error("Material control scope mismatch");
   const date = MaterialSourceDateInput.parse({
     sourceDateObservation: m.sourceDateObservation,
     expectedSourceDateVersion: m.expectedSourceDateVersion,
     permissionVersion: m.permissionVersion,
   });
   const run = async (tx: Tx) => {
+    await assertRuntimeControl(tx, control);
     await prepareDateMutation(tx, m.sourceId, date);
     const result = await upsertIn(tx, m);
     // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).

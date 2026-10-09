@@ -1,3 +1,4 @@
+import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
 import { dbOf, type Db, type Tx } from "../db.ts";
 import { commitBodyResult, type CurrentBody } from "../content/materials.ts";
@@ -18,6 +19,7 @@ import {
 
 const sql = dbOf("enrichment");
 export interface TranslationSession {
+  runtimeControl?: RuntimeControlSnapshot;
   body: CurrentBody & { body_html: string };
   recipe: string;
   source: ReturnType<typeof translationSourceManifest>;
@@ -70,9 +72,16 @@ async function activeSegment(run: TranslationSession, segment: SourceSegment, tx
 /** Claim a target identity before paid work; source-provided translations are never replaced. */
 export async function beginTranslation(body: CurrentBody, recipe: string): Promise<TranslationSession | null> {
   if (!body.body_html || !recipe) return null;
-  const session: TranslationSession = { body: { ...body, body_html: body.body_html }, recipe, source: translationSourceManifest(body.body_html) };
+  const runtimeControl = await requireRuntimeRunning("news", ["processing"]);
+  const session: TranslationSession = {
+    runtimeControl,
+    body: { ...body, body_html: body.body_html },
+    recipe,
+    source: translationSourceManifest(body.body_html),
+  };
   if (!session.source.segments.length || session.source.capacity.length) return null;
   const claimed = await commitBodyResult(body, async (tx) => {
+    await assertRuntimeControl(tx, runtimeControl);
     const [current] = await tx`SELECT revision,recipe,source_hash,origin FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
     if (current?.origin === "source" || current?.revision > body.revision) return false;
     if (current?.revision === body.revision && current.recipe === recipe && current.source_hash === session.source.sourceHash) return true;
@@ -87,6 +96,7 @@ export async function beginTranslation(body: CurrentBody, recipe: string): Promi
 
 async function withCurrentTranslation<T>(run: TranslationSession, write: (tx: Tx) => Promise<T>): Promise<T | null> {
   return commitBodyResult(run.body, async (tx) => {
+    if (run.runtimeControl) await assertRuntimeControl(tx, run.runtimeControl);
     const rows = await tx`SELECT article_id FROM translations WHERE article_id=${run.body.id} AND lang='zh' AND revision=${run.body.revision}
       AND recipe=${run.recipe} AND source_hash=${run.source.sourceHash} AND origin='model' FOR UPDATE`;
     return rows.length ? write(tx) : null;

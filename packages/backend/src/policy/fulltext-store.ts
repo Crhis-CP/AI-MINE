@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import { dbOf, type Tx } from "../db.ts";
 import { assertOriginalPermissions, readPolicyOriginal as readCurrentOriginal, type readPolicyOriginal } from "./originals.ts";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
@@ -8,7 +9,14 @@ import type { PolicyFulltextPlan } from "./processing-plan.ts";
 
 const sql = dbOf("policy");
 export type PolicyOriginal = NonNullable<Awaited<ReturnType<typeof readPolicyOriginal>>>;
-export type FulltextRun = { id: string; plan: PolicyFulltextPlan; snapshot: PolicyOriginal; controlVersion: number; recipeHash: string };
+export type FulltextRun = {
+  id: string;
+  plan: PolicyFulltextPlan;
+  snapshot: PolicyOriginal;
+  controlVersion: number;
+  recipeHash: string;
+  runtimeControl?: RuntimeControlSnapshot;
+};
 export class PolicyRunStaleError extends Error {}
 export async function readProcessingControl(expressionId: string) {
   const [row] = await sql<{ version: number; paused: boolean }[]>`SELECT version,paused FROM policy.processing_controls WHERE expression_id=${expressionId}`;
@@ -39,9 +47,10 @@ export async function setPolicyProcessingPaused(expressionId: string, change: { 
     return Number(row.version);
   });
 }
-export type OriginalRun = { snapshot: PolicyOriginal; expressionId: string; controlVersion: number };
+export type OriginalRun = { snapshot: PolicyOriginal; expressionId: string; controlVersion: number; runtimeControl?: RuntimeControlSnapshot };
 export async function withCurrentPolicyOriginal<T>(run: OriginalRun, action: (tx: Tx) => Promise<T>) {
   return sql.begin(async (tx) => {
+    if (run.runtimeControl) await assertRuntimeControl(tx, run.runtimeControl);
     const s = run.snapshot;
     await assertOriginalPermissions(tx, s.sourceId, s.permissionVersion, s.manifest.resources, s.manifest.identity, true);
     for (const resource of s.resources) {
@@ -66,9 +75,14 @@ export async function withCurrentPolicyOriginal<T>(run: OriginalRun, action: (tx
   });
 }
 export async function withCurrentPolicyRun<T>(run: FulltextRun, action: (tx: Tx) => Promise<T>) {
-  return withCurrentPolicyOriginal({ snapshot: run.snapshot, expressionId: run.plan.context.expressionId, controlVersion: run.controlVersion }, action);
+  return withCurrentPolicyOriginal(
+    { snapshot: run.snapshot, expressionId: run.plan.context.expressionId, controlVersion: run.controlVersion, runtimeControl: run.runtimeControl },
+    action,
+  );
 }
 export async function beginPolicyFulltext(snapshot: PolicyOriginal, plan: PolicyFulltextPlan, recipeHash: string): Promise<FulltextRun | null> {
+  const runtimeControl = await runtimeControlSnapshot("policy", ["processing"]);
+  if (runtimeControl.paused) return null;
   const control = await processingControl(plan.context.expressionId);
   if (control.paused) return null;
   const run = {
@@ -77,6 +91,7 @@ export async function beginPolicyFulltext(snapshot: PolicyOriginal, plan: Policy
     snapshot,
     controlVersion: control.version,
     recipeHash,
+    runtimeControl,
   };
   await withCurrentPolicyRun(run, async (tx) => {
     await tx`INSERT INTO policy.fulltext_runs(id,expression_id,revision_id,control_version,recipe_hash,plan)

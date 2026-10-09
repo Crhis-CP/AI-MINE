@@ -31,7 +31,7 @@ const card = (policy: unknown) => {
 
 test("real public role reads gated policies; revocation, expiry, version selection and list anchors cannot reuse hidden data", async (t) => {
   const f = await publicRoleFixture(t),
-    dispose = injectDb({ policy: f.admin, sources: f.admin, publication: f.admin });
+    dispose = injectDb({ ops: f.admin, policy: f.admin, sources: f.admin, publication: f.admin });
   const app = await publicServer(t, f);
   try {
     const initial = await app.request("/api/site/policies");

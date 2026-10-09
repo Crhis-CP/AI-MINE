@@ -1,3 +1,4 @@
+import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { z } from "zod";
 import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
 import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput } from "../providers/policy.ts";
@@ -101,6 +102,7 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
     };
   };
   const gateway = createPolicyGateway({
+    runtimeControl: run!.runtimeControl,
     root: options.root,
     resolve: async (ref, purpose) => {
       const parts = requestParts.get(ref.id);
@@ -171,17 +173,21 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
     return { ...checked, runId: run.id, requestsAttempted: requests, acceptedParts: checked.accepted.length, totalParts: plan.parts.length };
   } catch (error) {
     const status =
-      error instanceof PolicyPartLimitError
-        ? "blocked_retry_limit"
-        : error instanceof ReceiptUnknownError
-          ? "blocked_unknown"
-          : error instanceof ReceiptBusyError
-            ? "waiting_receipt"
-            : error instanceof ProviderRejectedError
-              ? "provider_unavailable"
-              : error instanceof PolicyRunStaleError || error instanceof PolicyInputChangedError
-                ? "stale"
-                : null;
+      error instanceof RuntimeControlPaused
+        ? "paused"
+        : error instanceof RuntimeControlStale
+          ? "waiting_control"
+          : error instanceof PolicyPartLimitError
+            ? "blocked_retry_limit"
+            : error instanceof ReceiptUnknownError
+              ? "blocked_unknown"
+              : error instanceof ReceiptBusyError
+                ? "waiting_receipt"
+                : error instanceof ProviderRejectedError
+                  ? "provider_unavailable"
+                  : error instanceof PolicyRunStaleError || error instanceof PolicyInputChangedError
+                    ? "stale"
+                    : null;
     if (!status) throw error;
     return { status, runId: run.id, requestsAttempted: requests, semantic_verified: false as const, runtime_authorization: "none" as const };
   }

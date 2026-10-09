@@ -45,7 +45,7 @@ test("independent holder/lane controls preserve expiry, explicit restore and in-
     sessions.worker.begin((tx) => requireRuntimeRunning("news", ["processing"], tx)),
     RuntimeControlPaused,
   );
-  await changeDeploymentLaneControl({
+  const deploymentLease = await changeDeploymentLaneControl({
     lane: "news",
     switches: ["processing"],
     action: "pause",
@@ -54,6 +54,7 @@ test("independent holder/lane controls preserve expiry, explicit restore and in-
     expiresAt: expiry(),
     expected: { processing: 0 },
   });
+  assert.equal(deploymentLease.processing, 1);
   await assert.rejects(
     changeOwnerLaneControls(
       { lane: "news", mode: "processing", action: "resume", reason: "Stale restore", expected_revisions: { processing: 0 } },
@@ -123,7 +124,7 @@ test("independent holder/lane controls preserve expiry, explicit restore and in-
       },
       "synthetic-owner",
     ),
-    /24 hours/,
+    /24 小时/,
   );
   assert.equal(
     LaneControlActionRequest.safeParse({ lane: "all", mode: "processing", action: "resume", reason: "No confirmation", expected_revisions: { processing: 1 } })

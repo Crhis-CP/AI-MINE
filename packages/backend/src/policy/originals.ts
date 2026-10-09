@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Private acquisition snapshots. They never confer identity, extraction or publication approval.
 import { createHash } from "node:crypto";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
@@ -63,7 +64,9 @@ export async function lookupPolicyOriginalHead(value: IdentityInput): Promise<st
   return row?.current_revision_id ?? null;
 }
 
-export async function recordPolicyOriginal(input: unknown) {
+export async function recordPolicyOriginal(input: unknown, collectionControl?: RuntimeControlSnapshot) {
+  const runtime = collectionControl ?? (await runtimeControlSnapshot("policy", ["collection"]));
+  if (runtime.lane !== "policy" || runtime.switches.length !== 1 || runtime.switches[0] !== "collection") throw new Error("Original control scope mismatch");
   const value = PolicyOriginalInput.parse(input),
     { identity } = value;
   for (const resource of value.resources) if (resource.body) resource.body = Uint8Array.from(resource.body);
@@ -78,6 +81,7 @@ export async function recordPolicyOriginal(input: unknown) {
   };
   const manifestHash = sha256(stableJson(manifest));
   return sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, runtime);
     await assertOriginalPermissions(tx, value.sourceId, value.permissionVersion, resources, identity);
     await tx`INSERT INTO policy.instruments(id,identity) VALUES(${instrumentId},${tx.json(key)}) ON CONFLICT DO NOTHING`;
     await tx`INSERT INTO policy.versions(id,instrument_id,version_key) VALUES(${versionId},${instrumentId},${versionKey}) ON CONFLICT DO NOTHING`;

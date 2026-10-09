@@ -1,8 +1,16 @@
+import {
+  runtimeControlSnapshot,
+  assertRuntimeControl,
+  requireRuntimeRunning,
+  RuntimeControlPaused,
+  RuntimeControlStale,
+  type RuntimeControlSnapshot,
+} from "../operations/lane-controls.ts";
 // Collection run for one source: fetch listing → filter → store material → enqueue processing.
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
 import { dbOf } from "../db.ts";
 import { identityKeyFor, upsertMaterial, materialDateHeads } from "@amp/backend/content/materials";
-import { readCurrentSourcePolicy, evaluateSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
+import { recordSourceCollectionSuccess, readCurrentSourcePolicy, evaluateSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { enqueueSourceFetch, collectionEnabled, type CollectionLane } from "../jobs/source-queues.ts";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
@@ -66,6 +74,7 @@ function rewriteUrl(c: Candidate, source: SourceRow): Candidate {
 }
 
 export async function requireDateCollection(source: SourceRow, permissionVersion: number, url: string): Promise<void> {
+  await requireRuntimeRunning(source.lane, ["collection"]);
   const current = await readSourceDateContext(source.id);
   if (!current?.enabled || sourceDateConfigHash(current.kind, current.config) !== sourceDateConfigHash(source.kind, source.config))
     throw new FetchError("Source date collection paused or configuration changed");
@@ -99,6 +108,7 @@ async function store(
   permissionVersion: number,
   declaredLanguage: string | null | undefined,
   lane: SourceRow["lane"],
+  collectionControl: RuntimeControlSnapshot,
 ): Promise<{ created: number; revised: number }> {
   let created = 0;
   let revised = 0;
@@ -126,7 +136,7 @@ async function store(
     const key = identityKeyFor(material);
     if (seen.has(key)) continue;
     seen.add(key);
-    const res = await upsertMaterial(material);
+    const res = await upsertMaterial(material, undefined, collectionControl);
     if (res.created) created += 1;
     if (res.revised) revised += 1;
     metadataChanged ||= res.metadataChanged;
@@ -143,6 +153,9 @@ export async function collectSource(sourceId: string, opts: { force?: boolean; l
   if (!source) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "missing" };
   if (!collectionEnabled(source.lane) || (opts.lane && source.lane !== opts.lane))
     return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "lane-paused-or-changed" };
+  const collectionControl = await runtimeControlSnapshot(source.lane, ["collection"]);
+  source.collectionControl = collectionControl;
+  if (collectionControl.paused) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "lane-collection-paused" };
   if (!source.enabled) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "paused" };
   if (source.kind === "mp_account" || source.kind === "external") {
     // WeChat accounts are reconciled by the mp job; external sources only receive reports.
@@ -257,19 +270,30 @@ export async function collectSource(sourceId: string, opts: { force?: boolean; l
     }
 
     const language = Object.hasOwn(source.config, "language") ? normalizeSourceLanguage(source.config.language) : undefined;
-    ({ created, revised } = await store(sourceId, candidates, firstImport ? "first-import" : null, permission.permission_version, language, source.lane));
+    ({ created, revised } = await store(
+      sourceId,
+      candidates,
+      firstImport ? "first-import" : null,
+      permission.permission_version,
+      language,
+      source.lane,
+      collectionControl,
+    ));
 
     if (firstImport) nextCursor.initializedAt = new Date().toISOString();
     nextCursor.lastOkAt = new Date().toISOString();
-    await sql`
-      UPDATE sources SET last_fetch_at = now(), last_ok_at = now(), fail_count = 0, last_error = NULL,
-        health = 'ok', cursor = ${sql.json(nextCursor as never)}, updated_at = now(),
-        next_fetch_at = now() + make_interval(mins => interval_minutes)
-      WHERE id = ${sourceId}`;
-    await sql`UPDATE fetch_runs SET status = 'ok', finished_at = now(), found_count = ${found}, new_count = ${created},
+    await sql.begin(async (tx) => {
+      await assertRuntimeControl(tx, collectionControl);
+      await recordSourceCollectionSuccess(sourceId, nextCursor, tx);
+      await tx`UPDATE fetch_runs SET status = 'ok', finished_at = now(), found_count = ${found}, new_count = ${created},
                 detail = ${detail ? sql.json(detail as never) : null} WHERE id = ${run!.id}`;
+    });
     return { sourceId, status: "ok", found, created, revised };
   } catch (error) {
+    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+      await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),found_count=${found},new_count=${created},error='运行控制暂停或变化' WHERE id=${run!.id}`;
+      return { sourceId, status: "skipped", found, created, revised, error: "lane-control-changed" };
+    }
     const message = failureMessage(error);
     const budget = error instanceof BudgetExceededError;
     await sql`

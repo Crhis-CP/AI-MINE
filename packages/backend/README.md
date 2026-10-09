@@ -96,3 +96,10 @@ R-03/R-10最小接线：collectSource支持config.language明确声明，经BCP4
 `providers/policy.ts` 内部模块的 `createPolicyGateway({root, resolve})` 返回 `chat({input:{id,version}, purpose, schema})`，purpose 为 policy_fulltext/group/interpret/verify。`resolve` 是可信政策模块端口：从当前原件、完整输入计划与控制修订重建 PreparedPolicyInput（SourceInputManifest、system/user、promptVersion、recipeVersion、controlRevision、processingAllowed），不能照抄调用方声明。网关复核实际输入指纹、逐来源当前用途许可和临时 ProcessingPermit，并调用现有 chatJson/paidRequest。四个新模型能力沿用现有管理员/环境/default 优先级，不改任何既有选择。
 
 回执保存 policy lane、类别、来源集合、输入 manifest 及指纹。一个来源存在 pending/unknown 或未返回明确用量的已收响应时，新付费调用不能通过改变输入或模型绕过；已有原始响应仍可复用。每次尝试的 usage/cost 沿用现有账本，缺少实际费用保持未知，现有价格表估算仍与实际区分。返回后输入/许可/暂停改变时抛 PolicyInputChangedError，携带真实回执与尝试 ID，不返回可晋升候选。调用方应把正常返回的回执与业务结果在同一现有事务中结算，网关不授予发布资格。完整输入门、逐原文部分的付费尝试上限与输出业务校验属于政策处理计划/能力消费者。
+
+
+TASK-0129运行控制：`operations/lane-controls.ts`提供27条分线/阶段/持有者记录与行级revision。runtimeControlSnapshot捕获news/policy及all的全部相关持有者版本；assertRuntimeControl在调用方READ COMMITTED事务持有共享锁，拒绝暂停或期间发生过控制变化的结果升格。部署/系统读取laneControlHolderRevisions并只更新自己；修改返回该事务实际生成的版本供后续释放，不能读到另一部署的新版本后误解锁。期限过期只告警，不能自动恢复。
+
+中央paidRequest先复用既有物理回执，再检查新调用的控制；收到了响应仍先存用量/费用。chatJson可带runtimeControl，只用于claim前围栏，不进入prompt、logical key或传输。确知的lane仅写新request元数据，不推断改写历史。模型处理暂停不关闭普通采集/清洗或已公开读路径。新增原件/材料和采集成功游标、模型分析/翻译/视觉、向量批次及公开晋升分别在相应事务核对控制；向量存储使用events/embedding-store，来源成功游标使用admin/sources的recordSourceCollectionSuccess，不新增跨模块写。
+
+公开暂停不阻止撤回/收紧；延后的来源重投、正文和法规阶段保留待办并延后续跑，不耗尽为终态失败。日常HTTP只能控制owner持有者的processing或collection+processing，all操作显式确认且all自动处理期限最多24小时；真实Owner账号能力另由0138绑定，现有session+CSRF不等于Owner角色。

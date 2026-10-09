@@ -1,3 +1,4 @@
+import { requireRuntimeRunning, assertRuntimeControl } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
 import {
   evaluateSourcePolicy,
@@ -24,6 +25,7 @@ export async function capturePolicyMaterial(sourceId: string, materialId: string
   const source = await readSourceDateContext(sourceId),
     material = await policyMaterialReference(materialId, sourceId);
   if (source?.lane !== "policy" || !source.enabled || !material) return { status: "unavailable" as const };
+  const runtime = await requireRuntimeRunning("policy", ["collection"]);
   const configured = policyProfile(source),
     permission = await readCurrentSourcePolicy(sourceId);
   if (!configured) return { status: "needs_configuration" as const };
@@ -93,15 +95,23 @@ export async function capturePolicyMaterial(sourceId: string, materialId: string
   const fulltextAllowed =
     (await allowed("store_fulltext", officialUrl)) && (await allowed("fetch", officialUrl)) && (await allowed("process_locally", officialUrl));
   const original = fulltextAllowed
-    ? await acquirePolicyOriginal({ ...input, expectedHead }, profile.extraction, async (url, options) => (url === material.url ? response : get(url, options)))
-    : await recordPolicyOriginal({
-        ...input,
-        expectedHead,
-        catalogueClosed: false,
-        resources: [
-          { url: officialUrl, attachment: false, required: true, mediaType: null, state: "missing", body: null, reason: "当前许可仅保存文书基本信息" },
-        ],
-      });
+    ? await acquirePolicyOriginal(
+        { ...input, expectedHead },
+        profile.extraction,
+        async (url, options) => (url === material.url ? response : get(url, options)),
+        runtime,
+      )
+    : await recordPolicyOriginal(
+        {
+          ...input,
+          expectedHead,
+          catalogueClosed: false,
+          resources: [
+            { url: officialUrl, attachment: false, required: true, mediaType: null, state: "missing", body: null, reason: "当前许可仅保存文书基本信息" },
+          ],
+        },
+        runtime,
+      );
   const metadata: PolicyMetadataObservation = {
     sourceId,
     expressionId: original.expressionId,
@@ -134,6 +144,7 @@ export async function capturePolicyMaterial(sourceId: string, materialId: string
     },
   };
   await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, runtime);
     await lockPolicyMaterial(tx, material);
     await lockCurrentSourcePolicies(tx, [{ sourceId, permissionVersion: permission.permission_version }]);
     await lockPolicySourceConfiguration(tx, source);

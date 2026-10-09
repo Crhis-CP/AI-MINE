@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { dbOf } from "../db.ts";
 import { settlePolicyResponse } from "@amp/backend/providers/receipts";
 import { withCurrentPolicyRun, type FulltextRun } from "./fulltext-store.ts";
@@ -15,6 +16,7 @@ export type StageCheckpoint = {
   attempt_id: string;
 };
 export async function beginInterpretation(fulltext: FulltextRun, recipeVersion: string): Promise<InterpretationRun> {
+  fulltext.runtimeControl = await runtimeControlSnapshot("policy", ["processing"]);
   const run = { id: sha256(stableJson([fulltext.id, recipeVersion])), fulltext, recipeVersion };
   await withCurrentPolicyRun(fulltext, async (tx) => {
     await tx`INSERT INTO policy.interpretation_runs(id,fulltext_run_id,recipe_version) VALUES(${run.id},${fulltext.id},${recipeVersion}) ON CONFLICT DO NOTHING`;

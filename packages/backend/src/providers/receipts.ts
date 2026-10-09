@@ -1,3 +1,4 @@
+import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Paid requests (models, Jina, Dajiala) go through here.
 //
 // 1. A logical request has a stable key bound to task, input revision, provider, model, prompt and config.
@@ -82,6 +83,8 @@ export interface PolicyReceiptContext {
 
 export interface ReceiptRequest {
   service: string;
+  lane?: "news" | "policy";
+  runtimeControl?: RuntimeControlSnapshot;
   model?: string | null;
   purpose: string;
   subject?: string | null;
@@ -319,6 +322,10 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
 export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallOutcome>): Promise<ReceiptResult> {
   if (req.maxRejectedOutputs !== undefined && (![1, 3].includes(req.maxRejectedOutputs) || req.purpose !== "translate_body"))
     throw new Error("Only translation may opt into a rejected-output limit");
+  const knownLane = req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane;
+  if (knownLane && !["news", "policy"].includes(knownLane)) throw new Error("Invalid receipt lane");
+  const { lane: _summaryLane, ...summary } = req.requestSummary ?? {};
+  const requestMetadata = { ...summary, ...(req.policy ?? {}), ...(knownLane ? { lane: knownLane } : {}) };
   const logicalKey = logicalKeyFor(req);
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
@@ -377,25 +384,45 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       await checkPolicyReceipts(tx, req.policy);
       await checkPolicyPartLimit(tx, req);
       await checkBudget(tx, req.service);
+      const control = await requireRuntimeRunning(
+        knownLane ?? "news",
+        [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
+        tx,
+      );
+      if (req.runtimeControl) {
+        if (req.runtimeControl.lane !== control.lane || !control.switches.every((s) => req.runtimeControl!.switches.includes(s)))
+          throw new Error("Runtime control scope mismatch");
+        await assertRuntimeControl(tx, req.runtimeControl);
+      }
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
       const attemptId = await startAttempt(tx, existing.id, r!.attempts, req);
       await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId });
-      return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts };
+      return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts, control };
     }
     const blocked = await translationBlocker(tx, stage, logicalKey);
     if (blocked) return blocked;
     await checkPolicyReceipts(tx, req.policy);
     await checkPolicyPartLimit(tx, req);
     await checkBudget(tx, req.service);
+    const control = await requireRuntimeRunning(
+      knownLane ?? "news",
+      [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
+      tx,
+    );
+    if (req.runtimeControl) {
+      if (req.runtimeControl.lane !== control.lane || !control.switches.every((s) => req.runtimeControl!.switches.includes(s)))
+        throw new Error("Runtime control scope mismatch");
+      await assertRuntimeControl(tx, req.runtimeControl);
+    }
     const [row] = await tx<{ id: number; id_text: string }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
       VALUES (${logicalKey}, ${req.service}, ${req.model ?? null}, ${req.purpose}, ${req.subject ?? null}, 'pending',
-              ${tx.json({ ...(req.requestSummary ?? {}), ...(req.policy ?? {}) } as never)}, 1)
+              ${tx.json(requestMetadata as never)}, 1)
       RETURNING id,id::text AS id_text`;
     const attemptId = await startAttempt(tx, row!.id, 1, req);
     await observeTranslation(tx, stage, { receiptId: row!.id_text, attemptId });
-    return { kind: "call" as const, id: row!.id, attemptId, attempt: 1 };
+    return { kind: "call" as const, id: row!.id, attemptId, attempt: 1, control };
   });
 
   if (claimed.kind === "reuse") return { receiptId: claimed.row.id, response: claimed.row.response, reused: true, attemptId: claimed.row.attempt_id };
@@ -442,6 +469,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     return changed.count === 1;
   });
   if (!current) throw new ReceiptAttemptSupersededError(`Receipt ${receiptId} attempt ${attemptId} is no longer current`);
+  await sql.begin((tx) => assertRuntimeControl(tx, claimed.control));
   return { receiptId, response: outcome.response, reused: false, attemptId };
 }
 

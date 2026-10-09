@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { readSourceDateContext, sourceIdsOnLane } from "@amp/backend/admin/sources";
 import { policyMaterialReference, policyMaterialReferences } from "@amp/backend/content/materials";
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
@@ -77,6 +78,7 @@ export async function advancePolicyMaterial(
   const needsAcquire =
     stage === "acquire" || !runnable.has(row.status) || row.profile_hash !== profileHash || row.material_revision !== material.materialRevision;
   if (needsAcquire) {
+    if ((await runtimeControlSnapshot("policy", ["collection"])).paused) return save(row, "acquire", "pending", "采集已暂停", 1);
     if (!options.collectionEnabled) return save(row, "acquire", "collection_paused", null, interval);
     const capture = await (ports.capture ?? capturePolicyMaterial)(job.sourceId, job.materialId);
     if (capture.status !== "captured") return save(row, "acquire", capture.status, null, interval);
@@ -87,10 +89,12 @@ export async function advancePolicyMaterial(
     const changed = previousRevision !== capture.revisionId || previousProfile !== profileHash;
     if (changed) row.fulltext_run_id = null;
     const basic = await ports.publish({ expressionId: capture.expressionId });
-    if (basic.status === "pending" && ["paused", "withdrawn"].includes(basic.reason)) return save(row, "acquire", basic.reason, null, interval);
+    if (basic.status === "pending" && basic.reason === "paused" && !capture.fulltextAllowed) return save(row, "publish", "pending", "公开已暂停", 1);
+    if (basic.status === "pending" && basic.reason === "withdrawn") return save(row, "acquire", basic.reason, null, interval);
     if (!capture.fulltextAllowed) return save(row, "acquire", "permission", "全文用途未获准，保留独立基本事实", interval);
     if (!changed && finished.has(previousStatus)) {
       const result = await ports.publish({ expressionId: capture.expressionId, ...(row.fulltext_run_id ? { fulltextRunId: row.fulltext_run_id } : {}) });
+      if (result.status === "pending" && result.reason === "paused") return save(row, "publish", "pending", "公开已暂停", 1);
       return save(row, "acquire", previousStatus, result.status === "pending" ? result.reason : (result.pending ?? null), interval);
     }
     const control = await processingControl(capture.expressionId);
@@ -104,6 +108,7 @@ export async function advancePolicyMaterial(
   if (["fulltext", "vision", "interpret"].includes(stage) && !config.modelCallsEnabled) return save(row, stage, "pending", "模型调用已暂停", 1);
   if (stage === "fulltext") {
     const result = await (ports.fulltext ?? runPolicyFulltext)(row.expression_id, profile.extraction, { root: options.root, maxRequests: 2 });
+    if (["paused", "waiting_control"].includes(result.status)) return save(row, "fulltext", "pending", "运行控制暂停或变化，等待复核", 1);
     if (result.status === "program_validated" && "runId" in result) {
       row.fulltext_run_id = result.runId;
       return save(row, "interpret", "pending", null, 0);
@@ -114,6 +119,7 @@ export async function advancePolicyMaterial(
   }
   if (stage === "vision") {
     const vision = await (ports.vision ?? runPolicyVision)(row.expression_id, profile.extraction, { root: options.root, maxRequests: 2 });
+    if (["paused", "waiting_control"].includes(vision.status)) return save(row, "vision", "pending", "运行控制暂停或变化，等待复核", 1);
     if (vision.status === "partial") return save(row, "vision", "partial", null, 0);
     if (vision.status === "extracted") return save(row, "fulltext", "pending", "vision_extracted", 0);
     return save(row, "acquire", vision.status === "not_required" ? "incomplete" : vision.status, "原件版面或图件尚未完整", interval);
@@ -125,11 +131,13 @@ export async function advancePolicyMaterial(
       maxRequests: 2,
       related: await policyRelationshipCandidates(row.fulltext_run_id),
     });
+    if (["paused", "waiting_control"].includes(result.status)) return save(row, "interpret", "pending", "运行控制暂停或变化，等待复核", 1);
     if (result.status === "partial") return save(row, "interpret", "partial", null, 0);
     if (finished.has(result.status)) return save(row, "publish", "pending", result.status, 0);
     return save(row, "acquire", result.status, "解读或核验尚未完成", interval);
   }
   const result = await ports.publish({ expressionId: row.expression_id, ...(row.fulltext_run_id ? { fulltextRunId: row.fulltext_run_id } : {}) });
+  if (result.status === "pending" && result.reason === "paused") return save(row, "publish", "pending", "公开已暂停", 1);
   return save(
     row,
     "acquire",

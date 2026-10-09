@@ -1,3 +1,4 @@
+import { runtimeControlSnapshot, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { z } from "zod";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
@@ -36,6 +37,7 @@ type Status =
   | "invalid_output"
   | "stale"
   | "paused"
+  | "waiting_control"
   | "not_required";
 class Blocked extends Error {
   readonly status: Status;
@@ -169,7 +171,9 @@ export async function runPolicyVision(
     const control = options.readOnly ? await readProcessingControl(expressionId) : await processingControl(expressionId);
     if (!control) return blocked("partial");
     if (control.paused) return blocked("paused");
-    const ref = { snapshot, expressionId, controlVersion: control.version },
+    const runtimeControl = options.readOnly ? undefined : await runtimeControlSnapshot("policy", ["processing"]);
+    if (runtimeControl?.paused) return blocked("paused");
+    const ref = { snapshot, expressionId, controlVersion: control.version, runtimeControl },
       id = sha256(stableJson([expressionId, snapshot.revisionId, snapshot.permissionVersion, control.version, recipe, profile]));
     if (options.runId && options.runId !== id) return blocked("stale");
     run = await storedVisionRun(ref, id, recipe, profile);
@@ -193,6 +197,7 @@ export async function runPolicyVision(
       models = new Map<string, ModelEvidence>(),
       inflight = new Map<string, Stage>();
     const gateway = createPolicyGateway({
+      runtimeControl: run!.runtimeControl,
       root: options.root,
       resolve: async (ref, purpose) => {
         const s = inflight.get(ref.id);
@@ -317,6 +322,8 @@ export async function runPolicyVision(
     const contentHash = options.readOnly ? sha256(stableJson(output)) : await finishVision(current, output);
     return { ...output, contentHash, requestsAttempted };
   } catch (error) {
+    if (error instanceof RuntimeControlPaused) return blocked("paused");
+    if (error instanceof RuntimeControlStale) return blocked("waiting_control");
     if (error instanceof Blocked) return blocked(error.status, error.gaps);
     if (error instanceof PolicyVisionConfigurationError)
       return blocked("needs_configuration", ["POLICY_VISION_MODEL_or_models.policy_vision_requires_explicit_vision_capability"]);

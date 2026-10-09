@@ -1,3 +1,5 @@
+import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
+import { readSourceDateContext } from "@amp/backend/admin/sources";
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
@@ -75,7 +77,10 @@ function markdownToHtml(md: string): string {
     .join("");
 }
 
-export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string }): Promise<ExtractedBody | null> {
+export async function extractFromUrl(
+  url: string,
+  opts: { allowJina: boolean; subject: string; lane?: "news" | "policy"; runtimeControl?: RuntimeControlSnapshot },
+): Promise<ExtractedBody | null> {
   try {
     const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
     const type = res.headers.get("content-type") ?? "";
@@ -88,7 +93,7 @@ export async function extractFromUrl(url: string, opts: { allowJina: boolean; su
   }
   if (!opts.allowJina) return null;
   try {
-    const page = await jinaRead(url, { purpose: "body_fallback", subject: opts.subject });
+    const page = await jinaRead(url, { purpose: "body_fallback", subject: opts.subject, lane: opts.lane, runtimeControl: opts.runtimeControl });
     const html = trimTrailingChrome(sanitizeBody(markdownToHtml(page.markdown), url));
     const text = stripTags(html);
     if (text.length < MIN_BODY_CHARS) return null;
@@ -112,17 +117,26 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
 
 /** Fetches and stores the body of one article. Unconfirmed bodies are recorded as such. */
 export async function extractArticleBody(articleId: string, allowJina = process.env.JINA_BODY_FALLBACK !== "false"): Promise<"ok" | "unconfirmed" | "skipped"> {
-  const [a] = await sql<{ id: string; url: string; body_status: string; revision: number }[]>`
-    SELECT id, url, body_status, revision FROM articles WHERE id = ${articleId}`;
+  const [a] = await sql<{ id: string; source_id: string; url: string; body_status: string; revision: number }[]>`
+    SELECT id, source_id, url, body_status, revision FROM articles WHERE id = ${articleId}`;
   if (!a || a.body_status === "ok") return "skipped";
-  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}` });
+  const source = await readSourceDateContext(a.source_id);
+  if (!source) return "skipped";
+  const control = await requireRuntimeRunning(source.lane, ["collection"]);
+  const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}`, lane: source.lane, runtimeControl: control });
   if (!got) {
-    await sql`UPDATE articles SET body_status = 'unconfirmed', updated_at = now() WHERE id = ${articleId} AND body_status <> 'ok'`;
+    await sql.begin(async (tx) => {
+      await assertRuntimeControl(tx, control);
+      await tx`UPDATE articles SET body_status='unconfirmed',updated_at=now() WHERE id=${articleId} AND revision=${a.revision} AND body_status<>'ok'`;
+    });
     return "unconfirmed";
   }
   // The body is new content: a new revision, so an analysis of the body-less input counts as stale.
   await sql.begin(async (tx) => {
-    const [row] = await tx<{ title: string; excerpt: string | null }[]>`SELECT title, excerpt FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    await assertRuntimeControl(tx, control);
+    const [row] = await tx<
+      { title: string; excerpt: string | null }[]
+    >`SELECT title, excerpt FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
     if (!row) return;
     const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
     const [r] = await tx<{ revision: number }[]>`
