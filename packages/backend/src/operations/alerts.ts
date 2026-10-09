@@ -4,6 +4,7 @@
 //   today  — money at risk or only the owner can act: sent at once, repeated at most daily, recovery reported.
 //   digest — follow-ups without reader impact: one 09:00 message a day, meant to be handed to the AI.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
+import { laneControlFindings } from "./lane-controls.ts";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
 import { dbOf } from "../db.ts";
@@ -29,7 +30,7 @@ const clip = (text: string) => [...text].slice(0, 200).join("");
 
 /** Everything wrong right now, with its level. */
 export async function collectFindings(now = Date.now(), observeIntake?: (lastDiscoveredAt: Date | null) => void): Promise<Finding[]> {
-  const out: Finding[] = [];
+  const out: Finding[] = await laneControlFindings(now);
 
   // ---- Readers affected now ----------------------------------------------------------------------
   // First discoveries are distinct from successful fetches and public updates. Reuse this same read

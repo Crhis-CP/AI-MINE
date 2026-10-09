@@ -223,6 +223,10 @@
     {
       "name": "publication/202610090800_news_geography.sql",
       "dependsOn": ["sources/202610081510_source_lane.sql"]
+    },
+    {
+      "name": "platform/ops/202610090900_lane_controls.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
     }
   ]
 }

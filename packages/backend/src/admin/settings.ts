@@ -45,3 +45,5 @@ export async function updateBudget(service: string, input: { perMinute: number; 
   await audit(actor, "budget.update", `budget:${service}`, input.reason, before ?? null, after);
   return after;
 }
+
+export { listLaneControls, changeOwnerLaneControls, LaneControlConflict } from "../operations/lane-controls.ts";

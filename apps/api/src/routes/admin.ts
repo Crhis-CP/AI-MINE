@@ -18,8 +18,10 @@ import {
   SourceCreateRequest,
   SourceCreateResponse,
   SourceDetailResponse,
+  LaneControlActionRequest,
+  LaneControlsResponse,
 } from "@amp/contracts/http/private";
-import { listBudgets, listTargets, setTargetEnabled, updateBudget } from "@amp/backend/admin/settings";
+import { listBudgets, listTargets, setTargetEnabled, updateBudget, listLaneControls, changeOwnerLaneControls } from "@amp/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
@@ -36,6 +38,26 @@ const orNotFound = <T>(req: FastifyRequest, reply: FastifyReply, value: T | null
 const page = (req: FastifyRequest) => Math.max(1, Number(q(req).page) || 1);
 
 export function registerAdmin(app: FastifyInstance) {
+  app.get(
+    contracts.laneControls.url,
+    contracts.laneControls,
+    adminHandler(async (req, reply) => {
+      try {
+        return LaneControlsResponse.parse(await listLaneControls());
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "运行控制状态暂时不可用" });
+      }
+    }),
+  );
+  app.post(
+    contracts.laneControlAction.url,
+    contracts.laneControlAction,
+    adminHandler(async (req, reply, admin) => {
+      const parsed = LaneControlActionRequest.safeParse(req.body);
+      if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });
+      return LaneControlsResponse.parse(await changeOwnerLaneControls(parsed.data, actorOf(admin)));
+    }),
+  );
   // Sources (F18)
   app.get(
     "/api/admin/sources",
