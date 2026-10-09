@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { promptText, promptVersion } from "@amp/backend/editorial/prompts";
-import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput } from "@amp/backend/providers/policy";
+import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput } from "../providers/policy.ts";
 import { extractJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { readPolicyPartResponses, ReceiptBusyError, ReceiptUnknownError, PolicyPartLimitError, ProviderRejectedError } from "@amp/backend/providers/receipts";
 import { readPolicyOriginal } from "./originals.ts";
