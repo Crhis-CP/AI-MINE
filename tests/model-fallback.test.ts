@@ -1,3 +1,4 @@
+import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 import { createPolicyGateway } from "../packages/backend/src/providers/policy.ts";
 import { installPolicyQualityRelease, revokePolicyQualityRelease } from "../packages/backend/src/policy/quality.ts";
@@ -193,6 +194,7 @@ async function fixture() {
     backup,
     call,
     routeRevision,
+    base,
     changeInput: () => {
       input = "changed";
     },
@@ -414,4 +416,28 @@ test("pause after primary failure prevents a backup claim and resumes the same o
   assert.equal(decisions.length, 1, `decision after pause: ${JSON.stringify(decisions)}`);
   assert.equal((await f.call("pause")).model, f.backup.key);
   assert.deepEqual(events.slice(before), ["primary", "backup"]);
+});
+
+test("real news material preparation consumes the same fallback gateway and rejects a changed stored revision", async () => {
+  mode = "ok";
+  const f = await fixture(),
+    article = `news-fallback-${tag()}`,
+    body = "SYNTHETIC immutable stored news body";
+  await sql`INSERT INTO articles(id,source_id,identity_key,url,title,body_text,body_status,content_hash,discovered_at,timeline_at) VALUES(${article},${f.source},${article},${`https://source.invalid/${f.source.slice("fallback-".length)}`},'synthetic',${body},'ok',${sha256(body)},now(),now())`;
+  const current = async () => {
+    const [row] = await sql<{ id: string; revision: number; body_text: string }[]>`SELECT id,revision,body_text FROM articles WHERE id=${article}`;
+    return row ?? null;
+  };
+  const expected = (await current())!,
+    prepare = await prepareNewsFallback({ root, expected, current, articles: [{ id: article, revision: expected.revision }] });
+  assert.ok(prepare);
+  const request = { system: f.base.system, user: body },
+    options = { ...f.base, ...request, model: f.primary.key, subject: `article:${article}@${expected.revision}`, fallbackPermit: prepare(request) };
+  const before = events.length,
+    result = await chatJson(options);
+  assert.equal(result.model, f.backup.key);
+  assert.deepEqual(events.slice(before), ["primary", "backup"]);
+  await sql`UPDATE articles SET revision=revision+1,body_text='changed',content_hash=${sha256("changed")} WHERE id=${article}`;
+  await assert.rejects(chatJson(options), ModelFallbackBlocked);
+  assert.equal(events.length, before + 2);
 });
