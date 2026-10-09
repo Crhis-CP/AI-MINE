@@ -1857,7 +1857,48 @@
         "config": {
           "feedUrl": "https://boletinoficial.santacruz.gob.ar/index.php?option=com_k2&view=itemlist&format=feed&type=rss&limit=100",
           "allowUrlPrefixes": ["https://boletinoficial.santacruz.gob.ar/legislacion/"],
-          "language": "es"
+          "language": "es",
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://boletinoficial.santacruz.gob.ar/legislacion",
+              "basis": "圣克鲁斯省公报立法栏目的 RSS 条目指向同一主机上的单件公报页；页内 h2.itemTitle 是该件法令标题，itemFullText 是该件正文。",
+              "singleObjectPattern": "^https://boletinoficial\\.santacruz\\.gob\\.ar/legislacion/(?:decretos-completos|decretos-sintetizados|disposiciones-completas|disposiciones-sintetizadas|leyes|resoluciones-completas|resoluciones-sintetizadas)/\\d+$"
+            },
+            "identityMarker": {
+              "selector": "h2.itemTitle",
+              "pattern": "^(?:DECRETO|DISPOSICI[ÓO]N|RESOLUCI[ÓO]N|LEY)\\b.+$"
+            },
+            "titleSelector": "h2.itemTitle",
+            "numberSelector": null,
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "AR",
+                "evidenceUrl": "https://boletinoficial.santacruz.gob.ar/legislacion",
+                "basis": "该站是圣克鲁斯省官方公报，法域按登记为阿根廷，不按服务器所在地推断。"
+              },
+              "authority": {
+                "value": "圣克鲁斯省政府公报局",
+                "evidenceUrl": "https://boletinoficial.santacruz.gob.ar/legislacion",
+                "basis": "公报页标题写明 Dirección General Boletín Oficial，与登记发布方一致。"
+              },
+              "documentType": null
+            },
+            "language": "es",
+            "kind": "original",
+            "recheckMinutes": 360,
+            "extraction": {
+              "bodySelector": ".itemFullText",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 20,
+              "maxTextBytes": 2097152
+            }
+          }
         }
       },
       "status": "ready",
@@ -1868,7 +1909,7 @@
         "status": "verified",
         "evidence": "https://boletinoficial.santacruz.gob.ar/legislacion"
       },
-      "notes": "原栏目页日期是西语月份、分类推送按字母排，改读全站 RSS 只留立法类；成批上传，须每小时抓并保留 limit=100。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。",
+      "notes": "原栏目页日期是西语月份、分类推送按字母排，改读全站 RSS 只留立法类；成批上传，须每小时抓并保留 limit=100。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-10-09 已核对四类公报页：法令标题在 h2.itemTitle，正文在 itemFullText，地址不跳转；RSS 本身没有可声明的总页数，沿用现有 feed 窗口，不另造整本公报目录。",
       "terms": "restricted",
       "hold": null
     },

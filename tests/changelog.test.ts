@@ -17,6 +17,7 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
     [
+      ["2026-10-10", undefined, "法规页能看到圣克鲁斯公报"],
       ["2026-10-10", undefined, "金属价格页开始显示官方报价"],
       ["2026-10-10", undefined, "法规政策动态可以按国家查看"],
       ["2026-10-10", undefined, "后台改到网站主域名"],
