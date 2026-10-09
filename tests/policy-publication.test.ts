@@ -1,13 +1,14 @@
-import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, dbOf, injectDb } from "@amp/backend/db";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
 import type { PolicyAutomationProfile } from "../packages/backend/src/policy/automation-profile.ts";
 import { publishPolicyPublication, setPolicyPublicationPaused, setPolicyPublicationState } from "../packages/backend/src/publication/policies-publish.ts";
 import { policyDetail, policyPublicVersions } from "../packages/backend/src/publication/policies.ts";
+import { publicRoleFixture } from "./public-role-fixture.ts";
+import { matchingPolicyQuality } from "../packages/backend/src/policy/quality.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 const sql = dbOf("policy"),
   discovered = new Date("2026-01-02T03:04:05Z");
@@ -62,7 +63,10 @@ async function fixture() {
   };
 }
 
-test("real capture publishes only independently proven facts, is idempotent and preserves publication controls", async () => {
+test("real capture publishes only independently proven facts, is idempotent and preserves publication controls", async (t) => {
+  const roles = await publicRoleFixture(t);
+  const reset = injectDb({ policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+  t.after(reset);
   const f = await fixture(),
     current = (await readCurrentSourcePolicy(f.sourceId))!;
   await saveSourcePolicy(
@@ -81,10 +85,27 @@ test("real capture publishes only independently proven facts, is idempotent and 
   const captured = await capturePolicyMaterial(f.sourceId, f.materialId, f.get);
   assert.equal(captured.status, "captured");
   if (captured.status !== "captured") return;
+  const sessions = await roles.login();
+  reset();
+  const restore = injectDb({ policy: sessions.worker, sources: sessions.worker, content: sessions.worker, publication: sessions.worker });
+  t.after(restore);
   const [a, b] = await Promise.all([
     publishPolicyPublication({ expressionId: captured.expressionId }),
     publishPolicyPublication({ expressionId: captured.expressionId }),
   ]);
+  assert.equal(
+    await matchingPolicyQuality({
+      sourceId: f.sourceId,
+      language: "en",
+      fulltextRecipe: "synthetic",
+      interpretationRecipe: "synthetic",
+      models: ["synthetic"],
+    }),
+    null,
+  );
+  restore();
+  const done = injectDb({ policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+  t.after(done);
   assert.equal(a.status, "published");
   assert.deepEqual(a, b);
   if (a.status !== "published") return;

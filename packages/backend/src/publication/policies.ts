@@ -222,8 +222,11 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
       const reading = row.reading?.[expression.id];
       if (reading && view.readable[reading.mode]) {
         detail.reading = {
-          ...detail.reading!,
           mode: reading.mode,
+          state: reading.mode === "original" && /^zh(?:-|$)/i.test(reading.language) ? "not_needed" : "complete",
+          completeness: "complete",
+          attribution: reading.mode === "ai_translation" ? "AI辅助译文" : reading.mode === "official_translation" ? "官方译文" : "原文",
+          limitation: detail.reading?.limitation ?? "阅读材料不代表完整政策解读已获资格。",
           language: reading.language,
           expression_id: expression.id,
           document_revision_id: reading.revision,

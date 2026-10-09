@@ -7,7 +7,9 @@ import { injectDb } from "@amp/backend/db";
 import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
-import { Policy, PolicyCard, PolicyListResponse, PolicyScopeList, PolicyReadingPage, PolicyCursorResponse } from "@amp/contracts/http/public";
+import { Policy, PolicyCard, PolicyListResponse, PolicyScopeList, PolicyReadingPage, PolicyCursorResponse, PolicyReport } from "@amp/contracts/http/public";
+import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
+import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
 import { newShortId } from "@amp/backend/lib/ids";
 
 const fixture = () => JSON.parse(readFileSync(new URL("./fixtures/policy-public/complete.json", import.meta.url), "utf8"));
@@ -131,11 +133,34 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     const page = PolicyCursorResponse.parse(await list.json());
     assert.ok(page.next_cursor);
     const c = await seed("three");
+    const eds = await f.admin<{ id: string }[]>`SELECT id FROM publication.policy_editions ORDER BY id`;
+    const draft = planPolicyReport("monthly", "2026-01", [], [], { name: "Synthetic report", url: "https://source.invalid/" });
+    draft.members = eds.map((e, position) => ({ editionId: e.id, label: "source_date_unknown", availableByCutoff: false, position }));
+    draft.card.item_count = eds.length;
+    const report = await savePolicyReport(draft);
+    const reportPage = PolicyReport.parse(await (await app.request(`/api/site/policies/reports/${report.id}?limit=1`)).json());
+    assert.ok(reportPage.next_cursor);
+    await savePolicyReport({ ...draft, contentHash: "1".repeat(64) });
+    assert.equal((await app.request(`/api/site/policies/reports/${report.id}?limit=1&cursor=${encodeURIComponent(reportPage.next_cursor)}`)).status, 409);
+    assert.equal((await app.request(`/api/site/policies/reports/${report.id}?edition=1`)).status, 200);
     const next = await app.request(`/api/v1/policies?limit=1&cursor=${encodeURIComponent(page.next_cursor)}`);
     assert.equal(next.status, 200);
     assert.ok(PolicyCursorResponse.parse(await next.json()).items.every((p: { id: string }) => p.id !== page.items[0].id));
     const mismatch = await app.request(`/api/v1/policies?jurisdiction=CN&cursor=${encodeURIComponent(page.next_cursor)}`);
     assert.equal(mismatch.status, 400);
+    // An explicit old-version token remains readable; a current token must not silently drift.
+    const oldRevision = await f.admin`SELECT native_expression_id,native_revision_id FROM publication.policy_editions WHERE policy_id=${a.id}`;
+    await f.admin`UPDATE policy.expressions SET current_revision_id=NULL WHERE id=${oldRevision[0].native_expression_id}`;
+    assert.equal((await app.request(`/api/site/policies/${a.id}/reading?${bodyQuery}`)).status, 409);
+    const selected = full.expressions.find((e) => e.id === full.selected_expression_id)!;
+    const historical = await app.request(
+      `/api/site/policies/${a.id}?${new URLSearchParams({ policy_version_id: selected.policy_version_id, expression_id: selected.id, document_revision_id: selected.document_revision_id })}`,
+    );
+    assert.equal(historical.status, 200);
+    const old = Policy.parse(await historical.json());
+    bodyQuery.set("cursor", old.reading!.next_cursor!);
+    assert.equal((await app.request(`/api/site/policies/${a.id}/reading?${bodyQuery}`)).status, 200);
+    await f.admin`UPDATE policy.expressions SET current_revision_id=${oldRevision[0].native_revision_id} WHERE id=${oldRevision[0].native_expression_id}`;
     const deniedPolicy = {
       ...a.policy,
       permission_version: 2,
@@ -158,6 +183,9 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     assert.equal((await app.request(`/api/site/policies/${c.id}`)).status, 410);
     assert.equal((await app.request(`/api/site/policies/${c.id}/history`)).status, 410);
     assert.equal(PolicyListResponse.parse(await (await app.request("/api/site/policies")).json()).total, 2);
+    const redactedReport = PolicyReport.parse(await (await app.request(`/api/site/policies/reports/${report.id}?edition=1`)).json());
+    assert.equal(redactedReport.item_count, 2);
+    assert.ok(!JSON.stringify(redactedReport).includes(c.id));
     const after = await counts();
     assert.deepEqual(
       { ...after, editions: before!.editions, revisions: before!.revisions },

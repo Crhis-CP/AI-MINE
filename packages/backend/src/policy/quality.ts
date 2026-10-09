@@ -22,6 +22,7 @@ export async function installPolicyQualityRelease(input: unknown) {
   const r = Release.parse(input),
     id = `pqr_${newShortId()}`;
   await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('policy-quality-control'))`;
     await tx`INSERT INTO policy.quality_releases(id,source_ids,languages,fulltext_recipe,interpretation_recipe,models,reviewed_by,review_evidence,evaluation_hash,reviewed_at,valid_until)
    VALUES(${id},${r.sourceIds},${r.languages},${r.fulltextRecipe},${r.interpretationRecipe},${r.models},${r.reviewedBy},${r.reviewEvidence},${r.evaluationHash},${r.reviewedAt},${r.validUntil})`;
     await recordPolicyQualityWindow(id, r.validUntil, false, tx);
@@ -30,6 +31,7 @@ export async function installPolicyQualityRelease(input: unknown) {
 }
 export async function revokePolicyQualityRelease(id: string) {
   await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('policy-quality-control'))`;
     const [r] = await tx`UPDATE policy.quality_releases SET revoked=true WHERE id=${id} RETURNING valid_until`;
     if (r) await recordPolicyQualityWindow(id, new Date(r.valid_until).toISOString(), true, tx);
   });
@@ -39,10 +41,11 @@ export async function matchingPolicyQuality(
   db: Db = sql,
 ) {
   if (!input.models.length) return null;
+  await db`SELECT pg_advisory_xact_lock_shared(hashtext('policy-quality-control'))`;
   const [r] = await db<{ id: string; valid_until: Date }[]>`SELECT id,valid_until FROM policy.quality_releases
    WHERE NOT revoked AND reviewed_by='owner' AND valid_until>now() AND reviewed_at<=now()
    AND ${input.sourceId}=ANY(source_ids) AND ${input.language}=ANY(languages)
    AND fulltext_recipe=${input.fulltextRecipe} AND interpretation_recipe=${input.interpretationRecipe}
-   AND models @> ${input.models}::text[] ORDER BY valid_until DESC,id LIMIT 1 FOR SHARE`;
+   AND models @> ${input.models}::text[] ORDER BY valid_until DESC,id LIMIT 1`;
   return r ?? null;
 }

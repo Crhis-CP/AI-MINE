@@ -120,7 +120,8 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
   );
   const write = async (db: Db) => {
     if ((await policyPublicationControl(db)).paused && !excluded) return pending("paused");
-    if (qualityInput && complete && !(await matchingPolicyQuality(qualityInput, db))) return pending("stale");
+    const currentQuality = qualityInput && complete ? await matchingPolicyQuality(qualityInput, db) : null;
+    if (complete && !currentQuality) return pending("stale");
     // Both aliases are serialised before resolving the random public identity.
     for (const key of [native.instrument_id, meta.materialId].sort()) await db`SELECT pg_advisory_xact_lock(hashtext(${`policy-public:${key}`} ))`;
 
@@ -253,7 +254,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
    expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id,discovered_at)
    VALUES(${editionId},${contentHash},${policyId},${input.expressionId},${snapshot.revisionId},${snapshot.sourceId},${snapshot.permissionVersion},${ids.version},${snapshot.language},${preferred},
    ${basic.expressions.map((e) => e.id)},${basic.expressions.map((e) => e.document_revision_id)},${db.json(resources)},${db.json(policyCard(Policy.parse(basic)))},${db.json(basic)},
-   ${full ? db.json(policyCard(full)) : null},${full ? db.json(full) : null},${db.json(streams)},${full ? quality!.id : null},${meta.discoveredAt}) ON CONFLICT(id) DO UPDATE SET quality_id=coalesce(EXCLUDED.quality_id,publication.policy_editions.quality_id),discovered_at=least(publication.policy_editions.discovered_at,EXCLUDED.discovered_at)`;
+   ${full ? db.json(policyCard(full)) : null},${full ? db.json(full) : null},${db.json(streams)},${full ? currentQuality!.id : null},${meta.discoveredAt}) ON CONFLICT(id) DO UPDATE SET quality_id=coalesce(EXCLUDED.quality_id,publication.policy_editions.quality_id),discovered_at=least(publication.policy_editions.discovered_at,EXCLUDED.discovered_at)`;
     await db`UPDATE publication.policy_documents SET first_public_at=coalesce(first_public_at,${at}::timestamptz),updated_at=now() WHERE id=${policyId}`;
     return {
       status: "published" as const,
@@ -274,15 +275,15 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
 
 /** Read/lock within the caller's write transaction; public readers never consult this control. */
 export async function policyPublicationControl(db: Db = sql) {
-  const [row] = await db<
-    { paused: boolean; version: number }[]
-  >`SELECT paused,version FROM publication.policy_publication_control WHERE lane='policy' FOR SHARE`;
+  await db`SELECT pg_advisory_xact_lock_shared(hashtext('policy-publication-control'))`;
+  const [row] = await db<{ paused: boolean; version: number }[]>`SELECT paused,version FROM publication.policy_publication_control WHERE lane='policy'`;
   if (!row) throw new Error("Policy publication control unavailable");
   return row;
 }
 export async function setPolicyPublicationPaused(input: { expectedVersion: number; paused: boolean; reason: string; actor: string }) {
   if (!input.reason.trim() || !input.actor.trim()) throw new Error("Publication control needs reason and actor");
   return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('policy-publication-control'))`;
     const [row] = await tx`UPDATE publication.policy_publication_control SET paused=${input.paused},version=version+1,updated_at=now()
       WHERE lane='policy' AND version=${input.expectedVersion} RETURNING version`;
     if (!row) throw new Error("Policy publication control changed");

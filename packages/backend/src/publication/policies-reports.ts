@@ -61,7 +61,12 @@ export async function policyReport(id: string, q: Query) {
     generated_at: new Date().toISOString(),
     groups: Object.entries(groups).map(([kind, docs]) => ({ kind, documents: [...docs.values()] })),
     pending_interpretations: [...new Map(slice.filter((m) => m.policy.interpretation_state !== "complete").map((m) => [m.policy.id, m.policy])).values()],
-    coverage: report.coverage,
+    coverage: PolicyReport.shape.coverage.parse(report.coverage).map((c) => ({
+      ...c,
+      available_count: new Set(
+        selected.filter((m) => m.policy.jurisdictions.some((j) => j.code === c.jurisdiction.code || j.parent === c.jurisdiction.code)).map((m) => m.policy.id),
+      ).size,
+    })),
     next_cursor: offset + q.limit < selected.length ? encodeCursor("pol-report", { binding, version, offset: offset + q.limit }) : null,
     attributions: attrs.length ? attrs : [{ name: SITE.name, url: config.siteUrl }],
     limitation: "按当前公开资格展示本期固定版本；来源撤回或许可变化会移除相应内容。",
