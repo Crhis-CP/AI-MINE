@@ -2,10 +2,22 @@
 // Every route goes through adminHandler (session + CSRF); manual changes are audited in the modules.
 import { readFile } from "node:fs/promises";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { actorOf } from "@amp/backend/admin/auth";
+import { actorOf, requireOwner, requireCapability } from "@amp/backend/admin/auth";
 
 import { importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
-import { modelsOverview, switchModel } from "@amp/backend/admin/models";
+import {
+  modelsOverview,
+  switchModel,
+  listModelConnections,
+  createModelConnection,
+  updateModelConnection,
+  disableModelConnection,
+  requestModelConnectionProbe,
+  readModelConnectionProbe,
+  assignRegisteredModel,
+  queueModelConnectionProbe,
+  type ModelRegistryGuards,
+} from "@amp/backend/admin/models";
 
 import { contentChain, detachFromFact, mergeStories, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@amp/backend/admin/content";
 import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
@@ -48,7 +60,52 @@ const notFound = (req: FastifyRequest, reply: FastifyReply) => sendProblem(req, 
 const orNotFound = <T>(req: FastifyRequest, reply: FastifyReply, value: T | null) => (value === null || value === undefined ? notFound(req, reply) : value);
 const page = (req: FastifyRequest) => Math.max(1, Number(q(req).page) || 1);
 
+const modelGuards: ModelRegistryGuards = {
+  manage: (principal, db) => requireCapability(principal, "models.manage", db),
+  owner: (principal, db) => requireOwner(principal, db),
+};
+
 export function registerAdmin(app: FastifyInstance) {
+  app.get(
+    contracts.modelRegistry.url,
+    contracts.modelRegistry,
+    adminHandler(async (_req, _reply, admin) => listModelConnections(admin, modelGuards)),
+  );
+  app.post(
+    contracts.createModelConnection.url,
+    contracts.createModelConnection,
+    adminHandler(async (req, _reply, admin) => createModelConnection(req.body, admin, modelGuards)),
+  );
+  app.put(
+    contracts.updateModelConnection.url,
+    contracts.updateModelConnection,
+    adminHandler(async (req, _reply, admin) => updateModelConnection(param(req, "id"), req.body, admin, modelGuards)),
+  );
+  app.post(
+    contracts.disableModelConnection.url,
+    contracts.disableModelConnection,
+    adminHandler(async (req, _reply, admin) => disableModelConnection(param(req, "id"), req.body, admin, modelGuards)),
+  );
+  app.post(
+    contracts.probeModelConnection.url,
+    contracts.probeModelConnection,
+    adminHandler(async (req, _reply, admin) => {
+      const test = await requestModelConnectionProbe(param(req, "id"), req.body, admin, modelGuards);
+      await queueModelConnectionProbe(test);
+      return test;
+    }),
+  );
+  app.get(
+    contracts.modelConnectionProbe.url,
+    contracts.modelConnectionProbe,
+    adminHandler(async (req, _reply, admin) => readModelConnectionProbe(param(req, "id"), admin, modelGuards)),
+  );
+  app.post(
+    contracts.assignRegisteredModel.url,
+    contracts.assignRegisteredModel,
+    adminHandler(async (req, _reply, admin) => assignRegisteredModel(param(req, "capability"), req.body, admin, modelGuards)),
+  );
+
   app.get(
     contracts.usageMonthlyList.url,
     contracts.usageMonthlyList,

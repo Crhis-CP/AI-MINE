@@ -7,6 +7,13 @@ const HttpsUrl = z
     const u = new URL(v);
     return u.protocol === "https:" && !u.username && !u.password && !u.search && !u.hash;
   }, "必须填写不含凭据和查询参数的 HTTPS 地址");
+const EvidenceUrl = z
+  .url()
+  .max(2048)
+  .refine((v) => {
+    const u = new URL(v);
+    return u.protocol === "https:" && !u.username && !u.password;
+  }, "依据须为不含凭据的 HTTPS 网页");
 const Price = z.string().regex(/^(0|[1-9]\d{0,7})(\.\d{1,8})?$/);
 const Reason = z.string().trim().min(1).max(500);
 export const ModelConnectionConfig = z.strictObject({
@@ -16,7 +23,7 @@ export const ModelConnectionConfig = z.strictObject({
   model: z.string().trim().min(1).max(128),
   input_cny_per_million: Price,
   output_cny_per_million: Price,
-  billing_basis: z.url().max(2048),
+  billing_basis: EvidenceUrl,
   vision: z.boolean(),
   json_mode: z.boolean(),
 });
@@ -24,7 +31,7 @@ export const ModelConnectionCreate = ModelConnectionConfig.extend({
   secret: z.string().min(1).max(8192),
   reason: Reason,
   owner_confirmed: z.literal(true),
-  supplier_basis: z.url().max(2048),
+  supplier_basis: EvidenceUrl,
 });
 export const ModelConnectionUpdate = ModelConnectionConfig.extend({
   expected_revision: z.number().int().positive(),
@@ -32,7 +39,7 @@ export const ModelConnectionUpdate = ModelConnectionConfig.extend({
   secret: z.string().max(8192).optional(),
   reason: Reason,
   owner_confirmed: z.boolean().optional(),
-  supplier_basis: z.url().max(2048).optional(),
+  supplier_basis: EvidenceUrl.optional(),
 });
 export const ModelConnectionDisable = z.strictObject({ expected_revision: z.number().int().positive(), reason: Reason });
 export const ModelConnectionProbe = z.strictObject({ expected_revision: z.number().int().positive(), lane: z.enum(["news", "policy"]) });

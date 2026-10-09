@@ -6,6 +6,8 @@ import { dbOf } from "../db.ts";
 import { CAPABILITIES, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
 import { MODELS } from "../providers/llm.ts";
 
+import { modelRouteRevisions } from "./model-registry.ts";
+
 const sql = dbOf("ai-gateway");
 
 interface UsageRow {
@@ -26,7 +28,7 @@ interface UsageRow {
 
 export async function modelsOverview(days = 7) {
   const since = new Date(Date.now() - days * 86400_000);
-  const [sources, usage, prices, history, benches] = await Promise.all([
+  const [sources, usage, prices, history, benches, routeRevisions] = await Promise.all([
     modelSources(),
     sql<UsageRow[]>`
       SELECT r.purpose, a.model, r.request->>'promptVersion' AS prompt_version, count(*)::int AS calls,
@@ -48,6 +50,7 @@ export async function modelsOverview(days = 7) {
       SELECT id, label, sample_size, prompt_version, models,
              (SELECT coalesce(jsonb_object_agg(key, value - 'sweep'), '{}'::jsonb) FROM jsonb_each(r.summary)) AS summary,
              created_at FROM selectbench_runs r ORDER BY created_at DESC LIMIT 8`,
+    modelRouteRevisions(),
   ]);
   const serviceOf = (model: string) => Object.values(MODELS).find((m) => m.model === model || m.key === model)?.service ?? null;
   const priced = (u: UsageRow) => {
@@ -66,6 +69,8 @@ export async function modelsOverview(days = 7) {
     defaultModel: c.default,
     vision: !!c.vision,
     current: sources[key]!,
+    routeRevision: routeRevisions.find((r) => r.capability === key)?.revision ?? 0,
+    unevaluated: routeRevisions.find((r) => r.capability === key)?.unevaluated ?? false,
     usage: usage
       .filter((u) => c.purposes.includes(u.purpose))
       .map((u) => ({

@@ -1,10 +1,15 @@
+import { useRevalidator } from "react-router";
 import { SITE } from "@amp/industry/site";
-import { useState } from "react";
+import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { ModelConnections, type ModelRegistry, type ModelCommand } from "../../features/admin/ModelConnections";
+import { adminBody, type AdminSend } from "../../lib/admin-response";
+import { apiBaseFor } from "../../../api-target";
+import { useState, useCallback } from "react";
 import type { Route } from "./+types/models";
 import { adminGet } from "../../lib/admin.server";
-import { useAdminAction } from "../../features/admin/action";
+import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { bj, money, num } from "../../features/admin/format";
-import { AdminPage, Badge, Button, Card, DataTable, Empty, Field, FilterChips, ReasonDialog, Select } from "../../features/admin/ui";
+import { AdminPage, Badge, Button, Card, DataTable, Empty, Field, FilterChips, ReasonDialog, Select, Input } from "../../features/admin/ui";
 
 interface Usage {
   purpose: string;
@@ -31,6 +36,8 @@ interface Models {
     env: string;
     defaultModel: string;
     vision: boolean;
+    routeRevision: number;
+    unevaluated: boolean;
     current: { model: string; source: "admin" | "env" | "default" };
     usage: Usage[];
   }>;
@@ -47,7 +54,18 @@ interface Models {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const days = new URL(request.url).searchParams.get("days") ?? "7";
-  return adminGet<Models>(request, `/api/admin/models?days=${encodeURIComponent(days)}`);
+  const models = await adminGet<Models>(request, `/api/admin/models?days=${encodeURIComponent(days)}`);
+  const path = "/api/admin/model-connections",
+    client = createPrivateClient({ baseUrl: apiBaseFor(path) });
+  let registry: ModelRegistry | null = null;
+  try {
+    registry = privateSchemas.ModelRegistryResponse.parse(
+      await adminGet(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal })),
+    );
+  } catch (error) {
+    if (error instanceof Response && error.status === 302) throw error;
+  }
+  return { ...models, registry };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: `模型与评测 · ${SITE.name} 后台` }];
@@ -57,6 +75,48 @@ const secs = (ms: number | null) => (ms == null ? "—" : ms >= 10_000 ? `${Math
 
 export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   const { run, pending } = useAdminAction();
+  const revalidator = useRevalidator();
+  const me = useAdminMe() as ReturnType<typeof useAdminMe> & { owner?: boolean; modelsManage?: boolean };
+  const [evaluation, setEvaluation] = useState(""),
+    [emergency, setEmergency] = useState(false);
+  const closeTarget = useCallback(() => setTarget(null), []);
+  const command = async ({ kind, id, body }: ModelCommand) => {
+    const client = createPrivateClient({ baseUrl: window.location.origin });
+    const send: AdminSend = (_url, init) => {
+      const common = { headers: init.headers, signal: init.signal };
+      if (kind === "create") return client.POST("/api/admin/model-connections", { ...common, body: privateSchemas.ModelConnectionCreate.parse(body) });
+      if (kind === "update")
+        return client.PUT("/api/admin/model-connections/{id}", {
+          ...common,
+          params: { path: { id: id! } },
+          body: privateSchemas.ModelConnectionUpdate.parse(body),
+        });
+      if (kind === "disable")
+        return client.POST("/api/admin/model-connections/{id}/disable", {
+          ...common,
+          params: { path: { id: id! } },
+          body: privateSchemas.ModelConnectionDisable.parse(body),
+        });
+      return client.POST("/api/admin/model-connections/{id}/test", {
+        ...common,
+        params: { path: { id: id! } },
+        body: privateSchemas.ModelConnectionProbe.parse(body),
+      });
+    };
+    return run(kind === "update" ? "PUT" : "POST", "/api/admin/model-connections", body, {
+      send,
+      label: `model-${kind}-${id ?? "new"}`,
+      success: kind === "test" ? "测试已提交，可在下方查看结果" : "模型接入已保存",
+    });
+  };
+  const readProbe = async (id: string) => {
+    const client = createPrivateClient({ baseUrl: window.location.origin });
+    const result = await client.GET("/api/admin/model-connection-tests/{id}", { params: { path: { id } } });
+    if (!result.response.ok) return null;
+    const probe = privateSchemas.ModelProbeRecord.parse(await adminBody(result));
+    if (!["queued", "running"].includes(probe.status)) revalidator.revalidate();
+    return probe;
+  };
   const [target, setTarget] = useState<Models["capabilities"][number] | null>(null);
   const [choice, setChoice] = useState<string>("");
   const labelOf = (key: string) => m.capabilities.find((c) => `capability:${c.key}` === key)?.label ?? key;
@@ -64,7 +124,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   return (
     <AdminPage
       title="模型与评测"
-      subtitle="每项能力当前用哪个模型、来自哪里（后台切换 > 环境变量 > 代码默认），以及近期的成功率、耗时与费用。切换只影响之后的新任务，已有结果不重算。"
+      subtitle="管理供应商接入、各处理环节的模型和评测依据。已有结果保持原样，指派只影响后续新任务。"
       actions={
         <FilterChips
           param="days"
@@ -76,6 +136,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
         />
       }
     >
+      <ModelConnections registry={m.registry} owner={!!me.owner} manage={!!me.modelsManage || !!me.owner} onCommand={command} onReadProbe={readProbe} />
       <div className="grid gap-5">
         {m.capabilities.map((c) => {
           const total = c.usage.reduce((a, u) => a + u.calls, 0);
@@ -87,14 +148,18 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                   {c.label}
                   <span className="font-mono text-[12px] font-normal text-ink-3">{c.current.model}</span>
                   <Badge tone={c.current.source === "admin" ? "accent" : "muted"}>{SOURCE_LABEL[c.current.source]}</Badge>
+                  {c.unevaluated && <Badge tone="warn">待评测</Badge>}
                 </span>
               }
               right={
                 <Button
                   size="sm"
+                  disabled={!me.modelsManage && !me.owner}
                   onClick={() => {
                     setTarget(c);
-                    setChoice(c.current.model);
+                    setChoice("");
+                    setEvaluation("");
+                    setEmergency(false);
                   }}
                 >
                   切换
@@ -204,33 +269,50 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
       <ReasonDialog
         open={!!target}
         title={`切换模型：${target?.label ?? ""}`}
-        description="只影响之后的新任务。选“恢复默认”会回到环境变量或代码默认。"
+        description="请选择通过当前版本连接测试的接入，并提供对应评测。精选评分必须先完成同批样本比较。"
         confirmLabel="切换"
         busy={pending === "switch"}
-        onClose={() => setTarget(null)}
+        onClose={closeTarget}
         onSubmit={async (reason) =>
           (await run(
             "POST",
-            `/api/admin/models/${target!.key}`,
-            { model: choice === "__default" ? null : choice, reason },
-            { label: "switch", success: "已切换，下一次调用生效" },
+            `/api/admin/model-routes/${target!.key}`,
+            { model: choice, expected_revision: target!.routeRevision, evaluation_id: evaluation.trim() || null, emergency_confirmed: emergency, reason },
+            {
+              label: "switch",
+              success: "已指派，后续新任务使用新模型",
+              send: (_url, init) =>
+                createPrivateClient({ baseUrl: window.location.origin }).POST("/api/admin/model-routes/{capability}", {
+                  headers: init.headers,
+                  signal: init.signal,
+                  params: { path: { capability: target!.key } },
+                  body: privateSchemas.ModelRouteChange.parse(JSON.parse(String(init.body))),
+                }),
+            },
           )) !== null
         }
       >
         <Field label="模型">
           <Select value={choice} onChange={(e) => setChoice(e.target.value)}>
-            {m.choices
-              .filter((x) => x.vision === !!target?.vision)
+            <option value="">请选择接入</option>
+            {m.registry?.connections
+              .filter((x) => x.enabled && x.test_status === "passed" && (!target?.vision || x.vision))
               .map((x) => (
-                <option key={x.key} value={x.key}>
-                  {x.key}（{x.service}）
+                <option key={x.id} value={x.key}>
+                  {x.name} · {x.model}
                 </option>
               ))}
-            <option value="__default">
-              恢复默认（{target?.env} 或 {target?.defaultModel}）
-            </option>
           </Select>
         </Field>
+        <Field label="评测记录编号">
+          <Input value={evaluation} onChange={(e) => setEvaluation(e.target.value)} placeholder="已完成且匹配当前配置的评测记录" />
+        </Field>
+        {target?.key !== "score" && (
+          <label className="mt-3 flex items-start gap-2 text-[13px]">
+            <input type="checkbox" checked={emergency} onChange={(e) => setEmergency(e.target.checked)} />
+            紧急恢复：本次未完成评测，明确记录为待评测。
+          </label>
+        )}
       </ReasonDialog>
     </AdminPage>
   );
