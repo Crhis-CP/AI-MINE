@@ -239,6 +239,10 @@
     {
       "name": "ai-gateway/202610091210_model_attempt_snapshot.sql",
       "dependsOn": ["ai-gateway/202610091200_model_registry.sql"]
+    },
+    {
+      "name": "platform/identity/202610091000_account_access.sql",
+      "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
     }
   ]
 }

@@ -137,6 +137,14 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         (identity.schema === "audit" && spec.access !== "audit")
       )
         problems.push(`Invalid module access classification: ${name}`);
+      const capabilityColumns = ["user_id", "role", "models_manage", "active", "revision", "must_change_password"];
+      const capabilityProjection =
+        name === "identity.account_access" &&
+        spec.module === "platform/identity" &&
+        spec.access === "identity" &&
+        spec.publicColumns.length === 0 &&
+        c.tables.find((table) => table.name === name)?.columns.length === capabilityColumns.length &&
+        capabilityColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
       const permissions = spec.permissions;
       if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) problems.push(`Explicit permissions missing: ${name}`);
       else
@@ -152,7 +160,8 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
             values.length &&
             !(
               (role === "auth" && ["identity", "audit"].includes(spec.access)) ||
-              (["private_ops", "worker"].includes(role) && ["business", "audit"].includes(spec.access))
+              (["private_ops", "worker"].includes(role) && ["business", "audit"].includes(spec.access)) ||
+              (capabilityProjection && ["private_ops", "worker"].includes(role) && values.length === 1 && values[0] === "SELECT")
             )
           )
             problems.push(`Permissions exceed access classification: ${name}/${role}`);

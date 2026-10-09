@@ -29,11 +29,17 @@ function catalog(): Catalog {
       publication: "bootstrap",
       policy: "bootstrap",
       ops: "bootstrap",
+      identity: "bootstrap",
     },
     tables: Object.entries(TABLE_GRANTS).map(([name, grant]) => ({
       name,
       owner: "bootstrap",
-      columns: grant.publicColumns[0] === "*" || !grant.publicColumns.length ? ["id"] : grant.publicColumns,
+      columns:
+        name === "identity.account_access"
+          ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
+          : grant.publicColumns[0] === "*" || !grant.publicColumns.length
+            ? ["id"]
+            : grant.publicColumns,
       rls: false,
     })),
     sequences: Object.entries(SEQUENCES).map(([name, table]) => ({ name, table, owner: "bootstrap" })),
@@ -87,6 +93,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "publication.policy_threads",
       "ops.lane_controls",
       "ops.lane_control_conflicts",
+      "identity.account_access",
       "ai.usage_observation",
       "ai.local_reuse_daily",
       "ai.usage_monthly_reports",
@@ -143,7 +150,7 @@ test("the plan separates seven identities, column reads, append-only audit, owne
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "content"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "ai"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "publication"')).length, 4);
-  assert.equal(defaults.length, 36);
+  assert.equal(defaults.length, 40);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "ai"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.doesNotMatch(sql, /GRANT .* TO PUBLIC/);
@@ -269,4 +276,11 @@ test("policy public head access is limited to identity and current revision, nev
       rule.publicColumns = previous;
     }
   }
+});
+
+test("capability readers may inspect only the exact secret-free identity projection", () => {
+  const current = catalog();
+  assert.doesNotThrow(() => planRoleGrants(current, "fixture", 2));
+  current.tables.find((t) => t.name === "identity.account_access")!.columns.push("password_hash");
+  assert.throws(() => planRoleGrants(current, "fixture", 2), /Permissions exceed/);
 });

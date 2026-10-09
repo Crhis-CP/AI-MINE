@@ -24,6 +24,8 @@ export interface AdminPrincipal {
   name: string;
   csrf: string;
   dev: boolean;
+  accessRevision?: number | null;
+  mustChangePassword?: boolean;
 }
 
 function secret(): string {
@@ -162,10 +164,21 @@ export async function passwordLogin(password: string, returnTo: string, userAgen
 export async function sessionPrincipal(cookieHeader: string | undefined): Promise<AdminPrincipal | null> {
   const token = parseCookies(cookieHeader)[SESSION_COOKIE];
   if (token) {
-    const [row] = await sql<{ user_id: number; csrf_token: string; name: string | null; email: string | null }[]>`
-      SELECT s.user_id, s.csrf_token, u.display_name AS name, u.email FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id
-      WHERE s.id_hash = ${sha256(token)} AND s.expires_at > now()`;
-    if (row) return { userId: row.user_id, name: row.name ?? row.email ?? `admin:${row.user_id}`, csrf: row.csrf_token, dev: false };
+    const [row] = await sql<
+      { user_id: number; csrf_token: string; name: string | null; email: string | null; access_revision: number | null; must_change_password: boolean | null }[]
+    >`
+      SELECT s.user_id, s.csrf_token, u.display_name AS name, u.email,access.revision AS access_revision,access.must_change_password FROM admin_sessions s JOIN admin_users u ON u.id = s.user_id
+      LEFT JOIN identity.account_access access ON access.user_id=u.id
+      WHERE s.id_hash = ${sha256(token)} AND s.expires_at > now() AND (access.user_id IS NULL OR access.active)`;
+    if (row)
+      return {
+        userId: row.user_id,
+        name: row.name ?? row.email ?? `admin:${row.user_id}`,
+        csrf: row.csrf_token,
+        dev: false,
+        accessRevision: row.access_revision,
+        mustChangePassword: row.must_change_password ?? false,
+      };
   }
   if (config.devAdmin && !isProduction) return { userId: null, name: config.devAdmin.displayName, csrf: "dev", dev: true };
   return null;
@@ -195,3 +208,5 @@ export async function audit(
 export function actorOf(p: AdminPrincipal): string {
   return p.dev ? `dev:${p.name}` : `admin:${p.userId}`;
 }
+
+export { currentCapability, requireCapability, requireOwner, AccountPermissionDenied } from "./account-access.ts";

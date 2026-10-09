@@ -700,6 +700,16 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
       }
+    },
+    "identity.account_access": {
+      "module": "platform/identity",
+      "access": "identity",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"],
+        "auth": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

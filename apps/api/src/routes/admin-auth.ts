@@ -58,6 +58,8 @@ export function adminHandler(fn: AdminHandler) {
     try {
       return await fn(req, reply, admin);
     } catch (error) {
+      if ((error as { statusCode?: number }).statusCode === 403)
+        return sendProblem(req, reply, { status: 403, code: "forbidden", detail: "当前账号没有权限完成此操作。" });
       if (error instanceof QueueUnavailableError)
         return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: error.message, retryAfter: 30 });
       if ((error as { statusCode?: number }).statusCode === 400 || error instanceof SyntaxError) {
