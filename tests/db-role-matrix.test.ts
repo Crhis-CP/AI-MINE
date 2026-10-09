@@ -13,6 +13,7 @@ const PUBLIC_COLUMNS: Record<string, string[]> = {
     "name",
     "kind",
     "participation_mode",
+    "lane",
     "enabled",
     "last_ok_at",
     "interval_minutes",

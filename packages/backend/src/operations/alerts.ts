@@ -5,6 +5,7 @@
 //   digest — follow-ups without reader impact: one 09:00 message a day, meant to be handed to the AI.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
 import { beijingDate, beijingTime } from "@amp/contracts/time";
+import { sourceIdsOnLane } from "../admin/sources.ts";
 import { dbOf } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
 import { backupConfigured } from "./backup.ts";
@@ -36,8 +37,11 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
   const [hb] = await sql<{ value: { startedAt?: string } }[]>`SELECT value FROM settings WHERE key = 'heartbeat.worker'`;
   const settled = !hb?.value.startedAt || now - Date.parse(hb.value.startedAt) > 20 * 60_000;
   if (settled && collecting()) {
-    const [last] = await sql<{ at: Date | null }[]>`SELECT max(discovered_at) AS at FROM articles WHERE discovered_at > ${new Date(now - 4 * QUIET_MS)}`;
-    const [anySource] = await sql`SELECT 1 FROM sources WHERE enabled LIMIT 1`;
+    // Policy arrivals must not conceal first-discovery silence on the news line (INV-42).
+    const news = await sourceIdsOnLane("news");
+    const [last] = await sql<{ at: Date | null }[]>`SELECT max(discovered_at) AS at FROM articles
+      WHERE source_id = ANY(${news}::text[]) AND discovered_at > ${new Date(now - 4 * QUIET_MS)}`;
+    const [anySource] = await sql`SELECT 1 FROM sources WHERE enabled AND lane = 'news' LIMIT 1`;
     if (anySource) observeIntake?.(last?.at ?? null);
     if (anySource && (!last?.at || now - last.at.getTime() > QUIET_MS)) {
       out.push({

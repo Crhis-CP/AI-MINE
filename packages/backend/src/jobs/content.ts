@@ -39,6 +39,8 @@ interface Route {
   signal: boolean;
   historical: boolean;
   language: string | null;
+  /** The source is on the news line; policy material never enters news processing. */
+  news: boolean;
 }
 
 /**
@@ -51,6 +53,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       body_status: string;
       language: string | null;
       participation_mode: string;
+      lane: string;
       kind: string;
       config: Record<string, unknown>;
       url: string;
@@ -60,7 +63,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
       discovered_at: Date;
     }[]
   >`
-    SELECT a.body_status, a.language, s.participation_mode, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
+    SELECT a.body_status, a.language, s.participation_mode, s.lane, s.kind, s.config, a.url, coalesce(a.body_text, '') = '' AS bare,
            a.backfill, a.published_at, a.discovered_at
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   if (!row) return null;
@@ -69,7 +72,7 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const pending = row.body_status === "pending";
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
   const needsPage = !signal && (wantsBody || (row.bare && pageFetchable(row.url, row.kind)));
-  return { step: pending && needsPage ? "extract" : "analyze", signal, historical, language: normalizeSourceLanguage(row.language) };
+  return { step: pending && needsPage ? "extract" : "analyze", signal, historical, language: normalizeSourceLanguage(row.language), news: row.lane === "news" };
 }
 
 /**
@@ -88,6 +91,13 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   const db = opts.db ?? sql;
   const r = await route(articleId, db);
   if (!r) return null;
+  // Material of a policy source is stored, never processed as news (ADR-0016): settled as skipped, like a post of a
+  // non-editorial source, so no sweep, requeue or backlog alert takes it up and publication keeps it out.
+  if (!r.news) {
+    await db`UPDATE articles SET processing_state = 'skipped', processing_attempts = 0, processing_retry_at = NULL, processing_queued_at = NULL
+      WHERE id = ${articleId}`;
+    return null;
+  }
   if (!r.language) {
     await unidentifiedLanguage(articleId, db);
     return null;
