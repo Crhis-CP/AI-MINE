@@ -15,7 +15,7 @@
 ## 2. 仓库地图
 
 ```text
-apps/web              读者站（SSR）+ 私有路由组（六组最小私有页面，只在 PRIVATE_HOST 上响应）；只经 @amp/api-client 读 api
+apps/web              读者站（SSR）+ 私有路由组（六组最小私有页面，在主域名的 /admin 下，需登录；PRIVATE_HOST 生产即主域名）；只经 @amp/api-client 读 api
 apps/api              HTTP 组合根；同一镜像以 public-api / private-api 两个角色运行
 apps/worker           任务组合根：各模块 jobs；队列按 <lane>.<stage> 划分
 apps/fetcher          抓取与解析隔离进程：无数据库登录、无模型密钥

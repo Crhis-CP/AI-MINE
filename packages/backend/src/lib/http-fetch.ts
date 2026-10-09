@@ -1,6 +1,7 @@
 // Outbound HTTP for collectors, the image proxy and the paid APIs: SSRF guard, routing, limits.
 import net from "node:net";
 import { addAbortListener } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import { Agent, ProxyAgent, fetch as undiciFetch, type Dispatcher } from "undici";
 import { config } from "../config.ts";
 import { assertPublicUrl, guardedLookup } from "./url.ts";
@@ -46,6 +47,8 @@ export interface GuardedFetchOptions {
   maxRedirects?: number;
   /** "egress" by default; see EgressRoute. */
   route?: EgressRoute;
+  /** GET only: repeat a dropped connection once with a fresh time budget; not timeouts, connect failures or HTTP errors. */
+  retryDropped?: boolean;
 }
 
 export interface GuardedResponse {
@@ -59,9 +62,28 @@ export interface GuardedResponse {
 /** How the collectors introduce themselves: the site's own crawler name and address (industry/site.ts). */
 export const DEFAULT_UA = `Mozilla/5.0 (compatible; ${SITE.crawlerName}/1.0; +${config.siteUrl}/about)`;
 
+export const DROPPED_RETRY = { afterMs: 3000 };
+
+export function droppedConnection(error: unknown): boolean {
+  const code = (error as { cause?: { code?: string } })?.cause?.code ?? (error as { code?: string })?.code;
+  return ["UND_ERR_SOCKET", "ECONNRESET", "EPIPE"].includes(code ?? "");
+}
+
 export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}): Promise<GuardedResponse> {
+  const firstAttempt = { receivedHttpError: false };
+  try {
+    return await fetchOnce(input, opts, firstAttempt);
+  } catch (error) {
+    if (!opts.retryDropped || firstAttempt.receivedHttpError || (opts.method ?? "GET").toUpperCase() !== "GET" || !droppedConnection(error)) throw error;
+    await delay(DROPPED_RETRY.afterMs * (1 + Math.random()));
+    return fetchOnce(input, opts);
+  }
+}
+
+async function fetchOnce(input: string, opts: GuardedFetchOptions, attempt?: { receivedHttpError: boolean }): Promise<GuardedResponse> {
   // One budget includes DNS, every redirect and the body. Restarting it at each hop allowed a
-  // nominal 20 s image request to occupy the API for minutes.
+  // nominal 20 s image request to occupy the API for minutes. A retry gets its own complete budget;
+  // only source listings (including admin preview) and direct body extraction opt in.
   const signal = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
   const route = opts.route ?? "egress";
   const check = (target: string) => withinDeadline(assertPublicUrl(target, config.allowPrivateNetworkFetch, proxied(new URL(target), route)), signal);
@@ -77,6 +99,8 @@ export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}
       dispatcher: dispatcherFor(proxied(url, route)),
       signal,
     });
+    // A truncated error page is still an HTTP error, not permission to retry (including Retry-After).
+    if (attempt) attempt.receivedHttpError = res.status >= 400;
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       // Release the connection even when the next URL is refused or the redirect limit is reached.
       await res.body?.cancel();

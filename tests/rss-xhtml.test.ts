@@ -38,6 +38,7 @@ async function read(path: string) {
       kind: "rss",
       config: { feedUrl },
       participation_mode: "editorial",
+      lane: "news",
       tier: "T2",
       first_party: false,
       enabled: true,

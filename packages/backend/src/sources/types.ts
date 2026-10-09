@@ -7,6 +7,8 @@ export interface SourceRow {
   config: Record<string, any>;
   tier: string;
   participation_mode: "editorial" | "hot_signal" | "isolated";
+  /** Business line (ADR-0016): policy material is stored but never enters the news stages. */
+  lane: "news" | "policy";
   first_party: boolean;
   interval_minutes: number;
   enabled: boolean;

@@ -77,7 +77,7 @@ function markdownToHtml(md: string): string {
 
 export async function extractFromUrl(url: string, opts: { allowJina: boolean; subject: string }): Promise<ExtractedBody | null> {
   try {
-    const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024 });
+    const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
     const type = res.headers.get("content-type") ?? "";
     if (res.status === 200 && /html/.test(type)) {
       const got = readable(res.text(), res.url);

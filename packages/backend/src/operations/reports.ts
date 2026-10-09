@@ -53,7 +53,7 @@ export async function sourceHealthWeekly(now = Date.now()) {
       "7 天没有新内容的信源（可能是对方没更新，也可能是抓取方式失效）：",
       ...silent.map((s) => `· ${s.name}${s.last ? `（最近 ${beijingDay(s.last)}）` : "（从没产出过）"}`),
     );
-  lines.push("", failing.length || silent.length ? "需要处理的话，把这条转给 AI；详情在后台“信源”与“运行”页。" : "没有需要处理的信源。");
+  lines.push("", failing.length || silent.length ? "需要处理的话，把这条转给 AI；详情在后台“信源”页。" : "没有需要处理的信源。");
   await sendAlert("📊 信源周报", lines);
   return { failing: failing.length, silent: silent.length };
 }

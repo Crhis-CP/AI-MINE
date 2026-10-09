@@ -9,6 +9,7 @@ import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { fetchWebList } from "@amp/backend/sources/web-list";
 import { sourceDateConfigHash, unsupportedConfig } from "@amp/backend/sources/config-keys";
+import { DROPPED_RETRY } from "@amp/backend/lib/http-fetch";
 
 const LIST =
   `<style>.pagination{display:block}</style><div id="信息列表"><div class="page-content"><ul class="txtList_01">` +
@@ -20,8 +21,14 @@ const pages: Record<string, string> = {
   "/not-json": `<html><body>${LIST}</body></html>`,
   "/no-html": JSON.stringify({ success: false, data: null }),
 };
+let retryHits = 0;
 const server = http.createServer((req, res) => {
-  const body = pages[(req.url ?? "").split("?")[0]!];
+  const path = (req.url ?? "").split("?")[0]!;
+  if (path === "/unit-retry" && ++retryHits === 1) {
+    req.socket.destroy();
+    return;
+  }
+  const body = pages[path === "/unit-retry" ? "/unit" : path];
   res.writeHead(body === undefined ? 404 : 200, { "content-type": "application/json;charset=UTF-8" });
   res.end(body ?? "");
 });
@@ -66,6 +73,21 @@ test("htmlJsonPath: the list HTML inside JSON parses with the usual selectors, l
 test("htmlJsonPath: a listing that is not JSON, or has no string at the path, fails the fetch", async () => {
   await assert.rejects(fetchWebList(source(listing("/not-json"))), /not JSON/);
   await assert.rejects(fetchWebList(source(listing("/no-html"))), /no string at data\.html/);
+});
+
+test("htmlJsonPath: a dropped list request retries and returns the same two items", async () => {
+  const previousDelay = DROPPED_RETRY.afterMs;
+  DROPPED_RETRY.afterMs = 2;
+  try {
+    const expected = await fetchWebList(source(listing("/unit")));
+    const actual = await fetchWebList(source(listing("/unit-retry")));
+    assert.equal(actual.length, 2);
+    const values = (items: Awaited<ReturnType<typeof fetchWebList>>) => items.map((c) => [c.url, c.title, c.publishedAt, c.sourceDateObservation?.raw]);
+    assert.deepEqual(values(actual), values(expected));
+    assert.equal(retryHits, 2);
+  } finally {
+    DROPPED_RETRY.afterMs = previousDelay;
+  }
 });
 
 test("htmlJsonPath only with a direct JSON listing and a named page: through Jina, as Markdown, empty or without baseUrl it is refused", () => {

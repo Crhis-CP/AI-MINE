@@ -194,6 +194,7 @@
         "name",
         "kind",
         "participation_mode",
+        "lane",
         "enabled",
         "last_ok_at",
         "interval_minutes",

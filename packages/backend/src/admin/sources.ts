@@ -254,9 +254,14 @@ export async function fetchNow(id: string, actor: string) {
   return { jobId };
 }
 
+/** The sources on one business line (ADR-0016), for checks of one line that must not count the other line's material. */
+export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]> {
+  return (await sql<{ id: string }[]>`SELECT id FROM sources WHERE lane = ${lane}`).map((r) => r.id);
+}
+
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
 export async function readSourceDateContext(sourceId: string): Promise<SourceRow | null> {
-  const [source] = await sql<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, first_party,
+  const [source] = await sql<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, lane, first_party,
     interval_minutes, enabled, cursor, fail_count FROM sources WHERE id = ${sourceId}`;
   return source ?? null;
 }
