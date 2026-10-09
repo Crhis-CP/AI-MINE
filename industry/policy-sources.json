@@ -1708,11 +1708,11 @@
       "duplicate_of": null,
       "website": "https://boletinoficial.jujuy.gob.ar/",
       "listed_url": "https://boletinoficial.jujuy.gob.ar/?page_id=2017",
-      "entry": "https://boletinoficial.jujuy.gob.ar/index.php?rest_route=/wp/v2/posts&categories=13,11,21&per_page=50&_fields=id,link,date_gmt,modified_gmt,title,excerpt,categories,type",
+      "entry": "https://boletinoficial.jujuy.gob.ar/index.php?rest_route=/wp/v2/posts&categories=13,11,21&per_page=50&_fields=id,link,date_gmt,modified_gmt,title,excerpt,categories,type&orderby=id&order=desc",
       "collect": {
         "kind": "json_list",
         "config": {
-          "url": "https://boletinoficial.jujuy.gob.ar/index.php?rest_route=/wp/v2/posts&categories=13,11,21&per_page=50&_fields=id,link,date_gmt,modified_gmt,title,excerpt,categories,type",
+          "url": "https://boletinoficial.jujuy.gob.ar/index.php?rest_route=/wp/v2/posts&categories=13,11,21&per_page=50&_fields=id,link,date_gmt,modified_gmt,title,excerpt,categories,type&orderby=id&order=desc",
           "titlePaths": ["excerpt.rendered", "title.rendered"],
           "summaryPaths": ["title.rendered"],
           "publishedAtPath": "date_gmt",
@@ -1728,7 +1728,7 @@
             "idNamespace": "jujuy-official-published-posts",
             "scope": {
               "description": "Official Jujuy gazette published records in categories Leyes (13), Decretos (11) and Resoluciones (21); includes individual administrative acts, not a claim that every record is a generally applicable mining rule.",
-              "basis": "The official categories endpoint identifies 13=Leyes, 11=Decretos and 21=Resoluciones; the posts endpoint filters their union and returns X-WP-Total/X-WP-TotalPages plus actual prev/next Link relations. WordPress revisions, drafts and other site categories are outside this collection.",
+              "basis": "The official categories endpoint identifies 13=Leyes, 11=Decretos and 21=Resoluciones; the posts endpoint filters their union and returns X-WP-Total/X-WP-TotalPages plus actual prev/next Link relations. WordPress revisions, drafts and other site categories are outside this collection. Explicit orderby=id&order=desc gives a unique ordering at equal publication timestamps; verified on live pages 114/115 and repeat reads.",
               "evidenceUrl": "https://boletinoficial.jujuy.gob.ar/index.php?rest_route=/wp/v2/categories&include=13,11,21",
               "includesHistory": false
             },
@@ -1786,7 +1786,7 @@
         "status": "verified",
         "evidence": "https://boletinoficial.jujuy.gob.ar/?page_id=2017"
       },
-      "notes": "原链接是期次日历，改用公报站 WordPress 接口取法律、法令、决议三类文章（一篇一件）；约六成是土地、抵押、人事等个别行政行为。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-10-09 TASK0144已核官方分类与真实分页结构，配置directoryProfile；大目录尚未取得整轮完整回执，登记可分页不等于已全量覆盖或解读资格。",
+      "notes": "原链接是期次日历，改用公报站 WordPress 接口取法律、法令、决议三类文章（一篇一件）；约六成是土地、抵押、人事等个别行政行为。；核对依据：2026-10-08地区D，上海批次1历史列表空跑成功；旧dated仅计日期或观察对象，不是有效发布日期验收。；全文条款暂按restricted，不据此认定禁止元数据采集；启用时按Owner已定批次和现场预览处理。；2026-10-09 TASK0144已核官方分类与真实分页结构，配置directoryProfile；大目录尚未取得整轮完整回执，登记可分页不等于已全量覆盖或解读资格。；同轮第115页在发布时间并列边界检出重复，保持失败回执；已按官网实际支持的orderby=id&order=desc固定唯一排序并核对边界两页及复取，不宣称已重新完成全轮。",
       "terms": "restricted",
       "hold": null
     },

@@ -51,6 +51,8 @@ function response(page: number, items: unknown[], links: string | null, total = 
 }
 test("registered family names the real official categories and preserves original profile/enabling boundaries", () => {
   assert.equal(new URL(String(source.config.url)).searchParams.get("categories"), "13,11,21");
+  assert.equal(new URL(String(source.config.url)).searchParams.get("orderby"), "id");
+  assert.equal(new URL(String(source.config.url)).searchParams.get("order"), "desc");
   assert.match(profile.scope.basis, /13=Leyes, 11=Decretos and 21=Resoluciones/);
   assert.equal(profile.documentId, undefined);
   assert.equal(registered.hold, null);
