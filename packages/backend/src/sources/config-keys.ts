@@ -22,6 +22,7 @@ export function normalizeSourceLanguage(value: unknown): string | null {
 
 // Rules applied in collect.ts to every kind read through collectSource.
 const COLLECTED = [
+  "policyProfile",
   "sourceDate",
   "_amp",
   "language",

@@ -305,3 +305,12 @@ export async function saveSourcePolicy(id: string, input: { policy: Record<strin
     return change.after;
   });
 }
+
+import { stableJson } from "../lib/ids.ts";
+
+/** A policy observation is accepted only against the still-current explicit source configuration. */
+export async function lockPolicySourceConfiguration(tx: Tx, expected: Pick<SourceRow, "id" | "kind" | "config">) {
+  const [row] = await tx`SELECT kind,config,lane,enabled FROM sources WHERE id=${expected.id} FOR SHARE`;
+  if (!row || row.lane !== "policy" || !row.enabled || row.kind !== expected.kind || stableJson(row.config) !== stableJson(expected.config))
+    throw new Error("Policy source configuration changed or paused");
+}
