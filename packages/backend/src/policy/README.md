@@ -33,3 +33,6 @@ TASK-0101 的 `@amp/backend/policy/interpretation` 导出 `runPolicyInterpretati
 `capturePolicyMaterial(sourceId,materialId,get?)` 消费来源显式 policyProfile 与 content 真实材料引用，取得唯一标题/身份标识等字段，再调用原件取得端口。无 profile、普通新闻标识或缺字段不能通过身份门；全文未获准时只登记无正文基本事实。取页时间不能代替首次发现时间。
 
 `readPolicyMetadataObservation(expressionId)` 是内部可信元数据端口，返回当前原件可回读字段依据，以及 material_discoveries 的真实最早 discovered_at；无依据返回 null。其结果供 publication 独立基本事实资格判断，不公开私有源配置、许可或模型字段。两张证据表只追加，workflow 表供独立 policy 队列续跑；HTTP 读取不会调用取得或排队。
+
+
+`advancePolicyMaterial` 每次推进一个有限阶段，独立 policy 队列经现有 `jobs/content` 组合入口转发。初始取得先尝试独立基本事实发布，完整输出仍只交可信发布端；partial续跑，未知回执与异常停止自动付费，同 URL 按来源显式 recheckMinutes 复查。视觉extracted后须重新通过完整全文计划，不能用视觉结果替代目录完整性。新调度不改新闻成功计数、首次材料入库或公开读取路径。
