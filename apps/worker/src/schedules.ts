@@ -67,7 +67,8 @@ export const SCHEDULES: Scheduled[] = [
   { name: "reports.usage-weekly", cron: "5 9 * * 1", missed: "once", run: () => usageWeekly() },
   ...(collecting
     ? [
-        { name: "sources.schedule", cron: "* * * * *", run: () => scheduleDueSources() },
+        { name: "sources.schedule", cron: "* * * * *", run: () => scheduleDueSources(undefined, "news") },
+        { name: "policy.sources.schedule", cron: "* * * * *", run: () => scheduleDueSources(undefined, "policy") },
         { name: "sources.adapt-intervals", cron: "20 4 * * *", run: adaptIntervals },
         // WeChat official accounts (paid), each once per its interval.
         { name: "sources.mp-reconcile", cron: "*/15 * * * *", run: () => scheduleMpReconcile() },

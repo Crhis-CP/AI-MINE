@@ -86,3 +86,7 @@ R-03/R-10最小接线：collectSource支持config.language明确声明，经BCP4
 升级时若旧进程尚未写任何段检查点或观察，claim事务按原subject精确恢复本材料/修订的观察；pending/unknown只接当前实际ordinal，received/completed须核原response指针与字节。无证明仍留null并阻止新付费，不猜共享材料归属，也不改变付费缓存键。
 
 首次入库静默提醒（TASK-0115）只描述`articles.discovered_at`没有新值，不把成功抓取、首次入库和公开互相推导。`collectFindings`的可选内部观察回调复用本轮已有读数；`checkAlerts`仅在正常检查取得晚于静默起点且不晚于当前时间的新首次入库时报告恢复。采集关闭、来源全暂停或worker启动宽限不构成恢复证据，原提醒状态保留；旧持久停机标题不用于恢复文案。此观察不增加查询、持久字段或公开接口，也不改阈值、重复频率及其他提醒。
+
+### 采集分线调度（TASK-0111）
+
+`news.sources.fetch` 与 `policy.sources.fetch` 分别领取，每线有独立采集开关与并发；定时与手动入队用同一来源单例，旧 `sources.fetch` 在 pg-boss 事务中转投与完成。事务失败不会先确认旧消息。原 `sources.schedule` 仍记录资讯调度，法规使用 `policy.sources.schedule`，新闻静默和真实新增口径不变。每线独立取批次，法规按登记法域交错选最早到期来源；成功与失败继续持久更新 next_fetch_at。环境开关仅为部署配置，不替代带原因、操作人和到期时间的暂停管理，也不改变来源许可。
