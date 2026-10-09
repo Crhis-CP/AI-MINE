@@ -4,6 +4,7 @@ import { dbOf } from "../db.ts";
 import { beijingDay, sendAlert } from "../notify/feishu.ts";
 
 export { usageWeekly } from "./usage-weekly.ts";
+export { usageMonthly } from "./usage-monthly.ts";
 
 const sql = dbOf("reports");
 

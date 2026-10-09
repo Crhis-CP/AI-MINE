@@ -3,6 +3,7 @@
 import { config } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { audit } from "./auth.ts";
+export { monthlyUsageReports } from "../operations/usage-monthly.ts";
 
 const sql = dbOf("ai-gateway");
 

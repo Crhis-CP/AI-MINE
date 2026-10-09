@@ -227,6 +227,10 @@
     {
       "name": "platform/ops/202610090900_lane_controls.sql",
       "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091100_usage_reports.sql",
+      "dependsOn": ["0022_receipt_attempts_budgets.sql"]
     }
   ]
 }

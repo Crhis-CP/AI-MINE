@@ -95,6 +95,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/usage/reports": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["usageMonthlyList"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/usage/reports/{month}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["usageMonthlyDetail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/auth/options": {
     parameters: {
       query?: never;
@@ -230,6 +262,408 @@ export interface components {
     LoginOptionsInput: {
       feishu: boolean;
       password: boolean;
+    };
+    MonthlyUsageEntry: {
+      notification_at: string | null;
+      /** @enum {string} */
+      notification_state: "pending" | "sending" | "sent" | "unknown";
+      report: components["schemas"]["MonthlyUsageReport"];
+      revision: number;
+      updated_after_issue: boolean;
+    };
+    MonthlyUsageEntryInput: {
+      notification_at: string | null;
+      /** @enum {string} */
+      notification_state: "pending" | "sending" | "sent" | "unknown";
+      report: components["schemas"]["MonthlyUsageReportInput"];
+      revision: number;
+      updated_after_issue: boolean;
+    };
+    MonthlyUsageList: {
+      items: components["schemas"]["MonthlyUsageEntry"][];
+    };
+    MonthlyUsageListInput: {
+      items: components["schemas"]["MonthlyUsageEntryInput"][];
+    };
+    MonthlyUsageReport: {
+      by_capability: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_lane: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_service: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_source: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_usage_purpose: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      /** Format: date-time */
+      generated_at: string;
+      limitations: string[];
+      local_reuse: {
+        /** @enum {string} */
+        coverage: "none" | "partial" | "complete";
+        /** Format: date-time */
+        observed_since: string;
+        recorded_count: number | null;
+      };
+      material_costs: {
+        actual: string;
+        average_actual: string;
+        average_estimated: string;
+        currency: string;
+        estimated: string;
+        /** @enum {string} */
+        kind: "article" | "policy";
+        objects: number;
+        recorded_calls: number;
+      }[];
+      material_unassigned_calls: number;
+      month: string;
+      /** Format: date-time */
+      period_end: string;
+      /** Format: date-time */
+      period_start: string;
+      top_tasks: {
+        currency: string;
+        items: {
+          amount: string;
+          calls: number;
+          estimated: string;
+          reference: string;
+        }[];
+      }[];
+      totals: {
+        amounts: {
+          actual: string;
+          currency: string;
+          estimated: string;
+        }[];
+        cache_hit_rate: number | null;
+        cache_pair_reported_calls: number;
+        calls: number;
+        failed: number;
+        input_tokens: number | null;
+        output_tokens: number | null;
+        pending: number;
+        provider_cache_miss_reported_calls: number;
+        provider_cache_miss_tokens: number | null;
+        provider_cache_reported_calls: number;
+        provider_cache_tokens: number | null;
+        received: number;
+        token_reported_calls: number;
+        unknown: number;
+        unpriced_calls: number;
+      };
+    };
+    MonthlyUsageReportInput: {
+      by_capability: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_lane: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_service: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_source: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      by_usage_purpose: {
+        key: string;
+        label: string;
+        totals: {
+          amounts: {
+            actual: string;
+            currency: string;
+            estimated: string;
+          }[];
+          cache_hit_rate: number | null;
+          cache_pair_reported_calls: number;
+          calls: number;
+          failed: number;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          pending: number;
+          provider_cache_miss_reported_calls: number;
+          provider_cache_miss_tokens: number | null;
+          provider_cache_reported_calls: number;
+          provider_cache_tokens: number | null;
+          received: number;
+          token_reported_calls: number;
+          unknown: number;
+          unpriced_calls: number;
+        };
+      }[];
+      /** Format: date-time */
+      generated_at: string;
+      limitations: string[];
+      local_reuse: {
+        /** @enum {string} */
+        coverage: "none" | "partial" | "complete";
+        /** Format: date-time */
+        observed_since: string;
+        recorded_count: number | null;
+      };
+      material_costs: {
+        actual: string;
+        average_actual: string;
+        average_estimated: string;
+        currency: string;
+        estimated: string;
+        /** @enum {string} */
+        kind: "article" | "policy";
+        objects: number;
+        recorded_calls: number;
+      }[];
+      material_unassigned_calls: number;
+      month: string;
+      /** Format: date-time */
+      period_end: string;
+      /** Format: date-time */
+      period_start: string;
+      top_tasks: {
+        currency: string;
+        items: {
+          amount: string;
+          calls: number;
+          estimated: string;
+          reference: string;
+        }[];
+      }[];
+      totals: {
+        amounts: {
+          actual: string;
+          currency: string;
+          estimated: string;
+        }[];
+        cache_hit_rate: number | null;
+        cache_pair_reported_calls: number;
+        calls: number;
+        failed: number;
+        input_tokens: number | null;
+        output_tokens: number | null;
+        pending: number;
+        provider_cache_miss_reported_calls: number;
+        provider_cache_miss_tokens: number | null;
+        provider_cache_reported_calls: number;
+        provider_cache_tokens: number | null;
+        received: number;
+        token_reported_calls: number;
+        unknown: number;
+        unpriced_calls: number;
+      };
     };
     Problem: {
       code: string;
@@ -1115,6 +1549,120 @@ export interface operations {
       };
       /** @description Problem response */
       500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  usageMonthlyList: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MonthlyUsageList"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  usageMonthlyDetail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        month: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MonthlyUsageEntry"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
         headers: {
           [name: string]: unknown;
         };

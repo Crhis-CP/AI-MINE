@@ -637,6 +637,33 @@
         "private_ops": ["SELECT", "INSERT", "UPDATE"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "ai.usage_observation": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.local_reuse_daily": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "ai.usage_monthly_reports": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {

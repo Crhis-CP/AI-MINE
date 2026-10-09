@@ -472,6 +472,2618 @@
         ],
         "type": "object"
       },
+      "MonthlyUsageEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "notification_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notification_state": {
+            "enum": [
+              "pending",
+              "sending",
+              "sent",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/MonthlyUsageReport"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "updated_after_issue": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "report",
+          "revision",
+          "updated_after_issue",
+          "notification_state",
+          "notification_at"
+        ],
+        "type": "object"
+      },
+      "MonthlyUsageEntryInput": {
+        "additionalProperties": false,
+        "properties": {
+          "notification_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notification_state": {
+            "enum": [
+              "pending",
+              "sending",
+              "sent",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/MonthlyUsageReportInput"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "updated_after_issue": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "report",
+          "revision",
+          "updated_after_issue",
+          "notification_state",
+          "notification_at"
+        ],
+        "type": "object"
+      },
+      "MonthlyUsageList": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyUsageEntry"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "MonthlyUsageListInput": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MonthlyUsageEntryInput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "MonthlyUsageReport": {
+        "additionalProperties": false,
+        "properties": {
+          "by_capability": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_lane": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_service": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_source": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_usage_purpose": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "local_reuse": {
+            "additionalProperties": false,
+            "properties": {
+              "coverage": {
+                "enum": [
+                  "none",
+                  "partial",
+                  "complete"
+                ],
+                "type": "string"
+              },
+              "observed_since": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              "recorded_count": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "recorded_count",
+              "observed_since",
+              "coverage"
+            ],
+            "type": "object"
+          },
+          "material_costs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "actual": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "average_actual": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "average_estimated": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "estimated": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "article",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                "objects": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "recorded_calls": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "currency",
+                "objects",
+                "recorded_calls",
+                "actual",
+                "estimated",
+                "average_actual",
+                "average_estimated"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "material_unassigned_calls": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "month": {
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "top_tasks": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "currency": {
+                  "type": "string"
+                },
+                "items": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      "calls": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "estimated": {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      "reference": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "reference",
+                      "amount",
+                      "estimated",
+                      "calls"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 10,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "currency",
+                "items"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "totals": {
+            "additionalProperties": false,
+            "properties": {
+              "amounts": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "actual": {
+                      "pattern": "^\\d+(?:\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "estimated": {
+                      "pattern": "^\\d+(?:\\.\\d+)?$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "actual",
+                    "estimated"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "cache_hit_rate": {
+                "anyOf": [
+                  {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cache_pair_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "failed": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "input_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "output_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pending": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "provider_cache_miss_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "provider_cache_miss_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "provider_cache_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "provider_cache_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "received": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "token_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unknown": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unpriced_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "calls",
+              "received",
+              "failed",
+              "pending",
+              "unknown",
+              "amounts",
+              "unpriced_calls",
+              "input_tokens",
+              "output_tokens",
+              "token_reported_calls",
+              "provider_cache_tokens",
+              "provider_cache_reported_calls",
+              "provider_cache_miss_tokens",
+              "provider_cache_miss_reported_calls",
+              "cache_pair_reported_calls",
+              "cache_hit_rate"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "month",
+          "period_start",
+          "period_end",
+          "generated_at",
+          "totals",
+          "by_lane",
+          "by_service",
+          "by_capability",
+          "by_source",
+          "by_usage_purpose",
+          "material_costs",
+          "material_unassigned_calls",
+          "top_tasks",
+          "local_reuse",
+          "limitations"
+        ],
+        "type": "object"
+      },
+      "MonthlyUsageReportInput": {
+        "additionalProperties": false,
+        "properties": {
+          "by_capability": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_lane": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_service": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_source": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "by_usage_purpose": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "totals": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "amounts": {
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "actual": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "estimated": {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "actual",
+                          "estimated"
+                        ],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "cache_hit_rate": {
+                      "anyOf": [
+                        {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cache_pair_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "failed": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "input_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "output_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "pending": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_miss_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "provider_cache_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "provider_cache_tokens": {
+                      "anyOf": [
+                        {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "received": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "token_reported_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unknown": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    },
+                    "unpriced_calls": {
+                      "maximum": 9007199254740991,
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "calls",
+                    "received",
+                    "failed",
+                    "pending",
+                    "unknown",
+                    "amounts",
+                    "unpriced_calls",
+                    "input_tokens",
+                    "output_tokens",
+                    "token_reported_calls",
+                    "provider_cache_tokens",
+                    "provider_cache_reported_calls",
+                    "provider_cache_miss_tokens",
+                    "provider_cache_miss_reported_calls",
+                    "cache_pair_reported_calls",
+                    "cache_hit_rate"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "totals"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "local_reuse": {
+            "additionalProperties": false,
+            "properties": {
+              "coverage": {
+                "enum": [
+                  "none",
+                  "partial",
+                  "complete"
+                ],
+                "type": "string"
+              },
+              "observed_since": {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              "recorded_count": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "recorded_count",
+              "observed_since",
+              "coverage"
+            ],
+            "type": "object"
+          },
+          "material_costs": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "actual": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "average_actual": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "average_estimated": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "estimated": {
+                  "pattern": "^\\d+(?:\\.\\d+)?$",
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "article",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                "objects": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "recorded_calls": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "currency",
+                "objects",
+                "recorded_calls",
+                "actual",
+                "estimated",
+                "average_actual",
+                "average_estimated"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "material_unassigned_calls": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "month": {
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "top_tasks": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "currency": {
+                  "type": "string"
+                },
+                "items": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      "calls": {
+                        "maximum": 9007199254740991,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "estimated": {
+                        "pattern": "^\\d+(?:\\.\\d+)?$",
+                        "type": "string"
+                      },
+                      "reference": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "reference",
+                      "amount",
+                      "estimated",
+                      "calls"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 10,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "currency",
+                "items"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "totals": {
+            "additionalProperties": false,
+            "properties": {
+              "amounts": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "actual": {
+                      "pattern": "^\\d+(?:\\.\\d+)?$",
+                      "type": "string"
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "estimated": {
+                      "pattern": "^\\d+(?:\\.\\d+)?$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "actual",
+                    "estimated"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "cache_hit_rate": {
+                "anyOf": [
+                  {
+                    "maximum": 1,
+                    "minimum": 0,
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "cache_pair_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "failed": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "input_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "output_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pending": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "provider_cache_miss_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "provider_cache_miss_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "provider_cache_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "provider_cache_tokens": {
+                "anyOf": [
+                  {
+                    "maximum": 9007199254740991,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "received": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "token_reported_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unknown": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "unpriced_calls": {
+                "maximum": 9007199254740991,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "calls",
+              "received",
+              "failed",
+              "pending",
+              "unknown",
+              "amounts",
+              "unpriced_calls",
+              "input_tokens",
+              "output_tokens",
+              "token_reported_calls",
+              "provider_cache_tokens",
+              "provider_cache_reported_calls",
+              "provider_cache_miss_tokens",
+              "provider_cache_miss_reported_calls",
+              "cache_pair_reported_calls",
+              "cache_hit_rate"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "month",
+          "period_start",
+          "period_end",
+          "generated_at",
+          "totals",
+          "by_lane",
+          "by_service",
+          "by_capability",
+          "by_source",
+          "by_usage_purpose",
+          "material_costs",
+          "material_unassigned_calls",
+          "top_tasks",
+          "local_reuse",
+          "limitations"
+        ],
+        "type": "object"
+      },
       "Problem": {
         "additionalProperties": false,
         "properties": {
@@ -3113,6 +5725,131 @@
             "description": "Problem response"
           },
           "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/usage/reports": {
+      "get": {
+        "operationId": "usageMonthlyList",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyUsageList"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/usage/reports/{month}": {
+      "get": {
+        "operationId": "usageMonthlyDetail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyUsageEntry"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
             "content": {
               "application/problem+json": {
                 "schema": {

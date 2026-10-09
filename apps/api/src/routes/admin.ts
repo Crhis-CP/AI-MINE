@@ -20,8 +20,19 @@ import {
   SourceDetailResponse,
   LaneControlActionRequest,
   LaneControlsResponse,
+  MonthlyUsageList,
+  MonthlyUsageEntry,
+  UsageMonth,
 } from "@amp/contracts/http/private";
-import { listBudgets, listTargets, setTargetEnabled, updateBudget, listLaneControls, changeOwnerLaneControls } from "@amp/backend/admin/settings";
+import {
+  listBudgets,
+  listTargets,
+  setTargetEnabled,
+  updateBudget,
+  listLaneControls,
+  changeOwnerLaneControls,
+  monthlyUsageReports,
+} from "@amp/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
@@ -38,6 +49,31 @@ const orNotFound = <T>(req: FastifyRequest, reply: FastifyReply, value: T | null
 const page = (req: FastifyRequest) => Math.max(1, Number(q(req).page) || 1);
 
 export function registerAdmin(app: FastifyInstance) {
+  app.get(
+    contracts.usageMonthlyList.url,
+    contracts.usageMonthlyList,
+    adminHandler(async (req, reply) => {
+      try {
+        return MonthlyUsageList.parse({ items: await monthlyUsageReports() });
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "月度用量历史暂时无法读取" });
+      }
+    }),
+  );
+  app.get(
+    contracts.usageMonthlyDetail.url,
+    contracts.usageMonthlyDetail,
+    adminHandler(async (req, reply) => {
+      const month = UsageMonth.safeParse(param(req, "month"));
+      if (!month.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请使用有效的年月" });
+      try {
+        const result = (await monthlyUsageReports(month.data))[0];
+        return result ? MonthlyUsageEntry.parse(result) : notFound(req, reply);
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "月度用量报告暂时无法读取" });
+      }
+    }),
+  );
   app.get(
     contracts.laneControls.url,
     contracts.laneControls,
