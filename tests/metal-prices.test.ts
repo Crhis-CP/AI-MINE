@@ -49,7 +49,7 @@ test("the price table refuses a row without source, benchmark, unit, currency or
     { source: "lme" },
     // Each of these two breaks one value list only: an unknown source, and a period type no source uses.
     { source: "wb", series_key: "wb.copper", currency: "USD", period_type: "month", period_start: "2026-08-01", period_end: "2026-08-31" },
-    { source: "worldbank", series_key: "wb.copper", currency: "USD", period_type: "week", period_start: "2026-08-01", period_end: "2026-08-31" },
+    { source: "worldbank", series_key: "wb.copper", currency: "USD", period_type: "quarter", period_start: "2026-08-01", period_end: "2026-08-31" },
     ...["name_zh", "grade", "benchmark", "delivery_basis", "unit", "source_unit", "period_label", "release_label"].map((column) => ({ [column]: " " })),
     { currency: "EUR" },
     { period_end: "2026-09-10" },
@@ -86,7 +86,7 @@ const inOrder = (actual: string[], expected: string[]) =>
 test("the fourth-version registry preserves source facts, five active bureau quotes and the approved presentation", () => {
   const registry = loadMetalPriceRegistry();
   assert.deepEqual(registry, parseMetalPriceRegistry(JSON.parse(text)));
-  for (const host of ["thedocs.worldbank.org", "www.imf.org", "www.stats.gov.cn", "www.worldbank.org", "www.cbr.ru", "bank.gov.ua"])
+  for (const host of ["thedocs.worldbank.org", "www.imf.org", "www.stats.gov.cn", "www.worldbank.org", "www.cbr.ru", "bank.gov.ua", "cif.mofcom.gov.cn"])
     assert.ok(METAL_PRICE_HOSTS.some((known) => known === host));
   const nbs = registry.sources.find((source) => source.key === "nbs")!,
     items = registry.items.filter((item) => item.source === "nbs");
