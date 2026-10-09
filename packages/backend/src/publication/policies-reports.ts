@@ -8,7 +8,8 @@ import { policyPublicMembers, PolicyReadError } from "./policies.ts";
 const sql = dbOf("publication");
 type Query = { edition?: number; jurisdiction?: string; theme?: string; cursor?: string; limit: number };
 const matches = (p: PolicyCard, q: Query) =>
-  (!q.jurisdiction || p.jurisdictions.some((j) => j.code === q.jurisdiction || j.parent === q.jurisdiction)) && (!q.theme || p.themes.some((t) => t.code === q.theme));
+  (!q.jurisdiction || p.jurisdictions.some((j) => j.code === q.jurisdiction || j.parent === q.jurisdiction)) &&
+  (!q.theme || p.themes.some((t) => t.code === q.theme));
 export async function policyReport(id: string, q: Query) {
   const [report] = await sql<{ revision: number; card: unknown; coverage: unknown }[]>`SELECT v.revision,v.card,v.coverage FROM publication.policy_reports r
  JOIN publication.policy_report_revisions v ON v.report_id=r.id AND v.revision=coalesce(${q.edition ?? null}::integer,r.current_revision) WHERE r.id=${id}`;
@@ -22,7 +23,7 @@ export async function policyReport(id: string, q: Query) {
       const m = qualified.find((v) => v.editionId === r.edition_id);
       return m && matches(m.policy, q) ? [{ ...m, stored: r }] : [];
     });
-  const binding = queryBinding({ id, edition: report.revision, jurisdiction: q.jurisdiction ?? null, theme: q.theme ?? null }),
+  const binding = queryBinding({ id, edition: q.edition ?? null, jurisdiction: q.jurisdiction ?? null, theme: q.theme ?? null }),
     version = sha256(stableJson([report.revision, selected]));
   const cursor = q.cursor ? decodeCursor<{ binding: string; version: string; offset: number }>("pol-report", q.cursor) : null;
   if (cursor && (cursor.binding !== binding || !Number.isSafeInteger(cursor.offset) || cursor.offset < 0)) throw new PolicyReadError(400, "invalid_cursor");

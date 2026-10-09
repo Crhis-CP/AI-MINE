@@ -87,8 +87,7 @@ export async function readCurrentPublicPolicy(sourceId: string, db: Db = sql) {
 export async function publicProcessingAllowed(sourceId: string, resource: z.infer<typeof EvaluateSourcePolicyInputSchema>["resource"], now = Date.now()) {
   const policy = await readCurrentPublicPolicy(sourceId);
   if (
-    !policy ||
-    policy.processing?.decision !== "allow" ||
+    policy?.processing?.decision !== "allow" ||
     policy.conditions.length ||
     policy.scope.excluded_content.length ||
     (policy.expires_at !== null && Date.parse(policy.expires_at) <= now) ||

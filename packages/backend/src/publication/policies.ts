@@ -1,6 +1,6 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { createHash } from "node:crypto";
-import { Policy, PolicyCard, PolicyReadingPage, PolicyHistoryPage, PolicyReport, PolicyReportCard, PolicyJurisdiction } from "@amp/contracts/http/public";
+import { Policy, PolicyCard, PolicyReadingPage, type PolicyHistoryPage, PolicyJurisdiction } from "@amp/contracts/http/public";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { dbOf } from "../db.ts";
 import { currentPolicyHeads } from "@amp/backend/policy/public-state";
@@ -40,18 +40,20 @@ type Edition = {
   valid_until: Date | null;
   revoked: boolean | null;
   withdrawn: boolean;
+  automatic_excluded: boolean;
   released_at: Date;
+  discovered_at: Date | null;
 };
 type View = { row: Edition; card: PolicyCard; complete: boolean; readable: Record<"original" | "official_translation" | "ai_translation", boolean> };
 const columns = sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id,e.source_id,e.permission_version,e.policy_version_id,e.source_language,e.preferred_source_language,e.expression_ids,e.revision_ids,
- e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.valid_until,q.revoked,d.withdrawn,e.released_at`;
+ e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.valid_until,q.revoked,d.withdrawn,d.automatic_excluded,e.released_at,e.discovered_at`;
 const join = sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
  LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id`;
 function context() {
   return { now: Date.now(), permissions: new Map<string, ReturnType<typeof readCurrentPublicPolicy>>() };
 }
 async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOnly: boolean): Promise<View | null> {
-  if (row.withdrawn) return null;
+  if (row.withdrawn || row.automatic_excluded) return null;
   if (currentOnly && (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) !== row.native_revision_id) return null;
   let source = ctx.permissions.get(row.source_id);
   if (!source) {
@@ -79,14 +81,7 @@ async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOn
     translationAllowed = await allowed("public_translation");
   const processingAllowed = (await Promise.all(row.public_resources.map((r) => publicProcessingAllowed(row.source_id, r, ctx.now)))).every(Boolean);
   const expiredQuality = row.quality_id !== null && (row.revoked || !row.valid_until || row.valid_until.getTime() <= ctx.now);
-  const complete =
-    !!row.complete_card &&
-    Number(row.permission_version) === policy.permission_version &&
-    row.quality_id !== null &&
-    !expiredQuality &&
-    originalAllowed &&
-    translationAllowed &&
-    processingAllowed;
+  const complete = !!row.complete_card && row.quality_id !== null && !expiredQuality && originalAllowed && translationAllowed && processingAllowed;
   const card = complete ? row.complete_card : row.basic_card;
   return card
     ? {
@@ -184,14 +179,7 @@ export async function policyScope(jurisdictions = false) {
       kind: j.kind,
       ...("parent" in j && j.parent ? { parent: j.parent } : {}),
     });
-  if (jurisdictions)
-    return JURISDICTIONS.map((j) => ({
-      ...jurisdiction(j),
-      news_scope: j.news_scope,
-      policy_scope: j.policy_scope,
-      news_count: 0,
-      policy_count: counts.get(j.id) ?? 0,
-    }));
+  if (jurisdictions) throw new PolicyReadError(503, "jurisdiction_counts_unavailable");
   return {
     items: JURISDICTIONS.filter((j) => j.policy_scope).map((j) => ({ jurisdiction: jurisdiction(j), readable_count: counts.get(j.id) ?? 0 })),
     note: "篇数仅统计当前实际可公开文书；登记范围不代表已完成供稿。",
@@ -373,7 +361,7 @@ export async function policyPublicMembers(editionIds: string[]) {
       originalRevisionKey: row.native_revision_id,
       policy: view.card,
       releasedAt: row.released_at.toISOString(),
-      discoveredAt: null,
+      discoveredAt: row.discovered_at?.toISOString() ?? null,
       sourceLanguage: row.source_language,
       preferredSourceLanguage: row.preferred_source_language,
       attributions: policy.attributions,

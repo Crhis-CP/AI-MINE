@@ -430,9 +430,9 @@
     "publication.policy_documents": {
       "module": "publication",
       "access": "business",
-      "publicColumns": ["id", "withdrawn", "first_public_at"],
+      "publicColumns": ["id", "withdrawn", "first_public_at", "automatic_excluded"],
       "permissions": {
-        "private_ops": ["SELECT"],
+        "private_ops": ["SELECT", "UPDATE"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
     },
@@ -467,7 +467,8 @@
         "quality_id",
         "released_at",
         "source_language",
-        "preferred_source_language"
+        "preferred_source_language",
+        "discovered_at"
       ],
       "permissions": {
         "private_ops": ["SELECT"],
@@ -544,6 +545,15 @@
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_publication_control": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "UPDATE"],
+        "worker": ["SELECT"]
       }
     }
   },

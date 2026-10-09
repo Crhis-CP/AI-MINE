@@ -7,6 +7,7 @@ import {
   PolicyReadingQuery,
   PolicyHistoryQuery,
   PolicyReportQuery,
+  PolicyReportDetailQuery,
 } from "@amp/contracts/http/public";
 import { listPolicies, policyScope, policyDetail, policyReading, policyHistory, policyThread, PolicyReadError } from "@amp/backend/publication/policies";
 import { listPolicyReports, policyReport } from "@amp/backend/publication/policies-reports";
@@ -26,7 +27,7 @@ export function registerPolicies(app: FastifyInstance) {
     publicPolicyHistory: (id, q) => policyHistory(id, PolicyHistoryQuery.parse(q)),
     sitePolicyThread: (id) => policyThread(id),
     sitePolicyReports: (_id, q) => listPolicyReports(PolicyReportQuery.parse(q)),
-    sitePolicyReport: (id, q) => policyReport(id, PolicyHistoryQuery.parse(q)),
+    sitePolicyReport: (id, q) => policyReport(id, PolicyReportDetailQuery.parse(q)),
   };
   for (const route of Object.values(policyRoutes))
     app.get(route.url, { schema: { operationId: route.schema.operationId, response: route.schema.response } }, async (req, reply) => {

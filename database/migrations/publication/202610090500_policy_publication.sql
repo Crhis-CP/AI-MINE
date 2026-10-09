@@ -1,9 +1,9 @@
 CREATE TABLE publication.policy_ids (
-  kind text NOT NULL, internal_id text NOT NULL, public_id text NOT NULL UNIQUE,
+  kind text NOT NULL, internal_id text NOT NULL, public_id text NOT NULL,
   PRIMARY KEY(kind,internal_id)
 );
 CREATE TABLE publication.policy_documents (
-  id text PRIMARY KEY, withdrawn boolean NOT NULL DEFAULT false,
+  id text PRIMARY KEY, withdrawn boolean NOT NULL DEFAULT false, automatic_excluded boolean NOT NULL DEFAULT false,
   publishing_paused boolean NOT NULL DEFAULT false, first_public_at timestamptz,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -19,8 +19,14 @@ CREATE TABLE publication.policy_editions (
   public_resources jsonb NOT NULL, basic_card jsonb, basic_detail jsonb,
   complete_card jsonb, complete_detail jsonb, reading jsonb NOT NULL DEFAULT '{}',
   quality_id text REFERENCES publication.policy_quality_windows(id),
-  released_at timestamptz NOT NULL DEFAULT now(),
+  released_at timestamptz NOT NULL DEFAULT now(), discovered_at timestamptz,
   CHECK((complete_detail IS NULL)=(quality_id IS NULL)),
   UNIQUE(policy_id,native_expression_id,native_revision_id,content_hash)
 );
 CREATE INDEX policy_editions_document ON publication.policy_editions(policy_id,released_at DESC,id);
+
+CREATE TABLE publication.policy_publication_control (
+  lane text PRIMARY KEY CHECK(lane='policy'), paused boolean NOT NULL DEFAULT false,
+  version integer NOT NULL DEFAULT 1, updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO publication.policy_publication_control(lane) VALUES('policy');
