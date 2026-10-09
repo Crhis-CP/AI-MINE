@@ -1,3 +1,4 @@
+import { loadSiteInformation } from "../site-information.ts";
 // Site-only price projection: registry presentation and stored decimal values, without acquisition or writes.
 import { MetalPrices } from "@amp/contracts/http/public";
 import { beijingDate } from "@amp/contracts/time";
@@ -174,6 +175,6 @@ export async function loadMetalPrices(now = new Date(), input?: unknown): Promis
     metals,
     latest,
     notes,
-    officialLinks: registry.officialLinks,
+    officialLinks: input === undefined ? (await loadSiteInformation()).metalLinks : registry.officialLinks,
   });
 }

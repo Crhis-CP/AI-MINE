@@ -39,3 +39,5 @@ async function querySiteStats(now: Date): Promise<SiteStats> {
   };
   return value;
 }
+
+export { loadSiteInformation } from "../publication/site-information.ts";

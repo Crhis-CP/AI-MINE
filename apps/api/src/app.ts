@@ -1,3 +1,5 @@
+import { registerAdminSite } from "./routes/admin-site.ts";
+import { registerSiteInformation } from "./routes/site-information.ts";
 import Fastify, { type FastifyInstance } from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { randomUUID } from "node:crypto";
@@ -108,12 +110,14 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     registerAdmin(app);
     registerOperationsMcp(app);
     registerAdminAuth(app);
+    registerAdminSite(app);
   }
   if (publicRoutes) {
     registerFeeds(app);
     registerMcp(app);
     registerOg(app);
     registerSite(app);
+    registerSiteInformation(app);
     registerPolicies(app);
     registerStatic(app);
     registerV1(app);

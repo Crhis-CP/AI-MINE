@@ -930,6 +930,23 @@
         "private_ops": ["SELECT", "INSERT", "UPDATE"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "publication.site_information": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "revision", "value", "updated_at"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.site_information_commands": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {

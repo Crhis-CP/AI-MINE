@@ -1,3 +1,4 @@
+import { loadSiteInformation } from "@amp/backend/site/stats";
 // Discovery and static files: sitemap, llms.txt, robots, security.txt, the web manifest, the OpenAPI
 // document, icons and the IndexNow key.
 import { readFile, stat } from "node:fs/promises";
@@ -128,7 +129,8 @@ export function registerStatic(app: FastifyInstance) {
   });
 
   app.get("/llms.txt", async (req, reply) => {
-    const text = llmsTxt(await loadLlmsAvailability());
+    const [availability, information] = await Promise.all([loadLlmsAvailability(), loadSiteInformation()]);
+    const text = llmsTxt({ ...availability, contactEmail: information.contactEmail });
     applyPublicHeaders(reply, { cors: false });
     return sendTextWithEtag(req, reply, text, {
       etagPrefix: "llms",
@@ -141,11 +143,16 @@ export function registerStatic(app: FastifyInstance) {
     sendTextWithEtag(req, reply, robotsTxt(), { etagPrefix: "robots", cacheControl: "public, max-age=3600", contentType: "text/plain; charset=utf-8" }),
   );
 
-  app.get("/.well-known/security.txt", (req, reply) => {
-    if (!SITE.contactEmail) return reply.code(404).type("text/plain; charset=utf-8").send("Not found");
+  app.get("/.well-known/security.txt", async (req, reply) => {
+    const { contactEmail } = await loadSiteInformation();
+    if (!contactEmail) return reply.code(404).type("text/plain; charset=utf-8").send("Not found");
     const expires = new Date(Date.now() + 180 * 86400_000).toISOString();
-    const text = `Contact: mailto:${SITE.contactEmail}\nExpires: ${expires}\nPreferred-Languages: zh, en\nCanonical: ${config.siteUrl}/.well-known/security.txt\n`;
-    return sendTextWithEtag(req, reply, text, { etagPrefix: "security", cacheControl: "public, max-age=86400", contentType: "text/plain; charset=utf-8" });
+    const text = `Contact: mailto:${contactEmail}\nExpires: ${expires}\nPreferred-Languages: zh, en\nCanonical: ${config.siteUrl}/.well-known/security.txt\n`;
+    return sendTextWithEtag(req, reply, text, {
+      etagPrefix: "security",
+      cacheControl: "public, max-age=0, must-revalidate",
+      contentType: "text/plain; charset=utf-8",
+    });
   });
 
   app.get("/manifest.webmanifest", (req, reply) =>

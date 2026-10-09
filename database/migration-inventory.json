@@ -271,6 +271,10 @@
     {
       "name": "publication/202610091300_policy_quality_binding.sql",
       "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "publication/202610091500_site_information.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
     }
   ]
 }
