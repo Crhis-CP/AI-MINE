@@ -1,9 +1,10 @@
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
-import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { CATEGORIES, CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
@@ -30,7 +31,7 @@ const provider = await stub((_hit, req) => {
       : system.includes("资料结构化助手")
         ? { category: category === "null" ? null : category, tags: [], subjects: [], fact: null }
         : {
-            itemType: "model_release",
+            itemType: "policy_regulation",
             authorRole: "principal",
             tags: ["法规政策"],
             editorialJudgment: "原文说明了铜矿扩建工程的建设进度。",
@@ -56,8 +57,25 @@ const get = async (url: string) => {
 };
 
 test("actual classification, publication and public exits agree on nine keys and nullable unknowns", async () => {
+  const score = readFileSync(new URL("../industry/prompts/selection-score.md", import.meta.url), "utf8");
+  const understand = readFileSync(new URL("../industry/prompts/content-understanding.md", import.meta.url), "utf8");
+  assert.deepEqual(
+    ITEM_TYPES,
+    CATEGORIES.map((category) => category.key),
+  );
+  for (const category of CATEGORIES) {
+    const line = `- \`${category.key}\`：${category.label}`;
+    assert.ok(score.includes(line), line);
+    assert.ok(understand.includes(line), line);
+  }
+  const weights = [...score.matchAll(/^\| ([a-z_]+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \| (\d+) \|$/gm)];
+  assert.deepEqual(
+    weights.map((row) => row[1]),
+    [...ITEM_TYPES],
+  );
+  for (const row of weights) assert.equal(row.slice(2).reduce((sum, value) => sum + Number(value), 0), 10);
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
-  assert.equal(PROMPT_VERSIONS.score, "selection-score@e55fa3b5de");
+  assert.equal(PROMPT_VERSIONS.score, "selection-score@09b414c0c5");
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
   assert.notEqual(PROMPT_VERSIONS.structure, promptVersion("structure"));
   assert.deepEqual(normalizeTags([]), []);
