@@ -3,6 +3,7 @@ import { beijingDate } from "@amp/contracts/time";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { guardedFetch } from "../../lib/http-fetch.ts";
 import { type MetalPriceRegistry, onSourceHost } from "./registry.ts";
+import { compareCbrWithNbu } from "./nbu.ts";
 import type { FetchedPeriod, Fetcher, PageGetter } from "./types.ts";
 
 const xml = new XMLParser({ ignoreAttributes: false, parseTagValue: false, trimValues: false, isArray: (name) => ["Record", "Valute"].includes(name) });
@@ -89,6 +90,7 @@ export function cbrFetcher(registry: MetalPriceRegistry, get: PageGetter = guard
           if (!number.test(value)) one.held.push("美元汇率数值不是原文的逗号小数");
           if (key) one.rows.push({ key, unit: "卢布/美元", value: value.replace(",", ".") });
         }
+        if (!one.held.length && (!stored || fixing > stored)) await compareCbrWithNbu(registry, one, get);
         fetched.push(one);
       }
       return fetched;

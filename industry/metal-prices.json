@@ -83,8 +83,7 @@
       "decimals": 2,
       "benchmark": "俄罗斯银行贵金属核算价",
       "unit": "卢布/克",
-      "sourceUnit": "卢布/克",
-      "enabled": false
+      "sourceUnit": "卢布/克"
     }
   ],
   "items": [

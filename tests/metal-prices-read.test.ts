@@ -8,8 +8,11 @@ import { loadMetalPrices } from "../packages/backend/src/publication/metal-price
 import { parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
 import { nbsFetcher, NBS_LIST_URL } from "../packages/backend/src/publication/metal-prices/nbs.ts";
 import { worldbankFetcher, WORLDBANK_LIST_URL } from "../packages/backend/src/publication/metal-prices/worldbank.ts";
+import { cbrFetcher } from "../packages/backend/src/publication/metal-prices/cbr.ts";
+import { mofcomFetcher } from "../packages/backend/src/publication/metal-prices/mofcom.ts";
 import { storePeriod } from "../packages/backend/src/publication/metal-prices/store.ts";
 import { buildApp } from "../apps/api/src/app.ts";
+import type { FetchedPeriod } from "../packages/backend/src/publication/metal-prices/types.ts";
 
 const sql = dbOf("publication"),
   NOW = new Date("2026-10-06T04:00:00Z");
@@ -18,6 +21,18 @@ const registry = parseMetalPriceRegistry(raw);
 const fixture = (file: string) => readFileSync(new URL(`./fixtures/metal-prices/${file}`, import.meta.url));
 const quote = (data: MetalPrices, key: string) => data.metals.flatMap((m) => m.quotes).find((q) => q.key === key)!;
 const read = (date = NOW, data: unknown = raw) => loadMetalPrices(date, data);
+async function store(periods: FetchedPeriod[]) {
+  for (const period of periods) {
+    assert.deepEqual(period.held, []);
+    const source = registry.sources.find((s) => s.key === period.source)!;
+    await storePeriod(
+      source,
+      registry.items.filter((i) => i.enabled && i.source === source.key),
+      period,
+      NOW,
+    );
+  }
+}
 after(() => closeDb());
 beforeEach(async () => {
   await sql`TRUNCATE publication.metal_prices`;
@@ -60,15 +75,7 @@ test("recorded bureau and World Bank periods retain decimal text, units and adja
     ...(url === WORLDBANK_LIST_URL ? {} : { body: fixture("worldbank/monthly.xlsx") }),
   }));
   for (const fetcher of [nbs, wb])
-    for (const period of await fetcher.fetch(async () => (fetcher === nbs ? "2026-09-01" : null), { now: NOW, fetchedAt: async () => null })) {
-      const source = registry.sources.find((s) => s.key === period.source)!;
-      await storePeriod(
-        source,
-        registry.items.filter((i) => i.enabled && i.source === source.key),
-        period,
-        NOW,
-      );
-    }
+    await store(await fetcher.fetch(async () => (fetcher === nbs ? "2026-09-01" : null), { now: NOW, fetchedAt: async () => null }));
   const data = await read();
   MetalPrices.parse(data);
   for (const [metal, value, percent] of [
@@ -129,6 +136,15 @@ test("numeric comparisons round away from zero, require adjacent periods and rej
   assert.equal(quote(await read(), "nbs.copper").change, null);
   await sql`DELETE FROM publication.metal_prices WHERE series_key='wb.copper' AND period_start='2026-08-01'`;
   assert.equal(quote(await read(), "wb.copper").change, null);
+  await seed("nbs.lead", "2026-08-21", "2026-08-31", "100");
+  await seed("nbs.lead", "2026-09-01", "2026-09-10", "110");
+  const revision = { release_label: "Revised release", first_fetched_at: new Date(NOW.getTime() + 1000) };
+  await seed("nbs.lead", "2026-08-21", "2026-08-31", "200", revision);
+  await seed("nbs.lead", "2026-09-01", "2026-09-10", "220", revision);
+  const lead = quote(await read(), "nbs.lead");
+  assert.deepEqual([lead.value, lead.change?.previous.value, lead.change?.percent], ["220", "200", "10.0"]);
+  await sql`DELETE FROM publication.metal_prices WHERE series_key='nbs.lead' AND period_start='2026-08-21'`;
+  assert.equal(quote(await read(), "nbs.lead").change, null);
   await sql`UPDATE publication.metal_prices SET currency='USD' WHERE series_key='nbs.aluminum' AND period_start='2026-09-11'`;
   await assert.rejects(read(), /unit\/currency mismatch/);
 });
@@ -155,30 +171,82 @@ test("latest groups, notes and footnote numbering follow enabled registry order 
   assert.ok(got.notes.some((n) => n.text.includes("转自国家统计局网站")));
 });
 
-test("daily conversion uses matching rates, skips missing-rate dates and compares the previous available pricing day", async () => {
-  const enabled = structuredClone(raw);
-  enabled.sources.find((s: { key: string }) => s.key === "cbr").enabled = true;
-  for (const [day, price] of [
-    ["2026-10-02", "100"],
-    ["2026-10-05", "101"],
-    ["2026-10-06", "200"],
+test("recorded daily conversions match hand calculations, cross weekends and skip held or missing-rate dates", async () => {
+  const fetcher = cbrFetcher(registry, async (url) => {
+    if (new URL(url).hostname === "bank.gov.ua") return { url, status: 503, text: () => "Synthetic comparison unavailable" };
+    const day = new URL(url).searchParams.get("date_req")?.split("/").reverse().join("-");
+    return { url, status: 200, text: () => new TextDecoder("windows-1251").decode(fixture(`cbr/${day ? `usd-${day}` : "metal"}.xml`)) };
+  });
+  const periods = await fetcher.fetch(async () => "2026-10-01", { now: NOW, fetchedAt: async () => null });
+  await store(periods);
+  const data = await read();
+  for (const [metal, current, previous, percent] of [
+    ["gold", "4190.0477", "4151.6470", "0.9"],
+    ["silver", "61.0344", "60.9187", "0.2"],
+    ["platinum", "1743.7978", "1727.3471", "1.0"],
+    ["palladium", "1196.5501", "1193.9481", "0.2"],
   ]) {
-    await seed("cbr.gold", day, day, price, { period_label: `${day} synthetic pricing day` });
-    if (day !== "2026-10-06") await seed("cbr.usd", day, day, "10");
+    const q = quote(data, `cbr.${metal}`);
+    const [rounded] = await sql`SELECT round(${q.value}::numeric, 4)::text AS current, round(${q.change!.previous.value}::numeric, 4)::text AS previous`;
+    assert.deepEqual(rounded, { current, previous });
+    assert.ok(q.value!.split(".")[1].length > 4, "the reader retains conversion precision");
+    assert.deepEqual([q.period?.start, q.unit, q.currency, q.change?.percent], ["2026-10-05", "美元/盎司", "USD", percent]);
+    assert.equal(q.change?.previous.period.start, "2026-10-02", "weekends do not require an invented daily record");
   }
-  const data = await read(NOW, enabled),
-    gold = quote(data, "cbr.gold");
-  assert.match(gold.value!, /^314\.145115680*$/);
-  assert.deepEqual([gold.period?.start, gold.unit, gold.currency, gold.change?.percent], ["2026-10-05", "美元/盎司", "USD", "1.0"]);
-  assert.equal(gold.change?.previous.period.start, "2026-10-02", "weekends do not require an invented daily record");
-  assert.match(gold.change!.previous.value, /^311\.0347680*$/);
   assert.ok(!data.metals.some((m) => m.quotes.some((q) => q.key === "cbr.usd")));
   assert.equal(data.metals.find((m) => m.key === "gold")!.quotes[0]!.key, "cbr.gold");
-  await seed("cbr.gold", "2026-10-07", "2026-10-07", "102");
-  await seed("cbr.usd", "2026-10-07", "2026-10-07", "10");
-  assert.equal(quote(await read(NOW, enabled), "cbr.gold").change?.previous.period.start, "2026-10-05");
-  await sql`UPDATE publication.metal_prices SET unit='Synthetic wrong rate unit' WHERE series_key='cbr.usd' AND period_start='2026-10-07'`;
-  await assert.rejects(read(NOW, enabled), /unit\/currency mismatch/);
+  await sql`DELETE FROM publication.metal_prices WHERE series_key='cbr.usd' AND period_start='2026-10-05'`;
+  assert.equal(quote(await read(), "cbr.gold").period?.start, "2026-10-02");
+  await sql`TRUNCATE publication.metal_prices`;
+  periods.find((p) => p.period.start === "2026-10-02")!.held.push("Synthetic comparison hold, as in TASK-0083");
+  await store(periods.filter((p) => !p.held.length));
+  const skipped = await read();
+  for (const [metal, percent] of [
+    ["gold", "0.3"],
+    ["silver", "0.5"],
+    ["platinum", "1.7"],
+    ["palladium", "-2.1"],
+  ]) {
+    const q = quote(skipped, `cbr.${metal}`);
+    assert.deepEqual([q.change?.previous.period.start, q.change?.percent], ["2026-10-01", percent]);
+  }
+  await sql`UPDATE publication.metal_prices SET unit='Synthetic wrong rate unit' WHERE series_key='cbr.usd' AND period_start='2026-10-05'`;
+  await assert.rejects(read(), /unit\/currency mismatch/);
+});
+
+test("recorded weekly prices compare only adjacent weeks and retain date labels with Beijing stale boundaries", async () => {
+  const fetcher = mofcomFetcher(registry, async (url, options) => ({
+    url,
+    status: 200,
+    text: () => fixture(`mofcom/week-${new URLSearchParams(options?.body).get("indexId")}.json`).toString(),
+  }));
+  await store(await fetcher.fetch(async () => "2026-09-11"));
+  const data = await read();
+  for (const [metal, current, previous, percent] of [
+    ["copper", "111975", "108664", "3.0"],
+    ["aluminum", "24340", "24204", "0.6"],
+    ["zinc", "26689", "26085", "2.3"],
+  ]) {
+    const q = quote(data, `mofcom.${metal}`);
+    assert.deepEqual([q.value, q.unit, q.currency, q.change?.previous.value, q.change?.percent], [current, "元/吨", "CNY", previous, percent]);
+    assert.deepEqual(q.period, { start: "2026-09-25", end: "2026-09-25", label: "2026年9月25日" });
+    assert.equal(q.change?.previous.period.start, "2026-09-18");
+  }
+  const keys = data.metals.find((m) => m.key === "copper")!.quotes.map((q) => q.key);
+  assert.ok(keys.indexOf("mofcom.copper") < keys.indexOf("nbs.copper") && keys.indexOf("nbs.copper") < keys.indexOf("wb.copper"));
+  assert.equal(data.latest.find((p) => p.tag === "周")?.label, "9月25日");
+  assert.equal(data.sources.find((s) => s.key === "mofcom")?.latest?.label, "2026年9月25日");
+  for (const [date, status] of [
+    ["2026-10-16T15:59:59Z", "fresh"],
+    ["2026-10-16T16:00:00Z", "stale"],
+  ]) {
+    const boundary = await read(new Date(date));
+    assert.equal(boundary.sources.find((s) => s.key === "mofcom")?.status, status);
+    assert.equal(boundary.latest.find((p) => p.tag === "周")?.stale, status === "stale");
+  }
+  assert.equal((await read(new Date("2027-01-01T00:00:00Z"))).latest.find((p) => p.tag === "周")?.label, "2026年9月25日");
+  await sql`DELETE FROM publication.metal_prices WHERE source='mofcom' AND period_start='2026-09-18'`;
+  assert.equal(quote(await read(), "mofcom.copper").change, null, "a stored week 14 days earlier cannot substitute for the missing week");
 });
 
 test("site-only price HTTP matches the reader, ignores generation time in ETags, and fails uncached on wrong units", async (t) => {
