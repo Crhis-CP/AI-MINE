@@ -30,6 +30,7 @@ function catalog(): Catalog {
       policy: "bootstrap",
       ops: "bootstrap",
       identity: "bootstrap",
+      acquisition: "bootstrap",
     },
     tables: Object.entries(TABLE_GRANTS).map(([name, grant]) => ({
       name,
@@ -110,6 +111,11 @@ test("all current migration tables and serial sequences have one explicit classi
       "policy.vision_pages",
       "policy.vision_stages",
       "publication.news_geography",
+      "acquisition.crawl_hosts",
+      "acquisition.robots_observations",
+      "acquisition.crawl_sessions",
+      "acquisition.crawl_requests",
+      "acquisition.crawl_checkpoints",
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
@@ -150,7 +156,7 @@ test("the plan separates seven identities, column reads, append-only audit, owne
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "content"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "ai"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "publication"')).length, 4);
-  assert.equal(defaults.length, 40);
+  assert.equal(defaults.length, 44);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "ai"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.doesNotMatch(sql, /GRANT .* TO PUBLIC/);

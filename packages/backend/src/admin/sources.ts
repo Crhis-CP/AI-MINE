@@ -70,7 +70,7 @@ export async function sourceDetail(id: string) {
 }
 
 /** Fetches a source (saved or draft) and returns what it would collect, without storing anything. */
-export async function previewSource(draft: Pick<SourceRow, "id" | "kind" | "config"> & Partial<SourceRow>) {
+async function previewSourceUnpaced(draft: Pick<SourceRow, "id" | "kind" | "config"> & Partial<SourceRow>) {
   const source = { name: draft.id, enabled: true, cursor: null, tier: "T2", participation_mode: "editorial", ...draft } as SourceRow;
   assertSupportedConfig(source.kind, source.config);
   const started = Date.now();
@@ -328,4 +328,20 @@ export async function lockPolicySourceConfiguration(tx: Tx, expected: Pick<Sourc
 export async function recordSourceCollectionSuccess(sourceId: string, cursor: Record<string, unknown>, db: Db) {
   await db`UPDATE sources SET last_fetch_at=now(),last_ok_at=now(),fail_count=0,last_error=NULL,health='ok',cursor=${db.json(cursor as never)},updated_at=now(),
    next_fetch_at=now()+make_interval(mins=>interval_minutes) WHERE id=${sourceId}`;
+}
+
+import { withSourceCrawl, CrawlDeferred } from "../acquisition/crawl.ts";
+export async function previewSource(draft: Parameters<typeof previewSourceUnpaced>[0]) {
+  const source = { name: draft.id, enabled: true, cursor: null, tier: "T2", participation_mode: "editorial", lane: "news", ...draft } as SourceRow;
+  try {
+    return await withSourceCrawl(source, `preview:${source.id}`, () => previewSourceUnpaced(draft));
+  } catch (error) {
+    if (error instanceof CrawlDeferred) return { ms: 0, count: 0, items: [], status: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason };
+    throw error;
+  }
+}
+
+/** Scheduler wait does not count as a fetch success/failure or change source enablement. */
+export async function deferSourceFetch(sourceId: string, retryAt: Date) {
+  await sql`UPDATE sources SET next_fetch_at=${retryAt} WHERE id=${sourceId} AND enabled`;
 }

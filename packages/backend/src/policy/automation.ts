@@ -16,7 +16,7 @@ import type { ExtractionProfile } from "./extraction.ts";
 const sql = dbOf("policy");
 export const POLICY_STAGES = ["acquire", "fulltext", "vision", "interpret", "publish"] as const;
 export type PolicyStage = (typeof POLICY_STAGES)[number];
-export type PolicyJob = { lane: "policy"; sourceId: string; materialId: string };
+export type PolicyJob = { lane: "policy"; sourceId: string; materialId: string; crawlSessionId?: string };
 export type PublishResult =
   | { status: "published"; mode: "basic_facts" | "complete"; policyId: string; editionId: string; pending?: "quality" | "interpretation" }
   | { status: "pending"; reason: "identity" | "permission" | "paused" | "withdrawn" | "stale" };
@@ -80,7 +80,7 @@ export async function advancePolicyMaterial(
   if (needsAcquire) {
     if ((await runtimeControlSnapshot("policy", ["collection"])).paused) return save(row, "acquire", "pending", "采集已暂停", 1);
     if (!options.collectionEnabled) return save(row, "acquire", "collection_paused", null, interval);
-    const capture = await (ports.capture ?? capturePolicyMaterial)(job.sourceId, job.materialId);
+    const capture = await (ports.capture ?? capturePolicyMaterial)(job.sourceId, job.materialId, undefined, job.crawlSessionId);
     if (capture.status !== "captured") return save(row, "acquire", capture.status, null, interval);
     row.expression_id = capture.expressionId;
     row.document_revision_id = capture.revisionId;
@@ -173,4 +173,9 @@ export async function duePolicyWorkflows(limit = 50) {
 export async function policyWorkflowFailed(job: PolicyJob, stage: PolicyStage) {
   const row = await readPolicyWorkflow(job.sourceId, job.materialId);
   if (row?.stage === stage) await save(row, "acquire", "failed", "自动处理失败；待来源复查或人工处理", 60);
+}
+
+/** A transport reservation is waiting, not a processing failure or a reason to discard checkpoints. */
+export async function deferPolicyWorkflow(job: PolicyJob, retryAt: Date) {
+  await sql`UPDATE policy.material_workflows SET next_check_at=${retryAt},updated_at=now() WHERE source_id=${job.sourceId} AND material_id=${job.materialId}`;
 }

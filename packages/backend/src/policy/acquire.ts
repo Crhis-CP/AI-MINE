@@ -1,5 +1,6 @@
 import { requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
+import { CrawlDeferred, CrawlBlocked } from "../acquisition/crawl.ts";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { guardedFetch, type GuardedFetchOptions, type GuardedResponse } from "../lib/http-fetch.ts";
 import { recordPolicyOriginal } from "./originals.ts";
@@ -42,7 +43,12 @@ export async function acquirePolicyOriginal(
       reason: "原件取得失败",
     };
     try {
-      const response = await get(url, { maxBytes: profile.maxBytes, maxRedirects: 0, timeoutMs: 20_000 });
+      const response = await get(url, {
+        maxBytes: profile.maxBytes,
+        maxRedirects: 0,
+        timeoutMs: 20_000,
+        sourceResource: { documentType: input.identity.documentType, attachment },
+      });
       if (response.url !== url || response.status !== 200 || !response.body.length) resource.reason = "原件为空、地址跳转或 HTTP 状态异常";
       else if (response.body.byteLength > profile.maxBytes) {
         resource.state = "blocked_capacity";
@@ -54,6 +60,8 @@ export async function acquirePolicyOriginal(
         resource.reason = null;
       }
     } catch (error) {
+      if (error instanceof CrawlDeferred) throw error;
+      if (error instanceof CrawlBlocked) resource.reason = error.code;
       if (error instanceof Error && /Response too large/.test(error.message)) {
         resource.state = "blocked_capacity";
         resource.reason = "原件容量超限";
@@ -109,6 +117,7 @@ export async function acquirePolicyOriginal(
         catalogueClosed = referencesResolved;
       }
     } catch (error) {
+      if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
       if (error instanceof Error && /permission denied|requires an uncredentialed/.test(error.message)) throw error;
     }
   }

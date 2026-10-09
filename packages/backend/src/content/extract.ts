@@ -1,16 +1,24 @@
 import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
-import { readSourceDateContext } from "@amp/backend/admin/sources";
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { dbOf } from "../db.ts";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import {
+  crawlFetch as guardedFetch,
+  crawlStep,
+  withSourceCrawl,
+  CrawlDeferred,
+  CrawlBlocked,
+  crawlFulltextAllowed,
+  crawlExternal,
+} from "../acquisition/crawl.ts";
+import { readSourceDateContext } from "@amp/backend/admin/sources";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
-import { contentHash } from "./materials.ts";
+import { contentHash, readCurrentBody } from "./materials.ts";
 
 const sql = dbOf("content");
 
@@ -81,19 +89,21 @@ export async function extractFromUrl(
   url: string,
   opts: { allowJina: boolean; subject: string; lane?: "news" | "policy"; runtimeControl?: RuntimeControlSnapshot },
 ): Promise<ExtractedBody | null> {
-  try {
-    const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
-    const type = res.headers.get("content-type") ?? "";
-    if (res.status === 200 && /html/.test(type)) {
-      const got = readable(res.text(), res.url);
-      if (got) return got;
+  const direct = await crawlStep(`readability:${url}`, url, async () => {
+    try {
+      const res = await guardedFetch(url, { timeoutMs: 20_000, maxBytes: 6 * 1024 * 1024, retryDropped: true });
+      if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url);
+    } catch (error) {
+      if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
     }
-  } catch {
-    // fall through to Jina
-  }
+    return null;
+  });
+  if (direct) return direct;
   if (!opts.allowJina) return null;
   try {
-    const page = await jinaRead(url, { purpose: "body_fallback", subject: opts.subject, lane: opts.lane, runtimeControl: opts.runtimeControl });
+    const page = await crawlExternal(url, "body_fallback", () =>
+      jinaRead(url, { purpose: "body_fallback", subject: opts.subject, lane: opts.lane, runtimeControl: opts.runtimeControl }),
+    );
     const html = trimTrailingChrome(sanitizeBody(markdownToHtml(page.markdown), url));
     const text = stripTags(html);
     if (text.length < MIN_BODY_CHARS) return null;
@@ -116,13 +126,20 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
 }
 
 /** Fetches and stores the body of one article. Unconfirmed bodies are recorded as such. */
-export async function extractArticleBody(articleId: string, allowJina = process.env.JINA_BODY_FALLBACK !== "false"): Promise<"ok" | "unconfirmed" | "skipped"> {
+async function extractArticleBody(articleId: string, allowJina = process.env.JINA_BODY_FALLBACK !== "false"): Promise<"ok" | "unconfirmed" | "skipped"> {
   const [a] = await sql<{ id: string; source_id: string; url: string; body_status: string; revision: number }[]>`
     SELECT id, source_id, url, body_status, revision FROM articles WHERE id = ${articleId}`;
   if (!a || a.body_status === "ok") return "skipped";
   const source = await readSourceDateContext(a.source_id);
   if (!source) return "skipped";
   const control = await requireRuntimeRunning(source.lane, ["collection"]);
+  if (!(await crawlFulltextAllowed(a.url))) {
+    await sql.begin(async (tx) => {
+      await assertRuntimeControl(tx, control);
+      await tx`UPDATE articles SET body_status='none' WHERE id=${articleId} AND revision=${a.revision} AND body_status='pending'`;
+    });
+    return "skipped";
+  }
   const got = await extractFromUrl(a.url, { allowJina, subject: `article:${a.id}`, lane: source.lane, runtimeControl: control });
   if (!got) {
     await sql.begin(async (tx) => {
@@ -151,3 +168,15 @@ export async function extractArticleBody(articleId: string, allowJina = process.
 }
 
 export { collapseWhitespace };
+
+async function pacedExtractArticleBody(articleId: string, allowJina?: boolean, expectedSessionId?: string) {
+  const material = await readCurrentBody(articleId),
+    source = material ? await readSourceDateContext(material.source_id) : null;
+  if (!source) return "skipped" as const;
+  if (!source.enabled || !sourceCollectionEnabled(source.lane))
+    throw new CrawlDeferred(new Date(Date.now() + 60_000), `body:${articleId}`, "collection_paused");
+  return withSourceCrawl(source, `body:${articleId}:${material!.revision}`, () => extractArticleBody(articleId, allowJina), { expectedSessionId });
+}
+export { pacedExtractArticleBody as extractArticleBody };
+
+import { sourceCollectionEnabled } from "../config.ts";

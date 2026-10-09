@@ -11,6 +11,7 @@ import { SOURCE_QUEUES, ensureSourceQueues, sourceFetchQueue, type CollectionLan
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { fetchNow } from "@amp/backend/admin/sources";
+import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
 const sql = dbOf("sources"),
@@ -26,7 +27,7 @@ const server = http.createServer(async (req, res) => {
     `<rss><channel><item><title>合成矿业公告</title><link>http://127.0.0.1:${(server.address() as { port: number }).port}/${id}/article</link></item></channel></rss>`,
   );
 });
-await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+await new Promise<void>((resolve) => server.listen(0, resolve));
 const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 config.allowPrivateNetworkFetch = true;
 const queues = [QUEUES.fetchSource, SOURCE_QUEUES.news, SOURCE_QUEUES.policy];
@@ -38,12 +39,15 @@ async function until(check: () => Promise<boolean>, label: string) {
   assert.fail(label);
 }
 async function source(lane: CollectionLane, id = `${lane}-${tag()}`, permit = true) {
+  const origin = lane === "news" ? base.replace("127.0.0.1", "localhost") : base;
+  await saveRobots(origin, 404, "", new Date(), null, null);
   await sql`INSERT INTO sources(id,name,kind,config,lane,enabled,participation_mode,next_fetch_at)
-    VALUES(${id},${id},'rss',${sql.json({ feedUrl: `${base}/${id}` })},${lane},true,'isolated',NULL)`;
-  if (permit) await grantDateFixture(id, [base]);
+    VALUES(${id},${id},'rss',${sql.json({ feedUrl: `${origin}/${id}` })},${lane},true,'isolated',NULL)`;
+  if (permit) await grantDateFixture(id, [base, origin]);
   return id;
 }
-const done = async (id: string) => (await sql`SELECT 1 FROM fetch_runs WHERE source_id=${id} AND finished_at IS NOT NULL`).length > 0;
+const done = async (id: string) =>
+  (await sql`SELECT 1 FROM fetch_runs WHERE source_id=${id} AND finished_at IS NOT NULL AND status IN ('ok','failed')`).length > 0;
 beforeEach(async () => {
   unblock();
   await stopBoss();
@@ -83,7 +87,7 @@ test("lane batches are independent and policy countries rotate before a second s
   assert.equal((await scheduleDueSources(2, "policy")).enqueued, 1);
 });
 
-test("a blocked news fetch cannot occupy policy capacity; old, scheduled and manual work share a source singleton", async () => {
+test("a blocked news host cannot occupy a different policy host capacity; old, scheduled and manual work share a source singleton", async () => {
   slow = new Promise<void>((resolve) => {
     unblock = resolve;
   });
@@ -101,7 +105,7 @@ test("a blocked news fetch cannot occupy policy capacity; old, scheduled and man
     await until(async () => (await boss.getJobById(QUEUES.fetchSource, legacy!))?.state === "completed", "legacy forwarding commits");
     assert.equal(await done(news), false);
     assert.equal(hits.get(news), 1);
-    assert.equal((await sql`SELECT new_count FROM fetch_runs WHERE source_id=${policy}`)[0]!.new_count, 1);
+    assert.equal((await sql`SELECT new_count FROM fetch_runs WHERE source_id=${policy} AND status='ok'`)[0]!.new_count, 1);
   } finally {
     unblock();
   }

@@ -189,6 +189,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610090500_policy_publication.sql"],
       },
       {
+        name: "acquisition/202610090900_host_pacing.sql",
+        module: "acquisition",
+        schemas: ["acquisition"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202610081510_source_lane.sql"],
+      },
+      {
         name: "platform/ops/202610090900_lane_controls.sql",
         module: "platform/ops",
         schemas: ["ops"],

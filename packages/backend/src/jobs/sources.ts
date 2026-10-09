@@ -13,12 +13,19 @@ export async function registerSourceJobs(boss: PgBoss) {
   await ensureSourceQueues();
   for (const lane of ["news", "policy"] as const) {
     if (!collectionEnabled(lane)) continue;
-    await boss.work<{ sourceId: string; lane: CollectionLane; force?: boolean }>(
+    await boss.work<{ sourceId: string; lane: CollectionLane; force?: boolean; crawlSessionId?: string }>(
       sourceFetchQueue(lane),
       { localConcurrency: collectionConcurrency(lane), pollingIntervalSeconds: 2 },
       async ([job]) => {
         if (!job) return;
-        return collectSource(job.data.sourceId, { force: job.data.force, lane });
+        const result = await collectSource(job.data.sourceId, { force: job.data.force, lane, crawlSessionId: job.data.crawlSessionId });
+        if (result.status === "deferred")
+          await enqueueSourceFetch(
+            lane,
+            { ...job.data, crawlSessionId: result.crawlSessionId },
+            { startAfter: new Date(result.retryAt!), singletonKey: `${job.data.sourceId}:${result.reservationId}:${result.retryAt}` },
+          );
+        return result;
       },
     );
   }

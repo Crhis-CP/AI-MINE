@@ -584,6 +584,51 @@
         "worker": ["SELECT", "INSERT"]
       }
     },
+    "acquisition.crawl_hosts": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.robots_observations": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.crawl_sessions": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.crawl_requests": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "acquisition.crawl_checkpoints": {
+      "module": "acquisition",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
     "publication.policy_relations": {
       "module": "publication",
       "access": "business",

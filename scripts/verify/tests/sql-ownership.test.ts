@@ -115,3 +115,18 @@ test("explicit pg_catalog.pg_column_size preserves argument reads and rejects sh
     assert.ok(sqlOwnership(`SELECT ${name}(raw) FROM articles`).unknown.length, name);
   assert.ok(sqlOwnership("SELECT pg_catalog.pg_column_size(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
 });
+
+test("explicit zero-argument pg_catalog.clock_timestamp is the database clock, not a shadowed function", () => {
+  assert.deepEqual(sqlOwnership("SELECT pg_catalog.clock_timestamp() AS now").unknown, []);
+  assert.deepEqual(relations("SELECT pg_catalog.clock_timestamp() AS now"), []);
+  for (const name of [
+    "clock_timestamp",
+    "public.clock_timestamp",
+    'pg_catalog."clock_timestamp"',
+    '"pg_catalog".clock_timestamp',
+    "other.pg_catalog.clock_timestamp",
+  ])
+    assert.ok(sqlOwnership(`SELECT ${name}()`).unknown.length, name);
+  assert.ok(sqlOwnership("SELECT pg_catalog.clock_timestamp(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
+  assert.ok(sqlOwnership("SELECT pg_catalog.clock_timestamp(1)").unknown.includes("opaque SQL function clock_timestamp"));
+});

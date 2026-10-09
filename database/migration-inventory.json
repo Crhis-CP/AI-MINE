@@ -243,6 +243,10 @@
     {
       "name": "platform/identity/202610091000_account_access.sql",
       "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
+    },
+    {
+      "name": "acquisition/202610090900_host_pacing.sql",
+      "dependsOn": ["sources/202610081510_source_lane.sql"]
     }
   ]
 }
