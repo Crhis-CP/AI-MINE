@@ -171,6 +171,10 @@
     {
       "name": "policy/202610090100_policy_originals.sql",
       "dependsOn": ["sources/202610081510_source_lane.sql"]
+    },
+    {
+      "name": "policy/202610090200_policy_extractions.sql",
+      "dependsOn": ["policy/202610090100_policy_originals.sql"]
     }
   ]
 }

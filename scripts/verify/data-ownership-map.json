@@ -245,6 +245,10 @@
     "policy.original_resources": {
       "module": "policy",
       "access": "business"
+    },
+    "policy.document_extractions": {
+      "module": "policy",
+      "access": "business"
     }
   },
   "externalTables": {
