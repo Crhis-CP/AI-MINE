@@ -11,6 +11,7 @@ import { dbOf } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
+import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 export { composePolicyReports } from "../publication/policy-report-job.ts";
 
 const sql = dbOf("reports");
@@ -166,8 +167,11 @@ async function saveReport(
   content: Record<string, unknown>,
   reason: string,
   model: string,
+  control: { publication: RuntimeControlSnapshot; processing?: RuntimeControlSnapshot },
 ) {
   await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, control.publication);
+    if (control.processing) await assertRuntimeControl(tx, control.processing);
     const [existing] = await tx<{ id: number; revision: number; content: unknown; generated_at: Date }[]>`
       SELECT id, revision, content, generated_at FROM reports WHERE kind = ${kind} AND key = ${key} FOR UPDATE`;
     if (existing) {
@@ -184,6 +188,8 @@ async function saveReport(
 
 /** Daily report for Beijing date D covers [D-1 08:00, D 08:00) Beijing time. */
 export async function composeDaily(date: string, reason = "scheduled"): Promise<{ key: string; entries: number }> {
+  const publication = await requireRuntimeRunning("news", ["publication"]),
+    processing = await runtimeControlSnapshot("news", ["processing"]);
   const end = new Date(beijingMidnight(date).getTime() + 8 * 3600 * 1000);
   const start = new Date(end.getTime() - 86400000);
   const covered = await recentlyCovered("daily", date);
@@ -222,7 +228,7 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     windowEnd: end.toISOString(),
     generator: { version: REPORT_VERSION, model, repeatsSuppressed: all.length - fresh.length },
   };
-  await saveReport("daily", date, start, end, content, reason, model);
+  await saveReport("daily", date, start, end, content, reason, model, { publication, ...(lead ? { processing } : {}) });
   if (lead) await completeReceipt(sql, lead.receiptId);
   return { key: date, entries: ordered.length };
 }
@@ -254,6 +260,8 @@ export function periodPrompt(kind: "weekly" | "monthly", startDate: string, endD
 }
 
 async function composePeriod(kind: "weekly" | "monthly", key: string, startDate: string, endDateInclusive: string, reason: string) {
+  const publication = await requireRuntimeRunning("news", ["publication"]),
+    processing = await runtimeControlSnapshot("news", ["processing"]);
   const start = beijingMidnight(startDate);
   const end = beijingMidnight(addDays(endDateInclusive, 1));
   const all = await candidates(start, end);
@@ -301,7 +309,7 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
     metrics: { totalStories: themes.reduce((n, t) => n + t.storyRefs.length, 0), selectedCount: all.length, reportsCovered: Number(dailyCount) },
     generator: { version: REPORT_VERSION, model },
   };
-  await saveReport(kind, key, start, end, content, reason, model);
+  await saveReport(kind, key, start, end, content, reason, model, { publication, ...(receiptId ? { processing } : {}) });
   if (receiptId) await completeReceipt(sql, receiptId);
   return { key, entries: top.length };
 }

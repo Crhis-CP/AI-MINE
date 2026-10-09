@@ -5,6 +5,7 @@ import { modelFor } from "../editorial/models.ts";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { dbOf } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
+import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
@@ -65,6 +66,8 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
   const user = corrected
     ? `事件当前标题：${story.title}\n\n报道内容经过编辑更正。请只依据下面这些报道的当前内容重写综述，不要沿用以前版本的说法。\n报道（按时间）：\n${lines.join("\n")}`
     : `事件当前标题：${story.title}\n${story.digest ? `上一版综述：${story.digest}\n` : ""}\n报道（按时间，标【新】的是上一版之后的新报道）：\n${lines.join("\n")}`;
+  const publication = await requireRuntimeRunning("news", ["publication"]),
+    processing = await runtimeControlSnapshot("news", ["processing"]);
   const res = await chatJson({
     model: await modelFor("digest"),
     purpose: "story_digest",
@@ -78,6 +81,8 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
   });
   const version = story.version + 1;
   await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, publication);
+    await assertRuntimeControl(tx, processing);
     await tx`INSERT INTO story_digests (story_id, version, digest, latest, receipt_id, article_ids, inputs_hash)
              VALUES (${storyId}, ${version}, ${res.data.digest}, ${res.data.latest || null}, ${res.receiptId}, ${ids}, ${inputsHash})`;
     await tx`UPDATE stories SET digest = ${res.data.digest}, latest = ${res.data.latest || null}, digest_updated_at = now(),

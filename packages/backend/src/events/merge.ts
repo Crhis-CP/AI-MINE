@@ -1,7 +1,7 @@
 // Merging stories: facts and heat evidence move into the surviving story, and the old
 // public id keeps answering as an alias. Editors merge from the admin; grouping merges when two
 // stories turn out to be one (consolidate in group.ts).
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { audit } from "../admin/auth.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { publishArticle } from "../publication/publish.ts";
@@ -9,9 +9,16 @@ import { publishArticle } from "../publication/publish.ts";
 const sql = dbOf("events");
 
 /** Merges `fromId` into `intoId`; null when either story is missing or already merged (nothing changes then). */
-export async function mergeStoryInto(fromId: number, intoId: number, reason: string, actor: string): Promise<{ moved: number } | null> {
+export async function mergeStoryInto(
+  fromId: number,
+  intoId: number,
+  reason: string,
+  actor: string,
+  automaticGuard?: (tx: Db) => Promise<void>,
+): Promise<{ moved: number } | null> {
   if (fromId === intoId) throw new Error("cannot merge a story into itself");
   const articles = await sql.begin(async (tx) => {
+    if (automaticGuard) await automaticGuard(tx);
     const [from] = await tx<{ public_id: string; merged_into: number | null }[]>`SELECT public_id, merged_into FROM stories WHERE id = ${fromId} FOR UPDATE`;
     const [into] = await tx<{ merged_into: number | null }[]>`SELECT merged_into FROM stories WHERE id = ${intoId} FOR UPDATE`;
     if (!from || !into || from.merged_into || into.merged_into) return null;

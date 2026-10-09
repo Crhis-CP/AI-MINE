@@ -15,6 +15,7 @@ import { groupArticle, linkRelatedStories } from "@amp/backend/events/group";
 import { lexicalSimilarity, reportText } from "@amp/backend/events/relate";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
+import { changeOwnerLaneControls, listLaneControls, RuntimeControlStale } from "../packages/backend/src/operations/lane-controls.ts";
 
 const sql = dbOf("events");
 
@@ -32,9 +33,11 @@ let relation: Rel = "SAME_OCCURRENCE";
 let pairRelation: Rel | null = null;
 /** Answer every candidate of a batch prompt, not only the first. */
 let answerAll = false;
+let responseHook: (() => Promise<void>) | null = null;
 const provider = await stub(async (_hit, req) => {
   asked.open();
   await hold.promise;
+  if (responseHook) await responseHook();
   const body = JSON.parse(req.body) as { messages: Array<{ content: string }> };
   const user = body.messages[1]!.content;
   const pair = user.includes("报道 A");
@@ -377,4 +380,34 @@ test("random texts do not look alike to the lexical recall", () => {
       if (similarity >= 0.25) assert.fail(`${texts[i]} and ${texts[j]} look alike (${similarity.toFixed(2)})`);
     }
   }
+});
+
+test("a pause followed by resume still fences an in-flight grouping result and reuses its paid response", async () => {
+  hold = gate();
+  asked = gate();
+  hold.open();
+  relation = "SAME_OCCURRENCE";
+  pairRelation = null;
+  answerAll = false;
+  const id = await report("runtime-control-race"),
+    hits = provider.hits();
+  responseHook = async () => {
+    const current = (await listLaneControls()).owner_revisions.find((r) => r.lane === "news" && r.switch === "processing")!.revision;
+    const base = { lane: "news", mode: "processing", reason: "Synthetic in-flight control change", confirm_all: false };
+    await changeOwnerLaneControls(
+      { ...base, action: "pause", expected_revisions: { processing: current }, expires_at: new Date(Date.now() + 3600_000).toISOString() },
+      "test",
+    );
+    await changeOwnerLaneControls({ ...base, action: "resume", expected_revisions: { processing: current + 1 } }, "test");
+  };
+  try {
+    await assert.rejects(groupArticle(id), RuntimeControlStale);
+  } finally {
+    responseHook = null;
+  }
+  assert.equal((await sql`SELECT fact_id FROM fact_articles WHERE article_id=${id}`).length, 0);
+  assert.equal(provider.hits(), hits + 1);
+  const retried = await groupArticle(id);
+  assert.equal(retried.verdict, "same-fact");
+  assert.equal(provider.hits(), hits + 1, "the recorded physical response is reused without another paid call");
 });
