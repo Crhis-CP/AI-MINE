@@ -50,6 +50,7 @@
     "./operations/retention": "./src/operations/retention.ts",
     "./operations/watch": "./src/operations/watch.ts",
     "./providers/embeddings": "./src/providers/embeddings.ts",
+    "./providers/policy": "./src/providers/policy.ts",
     "./providers/llm": "./src/providers/llm.ts",
     "./providers/receipts": "./src/providers/receipts.ts",
     "./publication/availability": "./src/publication/availability.ts",

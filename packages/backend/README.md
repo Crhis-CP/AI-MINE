@@ -86,3 +86,9 @@ R-03/R-10最小接线：collectSource支持config.language明确声明，经BCP4
 升级时若旧进程尚未写任何段检查点或观察，claim事务按原subject精确恢复本材料/修订的观察；pending/unknown只接当前实际ordinal，received/completed须核原response指针与字节。无证明仍留null并阻止新付费，不猜共享材料归属，也不改变付费缓存键。
 
 首次入库静默提醒（TASK-0115）只描述`articles.discovered_at`没有新值，不把成功抓取、首次入库和公开互相推导。`collectFindings`的可选内部观察回调复用本轮已有读数；`checkAlerts`仅在正常检查取得晚于静默起点且不晚于当前时间的新首次入库时报告恢复。采集关闭、来源全暂停或worker启动宽限不构成恢复证据，原提醒状态保留；旧持久停机标题不用于恢复文案。此观察不增加查询、持久字段或公开接口，也不改阈值、重复频率及其他提醒。
+
+### 法规模型调用（TASK-0100）
+
+`@amp/backend/providers/policy` 的 `createPolicyGateway({root, resolve})` 返回 `chat({input:{id,version}, purpose, schema})`，purpose 为 policy_fulltext/group/interpret/verify。`resolve` 是可信政策模块端口：从当前原件、完整输入计划与控制修订重建 PreparedPolicyInput（SourceInputManifest、system/user、promptVersion、recipeVersion、controlRevision、processingAllowed），不能照抄调用方声明。网关复核实际输入指纹、逐来源当前用途许可和临时 ProcessingPermit，并调用现有 chatJson/paidRequest。四个新模型能力沿用现有管理员/环境/default 优先级，不改任何既有选择。
+
+回执保存 policy lane、类别、来源集合、输入 manifest 及指纹。一个来源存在 pending/unknown 或未返回明确用量的已收响应时，新付费调用不能通过改变输入或模型绕过；已有原始响应仍可复用。每次尝试的 usage/cost 沿用现有账本，缺少实际费用保持未知，现有价格表估算仍与实际区分。返回后输入/许可/暂停改变时抛 PolicyInputChangedError，携带真实回执与尝试 ID，不返回可晋升候选。调用方应把正常返回的回执与业务结果在同一现有事务中结算，网关不授予发布资格。完整输入门、逐原文部分的付费尝试上限与输出业务校验属于政策处理计划/能力消费者。
