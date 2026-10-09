@@ -1,0 +1,371 @@
+{
+  "id": "policy-complete-fixture",
+  "title": "【合成预览】融资信息报告规则",
+  "original_title": "Synthetic Mining Rule",
+  "jurisdictions": [
+    {
+      "code": "AR",
+      "label": "阿根廷",
+      "kind": "country"
+    }
+  ],
+  "authority": {
+    "id": "authority-fixture",
+    "name": "合成发布机关"
+  },
+  "instrument_number": null,
+  "nature": {
+    "code": "regulation",
+    "label": "法规"
+  },
+  "themes": [
+    {
+      "code": "tax_finance",
+      "label": "财税与资金"
+    }
+  ],
+  "change_kind": null,
+  "published_time": {
+    "raw": "2026-10-08",
+    "local_date": "2026-10-08",
+    "local_time": null,
+    "timezone": null,
+    "utc": null,
+    "precision": "date",
+    "meaning": "published",
+    "meaning_label": "来源发布",
+    "basis": "合成契约测试依据，不是真实法规记录",
+    "condition_text": null,
+    "label": "2026-10-08",
+    "beijing_date": "2026-10-08"
+  },
+  "sort_time": {
+    "raw": "2026-10-08",
+    "local_date": "2026-10-08",
+    "local_time": null,
+    "timezone": null,
+    "utc": null,
+    "precision": "date",
+    "meaning": "published",
+    "meaning_label": "来源发布",
+    "basis": "合成契约测试依据，不是真实法规记录",
+    "condition_text": null,
+    "label": "2026-10-08",
+    "beijing_date": "2026-10-08"
+  },
+  "sort_kind": "published",
+  "first_public_at": {
+    "raw": "2026-10-09",
+    "local_date": "2026-10-09",
+    "local_time": "08:00:00",
+    "timezone": "Asia/Shanghai",
+    "utc": "2026-10-09T00:00:00Z",
+    "precision": "second",
+    "meaning": "site_public",
+    "meaning_label": "本站收录",
+    "basis": "合成契约测试依据，不是真实法规记录",
+    "condition_text": null,
+    "label": "2026-10-09",
+    "beijing_date": "2026-10-09"
+  },
+  "first_public_basis": "live",
+  "source_checked_at": {
+    "raw": "2026-10-09",
+    "local_date": "2026-10-09",
+    "local_time": "08:00:00",
+    "timezone": "Asia/Shanghai",
+    "utc": "2026-10-09T00:00:00Z",
+    "precision": "second",
+    "meaning": "checked",
+    "meaning_label": "原文核对",
+    "basis": "合成契约测试依据，不是真实法规记录",
+    "condition_text": null,
+    "label": "2026-10-09",
+    "beijing_date": "2026-10-09"
+  },
+  "is_backfill": false,
+  "legal_brief": {
+    "stage": "published",
+    "in_force": "no",
+    "repeal": "unknown"
+  },
+  "interpretation_state": "complete",
+  "summary": "【合成预览】用于核对完整解读、条件、证据与正文的展示。",
+  "applicability_summary": null,
+  "thread_id": null,
+  "original_url": "https://example.invalid/policy/1",
+  "attributions": [
+    {
+      "name": "合成发布机关",
+      "url": "https://example.invalid/policy/1"
+    }
+  ],
+  "ai_label": "ai_generated",
+  "legal_state": {
+    "nature": {
+      "value": "regulation",
+      "basis": "合成原文事实",
+      "evidence_ids": [
+        "e1"
+      ]
+    },
+    "legislative_stage": {
+      "value": "published",
+      "basis": "合成原文事实",
+      "evidence_ids": [
+        "e1"
+      ]
+    },
+    "publication": {
+      "value": "published",
+      "basis": "合成原文事实",
+      "evidence_ids": [
+        "e1"
+      ],
+      "time": {
+        "raw": "2026-10-08",
+        "local_date": "2026-10-08",
+        "local_time": null,
+        "timezone": null,
+        "utc": null,
+        "precision": "date",
+        "meaning": "published",
+        "meaning_label": "来源发布",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-08",
+        "beijing_date": "2026-10-08"
+      }
+    },
+    "enforcement": {
+      "value": "not_in_force",
+      "basis": "合成原文事实",
+      "evidence_ids": [
+        "e1"
+      ],
+      "arrangements": [
+        {
+          "text": "合成附条件安排",
+          "time": {
+            "raw": "2027-01-01",
+            "local_date": "2027-01-01",
+            "local_time": null,
+            "timezone": null,
+            "utc": null,
+            "precision": "date",
+            "meaning": "effective",
+            "meaning_label": "生效",
+            "basis": "合成契约测试依据，不是真实法规记录",
+            "condition_text": "取得主管机关批准后适用",
+            "label": "2027-01-01",
+            "beijing_date": "2027-01-01"
+          },
+          "occurrence": "conditional",
+          "scope": "指定融资活动",
+          "condition": "取得主管机关批准后",
+          "evidence_ids": [
+            "e1"
+          ]
+        }
+      ]
+    },
+    "applicability": [],
+    "deadlines": [],
+    "repeal": {
+      "value": "unknown",
+      "basis": null,
+      "evidence_ids": []
+    }
+  },
+  "dates": [
+    {
+      "raw": "2026-10-08",
+      "local_date": "2026-10-08",
+      "local_time": null,
+      "timezone": null,
+      "utc": null,
+      "precision": "date",
+      "meaning": "published",
+      "meaning_label": "来源发布",
+      "basis": "合成契约测试依据，不是真实法规记录",
+      "condition_text": null,
+      "label": "2026-10-08",
+      "beijing_date": "2026-10-08"
+    },
+    {
+      "raw": "2027-01-01",
+      "local_date": "2027-01-01",
+      "local_time": null,
+      "timezone": null,
+      "utc": null,
+      "precision": "date",
+      "meaning": "effective",
+      "meaning_label": "生效",
+      "basis": "合成契约测试依据，不是真实法规记录",
+      "condition_text": "取得主管机关批准后适用",
+      "label": "2027-01-01",
+      "beijing_date": "2027-01-01"
+    }
+  ],
+  "attachment_inventory": [
+    {
+      "title": "合成必要附件",
+      "url": "https://example.invalid/policy/annex.pdf",
+      "decisive": true,
+      "rights": "public",
+      "status": "complete"
+    }
+  ],
+  "versions": [
+    {
+      "id": "version-fixture",
+      "version_label": "合成正式版本一",
+      "expression_ids": [
+        "expression-en",
+        "expression-zh"
+      ],
+      "current": true,
+      "legal_brief": {
+        "stage": "published",
+        "in_force": "no",
+        "repeal": "unknown"
+      }
+    }
+  ],
+  "expressions": [
+    {
+      "id": "expression-en",
+      "policy_version_id": "version-fixture",
+      "document_revision_id": "revision-en",
+      "language": "en",
+      "kind": "original",
+      "issuing_body": null,
+      "instrument_number": "SYN-2026-1",
+      "checked_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "checked",
+        "meaning_label": "原文核对",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "reading_state": "complete"
+    },
+    {
+      "id": "expression-zh",
+      "policy_version_id": "version-fixture",
+      "document_revision_id": "revision-zh",
+      "language": "zh-CN",
+      "kind": "ai_translation",
+      "issuing_body": null,
+      "instrument_number": "SYN-2026-1",
+      "checked_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "checked",
+        "meaning_label": "原文核对",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "reading_state": "complete"
+    }
+  ],
+  "selected_policy_version_id": "version-fixture",
+  "selected_expression_id": "expression-zh",
+  "reading": {
+    "mode": "ai_translation",
+    "state": "complete",
+    "completeness": "complete",
+    "completed_blocks": 2,
+    "total_blocks": 2,
+    "blocks": [],
+    "next_cursor": null,
+    "attribution": "AI 翻译（非官方译文），合成预览",
+    "limitation": null,
+    "language": "zh-CN",
+    "document_revision_id": "revision-zh",
+    "expression_id": "expression-zh",
+    "redistribution": "restricted"
+  },
+  "main_points": [
+    {
+      "text": "合成条款对银行规定报告义务。",
+      "clause_ref": "第1条",
+      "evidence_ids": [
+        "e1"
+      ]
+    }
+  ],
+  "guide": "【合成预览】仅在指定融资活动和明示条件下，银行承担报告义务；矿企可能间接受影响。",
+  "gaps": [],
+  "impacts": [
+    {
+      "id": "impact-fixture",
+      "theme": "tax_finance",
+      "region": "阿根廷",
+      "legal_actor": "银行",
+      "affected_actor": "参与指定融资活动的矿企",
+      "activity": "融资",
+      "condition": "仅当参与规则列明的融资活动且条件成立",
+      "effect_mode": "indirect",
+      "impact": "可能需要向银行提供规则要求的信息。",
+      "deadline": null,
+      "exceptions": null,
+      "evidence_ids": [
+        "e1"
+      ]
+    }
+  ],
+  "sections": [],
+  "relationships": [],
+  "related_items": [],
+  "evidence": [
+    {
+      "evidence_id": "e1",
+      "source": {
+        "source_id": "source-fixture",
+        "publisher": {
+          "id": "authority-fixture",
+          "name": "合成发布机关"
+        },
+        "title_original": "Synthetic Mining Rule",
+        "original_url": "https://example.invalid/policy/1",
+        "insecure_transport": false,
+        "published_time": {
+          "raw": "2026-10-08",
+          "local_date": "2026-10-08",
+          "local_time": null,
+          "timezone": null,
+          "utc": null,
+          "precision": "date",
+          "meaning": "published",
+          "meaning_label": "来源发布",
+          "basis": "合成契约测试依据，不是真实法规记录",
+          "condition_text": null,
+          "label": "2026-10-08",
+          "beijing_date": "2026-10-08"
+        }
+      },
+      "locator": "第1条",
+      "excerpt": "Synthetic banks shall report the stated financing activities.",
+      "relation": "supports"
+    }
+  ],
+  "limitation": "【合成预览】不是真实法规或法律建议。",
+  "ai_metadata": {
+    "provider": "AI矿策",
+    "content_id": "policy-complete-fixture"
+  }
+}
