@@ -11,3 +11,18 @@ export const CHINA_SUBDIVISIONS = Object.freeze(JURISDICTIONS.filter((row) => ro
 export const COUNTRY_COUNT_IS_CAP = data.country_count_is_cap;
 export const TIER_DEFINITIONS = Object.freeze(data.tier_definitions);
 export const SCOPE_FLAGS = Object.freeze(data.scope_flags);
+
+/** A country filter includes evidence assigned to its descendants, without inventing membership. */
+export function jurisdictionDescendants(code: string): string[] {
+  if (!JURISDICTIONS.some((j) => j.id === code)) return [];
+  const codes = new Set([code]);
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const row of JURISDICTIONS)
+      if (row.parent && codes.has(row.parent) && !codes.has(row.id)) {
+        codes.add(row.id);
+        changed = true;
+      }
+  }
+  return [...codes];
+}

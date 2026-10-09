@@ -4,6 +4,8 @@ import { beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { one, dbOf, withCustomPlans, type Db } from "../db.ts";
 import {
   categoryCondition,
+  jurisdictionCondition,
+  newsJurisdictionScope,
   channelCondition,
   ITEM_COLUMNS,
   ITEM_FROM,
@@ -116,6 +118,8 @@ async function poolCount(key: string | null, query: () => Promise<Array<{ n: num
 }
 
 export interface PoolQuery extends TimelineFilters {
+  jurisdictionCodes?: string[];
+  jurisdictionRecipe?: string;
   q?: string | null;
   tab?: "time" | "relevance";
   page?: number;
@@ -124,16 +128,17 @@ export interface PoolQuery extends TimelineFilters {
 }
 
 export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
+  query = { ...query, ...newsJurisdictionScope(query.jurisdiction) };
   const now = query.now ?? new Date();
   const page = Math.min(Math.max(query.page ?? 1, 1), POOL_MAX_PAGES);
   const q = query.q?.trim() || null;
   const tab = q && query.tab === "relevance" ? "relevance" : "time";
   const terms = q ? searchTerms(q) : [];
-  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)}`;
+  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")}`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
   const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;
   // A fixed clock (tests, replays) never shares cached totals.
-  const filterKey = query.now ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null]);
+  const filterKey = query.now || query.jurisdiction ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null]);
 
   // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small
   // table to scan for one- and two-character ones.
@@ -225,7 +230,15 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
   );
 
   return {
-    filters: { channel: query.channel, category: query.category, tag: query.tag, topic: query.topic ?? null, q, tab },
+    filters: {
+      channel: query.channel,
+      category: query.category,
+      tag: query.tag,
+      topic: query.topic ?? null,
+      ...(query.jurisdiction ? { jurisdiction: query.jurisdiction } : {}),
+      q,
+      tab,
+    },
     items: rows.map(toFeedItemSummary),
     page,
     pageCount: Math.min(POOL_MAX_PAGES, Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))),

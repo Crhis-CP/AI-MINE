@@ -152,6 +152,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["publication"],
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610060435_metal_prices.sql"],
       },
+      {
+        name: "publication/202610090800_news_geography.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202610081510_source_lane.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

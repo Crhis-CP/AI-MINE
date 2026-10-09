@@ -78,6 +78,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "publication.policy_report_members",
       "policy.interpretation_runs",
       "policy.interpretation_stages",
+      "publication.news_geography",
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);

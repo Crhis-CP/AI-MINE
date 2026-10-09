@@ -10,6 +10,8 @@ import {
   ITEM_COLUMNS,
   ITEM_FROM,
   categoryCondition,
+  jurisdictionCondition,
+  newsJurisdictionScope,
   channelCondition,
   selectedCondition,
   tagCondition,
@@ -21,6 +23,8 @@ import {
 const sql = dbOf("publication");
 
 export interface TimelineQuery extends TimelineFilters {
+  jurisdictionCodes?: string[];
+  jurisdictionRecipe?: string;
   cursor?: string | null;
   limit?: number;
   topicTags?: string[] | null;
@@ -33,11 +37,11 @@ interface GroupRow {
 }
 
 function filterSql(q: TimelineQuery) {
-  return sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)}`;
+  return sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`;
 }
 
 function binding(q: TimelineQuery): string {
-  return queryBinding({ c: q.channel, k: q.category, t: q.tag, p: q.topic ?? null });
+  return queryBinding({ c: q.channel, k: q.category, t: q.tag, p: q.topic ?? null, ...(q.jurisdiction ? { j: q.jurisdiction } : {}) });
 }
 
 /** Representative preference: first-party, full text, higher score, earliest. */
@@ -106,6 +110,7 @@ async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
 }
 
 export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineResponse, "hot" | "generatedAt">> {
+  q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
   const now = q.now ?? new Date();
   const limit = Math.min(Math.max(q.limit ?? 20, 1), 40);
   const bind = binding(q);
@@ -219,11 +224,18 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const refreshAt = await refreshAtRead;
   const last = page[page.length - 1];
   const nextCursor = hasMore && last ? encodeCursor("tl1", { a: last.anchor_at.getTime(), g: last.gk, b: bind }) : null;
-  return { filters: { channel: q.channel, category: q.category, tag: q.tag, topic: q.topic ?? null }, cards, nextCursor, refreshAt, dayCounts };
+  return {
+    filters: { channel: q.channel, category: q.category, tag: q.tag, topic: q.topic ?? null, ...(q.jurisdiction ? { jurisdiction: q.jurisdiction } : {}) },
+    cards,
+    nextCursor,
+    refreshAt,
+    dayCounts,
+  };
 }
 
 /** Earliest pending release in this scope; caches of this scope must expire by then. */
 export async function nextRelease(q: TimelineQuery, now: Date): Promise<string | null> {
+  q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
   const [row] = await sql<{ t: Date | null }[]>`
     SELECT min(p.visible_after) AS t FROM publications p
     WHERE p.visibility = 'public' AND p.selected AND p.visible_after > ${now} ${filterSql(q)}`;

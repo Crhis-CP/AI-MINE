@@ -39,6 +39,8 @@ import {
 } from "./writing.ts";
 import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
 import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } from "./prompts.ts";
+import { GEOGRAPHY_DICTIONARY, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
+import { stableJson } from "../lib/ids.ts";
 
 const sql = dbOf("enrichment");
 
@@ -53,6 +55,7 @@ const STRUCTURE_CONFIG = {
   categoryTags: CATEGORY_TAGS.join("、"),
   topicTags: TOPIC_TAGS.join("、"),
   entityTags: ENTITY_TAGS.join("、"),
+  jurisdictions: GEOGRAPHY_DICTIONARY,
   entities: Object.entries(ENTITIES)
     .map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`)
     .join("，"),
@@ -171,6 +174,7 @@ const StructureSchema = z.object({
   tags: z.array(z.string()).max(12).catch([]),
   subjects: z.array(z.string()).max(6).catch([]),
   fact: FactSchema,
+  geography: z.unknown().optional(),
 });
 
 const UnderstandSchema = z.object({
@@ -211,6 +215,7 @@ export interface AnalysisRun {
     tags: string[];
     subjects: string[];
     fact: z.infer<typeof FactSchema>;
+    geography: NewsGeography;
     receiptId: number;
     reused: boolean;
   } | null;
@@ -326,16 +331,34 @@ export async function runSelectionScores(
 async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["structure"]>> {
   const model = await modelFor("structure");
   checkAnalysisRunning();
+  const inputFor = (material: ReturnType<typeof geographyMaterial>) =>
+    stableJson({
+      source: { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty },
+      url: a.url,
+      publishedAt: a.publishedAt?.toISOString() ?? null,
+      segments: material.segments,
+      complete_material: material.complete,
+    });
+  let material = geographyMaterial(a),
+    user = inputFor(material),
+    overflow = Buffer.byteLength(STRUCTURE_SYSTEM + user) - 32000;
+  if (overflow > 0) {
+    const bodyBudget = 22000 - overflow - 128;
+    if (bodyBudget < 1024) throw new ModelOutputError("Bounded structure metadata exceeds capacity");
+    material = geographyMaterial(a, bodyBudget);
+    user = inputFor(material);
+  }
+  if (Buffer.byteLength(STRUCTURE_SYSTEM + user) > 32000) throw new ModelOutputError("Bounded structure input exceeds capacity");
   const res = await chatJson({
     model,
     purpose: "structure_article",
     subject: subjectOf(a),
     promptVersion: PROMPT_VERSIONS.structure,
     system: STRUCTURE_SYSTEM,
-    user: buildMaterial(a),
+    user,
     schema: StructureSchema,
     temperature: 0.2,
-    maxTokens: 800,
+    maxTokens: 1500,
     attemptTag: tagged(opts.attemptTag, "structure"),
   });
   const subjects = [...new Set(res.data.subjects.map((s) => s.trim().toLowerCase()).filter((s) => s in ENTITIES))];
@@ -345,6 +368,7 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     tags: normalizeTags(res.data.tags),
     subjects,
     fact: res.data.fact,
+    geography: validateGeography(res.data.geography, a, material.bodyBudget),
     receiptId: res.receiptId,
     reused: res.reused,
   };
@@ -520,6 +544,7 @@ export function normalizeAnalysis(run: AnalysisRun) {
     summaryZh,
     reasonZh: run.writing?.reasonZh ?? null,
     fact: run.structure?.fact ?? null,
+    geography: run.structure?.geography ?? null,
   };
 }
 
@@ -584,6 +609,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
     ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
     ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
     fact: out.fact,
+    geography: out.geography,
   };
   const committed = await commitProcessingResult(articleId, input.revision, out.relevance === "block" ? "blocked" : "analyzed", async (tx) => {
     // Enrichment owns the statement; content owns the locked transaction executing it.
