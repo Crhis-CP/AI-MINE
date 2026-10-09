@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { Route } from "./+types/metals";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
@@ -41,7 +42,59 @@ const Tag = ({ value }: { value: string }) => (
 const NewWindow = () => <span className="sr-only">（在新窗口打开）</span>;
 
 export default function MetalsPage() {
-  const { prices } = useLoaderData<typeof loader>();
+  const { prices: initialPrices } = useLoaderData<typeof loader>();
+  const [prices, setPrices] = useState(initialPrices);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  useEffect(() => {
+    if (initialPrices) setPrices(initialPrices);
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let pending: AbortController | null = null;
+    const client = createPublicClient({ baseUrl: window.location.origin });
+    const refresh = async () => {
+      if (document.visibilityState !== "visible" || pending) return;
+      const request = new AbortController();
+      pending = request;
+      try {
+        const result = await client.GET("/api/site/metal-prices", {
+          cache: "no-cache",
+          headers: { accept: "application/json" },
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        });
+        if (!result.response.ok) throw new Error("Price refresh unavailable");
+        const next = publicSchemas.MetalPrices.parse(result.data);
+        if (!request.signal.aborted) {
+          setPrices(next);
+          setRefreshFailed(false);
+        }
+      } catch {
+        if (!request.signal.aborted) setRefreshFailed(true);
+      } finally {
+        if (pending === request) pending = null;
+      }
+    };
+    const pause = () => {
+      clearInterval(timer);
+      pending?.abort();
+      pending = null;
+    };
+    const resume = () => {
+      pause();
+      if (document.visibilityState === "visible") {
+        void refresh();
+        timer = setInterval(refresh, 300_000);
+      }
+    };
+    if (document.visibilityState === "visible") timer = setInterval(refresh, 300_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("pagehide", pause);
+    return () => {
+      pause();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("pagehide", pause);
+    };
+  }, [initialPrices]);
   const hasData = prices?.metals.some((metal) => metal.quotes.some((quote) => quote.value !== null));
   const tags = new Map(prices?.sources.map((source) => [source.key, source.tag]));
   return (
@@ -52,6 +105,9 @@ export default function MetalsPage() {
       ) : (
         <>
           <p className="text-[14px] leading-relaxed text-ink-3">{prices.intro}</p>
+          <p className={`mt-2 text-[12px] ${refreshFailed ? "text-amber-ink" : "text-ink-4"}`} role="status">
+            {refreshFailed ? "更新暂时失败，仍显示上次读取的结果。" : "页面可见时每 5 分钟检查更新，报价以官方发布期次为准。"}
+          </p>
           {!hasData ? (
             <p className="mt-5 text-[14px] text-ink-3">暂无已授权价格数据</p>
           ) : (

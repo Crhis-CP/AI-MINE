@@ -1,10 +1,11 @@
 // Run after `npm run build -w @amp/web`. Real production server/router, synthetic HTTP API only.
 import { SITE } from "@amp/industry/site";
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -801,6 +802,85 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   for (const links of [hrefs(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))), hrefs(body)]) {
     assert.ok(links.includes("/starred"), links.join(" "));
     assert.equal(links[links.indexOf("/starred") + 1], "/metals", links.join(" "));
+  }
+});
+
+test("metal prices refresh only while visible, recover on focus and keep the last successful result on failure", async () => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((file) => file && existsSync(file));
+  assert.ok(executablePath, "An existing Chrome/Chromium is required; no browser download");
+  const browser = await chromium.launch({ executablePath, args: ["--disable-background-networking", "--disable-component-update"] });
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const blocked: string[] = [];
+  await context.route("**/*", (route) => {
+    if (new URL(route.request().url()).origin === origin) return route.continue();
+    blocked.push(route.request().url());
+    return route.abort("blockedbyclient");
+  });
+  let calls = 0,
+    unavailable = false,
+    value = "123456.7";
+  const page = await context.newPage();
+  await page.route("**/api/site/metal-prices", async (route) => {
+    calls++;
+    assert.equal(route.request().method(), "GET");
+    const next = syntheticPrices();
+    next.metals[0]!.quotes[0]!.value = value;
+    await route.fulfill({
+      status: unavailable ? 503 : 200,
+      contentType: "application/json",
+      body: JSON.stringify(unavailable ? { code: "unavailable" } : next),
+    });
+  });
+  try {
+    await page.clock.install();
+    await page.goto(`${origin}/metals`, { waitUntil: "networkidle" });
+    await expect(page.locator("[data-metals]")).toContainText("108,770.0");
+    assert.equal(calls, 0, "SSR data is reused until the first interval");
+    await page.clock.fastForward(300_001);
+    await expect(page.locator("[data-metals]")).toContainText("123,456.7");
+    assert.equal(calls, 1);
+    unavailable = true;
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("focus"));
+    });
+    await expect(page.getByRole("status")).toContainText("更新暂时失败");
+    assert.equal(calls, 2, "focus events do not create overlapping refreshes");
+    await expect(page.locator("[data-metals]")).toContainText("123,456.7");
+    unavailable = false;
+    value = "123999.8";
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("[data-metals]")).toContainText("123,999.8");
+    await expect(page.getByRole("status")).not.toContainText("更新暂时失败");
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    const beforeHidden = calls;
+    await page.clock.fastForward(600_001);
+    assert.equal(calls, beforeHidden, "hidden documents stop polling");
+    value = "124888.9";
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(page.locator("[data-metals]")).toContainText("124,888.9");
+    assert.equal(calls, beforeHidden + 1, "becoming visible refreshes immediately");
+    await page.getByRole("link", { name: "浏览矿业市场动态 →" }).click();
+    await expect(page.locator("[data-metals]")).toHaveCount(0);
+    const beforeLeaving = calls;
+    await page.clock.fastForward(300_001);
+    assert.equal(calls, beforeLeaving, "leaving the route removes the timer and listeners");
+    assert.deepEqual(blocked, []);
+  } finally {
+    await browser.close();
   }
 });
 
