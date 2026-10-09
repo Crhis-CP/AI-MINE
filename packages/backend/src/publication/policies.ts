@@ -7,6 +7,7 @@ import { currentPolicyHeads } from "../policy/public-state.ts";
 import { readCurrentPublicPolicy, evaluateSourcePolicy, publicProcessingAllowed } from "@amp/backend/admin/sources";
 import { stableJson, sha256 } from "../lib/ids.ts";
 import { encodeCursor, decodeCursor, queryBinding } from "../lib/cursor.ts";
+import { decoratePolicyNavigation, decoratePolicyRelationships, readPolicyThread } from "./policy-relations.ts";
 const sql = dbOf("publication");
 export class PolicyReadError extends Error {
   readonly status: number;
@@ -162,6 +163,7 @@ export async function listPolicies(q: Filters & { page?: number; page_size?: num
   const selected = items.slice(offset, offset + size),
     last = selected.at(-1),
     hasMore = items.length > offset + size;
+  await decoratePolicyNavigation(selected);
   const base = { content_version: hash.digest("hex"), generated_at: new Date(ctx.now).toISOString(), items: selected };
   return cursorMode
     ? { ...base, next_cursor: hasMore && last ? encodeCursor("pol-list", { key: policyOrder(last), id: last.id, binding }) : null }
@@ -256,7 +258,7 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
       if (!stream || !view.readable[stream.mode]) expression.reading_state = "restricted";
     }
     if (detail.reading && !view.readable[detail.reading.mode ?? "original"]) detail.reading = null;
-    return Policy.parse(detail);
+    return Policy.parse(await decoratePolicyRelationships(detail, row.id));
   }
   throw new PolicyReadError(404, "policy_not_found");
 }
@@ -406,23 +408,17 @@ export async function policyDiscoveryEntries() {
   return entries;
 }
 
-export async function policyThread(id: string) {
-  const members: PolicyCard[] = [];
-  for await (const view of currentViews(context())) if (view.card.thread_id === id) members.push(view.card);
-  if (!members.length) throw new PolicyReadError(404, "policy_thread_not_found");
-  const labels = { proposed: "拟议", consultation: "征求意见", adopted: "已通过", published: "已公布", unknown: "阶段尚未确认" };
-  return {
-    id,
-    title: members[0]!.title,
-    summary: null,
-    jurisdictions: [...new Map(members.flatMap((p) => p.jurisdictions).map((j) => [j.code, j])).values()],
-    stages: members.map((p) => ({
-      stage_label: labels[p.legal_brief.stage],
-      policy_id: p.id,
-      event_id: null,
-      time: p.sort_time ?? p.published_time,
-      relation: "相关文书",
-    })),
-    policies: members,
-  };
+export const policyThread = readPolicyThread;
+
+/** Internal current identity candidates. No private originals or model evidence; no navigation decoration recursion. */
+export async function policyCurrentPublicRecords() {
+  const out = [];
+  for await (const view of currentViews(context()))
+    out.push({
+      editionId: view.row.id,
+      expressionId: view.row.native_expression_id,
+      originalKey: view.row.original_content_key ?? view.row.native_revision_id,
+      card: view.card,
+    });
+  return out;
 }

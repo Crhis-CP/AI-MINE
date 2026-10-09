@@ -3,6 +3,7 @@ import * as cheerio from "cheerio";
 import { PolicyLegalState, PolicyImpact, Policy } from "@amp/contracts/http/public";
 import type { TimeAssertion, SourceDateParseInput } from "@amp/contracts/time-assertion";
 import { parseSourceDate } from "@amp/backend/admin/sources";
+import { explicitPolicyReference } from "./references.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import type { PolicyFulltextPlan, PolicyPart } from "./processing-plan.ts";
 
@@ -178,7 +179,10 @@ export function checkCandidate(
       const target = related.find((r) => r.id === relation.target_policy_id && r.citation === relation.target_citation && r.qualified);
       if (
         !target ||
-        !evidence.some((e) => e.quote.includes(target.url)) ||
+        !evidence.some((e) => {
+          const part = plan.parts.find((p) => p.partId === e.part_id);
+          return part && explicitPolicyReference(part, target.citation, target.url, e.quote);
+        }) ||
         (["updates", "corrects", "repeals"].includes(relation.relation) && target.jurisdiction !== identity.jurisdiction)
       )
         throw new Error("relationship_target_unproved");

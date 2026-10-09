@@ -583,6 +583,33 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
       }
+    },
+    "publication.policy_relations": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": [
+        "source_edition_id",
+        "source_policy_id",
+        "target_edition_id",
+        "target_policy_id",
+        "target_original_key",
+        "relation",
+        "target_citation",
+        "evidence_ids"
+      ],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.policy_threads": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "anchor_policy_id", "created_at"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {

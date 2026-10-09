@@ -26,6 +26,8 @@ import { policyPublicationIdentity, lockPolicyPublicationHead } from "../policy/
 import { evaluateSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
 import { audit } from "../admin/auth.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { policyInterpretationQualityRecipe } from "../policy/references.ts";
+import { preparePolicyRelationships, savePolicyRelationships } from "./policy-relations.ts";
 import { basicPolicy, completePolicy, policyCard, readingBlock, type PublicIds } from "./policies-project.ts";
 
 export async function setPolicyPublicationState(id: string, input: { withdrawn?: boolean; paused?: boolean; reason: string; actor: string }) {
@@ -68,12 +70,13 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     interpretation?.semantic_verified && interpretation.modelEvidenceComplete && interpretation.candidate?.relevance === "relevant"
       ? interpretation.candidate
       : null;
+  const relationLinks = candidate && loaded ? await preparePolicyRelationships(loaded.run, candidate) : [];
   const qualityInput = candidate
     ? {
         sourceId: snapshot.sourceId,
         language: snapshot.language,
         fulltextRecipe: loaded!.run.plan.context.recipeVersion,
-        interpretationRecipe: interpretation!.recipeVersion,
+        interpretationRecipe: policyInterpretationQualityRecipe(interpretation!.recipeVersion),
         models: interpretation!.models,
       }
     : null;
@@ -259,6 +262,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
    VALUES(${editionId},${contentHash},${policyId},${input.expressionId},${snapshot.revisionId},${snapshot.sourceId},${snapshot.permissionVersion},${ids.version},${snapshot.language},${preferred},
    ${basic.expressions.map((e) => e.id)},${basic.expressions.map((e) => e.document_revision_id)},${db.json(resources)},${db.json(policyCard(Policy.parse(basic)))},${db.json(basic)},
    ${full ? db.json(policyCard(full)) : null},${full ? db.json(full) : null},${db.json(streams)},${full ? currentQuality!.id : null},${meta.discoveredAt},${originalContentKey}) ON CONFLICT(id) DO UPDATE SET quality_id=coalesce(EXCLUDED.quality_id,publication.policy_editions.quality_id),discovered_at=least(publication.policy_editions.discovered_at,EXCLUDED.discovered_at)`;
+    if (full) await savePolicyRelationships(db, policyId, editionId, relationLinks, evidenceIds);
     await db`UPDATE publication.policy_documents SET first_public_at=coalesce(first_public_at,${at}::timestamptz),updated_at=now() WHERE id=${policyId}`;
     return {
       status: "published" as const,
