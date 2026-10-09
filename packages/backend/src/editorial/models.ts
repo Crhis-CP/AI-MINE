@@ -42,6 +42,10 @@ export const CAPABILITIES = {
   digest: { label: "事件综述", env: "DIGEST_MODEL", default: "default", purposes: ["story_digest"] },
   report: { label: "日报、周报、月报", env: "REPORT_MODEL", default: "default", purposes: ["report_lead", "report_daily", "report_weekly", "report_monthly"] },
   translate: { label: "精选全文翻译", env: "TRANSLATE_MODEL", default: "default", purposes: ["translate_body"] },
+  policy_fulltext: { label: "法规全文事实与完整中文", env: "POLICY_FULLTEXT_MODEL", default: "default", purposes: ["policy_fulltext"] },
+  policy_group: { label: "法规分组核对与归并", env: "POLICY_GROUP_MODEL", default: "default", purposes: ["policy_group"] },
+  policy_interpret: { label: "法规身份与候选解读", env: "POLICY_INTERPRET_MODEL", default: "default", purposes: ["policy_interpret"] },
+  policy_verify: { label: "法规全篇语义核验", env: "POLICY_VERIFY_MODEL", default: "default", purposes: ["policy_verify"] },
 } satisfies Record<string, Capability>;
 
 export type CapabilityKey = keyof typeof CAPABILITIES;
@@ -65,6 +69,7 @@ export function invalidateModelCache() {
 export async function modelFor(capability: CapabilityKey): Promise<string> {
   const c: Capability = CAPABILITIES[capability];
   const chosen = (await overrides())[capability] ?? process.env[c.env] ?? c.default;
+  if (capability.startsWith("policy_") && !MODELS[chosen]) throw new Error(`Unknown configured policy model ${chosen}`);
   return MODELS[chosen] ? chosen : c.default;
 }
 
