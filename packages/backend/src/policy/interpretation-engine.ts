@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import { sha256, stableJson } from "../lib/ids.ts";
-import type { PolicyPurpose } from "@amp/backend/providers/policy";
+import type { PolicyPurpose } from "../providers/policy.ts";
 import type { PolicyFulltextPlan, PolicyPart } from "./processing-plan.ts";
 import type { PolicyFulltextValidation } from "./fulltext-candidate.ts";
 import {
