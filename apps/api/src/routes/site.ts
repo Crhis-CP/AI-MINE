@@ -1,4 +1,4 @@
-import { validNewsJurisdiction } from "@amp/backend/site/stats";
+import { validNewsJurisdiction } from "@amp/industry/jurisdictions";
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
 import { routes as contracts, MetalPrices, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
@@ -52,7 +52,7 @@ export function siteHandler(fn: Handler): Handler {
 }
 
 export interface FilterParams {
-  jurisdiction: string | null;
+  jurisdiction?: string | null;
   channel: ChannelKey;
   category: CategoryKey | null;
   tag: string | null;
@@ -74,7 +74,7 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
     topicTags = await loadTopicTags(topic);
     if (!topicTags) throw new BadRequest("unknown topic");
   }
-  return { channel, category: category as CategoryKey | null, tag, topic, topicTags, jurisdiction };
+  return { channel, category: category as CategoryKey | null, tag, topic, topicTags, ...(jurisdiction ? { jurisdiction } : {}) };
 }
 
 export function registerSite(app: FastifyInstance) {

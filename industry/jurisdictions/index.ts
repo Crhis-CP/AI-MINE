@@ -26,3 +26,7 @@ export function jurisdictionDescendants(code: string): string[] {
   }
   return [...codes];
 }
+
+export function validNewsJurisdiction(value: string) {
+  return value === "unknown" || value === "none" || JURISDICTIONS.some((j) => j.id === value);
+}

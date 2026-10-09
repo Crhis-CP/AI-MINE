@@ -124,13 +124,13 @@ test("configured versions hash actual rendered text, ignoring unused values and 
     import { MINING_CATEGORIES, MINING_CATEGORY_GUIDE } from '@amp/industry/mining-taxonomy';
     import { configuredPromptVersion, promptText, promptVersion } from '@amp/backend/editorial/prompts';
     const values = { categoryCount: '九', categoryGuide: MINING_CATEGORY_GUIDE,
-      categoryTags: MINING_CATEGORIES.map(c => c.label).join('、'), topicTags: '', entityTags: '', entities: '' };
+      categoryTags: MINING_CATEGORIES.map(c => c.label).join('、'), topicTags: '', entityTags: '', entities: '', jurisdictions: 'CN=中国;AR=阿根廷' };
     const before = [promptVersion('prefilter'), promptVersion('selection-score'), promptVersion('structure')];
     const version = configuredPromptVersion('structure', values);
     assert.equal(version, 'structure@' + createHash('sha256').update(promptText('structure', values)).digest('hex').slice(0, 10));
     assert.equal(version, configuredPromptVersion('structure', Object.fromEntries(Object.entries(values).reverse())));
     assert.equal(version, configuredPromptVersion('structure', { ...values, unused: 'does not reach the prompt' }));
-    for (const key of ['categoryGuide', 'categoryTags'])
+    for (const key of ['categoryGuide', 'categoryTags', 'jurisdictions'])
       assert.notEqual(version, configuredPromptVersion('structure', { ...values, [key]: values[key] + '合成配置变化' }));
     assert.throws(() => configuredPromptVersion('structure'), /no value/);
     for (const name of ['prefilter', 'selection-score'])

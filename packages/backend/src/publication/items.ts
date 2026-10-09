@@ -159,9 +159,6 @@ export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<
   return new Map(rows.map((r) => [r.id, r]));
 }
 
-export function validNewsJurisdiction(value: string) {
-  return value === "unknown" || value === "none" || JURISDICTIONS.some((j) => j.id === value);
-}
 /** Both branches bind to the article's current source revision, not the publication's independent revision counter. */
 export function newsJurisdictionScope(value: string | null | undefined) {
   return { jurisdictionCodes: jurisdictionDescendants(value ?? ""), jurisdictionRecipe: geographyRecipe() };
@@ -170,7 +167,7 @@ export function jurisdictionCondition(value: string | null, descendants: string[
   return sql`AND EXISTS(SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g ON g.article_id=ga.id AND g.article_revision=ga.revision
     AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
     WHERE ga.id=p.article_id AND (${value}::text IS NULL OR (${value}='unknown' AND (g.state IS NULL OR g.state IN ('unknown','partial')))
-    OR (${value}='none' AND g.state='none') OR (g.jurisdictions && ${descendants}::text[])))`;
+    OR (${value}='none' AND g.state='none') OR (g.jurisdictions && coalesce(${descendants ?? null}::text[],'{}'::text[]))))`;
 }
 /** Cross-lane facet port: known membership only; unknown also counts partially inspected material. No cache or paid work. */
 export async function currentNewsJurisdictionCounts(): Promise<{ counts: Record<string, number>; unknown: number }> {
