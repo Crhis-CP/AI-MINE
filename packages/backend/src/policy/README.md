@@ -10,3 +10,6 @@
 
 TASK-0117 的 `acquirePolicyOriginal(input, profile, get?)` 复用受限取页和逐用途许可，保存原 bytes 后返回上述原件标识；显式选择器和工程容量在 profile，不借新闻篇幅/附件规则。`extractPolicyOriginal(expressionId, profile)` 返回并缓存 `{revisionId,state,gaps,resources}`，资源内为有序节点、页码/坐标/HTML与缺口，存入追加式 document_extractions；当前头或许可变化拒绝旧结果写回。
 `extracted` 仅表示配置范围内提取出了节点，不是身份、全文中文、语义或公开资格。PDF 文字层保留版面/表格未核验缺口，空文字页和内嵌图件/附件另列；没有闭合目录时总状态始终 incomplete。后续任务必须同时检查原件与提取状态，不能用节点总数代替完整性或模型核验。
+
+TASK-0120 的纯 `validatePolicyFulltextCandidate(plan,candidates)` 消费 0119 的精确计划与扁平逐 part 候选数组；`PolicyPartCandidateSchema` / `PolicyPartCandidate` 是严格候选边界。缺项、重复、错哈希、非逐字引文、字符损坏和确定性不变量变化不给 assembled，独立合法部分保留在 accepted；只在全覆盖时按资源与计划顺序装配块，不假定一个 nodeId 只有一个 part。
+校验仅证明相对计划的结构与已识别文字标记一致，不能证明事实含义、否定/情态、完整语义或来源合法身份。输出固定 semantic_verified=false/runtime_authorization=none；运行器必须另核真实回执、当前原件、许可和控制状态，随后仍需 AI-19/21。
