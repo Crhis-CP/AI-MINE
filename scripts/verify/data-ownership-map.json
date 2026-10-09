@@ -225,6 +225,26 @@
     "publication.metal_prices": {
       "module": "publication",
       "access": "business"
+    },
+    "policy.instruments": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.versions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.expressions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.document_revisions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.original_resources": {
+      "module": "policy",
+      "access": "business"
     }
   },
   "externalTables": {

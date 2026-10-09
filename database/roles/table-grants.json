@@ -306,6 +306,51 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "policy.instruments": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.versions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.expressions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "policy.document_revisions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "policy.original_resources": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {

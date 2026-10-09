@@ -167,6 +167,10 @@
     {
       "name": "sources/202610081510_source_lane.sql",
       "dependsOn": ["publication/202610060435_metal_prices.sql"]
+    },
+    {
+      "name": "policy/202610090100_policy_originals.sql",
+      "dependsOn": ["sources/202610081510_source_lane.sql"]
     }
   ]
 }
