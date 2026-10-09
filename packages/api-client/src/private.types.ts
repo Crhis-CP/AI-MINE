@@ -239,6 +239,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/site": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["adminSiteInformation"];
+    put: operations["saveSiteInformation"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/sources": {
     parameters: {
       query?: never;
@@ -478,6 +494,14 @@ export interface components {
       revision: number;
       /** @enum {string} */
       role: "owner" | "admin";
+    };
+    AdminSiteInformation: {
+      information: components["schemas"]["SiteInformation"];
+      protected: components["schemas"]["ProtectedSiteInformation"];
+    };
+    AdminSiteInformationInput: {
+      information: components["schemas"]["SiteInformationInput"];
+      protected: components["schemas"]["ProtectedSiteInformationInput"];
     };
     CurrentAccount: {
       account: components["schemas"]["AccountRecord"];
@@ -1355,6 +1379,18 @@ export interface components {
         unpriced_calls: number;
       };
     };
+    OfficialMetalLink: {
+      name: string;
+      note: string;
+      /** Format: uri */
+      url: string;
+    };
+    OfficialMetalLinkInput: {
+      name: string;
+      note: string;
+      /** Format: uri */
+      url: string;
+    };
     Problem: {
       code: string;
       detail: string;
@@ -1372,6 +1408,72 @@ export interface components {
       status: number;
       title: string;
       type: string;
+    };
+    ProtectedSiteInformation: {
+      icp: {
+        aboutDisplayed: boolean;
+        configured: boolean;
+        footerDisplayed: boolean;
+        /** @enum {string} */
+        origin: "build" | "runtime" | "not_recorded";
+      };
+      newsLicense: {
+        aboutDisplayed: boolean;
+        configured: boolean;
+        footerDisplayed: boolean;
+        /** @enum {string} */
+        origin: "build" | "runtime" | "not_recorded";
+      };
+      /** @enum {string} */
+      newsLicenseDateState: "recorded" | "not_recorded" | "invalid";
+      newsLicenseValidUntil: string | null;
+      productionFilingConfigured: boolean;
+      publicSecurity: {
+        aboutDisplayed: boolean;
+        configured: boolean;
+        footerDisplayed: boolean;
+        /** @enum {string} */
+        origin: "build" | "runtime" | "not_recorded";
+      };
+      remainingDays: number | null;
+      /** Format: uri */
+      siteUrl: string;
+      /** @enum {string} */
+      siteUrlOrigin: "build_default" | "runtime";
+      warningDays: number;
+    };
+    ProtectedSiteInformationInput: {
+      icp: {
+        aboutDisplayed: boolean;
+        configured: boolean;
+        footerDisplayed: boolean;
+        /** @enum {string} */
+        origin: "build" | "runtime" | "not_recorded";
+      };
+      newsLicense: {
+        aboutDisplayed: boolean;
+        configured: boolean;
+        footerDisplayed: boolean;
+        /** @enum {string} */
+        origin: "build" | "runtime" | "not_recorded";
+      };
+      /** @enum {string} */
+      newsLicenseDateState: "recorded" | "not_recorded" | "invalid";
+      newsLicenseValidUntil: string | null;
+      productionFilingConfigured: boolean;
+      publicSecurity: {
+        aboutDisplayed: boolean;
+        configured: boolean;
+        footerDisplayed: boolean;
+        /** @enum {string} */
+        origin: "build" | "runtime" | "not_recorded";
+      };
+      remainingDays: number | null;
+      /** Format: uri */
+      siteUrl: string;
+      /** @enum {string} */
+      siteUrlOrigin: "build_default" | "runtime";
+      warningDays: number;
     };
     ReceiptIssue: {
       attempts: number;
@@ -1454,6 +1556,36 @@ export interface components {
       /** @constant */
       status: "failed";
       subject: string | null;
+    };
+    SiteInformation: {
+      about: string;
+      contactEmail: string | null;
+      contactPage: string | null;
+      metalLinks: components["schemas"]["OfficialMetalLink"][];
+      revision: number;
+      updatedAt: string | null;
+    };
+    SiteInformationInput: {
+      about: string;
+      contactEmail: string | null;
+      contactPage: string | null;
+      metalLinks: components["schemas"]["OfficialMetalLinkInput"][];
+      revision: number;
+      updatedAt: string | null;
+    };
+    SiteInformationUpdate: {
+      about: string;
+      contactEmail: string | null;
+      contactPage: string | null;
+      expected_revision: number;
+      metalLinks: components["schemas"]["OfficialMetalLink"][];
+    };
+    SiteInformationUpdateInput: {
+      about: string;
+      contactEmail: string | null;
+      contactPage: string | null;
+      expected_revision: number;
+      metalLinks: components["schemas"]["OfficialMetalLinkInput"][];
     };
     SourceCreateRequest: {
       attachments_in_scope: boolean;
@@ -3411,6 +3543,140 @@ export interface operations {
       };
       /** @description Problem response */
       500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  adminSiteInformation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminSiteInformation"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  saveSiteInformation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SiteInformationUpdateInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SiteInformation"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
         headers: {
           [name: string]: unknown;
         };

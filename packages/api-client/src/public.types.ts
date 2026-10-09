@@ -1,4 +1,20 @@
 export interface paths {
+  "/api/site/information": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["siteInformation"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/site/jurisdictions": {
     parameters: {
       query?: never;
@@ -526,6 +542,18 @@ export interface components {
         status: "fresh" | "stale" | "empty";
         tag: string;
       }[];
+    };
+    OfficialMetalLink: {
+      name: string;
+      note: string;
+      /** Format: uri */
+      url: string;
+    };
+    OfficialMetalLinkInput: {
+      name: string;
+      note: string;
+      /** Format: uri */
+      url: string;
     };
     Policy: {
       /** @enum {string} */
@@ -3141,6 +3169,22 @@ export interface components {
       tag: string | null;
       topic?: string | null;
     };
+    SiteInformation: {
+      about: string;
+      contactEmail: string | null;
+      contactPage: string | null;
+      metalLinks: components["schemas"]["OfficialMetalLink"][];
+      revision: number;
+      updatedAt: string | null;
+    };
+    SiteInformationInput: {
+      about: string;
+      contactEmail: string | null;
+      contactPage: string | null;
+      metalLinks: components["schemas"]["OfficialMetalLinkInput"][];
+      revision: number;
+      updatedAt: string | null;
+    };
     SiteStats: {
       dailies: number;
       day: {
@@ -3224,6 +3268,42 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  siteInformation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SiteInformation"];
+        };
+      };
+      /** @description Default Response */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
   siteJurisdictions: {
     parameters: {
       query?: never;

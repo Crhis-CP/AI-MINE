@@ -433,6 +433,38 @@
         ],
         "type": "object"
       },
+      "AdminSiteInformation": {
+        "additionalProperties": false,
+        "properties": {
+          "information": {
+            "$ref": "#/components/schemas/SiteInformation"
+          },
+          "protected": {
+            "$ref": "#/components/schemas/ProtectedSiteInformation"
+          }
+        },
+        "required": [
+          "information",
+          "protected"
+        ],
+        "type": "object"
+      },
+      "AdminSiteInformationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "information": {
+            "$ref": "#/components/schemas/SiteInformationInput"
+          },
+          "protected": {
+            "$ref": "#/components/schemas/ProtectedSiteInformationInput"
+          }
+        },
+        "required": [
+          "information",
+          "protected"
+        ],
+        "type": "object"
+      },
       "CurrentAccount": {
         "additionalProperties": false,
         "properties": {
@@ -5274,6 +5306,58 @@
         ],
         "type": "object"
       },
+      "OfficialMetalLink": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "note"
+        ],
+        "type": "object"
+      },
+      "OfficialMetalLinkInput": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "note"
+        ],
+        "type": "object"
+      },
       "Problem": {
         "additionalProperties": false,
         "properties": {
@@ -5341,6 +5425,318 @@
           "detail",
           "code",
           "requestId"
+        ],
+        "type": "object"
+      },
+      "ProtectedSiteInformation": {
+        "additionalProperties": false,
+        "properties": {
+          "icp": {
+            "additionalProperties": false,
+            "properties": {
+              "aboutDisplayed": {
+                "type": "boolean"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "footerDisplayed": {
+                "type": "boolean"
+              },
+              "origin": {
+                "enum": [
+                  "build",
+                  "runtime",
+                  "not_recorded"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "configured",
+              "origin",
+              "footerDisplayed",
+              "aboutDisplayed"
+            ],
+            "type": "object"
+          },
+          "newsLicense": {
+            "additionalProperties": false,
+            "properties": {
+              "aboutDisplayed": {
+                "type": "boolean"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "footerDisplayed": {
+                "type": "boolean"
+              },
+              "origin": {
+                "enum": [
+                  "build",
+                  "runtime",
+                  "not_recorded"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "configured",
+              "origin",
+              "footerDisplayed",
+              "aboutDisplayed"
+            ],
+            "type": "object"
+          },
+          "newsLicenseDateState": {
+            "enum": [
+              "recorded",
+              "not_recorded",
+              "invalid"
+            ],
+            "type": "string"
+          },
+          "newsLicenseValidUntil": {
+            "anyOf": [
+              {
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "productionFilingConfigured": {
+            "type": "boolean"
+          },
+          "publicSecurity": {
+            "additionalProperties": false,
+            "properties": {
+              "aboutDisplayed": {
+                "type": "boolean"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "footerDisplayed": {
+                "type": "boolean"
+              },
+              "origin": {
+                "enum": [
+                  "build",
+                  "runtime",
+                  "not_recorded"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "configured",
+              "origin",
+              "footerDisplayed",
+              "aboutDisplayed"
+            ],
+            "type": "object"
+          },
+          "remainingDays": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "siteUrl": {
+            "format": "uri",
+            "type": "string"
+          },
+          "siteUrlOrigin": {
+            "enum": [
+              "build_default",
+              "runtime"
+            ],
+            "type": "string"
+          },
+          "warningDays": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "siteUrl",
+          "siteUrlOrigin",
+          "icp",
+          "publicSecurity",
+          "newsLicense",
+          "newsLicenseValidUntil",
+          "newsLicenseDateState",
+          "remainingDays",
+          "warningDays",
+          "productionFilingConfigured"
+        ],
+        "type": "object"
+      },
+      "ProtectedSiteInformationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "icp": {
+            "additionalProperties": false,
+            "properties": {
+              "aboutDisplayed": {
+                "type": "boolean"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "footerDisplayed": {
+                "type": "boolean"
+              },
+              "origin": {
+                "enum": [
+                  "build",
+                  "runtime",
+                  "not_recorded"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "configured",
+              "origin",
+              "footerDisplayed",
+              "aboutDisplayed"
+            ],
+            "type": "object"
+          },
+          "newsLicense": {
+            "additionalProperties": false,
+            "properties": {
+              "aboutDisplayed": {
+                "type": "boolean"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "footerDisplayed": {
+                "type": "boolean"
+              },
+              "origin": {
+                "enum": [
+                  "build",
+                  "runtime",
+                  "not_recorded"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "configured",
+              "origin",
+              "footerDisplayed",
+              "aboutDisplayed"
+            ],
+            "type": "object"
+          },
+          "newsLicenseDateState": {
+            "enum": [
+              "recorded",
+              "not_recorded",
+              "invalid"
+            ],
+            "type": "string"
+          },
+          "newsLicenseValidUntil": {
+            "anyOf": [
+              {
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "productionFilingConfigured": {
+            "type": "boolean"
+          },
+          "publicSecurity": {
+            "additionalProperties": false,
+            "properties": {
+              "aboutDisplayed": {
+                "type": "boolean"
+              },
+              "configured": {
+                "type": "boolean"
+              },
+              "footerDisplayed": {
+                "type": "boolean"
+              },
+              "origin": {
+                "enum": [
+                  "build",
+                  "runtime",
+                  "not_recorded"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "configured",
+              "origin",
+              "footerDisplayed",
+              "aboutDisplayed"
+            ],
+            "type": "object"
+          },
+          "remainingDays": {
+            "anyOf": [
+              {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "siteUrl": {
+            "format": "uri",
+            "type": "string"
+          },
+          "siteUrlOrigin": {
+            "enum": [
+              "build_default",
+              "runtime"
+            ],
+            "type": "string"
+          },
+          "warningDays": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "siteUrl",
+          "siteUrlOrigin",
+          "icp",
+          "publicSecurity",
+          "newsLicense",
+          "newsLicenseValidUntil",
+          "newsLicenseDateState",
+          "remainingDays",
+          "warningDays",
+          "productionFilingConfigured"
         ],
         "type": "object"
       },
@@ -5689,6 +6085,248 @@
           "subject",
           "purpose",
           "requeued"
+        ],
+        "type": "object"
+      },
+      "SiteInformation": {
+        "additionalProperties": false,
+        "properties": {
+          "about": {
+            "maxLength": 5000,
+            "type": "string"
+          },
+          "contactEmail": {
+            "anyOf": [
+              {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contactPage": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metalLinks": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialMetalLink"
+            },
+            "maxItems": 30,
+            "type": "array"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "about",
+          "contactEmail",
+          "contactPage",
+          "metalLinks",
+          "revision",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "SiteInformationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "about": {
+            "maxLength": 5000,
+            "type": "string"
+          },
+          "contactEmail": {
+            "anyOf": [
+              {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contactPage": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metalLinks": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialMetalLinkInput"
+            },
+            "maxItems": 30,
+            "type": "array"
+          },
+          "revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "about",
+          "contactEmail",
+          "contactPage",
+          "metalLinks",
+          "revision",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "SiteInformationUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "about": {
+            "maxLength": 5000,
+            "type": "string"
+          },
+          "contactEmail": {
+            "anyOf": [
+              {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contactPage": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "metalLinks": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialMetalLink"
+            },
+            "maxItems": 30,
+            "type": "array"
+          }
+        },
+        "required": [
+          "about",
+          "contactEmail",
+          "contactPage",
+          "metalLinks",
+          "expected_revision"
+        ],
+        "type": "object"
+      },
+      "SiteInformationUpdateInput": {
+        "additionalProperties": false,
+        "properties": {
+          "about": {
+            "maxLength": 5000,
+            "type": "string"
+          },
+          "contactEmail": {
+            "anyOf": [
+              {
+                "format": "email",
+                "maxLength": 254,
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "contactPage": {
+            "anyOf": [
+              {
+                "format": "uri",
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_revision": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "metalLinks": {
+            "items": {
+              "$ref": "#/components/schemas/OfficialMetalLinkInput"
+            },
+            "maxItems": 30,
+            "type": "array"
+          }
+        },
+        "required": [
+          "about",
+          "contactEmail",
+          "contactPage",
+          "metalLinks",
+          "expected_revision"
         ],
         "type": "object"
       },
@@ -10456,6 +11094,148 @@
             "description": "Problem response"
           },
           "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/site": {
+      "get": {
+        "operationId": "adminSiteInformation",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSiteInformation"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveSiteInformation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteInformationUpdateInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteInformation"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
             "content": {
               "application/problem+json": {
                 "schema": {

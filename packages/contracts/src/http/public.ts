@@ -1,3 +1,5 @@
+import { siteInformationSchemas, siteInformationRoutes } from "./site-information.ts";
+export { SiteInformation, OfficialMetalLink } from "./site-information.ts";
 import { z } from "zod";
 import { SourceTimeProjection } from "../time-assertion.ts";
 import { isValidDate } from "../time.ts";
@@ -245,6 +247,7 @@ export const MetalPrices = z
 export type MetalPrices = z.infer<typeof MetalPrices>;
 
 export const schemas = {
+  ...siteInformationSchemas,
   ...policySchemas,
   SiteStats,
   SiteFilters,
@@ -259,6 +262,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...siteInformationRoutes,
   ...policyRoutes,
   siteTimeline: {
     method: "GET" as const,

@@ -1,5 +1,7 @@
 import { usageProtectionSchemas, usageProtectionRoutes } from "./usage-protection.ts";
 export * from "./usage-protection.ts";
+import { siteInformationPrivateSchemas, siteInformationPrivateRoutes } from "./site-information.ts";
+export { SiteInformation, SiteInformationUpdate, ProtectedSiteInformation, AdminSiteInformation } from "./site-information.ts";
 import { modelRegistrySchemas, modelRegistryRoutes } from "./model-registry.ts";
 export * from "./model-registry.ts";
 import { accountRoutes, accountSchemas } from "./accounts.ts";
@@ -181,6 +183,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...siteInformationPrivateSchemas,
   ...accountSchemas,
   ...usageProtectionSchemas,
   ...usageMonthlySchemas,
@@ -201,6 +204,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...siteInformationPrivateRoutes,
   ...accountRoutes,
   ...usageProtectionRoutes,
   ...usageMonthlyRoutes,
