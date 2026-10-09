@@ -187,7 +187,7 @@ export function buildPolicyFulltextPlan(extraction: PolicyExtraction, context: P
     status: "planned",
     revisionId: extraction.revisionId,
     context: { ...context },
-    manifestHash: sha256(stableJson([extraction.revisionId, context, parts])),
+    manifestHash: sha256(stableJson([extraction.revisionId, context, sourceBytes, parts])),
     parts,
     requests,
     sourceBytes,
