@@ -71,6 +71,15 @@ if (process.argv.includes("--routes")) {
   state.timelineError = new InvalidCursorError("fixture cursor");
   registerHooks({
     resolve(specifier, context, next) {
+      if (specifier === "@amp/backend/admin/auth")
+        return {
+          url:
+            "data:text/javascript," +
+            encodeURIComponent(
+              `export * from "${new URL("../../packages/backend/src/admin/auth.ts", import.meta.url).href}"; export async function passwordLoginAvailable(){return false;}`,
+            ),
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/site/stats")
         return {
           url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats};export async function loadMetalPrices(){}",
@@ -83,6 +92,7 @@ if (process.argv.includes("--routes")) {
           url:
             "data:text/javascript," +
             encodeURIComponent(`
+            export * from "${new URL("../../packages/backend/src/publication/timeline.ts", import.meta.url).href}";
             export async function loadTimeline(query) {
               globalThis.timelineQueries.push(query);
               if (query.cursor === "invalid") throw globalThis.timelineError;
@@ -289,6 +299,10 @@ if (process.argv.includes("--routes")) {
       [
         "private",
         [
+          "/api/admin/account",
+          "/api/admin/account/password",
+          "/api/admin/accounts",
+          "/api/admin/accounts/{id}/actions",
           "/api/admin/lane-controls",
           "/api/admin/lane-controls/actions",
           "/api/admin/model-connection-tests/{id}",
@@ -301,7 +315,10 @@ if (process.argv.includes("--routes")) {
           "/api/admin/runs",
           "/api/admin/sources",
           "/api/admin/sources/{id}",
+          "/api/admin/usage/reports",
+          "/api/admin/usage/reports/{month}",
           "/api/auth/options",
+          "/api/auth/password-nonce",
         ],
         "PoolResponse",
       ],

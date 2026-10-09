@@ -95,7 +95,7 @@ type Change = {
   actor: string;
   expiresAt?: string;
 };
-async function change(value: Change) {
+async function change(value: Change, authorize?: (db: Db) => Promise<void>) {
   if (
     !lanes.includes(value.lane) ||
     !value.switches.length ||
@@ -117,6 +117,7 @@ async function change(value: Change) {
   )
     throw new RuntimeControlInputError("暂停全部业务线的全部自动处理最多 24 小时，请缩短期限");
   const result = await sql.begin(async (tx) => {
+    if (authorize) await authorize(tx);
     await lock(tx, true);
     const before = (await rows(tx)).filter((r) => r.lane === value.lane && r.holder === value.holder && value.switches.includes(r.switch));
     const mismatch = before.filter((r) => r.revision !== value.expected[r.switch]);
@@ -147,18 +148,21 @@ async function change(value: Change) {
   if (!result) throw new LaneControlConflict("运行状态已被其他操作修改，请刷新后重新选择；未解除任何暂停");
   return result;
 }
-export async function changeOwnerLaneControls(input: unknown, actor: string) {
+export async function changeOwnerLaneControls(input: unknown, actor: string, authorize?: (db: Db) => Promise<void>) {
   const value = LaneControlActionRequest.parse(input);
-  await change({
-    lane: value.lane,
-    switches: value.mode === "automatic" ? ["collection", "processing"] : ["processing"],
-    holder: "owner",
-    action: value.action,
-    expected: value.expected_revisions,
-    reason: value.reason,
-    actor,
-    expiresAt: value.expires_at,
-  });
+  await change(
+    {
+      lane: value.lane,
+      switches: value.mode === "automatic" ? ["collection", "processing"] : ["processing"],
+      holder: "owner",
+      action: value.action,
+      expected: value.expected_revisions,
+      reason: value.reason,
+      actor,
+      expiresAt: value.expires_at,
+    },
+    authorize,
+  );
   return listLaneControls();
 }
 /** Internal controllers read their own exact inactive-or-active record versions before acquiring a new hold. */

@@ -28,7 +28,7 @@ interface UsageRow {
 
 export async function modelsOverview(days = 7) {
   const since = new Date(Date.now() - days * 86400_000);
-  const [sources, usage, prices, history, benches, routeRevisions] = await Promise.all([
+  const [sources, usage, prices, history, benches] = await Promise.all([
     modelSources(),
     sql<UsageRow[]>`
       SELECT r.purpose, a.model, r.request->>'promptVersion' AS prompt_version, count(*)::int AS calls,
@@ -50,8 +50,8 @@ export async function modelsOverview(days = 7) {
       SELECT id, label, sample_size, prompt_version, models,
              (SELECT coalesce(jsonb_object_agg(key, value - 'sweep'), '{}'::jsonb) FROM jsonb_each(r.summary)) AS summary,
              created_at FROM selectbench_runs r ORDER BY created_at DESC LIMIT 8`,
-    modelRouteRevisions(),
   ]);
+  const routeRevisions = await modelRouteRevisions();
   const serviceOf = (model: string) => Object.values(MODELS).find((m) => m.model === model || m.key === model)?.service ?? null;
   const priced = (u: UsageRow) => {
     const service = u.model ? serviceOf(u.model) : null;

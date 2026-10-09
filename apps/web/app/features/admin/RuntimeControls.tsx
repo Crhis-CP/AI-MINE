@@ -12,7 +12,15 @@ const switchLabel = { collection: "采集", processing: "新的模型处理", pu
 const holderLabel = { owner: "负责人暂停", deploy: "部署保护", system: "系统保护" };
 
 /** The view only describes explicit controls, never infers collection health from an unpaused flag. */
-export function RuntimeControls({ initial, onAction }: { initial: Snapshot | null; onAction: (action: Action) => Promise<Snapshot | null> }) {
+export function RuntimeControls({
+  initial,
+  onAction,
+  canManage = true,
+}: {
+  initial: Snapshot | null;
+  onAction: (action: Action) => Promise<Snapshot | null>;
+  canManage?: boolean;
+}) {
   const submitting = useRef(false);
   const [snapshot, setSnapshot] = useState(initial),
     [selection, setSelection] = useState<Selection | null>(null),
@@ -47,6 +55,7 @@ export function RuntimeControls({ initial, onAction }: { initial: Snapshot | nul
         </p>
       ) : (
         <>
+          {!canManage && <p className="mb-3 text-[13px] text-ink-3">当前为只读状态，暂停和恢复由负责人操作。</p>}
           <div className="grid gap-4 md:grid-cols-2">
             {(["news", "policy"] as const).map((lane) => {
               const controls = snapshot.controls.filter((c) => c.lane === lane || c.lane === "all"),
@@ -69,10 +78,10 @@ export function RuntimeControls({ initial, onAction }: { initial: Snapshot | nul
                     ))}
                   </dl>
                   <div className="mt-5 flex flex-wrap gap-2">
-                    <Button size="sm" disabled={!available || busy} onClick={() => begin(lane, "pause")}>
+                    <Button size="sm" disabled={!canManage || !available || busy} onClick={() => begin(lane, "pause")}>
                       {own.length ? "调整暂停" : "暂停"}
                     </Button>
-                    <Button size="sm" tone="primary" disabled={!own.length || !available || busy} onClick={() => begin(lane, "resume")}>
+                    <Button size="sm" tone="primary" disabled={!canManage || !own.length || !available || busy} onClick={() => begin(lane, "resume")}>
                       恢复负责人暂停
                     </Button>
                   </div>
@@ -83,18 +92,22 @@ export function RuntimeControls({ initial, onAction }: { initial: Snapshot | nul
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
             <p className="text-[12px] leading-5 text-ink-3">暂停到期会提醒，须明确恢复。解除负责人暂停后，部署保护、系统保护和熔断仍分别生效。</p>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={busy || Object.values(revisions("all")).some((r) => r === undefined)} onClick={() => begin("all", "pause")}>
+              <Button
+                size="sm"
+                disabled={!canManage || busy || Object.values(revisions("all")).some((r) => r === undefined)}
+                onClick={() => begin("all", "pause")}
+              >
                 暂停全部业务线
               </Button>
               {snapshot.controls.some((c) => c.lane === "all" && c.holder === "owner" && c.switch !== "publication") && (
-                <Button size="sm" disabled={busy} onClick={() => begin("all", "resume")}>
+                <Button size="sm" disabled={!canManage || busy} onClick={() => begin("all", "resume")}>
                   解除全部业务线的负责人暂停
                 </Button>
               )}
             </div>
           </div>
           {!!snapshot.controls.length && (
-            <div className="mt-4 space-y-2" aria-label="生效中的暂停记录">
+            <section className="mt-4 space-y-2" aria-label="生效中的暂停记录">
               {snapshot.controls.map((control) => (
                 <div key={`${control.lane}:${control.switch}:${control.holder}`} className="rounded-control bg-bg-sunk p-3 text-[12px] leading-5">
                   <div className="flex flex-wrap items-center gap-2">
@@ -109,7 +122,7 @@ export function RuntimeControls({ initial, onAction }: { initial: Snapshot | nul
                   </p>
                 </div>
               ))}
-            </div>
+            </section>
           )}
         </>
       )}

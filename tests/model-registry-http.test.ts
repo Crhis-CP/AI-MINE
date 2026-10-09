@@ -64,6 +64,23 @@ test("model HTTP routes enforce current identity, CSRF and revision while return
     403,
   );
   assert.equal((await request("POST", "/api/admin/model-connections", owner, { ...payload, billing_basis: "javascript:alert(1)" })).statusCode, 400);
+  const control = {
+    lane: "policy",
+    action: "pause",
+    mode: "processing",
+    reason: "synthetic Owner control",
+    expires_at: new Date(Date.now() + 3600_000).toISOString(),
+    expected_revisions: { processing: 0 },
+    confirm_all: false,
+  };
+  assert.equal((await request("POST", "/api/admin/lane-controls/actions", manager, control)).statusCode, 403);
+  const paused = await request("POST", "/api/admin/lane-controls/actions", owner, control);
+  assert.equal(paused.statusCode, 200, paused.body);
+  assert.ok(
+    paused
+      .json()
+      .controls.some((c: { lane: string; switch: string; holder: string }) => c.lane === "policy" && c.switch === "processing" && c.holder === "owner"),
+  );
   const created = await request("POST", "/api/admin/model-connections", owner, payload);
   assert.equal(created.statusCode, 200, created.body);
   const row = ModelConnectionRecord.parse(created.json());

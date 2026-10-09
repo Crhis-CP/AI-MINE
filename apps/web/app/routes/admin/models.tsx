@@ -307,7 +307,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
         <Field label="评测记录编号">
           <Input value={evaluation} onChange={(e) => setEvaluation(e.target.value)} placeholder="已完成且匹配当前配置的评测记录" />
         </Field>
-        {target?.key !== "score" && (
+        {target?.key !== "score" && me.owner && (
           <label className="mt-3 flex items-start gap-2 text-[13px]">
             <input type="checkbox" checked={emergency} onChange={(e) => setEmergency(e.target.checked)} />
             紧急恢复：本次未完成评测，明确记录为待评测。

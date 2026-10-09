@@ -155,7 +155,7 @@ export function registerAdmin(app: FastifyInstance) {
     adminHandler(async (req, reply, admin) => {
       const parsed = LaneControlActionRequest.safeParse(req.body);
       if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });
-      return LaneControlsResponse.parse(await changeOwnerLaneControls(parsed.data, actorOf(admin)));
+      return LaneControlsResponse.parse(await changeOwnerLaneControls(parsed.data, actorOf(admin), (tx) => requireOwner(admin, tx)));
     }),
   );
   // Sources (F18)

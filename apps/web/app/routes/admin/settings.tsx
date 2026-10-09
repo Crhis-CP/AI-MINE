@@ -2,7 +2,7 @@ import { SITE } from "@amp/industry/site";
 import { useState } from "react";
 import type { Route } from "./+types/settings";
 import { adminGet } from "../../lib/admin.server";
-import { useAdminAction } from "../../features/admin/action";
+import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { bj, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Input, ReasonDialog } from "../../features/admin/ui";
 import { RuntimeControls } from "../../features/admin/RuntimeControls";
@@ -119,10 +119,12 @@ function TargetToggle({ t }: { t: Settings["targets"][number] }) {
 
 export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
   const { run } = useAdminAction();
+  const me = useAdminMe();
   return (
     <AdminPage title="自动运行与通知" subtitle="分别管理资讯、法规的暂停状态，以及既有通知与请求频率。">
       <RuntimeControls
         initial={s.runtime}
+        canManage={!!me.owner}
         onAction={(action) =>
           run("POST", "/api/admin/lane-controls/actions", action, {
             label: "lane-control",
