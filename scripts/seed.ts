@@ -7,8 +7,7 @@ import { REPO_ROOT } from "@amp/backend/config";
 import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { seedTopics } from "@amp/backend/publication/topics";
 import { POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
-import { createSource } from "@amp/backend/admin/sources";
-import { SourceCreateRequest } from "@amp/contracts/http/private";
+import { createSource, validateSourceCreate } from "@amp/backend/admin/sources";
 import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
 
 const sql = dbOf("sources");
@@ -53,8 +52,7 @@ export async function seedPolicySources(entries: readonly PolicySource[]) {
   // Validate the entire batch before writing any source, including entries later found to exist.
   const prepared = eligible.map((entry) => {
     const collect = entry.collect!;
-    assertSupportedConfig(collect.kind, collect.config);
-    const input = SourceCreateRequest.parse({
+    const input = validateSourceCreate({
       id: `policy-${entry.id.toLowerCase()}`,
       name: `${entry.authority.zh} · ${entry.name.zh}`,
       kind: collect.kind,
@@ -71,14 +69,22 @@ export async function seedPolicySources(entries: readonly PolicySource[]) {
     });
     return { entry, input };
   });
-  const result = { added: { ready: 0, needs_overseas: 0 }, existing: 0, duplicates: [] as { id: string; existingId: string }[], skipped: { noConfiguration: 0, waitingReader: 0, otherStatus: 0 } };
+  const result = {
+    added: { ready: 0, needs_overseas: 0 },
+    existing: 0,
+    duplicates: [] as { id: string; existingId: string }[],
+    skipped: { noConfiguration: 0, waitingReader: 0, otherStatus: 0 },
+  };
   for (const entry of entries) {
     if (entry.status === "needs_reader") result.skipped.waitingReader++;
     else if (!entry.collect) result.skipped.noConfiguration++;
     else if (!["ready", "needs_overseas"].includes(entry.status)) result.skipped.otherStatus++;
   }
   for (const { entry, input } of prepared) {
-    if ((await sql`SELECT 1 FROM sources WHERE id = ${input.id}`).length) { result.existing++; continue; }
+    if ((await sql`SELECT 1 FROM sources WHERE id = ${input.id}`).length) {
+      result.existing++;
+      continue;
+    }
     const created = await createSource(input, "seed:policy-sources", { lane: "policy" });
     if (created.created) result.added[entry.status as "ready" | "needs_overseas"]++;
     else result.duplicates.push({ id: input.id, existingId: created.duplicate.id });

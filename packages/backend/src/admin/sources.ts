@@ -195,11 +195,17 @@ export async function findDuplicateSource(kind: string, config: Record<string, u
   return rows.find((r) => sourceIdentity(r.config) === identity) ?? null;
 }
 
+/** Validate a complete seed batch before any source is created, using the same rules as the HTTP entry. */
+export function validateSourceCreate(input: unknown) {
+  const source = SourceCreateRequest.parse(input);
+  assertSupportedConfig(source.kind, source.config);
+  return source;
+}
+
 export async function createSource(input: unknown, actor: string, opts: { lane?: "news" | "policy" } = {}) {
   const lane = opts.lane ?? "news";
   if (lane !== "news" && lane !== "policy") throw new Error("业务线必须是 news 或 policy");
-  const s = SourceCreateRequest.parse(input);
-  assertSupportedConfig(s.kind, s.config);
+  const s = validateSourceCreate(input);
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(23622, hashtext(${s.kind + ":" + (sourceIdentity(s.config) ?? s.id)}))`;
     const dup = await findDuplicateSource(s.kind, s.config, tx);
