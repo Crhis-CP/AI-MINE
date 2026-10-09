@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -30,6 +31,7 @@ const provider = await stub(async (_hit, req) => {
 });
 Object.assign(process.env, { LLM_BASE_URL: `${provider.url}/v1`, LLM_API_KEY: "synthetic-only", LLM_MODEL: "preserved-configured-model" });
 config.modelCallsEnabled = true;
+await installUsageFixtureForModel("default", sql);
 const schema = z.object({ ok: z.boolean() });
 after(async () => {
   await provider.close();
@@ -97,7 +99,7 @@ test("four explicit policy capabilities keep the configured model, bind manifest
     assert.deepEqual(row.request.manifest, f.state.input.manifest);
     assert.deepEqual(row.request.sourceIds, [f.id]);
     assert.equal(row.usage.prompt_tokens, 9);
-    assert.equal(row.cost, null);
+    assert.equal(Number(row.cost), 0, "explicit synthetic zero CNY price is recorded rather than a missing price");
   }
 });
 
@@ -190,6 +192,7 @@ test("a pending source blocks another grouping or model route while independent 
     process.env.POLICY_GROUP_MODEL = "deepseek-flash";
     process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
     process.env.DEEPSEEK_API_KEY = "synthetic-only";
+    await installUsageFixtureForModel("deepseek-flash", sql);
     invalidateModelCache();
     await assert.rejects(f.run("policy_group", "2"), ReceiptBusyError);
     const other = await fixture();
@@ -217,6 +220,7 @@ test("unknown outcome cannot be repurchased by changing version, input or model"
     process.env.POLICY_VERIFY_MODEL = "deepseek-flash";
     process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
     process.env.DEEPSEEK_API_KEY = "synthetic-only";
+    await installUsageFixtureForModel("deepseek-flash", sql);
     await assert.rejects(f.run("policy_verify", "new"), ReceiptUnknownError);
     assert.equal(calls, 1);
     assert.equal((await sql`SELECT status FROM receipts WHERE subject=${`policy:${f.id}@1`}`)[0]!.status, "unknown");

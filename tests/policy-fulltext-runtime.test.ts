@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { stripTags } from "@amp/backend/lib/text";
@@ -38,6 +39,7 @@ const provider = await stub(async (_hit, req) => {
 });
 Object.assign(process.env, { LLM_BASE_URL: `${provider.url}/v1`, LLM_API_KEY: "synthetic-test-only", LLM_MODEL: "unchanged-policy-fixture-model" });
 config.modelCallsEnabled = true;
+await installUsageFixtureForModel("default", sql);
 const profile = { bodySelector: "article", attachmentSelector: null, maxBytes: 2_000_000, maxResources: 8, maxPages: 40, maxTextBytes: 2_000_000 };
 async function original(count = 1) {
   const id = `runtime-${tag()}`,

@@ -22,7 +22,7 @@ const costs = (totals: Totals) =>
     <span className="text-ink-4">未记录金额</span>
   );
 
-export function MonthlyUsage({ entries }: { entries: Entry[] | null }) {
+export function MonthlyUsage({ entries, pushTime = "09:00" }: { entries: Entry[] | null; pushTime?: string }) {
   const [selected, setSelected] = useState(""),
     entry = entries?.find((e) => e.report.month === selected) ?? entries?.[0];
   if (!entries)
@@ -36,7 +36,7 @@ export function MonthlyUsage({ entries }: { entries: Entry[] | null }) {
   if (!entry)
     return (
       <Card title="月度用量" className="mb-5 mt-5">
-        <p className="text-[13px] text-ink-3">尚未生成月报。每个自然月结束后，北京时间次月1日09:00起汇总；数据和通知状态分别记录。</p>
+        <p className="text-[13px] text-ink-3">尚未生成月报。每个自然月结束后，北京时间次月1日{pushTime}起汇总；数据和通知状态分别记录。</p>
       </Card>
     );
   const { report: r } = entry,

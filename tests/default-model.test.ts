@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // The open-source default: one OpenAI-compatible model (LLM_BASE_URL, LLM_API_KEY, LLM_MODEL) runs every
 // step of the analysis, with no per-step configuration.
 import { stub, tag } from "./setup.ts";
@@ -49,6 +50,7 @@ const provider = await stub((_hit, req) => {
 Object.assign(process.env, { LLM_BASE_URL: `${provider.url}/v1`, LLM_API_KEY: "test-key", LLM_MODEL: "one-model", MODEL_CALLS_ENABLED: "true" });
 
 before(async () => {
+  await installUsageFixtureForModel("default", sql);
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES (${SOURCE}, 'Test default model', 'rss', 'T1', 'editorial', '2100-01-01')`;
 });
 after(async () => {

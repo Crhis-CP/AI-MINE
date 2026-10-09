@@ -12,6 +12,8 @@ import { registerPolicies } from "./routes/policies.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
 import { registerOperationsMcp } from "./routes/mcp-ops.ts";
+import { registerUsageProtection } from "./routes/admin-usage-protection.ts";
+
 import { registerAdmin } from "./routes/admin.ts";
 import { registerV1, registerV1Fallbacks } from "./routes/v1.ts";
 import { registerFeeds } from "./routes/feeds.ts";
@@ -111,6 +113,8 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     registerAdmin(app);
     registerSourceTargets(app);
     registerOperationsMcp(app);
+    registerUsageProtection(app);
+
     registerAdminAuth(app);
     registerAdminSite(app);
   }

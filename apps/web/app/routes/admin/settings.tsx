@@ -1,3 +1,6 @@
+import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
+import { apiBaseFor } from "../../../api-target.ts";
+import { UsageProtection } from "../../features/admin/UsageProtection";
 import { SITE } from "@amp/industry/site";
 import { useState } from "react";
 import type { Route } from "./+types/settings";
@@ -12,6 +15,7 @@ import { MonthlyUsage } from "../../features/admin/MonthlyUsage";
 import type { z } from "zod";
 
 interface Settings {
+  protection: z.infer<typeof privateSchemas.UsageProtectionOverview> | null;
   runtime: z.infer<typeof LaneControlsResponse> | null;
   monthly: z.infer<typeof MonthlyUsageList>["items"] | null;
   targets: Array<{
@@ -38,16 +42,21 @@ interface Settings {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const [settings, runtime, monthly] = await Promise.all([
-    adminGet<Omit<Settings, "runtime" | "monthly">>(request, "/api/admin/settings"),
+  const path = "/api/admin/usage-protection",
+    client = createPrivateClient({ baseUrl: apiBaseFor(path) });
+  const [settings, runtime, monthly, protection] = await Promise.all([
+    adminGet<Omit<Settings, "runtime" | "monthly" | "protection">>(request, "/api/admin/settings"),
     adminGet<unknown>(request, "/api/admin/lane-controls")
       .then((value) => LaneControlsResponse.parse(value))
       .catch(() => null),
     adminGet<unknown>(request, "/api/admin/usage/reports")
       .then((value) => MonthlyUsageList.parse(value).items)
       .catch(() => null),
+    adminGet<unknown>(request, path, (_url, init) => client.GET(path, { headers: init.headers, signal: init.signal }))
+      .then((value) => privateSchemas.UsageProtectionOverview.parse(value))
+      .catch(() => null),
   ]);
-  return { ...settings, runtime, monthly };
+  return { ...settings, runtime, monthly, protection };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: `自动运行与通知 · ${SITE.name} 后台` }];
@@ -134,7 +143,8 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
           })
         }
       />
-      <MonthlyUsage entries={s.monthly} />
+      <UsageProtection data={s.protection} />
+      <MonthlyUsage entries={s.monthly} pushTime={s.protection?.configuration?.config.usage_report.push_time} />
       <Card title="通知目的地" pad={false}>
         <DataTable
           rows={s.targets}

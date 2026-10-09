@@ -298,7 +298,10 @@ export async function usageMonthly(now = new Date(), send = sendAlert) {
   const configured = await usageConfiguration();
   const [hour, minute] = (configured?.config.usage_report.push_time ?? "09:00").split(":").map(Number);
   if (now.getTime() < usageMonthPeriod(month).end.getTime() + (hour! * 60 + minute!) * 60_000) return { deferred: true };
-  const existing = await sql<{ month: string }[]>`SELECT month FROM ai.usage_monthly_reports ORDER BY checked_at,month LIMIT 24`;
-  for (const row of existing) if (row.month !== month) await reconcileMonthlyUsage(row.month, now, send);
-  return reconcileMonthlyUsage(month, now, send);
+  // Minute-level scheduling honors the chosen first-issue minute; history is still reconciled at most hourly.
+  const existing = await sql<{ month: string; checked_at: Date }[]>`SELECT month,checked_at FROM ai.usage_monthly_reports ORDER BY checked_at,month LIMIT 24`;
+  const due = (checked: Date) => checked.getTime() <= now.getTime() - 3600_000;
+  for (const row of existing) if (row.month !== month && due(row.checked_at)) await reconcileMonthlyUsage(row.month, now, send);
+  const latest = existing.find((row) => row.month === month);
+  return latest && !due(latest.checked_at) ? { deferred: true } : reconcileMonthlyUsage(month, now, send);
 }
