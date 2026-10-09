@@ -17,7 +17,13 @@ const TAIL = "流通领域重要生产资料市场价格变动情况";
 const NOW = new Date("2026-10-06T04:00:00Z");
 const all = loadMetalPriceRegistry();
 // Only the bureau's part: later cards add the World Bank and the IMF to the same file.
-const registry = { sources: all.sources.filter((source) => source.key === "nbs"), items: all.items.filter((item) => item.source === "nbs") };
+const registry = {
+  ...all,
+  sources: all.sources.filter((source) => source.key === "nbs"),
+  items: all.items
+    .filter((item) => item.source === "nbs" && item.key !== "nbs.sulfuric_acid")
+    .map((item) => ({ ...item, metal: item.metal ?? "copper", quote: item.quote ?? item.key, enabled: true })),
+};
 const [source] = registry.sources;
 /** The ten registered series in the order of the bureau's table, and 本期价格 as the two fixtures write it. */
 const KEYS = "rebar wire_rod medium_plate hr_coil seamless_pipe angle_steel copper aluminum lead zinc".split(" ").map((key) => `nbs.${key}`);

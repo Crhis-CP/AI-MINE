@@ -4,7 +4,10 @@
 import type { MetalPriceItem, MetalPriceSource, MetalPriceSourceKey } from "./registry.ts";
 
 /** A page request: guardedFetch in production, fixtures by address in tests. `url` is where any redirects ended. */
-export type PageGetter = (url: string) => Promise<{ status: number; url: string; text(): string }>;
+export type PageGetter = (
+  url: string,
+  opts?: { maxBytes?: number; maxRedirects?: number; method?: string; body?: string; headers?: Record<string, string> },
+) => Promise<{ status: number; url: string; text(): string; body?: Buffer }>;
 
 /** A period as its source names it: calendar days, both ends included. */
 export interface Period {
@@ -31,6 +34,8 @@ export interface FetchedPeriod {
   rows: PriceRow[];
   /** The source's own reasons to hold the period back whole, from pages that read fine; empty: none. */
   held: string[];
+  /** Fetcher observations that do not hold a period back. */
+  notes?: string[];
   /** Series held back alone, with the source's reasons (TASK-0046): their rows are neither checked nor stored. */
   heldSeries?: { key: string; reason: string }[];
 }
@@ -42,7 +47,8 @@ export interface Fetcher {
   sourceKeys: MetalPriceSourceKey[];
   /**
    * The periods to check, oldest first: the stored newest one (`newest` gives its start) again and every later one, or
-   * the newest listed alone when nothing is stored (null; no back-fill). Throws when a page cannot be read as expected:
+   * the newest listed when nothing is stored (null), plus its predecessor where the source card permits; no earlier back-fill.
+   * Throws when a page cannot be read as expected:
    * an error status, an address or redirect off the source's https hosts, a list naming no period, no price table (INV-33).
    */
   fetch(newest: (source: MetalPriceSourceKey) => Promise<string | null>, context?: FetchContext): Promise<FetchedPeriod[]>;

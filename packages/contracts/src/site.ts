@@ -245,6 +245,7 @@ export interface ReportIndexEntry {
 }
 
 export type { SiteStats } from "./http/public.ts";
+export type { MetalPrices } from "./http/public.ts";
 
 /** A reading page transfers one language; the canonical item retains both for exports. */
 export interface SiteItemDetail extends ItemDetail {

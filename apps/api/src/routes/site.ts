@@ -1,6 +1,6 @@
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
-import { routes as contracts, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
+import { routes as contracts, MetalPrices, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
@@ -12,7 +12,7 @@ import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/gro
 import { loadTopicTags } from "@amp/backend/publication/topics";
 import { loadHotStrip } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
-import { loadSiteStats } from "@amp/backend/site/stats";
+import { loadSiteStats, loadMetalPrices } from "@amp/backend/site/stats";
 import { itemAvailability } from "@amp/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage } from "@amp/backend/publication/topics";
 import { registerFeedback } from "./feedback.ts";
@@ -197,6 +197,16 @@ export function registerSite(app: FastifyInstance) {
       const stats = await loadSiteStats();
       SiteStats.parse(stats);
       return sendJsonWithEtag(req, reply, stats, { etagPrefix: "stats", cacheControl: "public, max-age=300, s-maxage=300" });
+    }),
+  );
+
+  app.get(
+    contracts.siteMetalPrices.url,
+    contracts.siteMetalPrices,
+    siteHandler(async (req, reply) => {
+      const prices = MetalPrices.parse(await loadMetalPrices());
+      const { generatedAt: _generatedAt, ...content } = prices;
+      return sendJsonWithEtag(req, reply, prices, { etagPrefix: "metals", etagOf: content, cacheControl: "public, max-age=300, s-maxage=300" });
     }),
   );
 

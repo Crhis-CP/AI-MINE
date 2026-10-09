@@ -167,6 +167,14 @@
     {
       "name": "sources/202610081510_source_lane.sql",
       "dependsOn": ["publication/202610060435_metal_prices.sql"]
+    },
+    {
+      "name": "publication/202610082354_metal_prices_cbr.sql",
+      "dependsOn": ["publication/202610060435_metal_prices.sql"]
+    },
+    {
+      "name": "publication/202610090010_metal_prices_weekly.sql",
+      "dependsOn": ["publication/202610082354_metal_prices_cbr.sql"]
     }
   ]
 }

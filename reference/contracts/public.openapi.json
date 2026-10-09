@@ -433,6 +433,932 @@
         ],
         "type": "object"
       },
+      "MetalPrices": {
+        "additionalProperties": false,
+        "properties": {
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "intro": {
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "latest": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "extras": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "metals": {
+                        "items": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "stale": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "metals",
+                      "label",
+                      "stale"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "stale": {
+                  "type": "boolean"
+                },
+                "tag": {
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "tag",
+                "label",
+                "stale",
+                "extras"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "metals": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "name": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "quotes": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "change": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "percent": {
+                                "pattern": "^-?(?:0|[1-9]\\d*)\\.\\d$",
+                                "type": "string"
+                              },
+                              "previous": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "period": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "end": {
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "pattern": "\\S",
+                                        "type": "string"
+                                      },
+                                      "start": {
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "start",
+                                      "end",
+                                      "label"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "value": {
+                                    "pattern": "^\\d+(?:\\.\\d+)?$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "period"
+                                ],
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "percent",
+                              "previous"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "currency": {
+                        "enum": [
+                          "CNY",
+                          "USD"
+                        ],
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "anyOf": [
+                          {
+                            "maximum": 6,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "footnote": {
+                        "anyOf": [
+                          {
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "key": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "period": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "end": {
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                "type": "string"
+                              },
+                              "label": {
+                                "pattern": "\\S",
+                                "type": "string"
+                              },
+                              "start": {
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "start",
+                              "end",
+                              "label"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "source": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "spec": {
+                        "anyOf": [
+                          {
+                            "pattern": "\\S",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "title": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "unit": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "source",
+                      "title",
+                      "spec",
+                      "footnote",
+                      "value",
+                      "unit",
+                      "currency",
+                      "decimals",
+                      "period",
+                      "change"
+                    ],
+                    "type": "object"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "quotes"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "notes": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "link": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "url": {
+                          "format": "uri",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "url"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ref": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "text": {
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ref",
+                "text",
+                "link"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "officialLinks": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "note": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "url": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "url",
+                "note"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "latest": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "label": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "release": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "date": {
+                              "anyOf": [
+                                {
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "label": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "url": {
+                              "format": "uri",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url",
+                            "date"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "release"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "name": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "fresh",
+                    "stale",
+                    "empty"
+                  ],
+                  "type": "string"
+                },
+                "tag": {
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "tag",
+                "status",
+                "latest"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "intro",
+          "latest",
+          "sources",
+          "metals",
+          "notes",
+          "officialLinks"
+        ],
+        "type": "object"
+      },
+      "MetalPricesInput": {
+        "additionalProperties": false,
+        "properties": {
+          "generatedAt": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "intro": {
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "latest": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "extras": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "label": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "metals": {
+                        "items": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array"
+                      },
+                      "stale": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "metals",
+                      "label",
+                      "stale"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "label": {
+                  "anyOf": [
+                    {
+                      "pattern": "\\S",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "stale": {
+                  "type": "boolean"
+                },
+                "tag": {
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "tag",
+                "label",
+                "stale",
+                "extras"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "metals": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "name": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "quotes": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "change": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "percent": {
+                                "pattern": "^-?(?:0|[1-9]\\d*)\\.\\d$",
+                                "type": "string"
+                              },
+                              "previous": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "period": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "end": {
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                        "type": "string"
+                                      },
+                                      "label": {
+                                        "pattern": "\\S",
+                                        "type": "string"
+                                      },
+                                      "start": {
+                                        "format": "date",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "start",
+                                      "end",
+                                      "label"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "value": {
+                                    "pattern": "^\\d+(?:\\.\\d+)?$",
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "value",
+                                  "period"
+                                ],
+                                "type": "object"
+                              }
+                            },
+                            "required": [
+                              "percent",
+                              "previous"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "currency": {
+                        "enum": [
+                          "CNY",
+                          "USD"
+                        ],
+                        "type": "string"
+                      },
+                      "decimals": {
+                        "anyOf": [
+                          {
+                            "maximum": 6,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "footnote": {
+                        "anyOf": [
+                          {
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991,
+                            "type": "integer"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "key": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "period": {
+                        "anyOf": [
+                          {
+                            "additionalProperties": false,
+                            "properties": {
+                              "end": {
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                "type": "string"
+                              },
+                              "label": {
+                                "pattern": "\\S",
+                                "type": "string"
+                              },
+                              "start": {
+                                "format": "date",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "start",
+                              "end",
+                              "label"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "source": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "spec": {
+                        "anyOf": [
+                          {
+                            "pattern": "\\S",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "title": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "unit": {
+                        "pattern": "\\S",
+                        "type": "string"
+                      },
+                      "value": {
+                        "anyOf": [
+                          {
+                            "pattern": "^\\d+(?:\\.\\d+)?$",
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "source",
+                      "title",
+                      "spec",
+                      "footnote",
+                      "value",
+                      "unit",
+                      "currency",
+                      "decimals",
+                      "period",
+                      "change"
+                    ],
+                    "type": "object"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "quotes"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "notes": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "link": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "url": {
+                          "format": "uri",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "url"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "ref": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "text": {
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "ref",
+                "text",
+                "link"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "officialLinks": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "note": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "url": {
+                  "format": "uri",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "url",
+                "note"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "key": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "latest": {
+                  "anyOf": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "label": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "release": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "date": {
+                              "anyOf": [
+                                {
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "label": {
+                              "pattern": "\\S",
+                              "type": "string"
+                            },
+                            "url": {
+                              "format": "uri",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "url",
+                            "date"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "release"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "name": {
+                  "pattern": "\\S",
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "fresh",
+                    "stale",
+                    "empty"
+                  ],
+                  "type": "string"
+                },
+                "tag": {
+                  "pattern": "\\S",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "key",
+                "name",
+                "tag",
+                "status",
+                "latest"
+              ],
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "intro",
+          "latest",
+          "sources",
+          "metals",
+          "notes",
+          "officialLinks"
+        ],
+        "type": "object"
+      },
       "PoolResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1183,6 +2109,36 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/site/metal-prices": {
+      "get": {
+        "operationId": "siteMetalPrices",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetalPrices"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "304": {
+            "description": "Default Response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
     "/api/site/pool": {
       "get": {
         "operationId": "sitePool",

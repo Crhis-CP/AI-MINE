@@ -72,7 +72,10 @@ if (process.argv.includes("--routes")) {
   registerHooks({
     resolve(specifier, context, next) {
       if (specifier === "@amp/backend/site/stats")
-        return { url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats}", shortCircuit: true };
+        return {
+          url: "data:text/javascript,export async function loadSiteStats(){return globalThis.contractStats};export async function loadMetalPrices(){}",
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/events/hot-read")
         return { url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot}", shortCircuit: true };
       if (specifier === "@amp/backend/publication/timeline")
@@ -261,7 +264,7 @@ if (process.argv.includes("--routes")) {
   });
   test("generated document components remain private to their entry", () => {
     for (const [audience, routes, absent] of [
-      ["public", ["/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
+      ["public", ["/api/site/metal-prices", "/api/site/pool", "/api/site/stats", "/api/site/timeline"], "LoginOptions"],
       [
         "private",
         ["/api/admin/receipts/{id}/release", "/api/admin/runs", "/api/admin/sources", "/api/admin/sources/{id}", "/api/auth/options"],

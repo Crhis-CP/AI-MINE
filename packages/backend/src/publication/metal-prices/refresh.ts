@@ -3,13 +3,21 @@
 // reasons or the check's; a failing source fails alone. The return value is the run record the schedule keeps in
 // job_runs.detail.
 import { checkPeriod } from "./check.ts";
+import { cbrFetcher } from "./cbr.ts";
+import { mofcomFetcher } from "./mofcom.ts";
 import { nbsFetcher } from "./nbs.ts";
 import { loadMetalPriceRegistry, type MetalPriceSource, type MetalPriceSourceKey, parseMetalPriceRegistry } from "./registry.ts";
 import { fetchedAt, latestValues, newestStart, previousValues, previewLatestValues, previewPeriod, storedValues, storePeriod } from "./store.ts";
 import type { FetchedPeriod, PageGetter } from "./types.ts";
+import { worldbankFetcher } from "./worldbank.ts";
 
 /** Each source's fetcher by its key: a source is added by its registry entry and a line here (TASK-0046). */
-const FETCHERS: Partial<Record<MetalPriceSourceKey, typeof nbsFetcher>> = { nbs: nbsFetcher };
+const FETCHERS: Partial<Record<MetalPriceSourceKey, typeof nbsFetcher>> = {
+  nbs: nbsFetcher,
+  worldbank: worldbankFetcher,
+  cbr: cbrFetcher,
+  mofcom: mofcomFetcher,
+};
 
 /** One period of a source in the run record; TASK-0046 adds the series held back alone. */
 export interface MetalPricePeriodRun {
@@ -124,13 +132,14 @@ export async function refreshMetalPrices(
         const unchanged = one.period.start === newest && rows.length === kept.length && rows.every((row) => known.get(row.key) === row.value);
         const compareWithPrevious = !unchanged && one.period.start !== opts.force?.periodStart;
         const { reasons, notes } = checkPeriod({ fetched: { ...one, rows }, source, items: kept, previous, newest, compareWithPrevious, now });
-        entry.notes = notes;
+        entry.notes = [...(one.notes ?? []), ...notes];
         const held = [...one.held, ...(kept.length ? [] : ["这一期启用的品种全被单独扣下"]), ...reasons];
         if (held.length) {
           entry.held = held.join("；");
           // A held new period keeps every later one waiting: with them stored it would be older than the store and never
           // get in. The stored newest period read again does not, as it is stored already.
-          if (!newest || one.period.start > newest) waiting = one.period.label;
+          // A rejected daily fixing must not indefinitely block later days; daily gaps are not back-filled.
+          if (source.frequency !== "day" && (!newest || one.period.start > newest)) waiting = one.period.label;
           continue;
         }
         if (unchanged && !stored.size) entry.notes.push("和库里已有的一样，不另存");

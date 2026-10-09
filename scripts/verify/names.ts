@@ -223,6 +223,8 @@ export const SITE_OUTPUTS: ReadonlyArray<readonly [path: string, statuses: reado
   ["/daily", [200]],
   ["/daily/archive", [200]],
   ["/topics", [200]],
+  ["/metals", [200]],
+  ["/api/site/metal-prices", [200]],
   ["/starred", [200]],
   ["/agent", [200]],
   ["/about", [200]],
