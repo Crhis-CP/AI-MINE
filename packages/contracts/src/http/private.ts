@@ -1,5 +1,16 @@
 import { modelRegistrySchemas, modelRegistryRoutes } from "./model-registry.ts";
 export * from "./model-registry.ts";
+import { accountRoutes, accountSchemas } from "./accounts.ts";
+export {
+  AccountRecord,
+  AccountList,
+  CurrentAccount,
+  AccountCreateRequest,
+  AccountActionRequest,
+  AccountPasswordChangeRequest,
+  AccountPasswordChanged,
+  LoginNonce,
+} from "./accounts.ts";
 import { runtimeControlSchemas, runtimeControlRoutes } from "./runtime-controls.ts";
 export { LaneControl, LaneControlsResponse, LaneControlActionRequest } from "./runtime-controls.ts";
 export { MonthlyUsageReport, MonthlyUsageEntry, MonthlyUsageList, UsageMonth, UsageTotals } from "./usage-monthly.ts";
@@ -168,6 +179,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...accountSchemas,
   ...usageMonthlySchemas,
   ...modelRegistrySchemas,
   ...runtimeControlSchemas,
@@ -186,6 +198,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...accountRoutes,
   ...usageMonthlyRoutes,
   ...modelRegistryRoutes,
   ...runtimeControlRoutes,
@@ -248,3 +261,5 @@ export const routes = {
     },
   },
 };
+
+export { AccountLoginName } from "./accounts.ts";
