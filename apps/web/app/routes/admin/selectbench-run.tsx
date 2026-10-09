@@ -138,8 +138,8 @@ export default function SelectBenchRun({ loaderData: d }: { loaderData: Awaited<
                   {sweep.map((row) => (
                     <tr key={row.t} className="border-b border-line/60 last:border-0">
                       <td className="px-3 py-2 num">{row.t}</td>
-                      {[row.acc, row.P, row.R, row.F1, row.sel].map((value, i) => (
-                        <td key={i} className="px-3 py-2 num">
+                      {Object.entries({ acc: row.acc, precision: row.P, recall: row.R, f1: row.F1, selected: row.sel }).map(([key, value]) => (
+                        <td key={key} className="px-3 py-2 num">
                           {pct(value)}
                         </td>
                       ))}

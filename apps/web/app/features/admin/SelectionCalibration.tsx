@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { z } from "zod";
 import type { privateSchemas } from "@amp/api-client/private";
 import { Badge, Button, Card, Empty, Field, Input, Select } from "./ui";
@@ -59,7 +59,10 @@ export function SelectionToolControl({
     </Card>
   );
 }
-export function SelectionSampleLabels({
+export function SelectionSampleLabels(props: Parameters<typeof SelectionSampleLabelsPage>[0]) {
+  return <SelectionSampleLabelsPage key={JSON.stringify([props.data.datasetId, props.data.page])} {...props} />;
+}
+function SelectionSampleLabelsPage({
   data,
   onSave,
   onPage,
@@ -69,7 +72,6 @@ export function SelectionSampleLabels({
   onPage: (page: number) => void;
 }) {
   const [selected, setSelected] = useState(0);
-  useEffect(() => setSelected(0), [data.page, data.datasetId]);
   const sample = data.samples[selected];
   if (!sample)
     return (
@@ -200,6 +202,13 @@ function SelectionLabelForm({
     </section>
   );
 }
+/** Acknowledgement is tied to exact evidence; changing it resets only the checkbox, preserving notes. */
+function useReadConfirmation(key: string) {
+  const [state, setState] = useState({ key, read: false });
+  const current = state.key === key;
+  if (!current) setState({ key, read: false });
+  return [current && state.read, (read: boolean) => setState({ key, read })] as const;
+}
 export function SelectionStandardReviewForm({
   data,
   onSave,
@@ -209,11 +218,10 @@ export function SelectionStandardReviewForm({
 }) {
   const [decision, setDecision] = useState<"approved" | "changes_requested" | "rejected">("changes_requested"),
     [note, setNote] = useState(""),
-    [read, setRead] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     s = data.submission;
-  useEffect(() => setRead(false), [s?.id, s?.contentHash]);
+  const [read, setRead] = useReadConfirmation(JSON.stringify([s?.id, s?.contentHash]));
   if (!s)
     return (
       <Card title="评分标准的一次性审阅">
@@ -278,12 +286,11 @@ export function SelectionRunConfirmation({
   onConfirm: (input: Omit<z.infer<typeof privateSchemas.SelectionHoldoutConfirm>, "requestId">) => Promise<boolean>;
 }) {
   const [model, setModel] = useState(evidence.models[0]?.model ?? ""),
-    [read, setRead] = useState(false),
     [note, setNote] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const chosen = evidence.models.find((m) => m.model === model);
-  useEffect(() => setRead(false), [chosen?.evidenceHash, model]);
+  const [read, setRead] = useReadConfirmation(JSON.stringify([evidence.runId, chosen?.evidenceHash, model]));
   return (
     <Card title="校准证据与负责人确认">
       <p className="text-sm text-ink-2">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { z } from "zod";
 import { LaneControlActionRequest, type LaneControlsResponse } from "@amp/contracts/http/private";
 import { Badge, Button, Card, Input, ReasonDialog, Select } from "./ui";
@@ -21,6 +21,7 @@ export function RuntimeControls({
   onAction: (action: Action) => Promise<Snapshot | null>;
   canManage?: boolean;
 }) {
+  const controlId = useId();
   const submitting = useRef(false);
   const [snapshot, setSnapshot] = useState(initial),
     [selection, setSelection] = useState<Selection | null>(null),
@@ -188,9 +189,10 @@ export function RuntimeControls({
           }
         }}
       >
-        <label className="block text-[13px]">
+        <label htmlFor={`${controlId}-mode`} className="block text-[13px]">
           操作范围
           <Select
+            id={`${controlId}-mode`}
             className="mt-1"
             value={mode}
             onChange={(e) => {
@@ -203,9 +205,9 @@ export function RuntimeControls({
           </Select>
         </label>
         {selection?.action === "pause" && (
-          <label className="block text-[13px]">
+          <label htmlFor={`${controlId}-expires`} className="block text-[13px]">
             到期时间（按当前设备时区）
-            <Input className="mt-1" type="datetime-local" required value={expires} onChange={(e) => setExpires(e.target.value)} />
+            <Input id={`${controlId}-expires`} className="mt-1" type="datetime-local" required value={expires} onChange={(e) => setExpires(e.target.value)} />
             <span className="mt-1 block text-[12px] text-ink-3">到期只提醒，不会自动恢复。</span>
           </label>
         )}

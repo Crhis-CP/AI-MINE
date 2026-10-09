@@ -236,9 +236,6 @@
     "lint/correctness/noUnusedImports": 1,
     "lint/suspicious/noExplicitAny": 3
   },
-  "tests/events.test.ts": {
-    "lint/style/useConst": 1
-  },
   "tests/publication.test.ts": {
     "lint/suspicious/noExplicitAny": 7
   },

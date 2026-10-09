@@ -88,7 +88,7 @@ export async function createAdministrator(principal: AdminPrincipal, input: unkn
       await requireOwner(principal, tx);
       await checkCapacity(tx);
       await freeLoginName(tx, value.login_name);
-      const [u] = await tx`INSERT INTO admin_users(display_name) VALUES(${value.display_name}) RETURNING id`;
+      const [u] = await tx<{ id: number }[]>`INSERT INTO admin_users(display_name) VALUES(${value.display_name}) RETURNING id`;
       await tx`INSERT INTO identity.account_access(user_id,role,must_change_password) VALUES(${u!.id},'admin',true)`;
       await tx`INSERT INTO identity.password_accounts(user_id,login_name,password_hash) VALUES(${u!.id},${value.login_name},${hash})`;
       await audit(
@@ -249,7 +249,7 @@ export async function provisionFirstOwner(input: { loginName: string; displayNam
       await lockAccountAccess(tx, id, true);
     } else {
       await checkCapacity(tx);
-      const [u] = await tx`INSERT INTO admin_users(display_name) VALUES(${input.displayName}) RETURNING id`;
+      const [u] = await tx<{ id: number }[]>`INSERT INTO admin_users(display_name) VALUES(${input.displayName}) RETURNING id`;
       id = Number(u!.id);
     }
     await freeLoginName(tx, name, id);

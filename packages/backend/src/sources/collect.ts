@@ -393,7 +393,7 @@ async function pacedCollectSource(
   opts: NonNullable<Parameters<typeof collectSource>[1]> & { crawlSessionId?: string } = {},
 ): Promise<CollectResult> {
   const source = await readSourceDateContext(sourceId);
-  if (!source || !source.enabled || !collectionEnabled(source.lane)) return collectSource(sourceId, opts);
+  if (!source?.enabled || !collectionEnabled(source.lane)) return collectSource(sourceId, opts);
   try {
     return await withSourceCrawl(source, `source:${sourceId}`, () => collectSource(sourceId, opts), { expectedSessionId: opts.crawlSessionId });
   } catch (error) {

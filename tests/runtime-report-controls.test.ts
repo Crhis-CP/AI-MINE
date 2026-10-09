@@ -6,7 +6,7 @@ import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { composeDaily, composeMonthly } from "@amp/backend/reports/compose";
 import { composeStoryDigest } from "@amp/backend/events/digest";
-import { getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
+import { type getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
 import { registerEventJobs } from "@amp/backend/jobs/events";
 import {
   changeOwnerLaneControls,
@@ -121,9 +121,9 @@ test("empty deterministic reports do not use models; processing and publication 
 });
 
 test("paused event jobs defer into durable future work without consuming ordinary failure retries", async () => {
-  const handlers = new Map<string, (jobs: any[]) => Promise<unknown>>();
+  const handlers = new Map<string, (jobs: { data: unknown }[]) => Promise<unknown>>();
   const worker = {
-    work: async (name: string, _options: unknown, handler: (jobs: any[]) => Promise<unknown>) => {
+    work: async (name: string, _options: unknown, handler: (jobs: { data: unknown }[]) => Promise<unknown>) => {
       handlers.set(name, handler);
     },
   } as unknown as Awaited<ReturnType<typeof getBoss>>;

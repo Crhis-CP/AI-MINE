@@ -21,6 +21,7 @@ export function SelectionStandardsSection({ owner }: { owner: boolean }) {
     [error, setError] = useState(false);
   useEffect(() => {
     if (!owner || revalidator.state !== "idle") return;
+    if (reload > 0) setError(false);
     const abort = new AbortController();
     createPrivateClient({})
       .GET("/api/admin/selectbench/standards", { signal: abort.signal })

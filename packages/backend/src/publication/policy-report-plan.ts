@@ -1,5 +1,5 @@
-import { z } from "zod";
-import { PolicyCard, PolicyHistoryEntry, PolicyReport, PolicyReportCard } from "@amp/contracts/http/public";
+import type { z } from "zod";
+import type { PolicyCard, PolicyHistoryEntry, PolicyReport, PolicyReportCard } from "@amp/contracts/http/public";
 import { addDays, beijingDate, beijingMidnight, isoWeekLabel, isoWeekRange, isValidDate } from "@amp/contracts/time";
 import { sha256, stableJson } from "../lib/ids.ts";
 

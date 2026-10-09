@@ -87,14 +87,14 @@ export default function SourceTargetPage({ loaderData }: Route.ComponentProps) {
         </div>
       }
     >
-      <div role="group" aria-label="对账视图" className="mb-5 flex gap-2">
+      <fieldset aria-label="对账视图" className="mb-5 flex gap-2">
         <Button tone={view === "targets" ? "primary" : "ghost"} aria-pressed={view === "targets"} onClick={() => setView("targets")}>
           原表明细
         </Button>
         <Button tone={view === "coverage" ? "primary" : "ghost"} aria-pressed={view === "coverage"} onClick={() => setView("coverage")}>
           覆盖与缺口
         </Button>
-      </div>
+      </fieldset>
       {view === "coverage" ? (
         <SourceCoverage data={loaderData.matrixCoverage} />
       ) : (

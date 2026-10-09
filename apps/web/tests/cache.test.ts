@@ -164,8 +164,31 @@ const privateApi = createServer((req, res) => {
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
   if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
   if (privatePageFixtures) {
+    if (req.url === "/api/admin/model-connections") return res.end(JSON.stringify({ storage: "ready", connections: [] }));
+    if (req.url === "/api/admin/model-fallbacks") return res.end(JSON.stringify({ routes: [], sources: [] }));
+    if (req.url === "/api/admin/selectbench/control") return res.end(JSON.stringify({ enabled: false, expiresAt: null, revision: 0 }));
+    if (req.url === "/api/admin/accounts")
+      return res.end(
+        JSON.stringify({
+          limit: 10,
+          accounts: [
+            {
+              id: 1,
+              login_name: "synthetic-owner",
+              display_name: "合成管理员",
+              role: "owner",
+              active: true,
+              models_manage: true,
+              must_change_password: false,
+              revision: 1,
+              managed: true,
+              last_login_at: null,
+            },
+          ],
+        }),
+      );
     if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
-    if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false }));
+    if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false, owner: true, modelsManage: true }));
     if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 888, feedback: 888, runs: 888 }));
     if (req.url?.startsWith("/api/admin/models?"))
       return res.end(
@@ -641,7 +664,7 @@ test("private proxy and login SSR use the private API, preserve raw queries, and
   const html = await login.text();
   assert.equal(login.status, 200);
   assert.match(html, /用飞书登录/);
-  assert.match(html, /还没有设置管理员密码/);
+  assert.match(html, /账号尚未开通/);
   assert.ok(privateCalls.slice(before).some((call) => call.path === "/api/auth/options" && call.forwarded === PRIVATE_HOST));
   assert.equal(login.headers.get("Cache-Control"), "private, no-store");
   const reader = await fetch(`${origin}/api/site/echo-routing?q=/api/auth/options`);
@@ -1219,7 +1242,7 @@ test("retired daily pages are absent and private navigation no longer requests c
   const before = privateCalls.length;
   privatePageFixtures = true;
   try {
-    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/selectbench", "/admin/selectbench/example", "/admin/runs"]) {
+    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/runs"]) {
       for (const suffix of ["", ".data?_routes=root"]) {
         for (const method of ["GET", "HEAD"]) {
           const response = path.startsWith("/admin")
@@ -1238,14 +1261,29 @@ test("retired daily pages are absent and private navigation no longer requests c
     const html = await response.text();
     assert.match(html, /合成管理员/);
     assert.match(html, /模型与评测/);
-    for (const path of ["content", "sources", "usage-models", "site", "feedback", "accounts", "usage-models/reconciliation", "usage-models/settings"]) {
+    for (const path of ["content", "sources", "usage-models", "site", "feedback", "account", "usage-models/reconciliation", "usage-models/settings"]) {
       assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
     }
     assert.doesNotMatch(html, /\/admin\/(?:selectbench|audit|runs)|同批样本对比|888/);
-    assert.ok(privateCalls.slice(before).every(({ path }) => path === "/api/admin/me" || path.startsWith("/api/admin/models?")));
+    assert.ok(
+      privateCalls
+        .slice(before)
+        .every(
+          ({ path }) => ["/api/admin/me", "/api/admin/model-connections", "/api/admin/model-fallbacks"].includes(path) || path.startsWith("/api/admin/models?"),
+        ),
+    );
+    const controlPage = await fetchWithHost(origin + "/admin/selectbench", PRIVATE_HOST);
+    assert.equal(controlPage.status, 200);
+    assert.match(await controlPage.text(), /建设期抽样工具未开启/);
+    const runPage = await fetchWithHost(origin + "/admin/selectbench/example", PRIVATE_HOST);
+    assert.equal(runPage.status, 302);
+    assert.equal(runPage.headers.get("Location"), "/admin/selectbench");
+    await runPage.text();
     for (const group of ["public", "private"]) {
       const modules = readFileSync(new URL(`../build/${group}/modules.json`, import.meta.url), "utf8");
-      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|selectbench|runs))/);
+      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|runs))/);
+      if (group === "public") assert.doesNotMatch(modules, /routes\/admin\/selectbench/);
+      else assert.match(modules, /routes\/admin\/selectbench/);
     }
   } finally {
     privatePageFixtures = false;
@@ -1311,16 +1349,17 @@ test("six private groups reuse existing capabilities and old bookmarks have only
       const main = html.match(/<main\b[\s\S]*?<\/main>/)![0];
       if (path.endsWith("accounts")) {
         assert.match(main, /合成管理员/);
-        const logout = main.match(/<form\b[^>]*>/)![0];
-        assert.match(logout, /method="post"/);
-        assert.match(logout, /action="\/api\/auth\/logout"/);
+        assert.match(main, /新增管理员/);
+        assert.match(main, /我的账号/);
+        assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/accounts"));
         assert.doesNotMatch(main, /type="password"|<input/);
       } else if (path.endsWith("site")) {
         assert.match(main, /公开介绍/);
         assert.match(main, /保存网站资料/);
         assert.match(main, /受保护的展示配置/);
         assert.doesNotMatch(main, /name="(?:icp|publicSecurity|newsLicense)"/);
-        assert.doesNotMatch(main, /<form|<input|<textarea|<select/);
+        assert.match(main, /<textarea/);
+        assert.match(main, /id="site-about"/);
       } else {
         assert.match(main, /通知目的地/);
         assert.match(main, /付费请求上限/);
