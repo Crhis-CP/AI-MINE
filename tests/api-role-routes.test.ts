@@ -141,6 +141,19 @@ test("a matching private host reaches the real password/session guard without by
   });
   assert.equal(login.statusCode, 303);
   assert.equal(login.headers.location, "/admin");
+  const passwordOnlyNonce = await privateApp.inject({ url: "/api/auth/password-nonce", headers: forwarded });
+  const passwordOnly = await privateApp.inject({
+    method: "POST",
+    url: "/api/auth/password",
+    headers: {
+      ...forwarded,
+      cookie: String(passwordOnlyNonce.headers["set-cookie"]).split(";")[0]!,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    payload: new URLSearchParams({ login_nonce: passwordOnlyNonce.json().token, password: config.adminPassword!, return: "/admin" }).toString(),
+  });
+  assert.equal(passwordOnly.statusCode, 303);
+  assert.equal(passwordOnly.headers.location, "/admin");
   const cookie = String(login.headers["set-cookie"]).split(";")[0]!;
   assert.match(cookie, /^amp_admin=/);
   const me = await privateApp.inject({ url: "/api/admin/me", headers: { ...forwarded, cookie } });

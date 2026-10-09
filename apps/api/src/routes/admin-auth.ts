@@ -121,11 +121,13 @@ export function registerAdminAuth(app: FastifyInstance) {
     reply.header("Cache-Control", "no-store");
     try {
       await consumeLoginNonce(String(b.login_nonce ?? ""), parseCookies(req.headers.cookie)[LOGIN_NONCE_COOKIE], String(req.ip));
+      // No login name means the shared environment password. An explicit name still selects that account.
+      const postedName = String(b.login_name ?? "").trim();
       const { token, returnTo: target } = await passwordLogin(
         String(b.password ?? ""),
         returnTo,
         req.headers["user-agent"],
-        String(b.login_name ?? ""),
+        postedName || "admin@local",
         String(req.ip),
       );
       reply.header("Set-Cookie", [cookie(SESSION_COOKIE, token, SESSION_DAYS * 86400, secure()), cookie(LOGIN_NONCE_COOKIE, "", 0, secure())]);
