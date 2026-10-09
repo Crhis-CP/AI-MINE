@@ -140,6 +140,7 @@ function prepared(run: FulltextRun, recipeVersion: string, stage: Interpretation
     };
   });
   return {
+    usageObject: { kind: "policy", id: run.snapshot.versionId },
     manifest: {
       schema_version: 1,
       kind: "source_materials",

@@ -243,6 +243,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610091200_model_registry.sql"],
       },
       {
+        name: "ai-gateway/202610091300_usage_protection.sql",
+        module: "ai-gateway",
+        schemas: ["ai"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610091210_model_attempt_snapshot.sql", "ai-gateway/202610091100_usage_reports.sql"],
+      },
+      {
         name: "platform/ops/202610091600_operational_snapshots.sql",
         module: "platform/ops",
         schemas: ["ops"],

@@ -263,6 +263,10 @@
     {
       "name": "policy/202610091101_directory_workflows.sql",
       "dependsOn": ["policy/202610090700_policy_automation.sql", "acquisition/202610091100_directory_scans.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091300_usage_protection.sql",
+      "dependsOn": ["ai-gateway/202610091210_model_attempt_snapshot.sql", "ai-gateway/202610091100_usage_reports.sql"]
     }
   ]
 }

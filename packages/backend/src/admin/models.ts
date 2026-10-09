@@ -4,7 +4,7 @@
 // new work only.
 import { dbOf } from "../db.ts";
 import { CAPABILITIES, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
-import { MODELS } from "../providers/llm.ts";
+import { MODELS, environmentModelMetadata } from "../providers/llm.ts";
 
 import { modelRouteRevisions } from "./model-registry.ts";
 
@@ -90,7 +90,7 @@ export async function modelsOverview(days = 7) {
         estimate: priced(u),
       })),
   }));
-  const choices = Object.values(MODELS).map((m) => ({ key: m.key, service: m.service, vision: !!m.vision }));
+  const choices = Object.values(MODELS).map((m) => environmentModelMetadata(m.key)!);
   return { days, capabilities, choices, history, benches };
 }
 

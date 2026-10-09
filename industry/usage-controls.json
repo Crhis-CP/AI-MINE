@@ -1,0 +1,16 @@
+{
+  "breaker": {
+    "repeat_count": 3,
+    "repeat_window_seconds": 3600,
+    "news_object_micros": "5000000",
+    "policy_object_micros": "100000000",
+    "daily_multiple": "3",
+    "daily_floor_micros": "50000000",
+    "daily_no_history_micros": "200000000",
+    "lookback_days": 7,
+    "warning_ratio": "0.7"
+  },
+  "usage_notice": { "step_micros": "100000000" },
+  "usage_report": { "push_time": "09:00" },
+  "unknown_alert": { "amount_micros": "10000000", "oldest_age_seconds": 86400 }
+}

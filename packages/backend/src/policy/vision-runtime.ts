@@ -84,6 +84,7 @@ function prepared(run: VisionRun, s: Stage): PreparedPolicyInput {
       };
     });
   const input: PreparedPolicyInput = {
+    usageObject: { kind: "policy", id: run.snapshot.versionId },
     system: promptText(s.prompt),
     user: stableJson(s.payload),
     promptVersion: promptVersion(s.prompt),

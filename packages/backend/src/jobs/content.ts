@@ -376,5 +376,5 @@ export async function prepareGeographyBackfill(options: { limit?: number; enqueu
   return { candidates, enqueued };
 }
 
-export { registerModelConnectionProbeJobs, runModelConnectionProbe } from "../providers/model-probe.ts";
+export { registerModelConnectionProbeJobs, runModelConnectionProbe, sweepModelConnectionProbes } from "../providers/model-probe.ts";
 import { CrawlDeferred, CrawlObsolete } from "../acquisition/crawl.ts";

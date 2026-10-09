@@ -88,6 +88,7 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
           manifest_id: plan.manifestHash,
         })),
       },
+      usageObject: { kind: "policy", id: original.versionId },
       system: promptText(PROMPT),
       user: stableJson({
         officialTitle: original.manifest.officialTitle,

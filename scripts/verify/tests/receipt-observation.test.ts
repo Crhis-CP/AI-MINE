@@ -99,6 +99,12 @@ test("receipt schemas stay in explicit private registration without global leaka
   assert.equal(schemas.ReceiptObservedVersion, ReceiptObservedVersion);
   assert.equal(schemas.ReceiptReconciliationResponse, ReceiptReconciliationResponse);
   assert.deepEqual(Object.keys(routes), [
+    "usageProtection",
+    "changeUsageProtection",
+    "changeUsagePrice",
+    "recoverUsageBreaker",
+    "usageMonthlyList",
+    "usageMonthlyDetail",
     "modelRegistry",
     "createModelConnection",
     "updateModelConnection",

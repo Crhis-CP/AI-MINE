@@ -1,3 +1,5 @@
+import { CAPABILITIES } from "../editorial/models.ts";
+import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // OpenAI-compatible chat calls, always through receipts. One model is enough: `default` is whatever the
 // deployment names in LLM_BASE_URL / LLM_API_KEY / LLM_MODEL, and every capability uses it unless an
@@ -7,11 +9,12 @@ import { resolveRegisteredModel, registeredModelSpec, modelConfigurationHash, ty
 import { redactModelSecret } from "./model-vault.ts";
 import { guardedFetch, type GuardedFetchOptions } from "../lib/http-fetch.ts";
 import { config, credential } from "../config.ts";
-import { sha256 } from "../lib/ids.ts";
+import { sha256, stableJson } from "../lib/ids.ts";
 import {
   completeReceipt,
   paidRequest,
   ProviderRejectedError,
+  UsageProtectionError,
   rejectReceivedResponse,
   type TranslationObservation,
   type PolicyReceiptContext,
@@ -140,6 +143,28 @@ export const MODELS: Record<string, ModelSpec> = {
   },
 };
 
+function environmentConfiguration(spec: ModelSpec, baseUrl: string) {
+  const model = typeof spec.extra?.model === "string" ? spec.extra.model : spec.model;
+  const endpoint = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
+  return { model, configuration_hash: sha256(stableJson(["openai-compatible", endpoint, model, !!spec.vision, spec.jsonMode, spec.extra ?? null])) };
+}
+/** Non-secret setup metadata. It does not claim that a credential, connection test or quality release exists. */
+export function environmentModelMetadata(key: string) {
+  const spec = MODELS[key];
+  if (!spec) return null;
+  try {
+    const base = credential("models", spec.baseUrlEnv);
+    return {
+      key,
+      service: spec.service,
+      model: spec.model,
+      vision: !!spec.vision,
+      ...(base && spec.model ? environmentConfiguration(spec, base) : { configuration_hash: null }),
+    };
+  } catch {
+    return { key, service: spec.service, model: spec.model, vision: !!spec.vision, configuration_hash: null };
+  }
+}
 export type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
 
 export type RegisteredModelTransport = (
@@ -150,6 +175,8 @@ export async function modelSpecFor(key: string) {
   return (await registeredModelSpec(key)) ?? MODELS[key] ?? null;
 }
 export interface ChatJsonOptions<S extends z.ZodType> {
+  sourceIds?: string[];
+  usageObject?: { kind: "article" | "policy"; id: string };
   model: string;
   /** Trusted worker connection test only; the persisted probe must bind this exact revision. */
   registeredProbe?: RegisteredAccess;
@@ -271,31 +298,66 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
   const requestBody = JSON.stringify(body),
     imageTransport = opts.purpose === "policy_vision" ? { transportHash: sha256(requestBody), transportBytes: Buffer.byteLength(requestBody) } : {};
 
-  const registeredIdentity = registered ? { connection_id: registered.id, configuration_hash: modelConfigurationHash(registered.config) } : {};
-  const registeredSummary: ModelAttemptSnapshot | undefined = registered
-    ? {
-        connection_id: registered.id,
-        configuration_hash: modelConfigurationHash(registered.config),
-        connection_revision: registered.revision,
-        key_fingerprint: registered.fingerprint,
-        pricing: {
-          input: registered.config.input_cny_per_million,
-          output: registered.config.output_cny_per_million,
-          currency: "CNY",
-          basis: registered.config.billing_basis,
-        },
-      }
-    : undefined;
+  if (typeof body.model !== "string" || !body.model) throw new Error("Model transport requires an explicit requested model");
+  const configurationHash = registered ? modelConfigurationHash(registered.config) : environmentConfiguration(spec, baseUrl).configuration_hash;
+  const registeredIdentity = { configuration_hash: configurationHash, ...(registered ? { connection_id: registered.id } : {}) };
+  const registeredSummary: ModelAttemptSnapshot = {
+    connection_id: registered?.id ?? null,
+    connection_revision: registered?.revision ?? null,
+    key_fingerprint: registered?.fingerprint ?? null,
+    configuration_hash: configurationHash,
+    ...(registered
+      ? {
+          pricing: {
+            input: registered.config.input_cny_per_million,
+            output: registered.config.output_cny_per_million,
+            currency: "CNY",
+            basis: registered.config.billing_basis,
+          },
+        }
+      : {}),
+  };
+  const costLane =
+    opts.policyContext?.lane ??
+    opts.runtimeControl?.lane ??
+    opts.lane ??
+    (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
   const receipt = await paidRequest(
     {
       modelSnapshot: registeredSummary,
+      usageContext: costLane
+        ? {
+            lane: costLane,
+            capability: opts.purpose,
+            sourceIds: opts.sourceIds ?? opts.policyContext?.sourceIds ?? [],
+            object:
+              opts.usageObject ??
+              (/^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.test(opts.subject)
+                ? { kind: "article", id: /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(opts.subject)![1]! }
+                : null),
+          }
+        : undefined,
+      costBounds: {
+        input_tokens: Buffer.byteLength(
+          JSON.stringify({
+            ...body,
+            messages: (body.messages as Array<{ role: string; content: string | ContentPart[] }>).map((m) => ({
+              ...m,
+              content: typeof m.content === "string" ? m.content : m.content.map((p) => (p.type === "image_url" ? { type: "image_url" } : p)),
+            })),
+          }),
+        ),
+        output_tokens: Number(body.max_tokens),
+        images: Array.isArray(opts.user) ? opts.user.filter((p) => p.type === "image_url").length : 0,
+      },
       service: spec.service,
-      model: spec.model,
+      model: body.model,
       purpose: opts.purpose,
       subject: opts.subject,
       policy: opts.policyContext,
       runtimeControl: opts.runtimeControl,
       identity: {
+        transportHash: sha256(requestBody),
         ...registeredIdentity,
         ...imageTransport,
         ...(opts.policyContext ? { policy: opts.policyContext } : {}),
@@ -329,7 +391,9 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         if (opts.beforeRequest) {
           try {
             await opts.beforeRequest();
-          } catch {
+          } catch (error) {
+            if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)
+              throw new UsageProtectionError(spec.service, "处理已暂停或控制版本发生变化，等待恢复");
             throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false);
           }
         }

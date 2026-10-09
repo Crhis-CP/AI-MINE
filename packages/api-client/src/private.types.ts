@@ -63,6 +63,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/breakers/{id}/recover": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["recoverUsageBreaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/lane-controls": {
     parameters: {
       query?: never;
@@ -247,6 +263,54 @@ export interface paths {
       cookie?: never;
     };
     get: operations["sourceDetail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/usage-config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["changeUsageProtection"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/usage-prices": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["changeUsagePrice"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/usage-protection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["usageProtection"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1667,6 +1731,302 @@ export interface components {
       /** Format: date-time */
       updated_at: string;
     };
+    UsageBreaker: {
+      config_version: number;
+      /** Format: date-time */
+      created_at: string;
+      current: {
+        [key: string]: string;
+      };
+      id: string;
+      opened_at: string | null;
+      receipt_ids: string[];
+      recovered_at: string | null;
+      recovered_by: string | null;
+      recovery_reason: string | null;
+      revision: number;
+      scope: components["schemas"]["UsageScope"];
+      /** @enum {string} */
+      state: "warning" | "open" | "recovered";
+      threshold: {
+        [key: string]: string;
+      };
+      /** @enum {string} */
+      trigger: "repeated_input" | "object_cost" | "daily_total";
+      warning_at: string | null;
+      window_key: string;
+    };
+    UsageBreakerInput: {
+      config_version: number;
+      /** Format: date-time */
+      created_at: string;
+      current: {
+        [key: string]: string;
+      };
+      id: string;
+      opened_at: string | null;
+      receipt_ids: string[];
+      recovered_at: string | null;
+      recovered_by: string | null;
+      recovery_reason: string | null;
+      revision: number;
+      scope: components["schemas"]["UsageScopeInput"];
+      /** @enum {string} */
+      state: "warning" | "open" | "recovered";
+      threshold: {
+        [key: string]: string;
+      };
+      /** @enum {string} */
+      trigger: "repeated_input" | "object_cost" | "daily_total";
+      warning_at: string | null;
+      window_key: string;
+    };
+    UsageBreakerRecovery: {
+      expected_revision: number;
+      reason: string;
+    };
+    UsageBreakerRecoveryInput: {
+      expected_revision: number;
+      reason: string;
+    };
+    UsageConfigChange: {
+      config: components["schemas"]["UsageProtectionConfig"];
+      expected_version: number;
+      /** @constant */
+      high_risk_confirmed: true;
+      reason: string;
+    };
+    UsageConfigChangeInput: {
+      config: components["schemas"]["UsageProtectionConfigInput"];
+      expected_version: number;
+      /** @constant */
+      high_risk_confirmed: true;
+      reason: string;
+    };
+    UsageConfigRecord: {
+      actor: string;
+      config: components["schemas"]["UsageProtectionConfig"];
+      /** Format: date-time */
+      effective_at: string;
+      reason: string;
+      version: number;
+    };
+    UsageConfigRecordInput: {
+      actor: string;
+      config: components["schemas"]["UsageProtectionConfigInput"];
+      /** Format: date-time */
+      effective_at: string;
+      reason: string;
+      version: number;
+    };
+    UsagePrice: {
+      /** Format: uri */
+      basis_url: string;
+      configuration_hash: string | null;
+      /** @constant */
+      currency: "CNY";
+      image_input_token_bound: number | null;
+      input_per_million_micros: string | null;
+      max_request_micros: string | null;
+      model: string;
+      /** Format: date */
+      observed_on: string;
+      output_per_million_micros: string | null;
+      per_request_micros: string | null;
+      protocol_input_token_allowance: number;
+      service: string;
+      /** Format: date */
+      valid_until: string;
+    };
+    UsagePriceChange: {
+      expected_version: number;
+      /** @constant */
+      high_risk_confirmed: true;
+      price: components["schemas"]["UsagePrice"];
+      reason: string;
+    };
+    UsagePriceChangeInput: {
+      expected_version: number;
+      /** @constant */
+      high_risk_confirmed: true;
+      price: components["schemas"]["UsagePriceInput"];
+      reason: string;
+    };
+    UsagePriceInput: {
+      /** Format: uri */
+      basis_url: string;
+      configuration_hash: string | null;
+      /** @constant */
+      currency: "CNY";
+      image_input_token_bound: number | null;
+      input_per_million_micros: string | null;
+      max_request_micros: string | null;
+      model: string;
+      /** Format: date */
+      observed_on: string;
+      output_per_million_micros: string | null;
+      per_request_micros: string | null;
+      protocol_input_token_allowance: number;
+      service: string;
+      /** Format: date */
+      valid_until: string;
+    };
+    UsagePriceRecord: {
+      id: string;
+      price: components["schemas"]["UsagePrice"];
+      /** Format: date-time */
+      updated_at: string;
+      version: number;
+    };
+    UsagePriceRecordInput: {
+      id: string;
+      price: components["schemas"]["UsagePriceInput"];
+      /** Format: date-time */
+      updated_at: string;
+      version: number;
+    };
+    UsageProtectionConfig: {
+      breaker: {
+        daily_floor_micros: string;
+        daily_multiple: string;
+        daily_no_history_micros: string;
+        lookback_days: number;
+        news_object_micros: string;
+        policy_object_micros: string;
+        repeat_count: number;
+        repeat_window_seconds: number;
+        warning_ratio: string;
+      };
+      unknown_alert: {
+        amount_micros: string;
+        oldest_age_seconds: number;
+      };
+      usage_notice: {
+        step_micros: string;
+      };
+      usage_report: {
+        push_time: string;
+      };
+    };
+    UsageProtectionConfigInput: {
+      breaker: {
+        daily_floor_micros: string;
+        daily_multiple: string;
+        daily_no_history_micros: string;
+        lookback_days: number;
+        news_object_micros: string;
+        policy_object_micros: string;
+        repeat_count: number;
+        repeat_window_seconds: number;
+        warning_ratio: string;
+      };
+      unknown_alert: {
+        amount_micros: string;
+        oldest_age_seconds: number;
+      };
+      usage_notice: {
+        step_micros: string;
+      };
+      usage_report: {
+        push_time: string;
+      };
+    };
+    UsageProtectionEvent: {
+      /** Format: date-time */
+      created_at: string;
+      /** @enum {string} */
+      delivery_status: "pending" | "sent" | "disabled" | "unknown";
+      id: string;
+      /** @enum {string} */
+      kind: "warning" | "opened" | "recovered" | "configuration_changed" | "configuration_missing" | "usage_notice" | "unknown_usage";
+      lane: ("news" | "policy") | null;
+      payload: {
+        [key: string]: unknown;
+      };
+      sent_at: string | null;
+    };
+    UsageProtectionEventInput: {
+      /** Format: date-time */
+      created_at: string;
+      /** @enum {string} */
+      delivery_status: "pending" | "sent" | "disabled" | "unknown";
+      id: string;
+      /** @enum {string} */
+      kind: "warning" | "opened" | "recovered" | "configuration_changed" | "configuration_missing" | "usage_notice" | "unknown_usage";
+      lane: ("news" | "policy") | null;
+      payload: {
+        [key: string]: unknown;
+      };
+      sent_at: string | null;
+    };
+    UsageProtectionOverview: {
+      /** Format: date-time */
+      as_of: string;
+      breakers: components["schemas"]["UsageBreaker"][];
+      /** @default false */
+      can_manage: boolean;
+      configuration: components["schemas"]["UsageConfigRecord"] | null;
+      events: components["schemas"]["UsageProtectionEvent"][];
+      indicators: {
+        current: {
+          [key: string]: string;
+        };
+        /** @enum {string} */
+        level: "normal" | "warning" | "tripped";
+        scope: components["schemas"]["UsageScope"] | null;
+        threshold: {
+          [key: string]: string;
+        };
+        /** @enum {string} */
+        trigger: "repeated_input" | "object_cost" | "daily_total";
+      }[];
+      missing: string[];
+      prices: components["schemas"]["UsagePriceRecord"][];
+    };
+    UsageProtectionOverviewInput: {
+      /** Format: date-time */
+      as_of: string;
+      breakers: components["schemas"]["UsageBreakerInput"][];
+      /** @default false */
+      can_manage: boolean;
+      configuration: components["schemas"]["UsageConfigRecordInput"] | null;
+      events: components["schemas"]["UsageProtectionEventInput"][];
+      indicators: {
+        current: {
+          [key: string]: string;
+        };
+        /** @enum {string} */
+        level: "normal" | "warning" | "tripped";
+        scope: components["schemas"]["UsageScopeInput"] | null;
+        threshold: {
+          [key: string]: string;
+        };
+        /** @enum {string} */
+        trigger: "repeated_input" | "object_cost" | "daily_total";
+      }[];
+      missing: string[];
+      prices: components["schemas"]["UsagePriceRecordInput"][];
+    };
+    UsageScope: {
+      capability: string | null;
+      /** @enum {string} */
+      kind: "capability_source" | "object" | "capability";
+      /** @enum {string} */
+      lane: "news" | "policy";
+      object_id: string | null;
+      object_kind: ("article" | "policy") | null;
+      source_id: string | null;
+    };
+    UsageScopeInput: {
+      capability: string | null;
+      /** @enum {string} */
+      kind: "capability_source" | "object" | "capability";
+      /** @enum {string} */
+      lane: "news" | "policy";
+      object_id: string | null;
+      object_kind: ("article" | "policy") | null;
+      source_id: string | null;
+    };
   };
   responses: never;
   parameters: never;
@@ -2042,6 +2402,86 @@ export interface operations {
       };
       /** @description Problem response */
       429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  recoverUsageBreaker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UsageBreakerRecoveryInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageBreaker"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
         headers: {
           [name: string]: unknown;
         };
@@ -2987,6 +3427,236 @@ export interface operations {
       };
       /** @description Problem response */
       500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  changeUsageProtection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UsageConfigChangeInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageConfigRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  changeUsagePrice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UsagePriceChangeInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsagePriceRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  usageProtection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageProtectionOverview"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
         headers: {
           [name: string]: unknown;
         };

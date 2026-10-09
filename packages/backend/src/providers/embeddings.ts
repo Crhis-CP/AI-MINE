@@ -49,6 +49,7 @@ async function embedBatch(texts: string[], subject: string, runtimeControl: Runt
   const receipt = await paidRequest(
     {
       service: SERVICE,
+      costBounds: { input_tokens: texts.reduce((n, t) => n + Buffer.byteLength(t), 0), output_tokens: 0 },
       model: EMBEDDING_MODEL,
       purpose: "embedding",
       runtimeControl,

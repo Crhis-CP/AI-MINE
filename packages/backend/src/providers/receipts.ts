@@ -1,3 +1,5 @@
+import { admitUsage, reserveUsageAttempt, settleUsageAttempt, authorizeUsageSend, type UsageContext, type UsageReservation } from "./usage-protection.ts";
+import { centsText, type UsageBounds } from "./usage-pricing.ts";
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Paid requests (models, Jina, Dajiala) go through here.
 //
@@ -22,6 +24,14 @@ export class BudgetExceededError extends Error {
   }
 }
 
+export class UsageProtectionError extends BudgetExceededError {
+  readonly reason: string;
+  constructor(service: string, reason: string) {
+    super(service, "usage_protection", 60);
+    this.reason = reason;
+    this.message = reason;
+  }
+}
 export class ReceiptBusyError extends Error {}
 export class ReceiptAttemptSupersededError extends Error {}
 export class ReceiptCooldownError extends Error {
@@ -68,7 +78,7 @@ export interface CallOutcome {
   response: unknown;
   requestId?: string | null;
   usage?: Record<string, unknown> | null;
-  cost?: { amount: number; currency: string; basis: "actual" | "estimated" } | null;
+  cost?: { amount: number | string; currency: string; basis: "actual" | "estimated" } | null;
 }
 
 export interface PolicyReceiptContext {
@@ -83,13 +93,15 @@ export interface PolicyReceiptContext {
 }
 
 export interface ModelAttemptSnapshot {
-  connection_id: string;
-  connection_revision: number;
+  connection_id: string | null;
+  connection_revision: number | null;
   configuration_hash: string;
-  key_fingerprint: string;
-  pricing: { input: string; output: string; currency: "CNY"; basis: string };
+  key_fingerprint: string | null;
+  pricing?: { input: string; output: string; currency: "CNY"; basis: string };
 }
 export interface ReceiptRequest {
+  usageContext?: UsageContext;
+  costBounds?: UsageBounds;
   modelSnapshot?: ModelAttemptSnapshot;
   service: string;
   lane?: "news" | "policy";
@@ -335,11 +347,38 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
 export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallOutcome>): Promise<ReceiptResult> {
   if (req.maxRejectedOutputs !== undefined && (![1, 3].includes(req.maxRejectedOutputs) || req.purpose !== "translate_body"))
     throw new Error("Only translation may opt into a rejected-output limit");
-  const knownLane = req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane;
+  const knownLane = req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane ?? req.usageContext?.lane;
   if (knownLane && !["news", "policy"].includes(knownLane)) throw new Error("Invalid receipt lane");
   const { lane: _summaryLane, ...summary } = req.requestSummary ?? {};
-  const requestMetadata = { ...summary, ...(req.policy ?? {}), ...(knownLane ? { lane: knownLane } : {}) };
+  const requestMetadata = {
+    ...(req.usageContext ? { sourceIds: req.usageContext.sourceIds, usage_object: req.usageContext.object } : {}),
+    ...summary,
+    ...(req.policy ?? {}),
+    ...(knownLane ? { lane: knownLane } : {}),
+  };
   const logicalKey = logicalKeyFor(req);
+  const usageInputKey = sha256(stableJson([req.service, req.model ?? null, req.purpose, req.identity]));
+  const article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(req.subject ?? "");
+  const usageContext =
+    req.usageContext ??
+    (knownLane
+      ? {
+          lane: knownLane,
+          capability: req.purpose,
+          sourceIds: req.policy?.sourceIds ?? [],
+          object: article ? { kind: "article" as const, id: article[1]! } : null,
+        }
+      : null);
+  const usageAdmission = (tx: Db) =>
+    admitUsage(tx, {
+      context: usageContext,
+      logicalKey: usageInputKey,
+      service: req.service,
+      model: req.model,
+      configurationHash: req.modelSnapshot?.configuration_hash,
+      bounds: req.costBounds,
+      registeredPricing: req.modelSnapshot?.pricing,
+    });
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
@@ -363,12 +402,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (existing.status === "received" || existing.status === "completed") {
         if (existing.response_bound && existing.attempt_id === null) throw new ReceiptAttemptSupersededError(`Receipt ${existing.id} stores an older attempt`);
         await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.attempt_id });
-        await recordLocalReuse(tx, {
-          service: req.service,
-          model: req.model,
-          purpose: req.purpose,
-          lane: req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane,
-        });
+        await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
         return { kind: "reuse" as const, row: existing };
       }
       if (existing.status === "pending") {
@@ -385,12 +419,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (req.maxRejectedOutputs !== undefined) {
         if (existing.has_response && !existing.response_bound) {
           await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: null });
-          await recordLocalReuse(tx, {
-            service: req.service,
-            model: req.model,
-            purpose: req.purpose,
-            lane: req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane,
-          });
+          await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
           return { kind: "reuse" as const, row: existing };
         }
         const [count] = await tx`SELECT count(*)::int AS n,
@@ -419,9 +448,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
           throw new Error("Runtime control scope mismatch");
         await assertRuntimeControl(tx, req.runtimeControl);
       }
+      const usage = await usageAdmission(tx);
+      if (!usage.reservation) return { kind: "usage_blocked" as const, reason: usage.blocked! };
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
-      const attemptId = await startAttempt(tx, existing.id, r!.attempts, req);
+      const attemptId = await startAttempt(tx, existing.id, r!.attempts, req, usage.reservation);
+      await reserveUsageAttempt(tx, attemptId, existing.id, usage.reservation);
       await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId });
       return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts, control };
     }
@@ -440,16 +472,20 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         throw new Error("Runtime control scope mismatch");
       await assertRuntimeControl(tx, req.runtimeControl);
     }
+    const usage = await usageAdmission(tx);
+    if (!usage.reservation) return { kind: "usage_blocked" as const, reason: usage.blocked! };
     const [row] = await tx<{ id: number; id_text: string }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
       VALUES (${logicalKey}, ${req.service}, ${req.model ?? null}, ${req.purpose}, ${req.subject ?? null}, 'pending',
               ${tx.json(requestMetadata as never)}, 1)
       RETURNING id,id::text AS id_text`;
-    const attemptId = await startAttempt(tx, row!.id, 1, req);
+    const attemptId = await startAttempt(tx, row!.id, 1, req, usage.reservation);
+    await reserveUsageAttempt(tx, attemptId, row!.id, usage.reservation);
     await observeTranslation(tx, stage, { receiptId: row!.id_text, attemptId });
     return { kind: "call" as const, id: row!.id, attemptId, attempt: 1, control };
   });
 
+  if (claimed.kind === "usage_blocked") throw new UsageProtectionError(req.service, claimed.reason);
   if (claimed.kind === "reuse") return { receiptId: claimed.row.id, response: claimed.row.response, reused: true, attemptId: claimed.row.attempt_id };
   if (claimed.kind === "limited") throw new ReceiptOutputLimitError(claimed.id, claimed.rejected);
   if (claimed.kind === "cooldown") throw new ReceiptCooldownError(claimed.id, claimed.seconds);
@@ -466,14 +502,24 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   const started = Date.now();
   let outcome: CallOutcome;
   try {
+    try {
+      const blocked = await sql.begin(async (tx) => {
+        await assertRuntimeControl(tx, claimed.control);
+        return authorizeUsageSend(tx, attemptId);
+      });
+      if (blocked) throw new UsageProtectionError(req.service, blocked);
+    } catch (error) {
+      throw error instanceof UsageProtectionError ? error : new UsageProtectionError(req.service, "新的付费调用已暂停或控制版本发生变化");
+    }
     outcome = await call();
   } catch (error) {
-    const status = error instanceof ProviderRejectedError ? "failed" : "unknown";
+    const status = error instanceof ProviderRejectedError || error instanceof UsageProtectionError ? "failed" : "unknown";
     // "unknown": the request may have reached the provider (timeout, reset): do not re-send automatically.
     const message = (error instanceof ProviderRejectedError ? error.message : String(error)).slice(0, 2000);
     await sql.begin(async (tx) => {
       await tx`UPDATE receipts SET status = ${status}, error = ${message}, updated_at = now() WHERE id = ${receiptId} AND attempts=${attempt}`;
       await tx`UPDATE receipt_attempts SET status = ${status}, error = ${message}, latency_ms = ${Date.now() - started}, finished_at = now() WHERE id = ${attemptId}`;
+      await settleUsageAttempt(tx, attemptId, status);
     });
     if (req.policy && status === "unknown") throw new ReceiptUnknownError(receiptId, message, attemptId);
     throw error;
@@ -482,6 +528,9 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   const current = await sql.begin(async (tx) => {
     // Same lock order as stale recovery and settlement: receipt before its attempt.
     await tx`SELECT id FROM receipts WHERE id=${receiptId} FOR UPDATE`;
+    const recordedCost = await settleUsageAttempt(tx, attemptId, { usage: outcome.usage ?? null, cost: outcome.cost ?? null });
+    // Keep actual foreign-currency bills; never turn them into guessed CNY. The protection ledger retains unknown reservation.
+    if (!outcome.cost || outcome.cost.basis === "estimated") outcome.cost = recordedCost;
     // Always retain this attempt's actual return, even when a newer attempt already owns the receipt.
     await tx`UPDATE receipt_attempts SET status='received',response=${tx.json((outcome.response ?? null) as never)},
       request_id=${outcome.requestId ?? null},usage=${outcome.usage ? tx.json(outcome.usage as never) : null},
@@ -498,14 +547,20 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   return { receiptId, response: outcome.response, reused: false, attemptId };
 }
 
-async function startAttempt(tx: Db, receiptId: number, attempt: number, req: ReceiptRequest): Promise<string> {
+async function startAttempt(tx: Db, receiptId: number, attempt: number, req: ReceiptRequest, usage: UsageReservation): Promise<string> {
   const [row] = await tx<{ id: string }[]>`
     INSERT INTO receipt_attempts (receipt_id, attempt, service, model, status) VALUES (${receiptId}, ${attempt}, ${req.service}, ${req.model ?? null}, 'pending')
     RETURNING id::text AS id`;
   if (req.modelSnapshot) {
     const snapshot = req.modelSnapshot;
+    const pricing = snapshot.pricing ?? {
+      input: centsText(BigInt(usage.quote.price.input_per_million_micros!)),
+      output: centsText(BigInt(usage.quote.price.output_per_million_micros!)),
+      currency: "CNY",
+      basis: usage.quote.price.basis_url,
+    };
     await tx`INSERT INTO ai.model_attempt_snapshots(attempt_id,connection_id,connection_revision,configuration_hash,key_fingerprint,pricing)
-      VALUES(${row!.id},${snapshot.connection_id},${snapshot.connection_revision},${snapshot.configuration_hash},${snapshot.key_fingerprint},${tx.json(snapshot.pricing)})`;
+      VALUES(${row!.id},${snapshot.connection_id},${snapshot.connection_revision},${snapshot.configuration_hash},${snapshot.key_fingerprint},${tx.json(pricing)})`;
   }
   return row!.id;
 }

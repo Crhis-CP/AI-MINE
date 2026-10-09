@@ -1,3 +1,5 @@
+import { usageProtectionSchemas, usageProtectionRoutes } from "./usage-protection.ts";
+export * from "./usage-protection.ts";
 import { modelRegistrySchemas, modelRegistryRoutes } from "./model-registry.ts";
 export * from "./model-registry.ts";
 import { accountRoutes, accountSchemas } from "./accounts.ts";
@@ -180,6 +182,7 @@ export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
   ...accountSchemas,
+  ...usageProtectionSchemas,
   ...usageMonthlySchemas,
   ...modelRegistrySchemas,
   ...runtimeControlSchemas,
@@ -199,6 +202,7 @@ export const schemas = {
 };
 export const routes = {
   ...accountRoutes,
+  ...usageProtectionRoutes,
   ...usageMonthlyRoutes,
   ...modelRegistryRoutes,
   ...runtimeControlRoutes,

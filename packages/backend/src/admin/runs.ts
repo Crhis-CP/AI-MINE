@@ -1,3 +1,4 @@
+import { settleUsageAttempt } from "../providers/usage-protection.ts";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
 import { dbOf, type Db } from "../db.ts";
@@ -116,7 +117,10 @@ async function release(id: number, error: string, actor: string, note: string, b
     UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown'
       AND attempts = ${observed.attempts} AND updated_at::text = ${observed.version} RETURNING subject, purpose`;
   if (!before) throw new Conflict("这条回执已被其他操作处理，请刷新后重试");
-  await db`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown'`;
+  const attempts = await db<
+    { id: string }[]
+  >`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown' RETURNING id::text`;
+  for (const attempt of attempts) await settleUsageAttempt(db, attempt.id, "failed");
   const article = ARTICLE_STEPS.has(before.purpose) ? /^article:([^@:#]+)/.exec(before.subject ?? "")?.[1] : undefined;
   let requeued = false;
   if (article) {

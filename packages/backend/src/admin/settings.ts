@@ -48,3 +48,5 @@ export async function updateBudget(service: string, input: { perMinute: number; 
 }
 
 export { listLaneControls, changeOwnerLaneControls, LaneControlConflict } from "../operations/lane-controls.ts";
+
+export { usageProtectionOverview, changeUsageProtection, changeUsagePrice, recoverUsageBreaker, type UsageOwnerGuard } from "./usage-protection.ts";

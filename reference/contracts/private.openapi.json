@@ -6790,6 +6790,1535 @@
           "updated_at"
         ],
         "type": "object"
+      },
+      "UsageBreaker": {
+        "additionalProperties": false,
+        "properties": {
+          "config_version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "current": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "recovered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recovered_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recovery_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/UsageScope"
+          },
+          "state": {
+            "enum": [
+              "warning",
+              "open",
+              "recovered"
+            ],
+            "type": "string"
+          },
+          "threshold": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "trigger": {
+            "enum": [
+              "repeated_input",
+              "object_cost",
+              "daily_total"
+            ],
+            "type": "string"
+          },
+          "warning_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "window_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "scope",
+          "trigger",
+          "state",
+          "window_key",
+          "config_version",
+          "current",
+          "threshold",
+          "warning_at",
+          "opened_at",
+          "created_at",
+          "recovered_at",
+          "recovered_by",
+          "recovery_reason",
+          "receipt_ids"
+        ],
+        "type": "object"
+      },
+      "UsageBreakerInput": {
+        "additionalProperties": false,
+        "properties": {
+          "config_version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "current": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "recovered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recovered_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recovery_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/UsageScopeInput"
+          },
+          "state": {
+            "enum": [
+              "warning",
+              "open",
+              "recovered"
+            ],
+            "type": "string"
+          },
+          "threshold": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "trigger": {
+            "enum": [
+              "repeated_input",
+              "object_cost",
+              "daily_total"
+            ],
+            "type": "string"
+          },
+          "warning_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "window_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "scope",
+          "trigger",
+          "state",
+          "window_key",
+          "config_version",
+          "current",
+          "threshold",
+          "warning_at",
+          "opened_at",
+          "created_at",
+          "recovered_at",
+          "recovered_by",
+          "recovery_reason",
+          "receipt_ids"
+        ],
+        "type": "object"
+      },
+      "UsageBreakerRecovery": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "UsageBreakerRecoveryInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_revision",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "UsageConfigChange": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/UsageProtectionConfig"
+          },
+          "expected_version": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "high_risk_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "config",
+          "reason",
+          "high_risk_confirmed"
+        ],
+        "type": "object"
+      },
+      "UsageConfigChangeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/UsageProtectionConfigInput"
+          },
+          "expected_version": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "high_risk_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "config",
+          "reason",
+          "high_risk_confirmed"
+        ],
+        "type": "object"
+      },
+      "UsageConfigRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/UsageProtectionConfig"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "config",
+          "effective_at",
+          "actor",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "UsageConfigRecordInput": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "config": {
+            "$ref": "#/components/schemas/UsageProtectionConfigInput"
+          },
+          "effective_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "config",
+          "effective_at",
+          "actor",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "UsagePrice": {
+        "additionalProperties": false,
+        "properties": {
+          "basis_url": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "const": "CNY",
+            "type": "string"
+          },
+          "image_input_token_bound": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_request_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "observed_on": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "output_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "per_request_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protocol_input_token_allowance": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "service": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "model",
+          "configuration_hash",
+          "currency",
+          "input_per_million_micros",
+          "output_per_million_micros",
+          "per_request_micros",
+          "max_request_micros",
+          "image_input_token_bound",
+          "protocol_input_token_allowance",
+          "basis_url",
+          "observed_on",
+          "valid_until"
+        ],
+        "type": "object"
+      },
+      "UsagePriceChange": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "high_risk_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "price": {
+            "$ref": "#/components/schemas/UsagePrice"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "price",
+          "reason",
+          "high_risk_confirmed"
+        ],
+        "type": "object"
+      },
+      "UsagePriceChangeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_version": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "high_risk_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "price": {
+            "$ref": "#/components/schemas/UsagePriceInput"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_version",
+          "price",
+          "reason",
+          "high_risk_confirmed"
+        ],
+        "type": "object"
+      },
+      "UsagePriceInput": {
+        "additionalProperties": false,
+        "properties": {
+          "basis_url": {
+            "format": "uri",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "configuration_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "const": "CNY",
+            "type": "string"
+          },
+          "image_input_token_bound": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_request_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "observed_on": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          },
+          "output_per_million_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "per_request_micros": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protocol_input_token_allowance": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "service": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          },
+          "valid_until": {
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "model",
+          "configuration_hash",
+          "currency",
+          "input_per_million_micros",
+          "output_per_million_micros",
+          "per_request_micros",
+          "max_request_micros",
+          "image_input_token_bound",
+          "protocol_input_token_allowance",
+          "basis_url",
+          "observed_on",
+          "valid_until"
+        ],
+        "type": "object"
+      },
+      "UsagePriceRecord": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/UsagePrice"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "price",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "UsagePriceRecordInput": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "price": {
+            "$ref": "#/components/schemas/UsagePriceInput"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "version": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "price",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "UsageProtectionConfig": {
+        "additionalProperties": false,
+        "properties": {
+          "breaker": {
+            "additionalProperties": false,
+            "properties": {
+              "daily_floor_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "daily_multiple": {
+                "pattern": "^\\d+(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              "daily_no_history_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "lookback_days": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "news_object_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "policy_object_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "repeat_count": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "repeat_window_seconds": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "warning_ratio": {
+                "pattern": "^\\d+(?:\\.\\d{1,6})?$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "repeat_count",
+              "repeat_window_seconds",
+              "news_object_micros",
+              "policy_object_micros",
+              "daily_multiple",
+              "daily_floor_micros",
+              "daily_no_history_micros",
+              "lookback_days",
+              "warning_ratio"
+            ],
+            "type": "object"
+          },
+          "unknown_alert": {
+            "additionalProperties": false,
+            "properties": {
+              "amount_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "oldest_age_seconds": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "amount_micros",
+              "oldest_age_seconds"
+            ],
+            "type": "object"
+          },
+          "usage_notice": {
+            "additionalProperties": false,
+            "properties": {
+              "step_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "step_micros"
+            ],
+            "type": "object"
+          },
+          "usage_report": {
+            "additionalProperties": false,
+            "properties": {
+              "push_time": {
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "push_time"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "breaker",
+          "usage_notice",
+          "usage_report",
+          "unknown_alert"
+        ],
+        "type": "object"
+      },
+      "UsageProtectionConfigInput": {
+        "additionalProperties": false,
+        "properties": {
+          "breaker": {
+            "additionalProperties": false,
+            "properties": {
+              "daily_floor_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "daily_multiple": {
+                "pattern": "^\\d+(?:\\.\\d{1,6})?$",
+                "type": "string"
+              },
+              "daily_no_history_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "lookback_days": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "news_object_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "policy_object_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "repeat_count": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "repeat_window_seconds": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              "warning_ratio": {
+                "pattern": "^\\d+(?:\\.\\d{1,6})?$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "repeat_count",
+              "repeat_window_seconds",
+              "news_object_micros",
+              "policy_object_micros",
+              "daily_multiple",
+              "daily_floor_micros",
+              "daily_no_history_micros",
+              "lookback_days",
+              "warning_ratio"
+            ],
+            "type": "object"
+          },
+          "unknown_alert": {
+            "additionalProperties": false,
+            "properties": {
+              "amount_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              },
+              "oldest_age_seconds": {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "amount_micros",
+              "oldest_age_seconds"
+            ],
+            "type": "object"
+          },
+          "usage_notice": {
+            "additionalProperties": false,
+            "properties": {
+              "step_micros": {
+                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "step_micros"
+            ],
+            "type": "object"
+          },
+          "usage_report": {
+            "additionalProperties": false,
+            "properties": {
+              "push_time": {
+                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "push_time"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "breaker",
+          "usage_notice",
+          "usage_report",
+          "unknown_alert"
+        ],
+        "type": "object"
+      },
+      "UsageProtectionEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "delivery_status": {
+            "enum": [
+              "pending",
+              "sent",
+              "disabled",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "warning",
+              "opened",
+              "recovered",
+              "configuration_changed",
+              "configuration_missing",
+              "usage_notice",
+              "unknown_usage"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "anyOf": [
+              {
+                "enum": [
+                  "news",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payload": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "lane",
+          "payload",
+          "created_at",
+          "delivery_status",
+          "sent_at"
+        ],
+        "type": "object"
+      },
+      "UsageProtectionEventInput": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "delivery_status": {
+            "enum": [
+              "pending",
+              "sent",
+              "disabled",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "warning",
+              "opened",
+              "recovered",
+              "configuration_changed",
+              "configuration_missing",
+              "usage_notice",
+              "unknown_usage"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "anyOf": [
+              {
+                "enum": [
+                  "news",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payload": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "lane",
+          "payload",
+          "created_at",
+          "delivery_status",
+          "sent_at"
+        ],
+        "type": "object"
+      },
+      "UsageProtectionOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "breakers": {
+            "items": {
+              "$ref": "#/components/schemas/UsageBreaker"
+            },
+            "type": "array"
+          },
+          "can_manage": {
+            "default": false,
+            "type": "boolean"
+          },
+          "configuration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageConfigRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/UsageProtectionEvent"
+            },
+            "type": "array"
+          },
+          "indicators": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "current": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "level": {
+                  "enum": [
+                    "normal",
+                    "warning",
+                    "tripped"
+                  ],
+                  "type": "string"
+                },
+                "scope": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/UsageScope"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "threshold": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "trigger": {
+                  "enum": [
+                    "repeated_input",
+                    "object_cost",
+                    "daily_total"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "trigger",
+                "scope",
+                "current",
+                "threshold",
+                "level"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "prices": {
+            "items": {
+              "$ref": "#/components/schemas/UsagePriceRecord"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "can_manage",
+          "as_of",
+          "indicators",
+          "configuration",
+          "prices",
+          "breakers",
+          "events",
+          "missing"
+        ],
+        "type": "object"
+      },
+      "UsageProtectionOverviewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "type": "string"
+          },
+          "breakers": {
+            "items": {
+              "$ref": "#/components/schemas/UsageBreakerInput"
+            },
+            "type": "array"
+          },
+          "can_manage": {
+            "default": false,
+            "type": "boolean"
+          },
+          "configuration": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageConfigRecordInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/UsageProtectionEventInput"
+            },
+            "type": "array"
+          },
+          "indicators": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "current": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "level": {
+                  "enum": [
+                    "normal",
+                    "warning",
+                    "tripped"
+                  ],
+                  "type": "string"
+                },
+                "scope": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/UsageScopeInput"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "threshold": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "type": "object"
+                },
+                "trigger": {
+                  "enum": [
+                    "repeated_input",
+                    "object_cost",
+                    "daily_total"
+                  ],
+                  "type": "string"
+                }
+              },
+              "required": [
+                "trigger",
+                "scope",
+                "current",
+                "threshold",
+                "level"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "prices": {
+            "items": {
+              "$ref": "#/components/schemas/UsagePriceRecordInput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "as_of",
+          "indicators",
+          "configuration",
+          "prices",
+          "breakers",
+          "events",
+          "missing"
+        ],
+        "type": "object"
+      },
+      "UsageScope": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "capability_source",
+              "object",
+              "capability"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          },
+          "object_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "object_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "article",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "lane",
+          "kind",
+          "capability",
+          "source_id",
+          "object_kind",
+          "object_id"
+        ],
+        "type": "object"
+      },
+      "UsageScopeInput": {
+        "additionalProperties": false,
+        "properties": {
+          "capability": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "capability_source",
+              "object",
+              "capability"
+            ],
+            "type": "string"
+          },
+          "lane": {
+            "enum": [
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          },
+          "object_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "object_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "article",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "lane",
+          "kind",
+          "capability",
+          "source_id",
+          "object_kind",
+          "object_id"
+        ],
+        "type": "object"
       }
     }
   },
@@ -7201,6 +8730,103 @@
             "description": "Problem response"
           },
           "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/breakers/{id}/recover": {
+      "post": {
+        "operationId": "recoverUsageBreaker",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageBreakerRecoveryInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageBreaker"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8288,6 +9914,257 @@
             "description": "Problem response"
           },
           "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/usage-config": {
+      "put": {
+        "operationId": "changeUsageProtection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageConfigChangeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageConfigRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/usage-prices": {
+      "put": {
+        "operationId": "changeUsagePrice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsagePriceChangeInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsagePriceRecord"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/usage-protection": {
+      "get": {
+        "operationId": "usageProtection",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageProtectionOverview"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
             "content": {
               "application/problem+json": {
                 "schema": {

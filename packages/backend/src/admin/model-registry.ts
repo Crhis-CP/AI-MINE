@@ -11,7 +11,7 @@ import {
   ModelRouteChange,
 } from "@amp/contracts/http/private";
 import { dbOf, type Db } from "../db.ts";
-import { audit, actorOf, type AdminPrincipal } from "./auth.ts";
+import { audit, actorOf, requireCapability, requireOwner, type AdminPrincipal } from "./auth.ts";
 import { CAPABILITIES, invalidateModelCache, type Capability } from "../editorial/models.ts";
 import {
   modelConfigurationHash,
@@ -27,10 +27,7 @@ import { sealModelSecret, modelStorageReady } from "../providers/model-vault.ts"
 import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 const sql = dbOf("ai-gateway");
 export type ModelRegistryGuards = { manage(principal: AdminPrincipal, db: Db): Promise<void>; owner(principal: AdminPrincipal, db: Db): Promise<void> };
-const deny = async () => {
-  throw Object.assign(new Error("尚未取得服务端模型管理权限"), { statusCode: 403 });
-};
-const defaultGuards: ModelRegistryGuards = { manage: deny, owner: deny };
+const defaultGuards: ModelRegistryGuards = { manage: (principal, db) => requireCapability(principal, "models.manage", db), owner: requireOwner };
 const parse = <S extends z.ZodType>(schema: S, value: unknown): z.infer<S> => {
   const result = schema.safeParse(value);
   if (!result.success) throw Object.assign(new Error("模型接入参数不完整或格式无效"), { statusCode: 400 });
@@ -207,7 +204,10 @@ export async function assignRegisteredModel(capability: string, input: unknown, 
         if (!run.models.includes(previous) || oldCases.length !== run.sample_size || JSON.stringify(oldCases) !== JSON.stringify(newCases))
           throw new ModelConnectionUnavailable("精选评分切换须先完成同一批校准样本的比较");
       }
-    } else if (!value.emergency_confirmed || capability === "score") throw new ModelConnectionUnavailable("缺少评测依据；评分不得紧急跳过校准比较");
+    } else {
+      if (!value.emergency_confirmed || capability === "score") throw new ModelConnectionUnavailable("缺少评测依据；评分不得紧急跳过校准比较");
+      await guards.owner(principal, tx);
+    }
     const revision = (route?.revision ?? 0) + 1;
     await tx`INSERT INTO ai.model_routes(capability,revision,model_key,connection_revision,evaluation_id,unevaluated) VALUES(${capability},${revision},${value.model},${row.revision},${value.evaluation_id},${!value.evaluation_id}) ON CONFLICT(capability) DO UPDATE SET revision=EXCLUDED.revision,model_key=EXCLUDED.model_key,connection_revision=EXCLUDED.connection_revision,evaluation_id=EXCLUDED.evaluation_id,unevaluated=EXCLUDED.unevaluated,updated_at=now()`;
     await tx`INSERT INTO settings(key,value,updated_by) VALUES(${`models.${capability}`},${tx.json({ model: value.model })},${actorOf(principal)}) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()`;

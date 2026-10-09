@@ -7,7 +7,13 @@ import { modelRegistryLock, connectionRow, registeredModelKey } from "./model-re
 import { modelProbeRecord } from "../admin/model-registry.ts";
 import { audit } from "../admin/auth.ts";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
-import { RuntimeControlPaused, requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
+import {
+  RuntimeControlPaused,
+  RuntimeControlStale,
+  requireRuntimeRunning,
+  assertRuntimeControl,
+  type RuntimeControlSnapshot,
+} from "../operations/lane-controls.ts";
 import { config } from "../config.ts";
 import { enqueue, ensureQueue } from "../jobs/queue.ts";
 const sql = dbOf("ai-gateway");
@@ -73,7 +79,7 @@ export async function runModelConnectionProbe(id: string, options: { transport?:
     >`SELECT r.id::text,r.status,coalesce(r.response_attempt_id,(SELECT a.id FROM receipt_attempts a WHERE a.receipt_id=r.id AND a.attempt=r.attempts))::text AS attempt_id,r.usage FROM receipts r WHERE r.purpose='model_connection_test' AND r.subject=${`model-test:${id}`} ORDER BY r.id DESC LIMIT 1`;
     const unknown =
       receipt && (["unknown", "pending"].includes(receipt.status) || (["received", "completed"].includes(receipt.status) && !knownUsage(receipt.usage)));
-    const paused = !receipt && (error instanceof RuntimeControlPaused || error instanceof BudgetExceededError);
+    const paused = !unknown && (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale || error instanceof BudgetExceededError);
     const status = unknown ? "unknown" : paused ? "paused" : "failed";
     const detail = unknown
       ? "调用结果或计费用量未知，须核对原回执，不能重发"
@@ -82,7 +88,7 @@ export async function runModelConnectionProbe(id: string, options: { transport?:
         : error instanceof ProviderRejectedError && error.status === 401
           ? "密钥无效"
           : "连接测试未通过，请核对配置或服务状态";
-    await sql`UPDATE ai.model_connection_tests SET status=${status},detail=${detail},receipt_id=${receipt?.id ?? null},attempt_id=${receipt?.attempt_id ?? null},finished_at=now() WHERE id=${id} AND status<>'passed'`;
+    await sql`UPDATE ai.model_connection_tests SET status=${status},detail=${detail},receipt_id=${receipt?.id ?? null},attempt_id=${receipt?.attempt_id ?? null},finished_at=${paused ? null : new Date()} WHERE id=${id} AND status<>'passed'`;
   }
   return modelProbeRecord(id);
 }
@@ -101,4 +107,13 @@ export async function registerModelConnectionProbeJobs(boss: PgBoss, options: { 
         if (job.data.lane === lane && (await modelProbeRecord(job.data.id)).lane === lane) await runModelConnectionProbe(job.data.id, options);
     });
   }
+}
+
+/** Re-enqueue the existing durable test, preserving the exact logical receipt and physical-attempt evidence. */
+export async function sweepModelConnectionProbes() {
+  const rows = await sql<
+    { id: string; lane: "news" | "policy"; status: string }[]
+  >`SELECT id,lane,status FROM ai.model_connection_tests WHERE status IN ('queued','paused','running') ORDER BY created_at LIMIT 50`;
+  for (const row of rows) await queueModelConnectionProbe(row);
+  return rows.length;
 }

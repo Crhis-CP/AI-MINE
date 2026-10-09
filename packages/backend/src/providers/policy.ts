@@ -15,6 +15,7 @@ const Reference = z.strictObject({ id: z.string().min(1), version: z.string().mi
 export type PolicyInputReference = z.infer<typeof Reference>;
 const Prepared = z.strictObject({
   manifest: SourceInputManifestSchema.refine((m) => m.lane === "policy", "Policy input must belong to policy"),
+  usageObject: z.strictObject({ kind: z.literal("policy"), id: z.string().min(1) }).optional(),
   system: z.string(),
   user: z.string().min(1),
   images: z
@@ -190,6 +191,7 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
           model: await modelFor(purpose),
           purpose,
           subject: `policy:${ref.id}@${ref.version}`,
+          usageObject: input.usageObject,
           promptVersion: input.promptVersion,
           system: input.system,
           user: policyUserContent(input),

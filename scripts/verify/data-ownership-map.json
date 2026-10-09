@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "523eb85ee9cf741e37a83cf59aec4399da64416d8ccab38bf475391d8e8ff03b",
+  "grantCatalogueSha256": "5c691dcdf3531fcdc28d84c905d589ca071ce10402c765a17bbee530a25b5c8b",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -456,6 +456,34 @@
     },
     "acquisition.directory_receipts": {
       "module": "acquisition",
+      "access": "business"
+    },
+    "ai.usage_control_versions": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_prices": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_attempts": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_breakers": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_protection_events": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_notice_progress": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.usage_sums": {
+      "module": "ai-gateway",
       "access": "business"
     }
   },

@@ -63,3 +63,4 @@ export async function sourceHealthWeekly(now = Date.now()) {
 
 export { refreshOperationalSnapshots } from "./operational-snapshots.ts";
 export { readOperationalSnapshot, OperationsReadUnavailable } from "./read-snapshots.ts";
+export { usageProtectionTick, deliverUsageProtectionEvents } from "./usage-protection.ts";
