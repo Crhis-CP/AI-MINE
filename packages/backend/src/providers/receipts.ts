@@ -8,6 +8,7 @@ import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapsho
 //    caller or a timer. Only evidence that it was not billed can permit another paid attempt.
 import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
+import { recordLocalReuse } from "./usage-accounting.ts";
 
 const sql = dbOf("ai-gateway");
 
@@ -362,6 +363,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (existing.status === "received" || existing.status === "completed") {
         if (existing.response_bound && existing.attempt_id === null) throw new ReceiptAttemptSupersededError(`Receipt ${existing.id} stores an older attempt`);
         await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: existing.attempt_id });
+        await recordLocalReuse(tx, {
+          service: req.service,
+          model: req.model,
+          purpose: req.purpose,
+          lane: req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane,
+        });
         return { kind: "reuse" as const, row: existing };
       }
       if (existing.status === "pending") {
@@ -378,6 +385,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (req.maxRejectedOutputs !== undefined) {
         if (existing.has_response && !existing.response_bound) {
           await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId: null });
+          await recordLocalReuse(tx, {
+            service: req.service,
+            model: req.model,
+            purpose: req.purpose,
+            lane: req.policy?.lane ?? req.lane ?? req.runtimeControl?.lane,
+          });
           return { kind: "reuse" as const, row: existing };
         }
         const [count] = await tx`SELECT count(*)::int AS n,
