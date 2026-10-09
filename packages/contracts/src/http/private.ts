@@ -1,3 +1,5 @@
+import { sourceCoverageSchemas, sourceCoverageRoutes } from "./source-coverage.ts";
+export * from "./source-coverage.ts";
 import { sourceTargetsSchemas, sourceTargetsRoutes } from "./source-targets.ts";
 export { SourceTarget, SourceTargetEvidence, SourceTargetsQuery, SourceTargetsResponse } from "./source-targets.ts";
 import { modelFallbackSchemas, modelFallbackRoutes } from "./model-fallback.ts";
@@ -191,6 +193,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...sourceCoverageSchemas,
   ...sourceTargetsSchemas,
   ...siteInformationPrivateSchemas,
   ...selectionCalibrationSchemas,
@@ -216,6 +219,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...sourceCoverageRoutes,
   ...sourceTargetsRoutes,
   ...siteInformationPrivateRoutes,
   ...selectionCalibrationRoutes,

@@ -1,3 +1,4 @@
+import { SelectionStandardsSection } from "../../features/admin/SelectionStandards";
 import { useRevalidator } from "react-router";
 import { SITE } from "@amp/industry/site";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
@@ -176,6 +177,11 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                   <span className="font-mono text-[12px] font-normal text-ink-3">{c.current.model}</span>
                   <Badge tone={c.current.source === "admin" ? "accent" : "muted"}>{SOURCE_LABEL[c.current.source]}</Badge>
                   {c.unevaluated && <Badge tone="warn">待评测</Badge>}
+                  {me.owner && c.key === "score" && (
+                    <a href="#selection-standard" className="text-[12px] font-normal text-accent underline">
+                      评分标准与校准记录
+                    </a>
+                  )}
                 </span>
               }
               right={
@@ -262,6 +268,10 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
             </Card>
           );
         })}
+      </div>
+
+      <div className="mt-5">
+        <SelectionStandardsSection owner={!!me.owner} />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">

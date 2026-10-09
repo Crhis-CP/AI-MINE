@@ -8784,6 +8784,440 @@
         ],
         "type": "object"
       },
+      "SourceCoverage": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "matrices": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCoverageMatrix"
+            },
+            "type": "array"
+          },
+          "supplemental": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "lane": {
+                  "enum": [
+                    "news",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "lane",
+                "enabled"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "asOf",
+          "matrices",
+          "supplemental",
+          "limitations"
+        ],
+        "type": "object"
+      },
+      "SourceCoverageEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identity": {
+            "enum": [
+              "unverified",
+              "verified"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "target",
+              "directory"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "kind",
+          "sourceIds",
+          "note",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "SourceCoverageEntryInput": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identity": {
+            "enum": [
+              "unverified",
+              "verified"
+            ],
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "target",
+              "directory"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "url",
+          "kind",
+          "sourceIds",
+          "note",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "SourceCoverageInput": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "matrices": {
+            "items": {
+              "$ref": "#/components/schemas/SourceCoverageMatrixInput"
+            },
+            "type": "array"
+          },
+          "supplemental": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "lane": {
+                  "enum": [
+                    "news",
+                    "policy"
+                  ],
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "lane",
+                "enabled"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "asOf",
+          "matrices",
+          "supplemental",
+          "limitations"
+        ],
+        "type": "object"
+      },
+      "SourceCoverageMatrix": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "column": {
+                  "type": "string"
+                },
+                "configured": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "entries": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceCoverageEntry"
+                  },
+                  "type": "array"
+                },
+                "observed": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "row": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "row",
+                "column",
+                "entries",
+                "configured",
+                "observed"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "columns": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "china",
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "explanation",
+          "rows",
+          "columns",
+          "cells"
+        ],
+        "type": "object"
+      },
+      "SourceCoverageMatrixInput": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "column": {
+                  "type": "string"
+                },
+                "configured": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "entries": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceCoverageEntryInput"
+                  },
+                  "type": "array"
+                },
+                "observed": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "row": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "row",
+                "column",
+                "entries",
+                "configured",
+                "observed"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "columns": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "id": {
+            "enum": [
+              "china",
+              "news",
+              "policy"
+            ],
+            "type": "string"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "explanation",
+          "rows",
+          "columns",
+          "cells"
+        ],
+        "type": "object"
+      },
       "SourceCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -10904,6 +11338,64 @@
           "original_records",
           "last_material_discovery",
           "publication_records"
+        ],
+        "type": "object"
+      },
+      "SourceTargetExport": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 2000000,
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "total": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filename",
+          "content",
+          "asOf",
+          "total"
+        ],
+        "type": "object"
+      },
+      "SourceTargetExportInput": {
+        "additionalProperties": false,
+        "properties": {
+          "asOf": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "content": {
+            "maxLength": 2000000,
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "total": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filename",
+          "content",
+          "asOf",
+          "total"
         ],
         "type": "object"
       },
@@ -15543,6 +16035,53 @@
         }
       }
     },
+    "/api/admin/source-coverage": {
+      "get": {
+        "operationId": "sourceCoverage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceCoverage"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
     "/api/admin/source-targets": {
       "get": {
         "operationId": "sourceTargets",
@@ -15597,6 +16136,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SourceTargetsResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/source-targets/export": {
+      "post": {
+        "operationId": "exportSourceTargets",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceTargetExport"
                 }
               }
             },

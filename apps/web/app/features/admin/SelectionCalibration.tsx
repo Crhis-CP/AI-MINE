@@ -222,7 +222,7 @@ export function SelectionStandardReviewForm({
     );
   return (
     <Card title="评分标准的一次性审阅">
-      <p className="text-sm text-ink-2">先在页面外阅读AIHOT原规则、当前矿业版与修改说明，再记录本版本的结论。提交不会修改标准文字、门槛或生效配置。</p>
+      <p className="text-sm text-ink-2">先阅读提交的原版规则、当前矿业版与修改说明，再记录本版本的结论。提交不会修改标准文字、门槛或生效配置。</p>
       {s.synthetic && <p className="mt-2 text-sm text-amber">合成对照材料：演示确认不会成为真实批准。</p>}
       <p className="mt-3 break-all text-sm">提交材料：{s.materialReference}</p>
       <p className="mt-1 break-all text-xs text-ink-3">

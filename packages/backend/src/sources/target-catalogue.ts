@@ -23,7 +23,7 @@ const address = (value: unknown) => {
 };
 const strings = (value: unknown) => (Array.isArray(value) ? value.filter((s): s is string => typeof s === "string") : []);
 /** Original workbook identity plus observed new-system facts. No historical status field is loaded. */
-export async function sourceTargets(input: unknown) {
+export async function readSourceTargetCatalogue(input: unknown) {
   const query = SourceTargetsQuery.parse(input);
   const sources = await sql.begin(async (db) => {
     await db`SET LOCAL statement_timeout='2s'`;
@@ -41,7 +41,8 @@ export async function sourceTargets(input: unknown) {
     }
   }
   const targetKeys = new Set(SOURCE_TARGETS.map((t) => address(t.normalized_url)).filter((u): u is string => u !== null));
-  const ids = [...new Set([...matches].filter(([key]) => targetKeys.has(key)).flatMap(([, entries]) => entries.map((v) => v.source.id)))];
+  const ids = sources.map((source) => source.id);
+  const matchedIds = new Set([...matches].filter(([key]) => targetKeys.has(key)).flatMap(([, entries]) => entries.map((value) => value.source.id)));
   const [fetches, materials, publications, originals] = await Promise.all([
     sourceTargetFetchEvidence(ids),
     sourceTargetMaterialEvidence(ids),
@@ -88,6 +89,7 @@ export async function sourceTargets(input: unknown) {
     codes.forEach((code, index) => {
       const name = names[index] ?? code;
       countries.set(code, name);
+      if (target.primary_country !== code) return;
       const item = coverage.get(code) ?? { country: code, name, total: 0, configured: 0, observed: 0 };
       item.total++;
       if (evidence.length) item.configured++;
@@ -126,23 +128,38 @@ export async function sourceTargets(input: unknown) {
           .toLowerCase()
           .includes(text)),
   );
-  return SourceTargetsResponse.parse({
-    page: query.page,
-    page_size: 50,
-    total: filtered.length,
-    total_targets: SOURCE_TARGETS.length,
-    total_original_records: SOURCE_RECORDS.length,
-    counts,
-    countries: [...countries].map(([id, name]) => ({ id, name })).sort((a, b) => a.id.localeCompare(b.id)),
-    coverage: [...coverage.values()].sort((a, b) => a.country.localeCompare(b.country)),
-    items: filtered.slice((query.page - 1) * 50, query.page * 50),
-    as_of: new Date().toISOString(),
-    limitations: [
-      "原表321条记录对应320个去重目标；只读取原始身份字段，不继承旧系统的配置、采集、权限或验收状态。",
-      "仅按本系统规范化后的完整入口地址或已配置baseUrl关联，不凭域名相似或名称相同认定同一发布方。",
-      "记录数是当前新系统保存的历史事实，不代表当前配置已验收、目录已完整或持续自动供稿；没有手工标记已接通的操作。",
-      "正文指资讯已取得正文；原件指至少保留过原件的法规文书。发布投影记录包含历史，不等于此刻仍符合全部公开资格。",
-      "多国共同目标会分别计入各国覆盖，国家行不能相加作为去重总数。",
-    ],
-  });
+  return {
+    runtime: sources.map((source) => ({
+      id: source.id,
+      name: source.name,
+      lane: source.lane,
+      enabled: source.enabled,
+      urls: [source.config.feedUrl, source.config.url, source.config.baseUrl].map(publicUrl).filter((url): url is string => !!url),
+      observed: !!fetches.find((row) => row.source_id === source.id && row.latest) || !!materials.find((row) => row.source_id === source.id && row.materials),
+    })),
+    supplemental: sources.filter((source) => !matchedIds.has(source.id)).map(({ id, name, lane, enabled }) => ({ id, name, lane, enabled })),
+    snapshot: SourceTargetsResponse.parse({
+      page: query.page,
+      page_size: 50,
+      total: filtered.length,
+      total_targets: SOURCE_TARGETS.length,
+      total_original_records: SOURCE_RECORDS.length,
+      counts,
+      countries: [...countries].map(([id, name]) => ({ id, name })).sort((a, b) => a.id.localeCompare(b.id)),
+      coverage: [...coverage.values()].sort((a, b) => a.country.localeCompare(b.country)),
+      items: filtered,
+      as_of: new Date().toISOString(),
+      limitations: [
+        "原表321条记录对应320个去重目标；只读取原始身份字段，不继承旧系统的配置、采集、权限或验收状态。",
+        "仅按本系统规范化后的完整入口地址或已配置baseUrl关联，不凭域名相似或名称相同认定同一发布方。",
+        "记录数是当前新系统保存的历史事实，不代表当前配置已验收、目录已完整或持续自动供稿；没有手工标记已接通的操作。",
+        "正文指资讯已取得正文；原件指至少保留过原件的法规文书。发布投影记录包含历史，不等于此刻仍符合全部公开资格。",
+        "原表错标的哈萨克斯坦记录保留原文，但同址蒙古目标只计蒙古；跨国未限定保留独立行，不计任何国别分母。",
+      ],
+    }),
+  };
+}
+export async function sourceTargets(input: unknown) {
+  const { snapshot } = await readSourceTargetCatalogue(input);
+  return { ...snapshot, items: snapshot.items.slice((snapshot.page - 1) * 50, snapshot.page * 50) };
 }

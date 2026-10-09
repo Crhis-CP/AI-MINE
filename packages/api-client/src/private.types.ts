@@ -399,6 +399,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/source-coverage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["sourceCoverage"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/source-targets": {
     parameters: {
       query?: never;
@@ -409,6 +425,22 @@ export interface paths {
     get: operations["sourceTargets"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/source-targets/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["exportSourceTargets"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2197,6 +2229,96 @@ export interface components {
       expected_revision: number;
       metalLinks: components["schemas"]["OfficialMetalLinkInput"][];
     };
+    SourceCoverage: {
+      /** Format: date-time */
+      asOf: string;
+      limitations: string[];
+      matrices: components["schemas"]["SourceCoverageMatrix"][];
+      supplemental: {
+        enabled: boolean;
+        id: string;
+        /** @enum {string} */
+        lane: "news" | "policy";
+        name: string;
+      }[];
+    };
+    SourceCoverageEntry: {
+      id: string;
+      /** @enum {string} */
+      identity: "unverified" | "verified";
+      /** @enum {string} */
+      kind: "target" | "directory";
+      name: string;
+      note: string | null;
+      sourceIds: string[];
+      url: string | null;
+    };
+    SourceCoverageEntryInput: {
+      id: string;
+      /** @enum {string} */
+      identity: "unverified" | "verified";
+      /** @enum {string} */
+      kind: "target" | "directory";
+      name: string;
+      note: string | null;
+      sourceIds: string[];
+      url: string | null;
+    };
+    SourceCoverageInput: {
+      /** Format: date-time */
+      asOf: string;
+      limitations: string[];
+      matrices: components["schemas"]["SourceCoverageMatrixInput"][];
+      supplemental: {
+        enabled: boolean;
+        id: string;
+        /** @enum {string} */
+        lane: "news" | "policy";
+        name: string;
+      }[];
+    };
+    SourceCoverageMatrix: {
+      cells: {
+        column: string;
+        configured: number;
+        entries: components["schemas"]["SourceCoverageEntry"][];
+        observed: number;
+        row: string;
+      }[];
+      columns: {
+        id: string;
+        label: string;
+      }[];
+      explanation: string;
+      /** @enum {string} */
+      id: "china" | "news" | "policy";
+      rows: {
+        id: string;
+        label: string;
+      }[];
+      title: string;
+    };
+    SourceCoverageMatrixInput: {
+      cells: {
+        column: string;
+        configured: number;
+        entries: components["schemas"]["SourceCoverageEntryInput"][];
+        observed: number;
+        row: string;
+      }[];
+      columns: {
+        id: string;
+        label: string;
+      }[];
+      explanation: string;
+      /** @enum {string} */
+      id: "china" | "news" | "policy";
+      rows: {
+        id: string;
+        label: string;
+      }[];
+      title: string;
+    };
     SourceCreateRequest: {
       attachments_in_scope: boolean;
       config: {
@@ -2651,6 +2773,20 @@ export interface components {
       original_records: number;
       publication_records: number;
       source_id: string;
+    };
+    SourceTargetExport: {
+      /** Format: date-time */
+      asOf: string;
+      content: string;
+      filename: string;
+      total: number;
+    };
+    SourceTargetExportInput: {
+      /** Format: date-time */
+      asOf: string;
+      content: string;
+      filename: string;
+      total: number;
     };
     SourceTargetInput: {
       countries: string[];
@@ -5295,6 +5431,53 @@ export interface operations {
       };
     };
   };
+  sourceCoverage: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceCoverage"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
   sourceTargets: {
     parameters: {
       query?: {
@@ -5316,6 +5499,66 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SourceTargetsResponse"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  exportSourceTargets: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceTargetExport"];
         };
       };
       /** @description Problem response */

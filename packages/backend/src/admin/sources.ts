@@ -347,3 +347,6 @@ export async function deferSourceFetch(sourceId: string, retryAt: Date) {
 }
 
 export { sourceTargets } from "../sources/target-catalogue.ts";
+
+export { sourceCoverage } from "../sources/coverage-matrix.ts";
+export { exportSourceTargets } from "./source-exports.ts";
