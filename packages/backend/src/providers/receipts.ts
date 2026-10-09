@@ -213,7 +213,7 @@ type PolicyReceiptRecord = {
   receiptId: number;
   attemptId: string;
   response: unknown;
-  request: { manifest?: { upstream_artifacts?: { kind: string; id: string; version: string; manifest_id: string }[] } };
+  request: { manifest?: { upstream_artifacts?: { kind: string; id: string; version: string; content_hash: string; manifest_id: string }[] } };
 };
 /** Recorded physical responses are authoritative; never synthesize an attempt from an ordinal. */
 export async function readPolicyPartResponses(partIds: string[], recipe: string) {

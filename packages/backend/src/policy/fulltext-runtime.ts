@@ -110,13 +110,19 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
       plan.parts.map((p) => p.partId),
       run.recipeHash,
     );
+    const requested = (response: (typeof responses)[number], part: { partId: string; sourceHash: string }) =>
+      response.request.manifest?.upstream_artifacts?.some(
+        (a) => a.kind === "policy_part" && a.id === part.partId && a.content_hash === part.sourceHash && a.version === run.recipeHash,
+      ) === true;
     for (const response of responses) {
       const raw = responseParts(response.response),
         parsed = raw
           .map((x) => PolicyPartCandidateSchema.safeParse(x))
           .filter((x) => x.success)
           .map((x) => x.data!);
-      const candidates = parsed.filter((p) => plan.parts.some((expected) => expected.partId === p.partId && expected.sourceHash === p.sourceHash));
+      const candidates = parsed.filter(
+        (p) => requested(response, p) && plan.parts.some((expected) => expected.partId === p.partId && expected.sourceHash === p.sourceHash),
+      );
       const checked = validatePolicyFulltextCandidate(plan, candidates);
       const accepted = checked.accepted.map((p) => ({ partId: p.partId, sourceHash: p.sourceHash, candidate: candidates.find((c) => c.partId === p.partId)! }));
       const samePlan = response.request.manifest?.upstream_artifacts?.every((a) => a.manifest_id === plan.manifestHash);
@@ -126,7 +132,11 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
     // A stored candidate still needs both its immutable source binding and the actual paid response.
     const usable = checkpoints.filter((p) =>
       responses.some(
-        (r) => r.receiptId === p.receiptId && r.attemptId === p.attemptId && responseParts(r.response).some((c) => stableJson(c) === stableJson(p.candidate)),
+        (r) =>
+          r.receiptId === p.receiptId &&
+          r.attemptId === p.attemptId &&
+          requested(r, p) &&
+          responseParts(r.response).some((c) => stableJson(c) === stableJson(p.candidate)),
       ),
     );
     return validatePolicyFulltextCandidate(

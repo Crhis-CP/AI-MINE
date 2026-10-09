@@ -22,6 +22,7 @@ let transform = (part: Part) => ({
   zh: part.source.replaceAll("Permit applies at", "许可适用量为"),
 });
 let beforeResponse = async () => {};
+let extraParts: Part[] = [];
 let usage: { prompt_tokens: number; completion_tokens: number } | null = { prompt_tokens: 50, completion_tokens: 20 };
 const requests: { parts: Part[] }[] = [];
 const provider = await stub(async (_hit, req) => {
@@ -31,7 +32,7 @@ const provider = await stub(async (_hit, req) => {
   await beforeResponse();
   return {
     id: `synthetic-${requests.length}`,
-    choices: [{ message: { content: JSON.stringify({ parts: input.parts.map(transform) }) }, finish_reason: "stop" }],
+    choices: [{ message: { content: JSON.stringify({ parts: [...input.parts, ...extraParts].map(transform) }) }, finish_reason: "stop" }],
     usage,
   };
 });
@@ -217,4 +218,26 @@ test("a newer immutable original rejects the in-flight old result and uses the a
     [1, 2],
   );
   assert.equal(rows[0]!.request.manifest.materials[0].material_id, rows[1]!.request.manifest.materials[0].material_id);
+});
+
+test("a model cannot smuggle an unrequested part of the same plan into a paid checkpoint", async () => {
+  const f = await original(13),
+    before = requests.length;
+  beforeResponse = async () => {
+    const [row] = await sql`SELECT plan FROM policy.fulltext_runs WHERE expression_id=${f.record.expressionId}`;
+    extraParts = [row!.plan.parts[12]];
+  };
+  try {
+    const partial = await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 1 });
+    assert.equal(partial.status, "incomplete");
+    assert.equal("acceptedParts" in partial && partial.acceptedParts, 12);
+    assert.equal((await sql`SELECT count(*)::int n FROM policy.fulltext_parts WHERE part_id=${extraParts[0]!.partId}`)[0]!.n, 0);
+  } finally {
+    beforeResponse = async () => {};
+    extraParts = [];
+  }
+  const complete = await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 1 });
+  assert.equal(complete.status, "program_validated");
+  assert.equal(requests.length - before, 2);
+  assert.equal(requests[before + 1]!.parts.length, 1);
 });
