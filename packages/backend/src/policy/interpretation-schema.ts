@@ -27,7 +27,7 @@ export const GroupReply = MergeReply.extend({
 export const CandidateReply = z.strictObject({
   ...envelope,
   document_title: text,
-  title_zh: text,
+  title_zh: text.max(250),
   instrument_number: text.nullable(),
   relevance: z.enum(["relevant", "excluded", "uncertain"]),
   relevance_evidence_ids: z.array(id),
@@ -35,7 +35,7 @@ export const CandidateReply = z.strictObject({
   main_points: Policy.shape.main_points.max(16),
   impacts: z.array(PolicyImpact).max(12),
   relationships: Policy.shape.relationships.max(20),
-  dynamic_zh: text,
+  dynamic_zh: text.max(2000),
   gaps: z.array(text).max(5),
   comparisons: z.array(z.unknown()).max(0),
   evidence: z

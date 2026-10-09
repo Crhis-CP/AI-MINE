@@ -105,23 +105,17 @@
     "nature": {
       "value": "regulation",
       "basis": "合成原文事实",
-      "evidence_ids": [
-        "e1"
-      ]
+      "evidence_ids": ["e1"]
     },
     "legislative_stage": {
       "value": "published",
       "basis": "合成原文事实",
-      "evidence_ids": [
-        "e1"
-      ]
+      "evidence_ids": ["e1"]
     },
     "publication": {
       "value": "published",
       "basis": "合成原文事实",
-      "evidence_ids": [
-        "e1"
-      ],
+      "evidence_ids": ["e1"],
       "time": {
         "raw": "2026-10-08",
         "local_date": "2026-10-08",
@@ -140,9 +134,7 @@
     "enforcement": {
       "value": "not_in_force",
       "basis": "合成原文事实",
-      "evidence_ids": [
-        "e1"
-      ],
+      "evidence_ids": ["e1"],
       "arrangements": [
         {
           "text": "合成附条件安排",
@@ -163,9 +155,7 @@
           "occurrence": "conditional",
           "scope": "指定融资活动",
           "condition": "取得主管机关批准后",
-          "evidence_ids": [
-            "e1"
-          ]
+          "evidence_ids": ["e1"]
         }
       ]
     },
@@ -220,10 +210,7 @@
     {
       "id": "version-fixture",
       "version_label": "合成正式版本一",
-      "expression_ids": [
-        "expression-en",
-        "expression-zh"
-      ],
+      "expression_ids": ["expression-en", "expression-zh"],
       "current": true,
       "legal_brief": {
         "stage": "published",
@@ -303,9 +290,7 @@
     {
       "text": "合成条款对银行规定报告义务。",
       "clause_ref": "第1条",
-      "evidence_ids": [
-        "e1"
-      ]
+      "evidence_ids": ["e1"]
     }
   ],
   "guide": "【合成预览】仅在指定融资活动和明示条件下，银行承担报告义务；矿企可能间接受影响。",
@@ -323,9 +308,7 @@
       "impact": "可能需要向银行提供规则要求的信息。",
       "deadline": null,
       "exceptions": null,
-      "evidence_ids": [
-        "e1"
-      ]
+      "evidence_ids": ["e1"]
     }
   ],
   "sections": [],

@@ -14,9 +14,7 @@
       "kind": "heading",
       "text": "【合成预览】第一条",
       "table_rows": null,
-      "evidence_ids": [
-        "e1"
-      ],
+      "evidence_ids": ["e1"],
       "links": []
     },
     {
@@ -24,9 +22,7 @@
       "kind": "paragraph",
       "text": "【合成预览】银行在指定条件下对列明融资活动履行报告义务，例外条件应与正文一起阅读。",
       "table_rows": null,
-      "evidence_ids": [
-        "e1"
-      ],
+      "evidence_ids": ["e1"],
       "links": []
     }
   ],
