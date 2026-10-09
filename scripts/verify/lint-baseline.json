@@ -162,9 +162,6 @@
   "packages/backend/src/jobs/content.ts": {
     "lint/style/noProcessEnv": 1
   },
-  "packages/backend/src/jobs/sources.ts": {
-    "lint/style/noProcessEnv": 1
-  },
   "packages/backend/src/lib/text.ts": {
     "lint/suspicious/noControlCharactersInRegex": 6
   },

@@ -73,6 +73,13 @@ export const config = {
     .filter(Boolean),
 };
 
+/** Read dynamically so a paused lane is observed before the next queued source starts. */
+export const sourceCollectionEnabled = (lane: "news" | "policy") => env.COLLECT_ENABLED !== "false" && env[`COLLECT_${lane.toUpperCase()}_ENABLED`] !== "false";
+export function sourceCollectionConcurrency(lane: "news" | "policy"): number {
+  const n = Number(env[`FETCH_${lane.toUpperCase()}_CONCURRENCY`] ?? (lane === "news" ? (env.FETCH_CONCURRENCY ?? 8) : 2));
+  return Number.isInteger(n) && n > 0 ? Math.min(n, 32) : lane === "news" ? 8 : 2;
+}
+
 export type CredentialGroup = "models" | "collectors" | "integrations" | "auth";
 
 const groupCache = new Map<CredentialGroup, Record<string, string>>();

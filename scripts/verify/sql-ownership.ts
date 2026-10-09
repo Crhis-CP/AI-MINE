@@ -301,7 +301,10 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       !(tokens[n].kind === "word" && syntax.has(value(n)))
     ) {
       const catalogScalar =
-        ["to_char", "round", "pg_column_size"].some((name) => wordAt(n, name)) && punctuation(n - 1, ".") && wordAt(n - 2, "pg_catalog") && !punctuation(n - 3, ".");
+        ["to_char", "round", "pg_column_size"].some((name) => wordAt(n, name)) &&
+        punctuation(n - 1, ".") &&
+        wordAt(n - 2, "pg_catalog") &&
+        !punctuation(n - 3, ".");
       if (tokens[n].kind === "quoted" || (!functions.has(value(n)) && !catalogScalar) || (punctuation(n - 1, ".") && value(n - 2) !== "pg_catalog"))
         unknown.push(`opaque SQL function ${value(n)}`);
     }
