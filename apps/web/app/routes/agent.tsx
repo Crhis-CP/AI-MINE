@@ -3,7 +3,7 @@ import { Link, useLoaderData, useNavigate, useSearchParams } from "react-router"
 import type { Route } from "./+types/agent";
 import { SITE, withSubject } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
-import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
+import { MCP_TOOL_NAMES as T, MCP_TOOLS } from "@amp/contracts/mcp";
 import { listPath, pageMeta, siteUrl } from "../lib/seo";
 import { CodeBlock, CopyButton } from "../components/CodeBlock";
 import { IconArrowUpRight, IconChevronRight } from "../components/icons";
@@ -15,7 +15,7 @@ export function headers() {
   return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" };
 }
 
-const MCP_VERSION = "2.0.0";
+const MCP_VERSION = "2.1.0";
 /** The machine-readable entry points, with what each one is for. */
 const RESOURCES: Array<[label: string, href: string, note: string]> = [
   ["llms.txt", "/llms.txt", "给大模型读的站点说明"],
@@ -87,7 +87,7 @@ function McpTab({ base }: { base: string }) {
   const name = SITE.mcpPrefix;
   return (
     <>
-      <h2 className="text-[20px] font-bold text-ink">加一个地址，Agent 直接调用五个工具</h2>
+      <h2 className="text-[20px] font-bold text-ink">加一个地址，Agent 直接调用 {MCP_TOOLS.length} 个工具</h2>
       <p className="mt-2 text-[14.5px] text-ink-3">
         适合支持远程 MCP 的 Agent 与开发工具。标准 Streamable HTTP，匿名只读，不需要 token；工具返回简洁文字与同一份结构化数据。
       </p>
@@ -97,7 +97,7 @@ function McpTab({ base }: { base: string }) {
       </div>
       <CodeBlock title="通用 MCP 配置" lang="json" code={JSON.stringify({ mcpServers: { [name]: { type: "http", url } } }, null, 2)} />
       <CodeBlock lang="bash" code={`# Claude Code\nclaude mcp add --transport http ${name} '${url}'\n# Codex\ncodex mcp add ${name} --url '${url}'`} />
-      <Section title="连上后应看到这五个工具">
+      <Section title={`连上后应看到这 ${MCP_TOOLS.length} 个工具`}>
         <Bullets
           items={[
             <>
@@ -114,6 +114,24 @@ function McpTab({ base }: { base: string }) {
             </>,
             <>
               <Mono>{T.daily}</Mono>：最新或指定日期的{withSubject("日报")}
+            </>,
+            <>
+              <Mono>{T.item}</Mono>：公开资讯详情，正文仅在允许站外再分发时返回
+            </>,
+            <>
+              <Mono>{T.report}</Mono>：资讯日报、周报与月报
+            </>,
+            <>
+              <Mono>{T.topics}</Mono>：已公开主题及其可读内容
+            </>,
+            <>
+              <Mono>{T.policy}</Mono>：法规基本事实、合格解读与官方证据入口
+            </>,
+            <>
+              <Mono>{T.policies}</Mono>：独立搜索法规，支持法域、主题和日期筛选
+            </>,
+            <>
+              <Mono>{T.policyThread}</Mono>：由有据可查的引用、修订等关系组成的法规脉络
             </>,
           ]}
         />

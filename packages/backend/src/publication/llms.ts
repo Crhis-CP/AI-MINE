@@ -17,7 +17,7 @@ export async function loadLlmsAvailability() {
 }
 
 export const PUBLIC_VERSIONS = {
-  mcp: "2.0.0",
+  mcp: "2.1.0",
   v1OpenApi: "2.0.0",
 };
 
