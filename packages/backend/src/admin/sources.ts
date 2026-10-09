@@ -285,6 +285,7 @@ export async function lockSourceDateConfiguration(tx: Tx, sourceId: string, expe
 }
 
 import { appendSourcePolicy, readCurrentSourcePolicy } from "../sources/permission-store.ts";
+export { policySourceCoverage } from "../sources/policy-coverage.ts";
 import { SOURCE_PURPOSES, SourcePolicySchema } from "@amp/contracts/source-policy";
 import { SourceCreateRequest } from "@amp/contracts/http/private";
 export { readCurrentSourcePolicy, readCurrentPublicPolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "../sources/permission-store.ts";
