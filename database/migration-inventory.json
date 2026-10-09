@@ -191,6 +191,10 @@
     {
       "name": "policy/202610090300_policy_fulltext.sql",
       "dependsOn": ["policy/202610090200_policy_extractions.sql"]
+    },
+    {
+      "name": "publication/202610090600_policy_reports.sql",
+      "dependsOn": ["publication/202610060435_metal_prices.sql"]
     }
   ]
 }

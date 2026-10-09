@@ -408,6 +408,33 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
       }
+    },
+    "publication.policy_reports": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["id", "kind", "period_key", "current_revision"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.policy_report_revisions": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["report_id", "revision", "revision_id", "previous_revision", "content_hash", "generated_at", "card", "coverage", "attributions"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "publication.policy_report_members": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["report_id", "report_revision", "edition_id", "label", "available_by_cutoff", "position"],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {
