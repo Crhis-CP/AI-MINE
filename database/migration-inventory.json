@@ -235,6 +235,10 @@
     {
       "name": "ai-gateway/202610091200_model_registry.sql",
       "dependsOn": ["ai-gateway/202610051210_translation_receipt_observations.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091210_model_attempt_snapshot.sql",
+      "dependsOn": ["ai-gateway/202610091200_model_registry.sql"]
     }
   ]
 }

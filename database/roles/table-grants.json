@@ -691,6 +691,15 @@
         "private_ops": ["SELECT", "INSERT", "UPDATE"],
         "worker": ["SELECT"]
       }
+    },
+    "ai.model_attempt_snapshots": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {

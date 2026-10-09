@@ -81,7 +81,15 @@ export interface PolicyReceiptContext {
   manifest: unknown;
 }
 
+export interface ModelAttemptSnapshot {
+  connection_id: string;
+  connection_revision: number;
+  configuration_hash: string;
+  key_fingerprint: string;
+  pricing: { input: string; output: string; currency: "CNY"; basis: string };
+}
 export interface ReceiptRequest {
+  modelSnapshot?: ModelAttemptSnapshot;
   service: string;
   lane?: "news" | "policy";
   runtimeControl?: RuntimeControlSnapshot;
@@ -240,14 +248,18 @@ export async function readPolicyResponse(receipt: { receiptId: number; attemptId
       purpose: string;
       model: string | null;
       service: string;
+      configuration_hash: string | null;
+      connection_id: string | null;
+      connection_revision: number | null;
       status: string;
       response: unknown;
       request: Record<string, unknown>;
       usage: Record<string, unknown> | null;
     }[]
   >`
-    SELECT r.id AS "receiptId",a.id::text AS "attemptId",r.purpose,a.model,a.service,r.status,a.response,r.request,a.usage
+    SELECT r.id AS "receiptId",a.id::text AS "attemptId",r.purpose,a.model,a.service,r.status,a.response,r.request,a.usage,ms.configuration_hash,ms.connection_id,ms.connection_revision
     FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id AND a.id=r.response_attempt_id AND a.attempt=r.attempts
+    LEFT JOIN ai.model_attempt_snapshots ms ON ms.attempt_id=a.id
     WHERE r.id=${receipt.receiptId} AND a.id::text=${receipt.attemptId} AND a.status='received' AND a.response=r.response
       AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify','policy_vision') AND r.origin='live' AND a.origin='live'`;
   return row ? { ...row, knownUsage: knownTranslationUsage(row.usage) } : null;
@@ -477,6 +489,11 @@ async function startAttempt(tx: Db, receiptId: number, attempt: number, req: Rec
   const [row] = await tx<{ id: string }[]>`
     INSERT INTO receipt_attempts (receipt_id, attempt, service, model, status) VALUES (${receiptId}, ${attempt}, ${req.service}, ${req.model ?? null}, 'pending')
     RETURNING id::text AS id`;
+  if (req.modelSnapshot) {
+    const snapshot = req.modelSnapshot;
+    await tx`INSERT INTO ai.model_attempt_snapshots(attempt_id,connection_id,connection_revision,configuration_hash,key_fingerprint,pricing)
+      VALUES(${row!.id},${snapshot.connection_id},${snapshot.connection_revision},${snapshot.configuration_hash},${snapshot.key_fingerprint},${tx.json(snapshot.pricing)})`;
+  }
   return row!.id;
 }
 

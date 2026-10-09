@@ -15,6 +15,7 @@ import {
   rejectReceivedResponse,
   type TranslationObservation,
   type PolicyReceiptContext,
+  type ModelAttemptSnapshot,
 } from "./receipts.ts";
 import { dbOf } from "../db.ts";
 
@@ -271,9 +272,10 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     imageTransport = opts.purpose === "policy_vision" ? { transportHash: sha256(requestBody), transportBytes: Buffer.byteLength(requestBody) } : {};
 
   const registeredIdentity = registered ? { connection_id: registered.id, configuration_hash: modelConfigurationHash(registered.config) } : {};
-  const registeredSummary = registered
+  const registeredSummary: ModelAttemptSnapshot | undefined = registered
     ? {
-        ...registeredIdentity,
+        connection_id: registered.id,
+        configuration_hash: modelConfigurationHash(registered.config),
         connection_revision: registered.revision,
         key_fingerprint: registered.fingerprint,
         pricing: {
@@ -283,9 +285,10 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
           basis: registered.config.billing_basis,
         },
       }
-    : {};
+    : undefined;
   const receipt = await paidRequest(
     {
+      modelSnapshot: registeredSummary,
       service: spec.service,
       model: spec.model,
       purpose: opts.purpose,

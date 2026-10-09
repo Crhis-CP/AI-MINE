@@ -67,6 +67,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "ai.model_connections",
       "ai.model_connection_tests",
       "ai.model_routes",
+      "ai.model_attempt_snapshots",
       "publication.metal_prices",
       "policy.instruments",
       "policy.versions",

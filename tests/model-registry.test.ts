@@ -225,7 +225,7 @@ test("unknown outcome remains tied to original test across configuration changes
   const [receipt] = await sql`SELECT error FROM receipts WHERE id=${unknown.receipt_id!}`;
   assert.ok(!receipt!.error.includes(secret));
 });
-test("missing usage and invalid candidate do not pass; processing pause and circuit block test payment", async () => {
+test("missing usage does not pass; processing pause and circuit block test payment", async () => {
   const row = await create(),
     probe = await requestModelConnectionProbe(row.id, { expected_revision: 1, lane: "news" }, owner, guards);
   const unknown = await runModelConnectionProbe(probe.id, {
@@ -318,4 +318,73 @@ test("configuration hash binds evaluation and output identity; price edits do no
   await assert.rejects(assignRegisteredModel("digest", assignment, manager, guards));
   await sql`UPDATE selectbench_runs SET summary=${sql.json({ model_configurations: { [row.key]: row.configuration_hash } })} WHERE id=${evalId}`;
   assert.equal((await assignRegisteredModel("digest", assignment, manager, guards)).unevaluated, false);
+});
+
+test("each physical retry binds its own revision, fingerprint and prices; policy proof reads the actual attempt", async () => {
+  const row = await passing();
+  const opts = {
+    model: row.key,
+    purpose: "synthetic_retry",
+    subject: `retry:${row.id}`,
+    promptVersion: "test",
+    system: "",
+    user: row.id,
+    schema: z.strictObject({ ok: z.literal(true) }),
+  };
+  await assert.rejects(chatJson({ ...opts, registeredTransport: async () => ({ status: 503, headers: new Headers(), text: () => "unavailable" }) }));
+  const changed = await updateModelConnection(
+    row.id,
+    {
+      ...connection,
+      input_cny_per_million: "20",
+      secret: "second-fake-key",
+      expected_revision: 1,
+      reason: "retry configuration",
+      owner_confirmed: true,
+      supplier_basis: "https://fixture.invalid/quote",
+    },
+    owner,
+    guards,
+  );
+  const probe = await requestModelConnectionProbe(row.id, { expected_revision: 2, lane: "policy" }, owner, guards);
+  await runModelConnectionProbe(probe.id, { transport });
+  const second = await chatJson({ ...opts, registeredTransport: transport });
+  const attempts = await sql<
+    { revision: number; fingerprint: string; pricing: { input: string } }[]
+  >`SELECT ms.connection_revision AS revision,ms.key_fingerprint AS fingerprint,ms.pricing FROM ai.model_attempt_snapshots ms JOIN receipt_attempts a ON a.id=ms.attempt_id WHERE a.receipt_id=${second.receiptId} ORDER BY a.attempt`;
+  assert.deepEqual(
+    attempts.map((a) => a.revision),
+    [1, 2],
+  );
+  assert.deepEqual(
+    attempts.map((a) => a.pricing.input),
+    ["2", "20"],
+  );
+  assert.deepEqual(
+    attempts.map((a) => a.fingerprint),
+    [row.fingerprint, changed.fingerprint],
+  );
+  const [original] = await sql`SELECT request FROM receipts WHERE id=${second.receiptId}`;
+  assert.equal(original!.request.connection_revision, 1);
+  const { readPolicyResponse } = await import("../packages/backend/src/providers/receipts.ts");
+  const policy = await chatJson({
+    ...opts,
+    subject: `policy:${row.id}`,
+    purpose: "policy_verify",
+    registeredTransport: transport,
+    policyContext: {
+      lane: "policy",
+      category: "policy_interpret",
+      sourceIds: [],
+      manifestHash: "synthetic",
+      inputFingerprint: "synthetic",
+      permissionVersions: {},
+      manifest: {},
+    },
+    beforeRequest: async () => {},
+  });
+  const actual = await readPolicyResponse({ receiptId: policy.receiptId, attemptId: policy.attemptId! });
+  assert.equal(actual!.configuration_hash, changed.configuration_hash);
+  assert.equal(actual!.connection_revision, 2);
+  assert.equal(actual!.connection_id, row.id);
 });
