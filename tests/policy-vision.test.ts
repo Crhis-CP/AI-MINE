@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -165,6 +166,7 @@ Object.assign(process.env, {
   POLICY_VISION_MODEL: "default",
 });
 config.modelCallsEnabled = true;
+await installUsageFixtureForModel("default", sql);
 beforeEach(() => {
   mode = "pass";
   usage = { prompt_tokens: 100, completion_tokens: 50 };

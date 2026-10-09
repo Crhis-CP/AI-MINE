@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -65,11 +66,13 @@ test("actual physical response snapshots separate the same model name at distinc
   const gateway = createPolicyGateway({ root, resolve: async () => structuredClone(input) }),
     request = () => gateway.chat({ input: { id: sourceId, version: "1" }, purpose: "policy_interpret", schema: z.object({ ok: z.boolean() }) });
   process.env.LLM_BASE_URL = `${a.url}/v1`;
+  await installUsageFixtureForModel("default", db);
   const first = await request();
   await markReceiptsCompleted([first.receiptId]);
   const firstProof = await readPolicyResponse({ receiptId: first.receiptId, attemptId: first.attemptId! });
   assert.ok(firstProof?.configuration_hash);
   process.env.LLM_BASE_URL = `${b.url}/v1`;
+  await installUsageFixtureForModel("default", db);
   const second = await request();
   await markReceiptsCompleted([second.receiptId]);
   const secondProof = await readPolicyResponse({ receiptId: second.receiptId, attemptId: second.attemptId! });

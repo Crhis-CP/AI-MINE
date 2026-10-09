@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
 import { policyInterpretationQualityRecipe } from "../packages/backend/src/policy/references.ts";
 import { stub } from "./setup.ts";
@@ -37,6 +38,7 @@ Object.assign(process.env, {
   COLLECT_POLICY_ENABLED: "true",
 });
 config.modelCallsEnabled = true;
+await installUsageFixtureForModel("default", sql);
 after(async () => {
   await stopBoss();
   await provider.close();
@@ -230,5 +232,6 @@ test("collection and model switches leave resumable work without making a new ne
     assert.equal(modelCalls, 0);
   } finally {
     config.modelCallsEnabled = true;
+    await installUsageFixtureForModel("default", sql);
   }
 });

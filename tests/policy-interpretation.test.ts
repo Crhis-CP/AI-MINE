@@ -1,3 +1,4 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { policyModelQualification } from "../packages/backend/src/policy/model-evidence.ts";
 import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
@@ -144,6 +145,7 @@ const provider = await stub(async (_hit, req) => {
 });
 Object.assign(process.env, { LLM_BASE_URL: `${provider.url}/v1`, LLM_API_KEY: "synthetic-test-only", LLM_MODEL: "unchanged-stage-model" });
 config.modelCallsEnabled = true;
+await installUsageFixtureForModel("default", sql);
 beforeEach(() => {
   mode = "pass";
   usage = { prompt_tokens: 50, completion_tokens: 20 };
