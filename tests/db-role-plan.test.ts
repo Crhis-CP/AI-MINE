@@ -20,7 +20,15 @@ function catalog(): Catalog {
     actor: "bootstrap",
     superuser: true,
     databaseOwner: "bootstrap",
-    schemas: { public: "pg_database_owner", enrichment: "bootstrap", sources: "bootstrap", content: "bootstrap", ai: "bootstrap", publication: "bootstrap" },
+    schemas: {
+      public: "pg_database_owner",
+      enrichment: "bootstrap",
+      sources: "bootstrap",
+      content: "bootstrap",
+      ai: "bootstrap",
+      publication: "bootstrap",
+      policy: "bootstrap",
+    },
     tables: Object.entries(TABLE_GRANTS).map(([name, grant]) => ({
       name,
       owner: "bootstrap",
@@ -55,6 +63,11 @@ test("all current migration tables and serial sequences have one explicit classi
       "content.source_date_observations",
       "ai.translation_receipt_observations",
       "publication.metal_prices",
+      "policy.instruments",
+      "policy.versions",
+      "policy.expressions",
+      "policy.document_revisions",
+      "policy.original_resources",
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
@@ -95,7 +108,7 @@ test("the plan separates seven identities, column reads, append-only audit, owne
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "content"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "ai"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "publication"')).length, 4);
-  assert.equal(defaults.length, 28);
+  assert.equal(defaults.length, 32);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "ai"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.doesNotMatch(sql, /GRANT .* TO PUBLIC/);

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "a6f0c2f3c8182e0938deb839a2a8bef2853673ebf656d2102ed6a13276a795a3",
+  "grantCatalogueSha256": "c1ec0333bf8c7db1fd1821f8e8d05407ecdbef9f87a1d22de48cfce803302e36",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -224,6 +224,26 @@
     },
     "publication.metal_prices": {
       "module": "publication",
+      "access": "business"
+    },
+    "policy.instruments": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.versions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.expressions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.document_revisions": {
+      "module": "policy",
+      "access": "business"
+    },
+    "policy.original_resources": {
+      "module": "policy",
       "access": "business"
     }
   },
