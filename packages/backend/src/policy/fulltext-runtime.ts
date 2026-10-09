@@ -41,13 +41,15 @@ export async function runPolicyFulltext(expressionId: string, profileValue: Extr
   if (!Number.isSafeInteger(max) || max < 1) throw new Error("maxRequests must be a positive fairness limit");
   const snapshot = await readPolicyOriginal(expressionId);
   if (!snapshot) throw new Error("Policy original missing");
-  const recipeVersion = `${promptVersion(PROMPT)}/candidate-v1`;
-  const plan = buildPolicyFulltextPlan(await extractPolicyOriginal(expressionId, profile), {
+  const extraction = await extractPolicyOriginal(expressionId, profile);
+  const recipeVersion = `${promptVersion(PROMPT)}/candidate-v1${extraction.visualProof ? `/vision:${extraction.visualProof.recipe}` : ""}`;
+  const plan = buildPolicyFulltextPlan(extraction, {
     sourceId: snapshot.sourceId,
     expressionId,
     language: snapshot.language,
     identityHash: sha256(stableJson([snapshot.manifest.officialTitle, snapshot.manifest.identity])),
     recipeVersion,
+    ...(extraction.visualProof ? { visualRunId: extraction.visualProof.runId, visualContentHash: extraction.visualProof.contentHash } : {}),
   });
   if (plan.status !== "planned") return plan;
   if (plan.revisionId !== snapshot.revisionId) return { status: "stale" as const };

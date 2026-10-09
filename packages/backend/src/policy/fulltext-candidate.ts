@@ -122,6 +122,11 @@ function planIssues(plan: PolicyFulltextPlan): string[] {
   if (!plan.revisionId || Object.values(plan.context).some((value) => !value.trim()) || !hash.safeParse(plan.context.identityHash).success)
     errors.push("plan_identity_invalid");
   if (plan.manifestHash !== sha256(stableJson([plan.revisionId, plan.context, plan.sourceBytes, plan.parts]))) errors.push("plan_manifest_mismatch");
+  if (
+    Boolean(plan.context.visualRunId) !== Boolean(plan.context.visualContentHash) ||
+    (plan.context.visualRunId && (!hash.safeParse(plan.context.visualRunId).success || !hash.safeParse(plan.context.visualContentHash).success))
+  )
+    errors.push("invalid_visual_proof");
   if (!plan.parts.length || new Set(plan.parts.map((part) => part.partId)).size !== plan.parts.length) errors.push("plan_parts_invalid");
   const byId = new Map(plan.parts.map((part) => [part.partId, part])),
     resources = new Map<string, string>();

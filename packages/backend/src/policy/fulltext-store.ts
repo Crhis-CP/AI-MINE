@@ -10,6 +10,10 @@ const sql = dbOf("policy");
 export type PolicyOriginal = NonNullable<Awaited<ReturnType<typeof readPolicyOriginal>>>;
 export type FulltextRun = { id: string; plan: PolicyFulltextPlan; snapshot: PolicyOriginal; controlVersion: number; recipeHash: string };
 export class PolicyRunStaleError extends Error {}
+export async function readProcessingControl(expressionId: string) {
+  const [row] = await sql<{ version: number; paused: boolean }[]>`SELECT version,paused FROM policy.processing_controls WHERE expression_id=${expressionId}`;
+  return row ?? null;
+}
 export async function processingControl(expressionId: string) {
   await sql`INSERT INTO policy.processing_controls(expression_id) VALUES(${expressionId}) ON CONFLICT DO NOTHING`;
   const [row] = await sql<{ version: number; paused: boolean }[]>`SELECT version,paused FROM policy.processing_controls WHERE expression_id=${expressionId}`;
@@ -35,7 +39,8 @@ export async function setPolicyProcessingPaused(expressionId: string, change: { 
     return Number(row.version);
   });
 }
-export async function withCurrentPolicyRun<T>(run: FulltextRun, action: (tx: Tx) => Promise<T>) {
+export type OriginalRun = { snapshot: PolicyOriginal; expressionId: string; controlVersion: number };
+export async function withCurrentPolicyOriginal<T>(run: OriginalRun, action: (tx: Tx) => Promise<T>) {
   return sql.begin(async (tx) => {
     const s = run.snapshot;
     await assertOriginalPermissions(tx, s.sourceId, s.permissionVersion, s.manifest.resources, s.manifest.identity, true);
@@ -53,12 +58,15 @@ export async function withCurrentPolicyRun<T>(run: FulltextRun, action: (tx: Tx)
       );
       if (allowed.decision !== "allow") throw new PolicyRunStaleError("Policy processing permission changed");
     }
-    const [head] = await tx`SELECT current_revision_id FROM policy.expressions WHERE id=${run.plan.context.expressionId} FOR SHARE`;
-    const [control] = await tx`SELECT version,paused FROM policy.processing_controls WHERE expression_id=${run.plan.context.expressionId} FOR SHARE`;
+    const [head] = await tx`SELECT current_revision_id FROM policy.expressions WHERE id=${run.expressionId} FOR SHARE`;
+    const [control] = await tx`SELECT version,paused FROM policy.processing_controls WHERE expression_id=${run.expressionId} FOR SHARE`;
     if (head?.current_revision_id !== s.revisionId || control?.version !== run.controlVersion || control?.paused)
       throw new PolicyRunStaleError("Policy original or control changed");
     return action(tx);
   });
+}
+export async function withCurrentPolicyRun<T>(run: FulltextRun, action: (tx: Tx) => Promise<T>) {
+  return withCurrentPolicyOriginal({ snapshot: run.snapshot, expressionId: run.plan.context.expressionId, controlVersion: run.controlVersion }, action);
 }
 export async function beginPolicyFulltext(snapshot: PolicyOriginal, plan: PolicyFulltextPlan, recipeHash: string): Promise<FulltextRun | null> {
   const control = await processingControl(plan.context.expressionId);
