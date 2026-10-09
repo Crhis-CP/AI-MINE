@@ -195,18 +195,26 @@ export async function findDuplicateSource(kind: string, config: Record<string, u
   return rows.find((r) => sourceIdentity(r.config) === identity) ?? null;
 }
 
-export async function createSource(input: unknown, actor: string) {
-  const s = SourceCreateRequest.parse(input);
-  assertSupportedConfig(s.kind, s.config);
+/** Validate a complete seed batch before any source is created, using the same rules as the HTTP entry. */
+export function validateSourceCreate(input: unknown) {
+  const source = SourceCreateRequest.parse(input);
+  assertSupportedConfig(source.kind, source.config);
+  return source;
+}
+
+export async function createSource(input: unknown, actor: string, opts: { lane?: "news" | "policy" } = {}) {
+  const lane = opts.lane ?? "news";
+  if (lane !== "news" && lane !== "policy") throw new Error("业务线必须是 news 或 policy");
+  const s = validateSourceCreate(input);
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(23622, hashtext(${s.kind + ":" + (sourceIdentity(s.config) ?? s.id)}))`;
     const dup = await findDuplicateSource(s.kind, s.config, tx);
     if (dup) return { created: false as const, duplicate: dup };
     await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${s.id}))`;
     const [row] = await tx`
-      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at,source_date_config_hash)
+      INSERT INTO sources (id,name,kind,config,tier,participation_mode,interval_minutes,first_party,tags,site_fulltext,syndicate_fulltext,enabled,health,next_fetch_at,source_date_config_hash,lane)
       VALUES (${s.id},${s.name},${s.kind},${tx.json(s.config as never)},${s.tier},${s.participation_mode},${s.interval_minutes},${s.first_party},${s.tags},
-        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL,${sourceDateConfigHash(s.kind, s.config)}) ON CONFLICT (id) DO NOTHING RETURNING *`;
+        ${s.site_fulltext},${s.syndicate_fulltext},false,'paused',NULL,${sourceDateConfigHash(s.kind, s.config)},${lane}) ON CONFLICT (id) DO NOTHING RETURNING *`;
     if (!row) throw new Conflict(`信源 ID ${s.id} 已存在`);
     const at = new Date().toISOString();
     const permission = SourcePolicySchema.parse({
@@ -238,7 +246,7 @@ export async function createSource(input: unknown, actor: string) {
       licence_label_zh: "负责人声明许可；来源异议或指示可逐项收紧",
     });
     await appendSourcePolicy(tx, null, permission);
-    await audit(actor, "source.create", `source:${s.id}`, null, null, s, undefined, tx);
+    await audit(actor, "source.create", `source:${s.id}`, null, null, { ...s, lane }, undefined, tx);
     return { created: true as const, source: row };
   });
 }

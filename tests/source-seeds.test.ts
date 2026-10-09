@@ -8,7 +8,7 @@ test("fresh initialization imports only configured sources, all disabled and uns
   const env = { DATABASE_URL: fixture.urlFor() };
   await fixture.run(process.execPath, ["scripts/seed.ts"], env);
   const sources = JSON.parse(readFileSync("industry/sources.json", "utf8")).sources as { id: string }[];
-  const rows = await fixture.admin`SELECT id,enabled,next_fetch_at FROM sources ORDER BY id`;
+  const rows = await fixture.admin`SELECT id,enabled,next_fetch_at FROM sources WHERE lane = 'news' ORDER BY id`;
   assert.deepEqual(
     rows.map((row) => row.id),
     sources.map((source) => source.id).sort(),
@@ -17,7 +17,7 @@ test("fresh initialization imports only configured sources, all disabled and uns
   const [topics] = await fixture.admin`SELECT count(*)::int AS n FROM topics`;
   assert.ok(topics!.n > 0);
   await fixture.run(process.execPath, ["scripts/seed.ts", "--topics-only"], env);
-  assert.deepEqual(await fixture.admin`SELECT id,enabled,next_fetch_at FROM sources ORDER BY id`, rows);
+  assert.deepEqual(await fixture.admin`SELECT id,enabled,next_fetch_at FROM sources WHERE lane = 'news' ORDER BY id`, rows);
 });
 
 test("seed activation is ignored and repeated imports preserve operator changes", async (t) => {
