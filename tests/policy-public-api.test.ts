@@ -11,6 +11,8 @@ import { Policy, PolicyCard, PolicyListResponse, PolicyScopeList, PolicyReadingP
 import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
 import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
 import { newShortId } from "@amp/backend/lib/ids";
+import { createRequire } from "node:module";
+const { XMLParser } = createRequire(new URL("../packages/backend/package.json", import.meta.url))("fast-xml-parser");
 
 const fixture = () => JSON.parse(readFileSync(new URL("./fixtures/policy-public/complete.json", import.meta.url), "utf8"));
 const card = (policy: unknown) => {
@@ -105,6 +107,22 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     };
     const a = await seed("one"),
       b = await seed("two");
+    const rss = await app.request("/feed/policies.xml?reader=ignored"),
+      rssBody = await rss.text();
+    assert.equal(rss.status, 200);
+    assert.equal(rss.headers.get("cache-control"), "public, max-age=0, must-revalidate");
+    const rssItems = new XMLParser().parse(rssBody).rss.channel.item;
+    assert.equal(rssItems.length, 2);
+    assert.ok(rssItems.every((item: Record<string, unknown>) => item["dc:date"] && !item.pubDate));
+    assert.match(rssBody, /AI 辅助生成\/翻译/);
+    assert.doesNotMatch(rssBody, /content:encoded|合成公开正文|review_evidence|modelEvidence/);
+    const sitemap = await app.request("/sitemap.xml"),
+      sitemapBody = await sitemap.text();
+    assert.equal(sitemap.status, 200);
+    assert.ok(sitemapBody.includes(`/policies/${a.id}`));
+    assert.equal(sitemap.headers.get("cache-control"), "public, max-age=0, must-revalidate");
+    assert.equal((await app.request("/sitemaps/1.xml")).status, 200);
+    assert.equal((await app.request("/sitemaps/2.xml")).status, 404);
     const counts = async () =>
       (
         await f.admin`SELECT (SELECT count(*) FROM receipts)::int receipts,(SELECT count(*) FROM fetch_runs)::int fetches,(SELECT count(*) FROM policy.document_revisions)::int revisions,(SELECT count(*) FROM publication.policy_editions)::int editions`
@@ -187,6 +205,8 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     const redactedReport = PolicyReport.parse(await (await app.request(`/api/site/policies/reports/${report.id}?edition=1`)).json());
     assert.equal(redactedReport.item_count, 2);
     assert.ok(!JSON.stringify(redactedReport).includes(c.id));
+    assert.ok(!(await (await app.request("/feed/policies.xml")).text()).includes(c.id));
+    assert.ok(!(await (await app.request("/sitemap.xml")).text()).includes(c.id));
     const after = await counts();
     assert.deepEqual(
       { ...after, editions: before!.editions, revisions: before!.revisions },
@@ -200,6 +220,13 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     await denied(sessions.public_read, "SELECT * FROM publication.policy_ids");
     await denied(sessions.public_read, "UPDATE publication.policy_documents SET withdrawn=true");
     await assert.doesNotReject(sessions.public_read`SELECT id,current_revision_id FROM policy.expressions`);
+    await f.admin.unsafe(`REVOKE SELECT ON publication.policy_editions FROM "${f.roles.public_read}"`);
+    for (const url of ["/feed/policies.xml", "/sitemap.xml"]) {
+      const failed = await app.request(url);
+      assert.equal(failed.status, 503, url);
+      assert.equal(failed.headers.get("cache-control"), "no-store");
+      assert.ok(!(await failed.text()).includes(a.id), "failed reads cannot reuse previously successful metadata");
+    }
   } finally {
     await app.stop();
     dispose();

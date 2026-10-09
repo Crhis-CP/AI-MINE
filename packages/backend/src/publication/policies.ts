@@ -399,6 +399,13 @@ export async function policyPublicVersions() {
   return out;
 }
 
+/** Current qualified metadata for sitemap generation; no body, permission state or private identity leaves this port. */
+export async function policyDiscoveryEntries() {
+  const entries: { id: string; lastModified: Date }[] = [];
+  for await (const view of currentViews(context())) if (view.card.summary) entries.push({ id: view.card.id, lastModified: view.row.released_at });
+  return entries;
+}
+
 export async function policyThread(id: string) {
   const members: PolicyCard[] = [];
   for await (const view of currentViews(context())) if (view.card.thread_id === id) members.push(view.card);

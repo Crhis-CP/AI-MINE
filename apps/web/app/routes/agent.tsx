@@ -140,6 +140,7 @@ function RssTab({ base }: { base: string }) {
     ["精选全文", "与精选摘要相同的最新 50 条；只对明确允许再分发的来源内联正文。", "/feed/full.xml"],
     ["最近 7 天全部动态", "最近 7 天公开动态，按真实发布时间倒序。", "/feed/all.xml"],
     [withSubject("日报"), `每天 08:00 北京时间发布的${withSubject("日报")}，保留最近 30 期。`, "/feed/daily.xml"],
+    ["法规政策动态", "最近50份当前可公开法规文书的摘要与官方原文入口；日期精度按来源保留，不含全文。", "/feed/policies.xml"],
   ];
   const categories = CATEGORY_KEYS.join("|");
   return (

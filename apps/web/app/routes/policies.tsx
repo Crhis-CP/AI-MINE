@@ -24,7 +24,7 @@ import {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url),
-    input = Object.fromEntries([...url.searchParams].filter(([, v]) => v));
+    input = Object.fromEntries([...url.searchParams].filter(([key, v]) => key !== "_routes" && v));
   const parsed = PolicyListQuery.safeParse(input);
   const invalid = !parsed.success || [...url.searchParams.keys()].some((k) => url.searchParams.getAll(k).length > 1);
   if (invalid) return withHeaders({ listing: null, scope: null, filters: { ...PolicyListQuery.parse({}), ...input }, error: 400 }, { status: 400 });

@@ -8,7 +8,7 @@ import { EmptyState } from "../components/ui/Page";
 import { PolicyTabs, PolicyError, policyCache, usePolicyRecheck } from "../features/policy/PolicyUI";
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url),
-    parsed = PolicyReportQuery.safeParse({ kind: "weekly", ...Object.fromEntries(url.searchParams) });
+    parsed = PolicyReportQuery.safeParse({ kind: "weekly", ...Object.fromEntries([...url.searchParams].filter(([key]) => key !== "_routes")) });
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports", {
     params: { query: parsed.data },

@@ -8,7 +8,7 @@ import { SITE } from "@amp/industry/site";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { REPO_ROOT, config } from "@amp/backend/config";
 import { applyPublicHeaders, sendTextWithEtag } from "../http/respond.ts";
-import { sitemapXml } from "@amp/backend/publication/sitemap";
+import { sitemapXml, SitemapPageNotFound } from "@amp/backend/publication/sitemap";
 import { llmsTxt, loadLlmsAvailability } from "@amp/backend/publication/llms";
 
 const REF = path.join(REPO_ROOT, "reference");
@@ -106,18 +106,25 @@ async function openApiJson(): Promise<string> {
 }
 
 export function registerStatic(app: FastifyInstance) {
-  app.get("/sitemap.xml", async (req, reply) => {
+  const sendSitemap = async (req: FastifyRequest, reply: FastifyReply, page?: number) => {
     try {
-      const xml = await sitemapXml();
+      const xml = await sitemapXml(page);
       return sendTextWithEtag(req, reply, xml, {
         etagPrefix: "sitemap",
-        cacheControl: "public, max-age=0, s-maxage=300, must-revalidate",
+        cacheControl: "public, max-age=0, must-revalidate",
         contentType: "application/xml",
       });
     } catch (error) {
+      if (error instanceof SitemapPageNotFound) return reply.code(404).header("Cache-Control", "no-store").send("Not found");
       req.log.error({ err: error }, "sitemap unavailable");
       return reply.code(503).header("Retry-After", "300").header("Cache-Control", "no-store").send("Sitemap temporarily unavailable");
     }
+  };
+  app.get("/sitemap.xml", (req, reply) => sendSitemap(req, reply));
+  app.get("/sitemaps/:file", (req, reply) => {
+    const file = (req.params as { file: string }).file;
+    if (!/^[1-9][0-9]*\.xml$/.test(file)) return reply.code(404).send("Not found");
+    return sendSitemap(req, reply, Number(file.slice(0, -4)));
   });
 
   app.get("/llms.txt", async (req, reply) => {

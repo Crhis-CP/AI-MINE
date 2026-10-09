@@ -13,6 +13,7 @@ import { escapeXml } from "../lib/text.ts";
 import { reportHeadline, reportIndex } from "./reports.ts";
 import type { ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
+import { listPolicies } from "./policies.ts";
 
 const sql = dbOf("publication");
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
@@ -74,7 +75,7 @@ function rfc822(d: Date): string {
 
 function channel(meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number }, items: string[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:amp="urn:aiminingpolicy:ai-metadata:v1">
   <channel>
     <title>${escapeXml(meta.title)}</title>
     <link>${escapeXml(siteUrl(meta.homePath))}</link>
@@ -218,4 +219,36 @@ export async function dailyFeed(): Promise<string> {
 
 export function isFeedCategory(v: string): v is PublicApiCategoryKey {
   return (PUBLIC_API_CATEGORY_KEYS as readonly string[]).includes(v);
+}
+
+/** Summary-only policy syndication; qualifications and withdrawals are evaluated for every read. */
+export async function policyFeed() {
+  const { items } = await listPolicies({ page: 1, page_size: 50 });
+  return channel(
+    {
+      title: `${SITE.name} — 法规政策动态`,
+      description: items.length ? "最近50份当前可公开法规文书的摘要；请核对适用条件及官方原文。" : "暂时没有可公开的法规文书；不代表有关法域没有新法规。",
+      homePath: "/policies",
+      selfPath: "/feed/policies.xml",
+      ttl: 1,
+    },
+    items.map((policy) => {
+      const time = policy.published_time,
+        dateOnly = time.precision === "date" && !!time.local_date,
+        precise = ["minute", "second"].includes(time.precision) && time.utc && Number.isFinite(Date.parse(time.utc)),
+        sources = policy.attributions.map((a) => `<a href="${escapeXml(a.url)}">${escapeXml(a.name)}</a>`).join("、"),
+        description = `${dateOnly ? `<p>来源发布日期：${time.local_date}（仅提供日期）。</p>` : ""}<p>据${sources}原文整理：${escapeXml(policy.summary ?? "尚未完成解读，请查看基本事实和官方原文。")}</p><p>内容由 AI 辅助生成/翻译，以原文为准。</p>`;
+      return `    <item>
+      <title>${cdata(policy.title)}</title>
+      <link>${escapeXml(siteUrl(`/policies/${encodeURIComponent(policy.id)}`))}</link>
+      <description>${cdata(description)}</description>
+      <source url="${escapeXml(policy.original_url)}">${escapeXml(policy.authority.name)}</source>
+      <guid isPermaLink="false">${escapeXml(policy.id)}</guid>
+      ${dateOnly ? `<dc:date>${escapeXml(time.local_date!)}</dc:date>` : precise ? `<pubDate>${rfc822(new Date(time.utc!))}</pubDate>` : ""}
+      <category domain="ai-label">${escapeXml(policy.ai_label)}</category>
+      <amp:provider>${escapeXml(SITE.name)}</amp:provider>
+      <amp:content-id>${escapeXml(policy.id)}</amp:content-id>
+    </item>`;
+    }),
+  );
 }

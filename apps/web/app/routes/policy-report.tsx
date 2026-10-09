@@ -7,7 +7,7 @@ import { apiBaseFor } from "../../api-target.ts";
 import { pageMeta } from "../lib/seo.ts";
 import { PolicyError, policyCache, PolicyTabs, Section, timeLabel, policyHref, actionClass, usePolicyRecheck } from "../features/policy/PolicyUI";
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const parsed = PolicyReportDetailQuery.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+  const parsed = PolicyReportDetailQuery.safeParse(Object.fromEntries([...new URL(request.url).searchParams].filter(([key]) => key !== "_routes")));
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports/{id}", {
     params: { path: { id: params.id }, query: parsed.data },

@@ -35,6 +35,7 @@ export function llmsTxt(opts: { hasDailies: boolean; hasWeekly: boolean; hasMont
   lines.push(`- [精选摘要 RSS](${u("/feed.xml")}): 最新 50 条精选摘要，保留标题、站内阅读与原文入口`);
   lines.push(`- [精选全文 RSS](${u("/feed/full.xml")}): 与精选摘要相同的最新 50 条；只对明确允许再分发的来源内联正文`);
   lines.push(`- [全部动态 RSS](${u("/feed/all.xml")}): 最近 7 天公开动态，按真实发布时间倒序`);
+  lines.push(`- [法规政策 RSS](${u("/feed/policies.xml")}): 最近50份当前可公开文书的摘要、发布日期与官方原文；不提供正文再分发`);
   if (opts.hasDailies) lines.push(`- [${daily} RSS](${u("/feed/daily.xml")}): 每天 08:00 北京时间发布的${daily}，保留最近 30 期`);
   lines.push(`- [分类 RSS](${u(`/feed/category/${CATEGORY_KEYS[0]}.xml`)}): 按分类订阅精选，slug 支持 ${CATEGORY_KEYS.join(" / ")}`);
   lines.push(
@@ -51,6 +52,7 @@ export function llmsTxt(opts: { hasDailies: boolean; hasWeekly: boolean; hasMont
   lines.push(`- [公开 API v1 · 当前全部精选](${u("/api/v1/selected/snapshot")}): 首次完整快照；后续使用响应 cursor 调 selected/changes`);
   lines.push(`- [公开 API v1 · 精选增量](${u("/api/v1/selected/changes")}): 只返回新增、修改和撤选`);
   lines.push(`- [OpenAPI v1 规范](${u("/openapi-v1.json")}): 上述 API 的机器可读规范`);
+  lines.push(`- [法规 API · 列表与搜索](${u("/api/v1/policies")}): 支持法域、主题、日期与游标；详情 /api/v1/policies/{id}，只消费公开资格内的数据`);
   lines.push(`- [Agent 接入指南](${u("/agent")}): MCP / RSS / REST API 接入说明`);
   lines.push(`- [使用规则](${u("/terms")})`);
   lines.push(`- [隐私说明](${u("/privacy")})`, "");
@@ -58,6 +60,8 @@ export function llmsTxt(opts: { hasDailies: boolean; hasWeekly: boolean; hasMont
   lines.push(`- [首页 · 精选](${u("/")}): 每日精选动态`);
   lines.push(`- [热点榜](${u("/hot")}): 过去 48 小时内被多个独立信源共同讨论的事件`);
   lines.push(`- [全部动态](${u("/all")}): 全部公开资讯，可按分类筛选`);
+  lines.push(`- [法规政策动态](${u("/policies")}): 基本事实与完整解读分开标注，中文与原文、法律状态与版本证据按实际完成情况展示`);
+  lines.push(`- [法规周月汇总](${u("/policies/reports?kind=weekly")}): 固定文书版本、来源覆盖和更正记录；未取得回执不代表没有新法规`);
   if (opts.hasDailies) {
     lines.push(`- [${daily}](${u("/daily")}): 每日精编汇总`);
     lines.push(`- [${daily}存档](${u("/daily/archive")}): 历史${daily}归档`);
