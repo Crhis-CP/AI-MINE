@@ -7,10 +7,13 @@ import { bj, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Input, ReasonDialog } from "../../features/admin/ui";
 import { RuntimeControls } from "../../features/admin/RuntimeControls";
 import { LaneControlsResponse } from "@amp/contracts/http/private";
+import { MonthlyUsageList } from "@amp/contracts/http/private";
+import { MonthlyUsage } from "../../features/admin/MonthlyUsage";
 import type { z } from "zod";
 
 interface Settings {
   runtime: z.infer<typeof LaneControlsResponse> | null;
+  monthly: z.infer<typeof MonthlyUsageList>["items"] | null;
   targets: Array<{
     key: string;
     purpose: string;
@@ -35,13 +38,16 @@ interface Settings {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const [settings, runtime] = await Promise.all([
-    adminGet<Omit<Settings, "runtime">>(request, "/api/admin/settings"),
+  const [settings, runtime, monthly] = await Promise.all([
+    adminGet<Omit<Settings, "runtime" | "monthly">>(request, "/api/admin/settings"),
     adminGet<unknown>(request, "/api/admin/lane-controls")
       .then((value) => LaneControlsResponse.parse(value))
       .catch(() => null),
+    adminGet<unknown>(request, "/api/admin/usage/reports")
+      .then((value) => MonthlyUsageList.parse(value).items)
+      .catch(() => null),
   ]);
-  return { ...settings, runtime };
+  return { ...settings, runtime, monthly };
 }
 
 export const meta: Route.MetaFunction = () => [{ title: `自动运行与通知 · ${SITE.name} 后台` }];
@@ -126,6 +132,7 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
           })
         }
       />
+      <MonthlyUsage entries={s.monthly} />
       <Card title="通知目的地" pad={false}>
         <DataTable
           rows={s.targets}

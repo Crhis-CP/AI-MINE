@@ -21,7 +21,7 @@ export default function UsageLayout() {
           </NavLink>
         ))}
       </nav>
-      <p className="px-4 pt-3 text-[12px] text-ink-3 lg:px-6">密钥录入与月度用量管理尚未开放；目前提供近期模型用量、既有模型配置与核对功能。</p>
+      <p className="px-4 pt-3 text-[12px] text-ink-3 lg:px-6">近期用量与月度报告分别记录；费用缺项、暂停保护和发送状态会明确显示。密钥录入正在接入。</p>
       <Outlet />
     </>
   );
