@@ -129,6 +129,11 @@ export function PolicyCardView({ policy }: { policy: PolicyCard }) {
         <span>来源发布日期：{timeLabel(policy.published_time)}</span>
         <span>本站公开：{timeLabel(policy.first_public_at)}（北京时间）</span>
       </div>
+      {policy.thread_id && (
+        <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="mt-3 inline-block text-[12px] font-medium text-accent">
+          查看政策脉络 →
+        </Link>
+      )}
       {policy.applicability_summary && <p className="mt-2 text-[12px] text-ink-3">适用条件：{policy.applicability_summary}</p>}
       <div className="mt-2 flex flex-wrap gap-2">
         {policy.themes.map((t) => (

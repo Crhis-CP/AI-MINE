@@ -26,6 +26,7 @@ const publicRoutes = [
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
   route("metals", "routes/metals.tsx"),
+  route("policy-threads/:id", "routes/policy-thread.tsx"),
   route("policies", "routes/policies.tsx"),
   route("policies/reports", "routes/policy-reports.tsx"),
   route("policies/reports/:id", "routes/policy-report.tsx"),

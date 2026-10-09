@@ -24,8 +24,9 @@ import {
 } from "../features/policy/PolicyUI";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const url = new URL(request.url),
-    parsed = PolicyDetailQuery.safeParse(Object.fromEntries(url.searchParams));
+  const url = new URL(request.url);
+  url.searchParams.delete("_routes"); // React Router data transport, not a public query filter.
+  const parsed = PolicyDetailQuery.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   try {
     const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/{id}", {
@@ -78,6 +79,11 @@ function PolicyDocument({ policy, history }: Awaited<ReturnType<typeof loader>>)
       <div className="sticky top-0 z-20 mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-line bg-bg/95 py-3 backdrop-blur">
         <PolicyBack />
         <PolicySaveButton id={policy.id} />
+        {policy.thread_id && (
+          <Link to={`/policy-threads/${encodeURIComponent(policy.thread_id)}`} className="text-[13px] text-accent">
+            政策脉络 →
+          </Link>
+        )}
         <Link to={`${policyHref(policy.id)}/history`} className="text-[13px] text-accent">
           版本记录
         </Link>

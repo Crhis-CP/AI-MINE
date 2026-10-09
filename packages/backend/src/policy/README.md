@@ -53,4 +53,12 @@ TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyI
 
 `publication/policies-publish.ts` 的 `publishPolicyPublication({expressionId,fulltextRunId?})` 只消费当前持久物证、全文检查点及可回读的0101语义/实际模型依据。基本事实来自0123取得字段；完整解读须匹配 `policy/quality.ts` 中真实Owner审阅记录的来源、语言、完整配方、模型集合与期限。新安装不附任何资格，测试记录仅存在隔离库。`policyPublicationControl(db?)` 在写事务内锁独立法规公开开关；`setPolicyPublicationPaused` 及逐文书 `setPolicyPublicationState` 要求原因、操作人与既有审计。读请求不看采集/处理/公开暂停，也不写库、排队或调用模型。
 
-公开层为随机代理ID与严格0098 DTO；当前许可、到期、自动排除和人工撤回对列表、详情、正文、历史、搜索与汇总逐次生效。`policyPublicVersions` / `policyPublicMembers(editionIds)` 给报告使用精确仍合格的公开版本及真实首次发现时刻，不以读取时间补齐。正文游标区分表达、修订和明确历史选择；列表游标只绑定筛选及排序锚点。报告继续读固定修订时，成员资格变化或当前报告换版返回409，不留下已撤回成员的标题或摘要。跨文书脉络的可信组建写口仍待后续功能接入，读口不推测关系。
+公开层为随机代理ID与严格0098 DTO；当前许可、到期、自动排除和人工撤回对列表、详情、正文、历史、搜索与汇总逐次生效。`policyPublicVersions` / `policyPublicMembers(editionIds)` 给报告使用精确仍合格的公开版本及真实首次发现时刻，不以读取时间补齐。正文游标区分表达、修订和明确历史选择；列表游标只绑定筛选及排序锚点。报告继续读固定修订时，成员资格变化或当前报告换版返回409，不留下已撤回成员的标题或摘要。跨文书脉络由下述0128可信关系写口接入，读口不推测关系。
+
+## 可信关系与脉络（TASK-0128）
+
+`publication/policy-relations.ts` 的 `policyRelationshipCandidates(fulltextRunId)` 只给现有0101处理最多5个同法域、原文明示官方单对象URI与逐字文号、当前独立身份物证合格且唯一的候选。实际引文与其同一链接href由`policy/references.ts`统一核对，前缀相似URL、集合页和歧义不接受。发布者仅在语义和当前Owner质量资格通过后写关系；不能由传入qualified标记或模型ID自行公开。
+
+确定性关系校验版本进入`policyInterpretationQualityRecipe(modelRecipe)`，与付费prompt/input hash分离；原模型配置及已有回执不变，资格复核可免费重放。模型没有旧法原文时不生成新旧法对比。
+
+公开导航按仍有效的两端版本和资格即时构图，来源完整解读失格就移除其法定关系；目标如只剩独立基本事实，仅使用其当前基本标题/文号，不沿用旧解读。每个参与文书拥有永不回收的随机锚点ID，连通组件采用最早有效锚点为当前链接，旧锚点URL仍解析其当前组件，失效桥不会继续串联不相连文书。线程只保存阅读关系，没有统一法律状态。

@@ -8,6 +8,7 @@ import { capturePolicyMaterial } from "./capture.ts";
 import { runPolicyFulltext } from "./fulltext-runtime.ts";
 import { processingControl } from "./fulltext-store.ts";
 import { runPolicyVision } from "./vision-runtime.ts";
+import { policyRelationshipCandidates } from "../publication/policy-relations.ts";
 import { runPolicyInterpretation } from "./interpretation-runtime.ts";
 import type { ExtractionProfile } from "./extraction.ts";
 
@@ -119,7 +120,11 @@ export async function advancePolicyMaterial(
   }
   if (stage === "interpret") {
     if (!row.fulltext_run_id) return save(row, "fulltext", "pending", null, 0);
-    const result = await (ports.interpret ?? runPolicyInterpretation)(row.fulltext_run_id, { root: options.root, maxRequests: 2 });
+    const result = await (ports.interpret ?? runPolicyInterpretation)(row.fulltext_run_id, {
+      root: options.root,
+      maxRequests: 2,
+      related: await policyRelationshipCandidates(row.fulltext_run_id),
+    });
     if (result.status === "partial") return save(row, "interpret", "partial", null, 0);
     if (finished.has(result.status)) return save(row, "publish", "pending", result.status, 0);
     return save(row, "acquire", result.status, "解读或核验尚未完成", interval);

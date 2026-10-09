@@ -1,3 +1,4 @@
+import { policyInterpretationQualityRecipe } from "../packages/backend/src/policy/references.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -88,7 +89,7 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
     sourceIds: [f.sourceId],
     languages: [loaded.run.snapshot.language],
     fulltextRecipe: loaded.run.plan.context.recipeVersion,
-    interpretationRecipe: loaded.recipeVersion,
+    interpretationRecipe: policyInterpretationQualityRecipe(loaded.recipeVersion),
     models: loaded.models,
     reviewedBy: "owner",
     reviewEvidence: "SYNTHETIC isolated test qualification only; no actual Owner quality approval",
