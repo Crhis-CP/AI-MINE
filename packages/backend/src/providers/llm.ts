@@ -1,3 +1,4 @@
+import type { TaskBudget } from "./usage-protection.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
@@ -175,6 +176,7 @@ export async function modelSpecFor(key: string) {
   return (await registeredModelSpec(key)) ?? MODELS[key] ?? null;
 }
 export interface ChatJsonOptions<S extends z.ZodType> {
+  taskBudget?: TaskBudget;
   sourceIds?: string[];
   usageObject?: { kind: "article" | "policy"; id: string };
   model: string;
@@ -324,6 +326,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
   const receipt = await paidRequest(
     {
+      taskBudget: opts.taskBudget,
       modelSnapshot: registeredSummary,
       usageContext: costLane
         ? {
@@ -356,6 +359,19 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       subject: opts.subject,
       policy: opts.policyContext,
       runtimeControl: opts.runtimeControl,
+      legacyModel: spec.model,
+      legacyIdentity: {
+        ...imageTransport,
+        ...(registered ? registeredIdentity : {}),
+        ...(opts.policyContext ? { policy: opts.policyContext } : {}),
+        model: spec.model,
+        promptVersion: opts.promptVersion,
+        system: sha256(opts.system),
+        user: sha256(userText),
+        temperature,
+        maxTokens,
+        extra: spec.extra ?? null,
+      },
       identity: {
         transportHash: sha256(requestBody),
         ...registeredIdentity,

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ProblemResponse } from "./common.ts";
 const Micros = z.string().regex(/^(0|[1-9]\d{0,17})$/);
+const UnitRate = z.string().regex(/^(0|[1-9]\d{0,17})(\.\d{1,2})?$/);
 const PositiveMicros = Micros.refine((v) => BigInt(v) > 0n);
 const Ratio = z
   .string()
@@ -46,13 +47,19 @@ export const UsagePrice = z
       .regex(/^[a-f0-9]{64}$/)
       .nullable(),
     currency: z.literal("CNY"),
-    input_per_million_micros: Micros.nullable(),
-    output_per_million_micros: Micros.nullable(),
+    input_per_million_micros: UnitRate.nullable(),
+    output_per_million_micros: UnitRate.nullable(),
     per_request_micros: Micros.nullable(),
     max_request_micros: Micros.nullable(),
     image_input_token_bound: z.number().int().positive().nullable(),
     protocol_input_token_allowance: z.number().int().nonnegative(),
-    basis_url: z.url().max(2048),
+    basis_url: z
+      .url()
+      .max(2048)
+      .refine((v) => {
+        const u = new URL(v);
+        return u.protocol === "https:" && !u.username && !u.password;
+      }),
     observed_on: z.iso.date(),
     valid_until: z.iso.date(),
   })
@@ -109,6 +116,22 @@ export const UsageProtectionEvent = z.strictObject({
 });
 export const UsageProtectionOverview = z.strictObject({
   can_manage: z.boolean().default(false),
+  pricing_models: z
+    .array(
+      z.strictObject({
+        key: z.string(),
+        label: z.string(),
+        service: z.string(),
+        model: z.string(),
+        configuration_hash: z.string(),
+        vision: z.boolean(),
+        registered: z.boolean(),
+        input_cny_per_million: z.string().nullable(),
+        output_cny_per_million: z.string().nullable(),
+        basis_url: z.string().nullable(),
+      }),
+    )
+    .default([]),
   as_of: z.iso.datetime(),
   indicators: z.array(
     z.strictObject({
@@ -120,6 +143,7 @@ export const UsageProtectionOverview = z.strictObject({
     }),
   ),
   configuration: UsageConfigRecord.nullable(),
+  initial_config: UsageProtectionConfig.nullable(),
   prices: z.array(UsagePriceRecord),
   breakers: z.array(UsageBreaker),
   events: z.array(UsageProtectionEvent),

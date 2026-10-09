@@ -7,10 +7,11 @@ import defaults from "../industry/usage-controls.json" with { type: "json" };
 import { dbOf, closeDb } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { sessionPrincipal, SESSION_COOKIE, type AdminPrincipal } from "@amp/backend/admin/auth";
-import { paidRequest, UsageProtectionError } from "@amp/backend/providers/receipts";
+import { paidRequest, logicalKeyFor, ReceiptUnknownError, UsageProtectionError } from "@amp/backend/providers/receipts";
 import { changeUsageProtection, changeUsagePrice, recoverUsageBreaker, usageProtectionOverview } from "../packages/backend/src/admin/usage-protection.ts";
 import { evaluateUsageProtection, readUsageProtection, settleUsageAttempt } from "../packages/backend/src/providers/usage-protection.ts";
 import { priceQuote } from "../packages/backend/src/providers/usage-pricing.ts";
+import { usageMonthly } from "../packages/backend/src/operations/usage-monthly.ts";
 import { deliverUsageProtectionEvents } from "../packages/backend/src/operations/usage-protection.ts";
 import {
   createModelConnection,
@@ -434,4 +435,184 @@ test("all new environment calls bind actual endpoint configuration to each physi
   } finally {
     await provider.close();
   }
+});
+
+test("legacy unhashed unknown cannot be bypassed by a new config identity; an exact legacy response is still free", async () => {
+  await install();
+  const provider = await stub(() => {
+    throw new Error("legacy migration must not pay");
+  });
+  try {
+    Object.assign(process.env, {
+      LLM_MODEL: "legacy-current-model",
+      LLM_BASE_URL: `${provider.url}/changed-endpoint`,
+      LLM_API_KEY: "fake-legacy-key",
+      LLM_JSON_MODE: "true",
+      LLM_VISION: "false",
+    });
+    delete process.env.LLM_EXTRA_JSON;
+    config.modelCallsEnabled = true;
+    const user = "same legacy input",
+      subject = "article:legacy@1",
+      purpose = "understand_article";
+    const [old] =
+      await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts) VALUES('synthetic-old-unhashed','previous-service','previous-model',${purpose},${subject},'unknown',${sql.json({ userHash: sha256(user), configuration_hash: "f".repeat(64) })},1) RETURNING id`;
+    await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status) VALUES(${old!.id},1,'previous-service','previous-model','unknown')`;
+    await assert.rejects(
+      chatJson({ model: "default", purpose, subject, promptVersion: "new-recipe", system: "", user, schema: z.strictObject({ ok: z.literal(true) }) }),
+      ReceiptUnknownError,
+    );
+    assert.equal(provider.hits(), 0);
+    await sql`UPDATE receipts SET status='failed' WHERE id=${old!.id}`;
+    await sql`UPDATE receipt_attempts SET status='failed' WHERE receipt_id=${old!.id}`;
+    const identity = {
+      model: "legacy-current-model",
+      promptVersion: "old-recipe",
+      system: sha256(""),
+      user: sha256(user),
+      temperature: 0.2,
+      maxTokens: 1500,
+      extra: null,
+    };
+    const key = logicalKeyFor({ service: "llm", model: "legacy-current-model", purpose, subject, identity });
+    const response = { choices: [{ message: { content: '{"ok":true}' }, finish_reason: "stop" }], usage: { prompt_tokens: 12, completion_tokens: 4 } };
+    const [r] =
+      await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,response,attempts) VALUES(${key},'llm','legacy-current-model',${purpose},${subject},'received',${sql.json({ userHash: sha256(user) })},${sql.json(response)},1) RETURNING id`;
+    const [a] =
+      await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status,response,usage) VALUES(${r!.id},1,'llm','legacy-current-model','received',${sql.json(response)},${sql.json(response.usage)}) RETURNING id`;
+    await sql`UPDATE receipts SET response_attempt_id=${a!.id} WHERE id=${r!.id}`;
+    await sql`DELETE FROM ai.usage_control_versions`;
+    const reused = await chatJson({
+      model: "default",
+      purpose,
+      subject,
+      promptVersion: "old-recipe",
+      system: "",
+      user,
+      schema: z.strictObject({ ok: z.literal(true) }),
+    });
+    assert.equal(reused.receiptId, r!.id);
+    assert.equal(reused.reused, true);
+    assert.equal(provider.hits(), 0);
+  } finally {
+    await provider.close();
+  }
+});
+
+test("a news historical gap does not stop a priced policy request; truly unassigned gaps never become a site-wide switch", async () => {
+  await install();
+  await price("1000000");
+  for (const lane of ["news", null]) {
+    const key = `old-gap-${index}-${lane}`;
+    const [r] =
+      await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts) VALUES(${key},'old','old-model','fixture_capability',${key},'unknown',${sql.json(lane ? { lane, sourceIds: ["old-news-source"] } : {})},1) RETURNING id`;
+    await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status) VALUES(${r!.id},1,'old','old-model','unknown')`;
+  }
+  await assert.rejects(paidRequest(request("same-news-scope", { source: "old-news-source" }), send), UsageProtectionError);
+  await paidRequest(request("qualified-policy", { lane: "policy", source: "old-news-source", object: "policy-document" }), send);
+  await paidRequest(request("different-news", { source: "different-source", object: "fresh-material" }), send);
+  assert.equal(calls, 2);
+  const overview = await readUsageProtection();
+  assert.ok(overview.missing.length);
+  assert.equal(overview.breakers.filter((b) => b.trigger === "daily_total" && b.state === "open").length, 0);
+});
+test("eight-decimal unit price is preserved exactly; rounding happens only on the final micro amount", async () => {
+  await install();
+  const model = {
+    name: "High precision fixture",
+    interface: "openai-compatible",
+    endpoint: "https://model.synthetic.invalid/v1",
+    model: "tiny-price",
+    input_cny_per_million: "0.12345678",
+    output_cny_per_million: "0.00000001",
+    billing_basis: "https://price.synthetic.invalid",
+    vision: false,
+    json_mode: true,
+    secret: "synthetic-key",
+    reason: "fixture",
+    owner_confirmed: true,
+    supplier_basis: "https://price.synthetic.invalid",
+  };
+  process.env.MODEL_REGISTRY_ENCRYPTION_KEY = Buffer.alloc(32, 73).toString("base64");
+  const record = await createModelConnection(model, owner);
+  const { rateMicros } = await import("../packages/backend/src/providers/usage-pricing.ts");
+  const entry = {
+    service: record.key,
+    model: record.model,
+    configuration_hash: record.configuration_hash,
+    currency: "CNY",
+    input_per_million_micros: rateMicros(model.input_cny_per_million),
+    output_per_million_micros: rateMicros(model.output_cny_per_million),
+    per_request_micros: null,
+    max_request_micros: null,
+    image_input_token_bound: null,
+    protocol_input_token_allowance: 0,
+    basis_url: model.billing_basis,
+    observed_on: date(-1),
+    valid_until: date(10),
+  };
+  const stored = await changeUsagePrice({ expected_version: 0, price: entry, reason: "exact synthetic price", high_risk_confirmed: true }, owner);
+  assert.equal(stored.price.input_per_million_micros, "123456.78");
+  assert.equal(stored.price.output_per_million_micros, "0.01");
+  const quoted = await priceQuote(sql, {
+    service: record.key,
+    model: record.model,
+    configurationHash: record.configuration_hash,
+    registeredPricing: { input: model.input_cny_per_million, output: model.output_cny_per_million, basis: model.billing_basis },
+    bounds: { input_tokens: 1000000, output_tokens: 0 },
+  });
+  assert.equal(quoted.quote!.reserved_micros, "123457");
+  assert.equal(quoted.quote!.price.input_per_million_micros, "123456.78");
+});
+test("optional research task cap atomically retains in-flight and unknown usage, while free reuse adds no reservation", async () => {
+  await install();
+  await price("300000");
+  const taskBudget = { key: `synthetic-task-${index}`, limit_micros: "800000" };
+  const first = await paidRequest({ ...request("task-first"), taskBudget }, send);
+  await assert.rejects(
+    paidRequest({ ...request("task-unknown"), taskBudget }, async () => {
+      calls++;
+      throw new Error("unknown");
+    }),
+  );
+  await assert.rejects(
+    paidRequest({ ...request("task-third"), taskBudget }, send),
+    (e: unknown) => e instanceof UsageProtectionError && e.usageCode === "task_budget_exceeded",
+  );
+  assert.equal((await paidRequest({ ...request("task-first"), taskBudget }, send)).receiptId, first.receiptId);
+  assert.equal(calls, 2);
+  await assert.rejects(
+    paidRequest({ ...request("task-widen"), taskBudget: { ...taskBudget, limit_micros: "1000000" } }, send),
+    (e: unknown) => e instanceof UsageProtectionError && e.usageCode === "task_budget_changed",
+  );
+  const [row] =
+    await sql`SELECT sum(CASE WHEN state='settled' THEN settled_micros ELSE reserved_micros END)::text AS used FROM ai.usage_attempts WHERE task_key=${taskBudget.key}`;
+  assert.equal(row!.used, "600000");
+});
+
+test("price expiry is notified once per evidence revision; monthly report honors the configured Beijing minute", async () => {
+  await install();
+  const p = await price();
+  await changeUsagePrice(
+    { expected_version: p.version, price: { ...p.price, valid_until: date(5) }, reason: "synthetic nearing expiry", high_risk_confirmed: true },
+    owner,
+  );
+  await evaluateUsageProtection();
+  await evaluateUsageProtection();
+  const [notices] = await sql`SELECT count(*)::int AS n FROM ai.usage_protection_events WHERE id LIKE 'usage-price-expiry:%'`;
+  assert.equal(notices!.n, 1);
+  await changeUsageProtection(
+    { expected_version: 1, config: { ...defaults, usage_report: { push_time: "10:37" } }, reason: "synthetic schedule", high_risk_confirmed: true },
+    owner,
+  );
+  await sql`TRUNCATE ai.usage_monthly_reports`;
+  let messages = 0;
+  const send = async () => {
+    messages++;
+    return "sent" as const;
+  };
+  assert.deepEqual(await usageMonthly(new Date("2026-11-01T02:36:59Z"), send), { deferred: true });
+  await usageMonthly(new Date("2026-11-01T02:37:00Z"), send);
+  await usageMonthly(new Date("2026-11-01T02:38:00Z"), send);
+  assert.equal(messages, 1);
 });

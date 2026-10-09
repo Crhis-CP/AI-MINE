@@ -6,6 +6,7 @@ import { sha256, stableJson, newUuid } from "../lib/ids.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { config } from "../config.ts";
+import { usageConfiguration } from "../providers/usage-protection.ts";
 const sql = dbOf("ai-gateway");
 type Totals = z.infer<typeof UsageTotals>;
 type Attempt = {
@@ -289,13 +290,15 @@ export async function reconcileMonthlyUsage(month: string, now = new Date(), sen
   }
   return (await monthlyUsageReports(month))[0]!;
 }
-export async function usageMonthly(now = new Date()) {
+export async function usageMonthly(now = new Date(), send = sendAlert) {
   const date = beijingDate(now),
     previous = new Date(`${date.slice(0, 7)}-01T00:00:00Z`);
   previous.setUTCMonth(previous.getUTCMonth() - 1);
   const month = previous.toISOString().slice(0, 7);
-  if (now.getTime() < usageMonthPeriod(month).end.getTime() + 9 * 3600_000) return { deferred: true };
+  const configured = await usageConfiguration();
+  const [hour, minute] = (configured?.config.usage_report.push_time ?? "09:00").split(":").map(Number);
+  if (now.getTime() < usageMonthPeriod(month).end.getTime() + (hour! * 60 + minute!) * 60_000) return { deferred: true };
   const existing = await sql<{ month: string }[]>`SELECT month FROM ai.usage_monthly_reports ORDER BY checked_at,month LIMIT 24`;
-  for (const row of existing) if (row.month !== month) await reconcileMonthlyUsage(row.month, now);
-  return reconcileMonthlyUsage(month, now);
+  for (const row of existing) if (row.month !== month) await reconcileMonthlyUsage(row.month, now, send);
+  return reconcileMonthlyUsage(month, now, send);
 }

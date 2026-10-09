@@ -15,7 +15,7 @@ import { submitIndexNow } from "@amp/backend/operations/indexnow";
 import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
-import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots } from "@amp/backend/operations/reports";
+import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots, usageProtectionTick } from "@amp/backend/operations/reports";
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
 import { refreshMetalPrices } from "@amp/backend/jobs/publication";
@@ -63,14 +63,15 @@ export const SCHEDULES: Scheduled[] = [
     cron: "*/10 * * * *",
     run: async () => ({ receipts: await markStalePendingReceipts(), released: await autoReleaseUnknownReceipts(), deliveries: await markStaleDeliveries() }),
   },
+  { name: "ops.usage-protection", cron: "*/5 * * * *", run: () => usageProtectionTick() },
   { name: "ops.alerts", cron: "*/10 * * * *", run: () => checkAlerts() },
   // One message with the follow-ups that do not touch readers (nothing when there are none).
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },
   ...(backupConfigured() ? [{ name: "ops.backup", cron: "10 4 * * *", missed: "once" as const, run: () => runBackup() }] : []),
   { name: "reports.source-health", cron: "0 9 * * 1", missed: "once", run: () => sourceHealthWeekly() },
   { name: "reports.usage-weekly", cron: "5 9 * * 1", missed: "once", run: () => usageWeekly() },
-  // The monthly job waits for Beijing 09:00 on the first day, then maintains reconciliation history.
-  { name: "reports.usage-monthly", cron: "0 * * * *", missed: "once", run: () => usageMonthly() },
+  // The job checks the Owner-configured Beijing push time; notification claiming prevents duplicate delivery.
+  { name: "reports.usage-monthly", cron: "* * * * *", missed: "once", run: () => usageMonthly() },
   ...(collecting
     ? [
         { name: "sources.schedule", cron: "* * * * *", run: () => scheduleDueSources(undefined, "news") },

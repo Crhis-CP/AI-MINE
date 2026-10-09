@@ -1,8 +1,9 @@
+import { registeredModelId, connectionRow, modelConfigurationHash, modelRegistryLock } from "../providers/model-registry.ts";
 // Admin "模型与评测": the model each capability uses and where that choice comes from,
 // the prompt versions in use, quality / latency / cost of the last days per model, the switch history
 // and the SelectBench runs that compare models on the same batch. A switch is audited and applies to
 // new work only.
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { CAPABILITIES, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
 import { MODELS, environmentModelMetadata } from "../providers/llm.ts";
 
@@ -111,3 +112,60 @@ export {
   type ModelRegistryGuards,
 } from "./model-registry.ts";
 export { queueModelConnectionProbe } from "../providers/model-probe.ts";
+
+/** Canonical identity only; no credential, connection-test or Owner-quality assertion. */
+export type ModelConfigurationIdentity = { key: string; service: string | null; requestedModel: string | null; configuration_hash: string | null };
+export async function modelConfigurationIdentity(key: string, db: Db = sql): Promise<ModelConfigurationIdentity> {
+  if (db === sql) return sql.begin((tx) => modelConfigurationIdentity(key, tx));
+  await modelRegistryLock(db);
+  const id = registeredModelId(key);
+  if (id) {
+    const row = await connectionRow(id, db);
+    return { key, service: key, requestedModel: row.config.model, configuration_hash: modelConfigurationHash(row.config) };
+  }
+  const configured = environmentModelMetadata(key);
+  return { key, service: configured?.service ?? null, requestedModel: configured?.model || null, configuration_hash: configured?.configuration_hash ?? null };
+}
+export async function currentModelConfiguration(capability: string, db: Db = sql): Promise<ModelConfigurationIdentity> {
+  if (!Object.hasOwn(CAPABILITIES, capability)) throw Object.assign(new Error("unknown capability"), { statusCode: 400 });
+  if (db === sql) return sql.begin((tx) => currentModelConfiguration(capability, tx));
+  await modelRegistryLock(db);
+  return modelConfigurationIdentity((await modelSources(db))[capability]!.model, db);
+}
+
+export async function pricingModelChoices() {
+  const environment = Object.keys(MODELS)
+    .map(environmentModelMetadata)
+    .filter((m) => m?.configuration_hash)
+    .map((m) => ({
+      key: m!.key,
+      label: m!.model,
+      service: m!.service,
+      model: m!.model,
+      configuration_hash: m!.configuration_hash!,
+      vision: m!.vision,
+      registered: false,
+      input_cny_per_million: null,
+      output_cny_per_million: null,
+      basis_url: null,
+    }));
+  const rows = await sql<{ id: string }[]>`SELECT id FROM ai.model_connections WHERE enabled ORDER BY created_at`;
+  const registered = await Promise.all(
+    rows.map(async (r) => {
+      const row = await connectionRow(r.id);
+      return {
+        key: `registered:${row.id}`,
+        label: row.config.name,
+        service: `registered:${row.id}`,
+        model: row.config.model,
+        configuration_hash: modelConfigurationHash(row.config),
+        vision: row.config.vision,
+        registered: true,
+        input_cny_per_million: row.config.input_cny_per_million,
+        output_cny_per_million: row.config.output_cny_per_million,
+        basis_url: row.config.billing_basis,
+      };
+    }),
+  );
+  return [...registered, ...environment];
+}

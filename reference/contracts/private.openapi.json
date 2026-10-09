@@ -9343,7 +9343,7 @@
           "input_per_million_micros": {
             "anyOf": [
               {
-                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
                 "type": "string"
               },
               {
@@ -9374,7 +9374,7 @@
           "output_per_million_micros": {
             "anyOf": [
               {
-                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
                 "type": "string"
               },
               {
@@ -9522,7 +9522,7 @@
           "input_per_million_micros": {
             "anyOf": [
               {
-                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
                 "type": "string"
               },
               {
@@ -9553,7 +9553,7 @@
           "output_per_million_micros": {
             "anyOf": [
               {
-                "pattern": "^(0|[1-9]\\d{0,17})$",
+                "pattern": "^(0|[1-9]\\d{0,17})(\\.\\d{1,2})?$",
                 "type": "string"
               },
               {
@@ -10135,6 +10135,16 @@
             },
             "type": "array"
           },
+          "initial_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageProtectionConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missing": {
             "items": {
               "type": "string"
@@ -10146,13 +10156,76 @@
               "$ref": "#/components/schemas/UsagePriceRecord"
             },
             "type": "array"
+          },
+          "pricing_models": {
+            "default": [],
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "basis_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "configuration_hash": {
+                  "type": "string"
+                },
+                "input_cny_per_million": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "output_cny_per_million": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "registered": {
+                  "type": "boolean"
+                },
+                "service": {
+                  "type": "string"
+                },
+                "vision": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "service",
+                "model",
+                "configuration_hash",
+                "vision",
+                "registered",
+                "input_cny_per_million",
+                "output_cny_per_million",
+                "basis_url"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           }
         },
         "required": [
           "can_manage",
+          "pricing_models",
           "as_of",
           "indicators",
           "configuration",
+          "initial_config",
           "prices",
           "breakers",
           "events",
@@ -10254,6 +10327,16 @@
             },
             "type": "array"
           },
+          "initial_config": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageProtectionConfigInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "missing": {
             "items": {
               "type": "string"
@@ -10265,12 +10348,74 @@
               "$ref": "#/components/schemas/UsagePriceRecordInput"
             },
             "type": "array"
+          },
+          "pricing_models": {
+            "default": [],
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "basis_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "configuration_hash": {
+                  "type": "string"
+                },
+                "input_cny_per_million": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "output_cny_per_million": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "registered": {
+                  "type": "boolean"
+                },
+                "service": {
+                  "type": "string"
+                },
+                "vision": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "service",
+                "model",
+                "configuration_hash",
+                "vision",
+                "registered",
+                "input_cny_per_million",
+                "output_cny_per_million",
+                "basis_url"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           }
         },
         "required": [
           "as_of",
           "indicators",
           "configuration",
+          "initial_config",
           "prices",
           "breakers",
           "events",

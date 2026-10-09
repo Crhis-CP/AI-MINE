@@ -275,6 +275,10 @@
     {
       "name": "publication/202610091500_site_information.sql",
       "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091330_usage_task_budget.sql",
+      "dependsOn": ["ai-gateway/202610091300_usage_protection.sql"]
     }
   ]
 }

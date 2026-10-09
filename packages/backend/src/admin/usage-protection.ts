@@ -1,3 +1,6 @@
+import { pricingModelChoices } from "./models.ts";
+import { registeredModelId, connectionRow, modelConfigurationHash, modelRegistryLock } from "../providers/model-registry.ts";
+import { rateMicros, unitRate } from "../providers/usage-pricing.ts";
 import { UsageConfigChange, UsagePriceChange, UsagePriceRecord, UsageBreakerRecovery } from "@amp/contracts/http/private";
 import { dbOf, type Db } from "../db.ts";
 import { audit, actorOf, requireOwner, currentCapability, type AdminPrincipal } from "./auth.ts";
@@ -11,7 +14,8 @@ const conflict = () => {
 };
 /** HTTP composition root still requires the existing authenticated administrator session for reading. */
 export async function usageProtectionOverview(principal: AdminPrincipal) {
-  return { ...(await readUsageProtection()), can_manage: await currentCapability(principal, "owner") };
+  const can_manage = await currentCapability(principal, "owner");
+  return { ...(await readUsageProtection()), can_manage, pricing_models: can_manage ? await pricingModelChoices() : [] };
 }
 export async function changeUsageProtection(input: unknown, principal: AdminPrincipal, guard = deny) {
   const v = UsageConfigChange.parse(input);
@@ -34,6 +38,21 @@ export async function changeUsagePrice(input: unknown, principal: AdminPrincipal
   return sql.begin(async (db) => {
     await guard(principal, db);
     await usageLock(db);
+    const connectionId = registeredModelId(v.price.service);
+    if (connectionId) {
+      await modelRegistryLock(db);
+      const row = await connectionRow(connectionId, db);
+      if (
+        v.price.model !== row.config.model ||
+        v.price.configuration_hash !== modelConfigurationHash(row.config) ||
+        v.price.input_per_million_micros === null ||
+        unitRate(v.price.input_per_million_micros) !== unitRate(rateMicros(row.config.input_cny_per_million)!) ||
+        v.price.output_per_million_micros === null ||
+        unitRate(v.price.output_per_million_micros) !== unitRate(rateMicros(row.config.output_cny_per_million)!) ||
+        v.price.basis_url !== row.config.billing_basis
+      )
+        throw Object.assign(new Error("登记模型的金额、依据或配置已变化，请刷新后确认当前版本。"), { code: "conflict" });
+    }
     const [before] = await db<{ version: number; price: unknown }[]>`SELECT version,price FROM ai.usage_prices WHERE id=${id}`;
     if ((before?.version ?? 0) !== v.expected_version) conflict();
     const [after] = await db<

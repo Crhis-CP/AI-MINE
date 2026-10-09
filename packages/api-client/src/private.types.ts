@@ -2386,8 +2386,22 @@ export interface components {
         /** @enum {string} */
         trigger: "repeated_input" | "object_cost" | "daily_total";
       }[];
+      initial_config: components["schemas"]["UsageProtectionConfig"] | null;
       missing: string[];
       prices: components["schemas"]["UsagePriceRecord"][];
+      /** @default [] */
+      pricing_models: {
+        basis_url: string | null;
+        configuration_hash: string;
+        input_cny_per_million: string | null;
+        key: string;
+        label: string;
+        model: string;
+        output_cny_per_million: string | null;
+        registered: boolean;
+        service: string;
+        vision: boolean;
+      }[];
     };
     UsageProtectionOverviewInput: {
       /** Format: date-time */
@@ -2410,8 +2424,22 @@ export interface components {
         /** @enum {string} */
         trigger: "repeated_input" | "object_cost" | "daily_total";
       }[];
+      initial_config: components["schemas"]["UsageProtectionConfigInput"] | null;
       missing: string[];
       prices: components["schemas"]["UsagePriceRecordInput"][];
+      /** @default [] */
+      pricing_models: {
+        basis_url: string | null;
+        configuration_hash: string;
+        input_cny_per_million: string | null;
+        key: string;
+        label: string;
+        model: string;
+        output_cny_per_million: string | null;
+        registered: boolean;
+        service: string;
+        vision: boolean;
+      }[];
     };
     UsageScope: {
       capability: string | null;

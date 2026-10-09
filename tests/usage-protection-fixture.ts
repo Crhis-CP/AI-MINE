@@ -3,7 +3,7 @@ import defaults from "../industry/usage-controls.json" with { type: "json" };
 import { dbOf, type Db } from "@amp/backend/db";
 import { environmentModelMetadata } from "../packages/backend/src/providers/llm.ts";
 import { registeredModelId, connectionRow, modelConfigurationHash } from "../packages/backend/src/providers/model-registry.ts";
-import { usagePriceId, amountMicros } from "../packages/backend/src/providers/usage-pricing.ts";
+import { usagePriceId, rateMicros } from "../packages/backend/src/providers/usage-pricing.ts";
 const sql = dbOf("ai-gateway");
 function isolated() {
   if (!/_(test|ci)$/.test(new URL(process.env.DATABASE_URL ?? "postgres://unset/unset").pathname))
@@ -27,8 +27,8 @@ export async function installUsageFixtureForModel(key: string, db: Db = sql) {
     model,
     configuration_hash: hash,
     currency: "CNY",
-    input_per_million_micros: registered ? amountMicros(registered.config.input_cny_per_million)!.toString() : "0",
-    output_per_million_micros: registered ? amountMicros(registered.config.output_cny_per_million)!.toString() : "0",
+    input_per_million_micros: registered ? rateMicros(registered.config.input_cny_per_million)! : "0",
+    output_per_million_micros: registered ? rateMicros(registered.config.output_cny_per_million)! : "0",
     per_request_micros: null,
     max_request_micros: null,
     image_input_token_bound: 65536,
