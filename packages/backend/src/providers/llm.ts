@@ -4,7 +4,14 @@
 import type { z } from "zod";
 import { config, credential } from "../config.ts";
 import { sha256 } from "../lib/ids.ts";
-import { completeReceipt, paidRequest, ProviderRejectedError, rejectReceivedResponse, type TranslationObservation } from "./receipts.ts";
+import {
+  completeReceipt,
+  paidRequest,
+  ProviderRejectedError,
+  rejectReceivedResponse,
+  type TranslationObservation,
+  type PolicyReceiptContext,
+} from "./receipts.ts";
 import { dbOf } from "../db.ts";
 
 const sql = dbOf("ai-gateway");
@@ -144,6 +151,9 @@ export interface ChatJsonOptions<S extends z.ZodType> {
   timeoutMs?: number;
   maxRejectedOutputs?: 1 | 3;
   translationObservations?: TranslationObservation[];
+  policyContext?: PolicyReceiptContext;
+  /** Recheck the trusted input and current permissions immediately before any new paid send. */
+  beforeRequest?: () => Promise<void>;
   /** false: the model answers in its own text format (no JSON mode); `parse` turns it into the schema's input. */
   json?: boolean;
   parse?: (content: string) => unknown;
@@ -208,6 +218,8 @@ function isConnectFailure(error: unknown): boolean {
 }
 
 export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): Promise<ChatJsonResult<z.infer<S>>> {
+  if (["policy_fulltext", "policy_group", "policy_interpret", "policy_verify"].includes(opts.purpose) && (!opts.policyContext || !opts.beforeRequest))
+    throw new Error("Policy capabilities require the policy gateway");
   const spec = MODELS[opts.model];
   if (!spec) throw new Error(`Unknown model ${opts.model}`);
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
@@ -239,7 +251,9 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       model: spec.model,
       purpose: opts.purpose,
       subject: opts.subject,
+      policy: opts.policyContext,
       identity: {
+        ...(opts.policyContext ? { policy: opts.policyContext } : {}),
         model: spec.model,
         promptVersion: opts.promptVersion,
         system: sha256(opts.system),
@@ -249,6 +263,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         extra: spec.extra ?? null,
       },
       requestSummary: {
+        ...(opts.policyContext ?? {}),
         promptVersion: opts.promptVersion,
         systemHash: sha256(opts.system),
         userHash: sha256(userText),
@@ -261,6 +276,13 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       translationObservations: opts.translationObservations,
     },
     async () => {
+      if (opts.beforeRequest) {
+        try {
+          await opts.beforeRequest();
+        } catch {
+          throw new ProviderRejectedError("Current input or processing permission changed before sending", null, false);
+        }
+      }
       const started = Date.now();
       let res: Response;
       try {

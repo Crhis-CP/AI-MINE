@@ -69,6 +69,16 @@ export interface CallOutcome {
   cost?: { amount: number; currency: string; basis: "actual" | "estimated" } | null;
 }
 
+export interface PolicyReceiptContext {
+  lane: "policy";
+  category: "policy_fulltext" | "policy_interpret";
+  sourceIds: string[];
+  manifestHash: string;
+  inputFingerprint: string;
+  permissionVersions: Record<string, number>;
+  manifest: unknown;
+}
+
 export interface ReceiptRequest {
   service: string;
   model?: string | null;
@@ -76,6 +86,7 @@ export interface ReceiptRequest {
   subject?: string | null;
   /** Everything that determines the output. Hashed into the logical key; only a redacted summary is stored. */
   identity: unknown;
+  policy?: PolicyReceiptContext;
   /** Stored for diagnosis; must not contain secrets. */
   requestSummary?: Record<string, unknown>;
   /** Distinguishes an explicit re-run (e.g. admin "re-evaluate") from recovery of the same request. */
@@ -163,7 +174,7 @@ async function observeOriginalTranslation(db: Db, stage: string | null) {
 }
 
 export function logicalKeyFor(req: ReceiptRequest): string {
-  const identity = sha256(stableJson(req.identity));
+  const identity = sha256(stableJson(req.policy ? { input: req.identity, policy: req.policy } : req.identity));
   return [req.service, req.purpose, req.model ?? "-", identity, req.attemptTag ?? "0"].join(":");
 }
 
@@ -178,6 +189,22 @@ interface ReceiptRow {
   response_bound: boolean;
   created_at: Date;
   updated_at: Date;
+}
+
+async function checkPolicyReceipts(tx: Db, context?: PolicyReceiptContext) {
+  if (!context) return;
+  const rows = await tx<
+    { id: number; status: string; attempt_id: string | null; attempt_status: string | null; usage: Record<string, unknown> | null; response: unknown }[]
+  >`
+    SELECT r.id,r.status,a.id::text AS attempt_id,a.status AS attempt_status,a.usage,a.response
+    FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
+    WHERE r.request->>'lane'='policy' AND r.request->'sourceIds' ?| ${context.sourceIds}::text[]
+      AND (r.status IN ('pending','unknown') OR a.status IN ('pending','unknown','received')) ORDER BY r.id`;
+  for (const row of rows) {
+    if (row.status === "pending" || row.attempt_status === "pending") throw new ReceiptBusyError(`Policy source receipt ${row.id} is in flight`);
+    if (row.status === "unknown" || row.attempt_status === "unknown" || (row.attempt_status === "received" && !knownTranslationUsage(row.usage)))
+      throw new ReceiptUnknownError(row.id, "Policy source has unresolved request or usage; regrouping cannot permit another payment", row.attempt_id);
+  }
 }
 
 async function checkBudget(tx: Db, service: string): Promise<void> {
@@ -213,6 +240,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
   const claimed = await sql.begin(async (tx) => {
+    for (const sourceId of [...new Set(req.policy?.sourceIds ?? [])].sort()) await tx`SELECT pg_advisory_xact_lock(hashtext(${`policy-source:${sourceId}`}))`;
     // A changed recipe/input key cannot route around an unresolved call in this material stage.
     if (stage) await tx`SELECT pg_advisory_xact_lock(hashtext(${"translation:" + stage}))`;
     for (const receipt of req.translationObservations ?? []) await observeTranslation(tx, stage, receipt);
@@ -262,6 +290,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (stage && !existing.has_response)
         await tx`UPDATE ai.translation_receipt_observations SET known_unbilled=true
         WHERE receipt_id=${existing.id_text} AND receipt_version=(SELECT attempts FROM receipts WHERE id=${existing.id_text}) AND attempt_id IS NULL`;
+      await checkPolicyReceipts(tx, req.policy);
       await checkBudget(tx, req.service);
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, completed_at = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
@@ -271,11 +300,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     }
     const blocked = await translationBlocker(tx, stage, logicalKey);
     if (blocked) return blocked;
+    await checkPolicyReceipts(tx, req.policy);
     await checkBudget(tx, req.service);
     const [row] = await tx<{ id: number; id_text: string }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
       VALUES (${logicalKey}, ${req.service}, ${req.model ?? null}, ${req.purpose}, ${req.subject ?? null}, 'pending',
-              ${tx.json((req.requestSummary ?? {}) as never)}, 1)
+              ${tx.json({ ...(req.requestSummary ?? {}), ...(req.policy ?? {}) } as never)}, 1)
       RETURNING id,id::text AS id_text`;
     const attemptId = await startAttempt(tx, row!.id, 1, req);
     await observeTranslation(tx, stage, { receiptId: row!.id_text, attemptId });
