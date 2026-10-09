@@ -468,7 +468,8 @@
         "released_at",
         "source_language",
         "preferred_source_language",
-        "discovered_at"
+        "discovered_at",
+        "original_content_key"
       ],
       "permissions": {
         "private_ops": ["SELECT"],

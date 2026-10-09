@@ -120,6 +120,17 @@ test("real capture publishes only independently proven facts, is idempotent and 
   assert.equal((await policyPublicVersions()).find((v) => v.editionId === a.editionId)?.discoveredAt, discovered.toISOString());
   assert.equal((await sql`SELECT count(*)::int n FROM policy.quality_releases`)[0].n, 0);
   assert.equal((await sql`SELECT count(*)::int n FROM publication.policy_editions`)[0].n, 1);
+  const originalKey = (await policyPublicVersions()).find((v) => v.editionId === a.editionId)!.originalRevisionKey;
+  const sameRights = (await readCurrentSourcePolicy(f.sourceId))!;
+  await saveSourcePolicy(
+    f.sourceId,
+    { policy: { ...sameRights, permission_version: 3 }, expectedVersion: 2, reason: "Synthetic permission revision with unchanged bytes" },
+    "test",
+  );
+  const recaptured = await capturePolicyMaterial(f.sourceId, f.materialId, f.get);
+  assert.equal(recaptured.status, "captured");
+  assert.equal((await publishPolicyPublication({ expressionId: captured.expressionId })).status, "published");
+  assert.deepEqual([...new Set((await policyPublicVersions()).map((v) => v.originalRevisionKey))], [originalKey]);
   const version = await setPolicyPublicationPaused({ expectedVersion: 1, paused: true, reason: "Synthetic pause", actor: "test" });
   assert.deepEqual(await publishPolicyPublication({ expressionId: captured.expressionId }), { status: "pending", reason: "paused" });
   assert.equal((await policyDetail(a.policyId, {})).id, a.policyId);

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "abcf67369f8f15420ae5a03d58a9154d360be69b23f4b6293010603ebfd299aa",
+  "grantCatalogueSha256": "9a40977a6c5d0f56a66623816adc8526d364b918c935d7f9a3397430e9e6a3b7",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",

@@ -14,7 +14,7 @@ CREATE TABLE publication.policy_editions (
   id text PRIMARY KEY, content_hash text NOT NULL, policy_id text NOT NULL REFERENCES publication.policy_documents(id),
   native_expression_id text NOT NULL, native_revision_id text NOT NULL,
   source_id text NOT NULL, permission_version bigint NOT NULL, policy_version_id text NOT NULL,
-  source_language text NOT NULL, preferred_source_language text,
+  source_language text NOT NULL, preferred_source_language text, original_content_key text,
   expression_ids text[] NOT NULL, revision_ids text[] NOT NULL,
   public_resources jsonb NOT NULL, basic_card jsonb, basic_detail jsonb,
   complete_card jsonb, complete_detail jsonb, reading jsonb NOT NULL DEFAULT '{}',

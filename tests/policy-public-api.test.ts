@@ -158,6 +158,7 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     );
     assert.equal(historical.status, 200);
     const old = Policy.parse(await historical.json());
+    assert.ok(old.versions.every((v) => !v.current));
     bodyQuery.set("cursor", old.reading!.next_cursor!);
     assert.equal((await app.request(`/api/site/policies/${a.id}/reading?${bodyQuery}`)).status, 200);
     await f.admin`UPDATE policy.expressions SET current_revision_id=${oldRevision[0].native_revision_id} WHERE id=${oldRevision[0].native_expression_id}`;

@@ -28,6 +28,7 @@ type Edition = {
   source_language: string;
   preferred_source_language: string | null;
   policy_version_id: string;
+  original_content_key: string | null;
   expression_ids: string[];
   revision_ids: string[];
   public_resources: Resource[];
@@ -45,7 +46,7 @@ type Edition = {
   discovered_at: Date | null;
 };
 type View = { row: Edition; card: PolicyCard; complete: boolean; readable: Record<"original" | "official_translation" | "ai_translation", boolean> };
-const columns = sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id,e.source_id,e.permission_version,e.policy_version_id,e.source_language,e.preferred_source_language,e.expression_ids,e.revision_ids,
+const columns = sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id,e.source_id,e.permission_version,e.policy_version_id,e.original_content_key,e.source_language,e.preferred_source_language,e.expression_ids,e.revision_ids,
  e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.valid_until,q.revoked,d.withdrawn,d.automatic_excluded,e.released_at,e.discovered_at`;
 const join = sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
  LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id`;
@@ -211,6 +212,8 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
     const view = await eligible(row, ctx, !historical);
     if (!view) continue;
     const detail = Policy.parse(structuredClone(view.complete ? row.complete_detail : row.basic_detail));
+    const current = (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
+    for (const version of detail.versions) version.current = current;
     const expression = q.expression_id
       ? detail.expressions.find((e) => e.id === q.expression_id)
       : detail.expressions.find((e) => e.id === detail.selected_expression_id);
@@ -361,7 +364,7 @@ export async function policyPublicMembers(editionIds: string[]) {
     const current = (await currentPolicyHeads([row.native_expression_id])).get(row.native_expression_id) === row.native_revision_id;
     out.push({
       editionId: row.id,
-      originalRevisionKey: row.native_revision_id,
+      originalRevisionKey: row.original_content_key ?? row.native_revision_id,
       policy: view.card,
       releasedAt: row.released_at.toISOString(),
       discoveredAt: row.discovered_at?.toISOString() ?? null,

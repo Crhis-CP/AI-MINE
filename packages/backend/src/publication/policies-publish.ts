@@ -100,6 +100,10 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
   const originalReadable = fulltext?.status === "program_validated" && (await allowed("public_original_fulltext", true));
   const translationReadable = fulltext?.status === "program_validated" && (await allowed("public_translation", true));
   const complete = !!candidate && !!quality && originalReadable && translationReadable;
+  const originalHashes = snapshot.resources.map((r) => [r.url, r.sha256 ?? (r.url === meta.officialUrl ? meta.provenance.resourceHash : null)]);
+  const originalContentKey = originalHashes.every(([, hash]) => hash)
+    ? sha256(stableJson([native.version_id, snapshot.language, originalHashes]))
+    : snapshot.revisionId;
   const factsKey = {
     title: meta.originalTitle,
     titleZh: meta.titleZh ?? null,
@@ -251,10 +255,10 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     basic.evidence = [];
     const preferred = POLICY_SOURCES.find((s) => `policy-${s.id.toLowerCase()}` === snapshot.sourceId)?.language ?? null;
     await db`INSERT INTO publication.policy_editions(id,content_hash,policy_id,native_expression_id,native_revision_id,source_id,permission_version,policy_version_id,source_language,preferred_source_language,
-   expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id,discovered_at)
+   expression_ids,revision_ids,public_resources,basic_card,basic_detail,complete_card,complete_detail,reading,quality_id,discovered_at,original_content_key)
    VALUES(${editionId},${contentHash},${policyId},${input.expressionId},${snapshot.revisionId},${snapshot.sourceId},${snapshot.permissionVersion},${ids.version},${snapshot.language},${preferred},
    ${basic.expressions.map((e) => e.id)},${basic.expressions.map((e) => e.document_revision_id)},${db.json(resources)},${db.json(policyCard(Policy.parse(basic)))},${db.json(basic)},
-   ${full ? db.json(policyCard(full)) : null},${full ? db.json(full) : null},${db.json(streams)},${full ? currentQuality!.id : null},${meta.discoveredAt}) ON CONFLICT(id) DO UPDATE SET quality_id=coalesce(EXCLUDED.quality_id,publication.policy_editions.quality_id),discovered_at=least(publication.policy_editions.discovered_at,EXCLUDED.discovered_at)`;
+   ${full ? db.json(policyCard(full)) : null},${full ? db.json(full) : null},${db.json(streams)},${full ? currentQuality!.id : null},${meta.discoveredAt},${originalContentKey}) ON CONFLICT(id) DO UPDATE SET quality_id=coalesce(EXCLUDED.quality_id,publication.policy_editions.quality_id),discovered_at=least(publication.policy_editions.discovered_at,EXCLUDED.discovered_at)`;
     await db`UPDATE publication.policy_documents SET first_public_at=coalesce(first_public_at,${at}::timestamptz),updated_at=now() WHERE id=${policyId}`;
     return {
       status: "published" as const,
