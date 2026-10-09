@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { pageMeta } from "../lib/seo";
 import { removeStar, useStarred } from "../lib/local-state";
 import { fullDateTime, shortSourceName, sourceDateTime } from "../lib/format";
+import { PolicySavedList } from "../features/policy/PolicySaved";
 import { IconBookmark, IconClose } from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
@@ -48,7 +49,7 @@ export default function StarredPage() {
       {!mounted ? null : starred.length === 0 ? (
         <div className="mt-3 flex flex-col items-center rounded-card border border-dashed border-line-strong px-6 py-12 text-center">
           <IconBookmark size={20} className="text-ink-4" />
-          <p className="mt-3 text-[13px] text-ink-3">还没有收藏内容。点开任意一条内容，在详情页点击收藏即可添加。</p>
+          <p className="mt-3 text-[13px] text-ink-3">还没有收藏矿业动态。点开一条动态，在详情页点击收藏即可添加。</p>
           <Link to="/" className="mt-4 text-[12.5px] font-medium text-accent hover:text-accent-ink">
             去看精选 →
           </Link>
@@ -96,6 +97,7 @@ export default function StarredPage() {
           })}
         </ul>
       )}
+      <PolicySavedList />
     </div>
   );
 }

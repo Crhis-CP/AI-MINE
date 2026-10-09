@@ -1,0 +1,759 @@
+{
+  "id": "report-fixture",
+  "type": "policy_weekly",
+  "period_key": "2026-W41",
+  "title": "【合成预览】法规周报",
+  "summary": "【合成预览】用于检查固定版本、版本引用与来源覆盖说明。",
+  "period_start": "2026-10-04T16:00:00Z",
+  "period_end": "2026-10-11T16:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "issued_at": "2026-10-13T00:00:00Z",
+  "edition": 1,
+  "correction_of": null,
+  "item_count": 2,
+  "status": "compiled",
+  "coverage_note": "【合成预览】所有条目、时间与覆盖数均为样例，不是真实汇总。",
+  "ai_label": "ai_generated",
+  "content_version": "synthetic-report-v1",
+  "generated_at": "2026-10-13T00:00:00Z",
+  "groups": [
+    {
+      "kind": "foreign",
+      "documents": [
+        {
+          "policy": {
+            "id": "policy-complete-fixture",
+            "title": "【合成预览】融资信息报告规则",
+            "original_title": "Synthetic Mining Rule",
+            "jurisdictions": [
+              {
+                "code": "AR",
+                "label": "阿根廷",
+                "kind": "country"
+              }
+            ],
+            "authority": {
+              "id": "authority-fixture",
+              "name": "合成发布机关"
+            },
+            "instrument_number": null,
+            "nature": {
+              "code": "regulation",
+              "label": "法规"
+            },
+            "themes": [
+              {
+                "code": "tax_finance",
+                "label": "财税与资金"
+              }
+            ],
+            "change_kind": null,
+            "published_time": {
+              "raw": "2026-10-08",
+              "local_date": "2026-10-08",
+              "local_time": null,
+              "timezone": null,
+              "utc": null,
+              "precision": "date",
+              "meaning": "published",
+              "meaning_label": "来源发布",
+              "basis": "合成契约测试依据，不是真实法规记录",
+              "condition_text": null,
+              "label": "2026-10-08",
+              "beijing_date": "2026-10-08"
+            },
+            "sort_time": {
+              "raw": "2026-10-08",
+              "local_date": "2026-10-08",
+              "local_time": null,
+              "timezone": null,
+              "utc": null,
+              "precision": "date",
+              "meaning": "published",
+              "meaning_label": "来源发布",
+              "basis": "合成契约测试依据，不是真实法规记录",
+              "condition_text": null,
+              "label": "2026-10-08",
+              "beijing_date": "2026-10-08"
+            },
+            "sort_kind": "published",
+            "first_public_at": {
+              "raw": "2026-10-09",
+              "local_date": "2026-10-09",
+              "local_time": "08:00:00",
+              "timezone": "Asia/Shanghai",
+              "utc": "2026-10-09T00:00:00Z",
+              "precision": "second",
+              "meaning": "site_public",
+              "meaning_label": "本站收录",
+              "basis": "合成契约测试依据，不是真实法规记录",
+              "condition_text": null,
+              "label": "2026-10-09",
+              "beijing_date": "2026-10-09"
+            },
+            "first_public_basis": "live",
+            "source_checked_at": {
+              "raw": "2026-10-09",
+              "local_date": "2026-10-09",
+              "local_time": "08:00:00",
+              "timezone": "Asia/Shanghai",
+              "utc": "2026-10-09T00:00:00Z",
+              "precision": "second",
+              "meaning": "checked",
+              "meaning_label": "原文核对",
+              "basis": "合成契约测试依据，不是真实法规记录",
+              "condition_text": null,
+              "label": "2026-10-09",
+              "beijing_date": "2026-10-09"
+            },
+            "is_backfill": false,
+            "legal_brief": {
+              "stage": "published",
+              "in_force": "no",
+              "repeal": "unknown"
+            },
+            "interpretation_state": "complete",
+            "summary": "【合成预览】用于核对完整解读、条件、证据与正文的展示。",
+            "applicability_summary": null,
+            "thread_id": null,
+            "original_url": "https://example.invalid/policy/1",
+            "attributions": [
+              {
+                "name": "合成发布机关",
+                "url": "https://example.invalid/policy/1"
+              }
+            ],
+            "ai_label": "ai_generated"
+          },
+          "versions": [
+            {
+              "policy_version_id": "version-fixture",
+              "expression_id": "expression-zh",
+              "document_revision_id": "revision-zh",
+              "language": "zh-CN",
+              "instrument_number": "SYN-2026-1",
+              "kind": "ai_translation",
+              "current": true,
+              "first_public_at": {
+                "raw": "2026-10-09",
+                "local_date": "2026-10-09",
+                "local_time": "08:00:00",
+                "timezone": "Asia/Shanghai",
+                "utc": "2026-10-09T00:00:00Z",
+                "precision": "second",
+                "meaning": "site_public",
+                "meaning_label": "本站收录",
+                "basis": "合成契约测试依据，不是真实法规记录",
+                "condition_text": null,
+                "label": "2026-10-09",
+                "beijing_date": "2026-10-09"
+              },
+              "published_time": {
+                "raw": "2026-10-08",
+                "local_date": "2026-10-08",
+                "local_time": null,
+                "timezone": null,
+                "utc": null,
+                "precision": "date",
+                "meaning": "published",
+                "meaning_label": "来源发布",
+                "basis": "合成契约测试依据，不是真实法规记录",
+                "condition_text": null,
+                "label": "2026-10-08",
+                "beijing_date": "2026-10-08"
+              },
+              "original_version": "合成正式版本一",
+              "checked_at": {
+                "raw": "2026-10-09",
+                "local_date": "2026-10-09",
+                "local_time": "08:00:00",
+                "timezone": "Asia/Shanghai",
+                "utc": "2026-10-09T00:00:00Z",
+                "precision": "second",
+                "meaning": "checked",
+                "meaning_label": "原文核对",
+                "basis": "合成契约测试依据，不是真实法规记录",
+                "condition_text": null,
+                "label": "2026-10-09",
+                "beijing_date": "2026-10-09"
+              },
+              "label": "period_change",
+              "summary": "合成版本摘要，仅检查展示。",
+              "public_after_period_end": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "pending_interpretations": [
+    {
+      "id": "policy-fixture",
+      "title": "【合成预览】矿业经营规则通知",
+      "original_title": "Synthetic Mining Rule",
+      "jurisdictions": [
+        {
+          "code": "AR",
+          "label": "阿根廷",
+          "kind": "country"
+        }
+      ],
+      "authority": {
+        "id": "authority-fixture",
+        "name": "合成发布机关"
+      },
+      "instrument_number": null,
+      "nature": {
+        "code": "unknown",
+        "label": "尚未确认"
+      },
+      "themes": [],
+      "change_kind": null,
+      "published_time": {
+        "raw": "",
+        "local_date": null,
+        "local_time": null,
+        "timezone": null,
+        "utc": null,
+        "precision": "unknown",
+        "meaning": "published",
+        "meaning_label": "来源发布",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "来源发布日期尚未确认",
+        "beijing_date": null
+      },
+      "sort_time": null,
+      "sort_kind": null,
+      "first_public_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "site_public",
+        "meaning_label": "本站收录",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "first_public_basis": "live",
+      "source_checked_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "checked",
+        "meaning_label": "原文核对",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "is_backfill": false,
+      "legal_brief": {
+        "stage": "unknown",
+        "in_force": "unknown",
+        "repeal": "unknown"
+      },
+      "interpretation_state": "basic_facts",
+      "summary": "【合成预览】仅展示文书身份、来源入口和已知事实；日期未知保持未知。",
+      "applicability_summary": null,
+      "thread_id": null,
+      "original_url": "https://example.invalid/policy/1",
+      "attributions": [
+        {
+          "name": "合成发布机关",
+          "url": "https://example.invalid/policy/1"
+        }
+      ],
+      "ai_label": "ai_generated"
+    }
+  ],
+  "coverage": [
+    {
+      "jurisdiction": {
+        "code": "CN",
+        "label": "中国",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "US",
+        "label": "美国",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "AU",
+        "label": "澳大利亚",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "AR",
+        "label": "阿根廷",
+        "kind": "country"
+      },
+      "registered_source_count": 3,
+      "complete_receipt_count": 2,
+      "incomplete_receipt_count": 1,
+      "missing_receipt_count": 0,
+      "available_count": 2,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "SR",
+        "label": "苏里南",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "CO",
+        "label": "哥伦比亚",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "GY",
+        "label": "圭亚那",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "GH",
+        "label": "加纳",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "ZA",
+        "label": "南非",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "CD",
+        "label": "刚果（金）",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "ZM",
+        "label": "赞比亚",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "MN",
+        "label": "蒙古",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "KG",
+        "label": "吉尔吉斯斯坦",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "TJ",
+        "label": "塔吉克斯坦",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "KZ",
+        "label": "哈萨克斯坦",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "RS",
+        "label": "塞尔维亚",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "CL",
+        "label": "智利",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "CA",
+        "label": "加拿大",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "PE",
+        "label": "秘鲁",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "RU",
+        "label": "俄罗斯",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "MZ",
+        "label": "莫桑比克",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "ZW",
+        "label": "津巴布韦",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "ID",
+        "label": "印度尼西亚",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "TZ",
+        "label": "坦桑尼亚",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "VE",
+        "label": "委内瑞拉",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "EC",
+        "label": "厄瓜多尔",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "SG",
+        "label": "新加坡",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "UZ",
+        "label": "乌兹别克斯坦",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "GB",
+        "label": "英国",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "IR",
+        "label": "伊朗",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "CH",
+        "label": "瑞士",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "BO",
+        "label": "玻利维亚",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "ML",
+        "label": "马里",
+        "kind": "country"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "EU",
+        "label": "欧盟",
+        "kind": "organization"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "UN",
+        "label": "联合国",
+        "kind": "organization"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    },
+    {
+      "jurisdiction": {
+        "code": "OECD",
+        "label": "经济合作与发展组织",
+        "kind": "organization"
+      },
+      "registered_source_count": 0,
+      "complete_receipt_count": 0,
+      "incomplete_receipt_count": 0,
+      "missing_receipt_count": 0,
+      "available_count": 0,
+      "failures": []
+    }
+  ],
+  "next_cursor": null,
+  "attributions": [
+    {
+      "name": "合成发布机关",
+      "url": "https://example.invalid/policy/1"
+    }
+  ],
+  "limitation": "【合成预览】不是真实法规汇总或法律结论。",
+  "ai_metadata": {
+    "provider": "AI矿策",
+    "content_id": "report-fixture"
+  }
+}

@@ -64,6 +64,8 @@ const footerItem = {
   bodyLanguage: "zh",
 };
 let priceMode: "full" | "stale" | "partial" | "empty" | "error" = "full";
+let policyMode: "full" | "empty" | "error" | "withdrawn" | "reading_error" | "revision" = "full";
+const policyFixture = (name: string) => JSON.parse(readFileSync(new URL(`../../../tests/fixtures/policy-public/${name}.json`, import.meta.url), "utf8"));
 function syntheticPrices() {
   const period = { start: "2026-09-11", end: "2026-09-20", label: "合成报价期" };
   const q = (key: string, source: string, value: string | null, percent: string | null, decimals: number | null = null) => ({
@@ -204,6 +206,56 @@ const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   apiCookies.push(req.headers.cookie);
   res.setHeader("Content-Type", "application/json");
+  if (url.pathname.startsWith("/api/site/policies")) {
+    const send = (body: unknown, status = 200) => {
+      res.statusCode = status;
+      return res.end(JSON.stringify(body));
+    };
+    if (policyMode === "error") return send({ code: "temporarily_unavailable" }, 503);
+    if (url.pathname.endsWith("/scope")) return send(policyFixture("scope"));
+    if (url.pathname === "/api/site/policies/reports") return send(policyFixture("report-list"));
+    if (url.pathname === "/api/site/policies/reports/report-fixture") return send(policyFixture("report"));
+    if (url.pathname === "/api/site/policies") {
+      const list = policyFixture("list");
+      if (policyMode === "empty") {
+        list.items = [];
+        list.total = 0;
+      }
+      return send(list);
+    }
+    if (policyMode === "withdrawn") return send({ code: "not_found" }, 404);
+    if (url.pathname.endsWith("/history")) return send(policyFixture("history"));
+    if (url.pathname.endsWith("/reading")) {
+      if (url.searchParams.get("cursor")?.startsWith("next:") && ["reading_error", "revision"].includes(policyMode))
+        return send({ code: "revision_changed" }, policyMode === "revision" ? 409 : 503);
+      const page = policyFixture("reading"),
+        original = url.searchParams.get("expression_id") === "expression-en";
+      if (original) {
+        page.expression_id = "expression-en";
+        page.document_revision_id = "revision-en";
+        page.language = "en";
+        page.mode = "original";
+        page.blocks[0].text = "Synthetic original clause one";
+      }
+      const cursor = url.searchParams.get("cursor"),
+        binding = `${page.expression_id}:${page.document_revision_id}`;
+      if (cursor !== `init:${binding}` && cursor !== `next:${binding}`) return send({ code: "revision_changed" }, 409);
+      const next = cursor.startsWith("next:");
+      page.blocks = page.blocks.slice(next ? 1 : 0, next ? 2 : 1);
+      page.next_cursor = next ? null : `next:${binding}`;
+      return send(page);
+    }
+    const policy = policyFixture(url.pathname.endsWith("/policy-fixture") ? "basic-facts" : "complete");
+    if (url.searchParams.get("expression_id") === "expression-en") {
+      policy.selected_expression_id = "expression-en";
+      policy.reading.expression_id = "expression-en";
+      policy.reading.document_revision_id = "revision-en";
+      policy.reading.language = "en";
+      policy.reading.mode = "original";
+    }
+    if (policy.reading) policy.reading.next_cursor = `init:${policy.reading.expression_id}:${policy.reading.document_revision_id}`;
+    return send(policy);
+  }
   if (url.pathname === "/api/site/metal-prices") {
     if (priceMode === "error") {
       res.statusCode = 503;
@@ -802,6 +854,84 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   for (const links of [hrefs(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))), hrefs(body)]) {
     assert.ok(links.includes("/starred"), links.join(" "));
     assert.equal(links[links.indexOf("/starred") + 1], "/metals", links.join(" "));
+  }
+});
+
+test("policy pages distinguish basic facts, complete interpretations, unknown dates, honest emptiness and failures", async () => {
+  try {
+    const list = await fetch(`${origin}/policies`);
+    assert.equal(list.status, 200);
+    assert.match(await list.text(), /目标国家|跨国与国际组织/);
+    const basic = await fetch(`${origin}/policies/policy-fixture`);
+    assert.equal(basic.status, 200);
+    const html = await basic.text();
+    assert.match(html, /决定性附件尚未取得，完整解读不可用/);
+    assert.match(html, /来源发布日期：/);
+    assert.doesNotMatch(html, /id="analysis"/);
+    const report = await fetch(`${origin}/policies/reports/report-fixture`);
+    assert.equal(report.status, 200);
+    assert.match(await report.text(), /本期来源检查说明/);
+    policyMode = "empty";
+    assert.match(await (await fetch(`${origin}/policies`)).text(), /当前筛选暂无已公开法规/);
+    policyMode = "error";
+    const failed = await fetch(`${origin}/policies`);
+    assert.equal(failed.status, 503);
+    const error = await failed.text();
+    assert.match(error, /暂时无法读取政策法规/);
+    assert.doesNotMatch(error, /当前筛选暂无已公开法规/);
+    policyMode = "withdrawn";
+    assert.equal((await fetch(`${origin}/policies/policy-complete-fixture`)).status, 404);
+    const invalid = await fetch(`${origin}/policies?theme=mining_rights&q=retained`);
+    assert.equal(invalid.status, 400);
+    assert.match(await invalid.text(), /value="retained"/);
+  } finally {
+    policyMode = "full";
+  }
+});
+test("policy reading retains pages on failure, aligns original nodes and removes stale interpretation on withdrawal or revision", async () => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((p) => p && existsSync(p));
+  assert.ok(executablePath);
+  const browser = await chromium.launch({ executablePath });
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  await context.route("**/*", (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient")));
+  const page = await context.newPage();
+  try {
+    await page.goto(`${origin}/policies/policy-complete-fixture`);
+    await page.getByRole("button", { name: "收藏法规", exact: true }).click();
+    await expect(page.getByRole("button", { name: "已收藏法规", exact: true })).toBeVisible();
+    await page.goto(`${origin}/starred`);
+    await expect(page.getByRole("region", { name: "法规收藏" })).toContainText("【合成预览】融资信息报告规则");
+    await page.goto(`${origin}/policies/policy-complete-fixture`);
+    await expect(page.getByText(/已载入 1 \/ 2/)).toBeVisible();
+    await page.getByRole("button", { name: "对照原文", exact: true }).click();
+    await expect(page.getByText("Synthetic original clause one", { exact: true })).toBeVisible();
+    policyMode = "reading_error";
+    await page.getByRole("button", { name: "继续读取正文" }).click();
+    await expect(page.getByText(/暂时无法继续读取/)).toBeVisible();
+    await expect(page.getByText("【合成预览】第一条", { exact: true })).toBeVisible();
+    policyMode = "full";
+    await page.getByRole("button", { name: "重新读取正文" }).click();
+    await expect(page.getByText("已载入全部正文节点。", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "原文 en", exact: true }).click();
+    await expect(page.getByText(/原文 · en · 已载入 1 \/ 2/)).toBeVisible();
+    policyMode = "withdrawn";
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.getByText("这篇法规当前不可查看", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-policy]")).toHaveCount(0);
+    policyMode = "revision";
+    await page.goto(`${origin}/policies/policy-complete-fixture`);
+    await expect(page.getByText(/已载入 1 \/ 2/)).toBeVisible();
+    await page.getByRole("button", { name: "继续读取正文" }).click();
+    await expect(page.getByRole("heading", { name: "当前内容已变化或暂不可查看" })).toBeVisible();
+    await expect(page.locator("#analysis")).toHaveCount(0);
+  } finally {
+    policyMode = "full";
+    await browser.close();
   }
 });
 
