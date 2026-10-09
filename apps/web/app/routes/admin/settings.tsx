@@ -5,8 +5,12 @@ import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
 import { bj, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Input, ReasonDialog } from "../../features/admin/ui";
+import { RuntimeControls } from "../../features/admin/RuntimeControls";
+import { LaneControlsResponse } from "@amp/contracts/http/private";
+import type { z } from "zod";
 
 interface Settings {
+  runtime: z.infer<typeof LaneControlsResponse> | null;
   targets: Array<{
     key: string;
     purpose: string;
@@ -31,10 +35,16 @@ interface Settings {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  return adminGet<Settings>(request, "/api/admin/settings");
+  const [settings, runtime] = await Promise.all([
+    adminGet<Omit<Settings, "runtime">>(request, "/api/admin/settings"),
+    adminGet<unknown>(request, "/api/admin/lane-controls")
+      .then((value) => LaneControlsResponse.parse(value))
+      .catch(() => null),
+  ]);
+  return { ...settings, runtime };
 }
 
-export const meta: Route.MetaFunction = () => [{ title: `通知与请求频率 · ${SITE.name} 后台` }];
+export const meta: Route.MetaFunction = () => [{ title: `自动运行与通知 · ${SITE.name} 后台` }];
 
 function BudgetRow({ b }: { b: Settings["budgets"][number] }) {
   const { run, pending } = useAdminAction();
@@ -102,8 +112,20 @@ function TargetToggle({ t }: { t: Settings["targets"][number] }) {
 }
 
 export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
+  const { run } = useAdminAction();
   return (
-    <AdminPage title="通知与请求频率" subtitle="管理既有通知目的地与请求次数上限，每次修改都写入审计记录。">
+    <AdminPage title="自动运行与通知" subtitle="分别管理资讯、法规的暂停状态，以及既有通知与请求频率。">
+      <RuntimeControls
+        initial={s.runtime}
+        onAction={(action) =>
+          run("POST", "/api/admin/lane-controls/actions", action, {
+            label: "lane-control",
+            parse: LaneControlsResponse.parse,
+            success: action.action === "pause" ? "所选范围已暂停" : "所选负责人暂停已解除",
+            onConflict: () => {},
+          })
+        }
+      />
       <Card title="通知目的地" pad={false}>
         <DataTable
           rows={s.targets}

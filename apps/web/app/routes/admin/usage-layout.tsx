@@ -3,7 +3,7 @@ import { NavLink, Outlet } from "react-router";
 const PAGES = [
   ["/admin/usage-models", "模型与近期用量"],
   ["/admin/usage-models/reconciliation", "费用与投递核对"],
-  ["/admin/usage-models/settings", "通知与请求频率"],
+  ["/admin/usage-models/settings", "自动运行与通知"],
 ] as const;
 
 export default function UsageLayout() {
