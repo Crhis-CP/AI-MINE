@@ -372,6 +372,15 @@
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
       }
+    },
+    "policy.document_extractions": {
+      "module": "policy",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT", "INSERT"]
+      }
     }
   },
   "sequences": {

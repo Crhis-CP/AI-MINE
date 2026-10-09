@@ -10,7 +10,14 @@ const digest = (body: Uint8Array) => createHash("sha256").update(body).digest("h
 type Resource = Omit<PolicyOriginalInput["resources"][number], "body"> & { sha256: string | null; bytes: number };
 type Manifest = { officialTitle: string; identity: PolicyOriginalInput["identity"]; catalogueClosed: boolean; state: string; resources: Resource[] };
 
-async function permits(tx: Tx, sourceId: string, permissionVersion: number, resources: Resource[], identity: Manifest["identity"], read = false) {
+export async function assertOriginalPermissions(
+  tx: Tx,
+  sourceId: string,
+  permissionVersion: number,
+  resources: Resource[],
+  identity: Manifest["identity"],
+  read = false,
+) {
   await lockCurrentSourcePolicies(tx, [{ sourceId, permissionVersion }]);
   for (const resource of [{ url: identity.officialUrl, attachment: false, sha256: null }, ...resources]) {
     const capabilities = ["store_metadata", ...(resource.sha256 ? ["store_fulltext", ...(read ? ["process_locally"] : [])] : [])] as const;
@@ -58,7 +65,7 @@ export async function recordPolicyOriginal(input: unknown) {
   };
   const manifestHash = sha256(stableJson(manifest));
   return sql.begin(async (tx) => {
-    await permits(tx, value.sourceId, value.permissionVersion, resources, identity);
+    await assertOriginalPermissions(tx, value.sourceId, value.permissionVersion, resources, identity);
     await tx`INSERT INTO policy.instruments(id,identity) VALUES(${instrumentId},${tx.json(key)}) ON CONFLICT DO NOTHING`;
     await tx`INSERT INTO policy.versions(id,instrument_id,version_key) VALUES(${versionId},${instrumentId},${versionKey}) ON CONFLICT DO NOTHING`;
     await tx`INSERT INTO policy.expressions(id,version_id,language,kind) VALUES(${expressionId},${versionId},${value.language},${value.kind}) ON CONFLICT DO NOTHING`;
@@ -88,7 +95,7 @@ export async function readPolicyOriginal(expressionId: string) {
   return sql.begin(async (tx) => {
     const manifest = head.manifest as Manifest;
     if (sha256(stableJson(manifest)) !== head.manifest_hash) throw new Error("Policy original manifest mismatch");
-    await permits(tx, head.source_id, Number(head.permission_version), manifest.resources, manifest.identity, true);
+    await assertOriginalPermissions(tx, head.source_id, Number(head.permission_version), manifest.resources, manifest.identity, true);
     const [current] = await tx`SELECT current_revision_id FROM policy.expressions WHERE id=${expressionId} FOR SHARE`;
     if (current?.current_revision_id !== head.id) throw new Error("Policy original head changed");
     const resources = await tx`SELECT ordinal,metadata,body,sha256 FROM policy.original_resources WHERE revision_id=${String(head.id)} ORDER BY ordinal`;
@@ -103,6 +110,12 @@ export async function readPolicyOriginal(expressionId: string) {
       )
     )
       throw new Error("Policy original integrity mismatch");
-    return { revisionId: String(head.id), manifest, resources: resources.map((row) => ({ ...row.metadata, body: row.body as Buffer | null })) };
+    return {
+      sourceId: String(head.source_id),
+      permissionVersion: Number(head.permission_version),
+      revisionId: String(head.id),
+      manifest,
+      resources: resources.map((row) => ({ ...row.metadata, body: row.body as Buffer | null })),
+    };
   });
 }
