@@ -20,7 +20,10 @@ const sql = dbOf("acquisition");
 
 export interface CollectResult {
   sourceId: string;
-  status: "ok" | "failed" | "skipped";
+  status: "ok" | "failed" | "skipped" | "deferred";
+  retryAt?: string;
+  reservationId?: string;
+  crawlSessionId?: string;
   found: number;
   created: number;
   revised: number;
@@ -138,7 +141,7 @@ async function store(
   return { created, revised };
 }
 
-export async function collectSource(sourceId: string, opts: { force?: boolean; lane?: CollectionLane } = {}): Promise<CollectResult> {
+async function collectSource(sourceId: string, opts: { force?: boolean; lane?: CollectionLane } = {}): Promise<CollectResult> {
   const source = await readSourceDateContext(sourceId);
   if (!source) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "missing" };
   if (!collectionEnabled(source.lane) || (opts.lane && source.lane !== opts.lane))
@@ -169,15 +172,15 @@ export async function collectSource(sourceId: string, opts: { force?: boolean; l
     const nextCursor: Record<string, unknown> = { ...(source.cursor ?? {}) };
     let detail: Record<string, unknown> | null = null;
     if (source.kind === "rss") {
-      const rss = await fetchRss(source, opts);
+      const rss = await crawlStep("listing", String(source.config.feedUrl), () => fetchRss(source, opts));
       candidates = rss.candidates;
       // The first import has a smaller backfill cap than later runs: allow the next run to read
       // the ordinary window before accepting 304s. Persist validators only after store succeeds.
       if (!firstImport) nextCursor.rss = rss.validator;
       else delete nextCursor.rss;
       if (rss.notModified) detail = { notModified: true, httpStatus: 304 };
-    } else if (source.kind === "web_list") candidates = await fetchWebList(source);
-    else candidates = await fetchJsonList(source);
+    } else if (source.kind === "web_list") candidates = await crawlStep("listing", String(source.config.url), () => fetchWebList(source));
+    else candidates = await crawlStep("listing", String(source.config.url), () => fetchJsonList(source));
     found = candidates.length;
     candidates = candidates
       .filter((c) => allowed(c.url, source))
@@ -229,7 +232,7 @@ export async function collectSource(sourceId: string, opts: { force?: boolean; l
       detailUsed += 1;
       try {
         await requireDateCollection(source, permission.permission_version, c.url);
-        const got = await fetchDetail(c.url, source, need);
+        const got = await crawlStep(`detail:${c.url}`, c.url, () => fetchDetail(c.url, source, need));
         if (got.title) c.title = got.title;
         if (got.summary) c.excerpt = got.summary;
         // The same Readability path as extraction, using bytes already fetched for the detail rules.
@@ -251,7 +254,8 @@ export async function collectSource(sourceId: string, opts: { force?: boolean; l
           const time = previewSourceDate(c.sourceDateObservation);
           c.publishedAt = sourcePublishedAt(time, d.publishedAtUtcOffset);
         }
-      } catch {
+      } catch (error) {
+        if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
         // detail is best effort
       }
     }
@@ -270,6 +274,11 @@ export async function collectSource(sourceId: string, opts: { force?: boolean; l
                 detail = ${detail ? sql.json(detail as never) : null} WHERE id = ${run!.id}`;
     return { sourceId, status: "ok", found, created, revised };
   } catch (error) {
+    if (error instanceof CrawlDeferred) {
+      await deferSourceFetch(sourceId, error.retryAt);
+      await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),detail=${sql.json({ state: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason })} WHERE id=${run!.id}`;
+      throw error;
+    }
     const message = failureMessage(error);
     const budget = error instanceof BudgetExceededError;
     await sql`
@@ -343,3 +352,32 @@ export async function adaptIntervals(): Promise<{ updated: number }> {
   }
   return { updated };
 }
+
+import { deferSourceFetch } from "@amp/backend/admin/sources";
+import { withSourceCrawl, crawlStep, CrawlDeferred, CrawlBlocked, CrawlObsolete } from "../acquisition/crawl.ts";
+async function pacedCollectSource(
+  sourceId: string,
+  opts: NonNullable<Parameters<typeof collectSource>[1]> & { crawlSessionId?: string } = {},
+): Promise<CollectResult> {
+  const source = await readSourceDateContext(sourceId);
+  if (!source || !source.enabled || !collectionEnabled(source.lane)) return collectSource(sourceId, opts);
+  try {
+    return await withSourceCrawl(source, `source:${sourceId}`, () => collectSource(sourceId, opts), { expectedSessionId: opts.crawlSessionId });
+  } catch (error) {
+    if (error instanceof CrawlObsolete) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "obsolete_crawl_session" };
+    if (error instanceof CrawlDeferred)
+      return {
+        sourceId,
+        status: "deferred",
+        found: 0,
+        created: 0,
+        revised: 0,
+        error: error.reason,
+        retryAt: error.retryAt.toISOString(),
+        reservationId: error.reservationId,
+        crawlSessionId: error.sessionId,
+      };
+    throw error;
+  }
+}
+export { pacedCollectSource as collectSource };

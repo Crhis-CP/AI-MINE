@@ -20,9 +20,12 @@ export function normalizeSourceLanguage(value: unknown): string | null {
   }
 }
 
+export const SourceCrawlProfile = z.strictObject({ sensitive: z.boolean().optional(), minimumIntervalSeconds: z.number().min(2).max(86400).optional() });
+
 // Rules applied in collect.ts to every kind read through collectSource.
 const COLLECTED = [
   "policyProfile",
+  "crawlProfile",
   "sourceDate",
   "_amp",
   "language",
@@ -83,6 +86,7 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
 
 // Objects with fixed keys (headers and bodyJson are request data, free-form).
 const NESTED: Record<string, string[]> = {
+  crawlProfile: ["sensitive", "minimumIntervalSeconds"],
   _amp: ["initialBackfillLimit", "initialBackfillMonths"],
   ingestNoiseFilter: ["dropMarkers", "dropMarkersTitleOnly", "keepIfMatches"],
   itemUrlPrefixRewrite: ["from", "to"],
@@ -184,6 +188,7 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
 export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string, unknown>): string[] {
   const allowed = new Set(KEYS[kind] ?? []);
   const out: string[] = [];
+  if (config?.crawlProfile !== undefined && !SourceCrawlProfile.safeParse(config.crawlProfile).success) out.push("crawlProfile");
   for (const [key, value] of Object.entries(config ?? {})) {
     if (!allowed.has(key)) out.push(key);
     else if (VALUES[key] && !VALUES[key]!.includes(String(value))) out.push(`${key}=${String(value)}`);

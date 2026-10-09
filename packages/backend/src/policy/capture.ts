@@ -20,7 +20,7 @@ import { lookupPolicyOriginalHead, recordPolicyOriginal } from "./originals.ts";
 const sql = dbOf("policy");
 type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedResponse>;
 /** Captures field locations from the configured official single-document page, never a news classifier. */
-export async function capturePolicyMaterial(sourceId: string, materialId: string, get: Get = guardedFetch) {
+async function capturePolicyMaterial(sourceId: string, materialId: string, get: Get = guardedFetch) {
   const source = await readSourceDateContext(sourceId),
     material = await policyMaterialReference(materialId, sourceId);
   if (source?.lane !== "policy" || !source.enabled || !material) return { status: "unavailable" as const };
@@ -54,7 +54,7 @@ export async function capturePolicyMaterial(sourceId: string, materialId: string
     !/html/i.test(response.headers.get("content-type") ?? "")
   )
     return { status: "metadata_unavailable" as const };
-  const observedAt = new Date().toISOString(),
+  const observedAt = response.fetchedAt ?? new Date().toISOString(),
     $ = cheerio.load(decodeOriginal(response.body, response.headers.get("content-type")));
   const field = (selector: string) => {
     const nodes = $(selector);
@@ -146,3 +146,12 @@ export async function capturePolicyMaterial(sourceId: string, materialId: string
   });
   return { status: "captured" as const, ...original, fulltextAllowed, profileHash };
 }
+
+import { withSourceCrawl, crawlFetch } from "../acquisition/crawl.ts";
+async function pacedCapturePolicyMaterial(sourceId: string, materialId: string, get?: Get, expectedSessionId?: string) {
+  if (get) return capturePolicyMaterial(sourceId, materialId, get);
+  const source = await readSourceDateContext(sourceId);
+  if (!source) return { status: "unavailable" as const };
+  return withSourceCrawl(source, `policy:${sourceId}:${materialId}`, () => capturePolicyMaterial(sourceId, materialId, crawlFetch), { expectedSessionId });
+}
+export { pacedCapturePolicyMaterial as capturePolicyMaterial };

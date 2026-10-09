@@ -215,6 +215,10 @@
     {
       "name": "policy/202610090700_policy_vision.sql",
       "dependsOn": ["policy/202610090300_policy_fulltext.sql"]
+    },
+    {
+      "name": "acquisition/202610090900_host_pacing.sql",
+      "dependsOn": ["sources/202610081510_source_lane.sql"]
     }
   ]
 }

@@ -8,7 +8,7 @@ import { sourceDateConfigHash } from "@amp/backend/sources/config-keys";
 import { upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
 import type { SourceDateObservationInput } from "@amp/contracts/time-assertion";
 import { sourcePolicyExample } from "./permission-fixture.ts";
-import { collectSource } from "@amp/backend/sources/collect";
+import { collectSource } from "./crawl-fixture.ts";
 import { config } from "@amp/backend/config";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { fetchDetail } from "@amp/backend/sources/web-list";

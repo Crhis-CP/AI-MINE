@@ -1,6 +1,6 @@
 // JSON sources: plain JSON APIs, JSON embedded in HTML (script tags, window variables).
 import { credential } from "../config.ts";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
@@ -141,7 +141,7 @@ function embeddedJson(html: string, source: SourceRow): unknown {
 }
 
 export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
-  const observedAt = new Date().toISOString();
+  let observedAt = new Date().toISOString();
   const c = source.config;
   const url = String(c.url ?? "");
   const headers: Record<string, string> = { accept: "application/json, text/html;q=0.9", ...(c.headers ?? {}) };
@@ -157,6 +157,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
     timeoutMs: 25_000,
   });
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
+  observedAt = res.fetchedAt ?? observedAt;
   let data: unknown;
   if (c.mode === "html_json_key" || c.mode === "html_window_var") data = embeddedJson(res.text(), source);
   else {

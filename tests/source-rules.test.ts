@@ -9,7 +9,7 @@ import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { extractArticleBody, readable } from "@amp/backend/content/extract";
-import { collectSource } from "@amp/backend/sources/collect";
+import { collectSource } from "./crawl-fixture.ts";
 import { updateSource } from "@amp/backend/admin/sources";
 import { grantDateFixture } from "./source-date-fixture.ts";
 

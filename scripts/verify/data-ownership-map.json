@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "9a40977a6c5d0f56a66623816adc8526d364b918c935d7f9a3397430e9e6a3b7",
+  "grantCatalogueSha256": "f52177f24ff6c6a5d3913338a30a647810532b91ab515f3f268284bb06c6b8ee",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -332,6 +332,26 @@
     },
     "policy.vision_stages": {
       "module": "policy",
+      "access": "business"
+    },
+    "acquisition.crawl_hosts": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.robots_observations": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.crawl_sessions": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.crawl_requests": {
+      "module": "acquisition",
+      "access": "business"
+    },
+    "acquisition.crawl_checkpoints": {
+      "module": "acquisition",
       "access": "business"
     }
   },

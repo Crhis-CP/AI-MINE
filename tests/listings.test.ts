@@ -9,7 +9,7 @@ import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { collectSource } from "@amp/backend/sources/collect";
+import { collectSource } from "./crawl-fixture.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
 const sql = dbOf("acquisition");

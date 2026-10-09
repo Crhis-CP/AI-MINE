@@ -1,6 +1,6 @@
 // RSS 2.0 / Atom / RDF feeds.
 import { XMLParser } from "fast-xml-parser";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
@@ -129,7 +129,7 @@ export interface RssRead {
 }
 
 export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}): Promise<RssRead> {
-  const observedAt = new Date().toISOString();
+  let observedAt = new Date().toISOString();
   const url = String(source.config.feedUrl ?? "");
   if (!url) throw new FetchError("feedUrl missing");
   // Config changes can alter parsing/filtering even when the upstream bytes did not change.
@@ -153,6 +153,7 @@ export async function fetchRss(source: SourceRow, opts: { force?: boolean } = {}
     return { candidates: [], validator, notModified: true };
   }
   if (res.status !== 200) throw new FetchError(`HTTP ${res.status}`, res.status);
+  observedAt = res.fetchedAt ?? observedAt;
   let doc: Record<string, any>;
   let dateDoc: DateDocument;
   try {

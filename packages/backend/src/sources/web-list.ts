@@ -1,6 +1,6 @@
 // Web list pages: HTML with selectors, and Markdown through Jina Reader.
 import * as cheerio from "cheerio";
-import { guardedFetch } from "../lib/http-fetch.ts";
+import { crawlFetch as guardedFetch, crawlExternal, crawlReadKey } from "../acquisition/crawl.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { readable, type ExtractedBody } from "../content/extract.ts";
 import { jinaRead } from "../providers/jina.ts";
@@ -152,12 +152,15 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
   if (!url) throw new FetchError("url missing");
   if (url.startsWith(JINA_PREFIX)) {
     const target = url.slice(JINA_PREFIX.length);
-    const page = await jinaRead(target, {
-      purpose: "source_listing",
-      subject: `source:${source.id}`,
-      cacheToleranceSeconds: source.config.cacheToleranceSeconds,
-      perRead: true,
-    });
+    const page = await crawlExternal(target, "source_listing", () =>
+      jinaRead(target, {
+        purpose: "source_listing",
+        subject: `source:${source.id}`,
+        cacheToleranceSeconds: source.config.cacheToleranceSeconds,
+        perRead: true,
+        readKey: crawlReadKey(),
+      }),
+    );
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };
   }
   const res = await guardedFetch(url, {
@@ -277,17 +280,21 @@ export async function fetchDetail(
   summary: string | null;
   body: ExtractedBody | null;
 }> {
-  const observedAt = new Date().toISOString();
+  let observedAt = new Date().toISOString();
   const d = source.config.detail ?? {};
   const jinaListing = String(source.config.url ?? "").startsWith(JINA_PREFIX);
   const dateInJina = need.date && jinaListing && !!d.publishedAtRegex;
   const titleInJina = need.title && jinaListing && !!d.titleRegex;
-  const jina = dateInJina || titleInJina ? (await jinaRead(url, { purpose: "source_detail", subject: `source:${source.id}` })).raw : null;
+  const jina =
+    dateInJina || titleInJina
+      ? (await crawlExternal(url, "source_detail", () => jinaRead(url, { purpose: "source_detail", subject: `source:${source.id}` }))).raw
+      : null;
   let html: string | null = null;
   let body: ExtractedBody | null = null;
   if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary) {
     const res = await guardedFetch(url, { timeoutMs: 20_000 });
     if (res.status === 200) {
+      observedAt = res.fetchedAt ?? observedAt;
       html = res.text();
       if (need.body && /html/.test(res.headers.get("content-type") ?? "")) {
         try {

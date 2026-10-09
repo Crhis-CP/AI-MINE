@@ -301,7 +301,7 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       !(tokens[n].kind === "word" && syntax.has(value(n)))
     ) {
       const catalogScalar =
-        ["to_char", "round", "pg_column_size"].some((name) => wordAt(n, name)) &&
+        (["to_char", "round", "pg_column_size"].some((name) => wordAt(n, name)) || (wordAt(n, "clock_timestamp") && punctuation(n + 2, ")"))) &&
         punctuation(n - 1, ".") &&
         wordAt(n - 2, "pg_catalog") &&
         !punctuation(n - 3, ".");

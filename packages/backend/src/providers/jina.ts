@@ -30,7 +30,7 @@ export function parseJinaText(text: string): JinaPage {
  */
 export async function jinaRead(
   targetUrl: string,
-  opts: { purpose: string; subject: string; format?: "markdown" | "html"; cacheToleranceSeconds?: number; perRead?: boolean },
+  opts: { purpose: string; subject: string; format?: "markdown" | "html"; cacheToleranceSeconds?: number; perRead?: boolean; readKey?: string },
 ): Promise<JinaPage & { receiptId: number; raw: string }> {
   const key = credential("collectors", "JINA_API_KEY");
   if (!key) throw new Error("JINA_API_KEY is not configured");
@@ -39,7 +39,7 @@ export async function jinaRead(
   const tolerance: Record<string, string> =
     Number.isInteger(opts.cacheToleranceSeconds) && opts.cacheToleranceSeconds! >= 0 ? { "x-cache-tolerance": String(opts.cacheToleranceSeconds) } : {};
   const now = new Date().toISOString();
-  const day = opts.perRead ? now : now.slice(0, 10);
+  const day = opts.perRead ? (opts.readKey ?? now) : now.slice(0, 10);
   const receipt = await paidRequest(
     {
       service: "jina",

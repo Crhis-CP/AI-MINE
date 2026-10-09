@@ -264,14 +264,23 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
  */
 export async function registerExtractionJobs(boss: PgBoss) {
   await ensureQueue(QUEUES.extractBody);
-  await boss.work<{ articleId: string }>(QUEUES.extractBody, { localConcurrency: 4, pollingIntervalSeconds: 2 }, async ([job]) => {
+  await boss.work<{ articleId: string; crawlSessionId?: string }>(QUEUES.extractBody, { localConcurrency: 4, pollingIntervalSeconds: 2 }, async ([job]) => {
     if (!job) return;
     const { articleId } = job.data;
     try {
-      const state = await extractArticleBody(articleId);
+      const state = await extractArticleBody(articleId, undefined, job.data.crawlSessionId);
       await queueProcessing(articleId, { step: "analyze" });
       return { state };
     } catch (error) {
+      if (error instanceof CrawlObsolete) return { state: "obsolete" };
+      if (error instanceof CrawlDeferred) {
+        await enqueue(
+          QUEUES.extractBody,
+          { articleId, crawlSessionId: error.sessionId },
+          { startAfter: error.retryAt, singletonKey: `${articleId}:${error.reservationId}:${error.retryAt.toISOString()}` },
+        );
+        return { state: "deferred", retryAt: error.retryAt.toISOString() };
+      }
       const message = String(error instanceof Error ? error.message : error).slice(0, 500);
       const [a] = await sql<{ processing_attempts: number }[]>`
         UPDATE articles SET processing_attempts = processing_attempts + 1, processing_error = ${`extract: ${message}`},
@@ -319,3 +328,5 @@ export async function requeueFailed(group: string | null): Promise<{ requeued: n
 
 // Policy processing shares only this frozen composition entry; its queues and state remain separate.
 export { registerPolicyJobs, sweepPolicyMaterials } from "./policy.ts";
+
+import { CrawlDeferred, CrawlObsolete } from "../acquisition/crawl.ts";

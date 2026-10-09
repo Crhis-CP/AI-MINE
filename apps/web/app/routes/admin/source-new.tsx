@@ -36,6 +36,9 @@ const TEMPLATES: Record<string, Record<string, unknown>> = {
 type ScopeEntry = { id: string; value: string };
 
 interface Preview {
+  status?: "deferred";
+  retryAt?: string;
+  reason?: string;
   ms: number;
   count: number;
   items: Array<{ title: string; url: string; publishedAt: string | null; excerpt: string }>;
@@ -285,9 +288,18 @@ export default function NewSource() {
             </Button>
           </div>
         </Card>
-        <Card title={preview ? `预览：${preview.count} 条（${preview.ms}ms）` : "预览"}>
+        <Card title={preview?.status === "deferred" ? "预览等待中" : preview ? `预览：${preview.count} 条（${preview.ms}ms）` : "预览"}>
           {!preview ? (
             <Empty>填好配置后点“预览抓取”，这里显示将会采集到的条目（不入库）。</Empty>
+          ) : preview.status === "deferred" ? (
+            <Empty>
+              {preview.reason === "source_reader_pending"
+                ? "本次来源读取尚待确认，已保留进度。"
+                : preview.reason === "robots_unavailable"
+                  ? "暂时无法核实网站抓取规则，本次未读取内容。"
+                  : "正在等待来源网站允许的抓取时段。"}
+              {preview.retryAt ? `可在 ${bjSource(preview.retryAt, true)} 后再次预览。` : "请稍后再试。"}
+            </Empty>
           ) : preview.items.length ? (
             <ul className="space-y-3">
               {preview.items.map((i) => (
