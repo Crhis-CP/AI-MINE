@@ -138,19 +138,19 @@ export default function MetalsPage() {
                   <caption className="sr-only">按品种分组的官方机构报价及较上期变化</caption>
                   <thead className="bg-bg-sunk text-left text-[11px] font-medium text-ink-3 sm:text-[12px]">
                     <tr>
-                      <th scope="col" className="w-11 px-2 py-2.5 sm:w-16 sm:px-4">
+                      <th scope="col" className="w-11 px-2 py-2.5 sm:w-[10%] sm:px-4">
                         品种
                       </th>
-                      <th scope="col" className="px-2 py-2.5 sm:w-44 sm:px-4">
+                      <th scope="col" className="px-2 py-2.5 sm:w-[30%] sm:px-4">
                         报价
                       </th>
-                      <th scope="col" className="w-24 px-2 py-2.5 text-right sm:w-32 sm:px-4">
+                      <th scope="col" className="w-24 px-2 py-2.5 text-right sm:w-[18%] sm:px-4">
                         价格
                       </th>
-                      <th scope="col" className="w-16 px-2 py-2.5 text-right sm:w-22 sm:px-4">
+                      <th scope="col" className="w-16 px-2 py-2.5 text-right sm:w-[14%] sm:px-4">
                         较上期
                       </th>
-                      <th scope="col" className="hidden px-4 py-2.5 sm:table-cell">
+                      <th scope="col" className="hidden px-4 py-2.5 sm:table-cell sm:w-[28%]">
                         规格
                       </th>
                     </tr>

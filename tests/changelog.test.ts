@@ -17,7 +17,8 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
     [
-      ["2026-10-10", undefined, "法规页能看到圣克鲁斯公报"],
+      ["2026-10-10", undefined, "金属价格：电脑上列宽更匀"],
+      ["2026-10-10", undefined, "首页换回精选"],
       ["2026-10-10", undefined, "金属价格页开始显示官方报价"],
       ["2026-10-10", undefined, "法规政策动态可以按国家查看"],
       ["2026-10-10", undefined, "后台改到网站主域名"],
@@ -27,7 +28,6 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
       ["2026-10-06", undefined, "只写日期的稿子：只显示日期，旧稿归到原来那天"],
       ["2026-10-06", undefined, "全部动态更聚焦金属矿业"],
       ["2026-10-06", undefined, "两个分类改名：矿山安全、技术与冶炼"],
-      ["2026-10-06", undefined, "新增信源：商务部驻外经商处"],
       ["2026-10-06", undefined, "事件归并改按矿业的写法"],
       ["2026-10-06", undefined, "手机上每个页面都显示备案号"],
     ],
