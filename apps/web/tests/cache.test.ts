@@ -189,7 +189,7 @@ const privateApi = createServer((req, res) => {
       );
     if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
     if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false, owner: true, modelsManage: true }));
-    if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 888, feedback: 888, runs: 888 }));
+    if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 2, feedback: 1, runs: 0 }));
     if (req.url?.startsWith("/api/admin/models?"))
       return res.end(
         JSON.stringify({
@@ -1261,15 +1261,32 @@ test("retired daily pages are absent and private navigation no longer requests c
     const html = await response.text();
     assert.match(html, /合成管理员/);
     assert.match(html, /模型与评测/);
-    for (const path of ["content", "sources", "usage-models", "site", "feedback", "account", "usage-models/reconciliation", "usage-models/settings"]) {
+    assert.match(html, /内容诊断/);
+    assert.match(html, /精选校准/);
+    assert.match(html, /费用核对/);
+    for (const path of [
+      "content",
+      "sources",
+      "sources/targets",
+      "usage-models",
+      "site",
+      "feedback",
+      "account",
+      "accounts",
+      "selectbench",
+      "usage-models/reconciliation",
+      "usage-models/settings",
+    ]) {
       assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
     }
-    assert.doesNotMatch(html, /\/admin\/(?:selectbench|audit|runs)|同批样本对比|888/);
+    assert.doesNotMatch(html, /\/admin\/(?:audit|runs)|同批样本对比|Codex|888/);
     assert.ok(
       privateCalls
         .slice(before)
         .every(
-          ({ path }) => ["/api/admin/me", "/api/admin/model-connections", "/api/admin/model-fallbacks"].includes(path) || path.startsWith("/api/admin/models?"),
+          ({ path }) =>
+            ["/api/admin/me", "/api/admin/nav-counts", "/api/admin/model-connections", "/api/admin/model-fallbacks"].includes(path) ||
+            path.startsWith("/api/admin/models?"),
         ),
     );
     const controlPage = await fetchWithHost(origin + "/admin/selectbench", PRIVATE_HOST);

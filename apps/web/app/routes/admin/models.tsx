@@ -1,5 +1,5 @@
 import { SelectionStandardsSection } from "../../features/admin/SelectionStandards";
-import { useRevalidator } from "react-router";
+import { Link, useRevalidator } from "react-router";
 import { SITE } from "@amp/industry/site";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
 import { ModelFallbacks, type FallbackOverview, type FallbackChange } from "../../features/admin/ModelFallbacks";
@@ -57,6 +57,14 @@ interface Models {
     reason: string | null;
     before: { model: string; source: string } | null;
     after: { model: string; source: string } | null;
+  }>;
+  benches?: Array<{
+    id: string;
+    label: string;
+    sample_size?: number;
+    prompt_version?: string | null;
+    models?: string[];
+    created_at?: string;
   }>;
 }
 
@@ -298,6 +306,48 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
+        <Card
+          title="精选校准"
+          right={
+            me.owner ? (
+              <Link to="/admin/selectbench" className="text-accent">
+                打开校准页
+              </Link>
+            ) : null
+          }
+          pad={false}
+        >
+          {(m.benches ?? []).length ? (
+            <DataTable
+              dense
+              rows={m.benches ?? []}
+              rowKey={(b) => b.id}
+              columns={[
+                {
+                  key: "l",
+                  label: "运行",
+                  render: (b) =>
+                    me.owner ? (
+                      <Link to={`/admin/selectbench/${b.id}`} className="text-ink hover:text-accent">
+                        {b.label}
+                      </Link>
+                    ) : (
+                      b.label
+                    ),
+                },
+                {
+                  key: "m",
+                  label: "模型",
+                  render: (b) => <span className="font-mono text-[11.5px] text-ink-3">{(b.models ?? []).join("、") || "—"}</span>,
+                },
+                { key: "n", label: "样本", align: "right", render: (b) => (b.sample_size == null ? "—" : num(b.sample_size)) },
+                { key: "at", label: "时间", render: (b) => <span className="num whitespace-nowrap">{b.created_at ? bj(b.created_at) : "—"}</span> },
+              ]}
+            />
+          ) : (
+            <Empty>还没有导入对比运行。评分是否在首页生效，仍由负责人在精选校准页自己确认。</Empty>
+          )}
+        </Card>
         <Card title="切换记录" pad={false}>
           {m.history.length ? (
             <DataTable

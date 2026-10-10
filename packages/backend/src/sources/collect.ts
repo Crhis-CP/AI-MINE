@@ -25,6 +25,7 @@ import { toDateCandidate, previewSourceDate } from "./date-extraction.ts";
 import { beijingDate } from "@amp/contracts/time";
 
 import { collectPolicyDirectory, DirectoryRoundFailed } from "../acquisition/directory-runtime.ts";
+import { directoryContract } from "./directory-profile.ts";
 const sql = dbOf("acquisition");
 
 export interface CollectResult {
@@ -185,7 +186,9 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
     let candidates: Candidate[];
     const nextCursor: Record<string, unknown> = { ...(source.cursor ?? {}) };
     let detail: Record<string, unknown> | null = null;
-    if (source.lane === "policy" && ["web_list", "json_list"].includes(source.kind)) {
+    // A declared directory still has to finish its whole catalogue. A policy list without that
+    // declaration uses the same current-page reader as news (first import keeps about 30 items).
+    if (source.lane === "policy" && directoryContract(source)) {
       const directory = await collectPolicyDirectory(source, permission.permission_version);
       ({ created, revised } = directory);
       found = directory.currentRecords;

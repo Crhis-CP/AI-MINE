@@ -5,6 +5,7 @@ import { adminGet } from "../../lib/admin.server";
 import { bj, num, pct } from "../../features/admin/format";
 import { AdminPage, Badge, Card, Empty } from "../../features/admin/ui";
 import { SelectionToolControl, SelectionSampleLabels, SelectionStandardReviewForm } from "../../features/admin/SelectionCalibration";
+import { SelectionStandardsReadOnly } from "../../features/admin/SelectionStandards";
 import { readSelectionTool, readSelectionSamples, readSelectionStandards } from "../../features/admin/SelectionApi.server";
 import { useSelectionActions } from "../../features/admin/SelectionActions";
 interface RunRow {
@@ -29,7 +30,7 @@ interface RunRow {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const control = await readSelectionTool(request),
-    tab = new URL(request.url).searchParams.get("tab") ?? "samples";
+    tab = new URL(request.url).searchParams.get("tab") ?? "review";
   if (!control.enabled) return { control, tab, runs: [] as RunRow[], samples: null, standards: null };
   const [runs, samples, standards] = await Promise.all([
     tab === "runs" ? adminGet<{ runs: RunRow[] }>(request, "/api/admin/selectbench") : Promise.resolve({ runs: [] }),
@@ -50,19 +51,22 @@ export default function SelectBench({ loaderData: d }: { loaderData: Awaited<Ret
     navigate(`?${next}`);
   };
   return (
-    <AdminPage title="建设期精选校准" subtitle="仅负责人使用，默认关闭。标注、结果浏览与版本确认在这里完成；页面不会运行评测或产生模型费用。">
+    <AdminPage
+      title="精选校准"
+      subtitle="沿用同一套校准页。标注、结果浏览和标准审阅都在这里；页面不会运行评测，也不会把首页改成精选。首页在你自己确认之前仍是最新动态。"
+    >
       <div className="space-y-5">
         {!d.control.enabled ? (
-          <Card>
-            <Empty>建设期抽样工具未开启。开启后可查看样本与运行记录。</Empty>
+          <Card title="标准审阅">
+            <Empty>建设期抽样工具未开启。开启后可在「标准审阅」记下本版本结论，并查看样本与运行记录。开启不会打开首页精选，也不会代为确认。</Empty>
           </Card>
         ) : (
           <>
             <div className="flex flex-wrap gap-2" role="tablist" aria-label="精选校准">
               {[
+                ["review", "标准审阅"],
                 ["samples", "样本标注"],
                 ["runs", "运行结果"],
-                ["review", "标准审阅"],
               ].map(([value, label]) => (
                 <button
                   type="button"
@@ -70,7 +74,7 @@ export default function SelectBench({ loaderData: d }: { loaderData: Awaited<Ret
                   role="tab"
                   aria-selected={d.tab === value}
                   onClick={() => select(value!)}
-                  className={`rounded-control px-4 py-2 text-sm ${d.tab === value ? "bg-ink text-bg" : "bg-surface text-ink ring-1 ring-line"}`}
+                  className={`inline-flex items-center rounded-full px-3 py-1 text-[12.5px] transition-colors ${d.tab === value ? "bg-ink text-bg" : "bg-surface text-ink-2 ring-1 ring-line hover:bg-bg-sunk"}`}
                 >
                   {label}
                 </button>
@@ -93,7 +97,12 @@ export default function SelectBench({ loaderData: d }: { loaderData: Awaited<Ret
                 }
               />
             )}
-            {d.standards && <SelectionStandardReviewForm data={d.standards} onSave={(input) => execute("review", input)} />}
+            {d.standards && (
+              <>
+                <SelectionStandardsReadOnly data={d.standards} />
+                <SelectionStandardReviewForm data={d.standards} onSave={(input) => execute("review", input)} />
+              </>
+            )}
             {d.tab === "runs" && (
               <>
                 <p className="text-sm text-ink-3">运行结果只读。旧报告中的标签、分数或模型名字不等于真实Owner标注、模型配置证据或校准确认。</p>

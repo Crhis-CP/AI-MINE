@@ -1439,7 +1439,48 @@
           },
           "allowUrlPrefixes": ["https://www.boletinoficial.gob.ar/detalleAviso/primera/"],
           "language": "es",
-          "itemSelector": "#avisosSeccionDiv > div.row:not(div.row:has(h5.seccion-rubro:contains(\"CONCURSOS OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"REMATES OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"AVISOS OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"CONVENCIONES COLECTIVAS\")) ~ div.row) a[href^=\"/detalleAviso/primera/\"]:has(div.linea-aviso)"
+          "itemSelector": "#avisosSeccionDiv > div.row:not(div.row:has(h5.seccion-rubro:contains(\"CONCURSOS OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"REMATES OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"AVISOS OFICIALES\")) ~ div.row):not(div.row:has(h5.seccion-rubro:contains(\"CONVENCIONES COLECTIVAS\")) ~ div.row) a[href^=\"/detalleAviso/primera/\"]:has(div.linea-aviso)",
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://www.boletinoficial.gob.ar/detalleAviso/primera/348786/20261009",
+              "basis": "国家公报第一部分当日列表指向同一主机的单件页。2026-10-09 核对 Resolución 1433/2026：标题在 #tituloDetalleAviso，正文在 #cuerpoDetalleAviso，页面是 HTML。",
+              "singleObjectPattern": "^https://www\\.boletinoficial\\.gob\\.ar/detalleAviso/primera/\\d+/\\d{8}$"
+            },
+            "identityMarker": {
+              "selector": "#tituloDetalleAviso",
+              "pattern": "^[\\s\\S]{12,800}$"
+            },
+            "titleSelector": "#tituloDetalleAviso",
+            "numberSelector": null,
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "AR",
+                "evidenceUrl": "https://www.boletinoficial.gob.ar/seccion/primera",
+                "basis": "页面标题写明 BOLETIN OFICIAL REPUBLICA ARGENTINA，法域按登记为阿根廷。"
+              },
+              "authority": {
+                "value": "阿根廷国家公报局",
+                "evidenceUrl": "https://www.boletinoficial.gob.ar/seccion/primera",
+                "basis": "第一部分目录由阿根廷国家公报发布，与登记发布方一致。"
+              },
+              "documentType": null
+            },
+            "language": "es",
+            "kind": "original",
+            "recheckMinutes": 360,
+            "extraction": {
+              "bodySelector": "#cuerpoDetalleAviso",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
         }
       },
       "status": "ready",

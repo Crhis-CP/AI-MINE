@@ -268,7 +268,9 @@ test("missing structure and HTTP 200 alone do not yield completion; declared emp
   const before = f.calls.length;
   const result = await withSourceCrawl(f.source, `missing:${f.id}`, () => collectSource(f.id), { get: f.get, now: () => new Date(clock) });
   assert.equal(result.status, "failed");
-  assert.equal(f.calls.length, before);
+  assert.match(result.error ?? "", /items path did not resolve to an array/);
+  assert.equal(f.calls.length, before + 1, "the current list page is read when the catalogue declaration is absent");
+  assert.equal((await bindings(f.id)).length, 0);
 });
 
 test("coverage uses structural receipts and unfinished rounds as of report end, with public count left to publication", async () => {
