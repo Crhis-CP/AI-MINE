@@ -95,6 +95,9 @@ export async function extractFromUrl(
       if (res.status === 200 && /html/.test(res.headers.get("content-type") ?? "")) return readable(res.text(), res.url);
     } catch (error) {
       if (error instanceof CrawlDeferred || error instanceof CrawlBlocked) throw error;
+      // Oversized bodies fail the same way on every try. Swallowing this sent the page to the paid
+      // reader, which then cooled the whole host. The extract job already records it and retries a few times.
+      if (error instanceof Error && error.message.startsWith("Response too large")) throw error;
     }
     return null;
   });

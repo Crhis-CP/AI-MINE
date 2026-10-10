@@ -326,7 +326,9 @@ export async function crawlExternal<T>(url: string, name: string, run: () => Pro
         throw error;
       }
       const retryAt = new Date((await crawlTime(ctx)).getTime() + 60_000);
-      await finishCrawlRequest({ ...claim, token, retryAt, now: ctx.virtualClock ? ctx.now() : undefined });
+      // The reader failed, not this host. Keep the wait on this request so it is not fetched again immediately,
+      // but do not cool the host: one unreadable page would otherwise hold every other page for a minute.
+      await finishCrawlRequest({ ...claim, token, retryAt, coolHost: false, now: ctx.virtualClock ? ctx.now() : undefined });
       throw new CrawlDeferred(retryAt, claim.id, "source_reader_pending");
     }
   };

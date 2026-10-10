@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { readSourceDateContext, readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
-import { crawlFetch, crawlStep, withSourceCrawl, CrawlDeferred, CrawlBlocked } from "../packages/backend/src/acquisition/crawl.ts";
+import { crawlExternal, crawlFetch, crawlStep, withSourceCrawl, CrawlDeferred, CrawlBlocked } from "../packages/backend/src/acquisition/crawl.ts";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import type { GuardedResponse } from "../packages/backend/src/lib/http-fetch.ts";
@@ -312,6 +312,55 @@ test("an oversized page is refused without cooling the host down", async () => {
   );
 });
 
+test("an oversized page is not sent to the paid reader", async () => {
+  const a = await source();
+  const now = new Date(clock);
+  await saveRobots(new URL(a.config.url).origin, 404, "", now, null, null);
+  const { extractFromUrl } = await import("@amp/backend/content/extract");
+  let calls = 0;
+  await assert.rejects(
+    withSourceCrawl(
+      a,
+      `extract-big:${a.id}`,
+      () => extractFromUrl(a.config.url, { allowJina: true, subject: `article:${a.id}`, lane: "news" }),
+      {
+        now: () => now,
+        get: async () => {
+          calls++;
+          throw new Error(`Response too large from ${new URL(a.config.url).hostname}`);
+        },
+      },
+    ),
+    (error: unknown) => error instanceof Error && error.message.startsWith("Response too large"),
+  );
+  assert.equal(calls, 1);
+});
+
+test("a source-reader failure waits on that request without cooling the host", async () => {
+  const a = await source();
+  const now = new Date(clock);
+  await saveRobots(new URL(a.config.url).origin, 404, "", now, null, null);
+  const host = new URL(a.config.url).hostname;
+  await assert.rejects(
+    withSourceCrawl(
+      a,
+      `reader-fail:${a.id}`,
+      () =>
+        crawlExternal(a.config.url, "body_fallback", async () => {
+          throw new Error("reader down");
+        }),
+      { now: () => now, get: async (url) => reply(url) },
+    ),
+    (error: unknown) => error instanceof CrawlDeferred && error.reason === "source_reader_pending",
+  );
+  const [h] = await sql<{ cooldown_until: Date }[]>`SELECT cooldown_until FROM acquisition.crawl_hosts WHERE host = ${host}`;
+  assert.ok(h!.cooldown_until.getTime() <= now.getTime());
+  const [r] = await sql<{ state: string; ready_at: Date }[]>`
+    SELECT state, ready_at FROM acquisition.crawl_requests WHERE host = ${host} AND state = 'pending'`;
+  assert.equal(r!.state, "pending");
+  assert.ok(r!.ready_at.getTime() > now.getTime());
+});
+
 test("a deferred extraction keeps its reason without using an attempt", async () => {
   const a = await source();
   const { upsertMaterial } = await import("@amp/backend/content/materials");
@@ -331,6 +380,23 @@ test("a deferred extraction keeps its reason without using an attempt", async ()
   assert.equal(row!.processing_error, "extract: crawl_deferred: transport_unavailable");
   assert.equal(row!.processing_attempts, 0);
   assert.equal(row!.processing_state, "new");
+  assert.equal(
+    await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "source_reader_pending")),
+    "waiting",
+  );
+  assert.equal(
+    await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 120_000), "reservation", "source_reader_pending")),
+    "waiting",
+  );
+  assert.equal(
+    await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 180_000), "reservation", "source_reader_pending")),
+    "unconfirmed",
+  );
+  const [done] = await sql<{ processing_attempts: number; body_status: string; processing_error: string }[]>`
+    SELECT processing_attempts, body_status, processing_error FROM articles WHERE id = ${m.articleId}`;
+  assert.equal(done!.processing_attempts, 0);
+  assert.equal(done!.body_status, "unconfirmed");
+  assert.equal(done!.processing_error, "extract: crawl_deferred: source_reader_pending");
 });
 
 test("a held source's body stays deferred without fetching or consuming an extraction attempt", async () => {

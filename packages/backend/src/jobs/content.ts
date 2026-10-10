@@ -308,7 +308,11 @@ export async function registerExtractionJobs(boss: PgBoss) {
       if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(articleId, error);
       if (error instanceof CrawlObsolete) return { state: "obsolete" };
       if (error instanceof CrawlDeferred) {
-        await recordExtractDeferral(articleId, error);
+        const waiting = await recordExtractDeferral(articleId, error);
+        if (waiting === "unconfirmed") {
+          await queueProcessing(articleId, { step: "analyze" });
+          return { state: "unconfirmed" };
+        }
         await enqueue(
           QUEUES.extractBody,
           { articleId, crawlSessionId: error.sessionId },
@@ -346,11 +350,23 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
 
 /**
  * A paced fetch can wait without failing the article. Keep that reason on the article, or the stuck-content
- * alert only sees a blank. Waiting does not use up extraction attempts.
+ * alert only sees a blank. Host pacing does not use up extraction attempts. A source-reader failure is not
+ * pacing: it uses the same three tries as any other extract failure, then the article continues unconfirmed.
  */
-export async function recordExtractDeferral(articleId: string, error: CrawlDeferred) {
+export async function recordExtractDeferral(articleId: string, error: CrawlDeferred): Promise<"waiting" | "unconfirmed"> {
   const message = `extract: ${error.message}`.slice(0, 500);
-  await sql`UPDATE articles SET processing_error = ${message} WHERE id = ${articleId} AND processing_state = 'new'`;
+  if (error.reason !== "source_reader_pending") {
+    await sql`UPDATE articles SET processing_error = ${message} WHERE id = ${articleId} AND processing_state = 'new'`;
+    return "waiting";
+  }
+  const [a] = await sql<{ processing_attempts: number }[]>`
+    UPDATE articles SET processing_attempts = processing_attempts + 1, processing_error = ${message},
+      processing_queued_at = NULL, processing_retry_at = ${error.retryAt}
+    WHERE id = ${articleId} AND processing_state = 'new' RETURNING processing_attempts`;
+  if (!a || a.processing_attempts < MAX_EXTRACT_FAILURES) return "waiting";
+  await sql`UPDATE articles SET body_status = 'unconfirmed', processing_attempts = 0, processing_retry_at = NULL
+    WHERE id = ${articleId} AND body_status = 'pending'`;
+  return "unconfirmed";
 }
 
 /** How the runs page groups failures: the message with ids and numbers masked. */

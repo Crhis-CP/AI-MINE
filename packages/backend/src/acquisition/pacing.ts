@@ -146,6 +146,8 @@ export async function finishCrawlRequest(input: {
   body?: Buffer | null;
   blocked?: string;
   retryAt?: Date;
+  /** Reader failures wait on this request only. Cooling the host would hold every other page. */
+  coolHost?: boolean;
   proof?: CrawlProof;
   now?: Date;
   fetchedAt?: Date;
@@ -156,7 +158,8 @@ export async function finishCrawlRequest(input: {
     if (owned?.lease_token !== input.token) throw new CrawlBlocked("crawl_lease_expired");
     const [clock] = await tx<{ now: Date }[]>`SELECT pg_catalog.clock_timestamp() AS now`;
     const finished = input.now ?? clock!.now;
-    await tx`UPDATE acquisition.crawl_hosts SET last_finished=${finished},lease_token=NULL,lease_until='1970-01-01T00:00:00Z',cooldown_until=greatest(cooldown_until,${input.retryAt ?? new Date(0)}) WHERE host=${input.host}`;
+    const coolHost = input.coolHost !== false;
+    await tx`UPDATE acquisition.crawl_hosts SET last_finished=${finished},lease_token=NULL,lease_until='1970-01-01T00:00:00Z',cooldown_until=CASE WHEN ${coolHost} THEN greatest(cooldown_until,${input.retryAt ?? new Date(0)}) ELSE cooldown_until END WHERE host=${input.host}`;
     await tx`UPDATE acquisition.crawl_requests SET state=${input.blocked ? "blocked" : input.retryAt ? "pending" : "done"},status=${input.status ?? null},
       fetched_at=${input.fetchedAt ?? null},headers=${sql.json(input.headers ?? {})},body=${input.body ?? null},error=${input.blocked ?? null},ready_at=greatest(ready_at,${input.retryAt ?? new Date(0)}),lease_token=NULL,updated_at=now() WHERE id=${input.id} AND lease_token=${input.token}`;
   });
