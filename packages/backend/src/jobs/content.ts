@@ -301,12 +301,14 @@ export async function registerExtractionJobs(boss: PgBoss) {
     const { articleId } = job.data;
     try {
       const state = await extractArticleBody(articleId, undefined, job.data.crawlSessionId);
+      await sql`UPDATE articles SET processing_error = NULL WHERE id = ${articleId} AND processing_state = 'new'`;
       await queueProcessing(articleId, { step: "analyze" });
       return { state };
     } catch (error) {
       if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return afterFailure(articleId, error);
       if (error instanceof CrawlObsolete) return { state: "obsolete" };
       if (error instanceof CrawlDeferred) {
+        await recordExtractDeferral(articleId, error);
         await enqueue(
           QUEUES.extractBody,
           { articleId, crawlSessionId: error.sessionId },
@@ -340,6 +342,15 @@ export async function sweepUnprocessed(): Promise<{ enqueued: number }> {
     ORDER BY discovered_at DESC LIMIT 500`;
   for (const r of rows) await queueProcessing(r.id);
   return { enqueued: rows.length };
+}
+
+/**
+ * A paced fetch can wait without failing the article. Keep that reason on the article, or the stuck-content
+ * alert only sees a blank. Waiting does not use up extraction attempts.
+ */
+export async function recordExtractDeferral(articleId: string, error: CrawlDeferred) {
+  const message = `extract: ${error.message}`.slice(0, 500);
+  await sql`UPDATE articles SET processing_error = ${message} WHERE id = ${articleId} AND processing_state = 'new'`;
 }
 
 /** How the runs page groups failures: the message with ids and numbers masked. */

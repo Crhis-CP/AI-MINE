@@ -69,9 +69,12 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
              count(*) FILTER (WHERE processing_state = 'failed' AND discovered_at > now() - interval '3 hours')::int AS failed
       FROM articles WHERE processing_state IN ('new', 'failed') AND discovered_at > now() - interval '2 days'`;
     if (p!.waiting >= 10 || p!.failed >= 20) {
+      // Same articles as the counts above. A 3-hour discovery window hid errors on items that had already been waiting for hours.
       const errors = await sql<{ error: string; n: number }[]>`
-        SELECT left(coalesce(processing_error, '（无）'), 120) AS error, count(*)::int AS n FROM articles
-        WHERE processing_state IN ('new', 'failed') AND discovered_at > now() - interval '3 hours' AND processing_error IS NOT NULL
+        SELECT left(processing_error, 120) AS error, count(*)::int AS n FROM articles
+        WHERE processing_error IS NOT NULL AND discovered_at > now() - interval '2 days'
+          AND ((processing_state = 'new' AND discovered_at < now() - interval '2 hours')
+            OR (processing_state = 'failed' AND discovered_at > now() - interval '3 hours'))
         GROUP BY 1 ORDER BY 2 DESC LIMIT 3`;
       out.push({
         key: "content.process",

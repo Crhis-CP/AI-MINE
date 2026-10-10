@@ -262,6 +262,77 @@ test("official acquisition resumes cached main/annex bytes and retains blocked a
   assert.equal(original.resources[2]!.body, null);
 });
 
+test("a step that finds nothing does not store a null checkpoint and can run again", async () => {
+  const a = await source();
+  let runs = 0;
+  const once = () =>
+    withSourceCrawl(
+      a,
+      `empty:${a.id}`,
+      async () => {
+        const value = await crawlStep("body", a.config.url, async () => {
+          runs++;
+          return null;
+        });
+        const [n] = await sql<{ n: number }[]>`
+          SELECT count(*)::int AS n FROM acquisition.crawl_checkpoints c
+          JOIN acquisition.crawl_sessions s ON s.id = c.session_id WHERE s.source_id = ${a.id}`;
+        assert.equal(n!.n, 0);
+        return value;
+      },
+      { now: () => new Date(clock), get: async (url) => reply(url) },
+    );
+  assert.equal(await once(), null);
+  assert.equal(await once(), null);
+  assert.equal(runs, 2);
+});
+
+test("an oversized page is refused without cooling the host down", async () => {
+  const a = await source();
+  const now = new Date(clock);
+  await saveRobots(new URL(a.config.url).origin, 404, "", now, null, null);
+  let calls = 0;
+  await assert.rejects(
+    withSourceCrawl(a, `big:${a.id}`, () => crawlFetch(a.config.url), {
+      now: () => now,
+      get: async () => {
+        calls++;
+        throw new Error(`Response too large from ${new URL(a.config.url).hostname}`);
+      },
+    }),
+    (error: unknown) => error instanceof Error && error.message.startsWith("Response too large"),
+  );
+  assert.equal(calls, 1);
+  const host = new URL(a.config.url).hostname;
+  const [h] = await sql<{ cooldown_until: Date }[]>`SELECT cooldown_until FROM acquisition.crawl_hosts WHERE host = ${host}`;
+  assert.ok(h!.cooldown_until.getTime() <= now.getTime());
+  assert.equal(
+    (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM acquisition.crawl_requests WHERE host = ${host} AND state = 'pending'`)[0]!.n,
+    0,
+  );
+});
+
+test("a deferred extraction keeps its reason without using an attempt", async () => {
+  const a = await source();
+  const { upsertMaterial } = await import("@amp/backend/content/materials");
+  const { recordExtractDeferral } = await import("@amp/backend/jobs/content");
+  const { CrawlDeferred: Deferred } = await import("../packages/backend/src/acquisition/crawl.ts");
+  const m = await upsertMaterial({
+    sourceId: a.id,
+    url: `${a.config.url}/waiting`,
+    title: "Synthetic waiting body",
+    via: "fetch",
+    language: "en",
+    bodyStatus: "pending",
+  });
+  await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "transport_unavailable"));
+  const [row] = await sql<{ processing_error: string; processing_attempts: number; processing_state: string }[]>`
+    SELECT processing_error, processing_attempts, processing_state FROM articles WHERE id = ${m.articleId}`;
+  assert.equal(row!.processing_error, "extract: crawl_deferred: transport_unavailable");
+  assert.equal(row!.processing_attempts, 0);
+  assert.equal(row!.processing_state, "new");
+});
+
 test("a held source's body stays deferred without fetching or consuming an extraction attempt", async () => {
   const a = await source();
   const { upsertMaterial } = await import("@amp/backend/content/materials"),

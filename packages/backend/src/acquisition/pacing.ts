@@ -81,6 +81,8 @@ export async function crawlCheckpoint(sessionId: string, name: string) {
   return row ? { value: row.value } : null;
 }
 export async function saveCrawlCheckpoint(sessionId: string, name: string, value: unknown, proof?: CrawlProof) {
+  // jsonb NOT NULL rejects SQL NULL. postgres.js sends SQL NULL for null/undefined, so a step with nothing to resume must not insert a row.
+  if (value === null || value === undefined) return;
   await sql.begin(async (tx) => {
     await lockProof(tx, proof);
     await tx`INSERT INTO acquisition.crawl_checkpoints(session_id,name,value) VALUES(${sessionId},${name},${tx.json(value as never)}) ON CONFLICT DO NOTHING`;

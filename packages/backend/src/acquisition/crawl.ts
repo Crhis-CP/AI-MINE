@@ -171,6 +171,13 @@ async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap
     return { ...res, fetchedAt: observed.toISOString() };
   } catch (error) {
     if (!released) {
+      // A body over the caller's cap fails the same way every time. Cooling the whole host down and retrying it
+      // forever pins every other page on that host; refuse this request and let the caller record the failure.
+      if (error instanceof Error && error.message.startsWith("Response too large")) {
+        await finishCrawlRequest({ ...claim, token, blocked: "crawl_response_too_large", now: ctx.virtualClock ? ctx.now() : undefined });
+        released = true;
+        throw error;
+      }
       const retryAt = new Date((await crawlTime(ctx)).getTime() + 60_000);
       await finishCrawlRequest({ ...claim, token, retryAt, now: ctx.virtualClock ? ctx.now() : undefined });
       if (transportFinished) throw error;
@@ -274,22 +281,25 @@ export async function crawlStep<T>(name: string, url: string, run: () => Promise
     return v;
   };
   const checkpoint = clean(value) as T;
-  await saveCrawlCheckpoint(
-    ctx.sessionId,
-    name,
-    encode(checkpoint),
-    ctx.permissionVersion !== null
-      ? {
-          sourceId: ctx.source.id,
-          lane: ctx.source.lane,
-          permissionVersion: ctx.permissionVersion,
-          url: url.replace(/^https:\/\/r\.jina\.ai\//, ""),
-          documentType: ctx.source.config.policyProfile?.identity?.documentType?.value ?? null,
-          attachment: false,
-          fulltext,
-        }
-      : undefined,
-  );
+  // Null is "nothing parsed yet", not a resume point. Inserting it becomes SQL NULL and violates value NOT NULL.
+  if (checkpoint !== null && checkpoint !== undefined) {
+    await saveCrawlCheckpoint(
+      ctx.sessionId,
+      name,
+      encode(checkpoint),
+      ctx.permissionVersion !== null
+        ? {
+            sourceId: ctx.source.id,
+            lane: ctx.source.lane,
+            permissionVersion: ctx.permissionVersion,
+            url: url.replace(/^https:\/\/r\.jina\.ai\//, ""),
+            documentType: ctx.source.config.policyProfile?.identity?.documentType?.value ?? null,
+            attachment: false,
+            fulltext,
+          }
+        : undefined,
+    );
+  }
   return checkpoint;
 }
 

@@ -54,6 +54,11 @@ test("an outage is announced once, repeated hourly, and closed with one recovery
   await sql`INSERT INTO settings (key, value, updated_by) VALUES ('alerts.state', ${sql.json({ "receipts.unknown": { title: "付费请求结果未知", since: new Date(t0 - 86400_000).toISOString(), sentAt: new Date(t0 - 3600_000).toISOString() } })}, 'test')
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
   const stuck = (sent: string[]) => sent.filter((k) => k.startsWith("content.process"));
+  await sql`UPDATE articles SET processing_error = 'extract: crawl_deferred: transport_unavailable' WHERE id IN ${sql(ids)}`;
+  const recorded = (await collectFindings(t0)).find((f) => f.key === "content.process");
+  assert.match(recorded?.detail ?? "", /extract: crawl_deferred: transport_unavailable（10）/);
+  assert.doesNotMatch(recorded?.detail ?? "", /没有记录错误/);
+  await sql`UPDATE articles SET processing_error = NULL WHERE id IN ${sql(ids)}`;
 
   let r = await checkAlerts(t0);
   assert.deepEqual(stuck(r.sent), ["content.process"]);
