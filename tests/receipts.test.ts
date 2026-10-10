@@ -11,6 +11,7 @@ import { buildApp } from "../apps/api/src/app.ts";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
 import { BudgetExceededError, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
@@ -113,6 +114,48 @@ test("retries of unusable answers stop at the budget, and every request sent is 
     [100, 100],
     "each attempt keeps its own usage",
   );
+});
+
+test("the same unusable answer is not bought a fourth time", async () => {
+  await installUsageFixtureForModel("deepseek-flash");
+  answer = () => "sorry, not json";
+  const subject = `bounded-${tag()}`;
+  const [saved] = await sql<
+    { per_minute: number; per_hour: number; per_day: number }[]
+  >`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = 'deepseek'`;
+  const [c] = await sql<{ minute: number; hour: number; day: number }[]>`
+    SELECT count(*) FILTER (WHERE started_at > now() - interval '1 minute')::int AS minute,
+           count(*) FILTER (WHERE started_at > now() - interval '1 hour')::int AS hour,
+           count(*)::int AS day
+    FROM receipt_attempts WHERE service = 'deepseek' AND origin = 'live' AND started_at > now() - interval '1 day'`;
+  await sql`UPDATE budgets SET per_minute = ${c!.minute + 4}, per_hour = ${c!.hour + 4}, per_day = ${c!.day + 4} WHERE service = 'deepseek'`;
+  const once = () =>
+    chatJson({
+      model: "deepseek-flash",
+      purpose: "invariant_test",
+      lane: "news",
+      sourceIds: ["mining-com-news"],
+      subject,
+      promptVersion: "t1",
+      system: "s",
+      user: `input ${subject}`,
+      schema: z.object({ ok: z.boolean() }),
+    });
+  try {
+    const before = provider.hits();
+    for (let i = 0; i < 3; i++) await assert.rejects(once(), ModelOutputError);
+    assert.equal(provider.hits() - before, 3);
+    await assert.rejects(once(), ModelOutputError);
+    assert.equal(provider.hits() - before, 3, "the stored answer is reused");
+    const [row] = await sql<{ attempts: number; n: number }[]>`
+      SELECT r.attempts, count(a.id)::int AS n FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id
+      WHERE r.subject=${subject} GROUP BY r.attempts`;
+    assert.equal(row!.attempts, 3);
+    assert.equal(row!.n, 3);
+  } finally {
+    if (saved)
+      await sql`UPDATE budgets SET per_minute = ${saved.per_minute}, per_hour = ${saved.per_hour}, per_day = ${saved.per_day} WHERE service = 'deepseek'`;
+  }
 });
 
 test("with the valve off nothing is sent", async () => {

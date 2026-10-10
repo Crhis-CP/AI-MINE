@@ -518,7 +518,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     try {
       parsed = opts.schema.parse(opts.parse ? opts.parse(content) : extractJson(content));
     } catch (error) {
-      // Unusable output: record it and let a later attempt pay for a fresh answer.
+      // Unusable output: keep the answer. A later attempt may pay for a fresh one at most twice; after that the saved response is reused.
       await rejectReceivedResponse(receipt.receiptId, `unusable output: ${String(error).slice(0, 500)}`, receipt.attemptId);
       throw new ModelOutputError(`Model ${opts.model} returned unusable output for ${opts.subject}: ${String(error).slice(0, 300)}`, receipt.receiptId);
     }

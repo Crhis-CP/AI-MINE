@@ -17,6 +17,7 @@ import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapsho
 // 3. The raw response is saved before any business write; recovery reuses a received response.
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
 //    caller or a timer. Only evidence that it was not billed can permit another paid attempt.
+//    A billed answer that failed validation may be bought again at most twice; the saved response is reused after that.
 import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { recordLocalReuse } from "./usage-accounting.ts";
@@ -506,6 +507,22 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
           FROM receipt_attempts WHERE receipt_id=${existing.id} AND output_rejected_at IS NOT NULL`;
         if (count!.n >= req.maxRejectedOutputs) return { kind: "limited" as const, id: existing.id, rejected: count!.n as number };
         if (count!.cooldown > 0) return { kind: "cooldown" as const, id: existing.id, seconds: count!.cooldown as number };
+      }
+      // BR-COST-04: invalid output with proven usage may be bought again at most twice (three billed
+      // answers). A stored answer without usage proof is not bought again either. Translation keeps its own limit above.
+      if (req.maxRejectedOutputs === undefined && existing.has_response) {
+        const [counts] = await tx<{ proven: number; stored: number }[]>`
+          SELECT count(*) FILTER (
+                   WHERE status='received' AND response IS NOT NULL
+                     AND usage->>'prompt_tokens' ~ '^[0-9]+$'
+                     AND usage->>'completion_tokens' ~ '^[0-9]+$'
+                 )::int AS proven,
+                 count(*) FILTER (WHERE status='received' AND response IS NOT NULL)::int AS stored
+          FROM receipt_attempts WHERE receipt_id=${existing.id}`;
+        if (counts && counts.stored > 0 && (counts.proven !== counts.stored || counts.proven >= 3)) {
+          await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
+          return { kind: "reuse" as const, row: existing };
+        }
       }
       // failed: the provider did not take the request, or its answer was unusable; a new attempt is allowed.
       const blocked = await translationBlocker(tx, stage, logicalKey);
