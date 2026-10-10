@@ -71,7 +71,48 @@
           "titlePaths": ["TITLE"],
           "urlTemplate": "{raw:URL}",
           "publishedAtPath": "DOCRELPUBTIME",
-          "allowUrlPrefixes": ["https://www.gov.cn/zhengce/"]
+          "allowUrlPrefixes": ["https://www.gov.cn/zhengce/"],
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://www.gov.cn/zhengce/202610/content_7082820.htm",
+              "basis": "中国政府网最新政策里，网址形如 /zhengce/年月/content_编号.htm 的页面有唯一标题 h1#ti 和唯一正文 div#UCAP-CONTENT。另一种 /zhengce/content/年月/ 版式没有同一标题位置，不纳入本条原件范围。",
+              "singleObjectPattern": "^https://www\\.gov\\.cn/zhengce/\\d{6}/content_\\d+\\.htm$"
+            },
+            "identityMarker": {
+              "selector": "h1#ti",
+              "pattern": "^[\\s\\S]{8,500}$"
+            },
+            "titleSelector": "h1#ti",
+            "numberSelector": null,
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "CN",
+                "evidenceUrl": "https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
+                "basis": "中国政府网发布的国务院及国办文件，不是从服务器所在地推断。"
+              },
+              "authority": {
+                "value": "国务院办公厅、中国政府网",
+                "evidenceUrl": "https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
+                "basis": "最新政策 JSON 由中国政府网提供，条目为国务院及国办文件。"
+              },
+              "documentType": null
+            },
+            "language": "zh-CN",
+            "kind": "original",
+            "recheckMinutes": 360,
+            "extraction": {
+              "bodySelector": "div#UCAP-CONTENT",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
         }
       },
       "status": "ready",
@@ -199,7 +240,48 @@
             "language": "zh-CN"
           },
           "publishedAtUtcOffset": "+08:00",
-          "allowUrlPrefixes": ["https://www.yn.gov.cn/zwgk/zfxxgkpt/gkptzcwj/xzgfxwj/"]
+          "allowUrlPrefixes": ["https://www.yn.gov.cn/zwgk/zfxxgkpt/gkptzcwj/xzgfxwj/"],
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://www.yn.gov.cn/zwgk/zfxxgkpt/gkptzcwj/xzgfxwj/",
+              "basis": "云南省政府行政规范性文件栏目的正文页有唯一标题 meta[name=articletitle] 和唯一正文 div.trs_editor_view。页内 PDF 不抓。",
+              "singleObjectPattern": "^https://www\\.yn\\.gov\\.cn/zwgk/zfxxgkpt/gkptzcwj/xzgfxwj/\\d{6}/t\\d{8}_\\d+\\.html$"
+            },
+            "identityMarker": {
+              "selector": "meta[name=\"articletitle\"]",
+              "pattern": "^[\\s\\S]{8,500}$"
+            },
+            "titleSelector": "meta[name=\"articletitle\"]",
+            "numberSelector": null,
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "CN",
+                "evidenceUrl": "https://www.yn.gov.cn/zwgk/zfxxgkpt/gkptzcwj/xzgfxwj/",
+                "basis": "云南省人民政府发布的行政规范性文件。"
+              },
+              "authority": {
+                "value": "云南省人民政府",
+                "evidenceUrl": "https://www.yn.gov.cn/zwgk/zfxxgkpt/gkptzcwj/xzgfxwj/",
+                "basis": "栏目由云南省人民政府政府信息公开平台发布。"
+              },
+              "documentType": null
+            },
+            "language": "zh-CN",
+            "kind": "original",
+            "recheckMinutes": 360,
+            "extraction": {
+              "bodySelector": "div.trs_editor_view",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
         }
       },
       "status": "ready",
@@ -290,7 +372,48 @@
           "linkSelector": "a[href]",
           "publishedAtSelector": "span",
           "publishedAtUtcOffset": "+08:00",
-          "allowUrlPrefixes": ["https://zrzyt.xinjiang.gov.cn/xjgtzy/"]
+          "allowUrlPrefixes": ["https://zrzyt.xinjiang.gov.cn/xjgtzy/"],
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://zrzyt.xinjiang.gov.cn/xjgtzy/tbj/common_list.shtml",
+              "basis": "新疆自然资源厅本级政策法规列表里，厅本级正文页有唯一标题 h1 和唯一正文 div#NewsContent。同站其他栏目的空正文不纳入。",
+              "singleObjectPattern": "^https://zrzyt\\.xinjiang\\.gov\\.cn/xjgtzy/tbj/\\d{6}/[a-f0-9]{32}\\.shtml$"
+            },
+            "identityMarker": {
+              "selector": "h1",
+              "pattern": "^[\\s\\S]{8,500}$"
+            },
+            "titleSelector": "h1",
+            "numberSelector": null,
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "CN",
+                "evidenceUrl": "https://zrzyt.xinjiang.gov.cn/xjgtzy/tbj/common_list.shtml",
+                "basis": "新疆维吾尔自治区自然资源厅发布的厅本级文件。"
+              },
+              "authority": {
+                "value": "新疆维吾尔自治区自然资源厅",
+                "evidenceUrl": "https://zrzyt.xinjiang.gov.cn/xjgtzy/tbj/common_list.shtml",
+                "basis": "栏目名称即为厅本级政策法规，由该厅官网发布。"
+              },
+              "documentType": null
+            },
+            "language": "zh-CN",
+            "kind": "original",
+            "recheckMinutes": 360,
+            "extraction": {
+              "bodySelector": "div#NewsContent",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
         }
       },
       "status": "ready",
@@ -397,7 +520,48 @@
           "linkSelector": "a[href]",
           "publishedAtSelector": "span.time",
           "publishedAtUtcOffset": "+08:00",
-          "allowUrlPrefixes": ["https://www.cgs.gov.cn/"]
+          "allowUrlPrefixes": ["https://www.cgs.gov.cn/"],
+          "policyProfile": {
+            "version": 1,
+            "officialRole": {
+              "kind": "official_original",
+              "evidenceUrl": "https://www.cgs.gov.cn/zcwj/",
+              "basis": "中国地质调查局政策文件栏目的正文页有唯一标题 h3.Con_bt 和唯一正文 div.con_nr。该站 robots 禁止抓 PDF 和 Word，附件选择器留空。",
+              "singleObjectPattern": "^https://www\\.cgs\\.gov\\.cn/zcwj/\\d{6}/t\\d{8}_\\d+\\.html$"
+            },
+            "identityMarker": {
+              "selector": "h3.Con_bt",
+              "pattern": "^[\\s\\S]{8,500}$"
+            },
+            "titleSelector": "h3.Con_bt",
+            "numberSelector": null,
+            "originalLinkSelector": null,
+            "versionSelector": null,
+            "identity": {
+              "jurisdiction": {
+                "value": "CN",
+                "evidenceUrl": "https://www.cgs.gov.cn/zcwj/",
+                "basis": "中国地质调查局官网政策文件栏目，含其转载的国务院和自然资源部文件。"
+              },
+              "authority": {
+                "value": "中国地质调查局",
+                "evidenceUrl": "https://www.cgs.gov.cn/zcwj/",
+                "basis": "栏目由中国地质调查局官网发布；转载件仍以该页 HTML 为采集对象。"
+              },
+              "documentType": null
+            },
+            "language": "zh-CN",
+            "kind": "original",
+            "recheckMinutes": 360,
+            "extraction": {
+              "bodySelector": "div.con_nr",
+              "attachmentSelector": null,
+              "maxBytes": 2097152,
+              "maxResources": 5,
+              "maxPages": 1,
+              "maxTextBytes": 2097152
+            }
+          }
         }
       },
       "status": "ready",

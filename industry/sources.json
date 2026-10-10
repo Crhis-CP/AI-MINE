@@ -1,4 +1,346 @@
 {
-  "$comment": "矿业采集配置待逐源核验后加入；原始321条记录与320个目标保存在industry/seed，不能直接当作采集配置。新导入来源一律停用，不再初始化AI行业示范来源。",
-  "sources": []
+  "$comment": "已核验的资讯栏目。只写当前列表页、HTML、本站链接；新导入一律停用，由现有日程按资讯线再抓。首页地址本身不是采集配置。",
+  "sources": [
+    {
+      "id": "mee-policy-files",
+      "name": "生态环境部 · 政策文件",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mee.gov.cn/zcwj/",
+        "language": "zh-CN",
+        "itemSelector": "ul.infoList > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "allowUrlPrefixes": ["https://www.mee.gov.cn/zcwj/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mem-notices",
+      "name": "应急管理部 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mem.gov.cn/gk/tzgg/",
+        "language": "zh-CN",
+        "itemSelector": "div.tonglan_list ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "allowUrlPrefixes": ["https://www.mem.gov.cn/gk/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gz-nr-notices",
+      "name": "贵州省自然资源厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zrzy.guizhou.gov.cn/wzgb/xwzx/tzgg/",
+        "language": "zh-CN",
+        "itemSelector": "ul.NewsList > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "allowUrlPrefixes": ["https://zrzy.guizhou.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hlj-nr-news",
+      "name": "黑龙江省自然资源厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zrzyt.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.newslist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "allowUrlPrefixes": ["https://zrzyt.hlj.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-nr-news",
+      "name": "福建省自然资源厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zrzyt.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.list-2 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}\\.\\d{2}\\.\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": { "format": "declared", "formatPattern": "YYYY.MM.DD", "language": "zh-CN" },
+        "allowUrlPrefixes": ["https://zrzyt.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mofcom-policy-release",
+      "name": "商务部 · 政策发布",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mofcom.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.gkList_02 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://www.mofcom.gov.cn/zwgk/zcfb/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "forestry-news",
+      "name": "国家林业和草原局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.forestry.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.list-ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://www.forestry.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xj-ecology-news",
+      "name": "新疆维吾尔自治区生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthjt.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.f-comlist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sthjt.xinjiang.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xj-emergency-news",
+      "name": "新疆维吾尔自治区应急管理厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjgl.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.newsList > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjgl.xinjiang.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-ecology-news",
+      "name": "福建省生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthjt.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.list_base > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "allowUrlPrefixes": ["https://sthjt.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-finance-news",
+      "name": "福建省财政厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.pic > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-hrss-news",
+      "name": "福建省人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://rst.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.rsgb-yw-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://rst.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-housing-news",
+      "name": "福建省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zjt.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.xw-list-1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zjt.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-water-news",
+      "name": "福建省水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://slt.fj.gov.cn/wzsy/",
+        "language": "zh-CN",
+        "itemSelector": "ul.xw-list-1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://slt.fj.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-agri-news",
+      "name": "福建省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nynct.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.sylist-sec > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nynct.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-commerce-news",
+      "name": "福建省商务厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://swt.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.xw-list-1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "allowUrlPrefixes": ["https://swt.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    }
+  ]
 }
