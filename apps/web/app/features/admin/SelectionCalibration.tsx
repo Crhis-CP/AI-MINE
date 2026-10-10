@@ -225,7 +225,11 @@ export function SelectionStandardReviewForm({
   if (!s)
     return (
       <Card title="评分标准的一次性审阅">
-        <Empty>尚未提交当前版本的并排对照材料。当前版本保持草案，不能在这里直接补成“已通过”。</Empty>
+        <Empty>
+          {data.current.standardVersion === "selection-score@09b414c0c5"
+            ? "这一版已按 2026-10-10 通过启用。以后标准有改动，再把对照材料交到这里。"
+            : "尚未提交当前版本的并排对照材料。当前版本保持草案，不能在这里直接补成“已通过”。"}
+        </Empty>
       </Card>
     );
   return (

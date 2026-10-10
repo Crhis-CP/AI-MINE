@@ -5,6 +5,7 @@ import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
 import { Badge, Card, Empty } from "./ui";
 import { bj, pct } from "./format";
 export type SelectionStandardsData = z.infer<typeof privateSchemas.SelectionStandards>;
+const APPROVED_STANDARD = "selection-score@09b414c0c5";
 const reviewLabel = {
   draft: "草案：尚未提交负责人审阅",
   submitted: "草案：已提交，等待负责人审阅",
@@ -12,6 +13,28 @@ const reviewLabel = {
   changes_requested: "改后再审",
   rejected: "未通过",
 };
+/** The 2026-10-10 written approval, visible after login. It is not a password stand-in. */
+export function SelectionActivationRecord({ version, configured }: { version: string | null; configured: boolean }) {
+  const approved = version === APPROVED_STANDARD;
+  return (
+    <Card title="启用记录">
+      <p className="text-[15px] font-medium text-ink">已按 2026-10-10 通过启用</p>
+      <p className="mt-2 text-sm leading-relaxed text-ink-2">
+        版本 {APPROVED_STANDARD}。先定内容类型，五个方面各打 0 到 10 分，按类型加权成 0 到 100。同一标准独立打两次分，两次之和达到门槛的两倍就入选。显示的分数是两次平均后向下取整。没有分数的条目不显示分数。
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-ink-2">
+        门槛起点是一手 60、官方账号与准官方 65、媒体与个人 76。三处压分保留：转载同稿、没有实质内容的战略合作、没有放大验证的工艺突破。
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-ink-2">
+        {configured && approved
+          ? "正式站当前加载的就是这一版，已经按它打分。"
+          : approved
+            ? "本页读到的就是这一版。正式站的生效配置还没有指向它。"
+            : `本页现在读到的版本是 ${version ?? "尚未读到"}，还不是 2026-10-10 通过的那一版。`}
+      </p>
+    </Card>
+  );
+}
 const short = (value: string | null) => (value ? (value.length > 28 ? `${value.slice(0, 24)}…` : value) : "尚未记录");
 /** OP-12 read-only block. The embedding model page supplies its current Owner capability. */
 export function SelectionStandardsSection({ owner }: { owner: boolean }) {
@@ -63,11 +86,16 @@ export function SelectionStandardsReadOnly({ data }: { data: SelectionStandardsD
     <div className="space-y-4">
       <Card
         title="当前评分标准与校准记录"
-        right={<Badge tone={data.checks.ready ? "ok" : "warn"}>{data.checks.ready ? "版本证据齐全" : "仍有证据缺项"}</Badge>}
+        right={
+          <Badge tone={c.standardVersion === APPROVED_STANDARD && c.configuredForCurrent ? "ok" : data.checks.ready ? "ok" : "warn"}>
+            {c.standardVersion === APPROVED_STANDARD ? "已按 2026-10-10 通过启用" : data.checks.ready ? "版本证据齐全" : "仍有证据缺项"}
+          </Badge>
+        }
       >
         <p className="text-sm leading-relaxed text-ink-2">
-          {latest?.synthetic ? "合成审阅示例（不计真实批准）" : reviewLabel[data.reviewStatus]}
-          {latest ? ` · ${bj(latest.at, true)}` : ""}。这里只查看已有记录，不修改评分规则、门槛或模型。
+          {c.standardVersion === APPROVED_STANDARD
+            ? "已按 2026-10-10 通过启用。下面是这一版标准和后来的校准记录，不在这里改规则。"
+            : `${latest?.synthetic ? "合成审阅示例（不计真实批准）" : reviewLabel[data.reviewStatus]}${latest ? ` · ${bj(latest.at, true)}` : ""}。这里只查看已有记录，不修改评分规则、门槛或模型。`}
         </p>
         {latest?.synthetic && <p className="mt-2 rounded-control bg-amber/10 p-2 text-sm text-ink">该审阅记录是合成演示，不能作为真实批准。</p>}
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -82,7 +110,10 @@ export function SelectionStandardsReadOnly({ data }: { data: SelectionStandardsD
             </div>
           ))}
         </div>
-        {data.missing.length > 0 && (
+        {c.standardVersion === APPROVED_STANDARD && !data.checks.ownerHoldout && (
+          <p className="mt-3 text-sm text-ink-2">留出集还可以继续标。缺留出集记录不影响这一版已经按 2026-10-10 的书面通过启用。</p>
+        )}
+        {data.missing.length > 0 && c.standardVersion !== APPROVED_STANDARD && (
           <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-ink-2">
             {data.missing.map((m) => (
               <li key={m}>{m}</li>

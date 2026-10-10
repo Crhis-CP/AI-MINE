@@ -5,7 +5,7 @@ import { adminGet } from "../../lib/admin.server";
 import { bj, num, pct } from "../../features/admin/format";
 import { AdminPage, Badge, Card, Empty } from "../../features/admin/ui";
 import { SelectionToolControl, SelectionSampleLabels, SelectionStandardReviewForm } from "../../features/admin/SelectionCalibration";
-import { SelectionStandardsReadOnly } from "../../features/admin/SelectionStandards";
+import { SelectionActivationRecord, SelectionStandardsReadOnly } from "../../features/admin/SelectionStandards";
 import { readSelectionTool, readSelectionSamples, readSelectionStandards } from "../../features/admin/SelectionApi.server";
 import { useSelectionActions } from "../../features/admin/SelectionActions";
 interface RunRow {
@@ -31,11 +31,10 @@ interface RunRow {
 export async function loader({ request }: LoaderFunctionArgs) {
   const control = await readSelectionTool(request),
     tab = new URL(request.url).searchParams.get("tab") ?? "review";
-  if (!control.enabled) return { control, tab, runs: [] as RunRow[], samples: null, standards: null };
   const [runs, samples, standards] = await Promise.all([
-    tab === "runs" ? adminGet<{ runs: RunRow[] }>(request, "/api/admin/selectbench") : Promise.resolve({ runs: [] }),
-    tab === "samples" ? readSelectionSamples(request) : Promise.resolve(null),
-    tab === "review" ? readSelectionStandards(request) : Promise.resolve(null),
+    control.enabled && tab === "runs" ? adminGet<{ runs: RunRow[] }>(request, "/api/admin/selectbench") : Promise.resolve({ runs: [] }),
+    control.enabled && tab === "samples" ? readSelectionSamples(request) : Promise.resolve(null),
+    readSelectionStandards(request),
   ]);
   return { control, tab, runs: runs.runs, samples, standards };
 }
@@ -53,12 +52,14 @@ export default function SelectBench({ loaderData: d }: { loaderData: Awaited<Ret
   return (
     <AdminPage
       title="精选校准"
-      subtitle="沿用同一套校准页。标注、结果浏览和标准审阅都在这里；页面不会运行评测，也不会把首页改成精选。首页在你自己确认之前仍是最新动态。"
+      subtitle="沿用同一套校准页。这里能看这一版评分标准，也能继续标注样本和看对照结果。页面不会运行评测。"
     >
       <div className="space-y-5">
+        <SelectionActivationRecord version={d.standards?.current.standardVersion ?? null} configured={!!d.standards?.current.configuredForCurrent} />
+        {d.standards && <SelectionStandardsReadOnly data={d.standards} />}
         {!d.control.enabled ? (
-          <Card title="标准审阅">
-            <Empty>建设期抽样工具未开启。开启后可在「标准审阅」记下本版本结论，并查看样本与运行记录。开启不会打开首页精选，也不会代为确认。</Empty>
+          <Card title="样本标注">
+            <Empty>样本标注从本页最下方开启。开启后可以逐条看材料、标该选或不该选。开启只打开标注，不再另要一次确认才开始打分。</Empty>
           </Card>
         ) : (
           <>
@@ -97,12 +98,7 @@ export default function SelectBench({ loaderData: d }: { loaderData: Awaited<Ret
                 }
               />
             )}
-            {d.standards && (
-              <>
-                <SelectionStandardsReadOnly data={d.standards} />
-                <SelectionStandardReviewForm data={d.standards} onSave={(input) => execute("review", input)} />
-              </>
-            )}
+            {d.standards && d.tab === "review" && <SelectionStandardReviewForm data={d.standards} onSave={(input) => execute("review", input)} />}
             {d.tab === "runs" && (
               <>
                 <p className="text-sm text-ink-3">运行结果只读。旧报告中的标签、分数或模型名字不等于真实Owner标注、模型配置证据或校准确认。</p>
