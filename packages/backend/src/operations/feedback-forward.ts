@@ -4,7 +4,7 @@ import path from "node:path";
 import { config, credential, environmentValue } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
-import { FeedbackDeliveryUncertain, sendFeedbackToChat, uploadFeedbackImage } from "../notify/feishu.ts";
+import { FeedbackDeliveryUncertain, sendAlert, sendFeedbackToChat, uploadFeedbackImage } from "../notify/feishu.ts";
 
 const sql = dbOf("feedback");
 
@@ -15,6 +15,28 @@ interface PendingFeedback {
   page_url: string | null;
   screenshot_key: string | null;
   forward_image_key: string | null;
+}
+
+/** Notify the existing operations group once per outstanding feedback, without reader material. */
+async function notifyFailures() {
+  const alertChat = credential("integrations", "FEISHU_ALERT_CHAT_ID");
+  if (!alertChat || alertChat === credential("integrations", "FEISHU_INTERNAL_CHAT_ID")) return;
+  await sql.begin(async (tx) => {
+    const rows = await tx<{ id: number }[]>`SELECT id FROM feedback WHERE forward_status IN ('retry','unknown')
+      AND forward_error NOT LIKE '%_notified' AND anonymized_at IS NULL FOR UPDATE SKIP LOCKED LIMIT 100`;
+    if (!rows.length) return;
+    let outcome: "sent" | "disabled";
+    try {
+      outcome = await sendAlert("读者反馈通知需要核对", [
+        `有 ${rows.length} 条反馈仍保存在网站，飞书通知尚未确认送达。`,
+        "明确发送失败的会继续尝试；结果不明的暂停重发，避免重复通知。",
+        "请在网站后台查看反馈，并核对读者反馈群。",
+      ]);
+    } catch {
+      return;
+    }
+    if (outcome === "sent") await tx`UPDATE feedback SET forward_error=forward_error || '_notified' WHERE id IN ${tx(rows.map((row) => row.id))}`;
+  });
 }
 
 /** No fallback to the operations or public-content group. */
@@ -65,12 +87,14 @@ export async function forwardPendingFeedback(): Promise<{ sent: number; failed: 
       } catch (error) {
         // Do not log remote bodies, reader text, contacts, filenames or credentials.
         const uncertain = sending && error instanceof FeedbackDeliveryUncertain;
+        const reason = uncertain ? "delivery_outcome_unknown" : "delivery_failed";
         await tx`UPDATE feedback SET forward_status=${uncertain ? "unknown" : "retry"},
-          forward_error=${uncertain ? "delivery_outcome_unknown" : "delivery_failed"} WHERE id=${fb.id}`;
+          forward_error=CASE WHEN forward_error LIKE '%_notified' THEN ${`${reason}_notified`} ELSE ${reason} END WHERE id=${fb.id}`;
         if (uncertain) result.unknown++;
         else result.failed++;
       }
     });
   }
+  await notifyFailures();
   return result;
 }

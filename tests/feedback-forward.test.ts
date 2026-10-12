@@ -18,12 +18,14 @@ process.env.FEISHU_APP_SECRET = "test-secret";
 process.env.FEISHU_INTERNAL_CHAT_ID = "oc_feedback_test";
 process.env.FEISHU_ALERT_CHAT_ID = "oc_alert_test";
 process.env.FEISHU_FEEDBACK_ENABLED = "true";
+process.env.FEISHU_INTERNAL_ENABLED = "true";
 const png = await sharp({ create: { width: 2, height: 2, channels: 3, background: "white" } })
   .png()
   .toBuffer();
 let mode: "ok" | "upload-fail" | "send-fail" | "send-unknown" = "ok";
 let uploads = 0;
 const messages: Array<{ receive_id: string; content: string; uuid: string }> = [];
+const alerts: Array<{ receive_id: string; content: string }> = [];
 const realFetch = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const url = String(input instanceof Request ? input.url : input);
@@ -36,7 +38,12 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
     return Response.json(mode === "upload-fail" ? { code: 234007 } : { code: 0, data: { image_key: "img_feedback_test" } });
   }
   assert.ok(url.includes("/messages?receive_id_type=chat_id"));
-  messages.push(JSON.parse(String(init?.body)));
+  const payload = JSON.parse(String(init?.body));
+  if (payload.msg_type === "text") {
+    alerts.push(payload);
+    return Response.json({ code: 0, data: { message_id: `om_alert_${alerts.length}` } });
+  }
+  messages.push(payload);
   if (mode === "send-unknown") throw new TypeError("response lost");
   return Response.json(mode === "send-fail" ? { code: 230020 } : { code: 0, data: { message_id: `om_test_${messages.length}` } });
 }) as typeof fetch;
@@ -116,11 +123,20 @@ test("unknown sends and interrupted workers are retained without blind duplicate
   const { id } = await create();
   assert.equal((await forwardPendingFeedback()).unknown, 1);
   assert.equal((await row(id)).forward_status, "unknown");
+  const alertCount = alerts.length;
+  assert.ok(alertCount > 0);
+  for (const alert of alerts) {
+    assert.equal(alert.receive_id, "oc_alert_test");
+    assert.ok(!alert.content.includes("reader@example.com"));
+    assert.ok(!alert.content.includes("专用反馈群完整投递测试"));
+    assert.ok(!alert.content.includes("img_feedback_test"));
+  }
   const before = messages.length;
   mode = "ok";
   await ready(id);
   await forwardPendingFeedback();
   assert.equal(messages.length, before);
+  assert.equal(alerts.length, alertCount, "the same unresolved feedback does not repeatedly alert");
   const interrupted = await create();
   await sql`UPDATE feedback SET forward_status='sending',forward_attempted_at=now()-interval '4 minutes' WHERE id=${interrupted.id}`;
   assert.equal((await forwardPendingFeedback()).unknown, 1);
