@@ -22,7 +22,7 @@ export const V1_CACHE_CONTROL = {
   selectedChanges: "public, max-age=60, s-maxage=60, stale-while-revalidate=60",
 } as const;
 
-export const RSS_CACHE_CONTROL = "public, max-age=300, s-maxage=300, stale-while-revalidate=900";
+export const RSS_CACHE_CONTROL = "public, max-age=0, s-maxage=0, must-revalidate";
 export const NO_STORE = "no-store";
 
 export interface RedirectRule {
@@ -105,7 +105,7 @@ export const API_OWNED_PATTERNS: RegExp[] = [
   /^\/api\//,
   /^\/feed(\.xml|\/.*)?$/,
   /^\/(rss|rss\.xml|atom\.xml)$/,
-  /^\/openapi-v1\.json$/,
+  /^\/openapi-v(?:1|3)\.json$/,
   /^\/(llms\.txt|robots\.txt|sitemap\.xml|manifest\.webmanifest)$/,
   /^\/sitemaps\//,
   /^\/\.well-known\//,

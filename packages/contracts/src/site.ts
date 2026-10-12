@@ -54,6 +54,15 @@ export interface OutlineEntry {
 }
 
 export interface ItemDetail extends ItemSummary {
+  readingState?: "available" | "pending" | "restricted" | "unavailable";
+  /** Recorded first public eligibility; unknown historical values stay null. */
+  firstPublicAt?: string | null;
+  eventCoverage?: { representative: ItemSummary; latest: ItemSummary; reportCount: number } | null;
+  manualRevisionLabel?: string | null;
+  companyContext?: Array<{ name: string; originalName: string | null; description: string | null; sources: Array<{ name: string; url: string }> }>;
+  attribution?: import("zod").infer<typeof import("./http/public.ts").SourceAttribution> | null;
+  relatedPolicies?: Array<{ id: string; title: string; jurisdiction: string | null; documentNumber: string | null }>;
+
   readingMode: "full" | "summary-only";
   author: string | null;
   language: string | null;
@@ -216,6 +225,8 @@ interface ReportCitationCore {
 }
 
 export interface ReportDetail {
+  corrections?: Array<{ revision: number; reason: string; at: string }>;
+  generationStatus?: "ready" | "pending" | "failed" | "summary";
   kind: ReportKind;
   key: string;
   title: string;
@@ -245,6 +256,7 @@ export interface ReportIndexEntry {
 }
 
 export type { SiteStats } from "./http/public.ts";
+export type { MetalPrices } from "./http/public.ts";
 
 /** A reading page transfers one language; the canonical item retains both for exports. */
 export interface SiteItemDetail extends ItemDetail {
@@ -255,12 +267,9 @@ export interface SiteItemDetail extends ItemDetail {
 export type StoryFollowup = StoryFollowupCore;
 interface StoryFollowupCore {
   factId: string;
-  representative: { id: string; title: string; source: { name: string }; timelineAt: string };
+  representative: { id: string; title: string; summary?: string | null; source: { name: string }; timelineAt: string };
 }
-export interface StoryFollowupsResponse {
-  items: StoryFollowup[];
-  more: boolean;
-}
+export type StoryFollowupsResponse = import("zod").infer<typeof import("./http/public.ts").StoryFollowupsResponse>;
 
 /** All issue keys keep numbering and calendars stable; closed daily months omit their titles. */
 export interface ReportNavigationEntry {

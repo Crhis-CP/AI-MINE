@@ -15,7 +15,7 @@ export const TIME_MEANINGS = {
   expires: "到期",
   event: "事件发生",
   discovered: "本站发现",
-  site_public: "本站收录",
+  site_public: "本站公开",
   uploaded: "上传",
   checked: "原文核对",
   repealed: "废止",
@@ -53,39 +53,45 @@ export const TimeAssertion = SourceTimeParts.extend({
   meaning_label: z.string(),
   label: z.string(),
   beijing_date: CalendarDate.nullable(),
-}).superRefine((time, ctx) => {
-  const reject = () => ctx.addIssue({ code: "custom", message: "Inconsistent time precision or calendar projection" });
-  if ((time.utc && !UtcInstant.safeParse(time.utc).success) || (time.timezone && !IanaTimezone.safeParse(time.timezone).success)) return reject();
-  if (time.meaning_label !== TIME_MEANINGS[time.meaning]) reject();
-  if (time.condition_text && time.utc) reject();
-  if (time.precision === "unknown") {
-    if ([time.local_date, time.local_time, time.utc, time.beijing_date].some((value) => value !== null)) reject();
-  } else if (time.precision === "date") {
-    if (!time.local_date || time.local_time !== null || time.utc !== null || time.beijing_date !== time.local_date) reject();
-  } else {
-    if (!time.local_date || !time.local_time || !time.utc) return reject();
-    if (time.beijing_date !== beijingDate(time.utc)) reject();
-    if (time.precision === "minute" && (time.local_time.length !== 5 || Date.parse(time.utc) % 60_000 !== 0 || fraction(time.utc))) reject();
-    if (time.precision === "second" && time.local_time.length < 8) reject();
-    if (time.precision === "second" && fraction(time.local_time) !== fraction(time.utc)) reject();
-    if (time.timezone) {
-      const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: time.timezone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hourCycle: "h23",
-      }).formatToParts(new Date(time.utc));
-      const at = (kind: string) => parts.find((part) => part.type === kind)!.value;
-      const date = `${at("year")}-${at("month")}-${at("day")}`,
-        clock = `${at("hour")}:${at("minute")}:${at("second")}`;
-      if (time.local_date !== date || time.local_time.slice(0, 8) !== clock.slice(0, time.precision === "minute" ? 5 : 8)) reject();
+})
+  .overwrite((time) => {
+    // Only this former display label is accepted from stored publication records; facts stay unchanged.
+    if (time.meaning !== "site_public" || time.meaning_label !== "本站收录") return time;
+    return { ...time, meaning_label: TIME_MEANINGS.site_public, label: time.label.replace(/^本站收录于 /, "本站公开于 ") };
+  })
+  .superRefine((time, ctx) => {
+    const reject = () => ctx.addIssue({ code: "custom", message: "Inconsistent time precision or calendar projection" });
+    if ((time.utc && !UtcInstant.safeParse(time.utc).success) || (time.timezone && !IanaTimezone.safeParse(time.timezone).success)) return reject();
+    if (time.meaning_label !== TIME_MEANINGS[time.meaning]) reject();
+    if (time.condition_text && time.utc) reject();
+    if (time.precision === "unknown") {
+      if ([time.local_date, time.local_time, time.utc, time.beijing_date].some((value) => value !== null)) reject();
+    } else if (time.precision === "date") {
+      if (!time.local_date || time.local_time !== null || time.utc !== null || time.beijing_date !== time.local_date) reject();
+    } else {
+      if (!time.local_date || !time.local_time || !time.utc) return reject();
+      if (time.beijing_date !== beijingDate(time.utc)) reject();
+      if (time.precision === "minute" && (time.local_time.length !== 5 || Date.parse(time.utc) % 60_000 !== 0 || fraction(time.utc))) reject();
+      if (time.precision === "second" && time.local_time.length < 8) reject();
+      if (time.precision === "second" && fraction(time.local_time) !== fraction(time.utc)) reject();
+      if (time.timezone) {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: time.timezone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hourCycle: "h23",
+        }).formatToParts(new Date(time.utc));
+        const at = (kind: string) => parts.find((part) => part.type === kind)!.value;
+        const date = `${at("year")}-${at("month")}-${at("day")}`,
+          clock = `${at("hour")}:${at("minute")}:${at("second")}`;
+        if (time.local_date !== date || time.local_time.slice(0, 8) !== clock.slice(0, time.precision === "minute" ? 5 : 8)) reject();
+      }
     }
-  }
-});
+  });
 export type TimeAssertion = z.infer<typeof TimeAssertion>;
 /** Additive public field; actual route registration and readers activate together in TASK-0022. */
 export const SourceTimeProjection = z.strictObject({ sourceTime: TimeAssertion.nullable() });

@@ -34,9 +34,33 @@ test("public taxonomy identity, display labels and order implement ADR-0022 with
   assert.equal(isChannelKey("x"), false);
 });
 
-test("five MCP tool identities stay fixed and agree with the site prefix", () => {
-  const names = ["aiminingpolicy_get_latest", "aiminingpolicy_search", "aiminingpolicy_get_hot_topics", "aiminingpolicy_get_story", "aiminingpolicy_get_daily"];
-  assert.deepEqual(Object.keys(MCP_TOOL_NAMES), ["latest", "search", "hot", "story", "daily"]);
+test("eleven MCP tool identities retain the legacy names and agree with the site prefix", () => {
+  const names = [
+    "aiminingpolicy_get_latest",
+    "aiminingpolicy_search",
+    "aiminingpolicy_get_hot_topics",
+    "aiminingpolicy_get_story",
+    "aiminingpolicy_get_daily",
+    "aiminingpolicy_get_item",
+    "aiminingpolicy_get_report",
+    "aiminingpolicy_list_topics",
+    "aiminingpolicy_get_policy",
+    "aiminingpolicy_search_policies",
+    "aiminingpolicy_get_policy_thread",
+  ];
+  assert.deepEqual(Object.keys(MCP_TOOL_NAMES), [
+    "latest",
+    "search",
+    "hot",
+    "story",
+    "daily",
+    "item",
+    "report",
+    "topics",
+    "policy",
+    "policies",
+    "policyThread",
+  ]);
   assert.deepEqual(Object.values(MCP_TOOL_NAMES), names);
   assert.deepEqual(
     MCP_TOOLS,
@@ -44,7 +68,19 @@ test("five MCP tool identities stay fixed and agree with the site prefix", () =>
   );
   assert.equal(SITE.mcpPrefix, "aiminingpolicy");
   assert.deepEqual(
-    ["get_latest", "search", "get_hot_topics", "get_story", "get_daily"].map((suffix) => `${SITE.mcpPrefix}_${suffix}`),
+    [
+      "get_latest",
+      "search",
+      "get_hot_topics",
+      "get_story",
+      "get_daily",
+      "get_item",
+      "get_report",
+      "list_topics",
+      "get_policy",
+      "search_policies",
+      "get_policy_thread",
+    ].map((suffix) => `${SITE.mcpPrefix}_${suffix}`),
     names,
   );
 });
