@@ -239,6 +239,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/site/stories/{publicId}/followups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["siteStoryFollowups"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/site/timeline": {
     parameters: {
       query?: never;
@@ -730,6 +746,18 @@ export interface components {
     ContentVersionInput: {
       version: string;
       withdrawalVersion: string;
+    };
+    FeedbackIdempotencyHeaders: {
+      /** Format: uuid */
+      "idempotency-key": string;
+    } & {
+      [key: string]: unknown;
+    };
+    FeedbackIdempotencyHeadersInput: {
+      /** Format: uuid */
+      "idempotency-key": string;
+    } & {
+      [key: string]: unknown;
     };
     FeedItemSummary: {
       attribution?: components["schemas"]["SourceAttribution"] | null;
@@ -3859,6 +3887,36 @@ export interface components {
         url: string;
       }[];
     };
+    StoryFollowupsResponse: {
+      items: {
+        factId: string;
+        representative: {
+          id: string;
+          source: {
+            name: string;
+          };
+          summary?: string | null;
+          timelineAt: string;
+          title: string;
+        };
+      }[];
+      more: boolean;
+    };
+    StoryFollowupsResponseInput: {
+      items: {
+        factId: string;
+        representative: {
+          id: string;
+          source: {
+            name: string;
+          };
+          summary?: string | null;
+          timelineAt: string;
+          title: string;
+        };
+      }[];
+      more: boolean;
+    };
     StoryRef: {
       publicId: string;
       title: string;
@@ -5230,6 +5288,12 @@ export interface components {
         url: string;
       }[];
       content_version: string;
+      corrections?: {
+        /** Format: date-time */
+        at: string;
+        reason: string;
+        revision: number;
+      }[];
       coverage_note: string;
       edition: number;
       /** Format: date-time */
@@ -5320,6 +5384,12 @@ export interface components {
         url: string;
       }[];
       content_version: string;
+      corrections?: {
+        /** Format: date-time */
+        at: string;
+        reason: string;
+        revision: number;
+      }[];
       coverage_note: string;
       edition: number;
       /** Format: date-time */
@@ -6556,6 +6626,46 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  siteStoryFollowups: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        publicId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StoryFollowupsResponse"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
       };
       /** @description Problem response */
       503: {

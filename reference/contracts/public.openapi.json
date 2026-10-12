@@ -267,6 +267,34 @@
         ],
         "type": "object"
       },
+      "FeedbackIdempotencyHeaders": {
+        "additionalProperties": {},
+        "properties": {
+          "idempotency-key": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency-key"
+        ],
+        "type": "object"
+      },
+      "FeedbackIdempotencyHeadersInput": {
+        "additionalProperties": {},
+        "properties": {
+          "idempotency-key": {
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency-key"
+        ],
+        "type": "object"
+      },
       "Freshness": {
         "additionalProperties": false,
         "properties": {
@@ -13858,6 +13886,142 @@
         ],
         "type": "object"
       },
+      "StoryFollowupsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "factId": {
+                  "type": "string"
+                },
+                "representative": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "timelineAt": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "source",
+                    "timelineAt"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "factId",
+                "representative"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "more"
+        ],
+        "type": "object"
+      },
+      "StoryFollowupsResponseInput": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "factId": {
+                  "type": "string"
+                },
+                "representative": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "source": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name"
+                      ],
+                      "type": "object"
+                    },
+                    "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "timelineAt": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "source",
+                    "timelineAt"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "factId",
+                "representative"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "more"
+        ],
+        "type": "object"
+      },
       "StoryRef": {
         "additionalProperties": false,
         "properties": {
@@ -19521,6 +19685,33 @@
           "content_version": {
             "type": "string"
           },
+          "corrections": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "at": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "revision": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "revision",
+                "reason",
+                "at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
           "coverage_note": {
             "type": "string"
           },
@@ -19900,6 +20091,33 @@
           },
           "content_version": {
             "type": "string"
+          },
+          "corrections": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "at": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "revision": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "revision",
+                "reason",
+                "at"
+              ],
+              "type": "object"
+            },
+            "type": "array"
           },
           "coverage_note": {
             "type": "string"
@@ -22282,6 +22500,53 @@
           },
           "304": {
             "description": "Default Response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/site/stories/{publicId}/followups": {
+      "get": {
+        "operationId": "siteStoryFollowups",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "publicId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryFollowupsResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
           },
           "503": {
             "content": {

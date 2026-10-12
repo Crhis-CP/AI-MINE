@@ -9280,6 +9280,80 @@
         ],
         "type": "object"
       },
+      "SourceArchiveRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "high_risk_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "reason",
+          "high_risk_confirmed"
+        ],
+        "type": "object"
+      },
+      "SourceArchiveRequestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "high_risk_confirmed": {
+            "const": true,
+            "type": "boolean"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "reason",
+          "high_risk_confirmed"
+        ],
+        "type": "object"
+      },
+      "SourceArchiveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SourceRecord"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "type": "object"
+      },
+      "SourceArchiveResponseInput": {
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SourceRecordInput"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "type": "object"
+      },
       "SourceCoverage": {
         "additionalProperties": false,
         "properties": {
@@ -11152,6 +11226,18 @@
       "SourceRecord": {
         "additionalProperties": false,
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "config": {
             "additionalProperties": {},
             "propertyNames": {
@@ -11332,6 +11418,18 @@
       "SourceRecordInput": {
         "additionalProperties": false,
         "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "config": {
             "additionalProperties": {},
             "propertyNames": {
@@ -13986,6 +14084,447 @@
           "object_id"
         ],
         "type": "object"
+      },
+      "WithdrawalActionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "withdraw",
+              "restore"
+            ],
+            "type": "string"
+          },
+          "expectedSnapshotHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/WithdrawalTarget"
+          },
+          "withdrawalId": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target",
+          "action",
+          "reason",
+          "expectedSnapshotHash"
+        ],
+        "type": "object"
+      },
+      "WithdrawalActionRequestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "withdraw",
+              "restore"
+            ],
+            "type": "string"
+          },
+          "expectedSnapshotHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/WithdrawalTargetInput"
+          },
+          "withdrawalId": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "target",
+          "action",
+          "reason",
+          "expectedSnapshotHash"
+        ],
+        "type": "object"
+      },
+      "WithdrawalActionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "withdraw",
+              "restore"
+            ],
+            "type": "string"
+          },
+          "affectedItems": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "withdrawalId": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "withdrawalId",
+          "action",
+          "affectedItems"
+        ],
+        "type": "object"
+      },
+      "WithdrawalActionResponseInput": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "withdraw",
+              "restore"
+            ],
+            "type": "string"
+          },
+          "affectedItems": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "withdrawalId": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "withdrawalId",
+          "action",
+          "affectedItems"
+        ],
+        "type": "object"
+      },
+      "WithdrawalPreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/WithdrawalTarget"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "type": "object"
+      },
+      "WithdrawalPreviewRequestInput": {
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/WithdrawalTargetInput"
+          }
+        },
+        "required": [
+          "target"
+        ],
+        "type": "object"
+      },
+      "WithdrawalPreviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeRecords": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "createdAt": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                  "type": "string"
+                },
+                "memberCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "reason": {
+                  "maxLength": 2000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "withdrawalId": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "withdrawalId",
+                "reason",
+                "createdAt",
+                "memberCount"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "memberCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "memberIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "snapshotHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/WithdrawalTarget"
+          }
+        },
+        "required": [
+          "target",
+          "memberIds",
+          "memberCount",
+          "activeRecords",
+          "snapshotHash"
+        ],
+        "type": "object"
+      },
+      "WithdrawalPreviewResponseInput": {
+        "additionalProperties": false,
+        "properties": {
+          "activeRecords": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "createdAt": {
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                  "type": "string"
+                },
+                "memberCount": {
+                  "maximum": 9007199254740991,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "reason": {
+                  "maxLength": 2000,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "withdrawalId": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "withdrawalId",
+                "reason",
+                "createdAt",
+                "memberCount"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "memberCount": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "memberIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "snapshotHash": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/WithdrawalTargetInput"
+          }
+        },
+        "required": [
+          "target",
+          "memberIds",
+          "memberCount",
+          "activeRecords",
+          "snapshotHash"
+        ],
+        "type": "object"
+      },
+      "WithdrawalTarget": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "const": "event",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "type": {
+                "const": "story",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "daily",
+                  "weekly",
+                  "monthly"
+                ],
+                "type": "string"
+              },
+              "lane": {
+                "default": "news",
+                "enum": [
+                  "news",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "const": "report",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "lane",
+              "kind",
+              "key"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "WithdrawalTargetInput": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": {
+                "const": "event",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                "type": "string"
+              },
+              "type": {
+                "const": "story",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "daily",
+                  "weekly",
+                  "monthly"
+                ],
+                "type": "string"
+              },
+              "lane": {
+                "default": "news",
+                "enum": [
+                  "news",
+                  "policy"
+                ],
+                "type": "string"
+              },
+              "type": {
+                "const": "report",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "kind",
+              "key"
+            ],
+            "type": "object"
+          }
+        ]
       }
     }
   },
@@ -17183,6 +17722,103 @@
         }
       }
     },
+    "/api/admin/sources/{id}/archive": {
+      "post": {
+        "operationId": "archiveSource",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceArchiveRequestInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceArchiveResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
     "/api/admin/usage-config": {
       "put": {
         "operationId": "changeUsageProtection",
@@ -17537,6 +18173,180 @@
             "description": "Problem response"
           },
           "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/withdrawals/actions": {
+      "post": {
+        "operationId": "actWithdrawal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawalActionRequestInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WithdrawalActionResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/admin/withdrawals/preview": {
+      "post": {
+        "operationId": "previewWithdrawal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawalPreviewRequestInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WithdrawalPreviewResponse"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          },
+          "409": {
             "content": {
               "application/problem+json": {
                 "schema": {

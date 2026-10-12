@@ -99,6 +99,8 @@ test("receipt schemas stay in explicit private registration without global leaka
   assert.equal(schemas.ReceiptObservedVersion, ReceiptObservedVersion);
   assert.equal(schemas.ReceiptReconciliationResponse, ReceiptReconciliationResponse);
   assert.deepEqual(Object.keys(routes), [
+    "previewWithdrawal",
+    "actWithdrawal",
     "sourceCoverage",
     "exportSourceTargets",
     "sourceTargets",
@@ -139,6 +141,7 @@ test("receipt schemas stay in explicit private registration without global leaka
     "laneControls",
     "laneControlAction",
     "createSource",
+    "archiveSource",
     "sourceDetail",
     "loginOptions",
     "receiptReview",

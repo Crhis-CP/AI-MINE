@@ -292,11 +292,31 @@ export const MetalPrices = z
   });
 export type MetalPrices = z.infer<typeof MetalPrices>;
 
+/** A stable client submission identity, not a credential. */
+export const FeedbackIdempotencyHeaders = z.looseObject({ "idempotency-key": z.uuid() });
+export const StoryFollowupsResponse = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      factId: z.string(),
+      representative: z.strictObject({
+        id: z.string(),
+        title: z.string(),
+        summary: z.string().nullable().optional(),
+        source: z.strictObject({ name: z.string() }),
+        timelineAt: z.string(),
+      }),
+    }),
+  ),
+  more: z.boolean(),
+});
+
 export const schemas = {
   ...v3Schemas,
   ...siteInformationSchemas,
   ...policySchemas,
   SiteStats,
+  FeedbackIdempotencyHeaders,
+  StoryFollowupsResponse,
   SourceAttribution,
   ContentVersion,
   SavedItems,
@@ -316,6 +336,15 @@ export const routes = {
   ...v3Routes,
   ...siteInformationRoutes,
   ...policyRoutes,
+  siteStoryFollowups: {
+    method: "GET" as const,
+    url: "/api/site/stories/:publicId/followups",
+    schema: {
+      operationId: "siteStoryFollowups",
+      params: z.strictObject({ publicId: z.string() }),
+      response: { 200: StoryFollowupsResponse, 404: ProblemResponse, 503: ProblemResponse },
+    },
+  },
   siteContentVersion: {
     method: "GET" as const,
     url: "/api/site/content-version",
