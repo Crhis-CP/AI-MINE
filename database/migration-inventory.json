@@ -379,6 +379,10 @@
     {
       "name": "feedback/202610120520_feedback_quota.sql",
       "dependsOn": ["feedback/202610120410_feedback_idempotency.sql"]
+    },
+    {
+      "name": "feedback/202610121230_feedback_forward.sql",
+      "dependsOn": ["feedback/202610120520_feedback_quota.sql"]
     }
   ]
 }

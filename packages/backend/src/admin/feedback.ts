@@ -87,11 +87,16 @@ export async function feedbackScreenshot(id: number): Promise<string | null> {
 /** Removes the sender's material (text, email, page, screenshot) and keeps only the handling record. */
 export async function eraseFeedback(id: number, reason: string, actor: string) {
   if (!reason.trim()) throw new Error("reason is required");
-  const [row] = await sql<{ screenshot_key: string | null }[]>`SELECT screenshot_key FROM feedback WHERE id = ${id}`;
+  const row = await sql.begin(async (tx) => {
+    const [record] = await tx<{ screenshot_key: string | null }[]>`SELECT screenshot_key FROM feedback WHERE id=${id} FOR UPDATE`;
+    if (!record) return null;
+    await tx`UPDATE feedback SET content='（已按要求删除）',email=NULL,page_url=NULL,screenshot_key=NULL,
+      forward_status='cancelled',forward_image_key=NULL,updated_at=now() WHERE id=${id}`;
+    return record;
+  });
   if (!row) return null;
   const file = screenshotPath(row.screenshot_key);
   if (file) await unlink(file).catch(() => {});
-  await sql`UPDATE feedback SET content = '（已按要求删除）', email = NULL, page_url = NULL, screenshot_key = NULL, updated_at = now() WHERE id = ${id}`;
   await audit(actor, "feedback.erase", `feedback:${id}`, reason, null, null);
   return { erased: true };
 }
@@ -104,7 +109,8 @@ export async function anonymizeExpiredFeedback(now = new Date()) {
         AND status IN ('resolved','spam','replied','archived') AND anonymized_at IS NULL FOR UPDATE`;
     for (const row of rows) {
       if (row.screenshot_key) await tx`INSERT INTO feedback.feedback_private_deletions(screenshot_key) VALUES(${row.screenshot_key}) ON CONFLICT DO NOTHING`;
-      await tx`UPDATE feedback SET email=NULL,screenshot_key=NULL,source_hash=NULL,
+      await tx`UPDATE feedback SET email=NULL,screenshot_key=NULL,source_hash=NULL,forward_image_key=NULL,
+        forward_status=CASE WHEN forwarded_at IS NULL THEN 'cancelled' ELSE forward_status END,
         content=regexp_replace(regexp_replace(content,'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}','[联系方式已移除]','g'),
           '([+]?[0-9][0-9 ()-]{7,}[0-9])','[联系方式已移除]','g'),
         page_url=split_part(split_part(page_url,'?',1),'#',1),anonymized_at=${now},updated_at=${now} WHERE id=${row.id}`;

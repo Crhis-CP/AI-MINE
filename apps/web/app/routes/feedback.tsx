@@ -305,7 +305,7 @@ export default function FeedbackPage() {
 
         <div className="flex flex-col-reverse gap-4 border-t border-line-soft bg-bg-sunk/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:bg-bg-muted/30">
           <p className="text-[12px] leading-relaxed text-ink-4 sm:max-w-[400px]">
-            请勿提交密钥、身份证件或与问题无关的敏感信息。提交即表示你知悉反馈内容、选填联系方式、页面信息和截图将按
+            反馈正文、选填联系方式、页面信息和截图将保存在本站，并转发至私有飞书群“AI矿策－读者反馈”供授权人员处理。请勿提交无关敏感信息，详情见
             <Link to="/privacy" className="text-accent hover:underline">
               隐私说明
             </Link>

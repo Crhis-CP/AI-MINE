@@ -255,7 +255,7 @@ OP-nn 的页面规格见 `04-private-operations.md`（本节“规格”列的 O
 | F-AI-05 | 评测运行器与金标 | 能力评测、开发/留出集、结果入库；PR 对比只用假模型与已缓存回执（verify 不访问真实模型），真实模型评测用最小必要样本，不设评测金额上限；金标评估人已定为 Owner 本人，按语种/法系组一次性抽检（Owner 2026-10-01，DEC-15，Q-23 已答复）；精选评分校准：100–200 条矿业样本（开发集与留出集，难例为主）由 Owner 标注，沿用 AIHOT `scripts/eval-selection.ts` 跑准确率、查准率、查全率与门槛扫描，先改评分标准再动门槛，全面切换前必须完成一次留出集检查并留记录（F-SEL-01、BR-SEL-08、ENT-84、T-158）；矿业版评分标准草案须先交 Owner 审阅确认（提交时并排给出 AIHOT 原规则与矿业版改动点），未经确认不得用于正式站的精选；审稿抽样工具默认关闭 | 系统/负责人 | M1（框架）→ M3（真实金标与精选校准，留出集检查最迟 M4） | 【新增】（AIHOT 已有 SelectBench 实现） | — | F-043 | `05-quality/05-evaluation-sets.md`、DEC-15 | ai-gateway（评测运行器） |
 | F-IAM-01 | 负责人与具名管理员 | 只用密码的具名账号、服务端会话、撤销、两类角色；首个负责人由部署方在服务端一次性开通，首次登录强制改密；无公共开通端点（DEC-43） | 负责人/管理员 | M1 | 【已验证】/【Owner 决定】（password-only，2026-09-06 修订，旧ADR-0031:65-71@main） | — | F-042 | BR-IAM、DEC-05、DEC-32、DEC-43 | platform/identity |
 | F-IAM-02 | 【已废弃】第二因素认证 | 不排期 TOTP、不预留界面入口；Owner 以后提出再加（DEC-05） | — | — | 【已废弃】 | 旧站历史 TOTP 仅兼容 | — | 替代：F-IAM-01 | —（已废弃） |
-| F-FBK-01 | 反馈收件箱 | 私有、处理状态；截图只管理员可读；联系方式与截图在处理完成后 180 天自动删除，保留去标识的正文与处理记录（DEC-46）；反馈不转发到第三方即时通讯 | 管理员 | M3（页面随最小私有页面在 M2 交付，真实反馈随读者反馈页 M3 签收） | 【已验证】 | admin-click-verification-20260921.md:13@main | F-031 | OP-14、DEC-46 | feedback |
+| F-FBK-01 | 反馈收件箱 | 私有、处理状态；截图只供授权处理人员查看；本站联系方式与截图在处理完成后180天自动删除，保留去标识的正文与处理记录；新反馈完整转发至专用私有飞书反馈群，飞书副本单独管理（DEC-46、DEC-68） | 管理员 | M3（页面随最小私有页面在 M2 交付，真实反馈随读者反馈页 M3 签收） | 【已验证】 | admin-click-verification-20260921.md:13@main | F-031 | OP-14、DEC-46 | feedback |
 | F-FBK-02 | 反馈定期汇总 | 每北京时间自然周生成私有汇总：条数、按类型与关联页面的频次、处理状态分布、未处理最久的若干条；不含联系方式与截图，不自动回复读者、不自动改规则；摘要经告警渠道推送 | 负责人 | M3 | 【设计】（B 转述 Owner 要求，B:evidence/discussion-distillation.md §3） | — | F-031 | OP-14 | feedback；platform/ops（摘要推送） |
 | F-SITE-01 | 产品更新登记 | 发布成功后自动登记；同版本幂等；登记前校验四种类型 | 系统 | M3 | 【已验证】 | — | F-040 | BR-SITE-01 | publication |
 | F-OPS-01 | 运行记录与日聚合 | 计数口径同 F-SRC-06（DEC-59）；明细保留 30–90 天 | 系统 | M1 | 【已验证】（部分） | — | F-037、F-041 | ENT-50、DEC-59 | platform/ops |
@@ -291,7 +291,7 @@ OP-nn 的页面规格见 `04-private-operations.md`（本节“规格”列的 O
 | 分享图 | `apps/api/src/routes/og.ts`、`packages/backend/src/publication/og.ts` | 候选 | F-PUB-05 |
 | 事件综述 | `database/migrations/0020_story_summary.sql`、`packages/backend/src/events/` | 保留，M3 | F-EVT-06 |
 | SelectBench 评测 | `packages/backend/src/admin/selectbench.ts`、`apps/web/app/routes/admin/selectbench*.tsx` | 改造为评测运行器（含精选评分校准，沿用 `scripts/eval-selection.ts`） | F-AI-05 |
-| 飞书发送 | `packages/backend/src/notify/feishu.ts` | 照上游原样用作告警推送（2026-10-06 改为飞书自建应用：只发飞书，不做邮件备用，08-owner-voice DEC-33；只发业务语言，不转发读者反馈）；AIHOT 的飞书内容推送（`notify/selected.ts`）也经它发送，保留、默认关闭（Owner 2026-10-02），开通仍需单独立项 | F-OPS-03、F-EXT-01 |
+| 飞书发送 | `packages/backend/src/notify/feishu.ts` | 照上游原样用作告警推送（2026-10-06 改为飞书自建应用：只发飞书，不做邮件备用，08-owner-voice DEC-33；告警只发业务语言；新反馈另按DEC-68完整转发至专用反馈群）；AIHOT 的飞书内容推送（`notify/selected.ts`）也经它发送，保留、默认关闭（Owner 2026-10-02），开通仍需单独立项 | F-OPS-03、F-EXT-01 |
 | 飞书登录 | 后台登录 | 保留、默认关闭（Owner 2026-10-02）：两项登录应用凭据配齐才出现入口；私有侧仍只用密码的具名账号（DEC-05 password-only），接入时另立任务 | F-IAM-01 |
 | 隐私与条款页 | `apps/web/app/routes/privacy.tsx`、`terms.tsx`、`industry/pages/*.md` | 改写 | F-RDR-19 |
 | 更新日志页 | `apps/web/app/routes/changelog.tsx` | 改造 | F-RDR-14 |

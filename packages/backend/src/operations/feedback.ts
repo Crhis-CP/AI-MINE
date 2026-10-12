@@ -1,5 +1,5 @@
 // Feedback: content, optional email, page URL, one optional screenshot. It stays on the server and is
-// never forwarded to a chat (INV-27); the screenshot is readable only from the admin pages. Abuse control
+// forwarded only by the worker to the approved private feedback chat; admin pages keep the screenshot. Abuse control
 // uses an unreadable source identifier (HMAC of client IP + UA family), per-source bans and durable hourly/site-daily quotas.
 import { createHmac } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -11,6 +11,7 @@ import { sha256, stableJson } from "../lib/ids.ts";
 import { FeedbackRejected, feedbackPageUrl, feedbackImage } from "./feedback-validation.ts";
 import { claimFeedbackQuota } from "./feedback-quota.ts";
 export { FeedbackRejected } from "./feedback-validation.ts";
+export { forwardPendingFeedback } from "./feedback-forward.ts";
 const sql = dbOf("feedback");
 let warnedMissingPublicSecret = false;
 
@@ -72,8 +73,8 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
       screenshotKey = `local:${name}`;
     }
     const [row] = await tx<{ id: number }[]>`
-    INSERT INTO feedback (content, email, page_url, screenshot_key, source_hash)
-    VALUES (${content}, ${email}, ${pageUrl}, ${screenshotKey}, ${source}) RETURNING id`;
+    INSERT INTO feedback (content, email, page_url, screenshot_key, source_hash, forward_status)
+    VALUES (${content}, ${email}, ${pageUrl}, ${screenshotKey}, ${source}, 'pending') RETURNING id`;
     await tx`INSERT INTO feedback.submissions(key_hash,payload_hash,feedback_id) VALUES(${keyHash},${payloadHash},${row!.id})`;
     return { id: row!.id };
   });
