@@ -26,7 +26,10 @@ export async function automaticFeedFixture(
   const feedRequests: string[] = [];
   const calls: { marker: string; step: string; user: string }[] = [];
   const feed = createServer((req, res) => {
-    if(req.url==="/robots.txt") {res.setHeader("content-type","text/plain");return res.end("User-agent: *\nAllow: /\n");}
+    if (req.url === "/robots.txt") {
+      res.setHeader("content-type", "text/plain");
+      return res.end("User-agent: *\nAllow: /\n");
+    }
     feedRequests.push(req.url ?? "");
     if (req.url !== "/feed.xml") {
       res.writeHead(404);

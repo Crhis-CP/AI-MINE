@@ -20,7 +20,8 @@ export function SelectionActivationRecord({ version, configured }: { version: st
     <Card title="启用记录">
       <p className="text-[15px] font-medium text-ink">已按 2026-10-10 通过启用</p>
       <p className="mt-2 text-sm leading-relaxed text-ink-2">
-        版本 {APPROVED_STANDARD}。先定内容类型，五个方面各打 0 到 10 分，按类型加权成 0 到 100。同一标准独立打两次分，两次之和达到门槛的两倍就入选。显示的分数是两次平均后向下取整。没有分数的条目不显示分数。
+        版本 {APPROVED_STANDARD}。先定内容类型，五个方面各打 0 到 10 分，按类型加权成 0 到
+        100。同一标准独立打两次分，两次之和达到门槛的两倍就入选。显示的分数是两次平均后向下取整。没有分数的条目不显示分数。
       </p>
       <p className="mt-2 text-sm leading-relaxed text-ink-2">
         门槛起点是一手 60、官方账号与准官方 65、媒体与个人 76。三处压分保留：转载同稿、没有实质内容的战略合作、没有放大验证的工艺突破。

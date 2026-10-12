@@ -1,4 +1,4 @@
-// Collector egress follows AIHOT: unset means a direct connection; a set EGRESS_PROXY_URL carries
+// Collector egress uses a direct connection when unset; a set EGRESS_PROXY_URL carries
 // collection and images, and model calls stay off it. Nothing here dials the public internet.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";

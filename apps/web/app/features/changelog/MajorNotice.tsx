@@ -29,7 +29,7 @@ interface FeatureParts {
 const STEP_MS = 520;
 
 function visible(line: string): boolean {
-  return !/AIHOT|Claude|Opus|Codex|模型榜|MCP|Skill|TypeScript|万行/.test(line);
+  return !/开源项目|底层重构|整套做法|Claude|Opus|Codex|模型榜|MCP|Skill|TypeScript|万行/.test(line);
 }
 
 export function parseFeature(lines: string[]): FeatureParts {
