@@ -1,0 +1,3050 @@
+{
+  "schema_version": 1,
+  "title": "独立功能对照：读者与公开出口",
+  "generated_date": "2026-10-12",
+  "new_commit": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+  "legacy_main": {
+    "repo": "Crhis-CP/global-mining-policy-intelligence",
+    "ref": "65d362407226da856f66477807c5437acf1af27b"
+  },
+  "legacy_policy_branch": {
+    "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+    "status": "未合并未上线；本模块没有将其作为旧生产基线",
+    "used": false
+  },
+  "method": {
+    "order": "先在线读取旧固定main的真实路由、组件、reader服务，提取行为；后以git show固定新提交查证，再核对当前规格和Owner决策。",
+    "scope": "功能与逻辑细节；不比较实现架构，不读取开发结论、原审计报告或审计整改目录其他文件。",
+    "writes": "仅本报告JSON及MD；不修改代码、不提交、不部署、不调用真实模型或发送外部消息。",
+    "legacy_handling": "旧代码仅gh api读取到工具输出及进程内存，未clone、未保存/导出源文件、未导入数据或运行旧代码。",
+    "evidence_status": "preserved表示已找到对应代码路径，不等于本轮测试通过、线上通过或内容质量验收。"
+  },
+  "coverage": {
+    "items": 39,
+    "result_counts": {
+      "intentional_change": 13,
+      "preserved": 15,
+      "omission": 9,
+      "uncertain": 2
+    },
+    "modules": [
+      "首页与全库",
+      "搜索筛选排序分页",
+      "热点与事件呈现",
+      "详情阅读与来源",
+      "收藏与撤回复核",
+      "主题与金属价格",
+      "日报周报月报读取",
+      "反馈入口",
+      "手机/主题/导航/无障碍基础",
+      "公开API/RSS/MCP/站点地图/llms"
+    ],
+    "excluded": [
+      "旧源码/旧数据迁移",
+      "实现架构优劣",
+      "私有后台与模型质量",
+      "法规详情内部行为（独立法规模块负责）",
+      "真实行情与源站授权事实",
+      "生产部署与CDN现状",
+      "全站动态无障碍、手机横屏、弱网与视觉截图验收"
+    ],
+    "test_evidence_read": [
+      "apps/web/tests/reader-browser.test.ts:154-239@978efa88dbe293053b1fa91915b3cef68d9715d8"
+    ],
+    "tests_executed": []
+  },
+  "findings_summary": [
+    {
+      "id": "R10",
+      "priority": "P2",
+      "title": "其他来源展开面板的完整事件入口",
+      "origin": "new_spec_gap"
+    },
+    {
+      "id": "R13",
+      "priority": "P2",
+      "title": "无正文/补齐中状态及原文替代入口",
+      "origin": "legacy_parity"
+    },
+    {
+      "id": "R14",
+      "priority": "P2",
+      "title": "来源时间与本站公开时间分列",
+      "origin": "legacy_parity"
+    },
+    {
+      "id": "R16",
+      "priority": "P2",
+      "title": "代表稿与最新进展分别标识",
+      "origin": "legacy_parity"
+    },
+    {
+      "id": "R17",
+      "priority": "P2",
+      "title": "事件后续空态、失败态与摘要",
+      "origin": "legacy_parity"
+    },
+    {
+      "id": "R29",
+      "priority": "P2",
+      "title": "从当前页面进入反馈自动携带来源",
+      "origin": "legacy_parity"
+    },
+    {
+      "id": "R33",
+      "priority": "P2",
+      "title": "RSS摘要段首发布方署名及AI标识",
+      "origin": "legacy_parity"
+    },
+    {
+      "id": "R34",
+      "priority": "P1",
+      "title": "日报RSS撤回后的旧导语残留",
+      "origin": "legacy_parity"
+    },
+    {
+      "id": "R35",
+      "priority": "P1",
+      "title": "RSS撤回后缓存及时失效",
+      "origin": "legacy_parity"
+    }
+  ],
+  "items": [
+    {
+      "id": "R01",
+      "feature": "首页入口与无精选时回退",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧 / 与 /all 都进入全部动态；/featured 为未启用占位。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            37,
+            88
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/app/page.tsx",
+          "lines": [
+            1,
+            5
+          ]
+        }
+      ],
+      "current_behavior": "新 / 是精选；未开始精选且无筛选时读取最新全部动态，其他条件保持诚实空态。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/home.tsx",
+          "lines": [
+            17,
+            75
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/home.tsx",
+          "lines": [
+            148,
+            172
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            54,
+            68
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "入口职责变更已有现行规格依据，不应当作遗漏。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R02",
+      "feature": "标题摘要搜索与默认时间排序",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "q 最多200字符，旧服务在标题摘要搜索串中匹配，默认来源发布时间倒序。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "lines": [
+            419,
+            431
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            740,
+            803
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            415,
+            415
+          ]
+        }
+      ],
+      "current_behavior": "新 /all 保留200字符搜索，默认标题摘要匹配及时间倒序；URL保留搜索状态。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/all.tsx",
+          "lines": [
+            15,
+            40
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/pool.ts",
+          "lines": [
+            70,
+            85
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/pool.ts",
+          "lines": [
+            238,
+            252
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            75,
+            75
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "核心查询入口及默认时间排序保留；多词、别名算法有增强，本项不宣称逐字符语义相同。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R03",
+      "feature": "来源、日期、分类、国家、矿种筛选",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧页面有来源和指定日/范围，分类国家矿种由reader API支持而界面未完整开放。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "lines": [
+            444,
+            508
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            743,
+            777
+          ]
+        }
+      ],
+      "current_behavior": "新组合表单提供来源、矿种、日期；分类标签及国家地区独立表单，提交保留其他条件并重置分页。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/Filters.tsx",
+          "lines": [
+            10,
+            75
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/Filters.tsx",
+          "lines": [
+            96,
+            121
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/Filters.tsx",
+          "lines": [
+            263,
+            327
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/pool.ts",
+          "lines": [
+            159,
+            166
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            56,
+            56
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            75,
+            75
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "已开放旧API存在而旧界面缺少的筛选入口。",
+      "confidence": "high",
+      "verification_boundary": "已查表单→loader→筛选SQL；未以真实词表或时区交叉数据运行。on 与日期范围冲突时新实现优先on，未将这一边界等同旧接口拒绝冲突的行为。"
+    },
+    {
+      "id": "R04",
+      "feature": "全文相关排序",
+      "comparison_origin": "new_spec_extension",
+      "legacy_behavior": "旧读者搜索只写明标题、摘要，没有全文相关切换。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "lines": [
+            419,
+            425
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "lines": [
+            41,
+            46
+          ]
+        }
+      ],
+      "current_behavior": "新搜索提供最新与全文相关两档；全文匹配正文，按标题/摘要/正文权重及时间、ID排序。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/all.tsx",
+          "lines": [
+            182,
+            205
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/pool.ts",
+          "lines": [
+            195,
+            235
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            75,
+            75
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "属于明确新增的全文检索能力。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R05",
+      "feature": "分页、跳页和条件恢复",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧按页码展示总数、上一页下一页、首末及邻近页，跳页约束页数。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "lines": [
+            237,
+            309
+          ]
+        }
+      ],
+      "current_behavior": "新数字分页、邻近页、上一页下一页、跳页及总数保留，地址栏保留条件。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/DayList.tsx",
+          "lines": [
+            89,
+            146
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/all.tsx",
+          "lines": [
+            95,
+            103
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/all.tsx",
+          "lines": [
+            178,
+            180
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            39,
+            39
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "可分享与恢复带页码的查询。",
+      "confidence": "high",
+      "verification_boundary": "静态核查；新站固定20条/页，未声称保留旧reader API的page_size参数。页码越界的真实DB响应未运行。"
+    },
+    {
+      "id": "R06",
+      "feature": "按北京日分组与折叠",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧列表按来源日分组，可折叠并在当前会话保存。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "lines": [
+            136,
+            202
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/lib/reader/preferences.ts",
+          "lines": [
+            76,
+            95
+          ]
+        }
+      ],
+      "current_behavior": "新DayList按timelineAt/卡片anchorAt的北京日分组，pathname+query隔离折叠状态，sessionStorage保存。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/DayList.tsx",
+          "lines": [
+            25,
+            83
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            230,
+            230
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "折叠浏览能力保留，事件卡时间线语义按新规格扩展。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R07",
+      "feature": "详情返回列表与阅读位置",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧标题点击保存列表URL及scrollY，返回后恢复。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/controls.tsx",
+          "lines": [
+            65,
+            141
+          ]
+        }
+      ],
+      "current_behavior": "新详情回到历史项，根层ScrollRestoration按历史键恢复；精选时间线另有卡片锚点恢复。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            133,
+            145
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/root.tsx",
+          "lines": [
+            33,
+            36
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/restore.ts",
+          "lines": [
+            39,
+            80
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            66,
+            66
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "基础返回及位置恢复存在；实际多页、折叠、刷新组合尚未动态验收。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R08",
+      "feature": "热点榜及完整事件页",
+      "comparison_origin": "new_spec_extension",
+      "legacy_behavior": "旧/hot明确未启用；旧详情已提供关联来源和事件进展。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            50,
+            68
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            281,
+            328
+          ]
+        }
+      ],
+      "current_behavior": "新/hot读取站点榜单，展示排名/热度/趋势，链接/story事件；事件页有摘要和报道时间线。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/hot.tsx",
+          "lines": [
+            13,
+            27
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/hot.tsx",
+          "lines": [
+            66,
+            73
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/hot.tsx",
+          "lines": [
+            101,
+            140
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/story.tsx",
+          "lines": [
+            135,
+            177
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/story.tsx",
+          "lines": [
+            213,
+            219
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            54,
+            54
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            69,
+            71
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "从占位扩展为实际热点与事件阅读，不能倒推旧站已上线热点。",
+      "confidence": "high",
+      "verification_boundary": "核查页面实际读取与渲染路径；未核算热度模型或线上数据充足性。"
+    },
+    {
+      "id": "R09",
+      "feature": "同事件折叠展开及按需读取",
+      "comparison_origin": "new_spec_extension",
+      "legacy_behavior": "旧全部动态逐条列出，不提供事件折叠；同源材料在详情查阅。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "lines": [
+            195,
+            197
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            281,
+            328
+          ]
+        }
+      ],
+      "current_behavior": "新事件卡可展开其他来源和进展，首次展开读取，支持分页/失败重试/一次游标重启，返回保留展开状态但重新取内容。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "lines": [
+            38,
+            71
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "lines": [
+            75,
+            123
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "lines": [
+            190,
+            234
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "lines": [
+            237,
+            295
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            230,
+            230
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "符合新增事件折叠功能；独立的来源面板完整事件入口缺口见R10。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R10",
+      "feature": "其他来源展开面板的完整事件入口",
+      "comparison_origin": "new_spec_gap",
+      "legacy_behavior": "旧详情来源区及后续区承担继续核验功能；旧全部动态没有对应展开面板。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            281,
+            328
+          ]
+        }
+      ],
+      "current_behavior": "新进展面板有查看完整事件；GroupSources只有来源列表和LoadState，没有完整事件链接。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "lines": [
+            190,
+            234
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "lines": [
+            288,
+            293
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            230,
+            230
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "只展开其他来源的读者无法从该面板进入完整事件；这是新规格功能缺项，不计为旧页面回归。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。",
+      "reproduction_logic": [
+        "准备带story且reportCount>1的事件卡，点击另有N家信源报道。",
+        "来源面板渲染到LoadState后结束；只有另一个进展面板才有完整事件链接。"
+      ],
+      "priority": "P2"
+    },
+    {
+      "id": "R11",
+      "feature": "详情正文、中原文切换与图片外链",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧正文保留段落、标题、列表、表格等；具备完整双语时可切换；图片作为外链。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "lines": [
+            11,
+            31
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "lines": [
+            50,
+            115
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "lines": [
+            117,
+            174
+          ]
+        }
+      ],
+      "current_behavior": "新详情以许可和完整译文校验生成正文，中文/原文独立URL切换，正文带章节锚点，图片转换为外链。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            96,
+            116
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            160,
+            173
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            390,
+            411
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            521,
+            524
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "正文阅读和双语切换路径存在；不把网页渲染证明当翻译语义验收。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R12",
+      "feature": "媒体全文展示边界",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧详情允许展示已登记来源正文/全文译文。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            191,
+            226
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "lines": [
+            117,
+            129
+          ]
+        }
+      ],
+      "current_behavior": "新来源全文受site_fulltext控制；summary-only不提供正文，页面显示摘要及原文入口。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            73,
+            88
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            98,
+            116
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            384,
+            387
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/08-owner-voice.md",
+          "lines": [
+            140,
+            140
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "10月5日Owner明确境外媒体仅标题摘要原文，不能以旧站可读全文判新站遗漏。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R13",
+      "feature": "无正文/补齐中状态及原文替代入口",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧body不存在时明确区分pending与unavailable，说明原因并给原文按钮。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            191,
+            226
+          ]
+        }
+      ],
+      "current_behavior": "新仅summary-only分支有说明；其他body=null情况直接跳过正文块。source_site_fulltext=false、无body_html等均可返回readingMode=full且body=null。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            96,
+            116
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            142,
+            157
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            384,
+            422
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            522,
+            532
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/08-owner-voice.md",
+          "lines": [
+            140,
+            140
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "读者无法区分正文在整理、没有取得、许可受限或页面漏载。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。",
+      "reproduction_logic": [
+        "构造当前允许详情公开的条目，visibility=public且body_html为空，或source_site_fulltext=false；保留中文标题导读。",
+        "loadItemDetail保留readingMode=full和body=null；ItemPage既不进入summaryOnly提示，也不渲染正文状态。",
+        "预期仍只提供允许内容，但应保留相应无正文状态和继续核验入口。"
+      ],
+      "priority": "P2"
+    },
+    {
+      "id": "R14",
+      "feature": "来源时间与本站公开时间分列",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧详情显示来源发布时间及data.public_at对应的本站公开时间。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            132,
+            148
+          ]
+        }
+      ],
+      "current_behavior": "新详情只显示publishedAt，缺失时显示discoveredAt收录时间；没有首次本站公开时间行。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            123,
+            126
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            201,
+            225
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            313,
+            330
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            508,
+            508
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "读者无法分辨旧来源报道何时首次由本站公开，尤其补录内容容易混淆。",
+      "confidence": "high",
+      "verification_boundary": "新详情组件与detail投影静态确认缺少此展示；未进一步判断首次公开时间在当前数据库是否完整留存。",
+      "reproduction_logic": [
+        "选取来源发布时间与本站首次公开时间不同、且两者均有记录的文章。",
+        "新详情只输出publishedAt；discoveredAt只在publishedAt为空时输出，没有public_at对应行。"
+      ],
+      "priority": "P2"
+    },
+    {
+      "id": "R15",
+      "feature": "公司说明、许可及法律原文入口",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧详情有文中公司、资料链接和正文许可/法律声明。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            166,
+            188
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "lines": [
+            176,
+            193
+          ]
+        }
+      ],
+      "current_behavior": "新companyContext携带有据公司说明和资料来源；Attribution full输出许可、声明、官网法律信息链接。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            422,
+            445
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/parts.tsx",
+          "lines": [
+            56,
+            97
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            146,
+            148
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            512,
+            515
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "可核验公司资料与许可说明未丢失。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R16",
+      "feature": "代表稿与最新进展分别标识",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧详情单列代表稿/最新进展，代表稿优先官方或当事方，当前条目标正在阅读。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            228,
+            279
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            825,
+            851
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            1005,
+            1020
+          ]
+        }
+      ],
+      "current_behavior": "新详情用GroupSources其他来源与StoryFollowups替代；源面板列来源/标题，后续投影只有代表条目简表，没有代表稿/最新进展/正在阅读区块。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            378,
+            381
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            475,
+            478
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "lines": [
+            197,
+            222
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/followups.ts",
+          "lines": [
+            5,
+            14
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            514,
+            514
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "阅读历史报道时无法直接识别官方代表材料及最新进展，核验和追踪成本增加。",
+      "confidence": "high",
+      "verification_boundary": "新事件聚合本身是否正确挑选代表稿属于其他模块；本项只确认详情页角色展示和投影缺项，不要求复制旧聚合算法。",
+      "reproduction_logic": [
+        "同一事件准备官方首报A、媒体报道B和最新实质进展C，打开B。",
+        "旧详情会同时标示A代表稿与C最新进展；新B只显示其他来源展开及后续列表，不区分两种角色。"
+      ],
+      "priority": "P2"
+    },
+    {
+      "id": "R17",
+      "feature": "事件后续空态、失败态与摘要",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧详情后续列表有时间/标题/署名/摘要；无更多事件时显示暂无更多相关进展。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            304,
+            326
+          ]
+        }
+      ],
+      "current_behavior": "新StoryFollowups仅在items.length>0时渲染；fetch失败被吞掉，空/失败/未加载均无可见状态；列表只有标题、来源与时间。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/item/StoryFollowups.tsx",
+          "lines": [
+            18,
+            29
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/item/StoryFollowups.tsx",
+          "lines": [
+            50,
+            56
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/item/StoryFollowups.tsx",
+          "lines": [
+            60,
+            88
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            191,
+            194
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            516,
+            516
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "读者无法区分确无后续、接口失败与尚未加载，并失去原有一句摘要。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。",
+      "reproduction_logic": [
+        "对有story的详情让followups返回空items：结果不渲染任何无后续状态。",
+        "让该端点返回503：catch为空且items保持null，无失败信息或重试。",
+        "成功返回后续项时，新DTO只含representative简表，没有摘要。"
+      ],
+      "priority": "P2"
+    },
+    {
+      "id": "R18",
+      "feature": "当前已撤回详情不能继续读取",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧不存在或撤回详情返回不可查看；服务端按当前投影读取。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            89,
+            102
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            805,
+            808
+          ]
+        }
+      ],
+      "current_behavior": "新loadItemDetail先检查hasItemPage；页面loadOr404及版本守卫撤回后重新加载。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            68,
+            70
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/item.tsx",
+          "lines": [
+            19,
+            21
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ContentVersionGuard.tsx",
+          "lines": [
+            44,
+            56
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            270,
+            270
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "详情读取保留当前可见性门槛。",
+      "confidence": "high",
+      "verification_boundary": "源码路径存在；没有执行真实撤回事务及跨出口60秒验收。RSS例外单独记录。"
+    },
+    {
+      "id": "R19",
+      "feature": "普通新增与版本确认失败的阅读行为",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧版本变化/检查中/失败均整体遮蔽内容，给刷新或重试。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/controls.tsx",
+          "lines": [
+            191,
+            273
+          ]
+        }
+      ],
+      "current_behavior": "新普通新增只提示加载最新；短暂确认失败保留内容；撤回代次变化才隐藏并重新核对。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ContentVersionGuard.tsx",
+          "lines": [
+            32,
+            64
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/ContentVersionGuard.tsx",
+          "lines": [
+            94,
+            120
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            267,
+            275
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "现行规格主动减少阅读打断，保留旧内容本身不是遗漏。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R20",
+      "feature": "收藏引用、上限和跨标签同步",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧浏览器本地只保存最多100个有效ID；收藏状态同页事件与storage同步，写失败提示。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/lib/reader/preferences.ts",
+          "lines": [
+            5,
+            48
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/controls.tsx",
+          "lines": [
+            15,
+            61
+          ]
+        }
+      ],
+      "current_behavior": "新保存type/id/savedAt引用，上限100，跨标签storage订阅；失败不虚报保存成功。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/lib/local-state.ts",
+          "lines": [
+            11,
+            21
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/lib/local-state.ts",
+          "lines": [
+            52,
+            79
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/lib/local-state.ts",
+          "lines": [
+            148,
+            166
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/feed/parts.tsx",
+          "lines": [
+            28,
+            50
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            76,
+            76
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "收藏核心功能和失败提示保留；新增类型与时间不保存文章内容。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R21",
+      "feature": "收藏重新解析、撤回、错误重试及移除",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧聚焦后重新读取当前收藏，停止展示不可用内容，保留引用供移除，失败提供重试。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/saved.tsx",
+          "lines": [
+            15,
+            55
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/saved.tsx",
+          "lines": [
+            63,
+            114
+          ]
+        }
+      ],
+      "current_behavior": "新收藏读取前清空内容，分批解析当前可见性，60秒/聚焦/可见性检查，失败重试与不可用引用移除。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/starred.tsx",
+          "lines": [
+            28,
+            78
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/starred.tsx",
+          "lines": [
+            95,
+            119
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/availability.ts",
+          "lines": [
+            12,
+            23
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            270,
+            270
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "不会把本地旧标题当当前内容继续显示。",
+      "confidence": "high",
+      "verification_boundary": "静态路径且已有reader-browser.test.ts:190–202场景；本轮未重新运行该测试。"
+    },
+    {
+      "id": "R22",
+      "feature": "旧收藏及旧链接迁移",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧reader支持从早期favorites key迁移事件引用；旧接口维持V1/V2兼容。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/lib/reader/preferences.ts",
+          "lines": [
+            17,
+            32
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "lines": [
+            54,
+            56
+          ]
+        }
+      ],
+      "current_behavior": "新收藏明确忽略退役站点key；新对外v3及新ID不承接旧生产资料。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/lib/local-state.ts",
+          "lines": [
+            111,
+            144
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/v3.ts",
+          "lines": [
+            74,
+            94
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            70,
+            76
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/08-owner-voice.md",
+          "lines": [
+            99,
+            99
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "Owner明确不迁移旧数据和链接，不能列为功能遗漏。",
+      "confidence": "high",
+      "verification_boundary": "确认新收藏键与明确规格；未逐一动态遍历所有旧URL。新站另有v1接口不是旧资料兼容证明。"
+    },
+    {
+      "id": "R23",
+      "feature": "主题页",
+      "comparison_origin": "new_spec_extension",
+      "legacy_behavior": "旧主题页为正在规划占位。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            369,
+            380
+          ]
+        }
+      ],
+      "current_behavior": "新主题由实际API读取，按国家地区、金属、矿企、项目分组，显示近期计数并链接主题详情；法律监管另链法规栏目。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/topics.tsx",
+          "lines": [
+            18,
+            19
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/topics.tsx",
+          "lines": [
+            35,
+            91
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            74,
+            74
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "属于规格新增，不把旧占位当完整旧功能。",
+      "confidence": "high",
+      "verification_boundary": "已查真实读取和渲染入口；未动态评估实体词表完整性、每种轴实际有无数据及空主题全部筛选组合。"
+    },
+    {
+      "id": "R24",
+      "feature": "金属官方查询入口与站内报价",
+      "comparison_origin": "new_spec_extension",
+      "legacy_behavior": "旧仅LME官方入口，无站内报价。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "lines": [
+            61,
+            84
+          ]
+        }
+      ],
+      "current_behavior": "新读取站内价格表，明确所属期/单位/比较周期/陈旧状态，另展示官方查询入口；可见时5分钟刷新，失败保留上次结果并提示。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/metals.tsx",
+          "lines": [
+            10,
+            22
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/metals.tsx",
+          "lines": [
+            55,
+            104
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/metals.tsx",
+          "lines": [
+            115,
+            145
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/metals.tsx",
+          "lines": [
+            204,
+            225
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/metals.tsx",
+          "lines": [
+            257,
+            274
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            77,
+            77
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "官方入口扩展为已排期报价功能；不宣称真实价格或Owner截图确认已验收。",
+      "confidence": "high",
+      "verification_boundary": "未访问外部价格网站、未核对当前报价、授权材料及截图批准状态；接口失败时官方入口亦不渲染，需结合静态默认入口要求另核。"
+    },
+    {
+      "id": "R25",
+      "feature": "日报周报月报目录、详情、覆盖时间",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧三周期切换、历史目录、最新一期及独立详情，发行日期与覆盖期间分列。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            383,
+            443
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            503,
+            510
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            584,
+            640
+          ]
+        }
+      ],
+      "current_behavior": "新三种报告路由读取目录及详情，ReportPaper显示覆盖窗口/生成时间，独立期次有历史导航。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/report-latest.tsx",
+          "lines": [
+            14,
+            19
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/report-latest.tsx",
+          "lines": [
+            36,
+            54
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/report/ReportPaper.tsx",
+          "lines": [
+            359,
+            379
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            72,
+            73
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "三种报告阅读仍在；旧报告ID不迁移属于R22的明确变更。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R26",
+      "feature": "报告生成四态和本期未发布",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧区分ready/failed/pending/compiled；当应有一期尚未发布显示上一期并说明缺期。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            487,
+            525
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            601,
+            606
+          ]
+        }
+      ],
+      "current_behavior": "新generationStatus映射ready/pending/failed/summary，空期另提示；最新报告key落后expected时明确本期未发布。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/features/report/ReportPaper.tsx",
+          "lines": [
+            364,
+            381
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/report-latest.tsx",
+          "lines": [
+            43,
+            51
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "lines": [
+            249,
+            258
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            191,
+            191
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "报告生成失败与没有内容保持可区分。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R27",
+      "feature": "报告引用撤回及综合文字失效",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧有任一证据失效的报告不再进入_supported_reports。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            235,
+            265
+          ]
+        }
+      ],
+      "current_behavior": "新网页报告将失效引用改为无原标题的撤回占位，移除导语/综述；机器报告过滤失效引用并加限制说明。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "lines": [
+            160,
+            179
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "lines": [
+            218,
+            258
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "lines": [
+            24,
+            43
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            270,
+            270
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            102,
+            104
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "整份退出改为保留仍公开资料，基本撤回意图保留；日报RSS绕过情况见R34。",
+      "confidence": "high",
+      "verification_boundary": "读路径静态核查，不证明真实报告引文完整性；本条限网页及machineReport，RSS单独核查。"
+    },
+    {
+      "id": "R28",
+      "feature": "反馈字段、截图和失败保留",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧匿名反馈10–5000字、选填254字符联系、PNG/JPEG/WebP单图2MB；预览/移除，提交中锁按钮，失败保留。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feedback.tsx",
+          "lines": [
+            25,
+            66
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feedback.tsx",
+          "lines": [
+            85,
+            154
+          ]
+        }
+      ],
+      "current_behavior": "新保留字数、联系、单图格式大小与预览移除；增加草稿和粘贴拖拽，成功由服务端201回执后转成功页。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "lines": [
+            74,
+            137
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "lines": [
+            197,
+            266
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/feedback.ts",
+          "lines": [
+            39,
+            52
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            803,
+            806
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "基础反馈功能保留；来源页追踪见R29。",
+      "confidence": "high",
+      "verification_boundary": "未写入真实反馈。未将前端类型检查等同服务端图片安全验证，也未验证网络结果未知后的幂等性。"
+    },
+    {
+      "id": "R29",
+      "feature": "从当前页面进入反馈自动携带来源",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧Sidebar/Footer点击反馈前将当前pathname+search写入sessionStorage，提交时读取。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "lines": [
+            104,
+            112
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "lines": [
+            140,
+            146
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feedback.tsx",
+          "lines": [
+            49,
+            54
+          ]
+        }
+      ],
+      "current_behavior": "新导航直接Link到/feedback；页面只取?from或document.referrer，没有任何位置写当前SPA路径，也不只读显示来源页。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/components/shell/Sidebar.tsx",
+          "lines": [
+            7,
+            16
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/components/shell/nav.ts",
+          "lines": [
+            28,
+            35
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "lines": [
+            79,
+            89
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "lines": [
+            122,
+            125
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            807,
+            807
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            821,
+            821
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "从搜索/文章等SPA页面进入反馈会丢失或误报关联页，后台难定位故障和更正对象。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。",
+      "reproduction_logic": [
+        "从外部或地址栏打开 /all?q=铜，再在同一文档内点击侧栏反馈。",
+        "Link不携带from且未保存来源；document.referrer不会随SPA导航更新，draft.pageUrl为空或是最初文档来源。",
+        "提交表单时pageUrl使用该错误/空值。"
+      ],
+      "priority": "P2"
+    },
+    {
+      "id": "R30",
+      "feature": "设备导航、无障碍基础与外观",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧桌面侧栏/手机5项底栏、跳过主内容、aria-current及三态外观。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "lines": [
+            39,
+            94
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "lines": [
+            119,
+            175
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "lines": [
+            195,
+            212
+          ]
+        }
+      ],
+      "current_behavior": "新桌面及手机导航保持，详情隐藏底栏；保留跳到正文及语义控件，三态外观首帧脚本和系统变化监听。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/components/shell/nav.ts",
+          "lines": [
+            14,
+            54
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/components/shell/MobileTabBar.tsx",
+          "lines": [
+            4,
+            33
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/public-layout.tsx",
+          "lines": [
+            29,
+            50
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/components/shell/ThemeSwitch.tsx",
+          "lines": [
+            18,
+            60
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/root.tsx",
+          "lines": [
+            24,
+            35
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            139,
+            154
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "基础手机导航、键盘语义和系统主题能力存在。",
+      "confidence": "high",
+      "verification_boundary": "已读取浏览器测试的390px/主题场景，但本轮未运行；不宣称全站axe、所有缩放/横屏/存储被禁场景通过。"
+    },
+    {
+      "id": "R31",
+      "feature": "公开API输入、分页和错误",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧reader API提供feed/items/saved/reports，分页与参数校验；错误不返回假数据。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "lines": [
+            16,
+            52
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            733,
+            803
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            805,
+            808
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/server.py",
+          "lines": [
+            125,
+            148
+          ]
+        }
+      ],
+      "current_behavior": "新/api/v3明确路由及schema校验、重复参数拒绝、签名游标、统一错误、请求ID、503/429 Retry-After；site读者接口独立页码。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/v3.ts",
+          "lines": [
+            51,
+            70
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/v3.ts",
+          "lines": [
+            79,
+            159
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/site.ts",
+          "lines": [
+            155,
+            166
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            39,
+            39
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            70,
+            76
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "保留公开读取能力并按新契约改为游标，对旧请求形状不兼容已获明确允许。",
+      "confidence": "high",
+      "verification_boundary": "仅核对输入到读取分派，不宣称所有v3输出字段/游标插入并发/真实限流动态验收通过。"
+    },
+    {
+      "id": "R32",
+      "feature": "RSS条目ID、站内链接及时间输出",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧RSS取最近50条公开资讯、稳定guid、站内详情与原文来源；date-only输出dc:date。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            917,
+            949
+          ]
+        }
+      ],
+      "current_behavior": "新RSS最多50条，稳定ID及站内详情，输出pubDate；date-only资讯照已改规则输出存储时刻。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/feeds.ts",
+          "lines": [
+            120,
+            139
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/feeds.ts",
+          "lines": [
+            155,
+            178
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            48,
+            48
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            106,
+            106
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "RSS时间表达已有10月5日规格变更依据；新all feed限近7天，未将其作为旧全库查询替代。",
+      "confidence": "high",
+      "verification_boundary": "未核验RSS近7天范围是否有单独Owner确认；不影响本条对ID和时间规则的核查。"
+    },
+    {
+      "id": "R33",
+      "feature": "RSS摘要段首发布方署名及AI标识",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧rss_summary把发布方名链接到原文并放在摘要首段；原文链接与来源元素同时保留。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/attribution.py",
+          "lines": [
+            40,
+            59
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            934,
+            947
+          ]
+        }
+      ],
+      "current_behavior": "新资讯itemXml描述只有summary、阅读原文及本站via；发布方只进author，摘要首段不显示发布方名，且没有固定AI文字/逐条机器标识。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/feeds.ts",
+          "lines": [
+            120,
+            139
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/feeds.ts",
+          "lines": [
+            7,
+            9
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            107,
+            107
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            376,
+            378
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "只显示description的订阅器失去原有前置发布方署名；AI辅助生成内容也缺强制标识。",
+      "confidence": "high",
+      "verification_boundary": "段首署名是旧行为遗漏；固定AI文字和逐条机器标识是新规格附加缺项。本轮静态核查模板，没有实际对外订阅。",
+      "reproduction_logic": [
+        "用source_name=某官方机构、summary=普通中文事实摘要的任一公开条目生成/feed/all.xml或/feed.xml。",
+        "description不含该机构名称/署名链接，只在author中含机构名；XML中无该条固定AI标识。"
+      ],
+      "priority": "P2"
+    },
+    {
+      "id": "R34",
+      "feature": "日报RSS撤回后的旧导语残留",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧报告任一来源证据不再公开或已被更正，_supported_reports排除该报告。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            235,
+            265
+          ]
+        }
+      ],
+      "current_behavior": "dailyFeed标题通过gone重算，但description优先直接取原始content.lead.leadParagraph；即使其引用已撤回也原样输出。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/feeds.ts",
+          "lines": [
+            201,
+            220
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "lines": [
+            125,
+            132
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "lines": [
+            150,
+            157
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            102,
+            104
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            270,
+            270
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "已撤回报道的概括仍可能经日报RSS继续传播；网页/机器报告已清除导语而RSS不一致。",
+      "confidence": "high",
+      "verification_boundary": "这是把旧报告证据失效语义扩展到新日报RSS时的遗漏；旧reader没有相同日报RSS地址，不能称旧日报RSS端点回归。静态值流已确定，未执行真实撤回。",
+      "reproduction_logic": [
+        "准备日报content包含lead.leadParagraph=独特撤回摘要及sections引用A。",
+        "将A置为非公开，使reportIndex.gone包含A。",
+        "dailyFeed的reportHeadline不再用旧lead.title，但第210行仍返回原leadParagraph；RSS描述保留独特撤回摘要。"
+      ],
+      "priority": "P1"
+    },
+    {
+      "id": "R35",
+      "feature": "RSS撤回后缓存及时失效",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧reader RSS响应no-store，每次请求经当前publication读取。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/server.py",
+          "lines": [
+            136,
+            146
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            295,
+            300
+          ]
+        }
+      ],
+      "current_behavior": "新资讯与日报RSS统一使用max-age=300、s-maxage=300、stale-while-revalidate=900；政策RSS单独立即重验证。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/contracts/src/http-policy.ts",
+          "lines": [
+            25,
+            25
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/feeds.ts",
+          "lines": [
+            7,
+            9
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/feeds.ts",
+          "lines": [
+            29,
+            50
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/http/respond.ts",
+          "lines": [
+            97,
+            106
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/server.ts",
+          "lines": [
+            167,
+            185
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            338,
+            338
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            104,
+            104
+          ]
+        }
+      ],
+      "result": "omission",
+      "impact": "遵守响应头的阅读器或中间缓存可在撤回后继续直接复用旧RSS五分钟，不能保证60秒撤回；ETag不能迫使仍新鲜的缓存重新请求。",
+      "confidence": "high",
+      "verification_boundary": "静态HTTP行为确定；未接触真实CDN或缓存，不声称当前生产缓存已经实际保留该条。属于旧撤回功能保障的退化，不是架构建议。",
+      "reproduction_logic": [
+        "先由遵循Cache-Control的缓存读取/feed/all.xml保存含A的响应。",
+        "一分钟后撤回A；在原响应年龄未满300秒时重新访问相同feed。",
+        "缓存可直接返回旧响应而不请求源站；stale-while-revalidate允许更长陈旧服务窗口。"
+      ],
+      "priority": "P1"
+    },
+    {
+      "id": "R36",
+      "feature": "公开MCP工具能力与旧暴露状态",
+      "comparison_origin": "uncertain_legacy_exposure",
+      "legacy_behavior": "旧仓库有AgentReadService的latest/search/hot/story/topic/report，只读合同；旧Agent网页只列API/RSS，未发现该页面公开MCP接入地址。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/distribution_v2/agent.py",
+          "lines": [
+            15,
+            15
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/distribution_v2/agent.py",
+          "lines": [
+            38,
+            85
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "lines": [
+            3,
+            58
+          ]
+        }
+      ],
+      "current_behavior": "新/api/mcp匿名只读注册，支持新闻和法规工具，机器正文单独再分发许可门槛，工具错误有显式结果。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/mcp.ts",
+          "lines": [
+            1,
+            45
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/mcp.ts",
+          "lines": [
+            57,
+            81
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/mcp.ts",
+          "lines": [
+            93,
+            137
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            176,
+            198
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            51,
+            51
+          ]
+        }
+      ],
+      "result": "uncertain",
+      "impact": "新实现有明确接入和调用路径；旧内部服务是否真实作为标准公网MCP对外暴露，不能只凭文件名断言。",
+      "confidence": "medium",
+      "verification_boundary": "旧主线只读源码检查，没有旧服务线上证据；新MCP未执行真实客户端握手/工具调用。"
+    },
+    {
+      "id": "R37",
+      "feature": "机器出口正文权限限制",
+      "comparison_origin": "new_spec_extension",
+      "legacy_behavior": "旧页面说明公开只读API及原始来源；旧正文依来源授权数据投影。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "lines": [
+            16,
+            22
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "lines": [
+            813,
+            824
+          ]
+        }
+      ],
+      "current_behavior": "新machineItemDetail同时要求条目syndicate、来源站内全文和站外全文许可；不允许或超容量时link_only并说明。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/detail.ts",
+          "lines": [
+            176,
+            198
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            35,
+            35
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            111,
+            111
+          ]
+        }
+      ],
+      "result": "intentional_change",
+      "impact": "网页可看全文不等于机器再分发许可，限制有新明确规则依据。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    },
+    {
+      "id": "R38",
+      "feature": "站点地图、robots与llms发现入口",
+      "comparison_origin": "uncertain_legacy_exposure",
+      "legacy_behavior": "旧读者Agent页没有这些入口；本轮旧树未定位单独sitemap实现，不能据此断言所有旧部署层均无此能力。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "lines": [
+            3,
+            58
+          ]
+        }
+      ],
+      "current_behavior": "新static路由注册sitemap分片、robots、llms；sitemap每次从当前public/indexable资讯、报告、主题、法规读取。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/static.ts",
+          "lines": [
+            115,
+            148
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/sitemap.ts",
+          "lines": [
+            19,
+            73
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/sitemap.ts",
+          "lines": [
+            79,
+            104
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "lines": [
+            52,
+            53
+          ]
+        }
+      ],
+      "result": "uncertain",
+      "impact": "新增发现入口在代码中存在；旧入口和全量当前收录一致性尚无动态证明。",
+      "confidence": "medium",
+      "verification_boundary": "未运行大规模分片、所有noindex分支及线上robots/llms读取；固定源码将/hot无条件收入sitemap，数据不足时收录规则需另作动态核查。"
+    },
+    {
+      "id": "R39",
+      "feature": "首次加载失败与不伪造内容",
+      "comparison_origin": "legacy_parity",
+      "legacy_behavior": "旧data=null时列表/报告显示无法读取，详情不存在显示不可查看；没有夹具回退。",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "lines": [
+            525,
+            535
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            93,
+            102
+          ]
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "lines": [
+            592,
+            592
+          ]
+        }
+      ],
+      "current_behavior": "新loader经loadOr404/contractResult，并将错误交根ErrorBoundary；无搜索结果有专属空态，价格失败503。",
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/all.tsx",
+          "lines": [
+            41,
+            52
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/all.tsx",
+          "lines": [
+            197,
+            210
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/public-layout.tsx",
+          "lines": [
+            65,
+            70
+          ]
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/metals.tsx",
+          "lines": [
+            19,
+            22
+          ]
+        }
+      ],
+      "spec_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "docs/01-product/03-reader-pages.md",
+          "lines": [
+            191,
+            194
+          ]
+        }
+      ],
+      "result": "preserved",
+      "impact": "已保留真正失败与空结果的基础分支；事件后续的失败静默例外见R17。",
+      "confidence": "high",
+      "verification_boundary": "固定提交源码与控制流静态核查；没有运行旧代码、真实数据库、生产页面或本条动态测试。"
+    }
+  ]
+}

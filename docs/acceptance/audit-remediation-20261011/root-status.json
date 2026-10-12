@@ -1,5 +1,5 @@
 {
-  "phase": "regression_closeout",
+  "phase": "development_and_independent_review_delivered",
   "production_changed": false,
   "findings": [
     {
@@ -32,17 +32,20 @@
       "id": "ROOT-04",
       "status": "assurance_gap",
       "evidence": [
-        ".verify/audit-remediation-20261011/check.log"
+        "docs/acceptance/audit-remediation-20261011/verification-summary.json",
+        "docs/acceptance/audit-remediation-20261011/root04-ownership-diff.json"
       ],
-      "remaining": "当前实现待固定版本；历史data-ownership基线不匹配、无Docker full verify、release-check仍为既有未实现入口；均不宣称通过。"
+      "remaining": "已统一并推送建设分支，契约独立PR208；data-ownership冻结门仍失败，无Docker完整verify、release-check与生产质量证据。"
     }
   ],
   "integration": {
     "node": "24.19.0",
     "pnpm": "12.8.1",
     "postgres": "17 UTF8 isolated 127.0.0.1:56433",
-    "contracts": "Zod generated; owner authorized co-integration; separate contract PR pending",
-    "gate": "not yet passed",
-    "independent_legacy_review": "not yet started"
+    "contracts": "独立草稿PR208，干净main基底仅契约/生成物/工具/卡验证通过",
+    "gate": "pnpm check 8/9 stages pass; data-ownership fails; full verify absent",
+    "independent_legacy_review": "completed: 3 fork_turns=none agents, 93 rows; 19 open findings, 6 uncertain",
+    "code_sha": "bfc6a0c18be7918f3bf45c5b45847a7048fbc169",
+    "product_complete": false
   }
 }

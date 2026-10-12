@@ -10,7 +10,8 @@
       "evidence": [
         "tests/materials.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-02",
@@ -20,7 +21,8 @@
       "evidence": [
         "tests/news-model-permission.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-03",
@@ -30,7 +32,8 @@
       "evidence": [
         "tests/news-receipt-barrier.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-04",
@@ -40,7 +43,8 @@
       "evidence": [
         "tests/manual-revisions.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-05",
@@ -50,7 +54,8 @@
       "evidence": [
         "tests/manual-revisions.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-06",
@@ -61,7 +66,8 @@
         "tests/relate.test.ts",
         "tests/group-evidence-runtime.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-07",
@@ -71,7 +77,8 @@
       "evidence": [
         "tests/group-revision.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-08",
@@ -81,7 +88,8 @@
       "evidence": [
         "tests/materials.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "PIPE-09",
@@ -91,7 +99,12 @@
       "evidence": [
         "tests/report-withdrawal.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "post_development_open_findings": [
+        "reader/R34",
+        "reader/R35"
+      ],
+      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
     },
     {
       "id": "PIPE-10",
@@ -101,7 +114,8 @@
       "evidence": [
         "tests/feedback-maintenance.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-01",
@@ -113,7 +127,8 @@
         "apps/web/app/routes/starred.tsx",
         "apps/web/app/features/policy/PolicySaved.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-02",
@@ -126,7 +141,8 @@
         "apps/web/app/features/feed/ReadingGroup.tsx",
         "apps/web/app/routes/public-layout.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-04",
@@ -138,7 +154,8 @@
         "apps/web/app/routes/all.tsx",
         "packages/backend/src/publication/pool.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-05",
@@ -149,7 +166,8 @@
         "apps/web/app/features/feed/DayList.tsx",
         "packages/backend/src/publication/pool.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-06",
@@ -159,7 +177,8 @@
       "evidence": [
         "apps/web/app/routes/item.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-07",
@@ -171,7 +190,8 @@
         "apps/web/app/features/feed/DayList.tsx",
         "apps/web/app/features/feed/Timeline.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-08",
@@ -182,7 +202,8 @@
         "apps/web/app/components/shell/nav.ts",
         "apps/web/app/components/shell/MobileTabBar.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-09",
@@ -192,7 +213,8 @@
       "evidence": [
         "apps/web/app/routes/item.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-10",
@@ -204,7 +226,11 @@
         "apps/web/app/features/feed/FeedItem.tsx",
         "apps/web/app/routes/item.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "post_development_open_findings": [
+        "reader/R33"
+      ],
+      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
     },
     {
       "id": "RDR-11",
@@ -216,7 +242,8 @@
         "apps/web/app/routes/report-latest.tsx",
         "apps/web/app/features/report/ReportPaper.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-12",
@@ -226,7 +253,8 @@
       "evidence": [
         "apps/web/app/routes/feedback.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-13",
@@ -238,7 +266,8 @@
         "apps/web/app/features/feed/parts.tsx",
         "apps/web/app/features/policy/PolicySaved.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-14",
@@ -251,7 +280,8 @@
         "packages/backend/src/publication/groups.ts",
         "apps/web/app/routes/all.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-15",
@@ -262,7 +292,8 @@
         "apps/web/app/routes/all.tsx",
         "apps/web/app/routes/item.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-16",
@@ -275,7 +306,8 @@
         "packages/backend/src/publication/topics.ts",
         "industry/topics.json"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-17",
@@ -285,7 +317,8 @@
       "evidence": [
         "apps/web/app/components/shell/ThemeSwitch.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "RDR-18",
@@ -295,7 +328,8 @@
       "evidence": [
         "apps/web/app/routes/changelog.tsx"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-01",
@@ -306,7 +340,8 @@
         "tests/policy-automation-runtime.test.ts",
         "apps/web/tests/policy-browser.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-02",
@@ -316,7 +351,8 @@
       "evidence": [
         "tests/policy-automation-runtime.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-03",
@@ -327,7 +363,8 @@
         "tests/policy-reading-semantics.test.ts",
         "apps/web/tests/policy-browser.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-04",
@@ -340,7 +377,8 @@
         "tests/policy-official-xml.test.ts",
         "docs/acceptance/audit-remediation-20261011/policy-official-xml.json"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-05",
@@ -350,7 +388,8 @@
       "evidence": [
         "tests/policy-processing-plan.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-06",
@@ -360,7 +399,11 @@
       "evidence": [
         "tests/policy-basic-facts.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "post_development_open_findings": [
+        "policy/POL-18"
+      ],
+      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
     },
     {
       "id": "POL-07",
@@ -372,7 +415,8 @@
         "tests/policy-automation-runtime.test.ts",
         "apps/web/tests/policy-browser.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-08",
@@ -383,7 +427,8 @@
         "apps/web/tests/policy-browser.test.ts",
         "tests/policy-public-api.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-09",
@@ -394,7 +439,8 @@
         "tests/policy-basic-facts.test.ts",
         "tests/policy-reports.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-10",
@@ -404,7 +450,8 @@
       "evidence": [
         "tests/policy-basic-facts.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-11",
@@ -415,7 +462,8 @@
         "industry/policy-sources.json",
         "industry/jurisdictions/data.json"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "事实台账已交付；实际覆盖未完成"
     },
     {
       "id": "POL-12",
@@ -426,7 +474,8 @@
         "tests/policy-automation-runtime.test.ts",
         "tests/policy-public-api.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-13",
@@ -436,7 +485,8 @@
       "evidence": [
         "tests/policy-basic-facts.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "EXT-01",
@@ -446,7 +496,11 @@
       "evidence": [
         "tests/source-preview-gate.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "post_development_open_findings": [
+        "pipeline/PIPE-04"
+      ],
+      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
     },
     {
       "id": "POL-14",
@@ -456,7 +510,8 @@
       "evidence": [
         "tests/policy-interpretation.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-15",
@@ -466,7 +521,8 @@
       "evidence": [
         "tests/policy-automation-runtime.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-16",
@@ -476,7 +532,8 @@
       "evidence": [
         "tests/policy-date-events.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-17",
@@ -488,7 +545,8 @@
         "tests/policy-publication.test.ts",
         "tests/policy-public-api.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "POL-18",
@@ -500,7 +558,11 @@
         "tests/policy-basic-facts.test.ts",
         "apps/web/tests/policy-browser.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "post_development_open_findings": [
+        "policy/POL-14"
+      ],
+      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
     },
     {
       "id": "ROOT-01",
@@ -512,7 +574,8 @@
         "e2e/smoke.spec.ts",
         "tests/account-capabilities.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "ROOT-02",
@@ -527,7 +590,8 @@
         "apps/api/src/routes/v3.ts",
         "tooling/generate.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "ROOT-03",
@@ -538,7 +602,8 @@
         "tests/public-read-watermarks.test.ts",
         "tests/public-read-limits.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     },
     {
       "id": "ROOT-05",
@@ -548,7 +613,8 @@
       "evidence": [
         "tests/account-lifecycle.test.ts"
       ],
-      "production_verified": false
+      "production_verified": false,
+      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
     }
   ],
   "assurance_gaps": [
@@ -558,5 +624,5 @@
     "LIVE-01: no production article correction performed",
     "LIVE-02: full policy interpretation and real quality acceptance not performed"
   ],
-  "independent_comparison": "pending fresh-context review"
+  "independent_comparison": "三组fork_turns=none已各自完成固定代码比较；结果另见independent-*.json，新增缺口未自动写回首轮开发结论。"
 }

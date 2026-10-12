@@ -47,7 +47,7 @@
     "isolated_pg": "UTF8 per-file clones at localhost:56433",
     "focused_passed": 32,
     "focused_failed": 0,
-    "typecheck": "原excerpt:null并行阻挡已消除（2026-10-12源码读回为excerpt:\"\"且root确认）；冻结后的全仓检查由根集成人记录。",
+    "typecheck": "excerpt:null旧并行阻挡已消除，已读回空串并获root确认；全仓冻结检查由根集成人另行记录。",
     "network": "只访问本地HTTP/provider夹具",
     "real_model_calls": 0,
     "production_changes": false,
@@ -57,6 +57,52 @@
       "passed": 13,
       "failed": 0,
       "execution": "functions exec session 93244 completed with exit 0"
+    },
+    "replacement_runner_receipt": {
+      "log": ".verify/audit-remediation-20261011/policy-regression-recovery.log",
+      "log_sha256": "85a138ef408018c55a11c3dc522770ea6d27cdc6b66053bac5aa3b3cb40e6f99",
+      "runner_exit_code": 0,
+      "passed": 32,
+      "failed": 0,
+      "files": [
+        {
+          "file": "tests/directory-scans.test.ts",
+          "passed": 13,
+          "failed": 0,
+          "source_sha256": "62e28e7d58395a054226d8c6731b7313019b6ff2ecdb40297a33fb868b891ab5"
+        },
+        {
+          "file": "tests/policy-automation.test.ts",
+          "passed": 4,
+          "failed": 0,
+          "source_sha256": "3fc9ff71718f8505eac95cee1169a51bea6dc470996ac35403831f3cc078f8ff"
+        },
+        {
+          "file": "tests/policy-gateway.test.ts",
+          "passed": 6,
+          "failed": 0,
+          "source_sha256": "eeb32a12f7e933f5b96b3b84a3d66b4d86d4633d0b674be6294180206fface33"
+        },
+        {
+          "file": "tests/policy-relations.test.ts",
+          "passed": 2,
+          "failed": 0,
+          "source_sha256": "67f836e33e2193cfd817bbb6ac7a3b25b1d9beb3ec9bc80df9230046a2baab21"
+        },
+        {
+          "file": "tests/policy-source-seed.test.ts",
+          "passed": 5,
+          "failed": 0,
+          "source_sha256": "5b60c7ef4695c7be8738357f0d13f488cc2982035f442858e6ab757a50dfc661"
+        },
+        {
+          "file": "tests/source-preview-gate.test.ts",
+          "passed": 2,
+          "failed": 0,
+          "source_sha256": "4d545a7226aa6bb811c44b88b7d01264ce8a00549940f937ed258c6ed96d7757"
+        }
+      ],
+      "scope": "5个原全库失败文件和1个补充预览门文件；不替换原168文件整库运行记录或完整verify。"
     }
   },
   "remaining": "这里只替代原48个失败文件中本泳道负责的5个；全库最终check/verify与固定SHA由根集成人记录。",
