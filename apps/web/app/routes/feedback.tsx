@@ -309,7 +309,7 @@ export default function FeedbackPage() {
             <Link to="/privacy" className="text-accent hover:underline">
               隐私说明
             </Link>
-            处理。
+            。
           </p>
           <button
             type="submit"
