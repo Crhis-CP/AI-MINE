@@ -1,3 +1,34 @@
+import { sourceCoverageSchemas, sourceCoverageRoutes } from "./source-coverage.ts";
+export * from "./source-coverage.ts";
+import { sourceTargetsSchemas, sourceTargetsRoutes } from "./source-targets.ts";
+export { SourceTarget, SourceTargetEvidence, SourceTargetsQuery, SourceTargetsResponse } from "./source-targets.ts";
+import { modelFallbackSchemas, modelFallbackRoutes } from "./model-fallback.ts";
+export * from "./model-fallback.ts";
+
+import { usageProtectionSchemas, usageProtectionRoutes } from "./usage-protection.ts";
+export * from "./usage-protection.ts";
+import { siteInformationPrivateSchemas, siteInformationPrivateRoutes } from "./site-information.ts";
+export { SiteInformation, SiteInformationUpdate, ProtectedSiteInformation, AdminSiteInformation } from "./site-information.ts";
+import { selectionCalibrationSchemas, selectionCalibrationRoutes } from "./selection-calibration.ts";
+export * from "./selection-calibration.ts";
+
+import { modelRegistrySchemas, modelRegistryRoutes } from "./model-registry.ts";
+export * from "./model-registry.ts";
+import { accountRoutes, accountSchemas } from "./accounts.ts";
+export {
+  AccountRecord,
+  AccountList,
+  CurrentAccount,
+  AccountCreateRequest,
+  AccountActionRequest,
+  AccountPasswordChangeRequest,
+  AccountPasswordChanged,
+  LoginNonce,
+} from "./accounts.ts";
+import { runtimeControlSchemas, runtimeControlRoutes } from "./runtime-controls.ts";
+export { LaneControl, LaneControlsResponse, LaneControlActionRequest } from "./runtime-controls.ts";
+export { MonthlyUsageReport, MonthlyUsageEntry, MonthlyUsageList, UsageMonth, UsageTotals } from "./usage-monthly.ts";
+import { usageMonthlySchemas, usageMonthlyRoutes } from "./usage-monthly.ts";
 import { z } from "zod";
 import { Problem, ProblemResponse } from "./common.ts";
 import { PermissionScopeSchema, SourcePolicySchema } from "../source-policy.ts";
@@ -162,6 +193,17 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...sourceCoverageSchemas,
+  ...sourceTargetsSchemas,
+  ...siteInformationPrivateSchemas,
+  ...selectionCalibrationSchemas,
+
+  ...accountSchemas,
+  ...usageProtectionSchemas,
+  ...usageMonthlySchemas,
+  ...modelRegistrySchemas,
+  ...modelFallbackSchemas,
+  ...runtimeControlSchemas,
   SourcePolicy: SourcePolicySchema,
   SourceCreateRequest,
   SourceCreateResponse,
@@ -177,6 +219,17 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...sourceCoverageRoutes,
+  ...sourceTargetsRoutes,
+  ...siteInformationPrivateRoutes,
+  ...selectionCalibrationRoutes,
+
+  ...accountRoutes,
+  ...usageProtectionRoutes,
+  ...usageMonthlyRoutes,
+  ...modelRegistryRoutes,
+  ...modelFallbackRoutes,
+  ...runtimeControlRoutes,
   createSource: {
     method: "POST" as const,
     url: "/api/admin/sources",
@@ -236,3 +289,5 @@ export const routes = {
     },
   },
 };
+
+export { AccountLoginName } from "./accounts.ts";

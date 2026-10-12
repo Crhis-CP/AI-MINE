@@ -39,3 +39,13 @@ ADR-0025 / TASK-0022 的 `SourceDated*` 是未注册的下一版公开形状，�
 消费者联合激活时一次切换相应别名、旧手写 DTO 引用、全部读者/机器出口与生成 public 0.3.0；详情报道的 publishedAt 允许 null，日历日不制造 instant。tl2（日+原锚点）和 by=published 的 it4 文本日期游标拒绝旧版本并沿用 Problem/重载语义，其他游标协议保留。`SourceDatedReceiptReconciliationResponse` 同时预告私有待补列表；未配置告警天数时是 null，不暗设期限。具体兼容边界、实际 first-public 时机与联动顺序见 ADR-0025；本片没有日期公开门、任务、数据库或模型调用。
 
 公众号增量只预定义WechatSourceDeclaration/AccountScope/AccountResource/ContentResource，暂未并入SourcePolicy或ProcessingPermit的现行URL分支。加入时明确参考长文章URL，解析唯一规范__biz；ghid可选，不要求填写未知原始ID，不从微信号/昵称或供应商域名推导归属。账号列表无伪造URL，短文链接与附件必须由运行端口核验已取得的账号关系，schema解析不授信。实际启用需SourcePolicy/私有创建读回/生成客户端/两页/采集者联合，私有版本计划升0.4.0（MP建档新增明确身份前提）；原URL wire与公共0.2.0保持，旧配置不自动升级。
+
+TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public registry 生成 OpenAPI 与 api-client；本卡只声明 `/api/site` 和 `/api/v1` 形状，没有注册运行处理器或读取私有法规表，不能据生成物声称法规已公开。站点声明列表、范围、详情、正文、版本记录、周月汇总与政策线；v1 本片声明列表、详情、版本记录，其余机器出口接线仍待后续。错误沿用现有 Problem，不复制一套错误包装。
+
+列表按文书计数；`PolicyListQuery` 是页码，v1 是筛选绑定游标。未知日期使用既有 TimeAssertion 的 unknown/null 成分，不制造 UTC 零点；施行不能由日期推断。详情的状态维度使用 `{value,basis,evidence_ids}`，日期安排独立携带 occurrence/scope/condition；PG-18 的旧 horizon 文字按 §3.7/法规服务 §6 的明确禁止项处理，潜在前提放 condition。语言表达必须引用所属法定版本，选择与阅读修订必须一致；本站版本记录不是法定沿革。
+
+非 complete 不带平台解读；complete 要有非空完整阅读摘要、结构化影响、明确的性质/阶段/公布维度及齐备决定性附件。这里仅校验可见结构，不签发资格：当前原件、用途、真实执行身份、语义核验、Owner 分组质量资格、哈希、有效期和撤回仍由后续领域公开门每次核对。公开对象严格拒绝额外字段，不带 relevance、QualityRelease、模型执行身份、SourceContract、FetchReceipt、CatalogueScan 或 CoverageCell；ai_metadata.provider 只能来自站点服务提供者配置，不能拷贝模型供应商。
+
+阅读摘要不内嵌正文，续读绑定 expression_id/document_revision_id，默认20、最多50节点。复杂合并表格尚需完整原件提取端证明，不由矩阵字段声称保真。私有使用许可与来源契约不公开；attachment_inventory 的 public/restricted/unknown 是读者可见的附件结果，报告 coverage 仅为聚合检查摘要。严格 schema 通过不等于公开资格或覆盖完成。
+
+`tests/fixtures/policy-public/` 全部为显式合成的状态预览，不是尽调资料或真实法规。没有公开投影时必须显示读取失败/未接通，不用合成样本或空模板填生产；基本事实与完整解读、无结果与读取失败、来源尚未接通与没有新规则始终分开。集中全面验证与公开端接线留给后续，不变更模型身份或质量设置。
