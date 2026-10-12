@@ -93,6 +93,7 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     );
     expect(apiDenied).toBe(404);
     expect(site.calls.filter((c) => c.role === "private")).toHaveLength(before);
+    const nonceResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/auth/password-nonce");
     const login = await page.goto(`${site.privateOrigin}/admin/login`);
     expect(login!.status()).toBe(200);
     expect(login!.headers()["cache-control"]).toContain("no-store");
@@ -102,6 +103,12 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     expect(privateAssets.some(({ pathname }) => pathname.endsWith(".js"))).toBe(true);
     expect(privateAssets.some(({ pathname }) => pathname.endsWith(".css"))).toBe(true);
     expect(privateAssets.every(({ status }) => status === 200)).toBe(true);
+    const issued = await nonceResponse;
+    expect(issued.status()).toBe(200);
+    expect(issued.headers()["cache-control"]).toContain("no-store");
+    const loginNonce = page.locator('input[name="login_nonce"]');
+    await expect(loginNonce).toHaveValue("synthetic-login-nonce-1");
+    await expect(page.getByRole("button", { name: "登录", exact: true })).toBeEnabled();
     await page.getByLabel("登录名", { exact: true }).fill("synthetic.operator");
     await page.getByLabel("密码", { exact: true }).fill("synthetic-not-submitted");
     await page.keyboard.press("Tab");
@@ -110,6 +117,8 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     const firstNonce = await pageNonce(login!);
     const reopened = await page.goto(`${site.privateOrigin}/admin/login`);
     expect(await pageNonce(reopened!)).not.toBe(firstNonce);
+    await expect(loginNonce).toHaveValue("synthetic-login-nonce-2");
+    await expect(page.getByRole("button", { name: "登录", exact: true })).toBeEnabled();
     expect(violations).toEqual([]);
 
     const injectionUrl = `${site.publicOrigin}/about`;

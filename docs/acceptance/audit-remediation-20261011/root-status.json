@@ -46,6 +46,7 @@
     "gate": "pnpm check 8/9 stages pass; data-ownership fails; full verify absent",
     "independent_legacy_review": "completed: 3 fork_turns=none agents, 93 rows; 19 open findings, 6 uncertain",
     "code_sha": "bfc6a0c18be7918f3bf45c5b45847a7048fbc169",
-    "product_complete": false
+    "product_complete": false,
+    "ci": "First runs failed; verifier/fixture issues repaired without runtime changes; latest PR checks are authoritative"
   }
 }

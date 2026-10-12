@@ -2,7 +2,7 @@
   "recorded_at": "2026-10-12T04:01:44.785040+00:00",
   "code_sha": "bfc6a0c18be7918f3bf45c5b45847a7048fbc169",
   "independent_review_sha": "978efa88dbe293053b1fa91915b3cef68d9715d8",
-  "post_review_baseline_code_changes": "仅验证辅助路径、格式、测试注释和重大更新技术句过滤词；业务修复未变。",
+  "post_review_baseline_code_changes": "后续仅验证辅助、格式、技术句过滤及CI夹具/种子核验/失败摘要；业务审计基线没有继续修补。",
   "clean_checkout": true,
   "pnpm_check": "failed",
   "quick_stages": [
@@ -105,6 +105,30 @@
     {
       "path": ".verify/audit-remediation-20261011/reader-lint-public-tests.log",
       "sha256": "d6d30b59c33c4b9d570b7d73da56057d4ec0e0d4c94870a41502957ec40b072c"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/ci-backend-reproduction.log",
+      "sha256": "7ce434f061224f7272b14c894e5b3b71f032842996a89df72676692f03dfd06a"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/task-0251-model-fallback.log",
+      "sha256": "6229f16f6a62b53c150fe59620967e7b61e46d504ffc76713853b9346b09540e"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/task-0249-tests.log",
+      "sha256": "26841516efc3f12b1c2bd7285ff221db943be09cb1f0d947a3cdce4c8b0168d2"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/task0250-smoke-after.log",
+      "sha256": "1c08dc3f063664b24db1a1b6e889fcacff2968cf64c1e27d36e9c1eee9c94318"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/contract-fixture-check.log",
+      "sha256": "2c12ec4235d816957608d0275c3453b58c451c1f9a75c12be42ac6c1100a870f"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/contract-receipt-check.log",
+      "sha256": "f121964bc2e0a5ac74cfac1a7e1227ae61464d00aeff2f6e19c72d667334a9af"
     }
   ],
   "production_changed": false,
@@ -118,5 +142,48 @@
     "local_test_clusters": "stopped and removed",
     "verifier_worktree": "archived after preserving necessary logs",
     "original_scratch": "preserved"
+  },
+  "first_ci": {
+    "207": {
+      "sha": "13554824117b86c9e5ec8460cfbf6b7913cb4a7d",
+      "scope": "focused",
+      "exit_status": 1,
+      "failed_stages": [
+        "data-ownership",
+        "path-guard",
+        "e2e-smoke",
+        "migrations",
+        "test",
+        "compose-smoke",
+        "tasks"
+      ],
+      "receipt": ".verify/audit-remediation-20261011/ci-207-receipt.json"
+    },
+    "208": {
+      "sha": "4291083c3735909e6db274d11d1efc00e23963d0",
+      "scope": "full",
+      "exit_status": 1,
+      "failed_stages": [
+        "contracts",
+        "data-ownership",
+        "path-guard",
+        "test"
+      ],
+      "receipt": ".verify/audit-remediation-20261011/ci-208-receipt.json"
+    }
+  },
+  "first_ci_followup": {
+    "runtime_code_changed": false,
+    "backend_full_reproduction": {
+      "files": 169,
+      "passed_files": 168,
+      "failed_file": "tests/model-fallback.test.ts",
+      "subsequent_file_result": "8/8 passed with current synthetic material + permit"
+    },
+    "seed_inventory": "exact news+eligible-policy ID set, 228; not weakened to a count tolerance",
+    "e2e": "fixture supplies real-contract password nonce; original keyboard/Host/CSP/WCAG assertions retained; desktop/mobile 2 pass",
+    "verifier_tests": "9 pass",
+    "contract_only": "5 contract + 5 receipt schema checks pass",
+    "gate_limit": "data-ownership frozen debt and base task-card/path scope remain open; no merge authorized by these checks"
   }
 }

@@ -10,6 +10,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
 import { dbOf, initializeDb, closeDb } from "@amp/backend/db";
+import { upsertMaterial, readCurrentBody, newsMaterialBindings } from "@amp/backend/content/materials";
 import { config } from "@amp/backend/config";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { chatJson, type RegisteredModelTransport } from "../packages/backend/src/providers/llm.ts";
@@ -80,6 +81,8 @@ async function fixture() {
     url = `https://source.invalid/${t}`;
   await sql`INSERT INTO sources(id,name,kind,lane,enabled) VALUES(${source},${source},'external','news',false)`;
   await grantDateFixture(source, [url]);
+  const materialInput = { sourceId: source, url, title: "SYNTHETIC stored original", bodyText: "fixture stored original", via: "fetch" as const };
+  const material = await upsertMaterial(materialInput);
   const [user] = await sql`INSERT INTO admin_users(email,display_name) VALUES(${`${t}@fixture.invalid`},'SYNTHETIC Owner') RETURNING id`;
   await sql`DELETE FROM identity.account_access WHERE role='owner'`;
   await sql`INSERT INTO identity.account_access(user_id,role,models_manage,active,revision,must_change_password) VALUES(${user!.id},'owner',false,true,1,false)`;
@@ -128,11 +131,22 @@ async function fixture() {
       sourceIds: [source],
       registeredTransport: transport,
     };
+  const evaluationMaterial = await upsertMaterial({ ...materialInput, url: `${url}/evaluation`, bodyText: "SYNTHETIC held-out material" });
+  const evaluationBody = (await readCurrentBody(evaluationMaterial.articleId))!;
+  const evaluationInput = await prepareNewsFallback({
+    root,
+    expected: evaluationBody,
+    current: () => readCurrentBody(evaluationMaterial.articleId),
+    articles: [evaluationBody],
+  });
+  assert.ok(evaluationInput);
+  const evaluationRequest = { system: base.system, user: evaluationBody.body_text! };
   const evaluation = await chatJson({
     ...base,
+    ...evaluationRequest,
     model: backup.key,
-    subject: `evaluation:${t}`,
-    user: "SYNTHETIC held-out material",
+    subject: `article:${evaluationMaterial.articleId}@${evaluationBody.revision}`,
+    fallbackPermit: evaluationInput(evaluationRequest),
     usagePurpose: "evaluation",
   });
   await completeReceipt(sql, evaluation.receiptId);
@@ -165,26 +179,29 @@ async function fixture() {
     { expected_revision: routeRevision - 1, backup_model: backup.key, source_ids: [source], reason: "SYNTHETIC fixture" },
     owner,
   );
-  let input = "original";
-  const snapshot = () => ({
-    inputFingerprint: sha256(input),
-    manifest: {
-      schema_version: 1 as const,
-      kind: "source_materials" as const,
-      lane: "news" as const,
-      materials: [
-        {
-          source_id: source,
-          material_id: source,
-          revision: 1,
-          content_hash: sha256("fixture stored original"),
-          resource: { url, document_type: null, attachment: false },
-        },
-      ],
-      upstream_artifacts: [],
-    },
-  });
-  const fallbackPermit = createFallbackPermitPort({ root, snapshot: snapshot(), current: async () => snapshot() });
+  const snapshot = async () => {
+    const [current] = await newsMaterialBindings([material.articleId]);
+    assert.ok(current?.content_hash);
+    return {
+      inputFingerprint: sha256(stableJson(current)),
+      manifest: {
+        schema_version: 1 as const,
+        kind: "source_materials" as const,
+        lane: "news" as const,
+        materials: [
+          {
+            source_id: current.source_id,
+            material_id: current.id,
+            revision: current.revision,
+            content_hash: current.content_hash,
+            resource: { url: current.url, document_type: null, attachment: false },
+          },
+        ],
+        upstream_artifacts: [],
+      },
+    };
+  };
+  const fallbackPermit = createFallbackPermitPort({ root, snapshot: await snapshot(), current: snapshot });
   const call = (name: string) =>
     chatJson({ ...base, model: primary.key, subject: `fallback:${t}:${name}`, user: `SYNTHETIC production material ${name}`, fallbackPermit });
   return {
@@ -195,8 +212,9 @@ async function fixture() {
     call,
     routeRevision,
     base,
-    changeInput: () => {
-      input = "changed";
+    changeInput: async () => {
+      const changed = await upsertMaterial({ ...materialInput, bodyText: "changed" });
+      assert.equal(changed.revision, material.revision + 1);
     },
   };
 }

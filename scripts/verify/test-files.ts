@@ -1,6 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { closeSync, mkdtempSync, mkdirSync, openSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, fstatSync, mkdtempSync, mkdirSync, openSync, readFileSync, readdirSync, readSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -18,6 +18,45 @@ export function testFiles(root: string, requested: string[]) {
     if (!/^tests\/(?:[\w-]+\/)*[\w-]+\.test\.ts$/.test(file) || realpathSync(path.join(root, file)) !== path.join(realpathSync(root), file))
       throw new Error(`Invalid test file: ${file}`);
   return files.sort();
+}
+
+type TestFileResult = { file: string; log: string; code: number };
+
+/** Keep the final failure diagnosis visible even when later files passed. Full logs precede it. */
+export function testFailureSummary(completed: readonly TestFileResult[]): string {
+  const failures = completed.filter((result) => result.code !== 0);
+  if (!failures.length) return "";
+  let summary = `\nTest file failure summary: ${failures.length} failed of ${completed.length} completed\n`,
+    remaining = 12_288,
+    shown = 0;
+  for (const result of failures) {
+    const heading = `\n--- ${result.file}: last output ---\n`;
+    if (remaining < heading.length + 64) break;
+    let tail: string;
+    try {
+      const fd = openSync(result.log, "r");
+      try {
+        const size = fstatSync(fd).size,
+          buffer = Buffer.alloc(Math.min(size, 8_192));
+        readSync(fd, buffer, 0, buffer.length, Math.max(0, size - buffer.length));
+        tail = buffer.toString("utf8").trimEnd().split("\n").slice(-40).join("\n").slice(-2_048);
+      } finally {
+        closeSync(fd);
+      }
+    } catch {
+      tail = "(test output unavailable; see the execution or cleanup error)";
+    }
+    if (!tail) tail = "(no test output captured; the exit code still indicates failure)";
+    const available = remaining - heading.length - 1;
+    if (tail.length > available) tail = `[tail truncated]\n${tail.slice(-(available - 17))}`;
+    const excerpt = `${heading}${tail}\n`;
+    summary += excerpt;
+    remaining -= excerpt.length;
+    shown++;
+  }
+  if (shown < failures.length) summary += `\nError excerpts omitted for ${failures.length - shown} failed files; see the full logs above.\n`;
+  // The outer verifier displays only the stage log's last 25 lines. Keep every failure on its final line.
+  return `${summary}\nFailed test files: ${failures.map((result) => `${result.file} (exit ${result.code})`).join("; ")}\n`;
 }
 
 /** Each real test file gets a process and a clone of a sealed, queue-free migration/topics template. */
@@ -97,6 +136,7 @@ export async function runTestFiles(requested: string[], options: { env?: NodeJS.
     process.stdout.write(readFileSync(log));
   };
   const errors: unknown[] = [];
+  const completed: TestFileResult[] = [];
   let exitCode = 1;
   try {
     await create(template, "template0");
@@ -123,7 +163,6 @@ export async function runTestFiles(requested: string[], options: { env?: NodeJS.
     }
     let next = 0,
       failed = false;
-    const completed: { file: string; log: string; code: number }[] = [];
     const results = await Promise.allSettled(
       Array.from({ length: concurrency }, async () => {
         while (next < files.length && !options.signal?.aborted) {
@@ -206,6 +245,8 @@ export async function runTestFiles(requested: string[], options: { env?: NodeJS.
       errors.push(error);
     }
   }
+  const summary = testFailureSummary(completed.filter(Boolean));
+  if (summary) console.error(summary);
   if (errors.length) throw new AggregateError(errors, `Test execution or cleanup failed; resource journal retained at ${dir}`);
   rmSync(dir, { recursive: true, force: true });
   return exitCode;
