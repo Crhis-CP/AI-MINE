@@ -226,9 +226,13 @@ async function openSavedReader(page: Page, path: string) {
     if (revalidation) {
       const loaded = await revalidation;
       assert.equal(loaded.status(), 200);
-      await loaded.finished();
+      // The current DOM/status below proves route commit without awaiting stream EOF.
     }
     await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+    if (path.startsWith("/story/")) await expect(page.getByRole("heading", { name: story.title, exact: true })).toBeVisible();
+    else await expect(page.getByRole("region", { name: "事件收藏" }).getByRole("link").first()).toBeVisible();
   } finally {
     release();
     await page.unroute(versionUrl, heldVersion);

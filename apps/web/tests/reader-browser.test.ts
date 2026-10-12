@@ -188,14 +188,13 @@ async function openQualifiedReader(page: Page, path: "/all" | "/starred" = "/all
       phase = `baseline ${path}: data response`;
       const loaded = await revalidation;
       assert.equal(loaded.status(), 200);
-      phase = `baseline ${path}: data finished`;
-      await loaded.finished();
-      phase = `baseline ${path}: data body`;
-      const body = await loaded.text();
-      assert.match(body, /fixture-a/);
-      assert.doesNotMatch(body, /fixture-new/);
+      // React Router consumes a streamed navigation response. Its network stream closing is not
+      // the readiness condition: the guard sets idle only after revalidate() and baseline assignment.
     }
+    phase = `baseline ${path}: DOM qualified`;
     await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
     phase = `baseline ${path}: ready`;

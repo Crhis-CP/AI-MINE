@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
-import { chromium, expect, type Browser } from "@playwright/test";
+import { chromium, expect, type Browser, type Route } from "@playwright/test";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
 let origin = "",
@@ -249,32 +249,75 @@ test("detail shows honest body states, first-public evidence, representative/lat
   await context.close();
 });
 
-test("followups distinguish errors, retry, empty results and one-sentence summaries", { timeout: 30000 }, async () => {
+test("followups distinguish errors, retry, empty results and one-sentence summaries", { timeout: 30000 }, async (t) => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  let phase = "create";
+  t.after(async () => {
+    t.diagnostic(`last followups phase: ${phase}`);
+    followups = "ready";
+    await context.close();
+  });
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
+  const openReadyItem = async (reload = false) => {
+    const versionUrl = `${origin}/api/site/content-version`;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const holdVersion = async (route: Route) => {
+      await gate;
+      await route.continue();
+    };
+    await page.route(versionUrl, holdVersion, { times: 1 });
+    const version = page.waitForResponse((response) => response.url() === versionUrl);
+    const data = page.waitForResponse((response) => new URL(response.url()).pathname === "/items/none.data");
+    void version.catch(() => {});
+    void data.catch(() => {});
+    try {
+      phase = reload ? "reload" : "initial navigation";
+      if (reload) await page.reload();
+      else await page.goto(`${origin}/items/none`);
+      await page.bringToFront();
+      await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
+      phase = "initial checking";
+      await expect(page.getByText("正在确认最新内容", { exact: true })).toBeVisible();
+      release();
+      phase = "version response";
+      const baseline = await version;
+      assert.equal(baseline.status(), 200);
+      assert.deepEqual(await baseline.json(), { version: "1", withdrawalVersion: "1" });
+      phase = "data response";
+      assert.equal((await data).status(), 200);
+      // Stream EOF is not the route commit; the guard clears checking after revalidate() resolves.
+      phase = "DOM qualified";
+      await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "矿业历史报道", exact: true })).toBeVisible();
+    } finally {
+      release();
+      await page.unroute(versionUrl, holdVersion);
+    }
+  };
   followups = "error";
-  const initial = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith(".data"));
-  await page.goto(`${origin}/items/none`);
-  await (await initial).finished();
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await openReadyItem();
+  phase = "followup error";
   await page.getByRole("heading", { name: "事件后续", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByText("事件进展暂时无法读取。", { exact: false })).toBeVisible();
   await expect(page.getByText("暂无更多相关进展。", { exact: true })).toHaveCount(0);
   followups = "ready";
+  phase = "retry followups";
   await page.getByRole("button", { name: "重试进展" }).click();
   await expect(page.getByRole("link", { name: "真实后续标题" })).toBeVisible();
   await expect(page.getByText("这是后续的一句独立摘要。", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "同一事实重复稿" })).toHaveCount(0);
   followups = "empty";
-  const refreshed = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith(".data"));
-  await page.reload();
-  await (await refreshed).finished();
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await openReadyItem(true);
+  phase = "followup empty";
   await page.getByRole("heading", { name: "事件后续", exact: true }).scrollIntoViewIfNeeded();
   await expect(page.getByText("暂无更多相关进展。", { exact: true })).toBeVisible();
-  await context.close();
-  followups = "ready";
+  phase = "complete";
 });
 
 test("SPA feedback carries the current filtered page and item correction URL without submitting stale referrers", { timeout: 30000 }, async () => {
