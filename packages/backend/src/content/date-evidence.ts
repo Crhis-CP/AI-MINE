@@ -62,7 +62,8 @@ export async function prepareDateMutation(tx: Tx, sourceId: string, input: Mater
       undefined,
       tx,
     );
-    if (decision.decision !== "allow") throw new Error(`Source date permission denied: ${capability}`);
+    if (decision.decision !== "allow")
+      throw new Error(`Source date permission denied: ${capability}/${decision.reason} (${new URL(observation.url).hostname})`);
   }
 }
 

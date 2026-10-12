@@ -1,5 +1,9 @@
 # 运维读取与固定采样
 
+信源周报压缩错误文本使用 PostgreSQL 的 `[[:space:]]` 字符类，保留英文单词和错误原因；最多显示160字符。日期许可拒绝同时记录用途、判定原因和文书域名，方便区分资源范围不匹配与用途禁止，不输出查询参数。
+
+TASK-0323的`scripts/source-health-repair.ts`仅用于已核实的三处官方文书域名，默认展示计划，显式`--apply`才通过来源模块的版本围栏与审计写入。新证据限定文书路径和fetch/store_metadata/process_locally，不改变既有deny/unknown、全文、外部模型和公开用途。旧权限版本永久保留；目标已登记或来源受限时停止，避免重复或覆盖人工变更。
+
 `operations/reports`沿既有出口提供`refreshOperationalSnapshots`和`readOperationalSnapshot`。worker每两分钟顺序读取各模块自有的固定聚合端口，单查询2秒上限；数据经严格的`@amp/contracts/ops-mcp`结构验证后写入ops.operational_snapshots。原始错误不写入快照，采样失败保留最后成功时间并标明失败时间；超过5分钟的样本显示陈旧。
 
 private-api的`POST /mcp-ops`只接受当前具名Owner与既有CSRF，提供`read_operations`一个工具和固定13数据集，每次最多100行。服务最多2个并发读取，每位Owner每分钟30次；不接受订阅、任意查询、任务或命令。专用ops_read仅SELECT快照；缺专用地址不退回private_ops。身份与调用审计仍由auth承担，当前Owner能力锁持有到读取与审计完成；角色被撤销即拒绝后续读取。

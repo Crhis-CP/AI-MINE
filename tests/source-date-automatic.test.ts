@@ -253,7 +253,7 @@ test("current evidence uses CAS and live source identity/permission; rejected ob
   await assert.rejects(updateMaterialSourceDate(first.articleId, 1, bad), /configuration/);
   const outside = observed(id, "2026-09-03", 1);
   outside.sourceDateObservation.url = "https://other.invalid/mining/item";
-  await assert.rejects(updateMaterialSourceDate(first.articleId, 1, outside), /permission denied/);
+  await assert.rejects(updateMaterialSourceDate(first.articleId, 1, outside), /permission denied: fetch\/resource_mismatch \(other\.invalid\)/);
   await sql`UPDATE sources SET enabled=false WHERE id=${id}`;
   await assert.rejects(updateMaterialSourceDate(first.articleId, 1, observed(id, "2026-09-03", 1)), /configuration/);
   await sql`UPDATE sources SET enabled=true WHERE id=${id}`;
