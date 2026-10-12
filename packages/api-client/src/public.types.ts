@@ -6546,9 +6546,11 @@ export interface operations {
           | "technology_processing"
           | "exploration_resource";
         channel?: "all" | "news" | "firstParty";
+        /** @description 时间线的北京自然日起日（包含）。 */
         from?: string;
         jurisdiction?: string;
         mineral?: string;
+        /** @description 时间线的北京自然日；来源日期未知的合格内容也按时间线日期筛选。 */
         on?: string;
         page?: number;
         q?: string;
@@ -6557,6 +6559,7 @@ export interface operations {
         source?: string;
         tab?: "time" | "relevance";
         tag?: string;
+        /** @description 时间线的北京自然日止日（包含）。 */
         to?: string;
         topic?: string;
       };
@@ -7132,14 +7135,17 @@ export interface operations {
           | "exploration_resource";
         cursor?: string;
         facets?: "true" | "false";
+        /** @description 时间线的北京自然日起日（包含）。 */
         from?: string;
         jurisdiction?: string;
         limit?: number;
         mineral?: string;
+        /** @description 时间线的北京自然日；来源日期未知的合格内容也按时间线日期筛选。 */
         on?: string;
         q?: string;
         source?: string;
         status?: "active" | "merged";
+        /** @description 时间线的北京自然日止日（包含）。 */
         to?: string;
         topic?: string;
         view?: "all" | "featured";
@@ -7732,13 +7738,16 @@ export interface operations {
           | "exploration_resource";
         cursor?: string;
         facets?: "true" | "false";
+        /** @description 时间线的北京自然日起日（包含）。 */
         from?: string;
         jurisdiction?: string;
         limit?: number;
         mineral?: string;
+        /** @description 时间线的北京自然日；来源日期未知的合格内容也按时间线日期筛选。 */
         on?: string;
         q?: string;
         source?: string;
+        /** @description 时间线的北京自然日止日（包含）。 */
         to?: string;
         topic?: string;
         view?: "all" | "featured";

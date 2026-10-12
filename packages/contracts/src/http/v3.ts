@@ -245,9 +245,9 @@ const filters = {
   mineral: text.optional(),
   source: text.optional(),
   topic: text.optional(),
-  on: z.iso.date().optional(),
-  from: z.iso.date().optional(),
-  to: z.iso.date().optional(),
+  on: z.iso.date().describe("时间线的北京自然日；来源日期未知的合格内容也按时间线日期筛选。").optional(),
+  from: z.iso.date().describe("时间线的北京自然日起日（包含）。").optional(),
+  to: z.iso.date().describe("时间线的北京自然日止日（包含）。").optional(),
   facets: z.enum(["true", "false"]).optional(),
 };
 const dates = (q: { on?: string; from?: string; to?: string }) => !(q.on && (q.from || q.to)) && (!q.from || !q.to || q.from <= q.to);

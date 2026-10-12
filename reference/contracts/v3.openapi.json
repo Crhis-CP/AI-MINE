@@ -9086,6 +9086,7 @@
             }
           },
           {
+            "description": "时间线的北京自然日；来源日期未知的合格内容也按时间线日期筛选。",
             "in": "query",
             "name": "on",
             "required": false,
@@ -9096,6 +9097,7 @@
             }
           },
           {
+            "description": "时间线的北京自然日起日（包含）。",
             "in": "query",
             "name": "from",
             "required": false,
@@ -9106,6 +9108,7 @@
             }
           },
           {
+            "description": "时间线的北京自然日止日（包含）。",
             "in": "query",
             "name": "to",
             "required": false,
@@ -10141,6 +10144,7 @@
             }
           },
           {
+            "description": "时间线的北京自然日；来源日期未知的合格内容也按时间线日期筛选。",
             "in": "query",
             "name": "on",
             "required": false,
@@ -10151,6 +10155,7 @@
             }
           },
           {
+            "description": "时间线的北京自然日起日（包含）。",
             "in": "query",
             "name": "from",
             "required": false,
@@ -10161,6 +10166,7 @@
             }
           },
           {
+            "description": "时间线的北京自然日止日（包含）。",
             "in": "query",
             "name": "to",
             "required": false,

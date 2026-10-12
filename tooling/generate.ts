@@ -9,6 +9,7 @@ import { createJsonSchemaTransform, createJsonSchemaTransformObject, serializerC
 import openapiTS, { astToString } from "openapi-typescript";
 import { z } from "zod";
 import * as publicContracts from "@amp/contracts/http/public";
+import { V3ItemsQuery, V3EventsQuery } from "@amp/contracts/http/v3";
 import * as privateContracts from "@amp/contracts/http/private";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -51,6 +52,19 @@ for (const [audience, contracts] of [
     await app.ready();
     const document = app.swagger();
     if (audience === "public") {
+      // The isolated schema registry omits global Zod metadata; retain these declared query meanings.
+      for (const [routePath, query] of [
+        ["/api/site/pool", publicContracts.PoolQuery],
+        ["/api/v3/items", V3ItemsQuery],
+        ["/api/v3/events", V3EventsQuery],
+      ] as const) {
+        for (const parameter of document.paths?.[routePath]?.get?.parameters ?? []) {
+          if ("$ref" in parameter || parameter.in !== "query") continue;
+          if (parameter.name === "on" || parameter.name === "from" || parameter.name === "to") {
+            parameter.description = query.shape[parameter.name].unwrap().description;
+          }
+        }
+      }
       for (const [routePath, pathItem] of Object.entries(document.paths ?? {})) {
         if (!routePath.startsWith("/api/v3/")) continue;
         const responses = pathItem?.get?.responses;
