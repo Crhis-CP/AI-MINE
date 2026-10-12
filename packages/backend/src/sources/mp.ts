@@ -9,7 +9,13 @@ import {
 // article bodies; every enabled account is checked once per source interval.
 import { dbOf } from "../db.ts";
 import { identityKeyFor, upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
-import { recordSourceCollectionSuccess, readCurrentSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
+import {
+  SourceCollectionPaused,
+  lockSourceCollectionActive,
+  recordSourceCollectionSuccess,
+  readCurrentSourcePolicy,
+  readSourceDateContext,
+} from "@amp/backend/admin/sources";
 import { requireDateCollection } from "./collect.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
@@ -107,9 +113,13 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       // Without a body the post is listed anyway; analysis works from title and digest.
       const { body, passing } = await fetchBody(p.url, sourceId, p.sn ?? p.url, control);
       if (known && !body?.content) {
-        await sql`UPDATE articles SET raw = CASE WHEN ${!!passing}
-          THEN jsonb_set(raw, '{dajiala,bodyRetry}', ${sql.json({ attempts: known.retry!.attempts + 1, error: passing })})
-          ELSE raw #- '{dajiala,bodyRetry}' END WHERE id = ${known.id}`;
+        await sql.begin(async (tx) => {
+          await assertRuntimeControl(tx, control);
+          await lockSourceCollectionActive(tx, sourceId);
+          await tx`UPDATE articles SET raw = CASE WHEN ${!!passing}
+            THEN jsonb_set(raw, '{dajiala,bodyRetry}', ${tx.json({ attempts: known.retry!.attempts + 1, error: passing })})
+            ELSE raw #- '{dajiala,bodyRetry}' END WHERE id = ${known.id}`;
+        });
         continue;
       }
       // Mode 1 bodies are light HTML (paragraphs and image tags).
@@ -169,7 +179,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
     });
     return { sourceId, status: "ok" as const, found: posts.length, created, reused: history.reused };
   } catch (error) {
-    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+    if (error instanceof SourceCollectionPaused || error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
       await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),new_count=${created},error='运行控制暂停或变化' WHERE id=${run!.id}`;
       return { sourceId, status: "paused" as const };
     }
@@ -179,7 +189,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       UPDATE sources SET last_fetch_at = now(), last_error = ${message},
         fail_count = CASE WHEN ${soft} THEN fail_count ELSE fail_count + 1 END,
         health = CASE WHEN ${soft} THEN health WHEN fail_count + 1 >= 3 THEN 'failing' ELSE 'degraded' END, updated_at = now()
-      WHERE id = ${sourceId} AND archived_at IS NULL`;
+      WHERE id = ${sourceId} AND enabled AND archived_at IS NULL`;
     await sql`UPDATE fetch_runs SET status = 'failed', finished_at = now(), new_count = ${created}, error = ${message} WHERE id = ${run!.id}`;
     if (soft) throw error; // retried by the queue
     return { sourceId, status: "failed" as const, error: message };

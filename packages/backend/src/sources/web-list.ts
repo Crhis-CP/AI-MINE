@@ -168,10 +168,11 @@ async function fetchListingText(source: SourceRow): Promise<{ text: string; viaJ
         purpose: "source_listing",
         lane: source.lane,
         runtimeControl: source.collectionControl,
+        signal: source.collectionSignal,
         subject: `source:${source.id}`,
         cacheToleranceSeconds: source.config.cacheToleranceSeconds,
         perRead: true,
-        readKey: crawlReadKey(),
+        readKey: source.collectionReadKey ?? crawlReadKey(),
       }),
     );
     return { text: page.markdown, viaJina: true, base: source.config.baseUrl ?? target };

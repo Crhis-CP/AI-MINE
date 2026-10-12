@@ -10,7 +10,13 @@ import {
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
 import { dbOf } from "../db.ts";
 import { identityKeyFor, upsertMaterial, materialDateHeads } from "@amp/backend/content/materials";
-import { recordSourceCollectionSuccess, readCurrentSourcePolicy, evaluateSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
+import {
+  SourceCollectionPaused,
+  recordSourceCollectionSuccess,
+  readCurrentSourcePolicy,
+  evaluateSourcePolicy,
+  readSourceDateContext,
+} from "@amp/backend/admin/sources";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { enqueueSourceFetch, collectionEnabled, type CollectionLane } from "../jobs/source-queues.ts";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
@@ -306,9 +312,16 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
     });
     return { sourceId, status: "ok", found, created, revised };
   } catch (error) {
-    if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+    if (error instanceof SourceCollectionPaused || error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
       await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),found_count=${found},new_count=${created},error='运行控制暂停或变化' WHERE id=${run!.id}`;
-      return { sourceId, status: "skipped", found, created, revised, error: "lane-control-changed" };
+      return {
+        sourceId,
+        status: "skipped",
+        found,
+        created,
+        revised,
+        error: error instanceof SourceCollectionPaused ? "source-paused" : "lane-control-changed",
+      };
     }
     if (error instanceof CrawlDeferred) {
       await deferSourceFetch(sourceId, error.retryAt);
@@ -324,7 +337,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         health = CASE WHEN ${budget} THEN health WHEN fail_count + 1 >= 5 THEN 'failing' ELSE 'degraded' END,
         next_fetch_at = now() + make_interval(mins => CASE WHEN ${budget} THEN 15 ELSE LEAST(interval_minutes * (fail_count + 2), 360) END),
         updated_at = now()
-      WHERE id = ${sourceId} AND archived_at IS NULL`;
+      WHERE id = ${sourceId} AND enabled AND archived_at IS NULL`;
     if (error instanceof DirectoryRoundFailed) await deferSourceFetch(sourceId, new Date(Date.now() + 60_000));
     await sql`UPDATE fetch_runs SET status = 'failed', finished_at = now(), found_count = ${found}, new_count = ${created}, error = ${message} WHERE id = ${run!.id}`;
     return { sourceId, status: "failed", found, created, revised, error: message };

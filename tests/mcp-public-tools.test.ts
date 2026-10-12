@@ -171,9 +171,48 @@ test("all public MCP tools run under public_read; rights, current withdrawal and
   assert.ok(!("score" in item.structuredContent.item));
   await f.admin`UPDATE sources SET syndicate_fulltext=false WHERE id='pr9-editorial'`;
   await f.admin`UPDATE publications SET summary=NULL,source_excerpt='MCP_SITE_ONLY_EXCERPT' WHERE article_id='pr9-editorial-public-full'`;
+  const machineReports = await Promise.all([...(["daily", "weekly", "monthly"] as const).map((kind) => good(T.report, { kind })), good(T.daily)]);
+  for (const response of machineReports) {
+    assert.doesNotMatch(JSON.stringify(response), /MCP_SITE_ONLY_EXCERPT/, "machine reports must not inherit website source excerpts");
+    assert.match(JSON.stringify(response), /pr9-editorial-public-full/, "qualified citation stays in the report");
+  }
+  const reportKey = machineReports[0]!.structuredContent.report.key;
+  const siteReport = (await (await server.request(`/api/site/reports/daily/${reportKey}`)).json()) as Json;
+  assert.match(JSON.stringify(siteReport), /MCP_SITE_ONLY_EXCERPT/, "website report keeps its permitted excerpt");
+  await f.admin`UPDATE publications SET summary='MCP_LEGAL_PUBLIC_GUIDE' WHERE article_id='pr9-editorial-public-full'`;
+  for (const response of await Promise.all([good(T.report, { kind: "daily" }), good(T.daily)])) {
+    assert.match(JSON.stringify(response), /MCP_LEGAL_PUBLIC_GUIDE/, "legal public guide remains available to machine readers");
+    assert.match(JSON.stringify(response), /https:\/\/source\.example\.test\/pr9-editorial-public-full/, "current qualified source URL is retained");
+  }
+  await f.admin`UPDATE reports SET content=jsonb_set(content,'{flashes}',jsonb_build_array(jsonb_build_object(
+    'title','Synthetic unbound citation','summary','MCP_UNBOUND_SOURCE_SUMMARY','sourceUrl','https://private.invalid/MCP_UNBOUND_SOURCE_URL'
+  ))) WHERE kind='daily' AND key=${reportKey}`;
+  for (const response of await Promise.all([good(T.report, { kind: "daily" }), good(T.daily)])) {
+    assert.doesNotMatch(JSON.stringify(response), /MCP_UNBOUND_SOURCE_SUMMARY|MCP_UNBOUND_SOURCE_URL/, "unbound snapshots cannot authorize a machine citation");
+    assert.match(JSON.stringify(response), /MCP_LEGAL_PUBLIC_GUIDE/);
+  }
+  const siteUnbound = await (await server.request(`/api/site/reports/daily/${reportKey}`)).text();
+  assert.match(siteUnbound, /MCP_UNBOUND_SOURCE_SUMMARY/, "existing website citation behavior remains unchanged");
+  await f.admin`UPDATE publications SET summary=NULL WHERE article_id='pr9-editorial-public-full'`;
   const limited = await good(T.item, { id: "pr9-editorial-public-full" });
   assert.equal(limited.structuredContent.reading.redistribution, "restricted");
   assert.doesNotMatch(JSON.stringify(limited), /TRANSLATED_BODY|ORIGINAL_BODY|MCP_SITE_ONLY_EXCERPT/);
+  const coverage = limited.structuredContent.item.eventCoverage;
+  assert.ok(coverage && coverage.reportCount >= 2, "machine detail keeps qualified event context");
+  assert.equal(coverage.representative.summary, null);
+  const siteBefore = (await (await server.request("/api/site/items/pr9-editorial-public-full")).json()) as Json;
+  assert.equal(siteBefore.eventCoverage.representative.summary, "MCP_SITE_ONLY_EXCERPT", "website excerpt remains readable");
+  const latestId = coverage.latest.id;
+  await f.admin`UPDATE publications SET summary='MCP_PUBLIC_EVENT_GUIDE',source_excerpt='MCP_SITE_ONLY_LATEST_EXCERPT' WHERE article_id=${latestId}`;
+  const guided = await good(T.item, { id: "pr9-editorial-public-full" });
+  assert.equal(guided.structuredContent.item.eventCoverage.latest.summary, "MCP_PUBLIC_EVENT_GUIDE");
+  await f.admin`UPDATE publications SET summary=NULL WHERE article_id=${latestId}`;
+  const nestedLimited = await good(T.item, { id: "pr9-editorial-public-full" });
+  assert.equal(nestedLimited.structuredContent.item.eventCoverage.latest.summary, null);
+  assert.equal(nestedLimited.structuredContent.item.eventCoverage.reportCount, coverage.reportCount);
+  assert.doesNotMatch(JSON.stringify(nestedLimited), /MCP_SITE_ONLY_EXCERPT|MCP_SITE_ONLY_LATEST_EXCERPT/);
+  const siteAfter = (await (await server.request("/api/site/items/pr9-editorial-public-full")).json()) as Json;
+  assert.equal(siteAfter.eventCoverage.latest.summary, "MCP_SITE_ONLY_LATEST_EXCERPT");
   assert.equal((await call(T.item, { id: "pr9-future" })).isError, true);
   assert.equal((await call(T.item, { id: "pr9-candidate" })).isError, true);
   await f.admin`UPDATE publications SET visibility='withdrawn' WHERE article_id='pr9-editorial-public-full'`;

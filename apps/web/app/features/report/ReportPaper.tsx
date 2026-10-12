@@ -15,6 +15,7 @@ import { IconArrowLeft, IconArrowRight, IconArrowUpRight } from "../../component
 import { Kicker } from "@amp/ui/Kicker";
 import { SourceAvatar } from "../../components/ui/SourceAvatar";
 import { Halftone } from "./Halftone";
+import { ShareLink } from "../../components/ShareLink";
 import { Nameplate } from "./Nameplate";
 import { IssueDots } from "./IssueDots";
 import { EDITION, KIND_LABEL, MOTTO, dateLine, dateMark, headline, issueNumber, metricItems, neighbourLabel, reportPath, shortDay } from "./format";
@@ -360,6 +361,9 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
   const count = pages.reduce((sum, p) => sum + p.items.length, 0) + (leadStory ? 1 : 0);
   return (
     <article className="@container">
+      <div className="flex justify-end pt-3 lg:pt-0">
+        <ShareLink path={reportPath(report.kind, report.key)} title={report.title} />
+      </div>
       <Masthead report={report} index={index} />
       <div className="my-4 space-y-1 text-[12px] text-ink-3">
         <p>

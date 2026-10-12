@@ -69,6 +69,7 @@ before(async () => {
             VALUES (${SOURCE}, 'Test publication', 'rss', 'T1', 'editorial', true, true, '2100-01-01')`;
 });
 after(async () => {
+  await sql`DELETE FROM reports.correction_jobs WHERE report_id IN (SELECT id FROM reports WHERE kind='daily' AND key=${REPORT_KEY})`;
   await sql`DELETE FROM reports WHERE kind = 'daily' AND key = ${REPORT_KEY}`;
   await app.close();
   await provider.close();
@@ -185,12 +186,16 @@ test("revoking a source's licence takes its articles off every exit", async () =
 
 test("a withdrawn item leaves every report exit", async () => {
   const id = await article();
+  await sql`UPDATE analyses SET title_zh=${`撤回测试 LEAD-${T}`},summary_zh=${`撤回引用 QUOTED-${T}`} WHERE article_id=${id}`;
   await publishArticle(id, released());
+  const [published] = await sql<{ title: string; summary: string; url: string; source_name: string }[]>`
+    SELECT p.title,p.summary,p.url,s.name AS source_name FROM publications p JOIN sources s ON s.id=p.source_id WHERE p.article_id=${id}`;
+  assert.ok(published!.title.includes(`LEAD-${T}`) && published!.summary.includes(`QUOTED-${T}`));
   const content = {
     sections: [
       {
         label: "模型",
-        items: [{ itemId: id, title: `LEAD-${T}`, summary: `QUOTED-${T}`, sourceUrl: `https://example.com/original-${T}`, sourceName: "Test" }],
+        items: [{ itemId: id, title: published!.title, summary: published!.summary, sourceUrl: published!.url, sourceName: published!.source_name }],
       },
     ],
     flashes: [],
@@ -198,18 +203,26 @@ test("a withdrawn item leaves every report exit", async () => {
   await sql`INSERT INTO reports (kind, key, window_start, window_end, content, generated_at, origin)
             VALUES ('daily', ${REPORT_KEY}, now() - interval '1 day', now(), ${sql.json(content as never)}, now(), 'manual')
             ON CONFLICT (kind, key) DO UPDATE SET content = EXCLUDED.content`;
-  assert.ok((await get(`/api/v1/dailies/${REPORT_KEY}`)).body.includes(`QUOTED-${T}`), "the report quotes the item before");
+  for (const url of [`/api/v1/dailies/${REPORT_KEY}`, `/api/site/reports/daily/${REPORT_KEY}`]) {
+    const before = await get(url);
+    assert.equal(before.status, 200, url);
+    for (const marker of [`QUOTED-${T}`, `LEAD-${T}`, published!.url])
+      assert.ok(before.body.includes(marker), `${url} contains the current reference before withdrawal: ${marker}`);
+  }
+  assert.ok((await get("/api/v1/dailies")).body.includes(`LEAD-${T}`), "the directory headlines the current item before withdrawal");
 
   await setVisibility(id, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
   for (const url of [`/api/v1/dailies/${REPORT_KEY}`, `/api/site/reports/daily/${REPORT_KEY}`]) {
     const res = await get(url);
     assert.equal(res.status, 200, url);
-    assert.ok(!res.body.includes(`QUOTED-${T}`) && !res.body.includes(`original-${T}`), `${url} still quotes the withdrawn item`);
+    for (const marker of [`QUOTED-${T}`, `LEAD-${T}`, published!.url])
+      assert.ok(!res.body.includes(marker), `${url} still quotes the withdrawn item: ${marker}`);
   }
   for (const url of ["/api/v1/dailies"]) {
     const res = await get(url);
     assert.ok(res.body.includes(REPORT_KEY), `${url} lists the report`);
-    assert.ok(!res.body.includes(`LEAD-${T}`), `${url} headlines the withdrawn title`);
+    for (const marker of [`QUOTED-${T}`, `LEAD-${T}`, published!.url])
+      assert.ok(!res.body.includes(marker), `${url} retains the withdrawn reference: ${marker}`);
   }
 });
 

@@ -1,0 +1,1834 @@
+{
+  "schema_version": 1,
+  "audit": "fresh2-reader",
+  "audited_at": "2026-10-12",
+  "reviewer": "clean_reader_round2",
+  "new_repository": "Crhis-CP/AI-MINE",
+  "new_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+  "old_repository": "Crhis-CP/global-mining-policy-intelligence",
+  "old_ref": "65d362407226da856f66477807c5437acf1af27b",
+  "scope": "读者页面及公开出口的可观察功能与逻辑；独立冻结代码对照",
+  "summary": {
+    "total": 36,
+    "preserved": 20,
+    "intentional_change": 7,
+    "omission": 5,
+    "uncertain": 4,
+    "omissions": [
+      {
+        "id": "F2-RDR-013",
+        "feature": "开放许可链接与来源官网最新法律信息",
+        "priority": "P2",
+        "gap_kind": "old_behavior_regression"
+      },
+      {
+        "id": "F2-RDR-018",
+        "feature": "事件对象收藏与收藏列表解析",
+        "priority": "P2",
+        "gap_kind": "current_spec_new_capability_missing"
+      },
+      {
+        "id": "F2-RDR-027",
+        "feature": "事件与报告详情的复制链接、手机系统分享",
+        "priority": "P2",
+        "gap_kind": "current_spec_new_capability_missing"
+      },
+      {
+        "id": "F2-RDR-033",
+        "feature": "公开v3 OpenAPI文档主域名可达",
+        "priority": "P2",
+        "gap_kind": "current_spec_new_capability_unreachable"
+      },
+      {
+        "id": "F2-RDR-034",
+        "feature": "Agent指南与llms.txt发现v3能力",
+        "priority": "P2",
+        "gap_kind": "current_spec_new_capability_undocumented"
+      }
+    ]
+  },
+  "method": [
+    "新库仅git show/git grep/git ls-tree冻结SHA；未读取既有audit-remediation报告、任务交付结论或当前工作区实现。",
+    "旧库仅gh api固定ref在线只读；源码只进内存/标准输出，未clone、未下载源码落盘、未复制数据。",
+    "参照本次SHA下读者页、内容标准、时间与出口规格裁决有据变化；不比较框架、架构、代码风格，不用缺测试判断缺功能。",
+    "纯内存执行冻结http-policy.ts的isApiOwned/resolveRedirect；未启动服务、未访问数据库或生产、未读取秘密、未调用模型、未发送反馈。"
+  ],
+  "limitations": [
+    "preserved表示所列细节在冻结代码中有对应实现，不等于线上/手机/内容质量验收。",
+    "未在真实运行环境覆盖所有边界；未知项明确uncertain。",
+    "事件收藏与事件/报告分享属于现行规格新增未落地，不冒称旧站已有独立同等能力。",
+    "本轮对公开v3/MCP只核查所列路径和内容门槛，不等于完整协议或所有字段验收。"
+  ],
+  "read_only_probe": {
+    "path": "packages/contracts/src/http-policy.ts",
+    "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+    "results": [
+      {
+        "path": "/openapi-v3.json",
+        "isApiOwned": false,
+        "redirect": null
+      },
+      {
+        "path": "/openapi-v1.json",
+        "isApiOwned": true,
+        "redirect": null
+      },
+      {
+        "path": "/api/v3/items",
+        "isApiOwned": true,
+        "redirect": null
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "F2-RDR-001",
+      "feature": "桌面栏目与手机更多导航",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "line_start": 24,
+          "line_end": 38,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/shell.tsx#L24-L38"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "line_start": 195,
+          "line_end": 247,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/shell.tsx#L195-L247"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/components/shell/nav.ts",
+          "line_start": 14,
+          "line_end": 54,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/components/shell/nav.ts#L14-L54"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/components/shell/MobileTabBar.tsx",
+          "line_start": 5,
+          "line_end": 32,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/components/shell/MobileTabBar.tsx#L5-L32"
+        }
+      ],
+      "expected_behavior": "原有内容与辅助栏目均可到达，法规动态按新规格增加独立入口。",
+      "result": "preserved",
+      "reason": "导航数据同时服务桌面与手机；日报高亮兼容周报/月报，更多覆盖法规等栏目。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 400,
+          "line_end": 414,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L400-L414"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-002",
+      "feature": "深色、浅色、跟随系统与本机保存",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "line_start": 39,
+          "line_end": 93,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/shell.tsx#L39-L93"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/components/shell/ThemeSwitch.tsx",
+          "line_start": 7,
+          "line_end": 59,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/components/shell/ThemeSwitch.tsx#L7-L59"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/lib/local-state.ts",
+          "line_start": 169,
+          "line_end": 195,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/lib/local-state.ts#L169-L195"
+        }
+      ],
+      "expected_behavior": "三种外观可切换并跨刷新保存，默认跟随系统。",
+      "result": "preserved",
+      "reason": "三态、系统变化监听、首帧脚本均存在；未迁移旧键符合现行规则。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 288,
+          "line_end": 293,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L288-L293"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-003",
+      "feature": "首页从全部动态改为精选、首个精选前回退动态",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 37,
+          "line_end": 87,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L37-L87"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/home.tsx",
+          "line_start": 17,
+          "line_end": 87,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/home.tsx#L17-L87"
+        }
+      ],
+      "expected_behavior": "首页用精选，尚无任何精选时提供最新动态；不再保留旧精选占位页。",
+      "result": "intentional_change",
+      "reason": "旧首页全部动态、精选占位；DEC-13 明确改为首页精选与启动空态回退。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 451,
+          "line_end": 459,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L451-L459"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-004",
+      "feature": "标题与摘要搜索、可分享搜索地址",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "line_start": 419,
+          "line_end": 432,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feed.tsx#L419-L432"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "line_start": 740,
+          "line_end": 755,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/reader.py#L740-L755"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/all.tsx",
+          "line_start": 23,
+          "line_end": 40,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/all.tsx#L23-L40"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/Filters.tsx",
+          "line_start": 141,
+          "line_end": 245,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/Filters.tsx#L141-L245"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/pool.ts",
+          "line_start": 71,
+          "line_end": 101,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/pool.ts#L71-L101"
+        }
+      ],
+      "expected_behavior": "搜索词保留在 URL，标题/摘要搜索覆盖全库而非当前页。",
+      "result": "preserved",
+      "reason": "默认搜索条件在分页 SQL 前生效；另有正文相关搜索入口，未把旧标题摘要能力丢失。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-005",
+      "feature": "来源、日期、矿种与国家组合筛选控件",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "line_start": 444,
+          "line_end": 509,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feed.tsx#L444-L509"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "line_start": 756,
+          "line_end": 777,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/reader.py#L756-L777"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/Filters.tsx",
+          "line_start": 263,
+          "line_end": 327,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/Filters.tsx#L263-L327"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/all.tsx",
+          "line_start": 27,
+          "line_end": 40,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/all.tsx#L27-L40"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/pool.ts",
+          "line_start": 159,
+          "line_end": 166,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/pool.ts#L159-L166"
+        }
+      ],
+      "expected_behavior": "来源与日期筛选可用，条件共享 URL，改变条件重置分页；扩展国家/矿种。",
+      "result": "preserved",
+      "reason": "旧来源和日期控件保留，新增矿种与国家控件；本条只确认控件/传参，日期取值基准另见 F2-RDR-009。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-006",
+      "feature": "页码、精确总数、上一页下一页及跳页",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "line_start": 237,
+          "line_end": 309,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feed.tsx#L237-L309"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "line_start": 794,
+          "line_end": 803,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/reader.py#L794-L803"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/DayList.tsx",
+          "line_start": 89,
+          "line_end": 146,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/DayList.tsx#L89-L146"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/all.tsx",
+          "line_start": 178,
+          "line_end": 221,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/all.tsx#L178-L221"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/pool.ts",
+          "line_start": 179,
+          "line_end": 191,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/pool.ts#L179-L191"
+        }
+      ],
+      "expected_behavior": "结果按页读取，地址带页码，越界跳页截到末页，保留筛选条件。",
+      "result": "preserved",
+      "reason": "前后页和跳页组件存在，服务端使用精确 count，无 50 页封顶。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-007",
+      "feature": "北京日分组与会话内折叠",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "line_start": 136,
+          "line_end": 203,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feed.tsx#L136-L203"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/DayList.tsx",
+          "line_start": 25,
+          "line_end": 83,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/DayList.tsx#L25-L83"
+        }
+      ],
+      "expected_behavior": "资讯按北京日展示，折叠后返回列表仍记住本次会话状态。",
+      "result": "preserved",
+      "reason": "新实现以路径和条件作为折叠保存键；按 timelineAt 北京日期分组。没有将日总条数跨页准确性纳入本条结论。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-008",
+      "feature": "仅日期条目与列表时间轨的显示规则",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/lib/reader/preferences.ts",
+          "line_start": 127,
+          "line_end": 162,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/lib/reader/preferences.ts#L127-L162"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 132,
+          "line_end": 148,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L132-L148"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/lib/format.ts",
+          "line_start": 38,
+          "line_end": 60,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/lib/format.ts#L38-L60"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 126,
+          "line_end": 139,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L126-L139"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/DayList.tsx",
+          "line_start": 48,
+          "line_end": 74,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/DayList.tsx#L48-L74"
+        }
+      ],
+      "expected_behavior": "详情保留只显示日期；列表按新时间线规则显示时刻或破折号，取消旧更新/本站公开徽标。",
+      "result": "intentional_change",
+      "reason": "现行 BR-TIME 明确沿用 AIHOT 时间轨；旧 fallback 徽标不再是保留目标。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/02-rules/04-time-semantics.md",
+          "line_start": 215,
+          "line_end": 225,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/02-rules/04-time-semantics.md#L215-L225"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/02-rules/04-time-semantics.md",
+          "line_start": 234,
+          "line_end": 240,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/02-rules/04-time-semantics.md#L234-L240"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-009",
+      "feature": "日期筛选与今天时间线使用同一基准",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "line_start": 774,
+          "line_end": 777,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/reader.py#L774-L777"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/items.ts",
+          "line_start": 255,
+          "line_end": 258,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/items.ts#L255-L258"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/pool.ts",
+          "line_start": 159,
+          "line_end": 164,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/pool.ts#L159-L164"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/pool.ts",
+          "line_start": 261,
+          "line_end": 261,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/pool.ts#L261-L261"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/Filters.tsx",
+          "line_start": 324,
+          "line_end": 324,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/Filters.tsx#L324-L324"
+        }
+      ],
+      "expected_behavior": "需先裁决现行规格内的时间线日期与来源日期两种定义；不能只凭今天计数推定日期筛选必须同口径。",
+      "result": "uncertain",
+      "reason": "冻结代码的日期筛选使用 published_at，今天与列表分组使用 timeline_at，差异客观存在。但规格互相冲突：时间规则 BR-TIME-08 和出口验收 AC-OUT-12 的2026-10-05修订明确接口日期按时间线北京日期；公开API契约 §2.3（第87行）则明确来源日期未知只在无日期筛选时出现，第107行也取来源日期。旧 reader.py 与新筛选均符合后一组规则，尚不能排除有据区分，故不作为确定遗漏。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/02-rules/04-time-semantics.md",
+          "line_start": 150,
+          "line_end": 154,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/02-rules/04-time-semantics.md#L150-L154"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 113,
+          "line_end": 113,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L113-L113"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/03-data/02-public-api-contract.md",
+          "line_start": 87,
+          "line_end": 87,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/03-data/02-public-api-contract.md#L87-L87"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/03-data/02-public-api-contract.md",
+          "line_start": 107,
+          "line_end": 107,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/03-data/02-public-api-contract.md#L107-L107"
+        }
+      ],
+      "remaining_evidence": "确认两套已提交规格谁代表当前日期筛选意图；尤其来源日期未知、来源日与timelineAt跨北京日两个场景。若沿用来源日期筛选，保留当前实现并校正规格；若时间线日期优先，再修正筛选及说明。"
+    },
+    {
+      "id": "F2-RDR-010",
+      "feature": "详情中文正文与来源原文切换",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "line_start": 117,
+          "line_end": 174,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/article-body.tsx#L117-L174"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 118,
+          "line_end": 125,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L118-L125"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 408,
+          "line_end": 429,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L408-L429"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/detail.ts",
+          "line_start": 190,
+          "line_end": 203,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/detail.ts#L190-L203"
+        }
+      ],
+      "expected_behavior": "已取得且获准的中文/原文均可阅读，译文与原文明确标识。",
+      "result": "preserved",
+      "reason": "新语言路由返回选定正文，详情页提供中文/原文入口与 AI 翻译标签。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-011",
+      "feature": "正文目录与手机目录",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 338,
+          "line_end": 366,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L338-L366"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 231,
+          "line_end": 247,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L231-L247"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 363,
+          "line_end": 375,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L363-L375"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/detail.ts",
+          "line_start": 37,
+          "line_end": 51,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/detail.ts#L37-L51"
+        }
+      ],
+      "expected_behavior": "文章章节有锚点，手机可展开目录并跳正文、来源与事件进展。",
+      "result": "preserved",
+      "reason": "新目录由正文标题生成稳定锚点；手机单独提供折叠菜单。桌面仅至少三节时显示目录属于展示方式差异。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-012",
+      "feature": "发布方署名、原文入口与 AI 标识",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 116,
+          "line_end": 124,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L116-L124"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 156,
+          "line_end": 161,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L156-L161"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "line_start": 17,
+          "line_end": 22,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/information.tsx#L17-L22"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/parts.tsx",
+          "line_start": 57,
+          "line_end": 73,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/parts.tsx#L57-L73"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 432,
+          "line_end": 446,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L432-L446"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/feeds.ts",
+          "line_start": 109,
+          "line_end": 155,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/feeds.ts#L109-L155"
+        }
+      ],
+      "expected_behavior": "中文内容可追溯发布方，原文可打开，正文/出口有 AI 辅助标识。",
+      "result": "preserved",
+      "reason": "页面与 RSS 均有发布方和原文链接；人工修订与 AI 文案区分存在。许可深链接问题另列。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-013",
+      "feature": "开放许可链接与来源官网最新法律信息",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "line_start": 176,
+          "line_end": 193,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/article-body.tsx#L176-L193"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "line_start": 108,
+          "line_end": 135,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/reader.py#L108-L135"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/reader-context.ts",
+          "line_start": 8,
+          "line_end": 26,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/reader-context.ts#L8-L26"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/parts.tsx",
+          "line_start": 74,
+          "line_end": 93,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/parts.tsx#L74-L93"
+        }
+      ],
+      "expected_behavior": "有开放许可依据时，在正文末尾显示许可名称链接、来源/改编说明及官网最新法律信息入口。",
+      "result": "omission",
+      "reason": "新 readerAttribution 无条件把 license.url 与 legalUrl 设为 null，前端虽保留链接槽位，但公开投影永远不能产生链接。不是框架差异。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/06-content-standards.md",
+          "line_start": 799,
+          "line_end": 800,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/06-content-standards.md#L799-L800"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/02-rules/01-business-rules.md",
+          "line_start": 620,
+          "line_end": 620,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/02-rules/01-business-rules.md#L620-L620"
+        }
+      ],
+      "priority": "P2",
+      "gap_kind": "old_behavior_regression",
+      "reproduction": "给来源登记开放许可名称及 supporting evidence.url，发布一篇允许站内全文的文章；其 item.attribution.license.url 与 legalUrl 固定为 null，正文只显示许可文字，不出现旧站可点的许可/官网法律信息链接。",
+      "impact": "读者无法直接核验许可及来源的当前法律说明。"
+    },
+    {
+      "id": "F2-RDR-014",
+      "feature": "文中公司与资料依据",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 166,
+          "line_end": 189,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L166-L189"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 448,
+          "line_end": 471,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L448-L471"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/reader-context.ts",
+          "line_start": 28,
+          "line_end": 58,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/reader-context.ts#L28-L58"
+        }
+      ],
+      "expected_behavior": "只展示有依据的公司中文/原名、说明及出处。",
+      "result": "preserved",
+      "reason": "独立公司区块与来源链接存在；公开值通过公司词表和原文引文筛选，不凭空补译名。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-015",
+      "feature": "相关报道的代表稿与最新进展分开显示",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 228,
+          "line_end": 279,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L228-L279"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/item/RelatedCoverage.tsx",
+          "line_start": 5,
+          "line_end": 30,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/item/RelatedCoverage.tsx#L5-L30"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 444,
+          "line_end": 444,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L444-L444"
+        }
+      ],
+      "expected_behavior": "历史稿不被新稿替换，代表稿和最新稿可分别进入并标示正在阅读。",
+      "result": "preserved",
+      "reason": "独立区块保留两个角色与当前项标识，并展示官方/当事方标记。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-016",
+      "feature": "详情页事件后续、错误重试与完整事件入口",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 304,
+          "line_end": 328,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L304-L328"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/item/StoryFollowups.tsx",
+          "line_start": 17,
+          "line_end": 107,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/item/StoryFollowups.tsx#L17-L107"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 500,
+          "line_end": 504,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L500-L504"
+        }
+      ],
+      "expected_behavior": "排除当前条目/事实，展示其他进展，无进展和读取失败分开；可进完整事件。",
+      "result": "preserved",
+      "reason": "新实现按临近视口懒读，但有手动触发、noscript链接和失败重试；仅比较行为而不把加载方式变化当缺陷。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-017",
+      "feature": "默认事件折叠卡与可展开来源/进展",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feed.tsx",
+          "line_start": 136,
+          "line_end": 203,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feed.tsx#L136-L203"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/app/events/[event_id]/page.tsx",
+          "line_start": 1,
+          "line_end": 8,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/app/events/[event_id]/page.tsx#L1-L8"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/pool.ts",
+          "line_start": 265,
+          "line_end": 310,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/pool.ts#L265-L310"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/ReadingGroup.tsx",
+          "line_start": 190,
+          "line_end": 303,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/ReadingGroup.tsx#L190-L303"
+        }
+      ],
+      "expected_behavior": "无筛选时同事件折叠，搜索/筛选时按篇显示，卡内能展开其他来源与进展。",
+      "result": "intentional_change",
+      "reason": "旧读者列表逐篇显示；现行规格明确新增事件折叠。新 pool 仅在 unfiltered 时调用归组，展开具备分页与重试。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 430,
+          "line_end": 445,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L430-L445"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-018",
+      "feature": "事件对象收藏与收藏列表解析",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/app/v2/stories/[story_id]/page.tsx",
+          "line_start": 1,
+          "line_end": 8,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/app/v2/stories/[story_id]/page.tsx#L1-L8"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 111,
+          "line_end": 126,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L111-L126"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/story.tsx",
+          "line_start": 1,
+          "line_end": 57,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/story.tsx#L1-L57"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/story.tsx",
+          "line_start": 190,
+          "line_end": 238,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/story.tsx#L190-L238"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/lib/local-state.ts",
+          "line_start": 15,
+          "line_end": 19,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/lib/local-state.ts#L15-L19"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/starred.tsx",
+          "line_start": 16,
+          "line_end": 19,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/starred.tsx#L16-L19"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/starred.tsx",
+          "line_start": 131,
+          "line_end": 150,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/starred.tsx#L131-L150"
+        }
+      ],
+      "expected_behavior": "新独立事件页可收藏事件引用，收藏页可解析显示或移除不可用事件。",
+      "result": "omission",
+      "reason": "旧 story URL 复用条目详情，故旧收藏不是独立事件类型；现行规格明确新增事件收藏。新状态类型声明 story，但事件页无收藏控件，收藏页仅解析 item 并加载 PolicySavedList。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 277,
+          "line_end": 280,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L277-L280"
+        }
+      ],
+      "priority": "P2",
+      "gap_kind": "current_spec_new_capability_missing",
+      "reproduction": "打开 /story/{publicId}，无法找到收藏事件按钮。即使本机写入 type='story' 的合法引用，/starred 总数会计入该引用，却无事件行及移除入口。",
+      "impact": "读者无法把关注事件加入稍后阅读清单。"
+    },
+    {
+      "id": "F2-RDR-019",
+      "feature": "条目收藏上限、跨标签同步与存储失败提示",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/controls.tsx",
+          "line_start": 15,
+          "line_end": 63,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/controls.tsx#L15-L63"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/saved.tsx",
+          "line_start": 59,
+          "line_end": 63,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/saved.tsx#L59-L63"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/lib/local-state.ts",
+          "line_start": 52,
+          "line_end": 81,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/lib/local-state.ts#L52-L81"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/lib/local-state.ts",
+          "line_start": 152,
+          "line_end": 167,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/lib/local-state.ts#L152-L167"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/parts.tsx",
+          "line_start": 13,
+          "line_end": 53,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/parts.tsx#L13-L53"
+        }
+      ],
+      "expected_behavior": "只存引用，最多100条；点击即时变更，同浏览器其他标签同步，存储失败有提示。",
+      "result": "preserved",
+      "reason": "新实现去除正文副本、限制新增上限，事件同步和错误提示均保留。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-020",
+      "feature": "收藏当前版本重读与移除不可用收藏",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/saved.tsx",
+          "line_start": 15,
+          "line_end": 55,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/saved.tsx#L15-L55"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/saved.tsx",
+          "line_start": 83,
+          "line_end": 115,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/saved.tsx#L83-L115"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/starred.tsx",
+          "line_start": 28,
+          "line_end": 78,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/starred.tsx#L28-L78"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/starred.tsx",
+          "line_start": 100,
+          "line_end": 120,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/starred.tsx#L100-L120"
+        }
+      ],
+      "expected_behavior": "收藏重读当前公开内容，下架项停止展示，可移除不可用引用，失败可重试。",
+      "result": "preserved",
+      "reason": "新实现每60秒及聚焦/可见性变化重查，分批解析引用，不展示本地旧内容副本。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-021",
+      "feature": "反馈字段、截图、校验与提交结果",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feedback.tsx",
+          "line_start": 25,
+          "line_end": 83,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feedback.tsx#L25-L83"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feedback.tsx",
+          "line_start": 90,
+          "line_end": 155,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feedback.tsx#L90-L155"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "line_start": 81,
+          "line_end": 158,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/feedback.tsx#L81-L158"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "line_start": 161,
+          "line_end": 183,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/feedback.tsx#L161-L183"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/feedback.ts",
+          "line_start": 39,
+          "line_end": 55,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/feedback.ts#L39-L55"
+        }
+      ],
+      "expected_behavior": "匿名提交10–5000字、选填联系方式和最多一张2MB截图；失败保留内容，不显示成功。",
+      "result": "preserved",
+      "reason": "支持原有PNG/JPEG/WebP限制与成功状态，新增草稿和幂等键；只有 HTTP 成功才进入已收到界面。未实际发送反馈。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-022",
+      "feature": "反馈关联来源页",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "line_start": 104,
+          "line_end": 112,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/shell.tsx#L104-L112"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/feedback.tsx",
+          "line_start": 49,
+          "line_end": 55,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/feedback.tsx#L49-L55"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "line_start": 84,
+          "line_end": 105,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/feedback.tsx#L84-L105"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 445,
+          "line_end": 447,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L445-L447"
+        }
+      ],
+      "expected_behavior": "进入反馈时保留来源页，站内 from 参数可带入关联地址。",
+      "result": "preserved",
+      "reason": "新页面读取 from 与本机草稿并提交 pageUrl，详情入口主动附带来源页。仅确认有据入口，不推定每一个独立链接都已覆盖。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 408,
+          "line_end": 408,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L408-L408"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-023",
+      "feature": "日报、周报、月报切换与往期目录",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 383,
+          "line_end": 443,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L383-L443"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes.ts",
+          "line_start": 10,
+          "line_end": 16,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes.ts#L10-L16"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportNav.tsx",
+          "line_start": 9,
+          "line_end": 47,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportNav.tsx#L9-L47"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportNav.tsx",
+          "line_start": 121,
+          "line_end": 157,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportNav.tsx#L121-L157"
+        }
+      ],
+      "expected_behavior": "可切换三类报告，当前期高亮，桌面和手机能找到往期。",
+      "result": "preserved",
+      "reason": "路由改为不同周期地址是规格要求；三类入口、日刊合订本、手机近三期和更早入口均存在。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-024",
+      "feature": "报告综合四态与确定性资料汇总",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 517,
+          "line_end": 543,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L517-L543"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportPaper.tsx",
+          "line_start": 364,
+          "line_end": 378,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportPaper.tsx#L364-L378"
+        }
+      ],
+      "expected_behavior": "综合完成、处理中、失败和普通资料汇总状态分开，不把失败冒称综合完成。",
+      "result": "preserved",
+      "reason": "新 generationStatus 对 ready/pending/failed/其他分别显示，报告同时标示 AI 辅助生成。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-025",
+      "feature": "当前期未发布时显示最近一期并声明缺期",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 486,
+          "line_end": 501,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L486-L501"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 584,
+          "line_end": 618,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L584-L618"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/report-latest.tsx",
+          "line_start": 14,
+          "line_end": 19,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/report-latest.tsx#L14-L19"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/report-latest.tsx",
+          "line_start": 36,
+          "line_end": 53,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/report-latest.tsx#L36-L53"
+        }
+      ],
+      "expected_behavior": "应出未出的当前期明确提示，下方旧报告不改成今天。",
+      "result": "preserved",
+      "reason": "expectedReportKey 与现有期键比较后提示缺期；不存在任何报告则显示诚实空态。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-026",
+      "feature": "报告引用可回到条目与原始来源",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 446,
+          "line_end": 467,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L446-L467"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 544,
+          "line_end": 578,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L544-L578"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportPaper.tsx",
+          "line_start": 100,
+          "line_end": 144,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportPaper.tsx#L100-L144"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportPaper.tsx",
+          "line_start": 245,
+          "line_end": 260,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportPaper.tsx#L245-L260"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportPaper.tsx",
+          "line_start": 415,
+          "line_end": 434,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportPaper.tsx#L415-L434"
+        }
+      ],
+      "expected_behavior": "读者可沿报告引用继续核对报道和原文。",
+      "result": "preserved",
+      "reason": "报告正文引用有站内条目链接与原文链接，头版与快讯提供继续阅读入口；此项不评价报纸版式差异。",
+      "spec_evidence": []
+    },
+    {
+      "id": "F2-RDR-027",
+      "feature": "事件与报告详情的复制链接、手机系统分享",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 111,
+          "line_end": 126,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L111-L126"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 620,
+          "line_end": 638,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L620-L638"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/story.tsx",
+          "line_start": 190,
+          "line_end": 238,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/story.tsx#L190-L238"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/report-detail.tsx",
+          "line_start": 45,
+          "line_end": 51,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/report-detail.tsx#L45-L51"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportLayout.tsx",
+          "line_start": 23,
+          "line_end": 30,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportLayout.tsx#L23-L30"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportPaper.tsx",
+          "line_start": 356,
+          "line_end": 449,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportPaper.tsx#L356-L449"
+        }
+      ],
+      "expected_behavior": "现行规格要求条目、事件、报告、法规详情均提供复制链接；手机优先系统分享。",
+      "result": "omission",
+      "reason": "条目页有分享与复制，事件和报告详情渲染树没有相应控件；旧站本身无这些控件，因此属于已要求新增能力缺项。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 282,
+          "line_end": 285,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L282-L285"
+        }
+      ],
+      "priority": "P2",
+      "gap_kind": "current_spec_new_capability_missing",
+      "reproduction": "打开 /story/{publicId} 或 /daily/{date}，在桌面和手机操作区均找不到复制链接/分享；条目 /items/{id} 的更多菜单则有相应操作，可作为对照。",
+      "impact": "事件和报告缺少站内分享操作，手机需自行使用浏览器地址栏。"
+    },
+    {
+      "id": "F2-RDR-028",
+      "feature": "新内容提示与撤回版本检查",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/controls.tsx",
+          "line_start": 191,
+          "line_end": 273,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/controls.tsx#L191-L273"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/ContentVersionGuard.tsx",
+          "line_start": 27,
+          "line_end": 121,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/ContentVersionGuard.tsx#L27-L121"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/public-layout.tsx",
+          "line_start": 55,
+          "line_end": 61,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/public-layout.tsx#L55-L61"
+        }
+      ],
+      "expected_behavior": "仅新增时保留页面并提示主动加载；撤回时重新读取当前内容；网络核对失败可保留已读内容。",
+      "result": "intentional_change",
+      "reason": "旧站对更新/确认失败整体隐藏；现行 DEC-48 明确改变这个行为。新组件区分 version 与 withdrawalVersion 并重新校验。未在线执行真实下架。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 265,
+          "line_end": 275,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L265-L275"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-029",
+      "feature": "所有列表返回原位并恢复标题焦点",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/controls.tsx",
+          "line_start": 65,
+          "line_end": 141,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/controls.tsx#L65-L141"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/root.tsx",
+          "line_start": 35,
+          "line_end": 35,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/root.tsx#L35-L35"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/restore.ts",
+          "line_start": 62,
+          "line_end": 80,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/restore.ts#L62-L80"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 136,
+          "line_end": 147,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L136-L147"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/feed/DayList.tsx",
+          "line_start": 25,
+          "line_end": 83,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/feed/DayList.tsx#L25-L83"
+        }
+      ],
+      "expected_behavior": "从列表进详情后返回原URL、页码、位置与标题焦点。",
+      "result": "uncertain",
+      "reason": "框架 ScrollRestoration 保留滚动；精选 Timeline 另有锚点和 focus。全部动态/收藏/报告等列表未看到相同 focus 调用，但未运行浏览器，不能仅按辅助函数使用范围断言实际恢复失败。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 258,
+          "line_end": 263,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L258-L263"
+        }
+      ],
+      "remaining_evidence": "需在冻结构建的浏览器上从全部第3页、搜索、收藏、报告逐项往返，记录位置和 activeElement。"
+    },
+    {
+      "id": "F2-RDR-030",
+      "feature": "RSS摘要、GUID、日期与全文权限",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/reader.py",
+          "line_start": 917,
+          "line_end": 949,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/reader.py#L917-L949"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/feeds.ts",
+          "line_start": 16,
+          "line_end": 68,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/feeds.ts#L16-L68"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/feeds.ts",
+          "line_start": 120,
+          "line_end": 168,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/feeds.ts#L120-L168"
+        }
+      ],
+      "expected_behavior": "新版RSS保留摘要、站内及原文链接、稳定ID；日期输出按新规则；站外全文须具备额外许可。",
+      "result": "intentional_change",
+      "reason": "旧单一全部动态feed按日期精度使用dc:date；新多feed和pubDate属于明确改动，全文只在 syndicate 时输出。是否应登记全文feed地址受规格候选范围影响，未将该地址存在本身算旧功能缺失。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 48,
+          "line_end": 49,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L48-L49"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 106,
+          "line_end": 111,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L106-L111"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-031",
+      "feature": "公开v3列表、详情、阅读分块、收藏与报告",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/lib/reader/adapter.ts",
+          "line_start": 6,
+          "line_end": 60,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/lib/reader/adapter.ts#L6-L60"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/public_api_v2/http.py",
+          "line_start": 54,
+          "line_end": 80,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/public_api_v2/http.py#L54-L80"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/v3.ts",
+          "line_start": 114,
+          "line_end": 183,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/v3.ts#L114-L183"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/v3-reading.ts",
+          "line_start": 61,
+          "line_end": 138,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/v3-reading.ts#L61-L138"
+        }
+      ],
+      "expected_behavior": "公开端点只读提供当前对象；正文仅按站外再分发权限输出，续读换版返回冲突。",
+      "result": "intentional_change",
+      "reason": "v3 是现行规格新增主版本而非旧接口适配；路由覆盖所查对象，正文块有独立许可、修订与游标绑定。这里只确认代码路径，不宣称公网可用。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 50,
+          "line_end": 50,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L50-L50"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-032",
+      "feature": "公开MCP查询能力与只读工具",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/distribution_v2/agent.py",
+          "line_start": 38,
+          "line_end": 121,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/distribution_v2/agent.py#L38-L121"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "line_start": 3,
+          "line_end": 58,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/information.tsx#L3-L58"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/mcp.ts",
+          "line_start": 173,
+          "line_end": 227,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/mcp.ts#L173-L227"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/mcp.ts",
+          "line_start": 261,
+          "line_end": 321,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/mcp.ts#L261-L321"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/mcp.ts",
+          "line_start": 324,
+          "line_end": 453,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/mcp.ts#L324-L453"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/mcp.ts",
+          "line_start": 494,
+          "line_end": 563,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/mcp.ts#L494-L563"
+        }
+      ],
+      "expected_behavior": "远程MCP提供资讯查询、详情、事件、热点、三类报告、主题及法规工具，不触发生成。",
+      "result": "intentional_change",
+      "reason": "旧库有 Agent/MCP-style 读服务，但读者指南没有远程MCP入口；新代码提供远程传输与相关只读工具。未验证特定客户端实际握手。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 51,
+          "line_end": 51,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L51-L51"
+        }
+      ]
+    },
+    {
+      "id": "F2-RDR-033",
+      "feature": "公开v3 OpenAPI文档主域名可达",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "line_start": 16,
+          "line_end": 53,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/information.tsx#L16-L53"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/static.ts",
+          "line_start": 110,
+          "line_end": 114,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/static.ts#L110-L114"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/contracts/src/http-policy.ts",
+          "line_start": 104,
+          "line_end": 118,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/contracts/src/http-policy.ts#L104-L118"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/server.ts",
+          "line_start": 167,
+          "line_end": 191,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/server.ts#L167-L191"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "deploy/Caddyfile",
+          "line_start": 9,
+          "line_end": 11,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/deploy/Caddyfile#L9-L11"
+        }
+      ],
+      "expected_behavior": "主入口 GET /openapi-v3.json 返回已生成的v3接口定义。",
+      "result": "omission",
+      "reason": "API中已注册，但Web的API路径名单仅含openapi-v1。部署全部转Web，v3文档既不转发也无页面路由，因此落入404。已对冻结原函数做纯内存复现：isApiOwned('/openapi-v3.json')=false，v1文档与/api/v3/items为true。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 60,
+          "line_end": 60,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L60-L60"
+        }
+      ],
+      "priority": "P2",
+      "gap_kind": "current_spec_new_capability_unreachable",
+      "reproduction": "按仓库deploy/Caddyfile部署后请求主域名/openapi-v3.json；Web执行isApiOwned=false，经静态文件检查后进入SSR通用404。API进程直连该路径已注册，体现主入口分流遗漏。",
+      "impact": "外部调用者无法按公布路径取得v3接口定义；API直连测试可能掩盖该问题。"
+    },
+    {
+      "id": "F2-RDR-034",
+      "feature": "Agent指南与llms.txt发现v3能力",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "line_start": 16,
+          "line_end": 56,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/information.tsx#L16-L56"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/agent.tsx",
+          "line_start": 20,
+          "line_end": 24,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/agent.tsx#L20-L24"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/agent.tsx",
+          "line_start": 48,
+          "line_end": 56,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/agent.tsx#L48-L56"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/llms.ts",
+          "line_start": 42,
+          "line_end": 55,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/llms.ts#L42-L55"
+        }
+      ],
+      "expected_behavior": "接入页与llms.txt说明现行公开v3端点、OpenAPI、正文与报告等可用能力。",
+      "result": "omission",
+      "reason": "v3实现已存在，但指南主资源只列openapi-v1，描述及llms.txt的接口发现均指向v1；没有v3入口/示例，使用文档的客户端难以发现本轮新增接口。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 50,
+          "line_end": 55,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L50-L55"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 60,
+          "line_end": 60,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L60-L60"
+        }
+      ],
+      "priority": "P2",
+      "gap_kind": "current_spec_new_capability_undocumented",
+      "reproduction": "阅读/agent的REST说明和/llms.txt，跟随提供的接口定义与端点只能发现v1；在冻结文件中检索/api/v3和openapi-v3均无命中。",
+      "impact": "v3已实现能力对从官方接入页开始的使用者不可发现；与文档路径404为两个独立环节。"
+    },
+    {
+      "id": "F2-RDR-035",
+      "feature": "sitemap与robots的公开内容发现",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "services/live_pipeline/server.py",
+          "line_start": 125,
+          "line_end": 149,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/server.py#L125-L149"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/information.tsx",
+          "line_start": 3,
+          "line_end": 58,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/information.tsx#L3-L58"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/sitemap.ts",
+          "line_start": 19,
+          "line_end": 83,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/sitemap.ts#L19-L83"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/sitemap.ts",
+          "line_start": 88,
+          "line_end": 113,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/packages/backend/src/publication/sitemap.ts#L88-L113"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/static.ts",
+          "line_start": 55,
+          "line_end": 68,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/static.ts#L55-L68"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/api/src/routes/static.ts",
+          "line_start": 115,
+          "line_end": 134,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/api/src/routes/static.ts#L115-L134"
+        }
+      ],
+      "expected_behavior": "公开可收录对象进入站点地图，下架对象不残留，大容量时分页。",
+      "result": "uncertain",
+      "reason": "新实现有按资格生成与45,000条拆分页；旧冻结服务/指南未定位到同类出口，不能确认旧功能基线，也未做运行期下架/资格变更验收。不得将代码存在说成旧行为全面保留。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/05-external-interfaces.md",
+          "line_start": 53,
+          "line_end": 53,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/05-external-interfaces.md#L53-L53"
+        }
+      ],
+      "remaining_evidence": "旧库同类出口的路由证据（如存在）；冻结新构建中针对下架、合并及超过单页容量的运行验证。"
+    },
+    {
+      "id": "F2-RDR-036",
+      "feature": "手机实际阅读、横向溢出及触控完成度",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/shell.tsx",
+          "line_start": 167,
+          "line_end": 212,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/shell.tsx#L167-L212"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/pages.tsx",
+          "line_start": 190,
+          "line_end": 190,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/pages.tsx#L190-L190"
+        },
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "apps/web/components/reader/article-body.tsx",
+          "line_start": 64,
+          "line_end": 95,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/apps/web/components/reader/article-body.tsx#L64-L95"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/public-layout.tsx",
+          "line_start": 41,
+          "line_end": 50,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/public-layout.tsx#L41-L50"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 277,
+          "line_end": 294,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L277-L294"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/routes/item.tsx",
+          "line_start": 363,
+          "line_end": 375,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/routes/item.tsx#L363-L375"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/web/app/features/report/ReportNav.tsx",
+          "line_start": 121,
+          "line_end": 157,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/apps/web/app/features/report/ReportNav.tsx#L121-L157"
+        }
+      ],
+      "expected_behavior": "320px及常见手机宽度可完整阅读，触控可用，正文表格不把整页撑宽。",
+      "result": "uncertain",
+      "reason": "静态代码显示手机底栏、详情工具条、目录与报告导航；没有启动冻结构建/浏览器测量，因此不能据CSS和组件声明认定真实手机验收通过。",
+      "spec_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/03-reader-pages.md",
+          "line_start": 310,
+          "line_end": 310,
+          "url": "https://github.com/Crhis-CP/AI-MINE/blob/6996788c58347fa2483edc8e7d9e916292b20885/docs/01-product/03-reader-pages.md#L310-L310"
+        }
+      ],
+      "remaining_evidence": "冻结构建在320/390px实际页面的布局、长标题/长表格、键盘焦点与触控操作记录。"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-10-12T03:45:12.641886+00:00",
+  "updated_at": "2026-10-12T06:43:46.212606+00:00",
   "source_findings": 50,
   "items": [
     {
@@ -11,7 +11,7 @@
         "tests/materials.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-02",
@@ -22,7 +22,7 @@
         "tests/news-model-permission.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-03",
@@ -33,7 +33,7 @@
         "tests/news-receipt-barrier.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-04",
@@ -44,7 +44,7 @@
         "tests/manual-revisions.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-05",
@@ -55,7 +55,7 @@
         "tests/manual-revisions.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-06",
@@ -67,7 +67,7 @@
         "tests/group-evidence-runtime.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-07",
@@ -78,7 +78,7 @@
         "tests/group-revision.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-08",
@@ -89,7 +89,7 @@
         "tests/materials.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-09",
@@ -104,7 +104,7 @@
         "reader/R34",
         "reader/R35"
       ],
-      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "PIPE-10",
@@ -115,7 +115,7 @@
         "tests/feedback-maintenance.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-01",
@@ -128,7 +128,7 @@
         "apps/web/app/features/policy/PolicySaved.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-02",
@@ -142,7 +142,7 @@
         "apps/web/app/routes/public-layout.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-04",
@@ -155,7 +155,7 @@
         "packages/backend/src/publication/pool.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-05",
@@ -167,7 +167,7 @@
         "packages/backend/src/publication/pool.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-06",
@@ -178,7 +178,7 @@
         "apps/web/app/routes/item.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-07",
@@ -191,7 +191,7 @@
         "apps/web/app/features/feed/Timeline.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-08",
@@ -203,7 +203,7 @@
         "apps/web/app/components/shell/MobileTabBar.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-09",
@@ -214,7 +214,7 @@
         "apps/web/app/routes/item.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-10",
@@ -230,7 +230,7 @@
       "post_development_open_findings": [
         "reader/R33"
       ],
-      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-11",
@@ -243,7 +243,7 @@
         "apps/web/app/features/report/ReportPaper.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-12",
@@ -254,7 +254,7 @@
         "apps/web/app/routes/feedback.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-13",
@@ -267,7 +267,7 @@
         "apps/web/app/features/policy/PolicySaved.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-14",
@@ -281,7 +281,7 @@
         "apps/web/app/routes/all.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-15",
@@ -293,7 +293,7 @@
         "apps/web/app/routes/item.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-16",
@@ -307,7 +307,7 @@
         "industry/topics.json"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-17",
@@ -318,7 +318,7 @@
         "apps/web/app/components/shell/ThemeSwitch.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "RDR-18",
@@ -329,7 +329,7 @@
         "apps/web/app/routes/changelog.tsx"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-01",
@@ -341,7 +341,7 @@
         "apps/web/tests/policy-browser.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-02",
@@ -352,7 +352,7 @@
         "tests/policy-automation-runtime.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-03",
@@ -364,7 +364,7 @@
         "apps/web/tests/policy-browser.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-04",
@@ -378,7 +378,7 @@
         "docs/acceptance/audit-remediation-20261011/policy-official-xml.json"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-05",
@@ -389,7 +389,7 @@
         "tests/policy-processing-plan.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-06",
@@ -403,7 +403,7 @@
       "post_development_open_findings": [
         "policy/POL-18"
       ],
-      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-07",
@@ -416,7 +416,7 @@
         "apps/web/tests/policy-browser.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-08",
@@ -428,7 +428,7 @@
         "tests/policy-public-api.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-09",
@@ -440,7 +440,7 @@
         "tests/policy-reports.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-10",
@@ -451,7 +451,7 @@
         "tests/policy-basic-facts.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-11",
@@ -475,7 +475,7 @@
         "tests/policy-public-api.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-13",
@@ -486,7 +486,7 @@
         "tests/policy-basic-facts.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "EXT-01",
@@ -500,7 +500,7 @@
       "post_development_open_findings": [
         "pipeline/PIPE-04"
       ],
-      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-14",
@@ -511,7 +511,7 @@
         "tests/policy-interpretation.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-15",
@@ -522,7 +522,7 @@
         "tests/policy-automation-runtime.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-16",
@@ -533,7 +533,7 @@
         "tests/policy-date-events.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-17",
@@ -546,7 +546,7 @@
         "tests/policy-public-api.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "POL-18",
@@ -562,7 +562,7 @@
       "post_development_open_findings": [
         "policy/POL-14"
       ],
-      "closure": "首轮修复已实现；独立复核仍有相关逻辑缺口，不算全面闭环"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "ROOT-01",
@@ -575,7 +575,7 @@
         "tests/account-capabilities.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "ROOT-02",
@@ -591,7 +591,7 @@
         "tooling/generate.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "ROOT-03",
@@ -603,7 +603,7 @@
         "tests/public-read-limits.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     },
     {
       "id": "ROOT-05",
@@ -614,7 +614,7 @@
         "tests/account-lifecycle.test.ts"
       ],
       "production_verified": false,
-      "closure": "首轮范围内有实现与本地证据；仍以独立复核和完整门禁限制为准"
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
     }
   ],
   "assurance_gaps": [
@@ -624,5 +624,12 @@
     "LIVE-01: no production article correction performed",
     "LIVE-02: full policy interpretation and real quality acceptance not performed"
   ],
-  "independent_comparison": "三组fork_turns=none已各自完成固定代码比较；结果另见independent-*.json，新增缺口未自动写回首轮开发结论。"
+  "independent_comparison": "三组fork_turns=none已各自完成固定代码比较；结果另见independent-*.json，新增缺口未自动写回首轮开发结论。",
+  "second_independent_review": {
+    "summary": "fresh2-summary.json",
+    "closure": "fresh2-closure.json",
+    "confirmed_omissions_locally_fixed": 12,
+    "uncertain": 11,
+    "live_verified": false
+  }
 }

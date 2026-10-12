@@ -23,14 +23,24 @@ import {
 export { CrawlBlocked, CrawlDeferred, CrawlObsolete } from "./pacing.ts";
 export { SourceCrawlProfile as CrawlProfile } from "@amp/backend/sources/config-keys";
 type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedResponse>;
-type Context = { sessionId: string; source: SourceRow; permissionVersion: number | null; minimumMs: number; get: Get; now: () => Date; virtualClock: boolean };
+type Context = {
+  sessionId: string;
+  source: SourceRow;
+  permissionVersion: number | null;
+  minimumMs: number;
+  get: Get;
+  now: () => Date;
+  virtualClock: boolean;
+  signal?: AbortSignal;
+};
 const context = new AsyncLocalStorage<Context>();
 export async function withSourceCrawl<T>(
   source: SourceRow,
   scope: string,
   run: () => Promise<T>,
-  options: { get?: Get; now?: () => Date; expectedSessionId?: string } = {},
+  options: { get?: Get; now?: () => Date; expectedSessionId?: string; signal?: AbortSignal } = {},
 ) {
+  options.signal?.throwIfAborted();
   if (context.getStore()) return run();
   const profile = CrawlProfile.parse(source.config.crawlProfile ?? {}),
     permission = await readCurrentSourcePolicy(source.id);
@@ -44,6 +54,7 @@ export async function withSourceCrawl<T>(
     get: options.get ?? guardedFetch,
     now: options.now ?? (() => new Date()),
     virtualClock: !!options.now,
+    signal: options.signal,
   };
   try {
     const result = await context.run(ctx, run);
@@ -69,6 +80,7 @@ async function permitted(
   capability: "fetch" | "process_locally" | "store_metadata" | "store_fulltext",
   resource?: GuardedFetchOptions["sourceResource"],
 ) {
+  ctx.signal?.throwIfAborted();
   url = url.replace(/^https:\/\/r\.jina\.ai\//, "");
   if (ctx.permissionVersion === null) return false;
   return (
@@ -94,6 +106,7 @@ function retryAfter(value: string | null, now: Date) {
 }
 const crawlTime = async (ctx: Context) => (ctx.virtualClock ? ctx.now() : crawlClock());
 async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap: number, robot = false): Promise<GuardedResponse> {
+  ctx.signal?.throwIfAborted();
   const now = await crawlTime(ctx);
   const key = stableJson([
     url,
@@ -116,6 +129,7 @@ async function request(ctx: Context, url: string, opts: GuardedFetchOptions, gap
   try {
     const res = await ctx.get(url, {
       ...opts,
+      signal: ctx.signal ? (opts.signal ? AbortSignal.any([ctx.signal, opts.signal]) : ctx.signal) : opts.signal,
       headers: { ...Object.fromEntries(Object.entries(opts.headers ?? {}).filter(([key]) => key.toLowerCase() !== "user-agent")), "user-agent": DEFAULT_UA },
       followRedirects: false,
       retryDropped: false,

@@ -105,7 +105,7 @@ export const API_OWNED_PATTERNS: RegExp[] = [
   /^\/api\//,
   /^\/feed(\.xml|\/.*)?$/,
   /^\/(rss|rss\.xml|atom\.xml)$/,
-  /^\/openapi-v1\.json$/,
+  /^\/openapi-v(?:1|3)\.json$/,
   /^\/(llms\.txt|robots\.txt|sitemap\.xml|manifest\.webmanifest)$/,
   /^\/sitemaps\//,
   /^\/\.well-known\//,

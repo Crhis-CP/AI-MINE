@@ -1211,6 +1211,16 @@
         "private_ops": ["SELECT", "INSERT", "UPDATE"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
       }
+    },
+    "feedback.quota_buckets": {
+      "module": "feedback",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "feedback_write": ["SELECT", "INSERT", "UPDATE (used)"],
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
     }
   },
   "sequences": {

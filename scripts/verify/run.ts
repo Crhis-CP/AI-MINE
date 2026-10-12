@@ -521,7 +521,11 @@ const STAGES: Stage[] = [
       if ((await run("node", ["--test", "scripts/verify/tests/*.test.ts"], { log, env: env() })) !== 0) failed.push("verify self-tests");
       // The web tests start the production server, so they need the build (pnpm check runs them when it exists).
       const webTests = !quick || existsSync(path.join(ROOT, "apps/web/build"));
-      if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: webEnvironment(env()) })) !== 0) failed.push("web tests");
+      if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: webEnvironment(env()) })) !== 0) {
+        failed.push("web tests");
+        // Later backend output must not hide the browser assertion on executors without log artifacts.
+        for (const line of readFileSync(log.file, "utf8").trimEnd().split("\n").slice(-160)) console.log(`    | web tests: ${line}`);
+      }
       // After the smoke check, which reads an empty database: the backend tests write their own rows.
       if (
         !quick &&

@@ -39,13 +39,15 @@ function catalog(): Catalog {
       name,
       owner: "bootstrap",
       columns:
-        name === "feedback.submissions"
-          ? ["key_hash", "payload_hash", "feedback_id", "created_at"]
-          : name === "identity.account_access"
-            ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
-            : grant.publicColumns[0] === "*" || !grant.publicColumns.length
-              ? ["id"]
-              : grant.publicColumns,
+        name === "feedback.quota_buckets"
+          ? ["scope", "bucket_key", "window_start", "used"]
+          : name === "feedback.submissions"
+            ? ["key_hash", "payload_hash", "feedback_id", "created_at"]
+            : name === "identity.account_access"
+              ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
+              : grant.publicColumns[0] === "*" || !grant.publicColumns.length
+                ? ["id"]
+                : grant.publicColumns,
       rls: false,
     })),
     sequences: Object.entries(SEQUENCES).map(([name, table]) => ({ name, table, owner: "bootstrap" })),
@@ -78,6 +80,7 @@ test("all current migration tables and serial sequences have one explicit classi
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
       "feedback.submissions",
+      "feedback.quota_buckets",
       "editorial.withdrawal_records",
       "editorial.withdrawal_restorations",
       "publication.withdrawal_targets",
@@ -384,5 +387,21 @@ test("feedback idempotency writer is confined to four non-content columns and ap
     assert.throws(() => planRoleGrants(catalog(), "fixture", 2), /Permissions exceed/);
   } finally {
     spec.permissions!.feedback_write = previous;
+  }
+});
+
+test("feedback quota writers may only advance used on the four-column fixed counter table", () => {
+  const plan = planRoleGrants(catalog(), "fixture", 2).statements.join("\n");
+  assert.match(plan, /GRANT SELECT, INSERT, UPDATE \(used\) ON TABLE "feedback"\."quota_buckets" TO "fixture_feedback_write"/);
+  const expanded = catalog();
+  expanded.tables.find((table) => table.name === "feedback.quota_buckets")!.columns.push("content");
+  assert.throws(() => planRoleGrants(expanded, "fixture", 2), /Invalid permissions|Permissions exceed/);
+  const spec = TABLE_GRANTS["feedback.quota_buckets"]!;
+  const original = spec.permissions!.feedback_write;
+  try {
+    spec.permissions!.feedback_write = ["SELECT", "INSERT", "UPDATE"];
+    assert.throws(() => planRoleGrants(catalog(), "fixture", 2), /Permissions exceed/);
+  } finally {
+    spec.permissions!.feedback_write = original;
   }
 });

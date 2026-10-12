@@ -185,5 +185,19 @@
     "verifier_tests": "9 pass",
     "contract_only": "5 contract + 5 receipt schema checks pass",
     "gate_limit": "data-ownership frozen debt and base task-card/path scope remain open; no merge authorized by these checks"
+  },
+  "latest_local_checkpoint": {
+    "recorded_at": "2026-10-12T06:48:35.651850+00:00",
+    "code_basis": "working patch after immutable audit 6996788; commit and CI identified by PR head",
+    "isolated_precommit_check": "8 of 9 stages pass; only data-ownership fails with 230 diagnostics",
+    "log": ".verify/audit-remediation-20261011/last-precommit-clean-check.log",
+    "full_ci": "No successful final full verify claimed; exact-head receipts are in .verify and GitHub PR checks.",
+    "focused_evidence": [
+      "fresh2-closure.json",
+      "pipeline-fresh2-fixes-status.json",
+      "tasks/TASK-0310.md"
+    ],
+    "real_role_quota_test": ".verify/audit-remediation-20261011/fresh2-quota-role-matrix.log",
+    "production_or_real_model": false
   }
 }

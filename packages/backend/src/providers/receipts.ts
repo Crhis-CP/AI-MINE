@@ -216,6 +216,18 @@ async function newsReceiptBlocker(db: Db, scope: string | null, req: ReceiptRequ
   return { kind: "unknown" as const, row };
 }
 
+/** A new preview ID/configuration cannot evade an unresolved source Reader call. */
+async function sourcePreviewReceiptBlocker(db: Db, req: ReceiptRequest, logicalKey: string, lane: string | undefined) {
+  if (req.service !== "jina" || req.purpose !== "source_listing" || req.requestSummary?.source_preview !== true || !req.subject?.startsWith("source:"))
+    return null;
+  const [row] = await db<{ id: number; status: string; attempt_id: string | null }[]>`SELECT r.id,r.status,a.id::text AS attempt_id
+    FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
+    WHERE r.service='jina' AND r.purpose='source_listing' AND r.subject=${req.subject} AND r.logical_key<>${logicalKey}
+      AND coalesce(r.request->>'lane','news')=${lane ?? "news"} AND r.status IN ('pending','unknown') ORDER BY r.id LIMIT 1`;
+  if (!row) return null;
+  return row.status === "pending" ? { kind: "busy" as const, row } : { kind: "unknown" as const, row };
+}
+
 async function observeTranslation(db: Db, stage: string | null, receipt: TranslationObservation) {
   if (!stage) return;
   const rows = await db<{ version: number }[]>`SELECT coalesce(a.attempt,r.attempts) AS version FROM receipts r
@@ -560,7 +572,10 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         }
       }
       // failed: the provider did not take the request, or its answer was unusable; a new attempt is allowed.
-      const blocked = (await newsReceiptBlocker(tx, newsScope, req, logicalKey)) ?? (await translationBlocker(tx, stage, logicalKey));
+      const blocked =
+        (await sourcePreviewReceiptBlocker(tx, req, logicalKey, knownLane)) ??
+        (await newsReceiptBlocker(tx, newsScope, req, logicalKey)) ??
+        (await translationBlocker(tx, stage, logicalKey));
       if (blocked) return blocked;
       if (stage && !existing.has_response)
         await tx`UPDATE ai.translation_receipt_observations SET known_unbilled=true
@@ -589,7 +604,10 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId });
       return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts, control };
     }
-    const blocked = (await newsReceiptBlocker(tx, newsScope, req, logicalKey)) ?? (await translationBlocker(tx, stage, logicalKey));
+    const blocked =
+      (await sourcePreviewReceiptBlocker(tx, req, logicalKey, knownLane)) ??
+      (await newsReceiptBlocker(tx, newsScope, req, logicalKey)) ??
+      (await translationBlocker(tx, stage, logicalKey));
     if (blocked) return blocked;
     const legacy = await legacyModelReceipt(tx, req);
     if (legacy) return legacy;

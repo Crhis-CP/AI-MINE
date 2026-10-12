@@ -126,7 +126,7 @@
 | [TASK-0152](TASK-0152.md) | T-0101 | M3 | architect | implemented | 已评测备用模型界面和模型页组合 | TASK-0148、TASK-0141、TASK-0146 | 3e4fdfa |
 | [TASK-0153](TASK-0153.md) | T-0702 | M3 | architect | locally_verified | 原表覆盖矩阵与有界导出 | TASK-0150、TASK-0144 | 3e4fdfa |
 | [TASK-0155](TASK-0155.md) | T-0101 | M3 | architect | locally_verified | 统一页面与既有检查夹具的组合修复 | TASK-0142、TASK-0145、TASK-0146、TASK-0152 | 3e4fdfa |
-| [TASK-0158](TASK-0158.md) | T-0101 | M3 | architect | implemented | 审计优化集成与独立功能复核 | — | 3e4fdfa |
+| [TASK-0158](TASK-0158.md) | T-0101 | M3 | architect | implemented | 审计优化集成与独立功能复核 | — | c51794b |
 | [TASK-0159](TASK-0159.md) | T-0101 | M3 | architect | locally_verified | 登记审计涉及的契约变更 | — | 3e4fdfa |
 | [TASK-0170](TASK-0170.md) | T-0101 | M3 | architect | locally_verified | 更新真实新增schema和日期字段验证夹具 | — | 978efa8 |
 | [TASK-0180](TASK-0180.md) | T-0531 | M3 | architect | locally_verified | 法规中外文逐块对照 | TASK-0159 | 978efa8 |
@@ -187,6 +187,9 @@
 | [TASK-0286](TASK-0286.md) | T-0101 | M3 | architect | locally_verified | 公开报告更正说明页面与v3出口 | — | 3e4fdfa |
 | [TASK-0290](TASK-0290.md) | T-0101 | M3 | architect | implemented | 第二轮功能补齐的共享契约与组合根 | — | 3e4fdfa |
 | [TASK-0291](TASK-0291.md) | T-0101 | M3 | architect | implemented | 首次公开证据与第二轮迁移角色集成 | — | 3e4fdfa |
+| [TASK-0292](TASK-0292.md) | T-0101 | M3 | architect | locally_verified | 第二轮独立复核的确认遗漏收尾 | — | c51794b |
+| [TASK-0293](TASK-0293.md) | T-0101 | M3 | architect | locally_verified | 公开署名接入现有公共许可证据链接 | — | c51794b |
+| [TASK-0310](TASK-0310.md) | T-0352 | M3 | architect | locally_verified | 机器事件摘要防止继承网站摘录并修正验收夹具 | — | c51794b |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — | 978efa8 |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — | 978efa8 |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — | 978efa8 |
@@ -194,6 +197,7 @@
 | [TASK-0174](TASK-0174.md) | T-0101 | M3 | gateway | locally_verified | 评测只使用当前可授权原材料 | — | 978efa8 |
 | [TASK-0176](TASK-0176.md) | T-0101 | M3 | gateway | locally_verified | 合成费用与回执回归显式登记 | — | 978efa8 |
 | [TASK-0251](TASK-0251.md) | T-0101 | M3 | gateway | locally_verified | 补齐备用模型回归的当前材料许可夹具 | — | bd19124 |
+| [TASK-0303](TASK-0303.md) | T-0101 | M3 | gateway | locally_verified | Jina预览未知回执跨恢复与新任务保护 | — | — |
 | [TASK-0164](TASK-0164.md) | T-0101 | M3 | news | locally_verified | 校验事件关系原文与置信度 | — | 978efa8 |
 | [TASK-0165](TASK-0165.md) | T-0101 | M3 | news | locally_verified | 来源修订后重判自动关系 | — | 978efa8 |
 | [TASK-0173](TASK-0173.md) | T-0101 | M3 | news | locally_verified | 保留原文可核验的公司背景 | — | 978efa8 |
@@ -204,6 +208,8 @@
 | [TASK-0263](TASK-0263.md) | T-0101 | M3 | private | locally_verified | 后台来源归档状态和确认 | — | 3e4fdfa |
 | [TASK-0264](TASK-0264.md) | T-0101 | M3 | private | locally_verified | 反馈请求持久幂等与载荷冲突 | — | 3e4fdfa |
 | [TASK-0265](TASK-0265.md) | T-0101 | M3 | private | locally_verified | 反馈HTTP稳定提交键 | — | 3e4fdfa |
+| [TASK-0298](TASK-0298.md) | T-0101 | M3 | private | locally_verified | 反馈实际截图与本站页面校验 | — | c51794b |
+| [TASK-0299](TASK-0299.md) | T-0101 | M3 | private | locally_verified | 反馈持久小时和每日额度 | — | c51794b |
 | [TASK-0131](TASK-0131.md) | T-0353 | M3 | publish | locally_verified | 接通法规摘要订阅、站点地图与公开发现入口 | TASK-0098、TASK-0122、TASK-0124 | 3e4fdfa |
 | [TASK-0163](TASK-0163.md) | T-0101 | M3 | publish | locally_verified | 下架与公开审计原子提交 | — | 978efa8 |
 | [TASK-0166](TASK-0166.md) | T-0101 | M3 | publish | locally_verified | 撤回报告综合内容和目录摘要 | — | 978efa8 |
@@ -221,12 +227,18 @@
 | [TASK-0250](TASK-0250.md) | T-0101 | M3 | qa | locally_verified | 修复端到端登录nonce夹具与键盘就绪时序 | — | bd19124 |
 | [TASK-0273](TASK-0273.md) | T-0101 | M3 | qa | locally_verified | 第二轮处理链综合回归 | — | 3e4fdfa |
 | [TASK-0274](TASK-0274.md) | T-0101 | M3 | qa | locally_verified | 第二轮处理链证据与边界 | — | 3e4fdfa |
+| [TASK-0300](TASK-0300.md) | T-0101 | M3 | qa | locally_verified | 反馈新前置的既有HTTP回归 | — | c51794b |
+| [TASK-0304](TASK-0304.md) | T-0101 | M3 | qa | locally_verified | 自动采集合成预览夹具遵守结束与重复窗口 | — | — |
 | [TASK-0175](TASK-0175.md) | T-0101 | M3 | runtime | locally_verified | 区分停止发送与付费回执写回生命周期 | — | 978efa8 |
 | [TASK-0168](TASK-0168.md) | T-0101 | M3 | sources | locally_verified | 验证来源启用与配置草稿 | — | 978efa8 |
 | [TASK-0178](TASK-0178.md) | T-0101 | M3 | sources | locally_verified | 预览启用与完整采集合成闭环 | — | 978efa8 |
 | [TASK-0260](TASK-0260.md) | T-0101 | M3 | sources | locally_verified | 配置切换保留不受影响检查点 | — | 3e4fdfa |
 | [TASK-0261](TASK-0261.md) | T-0101 | M3 | sources | locally_verified | 信源不可逆归档与历史保留 | — | 3e4fdfa |
 | [TASK-0262](TASK-0262.md) | T-0101 | M3 | sources | locally_verified | 归档采集和预览提交栅栏 | — | 3e4fdfa |
+| [TASK-0296](TASK-0296.md) | T-0101 | M3 | sources | locally_verified | 同配置在途来源预览去重 | — | c51794b |
+| [TASK-0297](TASK-0297.md) | T-0101 | M3 | sources | locally_verified | 采集提交前重核单源暂停 | — | c51794b |
+| [TASK-0301](TASK-0301.md) | T-0101 | M3 | sources | locally_verified | 单连接来源预览与中断恢复 | — | — |
+| [TASK-0302](TASK-0302.md) | T-0101 | M3 | sources | locally_verified | 来源预览执行时限贯穿真实抓取 | — | — |
 | [TASK-0133](TASK-0133.md) | T-0704 | M3 | web | locally_verified | 在既有私有用量页面展示两条业务线的运行暂停与恢复 | TASK-0129 | 3e4fdfa |
 | [TASK-0171](TASK-0171.md) | T-0101 | M3 | web | locally_verified | 接通信源异步预览与配置草稿 | — | 978efa8 |
 | [TASK-0200](TASK-0200.md) | T-0101 | M3 | web | implemented | 收藏只存引用和满额错误 | — | 978efa8 |
@@ -248,3 +260,5 @@
 | [TASK-0216](TASK-0216.md) | T-0101 | M3 | web | implemented | 更新月份锚点 | — | 978efa8 |
 | [TASK-0217](TASK-0217.md) | T-0101 | M3 | web | locally_verified | 读者回归行为验证 | — | 978efa8 |
 | [TASK-0218](TASK-0218.md) | T-0101 | M3 | web | implemented | 公开查询回归验证 | — | 978efa8 |
+| [TASK-0294](TASK-0294.md) | T-0101 | M3 | web | locally_verified | 事件引用收藏与当前资格解析 | — | c51794b |
+| [TASK-0295](TASK-0295.md) | T-0101 | M3 | web | locally_verified | 事件及报告复制链接与系统分享 | — | c51794b |

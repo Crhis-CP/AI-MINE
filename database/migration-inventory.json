@@ -367,6 +367,18 @@
     {
       "name": "sources/202610120221_source_read_invalidation.sql",
       "dependsOn": ["publication/202610120220_public_read_invalidation.sql"]
+    },
+    {
+      "name": "sources/202610120500_public_attribution_links.sql",
+      "dependsOn": ["sources/202610120221_source_read_invalidation.sql"]
+    },
+    {
+      "name": "sources/202610120510_preview_inflight.sql",
+      "dependsOn": ["sources/202610120040_source_previews.sql"]
+    },
+    {
+      "name": "feedback/202610120520_feedback_quota.sql",
+      "dependsOn": ["feedback/202610120410_feedback_idempotency.sql"]
     }
   ]
 }

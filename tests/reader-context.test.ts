@@ -28,4 +28,20 @@ test("source attribution displays an actual licence only when a public policy su
   const value = readerAttribution("官方来源", "https://example.test", { licence_label_zh: "允许摘要引用", conditions: ["no_official_endorsement"] });
   assert.equal(value.license?.name, "允许摘要引用");
   assert.match(value.notice!, /不代表原发布方认可/);
+  assert.equal(value.license?.url, null);
+  assert.equal(value.legalUrl, null);
+  const linked = readerAttribution("官方来源", "https://example.test", {
+    licence_label_zh: "CC BY 4.0",
+    conditions: [],
+    licence_url: "https://creativecommons.org/licenses/by/4.0/",
+    legal_url: "https://example.test/legal",
+    evidence: [{ kind: "written_authorization", url: "https://private.invalid/letter" }],
+  });
+  assert.deepEqual(linked.license, { name: "CC BY 4.0", url: "https://creativecommons.org/licenses/by/4.0/" });
+  assert.equal(linked.legalUrl, "https://example.test/legal");
+  assert.doesNotMatch(JSON.stringify(linked), /private\.invalid|evidence/);
+  assert.equal(
+    readerAttribution("官方来源", "https://example.test", { licence_label_zh: "许可", conditions: [], licence_url: "javascript:alert(1)" }).license,
+    null,
+  );
 });

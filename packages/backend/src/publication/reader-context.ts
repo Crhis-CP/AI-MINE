@@ -5,7 +5,18 @@ import type { SourceAttribution } from "@amp/contracts/http/public";
 import type { ItemDetail } from "@amp/contracts/site";
 import { dbOf, type Db } from "../db.ts";
 const sql = dbOf("publication");
-const policyLabel = z.object({ licence_label_zh: z.string(), conditions: z.array(z.string()) });
+const policyLabel = z.object({
+  licence_label_zh: z.string(),
+  conditions: z.array(z.string()),
+  licence_url: z
+    .url({ protocol: /^https?$/ })
+    .nullable()
+    .default(null),
+  legal_url: z
+    .url({ protocol: /^https?$/ })
+    .nullable()
+    .default(null),
+});
 const conditionLabels: Record<string, string> = {
   third_party_excluded: "许可不涵盖原文中的第三方材料。",
   no_official_endorsement: "本站整理不代表原发布方认可。",
@@ -15,14 +26,14 @@ export function readerAttribution(name: string, url: string, policy: unknown): z
   const parsed = policyLabel.safeParse(policy);
   return {
     publishers: [{ name, url }],
-    license: parsed.success ? { name: parsed.data.licence_label_zh, url: null } : null,
+    license: parsed.success ? { name: parsed.data.licence_label_zh, url: parsed.data.licence_url } : null,
     notice: parsed.success
       ? parsed.data.conditions
           .map((c) => conditionLabels[c])
           .filter(Boolean)
           .join(" ") || null
       : null,
-    legalUrl: null,
+    legalUrl: parsed.success ? parsed.data.legal_url : null,
   };
 }
 const context = z.object({

@@ -3,6 +3,8 @@ import type { MaterialInput } from "../content/materials.ts";
 
 export interface SourceRow {
   collectionControl?: RuntimeControlSnapshot;
+  collectionSignal?: AbortSignal;
+  collectionReadKey?: string;
   id: string;
   name: string;
   kind: "rss" | "web_list" | "json_list" | "mp_account" | "external";

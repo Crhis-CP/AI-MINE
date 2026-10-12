@@ -1,0 +1,74 @@
+{
+  "stage": "locally_verified_before_fresh_review",
+  "review_basis": "independent-pipeline.json at 978efa88; original report unchanged",
+  "code_sha": "6996788c58347fa2483edc8e7d9e916292b20885",
+  "recorded_at": "2026-10-12T06:05:43.011552+00:00",
+  "assembled_by": "root from implementation Agent reports and read-back original test logs",
+  "items": [
+    {
+      "id": "PIPE-04",
+      "title": "不改变入口或分页身份时保留检查点",
+      "implementation": "配置身份只比较入口和分页关键字段；政策目录保留compatible checkpoint hash",
+      "tests": [
+        "tests/source-archive.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE-05",
+      "title": "信源终态归档",
+      "implementation": "Owner经版本/确认归档；归档后停采、防恢复并保留已有公开内容；在途落库与归档互斥",
+      "tests": [
+        "tests/source-archive.test.ts",
+        "tests/round2-admin-contracts.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE-23",
+      "title": "事件、发展线与报告独立撤回恢复",
+      "implementation": "独立记录、成员快照与后加入成员hold；指定恢复不覆盖单篇下架；报告撤回不撤成员；部分事件撤回仅显示当前合格材料，人工私有原文保留",
+      "tests": [
+        "tests/group-withdrawal.test.ts",
+        "tests/public-role-routes.test.ts",
+        "tests/policy-round2-public.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE-25",
+      "title": "报告更正传播与修订",
+      "implementation": "旧综合同事务失效、持久更正任务、版本历史与公开更正说明；逐来源许可、晚响应CAS、未知费用阻止重购；32成员尾部拒绝也阻止付费",
+      "tests": [
+        "tests/report-corrections.test.ts",
+        "tests/runtime-report-controls.test.ts",
+        "tests/public-v3.test.ts",
+        "apps/web/tests/reader-round2-browser.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE-30",
+      "title": "反馈响应未知后的持久幂等",
+      "implementation": "提交键与payload哈希持久去重，同键异内容409；前端刷新与未知重试复用键，内容变化产生新提交",
+      "tests": [
+        "tests/feedback.test.ts",
+        "tests/feedback-upload.test.ts",
+        "apps/web/tests/reader-round2-browser.test.ts"
+      ]
+    }
+  ],
+  "evidence": {
+    "core": "pipeline-round2-core.log",
+    "derived": "pipeline-round2-derived-final.log",
+    "all_report_members": "pipeline-round2-all-members-permit.log",
+    "root_http_and_worker": "round2-root-runtime-tests.log",
+    "report_public_dto": "task0286-api-post-migration.log",
+    "reader_browser": "task0286-browser-final.log",
+    "clean_check": "round2-clean-check-final.log"
+  },
+  "limits": [
+    "No production, real model calls, secret reads, source activation or notifications.",
+    "Private archive/withdrawal buttons have HTTP/build/type evidence; no separate new click-through browser run.",
+    "Full delivery guard is not passed; local behavior verification is not live or quality acceptance.",
+    "Second fresh independent functional comparison is separate and pending."
+  ],
+  "runtime_model_calls": 0,
+  "production_changed": false
+}

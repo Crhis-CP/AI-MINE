@@ -22,6 +22,9 @@ test("first enable and configuration switches require successful preview bound t
   const p = await requestSourcePreview(id, {}, "test");
   const result = { ms: 1, count: 1, items: [{ title: "Sample", url: "https://example.com/1", publishedAt: null, excerpt: "sample" }] };
   await runSourcePreview(String(p.preview_id), async () => result);
+  await sql`UPDATE sources.source_previews SET completed_at=now()-interval '25 hours' WHERE id=${p.preview_id}`;
+  await assert.rejects(async () => updateSource(id, { patch: { enabled: true }, version: await version() }, "test"), /24小时/);
+  await sql`UPDATE sources.source_previews SET completed_at=now()-interval '23 hours' WHERE id=${p.preview_id}`;
   await updateSource(id, { patch: { enabled: true }, version: await version() }, "test");
   assert.equal((await sql`SELECT enabled FROM sources WHERE id=${id}`)[0]!.enabled, true);
   const revised = { feedUrl: "https://example.com/new.xml" };
@@ -34,6 +37,18 @@ test("first enable and configuration switches require successful preview bound t
   );
   const p2 = await requestSourcePreview(id, { draft_id: Number(saved.draft!.id) }, "test");
   await runSourcePreview(String(p2.preview_id), async () => result);
+  await sql`UPDATE sources.source_previews SET completed_at=now()-interval '25 hours' WHERE id=${p2.preview_id}`;
+  await assert.rejects(
+    async () =>
+      updateSource(
+        id,
+        { patch: {}, config_command: "activate_draft", draft_id: Number(saved.draft!.id), preview_id: Number(p2.preview_id), version: await version() },
+        "test",
+      ),
+    /24小时/,
+  );
+  assert.deepEqual((await sql`SELECT config FROM sources WHERE id=${id}`)[0]!.config, config);
+  await sql`UPDATE sources.source_previews SET completed_at=now() WHERE id=${p2.preview_id}`;
   await updateSource(
     id,
     { patch: {}, config_command: "activate_draft", draft_id: Number(saved.draft!.id), preview_id: Number(p2.preview_id), version: await version() },

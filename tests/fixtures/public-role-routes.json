@@ -604,7 +604,7 @@
       {
         "url": "/llms.txt",
         "status": 200,
-        "contains": ["/api/v1/dailies/latest", "/weekly", "/monthly"]
+        "contains": ["/api/v3/reports", "/api/v3/items", "/openapi-v3.json", "/weekly", "/monthly"]
       }
     ]
   },

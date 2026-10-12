@@ -1760,4 +1760,3 @@
   "workspace_head_at_final_check": "bfc6a0c18be7918f3bf45c5b45847a7048fbc169",
   "fixed_ref_verification": "共享 HEAD 后续推进，但本报告引用的新库实现和规格文件相对 978efa88dbe293053b1fa91915b3cef68d9715d8 无差异；对照对象不随 HEAD 变更。"
 }
-

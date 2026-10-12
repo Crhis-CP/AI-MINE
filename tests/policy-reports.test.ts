@@ -113,6 +113,22 @@ test("period membership preserves versions, stable language, backfill, unknown d
   assert.equal(plan.contentHash, planPolicyReport("weekly", "2026-W41", [...rows].reverse(), [], issuer, new Date(now.getTime() + 3600_000)).contentHash);
 });
 
+test("an older document with unknown source date enters the period when its interpretation is released", () => {
+  const row = edition("unknown-reading-update", null, "2026-09-20T00:00:00Z", "2026-10-10T00:00:00Z");
+  const sourceTime = structuredClone(row.policy.published_time);
+  for (const [kind, key] of [
+    ["weekly", "2026-W41"],
+    ["monthly", "2026-10"],
+  ] as const) {
+    const plan = planPolicyReport(kind, key, [row], [], issuer, new Date("2026-11-02T00:00:00Z"));
+    assert.equal(plan.members.length, 1);
+    assert.equal(plan.members[0]?.label, "interpretation_update");
+    assert.equal(plan.members[0]?.availableByCutoff, true);
+    assert.deepEqual(row.policy.published_time, sourceTime, "interpretation time must not change source date evidence");
+    assert.equal(row.policy.sort_time, null);
+  }
+});
+
 test("report revisions are idempotent under concurrent rechecks and preserve fixed members after a correction", async () => {
   const one = edition("report-member-1", "2026-10-06", "2026-10-06T00:00:00Z");
   const first = planPolicyReport("weekly", "2026-W41", [one], [], issuer, now);

@@ -104,6 +104,7 @@ test("every real role has exactly the approved table, column, sequence and cross
       "enrichment.translation_segments",
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
+      "feedback.quota_buckets",
       "feedback.submissions",
       "identity.account_access",
       "identity.account_commands",
@@ -160,6 +161,13 @@ test("every real role has exactly the approved table, column, sequence and cross
   );
   for (const role of DATABASE_ROLES) {
     const sql = sessions[role];
+    const quotaRead = ["migrate", "backup", "private_ops", "worker", "feedback_write"].includes(role);
+    const quotaWrite = role === "migrate" || role === "feedback_write";
+    await permission(sql, "SELECT * FROM feedback.quota_buckets LIMIT 1", quotaRead, `${role} reads quota counters`);
+    await permission(sql, "INSERT INTO feedback.quota_buckets SELECT * FROM feedback.quota_buckets WHERE false", quotaWrite, `${role} inserts quota counters`);
+    await permission(sql, "UPDATE feedback.quota_buckets SET used=used WHERE false", quotaWrite, `${role} updates quota count`);
+    await permission(sql, "UPDATE feedback.quota_buckets SET bucket_key=bucket_key WHERE false", role === "migrate", `${role} cannot reassign quota bucket`);
+    await permission(sql, "DELETE FROM feedback.quota_buckets WHERE false", role === "migrate", `${role} cannot clear quota`);
     for (const row of legacy) {
       assert.match(row.name, /^public\./, "this independent oracle covers the 48 legacy public tables");
       const table = { ...row, name: row.name.slice(7) };

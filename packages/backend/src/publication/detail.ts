@@ -67,11 +67,11 @@ async function loadRow(id: string): Promise<DetailRow | null> {
  * Public detail (rules.hasItemPage): items the lists leave out (low relevance, merged duplicates, no
  * Chinese summary yet) keep a noindex page; withdrawn and hot_signal items are a 404.
  */
-export async function loadItemDetail(id: string, now = new Date()): Promise<DetailResult> {
+export async function loadItemDetail(id: string, now = new Date(), machine = false): Promise<DetailResult> {
   const row = await loadRow(id);
   if (!row || !hasItemPage({ visibility: row.visibility, sourceMode: row.source_mode })) return { kind: "not_found" };
 
-  const summary = toItemSummary(row);
+  const summary = toItemSummary(machine ? { ...row, summary: row.machine_summary } : row);
   if (row.visibility === "summary-only") {
     const detail: ItemDetail = {
       ...summary,
@@ -155,7 +155,7 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
           ? "pending"
           : "unavailable",
     firstPublicAt: row.first_public_at?.toISOString() ?? null,
-    eventCoverage: row.story_id ? await eventCoverage(row.story_id, now) : null,
+    eventCoverage: row.story_id ? await eventCoverage(row.story_id, now, machine) : null,
     manualRevisionLabel: row.manual_revision_label,
     companyContext: await publicCompanyContext(id),
     relatedPolicies: await relatedPoliciesForNews(id),
@@ -172,19 +172,20 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
 }
 
 /** Current public event members: first-party representation and the latest distinct fact stay separate. */
-async function eventCoverage(storyId: number, now: Date): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
-  const rows = await sql<ItemRow[]>`SELECT ${ITEM_COLUMNS} ${ITEM_FROM}
+async function eventCoverage(storyId: number, now: Date, machine: boolean): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
+  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS},p.summary AS machine_summary ${ITEM_FROM}
     WHERE p.story_id=${storyId} AND p.visibility='public' AND p.eligible AND s.participation_mode='editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.timeline_at ASC,p.article_id ASC`;
   if (rows.length < 2) return null;
-  const facts = new Map<string, ItemRow[]>();
+  const facts = new Map<string, (typeof rows)[number][]>();
   for (const row of rows) {
     const key = row.fact_id === null ? row.id : String(row.fact_id);
     facts.set(key, [...(facts.get(key) ?? []), row]);
   }
   const latest = [...facts.values()].sort((a, b) => Math.min(...b.map((r) => r.sort_at.getTime())) - Math.min(...a.map((r) => r.sort_at.getTime())))[0]!;
-  return { representative: toItemSummary(pickRepresentative(rows)), latest: toItemSummary(pickRepresentative(latest)), reportCount: rows.length };
+  const project = (row: (typeof rows)[number]) => toItemSummary(machine ? { ...row, summary: row.machine_summary } : row);
+  return { representative: project(pickRepresentative(rows)), latest: project(pickRepresentative(latest)), reportCount: rows.length };
 }
 
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */
@@ -206,7 +207,7 @@ export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDe
 
 /** Machine reading never inherits the website's source-excerpt fallback or its full-text licence. */
 export async function machineItemDetail(id: string, language: "zh" | "original" = "zh", now = new Date()) {
-  const found = await loadItemDetail(id, now);
+  const found = await loadItemDetail(id, now, true);
   if (found.kind !== "found" || (found.row.selected && (!found.row.visible_after || found.row.visible_after > now))) return null;
   const { score: _score, ...view } = siteItemDetail(found.detail, language === "original"),
     allowed = found.row.syndicate && found.row.source_syndicate_fulltext && found.row.source_site_fulltext && view.readingMode === "full";

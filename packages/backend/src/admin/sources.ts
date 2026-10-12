@@ -1,5 +1,5 @@
 import { saveSourceDraft, requireSuccessfulSourcePreview } from "./source-previews.ts";
-export { requestSourcePreview, runSourcePreview, sourcePreviewState, SOURCE_PREVIEW_QUEUE } from "./source-previews.ts";
+export { recoverSourcePreviews, requestSourcePreview, runSourcePreview, sourcePreviewState, SOURCE_PREVIEW_QUEUE } from "./source-previews.ts";
 import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
@@ -365,9 +365,17 @@ export async function lockPolicySourceConfiguration(tx: Tx, expected: Pick<Sourc
 
 /** Acquisition reports success through the sources-owned port, within its original control transaction. */
 export async function recordSourceCollectionSuccess(sourceId: string, cursor: Record<string, unknown>, db: Db) {
-  await lockSourceNotArchived(db as Tx, sourceId);
+  await lockSourceCollectionActive(db as Tx, sourceId);
   await db`UPDATE sources SET last_fetch_at=now(),last_ok_at=now(),fail_count=0,last_error=NULL,health='ok',cursor=${db.json(cursor as never)},updated_at=now(),
    next_fetch_at=now()+make_interval(mins=>interval_minutes) WHERE id=${sourceId}`;
+}
+
+export class SourceCollectionPaused extends Conflict {}
+/** The SHARE lock conflicts with pause/archive UPDATE and remains held until the material/cursor commit. */
+export async function lockSourceCollectionActive(tx: Tx, sourceId: string) {
+  await tx`SELECT pg_advisory_xact_lock_shared(23621, hashtext(${sourceId}))`;
+  const [source] = await tx<{ enabled: boolean; archived_at: Date | null }[]>`SELECT enabled,archived_at FROM sources WHERE id=${sourceId} FOR SHARE`;
+  if (!source?.enabled || source.archived_at) throw new SourceCollectionPaused("信源已暂停或归档，当前采集结果不再入库。");
 }
 
 /** Archive fences all collection writes, including material without a source-date observation. */
@@ -384,7 +392,7 @@ export async function archiveSource(id: string, input: { version: string; reason
     if (new Date(before.updated_at).toISOString() !== input.version) throw new Conflict("信源已被其他操作修改，请刷新后再改");
     if (before.archived_at) throw new Conflict("信源已经归档，不能撤销。");
     const [source] = await tx`UPDATE sources SET archived_at=now(),enabled=false,next_fetch_at=NULL,updated_at=now() WHERE id=${id} RETURNING *`;
-    await tx`UPDATE sources.source_previews SET status='failed',error='信源已归档，预览已失效。',completed_at=now() WHERE source_id=${id} AND status='queued'`;
+    await tx`UPDATE sources.source_previews SET status='failed',error='信源已归档，预览已失效。',completed_at=now(),execution_token=NULL,lease_until=NULL WHERE source_id=${id} AND status IN ('queued','running')`;
     await audit(actor, "source.archive", `source:${id}`, input.reason, { enabled: before.enabled }, { archived_at: source!.archived_at }, undefined, tx);
     return { source: source! };
   });
@@ -394,7 +402,7 @@ import { withSourceCrawl, CrawlDeferred } from "../acquisition/crawl.ts";
 export async function previewSource(draft: Parameters<typeof previewSourceUnpaced>[0]) {
   const source = { name: draft.id, enabled: true, cursor: null, tier: "T2", participation_mode: "editorial", lane: "news", ...draft } as SourceRow;
   try {
-    return await withSourceCrawl(source, `preview:${source.id}`, () => previewSourceUnpaced(draft));
+    return await withSourceCrawl(source, `preview:${source.id}`, () => previewSourceUnpaced(draft), { signal: source.collectionSignal });
   } catch (error) {
     if (error instanceof CrawlDeferred) return { ms: 0, count: 0, items: [], status: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason };
     throw error;

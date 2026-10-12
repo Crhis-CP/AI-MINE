@@ -237,6 +237,7 @@ export const SITE_OUTPUTS: ReadonlyArray<readonly [path: string, statuses: reado
   ["/no-such-page", [404]],
   ["/llms.txt", [200]],
   ["/openapi-v1.json", [200]],
+  ["/openapi-v3.json", [200]],
   ["/feed.xml", [200]],
   ["/feed/full.xml", [200]],
   ["/feed/all.xml", [200]],

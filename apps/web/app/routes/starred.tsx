@@ -7,6 +7,7 @@ import { pageMeta } from "../lib/seo";
 import { removeStar, useStarred } from "../lib/local-state";
 import { fullDateTime } from "../lib/format";
 import { FeedItem } from "../features/feed/FeedItem";
+import { StorySavedList } from "../features/story/StorySaved";
 import { PolicySavedList } from "../features/policy/PolicySaved";
 import { IconBookmark } from "../components/icons";
 
@@ -146,6 +147,7 @@ export default function StarredPage() {
             : [];
         })}
       </ul>
+      <StorySavedList />
       <PolicySavedList />
     </div>
   );

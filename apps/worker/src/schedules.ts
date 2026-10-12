@@ -1,5 +1,6 @@
 // Cron-style schedules (Asia/Shanghai). Each run is recorded in job_runs; missed slots run once.
 import { sendWeeklyFeedbackSummary } from "@amp/backend/admin/feedback";
+import { recoverSourcePreviews } from "@amp/backend/admin/sources";
 import type { PgBoss } from "pg-boss";
 import { ensureQueue, recordRun } from "@amp/backend/jobs/queue";
 import { sweepUnprocessed, sweepPolicyMaterials } from "@amp/backend/jobs/content";
@@ -38,6 +39,7 @@ interface Scheduled {
 const collecting = process.env.COLLECT_ENABLED !== "false";
 
 export const SCHEDULES: Scheduled[] = [
+  { name: "sources.preview-recovery", cron: "*/5 * * * *", run: () => recoverSourcePreviews(100) },
   { name: "ops.read-snapshots", cron: "*/2 * * * *", run: refreshOperationalSnapshots },
   { name: "content.sweep", cron: "*/5 * * * *", run: sweepUnprocessed },
   { name: "policy.pipeline.sweep", cron: "* * * * *", run: sweepPolicyMaterials },

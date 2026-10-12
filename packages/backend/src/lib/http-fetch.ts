@@ -48,6 +48,7 @@ export interface GuardedFetchOptions {
   headers?: Record<string, string>;
   body?: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
   maxBytes?: number;
   /** Follow redirects manually so every hop passes the SSRF guard. */
   maxRedirects?: number;
@@ -79,12 +80,13 @@ export function droppedConnection(error: unknown): boolean {
 }
 
 export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}): Promise<GuardedResponse> {
+  opts.signal?.throwIfAborted();
   const firstAttempt = { receivedHttpError: false };
   try {
     return await fetchOnce(input, opts, firstAttempt);
   } catch (error) {
     if (!opts.retryDropped || firstAttempt.receivedHttpError || (opts.method ?? "GET").toUpperCase() !== "GET" || !droppedConnection(error)) throw error;
-    await delay(DROPPED_RETRY.afterMs * (1 + Math.random()));
+    await delay(DROPPED_RETRY.afterMs * (1 + Math.random()), undefined, { signal: opts.signal });
     return fetchOnce(input, opts);
   }
 }
@@ -93,7 +95,8 @@ async function fetchOnce(input: string, opts: GuardedFetchOptions, attempt?: { r
   // One budget includes DNS, every redirect and the body. Restarting it at each hop allowed a
   // nominal 20 s image request to occupy the API for minutes. A retry gets its own complete budget;
   // only source listings (including admin preview) and direct body extraction opt in.
-  const signal = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
+  const timeout = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
+  const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   const route = opts.route ?? "egress";
   const check = (target: string) => withinDeadline(assertPublicUrl(target, config.allowPrivateNetworkFetch, proxied(new URL(target), route)), signal);
   let url = await check(input);

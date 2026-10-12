@@ -36,6 +36,7 @@ export async function jinaRead(
     subject: string;
     lane?: "news" | "policy";
     runtimeControl?: RuntimeControlSnapshot;
+    signal?: AbortSignal;
     format?: "markdown" | "html";
     cacheToleranceSeconds?: number;
     perRead?: boolean;
@@ -59,12 +60,13 @@ export async function jinaRead(
       purpose: opts.purpose,
       subject: opts.subject,
       identity: { url: targetUrl, day, format: opts.format ?? "markdown" },
-      requestSummary: { url: targetUrl },
+      requestSummary: { url: targetUrl, ...(opts.readKey?.startsWith("preview:") ? { source_preview: true } : {}) },
     },
     async () => {
       const res = await guardedFetch(`${base}/${targetUrl}`, {
         headers: { authorization: `Bearer ${key}`, "x-return-format": opts.format ?? "markdown", accept: "text/plain", ...tolerance },
         timeoutMs: 60_000,
+        signal: opts.signal,
         maxBytes: 6 * 1024 * 1024,
       });
       if (res.status === 401 || res.status === 402 || res.status === 403 || res.status === 422 || res.status === 400) {

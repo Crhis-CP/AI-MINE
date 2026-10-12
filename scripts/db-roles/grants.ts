@@ -55,11 +55,12 @@ export function quoteRelation(value: string): string {
 
 const APP_ROLES = ["private_ops", "worker", "auth", "feedback_write", "ops_read"] as const;
 const PRIVILEGES = ["SELECT", "INSERT", "UPDATE", "DELETE"] as const;
+const QUOTA_UPDATE = "UPDATE (used)" as const;
 export interface TableGrant {
   module: string;
   access: string;
   publicColumns: string[];
-  permissions?: Partial<Record<(typeof APP_ROLES)[number], (typeof PRIVILEGES)[number][]>>;
+  permissions?: Partial<Record<(typeof APP_ROLES)[number], ((typeof PRIVILEGES)[number] | typeof QUOTA_UPDATE)[]>>;
 }
 function qualified<T>(values: Record<string, T>): Record<string, T> {
   const result: Record<string, T> = {};
@@ -76,7 +77,7 @@ const dataSchemas = [...new Set(Object.keys(TABLE_GRANTS).map((name) => relation
 function applicationGrants(name: string, spec: TableGrant): [DatabaseRole, string][] {
   if (relationIdentity(name).schema !== "public")
     return APP_ROLES.flatMap((role) => {
-      const permissions = PRIVILEGES.filter((p) => spec.permissions?.[role]?.includes(p));
+      const permissions = [...PRIVILEGES, QUOTA_UPDATE].filter((p) => spec.permissions?.[role]?.includes(p));
       return permissions.length ? [[role, permissions.join(", ")] as [DatabaseRole, string]] : [];
     });
   const result: [DatabaseRole, string][] = [];
@@ -154,6 +155,14 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         c.tables.find((table) => table.name === name)?.columns.length === feedbackSubmissionColumns.length &&
         feedbackSubmissionColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
       const permissions = spec.permissions;
+      const quotaColumns = ["scope", "bucket_key", "window_start", "used"];
+      const feedbackQuota =
+        name === "feedback.quota_buckets" &&
+        spec.module === "feedback" &&
+        spec.access === "business" &&
+        spec.publicColumns.length === 0 &&
+        c.tables.find((table) => table.name === name)?.columns.length === quotaColumns.length &&
+        quotaColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
       if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) problems.push(`Explicit permissions missing: ${name}`);
       else
         for (const [role, values] of Object.entries(permissions)) {
@@ -161,7 +170,7 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
             !APP_ROLES.includes(role as never) ||
             !Array.isArray(values) ||
             new Set(values).size !== values.length ||
-            values.some((p) => !PRIVILEGES.includes(p))
+            values.some((p) => !(PRIVILEGES as readonly string[]).includes(p) && !(feedbackQuota && role === "feedback_write" && p === QUOTA_UPDATE))
           )
             problems.push(`Invalid permissions: ${name}/${role}`);
           else if (
@@ -169,6 +178,9 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
             !(
               (role === "auth" && ["identity", "audit"].includes(spec.access)) ||
               (role === "feedback_write" && feedbackSubmission && values.every((permission) => permission === "SELECT" || permission === "INSERT")) ||
+              (role === "feedback_write" &&
+                feedbackQuota &&
+                values.every((permission) => permission === "SELECT" || permission === "INSERT" || permission === QUOTA_UPDATE)) ||
               (["private_ops", "worker"].includes(role) && ["business", "audit"].includes(spec.access)) ||
               (capabilityProjection && ["private_ops", "worker"].includes(role) && values.length === 1 && values[0] === "SELECT") ||
               (role === "ops_read" &&

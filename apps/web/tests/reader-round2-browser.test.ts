@@ -65,6 +65,7 @@ const api = createServer(async (req, res) => {
   res.setHeader("content-type", "application/json");
   res.setHeader("cache-control", "no-store");
   const send = (value: unknown) => res.end(JSON.stringify(value));
+  if (url.pathname === "/openapi-v3.json") return send({ openapi: "3.1.0", info: { title: "Fixture v3" }, paths: { "/api/v3/items": {} } });
   if (url.pathname === "/api/site/meta") return send({ changelogVersion: null });
   if (url.pathname === "/api/site/content-version") return send({ version: "1", withdrawalVersion: "1" });
   if (url.pathname === "/api/site/jurisdictions") return send([]);
@@ -324,4 +325,16 @@ test("daily, weekly and monthly report pages show public correction notes, witho
   await expect(page.getByRole("region", { name: "更正说明" })).toHaveCount(0);
   await context.close();
   showCorrections = true;
+});
+
+test("the public web entry proxies the v3 specification and its guide links to working v3 examples", async () => {
+  const spec = await fetch(`${origin}/openapi-v3.json`);
+  assert.equal(spec.status, 200);
+  assert.deepEqual(await spec.json(), { openapi: "3.1.0", info: { title: "Fixture v3" }, paths: { "/api/v3/items": {} } });
+  const guide = await fetch(`${origin}/agent?tab=api`);
+  assert.equal(guide.status, 200);
+  const html = await guide.text();
+  assert.match(html, /href="\/openapi-v3\.json"/);
+  assert.match(html, /\/api\/v3\/items\?view=featured/);
+  assert.doesNotMatch(html, /\/api\/v1\/items/);
 });

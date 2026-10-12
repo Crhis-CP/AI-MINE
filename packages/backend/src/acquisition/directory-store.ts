@@ -213,6 +213,7 @@ export async function applyDirectoryScan(scan: DirectoryScan, probe: DirectoryPa
             : {}),
         },
         tx,
+        source.collectionControl,
       );
       created += Number(result.created);
       revised += Number(result.revised);

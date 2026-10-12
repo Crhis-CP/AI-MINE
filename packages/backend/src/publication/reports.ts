@@ -5,7 +5,7 @@ import { dbOf } from "../db.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { isValidDate, isoWeekRange } from "@amp/contracts/time";
-import { fetchItemsByIds } from "./items.ts";
+import { fetchItemsByIds, ITEM_COLUMNS, ITEM_FROM, type ItemRow } from "./items.ts";
 export { isReportWithdrawn, storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 
 const sql = dbOf("publication");
@@ -49,7 +49,7 @@ export async function machineReport(kind: ReportKind, key = "latest") {
   if (!isPublicReportKey(kind, key)) return null;
   const selectedKey = key === "latest" ? (await reportIndexRows(kind, 1))[0]?.key : key;
   if (!selectedKey) return null;
-  const report = await loadReport(kind, selectedKey);
+  const report = await loadReport(kind, selectedKey, true);
   if (!report) return null;
   const { metrics: _metrics, ...view } = report;
   const removed = [...view.stories, ...view.flashes].some((item) => !item.available);
@@ -99,10 +99,18 @@ interface Availability {
   sourceUrl: string;
 }
 
-async function availability(ids: string[]): Promise<Map<string, Availability>> {
+async function availability(ids: string[], machine = false): Promise<Map<string, Availability>> {
   const out = new Map<string, Availability>();
   if (ids.length === 0) return out;
-  const rows = await fetchItemsByIds(ids);
+  // Machine citations use only the current public guide, never ITEM_COLUMNS' website excerpt fallback.
+  const rows = machine
+    ? new Map(
+        (
+          await sql<(ItemRow & { machine_summary: string | null })[]>`
+        SELECT ${ITEM_COLUMNS},p.summary AS machine_summary ${ITEM_FROM} WHERE p.article_id IN ${sql(ids)}`
+        ).map((row) => [row.id, { ...row, summary: row.machine_summary }]),
+      )
+    : await fetchItemsByIds(ids);
   for (const r of rows.values()) {
     out.set(r.id, {
       available: r.visibility === "public" && r.eligible && r.source_mode === "editorial",
@@ -215,11 +223,11 @@ function currentReportContent(content: Record<string, any>, current: Map<string,
   };
 }
 
-function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>): ReportCitation {
+function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>, machine = false): ReportCitation {
   const id = raw.itemId ?? null;
   const a = id ? avail.get(id) : undefined;
   // A missing current projection never proves a cited item is still public.
-  const available = id ? (a?.available ?? false) : true;
+  const available = id ? (a?.available ?? false) : !machine;
   if (!available) {
     // Withdrawn since: the reader sees a marked title; the summary and links are not sent at all.
     return {
@@ -242,10 +250,10 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
     summary: a ? a.summary : (raw.summary ?? null),
     sourceName: a?.sourceName ?? String(raw.sourceName ?? raw.source?.name ?? ""),
     sourceUrl: a?.sourceUrl ?? String(raw.sourceUrl ?? raw.links?.original ?? ""),
-    sourceId: raw.sourceId ?? a?.sourceId ?? null,
-    firstParty: raw.firstParty ?? a?.firstParty ?? false,
+    sourceId: machine ? (a?.sourceId ?? null) : (raw.sourceId ?? a?.sourceId ?? null),
+    firstParty: machine ? (a?.firstParty ?? false) : (raw.firstParty ?? a?.firstParty ?? false),
     role: raw.role ?? null,
-    storyPublicId: raw.storyPublicId ?? a?.storyPublicId ?? null,
+    storyPublicId: machine ? (a?.storyPublicId ?? null) : (raw.storyPublicId ?? a?.storyPublicId ?? null),
     publishedAt: a?.publishedAt?.toISOString() ?? null,
     available,
   };
@@ -262,7 +270,7 @@ async function neighbors(kind: ReportKind, key: string): Promise<{ prev: string 
   return { prev: row?.prev ?? null, next: row?.next ?? null };
 }
 
-export async function loadReport(kind: ReportKind, key: string): Promise<ReportDetail | null> {
+export async function loadReport(kind: ReportKind, key: string, machine = false): Promise<ReportDetail | null> {
   const [r] = await sql<
     ReportRow[]
   >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports r WHERE kind = ${kind} AND key = ${key} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)`;
@@ -273,8 +281,8 @@ export async function loadReport(kind: ReportKind, key: string): Promise<ReportD
     ...(c.flashes ?? []),
     ...(c.themes ?? []).flatMap((t: any) => t.storyRefs ?? []),
   ];
-  const avail = await availability([...new Set(rawItems.map((i) => i.itemId).filter(Boolean))]);
-  const cite = (raw: Record<string, any>) => citationFrom(raw, avail);
+  const avail = await availability([...new Set(rawItems.map((i) => i.itemId).filter(Boolean))], machine);
+  const cite = (raw: Record<string, any>) => citationFrom(raw, avail, machine);
   const removed = !!c.correctionPending || rawItems.some((raw) => !cite(raw).available || staleCitation(raw, avail));
 
   const sections =
@@ -389,7 +397,7 @@ export async function v1Dailies(limit: number) {
 
 export async function v1Daily(date: string | "latest") {
   const key = date === "latest" ? (await reportIndexRows("daily", 1))[0]?.key : date;
-  const report = key ? await loadReport("daily", key) : null;
+  const report = key ? await loadReport("daily", key, true) : null;
   if (!report) return null;
   const url = dailyUrl(report.key);
   return {

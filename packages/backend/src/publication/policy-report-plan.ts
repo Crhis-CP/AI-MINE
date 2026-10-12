@@ -102,7 +102,7 @@ export function planPolicyReport(
       if (day !== null && day >= period.startDay && day < period.endDay && discovered < end) label = "period_change";
       else if (discovered >= start && discovered < end && day === null) label = "source_date_unknown";
       else if (discovered >= start && discovered < end && day !== null && day < period.startDay) label = "backfill";
-      else if (discovered < start && released >= start && released < end && day !== null && day < period.startDay) label = "interpretation_update";
+      else if (discovered < start && released >= start && released < end && (day === null || day < period.startDay)) label = "interpretation_update";
       if (label) selected.push({ row, label });
     }
   }

@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import { after, test } from "node:test";
 import { feedbackScreenshot } from "@amp/backend/admin/feedback";
 import { config } from "@amp/backend/config";
@@ -38,7 +39,9 @@ after(async () => {
   await closeDb();
 });
 
-const PNG = Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000000", "hex");
+const PNG = await sharp({ create: { width: 2, height: 2, channels: 3, background: "white" } })
+  .png()
+  .toBuffer();
 
 test("feedback with a screenshot is kept here and nothing goes to Feishu", async () => {
   const { id } = await submitFeedback({
@@ -46,7 +49,7 @@ test("feedback with a screenshot is kept here and nothing goes to Feishu", async
     content: `反馈 ${T}`,
     email: "reader@example.com",
     pageUrl: "/daily",
-    screenshot: { mime: "image/png", data: Buffer.concat([PNG, Buffer.from(T)]) },
+    screenshot: { mime: "image/png", data: PNG },
     ip: "203.0.113.7",
     userAgent: "test",
   });

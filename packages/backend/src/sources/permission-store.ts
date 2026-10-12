@@ -12,6 +12,18 @@ import { sha256, stableJson } from "../lib/ids.ts";
 
 const sql = dbOf("sources");
 const publicPurposes = ["public_excerpt", "public_summary", "public_original_fulltext", "public_translation"] as const;
+// Public evidence links cannot carry URL userinfo; keep this predicate aligned with migration 202610120500.
+const publicLinkPattern = /^https?:\/\/[^/?#\s@\\]+(?:[/?#][^\s\\]*)?$/i;
+const PublicLink = z.url({ protocol: /^https?$/ }).refine((value) => publicLinkPattern.test(value));
+function attributionLinks(policy: SourcePolicy) {
+  const links = (kind: SourcePolicy["evidence"][number]["kind"]) => [
+    ...new Set(policy.evidence.filter((e) => e.kind === kind && e.url !== null && publicLinkPattern.test(e.url)).map((e) => e.url!)),
+  ];
+  const licence = links("open_license"),
+    official = links("official_policy"),
+    legal = official.length ? official : links("robots_terms");
+  return { licence_url: licence.length === 1 ? licence[0] : null, legal_url: legal.length === 1 ? legal[0] : null };
+}
 const PublicPolicy = z.strictObject({
   source_id: SourcePolicySchema.shape.source_id,
   permission_version: SourcePolicySchema.shape.permission_version,
@@ -21,6 +33,8 @@ const PublicPolicy = z.strictObject({
   attachments_in_scope: z.boolean(),
   expires_at: SourcePolicySchema.shape.expires_at,
   licence_label_zh: SourcePolicySchema.shape.licence_label_zh,
+  licence_url: PublicLink.nullable().default(null),
+  legal_url: PublicLink.nullable().default(null),
   grants: z.record(z.enum(publicPurposes), z.array(z.strictObject({ scope: PermissionScopeSchema, expires_at: SourcePolicySchema.shape.expires_at }))),
   processing: z
     .strictObject({
@@ -37,6 +51,7 @@ export class SourcePolicyConflict extends Error {
 /** The caller cannot supply this projection or copy private evidence into the public login. */
 function publicProjection(policy: SourcePolicy) {
   return PublicPolicy.parse({
+    ...attributionLinks(policy),
     processing: {
       decision: policy.permissions.process_locally,
       grants: policy.evidence
