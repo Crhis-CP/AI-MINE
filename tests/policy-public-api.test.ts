@@ -129,7 +129,7 @@ test("real public role reads gated policies; revocation, expiry, version selecti
     const rss = await app.request("/feed/policies.xml?reader=ignored"),
       rssBody = await rss.text();
     assert.equal(rss.status, 200);
-    assert.equal(rss.headers.get("cache-control"), "public, max-age=0, must-revalidate");
+    assert.equal(rss.headers.get("cache-control"), "public, max-age=0, s-maxage=0, must-revalidate");
     const rssItems = new XMLParser().parse(rssBody).rss.channel.item;
     assert.equal(rssItems.length, 2);
     assert.ok(rssItems.every((item: Record<string, unknown>) => item["dc:date"] && !item.pubDate));

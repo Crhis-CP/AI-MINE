@@ -159,23 +159,47 @@ test("non-empty event, development, report and topic projections resolve their c
   const events = await get(`/api/v3/events?source=${source}`);
   assert.equal(events.response.statusCode, 200, events.response.body);
   assert.equal(events.body.items[0].id, eventId);
+  const [cited] = await sql<{ revision: number }[]>`SELECT revision FROM publications WHERE article_id=${second}`;
   const content = {
     generationStatus: "ready",
+    corrections: [
+      { revision: 1, reason: "PRIVATE_FREEFORM_REASON", at: "2026-10-11T01:30:00Z" },
+      { revision: 2, reason: "引用报道已更正，本期内容随之更新。", at: "2026-10-12T01:30:00Z", actor: "PRIVATE_ACTOR", audit_reason: "PRIVATE_AUDIT_REASON" },
+      { revision: -1, reason: "PRIVATE_INVALID_ROW", at: "not-a-date" },
+    ],
     lead: { title: "报告标题", leadParagraph: "报告导语" },
     sections: [
       {
         label: "企业与项目",
         summary: "本期有一条材料",
-        items: [{ itemId: second, title: "报告引用", summary: "引用导读", sourceName: "API 合成来源", sourceUrl: `https://example.invalid/${second}` }],
+        items: [
+          {
+            itemId: second,
+            publicationRevision: cited!.revision,
+            title: "报告引用",
+            summary: "引用导读",
+            sourceName: "API 合成来源",
+            sourceUrl: `https://example.invalid/${second}`,
+          },
+        ],
       },
     ],
     flashes: [],
   };
-  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at) VALUES('daily','2026-10-12',now()-interval '1 day',now(),${sql.json(content)},now())`;
+  await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at,revision) VALUES('daily','2026-10-12',now()-interval '1 day',now(),${sql.json(content)},now(),2)`;
   const report = await get("/api/v3/reports/daily%3A2026-10-12");
   assert.equal(report.response.statusCode, 200, report.response.body);
   assert.equal(report.body.items[0].id, second);
   assert.equal(report.body.status, "ready");
+  assert.equal(report.body.edition, 2);
+  assert.deepEqual(report.body.corrections, [
+    { revision: 1, reason: "本期内容已更正，请以当前版本为准。", at: "2026-10-11T01:30:00.000Z" },
+    { revision: 2, reason: "引用报道已更正，本期内容随之更新。", at: "2026-10-12T01:30:00.000Z" },
+  ]);
+  assert.doesNotMatch(report.response.body, /PRIVATE_|audit_reason/);
+  const siteReport = await get("/api/site/reports/daily/2026-10-12");
+  assert.equal(siteReport.response.statusCode, 200);
+  assert.doesNotMatch(siteReport.response.body, /PRIVATE_|audit_reason/);
   const topic = await get("/api/v3/topics/copper");
   assert.equal(topic.response.statusCode, 200, topic.response.body);
   assert.ok(topic.body.items.some((item: { id: string }) => item.id === second));

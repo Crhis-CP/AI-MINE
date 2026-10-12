@@ -39,7 +39,7 @@ export function registerFeeds(app: FastifyInstance) {
   app.get("/feed/all.xml", item("all"));
   app.get("/feed/policies.xml", async (req, reply) => {
     try {
-      return await sendFeed(req, reply, await policyFeed(), "public, max-age=0, must-revalidate");
+      return await sendFeed(req, reply, await policyFeed());
     } catch (error) {
       req.log.error({ err: error }, "policy feed error");
       return feedError(reply);

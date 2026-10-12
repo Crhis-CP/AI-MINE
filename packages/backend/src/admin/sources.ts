@@ -11,8 +11,9 @@ import { republishKey } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
 import { fetchJsonList } from "../sources/json-list.ts";
 import { fetchRss } from "../sources/rss.ts";
-import { assertSupportedConfig, sourceDateConfigHash } from "../sources/config-keys.ts";
+import { assertSupportedConfig, sourceDateConfigHash, sourceCheckpointIdentity } from "../sources/config-keys.ts";
 import type { SourceRow } from "../sources/types.ts";
+import { directoryContract } from "../sources/directory-profile.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit } from "./auth.ts";
 const sql = dbOf("sources");
@@ -28,6 +29,7 @@ export interface SourceListFilters {
   enabled?: "true" | "false";
   mode?: string;
   page?: number;
+  archived?: "true" | "false";
 }
 
 export async function listSources(f: SourceListFilters) {
@@ -35,19 +37,21 @@ export async function listSources(f: SourceListFilters) {
   const q = f.q?.trim() ? `%${f.q.trim()}%` : null;
   const rows = await sql`
     SELECT s.id, s.name, s.kind, s.tier, s.participation_mode, s.enabled, s.health, s.fail_count, s.interval_minutes,
-           s.last_ok_at, s.last_fetch_at, s.last_error, s.first_party, s.next_fetch_at,
+           s.last_ok_at, s.last_fetch_at, s.last_error, s.first_party, s.next_fetch_at, s.archived_at,
            (SELECT count(*)::int FROM articles a WHERE a.source_id = s.id AND a.discovered_at > now() - interval '7 days') AS items_7d,
            (SELECT count(*)::int FROM publications p WHERE p.source_id = s.id AND p.selected AND p.discovered_at > now() - interval '30 days') AS selected_30d
     FROM sources s
     WHERE (${q}::text IS NULL OR s.name ILIKE ${q} OR s.id ILIKE ${q} OR s.config::text ILIKE ${q})
+      AND (s.archived_at IS NOT NULL) = ${f.archived === "true"}
       AND (${f.kind ?? null}::text IS NULL OR s.kind = ${f.kind ?? null})
       AND (${f.health ?? null}::text IS NULL OR s.health = ${f.health ?? null})
       AND (${f.mode ?? null}::text IS NULL OR s.participation_mode = ${f.mode ?? null})
       AND (${f.enabled ?? null}::text IS NULL OR s.enabled = (${f.enabled ?? null} = 'true'))
     ORDER BY s.enabled DESC, CASE s.health WHEN 'failing' THEN 0 WHEN 'degraded' THEN 1 ELSE 2 END, s.name
     LIMIT 100 OFFSET ${(page - 1) * 100}`;
-  const [totals] = await sql<{ total: number; enabled: number; failing: number; degraded: number }[]>`
-    SELECT count(*)::int AS total, count(*) FILTER (WHERE enabled)::int AS enabled,
+  const [totals] = await sql<{ total: number; enabled: number; failing: number; degraded: number; archived: number }[]>`
+    SELECT count(*) FILTER (WHERE archived_at IS NULL)::int AS total, count(*) FILTER (WHERE enabled)::int AS enabled,
+           count(*) FILTER (WHERE archived_at IS NOT NULL)::int AS archived,
            count(*) FILTER (WHERE health = 'failing')::int AS failing, count(*) FILTER (WHERE health = 'degraded')::int AS degraded
     FROM sources`;
   return { page, rows, totals };
@@ -117,6 +121,7 @@ export async function updateSource(
     await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${id}))`;
     const [before] = await tx`SELECT * FROM sources WHERE id = ${id} FOR UPDATE`;
     if (!before) return null;
+    if (before.archived_at) throw new Conflict("信源已归档，不能恢复或改动采集配置；如需再次采集请重新添加。");
     if (new Date(before.updated_at as Date).toISOString() !== input.version) throw new Conflict("信源已被其他操作修改，请刷新后再改");
     if (input.config_command === "activate_draft") {
       const [draft] = await tx`SELECT config FROM sources.source_config_drafts WHERE id=${input.draft_id ?? null} AND source_id=${id}`;
@@ -145,6 +150,11 @@ export async function updateSource(
     const keys = Object.keys(patch) as Array<keyof typeof patch>;
     if (!keys.length) return before;
     if (keys.some((key) => patch[key] === undefined)) throw new Error("Undefined source values are not allowed");
+    const resetCursor =
+      input.config_command === "activate_draft" &&
+      sourceCheckpointIdentity(before.kind as SourceRow["kind"], before.config) !== sourceCheckpointIdentity(before.kind as SourceRow["kind"], patch.config!);
+    const directory = input.config_command === "activate_draft" && before.cursor && !resetCursor ? directoryContract(before as SourceRow) : null;
+    const preservedCursor = directory ? { ...before.cursor, directoryCheckpointHash: directory.hash } : before.cursor;
     const [after] = await tx`UPDATE sources SET
       name = CASE WHEN ${Object.hasOwn(patch, "name")} THEN ${patch.name ?? null} ELSE name END,
       enabled = CASE WHEN ${Object.hasOwn(patch, "enabled")} THEN ${patch.enabled ?? null} ELSE enabled END,
@@ -159,7 +169,7 @@ export async function updateSource(
       config = CASE WHEN ${Object.hasOwn(patch, "config")} THEN ${patch.config === undefined ? null : tx.json(patch.config as never)} ELSE config END,
       source_date_config_hash = CASE WHEN ${Object.hasOwn(patch, "config")} THEN ${patch.config ? sourceDateConfigHash(before.kind as SourceRow["kind"], patch.config) : null} ELSE source_date_config_hash END,
       updated_at = now(),
-      cursor = CASE WHEN ${input.config_command === "activate_draft"} THEN NULL ELSE cursor END,
+      cursor = CASE WHEN ${resetCursor} THEN NULL WHEN ${!!directory} THEN ${tx.json(preservedCursor as never)} ELSE cursor END,
       health = CASE WHEN ${patch.enabled ?? null}::boolean IS FALSE THEN 'paused' WHEN ${patch.enabled ?? null}::boolean IS TRUE AND health = 'paused' THEN 'unknown' ELSE health END,
       next_fetch_at = CASE WHEN ${patch.enabled ?? null}::boolean IS TRUE OR ${input.config_command === "activate_draft"} THEN now() ELSE next_fetch_at END
       WHERE id = ${id} RETURNING *`;
@@ -217,7 +227,7 @@ export async function findDuplicateSource(kind: string, config: Record<string, u
   if (!identity) return null;
   const rows = await db<
     { id: string; kind: string; config: Record<string, unknown>; name: string }[]
-  >`SELECT id, kind, config, name FROM sources WHERE kind = ${kind}`;
+  >`SELECT id, kind, config, name FROM sources WHERE kind = ${kind} AND archived_at IS NULL`;
   return rows.find((r) => sourceIdentity(r.config) === identity) ?? null;
 }
 
@@ -278,8 +288,11 @@ export async function createSource(input: unknown, actor: string, opts: { lane?:
 }
 
 export async function fetchNow(id: string, actor: string) {
-  const [s] = await sql<{ id: string; kind: string; lane: SourceRow["lane"] }[]>`SELECT id, kind, lane FROM sources WHERE id = ${id}`;
+  const [s] = await sql<
+    { id: string; kind: string; lane: SourceRow["lane"]; archived_at: Date | null }[]
+  >`SELECT id, kind, lane, archived_at FROM sources WHERE id = ${id}`;
   if (!s) return null;
+  if (s.archived_at) throw new Conflict("信源已归档，不能重新采集。");
   await requireRuntimeRunning(s.lane, ["collection"]);
   const jobId =
     s.kind === "mp_account"
@@ -297,7 +310,7 @@ export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
 export async function readSourceDateContext(sourceId: string, db: Db = sql): Promise<SourceRow | null> {
   const [source] = await db<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, lane, first_party,
-    interval_minutes, enabled, cursor, fail_count FROM sources WHERE id = ${sourceId}`;
+    interval_minutes, enabled, cursor, fail_count, archived_at FROM sources WHERE id = ${sourceId}`;
   return source ?? null;
 }
 
@@ -352,8 +365,29 @@ export async function lockPolicySourceConfiguration(tx: Tx, expected: Pick<Sourc
 
 /** Acquisition reports success through the sources-owned port, within its original control transaction. */
 export async function recordSourceCollectionSuccess(sourceId: string, cursor: Record<string, unknown>, db: Db) {
+  await lockSourceNotArchived(db as Tx, sourceId);
   await db`UPDATE sources SET last_fetch_at=now(),last_ok_at=now(),fail_count=0,last_error=NULL,health='ok',cursor=${db.json(cursor as never)},updated_at=now(),
    next_fetch_at=now()+make_interval(mins=>interval_minutes) WHERE id=${sourceId}`;
+}
+
+/** Archive fences all collection writes, including material without a source-date observation. */
+export async function lockSourceNotArchived(tx: Tx, sourceId: string) {
+  const [source] = await tx<{ archived_at: Date | null }[]>`SELECT archived_at FROM sources WHERE id=${sourceId} FOR SHARE`;
+  if (!source || source.archived_at) throw new Conflict("信源已归档，当前采集结果不再入库。");
+}
+
+export async function archiveSource(id: string, input: { version: string; reason: string; high_risk_confirmed: boolean }, actor: string) {
+  if (!input.high_risk_confirmed || !input.reason.trim()) throw new Conflict("归档须填写原因并确认已了解后果。");
+  return sql.begin(async (tx) => {
+    const [before] = await tx`SELECT * FROM sources WHERE id=${id} FOR UPDATE`;
+    if (!before) return null;
+    if (new Date(before.updated_at).toISOString() !== input.version) throw new Conflict("信源已被其他操作修改，请刷新后再改");
+    if (before.archived_at) throw new Conflict("信源已经归档，不能撤销。");
+    const [source] = await tx`UPDATE sources SET archived_at=now(),enabled=false,next_fetch_at=NULL,updated_at=now() WHERE id=${id} RETURNING *`;
+    await tx`UPDATE sources.source_previews SET status='failed',error='信源已归档，预览已失效。',completed_at=now() WHERE source_id=${id} AND status='queued'`;
+    await audit(actor, "source.archive", `source:${id}`, input.reason, { enabled: before.enabled }, { archived_at: source!.archived_at }, undefined, tx);
+    return { source: source! };
+  });
 }
 
 import { withSourceCrawl, CrawlDeferred } from "../acquisition/crawl.ts";

@@ -1,3 +1,4 @@
+import { WithdrawalControls } from "../../features/admin/withdrawal";
 import { SITE } from "@amp/industry/site";
 import { Form, Link, useNavigate, useSearchParams } from "react-router";
 import type { Route } from "./+types/content";
@@ -38,6 +39,9 @@ export default function Content({ loaderData }: Route.ComponentProps) {
           查找
         </Button>
       </Form>
+      <Card title="事件、发展线或报告下架 / 恢复">
+        <WithdrawalControls />
+      </Card>
       {q && (
         <Card pad={false} title={`“${q}” 的结果`} right={<span>{rows.length === 50 ? "仅显示最近 50 条" : `${rows.length} 条`}</span>}>
           <DataTable

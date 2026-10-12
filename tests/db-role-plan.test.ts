@@ -29,6 +29,7 @@ function catalog(): Catalog {
       content: "bootstrap",
       ai: "bootstrap",
       publication: "bootstrap",
+      reports: "bootstrap",
       policy: "bootstrap",
       ops: "bootstrap",
       identity: "bootstrap",
@@ -38,11 +39,13 @@ function catalog(): Catalog {
       name,
       owner: "bootstrap",
       columns:
-        name === "identity.account_access"
-          ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
-          : grant.publicColumns[0] === "*" || !grant.publicColumns.length
-            ? ["id"]
-            : grant.publicColumns,
+        name === "feedback.submissions"
+          ? ["key_hash", "payload_hash", "feedback_id", "created_at"]
+          : name === "identity.account_access"
+            ? ["user_id", "role", "models_manage", "active", "revision", "must_change_password"]
+            : grant.publicColumns[0] === "*" || !grant.publicColumns.length
+              ? ["id"]
+              : grant.publicColumns,
       rls: false,
     })),
     sequences: Object.entries(SEQUENCES).map(([name, table]) => ({ name, table, owner: "bootstrap" })),
@@ -74,6 +77,12 @@ test("all current migration tables and serial sequences have one explicit classi
       "editorial.manual_revision_events",
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
+      "feedback.submissions",
+      "editorial.withdrawal_records",
+      "editorial.withdrawal_restorations",
+      "publication.withdrawal_targets",
+      "publication.withdrawal_members",
+      "reports.correction_jobs",
       "publication.manual_copies",
       "publication.read_watermarks",
       "sources.source_config_drafts",
@@ -173,6 +182,7 @@ test("all current migration tables and serial sequences have one explicit classi
       ...serials.map((name) => `public.${name}`),
       "editorial.manual_revisions_id_seq",
       "editorial.manual_revision_events_id_seq",
+      "editorial.withdrawal_records_id_seq",
       "sources.source_config_drafts_id_seq",
       "sources.source_previews_id_seq",
       "sources.source_config_activations_id_seq",
@@ -180,7 +190,7 @@ test("all current migration tables and serial sequences have one explicit classi
   );
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 37);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 39);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["enrichment.translation_segments"], {
     module: "enrichment",
@@ -216,7 +226,8 @@ test("the plan separates eight identities, column reads, append-only audit, owne
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "publication"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "editorial"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "feedback"')).length, 4);
-  assert.equal(defaults.length, 52);
+  assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "reports"')).length, 4);
+  assert.equal(defaults.length, 56);
   assert.doesNotMatch(sql, /GRANT [^;]*(?:UPDATE|DELETE)[^;]* ON TABLE editorial\."manual_(?:revisions|revision_events)" TO "fixture_(?:worker|private_ops)"/);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "ai"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
@@ -358,4 +369,20 @@ test("the observer role is confined to the fixed operational snapshot projection
   const business = plan.filter((s) => s.startsWith("GRANT ") && s.endsWith('TO "fixture_ops_read"') && s.includes(" ON TABLE "));
   assert.deepEqual(business, ['GRANT SELECT ON TABLE "ops"."operational_snapshots" TO "fixture_ops_read"']);
   assert.ok(!plan.some((s) => s.startsWith("GRANT ") && /INSERT|UPDATE|DELETE|CREATE|ALL/.test(s) && s.endsWith('TO "fixture_ops_read"')));
+});
+
+test("feedback idempotency writer is confined to four non-content columns and append-only privileges", () => {
+  const current = catalog();
+  const sql = planRoleGrants(current, "fixture", 2).statements.join("\n");
+  assert.match(sql, /GRANT SELECT, INSERT ON TABLE "feedback"\."submissions" TO "fixture_feedback_write"/);
+  current.tables.find((table) => table.name === "feedback.submissions")!.columns.push("content");
+  assert.throws(() => planRoleGrants(current, "fixture", 2), /Permissions exceed/);
+  const spec = TABLE_GRANTS["feedback.submissions"]!;
+  const previous = spec.permissions!.feedback_write;
+  try {
+    spec.permissions!.feedback_write = ["SELECT", "INSERT", "UPDATE"];
+    assert.throws(() => planRoleGrants(catalog(), "fixture", 2), /Permissions exceed/);
+  } finally {
+    spec.permissions!.feedback_write = previous;
+  }
 });

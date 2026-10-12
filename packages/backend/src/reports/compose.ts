@@ -1,4 +1,5 @@
 import { reportFallbackInput } from "./fallback-input.ts";
+export { newsReportWithdrawalSnapshot } from "./references.ts";
 // Daily, weekly and monthly reports. Windows are Beijing calendar based and written into the report;
 // missed schedule points are caught up; regeneration creates a revision. The editors' prompts are in
 // the industry pack (industry/prompts/report-*.md), the sections follow its categories.
@@ -26,6 +27,7 @@ const reportSection = (category: string | null) => SECTION_OF.get(category ?? ""
 
 export interface ReportEntry {
   itemId: string;
+  publicationRevision?: number;
   factId: string | null;
   storyPublicId: string | null;
   title: string;
@@ -58,6 +60,7 @@ export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
     return tx<
       {
         id: string;
+        revision: number;
         title: string;
         summary: string | null;
         url: string;
@@ -73,7 +76,7 @@ export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
         backfill: boolean;
       }[]
     >`
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
+      SELECT p.article_id AS id,p.revision, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
              s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
       FROM publications p JOIN sources s ON s.id = p.source_id
       LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
@@ -90,6 +93,7 @@ export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
     const key = r.fact_public_id ?? `a:${r.id}`;
     const c: Candidate = {
       itemId: r.id,
+      publicationRevision: r.revision,
       factId: r.fact_public_id,
       storyPublicId: r.story_public_id,
       title: r.title,
@@ -136,7 +140,7 @@ const LeadSchema = z.object({
     .catch([]),
 });
 
-async function writeLead(kind: string, key: string, entries: ReportEntry[], model: string) {
+export async function writeLead(kind: string, key: string, entries: ReportEntry[], model: string) {
   if (entries.length === 0) return null;
   const list = entries
     .slice(0, 30)
@@ -214,13 +218,20 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
   const all = await candidates(start, end);
   const fresh = all.filter((c) => !covered.has(c.factKey) && !covered.has(`a:${c.itemId}`));
   const perSection = new Map<string, Candidate[]>();
-  const flashes: Array<{ itemId: string; title: string; sourceName: string; sourceUrl: string; publishedAt: string }> = [];
+  const flashes: Array<{ itemId: string; publicationRevision?: number; title: string; sourceName: string; sourceUrl: string; publishedAt: string }> = [];
   for (const c of fresh) {
     const label = reportSection(c.category);
     const list = label ? (perSection.get(label) ?? []) : [];
     if (label && list.length < 8) list.push(c);
     else if (flashes.length < 12)
-      flashes.push({ itemId: c.itemId, title: c.title, sourceName: c.sourceName, sourceUrl: c.sourceUrl, publishedAt: c.publishedAt });
+      flashes.push({
+        itemId: c.itemId,
+        publicationRevision: c.publicationRevision,
+        title: c.title,
+        sourceName: c.sourceName,
+        sourceUrl: c.sourceUrl,
+        publishedAt: c.publishedAt,
+      });
     if (label) perSection.set(label, list);
   }
   const sections = SECTION_ORDER.filter((l) => perSection.get(l)?.length).map((label) => ({
@@ -439,3 +450,5 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
   }
   return { generated };
 }
+
+export { correctNewsReport, enqueuePendingReportCorrections, invalidateReportCorrections, REPORT_CORRECTION_QUEUE } from "./corrections.ts";

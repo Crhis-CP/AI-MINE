@@ -335,6 +335,38 @@
     {
       "name": "policy/202610120140_policy_material_current.sql",
       "dependsOn": ["policy/202610090100_policy_originals.sql"]
+    },
+    {
+      "name": "publication/202610120300_news_first_public_time.sql",
+      "dependsOn": ["publication/202610120210_reader_context.sql"]
+    },
+    {
+      "name": "sources/202610120400_source_archive.sql",
+      "dependsOn": ["sources/202610120040_source_previews.sql"]
+    },
+    {
+      "name": "feedback/202610120410_feedback_idempotency.sql",
+      "dependsOn": ["feedback/202610120020_feedback_retention.sql"]
+    },
+    {
+      "name": "editorial/202610120420_withdrawals.sql",
+      "dependsOn": ["editorial/202610120030_manual_revisions.sql"]
+    },
+    {
+      "name": "publication/202610120421_withdrawal_holds.sql",
+      "dependsOn": ["editorial/202610120420_withdrawals.sql", "publication/202610120220_public_read_invalidation.sql"]
+    },
+    {
+      "name": "reports/202610120430_report_corrections.sql",
+      "dependsOn": ["publication/202610120421_withdrawal_holds.sql"]
+    },
+    {
+      "name": "reports/202610120201_report_read_watermark.sql",
+      "dependsOn": ["publication/202610120200_public_read_watermarks.sql"]
+    },
+    {
+      "name": "sources/202610120221_source_read_invalidation.sql",
+      "dependsOn": ["publication/202610120220_public_read_invalidation.sql"]
     }
   ]
 }

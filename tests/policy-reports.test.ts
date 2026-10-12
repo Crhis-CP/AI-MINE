@@ -182,3 +182,67 @@ test("publication pause prevents new reports and members but permits withdrawal 
   const again = await reconcilePolicyReportPeriods(async () => [one], new Date("2026-10-12T01:00:00Z"));
   assert.ok(again.every((r) => !r.created));
 });
+
+test("formal publication preserves date precision and participates in period membership and backfill", () => {
+  const row = edition("formal", "2026-10-06", "2026-10-07T00:00:00Z");
+  row.policy.sort_time = { ...row.policy.sort_time!, meaning: "formally_published", meaning_label: "正式公布" };
+  const plan = planPolicyReport("weekly", "2026-W41", [row], [], issuer, now);
+  assert.equal(plan.members[0]?.label, "period_change");
+  assert.equal(row.policy.sort_time.local_time, null);
+  assert.equal(row.policy.sort_time.utc, null);
+  row.policy.sort_time = { ...row.policy.sort_time, local_date: "2026-09-30", raw: "2026-09-30" };
+  assert.equal(planPolicyReport("weekly", "2026-W41", [row], [], issuer, now).members[0]?.label, "backfill");
+});
+
+test("report language selection remains stable when release order changes and honours configured preference", () => {
+  const en = edition("language-en", "2026-10-06", "2026-10-07T00:00:00Z", "2026-10-08T00:00:00Z", { sourceLanguage: "en", preferredSourceLanguage: null });
+  const fr = edition("language-fr", "2026-10-06", "2026-10-07T00:00:00Z", "2026-10-10T00:00:00Z", { sourceLanguage: "fr", preferredSourceLanguage: null });
+  fr.policy.id = en.policy.id = "one-language-document";
+  for (const rows of [
+    [en, fr],
+    [fr, en],
+  ])
+    assert.equal(planPolicyReport("weekly", "2026-W41", rows, [], issuer, now).members[0]?.editionId, en.editionId);
+  fr.preferredSourceLanguage = "fr";
+  assert.equal(planPolicyReport("weekly", "2026-W41", [en, fr], [], issuer, now).members[0]?.editionId, fr.editionId);
+  const stale = { ...fr, editionId: "previous-fr-projection", releasedAt: "2026-10-08T00:00:00Z", preferredSourceLanguage: "en" };
+  assert.equal(
+    planPolicyReport("weekly", "2026-W41", [en, stale, fr], [], issuer, now).members[0]?.editionId,
+    fr.editionId,
+    "old projection preference cannot change current default language",
+  );
+});
+
+test("a restart fills missing completed weeks and months after an earlier issue, with no open periods or repeated revisions", async () => {
+  await sql`TRUNCATE publication.policy_report_members,publication.policy_report_revisions,publication.policy_reports`;
+  const row = edition("catchup", "2026-09-23", "2026-09-23T00:00:00Z", "2026-09-24T00:00:00Z");
+  const resume = new Date("2026-11-02T00:00:00Z");
+  await savePolicyReport(planPolicyReport("weekly", "2026-W39", [row], [], issuer, resume));
+  const repaired = await reconcilePolicyReportPeriods(async () => [row], resume);
+  for (const key of ["2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44"])
+    assert.ok(
+      repaired.some((r) => r.kind === "weekly" && r.periodKey === key && r.created),
+      key,
+    );
+  for (const key of ["2026-09", "2026-10"])
+    assert.ok(
+      repaired.some((r) => r.kind === "monthly" && r.periodKey === key),
+      key,
+    );
+  assert.ok(!repaired.some((r) => r.periodKey === "2026-W45" || r.periodKey === "2026-11"));
+  const revisions = (await sql`SELECT count(*)::int n FROM publication.policy_report_revisions`)[0]!.n;
+  assert.ok((await reconcilePolicyReportPeriods(async () => [row], resume)).every((r) => !r.created));
+  assert.equal((await sql`SELECT count(*)::int n FROM publication.policy_report_revisions`)[0]!.n, revisions);
+});
+
+test("catch-up batches start from this site's discovery, not an old source publication date, and eventually advance", async () => {
+  const { missingPolicyReportPeriods } = await import("../packages/backend/src/publication/policy-report-periods.ts");
+  const row = edition("old-source-date", "1980-01-01", "2026-10-06T00:00:00Z", "2026-10-07T00:00:00Z");
+  const end = new Date("2026-11-02T00:00:00Z"),
+    first = missingPolicyReportPeriods([row], [], end, 2);
+  assert.equal(first.length, 2);
+  assert.ok(first.every((p) => p.period_key.startsWith("2026")));
+  const second = missingPolicyReportPeriods([row], first, end, 2);
+  assert.ok(second.every((p) => !first.some((done) => done.kind === p.kind && done.period_key === p.period_key)));
+  assert.ok(second.every((p) => Date.parse(policyReportPeriod(p.kind, p.period_key).end) + 8 * 3600_000 <= end.getTime()));
+});

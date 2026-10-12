@@ -511,6 +511,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/sources/{id}/archive": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["archiveSource"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/usage-config": {
     parameters: {
       query?: never;
@@ -585,6 +601,38 @@ export interface paths {
     get: operations["usageMonthlyDetail"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/withdrawals/actions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["actWithdrawal"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/withdrawals/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewWithdrawal"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2365,6 +2413,26 @@ export interface components {
       expected_revision: number;
       metalLinks: components["schemas"]["OfficialMetalLinkInput"][];
     };
+    SourceArchiveRequest: {
+      /** @constant */
+      high_risk_confirmed: true;
+      reason: string;
+      /** Format: date-time */
+      version: string;
+    };
+    SourceArchiveRequestInput: {
+      /** @constant */
+      high_risk_confirmed: true;
+      reason: string;
+      /** Format: date-time */
+      version: string;
+    };
+    SourceArchiveResponse: {
+      source: components["schemas"]["SourceRecord"];
+    };
+    SourceArchiveResponseInput: {
+      source: components["schemas"]["SourceRecordInput"];
+    };
     SourceCoverage: {
       /** Format: date-time */
       asOf: string;
@@ -2784,6 +2852,7 @@ export interface components {
       source_id: string;
     };
     SourceRecord: {
+      archived_at?: string | null;
       config: {
         [key: string]: unknown;
       };
@@ -2818,6 +2887,7 @@ export interface components {
       updated_at: string;
     };
     SourceRecordInput: {
+      archived_at?: string | null;
       config: {
         [key: string]: unknown;
       };
@@ -3327,6 +3397,114 @@ export interface components {
       object_kind: ("article" | "policy") | null;
       source_id: string | null;
     };
+    WithdrawalActionRequest: {
+      /** @enum {string} */
+      action: "withdraw" | "restore";
+      expectedSnapshotHash: string;
+      reason: string;
+      target: components["schemas"]["WithdrawalTarget"];
+      withdrawalId?: number;
+    };
+    WithdrawalActionRequestInput: {
+      /** @enum {string} */
+      action: "withdraw" | "restore";
+      expectedSnapshotHash: string;
+      reason: string;
+      target: components["schemas"]["WithdrawalTargetInput"];
+      withdrawalId?: number;
+    };
+    WithdrawalActionResponse: {
+      /** @enum {string} */
+      action: "withdraw" | "restore";
+      affectedItems: number;
+      withdrawalId: number;
+    };
+    WithdrawalActionResponseInput: {
+      /** @enum {string} */
+      action: "withdraw" | "restore";
+      affectedItems: number;
+      withdrawalId: number;
+    };
+    WithdrawalPreviewRequest: {
+      target: components["schemas"]["WithdrawalTarget"];
+    };
+    WithdrawalPreviewRequestInput: {
+      target: components["schemas"]["WithdrawalTargetInput"];
+    };
+    WithdrawalPreviewResponse: {
+      activeRecords: {
+        /** Format: date-time */
+        createdAt: string;
+        memberCount: number;
+        reason: string;
+        withdrawalId: number;
+      }[];
+      memberCount: number;
+      memberIds: string[];
+      snapshotHash: string;
+      target: components["schemas"]["WithdrawalTarget"];
+    };
+    WithdrawalPreviewResponseInput: {
+      activeRecords: {
+        /** Format: date-time */
+        createdAt: string;
+        memberCount: number;
+        reason: string;
+        withdrawalId: number;
+      }[];
+      memberCount: number;
+      memberIds: string[];
+      snapshotHash: string;
+      target: components["schemas"]["WithdrawalTargetInput"];
+    };
+    WithdrawalTarget:
+      | {
+          id: string;
+          /** @constant */
+          type: "event";
+        }
+      | {
+          /** Format: uuid */
+          id: string;
+          /** @constant */
+          type: "story";
+        }
+      | {
+          key: string;
+          /** @enum {string} */
+          kind: "daily" | "weekly" | "monthly";
+          /**
+           * @default news
+           * @enum {string}
+           */
+          lane: "news" | "policy";
+          /** @constant */
+          type: "report";
+        };
+    WithdrawalTargetInput:
+      | {
+          id: string;
+          /** @constant */
+          type: "event";
+        }
+      | {
+          /** Format: uuid */
+          id: string;
+          /** @constant */
+          type: "story";
+        }
+      | {
+          key: string;
+          /** @enum {string} */
+          kind: "daily" | "weekly" | "monthly";
+          /**
+           * @default news
+           * @enum {string}
+           */
+          lane: "news" | "policy";
+          /** @constant */
+          type: "report";
+        };
   };
   responses: never;
   parameters: never;
@@ -6121,6 +6299,86 @@ export interface operations {
       };
     };
   };
+  archiveSource: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SourceArchiveRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceArchiveResponse"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
   changeUsageProtection: {
     parameters: {
       query?: never;
@@ -6447,6 +6705,162 @@ export interface operations {
       };
       /** @description Problem response */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  actWithdrawal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WithdrawalActionRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WithdrawalActionResponse"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  previewWithdrawal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WithdrawalPreviewRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WithdrawalPreviewResponse"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
         headers: {
           [name: string]: unknown;
         };

@@ -14,6 +14,7 @@ export interface SourceRow {
   first_party: boolean;
   interval_minutes: number;
   enabled: boolean;
+  archived_at?: Date | null;
   cursor: Record<string, any> | null;
   fail_count: number;
 }

@@ -1,3 +1,4 @@
+import { isReportWithdrawn } from "@amp/backend/publication/reports";
 import { PolicyReport, PolicyReportCard, type PolicyCard } from "@amp/contracts/http/public";
 import { SITE } from "@amp/industry/site";
 import { dbOf } from "../db.ts";
@@ -12,10 +13,11 @@ const matches = (p: PolicyCard, q: Query) =>
   (!q.theme || p.themes.some((t) => t.code === q.theme));
 export async function policyReport(id: string, q: Query) {
   const [report] = await sql<
-    { revision: number; card: unknown; coverage: unknown; change: unknown }[]
-  >`SELECT v.revision,v.card,v.coverage,v.change FROM publication.policy_reports r
+    { revision: number; card: unknown; coverage: unknown; change: unknown; kind: "weekly" | "monthly"; period_key: string }[]
+  >`SELECT v.revision,v.card,v.coverage,v.change,r.kind,r.period_key FROM publication.policy_reports r
  JOIN publication.policy_report_revisions v ON v.report_id=r.id AND v.revision=coalesce(${q.edition ?? null}::integer,r.current_revision) WHERE r.id=${id}`;
   if (!report) throw new PolicyReadError(404, "policy_report_not_found");
+  if (await isReportWithdrawn("policy", report.kind, report.period_key)) throw new PolicyReadError(410, "policy_report_withdrawn");
   const raw = await sql<
     { edition_id: string; label: string; available_by_cutoff: boolean; position: number }[]
   >`SELECT edition_id,label,available_by_cutoff,position
@@ -83,7 +85,13 @@ export async function listPolicyReports(q: { kind: "weekly" | "monthly"; jurisdi
   const rows = await sql<{ id: string }[]>`SELECT id FROM publication.policy_reports WHERE kind=${q.kind} ORDER BY period_key DESC,id DESC`;
   const cards = [];
   for (const row of rows) {
-    const report = await policyReport(row.id, { ...q, limit: 50 });
+    let report: Awaited<ReturnType<typeof policyReport>>;
+    try {
+      report = await policyReport(row.id, { ...q, limit: 50 });
+    } catch (error) {
+      if (error instanceof PolicyReadError && [404, 410].includes(error.status)) continue;
+      throw error;
+    }
     if ((q.jurisdiction || q.theme) && report.item_count === 0) continue;
     cards.push(PolicyReportCard.parse(Object.fromEntries(Object.keys(PolicyReportCard.shape).map((key) => [key, report[key as keyof typeof report]]))));
   }

@@ -33,12 +33,13 @@ export async function ingestItems(body: { sourceId?: unknown; sourceName?: unkno
   if (!sourceId || !items.length) throw new IngestError(400, "sourceId and items[] required");
   if (items.length > MAX_ITEMS) throw new IngestError(413, `items[] exceeds max ${MAX_ITEMS} per request`);
 
-  const [source] = await sql<{ id: string; participation_mode: string; enabled: boolean }[]>`
+  const [source] = await sql<{ id: string; participation_mode: string; enabled: boolean; archived_at: Date | null }[]>`
     INSERT INTO sources (id, name, kind, config, tier, participation_mode, interval_minutes, enabled, health, tags)
     VALUES (${sourceId.slice(0, 120)}, ${typeof body.sourceName === "string" && body.sourceName.trim() ? body.sourceName.trim().slice(0, 200) : sourceId.slice(0, 120)},
             'external', '{}'::jsonb, 'T2', 'isolated', 1440, true, 'ok', ${["ingest:auto-created"]})
     ON CONFLICT (id) DO UPDATE SET last_ok_at = now()
-    RETURNING id, participation_mode, enabled`;
+    RETURNING id, participation_mode, enabled, archived_at`;
+  if (source?.archived_at) throw new IngestError(409, "Source is archived; add a new source before collecting again");
 
   const seen = new Set<string>();
   let created = 0;

@@ -182,6 +182,7 @@ export async function v3Report(id: string) {
     })),
     items,
     limitation: value.limitation,
+    corrections: (report.corrections ?? []).map(({ revision, reason, at }) => ({ revision, reason, at })),
     attributions: [value.attribution],
     ai_metadata: { provider: SITE.name, content_id: id },
   };

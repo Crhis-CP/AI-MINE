@@ -253,8 +253,37 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
     }
     relations.push({ table: qualified ? name : `public.${name}`, mode, keys: [...new Set(ownKeys)] });
   };
+  // Trigger event keywords describe when it fires; only its ON relation is the DDL write target.
+  // Recognizing this header does not inspect or approve the invoked function or its body.
+  const triggerHeader = (start: number): { on: number; events: Set<number> } | null => {
+    let n = start;
+    if (!wordAt(n++, "create")) return null;
+    if (wordAt(n, "or") && wordAt(n + 1, "replace")) n += 2;
+    if (wordAt(n, "constraint")) n++;
+    if (!wordAt(n++, "trigger") || !identifier(n++)) return null;
+    if (wordAt(n, "before") || wordAt(n, "after")) n++;
+    else if (wordAt(n, "instead") && wordAt(n + 1, "of")) n += 2;
+    else return null;
+    const events = new Set<number>();
+    while (["insert", "update", "delete", "truncate"].some((event) => wordAt(n, event))) {
+      const update = wordAt(n, "update");
+      events.add(n++);
+      if (update && wordAt(n, "of")) {
+        n++;
+        if (!identifier(n++)) return null;
+        while (punctuation(n, ",")) {
+          n++;
+          if (!identifier(n++)) return null;
+        }
+      }
+      if (wordAt(n, "on")) return { on: n, events };
+      if (!wordAt(n++, "or")) return null;
+    }
+    return null;
+  };
   const from = new Set<number>();
-  let statementStart = 0;
+  let statementStart = 0,
+    trigger = triggerHeader(0);
   for (let n = 0; n < tokens.length; n++) {
     const word = value(n),
       previous = tokens[n - 1]?.kind === "word" ? value(n - 1) : undefined,
@@ -262,6 +291,7 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
     if (punctuation(n, ";")) {
       from.clear();
       statementStart = n + 1;
+      trigger = triggerHeader(statementStart);
     }
     const indexDdl =
       wordAt(statementStart, "create") &&
@@ -272,7 +302,8 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
     if (["execute", "call", "prepare", "copy", "merge"].includes(word) || (word === "do" && !["update", "nothing"].includes(value(n + 1))))
       unknown.push(`opaque SQL command ${word}`);
     if (word === "rename") unknown.push("DDL rename needs ownership review");
-    if (word === "truncate" || (word === "drop" && wordAt(n + 1, "table"))) unknown.push("TRUNCATE/DROP target list requires review");
+    if ((word === "truncate" && !trigger?.events.has(n)) || (word === "drop" && wordAt(n + 1, "table")))
+      unknown.push("TRUNCATE/DROP target list requires review");
     if (word === "into" && previous !== "insert") unknown.push("SELECT INTO target requires review");
     if (word === "table" && !["create", "alter", "drop", "truncate", "temp", "temporary", "unlogged"].includes(previous ?? ""))
       unknown.push("TABLE shorthand requires review");
@@ -285,10 +316,10 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       from.add(depth);
     }
     if (word === "into" && previous === "insert") read(n + 1, "write");
-    if (word === "update" && !["for", "key", "do", "on"].includes(previous ?? "") && !wordAt(n + 1, "set")) read(n + 1, "write");
+    if (word === "update" && !trigger?.events.has(n) && !["for", "key", "do", "on"].includes(previous ?? "") && !wordAt(n + 1, "set")) read(n + 1, "write");
     if (word === "table" && ["create", "alter", "drop", "truncate"].includes(previous ?? "")) read(n + 1, previous === "create" ? "create" : "write");
-    if (word === "truncate" && !wordAt(n + 1, "table")) read(n + 1, "write");
-    if (word === "references" || (word === "on" && indexDdl)) read(n + 1, word === "references" ? "read" : "write", false);
+    if (word === "truncate" && !trigger?.events.has(n) && !wordAt(n + 1, "table")) read(n + 1, "write");
+    if (word === "references" || (word === "on" && (indexDdl || trigger?.on === n))) read(n + 1, word === "references" ? "read" : "write", false);
     if (word === "create" && ["temp", "temporary", "unlogged"].includes(value(n + 1)) && wordAt(n + 2, "table")) read(n + 3, "create");
   }
   const syntax = new Set(

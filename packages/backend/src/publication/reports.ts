@@ -5,8 +5,39 @@ import { dbOf } from "../db.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { isValidDate, isoWeekRange } from "@amp/contracts/time";
+import { fetchItemsByIds } from "./items.ts";
+export { isReportWithdrawn, storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 
 const sql = dbOf("publication");
+const PUBLIC_CORRECTION_REASONS = new Set([
+  "引用报道已更正，本期内容随之更新。",
+  "部分引用已撤回，本期仅保留仍可公开的内容。",
+  "引用报道的公开状态已恢复，本期内容已重新核对。",
+  "已依据当前公开报道完成本期更正。",
+]);
+function publicCorrections(value: unknown): Array<{ revision: number; reason: string; at: string }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const row = raw as Record<string, unknown>;
+    if (
+      typeof row.revision !== "number" ||
+      !Number.isSafeInteger(row.revision) ||
+      row.revision < 1 ||
+      typeof row.reason !== "string" ||
+      typeof row.at !== "string" ||
+      !Number.isFinite(Date.parse(row.at))
+    )
+      return [];
+    return [
+      {
+        revision: row.revision,
+        reason: PUBLIC_CORRECTION_REASONS.has(row.reason) ? row.reason : "本期内容已更正，请以当前版本为准。",
+        at: new Date(row.at).toISOString(),
+      },
+    ];
+  });
+}
 
 export type { ReportKind };
 export function isPublicReportKey(kind: ReportKind, key: string) {
@@ -61,61 +92,61 @@ interface Availability {
   sourceId: string | null;
   storyPublicId: string | null;
   publishedAt: Date | null;
+  revision: number;
+  title: string;
+  summary: string | null;
+  sourceName: string;
+  sourceUrl: string;
 }
 
 async function availability(ids: string[]): Promise<Map<string, Availability>> {
   const out = new Map<string, Availability>();
   if (ids.length === 0) return out;
-  const rows = await sql<
-    {
-      id: string;
-      visibility: string;
-      eligible: boolean;
-      first_party: boolean;
-      source_id: string;
-      story_public_id: string | null;
-      at: Date | null;
-    }[]
-  >`
-    SELECT p.article_id AS id, p.visibility, p.eligible, p.first_party, p.source_id, st.public_id::text AS story_public_id,
-      coalesce(p.published_at, p.discovered_at) AS at
-    FROM publications p LEFT JOIN stories st ON st.id = p.story_id
-    WHERE p.article_id IN ${sql(ids)}`;
-  for (const r of rows) {
+  const rows = await fetchItemsByIds(ids);
+  for (const r of rows.values()) {
     out.set(r.id, {
-      available: r.visibility === "public" && r.eligible,
+      available: r.visibility === "public" && r.eligible && r.source_mode === "editorial",
       firstParty: r.first_party,
       sourceId: r.source_id,
       storyPublicId: r.story_public_id,
-      publishedAt: r.at,
+      publishedAt: r.published_at,
+      revision: r.revision,
+      title: r.title,
+      summary: r.summary,
+      sourceName: r.source_name,
+      sourceUrl: r.url,
     });
   }
   return out;
+}
+export async function currentPublicReferenceTitles(ids: string[]): Promise<Map<string, string>> {
+  return new Map([...(await availability(ids))].filter(([, value]) => value.available).map(([id, value]) => [id, value.title]));
 }
 
 /** Missing projections are unconfirmed and therefore unavailable, like explicitly withdrawn ones. */
 export async function unavailableIds(ids: string[]): Promise<Set<string>> {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return new Set();
-  const rows = await sql<{ id: string }[]>`
-    SELECT article_id AS id FROM publications
-    WHERE article_id = ANY(${unique}::text[]) AND visibility = 'public' AND eligible`;
-  const visible = new Set(rows.map((r) => r.id));
-  return new Set(unique.filter((id) => !visible.has(id)));
+  const current = await availability(unique);
+  return new Set(unique.filter((id) => !current.get(id)?.available));
 }
 
 /** Directory/feed metadata only: citation summaries and full report prose stay in the detail read. */
 export async function reportIndexRows(kind: ReportKind, limit: number) {
-  return sql<{ key: string; content: Record<string, any>; generated_at: Date }[]>`
-    SELECT key, generated_at, jsonb_build_object(
-      'lead', content->'lead', 'headline', content->'headline', 'title', content->'title', 'flashes', content->'flashes',
-      CASE WHEN kind = 'daily' THEN 'sections' ELSE 'themes' END,
-      jsonb_build_array(jsonb_build_object(CASE WHEN kind = 'daily' THEN 'items' ELSE 'storyRefs' END,
-        (SELECT coalesce(jsonb_agg(jsonb_build_object('itemId', item->'itemId', 'title', item->'title') ORDER BY ord), '[]'::jsonb)
-         FROM jsonb_array_elements(jsonb_path_query_array(content,
-           CASE WHEN kind = 'daily' THEN '$.sections[*].items[*]'::jsonpath ELSE '$.themes[*].storyRefs[*]'::jsonpath END
-         )) WITH ORDINALITY AS cited(item, ord))))) AS content
-    FROM reports WHERE kind = ${kind} ORDER BY key DESC LIMIT ${limit}`;
+  const rows = await sql<{ key: string; content: Record<string, any>; generated_at: Date }[]>`
+    SELECT key,content,generated_at FROM reports r WHERE kind=${kind}
+      AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)
+    ORDER BY key DESC LIMIT ${limit}`;
+  const current = await availability([
+    ...new Set(
+      rows.flatMap((r) =>
+        reportCitations(r.content)
+          .map((i) => i.itemId)
+          .filter((id): id is string => !!id),
+      ),
+    ),
+  ]);
+  return rows.map((r) => ({ ...r, content: currentReportContent(r.content, current) }));
 }
 
 /**
@@ -123,13 +154,21 @@ export async function reportIndexRows(kind: ReportKind, limit: number) {
  * `gone` must cover withdrawn candidates before the first public title (see {@link unavailableHeadlineIds}).
  */
 export function reportHeadline(content: Record<string, any>, kind: "daily" | "periodic", gone: Set<string>): string | null {
-  const removed = reportCitations(content).some((i) => i.itemId && gone.has(i.itemId));
+  const removed = !!content.correctionPending || reportCitations(content).some((i) => i.itemId && gone.has(i.itemId));
   if (!removed && kind === "daily" && content.lead?.title) return String(content.lead.title);
   if (!removed && kind === "periodic" && periodicHeadline(content)) return periodicHeadline(content);
   const items: Array<Record<string, any>> =
     kind === "daily" ? (content.sections ?? []).flatMap((s: any) => s.items ?? []) : (content.themes ?? []).flatMap((t: any) => t.storyRefs ?? []);
   const first = items.find((i) => !i.itemId || !gone.has(i.itemId));
   return first?.title ?? null;
+}
+
+/** All citations, including flashes, qualify synthesized lead text before any feed reads it. */
+export function reportLeadParagraph(content: Record<string, unknown>, gone: Set<string>): string | null {
+  const cited = content as Parameters<typeof reportCitations>[0];
+  if (content.correctionPending || reportCitations(cited).some((item) => item.itemId && gone.has(item.itemId))) return null;
+  const lead = content.lead as { leadParagraph?: unknown } | undefined;
+  return typeof lead?.leadParagraph === "string" ? lead.leadParagraph : null;
 }
 
 /** A weekly or monthly's own headline; the composer's "<site> 周报 · 2026-W38" names the issue, not its news. */
@@ -157,6 +196,25 @@ export async function unavailableHeadlineIds(rows: Array<{ content: Record<strin
   );
 }
 
+function staleCitation(raw: Record<string, unknown>, current: Map<string, Availability>) {
+  if (typeof raw.itemId !== "string") return false;
+  const value = current.get(raw.itemId);
+  if (!value?.available) return true;
+  if (raw.publicationRevision === value.revision) return false;
+  return raw.title !== value.title || (typeof raw.summary === "string" && raw.summary !== (value.summary ?? ""));
+}
+function currentReportContent(content: Record<string, any>, current: Map<string, Availability>) {
+  const correctionPending = !!content.correctionPending || reportCitations(content).some((raw) => staleCitation(raw, current));
+  const update = (entry: Record<string, any>) => ({ ...entry, ...citationFrom(entry, current) });
+  return {
+    ...content,
+    correctionPending,
+    sections: (content.sections ?? []).map((section: { items?: Record<string, any>[] }) => ({ ...section, items: (section.items ?? []).map(update) })),
+    themes: (content.themes ?? []).map((theme: { storyRefs?: Record<string, any>[] }) => ({ ...theme, storyRefs: (theme.storyRefs ?? []).map(update) })),
+    flashes: (content.flashes ?? []).map(update),
+  };
+}
+
 function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>): ReportCitation {
   const id = raw.itemId ?? null;
   const a = id ? avail.get(id) : undefined;
@@ -180,10 +238,10 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
   }
   return {
     itemId: id,
-    title: String(raw.title ?? ""),
-    summary: raw.summary ?? null,
-    sourceName: String(raw.sourceName ?? raw.source?.name ?? ""),
-    sourceUrl: String(raw.sourceUrl ?? raw.links?.original ?? ""),
+    title: a?.title ?? String(raw.title ?? ""),
+    summary: a ? a.summary : (raw.summary ?? null),
+    sourceName: a?.sourceName ?? String(raw.sourceName ?? raw.source?.name ?? ""),
+    sourceUrl: a?.sourceUrl ?? String(raw.sourceUrl ?? raw.links?.original ?? ""),
     sourceId: raw.sourceId ?? a?.sourceId ?? null,
     firstParty: raw.firstParty ?? a?.firstParty ?? false,
     role: raw.role ?? null,
@@ -199,15 +257,15 @@ function readingMinutes(text: string): number {
 
 async function neighbors(kind: ReportKind, key: string): Promise<{ prev: string | null; next: string | null }> {
   const [row] = await sql<{ prev: string | null; next: string | null }[]>`
-    SELECT (SELECT key FROM reports WHERE kind = ${kind} AND key < ${key} ORDER BY key DESC LIMIT 1) AS prev,
-      (SELECT key FROM reports WHERE kind = ${kind} AND key > ${key} ORDER BY key ASC LIMIT 1) AS next`;
+    SELECT (SELECT key FROM reports r WHERE kind = ${kind} AND key < ${key} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key) ORDER BY key DESC LIMIT 1) AS prev,
+      (SELECT key FROM reports r WHERE kind = ${kind} AND key > ${key} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key) ORDER BY key ASC LIMIT 1) AS next`;
   return { prev: row?.prev ?? null, next: row?.next ?? null };
 }
 
 export async function loadReport(kind: ReportKind, key: string): Promise<ReportDetail | null> {
   const [r] = await sql<
     ReportRow[]
-  >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = ${kind} AND key = ${key}`;
+  >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports r WHERE kind = ${kind} AND key = ${key} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)`;
   if (!r) return null;
   const c = r.content;
   const rawItems: Array<Record<string, any>> = [
@@ -217,7 +275,7 @@ export async function loadReport(kind: ReportKind, key: string): Promise<ReportD
   ];
   const avail = await availability([...new Set(rawItems.map((i) => i.itemId).filter(Boolean))]);
   const cite = (raw: Record<string, any>) => citationFrom(raw, avail);
-  const removed = rawItems.some((raw) => !cite(raw).available);
+  const removed = !!c.correctionPending || rawItems.some((raw) => !cite(raw).available || staleCitation(raw, avail));
 
   const sections =
     kind === "daily"
@@ -249,12 +307,21 @@ export async function loadReport(kind: ReportKind, key: string): Promise<ReportD
   return {
     kind,
     key,
-    generationStatus: removed ? "summary" : ["ready", "pending", "failed", "summary"].includes(c.generationStatus) ? c.generationStatus : "summary",
+    generationStatus: c.correctionPending
+      ? c.generationStatus === "failed"
+        ? "failed"
+        : "pending"
+      : removed
+        ? "summary"
+        : ["ready", "pending", "failed", "summary"].includes(c.generationStatus)
+          ? c.generationStatus
+          : "summary",
     title: removed ? `${SITE.name} ${kind === "daily" ? "日报" : kind === "weekly" ? "周报" : "月报"} · ${key}` : title,
     windowStart: r.window_start.toISOString(),
     windowEnd: r.window_end.toISOString(),
     generatedAt: r.generated_at.toISOString(),
     revision: r.revision,
+    corrections: publicCorrections(c.corrections),
     lead: removed ? null : (c.lead ?? (headline ? { title: headline, leadParagraph: String(c.overview ?? "") } : null)),
     overview: removed ? null : (c.overview ?? null),
     highlights,
@@ -313,7 +380,7 @@ export async function v1Dailies(limit: number) {
       date: r.key,
       generatedAt: r.generated_at.toISOString(),
       leadTitle: reportHeadline(r.content, "daily", gone),
-      leadParagraph: reportCitations(r.content).some((i) => i.itemId && gone.has(i.itemId)) ? null : (r.content.lead?.leadParagraph ?? null),
+      leadParagraph: reportLeadParagraph(r.content, gone),
       attribution: attribution(url),
     };
   });
@@ -321,45 +388,40 @@ export async function v1Dailies(limit: number) {
 }
 
 export async function v1Daily(date: string | "latest") {
-  const [r] =
-    date === "latest"
-      ? await sql<
-          ReportRow[]
-        >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = 'daily' ORDER BY key DESC LIMIT 1`
-      : await sql<ReportRow[]>`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports WHERE kind = 'daily' AND key = ${date}`;
-  if (!r) return null;
-  const c = r.content;
-  const raw = [...(c.sections ?? []).flatMap((s: any) => s.items ?? []), ...(c.flashes ?? [])];
-  const avail = await availability([...new Set(raw.map((i: any) => i.itemId).filter(Boolean))] as string[]);
-  const ok = (i: any) => !i.itemId || (avail.get(i.itemId)?.available ?? false);
-  const links = (i: any) => ({ original: String(i.sourceUrl ?? "") });
-  const url = dailyUrl(r.key);
+  const key = date === "latest" ? (await reportIndexRows("daily", 1))[0]?.key : date;
+  const report = key ? await loadReport("daily", key) : null;
+  if (!report) return null;
+  const url = dailyUrl(report.key);
   return {
     schemaVersion: 1 as const,
     report: {
-      date: r.key,
-      generatedAt: r.generated_at.toISOString(),
-      windowStart: r.window_start.toISOString(),
-      windowEnd: r.window_end.toISOString(),
+      date: report.key,
+      generatedAt: report.generatedAt,
+      windowStart: report.windowStart,
+      windowEnd: report.windowEnd,
       attribution: attribution(url),
-      lead: c.lead && raw.every(ok) ? { title: String(c.lead.title), leadParagraph: String(c.lead.leadParagraph) } : null,
-      sections: (c.sections ?? []).map((s: any) => ({
-        label: String(s.label),
-        items: (s.items ?? []).filter(ok).map((i: any) => ({
-          title: String(i.title),
-          summary: String(i.summary ?? ""),
-          source: { name: String(i.sourceName ?? "") },
-          links: links(i),
+      lead: report.lead,
+      sections: report.sections.map((section) => ({
+        label: section.label,
+        items: section.items
+          .filter((i) => i.available)
+          .map((i) => ({
+            title: i.title,
+            summary: i.summary ?? "",
+            source: { name: i.sourceName },
+            links: { original: i.sourceUrl },
+            attribution: attribution(i.itemId ? itemUrl(i.itemId) : url),
+          })),
+      })),
+      flashes: report.flashes
+        .filter((i) => i.available)
+        .map((i) => ({
+          title: i.title,
+          source: { name: i.sourceName },
+          links: { original: i.sourceUrl },
+          publishedAt: i.publishedAt ?? report.generatedAt,
           attribution: attribution(i.itemId ? itemUrl(i.itemId) : url),
         })),
-      })),
-      flashes: (c.flashes ?? []).filter(ok).map((i: any) => ({
-        title: String(i.title),
-        source: { name: String(i.sourceName ?? "") },
-        links: links(i),
-        publishedAt: new Date(i.publishedAt ?? r.generated_at).toISOString(),
-        attribution: attribution(i.itemId ? itemUrl(i.itemId) : url),
-      })),
     },
   };
 }
@@ -384,5 +446,7 @@ export async function loadReportMonth(kind: ReportKind, month: string) {
 
 /** Cursor directory metadata; report prose is separately requalified by machineReport. */
 export async function publicReportKeys(kind: ReportKind): Promise<Array<{ key: string }>> {
-  return sql<{ key: string }[]>`SELECT key FROM reports WHERE kind=${kind} ORDER BY key DESC`;
+  return sql<
+    { key: string }[]
+  >`SELECT key FROM reports r WHERE kind=${kind} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key) ORDER BY key DESC`;
 }

@@ -1,8 +1,9 @@
 import { relatedNewsForPolicy } from "./news-policy-links.ts";
+import { policyLanguageOrder } from "./policy-language.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../policy/model-evidence.ts";
 import type { z } from "zod";
 import { createHash } from "node:crypto";
-import { Policy, PolicyCard, PolicyReadingPage, type PolicyHistoryPage, PolicyJurisdiction } from "@amp/contracts/http/public";
+import { Policy, PolicyCard, PolicyReadingBlock, PolicyReadingPage, type PolicyHistoryPage, PolicyJurisdiction } from "@amp/contracts/http/public";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { dbOf } from "../db.ts";
 import { currentPolicyHeads } from "../policy/public-state.ts";
@@ -56,7 +57,7 @@ const columns = sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id
 const join = sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
  LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id`;
 function context() {
-  return { now: Date.now(), permissions: new Map<string, ReturnType<typeof readCurrentPublicPolicy>>() };
+  return { now: Date.now(), permissions: new Map<string, ReturnType<typeof readCurrentPublicPolicy>>(), languageViews: new Map<string, Promise<View[]>>() };
 }
 async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOnly: boolean): Promise<View | null> {
   if (row.withdrawn || row.automatic_excluded) return null;
@@ -104,24 +105,69 @@ async function eligible(row: Edition, ctx: ReturnType<typeof context>, currentOn
       }
     : null;
 }
-async function* currentViews(ctx: ReturnType<typeof context>) {
-  let after: { at: Date; id: string } | null = null;
-  const seen = new Set<string>();
-  while (true) {
-    const rows: Edition[] = await sql<Edition[]>`SELECT ${columns} ${join}
-   WHERE (${after?.at ?? null}::timestamptz IS NULL OR (e.released_at,e.id)<(${after?.at ?? null},${after?.id ?? ""})) ORDER BY e.released_at DESC,e.id DESC LIMIT 100`;
-    for (const row of rows) {
-      if (seen.has(row.policy_id)) continue;
-      const view = await eligible(row, ctx, true);
-      if (view) {
-        seen.add(row.policy_id);
-        yield view;
+async function currentLanguageViews(id: string, ctx: ReturnType<typeof context>, details = false) {
+  const key = `${id}:${details}`;
+  let cached = ctx.languageViews.get(key);
+  if (!cached) {
+    cached = (async () => {
+      const byLanguage = new Map<string, View>();
+      const rows = await editions(id, details),
+        heads = await currentPolicyHeads(rows.map((row) => row.native_expression_id));
+      const considered = new Set<string>();
+      // A current original's newest projection blocks its older translations even when its own qualification has expired.
+      for (const row of rows) {
+        if (byLanguage.has(row.source_language) || considered.has(row.native_expression_id) || heads.get(row.native_expression_id) !== row.native_revision_id)
+          continue;
+        considered.add(row.native_expression_id);
+        const view = await eligible(row, ctx, false);
+        if (view) byLanguage.set(row.source_language, view);
       }
-    }
-    if (rows.length < 100) return;
-    const last: Edition = rows.at(-1)!;
-    after = { at: last.released_at, id: last.id };
+      const order = policyLanguageOrder(
+        [...byLanguage.values()].map(({ row }) => ({ sourceLanguage: row.source_language, preferredSourceLanguage: row.preferred_source_language })),
+      );
+      return order.map((language) => byLanguage.get(language)!);
+    })();
+    ctx.languageViews.set(key, cached);
   }
+  return cached;
+}
+async function* currentViews(ctx: ReturnType<typeof context>, details = false) {
+  let after = "";
+  while (true) {
+    const documents = await sql<
+      { policy_id: string }[]
+    >`SELECT DISTINCT policy_id FROM publication.policy_editions WHERE policy_id>${after} ORDER BY policy_id LIMIT 100`;
+    for (const document of documents) {
+      const view = (await currentLanguageViews(document.policy_id, ctx, details))[0];
+      if (view) yield view;
+    }
+    if (documents.length < 100) return;
+    after = documents.at(-1)!.policy_id;
+  }
+}
+/** Only complete, currently qualified Chinese reading text participates; card metadata retains its independent basic-facts eligibility. */
+function fullChineseMatches(view: View, query: string) {
+  if (!view.complete || !view.row.reading) return false;
+  for (const [expression, stream] of Object.entries(view.row.reading)) {
+    if (
+      !view.row.expression_ids.includes(expression) ||
+      !view.row.revision_ids.includes(stream.revision) ||
+      !view.readable[stream.mode] ||
+      !/^zh(?:-|$)/i.test(stream.language)
+    )
+      continue;
+    const blocks = stream.blocks.map((block) => PolicyReadingBlock.safeParse(block));
+    if (blocks.some((block) => !block.success)) continue;
+    if (
+      blocks
+        .map((block) => block.data!.text)
+        .join("\n")
+        .toLocaleLowerCase()
+        .includes(query.toLocaleLowerCase())
+    )
+      return true;
+  }
+  return false;
 }
 type Filters = { q?: string; jurisdiction?: string; theme?: string; nature?: string; stage?: string; from?: string; to?: string };
 function matches(card: PolicyCard, q: Filters) {
@@ -160,18 +206,15 @@ export async function listPolicies(q: Filters & { page?: number; page_size?: num
     items: PolicyCard[] = [],
     hash = createHash("sha256");
   let total = 0;
-  for await (const view of currentViews(ctx)) {
-    if (!matches(view.card, filters)) {
-      let match = false;
-      for (const variant of await editions(view.card.id)) {
-        const language = await eligible(variant, ctx, true);
-        if (language && matches(language.card, filters)) {
-          match = true;
-          break;
-        }
-      }
-      if (!match) continue;
-    }
+  for await (const view of currentViews(ctx, !!filters.q)) {
+    const languages = await currentLanguageViews(view.card.id, ctx, !!filters.q);
+    if (
+      !languages.some(
+        (language) =>
+          matches(language.card, filters) || (!!filters.q && matches(language.card, { ...filters, q: undefined }) && fullChineseMatches(language, filters.q)),
+      )
+    )
+      continue;
     hash.update(stableJson(view.card));
     total++;
     const key = policyOrder(view.card);
@@ -233,11 +276,7 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
   await ensureDocument(id);
   const historical = !!q.document_revision_id,
     ctx = context();
-  const candidates = await editions(id, true);
-  if (!historical)
-    candidates.sort(
-      (a, b) => a.source_language.localeCompare(b.source_language) || b.released_at.getTime() - a.released_at.getTime() || b.id.localeCompare(a.id),
-    );
+  const candidates = historical ? await editions(id, true) : (await currentLanguageViews(id, ctx, true)).map((view) => view.row);
   for (const row of candidates) {
     if (
       (q.policy_version_id && q.policy_version_id !== row.policy_version_id) ||

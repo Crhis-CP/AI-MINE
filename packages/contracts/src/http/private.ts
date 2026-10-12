@@ -1,3 +1,5 @@
+import { withdrawalSchemas, withdrawalRoutes } from "./withdrawals.ts";
+export * from "./withdrawals.ts";
 import { sourceCoverageSchemas, sourceCoverageRoutes } from "./source-coverage.ts";
 export * from "./source-coverage.ts";
 import { sourceTargetsSchemas, sourceTargetsRoutes } from "./source-targets.ts";
@@ -123,6 +125,7 @@ export const SourceRecord = z.strictObject({
   site_fulltext: z.boolean(),
   syndicate_fulltext: z.boolean(),
   enabled: z.boolean(),
+  archived_at: Time.nullable().optional(),
   health: z.string(),
   fail_count: z.number().int(),
   last_fetch_at: Time.nullable(),
@@ -134,6 +137,13 @@ export const SourceRecord = z.strictObject({
   created_at: Time,
   updated_at: Time,
 });
+export const SourceArchiveRequest = z.strictObject({
+  version: Time,
+  reason: z.string().trim().min(1).max(2000),
+  high_risk_confirmed: z.literal(true),
+});
+export const SourceArchiveResponse = z.strictObject({ source: SourceRecord });
+
 export const SourceCreateResponse = z.discriminatedUnion("created", [
   z.strictObject({ created: z.literal(true), source: SourceRecord }),
   z.strictObject({ created: z.literal(false), duplicate: SourceRecord.pick({ id: true, name: true, kind: true, config: true }) }),
@@ -193,6 +203,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...withdrawalSchemas,
   ...sourceCoverageSchemas,
   ...sourceTargetsSchemas,
   ...siteInformationPrivateSchemas,
@@ -209,6 +220,8 @@ export const schemas = {
   SourceCreateResponse,
   SourceRecord,
   SourceDetailResponse,
+  SourceArchiveRequest,
+  SourceArchiveResponse,
   LoginOptions,
   ReceiptObservedVersion,
   ReceiptReleaseRequest,
@@ -219,6 +232,7 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...withdrawalRoutes,
   ...sourceCoverageRoutes,
   ...sourceTargetsRoutes,
   ...siteInformationPrivateRoutes,
@@ -238,6 +252,24 @@ export const routes = {
       body: SourceCreateRequest,
       response: {
         200: SourceCreateResponse,
+        400: ProblemResponse,
+        401: ProblemResponse,
+        403: ProblemResponse,
+        404: ProblemResponse,
+        409: ProblemResponse,
+        500: ProblemResponse,
+      },
+    },
+  },
+  archiveSource: {
+    method: "POST" as const,
+    url: "/api/admin/sources/:id/archive",
+    schema: {
+      operationId: "archiveSource",
+      params: z.strictObject({ id: z.string() }),
+      body: SourceArchiveRequest,
+      response: {
+        200: SourceArchiveResponse,
         400: ProblemResponse,
         401: ProblemResponse,
         403: ProblemResponse,

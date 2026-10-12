@@ -81,7 +81,7 @@ function rewriteUrl(c: Candidate, source: SourceRow): Candidate {
 export async function requireDateCollection(source: SourceRow, permissionVersion: number, url: string): Promise<void> {
   await requireRuntimeRunning(source.lane, ["collection"]);
   const current = await readSourceDateContext(source.id);
-  if (!current?.enabled || sourceDateConfigHash(current.kind, current.config) !== sourceDateConfigHash(source.kind, source.config))
+  if (!current?.enabled || current.archived_at || sourceDateConfigHash(current.kind, current.config) !== sourceDateConfigHash(source.kind, source.config))
     throw new FetchError("Source date collection paused or configuration changed");
   for (const capability of ["fetch", "store_metadata", "process_locally"] as const) {
     const result = await evaluateSourcePolicy({
@@ -156,6 +156,7 @@ async function store(
 async function collectSource(sourceId: string, opts: { force?: boolean; lane?: CollectionLane } = {}): Promise<CollectResult> {
   const source = await readSourceDateContext(sourceId);
   if (!source) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "missing" };
+  if (source.archived_at) return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "archived" };
   if (!collectionEnabled(source.lane) || (opts.lane && source.lane !== opts.lane))
     return { sourceId, status: "skipped", found: 0, created: 0, revised: 0, error: "lane-paused-or-changed" };
   const collectionControl = await runtimeControlSnapshot(source.lane, ["collection"]);
@@ -323,7 +324,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         health = CASE WHEN ${budget} THEN health WHEN fail_count + 1 >= 5 THEN 'failing' ELSE 'degraded' END,
         next_fetch_at = now() + make_interval(mins => CASE WHEN ${budget} THEN 15 ELSE LEAST(interval_minutes * (fail_count + 2), 360) END),
         updated_at = now()
-      WHERE id = ${sourceId}`;
+      WHERE id = ${sourceId} AND archived_at IS NULL`;
     if (error instanceof DirectoryRoundFailed) await deferSourceFetch(sourceId, new Date(Date.now() + 60_000));
     await sql`UPDATE fetch_runs SET status = 'failed', finished_at = now(), found_count = ${found}, new_count = ${created}, error = ${message} WHERE id = ${run!.id}`;
     return { sourceId, status: "failed", found, created, revised, error: message };
@@ -358,7 +359,7 @@ export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDU
   let enqueued = 0;
   for (const r of ordered) {
     const jobId = await enqueueSourceFetch(lane, { sourceId: r.id, scheduled: true });
-    await sql`UPDATE sources SET next_fetch_at = now() + interval '10 minutes' WHERE id = ${r.id}`;
+    await sql`UPDATE sources SET next_fetch_at = now() + interval '10 minutes' WHERE id = ${r.id} AND archived_at IS NULL`;
     if (jobId) enqueued += 1;
   }
   return { enqueued };

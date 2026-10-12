@@ -7,6 +7,7 @@ import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/co
 import { linkBodyImages } from "../content/sanitize.ts";
 import { dbOf } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
+import { pickRepresentative } from "./timeline.ts";
 import { hasItemPage } from "./rules.ts";
 import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT, type StoredTranslation } from "../editorial/translation-readiness.ts";
 import { promptVersion } from "../editorial/prompts.ts";
@@ -15,6 +16,7 @@ const sql = dbOf("publication");
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
 interface DetailRow extends ItemRow {
+  first_public_at: Date | null;
   body_html: string | null;
   manual_body_html: string | null;
   manual_revision_label: string | null;
@@ -51,7 +53,7 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS}, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
+    SELECT ${ITEM_COLUMNS}, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
       s.syndicate_fulltext AS source_syndicate_fulltext,p.summary AS machine_summary,
       jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
         'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
@@ -76,6 +78,9 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
       reason: null,
       tags: [],
       readingMode: "summary-only",
+      readingState: "restricted",
+      firstPublicAt: row.first_public_at?.toISOString() ?? null,
+      attribution: readerAttribution(row.source_name, row.url, row.source_policy),
       author: null,
       language: row.language,
       body: null,
@@ -142,6 +147,15 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   const detail: ItemDetail = {
     ...summary,
     readingMode: "full",
+    readingState: !row.source_site_fulltext
+      ? "restricted"
+      : body?.zh
+        ? "available"
+        : row.body_status === "pending" || (body?.original && !body.complete)
+          ? "pending"
+          : "unavailable",
+    firstPublicAt: row.first_public_at?.toISOString() ?? null,
+    eventCoverage: row.story_id ? await eventCoverage(row.story_id, now) : null,
     manualRevisionLabel: row.manual_revision_label,
     companyContext: await publicCompanyContext(id),
     relatedPolicies: await relatedPoliciesForNews(id),
@@ -157,6 +171,22 @@ export async function loadItemDetail(id: string, now = new Date()): Promise<Deta
   return { kind: "found", detail, row };
 }
 
+/** Current public event members: first-party representation and the latest distinct fact stay separate. */
+async function eventCoverage(storyId: number, now: Date): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
+  const rows = await sql<ItemRow[]>`SELECT ${ITEM_COLUMNS} ${ITEM_FROM}
+    WHERE p.story_id=${storyId} AND p.visibility='public' AND p.eligible AND s.participation_mode='editorial'
+      AND (NOT p.selected OR p.visible_after <= ${now})
+    ORDER BY p.timeline_at ASC,p.article_id ASC`;
+  if (rows.length < 2) return null;
+  const facts = new Map<string, ItemRow[]>();
+  for (const row of rows) {
+    const key = row.fact_id === null ? row.id : String(row.fact_id);
+    facts.set(key, [...(facts.get(key) ?? []), row]);
+  }
+  const latest = [...facts.values()].sort((a, b) => Math.min(...b.map((r) => r.sort_at.getTime())) - Math.min(...a.map((r) => r.sort_at.getTime())))[0]!;
+  return { representative: toItemSummary(pickRepresentative(rows)), latest: toItemSummary(pickRepresentative(latest)), reportCount: rows.length };
+}
+
 /** Site reading projection: default text remains SSR, a second language has its own readable URL. */
 export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDetail {
   const hasTranslation = !!detail.body?.zh && detail.body.zhKind === "translation" && !!detail.body.original;
@@ -166,6 +196,7 @@ export function siteItemDetail(detail: ItemDetail, original = false): SiteItemDe
     ...detail,
     hasTranslation,
     bodyLanguage,
+    readingState: selectedHtml ? "available" : detail.readingState,
     body: detail.body
       ? { ...detail.body, zh: bodyLanguage === "zh" ? detail.body.zh : null, original: bodyLanguage === "original" ? detail.body.original : null }
       : null,

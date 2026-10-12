@@ -145,6 +145,14 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         spec.publicColumns.length === 0 &&
         c.tables.find((table) => table.name === name)?.columns.length === capabilityColumns.length &&
         capabilityColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
+      const feedbackSubmissionColumns = ["key_hash", "payload_hash", "feedback_id", "created_at"];
+      const feedbackSubmission =
+        name === "feedback.submissions" &&
+        spec.module === "feedback" &&
+        spec.access === "business" &&
+        spec.publicColumns.length === 0 &&
+        c.tables.find((table) => table.name === name)?.columns.length === feedbackSubmissionColumns.length &&
+        feedbackSubmissionColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
       const permissions = spec.permissions;
       if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) problems.push(`Explicit permissions missing: ${name}`);
       else
@@ -160,6 +168,7 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
             values.length &&
             !(
               (role === "auth" && ["identity", "audit"].includes(spec.access)) ||
+              (role === "feedback_write" && feedbackSubmission && values.every((permission) => permission === "SELECT" || permission === "INSERT")) ||
               (["private_ops", "worker"].includes(role) && ["business", "audit"].includes(spec.access)) ||
               (capabilityProjection && ["private_ops", "worker"].includes(role) && values.length === 1 && values[0] === "SELECT") ||
               (role === "ops_read" &&

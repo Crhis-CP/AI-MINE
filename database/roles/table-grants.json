@@ -1156,6 +1156,61 @@
         "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
         "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
       }
+    },
+    "feedback.submissions": {
+      "module": "feedback",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "feedback_write": ["SELECT", "INSERT"],
+        "private_ops": ["SELECT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "editorial.withdrawal_records": {
+      "module": "editorial",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "editorial.withdrawal_restorations": {
+      "module": "editorial",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "publication.withdrawal_targets": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["withdrawal_id", "lane", "target_type", "target_key", "active"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "publication.withdrawal_members": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["withdrawal_id", "article_id"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "reports.correction_jobs": {
+      "module": "reports",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE"],
+        "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
     }
   },
   "sequences": {
@@ -1178,6 +1233,7 @@
     "editorial.manual_revision_events_id_seq": "editorial.manual_revision_events",
     "sources.source_config_drafts_id_seq": "sources.source_config_drafts",
     "sources.source_previews_id_seq": "sources.source_previews",
-    "sources.source_config_activations_id_seq": "sources.source_config_activations"
+    "sources.source_config_activations_id_seq": "sources.source_config_activations",
+    "editorial.withdrawal_records_id_seq": "editorial.withdrawal_records"
   }
 }

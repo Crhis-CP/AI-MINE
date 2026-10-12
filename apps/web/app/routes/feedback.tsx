@@ -1,8 +1,9 @@
-import { SITE, withSubject } from "@amp/industry/site";
+import { SITE } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Presence } from "@amp/ui/Presence";
 import { pageMeta } from "../lib/seo";
+import { localFeedbackOrigin } from "../lib/feedback-origin";
 import { KEYS } from "../lib/local-state";
 import { IconCheck, IconClose, IconImage } from "../components/icons";
 import { LoadingDots } from "../components/Logo";
@@ -27,6 +28,7 @@ interface Draft {
   content: string;
   email: string;
   pageUrl: string;
+  submission?: { key: string; signature: string };
 }
 
 function readDraft(): Draft | null {
@@ -34,7 +36,12 @@ function readDraft(): Draft | null {
     const raw = localStorage.getItem(KEYS.feedbackDraft);
     if (!raw) return null;
     const d = JSON.parse(raw);
-    return typeof d === "object" && d ? { content: String(d.content ?? ""), email: String(d.email ?? ""), pageUrl: String(d.pageUrl ?? "") } : null;
+    if (typeof d !== "object" || !d) return null;
+    const submission =
+      typeof d.submission?.key === "string" && /^[0-9a-f-]{36}$/i.test(d.submission.key) && typeof d.submission?.signature === "string"
+        ? { key: d.submission.key, signature: d.submission.signature }
+        : undefined;
+    return { content: String(d.content ?? ""), email: String(d.email ?? ""), pageUrl: String(d.pageUrl ?? ""), submission };
   } catch {
     return null;
   }
@@ -76,17 +83,23 @@ const MAX_TEXT = 5000;
 
 export default function FeedbackPage() {
   const [params] = useSearchParams();
-  const [draft, setDraft] = useState<Draft>({ content: "", email: "", pageUrl: params.get("from") ?? "" });
+  const from = localFeedbackOrigin(params.get("from"));
+  const [draft, setDraft] = useState<Draft>({ content: "", email: "", pageUrl: from });
+  const restored = useRef(false);
   const [shot, setShot] = useState<{ file: File; url: string } | null>(null);
   const [state, setState] = useState<{ kind: "idle" | "sending" | "done" | "error"; message?: string; id?: number }>({ kind: "idle" });
   const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const saved = readDraft();
-    if (saved) setDraft((d) => ({ ...saved, pageUrl: d.pageUrl || saved.pageUrl }));
-    else if (!params.get("from") && document.referrer.startsWith(location.origin)) setDraft((d) => ({ ...d, pageUrl: document.referrer }));
-  }, []);
+    if (!restored.current) {
+      restored.current = true;
+      const saved = readDraft();
+      if (saved) setDraft((d) => ({ ...saved, pageUrl: from || d.pageUrl || saved.pageUrl }));
+      else if (!from && document.referrer.startsWith(`${location.origin}/`)) setDraft((d) => ({ ...d, pageUrl: document.referrer }));
+    }
+    if (from) setDraft((d) => ({ ...d, pageUrl: from }));
+  }, [from]);
   useEffect(() => {
     const t = setTimeout(() => writeDraft(draft.content || draft.email ? draft : null), 400);
     return () => clearTimeout(t);
@@ -119,12 +132,21 @@ export default function FeedbackPage() {
     if (draft.content.trim().length < 10 || draft.content.trim().length > MAX_TEXT) return setState({ kind: "error", message: "反馈内容需要 10–5000 字。" });
     setState({ kind: "sending" });
     try {
+      const pageUrl = draft.pageUrl ? new URL(draft.pageUrl, location.origin).href : "";
+      const screenshotHash = shot
+        ? [...new Uint8Array(await crypto.subtle.digest("SHA-256", await shot.file.arrayBuffer()))].map((value) => value.toString(16).padStart(2, "0")).join("")
+        : null;
+      const signature = JSON.stringify([draft.content, draft.email, pageUrl, shot?.file.type ?? null, screenshotHash]);
+      const submission = draft.submission?.signature === signature ? draft.submission : { key: crypto.randomUUID(), signature };
+      const pendingDraft = { ...draft, submission };
+      setDraft(pendingDraft);
+      writeDraft(pendingDraft);
       const form = new FormData();
       form.set("content", draft.content);
       form.set("email", draft.email);
-      form.set("pageUrl", draft.pageUrl);
+      form.set("pageUrl", pageUrl);
       if (shot) form.set("screenshot", shot.file);
-      const res = await fetch("/api/site/feedback", { method: "POST", body: form });
+      const res = await fetch("/api/site/feedback", { method: "POST", headers: { "Idempotency-Key": submission.key }, body: form });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) return setState({ kind: "error", message: body.detail ?? "提交失败，请稍后再试。" });
       writeDraft(null);
@@ -189,6 +211,14 @@ export default function FeedbackPage() {
         className={`card mt-6 overflow-hidden transition-shadow ${dragging ? "shadow-[0_0_0_3px_var(--accent-soft)] ring-1 ring-accent" : ""}`}
       >
         <div className="space-y-5 p-5 sm:p-6">
+          {draft.pageUrl && (
+            <div>
+              <label htmlFor="fb-page" className={label}>
+                关联页面
+              </label>
+              <input id="fb-page" readOnly value={draft.pageUrl} className={`${field} h-11 px-4 text-[13px]`} />
+            </div>
+          )}
           <div>
             <label htmlFor="fb-content" className={label}>
               想说点什么？

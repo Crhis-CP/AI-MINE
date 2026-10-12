@@ -1,6 +1,7 @@
 import { SITE } from "@amp/industry/site";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
+import { feedbackPath } from "../lib/feedback-origin";
 import { pageMeta } from "../lib/seo";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
 import {
@@ -65,6 +66,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function MorePage() {
+  const location = useLocation();
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
       <h1 className="pb-4 pt-5 text-[22px] font-bold text-ink lg:pt-1">更多</h1>
@@ -74,7 +76,7 @@ export default function MorePage() {
             {g.rows.map((r) => (
               <li key={r.to}>
                 <Link
-                  to={r.to}
+                  to={r.to === "/feedback" ? feedbackPath(location.pathname, location.search) : r.to}
                   className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
                 >
                   <span className="text-ink-3">{r.icon}</span>

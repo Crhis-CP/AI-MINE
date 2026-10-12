@@ -1,5 +1,5 @@
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
-import { readSourceDateContext, sourceDateConfiguration } from "@amp/backend/admin/sources";
+import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
 import { dbOf, type Db, type Tx } from "../db.ts";
@@ -131,6 +131,7 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
   const run = async (tx: Tx) => {
     await assertRuntimeControl(tx, control);
     await prepareDateMutation(tx, m.sourceId, date);
+    await lockSourceNotArchived(tx, m.sourceId);
     const result = await upsertIn(tx, m);
     // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
     const listed = decideTimeline(m.publishedAt, m.discoveredAt ?? new Date()).publishedAt;

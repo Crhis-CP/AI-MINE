@@ -8,7 +8,8 @@ import {
   type PublicPolicyReportVersion,
   type PolicyReportKind,
 } from "./policy-report-plan.ts";
-import { policyReportsToRecheck, savePolicyReport } from "./policy-report-store.ts";
+import { missingPolicyReportPeriods } from "./policy-report-periods.ts";
+import { policyReportPeriodInventory, policyReportsToRecheck, savePolicyReport } from "./policy-report-store.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { policyPublicVersions } from "./policies.ts";
 
@@ -19,14 +20,17 @@ export async function composePolicyReports(now = new Date()) {
 
 /** Hourly worker reconciliation only: no reader-triggered writes and no model invocation. */
 export async function reconcilePolicyReportPeriods(readVersions: () => Promise<PublicPolicyReportVersion[]>, now = new Date()) {
-  const periods = await policyReportsToRecheck(),
-    latest = latestClosedPolicyPeriods(now);
+  const editions = await readVersions();
+  const periods = missingPolicyReportPeriods(editions, await policyReportPeriodInventory(), now);
+  periods.push(...(await policyReportsToRecheck()));
+  const latest = latestClosedPolicyPeriods(now);
   for (const kind of ["weekly", "monthly"] as const)
     if (!periods.some((p) => p.kind === kind && p.period_key === latest[kind])) periods.unshift({ kind, period_key: latest[kind] });
-  const ready = periods.filter((p) => Date.parse(policyReportPeriod(p.kind, p.period_key).end) + 8 * 3600_000 <= now.getTime());
+  const ready = [...new Map(periods.map((p) => [`${p.kind}:${p.period_key}`, p])).values()].filter(
+    (p) => Date.parse(policyReportPeriod(p.kind, p.period_key).end) + 8 * 3600_000 <= now.getTime(),
+  );
   if (!ready.length) return [];
-  const editions = await readVersions(),
-    results: ({ kind: PolicyReportKind; periodKey: string } & Awaited<ReturnType<typeof savePolicyReport>>)[] = [];
+  const results: ({ kind: PolicyReportKind; periodKey: string } & Awaited<ReturnType<typeof savePolicyReport>>)[] = [];
   for (const { kind, period_key } of ready) {
     const period = policyReportPeriod(kind, period_key),
       coverage = await policySourceCoverage(period.start, period.end);

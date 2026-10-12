@@ -20,8 +20,6 @@ END;
 $$;
 CREATE TRIGGER publication_read_version AFTER INSERT OR UPDATE OR DELETE ON public.publications
   FOR EACH ROW EXECUTE FUNCTION publication.bump_read_version('news');
-CREATE TRIGGER reports_read_version AFTER INSERT OR UPDATE OR DELETE ON public.reports
-  FOR EACH ROW EXECUTE FUNCTION publication.bump_read_version('news');
 CREATE TRIGGER policy_read_version AFTER INSERT OR UPDATE OR DELETE ON publication.policy_documents
   FOR EACH ROW EXECUTE FUNCTION publication.bump_read_version('policy');
 CREATE TRIGGER policy_edition_read_version AFTER INSERT OR UPDATE OR DELETE ON publication.policy_editions

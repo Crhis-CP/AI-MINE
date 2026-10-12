@@ -168,6 +168,7 @@ export const V3Report = V3ReportCard.extend({
   limitation: text.nullable(),
   attributions: z.array(Attribution),
   ai_metadata: Metadata,
+  corrections: z.array(z.strictObject({ revision: z.int().positive(), reason: text, at: instant })).optional(),
 });
 export const V3Topic = z.strictObject({
   id: text,

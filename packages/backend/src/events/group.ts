@@ -19,15 +19,59 @@ import { shutdownSignal } from "../jobs/queue.ts";
 // look when a report founds a fact close to them (rematchSignals); history (isHistorical) founds no
 // event. Runs serially (queue concurrency 1).
 import { modelFor } from "../editorial/models.ts";
-import { dbOf, type Db } from "../db.ts";
+import { dbOf, type Db, type Tx } from "../db.ts";
 import { newShortId, newUuid, sha256 } from "../lib/ids.ts";
 import { chatJson } from "../providers/llm.ts";
 import { BudgetExceededError, ReceiptBusyError, completeReceipt } from "../providers/receipts.ts";
 import { embeddingsAvailable, ensureEmbeddings } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
 import { enqueue, ensureQueue, QUEUES } from "../jobs/queue.ts";
-import { publishArticle } from "../publication/publish.ts";
+import { publishArticle, publishArticleTx, articleWithdrawalHeld } from "../publication/publish.ts";
 import { mergeStoryInto } from "./merge.ts";
+
+/** Called under the membership lock, before a regroup can erase an active target association. */
+export async function captureEventWithdrawal(db: Db, articleId: string) {
+  const memberships = await db<
+    { fact_public_id: string | null; story_public_id: string | null }[]
+  >`SELECT f.public_id AS fact_public_id,s.public_id::text AS story_public_id
+    FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id LEFT JOIN stories s ON s.id=f.story_id WHERE fa.article_id=${articleId}
+    UNION SELECT NULL,s.public_id::text FROM story_signals ss JOIN stories s ON s.id=ss.story_id WHERE ss.article_id=${articleId}`;
+  let held = false;
+  for (const member of memberships) held = (await articleWithdrawalHeld(db, articleId, member.fact_public_id, member.story_public_id)) || held;
+  if (held) await publishArticleTx(db as Tx, articleId);
+}
+
+/** All members, including individually hidden items, form the editorial withdrawal snapshot. */
+export async function withdrawalEventMembers(type: "event" | "story", publicId: string, db: Db = sql): Promise<string[] | null> {
+  if (type === "event") {
+    const [fact] = await db<{ id: number }[]>`SELECT id FROM facts WHERE public_id=${publicId}`;
+    if (!fact) return null;
+    return (await db<{ article_id: string }[]>`SELECT article_id FROM fact_articles WHERE fact_id=${fact.id} ORDER BY article_id`).map((r) => r.article_id);
+  }
+  const [story] = await db<{ id: number }[]>`SELECT id FROM stories WHERE public_id::text=${publicId}`;
+  if (!story) return null;
+  return (
+    await db<
+      { article_id: string }[]
+    >`SELECT fa.article_id FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id WHERE f.story_id=${story.id} UNION SELECT article_id FROM story_signals WHERE story_id=${story.id} ORDER BY article_id`
+  ).map((r) => r.article_id);
+}
+
+/** Withdrawn facts cannot remain embedded in a development line's old synthesized wording. */
+export async function invalidateWithdrawalStories(target: { type: "event" | "story"; id: string }, memberIds: string[], db: Db) {
+  const rows = await db<
+    { story_id: number | null }[]
+  >`SELECT f.story_id FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id WHERE fa.article_id=ANY(${memberIds}::text[])
+    UNION SELECT story_id FROM story_signals WHERE article_id=ANY(${memberIds}::text[])`;
+  const targetRows =
+    target.type === "event"
+      ? await db<{ story_id: number | null }[]>`SELECT story_id FROM facts WHERE public_id=${target.id}`
+      : await db<{ story_id: number | null }[]>`SELECT id AS story_id FROM stories WHERE public_id::text=${target.id}`;
+  for (const id of [...new Set([...rows, ...targetRows].flatMap((r) => (r.story_id === null ? [] : [r.story_id])))].sort((a, b) => a - b)) {
+    await db`UPDATE stories SET version=version+1,updated_at=pg_catalog.clock_timestamp() WHERE id=${id}`;
+    await enqueue(QUEUES.digest, { storyId: id, afterCorrection: true }, { singletonKey: `story:${id}:correction` }, db);
+  }
+}
 import {
   assertRuntimeControl,
   requireRuntimeRunning,
@@ -448,6 +492,7 @@ async function recordSignal(db: Db, storyId: number, articleId: string, source: 
     INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
     VALUES (${storyId}, ${articleId}, ${participantKey(source)}, ${source.id}, ${kind}, ${observedAt})
     ON CONFLICT (story_id, article_id) DO NOTHING`;
+  await captureEventWithdrawal(db, articleId);
   await db`UPDATE stories SET latest_at = GREATEST(coalesce(latest_at, ${observedAt}), ${observedAt}),
               first_report_at = LEAST(coalesce(first_report_at, ${observedAt}), ${observedAt}), updated_at = now()
             WHERE id = ${storyId}`;
@@ -491,8 +536,10 @@ async function currentMembership(articleId: string, revision: number): Promise<{
  */
 async function resetAutomatic(articleId: string, control: RuntimeControlSnapshot): Promise<number[]> {
   return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await assertRuntimeControl(tx, control);
     await tx`SELECT 1 FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    await captureEventWithdrawal(tx, articleId);
     const left = await tx<{ story_id: number }[]>`
       SELECT DISTINCT f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
       WHERE fa.article_id = ${articleId} AND NOT fa.manual AND fa.role IN ('primary', 'report') AND f.story_id IS NOT NULL`;
@@ -722,6 +769,7 @@ const startedByRoundup = (story: ReturnType<typeof sql>) => sql`EXISTS (
  */
 export async function linkRelatedStories(): Promise<{ added: number }> {
   return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await requireRuntimeRunning("news", ["publication"], tx);
     const [row] = await tx<{ added: number }[]>`
     WITH latest AS (
@@ -927,6 +975,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   // Written under the article's row lock after reading the manual state again: a detach or other
   // manual decision made while the model was answering wins (detachFromFact takes the same lock).
   const written = await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await assertRuntimeControl(tx, publication);
     if (receipts.length) {
       await assertRuntimeControl(tx, processing);
@@ -1067,6 +1116,7 @@ async function groupSignal(a: ArticleRow, source: { id: string }, observedAt: Da
   const { verdicts, receiptId } = await judgeSignal(a.id, query, cands);
   const target = signalTarget(cands, verdicts);
   await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await assertRuntimeControl(tx, publication);
     await assertRuntimeControl(tx, processing);
     if (target) await recordSignal(tx, target.storyId, a.id, source, "signal", observedAt);

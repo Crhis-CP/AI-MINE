@@ -3,7 +3,7 @@ import { dbOf } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
 import { siteUrl } from "./links.ts";
 import { topicPageCounts } from "./topics.ts";
-import { policyDiscoveryEntries } from "./policies.ts";
+import { PolicyReadError, policyDiscoveryEntries } from "./policies.ts";
 import { policyReport } from "./policies-reports.ts";
 
 const sql = dbOf("publication");
@@ -19,7 +19,9 @@ interface Entry {
 async function entriesForSitemap(): Promise<Entry[]> {
   const entries: Entry[] = [];
   const [latestItem] = await sql<{ t: Date | null }[]>`SELECT max(timeline_at) AS t FROM publications WHERE visibility = 'public' AND selected`;
-  const [latestDaily] = await sql<{ key: string | null; t: Date | null }[]>`SELECT max(key) AS key, max(generated_at) AS t FROM reports WHERE kind = 'daily'`;
+  const [latestDaily] = await sql<
+    { key: string | null; t: Date | null }[]
+  >`SELECT max(key) AS key, max(generated_at) AS t FROM reports r WHERE kind = 'daily' AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)`;
   const now = latestItem?.t ?? new Date();
   entries.push(
     { loc: "/", lastmod: now, changefreq: "hourly", priority: 1 },
@@ -38,7 +40,9 @@ async function entriesForSitemap(): Promise<Entry[]> {
     { loc: "/privacy", changefreq: "monthly", priority: 0.4 },
     { loc: "/changelog", lastmod: now, changefreq: "weekly", priority: 0.5 },
   );
-  const reports = await sql<{ kind: string; key: string; generated_at: Date }[]>`SELECT kind, key, generated_at FROM reports ORDER BY kind, key DESC`;
+  const reports = await sql<
+    { kind: string; key: string; generated_at: Date }[]
+  >`SELECT kind, key, generated_at FROM reports r WHERE NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key) ORDER BY kind, key DESC`;
   for (const r of reports)
     entries.push({
       loc: `/${r.kind}/${r.key}`,
@@ -63,7 +67,13 @@ async function entriesForSitemap(): Promise<Entry[]> {
     entries.push({ loc: `/policies/${encodeURIComponent(policy.id)}`, lastmod: policy.lastModified, changefreq: "monthly", priority: 0.6 });
   const policyReports = await sql<{ id: string }[]>`SELECT id FROM publication.policy_reports WHERE current_revision>0 ORDER BY period_key DESC,id`;
   for (const row of policyReports) {
-    const report = await policyReport(row.id, { limit: 1 });
+    let report: Awaited<ReturnType<typeof policyReport>>;
+    try {
+      report = await policyReport(row.id, { limit: 1 });
+    } catch (error) {
+      if (error instanceof PolicyReadError && [404, 410].includes(error.status)) continue;
+      throw error;
+    }
     if (report.item_count)
       entries.push({ loc: `/policies/reports/${encodeURIComponent(row.id)}`, lastmod: new Date(report.issued_at), changefreq: "monthly", priority: 0.6 });
   }

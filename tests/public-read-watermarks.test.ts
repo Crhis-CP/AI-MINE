@@ -41,3 +41,44 @@ test("public references and version watermarks change atomically on withdrawal; 
   assert.notEqual(waiting.version, released.version, "time-based release must notify readers even without another write");
   assert.equal(waiting.withdrawalVersion, released.withdrawalVersion);
 });
+
+test("report and source module triggers preserve atomic reader invalidation after ownership split", async (t) => {
+  const f = await publicRoleFixture(t),
+    logins = await f.login();
+  const snapshot = async () =>
+    await logins.public_read<{ lane: string; version: string; withdrawal_version: string }[]>`
+    SELECT lane,version::text,withdrawal_version::text FROM publication.read_watermarks ORDER BY lane`;
+  const before = await snapshot();
+  await f.admin`UPDATE reports SET generated_at=generated_at+interval '1 second' WHERE id=(SELECT min(id) FROM reports)`;
+  const reportChanged = await snapshot();
+  assert.notEqual(reportChanged.find((r) => r.lane === "news")!.version, before.find((r) => r.lane === "news")!.version);
+  assert.deepEqual(
+    reportChanged.find((r) => r.lane === "policy"),
+    before.find((r) => r.lane === "policy"),
+  );
+  await f.admin`UPDATE sources SET site_fulltext=NOT site_fulltext WHERE id='pr9-editorial'`;
+  const sourceChanged = await snapshot();
+  assert.notEqual(sourceChanged.find((r) => r.lane === "news")!.withdrawal_version, reportChanged.find((r) => r.lane === "news")!.withdrawal_version);
+  const { appendSourcePolicy } = await import("../packages/backend/src/sources/permission-store.ts");
+  const { sourcePolicyExample } = await import("./permission-fixture.ts");
+  const policy = { ...structuredClone(sourcePolicyExample), source_id: "pr9-editorial" };
+  await f.admin.begin((tx) => appendSourcePolicy(tx, null, policy));
+  const permissionCreated = await snapshot();
+  assert.notEqual(permissionCreated.find((r) => r.lane === "news")!.withdrawal_version, sourceChanged.find((r) => r.lane === "news")!.withdrawal_version);
+  const tightened = { ...policy, permission_version: 2, permissions: { ...policy.permissions, public_excerpt: "deny" as const } };
+  await assert.rejects(
+    f.admin.begin(async (tx) => {
+      await appendSourcePolicy(tx, 1, tightened);
+      throw new Error("synthetic rollback");
+    }),
+    /synthetic rollback/,
+  );
+  assert.deepEqual(await snapshot(), permissionCreated);
+  await f.admin.begin((tx) => appendSourcePolicy(tx, 1, tightened));
+  const permissionChanged = await snapshot();
+  assert.notEqual(permissionChanged.find((r) => r.lane === "news")!.withdrawal_version, permissionCreated.find((r) => r.lane === "news")!.withdrawal_version);
+  assert.deepEqual(
+    permissionChanged.find((r) => r.lane === "policy"),
+    before.find((r) => r.lane === "policy"),
+  );
+});

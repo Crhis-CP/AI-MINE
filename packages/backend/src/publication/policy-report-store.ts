@@ -60,3 +60,8 @@ export async function policyReportsToRecheck(limit = 24) {
   if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error("Invalid policy report batch");
   return sql<{ kind: PolicyReportKind; period_key: string }[]>`SELECT kind,period_key FROM publication.policy_reports ORDER BY checked_at,id LIMIT ${limit}`;
 }
+
+/** Worker scheduling metadata only; public readers never create missing report heads. */
+export async function policyReportPeriodInventory() {
+  return sql<{ kind: PolicyReportKind; period_key: string }[]>`SELECT kind,period_key FROM publication.policy_reports ORDER BY kind,period_key`;
+}

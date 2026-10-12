@@ -1,5 +1,6 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -26,7 +27,12 @@ async function upload(file: Buffer, ip: string) {
   form.set("screenshot", new File([new Uint8Array(file)], "screenshot.png", { type: "image/png" }));
   const request = new Request("http://local/api/site/feedback", { method: "POST", body: form });
   const payload = Buffer.from(await request.arrayBuffer());
-  return app.inject({ method: "POST", url: "/api/site/feedback", headers: { "content-type": request.headers.get("content-type")!, "x-real-ip": ip }, payload });
+  return app.inject({
+    method: "POST",
+    url: "/api/site/feedback",
+    headers: { "idempotency-key": randomUUID(), "content-type": request.headers.get("content-type")!, "x-real-ip": ip },
+    payload,
+  });
 }
 
 test("a 2 MiB multipart screenshot is stored intact", async () => {
@@ -59,10 +65,25 @@ test("the JSON screenshot sent by an already-open tab remains accepted", async (
   const result = await app.inject({
     method: "POST",
     url: "/api/site/feedback",
-    headers: { "x-real-ip": "203.0.113.213" },
+    headers: { "idempotency-key": randomUUID(), "x-real-ip": "203.0.113.213" },
     payload: { content: "旧标签页继续提交有效反馈文字", screenshot: { mime: "image/png", data: file.toString("base64") } },
   });
   assert.equal(result.statusCode, 201);
   const [row] = await sql`SELECT screenshot_key FROM feedback WHERE id = ${result.json().id}`;
   assert.deepEqual(await readFile(path.join(config.dataDir, "feedback-screenshots", row!.screenshot_key.slice(6))), file);
+});
+
+test("feedback HTTP replay is stable and a missing key gives an actionable rejection", async () => {
+  const headers = { "idempotency-key": randomUUID(), "x-real-ip": "203.0.113.215" },
+    payload = { content: "反馈响应丢失后重交同一请求不会重复" };
+  const first = await app.inject({ method: "POST", url: "/api/site/feedback", headers, payload });
+  const replay = await app.inject({ method: "POST", url: "/api/site/feedback", headers, payload });
+  assert.equal(first.statusCode, 201, first.body);
+  assert.equal(replay.statusCode, 201, replay.body);
+  assert.deepEqual(replay.json(), first.json());
+  const conflict = await app.inject({ method: "POST", url: "/api/site/feedback", headers, payload: { content: "更改正文后同一幂等编号应返回冲突" } });
+  assert.equal(conflict.statusCode, 409, conflict.body);
+  const missing = await app.inject({ method: "POST", url: "/api/site/feedback", payload });
+  assert.equal(missing.statusCode, 400);
+  assert.match(missing.json().detail, /提交编号|刷新/);
 });

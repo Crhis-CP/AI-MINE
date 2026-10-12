@@ -99,9 +99,12 @@ test("every real role has exactly the approved table, column, sequence and cross
       "content.source_date_observations",
       "editorial.manual_revision_events",
       "editorial.manual_revisions",
+      "editorial.withdrawal_records",
+      "editorial.withdrawal_restorations",
       "enrichment.translation_segments",
       "feedback.feedback_private_deletions",
       "feedback.feedback_weekly_summaries",
+      "feedback.submissions",
       "identity.account_access",
       "identity.account_commands",
       "identity.account_policy",
@@ -145,6 +148,9 @@ test("every real role has exactly the approved table, column, sequence and cross
       "publication.read_watermarks",
       "publication.site_information",
       "publication.site_information_commands",
+      "publication.withdrawal_members",
+      "publication.withdrawal_targets",
+      "reports.correction_jobs",
       "sources.source_config_activations",
       "sources.source_config_drafts",
       "sources.source_policy_current",
@@ -277,6 +283,7 @@ test("every real role has exactly the approved table, column, sequence and cross
         const expected = new Set([
           "editorial.manual_revision_events_id_seq",
           "editorial.manual_revisions_id_seq",
+          "editorial.withdrawal_records_id_seq",
           "sources.source_config_activations_id_seq",
           "sources.source_config_drafts_id_seq",
           "sources.source_previews_id_seq",
@@ -284,7 +291,8 @@ test("every real role has exactly the approved table, column, sequence and cross
         assert.ok(expected.has(row.name), `unreviewed module sequence ${row.name}`);
         const name = row.name.split(".").map(quote).join(".");
         await permission(sql, `SELECT last_value FROM ${name}`, role === "migrate" || role === "backup", `${role} reads ${row.name}`);
-        await permission(sql, `SELECT nextval('${name}')`, ["migrate", "worker", "private_ops"].includes(role), `${role} advances ${row.name}`);
+        const advance = row.name === "editorial.withdrawal_records_id_seq" ? ["migrate", "private_ops"] : ["migrate", "worker", "private_ops"];
+        await permission(sql, `SELECT nextval('${name}')`, advance.includes(role), `${role} advances ${row.name}`);
         await permission(sql, `SELECT setval('${name}',1000000000,true)`, role === "migrate", `${role} resets ${row.name}`);
         continue;
       }

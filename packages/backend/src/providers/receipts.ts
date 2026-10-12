@@ -205,7 +205,7 @@ async function newsReceiptBlocker(db: Db, scope: string | null, req: ReceiptRequ
     SELECT r.id,r.status,a.id::text AS attempt_id FROM receipts r
     LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
     WHERE r.logical_key<>${logicalKey} AND r.purpose=${req.purpose}
-      AND substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)')=${scope}
+      AND CASE WHEN ${scope.startsWith("report:")} THEN r.subject ELSE substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') END=${scope}
       AND coalesce(r.request->>'lane','news')='news'
       AND (r.status IN ('pending','unknown') OR
         (r.response IS NOT NULL AND NOT coalesce(a.usage->>'prompt_tokens' ~ '^[0-9]+$'
@@ -463,7 +463,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       bounds: req.costBounds,
       registeredPricing: req.modelSnapshot?.pricing,
     });
-  const newsScope = knownLane === "news" && req.model ? (/^article:[a-zA-Z0-9_-]+@[1-9][0-9]*/.exec(req.subject ?? "")?.[0] ?? null) : null;
+  const newsScope =
+    knownLane === "news" && req.model
+      ? (/^article:[a-zA-Z0-9_-]+@[1-9][0-9]*/.exec(req.subject ?? "")?.[0] ??
+        /^report:(?:daily|weekly|monthly):[a-zA-Z0-9_-]+$/.exec(req.subject ?? "")?.[0] ??
+        null)
+      : null;
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 

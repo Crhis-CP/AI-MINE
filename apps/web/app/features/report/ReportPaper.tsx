@@ -377,6 +377,23 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
           · AI 辅助生成
         </p>
       </div>
+      {!!report.corrections?.length && (
+        <section aria-labelledby="report-corrections" className="my-5 rounded-control border border-line bg-bg-sunk px-4 py-3">
+          <h2 id="report-corrections" className="text-[14px] font-semibold text-ink">
+            更正说明
+          </h2>
+          <ol className="mt-2 space-y-3">
+            {report.corrections.map(({ revision, reason, at }) => (
+              <li key={`${revision}-${at}`}>
+                <p className="text-[12px] text-ink-4">
+                  修订版本 {revision} · <time dateTime={at}>{fullDateTime(at)}</time>（北京时间）
+                </p>
+                <p className="mt-1 text-[13px] leading-relaxed text-ink-2">{reason}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       {count === 0 && report.flashes.length === 0 ? (
         <p className="py-16 text-center text-[14px] text-ink-4">本期没有入选内容。</p>
       ) : (

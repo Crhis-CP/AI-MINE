@@ -228,3 +228,32 @@ test("declared XML body extraction preserves complete text, structural date evid
     }
   }
 });
+
+test("a real-byte GBK meta declaration works without a response charset, while a conflict stays incomplete", async () => {
+  const body = Buffer.concat([
+    Buffer.from('<html><meta charset="gbk"><article><p>'),
+    Buffer.from("b2c9bff3b7a8b9e6d5fdcec4", "hex"),
+    Buffer.from("</p></article></html>"),
+  ]);
+  for (const conflict of [false, true]) {
+    const saved = await acquirePolicyOriginal(
+      { ...input(), identity: { ...input().identity, documentNumber: conflict ? "encoding-conflict" : "encoding-meta" } },
+      profile,
+      async (address) => ({
+        status: 200,
+        url: address,
+        headers: new Headers({ "content-type": conflict ? "text/html;charset=utf-8" : "text/html" }),
+        body,
+        text: () => {
+          throw new Error("must decode original bytes");
+        },
+      }),
+    );
+    const result = await extractPolicyOriginal(saved.expressionId, profile);
+    assert.equal(result.state, conflict ? "incomplete" : "extracted");
+    if (conflict) {
+      assert.deepEqual(result.resources[0]!.nodes, []);
+      assert.match(result.resources[0]!.gaps.join(" "), /编码声明相互冲突/);
+    } else assert.equal(result.resources[0]!.nodes[0]!.text, "采矿法规正文");
+  }
+});

@@ -5,6 +5,7 @@ import { dbOf, type Db } from "../db.ts";
 import { audit } from "../admin/auth.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { publishArticle } from "../publication/publish.ts";
+import { captureEventWithdrawal } from "./group.ts";
 
 const sql = dbOf("events");
 
@@ -18,6 +19,7 @@ export async function mergeStoryInto(
 ): Promise<{ moved: number } | null> {
   if (fromId === intoId) throw new Error("cannot merge a story into itself");
   const articles = await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     if (automaticGuard) await automaticGuard(tx);
     const [from] = await tx<{ public_id: string; merged_into: number | null }[]>`SELECT public_id, merged_into FROM stories WHERE id = ${fromId} FOR UPDATE`;
     const [into] = await tx<{ merged_into: number | null }[]>`SELECT merged_into FROM stories WHERE id = ${intoId} FOR UPDATE`;
@@ -34,7 +36,11 @@ export async function mergeStoryInto(
                first_report_at = least(first_report_at, (SELECT first_report_at FROM stories WHERE id = ${fromId}))
              WHERE id = ${intoId}`;
     await tx`INSERT INTO story_aliases (public_id, story_id) VALUES (${from.public_id}, ${intoId}) ON CONFLICT DO NOTHING`;
-    return tx<{ article_id: string }[]>`SELECT DISTINCT fa.article_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id WHERE f.story_id = ${intoId}`;
+    const members = await tx<
+      { article_id: string }[]
+    >`SELECT DISTINCT fa.article_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id WHERE f.story_id = ${intoId}`;
+    for (const member of members) await captureEventWithdrawal(tx, member.article_id);
+    return members;
   });
   if (!articles) return null;
   for (const a of articles) await publishArticle(a.article_id);

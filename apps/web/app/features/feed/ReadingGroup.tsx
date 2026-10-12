@@ -229,6 +229,14 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
           onMore={() => load(state.next)}
           onRetry={() => load(null)}
         />
+        {group.story && (
+          <Link
+            to={`/story/${group.story.publicId}`}
+            className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"
+          >
+            查看完整事件 <IconArrowUpRight size={12} />
+          </Link>
+        )}
       </Panel>
     </div>
   );

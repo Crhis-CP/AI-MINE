@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "42711a21c9c70537dfaa708a98bad0126d59cd371c3ac7e9b16c20886af815e5",
+  "grantCatalogueSha256": "4862af6fd5b0f32a5373ff2e3df8b69aa1e5320b556234223b2683d01f213a0b",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -580,6 +580,30 @@
     },
     "feedback.feedback_weekly_summaries": {
       "module": "feedback",
+      "access": "business"
+    },
+    "feedback.submissions": {
+      "module": "feedback",
+      "access": "business"
+    },
+    "editorial.withdrawal_records": {
+      "module": "editorial",
+      "access": "business"
+    },
+    "editorial.withdrawal_restorations": {
+      "module": "editorial",
+      "access": "business"
+    },
+    "publication.withdrawal_targets": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.withdrawal_members": {
+      "module": "publication",
+      "access": "business"
+    },
+    "reports.correction_jobs": {
+      "module": "reports",
       "access": "business"
     }
   },

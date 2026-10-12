@@ -5,6 +5,7 @@ import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import type { Route } from "./+types/content-item";
 import { adminGet } from "../../lib/admin.server";
+import { WithdrawalControls } from "../../features/admin/withdrawal";
 import { useAdminAction } from "../../features/admin/action";
 import { bj, bjSource, money } from "../../features/admin/format";
 import { KIND_LABEL, MODE_LABEL, VISIBILITY_LABEL } from "../../features/admin/labels";
@@ -325,6 +326,16 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
                     </li>
                   ))}
                 </ul>
+              )}
+              {story?.fact_public_id && (
+                <div className="mt-3">
+                  <WithdrawalControls key={story.fact_public_id} target={{ type: "event", id: String(story.fact_public_id) }} label="该事件下架 / 恢复" />
+                </div>
+              )}
+              {story?.story_public_id && (
+                <div className="mt-3">
+                  <WithdrawalControls key={story.story_public_id} target={{ type: "story", id: String(story.story_public_id) }} label="该发展线下架 / 恢复" />
+                </div>
               )}
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => setDialog("group")}>

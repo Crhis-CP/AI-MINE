@@ -9,7 +9,14 @@ import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
 import { linkRelatedStories, repairUnboundEventMemberships } from "@amp/backend/events/group";
-import { catchUpReports, composeDaily, composeMonthly, composeWeekly, composePolicyReports } from "@amp/backend/reports/compose";
+import {
+  enqueuePendingReportCorrections,
+  catchUpReports,
+  composeDaily,
+  composeMonthly,
+  composeWeekly,
+  composePolicyReports,
+} from "@amp/backend/reports/compose";
 import { addDays, beijingDate, isoWeekLabel } from "@amp/contracts/time";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
@@ -52,6 +59,7 @@ export const SCHEDULES: Scheduled[] = [
       return composeMonthly(m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`);
     },
   },
+  { name: "reports.correction-sweep", cron: "*/5 * * * *", run: () => enqueuePendingReportCorrections(20) },
   { name: "reports.catch-up", cron: "15 * * * *", run: () => catchUpReports() },
   // The policy composer checks natural period closure and the Beijing 08:00 first-issue time.
   { name: "policy.reports", cron: "0 * * * *", missed: "once", run: () => composePolicyReports() },

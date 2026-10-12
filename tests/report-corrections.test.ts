@@ -1,0 +1,193 @@
+import { tag, stub, Reply } from "./setup.ts";
+import { after, test } from "node:test";
+import assert from "node:assert/strict";
+import { dbOf, closeDb } from "@amp/backend/db";
+import { upsertMaterial } from "@amp/backend/content/materials";
+import { publishArticle, currentReportPublications } from "@amp/backend/publication/publish";
+import { correctNewsReport } from "@amp/backend/reports/compose";
+import { loadReport, v1Daily, listReports } from "@amp/backend/publication/reports";
+import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
+import { stopBoss } from "@amp/backend/jobs/queue";
+import { ReceiptUnknownError } from "@amp/backend/providers/receipts";
+import { ModelPostReceiptGuardError } from "@amp/backend/providers/llm";
+import { reportFallbackInput } from "../packages/backend/src/reports/fallback-input.ts";
+import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+const sql = dbOf("reports");
+let mode = "ok",
+  afterSend: (() => Promise<void>) | null = null,
+  index = 0;
+const provider = await stub(async (_hit, request) => {
+  if (afterSend) await afterSend();
+  if (mode === "unknown") return new Reply(503, { error: "synthetic outcome unknown" });
+  const input = JSON.parse(request.body).messages.at(-1).content as string;
+  const text = input.includes("10吨") ? "项目产量更正为10吨" : "当前合成公开报道";
+  return {
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            title: text,
+            leadParagraph: `本期已按当前来源说明核对，${text}。`,
+            highlights: [1],
+            headline: text,
+            overview: `本期综述依据当前引用，${text}。`,
+            themes: [{ heading: "当前矿业项目", summary: `根据当前依据，${text}。`, refs: [1, 2] }],
+          }),
+        },
+        finish_reason: "stop",
+      },
+    ],
+    usage: { prompt_tokens: 20, completion_tokens: 20 },
+  };
+});
+process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
+process.env.DEEPSEEK_API_KEY = "synthetic";
+process.env.REPORT_MODEL = "deepseek-flash";
+process.env.DASHSCOPE_BASE_URL = `${provider.url}/v1`;
+process.env.DASHSCOPE_API_KEY = "synthetic";
+await installUsageFixtureForModel("deepseek-flash");
+await installUsageFixtureForModel("qwen3.7-flash");
+after(async () => {
+  await provider.close();
+  await stopBoss();
+  await closeDb();
+});
+async function fixture() {
+  index++;
+  const members: string[] = [],
+    sources: string[] = [];
+  for (let n = 0; n < 2; n++) {
+    const source = `correction-${tag()}`;
+    sources.push(source);
+    await sql`INSERT INTO sources(id,name,kind,site_fulltext) VALUES(${source},${source},'rss',true)`;
+    await ensureModelSourceFixture(source, ["https://source.invalid/news"]);
+    const m = await upsertMaterial({
+      sourceId: source,
+      url: `https://source.invalid/${source}`,
+      title: "矿业来源原始公告",
+      bodyText: "原始公告明确记载，铜矿项目本期产量为10吨，另有环保条件和实施期限。",
+      language: "zh",
+      via: "fetch",
+    });
+    await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh,category,selected,score,output)
+      VALUES(${m.articleId},1,'rule','pass',${`合成${source}项目产量为100吨`},'现有旧摘要错误记载项目本期产量为100吨。','company_project',true,90,'{}')`;
+    await publishArticle(m.articleId);
+    members.push(m.articleId);
+  }
+  const entries = await currentReportPublications(members),
+    reports = [];
+  for (const kind of ["daily", "weekly", "monthly"] as const) {
+    const suffix = String(index).padStart(2, "0"),
+      key = kind === "daily" ? `2020-01-${suffix}` : kind === "weekly" ? `2020-W${suffix}` : `2020-${suffix}`;
+    const content = {
+      generationStatus: "ready",
+      title: "旧综合100吨",
+      lead: { title: "旧综合100吨", leadParagraph: "旧综合认为项目产量100吨" },
+      overview: "旧综述100吨",
+      ...(kind === "daily"
+        ? { sections: [{ label: "企业与项目", items: entries }] }
+        : { themes: [{ heading: "旧主题100吨", summary: "旧主题总结100吨", storyRefs: entries }] }),
+    };
+    const [r] =
+      await sql`INSERT INTO reports(kind,key,window_start,window_end,content,generated_at) VALUES(${kind},${key},'2020-01-01','2020-02-01',${sql.json(content as never)},now()) RETURNING id`;
+    reports.push({ id: String(r!.id), kind, key });
+  }
+  return { members, sources, reports };
+}
+const correct = async (id: string, version: number, title = `第${index}组项目产量更正为10吨`) =>
+  confirmedManualEdit(
+    id,
+    { fields: { title, summary: "已核对原始公告：铜矿项目本期产量为10吨，并保留环保条件与期限。" }, reason: "PRIVATE_HUMAN_REASON", version },
+    "synthetic-human",
+  );
+async function deny(sourceId: string) {
+  const policy = (await readCurrentSourcePolicy(sourceId))!;
+  return saveSourcePolicy(
+    sourceId,
+    {
+      expectedVersion: policy.permission_version,
+      policy: { ...policy, permissions: { ...policy.permissions, external_model: "deny" } },
+      reason: "synthetic deny",
+    },
+    "test",
+  );
+}
+test("manual corrections immediately remove old synthesis and the worker creates new daily/weekly/monthly revisions", async () => {
+  const f = await fixture();
+  for (const id of f.members) await correct(id, 0);
+  const hits = provider.hits();
+  for (const report of f.reports) {
+    const pending = (await loadReport(report.kind, report.key))!;
+    assert.equal(pending.generationStatus, "pending");
+    assert.equal(pending.lead, null);
+    assert.equal(pending.overview, null);
+    assert.ok(!JSON.stringify(pending).includes("100吨"));
+    assert.ok(!JSON.stringify(pending).includes("PRIVATE_HUMAN_REASON"));
+    assert.ok(pending.corrections?.length);
+    assert.ok(pending.revision > 1);
+  }
+  assert.equal(provider.hits(), hits, "public reads never call a model");
+  assert.ok(!JSON.stringify(await v1Daily(f.reports[0]!.key)).includes("100吨"));
+  assert.ok(!(await listReports("daily")).some((r) => r.key === f.reports[0]!.key && r.title?.includes("100吨")));
+  for (const report of f.reports) {
+    assert.equal((await correctNewsReport(report.id)).status, "corrected");
+    const updated = (await loadReport(report.kind, report.key))!;
+    assert.equal(updated.generationStatus, "ready");
+    assert.ok(JSON.stringify(updated).includes("10吨"));
+    assert.ok(!JSON.stringify(updated).includes("100吨"));
+    assert.equal((await correctNewsReport(report.id)).status, "current");
+    assert.ok((await sql`SELECT revision FROM report_revisions WHERE report_id=${report.id}`).length >= 2);
+  }
+  const receipts = await sql`SELECT request FROM receipts WHERE subject=${`report:daily:${f.reports[0]!.key}`} AND status='completed'`;
+  assert.deepEqual([...receipts[0]!.request.sourceIds].sort(), f.sources.sort(), "model and fallback source scope contains every member source");
+});
+test("second source deny blocks both a new report send and reuse of a previously paid correction", async () => {
+  const f = await fixture();
+  for (const id of f.members) await correct(id, 0);
+  const daily = f.reports[0]!;
+  const factory = await reportFallbackInput(await currentReportPublications(f.members));
+  assert.ok(factory);
+  assert.deepEqual([...factory({ system: "fixture", user: "same two-source report" }).sourceIds].sort(), [...f.sources].sort());
+  await correctNewsReport(daily.id);
+  const hits = provider.hits();
+  await correct(f.members[0]!, 1);
+  await deny(f.sources[1]!);
+  await assert.rejects(correctNewsReport(f.reports[1]!.id), /许可/);
+  await assert.rejects(correctNewsReport(daily.id), /许可/);
+  assert.equal(provider.hits(), hits, "neither new send nor same-input cache bypasses the denied second source");
+  assert.equal((await loadReport("daily", daily.key))!.lead, null);
+});
+test("permission changed during a paid answer preserves its receipt but cannot publish the correction", async () => {
+  const f = await fixture();
+  for (const id of f.members) await correct(id, 0);
+  afterSend = () => deny(f.sources[1]!).then(() => {});
+  try {
+    await assert.rejects(correctNewsReport(f.reports[0]!.id), ModelPostReceiptGuardError);
+  } finally {
+    afterSend = null;
+  }
+  assert.equal((await loadReport("daily", f.reports[0]!.key))!.lead, null);
+  const [receipt] = await sql`SELECT response,status FROM receipts WHERE subject=${`report:daily:${f.reports[0]!.key}`}`;
+  assert.ok(receipt!.response);
+  assert.equal(receipt!.status, "received");
+});
+test("unknown report cost cannot be bypassed by changing corrected input or the model", async () => {
+  const f = await fixture();
+  for (const id of f.members) await correct(id, 0);
+  const daily = f.reports[0]!;
+  mode = "unknown";
+  try {
+    await assert.rejects(correctNewsReport(daily.id), ReceiptUnknownError);
+    const hits = provider.hits();
+    await correct(f.members[0]!, 1, "已更正的铜矿产量为10吨");
+    mode = "ok";
+    process.env.REPORT_MODEL = "qwen3.7-flash";
+    await assert.rejects(correctNewsReport(daily.id), ReceiptUnknownError);
+    assert.equal(provider.hits(), hits, "changed input and model keep the same report billing barrier");
+  } finally {
+    mode = "ok";
+    process.env.REPORT_MODEL = "deepseek-flash";
+  }
+});

@@ -10,9 +10,9 @@ const sql = dbOf("publication");
 /** Discovery only needs to know whether an entry exists, not count its entire history. */
 export async function loadLlmsAvailability() {
   const [row] = await sql<{ hasDailies: boolean; hasWeekly: boolean; hasMonthly: boolean }[]>`
-    SELECT EXISTS (SELECT 1 FROM reports WHERE kind = 'daily') AS "hasDailies",
-           EXISTS (SELECT 1 FROM reports WHERE kind = 'weekly') AS "hasWeekly",
-           EXISTS (SELECT 1 FROM reports WHERE kind = 'monthly') AS "hasMonthly"`;
+    SELECT EXISTS (SELECT 1 FROM reports r WHERE kind = 'daily' AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)) AS "hasDailies",
+           EXISTS (SELECT 1 FROM reports r WHERE kind = 'weekly' AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)) AS "hasWeekly",
+           EXISTS (SELECT 1 FROM reports r WHERE kind = 'monthly' AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)) AS "hasMonthly"`;
   return row!;
 }
 

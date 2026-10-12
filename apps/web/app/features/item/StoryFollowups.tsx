@@ -1,91 +1,110 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import type { StoryFollowup, StoryFollowupsResponse, StoryRef } from "@amp/contracts/site";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import type { StoryFollowup, StoryRef } from "@amp/contracts/site";
 import { MoreLink } from "../../components/ui/Page";
 import { isDateOnlyInstant, relativeTime, shortSourceName, sourceMonthDayTime } from "../../lib/format";
 
-/**
- * "事件后续": the other developments of the event this report belongs to, newest first, with a link to
- * the whole event. Loaded after the page so the article renders without waiting for it.
- */
-export function StoryFollowups({ story, currentId }: { story: StoryRef; currentId: string }) {
-  const [items, setItems] = useState<StoryFollowup[] | null>(null);
-  const [more, setMore] = useState(false);
+/** Event developments are read on approach; absence and failed qualification stay distinct. */
+export function StoryFollowups({ story, currentId, currentFactId }: { story: StoryRef; currentId: string; currentFactId?: string }) {
+  const [state, setState] = useState<{ status: "waiting" | "loading" | "ready" | "error"; items: StoryFollowup[]; more: boolean }>({
+    status: "waiting",
+    items: [],
+    more: false,
+  });
   const anchor = useRef<HTMLDivElement>(null);
+  const retry = useRef<() => void>(() => {});
   useEffect(() => {
     const controller = new AbortController();
-    let started = false;
-    setItems(null);
-    const load = () => {
-      if (started) return;
-      started = true;
-      fetch(`/api/site/stories/${encodeURIComponent(story.publicId)}/followups`, { signal: controller.signal })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((body: StoryFollowupsResponse | null) => {
-          if (!body || controller.signal.aborted) return;
-          setItems(body.items.filter((d) => d.representative.id !== currentId));
-          setMore(body.more);
-        })
-        .catch(() => {});
+    let pending = false;
+    setState({ status: "waiting", items: [], more: false });
+    const load = async () => {
+      if (pending || controller.signal.aborted) return;
+      pending = true;
+      setState({ status: "loading", items: [], more: false });
+      try {
+        const result = await createPublicClient({ baseUrl: window.location.origin }).GET("/api/site/stories/{publicId}/followups", {
+          params: { path: { publicId: story.publicId } },
+          cache: "no-store",
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+        });
+        if (!result.response.ok) throw new Error("followups unavailable");
+        const body = publicSchemas.StoryFollowupsResponse.parse(result.data);
+        if (!controller.signal.aborted)
+          setState({ status: "ready", items: body.items.filter((d) => d.representative.id !== currentId && d.factId !== currentFactId), more: body.more });
+      } catch {
+        if (!controller.signal.aborted) setState({ status: "error", items: [], more: false });
+      } finally {
+        pending = false;
+      }
+    };
+    retry.current = () => {
+      void load();
     };
     const observer =
       typeof IntersectionObserver === "undefined"
         ? null
         : new IntersectionObserver(
             (entries) => {
-              if (entries.some((e) => e.isIntersecting)) {
+              if (entries.some((entry) => entry.isIntersecting)) {
                 observer?.disconnect();
-                load();
+                void load();
               }
             },
             { rootMargin: "500px" },
           );
     if (observer && anchor.current) observer.observe(anchor.current);
-    else load();
+    else void load();
     return () => {
       observer?.disconnect();
       controller.abort();
     };
-  }, [story.publicId, currentId]);
+  }, [story.publicId, currentId, currentFactId]);
   return (
-    <div ref={anchor}>
+    <section ref={anchor} className="mt-10 border-t border-line pt-5">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-[14px] font-semibold text-ink">事件后续</h2>
+        <MoreLink to={`/story/${story.publicId}`}>查看完整事件</MoreLink>
+      </div>
       <noscript>
         <a href={`/story/${story.publicId}`}>查看事件全部后续</a>
       </noscript>
-      {items && items.length > 0 && <Followups items={items} more={more} story={story} />}
-    </div>
-  );
-}
-
-function Followups({ items, more, story }: { items: StoryFollowup[]; more: boolean; story: StoryRef }) {
-  return (
-    <section className="mt-10 border-t border-line pt-5">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-[14px] font-semibold text-ink">
-          事件后续{" "}
-          <span className="num font-normal text-ink-4">
-            · {items.length}
-            {more ? "+" : ""}
-          </span>
-        </h2>
-        <MoreLink to={`/story/${story.publicId}`}>查看事件全部</MoreLink>
-      </div>
-      <ul className="divide-y divide-line-soft">
-        {items.map((d) => (
-          <li key={d.factId}>
-            <Link to={`/items/${d.representative.id}`} className="group flex flex-col gap-0.5 py-2.5 sm:flex-row sm:items-baseline sm:gap-3">
-              <span className="flex min-w-0 flex-1 items-baseline gap-2">
-                <span className="shrink-0 rounded-mark bg-accent-soft px-1 text-[10.5px] leading-[16px] text-accent">同事件</span>
-                <span className="min-w-0 text-[13.5px] leading-snug text-ink-2 group-hover:text-accent sm:truncate">{d.representative.title}</span>
-              </span>
-              <span className="shrink-0 pl-[46px] text-[12px] text-ink-4 sm:pl-0" suppressHydrationWarning>
+      {state.status === "waiting" && (
+        <button type="button" onClick={() => retry.current()} className="text-[13px] text-accent">
+          加载事件进展
+        </button>
+      )}
+      {state.status === "loading" && (
+        <p role="status" className="text-[13px] text-ink-3">
+          正在读取事件进展…
+        </p>
+      )}
+      {state.status === "error" && (
+        <p role="alert" className="text-[13px] text-ink-3">
+          事件进展暂时无法读取。
+          <button type="button" onClick={() => retry.current()} className="ml-2 text-accent">
+            重试进展
+          </button>
+        </p>
+      )}
+      {state.status === "ready" && state.items.length === 0 && <p className="text-[13px] text-ink-3">暂无更多相关进展。</p>}
+      {state.status === "ready" && state.items.length > 0 && (
+        <ul className="divide-y divide-line-soft">
+          {state.items.map((d) => (
+            <li key={d.factId} className="py-2.5">
+              <Link to={`/items/${d.representative.id}`} className="text-[13.5px] leading-snug text-ink-2 hover:text-accent">
+                {d.representative.title}
+              </Link>
+              <p className="mt-1 text-[12px] text-ink-4" suppressHydrationWarning>
                 {shortSourceName(d.representative.source.name)} ·{" "}
                 {isDateOnlyInstant(d.representative.timelineAt) ? sourceMonthDayTime(d.representative.timelineAt) : relativeTime(d.representative.timelineAt)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+              </p>
+              {d.representative.summary && <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{d.representative.summary}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {state.status === "ready" && state.more && <p className="mt-2 text-[12px] text-ink-4">更多进展请查看完整事件。</p>}
     </section>
   );
 }

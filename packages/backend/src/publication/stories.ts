@@ -10,6 +10,7 @@ import { loadTopicTags } from "./topics.ts";
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { dbOf, withCustomPlans } from "../db.ts";
 import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
+import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
 import { storyApiUrl, storyUrl } from "./links.ts";
@@ -95,6 +96,10 @@ async function storyContent(storyId: number, now: Date) {
   const [s] = await sql<
     {
       public_id: string;
+      text_stale: boolean;
+      origin: string;
+      version: number;
+      updated_at: Date;
       title: string;
       summary: string | null;
       first_report_at: Date | null;
@@ -104,7 +109,7 @@ async function storyContent(storyId: number, now: Date) {
       latest: string | null;
     }[]
   >`
-    SELECT public_id::text, title, summary, first_report_at, latest_at, digest, digest_updated_at, latest FROM stories WHERE id = ${storyId}`;
+    SELECT public_id::text,origin,version,updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale, title, summary, first_report_at, latest_at, digest, digest_updated_at, latest FROM stories WHERE id = ${storyId}`;
   if (!s) return null;
   const reports = await storyReports(storyId, now);
   if (reports.length === 0) return null;
@@ -114,6 +119,18 @@ async function storyContent(storyId: number, now: Date) {
   for (const r of reports) byFact.set(r.fact_id, [...(byFact.get(r.fact_id) ?? []), r]);
   const facts = await sql<{ id: number; public_id: string; title: string; occurred_at: Date | null; created_at: Date }[]>`
     SELECT id, public_id, title, occurred_at, created_at FROM facts WHERE story_id = ${storyId}`;
+  const pending = storyTextNeedsRefresh(s),
+    affected = await storyWithdrawalAffected(
+      storyId,
+      s.public_id,
+      facts.map((f) => f.public_id),
+    );
+  if (pending || (affected && s.origin === "manual")) s.title = reports[0]!.title;
+  if (pending) {
+    s.digest = null;
+    s.latest = null;
+  }
+  if (pending || affected) s.summary = null;
   const developments = facts
     .filter((f) => byFact.has(f.id))
     .map((f) => {
@@ -137,9 +154,17 @@ async function storyContent(storyId: number, now: Date) {
 }
 
 async function relatedStories(storyId: number) {
-  return sql<{ public_id: string; title: string; relation: "storyline" | "related"; latest_at: Date | null }[]>`
-    SELECT st.public_id::text, st.title, l.relation, st.latest_at FROM story_links l JOIN stories st ON st.id = l.other_id
+  const rows = await sql<{ id: number; public_id: string; title: string; relation: "storyline" | "related"; latest_at: Date | null }[]>`
+    SELECT st.id,st.public_id::text, st.title, l.relation, st.latest_at FROM story_links l JOIN stories st ON st.id = l.other_id
     WHERE l.story_id = ${storyId} AND st.merged_into IS NULL ORDER BY st.latest_at DESC NULLS LAST LIMIT 8`;
+  return (
+    await Promise.all(
+      rows.map(async (row) => {
+        const current = await storyContent(row.id, new Date());
+        return current ? [{ public_id: row.public_id, title: current.s.title, relation: row.relation, latest_at: row.latest_at }] : [];
+      }),
+    )
+  ).flat();
 }
 
 export async function loadStoryDetail(storyId: number, now = new Date()): Promise<StoryDetail | null> {

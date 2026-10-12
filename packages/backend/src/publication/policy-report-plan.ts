@@ -1,3 +1,4 @@
+import { policyLanguageOrder } from "./policy-language.ts";
 import type { z } from "zod";
 import type { PolicyCard, PolicyHistoryEntry, PolicyReport, PolicyReportCard } from "@amp/contracts/http/public";
 import { addDays, beijingDate, beijingMidnight, isoWeekLabel, isoWeekRange, isValidDate } from "@amp/contracts/time";
@@ -55,7 +56,7 @@ export function latestClosedPolicyPeriods(now: Date) {
 const epoch = (value: string | null) => (value === null || !Number.isFinite(Date.parse(value)) ? null : Date.parse(value));
 const dayOf = (row: PublicPolicyReportVersion) => {
   const time = row.policy.sort_time ?? row.policy.published_time;
-  if (time.condition_text || time.precision === "unknown" || !["published", "updated"].includes(time.meaning)) return null;
+  if (time.condition_text || time.precision === "unknown" || !["published", "updated", "formally_published"].includes(time.meaning)) return null;
   return time.precision === "date" ? time.local_date : time.utc ? beijingDate(time.utc) : null;
 };
 
@@ -84,8 +85,9 @@ export function planPolicyReport(
   let unclassified = 0;
   for (const rows of byDocument.values()) {
     rows.sort((a, b) => a.releasedAt.localeCompare(b.releasedAt) || a.editionId.localeCompare(b.editionId));
-    const preferred = rows.find((r) => r.preferredSourceLanguage && rows.some((v) => v.sourceLanguage === r.preferredSourceLanguage))?.preferredSourceLanguage;
-    const language = preferred ?? rows[0]!.sourceLanguage;
+    const current = rows.filter((row) => row.versions.some((version) => version.current));
+    const latestLanguages = new Map((current.length ? current : rows).map((row) => [row.sourceLanguage, row]));
+    const language = policyLanguageOrder([...latestLanguages.values()])[0]!;
     const originals = new Map<string, PublicPolicyReportVersion>();
     for (const row of rows.filter((r) => r.sourceLanguage === language)) originals.set(row.originalRevisionKey, row);
     for (const row of originals.values()) {

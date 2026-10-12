@@ -40,6 +40,7 @@ export async function requestSourcePreview(
   return sql.begin(async (tx) => {
     const [source] = await tx<SourceRow[]>`SELECT * FROM sources WHERE id=${sourceId} FOR SHARE`;
     if (!source) throw new Conflict("请先保存暂停的信源，再请求预览");
+    if (source.archived_at) throw new Conflict("信源已归档，不能试抓；如需再次采集请重新添加。");
     let draft: SourceDraft | undefined;
     if (input.config) draft = await saveSourceDraft(sourceId, source.kind, input.config, actor, tx);
     else if (input.draft_id) [draft] = await tx<SourceDraft[]>`SELECT * FROM sources.source_config_drafts WHERE id=${input.draft_id} AND source_id=${sourceId}`;
@@ -62,11 +63,14 @@ export async function runSourcePreview(previewId: string, fetchPreview: typeof p
   if (preview.status === "succeeded") return preview.result;
   const [source] = await sql<SourceRow[]>`SELECT * FROM sources WHERE id=${preview.source_id}`;
   if (!source) throw new Conflict("信源不存在");
+  if (source.archived_at) throw new Conflict("信源已归档，预览已失效。");
   const [draft] = preview.draft_id ? await sql<SourceDraft[]>`SELECT * FROM sources.source_config_drafts WHERE id=${preview.draft_id}` : [];
   const config = (draft?.config ?? source.config) as Record<string, unknown>;
   const kind = (draft?.kind ?? source.kind) as SourceRow["kind"];
   try {
     const check = async () => {
+      const [state] = await sql<{ archived_at: Date | null }[]>`SELECT archived_at FROM sources WHERE id=${source.id}`;
+      if (!state || state.archived_at) throw new Conflict("信源已归档，预览已失效。");
       const policy = await readCurrentSourcePolicy(source.id);
       if (!policy || policy.permission_version !== preview.permission_version) throw new Conflict("预览期间许可已变更");
       const url = String(config.url ?? config.feedUrl ?? config.listUrl ?? config.endpoint ?? "");
@@ -98,6 +102,8 @@ export async function runSourcePreview(previewId: string, fetchPreview: typeof p
   }
 }
 export async function requireSuccessfulSourcePreview(source: Pick<SourceRow, "id" | "kind" | "config">, db: Db, previewId?: number) {
+  const [state] = await db<{ archived_at: Date | null }[]>`SELECT archived_at FROM sources WHERE id=${source.id}`;
+  if (!state || state.archived_at) throw new Conflict("信源已归档，预览已失效。");
   const policy = await readCurrentSourcePolicy(source.id, db);
   const [preview] = await db<SourcePreview[]>`SELECT * FROM sources.source_previews WHERE source_id=${source.id} AND status='succeeded'
     AND config_hash=${sourcePreviewHash(source.kind, source.config)} AND permission_version=${policy?.permission_version ?? -1}

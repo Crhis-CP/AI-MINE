@@ -48,7 +48,7 @@ async function fetchBody(
 export async function checkMpAccount(sourceId: string, reason: "schedule" | "manual") {
   const source = await readSourceDateContext(sourceId);
   if (source?.kind !== "mp_account") return { sourceId, status: "missing" as const };
-  if (!source.enabled) return { sourceId, status: "paused" as const };
+  if (!source.enabled || source.archived_at) return { sourceId, status: "paused" as const };
   const control = await runtimeControlSnapshot(source.lane, ["collection"]);
   if (control.paused) return { sourceId, status: "paused" as const };
   const ghid = source.config.ghid ?? source.config.wxid;
@@ -179,7 +179,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       UPDATE sources SET last_fetch_at = now(), last_error = ${message},
         fail_count = CASE WHEN ${soft} THEN fail_count ELSE fail_count + 1 END,
         health = CASE WHEN ${soft} THEN health WHEN fail_count + 1 >= 3 THEN 'failing' ELSE 'degraded' END, updated_at = now()
-      WHERE id = ${sourceId}`;
+      WHERE id = ${sourceId} AND archived_at IS NULL`;
     await sql`UPDATE fetch_runs SET status = 'failed', finished_at = now(), new_count = ${created}, error = ${message} WHERE id = ${run!.id}`;
     if (soft) throw error; // retried by the queue
     return { sourceId, status: "failed" as const, error: message };

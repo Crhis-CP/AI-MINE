@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { decodePolicyOriginal, PolicyEncodingError } from "./encoding.ts";
 import type { Element } from "domhandler";
 import { sourceAnnotations, xmlReadingHtml, type SourceAnnotation } from "./annotations.ts";
 import { fileURLToPath } from "node:url";
@@ -43,7 +44,7 @@ export type PolicyExtraction = {
   resources: ResourceExtraction[];
   visualProof?: { runId: string; contentHash: string; recipe: string };
 };
-export const EXTRACTION_RECIPE = `html-policy-2/xml-policy-2/pdfjs-${version}`;
+export const EXTRACTION_RECIPE = `html-policy-2/xml-policy-2/decode-strict-1/pdfjs-${version}`;
 const sql = dbOf("policy"),
   normalized = (value: string) => value.replace(/\s+/g, " ").trim();
 export function validateProfile(profile: ExtractionProfile) {
@@ -56,7 +57,7 @@ export function validateProfile(profile: ExtractionProfile) {
   }
 }
 export function decodeOriginal(bytes: Uint8Array, mediaType: string | null) {
-  return new TextDecoder(/charset=["']?([\w-]+)/i.exec(mediaType ?? "")?.[1] ?? "utf-8", { fatal: true }).decode(bytes);
+  return decodePolicyOriginal(bytes, mediaType).text;
 }
 async function parseResource(
   resource: { url: string; sha256: string | null; body: Uint8Array | null; mediaType: string | null; reason: string | null },
@@ -164,8 +165,14 @@ export async function extractPolicyOriginal(expressionId: string, profileValue: 
   for (const resource of snapshot.resources) {
     try {
       resources.push(await parseResource(resource, profile));
-    } catch {
-      resources.push({ url: resource.url, sha256: resource.sha256, state: "incomplete", nodes: [], gaps: ["原件解码或结构解析失败"] });
+    } catch (error) {
+      resources.push({
+        url: resource.url,
+        sha256: resource.sha256,
+        state: "incomplete",
+        nodes: [],
+        gaps: [error instanceof PolicyEncodingError ? error.message : "原件解码或结构解析失败"],
+      });
     }
   }
   const gaps = snapshot.manifest.catalogueClosed ? [] : ["附件目录尚未闭合"];

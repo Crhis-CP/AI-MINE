@@ -1,4 +1,7 @@
 import { manualMaterialSnapshot } from "@amp/backend/content/materials";
+import { captureEventWithdrawal } from "@amp/backend/events/group";
+import { invalidateReportCorrections } from "@amp/backend/reports/compose";
+export { previewWithdrawal, actWithdrawal } from "../editorial/withdrawals.ts";
 import { manualRevisionHistory } from "../editorial/manual-revisions.ts";
 import { GeographyCandidate } from "../editorial/geography.ts";
 // Content diagnostics and corrections (F19). Find any item by id, URL or title and see its whole
@@ -116,6 +119,7 @@ export async function setVisibility(
       WHERE editorial_overrides.version = ${input.version} RETURNING version`;
     if (!written.count) throw new Conflict(STALE);
     const published = await publishArticleTx(tx, id);
+    if (published?.changed) await invalidateReportCorrections(tx, [id], input.visibility === "withdrawn" ? "withdrawal" : "restoration");
     await enqueue("events.hot-refresh", { articleId: id, lane: "news" }, { singletonKey: "hot-ranking" }, tx);
     await audit(actor, "content.visibility", `content:${id}`, input.reason, { visibility: before.visibility }, { visibility: input.visibility }, undefined, tx);
     return published;
@@ -240,6 +244,7 @@ export async function overrideFields(
     if (!written.count) throw new Conflict(STALE);
     const published = await publishArticleTx(tx, id);
     if (published?.changed) {
+      await invalidateReportCorrections(tx, [id], "manual_correction");
       const storyId = await publishedStoryId(id, tx);
       if (storyId) await enqueue(QUEUES.digest, { storyId, afterCorrection: true }, { singletonKey: `story:${storyId}:correction` }, tx);
     }
@@ -278,6 +283,8 @@ export async function rerun(id: string, step: "extract" | "analyze" | "group", r
  */
 export async function detachFromFact(id: string, reason: string, actor: string) {
   const { facts, stories } = await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+    await captureEventWithdrawal(tx, id);
     // The grouping job writes under the same lock and reads this decision again before it does.
     await tx`SELECT 1 FROM articles WHERE id = ${id} FOR UPDATE`;
     const removed = await tx<{ fact_id: number }[]>`DELETE FROM fact_articles WHERE article_id = ${id} RETURNING fact_id`;

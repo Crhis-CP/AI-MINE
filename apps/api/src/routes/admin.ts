@@ -20,7 +20,18 @@ import {
   type ModelRegistryGuards,
 } from "@amp/backend/admin/models";
 
-import { contentChain, detachFromFact, mergeStories, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@amp/backend/admin/content";
+import {
+  previewWithdrawal,
+  actWithdrawal,
+  contentChain,
+  detachFromFact,
+  mergeStories,
+  overrideFields,
+  rerun,
+  searchContent,
+  setSeoIndexed,
+  setVisibility,
+} from "@amp/backend/admin/content";
 import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
 import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
 import {
@@ -31,6 +42,12 @@ import {
   SourceCreateRequest,
   SourceCreateResponse,
   SourceDetailResponse,
+  SourceArchiveRequest,
+  SourceArchiveResponse,
+  WithdrawalPreviewRequest,
+  WithdrawalPreviewResponse,
+  WithdrawalActionRequest,
+  WithdrawalActionResponse,
   LaneControlActionRequest,
   LaneControlsResponse,
   MonthlyUsageList,
@@ -46,7 +63,16 @@ import {
   changeOwnerLaneControls,
   monthlyUsageReports,
 } from "@amp/backend/admin/settings";
-import { createSource, fetchNow, listSources, requestSourcePreview, sourcePreviewState, sourceDetail, updateSource } from "@amp/backend/admin/sources";
+import {
+  archiveSource,
+  createSource,
+  fetchNow,
+  listSources,
+  requestSourcePreview,
+  sourcePreviewState,
+  sourceDetail,
+  updateSource,
+} from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
@@ -165,7 +191,15 @@ export function registerAdmin(app: FastifyInstance) {
     "/api/admin/sources",
     adminHandler(async (req) => {
       const f = q(req);
-      return listSources({ q: f.q, kind: f.kind, health: f.health, mode: f.mode, enabled: f.enabled as "true" | "false" | undefined, page: page(req) });
+      return listSources({
+        q: f.q,
+        kind: f.kind,
+        health: f.health,
+        mode: f.mode,
+        enabled: f.enabled as "true" | "false" | undefined,
+        archived: f.archived as "true" | "false" | undefined,
+        page: page(req),
+      });
     }),
   );
   app.post(
@@ -183,6 +217,17 @@ export function registerAdmin(app: FastifyInstance) {
     adminHandler(async (req, _reply, admin) => {
       const input = body<{ id: string; config?: Record<string, unknown> }>(req);
       return requestSourcePreview(input.id, input, actorOf(admin));
+    }),
+  );
+  app.post(
+    contracts.archiveSource.url,
+    { schema: { operationId: contracts.archiveSource.schema.operationId, response: contracts.archiveSource.schema.response } },
+    adminHandler(async (req, reply, admin) => {
+      await requireOwner(admin);
+      const input = SourceArchiveRequest.safeParse(body(req));
+      if (!input.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对信源版本、归档原因和归档确认。" });
+      const source = await archiveSource(param(req, "id"), input.data, actorOf(admin));
+      return source === null ? notFound(req, reply) : SourceArchiveResponse.parse(JSON.parse(JSON.stringify({ source: sourceWire(source.source) })));
     }),
   );
   app.get(
@@ -215,6 +260,25 @@ export function registerAdmin(app: FastifyInstance) {
   app.post(
     "/api/admin/sources/:id/fetch",
     adminHandler(async (req, reply, admin) => orNotFound(req, reply, await fetchNow(param(req, "id"), actorOf(admin)))),
+  );
+
+  app.post(
+    contracts.previewWithdrawal.url,
+    { schema: { operationId: contracts.previewWithdrawal.schema.operationId, response: contracts.previewWithdrawal.schema.response } },
+    adminHandler(async (req, reply) => {
+      const input = WithdrawalPreviewRequest.safeParse(body(req));
+      if (!input.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对下架对象、业务线及刊期。" });
+      return WithdrawalPreviewResponse.parse(await previewWithdrawal(input.data.target));
+    }),
+  );
+  app.post(
+    contracts.actWithdrawal.url,
+    { schema: { operationId: contracts.actWithdrawal.schema.operationId, response: contracts.actWithdrawal.schema.response } },
+    adminHandler(async (req, reply, admin) => {
+      const input = WithdrawalActionRequest.safeParse(body(req));
+      if (!input.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对影响范围、操作原因和要恢复的下架记录。" });
+      return WithdrawalActionResponse.parse(await actWithdrawal(input.data, actorOf(admin)));
+    }),
   );
 
   // Content and events (F19)

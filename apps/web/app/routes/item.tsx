@@ -1,11 +1,11 @@
 import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
-import { Link, useLoaderData, useNavigate } from "react-router";
+import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
 import type { Route } from "./+types/item";
 import type { SiteItemDetail } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
-import { beijingDate, isDateOnlyInstant, relativeTime, sourceDateTime } from "../lib/format";
+import { beijingDate, isDateOnlyInstant, relativeTime, sourceDateTime, fullDateTime } from "../lib/format";
 import { SelectedBadge } from "@amp/ui/Badge";
 import { ScoreLabel } from "@amp/ui/Score";
 import { PillTabs } from "../components/ui/Tabs";
@@ -13,6 +13,8 @@ import { ArticleLayout, RailSection } from "../components/ui/Page";
 import { Menu, MenuItem } from "@amp/ui/Menu";
 import { StarButton, Attribution } from "../features/feed/parts";
 import { GroupSources } from "../features/feed/ReadingGroup";
+import { RelatedCoverage } from "../features/item/RelatedCoverage";
+import { feedbackPath } from "../lib/feedback-origin";
 import { StoryFollowups } from "../features/item/StoryFollowups";
 import { IconArrowLeft, IconCopy, IconExternal, IconMenu, IconShare } from "../components/icons";
 
@@ -98,6 +100,7 @@ async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">): Promise<
 
 export default function ItemPage() {
   const { item } = useLoaderData<typeof loader>();
+  const currentLocation = useLocation();
   const navigate = useNavigate();
   const hasTranslation = item.hasTranslation;
   const lang = item.bodyLanguage;
@@ -346,6 +349,9 @@ export default function ItemPage() {
           </h1>
           {item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
 
+          <p className="mt-2 text-[12px] text-ink-4">
+            本站公开 {item.firstPublicAt ? <time dateTime={item.firstPublicAt}>{fullDateTime(item.firstPublicAt)}</time> : "时间未记录"}
+          </p>
           <Attribution value={item.attribution} />
           {item.summary && (
             <section className="mt-7 xl:mt-8">
@@ -381,10 +387,22 @@ export default function ItemPage() {
             </div>
           )}
 
-          {summaryOnly && (
-            <p className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3">
-              应来源方要求，这里只提供摘要与原文入口。完整内容请阅读原文。
-            </p>
+          {!bodyHtml && (
+            <section className="mt-7 rounded-control bg-bg-sunk px-4 py-3 text-[13.5px] leading-relaxed text-ink-3" aria-label="正文状态">
+              <h2 className="font-semibold">
+                {item.readingState === "pending" ? "正文正在补齐" : item.readingState === "restricted" || summaryOnly ? "本站仅提供中文导读" : "本站暂无正文"}
+              </h2>
+              <p className="mt-1">
+                {item.readingState === "pending"
+                  ? "中文正文正在整理，完成后会显示在这里。你也可以先查看来源原文。"
+                  : item.readingState === "restricted" || summaryOnly
+                    ? "按来源许可，本站提供中文导读和原文链接。"
+                    : "本站暂时没有可展示的完整正文。可以阅读导读，或打开来源网站继续阅读。"}
+              </p>
+              <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-accent">
+                打开来源原文
+              </a>
+            </section>
           )}
 
           {item.body && bodyHtml && (
@@ -420,6 +438,13 @@ export default function ItemPage() {
           </p>
 
           <Attribution value={item.attribution} full />
+          <p className="mt-3 text-[12px] leading-relaxed text-ink-4">
+            原始来源可追溯；中文内容由 AI 辅助生成或翻译{item.manualRevisionLabel ? "，并经人工修订" : ""}，核对细节请看原文。
+          </p>
+          <RelatedCoverage value={item.eventCoverage} currentId={item.id} />
+          <Link to={feedbackPath(currentLocation.pathname, currentLocation.search)} className="mt-4 inline-block text-[13px] text-accent">
+            内容有误？告诉我们
+          </Link>
           {!!item.companyContext?.length && (
             <section className="mt-7 border-t border-line pt-4" aria-label="文中公司资料">
               <h2 className="text-[16px] font-semibold">文中公司资料</h2>
@@ -474,7 +499,7 @@ export default function ItemPage() {
 
           {item.story && (
             <section id="article-developments" className="scroll-mt-16">
-              <StoryFollowups story={item.story} currentId={item.id} />
+              <StoryFollowups story={item.story} currentId={item.id} currentFactId={item.group?.factId} />
             </section>
           )}
 

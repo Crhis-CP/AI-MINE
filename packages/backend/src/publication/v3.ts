@@ -57,6 +57,22 @@ export async function v3Item(id: string, detail = false, now = new Date()) {
   const { row, detail: item } = found;
   const meta = await publicItemMetadata(id);
   const parsedTime = TimeAssertion.safeParse(meta?.source_time);
+  const firstPublicTime = item.firstPublicAt
+    ? normalizeSourceTime(
+        {
+          meaning: "site_public",
+          raw: item.firstPublicAt,
+          local_date: item.firstPublicAt.slice(0, 10),
+          local_time: item.firstPublicAt.slice(11, -1),
+          timezone: "UTC",
+          utc: item.firstPublicAt,
+          precision: "second",
+          basis: "本站首次公开记录",
+          condition_text: null,
+        },
+        { instantBasis: "explicit", timezoneEvidence: "本站数据库以UTC保存的首次公开时间" },
+      )
+    : unknownTime("site_public");
   const card = V3ItemCard.parse({
     id: item.id,
     revision: item.revision,
@@ -87,8 +103,8 @@ export async function v3Item(id: string, detail = false, now = new Date()) {
     attributions: item.attribution?.publishers.length ? item.attribution.publishers : [{ name: item.source.name, url: item.links.original }],
     published_time: parsedTime.success ? parsedTime.data : unknownTime(),
     updated_time: null,
-    first_public_at: unknownTime("site_public"),
-    first_public_basis: "unknown",
+    first_public_at: firstPublicTime,
+    first_public_basis: item.firstPublicAt ? "live" : "unknown",
     reading_status:
       item.readingMode === "summary-only"
         ? "summary_only"
@@ -96,7 +112,9 @@ export async function v3Item(id: string, detail = false, now = new Date()) {
           ? item.body.zhKind === "translation"
             ? "full_translation"
             : "source_original"
-          : "guide_only",
+          : item.readingState === "pending"
+            ? "translating"
+            : "guide_only",
     event_ids: item.story ? [item.story.publicId] : [],
     story_id: item.story?.publicId ?? null,
     thread_id: null,

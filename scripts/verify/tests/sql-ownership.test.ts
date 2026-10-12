@@ -146,3 +146,39 @@ test("fixed positive local timeout bounds do not change ownership; other context
   ])
     assert.ok(sqlOwnership(statement, [{ kind: "value" }]).unknown.length, statement);
 });
+
+test("trigger event headers write their actual ON relation without treating UPDATE or TRUNCATE as DML", () => {
+  for (const header of [
+    "CREATE TRIGGER hold BEFORE UPDATE ON public.sources",
+    'CREATE OR REPLACE TRIGGER "hold" BEFORE UPDATE OF "update", id OR TRUNCATE ON "public"."sources"',
+    "CREATE CONSTRAINT TRIGGER hold AFTER INSERT OR UPDATE OR DELETE ON public.sources",
+    "CREATE TRIGGER hold INSTEAD OF UPDATE ON public.sources",
+  ]) {
+    const statement = `${header} FOR EACH ROW EXECUTE FUNCTION sources.retain_archive_state();`;
+    assert.deepEqual(relations(statement), ["write:public.sources"]);
+    assert.ok(sqlOwnership(statement).unknown.includes("opaque CREATE declaration"));
+    assert.ok(sqlOwnership(statement).unknown.includes("opaque SQL function retain_archive_state"));
+  }
+  assert.deepEqual(
+    relations("CREATE TRIGGER hold BEFORE UPDATE ON public.sources FOR EACH ROW EXECUTE FUNCTION guard(); UPDATE public.articles SET title='x';"),
+    ["write:public.sources", "write:public.articles"],
+  );
+  assert.deepEqual(relations('UPDATE "on" SET value=1'), ["write:public.on"]);
+});
+
+test("trigger target recognition does not approve function bodies, dynamic targets or invalid headers", () => {
+  const body = "CREATE FUNCTION sources.guard() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN EXECUTE 'UPDATE hidden SET x=1'; RETURN NEW; END$$;";
+  const combined = `${body} CREATE TRIGGER hold BEFORE UPDATE ON public.sources FOR EACH ROW EXECUTE FUNCTION sources.guard();`;
+  assert.deepEqual(relations(combined), ["write:public.sources"]);
+  assert.ok(sqlOwnership(body).unknown.includes("opaque CREATE declaration"));
+  assert.ok(sqlOwnership(combined).unknown.includes("opaque SQL function guard"));
+  const dynamic = sqlOwnership("CREATE TRIGGER hold BEFORE UPDATE ON §0§ FOR EACH ROW EXECUTE FUNCTION guard()", [{ kind: "identifier" }]);
+  assert.ok(dynamic.unknown.includes("dynamic relation"));
+  assert.deepEqual(dynamic.relations, []);
+  for (const statement of [
+    "CREATE TRIGGER hold BEFORE UPDATE",
+    "CREATE TRIGGER hold BEFORE UPDATE OF ON public.sources",
+    "DO $$BEGIN EXECUTE 'CREATE TRIGGER hold BEFORE UPDATE ON hidden'; END$$",
+  ])
+    assert.ok(sqlOwnership(statement).unknown.length, statement);
+});

@@ -345,6 +345,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610090500_policy_publication.sql"],
       },
       {
+        name: "reports/202610120201_report_read_watermark.sql",
+        module: "reports",
+        schemas: ["reports"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610120200_public_read_watermarks.sql"],
+      },
+      {
         name: "publication/202610120210_reader_context.sql",
         module: "publication",
         schemas: ["publication"],
@@ -355,6 +361,48 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         module: "publication",
         schemas: ["publication"],
         dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610120200_public_read_watermarks.sql"],
+      },
+      {
+        name: "sources/202610120221_source_read_invalidation.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610120220_public_read_invalidation.sql"],
+      },
+      {
+        name: "publication/202610120300_news_first_public_time.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610120210_reader_context.sql"],
+      },
+      {
+        name: "sources/202610120400_source_archive.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "sources/202610120040_source_previews.sql"],
+      },
+      {
+        name: "feedback/202610120410_feedback_idempotency.sql",
+        module: "feedback",
+        schemas: ["feedback"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "feedback/202610120020_feedback_retention.sql"],
+      },
+      {
+        name: "editorial/202610120420_withdrawals.sql",
+        module: "editorial",
+        schemas: ["editorial"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "editorial/202610120030_manual_revisions.sql"],
+      },
+      {
+        name: "publication/202610120421_withdrawal_holds.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "editorial/202610120420_withdrawals.sql", "publication/202610120220_public_read_invalidation.sql"],
+      },
+      {
+        name: "reports/202610120430_report_corrections.sql",
+        module: "reports",
+        schemas: ["reports"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610120421_withdrawal_holds.sql"],
       },
     ],
   );

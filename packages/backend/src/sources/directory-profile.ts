@@ -1,6 +1,29 @@
 import { z } from "zod";
 import { sha256, stableJson } from "../lib/ids.ts";
 import type { SourceRow } from "./types.ts";
+/** Only entry, record identity and pagination changes invalidate a collection checkpoint. */
+export function sourceCheckpointIdentity(kind: SourceRow["kind"], config: Record<string, unknown>): string {
+  const fields = [
+    "feedUrl",
+    "url",
+    "listUrl",
+    "endpoint",
+    "baseUrl",
+    "method",
+    "bodyJson",
+    "jsonKey",
+    "windowVar",
+    "itemsPath",
+    "itemsObjectValues",
+    "wxid",
+    "ghid",
+  ];
+  const directory = config.directoryProfile as Record<string, unknown> | undefined;
+  const pagination =
+    directory && Object.fromEntries(Object.entries(directory).filter(([key]) => !["maxPagesPerTurn", "maxPages", "maxRecords", "scope"].includes(key)));
+  return sha256(stableJson([kind, Object.fromEntries(fields.filter((key) => config[key] !== undefined).map((key) => [key, config[key]])), pagination ?? null]));
+}
+
 const text = z.string().trim().min(1);
 export const DirectoryField = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("html"), selector: text, attribute: text.optional(), pattern: z.string().min(1).max(300).optional() }),
@@ -42,7 +65,7 @@ export const DirectoryProfile = z
   });
 export type DirectoryProfile = z.infer<typeof DirectoryProfile>;
 export type DirectoryField = z.infer<typeof DirectoryField>;
-export function directoryContract(source: Pick<SourceRow, "kind" | "config">) {
+export function directoryContract(source: Pick<SourceRow, "kind" | "config"> & { cursor?: SourceRow["cursor"] }) {
   const parsed = DirectoryProfile.safeParse(source.config.directoryProfile);
   if (
     !parsed.success ||
@@ -52,5 +75,9 @@ export function directoryContract(source: Pick<SourceRow, "kind" | "config">) {
   )
     return null;
   const config = Object.fromEntries(Object.entries(source.config).filter(([key]) => !["crawlProfile", "policyProfile", "detail", "_amp"].includes(key)));
-  return { profile: parsed.data, hash: sha256(stableJson(["directory-v2", source.kind, config, parsed.data])) };
+  const prior = source.cursor?.directoryCheckpointHash;
+  return {
+    profile: parsed.data,
+    hash: typeof prior === "string" && /^[a-f0-9]{64}$/.test(prior) ? prior : sha256(stableJson(["directory-v2", source.kind, config, parsed.data])),
+  };
 }

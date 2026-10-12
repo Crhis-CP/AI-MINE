@@ -3,13 +3,14 @@
 // local file that only the admin pages read.
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import { feedbackScreenshot } from "@amp/backend/admin/feedback";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { submitFeedback } from "@amp/backend/operations/feedback";
 
 const sql = dbOf("feedback");
@@ -41,6 +42,7 @@ const PNG = Buffer.from("89504e470d0a1a0a0000000d4948445200000001000000010806000
 
 test("feedback with a screenshot is kept here and nothing goes to Feishu", async () => {
   const { id } = await submitFeedback({
+    idempotencyKey: randomUUID(),
     content: `反馈 ${T}`,
     email: "reader@example.com",
     pageUrl: "/daily",
@@ -59,7 +61,14 @@ test("feedback with a screenshot is kept here and nothing goes to Feishu", async
 });
 
 test("feedback accepts general contact and 5000 characters while enforcing 10-character and 2MB limits", async () => {
-  const common = { email: "微信：reader-contact", pageUrl: "/all", screenshot: null, ip: "203.0.113.8", userAgent: "validation-test" };
+  const common = {
+    idempotencyKey: randomUUID(),
+    email: "微信：reader-contact",
+    pageUrl: "/all",
+    screenshot: null,
+    ip: "203.0.113.8",
+    userAgent: "validation-test",
+  };
   await assert.rejects(submitFeedback({ ...common, content: "太短" }), /至少 10/);
   await assert.rejects(submitFeedback({ ...common, content: "字".repeat(5001) }), /最多 5000/);
   await assert.rejects(
@@ -70,4 +79,29 @@ test("feedback accepts general contact and 5000 characters while enforcing 10-ch
   const [row] = await sql`SELECT email,length(content) AS length FROM feedback WHERE id=${id}`;
   assert.equal(row.email, common.email);
   assert.equal(row.length, 5000);
+});
+
+test("durable submission keys reuse the original row after response loss and reject changed payloads", async () => {
+  const request = {
+    idempotencyKey: randomUUID(),
+    content: "相同请求丢失响应后不应新增反馈记录",
+    email: "reader@example.com",
+    pageUrl: "/daily",
+    ip: "203.0.113.41",
+    userAgent: "test",
+  };
+  const results = await Promise.all([submitFeedback(request), submitFeedback(request), submitFeedback(request)]);
+  assert.ok(results.every((r) => r.id === results[0]!.id));
+  assert.equal((await sql`SELECT count(*)::int AS n FROM feedback WHERE content=${request.content}`)[0]!.n, 1);
+  await closeDb();
+  await initializeDb("test");
+  assert.deepEqual(await submitFeedback({ ...request, ip: "203.0.113.42" }), results[0]);
+  for (const patch of [
+    { content: "同一提交编号但更改了反馈正文内容" },
+    { email: "other@example.com" },
+    { pageUrl: "/all" },
+    { screenshot: { mime: "image/png", data: PNG } },
+  ])
+    await assert.rejects(submitFeedback({ ...request, ...patch }), (error) => error instanceof Error && "status" in error && error.status === 409);
+  await assert.rejects(submitFeedback({ ...request, idempotencyKey: undefined }), /提交编号/);
 });

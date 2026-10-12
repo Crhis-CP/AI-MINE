@@ -7,6 +7,8 @@ import { directoryContract } from "./directory-profile.ts";
 import { SourceDateParseInput } from "@amp/contracts/time-assertion";
 import { sha256, stableJson } from "../lib/ids.ts";
 
+export { sourceCheckpointIdentity } from "./directory-profile.ts";
+
 const languageNames = new Intl.DisplayNames(["en"], { type: "language", fallback: "none" });
 /** Declared BCP47 only; absent, unidentified or unsupported tags never become a language guess. */
 export function normalizeSourceLanguage(value: unknown): string | null {
