@@ -1,0 +1,11 @@
+[Unit]
+Description=Check AI-MINE releases for bounded cleanup
+
+[Timer]
+OnBootSec=15min
+OnUnitInactiveSec=15min
+AccuracySec=1min
+Unit=aimine-release-retention.service
+
+[Install]
+WantedBy=timers.target
