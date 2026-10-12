@@ -98,7 +98,52 @@ test("reconciliation validates its wire subset without stripping existing privat
 test("receipt schemas stay in explicit private registration without global leakage", () => {
   assert.equal(schemas.ReceiptObservedVersion, ReceiptObservedVersion);
   assert.equal(schemas.ReceiptReconciliationResponse, ReceiptReconciliationResponse);
-  assert.deepEqual(Object.keys(routes), ["createSource", "sourceDetail", "loginOptions", "receiptReview", "releaseReceipt"]);
+  assert.deepEqual(Object.keys(routes), [
+    "sourceCoverage",
+    "exportSourceTargets",
+    "sourceTargets",
+    "adminSiteInformation",
+    "saveSiteInformation",
+    "selectionStandards",
+    "selectionTool",
+    "selectionToolChange",
+    "selectionSamples",
+    "selectionLabel",
+    "selectionReview",
+    "selectionHoldout",
+    "selectionRunEvidence",
+    "prefilterAudit",
+    "prefilterAuditDraw",
+    "prefilterAuditLabel",
+    "accounts",
+    "createAccount",
+    "accountAction",
+    "currentAccount",
+    "changeAccountPassword",
+    "loginNonce",
+    "usageProtection",
+    "changeUsageProtection",
+    "changeUsagePrice",
+    "recoverUsageBreaker",
+    "usageMonthlyList",
+    "usageMonthlyDetail",
+    "modelRegistry",
+    "createModelConnection",
+    "updateModelConnection",
+    "disableModelConnection",
+    "probeModelConnection",
+    "modelConnectionProbe",
+    "assignRegisteredModel",
+    "modelFallbacks",
+    "changeModelFallback",
+    "laneControls",
+    "laneControlAction",
+    "createSource",
+    "sourceDetail",
+    "loginOptions",
+    "receiptReview",
+    "releaseReceipt",
+  ]);
   for (const schema of [ReceiptObservedVersion, ReceiptReleaseRequest, ReceiptReleaseResponse, ReceiptIssue, ReceiptReconciliationResponse]) {
     assert.equal(z.globalRegistry.has(schema), false);
   }
