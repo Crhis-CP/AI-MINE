@@ -146,12 +146,12 @@ export async function writeLead(kind: string, key: string, entries: ReportEntry[
     .slice(0, 30)
     .map((e, i) => `${i + 1}. ${e.title}｜${e.summary.slice(0, 120)}`)
     .join("\n");
-  const fallbackInput = await reportFallbackInput(entries.slice(0, 30));
+  const fallbackInput = await reportFallbackInput(entries);
   const system = promptText("report-daily-lead");
   const res = await chatJson({
     model,
     purpose: "report_lead",
-    sourceIds: [...new Set(entries.slice(0, 30).map((e) => e.sourceId))],
+    sourceIds: [...new Set(entries.map((e) => e.sourceId))],
     fallbackPermit: fallbackInput?.({ system, user: list }),
     subject: `report:${kind}:${key}`,
     promptVersion: REPORT_VERSION,

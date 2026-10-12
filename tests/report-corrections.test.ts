@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { dbOf, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle, currentReportPublications } from "@amp/backend/publication/publish";
-import { correctNewsReport } from "@amp/backend/reports/compose";
+import { correctNewsReport, writeLead } from "@amp/backend/reports/compose";
 import { loadReport, v1Daily, listReports } from "@amp/backend/publication/reports";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -190,4 +190,33 @@ test("unknown report cost cannot be bypassed by changing corrected input or the 
     mode = "ok";
     process.env.REPORT_MODEL = "deepseek-flash";
   }
+});
+
+test("a denied source beyond the thirty-entry prompt limit still blocks the whole report before payment", async () => {
+  const f = await fixture();
+  const ids = [f.members[0]!];
+  for (let n = 0; n < 30; n++) {
+    const material = await upsertMaterial({
+      sourceId: f.sources[0]!,
+      url: `https://source.invalid/${f.sources[0]}/tail-permit-${n}`,
+      title: `合成末尾许可边界材料${n}`,
+      bodyText: "合成矿业材料用于核对整份报告的来源许可，末尾条目不得绕过许可门。",
+      language: "zh",
+      via: "fetch",
+    });
+    await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh,selected,score,output)
+      VALUES(${material.articleId},1,'rule','pass',${`合成许可边界报道${n}`},'合成来源已经确认，报告必须逐一检查每个成员的当前许可。',true,90,'{}')`;
+    await publishArticle(material.articleId);
+    ids.push(material.articleId);
+  }
+  ids.push(f.members[1]!);
+  const entries = await currentReportPublications(ids);
+  assert.equal(entries.length, 32);
+  assert.ok(entries.slice(0, 30).every((entry) => entry.sourceId === f.sources[0]));
+  assert.equal(entries.at(-1)!.sourceId, f.sources[1]);
+  await deny(f.sources[1]!);
+  const hits = provider.hits();
+  await assert.rejects(writeLead("daily", "2020-12-31", entries, "deepseek-flash"), /许可/);
+  assert.equal(provider.hits(), hits, "the omitted prompt tail cannot authorize a paid request");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM receipts WHERE subject='report:daily:2020-12-31'`)[0]!.n, 0);
 });

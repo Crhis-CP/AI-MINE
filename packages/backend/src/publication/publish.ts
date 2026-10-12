@@ -570,7 +570,7 @@ export async function currentReportPublications(ids: string[], db: Db = sql) {
   const rows = await fetchItemsByIds(ids, db);
   return ids.flatMap((id) => {
     const row = rows.get(id);
-    if (!row || row.visibility !== "public" || !row.eligible || row.source_mode !== "editorial") return [];
+    if (row?.visibility !== "public" || !row.eligible || row.source_mode !== "editorial") return [];
     return [
       {
         itemId: id,

@@ -5,7 +5,7 @@ import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
 import { chromium, expect, type Browser } from "@playwright/test";
-import { browserExecutable, isolateBrowser } from "../../../e2e/browser.ts";
+import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
 let origin = "",
   web: ChildProcess,
