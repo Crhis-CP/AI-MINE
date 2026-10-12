@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
-import { chromium, expect, type Browser } from "@playwright/test";
+import { chromium, expect, type Browser, type BrowserContext, type Page, type Route } from "@playwright/test";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
 
@@ -200,21 +200,59 @@ after(async () => {
   await new Promise<void>((resolve) => api.close(() => resolve()));
 });
 
-test("story references resolve current merged identities, clear text on failure/withdrawal and remain removable", { timeout: 30000 }, async () => {
+/** Observe hydration and the initial version reconciliation before changing the shared fixture. */
+async function openSavedReader(page: Page, path: string) {
+  const versionUrl = `${origin}/api/site/content-version`;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const heldVersion = async (route: Route) => {
+    await gate;
+    await route.continue();
+  };
+  await page.route(versionUrl, heldVersion, { times: 1 });
+  const version = page.waitForResponse((response) => response.url() === versionUrl);
+  const revalidation = path.startsWith("/story/") ? page.waitForResponse((response) => new URL(response.url()).pathname === `${path}.data`) : null;
+  void version.catch(() => {});
+  void revalidation?.catch(() => {});
+  try {
+    await page.goto(origin + path);
+    await page.bringToFront();
+    await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
+    await expect(page.getByText("正在确认最新内容", { exact: true })).toBeVisible();
+    release();
+    assert.deepEqual(await (await version).json(), { version: "1", withdrawalVersion: "1" });
+    if (revalidation) {
+      const loaded = await revalidation;
+      assert.equal(loaded.status(), 200);
+      await loaded.finished();
+    }
+    await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  } finally {
+    release();
+    await page.unroute(versionUrl, heldVersion);
+  }
+}
+async function closeSavedContext(context: BrowserContext) {
+  hold = false;
+  for (const finish of held.splice(0)) finish();
+  await context.close();
+}
+
+test("story references resolve current merged identities, clear text on failure/withdrawal and remain removable", { timeout: 30000 }, async (t) => {
   mode = "public";
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  t.after(() => closeSavedContext(context));
   const blocked = await isolateBrowser(context, [origin]);
   const page = await context.newPage();
-  const initial = page.waitForResponse((r) => new URL(r.url()).pathname.endsWith(".data"));
-  await page.goto(`${origin}/story/${original}`);
-  await (await initial).finished();
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await openSavedReader(page, `/story/${original}`);
   await page.getByRole("button", { name: "收藏事件", exact: true }).click();
   await expect(page.getByRole("button", { name: "已收藏事件", exact: true })).toHaveAttribute("aria-pressed", "true");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("amp-starred-items")!));
   assert.deepEqual(Object.keys(saved[0]).sort(), ["id", "savedAt", "type"]);
   assert.equal(saved[0].type, "story");
-  await page.goto(`${origin}/starred`);
+  await openSavedReader(page, "/starred");
   const list = page.getByRole("region", { name: "事件收藏" });
   await expect(list.getByRole("link", { name: "事件收藏当前标题" })).toBeVisible();
   await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
@@ -241,12 +279,12 @@ test("story references resolve current merged identities, clear text on failure/
   await expect(list).toHaveCount(0);
   assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("amp-starred-items")!)), []);
   assert.deepEqual(blocked, []);
-  await context.close();
 });
 
-test("saved event revalidation is periodic and has at most three concurrent requests", { timeout: 30000 }, async () => {
+test("saved event revalidation is periodic and has at most three concurrent requests", { timeout: 30000 }, async (t) => {
   mode = "public";
   const context = await browser.newContext();
+  t.after(() => closeSavedContext(context));
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   await page.clock.install({ time: new Date(at) });
@@ -258,7 +296,7 @@ test("saved event revalidation is periodic and has at most three concurrent requ
       ),
     ),
   );
-  await page.goto(`${origin}/starred`);
+  await openSavedReader(page, "/starred");
   const list = page.getByRole("region", { name: "事件收藏" });
   await expect(list.getByRole("link")).toHaveCount(7);
   await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
@@ -274,7 +312,6 @@ test("saved event revalidation is periodic and has at most three concurrent requ
   held = [];
   await expect(list.getByRole("link")).toHaveCount(7);
   assert.ok(peak <= 3);
-  await context.close();
 });
 
 async function shareMocks(page: import("@playwright/test").Page) {

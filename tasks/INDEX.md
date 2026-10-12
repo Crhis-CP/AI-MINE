@@ -262,3 +262,4 @@
 | [TASK-0218](TASK-0218.md) | T-0101 | M3 | web | implemented | 公开查询回归验证 | — | 978efa8 |
 | [TASK-0294](TASK-0294.md) | T-0101 | M3 | web | locally_verified | 事件引用收藏与当前资格解析 | — | 0157e10 |
 | [TASK-0295](TASK-0295.md) | T-0101 | M3 | web | locally_verified | 事件及报告复制链接与系统分享 | — | 0157e10 |
+| [TASK-0311](TASK-0311.md) | T-0101 | M3 | web | locally_verified | 读者首次版本基线与浏览器用例清理 | — | — |

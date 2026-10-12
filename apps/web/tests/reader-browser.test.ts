@@ -5,13 +5,14 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AddressInfo } from "node:net";
-import { chromium, expect, type Browser } from "@playwright/test";
+import { chromium, expect, type Browser, type Page, type Route } from "@playwright/test";
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
 
 let origin = "",
   web: ChildProcess,
   browser: Browser;
+let phase = "setup";
 let withdrawn = false,
   added = false;
 const now = new Date().toISOString();
@@ -151,13 +152,83 @@ after(async () => {
   await new Promise<void>((resolve) => api.close(() => resolve()));
 });
 
-test("mobile controls, content refresh, saved withdrawal and system theme work in the production build", { timeout: 60000 }, async () => {
+/** SSR starts without a status banner. Its absence alone cannot prove hydration/baseline readiness. */
+async function openQualifiedReader(page: Page, path: "/all" | "/starred" = "/all", expectedVersion = "1") {
+  phase = `baseline ${path}: setup`;
+  const versionUrl = `${origin}/api/site/content-version`;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const holdFirstVersion = async (route: Route) => {
+    await gate;
+    await route.continue();
+  };
+  await page.bringToFront();
+  await page.route(versionUrl, holdFirstVersion, { times: 1 });
+  const version = page.waitForResponse((response) => response.url() === versionUrl);
+  const revalidation = path === "/all" ? page.waitForResponse((response) => new URL(response.url()).pathname === "/all.data") : null;
+  // If an earlier readiness assertion fails, context cleanup will reject these waiters too.
+  // Keep those rejections observed; the awaited responses below still fail the actual test.
+  void version.catch(() => {});
+  void revalidation?.catch(() => {});
+  try {
+    phase = `baseline ${path}: navigate`;
+    const opened = await page.goto(`${origin}${path}`);
+    await page.bringToFront();
+    await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
+    phase = `baseline ${path}: checking`;
+    await expect(page.getByText("正在确认最新内容", { exact: true })).toBeVisible();
+    release();
+    phase = `baseline ${path}: version`;
+    const baseline = await version;
+    assert.equal(baseline.status(), 200);
+    assert.deepEqual(await baseline.json(), { version: expectedVersion, withdrawalVersion: "1" });
+    if (revalidation) {
+      phase = `baseline ${path}: data response`;
+      const loaded = await revalidation;
+      assert.equal(loaded.status(), 200);
+      phase = `baseline ${path}: data finished`;
+      await loaded.finished();
+      phase = `baseline ${path}: data body`;
+      const body = await loaded.text();
+      assert.match(body, /fixture-a/);
+      assert.doesNotMatch(body, /fixture-new/);
+    }
+    await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
+    phase = `baseline ${path}: ready`;
+    return opened;
+  } finally {
+    release();
+    phase += ": unroute";
+    await page.unroute(versionUrl, holdFirstVersion);
+  }
+}
+
+async function checkVersionOnFocus(page: Page, withdrawalVersion: string) {
+  const checked = page.waitForResponse((response) => response.url() === `${origin}/api/site/content-version`);
+  phase = "focus version response";
+  await page.bringToFront();
+  await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  assert.deepEqual(await (await checked).json(), { version: "2", withdrawalVersion });
+}
+
+test("mobile controls, content refresh, saved withdrawal and system theme work in the production build", { timeout: 60000 }, async (t) => {
+  withdrawn = false;
+  added = false;
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN", timezoneId: "Asia/Shanghai", reducedMotion: "reduce" });
+  t.after(async () => {
+    t.diagnostic(`last reader phase: ${phase}`);
+    await context.close();
+  });
   const blocked = await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const opened = await page.goto(`${origin}/all`);
+  const opened = await openQualifiedReader(page);
   assert.match(opened!.headers()["cache-control"]!, /(?:^|, )no-store(?:,|$)/);
   await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link")).toHaveCount(5);
@@ -179,17 +250,14 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await expect(page.getByRole("link", { name: "合成相关法规" })).toHaveAttribute("href", "/policies/policy-fixture");
   await page.getByText("文章目录", { exact: true }).click();
   await expect(page.getByRole("navigation", { name: "手机文章目录" }).getByRole("link", { name: "正文第一节" })).toBeVisible();
-  await page.goto(`${origin}/all`);
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await openQualifiedReader(page);
   added = true;
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await checkVersionOnFocus(page, "1");
   await expect(page.getByRole("button", { name: "加载最新" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
   await page.getByRole("button", { name: "加载最新" }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
-  await page.goto(`${origin}/starred`);
-  await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await openQualifiedReader(page, "/starred", "2");
   await page.route("**/api/site/items/saved?**", (route) => route.fulfill({ status: 503, contentType: "application/json", body: "{}" }));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.getByText("收藏暂时无法读取", { exact: false })).toBeVisible();
@@ -200,6 +268,7 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(page.getByText("1 条收藏当前不可查看，已停止展示。", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toHaveCount(0);
+  phase = "theme navigation";
   await page.goto(`${origin}/more`);
   await page.getByRole("radio", { name: "跟随系统" }).filter({ visible: true }).click();
   await page.emulateMedia({ colorScheme: "dark" });
@@ -210,30 +279,29 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await other.goto(`${origin}/more`);
   await other.evaluate(() => localStorage.setItem("amp-theme", "dark"));
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  phase = "theme close other";
   await other.close();
   assert.deepEqual(errors, []);
   assert.deepEqual(blocked, []);
-  await context.close();
 });
 
-test("a combined withdrawal and arrival removes the old card while the new card waits for explicit loading", { timeout: 30000 }, async () => {
+test("a combined withdrawal and arrival removes the old card while the new card waits for explicit loading", { timeout: 30000 }, async (t) => {
   withdrawn = false;
   added = false;
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN" });
+  t.after(async () => {
+    t.diagnostic(`last reader phase: ${phase}`);
+    await context.close();
+  });
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
-  const initialCheck = page.waitForResponse((response) => new URL(response.url()).pathname.endsWith(".data"));
-  await page.goto(`${origin}/all`);
-  await (await initialCheck).finished();
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+  await openQualifiedReader(page);
   withdrawn = true;
   added = true;
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await checkVersionOnFocus(page, "2");
   await expect(page.getByText("已核对撤回和修订内容", { exact: false })).toBeVisible();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toHaveCount(0);
   await page.getByRole("button", { name: "加载最新" }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
-  await context.close();
 });
