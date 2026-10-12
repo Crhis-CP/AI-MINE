@@ -153,3 +153,22 @@ test("new UNKNOWN, helper-source changes and cross-module statements still fail 
     assert.ok(compareOwnership(report(), initial).some((error) => error.startsWith("unknown: new or increased")));
   });
 });
+
+test("expanded scalar DTOs reuse resolved type proofs without spending the SQL visit budget repeatedly", () => {
+  fixture((root, files) => {
+    const file = "packages/example/wide-dto.ts";
+    const fields = Array.from({ length: 64 }, (_, i) => `f${i}: string | null`).join(";");
+    const source =
+      'import {dbOf} from "./module-db.ts"; import {category} from "./helpers.ts"; const sql=dbOf("publication"); type Wide = {' +
+      fields +
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: Compile-only TypeScript fixture, never executed.
+      "}; function wide(q: Wide) { return sql`${category(q.f0)} ${category(q.f1)} ${category(q.f2)} ${category(q.f3)}`; } export function read(q: Wide) { return sql`SELECT 1 FROM publications p WHERE true ${wide(q)}`; }";
+    writeFileSync(path.join(root, file), source);
+    const sites = extractOwnership(root, [...files, file]).find((entry) => entry.file === file)!.sites;
+    assert.ok(sites.length > 1);
+    assert.ok(
+      sites.every((site) => !site.unknown.length),
+      JSON.stringify(sites.map((site) => site.unknown)),
+    );
+  });
+});

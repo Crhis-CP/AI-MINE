@@ -48,7 +48,17 @@ export function sqlExpressionFragment(
     walk(fn.getSourceFile());
     return !written;
   };
+  const scalarTypes = new Map<string, boolean>();
   const scalarType = (type: Type | undefined, records: boolean, seen = new Set<number>()): boolean => {
+    if (!type || seen.has(type.id)) return false;
+    const key = `${type.id}:${records}`;
+    const known = scalarTypes.get(key);
+    if (known !== undefined) return known;
+    const result = scalarTypeUncached(type, records, seen);
+    scalarTypes.set(key, result);
+    return result;
+  };
+  const scalarTypeUncached = (type: Type | undefined, records: boolean, seen: Set<number>): boolean => {
     if (!type || seen.has(type.id) || --remaining < 0) return false;
     seen.add(type.id);
     try {
