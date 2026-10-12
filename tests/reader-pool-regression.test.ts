@@ -30,17 +30,17 @@ test("all numeric pages stay reachable beyond page 50 and totals stay exact", as
 });
 
 test("source, mineral and date conditions combine without silently losing parameters", async () => {
-  const filtered = await loadPool({ ...base, mineral: "铜", on: "2026-10-11" });
+  const filtered = await loadPool({ ...base, mineral: "铜", on: "2026-10-12" });
   assert.equal(filtered.total, 1005);
   assert.equal(filtered.filters.source, source);
-  assert.equal(filtered.filters.on, "2026-10-11");
+  assert.equal(filtered.filters.on, "2026-10-12");
   assert.equal((await loadPool({ ...base, mineral: "镍" })).total, 0);
-  assert.equal((await loadPool({ ...base, from: "2026-10-12" })).total, 0);
+  assert.equal((await loadPool({ ...base, from: "2026-10-13" })).total, 0);
   assert.equal((await loadPool({ ...base, to: "2026-10-10" })).total, 0);
   assert.equal((await loadPool({ ...base, selected: true })).total, 0);
   await sql`UPDATE publications SET published_at=NULL WHERE article_id=${`${source}-1`}`;
-  assert.equal((await loadPool({ ...base, on: "2026-10-11" })).total, 1004, "unknown publication dates cannot be invented from discovery time");
-  assert.equal((await loadPool({ ...base, on: "2026-10-11", from: "2026-10-12", to: "2026-10-12" })).total, 1004, "an explicit day wins over range parameters");
+  assert.equal((await loadPool({ ...base, on: "2026-10-12" })).total, 1005, "source date stays unknown while timeline date remains searchable");
+  assert.equal((await loadPool({ ...base, on: "2026-10-12", from: "2026-10-11", to: "2026-10-11" })).total, 1005, "an explicit day wins over range parameters");
 });
 
 test("unfiltered all folds reports into event cards while filtered results stay individual", async () => {

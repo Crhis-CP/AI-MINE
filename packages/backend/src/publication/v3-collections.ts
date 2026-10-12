@@ -71,7 +71,12 @@ export async function v3EventDetail(id: string) {
 export async function v3Events(q: z.infer<typeof V3EventsQuery>) {
   const rows = await publicStoryDirectory(q);
   const { cursor: _cursor, limit: _limit, ...binding } = q;
-  const page = v3Page(rows, q, { type: "events", ...binding }, (row) => `${row.latest.toISOString()}|${row.id}`);
+  const page = v3Page(
+    rows,
+    q,
+    { type: "events", ...binding, ...(q.on || q.from || q.to ? { dateBasis: "timeline-beijing-v1" } : {}) },
+    (row) => `${row.latest.toISOString()}|${row.id}`,
+  );
   const items = (
     await Promise.all(
       page.items.map(async (row) => {

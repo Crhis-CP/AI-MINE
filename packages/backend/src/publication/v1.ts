@@ -69,6 +69,7 @@ export async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1
     from: query.from,
     to: query.to,
     topicTags: query.topicTags,
+    ...(query.on || query.from || query.to ? { dateBasis: "timeline-beijing-v1" } : {}),
   });
   // by=timeline is the site's own order: a selected item at its reading-group anchor, anything else at its timeline time.
   let after: { a: number; i: string } | null = null;

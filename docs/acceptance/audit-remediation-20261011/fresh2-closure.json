@@ -162,11 +162,23 @@
     "latest_file_test_total": 24
   },
   "date_filter_decision": {
-    "status": "awaiting_owner",
-    "question": "Timeline Beijing date versus source publication date.",
-    "code_changed": false
+    "status": "locally_verified",
+    "finding": "F2-RDR-009",
+    "owner_decision": "2026-10-12: 按时间线北京日期统一",
+    "decision": "DEC-67 / ADR-0027",
+    "task_cards": [
+      "TASK-0313",
+      "TASK-0314"
+    ],
+    "code_changed": true,
+    "evidence": [
+      ".verify/date-filter-20261012/date-test-final.log",
+      ".verify/date-filter-20261012/focused-tests.log",
+      ".verify/date-filter-20261012/contracts-check.log"
+    ],
+    "boundary": "Original independent report remains immutable; no live acceptance claimed."
   },
-  "remaining_external_evidence": "See the 11 independent uncertain entries; actual coverage, model quality, production operation and unreconciled specification are not declared accepted.",
+  "remaining_external_evidence": "The original 11 uncertain entries remain in the immutable report. F2-RDR-009 was resolved by Owner and implemented; the other 10 still require the evidence described in that report.",
   "additional_runtime_fix": {
     "task_cards": [
       "TASK-0301",

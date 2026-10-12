@@ -384,6 +384,14 @@ if (process.argv.includes("--routes")) {
       assert.equal(doc.openapi, "3.1.0");
       assert.deepEqual(Object.keys(doc.paths), routes);
       assert.ok(!json.includes(absent));
+      if (audience === "public") {
+        for (const path of ["/api/site/pool", "/api/v3/items", "/api/v3/events"]) {
+          for (const name of ["on", "from", "to"]) {
+            const parameter = doc.paths[path].get.parameters.find((entry: { name: string }) => entry.name === name);
+            assert.match(parameter.description, /时间线的北京自然日/);
+          }
+        }
+      }
       for (const route of routes)
         for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post ?? doc.paths[route].put).responses)) {
           if (Number(status) >= 400)
@@ -394,6 +402,7 @@ if (process.argv.includes("--routes")) {
     }
     const publicV3 = JSON.parse(readFileSync(new URL("../../reference/contracts/v3.openapi.json", import.meta.url), "utf8"));
     assert.ok(Object.keys(publicV3.paths).every((path) => path.startsWith("/api/v3/")));
+    assert.match(publicV3.paths["/api/v3/items"].get.parameters.find((entry: { name: string }) => entry.name === "on").description, /来源日期未知/);
     for (const name of ["MetalPrices", "LoginOptions", "ContentVersion", "SourceRecord"]) assert.ok(!publicV3.components.schemas[name]);
     for (const route of ["/api/v3/items", "/api/v3/reports", "/api/v3/policies", "/api/v3/freshness"]) assert.ok(publicV3.paths[route]);
   });

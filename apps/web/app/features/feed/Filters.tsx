@@ -321,7 +321,9 @@ export function SourceDateFilters({
         <Link to={hrefWith(base, params, { source: null, mineral: null, on: null, from: null, to: null })} className="py-2 text-[13px] text-ink-3">
           清除这些条件
         </Link>
-        <p className="w-full text-[12px] text-ink-4">按来源发布日期筛选；指定日期优先于日期范围，时间未确认的内容不进入日期筛选。</p>
+        <p className="w-full text-[12px] text-ink-4">
+          按时间线的北京日期筛选，与列表分组和“今天”一致；指定日期优先于日期范围，来源日期待核实的内容也可按时间线日期查找。
+        </p>
       </Form>
     </details>
   );

@@ -251,11 +251,11 @@ export async function readPublicNewsLinkCandidates(articleId: string | null, off
     ORDER BY p.timeline_at DESC,p.article_id DESC LIMIT 100`;
 }
 
-/** Values are calculated before SQL composition; each branch keeps the indexed timestamp bare. */
+/** Beijing day bounds apply to the timeline; source dates and their precision remain unchanged. */
 export function publicationDateCondition(start: Date | null | undefined, end: Date | null | undefined) {
-  if (start && end) return sql`AND p.published_at >= ${start} AND p.published_at < ${end}`;
-  if (start) return sql`AND p.published_at >= ${start}`;
-  if (end) return sql`AND p.published_at < ${end}`;
+  if (start && end) return sql`AND p.timeline_at >= ${start} AND p.timeline_at < ${end}`;
+  if (start) return sql`AND p.timeline_at >= ${start}`;
+  if (end) return sql`AND p.timeline_at < ${end}`;
   return sql``;
 }
 

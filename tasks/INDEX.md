@@ -190,6 +190,7 @@
 | [TASK-0292](TASK-0292.md) | T-0101 | M3 | architect | locally_verified | 第二轮独立复核的确认遗漏收尾 | — | 0157e10 |
 | [TASK-0293](TASK-0293.md) | T-0101 | M3 | architect | locally_verified | 公开署名接入现有公共许可证据链接 | — | 0157e10 |
 | [TASK-0310](TASK-0310.md) | T-0352 | M3 | architect | locally_verified | 机器事件摘要防止继承网站摘录并修正验收夹具 | — | 0157e10 |
+| [TASK-0313](TASK-0313.md) | T-0101 | M3 | architect | locally_verified | 统一资讯日期筛选的时间线北京日契约 | — | — |
 | [TASK-0160](TASK-0160.md) | T-0101 | M3 | content | locally_verified | 隔离来源材料并保留原文恢复修订 | — | 978efa8 |
 | [TASK-0172](TASK-0172.md) | T-0101 | M3 | content | locally_verified | 提供所有权明确的材料与关系证据读端口 | — | 978efa8 |
 | [TASK-0161](TASK-0161.md) | T-0101 | M3 | gateway | locally_verified | 强制主模型许可核验 | — | 978efa8 |
@@ -263,4 +264,5 @@
 | [TASK-0294](TASK-0294.md) | T-0101 | M3 | web | locally_verified | 事件引用收藏与当前资格解析 | — | 0157e10 |
 | [TASK-0295](TASK-0295.md) | T-0101 | M3 | web | locally_verified | 事件及报告复制链接与系统分享 | — | 0157e10 |
 | [TASK-0311](TASK-0311.md) | T-0101 | M3 | web | locally_verified | 读者首次版本基线与浏览器用例清理 | — | 3563ade |
-| [TASK-0312](TASK-0312.md) | T-0101 | M3 | web | locally_verified | 流式路由测试等待页面提交而非网络流关闭 | — | — |
+| [TASK-0312](TASK-0312.md) | T-0101 | M3 | web | locally_verified | 流式路由测试等待页面提交而非网络流关闭 | — | 3fc3cea |
+| [TASK-0314](TASK-0314.md) | T-0101 | M3 | web | locally_verified | 统一日期筛选实现与北京日边界回归 | — | — |

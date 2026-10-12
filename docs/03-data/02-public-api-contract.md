@@ -75,7 +75,7 @@
 | 越界 | 页码越界返回 200 与空 `items`，不返回 400 | 游标到尾返回空 `items`、`next_cursor=null` |
 | 游标 | — | 签名游标 = 归一化筛选 hash + 末条排序键；不绑定全站版本，不因版本变化失效；被篡改或与当前筛选不匹配 → 400 `invalid_cursor`（客户端从首屏重来）；下架在每次查询时过滤 |
 | 内容变化 | 请求可带 `seen_version`（上次响应的 `content_version`，只比较不钉住）；不一致时响应 `version_changed=true`，页面显示“内容有更新”提示条，**不隐藏已显示的列表** | 新内容总排在首屏之前，游标按排序键继续，翻页不重复 |
-| 排序 | 两个通道读同一读取层、同一排序：来源发布时间可比较键降序、ID 降序（规则见 `02-rules/04-time-semantics.md`） | 同左 |
+| 排序 | 两个通道的资讯默认按时间线降序、ID 降序（规则见 `02-rules/04-time-semantics.md`）；显式来源时间排序只改变排序，不改变日期筛选口径 | 同左 |
 
 - 站点接口页码进入地址栏可分享，页面“第 N 页 · 共 M 条”与“跳到第 [ ] 页”读 `total`（输入超过总页数落到末页）；法规政策动态与法规周月汇总的列表同样用页码（通则 8）；打开详情后返回应恢复筛选、页码、滚动与焦点（页面侧规则见 `01-product/03-reader-pages.md`）。【已验证】（旧站 `apps/web/components/reader/feed.tsx:294@main` 的“跳到第 N 页”，Owner 验收点名翻页与跳页；旧实现 `services/live_pipeline/reader.py:736-803@main`）
 - 页码分页在内容变化时的可接受口径（改写 B:T-045）：同一响应内不重复、排序不违例；翻页期间有新内容插入或下架时，相邻页可能出现个别重复或被跳过，页面以 `version_changed` 提示并提供回到第一页；外部程序要求不重不漏时使用游标通道。【设计】
@@ -84,7 +84,7 @@
 
 - 多个筛选维度 AND；同一维度首期单值（确需多选时升级契约）。**未知参数、同一参数重复出现、超长值一律 400 `invalid_request`**，避免调用方误以为筛选生效。【已实现未验证】（`apps/web/lib/reader/adapter.ts:43-49@main`）。RSS、站点地图、`llms.txt` 忽略未知参数。
 - 搜索覆盖全部已公开内容，不能只搜当前页或前 N 条；`facets` 与列表在同一查询、同一快照计算，不凭前端缓存估总数。`q` 最长 200 字符（法规接口 120 字符）。【已实现未验证】（`reader.py:741-742@main`；法规 `packages/contracts/policy/README.md:8@policy`）
-- **`from`、`to`、`on` 三个参数均为北京时间自然日**（`YYYY-MM-DD`，闭区间）：分钟及以上精度的条目按 UTC 换算到 Asia/Shanghai 取日期；只有日期精度的条目直接用来源声明的日期，不做时区平移；来源日期未知的条目只在未给日期筛选时出现。`on` 与 `from`/`to` 同时给出且不一致 → 400；`from` 大于 `to` → 400。公开 API 与站点接口都支持 `on`。【已实现未验证】（`reader.py:743-777@main`）；来源日期未知项取自 B。
+- **资讯的 `from`、`to`、`on` 均按时间线的北京时间自然日筛选**（`YYYY-MM-DD`，起止日均包含；DEC-67、ADR-0027，Owner 2026-10-12 已确认）。以 `timeline_at` 换算到 Asia/Shanghai 取日期，与资讯列表分组及“今天”一致；来源日期未知但具备公开资格的内容也可按其已有时间线日期查到。不得改写或填造来源日期；法规法律日期继续按 BR-TIME-13。事件目录按符合日期条件的公开成员筛选。`on` 与 `from`/`to` 的既有参数冲突校验保持；`from` 大于 `to` → 400。带日期条件的旧语义游标返回 `invalid_cursor`，重新从首屏读取；无日期条件的游标不受影响。
 - 缺精确时间的条目保留 `date` 精度；没有来源日期的条目显示发现时间并标“发现”；**不得把入库时间输出为来源发布时间**（INV-06、BR-TIME-01）。
 
 ### 2.5 时间：`TimeAssertion`（DEC-50）
@@ -104,7 +104,7 @@
 | `basis` | string | 取值依据的说明（如“列表页发布日期栏”） |
 | `condition_text` | string \| null | 附条件日期的条件原文（如“须经批准后生效”） |
 | **`label`** | string | **服务端生成的中文显示文本**，各端不得自行格式化：`date` 精度只显示日期（如“9月29日”，跨年显示年份）；`minute`/`second` 精度按北京时间显示到分钟（如“9月29日 14:05”）；时区未知的分钟精度显示当地值并括注“来源未标明时区”；`unknown` 显示“日期待核实”（BR-TIME-12） |
-| **`beijing_date`** | `YYYY-MM-DD` \| null | 列表按日分组与日期筛选用：有 `utc` 的换算到北京日；只有日期或时区未知的，直接取 `local_date`，不平移；`unknown` 为 null |
+| **`beijing_date`** | `YYYY-MM-DD` \| null | 本条时间声明的北京日期：有 `utc` 的换算到北京日；只有日期或时区未知的，直接取 `local_date`，不平移；`unknown` 为 null。资讯列表分组和日期筛选取时间线北京日期，不以来源时间声明替代（DEC-67） |
 
 `meaning` 枚举与中文依据标签：`published` 来源发布、`updated` 来源更新、`registered` 来源登记、`public_inspection` 公开阅览、`formally_published` 正式刊发、`signed` 签署、`effective` 生效、`applicable` 适用、`deadline` 截止、`compiled` 汇编、`expires` 到期、`event` 事件发生、`discovered` 本站发现、`site_public` 本站收录（本站公开）、`uploaded` 上传、`checked` 原文核对、`repealed` 废止。其中 `public_inspection`、`formally_published`、`site_public`、`checked`、`repealed` 是相对 B 新增（B 的枚举表达不了联邦公报的公开阅览与正式刊发，也没有废止日期，`D05-api-006`、DEC-36）：法规日期不再借用 `uploaded`、`published` 加 `basis` 文字去区分。字段名以本表为准：中文展示文本叫 `label`（不叫 `label_zh`），与 `meaning_label`、`beijing_date` 并列。【设计】
 
