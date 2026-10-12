@@ -43,6 +43,9 @@ test("named accounts, forced password changes, role revocation, capacity race an
   const owner = await sessionPrincipal(`${SESSION_COOKIE}=${token}`);
   assert.ok(owner);
   await requireOwner(owner);
+  // The role fixture permits only one connection. Concurrent checks must queue and finish,
+  // never borrow another connection while retaining the transaction's only connection.
+  await Promise.all(Array.from({ length: 12 }, () => requireOwner(owner)));
   const admin = await createAdministrator(
     owner,
     {

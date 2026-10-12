@@ -76,8 +76,11 @@ export function environmentProblems(role: ProcessRole, env: Environment = proces
       if (env[name] === undefined) return false;
       const credential =
         /^(DATABASE_URL|PG|POSTGRES_)/.test(name) || /_(KEY|SECRET|SECRET_ID|TOKEN|PASSWORD|WEBHOOK_URL)$/.test(name) || name === "AMP_CREDENTIALS_DIR";
+      // EGRESS_PROXY_URL is optional and read only by the collector fetch (上游基础方案). It is not a
+      // process-wide proxy. HTTP_PROXY, HTTPS_PROXY and ALL_PROXY stay forbidden so model calls,
+      // which use plain fetch, are not carried out through them.
       const unsafe =
-        /^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|EGRESS_PROXY_URL)$/i.test(name) ||
+        /^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY)$/i.test(name) ||
         name.startsWith("DEV_AUTH_") ||
         (name === "ALLOW_PRIVATE_NETWORK_FETCH" && /^(1|true)$/i.test(env[name]!));
       return (isolated && credential) || (production && unsafe) || publicCredentials.has(name);

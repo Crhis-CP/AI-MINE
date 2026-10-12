@@ -4,9 +4,9 @@ import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { adminGet } from "../../lib/admin.server";
 import { bj, num, pct } from "../../features/admin/format";
 import { AdminPage, Badge, Card, Empty } from "../../features/admin/ui";
-import { SelectionToolControl, SelectionSampleLabels, SelectionStandardReviewForm } from "../../features/admin/SelectionCalibration";
+import { SelectionToolControl, SelectionSampleLabels, SelectionStandardReviewForm, PrefilterAuditPanel } from "../../features/admin/SelectionCalibration";
 import { SelectionActivationRecord, SelectionStandardsReadOnly } from "../../features/admin/SelectionStandards";
-import { readSelectionTool, readSelectionSamples, readSelectionStandards } from "../../features/admin/SelectionApi.server";
+import { readSelectionTool, readSelectionSamples, readSelectionStandards, readPrefilterAudit } from "../../features/admin/SelectionApi.server";
 import { useSelectionActions } from "../../features/admin/SelectionActions";
 interface RunRow {
   id: string;
@@ -31,12 +31,13 @@ interface RunRow {
 export async function loader({ request }: LoaderFunctionArgs) {
   const control = await readSelectionTool(request),
     tab = new URL(request.url).searchParams.get("tab") ?? "review";
-  const [runs, samples, standards] = await Promise.all([
+  const [runs, samples, standards, audit] = await Promise.all([
     control.enabled && tab === "runs" ? adminGet<{ runs: RunRow[] }>(request, "/api/admin/selectbench") : Promise.resolve({ runs: [] }),
     control.enabled && tab === "samples" ? readSelectionSamples(request) : Promise.resolve(null),
     readSelectionStandards(request),
+    readPrefilterAudit(request),
   ]);
-  return { control, tab, runs: runs.runs, samples, standards };
+  return { control, tab, runs: runs.runs, samples, standards, audit };
 }
 export const meta: MetaFunction<typeof loader> = () => [{ title: `精选校准 · ${SITE.name} 后台` }];
 export default function SelectBench({ loaderData: d }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
@@ -52,14 +53,24 @@ export default function SelectBench({ loaderData: d }: { loaderData: Awaited<Ret
   return (
     <AdminPage
       title="精选校准"
-      subtitle="沿用同一套校准页。这里能看这一版评分标准，也能继续标注样本和看对照结果。页面不会运行评测。"
+      subtitle="丢掉的稿上，两个按钮是「应该留下」和「丢掉是对的」。留下的稿上，两个按钮是「应该丢掉」和「留下是对的」。点了选项就会马上记下。再抽一批不会清掉已经记下的判断。标完只是记下来，供以后改预筛规则，不会立刻把稿公开或撤下。下面的精选校准是另一件事，问的是够不够格进精选。"
     >
-      <div className="space-y-5">
+      <div className="space-y-6">
+        <PrefilterAuditPanel
+          data={d.audit}
+          onDraw={(nonce) => execute("audit-draw", { nonce })}
+          onLabel={(item, input) =>
+            execute("audit-label", { decision: input.decision, note: input.note, expectedRevision: input.expectedRevision }, { articleId: item.articleId })
+          }
+        />
         <SelectionActivationRecord version={d.standards?.current.standardVersion ?? null} configured={!!d.standards?.current.configuredForCurrent} />
         {d.standards && <SelectionStandardsReadOnly data={d.standards} />}
         {!d.control.enabled ? (
-          <Card title="样本标注">
-            <Empty>样本标注从本页最下方开启。开启后可以逐条看材料、标该选或不该选。开启只打开标注，不再另要一次确认才开始打分。</Empty>
+          <Card title="精选够不够格">
+            <Empty title="精选标注还没开">
+              这一块问的是够不够格进精选，用「该选 / 不该选 /
+              两可」。它和上面的预筛抽查不是同一件事。要标精选样本，先在本页最下方开启精选标注。开启只打开标注，不会开始打分。
+            </Empty>
           </Card>
         ) : (
           <>

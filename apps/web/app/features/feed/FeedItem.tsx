@@ -7,7 +7,7 @@ import type { GroupInfo, FeedItemSummary, TimelineFilters } from "@amp/contracts
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SelectedBadge } from "@amp/ui/Badge";
 import { ScoreLabel } from "@amp/ui/Score";
-import { SourceLine, StarButton } from "./parts";
+import { SourceLine, StarButton, Attribution } from "./parts";
 import { GroupDevelopments, GroupSources, LatestDevelopment } from "./ReadingGroup";
 
 export interface FeedItemProps {
@@ -28,7 +28,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
       <header className="flex min-h-[18px] items-center gap-2 text-[12.5px] leading-[18px] text-ink-4">
         <SourceLine item={item} className="text-ink-4" />
         {item.selected && (
-          <span className="hidden lg:inline-flex">
+          <span className="inline-flex">
             <SelectedBadge />
           </span>
         )}
@@ -39,7 +39,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
           <span className="lg:hidden">
             <ScoreLabel score={item.score} compact />
           </span>
-          <span className="-my-1 hidden lg:inline-flex">
+          <span className="-my-1 inline-flex">
             <StarButton item={item} />
           </span>
         </span>
@@ -50,6 +50,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
           {item.title}
         </IntentLink>
       </h3>
+      <Attribution value={item.attribution} />
       {item.summary && <p className="mt-1.5 line-clamp-2 text-[14.5px] leading-[1.75] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[15px]">{item.summary}</p>}
 
       {(tags.length > 0 || (showTags && item.category)) && (

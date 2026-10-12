@@ -78,10 +78,11 @@ test("changed configuration during acquisition cannot commit trusted observation
   assert.equal((await sql`SELECT count(*)::int AS n FROM policy.metadata_observations WHERE source_id=${f.sourceId}`)[0].n, 0);
 });
 
-test("bounded material scan includes every source binding even when a page ends within one material", async () => {
+test("bounded material scan includes both independently owned same-URL source materials across page boundaries", async () => {
   const a = await fixture(),
     b = await fixture();
-  await upsertMaterial({ sourceId: b.sourceId, url: a.url, title: "Other listing", via: "fetch" });
+  const second = await upsertMaterial({ sourceId: b.sourceId, url: a.url, title: "Other listing", via: "fetch" });
+  assert.notEqual(second.articleId, a.materialId);
   let cursor = { materialId: "", sourceId: "" };
   const rows = [];
   for (;;) {
@@ -91,5 +92,14 @@ test("bounded material scan includes every source binding even when a page ends 
     cursor = page[0];
   }
   assert.equal(rows.length, 3);
-  assert.equal(rows.filter((row) => row.materialId === a.materialId).length, 2);
+  assert.equal(new Set(rows.map((row) => row.materialId)).size, 3);
+  assert.deepEqual(
+    rows
+      .filter((row) => row.url === a.url)
+      .map((row) => row.sourceId)
+      .sort(),
+    [a.sourceId, b.sourceId].sort(),
+  );
+  assert.equal(rows.filter((row) => row.materialId === a.materialId).length, 1);
+  assert.equal(rows.filter((row) => row.materialId === second.articleId).length, 1);
 });

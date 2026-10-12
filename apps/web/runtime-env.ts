@@ -7,8 +7,10 @@ export function webEnvironmentProblems(env: Environment = process.env): string[]
       if (env[name] === undefined) return false;
       const credential =
         /^(DATABASE_URL|PG|POSTGRES_)/.test(name) || /_(KEY|SECRET|SECRET_ID|TOKEN|PASSWORD|WEBHOOK_URL)$/.test(name) || name === "AMP_CREDENTIALS_DIR";
+      // Same boundary as platform/config: a process-wide proxy is refused. EGRESS_PROXY_URL is not
+      // used by web; holding it must not take the site down when the shared environment sets it.
       const unsafe =
-        /^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|EGRESS_PROXY_URL)$/i.test(name) ||
+        /^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY)$/i.test(name) ||
         name.startsWith("DEV_AUTH_") ||
         (name === "ALLOW_PRIVATE_NETWORK_FETCH" && /^(1|true)$/i.test(env[name]!));
       return credential || (env.NODE_ENV === "production" && unsafe);

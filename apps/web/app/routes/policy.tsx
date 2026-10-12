@@ -179,7 +179,7 @@ function PolicyDocument({ policy, history }: Awaited<ReturnType<typeof loader>>)
                 aria-current={e.id === original?.id ? "page" : undefined}
                 to={`${policyHref(policy.id)}?expression_id=${encodeURIComponent(e.id)}`}
               >
-                {e.kind === "ai_translation" ? "AI 中文" : e.kind === "official_translation" ? "官方中文译本" : `原文 ${e.language}`}
+                {e.kind === "ai_translation" ? "AI 中文" : e.kind === "official_translation" ? `官方译本 ${e.language}` : `原文 ${e.language}`}
               </Link>
             ))}
           </nav>
@@ -245,7 +245,11 @@ function PolicyDocument({ policy, history }: Awaited<ReturnType<typeof loader>>)
               .filter((t) => ["published", "updated", "signed", "registered", "formally_published", "compiled", "public_inspection"].includes(t.meaning))
               .map((t) => (
                 <li key={`${t.meaning}:${t.raw}`}>
-                  {t.meaning_label}：{timeLabel(t)}
+                  {t.event_kind
+                    ? { original_publication: "首次公布", substantive_change: "实质变化", registration: "登记", other: "其他日期事件" }[t.event_kind]
+                    : t.meaning_label}
+                  ：{timeLabel(t)}
+                  {t.occurrence ? ` · ${t.occurrence === "occurred" ? "已发生" : "计划"}` : ""}
                   {t.condition_text && ` · 条件：${t.condition_text}`}
                 </li>
               ))}

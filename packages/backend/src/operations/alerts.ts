@@ -4,11 +4,18 @@
 //   today  — money at risk or only the owner can act: sent at once, repeated at most daily, recovery reported.
 //   digest — follow-ups without reader impact: one 09:00 message a day, meant to be handed to the AI.
 // Delivery goes through sendAlert (ops chat, internal-chat fallback; off unless FEISHU_INTERNAL_ENABLED).
+import { manualReviewExceptions } from "@amp/backend/admin/content";
+import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
-import { beijingDate, beijingTime } from "@amp/contracts/time";
+import { addDays, beijingDate, beijingMidnight, beijingTime, isoWeekLabel } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
 import { dbOf } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
+import { metalPriceChangeIssues } from "../publication/metal-prices/change.ts";
+import { loadMetalPrices } from "../publication/metal-prices/read.ts";
+import { loadReport, type ReportKind } from "../publication/reports.ts";
+import { qualifiedReportEntries } from "../reports/compose.ts";
+import { loadHot } from "../publication/stories.ts";
 import { backupConfigured } from "./backup.ts";
 import { readMetalPriceRuns, type MetalPriceSourceRecord } from "./metal-price-runs.ts";
 
@@ -27,10 +34,338 @@ const QUIET_MS = Number(process.env.ALERT_QUIET_MINUTES || 360) * 60_000;
 const METALS_WHERE = "看 job_runs 里 metals.prices 的运行记录，或在 worker 容器里跑 scripts/metal-prices-check.ts";
 /** An error or reason cut to 200 characters, as left(…, 200) does for the other items. */
 const clip = (text: string) => [...text].slice(0, 200).join("");
+/** hot.rank is every 5 minutes. Four missed runs is late; this is not a window to stretch. */
+const HOT_LATE_MS = 20 * 60_000;
+
+export interface DueReport {
+  kind: ReportKind;
+  key: string;
+  label: string;
+}
+
+/**
+ * Issues whose compose time has passed, checked two hours later. Daily is composed at 08:00 and checked
+ * from 10:00; weekly Monday at 10:00, checked from 12:00; monthly on the 1st at 10:30, checked from 12:30.
+ * A missing issue after that is normal when the job succeeded and the window had no qualified selection.
+ */
+export function dueReports(now: number): DueReport[] {
+  const today = beijingDate(now);
+  const [hour, minute] = beijingTime(now).split(":").map(Number) as [number, number];
+  const due: DueReport[] = [];
+  if (hour >= 10) due.push({ kind: "daily", key: today, label: "日报" });
+  const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+  if (dow > 0 || hour >= 12) due.push({ kind: "weekly", key: isoWeekLabel(addDays(today, -dow - 7)), label: "周报" });
+  const [year, month, day] = today.split("-").map(Number) as [number, number, number];
+  const prevMonth = month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, "0")}`;
+  if (day > 1 || hour > 12 || (hour === 12 && minute >= 30)) due.push({ kind: "monthly", key: prevMonth, label: "月报" });
+  return due;
+}
+
+const REPORT_JOBS: Record<ReportKind, string[]> = {
+  daily: ["reports.daily", "reports.catch-up"],
+  weekly: ["reports.weekly", "reports.catch-up"],
+  monthly: ["reports.monthly", "reports.catch-up"],
+};
+
+/** When this issue's compose job should have started. Later catch-up runs count; an earlier success does not. */
+function reportScheduledAt(issue: DueReport, now: number): Date {
+  if (issue.kind === "daily") return new Date(beijingMidnight(issue.key).getTime() + 8 * 3600_000);
+  if (issue.kind === "weekly") {
+    const today = beijingDate(now);
+    const dow = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+    return new Date(beijingMidnight(addDays(today, -dow)).getTime() + 10 * 3600_000);
+  }
+  const [year, month] = beijingDate(now).split("-") as [string, string];
+  return new Date(beijingMidnight(`${year}-${month}-01`).getTime() + 10 * 3600_000 + 30 * 60_000);
+}
+
+type ReportJob = { state: "none" } | { state: "ok" | "failed" | "other"; job: string; status: string; error: string | null; at: Date };
+
+/** The newest compose or catch-up since this issue's own clock, so a quiet zero is not confused with a missed run. */
+async function latestReportJob(issue: DueReport, now: number): Promise<ReportJob> {
+  const [row] = await sql<{ job: string; status: string; error: string | null; started_at: Date }[]>`
+    SELECT job, status, error, started_at FROM job_runs
+    WHERE job = ANY(${REPORT_JOBS[issue.kind]}::text[]) AND started_at >= ${reportScheduledAt(issue, now)} AND started_at <= ${new Date(now)}
+    ORDER BY started_at DESC LIMIT 1`;
+  if (!row) return { state: "none" };
+  if (row.status === "ok") return { state: "ok", job: row.job, status: row.status, error: row.error, at: row.started_at };
+  if (row.status === "failed") return { state: "failed", job: row.job, status: row.status, error: row.error, at: row.started_at };
+  return { state: "other", job: row.job, status: row.status, error: row.error, at: row.started_at };
+}
+
+function reportJobNote(issue: DueReport, job: ReportJob): string {
+  const where = REPORT_JOBS[issue.kind].join(" / ");
+  if (job.state === "none") return `出刊时间过了，但 ${where} 还没有运行记录`;
+  if (job.state === "failed") return job.error ? `最近一次 ${job.job} 失败：${clip(job.error)}` : `最近一次 ${job.job} 标成失败，但没有写下错误原因`;
+  if (job.state === "ok") return `最近一次 ${job.job} 记成成功（${beijingStamp(job.at)}）`;
+  return `最近一次 ${job.job} 的状态是 ${job.status}（${beijingStamp(job.at)}）`;
+}
+
+const REPORT_WINDOW: Record<ReportKind, string> = {
+  daily: "前一天 08:00 到当天 08:00",
+  weekly: "上一周",
+  monthly: "上个月",
+};
+
+async function readReportIssue(kind: ReportKind, key: string): Promise<{ state: "missing" | "empty" | "ok" | "broken"; error?: string }> {
+  try {
+    const report = await loadReport(kind, key);
+    if (!report) return { state: "missing" };
+    const items = report.sections.reduce((n, section) => n + section.items.length, 0) + report.flashes.length + report.stories.length;
+    const prose = Boolean(report.lead?.leadParagraph?.trim() || report.overview?.trim());
+    return { state: items === 0 && !prose ? "empty" : "ok" };
+  } catch (error) {
+    return { state: "broken", error: clip(error instanceof Error ? error.message : String(error)) };
+  }
+}
+
+function missingTitle(issue: DueReport, job: ReportJob): string {
+  if (job.state === "failed") return issue.kind === "daily" ? "今天的日报任务失败了" : `这一期${issue.label}的出刊任务失败了`;
+  if (job.state !== "ok") return issue.kind === "daily" ? "今天的日报任务没有跑成" : `这一期${issue.label}的出刊任务没有跑成`;
+  return issue.kind === "daily" ? "今天的日报该有内容，但没有这一期" : `这一期${issue.label}该有内容，但没有写成`;
+}
+
+async function describeReport(issue: DueReport, rowExists: boolean | null, now: number): Promise<Finding[]> {
+  let loaded = rowExists === false ? { state: "missing" as const, error: undefined } : await readReportIssue(issue.kind, issue.key);
+  if (rowExists === true && loaded.state === "missing") loaded = { state: "broken", error: "记录在，但按读者页面的读法读不到这一期" };
+  if (loaded.state === "ok") return [];
+  const job = await latestReportJob(issue, now);
+  const note = reportJobNote(issue, job);
+  const where = `看 ${REPORT_JOBS[issue.kind].join(" / ")} 的运行记录`;
+  if (loaded.state === "broken") {
+    return [
+      {
+        key: `report.${issue.kind}.broken`,
+        level: "now",
+        title: `这一期${issue.label}内容坏了，页面读不出来`,
+        impact: `读者打开${issue.label}会失败。这不是一份正常刊出、只是没有收录条目的报告`,
+        heals: "不会自己修好已经写坏的这一期",
+        action: "转给 AI 处理",
+        detail: `${issue.label} ${issue.key}；${loaded.error}；${note}；${where}`,
+      },
+    ];
+  }
+  let qualified = 0;
+  let countError: string | undefined;
+  try {
+    qualified = await qualifiedReportEntries(issue.kind, issue.key);
+  } catch (error) {
+    countError = clip(error instanceof Error ? error.message : String(error));
+  }
+  const countNote = countError
+    ? `数不清这段窗口里有多少够格的新精选：${countError}`
+    : `这段窗口（${REPORT_WINDOW[issue.kind]}）里够格的新精选是 ${qualified} 条`;
+  const jobFailed = job.state !== "ok";
+  // A succeeded job with nothing new leaves the issue missing. That is the edition rule, not an outage.
+  if (loaded.state === "missing" && job.state === "ok" && qualified === 0 && !countError) return [];
+  if (loaded.state === "missing" || jobFailed || qualified > 0 || countError) {
+    const emptyOnSite = loaded.state === "empty";
+    return [
+      {
+        key: `report.${issue.kind}`,
+        level: "now",
+        title: emptyOnSite
+          ? qualified > 0 || countError
+            ? `这一期${issue.label}该有内容，但里面没有条目`
+            : `这一期${issue.label}是空的，而出刊任务没有成功`
+          : missingTitle(issue, job),
+        impact: emptyOnSite
+          ? `读者能打开 ${issue.key}，但看不到条目。空期不该留。${countNote}`
+          : job.state === "ok"
+            ? `读者看不到 ${issue.key} 这一期${issue.label}。${countNote}`
+            : `不能把「没有这一期${issue.label}」当成正常的不出刊。${countNote}`,
+        heals: countError
+          ? "先数清这段窗口里有没有够格的新精选，数不清之前不能当成正常的不出刊"
+          : job.state === "ok" && qualified > 0 && !emptyOnSite
+            ? "系统每小时补做一次，到现在还没写成"
+            : emptyOnSite
+              ? "已经挂上的空期不会自己删掉，也不会自动重写"
+              : "系统每小时补做一次，到现在还没跑成",
+        action: "转给 AI 处理",
+        detail: `${issue.label} ${issue.key}；${note}；${countNote}；${where}`,
+      },
+    ];
+  }
+  return [
+    {
+      key: `report.${issue.kind}.empty`,
+      level: "today",
+      title: `这一期${issue.label}出了，但里面没有内容`,
+      impact: `读者能打开 ${issue.key} 这一期${issue.label}，但看不到条目，也没有导语。空期不该留。${countNote}`,
+      heals: "不会自己删掉已经挂上的空期。窗口里没有够格的新精选，所以本来可以不留这一期",
+      action: "转给 AI 处理",
+      detail: `${issue.label} ${issue.key} 没有条目，也没有导语；${note}；${countNote}；${where}`,
+    },
+  ];
+}
+
+/** The price page's own read: a period past its registered stale window, a 暂缺 quote, or a table that cannot be read. */
+async function metalPageFindings(now: number): Promise<Finding[]> {
+  if (!collecting()) return [];
+  let prices: Awaited<ReturnType<typeof loadMetalPrices>>;
+  try {
+    prices = await loadMetalPrices(new Date(now));
+  } catch (error) {
+    return [
+      {
+        key: "metals.table",
+        level: "now",
+        title: "金属价格表读不出来",
+        impact: "读者打开金属价格页会看到“价格数据暂时无法读取”",
+        heals: "不会拿别的数字填上",
+        action: "转给 AI 处理",
+        detail: clip(error instanceof Error ? error.message : String(error)),
+      },
+    ];
+  }
+  const out: Finding[] = [];
+  const stale = prices.sources.filter((source) => source.status === "stale");
+  if (stale.length) {
+    out.push({
+      key: "metals.period",
+      level: "now",
+      title: stale.length === 1 ? `${stale[0]!.name}的价格过了该更新的期限` : `金属价格有 ${stale.length} 个来源过了该更新的期限`,
+      impact: `页面仍显示旧的一期，并标明“数据已陈旧”：${stale.map((source) => `${source.name} ${source.latest?.label ?? "没有期名"}`).join("；")}`,
+      heals: "下一轮定时抓取（每天 09:45、15:45、21:45）拿到新的一期并核对通过后会自己换上；官方没发，或这一期被扣下，就不会",
+      action: "转给 AI 处理",
+      detail: "期限用的是各来源原来的陈旧天数（统计局 20 天、商务预报 21 天、世界银行 45 天、俄央行 14 天），没有把期限改长",
+    });
+  }
+  const hasAny = prices.metals.some((metal) => metal.quotes.some((quote) => quote.value !== null));
+  const emptySources = prices.sources.filter((source) => source.status === "empty");
+  const missingSeries = prices.metals.flatMap((metal) =>
+    metal.quotes
+      .filter((quote) => quote.value === null && prices.sources.find((source) => source.key === quote.source)?.status !== "empty")
+      .map((quote) => `${metal.name}的${quote.title}`),
+  );
+  if (hasAny && (emptySources.length || missingSeries.length)) {
+    const parts = [...emptySources.map((source) => source.name), ...missingSeries];
+    out.push({
+      key: "metals.gap",
+      level: "now",
+      title: "金属价格有报价是暂缺",
+      impact: `读者在价格表里看到“暂缺”：${parts.slice(0, 6).join("、")}${parts.length > 6 ? "等" : ""}`,
+      heals: "不会用别的数字填上。下一轮抓到并核对通过才会出现",
+      action: "转给 AI 处理",
+      detail: parts.join("、"),
+    });
+  }
+  if (!hasAny) {
+    const runs = await readMetalPriceRuns(new Date(now));
+    if (runs.latest) {
+      out.push({
+        key: "metals.table",
+        level: "now",
+        title: "金属价格表没有任何报价",
+        impact: "读者打开金属价格页看不到价格",
+        heals: "不会编造价格。抓取成功并入库后才会出现",
+        action: "转给 AI 处理",
+        detail:
+          runs.latest.status === "failed"
+            ? `最近一次抓取失败：${clip(runs.latest.error ?? "标成失败，但没有写下错误原因")}`
+            : "定时任务有运行记录，但页面一个价都没有",
+      });
+    }
+  }
+  const changes = metalPriceChangeIssues(prices);
+  if (changes.length) {
+    out.push({
+      key: "metals.change",
+      level: "now",
+      title: changes.length === 1 ? "金属价格有一行涨跌算错了" : `金属价格有 ${changes.length} 行涨跌算错了`,
+      impact: `读者看到的涨跌和本期减去上一期对不上：${changes.slice(0, 3).join("；")}${changes.length > 3 ? "等" : ""}`,
+      heals: "不会自己改数字。某一来源还在等官方下一期，或周六没有新的日价，不会因此报警",
+      action: "转给 AI 处理",
+      detail: clip(changes.join("；")),
+    });
+  }
+  return out;
+}
+
+async function hotFindings(now: number): Promise<Finding[]> {
+  const [job] = await sql<{ status: string; error: string | null; started_at: Date }[]>`
+    SELECT status, error, started_at FROM job_runs
+    WHERE job = 'hot.rank' AND started_at <= ${new Date(now)} AND started_at > ${new Date(now - 7 * 86400_000)}
+    ORDER BY started_at DESC LIMIT 1`;
+  let hot: Awaited<ReturnType<typeof loadHot>>;
+  try {
+    hot = await loadHot();
+  } catch (error) {
+    if (!job) return [];
+    return [
+      {
+        key: "hot.page",
+        level: "now",
+        title: "热点榜页面读不出来",
+        impact: "读者打开热点榜会失败。这不是“暂时没有热点”",
+        heals: "不会自己把坏数据修好",
+        action: "转给 AI 处理",
+        detail: `${clip(error instanceof Error ? error.message : String(error))}；${job.status === "failed" ? (job.error ? clip(job.error) : "这一轮标成失败，但没有写下错误原因") : `最近一次计算的状态是 ${job.status}`}`,
+      },
+    ];
+  }
+  const computed = hot.computedAt ? Date.parse(hot.computedAt) : Number.NaN;
+  const hasRanking = Number.isFinite(computed);
+  if (!job && !hasRanking) return [];
+  if (hot.entries.some((entry) => !entry.story?.publicId || !entry.story?.title)) {
+    return [
+      {
+        key: "hot.page",
+        level: "now",
+        title: "热点榜页面读不出来",
+        impact: "读者打开热点榜会看到不完整的条目",
+        heals: "不会自己补上缺失的标题",
+        action: "转给 AI 处理",
+        detail: "已发布的热点榜里有条目缺少标题或事件",
+      },
+    ];
+  }
+  const late = !hasRanking || now - computed > HOT_LATE_MS;
+  const failed = job?.status === "failed";
+  const jobLate = job ? now - job.started_at.getTime() > HOT_LATE_MS : hasRanking;
+  if (!late && !failed && !jobLate) return [];
+  const errorText = !job
+    ? "最近 7 天没有热点榜的运行记录"
+    : failed
+      ? job.error
+        ? `最近一次计算失败：${clip(job.error)}`
+        : "最近一次计算标成失败，但没有写下错误原因"
+      : `最近一次计算记成${job.status === "ok" ? "成功" : job.status}（${beijingStamp(job.started_at)}）`;
+  return [
+    {
+      key: "hot.rank",
+      level: "now",
+      title: late || jobLate ? "热点榜超过 20 分钟没有更新" : "热点榜这一轮没有算成",
+      impact: late || jobLate ? "读者看到的热点榜停在旧的一轮；若一直没有新的一轮，页面会像没有热点" : "读者暂时还看得到上一轮，但这一轮没有算成",
+      heals: "大约每 5 分钟会再算一次，算成了会自己换上",
+      action: "转给 AI 处理",
+      detail: `${hasRanking ? `最近一轮 ${beijingStamp(computed)}` : "没有已发布的热点榜"}；${errorText}`,
+    },
+  ];
+}
 
 /** Everything wrong right now, with its level. */
 export async function collectFindings(now = Date.now(), observeIntake?: (lastDiscoveredAt: Date | null) => void): Promise<Finding[]> {
   const out: Finding[] = await laneControlFindings(now);
+  for (const release of await expiringPolicyQualityReleases(new Date(now), 7, 100)) {
+    out.push({
+      key: `policy-quality-expiry:${release.id}`,
+      level: "today",
+      title: "法规完整解读资格即将到期",
+      impact: "到期后相关文书将只保留基本事实。",
+      action: "请在模型与质量配置中完成续期核验。",
+      detail: `来源：${release.source_ids.join("、")}；语言：${release.languages.join("、")}；到期：${release.valid_until}`,
+    });
+  }
+  for (const item of await manualReviewExceptions())
+    out.push({
+      key: `manual-review:${item.article_id}`,
+      level: "today",
+      title: "来源更正后，人工修订需要复核",
+      impact: item.state === "conflict" ? "旧人工文字已停止覆盖新材料。" : "请核对人工文字是否仍符合当前原文。",
+      action: "请在后台内容详情核对原文并重新发布修订。",
+      detail: `/admin/content/${item.article_id}`,
+    });
   const newsCollectionPaused = (await runtimeControlSnapshot("news", ["collection"])).paused;
   const newsProcessingPaused = (await runtimeControlSnapshot("news", ["processing"])).paused;
   const newsPublicationPaused = (await runtimeControlSnapshot("news", ["publication"])).paused;
@@ -90,20 +425,13 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
         since: p!.waiting >= 10 && p!.oldest ? p!.oldest : undefined,
       });
     }
-    // The daily report is composed at 08:00 and caught up hourly.
-    if (Number(beijingTime(now).slice(0, 2)) >= 10) {
-      const [r] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${beijingDate(now)}`;
-      if (!r) {
-        out.push({
-          key: "report.daily",
-          level: "now",
-          title: "今天的日报还没生成",
-          impact: "读者看不到今天的日报",
-          heals: "系统每小时补做一次，到现在还没成功",
-          action: "转给 AI 处理",
-          detail: `reports daily ${beijingDate(now)} 不存在；看 reports.daily / reports.catch-up 的运行记录`,
-        });
-      }
+    // Daily is composed at 08:00, weekly Monday 10:00, monthly the 1st 10:30; catch-up is hourly.
+    // The daily existence read stays here so its data-ownership site does not move.
+    for (const issue of dueReports(now)) {
+      if (issue.kind === "daily") {
+        const [r] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${issue.key}`;
+        out.push(...(await describeReport(issue, Boolean(r), now)));
+      } else out.push(...(await describeReport(issue, null, now)));
     }
   }
 
@@ -227,6 +555,35 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
         level: "digest",
         title: "金属价格的运行记录读不出来，没法判断有没有抓到",
         detail: `${clip(String(error))}；${METALS_WHERE}`,
+      });
+    }
+  }
+
+  try {
+    out.push(...(await metalPageFindings(now)));
+  } catch (error) {
+    out.push({
+      key: "metals.table",
+      level: "now",
+      title: "金属价格表读不出来",
+      impact: "读者打开金属价格页会看到“价格数据暂时无法读取”",
+      heals: "不会拿别的数字填上",
+      action: "转给 AI 处理",
+      detail: clip(error instanceof Error ? error.message : String(error)),
+    });
+  }
+  if (settled) {
+    try {
+      out.push(...(await hotFindings(now)));
+    } catch (error) {
+      out.push({
+        key: "hot.page",
+        level: "now",
+        title: "热点榜页面读不出来",
+        impact: "读者打开热点榜会失败。这不是“暂时没有热点”",
+        heals: "不会自己把坏数据修好",
+        action: "转给 AI 处理",
+        detail: clip(error instanceof Error ? error.message : String(error)),
       });
     }
   }

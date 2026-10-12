@@ -29,19 +29,16 @@ export async function readAccountAccess(userId: number, db: Db = sql): Promise<A
   >`SELECT user_id,role,models_manage,active,revision,must_change_password FROM identity.account_access WHERE user_id=${userId}`;
   return row ?? null;
 }
-/** The shared environment password is the single operator AIHOT used. Named administrators stay limited. */
-async function sharedPasswordOperator(userId: number): Promise<boolean> {
-  const [user] = await sql<{ email: string | null }[]>`SELECT email FROM admin_users WHERE id=${userId}`;
-  return user?.email === "admin@local";
-}
 async function allowed(principal: AdminPrincipal, capability: string, db: Db) {
   if (principal.dev || !Number.isSafeInteger(principal.userId) || !principal.userId) return false;
-  if ((capability === "owner" || capability === "models.manage") && (await sharedPasswordOperator(principal.userId))) {
-    if (!Number.isSafeInteger(principal.accessRevision)) return true;
+  // Business roles may read the capability projection, but may never read credential identities.
+  // Session resolution establishes the reserved identity before a business transaction is opened.
+  if ((capability === "owner" || capability === "models.manage") && principal.legacySharedOperator === true) {
     await lockAccountAccess(db, principal.userId);
     const current = await readAccountAccess(principal.userId, db);
-    if (current && (!current.active || current.must_change_password || current.revision !== principal.accessRevision)) return false;
-    return true;
+    return current
+      ? current.active && !current.must_change_password && current.revision === principal.accessRevision
+      : !Number.isSafeInteger(principal.accessRevision);
   }
   if (!Number.isSafeInteger(principal.accessRevision)) return false;
   await lockAccountAccess(db, principal.userId);

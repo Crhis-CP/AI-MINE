@@ -72,3 +72,23 @@ TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyI
 公开质量窗口新增可空`binding_version`，历史为null。所有公开读取与保留complete分支要求当前版本、期限及用途；旧窗口即时只给独立基本事实，旧正文和模型结论停止公开。metadata重试复用同一当前原件已存的独立基本事实，不创建更新的占位版本遮住原内容。新资格安装并免费重验后更新资格引用，首次发现和原公开时间不刷新，历史资格ID不会伪造为新资格。测试中的评审记录仅为隔离合成数据，不是实际Owner批准；没有生产资格迁移或真实模型调用。
 
 部署影响：这里只证明读取规则，不推断生产是否已有旧式完整发布。部署前后可由获准的只读诊断统计仍关联`binding_version IS NULL`且未撤回的complete投影；这些内容在新代码下只显示其独立基本事实。没有按模型名自动推导配置hash的迁移，也不会自动重跑模型以填补证据。
+
+## 2026-10-11审计优化（TASK-0180至TASK-0194）
+
+法规的公开中外文块按同一来源part使用共同逻辑ID；公开HTML经`policySemanticHtml`静态白名单净化，保留删除线、插入、上下标、列表编号与单元格跨度。`source_annotations`独立保留属性原值、self/ancestor/descendant范围及定位；引用模型需绑定当前part的annotation_id，属性不能冒充正文。XML入口采用显式正文/附件选择器，拒绝DTD、ENTITY及NUL；TASK-0195已用CA-002真实Justice Canada XML的条文与CALS表格最小摘录回归，补齐lims命名空间日期、Sup/Sub/Repealed和具名列跨度；英国第二家族返回202空体，保持未验收。没有据此启用来源或授予质量资格。
+
+长普通节点按句/子条款/词边界分段，保存原节点与文字起止位置，HTML祖先结构和列表编号随段保留；不可分割的表格行/span群仍明确受容量约束。程序完整性与语义、Owner资格仍分别判断。
+
+`material_workflows.processing_recipe_hash`绑定当前提取、全文、视觉、解读与公开投影配方；既有有界发现扫描唤醒变化，原始取得修订不伪造更新。provider_unavailable/waiting_receipt返回原处理阶段，由既有网关恢复检查；unknown付费结果与被拒输入仍受回执屏障约束。excluded相关性也必须通过全部原文组反证核验，才能自动隐藏。
+
+独立基本事实调用content的`readPolicyMaterialDate`读当前材料/配置绑定的原始日期证据；公布、正式公布与登记性质保持独立。决定性附件目录与处理状态直接投影可公开缺项，机器私有异常不进入正文。模型`publication_events`保留多次有引文的公布/实质变化、已发生/计划区分，只有已发生实质变化参与相应排序；补录在可信来源时区的日历上判断，未知时区不推测。
+
+当前公开资格还核对已完成来源目录head的成员状态；移除只表示本站当前收录变化，不能推断法律废止，显式历史继续按历史公开资格读取。详情汇集每种原语言自己的当前合格版本；`officialLanguageLinksSelector`仅在明确配置且官方同域单对象链接带hreflang时建立等价URL集合，文号与原文版本仍分别保留，未配置不靠标题合并。
+
+周月报通过当前资格读取固定版的条款要点、经营影响、条件/例外与原文依据，逐版投影；页面提供国家/主题筛选、上一版及最新修订入口，保留筛选。完整/不完整来源覆盖按source_id去重；只有不完整回执仍算缺完整回执。`expiringPolicyQualityReleases`为既有运维告警提供七天内有界扫描，续期只接受原Owner资格安装口，不自动延长。
+
+法域×七主题的真实配置边界见`docs/research/policy-coverage-audit-2026-10-11.md`；目录登记、配置存在、原件、中文、合格解读及持续运行不是同一完成状态。没有新增真实调用、来源启用或部署。
+
+真实XML补验证据见`docs/acceptance/audit-remediation-20261011/policy-official-xml.json`；摘录许可、hash与原始字节范围见`tests/fixtures/policy/official-xml/manifest.json`。CALS列按声明次序解析，不能从col名称数字相减；未知列、重叠或非法跨度不给完整。整份原文中的公式/图件仍独立留缺口，不以摘录通过赋予整份法规完整性或模型资格。
+
+TASK-0196至0198补齐整库联调：主模型已返回后发生许可/输入变化，携带真实物理回执进入`PolicyInputChangedError`，不晋升候选或丢弃记账。法规批次CLI通过同一成功预览门，inline只表示由当前worker执行，不创建另一个竞争任务；HTTP请求仍默认排队。无成功预览/无草稿/许可或配置变化返回可操作409，未知基础设施异常继续保留原错误分类。干跑不排预览任务或启用来源；长退避保持deferred。

@@ -333,7 +333,7 @@ test("CBR transport, XML and impossible dates fail the source before writes, whi
   const result = await refreshMetalPrices({ registry: selected, get, now: NOW });
   assert.equal(result.cbr.ok, false);
   assert.equal(result.nbs.ok, true);
-  assert.equal(result.nbs.inserted, 5);
+  assert.equal(result.nbs.inserted, 6);
 });
 
 // NBU replies are invented from the CBR fixture, never copied from the official comparison recordings.

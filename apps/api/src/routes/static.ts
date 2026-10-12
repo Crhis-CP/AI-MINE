@@ -55,6 +55,7 @@ async function sendFile(req: FastifyRequest, reply: FastifyReply, file: string, 
 function robotsTxt(): string {
   return [
     "User-agent: *",
+    "Allow: /api/v3/",
     "Allow: /api/v1/",
     "Allow: /api/mcp",
     "Disallow: /api/",
@@ -107,6 +108,10 @@ async function openApiJson(): Promise<string> {
 }
 
 export function registerStatic(app: FastifyInstance) {
+  app.get("/openapi-v3.json", (req, reply) => {
+    applyPublicHeaders(reply);
+    return sendFile(req, reply, path.join(REF, "contracts/v3.openapi.json"), { cacheControl: "public, max-age=0, must-revalidate" });
+  });
   const sendSitemap = async (req: FastifyRequest, reply: FastifyReply, page?: number) => {
     try {
       const xml = await sitemapXml(page);

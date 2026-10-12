@@ -11,9 +11,9 @@ import { Wordmark } from "../components/Logo";
 import { buttonClass } from "../components/ui/Controls";
 
 const ERRORS: Record<string, string> = {
-  wrong: "密码不对，再试一次。",
+  wrong: "登录名或密码不正确，请检查后重试。",
   verification: "登录验证已失效，请刷新登录页后重试。",
-  unset: "还没有设置管理员密码：在服务器配置里设置 ADMIN_PASSWORD（至少 12 位），重启后再登录。",
+  unset: "账号登录暂未配置，请联系网站负责人。",
   "too-many": "尝试次数太多，请 15 分钟后再试。",
 };
 
@@ -89,8 +89,26 @@ export default function AdminLogin() {
               密码已修改，请重新登录。
             </p>
           )}
-          <label htmlFor="password" className="block text-[13px] font-medium text-ink-2">
-            管理员密码
+          <label htmlFor="login_name" className="block text-[13px] font-medium text-ink-2">
+            登录名
+          </label>
+          <input
+            id="login_name"
+            name="login_name"
+            type="text"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoFocus
+            maxLength={128}
+            aria-describedby="login-name-help"
+            className="mt-2 h-10 w-full rounded-full border border-line-strong bg-surface px-4 text-[14px] text-ink outline-none transition-colors focus:border-accent"
+          />
+          <p id="login-name-help" className="mt-2 text-xs text-ink-3">
+            使用个人账号时填写登录名；使用网站管理员密码时留空。
+          </p>
+          <label htmlFor="password" className="mt-4 block text-[13px] font-medium text-ink-2">
+            密码
           </label>
           <input
             id="password"
@@ -98,7 +116,6 @@ export default function AdminLogin() {
             type="password"
             autoComplete="current-password"
             required
-            autoFocus
             maxLength={256}
             className="mt-2 h-10 w-full rounded-full border border-line-strong bg-surface px-4 text-[14px] text-ink outline-none transition-colors focus:border-accent"
           />

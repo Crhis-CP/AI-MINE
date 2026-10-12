@@ -5,7 +5,11 @@ export function useSelectionActions() {
   const { run, pending } = useAdminAction(),
     keys = useRef(new Map<string, string>()),
     client = createPrivateClient({});
-  const execute = async (kind: "tool" | "label" | "review" | "holdout", input: Record<string, unknown>, target?: { datasetId: string; caseId: string }) => {
+  const execute = async (
+    kind: "tool" | "label" | "review" | "holdout" | "audit-draw" | "audit-label",
+    input: Record<string, unknown>,
+    target?: { datasetId: string; caseId: string } | { articleId: string },
+  ) => {
     const stamp = JSON.stringify([kind, input, target]),
       requestId = keys.current.get(stamp) ?? crypto.randomUUID();
     keys.current.set(stamp, requestId);
@@ -20,13 +24,29 @@ export function useSelectionActions() {
         parse: privateSchemas.SelectionToolState.parse,
       });
     }
-    if (kind === "label" && target) {
+    if (kind === "label" && target && "datasetId" in target) {
       const body = privateSchemas.SelectionLabelRequest.parse(base);
       result = await run("POST", `/api/admin/selectbench/samples/${encodeURIComponent(target.datasetId)}/${encodeURIComponent(target.caseId)}`, body, {
         onConflict: () => {},
         success: "标注已保存",
         send: (_url, init) => client.POST("/api/admin/selectbench/samples/{datasetId}/{caseId}", { params: { path: target }, body, headers: init.headers }),
         parse: privateSchemas.SelectionLabel.parse,
+      });
+    }
+    if (kind === "audit-draw") {
+      const body = privateSchemas.PrefilterAuditDrawRequest.parse(base);
+      result = await run("POST", "/api/admin/selectbench/prefilter-audit", body, {
+        onConflict: () => {},
+        success: "已抽出一批",
+        parse: privateSchemas.PrefilterAuditView.parse,
+      });
+    }
+    if (kind === "audit-label" && target && "articleId" in target) {
+      const body = privateSchemas.PrefilterAuditLabelRequest.parse(base);
+      result = await run("POST", `/api/admin/selectbench/prefilter-audit/${encodeURIComponent(target.articleId)}`, body, {
+        onConflict: () => {},
+        success: "判断已保存",
+        parse: privateSchemas.PrefilterAuditLabel.parse,
       });
     }
     if (kind === "review") {

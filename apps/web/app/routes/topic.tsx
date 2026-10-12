@@ -1,15 +1,18 @@
-import { SITE, withSubject } from "@amp/industry/site";
-import { Link, redirect, useLoaderData } from "react-router";
+import { SITE } from "@amp/industry/site";
+import { Link, redirect, useLoaderData, useSearchParams } from "react-router";
 import type { Route } from "./+types/topic";
 import type { FeedItemSummary } from "@amp/contracts/site";
-import { loadOr404 } from "../lib/api.server";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import { apiBaseFor } from "../../api-target.ts";
+import { SearchField, SourceDateFilters, JurisdictionFilter, hrefWith } from "../features/feed/Filters";
+import { contractResult, queryString, loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
 import { DayList, Pagination } from "../features/feed/DayList";
 import { EmptyState, MoreLink } from "../components/ui/Page";
 
-/** Items of a topic (精选, or 全部矿业动态 before the first 精选): shared caches keep the page as long as its api answer (one minute). */
+/** Items of a topic (全部已公开稿，标签或标题导读对上即可). Shared caches keep the page as long as its api answer (one minute). */
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=60" };
+  return { "Cache-Control": "no-store" };
 }
 
 interface TopicPageData {
@@ -19,8 +22,9 @@ interface TopicPageData {
     group: string;
     definition: string;
     total: number;
+    recent?: number;
     indexable: boolean;
-    /** "all" while the site has no 精选 yet: the topic then follows 全部矿业动态 (Owner 2026-10-05; DEC-13). */
+    /** Topic pages follow 全部矿业动态. Homepage 精选 filters stay 精选-only. */
     basis: "selected" | "all";
     related: Array<{ slug: string; name: string }>;
   };
@@ -30,12 +34,46 @@ interface TopicPageData {
 }
 
 export async function loader({ params, request }: Route.LoaderArgs) {
-  const page = params.page ? Number(params.page) : 1;
+  const search = new URL(request.url).searchParams;
+  const page = params.page ? Number(params.page) : Math.max(1, Number.parseInt(search.get("page") ?? "1", 10) || 1);
   if (params.page !== undefined && (!/^\d+$/.test(params.page) || page < 1)) throw new Response("Not found", { status: 404 });
   // Page 1 lives at the topic's own address (308).
   if (params.page === "1") throw redirect(`/topics/${params.slug}`, 308);
-  const data = await loadOr404<TopicPageData>(`/api/site/topics/${encodeURIComponent(params.slug)}?page=${page}`, { signal: request.signal });
-  return { data };
+  const data = await loadOr404<TopicPageData>(`/api/site/topics/${encodeURIComponent(params.slug)}?page=1`, { signal: request.signal });
+  const query = {
+    topic: params.slug,
+    page,
+    q: search.get("q") || undefined,
+    source: search.get("source") || undefined,
+    mineral: search.get("mineral") || undefined,
+    jurisdiction: search.get("jurisdiction") || undefined,
+    on: search.get("on") || undefined,
+    from: search.get("from") || undefined,
+    to: search.get("to") || undefined,
+    selected: search.get("selected") === "true" || undefined,
+  };
+  const pool = await loadOr404(
+    () =>
+      createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
+        .GET("/api/site/pool", {
+          params: { query },
+          querySerializer: () => queryString({ ...query, selected: query.selected ? "true" : undefined }).slice(1),
+          headers: { accept: "application/json", "x-amp-ssr": "1" },
+          signal: request.signal,
+        })
+        .then((result) => contractResult(result, publicSchemas.PoolResponse)),
+    { signal: request.signal },
+  );
+  const countries =
+    data.topic.group === "genre"
+      ? await createPublicClient({ baseUrl: apiBaseFor("/api/site/jurisdictions") })
+          .GET("/api/site/jurisdictions", { signal: request.signal })
+          .then((result) => contractResult(result, publicSchemas.PolicyJurisdictionList))
+          .catch(() => [])
+      : [];
+  const country = countries.find((country) => country.label === data.topic.name);
+  const policyLink = country ? `/policies?jurisdiction=${country.code}` : `/policies?q=${encodeURIComponent(data.topic.name)}`;
+  return { data: { ...data, items: pool.items, page: pool.page, pageCount: pool.pageCount }, pool, policyLink };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -57,10 +95,17 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export default function TopicPage() {
-  const { data } = useLoaderData<typeof loader>();
+  const { data, pool, policyLink } = useLoaderData<typeof loader>();
+  const [params] = useSearchParams();
   const { topic, items, page, pageCount } = data;
-  const picks = topic.basis !== "all";
-  const href = (p: number) => (p <= 1 ? `/topics/${topic.slug}` : `/topics/${topic.slug}/page/${p}`);
+  const picks = pool.filters.selected === true;
+  const base = `/topics/${topic.slug}`;
+  const href = (p: number) => {
+    const query = new URLSearchParams(params);
+    if (p <= 1) query.delete("page");
+    else query.set("page", String(p));
+    return `${base}${query.size ? `?${query}` : ""}`;
+  };
   const first = (page - 1) * 20 + 1;
   const last = first + items.length - 1;
   return (
@@ -90,11 +135,31 @@ export default function TopicPage() {
         </div>
       </header>
 
+      <p className="mb-3 text-[13px] text-ink-3">近 30 天 {topic.recent ?? 0} 条动态</p>
+      <nav aria-label="主题栏目" className="my-4 flex gap-5 text-[14px]">
+        <Link to={hrefWith(base, params, { selected: null })} aria-current={!picks ? "page" : undefined} className="text-accent">
+          最新动态
+        </Link>
+        <Link to={hrefWith(base, params, { selected: "true" })} aria-current={picks ? "page" : undefined} className="text-accent">
+          精选
+        </Link>
+        <Link to={policyLink} className="text-accent">
+          法规
+        </Link>
+      </nav>
+      <SearchField
+        action={base}
+        variant="bar"
+        defaultValue={params.get("q") ?? ""}
+        keep={Object.fromEntries([...params].filter(([key]) => !["page", "q"].includes(key)))}
+      />
+      <JurisdictionFilter base={base} value={params.get("jurisdiction")} />
+      <SourceDateFilters base={base} facets={pool.facets} />
       <div className="mb-1 mt-2 flex items-baseline justify-between">
         <h2 className="text-[18px] font-bold text-ink">{picks ? "最新精选" : "最新动态"}</h2>
         {items.length > 0 && (
           <span className="num text-[12px] text-ink-4">
-            第 {first}–{last} 条 · 共 {topic.total.toLocaleString("zh-CN")} 条
+            第 {first}–{last} 条 · 共 {pool.total.toLocaleString("zh-CN")} 条
           </span>
         )}
       </div>
@@ -104,6 +169,11 @@ export default function TopicPage() {
         </div>
       ) : (
         <DayList items={items} />
+      )}
+      {page > pageCount && (
+        <Link to={href(1)} className="block py-4 text-center text-accent">
+          回到第 1 页
+        </Link>
       )}
       <Pagination page={page} pageCount={pageCount} href={href} />
     </div>

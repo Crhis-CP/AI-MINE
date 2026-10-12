@@ -1,4 +1,6 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // Full-text translations follow the text: an article corrected while the model was translating the old
 // wording is translated again, and a translation of an older revision is never shown as the current one.
 // Links and images inside a paragraph survive the model.
@@ -89,8 +91,10 @@ async function currentJudgement(id: string) {
 }
 
 before(async () => {
+  await installUsageFixtureForModel("deepseek-flash");
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
             VALUES (${SOURCE}, 'Test translate', 'rss', 'T1', 'editorial', true, false, '2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://example.com/source"]);
 });
 after(async () => {
   await app.close();
@@ -143,7 +147,7 @@ test("a text corrected while its translation was running is translated again, an
   assert.ok(current.body.zh?.includes("二十美元") && current.body.complete, "the page shows the translation of the corrected text");
 });
 
-test("links and images survive in checkpoints, while a bad paragraph prevents whole-body assembly and has only three paid attempts", async () => {
+test("links and images survive in checkpoints, while a bad paragraph prevents whole-body assembly and the same bad answer is not bought a third time", async () => {
   // Google's fly-brain post lost its link to the Neuroglancer docs; a GPU price post lost two charts.
   const html =
     `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> in text ${T} <img src="https://example.com/chart-${T}.png" alt="B200 prices"></p>` +
@@ -177,9 +181,14 @@ test("links and images survive in checkpoints, while a bad paragraph prevents wh
   assert.ok(parts[0]!.restored_html.includes(`chart-${T}.png`), "the chart survives in the verified checkpoint");
   assert.equal(parts[1]!.state, "failed");
   assert.equal(parts[1]!.restored_html, null);
-  assert.equal(parts[1]!.failed_attempts, 3);
-  assert.deepEqual([...asks.values()].sort(), [2, 3], "good checkpoints are reused and bad output is bounded per actual attempt");
-  assert.equal((await app.inject(`/api/site/items/${id}`)).statusCode, 404, "new material with a bad segment never gets a public page");
+  assert.equal(parts[1]!.failed_attempts, 2);
+  assert.deepEqual([...asks.values()].sort(), [2, 2], "a repaired segment is reused and the same bad answer is not bought again");
+  const incomplete = await app.inject(`/api/site/items/${id}`);
+  assert.equal(incomplete.statusCode, 200, "a Chinese title and guide stay public while the body is incomplete");
+  const shown = incomplete.json();
+  assert.equal(shown.summary, "摘要");
+  assert.equal(shown.body?.zh ?? null, null, "a failed segment is not assembled into a Chinese body");
+  assert.equal(shown.body?.complete ?? false, false);
 });
 
 test("the active adapter covers a body beyond the old cap and then makes no repeat model request", async () => {
@@ -281,4 +290,26 @@ test("repair rotates past a full blocked batch, includes old material and resume
   assert.equal(provider.hits(), calls, "scanning and restart never call the model");
   const attempts = await sql`SELECT 1 FROM translation_attempts WHERE article_id IN ${sql(ids)}`;
   assert.equal(attempts.length, 0, "dispatch progress is not stored as a paid or translation attempt");
+});
+
+test("a body translation that already failed three times is not bought again", async () => {
+  const { articleId: id } = await upsertMaterial({
+    sourceId: SOURCE,
+    url: `${URL_}-spent`,
+    title: `Spent ${T}`,
+    language: "en",
+    bodyText: `Spent copper note ${T}.`,
+    bodyHtml: `<p>Spent copper note ${T}.</p>`,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+  });
+  await currentJudgement(id);
+  const [{ revision }] = await sql<{ revision: number }[]>`SELECT revision FROM articles WHERE id = ${id}`;
+  await sql`INSERT INTO translation_attempts (article_id, revision, attempts, outcome, reason)
+            VALUES (${id}, ${revision}, 3, 'failed', 'synthetic exhausted')`;
+  const before = provider.hits();
+  const result = await translateArticle(id, revision);
+  assert.deepEqual({ status: result.status, reason: result.reason }, { status: "skipped", reason: "attempts_exhausted" });
+  assert.equal(provider.hits(), before, "the spent body is not bought again");
 });

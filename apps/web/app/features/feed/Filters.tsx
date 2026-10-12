@@ -259,3 +259,70 @@ export function SearchIconLink() {
     </Link>
   );
 }
+
+/** Shareable source, mineral and calendar-day conditions; submitting resets only pagination. */
+export function SourceDateFilters({
+  base,
+  facets,
+}: {
+  base: string;
+  facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };
+}) {
+  const [params] = useSearchParams();
+  const controls = ["source", "mineral", "on", "from", "to"];
+  const field = "min-w-0 rounded-control border border-line-strong bg-surface px-2 py-2 text-[16px] text-ink sm:text-[13px]";
+  return (
+    <details className="my-3 rounded-control border border-line px-3 py-2" open={controls.some((name) => params.get(name)) || undefined}>
+      <summary className="cursor-pointer text-[13px] text-ink-3">来源、矿种与日期筛选</summary>
+      <Form key={params.toString()} method="get" action={base} className="mt-3 flex flex-wrap items-end gap-3" aria-label="资讯组合筛选">
+        {[...params]
+          .filter(([name]) => ![...controls, "page", "cursor", "_routes"].includes(name))
+          .map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
+        <label className="flex max-w-full flex-col gap-1 text-[12px] text-ink-3">
+          来源
+          <select name="source" defaultValue={params.get("source") ?? ""} className={field}>
+            <option value="">全部来源</option>
+            {params.get("source") && !facets?.sources.some((source) => source.id === params.get("source")) && (
+              <option value={params.get("source")!}>当前来源（暂无匹配）</option>
+            )}
+            {facets?.sources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name}（{source.count}）
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-[12px] text-ink-3">
+          矿种
+          <select name="mineral" defaultValue={params.get("mineral") ?? ""} className={field}>
+            <option value="">全部矿种</option>
+            {facets?.minerals.map((mineral) => (
+              <option key={mineral} value={mineral}>
+                {mineral}
+              </option>
+            ))}
+          </select>
+        </label>
+        {[
+          ["on", "指定日期"],
+          ["from", "开始日期"],
+          ["to", "结束日期"],
+        ].map(([name, label]) => (
+          <label key={name} className="flex flex-col gap-1 text-[12px] text-ink-3">
+            {label}
+            <input type="date" name={name} defaultValue={params.get(name!) ?? ""} className={field} />
+          </label>
+        ))}
+        <button type="submit" className={`${field} text-accent`}>
+          应用筛选
+        </button>
+        <Link to={hrefWith(base, params, { source: null, mineral: null, on: null, from: null, to: null })} className="py-2 text-[13px] text-ink-3">
+          清除这些条件
+        </Link>
+        <p className="w-full text-[12px] text-ink-4">按来源发布日期筛选；指定日期优先于日期范围，时间未确认的内容不进入日期筛选。</p>
+      </Form>
+    </details>
+  );
+}

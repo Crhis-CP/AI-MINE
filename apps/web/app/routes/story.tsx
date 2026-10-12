@@ -44,7 +44,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=120" };
+  return { "Cache-Control": "no-store" };
 }
 
 const STATUS = {

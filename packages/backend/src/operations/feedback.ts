@@ -56,10 +56,10 @@ export interface FeedbackInput {
 
 export async function submitFeedback(input: FeedbackInput): Promise<{ id: number }> {
   const content = input.content.trim();
-  if (content.length < 2) throw new FeedbackRejected(400, "invalid_request", "请写下反馈内容。");
-  if (content.length > 5000) throw new FeedbackRejected(400, "invalid_request", "反馈内容最多 5000 字。");
+  if ([...content].length < 10) throw new FeedbackRejected(400, "invalid_request", "反馈内容至少 10 字。");
+  if ([...content].length > 5000) throw new FeedbackRejected(400, "invalid_request", "反馈内容最多 5000 字。");
   const email = input.email?.trim() || null;
-  if (email && (email.length > 200 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new FeedbackRejected(400, "invalid_request", "邮箱格式不正确。");
+  if (email && [...email].length > 254) throw new FeedbackRejected(400, "invalid_request", "联系方式最多 254 字。");
   const pageUrl = input.pageUrl?.trim().slice(0, 500) || null;
   const source = feedbackSourceHash(input.ip, input.userAgent);
   const [banned] = await sql`SELECT 1 FROM feedback_bans WHERE source_hash = ${source}`;
@@ -69,7 +69,7 @@ export async function submitFeedback(input: FeedbackInput): Promise<{ id: number
   let screenshotKey: string | null = null;
   if (input.screenshot) {
     if (!/^image\/(png|jpeg|webp|gif)$/.test(input.screenshot.mime)) throw new FeedbackRejected(400, "invalid_request", "截图需要是 PNG、JPG、WebP 或 GIF。");
-    if (input.screenshot.data.length > 8 * 1024 * 1024) throw new FeedbackRejected(400, "invalid_request", "截图最大 8MB。");
+    if (input.screenshot.data.length > 2 * 1024 * 1024) throw new FeedbackRejected(400, "invalid_request", "截图最大 2MB。");
     // The database keeps only an identifier; erasing the sender's material removes the file (admin/feedback.ts).
     const name = `${sha256(input.screenshot.data).slice(0, 24)}.${input.screenshot.mime.split("/")[1]}`;
     const dir = path.join(config.dataDir, "feedback-screenshots");

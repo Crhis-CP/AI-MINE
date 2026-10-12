@@ -4,7 +4,7 @@ import { sweepModelConnectionProbes } from "../providers/model-probe.ts";
 import { dbOf } from "../db.ts";
 import { newUuid } from "../lib/ids.ts";
 import { sendAlert } from "../notify/feishu.ts";
-import { evaluateUsageProtection, usageLock } from "../providers/usage-protection.ts";
+import { evaluateUsageProtection, installInitialUsageControl, usageLock } from "../providers/usage-protection.ts";
 const sql = dbOf("ai-gateway");
 type EventRow = { id: string; kind: string; lane: string | null; capability: string | null; payload: Record<string, unknown>; created_at: Date };
 type Sender = (title: string, lines: string[]) => Promise<"sent" | "disabled" | "failed">;
@@ -76,6 +76,7 @@ export async function deliverUsageProtectionEvents(now = new Date(), send: Sende
 }
 /** Existing worker scheduling root runs this every five minutes; never called by a reader request. */
 export async function usageProtectionTick(now = new Date(), send: Sender = sendAlert) {
+  await installInitialUsageControl();
   const result = await evaluateUsageProtection(now);
   await deliverUsageProtectionEvents(now, send);
   await sweepModelConnectionProbes();

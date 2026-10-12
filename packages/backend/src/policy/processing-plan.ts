@@ -1,5 +1,7 @@
 import { sha256, stableJson } from "../lib/ids.ts";
 import * as cheerio from "cheerio";
+import type { SourceAnnotation } from "./annotations.ts";
+import { proseFragments, type PolicyFragment } from "./processing-fragments.ts";
 import type { PolicyExtraction } from "./extraction.ts";
 
 export const POLICY_PLAN_LIMITS = Object.freeze({ documentBytes: 2_000_000, nodes: 8192, requestBytes: 2000, requestParts: 12, planBytes: 8 * 1024 * 1024 });
@@ -21,6 +23,9 @@ export type PolicyPart = {
   source: string;
   format: "text" | "html";
   sourceHash: string;
+  sourceStart?: number;
+  sourceEnd?: number;
+  annotations?: SourceAnnotation[];
   byteLength: number;
   page?: number;
   transform?: number[];
@@ -146,8 +151,10 @@ export function buildPolicyFulltextPlan(extraction: PolicyExtraction, context: P
       const original = node.html ?? node.text;
       if (!original.trim()) gaps.push(`empty_node:${resource.url}#${node.id}`);
       sourceBytes += Buffer.byteLength(original, "utf8");
-      const fragments = node.html === undefined ? [{ source: original, suffix: "" }] : tableFragments(original);
-      for (const { source, suffix } of fragments) {
+      const fragments: PolicyFragment[] = node.html?.trimStart().startsWith("<table")
+        ? tableFragments(original)
+        : proseFragments(original, node.html !== undefined, POLICY_PLAN_LIMITS.requestBytes);
+      for (const { source, suffix, sourceStart, sourceEnd } of fragments) {
         const byteLength = Buffer.byteLength(source, "utf8");
         // Extraction supplies structural blocks. An unproved internal split could sever a clause or table row.
         if (byteLength > POLICY_PLAN_LIMITS.requestBytes) {
@@ -171,6 +178,8 @@ export function buildPolicyFulltextPlan(extraction: PolicyExtraction, context: P
           format: node.html === undefined ? "text" : "html",
           sourceHash,
           byteLength,
+          ...(sourceStart === undefined ? {} : { sourceStart, sourceEnd }),
+          ...(node.annotations?.length ? { annotations: structuredClone(node.annotations) } : {}),
           ...(node.page === undefined ? {} : { page: node.page }),
           ...(node.transform === undefined ? {} : { transform: [...node.transform] }),
           ...(node.visualLocations === undefined ? {} : { visualLocations: structuredClone(node.visualLocations) }),

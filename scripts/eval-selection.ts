@@ -1,3 +1,4 @@
+import { prepareEvaluationInput } from "@amp/backend/editorial/analyze";
 // Checks the selection against your own labelled samples (a "gold set"): each case runs the site's
 // selection steps (editorial/analyze.ts) — the prefilter, then the score prompt twice with every model in
 // --models, the two scores deciding against the source tier's threshold — and is compared with your
@@ -51,6 +52,7 @@ const { values } = parseArgs({
 interface GoldRow {
   caseId: string;
   analysisInput?: AnalyzeInputArticle;
+  inputFingerprint?: string;
   sampleRevision?: number;
   labelRevision?: number;
   inputHash?: string;
@@ -95,7 +97,7 @@ function toInput(r: GoldRow): AnalyzeInputArticle {
     const a = r.analysisInput;
     return {
       ...a,
-      id: `gold-${r.caseId}`,
+      id: a.id,
       publishedAt: a.publishedAt instanceof Date ? a.publishedAt : a.publishedAt ? new Date(String(a.publishedAt)) : null,
       discoveredAt: a.discoveredAt instanceof Date ? a.discoveredAt : a.discoveredAt ? new Date(String(a.discoveredAt)) : null,
     };
@@ -176,10 +178,10 @@ for (const model of models) {
   // Share only that score result (including a failure); prefilter and threshold semantics remain per case.
   const scoreRequests = new Map<string, Promise<{ scores: AnalysisRun["scores"]; receiptIds: number[]; error: string | null }>>();
   const results = await pmap(sample, Number(values.concurrency), async (r) => {
-    const input = toInput(r);
     const receiptIds: number[] = [];
     try {
-      const prefilter = await runSelectionPrefilter(input, {}, (id) => receiptIds.push(id));
+      const { input, fallbackInput } = await prepareEvaluationInput(r.analysisInput ? toInput(r) : undefined, r.inputFingerprint);
+      const prefilter = await runSelectionPrefilter(input, { fallbackInput, usagePurpose: "evaluation" }, (id) => receiptIds.push(id));
       if (prefilter.label === "BLOCK") {
         const run: AnalysisRun = { prefilter, scores: null, writing: null, structure: null };
         return { r, out: normalizeAnalysis(run), receiptIds, error: null as string | null };
@@ -196,7 +198,12 @@ for (const model of models) {
       let request = scoreRequests.get(key);
       if (!request) {
         const sharedReceiptIds: number[] = [];
-        request = runSelectionScores(input, { scoreModel: model }, (id) => sharedReceiptIds.push(id), threshold).then(
+        request = runSelectionScores(
+          input,
+          { scoreModel: model, fallbackInput, usagePurpose: "evaluation" },
+          (id) => sharedReceiptIds.push(id),
+          threshold,
+        ).then(
           (scores) => ({ scores, receiptIds: sharedReceiptIds, error: null }),
           (error: unknown) => ({ scores: null, receiptIds: sharedReceiptIds, error: String(error).slice(0, 200) }),
         );

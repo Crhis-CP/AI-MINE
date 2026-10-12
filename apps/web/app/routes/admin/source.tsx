@@ -32,7 +32,9 @@ type Source = z.infer<typeof privateSchemas.SourceRecord>;
 type Detail = z.infer<typeof privateSchemas.SourceDetailResponse>;
 
 interface Preview {
-  status?: "deferred";
+  status?: "deferred" | "queued" | "succeeded" | "failed";
+  preview_id?: number;
+  error?: string;
   retryAt?: string;
   reason?: string;
   ms: number;
@@ -48,7 +50,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       signal: init.signal,
     }),
   );
-  return privateSchemas.SourceDetailResponse.parse(response);
+  const previewInfo = await adminGet<{
+    draft: { id: number } | null;
+    previews: Array<{ id: number; draft_id: number | null; status: string; result: Preview | null; error: string | null }>;
+  }>(request, `/api/admin/sources/${encodeURIComponent(params.id)}/preview`);
+  return { ...privateSchemas.SourceDetailResponse.parse(response), previewInfo };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `${loaderData?.source.name ?? "信源"} · ${SITE.name} 后台` }];
@@ -78,7 +84,13 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
   const { run, pending } = useAdminAction();
   const [draft, setDraft] = useState<Draft>(() => draftOf(s));
   const [draftFor, setDraftFor] = useState(s.updated_at);
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(() => {
+    const latest = loaderData.previewInfo.previews.find((p) => String(p.draft_id ?? "") === String(loaderData.previewInfo.draft?.id ?? ""));
+    return latest
+      ? { ms: 0, count: 0, items: [], ...latest.result, preview_id: latest.id, status: latest.status as Preview["status"], error: latest.error ?? undefined }
+      : null;
+  });
+  const [pendingDraft, setPendingDraft] = useState<number | null>(loaderData.previewInfo.draft?.id ?? null);
   const [dialog, setDialog] = useState<null | "save" | "toggle">(null);
   const [configError, setConfigError] = useState<string | null>(null);
   if (draftFor !== s.updated_at) {
@@ -138,12 +150,48 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
           <Button
             busy={pending === "preview"}
             onClick={async () => {
-              const r = await run<Preview>("POST", `${base}/preview`, {}, { label: "preview", revalidate: false });
-              if (r) setPreview(r);
+              const r = await run<Preview>("POST", `${base}/preview`, pendingDraft ? { draft_id: pendingDraft } : {}, { label: "preview", revalidate: false });
+              if (r) {
+                setPreview(r);
+                for (let i = 0; i < 120 && r.status === "queued"; i++) {
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+                  const response = await fetch(`${base}/preview`, { credentials: "same-origin", cache: "no-store" });
+                  if (!response.ok) break;
+                  const state = (await response.json()) as {
+                    previews?: Array<{ id: number; status: Preview["status"]; result: Preview | null; error?: string | null }>;
+                  };
+                  const done = state.previews?.find((p) => p.id === r.preview_id);
+                  if (done && done.status !== "queued") {
+                    setPreview({ ...r, ...done.result, status: done.status, error: done.error ?? undefined });
+                    break;
+                  }
+                }
+              }
             }}
           >
             预览抓取
           </Button>
+          {pendingDraft && (
+            <Button
+              disabled={preview?.status !== "succeeded"}
+              onClick={() =>
+                run(
+                  "PATCH",
+                  base,
+                  {
+                    patch: {},
+                    version: new Date(s.updated_at).toISOString(),
+                    config_command: "activate_draft",
+                    draft_id: pendingDraft,
+                    preview_id: preview?.preview_id,
+                  },
+                  { success: "已切换到通过预览的配置" },
+                )
+              }
+            >
+              应用配置草稿
+            </Button>
+          )}
           <Button busy={pending === "fetch"} onClick={() => run("POST", `${base}/fetch`, {}, { label: "fetch", success: "已加入采集队列" })}>
             立即采集
           </Button>
@@ -178,7 +226,11 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
           title={preview.status === "deferred" ? "预览等待中（未入库）" : `预览：${preview.count} 条（${preview.ms}ms，未入库）`}
           right={<button onClick={() => setPreview(null)}>收起</button>}
         >
-          {preview.status === "deferred" ? (
+          {preview.status === "queued" ? (
+            <p>预览已排队，结果由采集进程返回；可以稍后刷新查看。</p>
+          ) : preview.status === "failed" ? (
+            <p>{preview.error ?? "预览失败，当前配置不能启用"}</p>
+          ) : preview.status === "deferred" ? (
             <Empty>
               {preview.reason === "source_reader_pending"
                 ? "本次来源读取尚待确认，已保留进度。"
@@ -425,7 +477,16 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
         onSubmit={async (reason) => {
           const p = patch();
           if (!p) return false;
-          const r = await run("PATCH", base, { patch: p, version: new Date(s.updated_at).toISOString(), reason }, { label: "save", success: "已保存" });
+          const r = await run<{ pending_config?: boolean; draft?: { id: number } }>(
+            "PATCH",
+            base,
+            { patch: p, version: new Date(s.updated_at).toISOString(), reason },
+            { label: "save", success: "已保存" },
+          );
+          if (r?.pending_config && r.draft) {
+            setPendingDraft(r.draft.id);
+            setPreview(null);
+          }
           return r !== null;
         }}
       />

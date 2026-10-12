@@ -82,22 +82,16 @@ test("simultaneous first reports of one URL create one article", async () => {
   assert.equal(results.filter((r) => r.created).length, 1);
 });
 
-test("another source listing the same article records a discovery, not a revision", async () => {
-  // Hacker News：AI 热帖 lists the English title, the buzzing.cc mirror a Chinese translation.
+test("same URL stays independent for each source and lane", async () => {
   const url = `https://example.com/listed-twice-${tag()}`;
-  const own = await upsertMaterial({ sourceId: SOURCE, url, title: "One month without AI", excerpt: "own summary", via: "fetch" });
-  for (let i = 0; i < 3; i++) {
-    const mirror = await upsertMaterial({ sourceId: OTHER, url, title: "没有AI的一个月", excerpt: "译文摘要", via: "fetch" });
-    assert.deepEqual([mirror.articleId, mirror.revised], [own.articleId, false]);
-    assert.equal((await upsertMaterial({ sourceId: SOURCE, url, title: "One month without AI", excerpt: "own summary", via: "fetch" })).revised, false);
-  }
-  const a = await state(own.articleId);
-  assert.deepEqual([a.revision, a.title], [1, "One month without AI"]);
-  const found = await sql<{ source_id: string }[]>`SELECT source_id FROM article_discoveries WHERE article_id = ${own.articleId}`;
-  assert.ok(
-    found.some((d) => d.source_id === OTHER),
-    "the other source still counts as a discovery",
-  );
+  await sql`UPDATE sources SET lane='policy' WHERE id=${OTHER}`;
+  const own = await upsertMaterial({ sourceId: SOURCE, url, title: "Original", bodyText: "news body", via: "fetch" });
+  const mirror = await upsertMaterial({ sourceId: OTHER, url, title: "Policy", bodyText: "policy body", via: "fetch" });
+  assert.notEqual(mirror.articleId, own.articleId);
+  assert.equal(mirror.created, true);
+  assert.equal((await upsertMaterial({ sourceId: OTHER, url, title: "Policy", bodyText: "policy body", via: "fetch" })).created, false);
+  assert.equal((await state(own.articleId)).title, "Original");
+  assert.equal((await state(mirror.articleId)).title, "Policy");
 });
 
 test("an article linking to a tweet is stored separately from the tweet", async () => {
@@ -115,7 +109,7 @@ test("an article linking to a tweet is stored separately from the tweet", async 
   assert.equal((await state(tweet.articleId)).title, "Original tweet");
   assert.equal((await state(article.articleId)).title, "Independent report");
   const alias = await upsertMaterial({
-    sourceId: OTHER,
+    sourceId: SOURCE,
     url: `https://twitter.com/openai/status/${tweetId}`,
     title: "Tweet alias",
     via: "fetch",
@@ -128,40 +122,34 @@ test("another source reporting an imported article first does not set its baseli
   const url = `https://example.com/imported-mirror-${tag()}`;
   const id = await imported(url);
   const mirror = await upsertMaterial({ sourceId: OTHER, url, title: "镜像站的标题", excerpt: "镜像摘要", via: "fetch" });
-  assert.deepEqual([mirror.articleId, mirror.revised], [id, false]);
+  assert.notEqual(mirror.articleId, id);
+  assert.equal(mirror.created, true);
   assert.equal((await state(id)).content_hash, null, "the mirror's version is not the baseline");
   const own = await upsertMaterial({ sourceId: SOURCE, url, title: "Legacy title", excerpt: "feed summary", via: "fetch" });
   assert.equal(own.revised, false, "the article's own listing records the baseline");
   assert.deepEqual([(await state(id)).revision, (await state(id)).processing_state], [1, "analyzed"]);
 });
 
-test("a return to an earlier version is not a revision", async () => {
-  // One listing with two cards for one post ("Company Mistral and Mozilla…" / "Mistral and Mozilla…").
-  const url = `https://example.com/two-cards-${tag()}`;
-  const a = { sourceId: SOURCE, url, title: "Company Mistral and Mozilla", excerpt: "card", via: "fetch" as const };
-  const b = { ...a, title: "Mistral and Mozilla" };
+test("returning to an earlier source text creates a new current revision", async () => {
+  const url = `https://example.com/reverted-${tag()}`;
+  const a = { sourceId: SOURCE, url, title: "A", bodyText: "original material", via: "fetch" as const };
   const first = await upsertMaterial(a);
-  assert.equal((await upsertMaterial(b)).revised, true, "a version not seen before is a revision");
-  await sql`UPDATE articles SET processing_state = 'analyzed' WHERE id = ${first.articleId}`;
-  for (let i = 0; i < 3; i++) {
-    assert.equal((await upsertMaterial(a)).revised, false, "back to the first version");
-    assert.equal((await upsertMaterial(b)).revised, false, "and to the current one again");
-  }
-  const s = await state(first.articleId);
-  assert.deepEqual([s.revision, s.title, s.processing_state], [2, "Mistral and Mozilla", "analyzed"], "nothing to analyse or publish again");
-  assert.equal((await upsertMaterial({ ...a, title: "Mistral and Mozilla, updated" })).revised, true, "a new version still is");
-  assert.equal((await state(first.articleId)).revision, 3);
+  await upsertMaterial({ ...a, title: "B", bodyText: "corrected material" });
+  const reverted = await upsertMaterial(a);
+  assert.equal(reverted.revised, true);
+  assert.deepEqual([(await state(first.articleId)).revision, (await state(first.articleId)).title], [3, "A"]);
+  assert.equal((await upsertMaterial(a)).revised, false);
 });
 
-test("an imported article that returns to its baseline is not revised again", async () => {
+test("an imported article returning to its baseline receives a new revision", async () => {
   // A page that rotates promotions: the baseline, another rendering, then the baseline again.
   const url = `https://example.com/rotating-${tag()}`;
   const id = await imported(url);
   const base = { sourceId: SOURCE, url, title: "Legacy title", bodyText: "Post text. PODCAST SERIES Ideas", via: "fetch" as const };
   assert.equal((await upsertMaterial(base)).revised, false, "baseline");
   assert.equal((await upsertMaterial({ ...base, bodyText: "Post text. Foundry Labs" })).revised, true);
-  assert.equal((await upsertMaterial(base)).revised, false, "the baseline version was seen before");
-  assert.equal((await state(id)).revision, 2);
+  assert.equal((await upsertMaterial(base)).revised, true, "the source restored its earlier version");
+  assert.equal((await state(id)).revision, 3);
 });
 
 test("characters lost in transit are no revision, lost or restored", async () => {
@@ -182,4 +170,27 @@ test("characters lost in transit are no revision, lost or restored", async () =>
   assert.equal((await upsertMaterial(edited(garbled[1]!))).revised, true, "a real change is one, lost characters or not");
   for (const report of [edited(clean), edited(garbled[2]!)]) assert.equal((await upsertMaterial(report)).revised, false);
   assert.equal((await state(first.articleId)).revision, 2);
+});
+
+test("explicit fragment-preserving URL identities remain source-scoped", async () => {
+  const url = `https://example.com/changelog-${tag()}#entry`;
+  const identityKey = identityKeyForUrl(url, { keepFragment: true })!;
+  const a = await upsertMaterial({ sourceId: SOURCE, url, identityKey, title: "A", via: "fetch" });
+  const b = await upsertMaterial({ sourceId: OTHER, url, identityKey, title: "B", via: "fetch" });
+  assert.notEqual(a.articleId, b.articleId);
+  assert.equal((await upsertMaterial({ sourceId: SOURCE, url, identityKey, title: "A", via: "fetch" })).created, false);
+});
+
+test("material insertion rolls back when a later discovery write fails through the injected database proxy", async () => {
+  const url = `https://example.com/rollback-${tag()}`;
+  await sql.unsafe(
+    `CREATE FUNCTION fail_material_discovery() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'synthetic discovery failure'; END $$`,
+  );
+  await sql.unsafe(`CREATE TRIGGER fail_material_discovery BEFORE INSERT ON article_discoveries FOR EACH ROW EXECUTE FUNCTION fail_material_discovery()`);
+  try {
+    await assert.rejects(() => upsertMaterial({ sourceId: SOURCE, url, title: "Rollback", via: "fetch" }), /synthetic discovery failure/);
+    assert.equal((await sql`SELECT id FROM articles WHERE url=${url}`).length, 0);
+  } finally {
+    await sql.unsafe(`DROP TRIGGER fail_material_discovery ON article_discoveries`);
+  }
 });

@@ -24,8 +24,17 @@ export interface TranslateResult {
   reason?: string;
 }
 
+/** A revision that already failed its body translation three times is not bought again. */
+async function bodyTranslationSpent(articleId: string, revision: number): Promise<boolean> {
+  const [row] = await sql<{ attempts: number; outcome: string }[]>`
+    SELECT attempts, outcome FROM translation_attempts WHERE article_id = ${articleId} AND revision = ${revision}`;
+  return !!row && row.attempts >= 3 && row.outcome !== "translated";
+}
+
 /** Called only after the worker obtains a current revision from publication.prepareTranslation. */
 export async function translateArticle(articleId: string, expectedRevision: number): Promise<TranslateResult> {
+  // 2026-10-10: a guide can go live without a body. Do not buy the body again after three failures.
+  if (await bodyTranslationSpent(articleId, expectedRevision)) return { articleId, status: "skipped", reason: "attempts_exhausted" };
   const translated = await runBodyTranslation(
     articleId,
     {
@@ -61,6 +70,10 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
       AND p.article_id > ${afterId ?? ""}
       AND (tr.article_id IS NULL OR (tr.origin <> 'source' AND
            (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE})))
+      AND NOT EXISTS (
+        SELECT 1 FROM translation_attempts ta
+        WHERE ta.article_id = p.article_id AND ta.revision = a.revision AND ta.attempts >= 3 AND ta.outcome <> 'translated'
+      )
     ORDER BY p.article_id LIMIT ${limit}`;
   let enqueued = 0,
     scanned = 0;

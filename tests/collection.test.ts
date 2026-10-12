@@ -1,3 +1,4 @@
+import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 // Collection picks up where it stopped: a WeChat body that failed for a passing reason is fetched again
 // on the next check.
 import { Reply, stub, tag } from "./setup.ts";
@@ -39,6 +40,7 @@ config.allowPrivateNetworkFetch = true;
 
 let savedBudgets: Array<{ service: string; per_minute: number; per_hour: number; per_day: number }> = [];
 before(async () => {
+  await installUsageFixtureForService("dajiala");
   savedBudgets = await sql`SELECT service, per_minute, per_hour, per_day FROM budgets WHERE service = 'dajiala'`;
   await sql`UPDATE budgets SET per_minute = 1000, per_hour = 10000, per_day = 100000 WHERE service = 'dajiala'`;
   await sql`INSERT INTO sources (id, name, kind, config, tier, participation_mode, cursor, next_fetch_at)

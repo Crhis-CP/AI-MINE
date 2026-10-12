@@ -11,7 +11,9 @@ const matches = (p: PolicyCard, q: Query) =>
   (!q.jurisdiction || p.jurisdictions.some((j) => j.code === q.jurisdiction || j.parent === q.jurisdiction)) &&
   (!q.theme || p.themes.some((t) => t.code === q.theme));
 export async function policyReport(id: string, q: Query) {
-  const [report] = await sql<{ revision: number; card: unknown; coverage: unknown }[]>`SELECT v.revision,v.card,v.coverage FROM publication.policy_reports r
+  const [report] = await sql<
+    { revision: number; card: unknown; coverage: unknown; change: unknown }[]
+  >`SELECT v.revision,v.card,v.coverage,v.change FROM publication.policy_reports r
  JOIN publication.policy_report_revisions v ON v.report_id=r.id AND v.revision=coalesce(${q.edition ?? null}::integer,r.current_revision) WHERE r.id=${id}`;
   if (!report) throw new PolicyReadError(404, "policy_report_not_found");
   const raw = await sql<
@@ -47,6 +49,9 @@ export async function policyReport(id: string, q: Query) {
         ...v,
         label: item.stored.label,
         summary: item.policy.summary,
+        main_points: item.main_points,
+        impacts: item.impacts,
+        evidence_references: item.evidence_references,
         public_after_period_end: !item.stored.available_by_cutoff,
       })),
     );
@@ -56,6 +61,7 @@ export async function policyReport(id: string, q: Query) {
   return PolicyReport.parse({
     ...PolicyReportCard.parse(report.card),
     edition: report.revision,
+    change: report.change,
     item_count: new Set(selected.map((m) => m.policy.id)).size,
     content_version: version,
     generated_at: new Date().toISOString(),

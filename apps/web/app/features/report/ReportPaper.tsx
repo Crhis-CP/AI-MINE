@@ -9,7 +9,7 @@ import { SITE, withSubject } from "@amp/industry/site";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { ReportCitation, ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
-import { shortSourceName } from "../../lib/format";
+import { shortSourceName, fullDateTime } from "../../lib/format";
 import { Badge } from "@amp/ui/Badge";
 import { IconArrowLeft, IconArrowRight, IconArrowUpRight } from "../../components/icons";
 import { Kicker } from "@amp/ui/Kicker";
@@ -361,6 +361,22 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
   return (
     <article className="@container">
       <Masthead report={report} index={index} />
+      <div className="my-4 space-y-1 text-[12px] text-ink-3">
+        <p>
+          覆盖时间：{fullDateTime(report.windowStart)} 至 {fullDateTime(report.windowEnd)}（北京时间，结束时刻不含）
+        </p>
+        <p>
+          生成于 {fullDateTime(report.generatedAt)} ·{" "}
+          {report.generationStatus === "ready"
+            ? "AI 综合已完成"
+            : report.generationStatus === "pending"
+              ? "AI 综合正在排队，当前为资料汇总"
+              : report.generationStatus === "failed"
+                ? "AI 综合暂未成功，当前为资料汇总"
+                : "资料汇总"}{" "}
+          · AI 辅助生成
+        </p>
+      </div>
       {count === 0 && report.flashes.length === 0 ? (
         <p className="py-16 text-center text-[14px] text-ink-4">本期没有入选内容。</p>
       ) : (

@@ -1,5 +1,6 @@
+import { databaseLifetimeSignal, type Tx } from "../db.ts";
 import { newsMaterialBindings } from "@amp/backend/content/materials";
-import { readCurrentSourcePolicy } from "@amp/backend/admin/sources";
+import { readCurrentSourcePolicy, lockCurrentSourcePolicies, evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { createFallbackPermitPort, type FallbackMaterialSnapshot, type FallbackPermitPort } from "./model-fallback-permit.ts";
 
@@ -71,6 +72,40 @@ export async function prepareNewsFallback<T>(
   return (request) => {
     // Keep the exact request independent of a caller's later mutation.
     const frozen = JSON.parse(stableJson(request)) as typeof request;
-    return createFallbackPermitPort({ root: input.root, snapshot: snapshot(initial, frozen), current: async () => snapshot(await read(), frozen) });
+    return createFallbackPermitPort({
+      root: databaseLifetimeSignal(),
+      stopBeforeSend: input.root,
+      snapshot: snapshot(initial, frozen),
+      current: async () => snapshot(await read(), frozen),
+    });
   };
+}
+
+/** Publication of a paid result is fenced against a simultaneous permission edit. Call before taking material locks. */
+export async function lockNewsProcessingPermissions(articleIds: string[], tx: Tx) {
+  const materials = await newsMaterialBindings(articleIds, tx);
+  if (materials.length !== new Set(articleIds).size) throw new Error("新闻写回原材料缺失");
+  const policies = await Promise.all(
+    [...new Set(materials.map((m) => m.source_id))].sort().map(async (sourceId) => {
+      const policy = await readCurrentSourcePolicy(sourceId, tx);
+      if (!policy) throw new Error("新闻写回来源许可缺失");
+      return { sourceId, permissionVersion: policy.permission_version };
+    }),
+  );
+  await lockCurrentSourcePolicies(tx, policies);
+  for (const material of materials)
+    for (const capability of ["external_model", "process_locally"] as const) {
+      const decision = await evaluateSourcePolicy(
+        {
+          source_id: material.source_id,
+          lane: "news",
+          capability,
+          expected_permission_version: policies.find((p) => p.sourceId === material.source_id)!.permissionVersion,
+          resource: { url: material.url, attachment: false, document_type: null },
+        },
+        undefined,
+        tx,
+      );
+      if (decision.decision !== "allow") throw new Error("新闻结果写回前来源许可已收紧");
+    }
 }

@@ -357,7 +357,7 @@ export async function scheduleDueSources(limit = Number(process.env.FETCH_SCHEDU
     .slice(0, limit);
   let enqueued = 0;
   for (const r of ordered) {
-    const jobId = await enqueueSourceFetch(lane, { sourceId: r.id });
+    const jobId = await enqueueSourceFetch(lane, { sourceId: r.id, scheduled: true });
     await sql`UPDATE sources SET next_fetch_at = now() + interval '10 minutes' WHERE id = ${r.id}`;
     if (jobId) enqueued += 1;
   }
@@ -419,3 +419,5 @@ async function pacedCollectSource(
 export { pacedCollectSource as collectSource };
 
 export { directoryMaterialState, directoryCoverageEvidence } from "../acquisition/directory-read.ts";
+
+export { currentDirectoryMaterialMembership } from "../acquisition/directory-membership.ts";

@@ -4,7 +4,7 @@ import type { Route } from "./+types/home";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { apiBaseFor } from "../../api-target.ts";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
-import { contractResult, loadOr404, queryString, releaseBoundCache } from "../lib/api.server";
+import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, organizationLd, pageMeta } from "../lib/seo";
 import { Wordmark } from "../components/Logo";
 import { Timeline } from "../features/feed/Timeline";
@@ -51,15 +51,28 @@ export async function loader({ request }: Route.LoaderArgs) {
     { signal: request.signal },
   );
   // Until the first pick exists, the unfiltered home page shows the newest items of 全部动态 instead of
-  // an empty feed; it switches back to picks by itself (Owner, 2026-10-05; DEC-13).
-  const waiting = data.cards.length === 0 && channel === "all" && !category && !tag && !jurisdiction;
+  // an empty feed; it switches back to picks by itself (Owner, 2026-10-05; DEC-13). An empty three-month
+  // window is not that case: older picks still exist, so the page stays the featured entrance.
+  const unfilteredEmpty = data.cards.length === 0 && channel === "all" && !category && !tag && !jurisdiction;
+  const started = unfilteredEmpty ? await featuredHasStarted(request.signal) : false;
+  const waiting = unfilteredEmpty && !started;
   const latest = waiting ? await loadLatest(request.signal) : null;
   // A failed read must not be cached: the next request tries 全部动态 again.
-  const seconds = latest === "failed" ? 0 : 60;
   return withHeaders(
     { data, waiting, latest: typeof latest === "object" ? latest : null, filters: { channel, category, tag, topic: null, jurisdiction } },
-    { headers: releaseBoundCache(data.refreshAt, seconds, Date.now(), upstream) },
+    { headers: { "Cache-Control": "no-store" } },
   );
+}
+
+/** True when any 精选 exists, including ones outside the homepage window. A failed read counts as not started. */
+function featuredHasStarted(signal: AbortSignal) {
+  return createPublicClient({ baseUrl: apiBaseFor("/api/site/stats") })
+    .GET("/api/site/stats", {
+      headers: { accept: "application/json", "x-amp-ssr": "1" },
+      signal: AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
+    })
+    .then((result) => contractResult(result, publicSchemas.SiteStats).selected > 0)
+    .catch(() => false);
 }
 
 /** The first page of 全部动态; "empty" or "failed" when there is nothing to show (DR-85). */

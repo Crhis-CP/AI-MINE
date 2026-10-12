@@ -3,11 +3,14 @@ import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { Route } from "./+types/policy-report";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { PolicyReportDetailQuery } from "@amp/contracts/http/public";
+import { PolicyReportFilters } from "../features/policy/PolicyReportFilters";
 import { apiBaseFor } from "../../api-target.ts";
 import { pageMeta } from "../lib/seo.ts";
 import { PolicyError, policyCache, PolicyTabs, Section, timeLabel, policyHref, actionClass, usePolicyRecheck } from "../features/policy/PolicyUI";
 export async function loader({ request, params }: Route.LoaderArgs) {
-  const parsed = PolicyReportDetailQuery.safeParse(Object.fromEntries([...new URL(request.url).searchParams].filter(([key]) => key !== "_routes")));
+  const parsed = PolicyReportDetailQuery.safeParse(
+    Object.fromEntries([...new URL(request.url).searchParams].filter(([key, value]) => key !== "_routes" && value !== "")),
+  );
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports/{id}", {
     params: { path: { id: params.id }, query: parsed.data },
@@ -76,6 +79,11 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
       setBusy(false);
     }
   };
+  const filters = new URLSearchParams();
+  if (query.jurisdiction) filters.set("jurisdiction", query.jurisdiction);
+  if (query.theme) filters.set("theme", query.theme);
+  const editionHref = (edition?: number) =>
+    `/policies/reports/${encodeURIComponent(report.id)}?${new URLSearchParams({ ...Object.fromEntries(filters), ...(edition ? { edition: String(edition) } : {}) })}`;
   const kinds = { domestic: "境内", foreign: "境外", organizations: "欧盟与国际组织" };
   const labels = { period_change: "期间内来源变化", source_date_unknown: "来源日期尚未确认", backfill: "补录", interpretation_update: "解读更新" };
   const systemTime = (v: string) => new Date(v).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false });
@@ -90,11 +98,25 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
     );
   return (
     <article className="mx-auto max-w-[var(--page-max-reading)] pb-10 pt-5">
-      <Link to={`/policies/reports?kind=${report.type === "policy_weekly" ? "weekly" : "monthly"}`} className="text-[13px] text-accent">
+      <Link
+        to={`/policies/reports?${new URLSearchParams({ ...Object.fromEntries(filters), kind: report.type === "policy_weekly" ? "weekly" : "monthly" })}`}
+        className="text-[13px] text-accent"
+      >
         ← 返回法规汇总
       </Link>
       <h1 className="mt-4 text-[26px] font-semibold">{report.title}</h1>
       <PolicyTabs active={report.type === "policy_weekly" ? "weekly" : "monthly"} />
+      <PolicyReportFilters query={query} jurisdictions={report.coverage.map((row) => row.jurisdiction)} />
+      <nav aria-label="报告修订版本" className="mt-3 flex gap-4 text-[13px] text-accent">
+        {report.edition > 1 && report.correction_of && <Link to={editionHref(report.edition - 1)}>核对上一修订版</Link>}
+        {query.edition && <Link to={editionHref()}>查看最新修订</Link>}
+      </nav>
+      {report.change && (
+        <p className="mt-2 text-[12px] text-ink-3">
+          本次新增 {report.change.added} 条版本记录，移除 {report.change.removed} 条；
+          {report.change.reason === "initial" ? "首次汇编" : "公开版本或来源检查依据发生变化"}。
+        </p>
+      )}
       <p className="mt-4 text-[13px] text-ink-3">
         覆盖期间：{systemTime(report.period_start)} 至 {systemTime(report.period_end)}（右开，北京时间）
       </p>
@@ -123,6 +145,43 @@ function Report({ initial, query }: { initial: Awaited<ReturnType<typeof loader>
                   </p>
                   {v.public_after_period_end && <p>期末后公开：{timeLabel(v.first_public_at)}</p>}
                   <p>{v.summary}</p>
+                  {v.main_points?.length ? (
+                    <ul className="mt-2 list-disc pl-5">
+                      {v.main_points.map((point) => (
+                        <li key={`${point.clause_ref}:${point.text}`}>
+                          {point.clause_ref}：{point.text}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {v.impacts?.map((impact) => (
+                    <div key={impact.id} className="mt-2">
+                      <p>
+                        {impact.affected_actor}：{impact.impact}
+                      </p>
+                      <p>
+                        适用对象：{impact.legal_actor}；范围：{impact.region}
+                      </p>
+                      <p>
+                        {impact.condition && `条件：${impact.condition}`}；活动：{impact.activity}；{impact.effect_mode === "direct" ? "直接" : "间接"}影响
+                      </p>
+                      {impact.exceptions && <p>例外：{impact.exceptions}</p>}
+                      {impact.deadline && <p>期限：{timeLabel(impact.deadline)}</p>}
+                    </div>
+                  ))}
+                  {v.evidence_references?.length ? (
+                    <details className="mt-2">
+                      <summary>本版条款与影响依据</summary>
+                      {v.evidence_references.map((e) => (
+                        <p key={e.evidence_id}>
+                          <a className="text-accent" href={e.source.original_url} target="_blank" rel="noopener noreferrer">
+                            {e.source.title_original}
+                          </a>{" "}
+                          · {e.locator}：{e.excerpt}
+                        </p>
+                      ))}
+                    </details>
+                  ) : null}
                   <Link
                     className="text-accent"
                     to={`${policyHref(policy.id)}?${new URLSearchParams({ policy_version_id: v.policy_version_id, expression_id: v.expression_id, document_revision_id: v.document_revision_id })}`}

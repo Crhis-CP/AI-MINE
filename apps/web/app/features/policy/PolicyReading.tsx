@@ -11,7 +11,7 @@ function label(expression: Expression) {
   return expression.kind === "ai_translation"
     ? "AI 翻译（非官方译文）"
     : expression.kind === "official_translation"
-      ? `官方中文译本（发布机关：${expression.issuing_body}）`
+      ? `官方译本 ${expression.language}（发布机关：${expression.issuing_body}）`
       : expression.language.startsWith("zh")
         ? "正文"
         : `原文 · ${expression.language}`;
@@ -19,8 +19,19 @@ function label(expression: Expression) {
 function Block({ block, language }: { block: Page["blocks"][number]; language: string }) {
   return (
     <div className="min-w-0 py-3 text-[15px] leading-7 text-ink-2" lang={language}>
-      {block.kind === "heading" ? <h3 className="font-semibold text-ink">{block.text}</h3> : <p className="whitespace-pre-wrap break-words">{block.text}</p>}
-      {block.table_rows && (
+      {block.semantic_html ? (
+        // Server projection accepts only static legal markup and strips scripts, event attributes, styles and embedded media.
+        <div
+          className="break-words [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: The publisher applies policySemanticHtml to every block; scripts, handlers, styles and media are removed.
+          dangerouslySetInnerHTML={{ __html: block.semantic_html }}
+        />
+      ) : block.kind === "heading" ? (
+        <h3 className="font-semibold text-ink">{block.text}</h3>
+      ) : (
+        <p className="whitespace-pre-wrap break-words">{block.text}</p>
+      )}
+      {!block.semantic_html && block.table_rows && (
         <section
           aria-label={`${block.block_id} ${language}表格`}
           // biome-ignore lint/a11y/noNoninteractiveTabindex: Table scroll regions need keyboard access.
@@ -43,6 +54,23 @@ function Block({ block, language }: { block: Page["blocks"][number]; language: s
           </table>
         </section>
       )}
+      {block.source_annotations?.length ? (
+        <details className="mt-2 text-[12px] text-ink-3">
+          <summary>原文结构化标注</summary>
+          <dl>
+            {block.source_annotations.map((a) => (
+              <div key={a.annotation_id}>
+                <dt>
+                  {a.name} · {{ self: "本节点", ancestor: "上级节点", descendant: "下级节点" }[a.scope]}
+                </dt>
+                <dd>
+                  {a.value} <span className="break-all">（{a.locator}）</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
       <EvidenceLinks ids={block.evidence_ids} />
       {block.links.map((link) => (
         <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer" className="ml-2 text-[12px] text-accent underline">

@@ -17,6 +17,7 @@ export async function policyPublicId(kind: string, internalId: string, db: Db = 
 
 import { Policy } from "@amp/contracts/http/public";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
+import { policyProcessingNotice } from "../policy/processing-notice.ts";
 import { readPolicyMetadataObservation } from "../policy/metadata.ts";
 import { readPolicyOriginal, assertOriginalPermissions } from "../policy/originals.ts";
 import { loadPolicyInterpretation } from "../policy/interpretation-runtime.ts";
@@ -61,7 +62,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
   if (loaded && (loaded.run.plan.context.expressionId !== input.expressionId || loaded.run.snapshot.revisionId !== snapshot.revisionId))
     return pending("stale");
   const interpretation = input.fulltextRunId ? await loadPolicyInterpretation(input.fulltextRunId) : null;
-  const excluded = interpretation?.status === "excluded" && interpretation.candidate?.relevance === "excluded";
+  const excluded = interpretation?.status === "excluded" && interpretation.semantic_verified && interpretation.candidate?.relevance === "excluded";
   const fulltext = loaded
     ? validatePolicyFulltextCandidate(
         loaded.run.plan,
@@ -109,6 +110,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
   const originalContentKey = originalHashes.every(([, hash]) => hash)
     ? sha256(stableJson([native.version_id, snapshot.language, originalHashes]))
     : snapshot.revisionId;
+  const processingNotice = await policyProcessingNotice(input.expressionId);
   const factsKey = {
     title: meta.originalTitle,
     titleZh: meta.titleZh ?? null,
@@ -117,6 +119,8 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     jurisdiction: meta.jurisdiction,
     documentType: meta.documentType,
     url: meta.officialUrl,
+    publicationDate: meta.publicationDate ?? null,
+    processingNotice,
   };
   const contentHash = sha256(
     stableJson([
@@ -124,7 +128,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
       factsKey,
       fulltext?.status === "program_validated" ? fulltext.accepted : null,
       complete ? candidate : null,
-      "policy-public-1",
+      "policy-public-2",
     ]),
   );
   const write = async (db: Db) => {
@@ -184,7 +188,40 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     if (!basic) return pending("identity");
     basic.expressions[0]!.language = snapshot.language;
     basic.expressions[0]!.kind = native.kind;
+    for (const resource of snapshot.resources.filter((r) => r.attachment)) {
+      const visible = await evaluateSourcePolicy(
+        {
+          source_id: snapshot.sourceId,
+          expected_permission_version: snapshot.permissionVersion,
+          lane: "policy",
+          capability: "public_excerpt",
+          resource: { url: resource.url, document_type: meta.documentType, attachment: true },
+        },
+        undefined,
+        db,
+      );
+      if (visible.decision === "allow")
+        basic.attachment_inventory.push({
+          title: new URL(resource.url).pathname.split("/").at(-1) || "附件",
+          url: resource.url,
+          decisive: resource.required,
+          rights: "public",
+          status: resource.state === "acquired" ? "complete" : resource.state === "blocked_capacity" ? "blocked_capacity" : "missing",
+        });
+    }
+    const gaps = [
+      ...(!snapshot.manifest.catalogueClosed ? ["附件目录尚未闭合"] : []),
+      ...basic.attachment_inventory
+        .filter((a) => a.decisive && a.status !== "complete")
+        .map((a) => `决定性附件${a.status === "blocked_capacity" ? "容量受阻" : "尚未取得"}：${a.title}`),
+      ...(processingNotice ? [processingNotice] : []),
+    ];
+    if (gaps.length) basic.gaps = [...new Set(gaps)].slice(0, 5);
     const evidenceIds: Record<string, string> = {};
+    const annotationIds: Record<string, string> = {};
+    for (const part of loaded?.run.plan.parts ?? [])
+      for (const annotation of part.annotations ?? [])
+        annotationIds[annotation.annotation_id] ??= await policyPublicId("annotation", `${editionId}:${annotation.annotation_id}`, db);
     if (candidate) for (const e of candidate.evidence) evidenceIds[e.id] = await policyPublicId("evidence", `${editionId}:${e.id}`, db);
     const streams: Record<
       string,
@@ -197,15 +234,15 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
         for (const part of entries) {
           const checked = fulltext.accepted.find((p) => p.partId === part.partId)!;
           const refs = candidate?.evidence.filter((e) => e.part_id === part.partId).map((e) => evidenceIds[e.id]!) ?? [];
-          result.push(
-            readingBlock(
-              await policyPublicId("block", `${editionId}:${translated}:${part.partId}`, db),
-              translated ? checked.content : part.source,
-              part.format,
-              part.resourceUrl,
-              refs,
-            ),
+          const block = readingBlock(
+            await policyPublicId("block", `${editionId}:${part.partId}`, db),
+            translated ? checked.content : part.source,
+            part.format,
+            part.resourceUrl,
+            refs,
           );
+          if (part.annotations?.length) block.source_annotations = part.annotations.map((a) => ({ ...a, annotation_id: annotationIds[a.annotation_id]! }));
+          result.push(block);
         }
         return result;
       };
@@ -245,16 +282,7 @@ export async function publishPolicyPublication(input: { expressionId: string; fu
     }
     let full: Policy | null = null;
     if (complete && candidate && loaded) {
-      basic.attachment_inventory = snapshot.resources
-        .filter((r) => r.attachment)
-        .map((r) => ({
-          title: new URL(r.url).pathname.split("/").at(-1) || "附件",
-          url: r.url,
-          decisive: r.required,
-          rights: "public",
-          status: r.state === "acquired" ? "complete" : "missing",
-        }));
-      const projected = completePolicy(basic, candidate, loaded.run, evidenceIds);
+      const projected = completePolicy(basic, candidate, loaded.run, evidenceIds, annotationIds, meta.discoveredAt);
       if (projected.success) full = projected.data;
     }
     // Never reuse a model guide as a basic-facts summary. Basic remains the independently captured metadata projection.

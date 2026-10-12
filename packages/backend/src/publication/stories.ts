@@ -1,7 +1,14 @@
+import type { z } from "zod";
+import type { V3EventsQuery } from "@amp/contracts/http/v3";
+import { addDays, beijingMidnight } from "@amp/contracts/time";
+import { newsJurisdictionScope, readPublicStoryDirectory } from "./items.ts";
+import { readMatcherValues } from "./mentions.ts";
+import { searchTerms } from "./pool.ts";
+import { loadTopicTags } from "./topics.ts";
 // Stories (events) and the hot ranking through the public read layer. The website sees heat values;
 // v1 / MCP / Skill only see ranks and counts.
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
-import { dbOf } from "../db.ts";
+import { dbOf, withCustomPlans } from "../db.ts";
 import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
 import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
@@ -316,4 +323,32 @@ export async function v1Story(storyId: number) {
       related: neighbors.filter((n) => n.relation === "related"),
     },
   };
+}
+
+export async function publicStoryVersion(id: number): Promise<number> {
+  const [row] = await sql<{ version: number }[]>`SELECT version FROM stories WHERE id=${id}`;
+  return row?.version ?? 1;
+}
+/** Narrow event directory from the same currently public, eligible material scope. */
+export async function publicStoryDirectory(q: z.infer<typeof V3EventsQuery>) {
+  const topic = q.topic ? await loadTopicTags(q.topic) : null;
+  if (q.topic && !topic) return [];
+  const now = new Date(),
+    geo = newsJurisdictionScope(q.jurisdiction),
+    start = q.on ?? q.from,
+    end = q.on ?? q.to;
+  const matchers = readMatcherValues(q.mineral, topic, geo.jurisdictionCodes, searchTerms(q.q ?? ""));
+  const query = {
+    category: q.category ?? null,
+    source: q.source ?? null,
+    jurisdiction: q.jurisdiction ?? null,
+    jurisdictionCodes: geo.jurisdictionCodes,
+    jurisdictionRecipe: geo.jurisdictionRecipe,
+    rangeStart: start ? beijingMidnight(start) : null,
+    rangeEnd: end ? beijingMidnight(addDays(end, 1)) : null,
+    selected: q.view === "featured",
+    merged: q.status === "merged",
+    now,
+  };
+  return withCustomPlans((db) => readPublicStoryDirectory(db, query, matchers));
 }

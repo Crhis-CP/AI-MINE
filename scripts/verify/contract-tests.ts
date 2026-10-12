@@ -281,7 +281,9 @@ if (process.argv.includes("--routes")) {
       [
         "public",
         [
+          "/api/site/content-version",
           "/api/site/information",
+          "/api/site/items/saved",
           "/api/site/jurisdictions",
           "/api/site/metal-prices",
           "/api/site/policies",
@@ -298,6 +300,32 @@ if (process.argv.includes("--routes")) {
           "/api/v1/policies",
           "/api/v1/policies/{id}",
           "/api/v1/policies/{id}/history",
+          "/api/v3/changelog",
+          "/api/v3/events",
+          "/api/v3/events/{id}",
+          "/api/v3/featured/changes",
+          "/api/v3/featured/snapshot",
+          "/api/v3/freshness",
+          "/api/v3/hot",
+          "/api/v3/items",
+          "/api/v3/items/{id}",
+          "/api/v3/items/{id}/reading",
+          "/api/v3/jurisdictions",
+          "/api/v3/policies",
+          "/api/v3/policies/reports",
+          "/api/v3/policies/reports/{id}",
+          "/api/v3/policies/scope",
+          "/api/v3/policies/{id}",
+          "/api/v3/policies/{id}/history",
+          "/api/v3/policies/{id}/reading",
+          "/api/v3/policy-threads/{id}",
+          "/api/v3/reports",
+          "/api/v3/reports/{id}",
+          "/api/v3/saved",
+          "/api/v3/stories/{id}",
+          "/api/v3/topics",
+          "/api/v3/topics/{id}",
+          "/api/v3/version",
         ],
         "LoginOptions",
       ],
@@ -323,6 +351,8 @@ if (process.argv.includes("--routes")) {
           "/api/admin/runs",
           "/api/admin/selectbench/control",
           "/api/admin/selectbench/holdout-confirm",
+          "/api/admin/selectbench/prefilter-audit",
+          "/api/admin/selectbench/prefilter-audit/{articleId}",
           "/api/admin/selectbench/samples",
           "/api/admin/selectbench/samples/{datasetId}/{caseId}",
           "/api/admin/selectbench/standard-review",
@@ -352,8 +382,15 @@ if (process.argv.includes("--routes")) {
       assert.ok(!json.includes(absent));
       for (const route of routes)
         for (const [status, response] of Object.entries((doc.paths[route].get ?? doc.paths[route].post ?? doc.paths[route].put).responses)) {
-          if (Number(status) >= 400) assert.deepEqual(Object.keys((response as { content: object }).content), ["application/problem+json"]);
+          if (Number(status) >= 400)
+            assert.deepEqual(Object.keys((response as { content: object }).content), [
+              route.startsWith("/api/v3/") ? "application/json" : "application/problem+json",
+            ]);
         }
     }
+    const publicV3 = JSON.parse(readFileSync(new URL("../../reference/contracts/v3.openapi.json", import.meta.url), "utf8"));
+    assert.ok(Object.keys(publicV3.paths).every((path) => path.startsWith("/api/v3/")));
+    for (const name of ["MetalPrices", "LoginOptions", "ContentVersion", "SourceRecord"]) assert.ok(!publicV3.components.schemas[name]);
+    for (const route of ["/api/v3/items", "/api/v3/reports", "/api/v3/policies", "/api/v3/freshness"]) assert.ok(publicV3.paths[route]);
   });
 }

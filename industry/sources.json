@@ -13,7 +13,11 @@
         "titleSelector": "a",
         "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
         "publishedAtUtcOffset": "+08:00",
-        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        },
         "allowUrlPrefixes": ["https://www.mee.gov.cn/zcwj/"]
       },
       "tier": "T1",
@@ -36,7 +40,11 @@
         "titleSelector": "a",
         "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
         "publishedAtUtcOffset": "+08:00",
-        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        },
         "allowUrlPrefixes": ["https://www.mem.gov.cn/gk/"]
       },
       "tier": "T1",
@@ -59,7 +67,11 @@
         "titleSelector": "a",
         "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
         "publishedAtUtcOffset": "+08:00",
-        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        },
         "allowUrlPrefixes": ["https://zrzy.guizhou.gov.cn/"]
       },
       "tier": "T1",
@@ -82,7 +94,11 @@
         "titleSelector": "a",
         "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
         "publishedAtUtcOffset": "+08:00",
-        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        },
         "allowUrlPrefixes": ["https://zrzyt.hlj.gov.cn/"]
       },
       "tier": "T1",
@@ -105,7 +121,11 @@
         "titleSelector": "a",
         "publishedAtRegex": "(\\d{4}\\.\\d{2}\\.\\d{2})",
         "publishedAtUtcOffset": "+08:00",
-        "sourceDate": { "format": "declared", "formatPattern": "YYYY.MM.DD", "language": "zh-CN" },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY.MM.DD",
+          "language": "zh-CN"
+        },
         "allowUrlPrefixes": ["https://zrzyt.fujian.gov.cn/"]
       },
       "tier": "T1",
@@ -208,7 +228,11 @@
         "titleSelector": "a",
         "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
         "publishedAtUtcOffset": "+08:00",
-        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        },
         "allowUrlPrefixes": ["https://sthjt.fujian.gov.cn/"]
       },
       "tier": "T1",
@@ -331,13 +355,3385 @@
         "titleSelector": "a",
         "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
         "publishedAtUtcOffset": "+08:00",
-        "sourceDate": { "format": "declared", "formatPattern": "YYYY-MM-DD", "language": "zh-CN" },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        },
         "allowUrlPrefixes": ["https://swt.fujian.gov.cn/"]
       },
       "tier": "T1",
       "first_party": true,
       "interval_minutes": 60,
       "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mohurd-rules",
+      "name": "住房和城乡建设部 · 规章",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mohurd.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.smLinkList-wrapper > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://www.mohurd.gov.cn/gongkai/zhengce/gzk/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "chinatax-news",
+      "name": "国家税务总局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.chinatax.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul#szywcont1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://www.chinatax.gov.cn/chinatax/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ah-nr-news",
+      "name": "安徽省自然资源厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zrzyt.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul#ctab2 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zrzyt.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "yn-nr-notices",
+      "name": "云南省自然资源厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dnr.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.zwgk-extract-others > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://dnr.yn.gov.cn/html/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xj-finance-news",
+      "name": "新疆维吾尔自治区财政厅 · 政策解读",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.infolist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.xinjiang.gov.cn/xjczt/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hlj-finance-news",
+      "name": "黑龙江省财政厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.newslist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sx-emergency-news",
+      "name": "山西省应急管理厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjt.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.news-list1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjt.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-transport-notices",
+      "name": "福建省交通运输厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jtyst.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.smgb-xw-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jtyst.fujian.gov.cn/zwgk/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ha-finance-news",
+      "name": "河南省财政厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.czul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sx-finance-news",
+      "name": "山西省财政厅 · 财政数据",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ol.newulli > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ah-ecology-notices",
+      "name": "安徽省生态环境厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthjt.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul#ibtab1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sthjt.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "yn-ecology-news",
+      "name": "云南省生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthjt.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.list-ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sthjt.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xj-hrss-news",
+      "name": "新疆维吾尔自治区人力资源和社会保障厅 · 政策法规",
+      "kind": "web_list",
+      "config": {
+        "url": "https://rst.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.news-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://rst.xinjiang.gov.cn/xjrst/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xj-transport-news",
+      "name": "新疆维吾尔自治区交通运输厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jtyst.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.ito_list ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jtyst.xinjiang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hlj-emergency-news",
+      "name": "黑龙江省应急管理厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjgl.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjgl.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ha-nr-news",
+      "name": "河南省自然资源厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dnr.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.bd ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://dnr.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nmg-nr-news",
+      "name": "内蒙古自治区自然资源厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zrzy.nmg.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.lists ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zrzy.nmg.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-emergency-notices",
+      "name": "福建省应急管理厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjt.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.list_base ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjt.fujian.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sx-ecology-news",
+      "name": "山西省生态环境厅 · 监测信息",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthjt.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.ac-list ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sthjt.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xj-water-news",
+      "name": "新疆维吾尔自治区水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://slt.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.panel-xw-list-active ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://slt.xinjiang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh-CN"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lcj-yn-news",
+      "name": "云南林业和草原局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lcj.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#con0 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://lcj.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jtyst-yn-news",
+      "name": "云南省交通运输厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jtyst.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.imgnewR > div.layui-tab > div.layui-tab-content > div.layui-tab-item > ul.new > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jtyst.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zfcxjst-yn-news",
+      "name": "云南省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zfcxjst.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.first-item > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zfcxjst.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nync-yn-news",
+      "name": "云南省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nync.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.zwgk-tab > div.zwgk-content-list > div.content-list > ul > li > div.tab-text-title",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nync.yn.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ynswsjkw-yn-news",
+      "name": "云南省卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://ynswsjkw.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.lay > div.content > div.lay4_right > div.lay4_tablist > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://ynswsjkw.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "amr-yn-news",
+      "name": "云南省市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://amr.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.container > div.pull-left > div.tab-content > div#news-tabs04 > ul.news-list > li.txt-elise",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://amr.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "yjglt-yn-news",
+      "name": "云南省应急管理厅 · 动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjglt.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#con0 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjglt.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wcb-yn-news",
+      "name": "云南省水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wcb.yn.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.layer04-left > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wcb.yn.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mot-news",
+      "name": "交通运输部 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mot.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#transport-news > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://www.mot.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "czt-nmg-news",
+      "name": "内蒙古财政厅 · 新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.nmg.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.news-listing > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.nmg.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jllc-jl-news",
+      "name": "吉林林业和草原局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jllc.jl.gov.cn/wap.html",
+        "language": "zh-CN",
+        "itemSelector": "section.contents > section.ztzl > div.tab-container > div.tab-con1 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jllc.jl.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hrss-jl-news",
+      "name": "吉林省人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hrss.jl.gov.cn/index.html",
+        "language": "zh-CN",
+        "itemSelector": "div.wang-left-top1-rig > div#tabBox1 > div.tabCon > div.tCon > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://hrss.jl.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jst-jl-news",
+      "name": "吉林省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jst.jl.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.news_list > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jst.jl.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "agri-jl-news",
+      "name": "吉林省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://agri.jl.gov.cn/wap.html",
+        "language": "zh-CN",
+        "itemSelector": "ul.yjzz_r > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://agri.jl.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "yjt-jl-news",
+      "name": "吉林省应急管理厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjt.jl.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.yjgl-1200 > div.yjgl-banner > dl.tab-xxk > dd > ul.lsn > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjt.jl.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sthjt-jl-news",
+      "name": "吉林省生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthjt.jl.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.szyw > div > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sthjt.jl.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "czt-jl-news",
+      "name": "吉林省财政厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.jl.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.w_1200 > div.newsBox_left > div#zcjdfg_main > div.tab_main > ul.ul_main > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.jl.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xj-chinamine-safety-news",
+      "name": "国家矿山安全监察局--新疆局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://xj.chinamine-safety.gov.cn/web/webIndex.shtml",
+        "language": "zh-CN",
+        "itemSelector": "div.left-cont-bolun > div.bottom-lunbo-01 > div.contee > div.item > ul.new-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://xj.chinamine-safety.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "fj-chinamine-safety-news",
+      "name": "国家矿山安全监察局--福建局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://fj.chinamine-safety.gov.cn/index.html",
+        "language": "zh-CN",
+        "itemSelector": "div.webW > div.in_news > div.in_tabnews > div#tab_news > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://fj.chinamine-safety.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lyj-ah-news",
+      "name": "安徽林业局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lyj.ah.gov.cn/index.html",
+        "language": "zh-CN",
+        "itemSelector": "div.bot10 > div.ind_news > div.ind_list > div#atab1 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://lyj.ah.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jtt-ah-news",
+      "name": "安徽省交通运输厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jtt.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#ctab01 > div.wyk_left > div.ind_gklist > ul#wykatab02 > li.lang1 > span.nr",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jtt.ah.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hrss-ah-news",
+      "name": "安徽省人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hrss.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul#zztab1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://hrss.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "dohurd-ah-news",
+      "name": "安徽省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dohurd.ah.gov.cn/index.html",
+        "language": "zh-CN",
+        "itemSelector": "div.ls-newsbox > div > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://dohurd.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nync-ah-news",
+      "name": "安徽省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nync.ah.gov.cn/index.html",
+        "language": "zh-CN",
+        "itemSelector": "div.tzgg_wz > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nync.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wjw-ah-news",
+      "name": "安徽省卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wjw.ah.gov.cn/index.html",
+        "language": "zh-CN",
+        "itemSelector": "ul.collect-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wjw.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "commerce-ah-news",
+      "name": "安徽省商务厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://commerce.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#btab04 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://commerce.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gzw-ah-news",
+      "name": "安徽省国有资产监督管理委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://gzw.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.xw_list > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://gzw.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "amr-ah-news",
+      "name": "安徽省市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://amr.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div > div.ind_gkmbox > div.ind_gklist > ul#ctab2 > li > div.nr",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://amr.ah.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "yjt-ah-news",
+      "name": "安徽省应急管理厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjt.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.ls-list-info > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjt.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "slt-ah-news",
+      "name": "安徽省水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://slt.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#atab2 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://slt.ah.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "czt-ah-news",
+      "name": "安徽省财政厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://czt.ah.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.ind-mainbox > div.ind-ccyw > div#ind-news > div.dbt-list > ul.list1 > h2.title",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://czt.ah.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lcj-shanxi-news",
+      "name": "山西林业和草原局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lcj.shanxi.gov.cn/zxyw/tzgg/",
+        "language": "zh-CN",
+        "itemSelector": "ul.main-listcon-items_box > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://lcj.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jtyst-shanxi-news",
+      "name": "山西省交通运输厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jtyst.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div > div.column3 > div.column3lp > div.column3lp_3 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jtyst.shanxi.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zjt-shanxi-news",
+      "name": "山西省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zjt.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.xxknb > div.xxkkd2 > div.yyui_tab_card > div.yyui_tab_content > ol.text_olli > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zjt.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nynct-shanxi-news",
+      "name": "山西省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nynct.shanxi.gov.cn/xxgk/tzgg/",
+        "language": "zh-CN",
+        "itemSelector": "div#navbox > div.cont > div#tab3 > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nynct.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}\\.\\d{2}\\.\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY.MM.DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wjw-shanxi-news",
+      "name": "山西省卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wjw.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#wrap > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wjw.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "swt-shanxi-news",
+      "name": "山西省商务厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://swt.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.before > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://swt.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "slt-shanxi-news",
+      "name": "山西省水利厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://slt.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.yyui_tab_content_this > ol.xxkgao > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://slt.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nyj-shanxi-news",
+      "name": "山西省能源局 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nyj.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.nyjkd1 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nyj.shanxi.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zrzyt-shanxi-news",
+      "name": "山西省自然资源厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zrzyt.shanxi.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.width-full > div.width-full > div.win380 > div.width-full > div.width-full > div.flex-1",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zrzyt.shanxi.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zjt-xinjiang-news",
+      "name": "新疆住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zjt.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.container-1200 > div.line > div#hd-list > div.common-list-container > ul.common-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zjt.xinjiang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nynct-xinjiang-news",
+      "name": "新疆农业农村厅 · 通知公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nynct.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.container-1200 > div.line1 > div.line1-left > div.common-list-container > ul.common-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nynct.xinjiang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wjw-xinjiang-news",
+      "name": "新疆卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wjw.xinjiang.gov.cn/hfpc/index.shtml",
+        "language": "zh-CN",
+        "itemSelector": "div.container > div.bannerbox > div.hydt > div.content > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wjw.xinjiang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "swt-xinjiang-news",
+      "name": "新疆商务厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://swt.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.main-content > div.news > div#news-right > div.common-list-container > ul.common-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://swt.xinjiang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "scjgj-xinjiang-news",
+      "name": "新疆市场监督管理局 · 公告",
+      "kind": "web_list",
+      "config": {
+        "url": "https://scjgj.xinjiang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.container > div.b_con > div.b_right > div.br_bd_box > ul.br_bd > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://scjgj.xinjiang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lyj-henan-news",
+      "name": "河南林业和草原局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lyj.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.fgwjlist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://lyj.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jtyst-henan-news",
+      "name": "河南省交通运输厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jtyst.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#outerBox_dh > div.boxone > div.boxonefr > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jtyst.henan.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hrss-henan-news",
+      "name": "河南省人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hrss.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#marqueedivff8080816a8cc65c016ab4226ed91af7 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://hrss.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hnjs-henan-news",
+      "name": "河南省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hnjs.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.newsBox > div.mt30 > div.slideTxtBox > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://hnjs.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nynct-henan-news",
+      "name": "河南省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nynct.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.slidebox > div.slideRight > div.tabslide > div.bd > ul.newsList > li.cl",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nynct.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wsjkw-henan-news",
+      "name": "河南省卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wsjkw.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.main > div.w-1200 > div.slideTxtBox1 > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wsjkw.henan.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hnsswt-henan-news",
+      "name": "河南省商务厅 · 资讯",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hnsswt.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.navtab > div.zwgk-r > div.slide-box > div.newslist > div.news-item > div.news-li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://hnsswt.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}\\.\\d{2}\\.\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY.MM.DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gzw-henan-news",
+      "name": "河南省国有资产监督管理委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://gzw.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.content > div.cl > div.slideBox3 > div.bd > ul.news-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://gzw.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "scjg-henan-news",
+      "name": "河南省市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://scjg.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.gsItem > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://scjg.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "yjglt-henan-news",
+      "name": "河南省应急管理厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjglt.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.w1200 > div.newsBox > div.slideTxtBox > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjglt.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "slt-henan-news",
+      "name": "河南省水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://slt.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.slfg > div.tab-bd > div.tab-pal > div.view2 > ul#wzdq > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://slt.henan.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sthjt-henan-news",
+      "name": "河南省生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthjt.henan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.newsPage > div.sub > div.slideTxtBox > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sthjt.henan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gzw-hunan-news",
+      "name": "湖南省国有资产监督管理委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://gzw.hunan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.block-third > div.fn-clear > div.j-tabs > div.content > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://gzw.hunan.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "amr-hunan-news",
+      "name": "湖南省市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://amr.hunan.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.picList > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://amr.hunan.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lyj-fujian-news",
+      "name": "福建林业局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lyj.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#tabTabqh_3 > div > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://lyj.fujian.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wjw-fj-news",
+      "name": "福建省卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wjw.fj.gov.cn/ztzl/jkjy/",
+        "language": "zh-CN",
+        "itemSelector": "div.news > div.focus > div.focusBox > div.txt > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wjw.fj.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gzw-fujian-news",
+      "name": "福建省国有资产监督管理委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://gzw.fujian.gov.cn/zwgk/",
+        "language": "zh-CN",
+        "itemSelector": "div.white-box > div.jdhy-qh > div#tabTzgg > div.bd > ul.xw-list-1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://gzw.fujian.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "scjgj-fujian-news",
+      "name": "福建省市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://scjgj.fujian.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#tabTzgg > div.tabs > div.tabs_content > div.list_base > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://scjgj.fujian.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jtt-xizang-news",
+      "name": "西藏交通运输厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jtt.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.yjzj-list1 > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jtt.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hrss-xizang-news",
+      "name": "西藏人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hrss.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.cm-tab > div.tabContent > div.tabItem > div.home-list1 > ul.cm-news-list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://hrss.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zjt-xizang-news",
+      "name": "西藏住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zjt.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.gray > div.xhy-c1 > div.xhy-c1b > div.xhy-carousel > ul.xhy-carousel-text > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zjt.xizang.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nynct-xizang-news",
+      "name": "西藏农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nynct.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.centerWidth > div.i-w2 > div.i-w2c1 > div.i-tab > ul.i-item > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nynct.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wjw-xizang-news",
+      "name": "西藏卫生健康委员会 · 动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wjw.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.s_concern > div.s_concern_body > div.s_concern_body_right > div > ul.s_dtlb > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wjw.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "swt-xizang-news",
+      "name": "西藏商务厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://swt.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.nsf-home-hdjlpie > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://swt.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "amr-xizang-news",
+      "name": "西藏市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://amr.xizang.gov.cn/index.htm",
+        "language": "zh-CN",
+        "itemSelector": "ul.ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://amr.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}/\\d{2}/\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY/MM/DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "yjt-xizang-news",
+      "name": "西藏应急管理厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://yjt.xizang.gov.cn/p1/index.html",
+        "language": "zh-CN",
+        "itemSelector": "div.zzqhd > div.view2 > div.tab-bd > div.tab-pal > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://yjt.xizang.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "xzly-news",
+      "name": "西藏林业和草原局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://www.xzly.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#lingye-section > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://www.xzly.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}/\\d{2}/\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY/MM/DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "slt-xizang-news",
+      "name": "西藏水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://slt.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.home-news > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://slt.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ee-xizang-news",
+      "name": "西藏生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://ee.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.text3 > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://ee.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}/\\d{2}/\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY/MM/DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zrzyt-xizang-news",
+      "name": "西藏自然资源厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zrzyt.xizang.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.tab-items > div.items > div.lf > div.fun2 > ul.tab_list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zrzyt.xizang.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mof-news",
+      "name": "财政部 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mof.gov.cn/index.htm",
+        "language": "zh-CN",
+        "itemSelector": "div.mainbox > div.czblunbosmall > div#slideBoxsamll > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://www.mof.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lyj-guizhou-news",
+      "name": "贵州林业局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lyj.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.w1400 > div.Part4 > div#policyFile > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://lyj.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jt-guizhou-news",
+      "name": "贵州省交通运输厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jt.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.row1 > div.w1200 > div.yw > div.tab_bd > ul.item > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jt.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "rst-guizhou-news",
+      "name": "贵州省人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://rst.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://rst.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zfcxjst-guizhou-news",
+      "name": "贵州省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zfcxjst.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.w1400 > div#zwgk > div#NewsList_1 > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zfcxjst.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nynct-guizhou-news",
+      "name": "贵州省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nynct.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.info_Subcont > div > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nynct.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wjw-guizhou-news",
+      "name": "贵州省卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://wjw.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.ZcwjPart > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://wjw.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "swt-guizhou-news",
+      "name": "贵州省商务厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://swt.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div#zwgkBox > div.jcxxgk > div.zcwjBox > div.bds > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://swt.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gzw-guizhou-news",
+      "name": "贵州省国有资产监督管理委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://gzw.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.xxcon > ul.tab-bd > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://gzw.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "amr-guizhou-news",
+      "name": "贵州省市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://amr.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul.tzggts > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://amr.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mwr-guizhou-news",
+      "name": "贵州省水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://mwr.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.Con_box > div.box_r > div.NewsList > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://mwr.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sthj-guizhou-news",
+      "name": "贵州省生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sthj.guizhou.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.ind_zwgk > div.ind_zcwj > div#zcwj_list > div.bd > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sthj.guizhou.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lcj-qinghai-news",
+      "name": "青海林业和草原局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lcj.qinghai.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.news-tabs1 > div > div",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://lcj.qinghai.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "rst-qinghai-news",
+      "name": "青海省人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://rst.qinghai.gov.cn/zxzx.html",
+        "language": "zh-CN",
+        "itemSelector": "div.nr > div.ztbd > div.nr > div.tMenubox5 > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://rst.qinghai.gov.cn/"]
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "lyhcyj-hlj-news",
+      "name": "黑龙江林业和草原局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://lyhcyj.hlj.gov.cn/lyhcyj/index.shtml",
+        "language": "zh-CN",
+        "itemSelector": "div.contpad > ul.newslist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://lyhcyj.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "jt-hlj-news",
+      "name": "黑龙江省交通运输厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://jt.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.zcc > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://jt.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "hrss-hlj-news",
+      "name": "黑龙江省人力资源和社会保障厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://hrss.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.container > div.zcwj > div.bd > div.zcc > ul.list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://hrss.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "zfcxjst-hlj-news",
+      "name": "黑龙江省住房和城乡建设厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://zfcxjst.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.common_row > div.home_bmdt > div.bd > div.item > ul.newslist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://zfcxjst.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "nynct-hlj-news",
+      "name": "黑龙江省农业农村厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://nynct.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "ul#ywxx_list > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://nynct.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "wsjkw-hlj-news",
+      "name": "黑龙江省卫生健康委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://wsjkw.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.zcc > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://wsjkw.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sswt-hlj-news",
+      "name": "黑龙江省商务厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://sswt.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.zcc > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://sswt.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gzw-hlj-news",
+      "name": "黑龙江省国有资产监督管理委员会 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://gzw.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.home_col_l > div.bd > div.item > ul.newslist > li > h4",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://gzw.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "amr-hlj-news",
+      "name": "黑龙江省市场监督管理局 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://amr.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.common_row > div.home_bmdt > div.bd > div.item > ul.newslist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://amr.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "slt-hlj-news",
+      "name": "黑龙江省水利厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://slt.hlj.gov.cn/slt/index.shtml",
+        "language": "zh-CN",
+        "itemSelector": "div.zcc > ul > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://slt.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "sthj-hlj-news",
+      "name": "黑龙江省生态环境厅 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "http://sthj.hlj.gov.cn/",
+        "language": "zh-CN",
+        "itemSelector": "div.common_row > div.home_bmdt > div.bd > div.item > ul.newslist > li",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["http://sthj.hlj.gov.cn/"],
+        "publishedAtRegex": "(\\d{4}-\\d{2}-\\d{2})",
+        "publishedAtUtcOffset": "+08:00",
+        "sourceDate": {
+          "format": "declared",
+          "language": "zh-CN",
+          "formatPattern": "YYYY-MM-DD"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CN"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "mining-com-news",
+      "name": "MINING.COM · 矿业新闻",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mining.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.mining.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "interval_minutes": 60,
+      "tags": ["CA"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "guyanastandard-news",
+      "name": "圭亚那标准报 · 要闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.guyanastandard.com/",
+        "language": "en",
+        "itemSelector": "div.td-pb-row > div.td-pb-span8 > div.td-ss-main-content > div.td_module_11 > div.item-details > h3.entry-title",
+        "linkSelector": "a[href]",
+        "titleSelector": "a",
+        "publishedAtRegex": "(\\d{4}/\\d{2}/\\d{2})",
+        "publishedAtUtcOffset": "-04:00",
+        "allowUrlPrefixes": ["https://www.guyanastandard.com/"],
+        "sourceDate": {
+          "format": "declared",
+          "language": "en",
+          "formatPattern": "YYYY/MM/DD"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "interval_minutes": 60,
+      "tags": ["GY"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gy-inews-oil",
+      "name": "爱圭亚那新闻 · 油气",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://inewsguyana.com/category/oil-gas/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://inewsguyana.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "interval_minutes": 60,
+      "tags": ["GY"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "co-minambiente-news",
+      "name": "哥伦比亚环境部 · 新闻",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.minambiente.gov.co/feed/",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.minambiente.gov.co/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CO"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "us-whitehouse-news",
+      "name": "美国白宫 · 新闻",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.whitehouse.gov/news/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.whitehouse.gov/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["US"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "rs-rts-news",
+      "name": "塞尔维亚国家广播电视台 · 新闻",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.rts.rs/lat/vesti/rss.html",
+        "language": "sr",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.rts.rs/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["RS"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "cd-mines-news",
+      "name": "刚果（金）矿业部 · 新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://mines.gouv.cd/actualite",
+        "language": "fr",
+        "itemSelector": "article.gov-news-card",
+        "linkSelector": "a[href]",
+        "titleSelector": "h3.gov-news-title",
+        "publishedAtSelector": ".gov-news-date",
+        "allowUrlPrefixes": ["https://mines.gouv.cd/actualite/"],
+        "sourceDate": {
+          "format": "declared",
+          "language": "en",
+          "formatPattern": "D MMM YYYY"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CD"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "cd-acp-economy",
+      "name": "刚通社 · 经济",
+      "kind": "web_list",
+      "config": {
+        "url": "https://acp.cd/economie/",
+        "language": "fr",
+        "itemSelector": "div.td_module_wrap",
+        "linkSelector": "h2.entry-title a",
+        "titleSelector": "h2.entry-title a",
+        "publishedAtSelector": "time.entry-date",
+        "allowUrlPrefixes": ["https://acp.cd/"],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "fr"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CD"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ivanhoe-news",
+      "name": "艾芬豪矿业 · 新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ivanhoemines.com/news-stories/news-presentations/",
+        "language": "en",
+        "itemSelector": "section#hero",
+        "linkSelector": "a.read-more",
+        "titleSelector": "h2",
+        "publishedAtRegex": "(\\d{1,2} [A-Z][a-z]{2} \\d{4})",
+        "allowUrlPrefixes": ["https://www.ivanhoemines.com/news-stories/news-release/"],
+        "sourceDate": {
+          "format": "declared",
+          "language": "en",
+          "formatPattern": "D MMM YYYY"
+        }
+      },
+      "tier": "T2",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["CA"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "gy-newsfeed-news",
+      "name": "圭亚那新闻汇 · 要闻",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://newsfeedgy.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://newsfeedgy.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "interval_minutes": 60,
+      "tags": ["GY"],
+      "participation_mode": "editorial",
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "ar-presidencia-noticias",
+      "name": "阿根廷总统府 · 新闻",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.argentina.gob.ar/noticias",
+        "language": "es",
+        "itemSelector": "#divnoticias div.panels-row > div",
+        "linkSelector": "a.panel",
+        "titleSelector": "h3",
+        "publishedAtSelector": "time",
+        "publishedAtUtcOffset": "-03:00",
+        "allowUrlPrefixes": ["https://www.argentina.gob.ar/noticias/"],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "es"
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "interval_minutes": 60,
+      "tags": ["AR"],
       "participation_mode": "editorial",
       "site_fulltext": false,
       "syndicate_fulltext": false

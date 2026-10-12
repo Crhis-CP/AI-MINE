@@ -1,11 +1,30 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import type { privateSchemas } from "@amp/api-client/private";
-import { Badge, Button, Card, Empty, Field, Input, Select } from "./ui";
+import { Badge, Button, Card, Empty, Field, Input, Select, Stat } from "./ui";
 import { bj } from "./format";
 import type { SelectionStandardsData } from "./SelectionStandards";
 export type SelectionTool = z.infer<typeof privateSchemas.SelectionToolState>;
 export type Samples = z.infer<typeof privateSchemas.SelectionSamples>;
+export type PrefilterAudit = z.infer<typeof privateSchemas.PrefilterAuditView>;
+const POOL_LABEL = { discarded: "预筛丢掉", kept: "判定保留" } as const;
+type AuditPool = keyof typeof POOL_LABEL;
+type AuditDecision = "should_not_discard" | "should_not_keep" | "agree";
+/** Button words follow the article's current state. The saved value stays the old enum. */
+function auditChoices(pool: AuditPool): ReadonlyArray<readonly [AuditDecision, string]> {
+  return pool === "discarded"
+    ? [
+        ["should_not_discard", "应该留下"],
+        ["agree", "丢掉是对的"],
+      ]
+    : [
+        ["should_not_keep", "应该丢掉"],
+        ["agree", "留下是对的"],
+      ];
+}
+function auditDecisionLabel(pool: AuditPool, decision: AuditDecision) {
+  return auditChoices(pool).find(([value]) => value === decision)?.[1] ?? (decision === "should_not_discard" ? "应该留下" : "应该丢掉");
+}
 export function SelectionToolControl({
   state,
   onChange,
@@ -54,7 +73,7 @@ export function SelectionToolControl({
           }
         }}
       >
-        {state.enabled ? "关闭建设期工具" : "开启至所选结束时间"}
+        {state.enabled ? "关闭精选标注" : "开启精选标注"}
       </Button>
     </Card>
   );
@@ -76,7 +95,9 @@ function SelectionSampleLabelsPage({
   if (!sample)
     return (
       <Card title="负责人样本标注">
-        <Empty>尚未准备校准样本。开发方导入新站已采集材料后，可在这里标注；此页不会抽样或调用模型。</Empty>
+        <Empty title="还没有精选样本">
+          这里问的是够不够格进精选，按钮是「该选 / 不该选 / 两可」。它和上面的预筛抽查不是同一批。库里的稿要另行做成精选样本后才会出现；这一页不会为此调用模型。
+        </Empty>
       </Card>
     );
   return (
@@ -360,5 +381,209 @@ export function SelectionRunConfirmation({
         </p>
       )}
     </Card>
+  );
+}
+
+type AuditItem = NonNullable<PrefilterAudit["draw"]>["items"][number];
+
+export function PrefilterAuditPanel({
+  data,
+  onDraw,
+  onLabel,
+}: {
+  data: PrefilterAudit;
+  onDraw: (nonce: string) => Promise<boolean>;
+  onLabel: (item: AuditItem, input: { decision: AuditDecision; note: string; expectedRevision: number }) => Promise<boolean>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [pendingSaves, setPendingSaves] = useState(0);
+  const nonce = useState(() => crypto.randomUUID())[0];
+  const [fresh, setFresh] = useState<string | null>(null);
+  const drawNonce = fresh ?? nonce;
+  const items = data.draw?.items ?? [];
+  const groups = (["discarded", "kept"] as const).map((pool) => ({ pool, items: items.filter((item) => item.pool === pool) }));
+  return (
+    <section id="prefilter-audit">
+      <Card title="预筛抽查" right={<span>每批大约 {data.batchSize} 条</span>}>
+        <p className="text-sm leading-relaxed text-ink-2">
+          丢掉的稿上，两个按钮是「应该留下」和「丢掉是对的」。留下的稿上，两个按钮是「应该丢掉」和「留下是对的」。点了选项就会马上记下。再抽一批不会清掉已经记下的判断。标完只是记下来，供以后改预筛规则，不会立刻把稿公开或撤下。
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Stat label="预筛丢掉" value={data.pools.discarded} tone="bad" hint="库里没过筛的" />
+          <Stat label="判定保留" value={data.pools.kept} tone="ok" hint="预筛留下的" />
+          <Stat label="这一批" value={items.length} hint={data.draw ? `丢掉 ${data.draw.discarded} · 保留 ${data.draw.kept}` : "还没抽"} />
+        </div>
+        {data.pools.unknown > 0 && <p className="mt-3 text-sm text-ink-3">另有 {data.pools.unknown} 篇还不能判定，这次不抽。</p>}
+        {data.excluded > 0 && <p className="mt-2 text-sm text-ink-3">已同意撤下或人工改成不收录的 {data.excluded} 篇不参与抽样。</p>}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Button
+            tone="primary"
+            busy={busy}
+            disabled={pendingSaves > 0}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                if (await onDraw(drawNonce)) setFresh(crypto.randomUUID());
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {data.draw ? "再抽一批" : `抽出大约 ${data.batchSize} 条`}
+          </Button>
+          <span className="text-sm text-ink-3">{pendingSaves > 0 ? "正在记下刚才的选择。" : "不会一次铺开全部。已经记下的会标成「已标」。"}</span>
+        </div>
+        {!data.draw && (
+          <Empty title={data.pools.discarded + data.pools.kept === 0 ? "现在抽不出样本" : "样本还没抽"}>
+            {data.pools.discarded + data.pools.kept === 0
+              ? "库里还没有可抽的预筛结果。入库但还没判定的，不在这里。"
+              : `库里有 ${data.pools.discarded} 篇预筛丢掉、${data.pools.kept} 篇判定保留。以前这一页只显示另行准备的精选样本，所以看起来是空的。点上面抽出大约 ${data.batchSize} 条。`}
+          </Empty>
+        )}
+        {data.draw && items.length === 0 && <Empty title="这一批是空的">可抽的预筛丢掉和判定保留都是 0，所以没有抽出稿件。</Empty>}
+        {items.length > 0 && (
+          <div className="mt-5 space-y-6">
+            {groups.map((group) => (
+              <section key={group.pool} className="space-y-3">
+                <h3 className="text-[14px] font-semibold text-ink">
+                  {POOL_LABEL[group.pool]} · {group.items.length} 条
+                </h3>
+                {group.items.length === 0 ? (
+                  <p className="text-sm text-ink-3">这一批没有{POOL_LABEL[group.pool]}的稿。</p>
+                ) : (
+                  group.items.map((item) => (
+                    <PrefilterAuditItem
+                      key={item.articleId}
+                      item={item}
+                      onLabel={(input) => onLabel(item, input)}
+                      onPending={(active) => setPendingSaves((count) => Math.max(0, count + (active ? 1 : -1)))}
+                    />
+                  ))
+                )}
+              </section>
+            ))}
+          </div>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+function PrefilterAuditItem({
+  item,
+  onLabel,
+  onPending,
+}: {
+  item: AuditItem;
+  onLabel: (input: { decision: AuditDecision; note: string; expectedRevision: number }) => Promise<boolean>;
+  onPending: (active: boolean) => void;
+}) {
+  const choices = auditChoices(item.pool);
+  const serverDecision = item.label?.decision;
+  const serverVisible = serverDecision != null && choices.some(([value]) => value === serverDecision);
+  const [decision, setDecision] = useState<AuditDecision>(serverVisible && serverDecision ? serverDecision : "agree");
+  const [chosen, setChosen] = useState(serverVisible);
+  const [note, setNote] = useState(item.label?.note ?? "");
+  const [savedDecision, setSavedDecision] = useState<AuditDecision | null>(serverVisible && serverDecision ? serverDecision : null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const revisionRef = useRef(item.label?.revision ?? 0);
+  const savedRef = useRef<{ decision: AuditDecision; note: string } | null>(
+    serverVisible && serverDecision ? { decision: serverDecision, note: item.label?.note ?? "" } : null,
+  );
+  const desiredRef = useRef<{ decision: AuditDecision; note: string } | null>(null);
+  const savingRef = useRef(false);
+  useEffect(() => {
+    const next = item.label?.revision ?? 0;
+    if (!item.label || savingRef.current || next < revisionRef.current) return;
+    if (!auditChoices(item.pool).some(([value]) => value === item.label?.decision)) return;
+    revisionRef.current = next;
+    savedRef.current = { decision: item.label.decision, note: item.label.note ?? "" };
+    setSavedDecision(item.label.decision);
+  }, [item.label, item.pool]);
+  async function persist(nextDecision: AuditDecision, nextNote: string) {
+    desiredRef.current = { decision: nextDecision, note: nextNote };
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setBusy(true);
+    onPending(true);
+    setError("");
+    try {
+      while (desiredRef.current) {
+        const job = desiredRef.current;
+        desiredRef.current = null;
+        const saved = savedRef.current;
+        if (saved && saved.decision === job.decision && saved.note === job.note) continue;
+        const ok = await onLabel({ decision: job.decision, note: job.note, expectedRevision: revisionRef.current });
+        if (!ok) {
+          setError("保存未完成，选择与备注已保留。请再点一次选项，或点「保存这条判断」。");
+          break;
+        }
+        revisionRef.current += 1;
+        savedRef.current = job;
+        setSavedDecision(job.decision);
+      }
+    } finally {
+      savingRef.current = false;
+      setBusy(false);
+      onPending(false);
+    }
+  }
+  const stateNote = item.pool === "discarded" ? "系统已经丢掉了这篇。" : "系统已经留下了这篇。";
+  return (
+    <article className="rounded-control bg-bg-sunk/50 p-4 ring-1 ring-line">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={item.pool === "discarded" ? "bad" : "ok"}>{POOL_LABEL[item.pool]}</Badge>
+        {savedDecision && <Badge tone="accent">已标：{auditDecisionLabel(item.pool, savedDecision)}</Badge>}
+      </div>
+      <h4 className="mt-2 text-[15px] font-medium leading-snug text-ink">{item.title}</h4>
+      <p className="mt-1 text-xs text-ink-3">
+        {item.sourceName} · {item.discoveredAt ? bj(item.discoveredAt, true) : "时间未记录"}
+      </p>
+      {item.preview && <p className="mt-3 line-clamp-4 text-sm leading-relaxed text-ink-2">{item.preview}</p>}
+      <div className="mt-3">
+        <a className="text-sm text-accent" href={`/admin/content/${item.articleId}`}>
+          在内容诊断里打开
+        </a>
+      </div>
+      <fieldset className="mt-4" disabled={busy}>
+        <legend className="mb-2 text-sm font-medium">你怎么看系统这次的决定</legend>
+        <p className="mb-2 text-sm text-ink-2">{stateNote}点了选项就会马上记下。</p>
+        <div className="flex flex-wrap gap-2">
+          {choices.map(([value, label]) => (
+            <Button
+              key={value}
+              tone={chosen && decision === value ? "primary" : "secondary"}
+              onClick={() => {
+                setDecision(value);
+                setChosen(true);
+                void persist(value, note);
+              }}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+        <label className="mt-3 block text-sm">
+          备注
+          <textarea className="mt-1 min-h-16 w-full rounded-control border border-line bg-surface p-2" value={note} onChange={(e) => setNote(e.target.value)} />
+        </label>
+        <Button
+          className="mt-3"
+          disabled={!chosen}
+          busy={busy}
+          onClick={() => {
+            void persist(decision, note);
+          }}
+        >
+          保存这条判断
+        </Button>
+      </fieldset>
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-hot">
+          {error}
+        </p>
+      )}
+    </article>
   );
 }

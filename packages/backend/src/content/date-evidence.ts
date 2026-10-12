@@ -1,5 +1,11 @@
 import { MaterialSourceDateInput, type SourceDateParseResult, type SourceDateParseInput, type MaterialUpdateResult } from "@amp/contracts/time-assertion";
-import { evaluateSourcePolicy, lockCurrentSourcePolicies, lockSourceDateConfiguration, parseSourceDate } from "@amp/backend/admin/sources";
+import {
+  readSourceDateContext,
+  evaluateSourcePolicy,
+  lockCurrentSourcePolicies,
+  lockSourceDateConfiguration,
+  parseSourceDate,
+} from "@amp/backend/admin/sources";
 import { dbOf, type Db, type Tx, type Sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
@@ -42,12 +48,14 @@ export async function prepareDateMutation(tx: Tx, sourceId: string, input: Mater
   if (observation.sourceId !== sourceId) throw new Error("Source date identity mismatch");
   await lockCurrentSourcePolicies(tx, [{ sourceId, permissionVersion: input.permissionVersion! }]);
   await lockSourceDateConfiguration(tx, sourceId, observation.configHash);
+  const source = await readSourceDateContext(sourceId, tx);
+  if (!source) throw new Error("Source date source missing");
   for (const capability of ["fetch", "store_metadata", "process_locally"] as const) {
     const decision = await evaluateSourcePolicy(
       {
         source_id: sourceId,
         expected_permission_version: input.permissionVersion,
-        lane: "news",
+        lane: source.lane,
         capability,
         resource: { url: observation.url, document_type: null, attachment: false },
       },
@@ -112,7 +120,13 @@ export async function commitDateObservation(
     parsed.reason = "conflicting_candidates";
     parsed.evidence.interpretation = "conflict";
   }
-  const verdict = sourceDateVerdict("news", parsed.evidence, binding, now);
+  const source = await readSourceDateContext(sourceId, tx);
+  if (!source) throw new Error("Source date source missing");
+  // Policy owns date semantics. Persist the selected observation without applying news publication rules.
+  const verdict =
+    source.lane === "policy"
+      ? { status: "pending" as const, reason: "not_source_publication" as const }
+      : sourceDateVerdict("news", parsed.evidence, binding, now);
   const { observationId: _id, observedAt: _at, ...facts } = parsed.evidence;
   const semanticHash = sha256(stableJson({ facts, alternatives, permissionVersion: input.permissionVersion }));
   const id = recent?.semantic_hash === semanticHash ? recent.id : sha256(stableJson({ parsed, alternatives, permissionVersion: input.permissionVersion }));
@@ -132,7 +146,7 @@ export async function commitDateObservation(
   )
     return stale();
   if (previous?.semantic_hash === semanticHash && article.source_date_state === verdict.status) return result;
-  const old = previous ? sourceDateVerdict("news", previous.result.evidence, binding, now) : null;
+  const old = previous && source.lane === "news" ? sourceDateVerdict("news", previous.result.evidence, binding, now) : null;
   const time = verdict.status === "reliable" ? verdict.time : null;
   // A date without a time keeps the start of that day, as the collector read it from the same text (the upstream's way).
   const publishedAt = time ? (time.utc ?? listedAt?.toISOString() ?? null) : null;

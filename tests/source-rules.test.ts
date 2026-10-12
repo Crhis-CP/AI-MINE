@@ -1,3 +1,4 @@
+import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 // Every rule a source's config names is applied, and a name the collector does not implement fails the
 // fetch. Configs that carried adapters and detail rules a collector does not implement used to fall
 // back silently (junk titles, RSS entries outside the source's URL rules, dates from the wrong place).
@@ -100,6 +101,7 @@ const SOURCES = {
 const id = (name: keyof typeof SOURCES) => `test-rules-${name}-${T}`;
 let savedJina: Array<{ per_minute: number; per_hour: number; per_day: number }> = [];
 before(async () => {
+  await installUsageFixtureForService("jina");
   savedJina = await sql`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = 'jina'`;
   await sql`UPDATE budgets SET per_minute = 1000, per_hour = 10000, per_day = 100000 WHERE service = 'jina'`;
   const cursor = sql.json({ initializedAt: new Date().toISOString() });
@@ -151,9 +153,9 @@ test("detail rules fill what the listing lacks, and a detail title survives the 
     "a clean listing title stays; contradictory publication metadata leaves the source date pending",
   );
   assert.deepEqual(
-    [b!.title, b!.excerpt, b!.published_at, b!.revision],
-    [`Detail heading B ${T}`, "Summary of B", null, 1],
-    "a label that swallowed its summary takes the page's heading; without a byline there is no date; the listing does not revise it back",
+    [b!.title, b!.excerpt, b!.published_at?.toISOString(), b!.revision],
+    [`Detail heading B ${T}`, "Summary of B", "2026-01-01T00:00:00.000Z", 1],
+    "a label that swallowed its summary takes the page's heading; explicit head publication metadata remains evidence without a byline; the listing does not revise it back",
   );
 });
 

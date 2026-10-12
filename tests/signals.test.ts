@@ -1,3 +1,6 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 // Live news before history, and discussion posts that come before the first report: a discussion post
 // skips the analysis queue; history (a backfill that was already old when found) waits behind live
@@ -19,6 +22,8 @@ const T = tag();
 const EDITORIAL = `test-sig-ed-${T}`;
 const SIGNAL = `test-sig-hs-${T}`;
 const TOPIC = `WL${T}`;
+const ORIGINAL = `Argentina Alpha project announced a mining acquisition ${TOPIC}.`;
+process.env.EMBEDDINGS_ENABLED = "false";
 
 // Embeddings: texts about the topic point one way, everything else another. The judge calls the first
 // candidate the same occurrence.
@@ -34,7 +39,27 @@ const provider = await stub((_hit, req) => {
       })),
     };
   }
-  const answer = { query: "收购", decisions: [{ id: "C1", relation: "SAME_OCCURRENCE", confidence: 0.95, note: "" }] };
+  const answer = {
+    query: "收购",
+    decisions: [
+      {
+        id: "C1",
+        relation: "SAME_OCCURRENCE",
+        confidence: 0.95,
+        note: "",
+        evidence: {
+          queryQuote: ORIGINAL,
+          candidateQuote: ORIGINAL,
+          anchor: "Alpha project",
+          queryAction: "announced",
+          candidateAction: "announced",
+          queryStage: "other",
+          candidateStage: "other",
+          change: "",
+        },
+      },
+    ],
+  };
   return { id: "stub", choices: [{ message: { content: JSON.stringify(answer) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
 });
 for (const name of ["DASHSCOPE_BASE_URL", "DEEPSEEK_BASE_URL"]) process.env[name] = `${provider.url}/v1`;
@@ -52,23 +77,26 @@ async function report(suffix: string, opts: { title: string; backfill?: string; 
     language: "en",
     url: `https://example.com/sig-${T}-${suffix}`,
     title: opts.title,
-    bodyText: "Body.",
+    bodyText: ORIGINAL,
     bodyStatus: "ok",
     via: "fetch",
     publishedAt: opts.publishedAt ?? new Date(),
     backfill: opts.backfill ?? null,
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${opts.title}, '摘要', 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, fact: { title: opts.title } })})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${opts.title}, '摘要', 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, fact: { title: opts.title }, geography: validateGeography({ status: "identified", primary: "AR", assignments: [{ code: "AR", role: "event_location", mention: "Argentina", segment: "body_head", quote: ORIGINAL }], reason: "synthetic original evidence" }, { title: opts.title, bodyText: ORIGINAL, excerpt: null, bodyStatus: "ok" }) })})`;
   await publishArticle(articleId);
   return articleId;
 }
 
 before(async () => {
+  await installUsageFixtureForModel("deepseek-flash");
   await sql`UPDATE budgets SET per_minute = 1000, per_hour = 10000, per_day = 100000 WHERE service IN ('dashscope', 'deepseek')`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES
             (${EDITORIAL}, 'Test editorial', 'rss', 'T1', 'editorial', '2100-01-01'),
             (${SIGNAL}, 'Test signal', 'rss', 'T2', 'hot_signal', '2100-01-01')`;
+  await ensureModelSourceFixture(EDITORIAL, ["https://example.com/source"]);
+  await ensureModelSourceFixture(SIGNAL, ["https://example.com/source"]);
 });
 after(async () => {
   await provider.close();
@@ -81,7 +109,8 @@ test("a discussion post that came before any report is grouped again when a repo
     sourceId: SIGNAL,
     language: "en",
     url: `https://example.com/sig-${T}-post`,
-    title: `AMD to acquire ${TOPIC}`,
+    title: `甲矿业公司公布项目收购 ${TOPIC}`,
+    bodyText: ORIGINAL,
     via: "fetch",
     publishedAt: new Date(),
   });
@@ -90,11 +119,14 @@ test("a discussion post that came before any report is grouped again when a repo
   assert.deepEqual([queued?.name, queued?.priority, queued?.data.signalOnly], ["events.group", -1, true], "straight to grouping, behind reports");
 
   assert.deepEqual(await settleNonEditorial(postId), { group: true });
+  // Explicitly verified signal geography: missing geography must remain unmatched under BR-EVT-02.
+  await sql`INSERT INTO publication.news_geography(article_id,article_revision,recipe,state,jurisdictions,primary_jurisdiction)
+    VALUES(${postId},1,'synthetic-verified-signal','identified',ARRAY['AR'],'AR') ON CONFLICT(article_id) DO UPDATE SET state='identified',jurisdictions=ARRAY['AR'],primary_jurisdiction='AR'`;
   assert.equal((await groupArticle(postId, { signalOnly: true })).verdict, "signal-unmatched");
   const [decided] = await sql<{ verdict: string }[]>`SELECT verdict FROM grouping_decisions WHERE article_id = ${postId}`;
   assert.equal(decided?.verdict, "signal-unmatched", "a post that found nothing is recorded as such");
 
-  const reportId = await report("first", { title: `AMD 收购 ${TOPIC}` });
+  const reportId = await report("first", { title: `甲矿业公司公布项目收购 ${TOPIC}` });
   const founded = await groupArticle(reportId);
   assert.equal(founded.verdict, "new-story");
   assert.equal(founded.rematched, 1);

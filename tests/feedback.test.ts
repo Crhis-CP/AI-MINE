@@ -57,3 +57,17 @@ test("feedback with a screenshot is kept here and nothing goes to Feishu", async
   const file = await feedbackScreenshot(id);
   assert.ok(file && existsSync(file), "the admin pages read the screenshot from the server");
 });
+
+test("feedback accepts general contact and 5000 characters while enforcing 10-character and 2MB limits", async () => {
+  const common = { email: "微信：reader-contact", pageUrl: "/all", screenshot: null, ip: "203.0.113.8", userAgent: "validation-test" };
+  await assert.rejects(submitFeedback({ ...common, content: "太短" }), /至少 10/);
+  await assert.rejects(submitFeedback({ ...common, content: "字".repeat(5001) }), /最多 5000/);
+  await assert.rejects(
+    submitFeedback({ ...common, content: "反馈内容用于校验截图大小", screenshot: { mime: "image/png", data: Buffer.alloc(2 * 1024 * 1024 + 1) } }),
+    /2MB/,
+  );
+  const { id } = await submitFeedback({ ...common, content: "字".repeat(5000) });
+  const [row] = await sql`SELECT email,length(content) AS length FROM feedback WHERE id=${id}`;
+  assert.equal(row.email, common.email);
+  assert.equal(row.length, 5000);
+});

@@ -27,6 +27,10 @@ export async function readSelectionSamples(request: Request) {
     await adminGet(request, path, (_url, init) => client.GET(path, { params: { query }, headers: init.headers, signal: init.signal })),
   );
 }
+export async function readPrefilterAudit(request: Request) {
+  const path = "/api/admin/selectbench/prefilter-audit";
+  return privateSchemas.PrefilterAuditView.parse(await adminGet(request, path));
+}
 export async function readSelectionEvidence(request: Request, id: string) {
   const path = "/api/admin/selectbench/{id}/evidence" as const,
     client = createPrivateClient({ baseUrl: apiBaseFor("/api/admin/selectbench") });

@@ -107,6 +107,7 @@ export async function selectBenchRun(id: string, f: { model?: string; outcome?: 
 // Existing facade: no new package export or model/publication action.
 export { selectionTool, changeSelectionTool, requireSelectionTool, withSelectionTool } from "./selectbench-state.ts";
 export { installSelectionDataset, selectionSamples, labelSelectionSample, exportSelectionGold } from "./selectbench-samples.ts";
+export { prefilterAuditView, drawPrefilterAudit, labelPrefilterAudit, recordPrefilterAuditDraw, prefilterAuditTake } from "./prefilter-audit.ts";
 export { selectionStandards, submitSelectionStandard, reviewSelectionStandard, confirmSelectionHoldout } from "./selectbench-records.ts";
 export {
   selectionRunEvidence,

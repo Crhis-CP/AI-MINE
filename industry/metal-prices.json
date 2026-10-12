@@ -136,6 +136,16 @@
       "metal": "sulfuric_acid",
       "quote": "国内 · 硫酸（98%）"
     },
+    {
+      "key": "nbs.lithium",
+      "source": "nbs",
+      "sourceName": "磷酸铁锂（普通动力型）",
+      "name": "磷酸铁锂",
+      "grade": "普通动力型",
+      "metal": "lithium",
+      "quote": "国内 · 磷酸铁锂（普通动力型）",
+      "spec": "普通动力型，能量密度不低于 120Wh/kg"
+    },
     { "key": "nbs.rebar", "source": "nbs", "sourceName": "螺纹钢（Φ20mm，HRB400E）", "name": "螺纹钢", "grade": "Φ20mm，HRB400E", "enabled": false },
     { "key": "nbs.wire_rod", "source": "nbs", "sourceName": "线材（Φ8—10mm，HPB300）", "name": "线材", "grade": "Φ8—10mm，HPB300", "enabled": false },
     { "key": "nbs.medium_plate", "source": "nbs", "sourceName": "普通中板（20mm，Q235）", "name": "普通中板", "grade": "20mm，Q235", "enabled": false },
@@ -381,11 +391,12 @@
   ],
   "metals": [
     { "key": "gold", "name": "金" },
+    { "key": "copper", "name": "铜" },
+    { "key": "lithium", "name": "锂" },
+    { "key": "aluminum", "name": "铝" },
     { "key": "silver", "name": "银" },
     { "key": "platinum", "name": "铂" },
     { "key": "palladium", "name": "钯" },
-    { "key": "copper", "name": "铜" },
-    { "key": "aluminum", "name": "铝" },
     { "key": "zinc", "name": "锌" },
     { "key": "lead", "name": "铅" },
     { "key": "tin", "name": "锡" },

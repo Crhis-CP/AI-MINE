@@ -46,7 +46,7 @@ import {
   changeOwnerLaneControls,
   monthlyUsageReports,
 } from "@amp/backend/admin/settings";
-import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
+import { createSource, fetchNow, listSources, requestSourcePreview, sourcePreviewState, sourceDetail, updateSource } from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
@@ -180,7 +180,10 @@ export function registerAdmin(app: FastifyInstance) {
   );
   app.post(
     "/api/admin/sources/preview",
-    adminHandler(async (req) => previewSource(body(req) as never)),
+    adminHandler(async (req, _reply, admin) => {
+      const input = body<{ id: string; config?: Record<string, unknown> }>(req);
+      return requestSourcePreview(input.id, input, actorOf(admin));
+    }),
   );
   app.get(
     contracts.sourceDetail.url,
@@ -201,12 +204,13 @@ export function registerAdmin(app: FastifyInstance) {
       return orNotFound(req, reply, await updateSource(param(req, "id"), b, actorOf(admin)));
     }),
   );
+  app.get(
+    "/api/admin/sources/:id/preview",
+    adminHandler(async (req) => sourcePreviewState(param(req, "id"))),
+  );
   app.post(
     "/api/admin/sources/:id/preview",
-    adminHandler(async (req, reply) => {
-      const [s] = await sql`SELECT * FROM sources WHERE id = ${param(req, "id")}`;
-      return s ? previewSource(s as never) : notFound(req, reply);
-    }),
+    adminHandler(async (req, _reply, admin) => requestSourcePreview(param(req, "id"), body(req) as never, actorOf(admin))),
   );
   app.post(
     "/api/admin/sources/:id/fetch",

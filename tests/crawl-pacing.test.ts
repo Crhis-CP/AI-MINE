@@ -1,3 +1,4 @@
+import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -306,10 +307,7 @@ test("an oversized page is refused without cooling the host down", async () => {
   const host = new URL(a.config.url).hostname;
   const [h] = await sql<{ cooldown_until: Date }[]>`SELECT cooldown_until FROM acquisition.crawl_hosts WHERE host = ${host}`;
   assert.ok(h!.cooldown_until.getTime() <= now.getTime());
-  assert.equal(
-    (await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM acquisition.crawl_requests WHERE host = ${host} AND state = 'pending'`)[0]!.n,
-    0,
-  );
+  assert.equal((await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM acquisition.crawl_requests WHERE host = ${host} AND state = 'pending'`)[0]!.n, 0);
 });
 
 test("an oversized page is not sent to the paid reader", async () => {
@@ -319,18 +317,13 @@ test("an oversized page is not sent to the paid reader", async () => {
   const { extractFromUrl } = await import("@amp/backend/content/extract");
   let calls = 0;
   await assert.rejects(
-    withSourceCrawl(
-      a,
-      `extract-big:${a.id}`,
-      () => extractFromUrl(a.config.url, { allowJina: true, subject: `article:${a.id}`, lane: "news" }),
-      {
-        now: () => now,
-        get: async () => {
-          calls++;
-          throw new Error(`Response too large from ${new URL(a.config.url).hostname}`);
-        },
+    withSourceCrawl(a, `extract-big:${a.id}`, () => extractFromUrl(a.config.url, { allowJina: true, subject: `article:${a.id}`, lane: "news" }), {
+      now: () => now,
+      get: async () => {
+        calls++;
+        throw new Error(`Response too large from ${new URL(a.config.url).hostname}`);
       },
-    ),
+    }),
     (error: unknown) => error instanceof Error && error.message.startsWith("Response too large"),
   );
   assert.equal(calls, 1);
@@ -380,18 +373,9 @@ test("a deferred extraction keeps its reason without using an attempt", async ()
   assert.equal(row!.processing_error, "extract: crawl_deferred: transport_unavailable");
   assert.equal(row!.processing_attempts, 0);
   assert.equal(row!.processing_state, "new");
-  assert.equal(
-    await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "source_reader_pending")),
-    "waiting",
-  );
-  assert.equal(
-    await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 120_000), "reservation", "source_reader_pending")),
-    "waiting",
-  );
-  assert.equal(
-    await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 180_000), "reservation", "source_reader_pending")),
-    "unconfirmed",
-  );
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "source_reader_pending")), "waiting");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 120_000), "reservation", "source_reader_pending")), "waiting");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 180_000), "reservation", "source_reader_pending")), "unconfirmed");
   const [done] = await sql<{ processing_attempts: number; body_status: string; processing_error: string }[]>`
     SELECT processing_attempts, body_status, processing_error FROM articles WHERE id = ${m.articleId}`;
   assert.equal(done!.processing_attempts, 0);
@@ -417,6 +401,7 @@ test("a held source's body stays deferred without fetching or consuming an extra
 });
 
 test("an uncertain source-reader receipt keeps its durable read key across retry and profile changes", async () => {
+  await installUsageFixtureForService("jina");
   const a = await source(),
     origin = new URL(a.config.url).origin;
   await saveRobots(origin, 404, "", new Date(clock), null, null);
@@ -434,6 +419,7 @@ test("an uncertain source-reader receipt keeps its durable read key across retry
           return paidRequest(
             {
               service: "jina",
+              lane: "news",
               model: null,
               purpose: "source_listing",
               subject: `source:${a.id}`,

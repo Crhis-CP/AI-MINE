@@ -198,6 +198,24 @@ async function translationBlocker(db: Db, stage: string | null, logicalKey: stri
   return null;
 }
 
+/** A route or request tag never clears an unresolved bill for the same news material and capability. */
+async function newsReceiptBlocker(db: Db, scope: string | null, req: ReceiptRequest, logicalKey: string) {
+  if (!scope) return null;
+  const [row] = await db<{ id: number; status: string; attempt_id: string | null }[]>`
+    SELECT r.id,r.status,a.id::text AS attempt_id FROM receipts r
+    LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
+    WHERE r.logical_key<>${logicalKey} AND r.purpose=${req.purpose}
+      AND substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)')=${scope}
+      AND coalesce(r.request->>'lane','news')='news'
+      AND (r.status IN ('pending','unknown') OR
+        (r.response IS NOT NULL AND NOT coalesce(a.usage->>'prompt_tokens' ~ '^[0-9]+$'
+          AND a.usage->>'completion_tokens' ~ '^[0-9]+$',false)))
+    ORDER BY r.id LIMIT 1`;
+  if (!row) return null;
+  if (row.status === "pending") return { kind: "busy" as const, row };
+  return { kind: "unknown" as const, row };
+}
+
 async function observeTranslation(db: Db, stage: string | null, receipt: TranslationObservation) {
   if (!stage) return;
   const rows = await db<{ version: number }[]>`SELECT coalesce(a.attempt,r.attempts) AS version FROM receipts r
@@ -445,10 +463,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       bounds: req.costBounds,
       registeredPricing: req.modelSnapshot?.pricing,
     });
+  const newsScope = knownLane === "news" && req.model ? (/^article:[a-zA-Z0-9_-]+@[1-9][0-9]*/.exec(req.subject ?? "")?.[0] ?? null) : null;
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
   const claimed = await sql.begin(async (tx) => {
+    if (newsScope) await tx`SELECT pg_advisory_xact_lock(hashtext(${`news-receipt:${req.purpose}:${newsScope}`}))`;
     for (const sourceId of [...new Set(req.policy?.sourceIds ?? [])].sort()) await tx`SELECT pg_advisory_xact_lock(hashtext(${`policy-source:${sourceId}`}))`;
     // A changed recipe/input key cannot route around an unresolved call in this material stage.
     if (stage) await tx`SELECT pg_advisory_xact_lock(hashtext(${"translation:" + stage}))`;
@@ -506,6 +526,16 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
             THEN greatest(1,extract(epoch FROM max(finished_at) + interval '5 minutes' - now())::int) ELSE 0 END AS cooldown
           FROM receipt_attempts WHERE receipt_id=${existing.id} AND output_rejected_at IS NOT NULL`;
         if (count!.n >= req.maxRejectedOutputs) return { kind: "limited" as const, id: existing.id, rejected: count!.n as number };
+        // The same finished answer was already bought twice. Keep that failure; do not pay for a third copy.
+        if (count!.n >= 2) {
+          const copies = await tx<{ content: string | null }[]>`
+            SELECT response->'choices'->0->'message'->>'content' AS content
+            FROM receipt_attempts
+            WHERE receipt_id=${existing.id} AND output_rejected_at IS NOT NULL AND status='received'`;
+          const first = copies[0]?.content;
+          if (copies.length >= 2 && first != null && copies.every((row) => row.content === first))
+            return { kind: "limited" as const, id: existing.id, rejected: copies.length };
+        }
         if (count!.cooldown > 0) return { kind: "cooldown" as const, id: existing.id, seconds: count!.cooldown as number };
       }
       // BR-COST-04: invalid output with proven usage may be bought again at most twice (three billed
@@ -525,7 +555,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         }
       }
       // failed: the provider did not take the request, or its answer was unusable; a new attempt is allowed.
-      const blocked = await translationBlocker(tx, stage, logicalKey);
+      const blocked = (await newsReceiptBlocker(tx, newsScope, req, logicalKey)) ?? (await translationBlocker(tx, stage, logicalKey));
       if (blocked) return blocked;
       if (stage && !existing.has_response)
         await tx`UPDATE ai.translation_receipt_observations SET known_unbilled=true
@@ -554,7 +584,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       await observeTranslation(tx, stage, { receiptId: existing.id_text, attemptId });
       return { kind: "call" as const, id: existing.id, attemptId, attempt: r!.attempts, control };
     }
-    const blocked = await translationBlocker(tx, stage, logicalKey);
+    const blocked = (await newsReceiptBlocker(tx, newsScope, req, logicalKey)) ?? (await translationBlocker(tx, stage, logicalKey));
     if (blocked) return blocked;
     const legacy = await legacyModelReceipt(tx, req);
     if (legacy) return legacy;

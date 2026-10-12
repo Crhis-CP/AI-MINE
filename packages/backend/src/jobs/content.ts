@@ -188,12 +188,12 @@ export async function processArticle(articleId: string, opts: { attemptTag?: str
     const early = isChineseOriginal(normalizeSourceLanguage(found.language)) ? () => publishArticle(articleId) : undefined;
     const result = await analyzeArticle(articleId, { attemptTag: opts.attemptTag }, early);
     if (!result) return { state: "missing" };
+    if (result.stale) return { state: "stale" }; // the newer revision has its own job
     // Only a title or a feed summary: the article page first; extraction queues the analysis again.
     if (result.needsBody || !result.output) {
       await queueProcessing(articleId, { step: "extract" });
       return { state: "fetching-body" };
     }
-    if (result.stale) return { state: "stale" }; // the newer revision has its own job
     const publication = await publishArticle(articleId);
     // History is archived but founds no event (isHistorical).
     if (result.output.relevance === "pass" && publication?.visibility === "public" && !row.historical)
@@ -263,6 +263,7 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
       const revision = await prepareTranslation(job.data.articleId);
       if (revision === null) return { state: "not-needed-or-not-permitted" };
       const result = await translateArticle(job.data.articleId, revision);
+      if (result.reason === "attempts_exhausted") return result;
       if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
       const publication = await publishArticle(job.data.articleId);
       const r = await route(job.data.articleId, sql);

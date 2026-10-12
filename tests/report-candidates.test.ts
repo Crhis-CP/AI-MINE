@@ -1,3 +1,4 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { gate, stub, tag } from "./setup.ts";
@@ -27,6 +28,7 @@ before(async () => {
   for (const model of ["deepseek-flash"]) await installUsageFixtureForModel(model);
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at)
             VALUES (${SOURCE}, 'Report boundary test', 'rss', 'T1', 'editorial', '2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://example.com/source"]);
 });
 after(async () => {
   await sql`DELETE FROM reports WHERE kind = 'daily' AND key IN ('2020-01-02', '2020-01-03', '2020-01-04', '2020-01-05')`;
@@ -183,7 +185,7 @@ test("daily composition waits for a pre-cutoff release to commit instead of losi
     await composeDaily("2020-01-05");
     const reports = await sql<{ key: string; content: { sections: Array<{ items: Array<{ itemId: string }> }> } }[]>`
       SELECT key, content FROM reports WHERE kind = 'daily' AND key IN ('2020-01-04', '2020-01-05')`;
-    const hasItem = (key: string) => reports.find((r) => r.key === key)!.content.sections.some((s) => s.items.some((item) => item.itemId === id));
+    const hasItem = (key: string) => reports.find((r) => r.key === key)?.content.sections.some((s) => s.items.some((item) => item.itemId === id)) ?? false;
     assert.equal(hasItem("2020-01-04"), true);
     assert.equal(hasItem("2020-01-05"), false);
   } finally {

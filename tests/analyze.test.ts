@@ -1,3 +1,5 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // The judging and writing steps (editorial/analyze.ts): the prefilter decides relevance, two scores
 // against the tier threshold decide 精选, selected and near-selected items are written by the content
@@ -7,7 +9,7 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { gate, Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { after, before, test } from "node:test";
+import { after, before, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@amp/backend/editorial/analyze";
@@ -18,7 +20,7 @@ import { promptText } from "@amp/backend/editorial/prompts";
 import { config } from "@amp/backend/config";
 import { BudgetExceededError } from "@amp/backend/providers/receipts";
 import { publishArticle, republishSource } from "@amp/backend/publication/publish";
-import { overrideFields, setVisibility } from "@amp/backend/admin/content";
+import { setVisibility } from "@amp/backend/admin/content";
 import { buildApp } from "../apps/api/src/app.ts";
 import { SITE } from "@amp/industry/site";
 import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
@@ -27,7 +29,7 @@ const sql = dbOf("enrichment");
 
 const publicApp = await buildApp("public-api");
 const T = tag();
-const SOURCE = `test-analyze-${T}`;
+let SOURCE = `test-analyze-${T}`;
 
 type Step = "prefilter" | "score" | "understand" | "summarize" | "structure";
 interface Req {
@@ -134,16 +136,11 @@ const provider = await stub(async (_hit, req) => {
       await hold.release;
     }
     if (marker === "SCFAIL" || scoreOutages.has(marker)) return new Reply(503, { error: { message: "synthetic score outage" } });
-    if (marker === "SCREFUSED")
-      return new Reply(400, { contentFilter: [{ level: 1, role: "user" }], error: { code: "1301", message: "synthetic content refusal" } });
+    if (marker === "SCREFUSED") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
     return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
   }
   if (step === "understand") {
-    if (marker === "SENSITIVE")
-      return new Reply(400, {
-        contentFilter: [{ level: 1, role: "user" }],
-        error: { code: "1301", message: "系统检测到输入或生成内容可能包含不安全或敏感内容" },
-      });
+    if (marker === "SENSITIVE") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
     return answer({
       itemType: "policy_regulation",
       authorRole: "principal",
@@ -177,8 +174,13 @@ Object.assign(process.env, {
 before(async () => {
   for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"])
     await installUsageFixtureForModel(model);
+});
+beforeEach(async () => {
+  // Each scenario owns its source; a deliberate repeat breaker in one scenario must not suppress another.
+  SOURCE = `test-analyze-${T}-${tag()}`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES
     (${SOURCE}, 'Test analyze source', 'rss', 'T1', 'editorial', '2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://example.com/source", "http://127.0.0.1/source"]);
 });
 after(async () => {
   await publicApp.close();
@@ -246,7 +248,10 @@ test("a selected item: prefilter, two scores, the content understanding and the 
   assert.deepEqual([r.title_zh, r.reason_zh, r.category, r.receipt_ids.length], ["理解标题 CLEAR", "理由 CLEAR", "company_project", 5]);
   assert.deepEqual(r.tags, ["企业与项目", "铜", "紫金矿业"], "vocabulary tags (synonyms mapped, unknown dropped) and the subject's tag");
   assert.deepEqual(r.subjects, ["zijin"]);
-  assert.deepEqual([r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title], ["understand", "policy_regulation", "PASS", "事实 CLEAR"]);
+  assert.deepEqual(
+    [r.output.writer, r.output.itemType, r.output.prefilter.label, r.output.fact.title],
+    ["understand", "policy_regulation", "PASS", "事实 CLEAR"],
+  );
   const score = requests.find((q) => q.marker === "CLEAR" && q.step === "score")!;
   assert.match(score.user, /【标题】\nCLEAR model release/, "the score reads the original title, before any writing");
   assert.deepEqual([score.body.temperature, score.body.reasoning_effort, score.body.max_tokens], [1, "high", 65536]);
@@ -433,7 +438,7 @@ test("the manual 收录 choice outranks the prefilter both ways (AI-01 人工覆
   await analyzeArticle(blocked);
   await publishArticle(blocked);
   assert.equal((await projection(blocked)).visibility, "withdrawn");
-  await overrideFields(
+  await confirmedManualEdit(
     blocked,
     { fields: { relevance: "pass", summary: "人工导读：负责人复核后恢复收录。" }, reason: "synthetic 恢复收录", version: 0 },
     "test",
@@ -450,20 +455,20 @@ test("the manual 收录 choice outranks the prefilter both ways (AI-01 人工覆
   await analyzeArticle(passed);
   await publishArticle(passed);
   assert.equal((await projection(passed)).visibility, "public");
-  await overrideFields(passed, { fields: { relevance: "block" }, reason: "synthetic 不收录", version: 0 }, "test");
+  await confirmedManualEdit(passed, { fields: { relevance: "block" }, reason: "synthetic 不收录", version: 0 }, "test");
   assert.equal((await projection(passed)).visibility, "withdrawn", "不收录 outranks the model's PASS");
   assert.equal((await processArticle(passed, { attemptTag: `manual-${T}` })).state, "pass");
   assert.equal((await republishSource(SOURCE)).failed, 0);
   assert.equal((await projection(passed)).visibility, "withdrawn", "judging it again or republishing the source does not override 不收录");
   assert.equal((await projection(blocked)).visibility, "public", "nor 恢复收录");
-  await assert.rejects(overrideFields(passed, { fields: { relevance: "unknown" }, reason: "synthetic", version: 1 }, "test"));
+  await assert.rejects(confirmedManualEdit(passed, { fields: { relevance: "unknown" }, reason: "synthetic", version: 1 }, "test"));
 });
 
 test("INV-13: Chinese material is public on its excerpt through score failure, model stop and paused paid calls; BLOCK, no material or no licence keep it out", async () => {
   const body = "铜矿扩大产能的原始公告，附产量、地点和建设条件，供读者核对。".repeat(8);
   await sql`UPDATE sources SET site_fulltext = true WHERE id = ${SOURCE}`;
   const id = await article("SCFAIL", { title: "铜矿扩产公告", language: "zh", bodyText: `SCFAIL：${body} (${T})` });
-  await assert.rejects(processArticle(id), /synthetic score outage/);
+  assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
   const p = await projection(id);
   assert.deepEqual([p.visibility, p.eligible, p.selected, p.score], ["public", true, false, null]);
   assert.ok(p.source_excerpt.startsWith("来源摘录：SCFAIL：") && p.source_excerpt.includes("根据来源正文整理"));
@@ -616,7 +621,7 @@ test("BR-PUB-08: judging a selected Chinese original again keeps its last comple
   assert.ok(!(await ledger()).includes("remove"), "the selected set never lost it");
   scoreOutages.add("REJUDGE");
   try {
-    await assert.rejects(processArticle(id, { attemptTag: `outage-${T}` }), /synthetic score outage/);
+    await assert.rejects(processArticle(id, { attemptTag: `outage-${T}` }), BudgetExceededError);
   } finally {
     scoreOutages.delete("REJUDGE");
   }
@@ -641,6 +646,7 @@ test("material a hot_signal source never had judged stays out once the source be
   const signal = `${SOURCE}-signal`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, next_fetch_at)
     VALUES (${signal}, 'Test signal source', 'rss', 'T1', 'hot_signal', true, '2100-01-01')`;
+  await ensureModelSourceFixture(signal, ["https://example.com/source"]);
   const { articleId: id } = await upsertMaterial({
     sourceId: signal,
     url: `https://example.com/COAL-signal-${T}`,
@@ -688,7 +694,7 @@ test("current input metadata keeps its new scope receipt after score failure", a
     language: "zh",
     bodyText: `SCFAIL：铜矿项目扩大产能，公告说明地点、产量和原始条件。${T}`.repeat(4),
   });
-  await assert.rejects(processArticle(id), /synthetic score outage/);
+  assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
   assert.equal((await projection(id)).visibility, "public");
   try {
     await sql`UPDATE sources SET name = '来源名称已核正' WHERE id = ${SOURCE}`;
@@ -696,7 +702,7 @@ test("current input metadata keeps its new scope receipt after score failure", a
     await publishArticle(id);
     assert.equal((await projection(id)).visibility, "public", "a rename alone withdraws nothing and pays nothing");
     assert.equal(provider.hits(), hits);
-    await assert.rejects(processArticle(id), /synthetic score outage/);
+    assert.equal((await processArticle(id)).state, "unknown-receipt", "HTTP failure without billing proof stays unknown while confirmed scope remains public");
     const [material] = await sql`SELECT revision FROM articles WHERE id = ${id}`;
     const receipts = await sql`SELECT id, status, request->>'userHash' AS input_hash FROM receipts
       WHERE purpose = 'prefilter_article' AND subject = ${`article:${id}@1`} ORDER BY id`;

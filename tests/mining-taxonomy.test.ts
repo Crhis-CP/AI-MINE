@@ -1,3 +1,6 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -12,7 +15,7 @@ import { configuredPromptVersion, promptVersion } from "@amp/backend/editorial/p
 import { UNDERSTAND_CONFIG } from "@amp/backend/editorial/writing";
 import { normalizeTags } from "../packages/backend/src/editorial/vocabulary.ts";
 import { publishArticle } from "@amp/backend/publication/publish";
-import { overrideFields } from "@amp/backend/admin/content";
+
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { buildApp } from "../apps/api/src/app.ts";
 
@@ -44,6 +47,7 @@ for (const name of ["DASHSCOPE", "ZHIPU", "DEEPSEEK"]) {
   process.env[`${name}_BASE_URL`] = `${provider.url}/v1`;
   process.env[`${name}_API_KEY`] = "synthetic-test-key";
 }
+for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"]) await installUsageFixtureForModel(model);
 after(async () => {
   await app.close();
   await provider.close();
@@ -73,7 +77,11 @@ test("actual classification, publication and public exits agree on nine keys and
     weights.map((row) => row[1]),
     [...ITEM_TYPES],
   );
-  for (const row of weights) assert.equal(row.slice(2).reduce((sum, value) => sum + Number(value), 0), 10);
+  for (const row of weights)
+    assert.equal(
+      row.slice(2).reduce((sum, value) => sum + Number(value), 0),
+      10,
+    );
   assert.equal(PROMPT_VERSIONS.prefilter, "prefilter@f1a5eca242");
   assert.equal(PROMPT_VERSIONS.score, "selection-score@09b414c0c5");
   assert.equal(PROMPT_VERSIONS.understand, configuredPromptVersion("understand", UNDERSTAND_CONFIG));
@@ -82,6 +90,7 @@ test("actual classification, publication and public exits agree on nine keys and
   assert.deepEqual(normalizeTags(["模型发布", "其他", "invalid"]), []);
   await sql`INSERT INTO sources (id,name,kind,tier,participation_mode,site_fulltext,syndicate_fulltext,next_fetch_at)
     VALUES (${source},'Synthetic mining','rss','T1','editorial',true,true,'2100-01-01')`;
+  await ensureModelSourceFixture(source, ["https://example.com/source"]);
   const cursors = new Map<string, string>();
   for (const fields of ["default", "minimal"]) cursors.set(fields, (await get(`/api/v1/selected/snapshot?fields=${fields}`)).json().cursor);
   const ids = new Map<string, string>();
@@ -131,9 +140,9 @@ test("actual classification, publication and public exits agree on nine keys and
   assert.equal((await get(`/api/site/items/${id}`)).json().category, null);
   assert.equal((await sql`SELECT payload->>'category' AS category FROM selected_ledger WHERE article_id=${id} AND op='upsert'`)[0].category, "ai-models");
   const chosen = ids.get(CATEGORY_KEYS[0])!;
-  await overrideFields(chosen, { fields: { category: null }, reason: "证据不足", version: 0 }, "synthetic");
+  await confirmedManualEdit(chosen, { fields: { category: null }, reason: "证据不足", version: 0 }, "synthetic");
   assert.equal((await get(`/api/site/items/${chosen}`)).json().category, null);
-  await assert.rejects(overrideFields(chosen, { fields: { category: "tip" }, reason: "旧键", version: 1 }, "synthetic"));
+  await assert.rejects(confirmedManualEdit(chosen, { fields: { category: "tip" }, reason: "旧键", version: 1 }, "synthetic"));
   for (const url of ["/api/site/pool?category=tip", "/api/v1/items?category=tip", "/feed/category/tip.xml"])
     assert.ok([400, 404].includes((await app.inject({ method: "GET", url })).statusCode));
 });

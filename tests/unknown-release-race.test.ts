@@ -1,3 +1,4 @@
+import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
@@ -35,7 +36,8 @@ test("an old non-billing confirmation cannot release a new unknown attempt or a 
     },
   });
   const revoke = injectDb({ "ai-gateway": sql, ops });
-  const req = { service: "fixture-aba", purpose: "invariant_test", subject: f.prefix, identity: { prefix: f.prefix } };
+  await installUsageFixtureForService("fixture-aba", sql);
+  const req = { lane: "news" as const, service: "fixture-aba", purpose: "invariant_test", subject: f.prefix, identity: { prefix: f.prefix } };
   let hits = 0,
     delayed: Promise<unknown> | undefined;
   const provider = createServer((_req, res) => {

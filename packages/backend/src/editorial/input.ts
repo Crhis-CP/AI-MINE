@@ -1,3 +1,4 @@
+import { evaluateSourcePolicy } from "../admin/sources.ts";
 // What the judging steps read about an article: loaded once per analysis and rendered per step.
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { dbOf, type Db } from "../db.ts";
@@ -127,11 +128,27 @@ export function buildMaterial(a: AnalyzeInputArticle): string {
  */
 export async function firstImagePart(a: AnalyzeInputArticle): Promise<ContentPart | null> {
   const image = (a.media ?? []).find((m: any) => m.kind === "image" && m.url);
-  if (!image) return null;
+  if (!image || !a.sourceId) return null;
+  for (const capability of ["fetch", "external_model"] as const) {
+    const permit = await evaluateSourcePolicy({
+      source_id: a.sourceId,
+      lane: "news",
+      capability,
+      resource: { url: String(image.url), attachment: true, document_type: null },
+    });
+    if (permit.decision !== "allow") return null;
+  }
   try {
     const { body, type } = await produceImage(String(image.url), "thumb");
     return /^image\/(jpeg|png|webp)$/.test(type) ? { type: "image_url", image_url: { url: `data:${type};base64,${body.toString("base64")}` } } : null;
   } catch {
     return null;
   }
+}
+
+/** Existing model-derived context may be cited in an evaluation only for this actual material revision. */
+export async function currentEvaluationDerivedInput(articleId: string, revision: number) {
+  const [row] = await sql<{ title_zh: string | null; summary_zh: string | null; output: Record<string, unknown> | null }[]>`
+    SELECT title_zh,summary_zh,output FROM analyses WHERE article_id=${articleId} AND input_revision=${revision} ORDER BY id DESC LIMIT 1`;
+  return row ?? null;
 }

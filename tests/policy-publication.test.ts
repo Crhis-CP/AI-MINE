@@ -69,7 +69,14 @@ async function fixture() {
 
 test("real capture publishes only independently proven facts, is idempotent and preserves publication controls", async (t) => {
   const roles = await publicRoleFixture(t);
-  const reset = injectDb({ ops: roles.admin, policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+  const reset = injectDb({
+    acquisition: roles.admin,
+    ops: roles.admin,
+    policy: roles.admin,
+    sources: roles.admin,
+    content: roles.admin,
+    publication: roles.admin,
+  });
   t.after(reset);
   const f = await fixture(),
     current = (await readCurrentSourcePolicy(f.sourceId))!;
@@ -91,7 +98,14 @@ test("real capture publishes only independently proven facts, is idempotent and 
   if (captured.status !== "captured") return;
   const sessions = await roles.login();
   reset();
-  const restore = injectDb({ ops: sessions.worker, policy: sessions.worker, sources: sessions.worker, content: sessions.worker, publication: sessions.worker });
+  const restore = injectDb({
+    acquisition: sessions.worker,
+    ops: sessions.worker,
+    policy: sessions.worker,
+    sources: sessions.worker,
+    content: sessions.worker,
+    publication: sessions.worker,
+  });
   t.after(restore);
   const [a, b] = await Promise.all([
     publishPolicyPublication({ expressionId: captured.expressionId }),
@@ -108,7 +122,14 @@ test("real capture publishes only independently proven facts, is idempotent and 
     null,
   );
   restore();
-  const done = injectDb({ ops: roles.admin, policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+  const done = injectDb({
+    acquisition: roles.admin,
+    ops: roles.admin,
+    policy: roles.admin,
+    sources: roles.admin,
+    content: roles.admin,
+    publication: roles.admin,
+  });
   t.after(done);
   assert.equal(a.status, "published");
   assert.deepEqual(a, b);
@@ -147,13 +168,24 @@ test("real capture publishes only independently proven facts, is idempotent and 
   const report = await savePolicyReport(reportDraft);
   assert.ok(report.id);
   done();
-  const workerDb = injectDb({ ops: sessions.worker, publication: sessions.worker, policy: sessions.worker, sources: sessions.worker });
+  const workerDb = injectDb({
+    acquisition: sessions.worker,
+    ops: sessions.worker,
+    publication: sessions.worker,
+    policy: sessions.worker,
+    sources: sessions.worker,
+  });
   try {
     assert.ok((await composePolicyReports(reportTime)).some((r) => r.id === report.id));
   } finally {
     workerDb();
   }
-  const publicDb = injectDb({ publication: sessions.public_read, policy: sessions.public_read, sources: sessions.public_read });
+  const publicDb = injectDb({
+    acquisition: sessions.public_read,
+    publication: sessions.public_read,
+    policy: sessions.public_read,
+    sources: sessions.public_read,
+  });
   try {
     const reading = await policyReport(report.id, { limit: 20 });
     assert.equal(reading.item_count, 1);
@@ -162,7 +194,14 @@ test("real capture publishes only independently proven facts, is idempotent and 
   } finally {
     publicDb();
   }
-  const finalAdmin = injectDb({ ops: roles.admin, policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+  const finalAdmin = injectDb({
+    acquisition: roles.admin,
+    ops: roles.admin,
+    policy: roles.admin,
+    sources: roles.admin,
+    content: roles.admin,
+    publication: roles.admin,
+  });
   t.after(finalAdmin);
   const version = await setPolicyPublicationPaused({ expectedVersion: 1, paused: true, reason: "Synthetic pause", actor: "test" });
   assert.deepEqual(await publishPolicyPublication({ expressionId: captured.expressionId }), { status: "pending", reason: "paused" });

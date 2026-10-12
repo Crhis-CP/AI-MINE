@@ -94,6 +94,7 @@ type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "
   Partial<
     Pick<ItemRow, "language" | "syndicate"> & {
       body_html: string | null;
+      manual_body_html: string | null;
       content_revision: number;
       translation: StoredTranslation;
     }
@@ -105,11 +106,13 @@ type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "
  * It ends with an attribution line (also a mark on copies taken from the feed).
  */
 function fullContent(r: FeedRow, pageUrl: string): string | null {
-  const html = r.body_html
-    ? isChineseOriginal(r.language ?? null, r.body_html)
-      ? r.body_html
-      : readableTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null)
-    : null;
+  const html = r.manual_body_html
+    ? `<p>AI 辅助整理，经人工修订</p>${r.manual_body_html}`
+    : r.body_html
+      ? isChineseOriginal(r.language ?? null, r.body_html)
+        ? r.body_html
+        : readableTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null)
+      : null;
   if (!html) return null;
   return `${linkBodyImages(html)}<p>—— 本文由 ${escapeXml(SITE.name)} 聚合整理，完整版与更多动态见 <a href="${pageUrl}">${pageUrl}</a></p>`;
 }
@@ -158,7 +161,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
       SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name,
-        (p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS syndicate, a.language, a.body_html, a.revision AS content_revision,
+        (p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS syndicate, a.language, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.revision AS content_revision,
         jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
           'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
       FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id

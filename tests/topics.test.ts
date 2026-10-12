@@ -1,7 +1,6 @@
-// Topic counts and pages take 精选, as the upstream's do; while the site has no 精选 at all yet they follow
-// 全部矿业动态 instead (the same condition as /all) and switch back by themselves at the first 精选, the same
-// switch as the home page (Owner 2026-10-05; DEC-13). A company topic takes only items about the company
-// (its subject tag), not mere mentions.
+// Topic pages follow 全部矿业动态: public eligible articles, by tag or by the name in the title/summary.
+// Homepage 精选 filters stay 精选-only. A company topic takes the entity tag or the name in the title,
+// not a display tag by itself.
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -60,14 +59,14 @@ test("before the first 精选, topics follow 全部矿业动态 like its topic f
   );
 });
 
-test("from the first 精选 on, topics take only 精选, as the upstream's do", async () => {
+test("releasing a 精选 does not shrink a topic page down to 精选 only", async () => {
   await sql`UPDATE publications SET visible_after = ${new Date(Date.now() - 60_000)} WHERE article_id = ${`${SOURCE}-pending`}`;
   await seedTopics(); // drops the minute-long count cache
   const after = await counts();
   const copper = after.get("copper")!;
-  assert.equal(copper.basis, "selected");
-  assert.deepEqual([copper.total, copper.recent, copper.pages], [1, 1, 1], "only the 精选 counts; plain and old public items no longer do");
-  assert.equal(after.get("zijin")!.total, 0, "the item about the company is not 精选");
-  assert.deepEqual(await titles("copper"), ["pending"]);
-  assert.ok((await listTopicSummaries()).every((t) => t.basis === "selected"));
+  assert.equal(copper.basis, "all");
+  assert.deepEqual([copper.total, copper.recent, copper.pages], [3, 2, 1], "the public items stay; the released 精选 is added");
+  assert.equal(after.get("zijin")!.total, 1, "the company item stays even though it is not 精选");
+  assert.deepEqual(await titles("copper"), ["old", "pending", "plain"]);
+  assert.ok((await listTopicSummaries()).every((t) => t.basis === "all"));
 });

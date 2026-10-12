@@ -7,7 +7,7 @@ import { SourceInputManifestSchema, type IssueProcessingPermitInputSchema, type 
 import { readCurrentSourcePolicy, readSourceDateContext, evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { createPermitIssuer } from "../sources/permissions.ts";
 import { createPermitVerifier, type PermitPorts } from "./permissions.ts";
-import { chatJson, type ChatJsonResult, type ContentPart, type RegisteredModelTransport } from "./llm.ts";
+import { chatJson, ModelPostReceiptGuardError, type ChatJsonResult, type ContentPart, type RegisteredModelTransport } from "./llm.ts";
 import { modelFor } from "../editorial/models.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
@@ -225,6 +225,9 @@ export function createPolicyGateway(ports: PolicyGatewayPorts) {
             permissionVersions: Object.fromEntries(permits.map((p) => [p.request.source_id, p.request.permission_version])),
             manifest: input.manifest,
           },
+        }).catch((error: unknown) => {
+          if (error instanceof ModelPostReceiptGuardError) throw new PolicyInputChangedError(error.receiptId, error.attemptId);
+          throw error;
         });
         try {
           await authorize();

@@ -30,7 +30,7 @@ async function unidentifiedStage(t: TestContext) {
   await f.closeSurfaces();
 }
 
-test("BR-ENR-07: source queue prepares low and selected foreign material, then first publishes only complete current Chinese", async (t) => {
+test("foreign material is public once it has a Chinese title and guide; a full translation can follow", async (t) => {
   const release = gate();
   t.after(() => release.open());
   await unidentifiedStage(t);
@@ -55,17 +55,23 @@ test("BR-ENR-07: source queue prepares low and selected foreign material, then f
     },
   });
   await f.until(
-    "analysis complete, translation held",
+    "analysis complete, guide public, translation held",
     async () =>
       (await f.rows()).length === 3 &&
-      (await f.rows()).every((row) => row.processing_state === "analyzed" && row.visibility === "withdrawn") &&
+      (await f.rows()).every((row) => row.processing_state === "analyzed" && row.visibility === "public") &&
       f.calls.some((call) => call.step === "translate"),
   );
   const rows = await f.rows();
   for (const row of rows) {
     assert.equal(row.language, "en-US");
-    assert.equal(row.visibility, "withdrawn");
-    assert.equal((await f.reader.inject(`/api/site/items/${row.id}`)).statusCode, 404);
+    assert.equal(row.visibility, "public");
+    const res = await f.reader.inject(`/api/site/items/${row.id}`);
+    assert.equal(res.statusCode, 200, res.body);
+    const detail = res.json();
+    assert.match(detail.summary, /合成模型导读/);
+    assert.ok(detail.links.original);
+    assert.equal(detail.body?.zh ?? null, null, "a held translation is not shown as Chinese body text");
+    assert.equal(detail.body?.complete ?? false, false);
   }
   const withdrawn = rows.find((row) => row.title.includes("FOREIGN_WITHDRAWN"))!;
   const withdrawal = await f.admin.inject({
@@ -81,9 +87,15 @@ test("BR-ENR-07: source queue prepares low and selected foreign material, then f
   await f.reader.inject("/feed.xml");
   assert.equal(f.calls.length, before, "reader requests never progress the held worker");
   release.open();
-  await f.until("both complete translations published", async () =>
-    (await f.rows()).filter((row) => row.id !== withdrawn.id).every((row) => row.visibility === "public"),
-  );
+  await f.until("both complete translations shown", async () => {
+    const open = (await f.rows()).filter((row) => row.id !== withdrawn.id);
+    if (open.length !== 2) return false;
+    for (const row of open) {
+      const res = await f.reader.inject(`/api/site/items/${row.id}`);
+      if (res.statusCode !== 200 || res.json().body?.complete !== true) return false;
+    }
+    return true;
+  });
   for (const row of (await f.rows()).filter((row) => row.id !== withdrawn.id)) {
     const res = await f.reader.inject(`/api/site/items/${row.id}`);
     assert.equal(res.statusCode, 200, res.body);
@@ -129,11 +141,22 @@ test("BR-ENR-07: source queue prepares low and selected foreign material, then f
     "bad translation durably rejected",
     async () => (await bad.sql`SELECT count(*)::int AS n FROM enrichment.translation_segments WHERE state='failed'`)[0].n > 0,
   );
-  await bad.until("scope unknown published", async () =>
-    (await bad.rows()).every((row) => row.processing_state === "analyzed" && (row.visibility === "public") === row.title.includes("Datos")),
-  );
-  for (const row of await bad.rows())
-    assert.equal((await bad.reader.inject(`/api/site/items/${row.id}`)).statusCode, row.title.includes("Datos") ? 200 : 404, row.title);
+  await bad.until("guide stays up and the valid body is complete", async () => {
+    const rows = await bad.rows();
+    if (rows.length !== 2 || !rows.every((row) => row.processing_state === "analyzed" && row.visibility === "public")) return false;
+    const good = rows.find((row) => row.title.includes("Datos"));
+    if (!good) return false;
+    const res = await bad.reader.inject(`/api/site/items/${good.id}`);
+    return res.statusCode === 200 && res.json().body?.complete === true;
+  });
+  for (const row of await bad.rows()) {
+    const res = await bad.reader.inject(`/api/site/items/${row.id}`);
+    assert.equal(res.statusCode, 200, row.title);
+    const detail = res.json();
+    assert.match(detail.summary, /合成模型导读/);
+    if (row.title.includes("Ensayo")) assert.equal(detail.body?.zh ?? null, null, "a failed body is not shown as a translation");
+    else assert.equal(detail.body.complete, true);
+  }
   const badId = (await bad.rows()).find((row) => row.title.includes("Ensayo"))!.id;
   await bad.until(
     "failed job retained for retry",
@@ -155,8 +178,16 @@ test("BR-ENR-07: source queue prepares low and selected foreign material, then f
       { marker: "RESTRICTED", title: "Copper notice", label: "PASS", body: "RESTRICTED: A self-authored copper operation reports changes. ".repeat(8) },
     ],
   });
-  await restricted.until("restricted material processed privately", async () => (await restricted.rows())[0]?.processing_state === "analyzed");
-  const [privateRow] = await restricted.rows();
-  assert.equal((await restricted.reader.inject(`/api/site/items/${privateRow.id}`)).statusCode, 404);
-  assert.ok(!restricted.calls.some((call) => call.step === "translate"), "no source-specific summary-only exception is invented");
+  await restricted.until(
+    "summary-only source published as a guide",
+    async () => (await restricted.rows())[0]?.processing_state === "analyzed" && (await restricted.rows())[0]?.visibility === "public",
+  );
+  const [guideRow] = await restricted.rows();
+  const guide = await restricted.reader.inject(`/api/site/items/${guideRow.id}`);
+  assert.equal(guide.statusCode, 200, guide.body);
+  const guideDetail = guide.json();
+  assert.match(guideDetail.summary, /合成模型导读/);
+  assert.ok(guideDetail.links.original);
+  assert.equal(guideDetail.body, null, "site full text stays off, so no body is invented");
+  assert.ok(!restricted.calls.some((call) => call.step === "translate"), "a closed full-text switch does not buy a body translation");
 });

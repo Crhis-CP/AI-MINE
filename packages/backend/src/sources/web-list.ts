@@ -6,6 +6,7 @@ import { readable, type ExtractedBody } from "../content/extract.ts";
 import { jinaRead } from "../providers/jina.ts";
 import { FetchError, type Candidate, type SourceRow } from "./types.ts";
 import { observeSourceDate, previewSourceDate, toDateCandidate } from "./date-extraction.ts";
+import { readLabeledPublicationDate } from "./labeled-date.ts";
 import { sourcePublishedAt } from "./published-at.ts";
 import { getPath } from "./json-list.ts";
 import type { SourceDateObservationInput } from "@amp/contracts/time-assertion";
@@ -75,8 +76,12 @@ function detailDate(text: string, url: string, source: SourceRow, $: cheerio.Che
   };
   if (d.publishedAtSelector) {
     const node = $?.(d.publishedAtSelector).first();
-    add(node?.attr("datetime") ?? node?.attr("content") ?? node?.attr("title") ?? node?.text() ?? "", `selector:${d.publishedAtSelector}`);
-  } else if (d.publishedAtRegex) add(new RegExp(d.publishedAtRegex).exec(text)?.[1] ?? "", `regex:${d.publishedAtRegex}`);
+    const raw = node?.attr("datetime") ?? node?.attr("content") ?? node?.attr("title") ?? node?.text() ?? "";
+    if (raw.trim()) add(raw, `selector:${d.publishedAtSelector}`);
+  } else if (d.publishedAtRegex) {
+    const raw = new RegExp(d.publishedAtRegex).exec(text)?.[1] ?? "";
+    if (raw.trim()) add(raw, `regex:${d.publishedAtRegex}`);
+  }
   if ($) {
     $('meta[property="article:published_time"], meta[name="pubdate"], meta[itemprop="datePublished"], time[itemprop="datePublished"]').each((i, el) => {
       const node = $(el),
@@ -101,8 +106,14 @@ function detailDate(text: string, url: string, source: SourceRow, $: cheerio.Che
     });
     for (const item of jsonLdDates($, url, source.config.preserveUrlFragment === true)) add(item.raw, item.locator, true);
   }
-  const primary = candidates.shift() ?? observeSourceDate(source, url, "", "page publication metadata absent", { detail: true, observedAt });
-  if (candidates.length) primary.alternatives = candidates.map(toDateCandidate);
+  // A configured rule that found nothing must not hide a date the page itself labels as published.
+  if (!candidates.some((c) => c.raw.trim()) && !(source.config.preserveUrlFragment === true && new URL(url).hash)) {
+    const labeled = readLabeledPublicationDate(text, { metadata: false });
+    if (labeled) add(labeled.raw, "page label 发布日期", true);
+  }
+  const filled = candidates.filter((c) => c.raw.trim());
+  const primary = filled.shift() ?? candidates[0] ?? observeSourceDate(source, url, "", "page publication metadata absent", { detail: true, observedAt });
+  if (filled.length) primary.alternatives = filled.map(toDateCandidate);
   return primary;
 }
 

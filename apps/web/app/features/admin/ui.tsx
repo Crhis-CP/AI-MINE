@@ -10,10 +10,10 @@ export { Badge, Dot } from "@amp/ui/Status";
 export function AdminPage({ title, subtitle, actions, children }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[1320px] px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pt-8">
-      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-[22px] font-semibold tracking-tight text-ink sm:text-[24px]">{title}</h1>
-          {subtitle && <p className="mt-1 text-[13.5px] leading-relaxed text-ink-3">{subtitle}</p>}
+          {subtitle && <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-ink-2">{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </header>
@@ -38,12 +38,12 @@ export function Card({
   return (
     <section className={`rounded-panel bg-surface ring-1 ring-line ${className}`}>
       {(title || right) && (
-        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-          <h2 className="text-[14px] font-semibold text-ink">{title}</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+          <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
           {right && <div className="flex items-center gap-2 text-[12.5px] text-ink-3">{right}</div>}
         </div>
       )}
-      <div className={pad ? "p-4" : ""}>{children}</div>
+      <div className={pad ? "p-5" : ""}>{children}</div>
     </section>
   );
 }
@@ -131,8 +131,13 @@ export function DataTable<T>({
   );
 }
 
-export function Empty({ children }: { children: ReactNode }) {
-  return <div className="px-4 py-10 text-center text-[13px] text-ink-4">{children}</div>;
+export function Empty({ title, children }: { title?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="px-5 py-12 text-center">
+      {title && <p className="text-[15px] font-medium text-ink">{title}</p>}
+      <div className={`${title ? "mt-1.5" : ""} text-[13.5px] leading-relaxed text-ink-3`}>{children}</div>
+    </div>
+  );
 }
 
 type ButtonTone = "primary" | "secondary" | "danger" | "ghost";

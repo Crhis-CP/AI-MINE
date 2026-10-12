@@ -1,4 +1,6 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -78,8 +80,13 @@ function runTranslation(articleId: string) {
 }
 
 before(async () => {
+  process.env.MODEL_CALLS_ENABLED = "true";
+  process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
+  process.env.DEEPSEEK_API_KEY = "test-key";
+  await installUsageFixtureForModel("deepseek-flash");
   await sql`INSERT INTO sources (id,name,kind,tier,participation_mode,site_fulltext,next_fetch_at)
     VALUES (${SOURCE},'Translation shutdown','rss','T1','editorial',true,'2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://example.org/source"]);
 });
 after(async () => {
   await provider.close();

@@ -1,3 +1,4 @@
+import { v3Schemas, v3Routes, V3Problem } from "./v3.ts";
 import { siteInformationSchemas, siteInformationRoutes } from "./site-information.ts";
 export { SiteInformation, OfficialMetalLink } from "./site-information.ts";
 import { z } from "zod";
@@ -19,12 +20,39 @@ export const SiteStats = z.strictObject({
   day: z.strictObject({ collected: z.number(), selected: z.number() }),
 });
 export type SiteStats = z.infer<typeof SiteStats>;
+export const SourceAttribution = z.strictObject({
+  publishers: z.array(z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }) })),
+  license: z.strictObject({ name: z.string(), url: z.url({ protocol: /^https?$/ }).nullable() }).nullable(),
+  notice: z.string().nullable(),
+  legalUrl: z.url({ protocol: /^https?$/ }).nullable(),
+});
+export const ContentVersion = z.strictObject({ version: z.string(), withdrawalVersion: z.string() });
+export const Freshness = z.strictObject({
+  generated_at: z.iso.datetime(),
+  release: z.string(),
+  lanes: z
+    .array(
+      z.strictObject({
+        lane: z.enum(["news", "policy"]),
+        last_public_at: z.iso.datetime().nullable(),
+        last_scheduled_check_ok_at: z.iso.datetime().nullable(),
+      }),
+    )
+    .length(2),
+});
 export const SiteFilters = z.strictObject({
   channel: z.enum(CHANNEL_KEYS),
   category: z.enum(CATEGORY_KEYS).nullable(),
   tag: z.string().nullable(),
   topic: z.string().nullable().optional(),
   jurisdiction: z.string().max(16).nullable().optional(),
+  source: z.string().max(120).nullable().optional(),
+  mineral: z.string().max(80).nullable().optional(),
+  on: z.iso.date().nullable().optional(),
+  from: z.iso.date().nullable().optional(),
+  to: z.iso.date().nullable().optional(),
+  selected: z.boolean().optional(),
+  scope: z.enum(["all", "selected"]).optional(),
 });
 /** ADR-0025 future shapes only; current aliases/registry remain unchanged until atomic activation. */
 export const SourceDatedItemTime = SourceTimeProjection.extend({ firstPublicAt: z.iso.datetime({ offset: true }).nullable() });
@@ -41,13 +69,24 @@ const FeedItemSummaryCore = z.strictObject({
   selected: z.boolean(),
   channel: z.literal("news"),
   source: z.strictObject({ name: z.string() }),
+  attribution: SourceAttribution.nullable().optional(),
 });
 export const SourceDatedFeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.shape);
 export const FeedItemSummary = FeedItemSummaryCore;
+export const SavedItems = z.strictObject({ items: z.array(FeedItemSummary), unavailableIds: z.array(z.string()) });
 
 const PoolResponseCore = z.strictObject({
   filters: SiteFilters.extend({ q: z.string().nullable(), tab: z.enum(["time", "relevance"]) }),
   items: z.array(FeedItemSummaryCore),
+  cards: z.lazy(() => z.array(TimelineCardCore)).optional(),
+  hot: z.lazy(() => z.array(HotStripEntry)).optional(),
+  reportTotal: z.int().nonnegative().optional(),
+  facets: z
+    .strictObject({
+      sources: z.array(z.strictObject({ id: z.string(), name: z.string(), count: z.int().nonnegative() })),
+      minerals: z.array(z.string()),
+    })
+    .optional(),
   page: z.number(),
   pageCount: z.number(),
   total: z.number(),
@@ -67,7 +106,14 @@ export const PoolQuery = z.object({
   jurisdiction: z.string().max(16).optional(),
   q: z.string().optional(),
   tab: z.enum(["time", "relevance"]).optional(),
-  page: z.number().optional(),
+  page: z.number().int().positive().optional(),
+  source: z.string().max(120).optional(),
+  mineral: z.string().max(80).optional(),
+  on: z.iso.date().optional(),
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  selected: z.boolean().optional(),
+  scope: z.enum(["all", "selected"]).optional(),
 });
 export const StoryRef = z.strictObject({ publicId: z.string(), title: z.string() });
 export const GroupInfo = z.strictObject({
@@ -247,9 +293,14 @@ export const MetalPrices = z
 export type MetalPrices = z.infer<typeof MetalPrices>;
 
 export const schemas = {
+  ...v3Schemas,
   ...siteInformationSchemas,
   ...policySchemas,
   SiteStats,
+  SourceAttribution,
+  ContentVersion,
+  SavedItems,
+  Freshness,
   SiteFilters,
   FeedItemSummary,
   PoolResponse,
@@ -262,8 +313,28 @@ export const schemas = {
   Problem,
 };
 export const routes = {
+  ...v3Routes,
   ...siteInformationRoutes,
   ...policyRoutes,
+  siteContentVersion: {
+    method: "GET" as const,
+    url: "/api/site/content-version",
+    schema: { operationId: "siteContentVersion", response: { 200: ContentVersion, 503: ProblemResponse } },
+  },
+  siteSavedItems: {
+    method: "GET" as const,
+    url: "/api/site/items/saved",
+    schema: {
+      operationId: "siteSavedItems",
+      querystring: z.strictObject({ ids: z.string().max(8099) }),
+      response: { 200: SavedItems, 400: ProblemResponse, 503: ProblemResponse },
+    },
+  },
+  freshness: {
+    method: "GET" as const,
+    url: "/api/v3/freshness",
+    schema: { operationId: "freshness", response: { 200: Freshness, 429: V3Problem, 503: V3Problem } },
+  },
   siteTimeline: {
     method: "GET" as const,
     url: "/api/site/timeline",

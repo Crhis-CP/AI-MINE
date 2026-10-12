@@ -70,6 +70,14 @@ test("every registered public GET reaches its documented data fixture or explici
     for (const row of routes) {
       assert.ok(Boolean(row.fixture) !== Boolean(row.noDataReason), row.route);
       for (const sample of row.cases) {
+        if (sample.prepare === "v3-cursor") {
+          const snapshotResponse = await app.request("/api/v3/featured/snapshot?limit=1");
+          assert.equal(snapshotResponse.status, 200);
+          const snapshot = (await snapshotResponse.json()) as { cursor: string; items: { id: string }[] };
+          assert.equal(snapshot.items.length, 1);
+          assert.match(snapshot.cursor, /^cv3\./);
+          cursor = snapshot.cursor;
+        }
         if (sample.prepare === "advance-ledger") {
           const snapshotResponse = await app.request("/api/v1/selected/snapshot?limit=1");
           assert.equal(snapshotResponse.status, 200);
@@ -109,7 +117,7 @@ test("every registered public GET reaches its documented data fixture or explici
           }
           for (const [key, value] of Object.entries(sample.equals ?? {})) assert.deepEqual(at(body, key), value, sample.url);
           for (const key of sample.positive ?? []) assert.ok(Number(at(body, key)) > 0, `${sample.url} empty ${key}`);
-          if (sample.prepare)
+          if (sample.prepare === "advance-ledger")
             assert.deepEqual(
               body.changes.map((change: { op: string }) => change.op),
               ["upsert", "remove"],

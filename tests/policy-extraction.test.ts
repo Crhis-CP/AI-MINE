@@ -108,7 +108,7 @@ test("corrupt PDF, blank/scanned page, characters lost by cleaning and visual re
     ["damaged", Buffer.from("%PDF-invalid"), /无法完整解析/],
     ["blank", readFileSync(new URL("./fixtures/policy/empty-page.pdf", import.meta.url)), /第 2 页无可核验文字层/],
     ["visual", '<article><p>Valid text</p><img src="/chart.png"></article>', /未核验图件/],
-    ["loss", '<article><div class="promo-box">Binding exception</div><p>Valid text</p></article>', /文字与完整正文选区不一致/],
+    ["loss", "<article>Unlocated direct text<p>Valid text</p></article>", /尚未定位/],
     ["garbled", "<article><p>Threshold \uFFFD10</p></article>", /字符完整性/],
   ] as const) {
     const saved = await acquirePolicyOriginal({ ...input(), identity: { ...input().identity, documentNumber: name } }, profile, pages(main).get);
@@ -192,4 +192,39 @@ test("explicit source attachment references cannot be closed by an empty or unre
     pages("<article><p>This standalone rule has no attached schedules.</p></article>").get,
   );
   assert.equal((await readPolicyOriginal(noAnnex.expressionId))!.manifest.catalogueClosed, true);
+});
+
+test("source status/date attributes stay separate from body text with self, ancestor and descendant scope", async () => {
+  const page = '<article data-status="prospective"><p data-in-force="2027-01-01">Article 5 <span data-status="exception">applies.</span></p></article>';
+  const saved = await acquirePolicyOriginal(input(), profile, pages(page).get);
+  const result = await extractPolicyOriginal(saved.expressionId, profile);
+  const node = result.resources[0]!.nodes[0]!;
+  assert.equal(node.text, "Article 5 applies.");
+  assert.doesNotMatch(node.html!, /data-status|data-in-force|2027-01-01/);
+  assert.deepEqual(
+    node.annotations?.map((a) => [a.name, a.value, a.scope]),
+    [
+      ["data-in-force", "2027-01-01", "self"],
+      ["data-status", "prospective", "ancestor"],
+      ["data-status", "exception", "descendant"],
+    ],
+  );
+});
+
+test("declared XML body extraction preserves complete text, structural date evidence and rejects entity envelopes", async () => {
+  for (const unsafe of [false, true]) {
+    const xml = `${unsafe ? '<!DOCTYPE x [<!ENTITY external SYSTEM "file:///private">]>' : ""}<Legislation><Body RestrictStartDate="2027-01-01"><P1><Text>Mining obligation.</Text></P1></Body></Legislation>`;
+    const xmlProfile = { ...profile, bodySelector: "Body", attachmentSelector: "Attachment" };
+    const saved = await acquirePolicyOriginal(
+      { ...input(), identity: { ...input().identity, documentNumber: unsafe ? "unsafe" : "xml" } },
+      xmlProfile,
+      async (address) => ({ status: 200, url: address, headers: new Headers({ "content-type": "application/xml" }), body: Buffer.from(xml), text: () => xml }),
+    );
+    const result = await extractPolicyOriginal(saved.expressionId, xmlProfile);
+    assert.equal(result.state, unsafe ? "incomplete" : "extracted");
+    if (!unsafe) {
+      assert.equal(result.resources[0]!.nodes[0]!.text, "Mining obligation.");
+      assert.equal(result.resources[0]!.nodes[0]!.annotations?.[0]?.value, "2027-01-01");
+    }
+  }
 });

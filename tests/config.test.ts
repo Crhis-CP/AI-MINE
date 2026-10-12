@@ -159,7 +159,7 @@ test("web and fetcher reject credential names even with empty values, without di
 });
 
 test("only NODE_ENV enables production proxy and development-bypass checks for every role", () => {
-  const proxies = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "EGRESS_PROXY_URL"].flatMap((name) => [name, name.toLowerCase()]);
+  const proxies = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"].flatMap((name) => [name, name.toLowerCase()]);
   for (const role of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[]) {
     for (const name of [...proxies, "DEV_AUTH_ROLE", "DEV_AUTH_DISPLAY_NAME"])
       for (const value of ["", "PRIVATE_MARKER"]) {
@@ -183,7 +183,11 @@ test("only NODE_ENV enables production proxy and development-bypass checks for e
   };
   assert.deepEqual(environmentProblems("worker", worker), []);
   assert.equal(databaseConfig("worker", worker).urlFor("backup"), url);
+  assert.equal(databaseConfig("worker", { ...worker, EGRESS_PROXY_URL: "http://127.0.0.1:7890" }).urlFor("backup"), url);
   assert.throws(() => databaseConfig("worker", { ...worker, https_proxy: "PRIVATE_MARKER" }), { message: "worker must not hold https_proxy" });
+  for (const role of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[])
+    for (const name of ["EGRESS_PROXY_URL", "egress_proxy_url"])
+      for (const value of ["", "http://127.0.0.1:7890"]) assert.deepEqual(environmentProblems(role, { NODE_ENV: "production", [name]: value }), []);
 });
 
 test("role-selected connections preserve numeric decoding and support real transactions", async (t) => {

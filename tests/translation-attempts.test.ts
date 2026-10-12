@@ -1,4 +1,6 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { gate, tag } from "./setup.ts";
+import { installUsageFixtureForModel, installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn } from "node:child_process";
@@ -42,7 +44,10 @@ await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
 process.env.DEEPSEEK_BASE_URL = `http://127.0.0.1:${(server.address() as { port: number }).port}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
 before(async () => {
+  await installUsageFixtureForModel("deepseek-flash");
+  await installUsageFixtureForService("fixture-attempts");
   await sql`INSERT INTO sources(id,name,kind,site_fulltext)VALUES(${source},'Attempt probe','rss',true)`;
+  await ensureModelSourceFixture(source, ["https://fixture.invalid/source"]);
 });
 after(async () => {
   held?.release.open();
@@ -130,7 +135,7 @@ test("second attempt received before checkpoint then restart cannot buy a fourth
   }
   phases.final = await state(articleId, start);
   console.log("SECOND_ATTEMPT_PROBE=" + JSON.stringify(phases));
-  assert.equal(hits - start, 3, "a received second attempt is not identified by receipts.id alone");
+  assert.equal(hits - start, 2, "a received second attempt is settled in place, and the same answer is not bought a third time");
 });
 
 test("checkpoint rollback preserves received response and cannot enable an uncounted retry", async () => {
@@ -153,13 +158,14 @@ test("checkpoint rollback preserves received response and cannot enable an uncou
   }
   phases.final = await state(articleId, start);
   console.log("NONATOMIC_PROBE=" + JSON.stringify(phases));
-  assert.equal(hits - start, 3, "receipt rejection and durable attempt accounting need the same transaction");
+  assert.equal(hits - start, 2, "a rolled-back checkpoint keeps the received answer, and the same answer is not bought a third time");
   assert.equal((phases.gap as { receipt: { status: string } }).receipt.status, "received");
 });
 
 const request = (name: string, limited = true) => ({
   service: "fixture-attempts",
   purpose: "translate_body",
+  lane: "news" as const,
   subject: `${name}-${T}`,
   identity: { name, T },
   ...(limited ? { maxRejectedOutputs: 3 as const } : {}),
@@ -314,12 +320,14 @@ test("translation output cap is checked before a new claim and legacy callers ke
         }),
         ReceiptOutputLimitError,
       );
-    else
-      await paidRequest(req, async () => {
+    else {
+      const again = await paidRequest(req, async () => {
         calls++;
         return outcome("fourth");
       });
-    assert.equal(calls, limited ? 3 : 4);
-    assert.equal((await sql`SELECT attempts FROM receipts WHERE subject=${req.subject}`)[0].attempts, limited ? 3 : 4);
+      assert.equal(again.reused, true, "three proven unusable answers are reused");
+    }
+    assert.equal(calls, 3);
+    assert.equal((await sql`SELECT attempts FROM receipts WHERE subject=${req.subject}`)[0].attempts, 3);
   }
 });

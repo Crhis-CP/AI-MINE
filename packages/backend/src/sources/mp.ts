@@ -8,7 +8,7 @@ import {
 // WeChat official accounts. Dajiala (极致了, a paid service) supplies each account's latest posts and
 // article bodies; every enabled account is checked once per source interval.
 import { dbOf } from "../db.ts";
-import { upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
+import { identityKeyFor, upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
 import { recordSourceCollectionSuccess, readCurrentSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { requireDateCollection } from "./collect.ts";
 import { observeSourceDate, previewSourceDate } from "./date-extraction.ts";
@@ -78,12 +78,13 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
       if (firstCheck && publishedAt && Date.now() - publishedAt.getTime() > FIRST_CHECK_WINDOW_MS) continue;
       // Same identity rule as every entrance: the long link without tracking parameters. A known post is
       // skipped, unless its body failed for a passing reason: then it is tried again a few times.
-      const key = identityKeyForUrl(p.url);
+      const key = identityKeyFor({ sourceId, url: p.url, title: p.title, via: "fetch" });
+      const legacyKey = identityKeyForUrl(p.url);
       const [known] = key
         ? await sql<
             { id: string; revision: number; source_date_version: string; body_status: string; discovered_at: Date; retry: { attempts: number } | null }[]
           >`
-            SELECT id, revision, source_date_version, body_status, discovered_at, raw->'dajiala'->'bodyRetry' AS retry FROM articles WHERE identity_key = ${key} LIMIT 1`
+            SELECT id, revision, source_date_version, body_status, discovered_at, raw->'dajiala'->'bodyRetry' AS retry FROM articles WHERE source_id=${sourceId} AND identity_key IN (${key},${legacyKey}) LIMIT 1`
         : [];
       await requireDateCollection(source, permission.permission_version, p.url);
       const date = {

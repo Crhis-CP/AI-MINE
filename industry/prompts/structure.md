@@ -20,4 +20,6 @@
 
 geography严格形状：{"status":"identified|none|unknown","primary":"字典代码或null","assignments":[{"code":"字典代码","role":"event_location|rule_scope|affected_location|headquarters|issuer_location|background","mention":"原文字面地名","segment":"title|body_head|body_tail","quote":"该段逐字连续原文"}],"reason":"简短说明"}。无法确定的单条不要猜；跨国或全球不硬填一个国家。全部字段仍在本次结构化调用中完成，不要求另一次模型调用。
 
-只输出一个 JSON 对象，字段：category, tags, subjects, fact, geography。
+只输出一个 JSON 对象，字段：category, tags, subjects, fact, geography, company_context。
+
+六、company_context：仅当当前原文对已核实名录公司提供可核验背景时提取，最多6项；字段 entityId（上述主体白名单ID）、name（已知中文名，无核实译名则原名）、originalName（原名）、description（基于引文的简短中文简介）、quote（当前segments中逐字连续引文）、sources（[{name:来源名,url:输入原文URL}]）。不得凭模型记忆编造公司资料、译名或来源URL；无明确依据返回[]，不联网补查。

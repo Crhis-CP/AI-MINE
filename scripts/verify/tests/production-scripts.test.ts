@@ -4,7 +4,7 @@
 // The tests pass because a development install has both (PIT-073), so this reads the imports instead.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { isBuiltin } from "node:module";
+import { createRequire, isBuiltin } from "node:module";
 import path from "node:path";
 import { test } from "node:test";
 import { parse } from "yaml";
@@ -24,6 +24,32 @@ const DATA = /\.(?:json|md|txt|csv|svg|png|ico)$/i;
 const TYPE_ONLY = /^[ \t]*(?:import|export)[ \t]+type[ \t]+(?!from\b)[^;]*?\bfrom[ \t]*(["'])[^"'\n]*\1[ \t]*;?/gm;
 
 type Manifest = { name?: string; dependencies?: Record<string, string>; exports?: unknown };
+
+/** This metadata lookup is resolved from the installed PDF renderer, not from backend's direct dependencies. */
+function anchoredCanvasMetadata(root: string, file: string, spec: string, source: string, allowed: Set<string>): boolean {
+  const anchor = "pdfjs-dist/legacy/build/pdf.mjs";
+  const expression = `createRequire(import.meta.resolve("${anchor}"))("@napi-rs/canvas/package.json")`;
+  if (
+    file !== "packages/backend/src/policy/vision-render.ts" ||
+    spec !== "@napi-rs/canvas/package.json" ||
+    !allowed.has("pdfjs-dist") ||
+    !source.includes(expression)
+  )
+    return false;
+  try {
+    const parent = createRequire(path.join(root, file)).resolve(anchor);
+    const manifest = JSON.parse(readFileSync(path.resolve(path.dirname(parent), "../../package.json"), "utf8")) as {
+      name: string;
+      dependencies?: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+    };
+    if (manifest.name !== "pdfjs-dist" || !(manifest.dependencies?.["@napi-rs/canvas"] || manifest.optionalDependencies?.["@napi-rs/canvas"])) return false;
+    const child = JSON.parse(readFileSync(createRequire(parent).resolve(spec), "utf8")) as { name: string; version?: string };
+    return child.name === "@napi-rs/canvas" && typeof child.version === "string";
+  } catch {
+    return false;
+  }
+}
 
 /** What the image would fail to load, from each script directly under scripts/ through its relative imports. */
 function productionImports(root: string, exempt: Record<string, string> = EXEMPT) {
@@ -75,7 +101,9 @@ function productionImports(root: string, exempt: Record<string, string> = EXEMPT
     if (checked.includes(file)) continue;
     checked.push(file);
     const allowed = installed(file);
-    for (const spec of importsOf(readFileSync(path.join(root, file), "utf8").replace(TYPE_ONLY, ""))) {
+    const source = readFileSync(path.join(root, file), "utf8").replace(TYPE_ONLY, "");
+    for (const spec of importsOf(source)) {
+      if (anchoredCanvasMetadata(root, file, spec, source, allowed)) continue;
       if (isBuiltin(spec) || (spec.startsWith(".") && DATA.test(spec))) continue;
       if (spec.startsWith(".")) {
         const target = path.posix.normalize(path.posix.join(path.posix.dirname(file), spec));
@@ -153,4 +181,17 @@ test("a whole type-only import, Node's own modules, root dependencies and data f
     ].join("\n"),
   });
   assert.deepEqual(problems, []);
+});
+
+test("canvas metadata requires its exact production renderer anchor and installed optional dependency", () => {
+  const file = "packages/backend/src/policy/vision-render.ts",
+    spec = "@napi-rs/canvas/package.json";
+  const source = readFileSync(path.join(ROOT, file), "utf8"),
+    allowed = new Set(["pdfjs-dist"]);
+  assert.equal(anchoredCanvasMetadata(ROOT, file, spec, source, allowed), true);
+  assert.equal(anchoredCanvasMetadata(ROOT, file, spec, source, new Set()), false);
+  assert.equal(anchoredCanvasMetadata(ROOT, "scripts/arbitrary.ts", spec, source, allowed), false);
+  assert.equal(anchoredCanvasMetadata(ROOT, file, "unregistered/package.json", source, allowed), false);
+  assert.equal(anchoredCanvasMetadata(ROOT, file, spec, 'require("@napi-rs/canvas/package.json")', allowed), false);
+  assert.equal(anchoredCanvasMetadata(scratch(), file, spec, source, allowed), false);
 });

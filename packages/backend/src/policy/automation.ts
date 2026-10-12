@@ -6,6 +6,7 @@ import { policyMaterialReference, policyMaterialReferences } from "@amp/backend/
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
 import { config } from "../config.ts";
 import { dbOf } from "../db.ts";
+import { currentPolicyProcessingRecipe } from "./recipe.ts";
 import { policyProfile } from "./automation-profile.ts";
 import { capturePolicyMaterial } from "./capture.ts";
 import { runPolicyFulltext } from "./fulltext-runtime.ts";
@@ -34,6 +35,7 @@ type Workflow = {
   material_id: string;
   material_revision: number;
   profile_hash: string | null;
+  processing_recipe_hash: string | null;
   expression_id: string | null;
   document_revision_id: string | null;
   fulltext_run_id: string | null;
@@ -42,22 +44,22 @@ type Workflow = {
   reason: string | null;
   next_check_at: Date;
 };
-const runnable = new Set(["pending", "partial"]);
+const runnable = new Set(["pending", "partial", "provider_unavailable", "waiting_receipt"]);
 const finished = new Set(["published", "semantic_verified", "semantic_failed", "excluded", "uncertain"]);
 export async function readPolicyWorkflow(sourceId: string, materialId: string) {
   const [row] = await sql<
     Workflow[]
-  >`SELECT source_id,material_id,material_revision,profile_hash,expression_id,document_revision_id,fulltext_run_id,stage,status,reason,next_check_at
+  >`SELECT source_id,material_id,material_revision,profile_hash,processing_recipe_hash,expression_id,document_revision_id,fulltext_run_id,stage,status,reason,next_check_at
     FROM policy.material_workflows WHERE source_id=${sourceId} AND material_id=${materialId}`;
   return row ?? null;
 }
 async function save(row: Workflow, stage: PolicyStage, status: string, reason: string | null, delayMinutes: number) {
-  await sql`UPDATE policy.material_workflows SET material_revision=${row.material_revision},profile_hash=${row.profile_hash},expression_id=${row.expression_id},
+  await sql`UPDATE policy.material_workflows SET material_revision=${row.material_revision},profile_hash=${row.profile_hash},processing_recipe_hash=${row.processing_recipe_hash},expression_id=${row.expression_id},
     document_revision_id=${row.document_revision_id},fulltext_run_id=${row.fulltext_run_id},stage=${stage},status=${status},reason=${reason},
     next_check_at=now()+${delayMinutes}*interval '1 minute',updated_at=now() WHERE source_id=${row.source_id} AND material_id=${row.material_id}`;
   return { status, stage, reason };
 }
-/** One bounded worker turn. Blocked paid stages are only revisited after changed source inputs or an explicit pause release. */
+/** One bounded worker turn. Recoverable transport states resume the same stage through its existing receipt checks. */
 export async function advancePolicyMaterial(
   job: PolicyJob,
   stage: PolicyStage,
@@ -75,13 +77,19 @@ export async function advancePolicyMaterial(
   if (!target.current) return save(row, "acquire", "not_current", "来源当前目录未列出；保留原件和历史", 10080);
   const configured = policyProfile(source);
   if (!configured) return save(row, "acquire", "needs_configuration", "缺少明确的官方原件取得配置", 60);
+  const processingRecipe = currentPolicyProcessingRecipe();
   const { profile, profileHash } = configured,
     interval = Math.min(profile.recheckMinutes, 10080);
   const previousStatus = row.status,
     previousRevision = row.document_revision_id,
-    previousProfile = row.profile_hash;
+    previousProfile = row.profile_hash,
+    recipeChanged = row.processing_recipe_hash !== processingRecipe;
   const needsAcquire =
-    stage === "acquire" || !runnable.has(row.status) || row.profile_hash !== profileHash || row.material_revision !== material.materialRevision;
+    stage === "acquire" ||
+    !runnable.has(row.status) ||
+    row.profile_hash !== profileHash ||
+    row.material_revision !== material.materialRevision ||
+    recipeChanged;
   if (needsAcquire) {
     if ((await runtimeControlSnapshot("policy", ["collection"])).paused) return save(row, "acquire", "pending", "采集已暂停", 1);
     if (target.pending) throw new CrawlDeferred(new Date(Date.now() + 60_000), `directory-priority:${source.id}`, "directory_scan_pending");
@@ -92,7 +100,8 @@ export async function advancePolicyMaterial(
     row.document_revision_id = capture.revisionId;
     row.material_revision = material.materialRevision;
     row.profile_hash = profileHash;
-    const changed = previousRevision !== capture.revisionId || previousProfile !== profileHash;
+    row.processing_recipe_hash = processingRecipe;
+    const changed = previousRevision !== capture.revisionId || previousProfile !== profileHash || recipeChanged;
     if (changed) row.fulltext_run_id = null;
     const basic = await ports.publish({ expressionId: capture.expressionId });
     if (basic.status === "pending" && basic.reason === "paused" && !capture.fulltextAllowed) return save(row, "publish", "pending", "公开已暂停", 1);
@@ -116,6 +125,11 @@ export async function advancePolicyMaterial(
   if (!row.expression_id) return save(row, "acquire", "pending", null, 0);
   if ((await processingControl(row.expression_id)).paused) return save(row, "acquire", "paused", null, interval);
   if (["fulltext", "vision", "interpret"].includes(stage) && !config.modelCallsEnabled) return save(row, stage, "pending", "模型调用已暂停", 1);
+  const stop = async (nextStage: PolicyStage, status: string, reason: string) => {
+    const result = await save(row, nextStage, status, reason, interval);
+    await ports.publish({ expressionId: row.expression_id! });
+    return result;
+  };
   if (stage === "fulltext") {
     const result = await (ports.fulltext ?? runPolicyFulltext)(row.expression_id, profile.extraction, { root: options.root, maxRequests: 2 });
     if (["paused", "waiting_control"].includes(result.status)) return save(row, "fulltext", "pending", "运行控制暂停或变化，等待复核", 1);
@@ -125,14 +139,14 @@ export async function advancePolicyMaterial(
     }
     if (result.status === "incomplete" && "runId" in result) return save(row, "fulltext", "partial", null, 0);
     if (result.status === "incomplete" && row.reason !== "vision_extracted") return save(row, "vision", "pending", null, 0);
-    return save(row, "acquire", result.status, "全文尚未通过完整性要求", interval);
+    return stop(runnable.has(result.status) ? "fulltext" : "acquire", result.status, "全文尚未通过完整性要求");
   }
   if (stage === "vision") {
     const vision = await (ports.vision ?? runPolicyVision)(row.expression_id, profile.extraction, { root: options.root, maxRequests: 2 });
     if (["paused", "waiting_control"].includes(vision.status)) return save(row, "vision", "pending", "运行控制暂停或变化，等待复核", 1);
     if (vision.status === "partial") return save(row, "vision", "partial", null, 0);
     if (vision.status === "extracted") return save(row, "fulltext", "pending", "vision_extracted", 0);
-    return save(row, "acquire", vision.status === "not_required" ? "incomplete" : vision.status, "原件版面或图件尚未完整", interval);
+    return stop(runnable.has(vision.status) ? "vision" : "acquire", vision.status === "not_required" ? "incomplete" : vision.status, "原件版面或图件尚未完整");
   }
   if (stage === "interpret") {
     if (!row.fulltext_run_id) return save(row, "fulltext", "pending", null, 0);
@@ -144,7 +158,7 @@ export async function advancePolicyMaterial(
     if (["paused", "waiting_control"].includes(result.status)) return save(row, "interpret", "pending", "运行控制暂停或变化，等待复核", 1);
     if (result.status === "partial") return save(row, "interpret", "partial", null, 0);
     if (finished.has(result.status)) return save(row, "publish", "pending", result.status, 0);
-    return save(row, "acquire", result.status, "解读或核验尚未完成", interval);
+    return stop(runnable.has(result.status) ? "interpret" : "acquire", result.status, "解读或核验尚未完成");
   }
   const result = await ports.publish({ expressionId: row.expression_id, ...(row.fulltext_run_id ? { fulltextRunId: row.fulltext_run_id } : {}) });
   if (result.status === "pending" && result.reason === "paused") return save(row, "publish", "pending", "公开已暂停", 1);
@@ -169,7 +183,10 @@ export async function discoverPolicyWorkflows(limit = 50) {
     const source = await readSourceDateContext(row.sourceId);
     if (!source || !(await directoryMaterialState(source, row.materialId)).current) continue;
     await sql`INSERT INTO policy.material_workflows(source_id,material_id,material_revision)
-    VALUES(${row.sourceId},${row.materialId},${row.materialRevision}) ON CONFLICT DO NOTHING`;
+    VALUES(${row.sourceId},${row.materialId},${row.materialRevision}) ON CONFLICT(source_id,material_id) DO UPDATE
+    SET stage='acquire',next_check_at=now(),updated_at=now()
+    WHERE policy.material_workflows.processing_recipe_hash IS DISTINCT FROM ${currentPolicyProcessingRecipe()}
+    AND policy.material_workflows.status NOT IN ('blocked_unknown','paused','withdrawn')`;
   }
   const last = rows.at(-1);
   return {
@@ -180,7 +197,7 @@ export async function discoverPolicyWorkflows(limit = 50) {
 export async function duePolicyWorkflows(limit = 50) {
   return sql<
     Workflow[]
-  >`SELECT source_id,material_id,material_revision,profile_hash,expression_id,document_revision_id,fulltext_run_id,stage,status,reason,next_check_at
+  >`SELECT source_id,material_id,material_revision,profile_hash,processing_recipe_hash,expression_id,document_revision_id,fulltext_run_id,stage,status,reason,next_check_at
     FROM policy.material_workflows WHERE next_check_at<=now() ORDER BY next_check_at,source_id,material_id LIMIT ${limit}`;
 }
 export async function policyWorkflowFailed(job: PolicyJob, stage: PolicyStage) {

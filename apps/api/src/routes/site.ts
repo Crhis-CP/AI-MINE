@@ -14,13 +14,14 @@ import { loadTopicTags } from "@amp/backend/publication/topics";
 import { loadHotStrip } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
 import { loadSiteStats, loadMetalPrices } from "@amp/backend/site/stats";
-import { itemAvailability } from "@amp/backend/publication/availability";
+import { isValidDate } from "@amp/contracts/time";
+import { itemAvailability, savedItems, contentVersion, publicFreshness } from "@amp/backend/publication/availability";
 import { listTopicSummaries, loadTopicPage } from "@amp/backend/publication/topics";
 import { registerFeedback } from "./feedback.ts";
 
 import { loadHot, loadStoryDetail, resolveStory } from "@amp/backend/publication/stories";
 import { listReports, loadReport, reportNavigation, loadReportNavigation, loadReportMonth, type ReportKind } from "@amp/backend/publication/reports";
-import { looseQuery, sendJsonWithEtag, sendProblem } from "../http/respond.ts";
+import { looseQuery, sendJsonWithEtag, sendProblem, applyPublicHeaders } from "../http/respond.ts";
 
 type Handler = (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 
@@ -53,6 +54,13 @@ export function siteHandler(fn: Handler): Handler {
 
 export interface FilterParams {
   jurisdiction?: string | null;
+  source?: string | null;
+  mineral?: string | null;
+  on?: string | null;
+  from?: string | null;
+  to?: string | null;
+  selected?: boolean;
+  scope?: "all" | "selected";
   channel: ChannelKey;
   category: CategoryKey | null;
   tag: string | null;
@@ -74,10 +82,52 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
     topicTags = await loadTopicTags(topic);
     if (!topicTags) throw new BadRequest("unknown topic");
   }
-  return { channel, category: category as CategoryKey | null, tag, topic, topicTags, ...(jurisdiction ? { jurisdiction } : {}) };
+  const source = q.source?.trim() || null,
+    mineral = q.mineral?.trim() || null;
+  if (source && !/^[a-zA-Z0-9_-]{1,120}$/.test(source)) throw new BadRequest("invalid source");
+  if (mineral && mineral.length > 80) throw new BadRequest("invalid mineral");
+  for (const field of ["on", "from", "to"]) if (q[field] && !isValidDate(q[field]!)) throw new BadRequest("invalid date");
+  if (q.from && q.to && q.from > q.to) throw new BadRequest("invalid date range");
+  if (q.scope && !["all", "selected"].includes(q.scope)) throw new BadRequest("invalid scope");
+  if (q.selected && !["true", "false", "1", "0"].includes(q.selected)) throw new BadRequest("invalid selected filter");
+  return {
+    channel,
+    category: category as CategoryKey | null,
+    tag,
+    topic,
+    topicTags,
+    ...(jurisdiction ? { jurisdiction } : {}),
+    ...(source ? { source } : {}),
+    ...(mineral ? { mineral } : {}),
+    ...(q.on ? { on: q.on } : {}),
+    ...(q.from ? { from: q.from } : {}),
+    ...(q.to ? { to: q.to } : {}),
+    ...(q.selected ? { selected: q.selected === "true" || q.selected === "1" } : {}),
+    ...(q.scope ? { scope: q.scope as "all" | "selected" } : {}),
+  };
 }
 
 export function registerSite(app: FastifyInstance) {
+  app.get(
+    contracts.siteContentVersion.url,
+    contracts.siteContentVersion,
+    siteHandler(async (_req, reply) => {
+      return reply.header("Cache-Control", "no-store").send(await contentVersion());
+    }),
+  );
+  app.get(
+    contracts.siteSavedItems.url,
+    contracts.siteSavedItems,
+    siteHandler(async (req, reply) => {
+      const ids = (looseQuery(req).ids ?? "").split(",").filter(Boolean);
+      if (ids.length > 100 || ids.some((id) => !/^[a-zA-Z0-9_-]{1,80}$/.test(id))) throw new BadRequest("invalid saved references");
+      return reply.header("Cache-Control", "no-store").send(await savedItems(ids));
+    }),
+  );
+  app.get(contracts.freshness.url, contracts.freshness, async (_req, reply) => {
+    applyPublicHeaders(reply);
+    return reply.header("Cache-Control", "no-store").send(await publicFreshness());
+  });
   app.get(
     "/api/site/meta",
     siteHandler(async (req, reply) => {
@@ -93,7 +143,8 @@ export function registerSite(app: FastifyInstance) {
       const filters = await parseFilters(q);
       const limit = Math.min(Math.max(Number(q.limit) || 20, 1), 40);
       const unfiltered = filters.channel === "all" && !filters.category && !filters.tag && !filters.topic && !filters.jurisdiction && !q.cursor;
-      const [data, hot] = await Promise.all([loadTimeline({ ...filters, cursor: q.cursor || null, limit }), unfiltered ? loadHotStrip() : null]);
+      const [timeline, hot] = await Promise.all([loadTimeline({ ...filters, cursor: q.cursor || null, limit }), unfiltered ? loadHotStrip() : null]);
+      const { total: _total, ...data } = timeline;
       const body = { ...data, hot, generatedAt: new Date().toISOString() };
       TimelineResponse.parse(JSON.parse(JSON.stringify(body)));
       const cc = cacheUntil(reply, 60, data.refreshAt);
@@ -108,10 +159,26 @@ export function registerSite(app: FastifyInstance) {
     siteHandler(async (req, reply) => {
       const q = looseQuery(req);
       const filters = await parseFilters(q);
-      const page = Math.min(Math.max(Number(q.page) || 1, 1), 50);
+      const page = Number(q.page ?? 1);
+      if (!Number.isSafeInteger(page) || page < 1) throw new BadRequest("invalid page");
       const search = q.q?.trim() ? q.q.trim().slice(0, 200) : null;
       const tab = q.tab === "relevance" ? "relevance" : "time";
       const data = await loadPool({ ...filters, q: search, tab, page });
+      if (
+        !search &&
+        !filters.category &&
+        !filters.tag &&
+        !filters.topic &&
+        !filters.jurisdiction &&
+        !filters.source &&
+        !filters.mineral &&
+        !filters.on &&
+        !filters.from &&
+        !filters.to &&
+        !filters.selected &&
+        filters.channel === "all"
+      )
+        data.hot = (await loadHotStrip()) ?? [];
       PoolResponse.parse(JSON.parse(JSON.stringify(data))); // Validate wire values without changing the original bytes.
       const { generatedAt: _, ...content } = data;
       return sendJsonWithEtag(req, reply, data, { etagPrefix: "pool", cacheControl: "public, max-age=60, s-maxage=60", etagOf: content });

@@ -203,7 +203,7 @@ B:architecture/01-aihot-assessment.md §6 列了 12 条；A 包的 G1～G8 只�
   2. `COLLECT_ENABLED=false` 在 AIHOT 中表现为“不注册采集队列和定时任务”，改变了注册路径；新项目改为全部注册、在采集出网处判断。
   3. 新增 `PUBLISH_ENABLED`；两个飞书开关合并为 `NOTIFY_ENABLED`；IndexNow 改名 `INDEXNOW_ENABLED`。
   4. 全局处理暂停（带原因、到期时间与告警，INV-30）是运营态数据、按业务线记录，与环境变量阀门分开；负责人在私有页面“用量与模型密钥”暂停与恢复，阀门状态经只读运维接口查看（不设系统页，ADR-0018）。
-  5. 启动自检按进程角色执行：web 出现 `DATABASE_URL` 或模型密钥、fetcher 出现数据库凭据、任何进程出现 `EGRESS_PROXY_URL`、`ADMIN_PASSWORD`、`DEV_AUTH_*`、`ALLOW_PRIVATE_NETWORK_FETCH` 一律拒绝启动（5.16）。
+  5. 启动自检按进程角色执行：web 出现 `DATABASE_URL` 或模型密钥、fetcher 出现数据库凭据、任何进程出现 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`、`ADMIN_PASSWORD`、`DEV_AUTH_*`、`ALLOW_PRIVATE_NETWORK_FETCH` 一律拒绝启动。`EGRESS_PROXY_URL` 可选（照 AIHOT，Owner 2026-10-10）：不填直连，填了只给抓取和图片，不给模型（5.16）。
 
 ### 2.6 旧文不刷屏
 

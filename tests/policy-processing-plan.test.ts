@@ -136,3 +136,19 @@ test("new acquisition binds a new manifest while unchanged parts remain identifi
     c.parts.map((part) => part.partId),
   );
 });
+
+test("long ordinary paragraphs split at boundaries with exact text offsets and preserved semantic tags", () => {
+  const text = "适用全部采矿义务，但以下例外除外。".repeat(100);
+  const input = extraction([text]);
+  input.resources[0]!.nodes[0]!.html = `<p><del>旧义务。</del><strong>${text}</strong>最终单位 m<sup>2</sup>。</p>`;
+  const plan = buildPolicyFulltextPlan(input, context);
+  assert.equal(plan.status, "planned");
+  if (plan.status !== "planned") return;
+  assert.ok(plan.parts.length > 1);
+  assert.equal(plan.parts.map((part) => part.source.replace(/<[^>]*>/g, "")).join(""), `旧义务。${text}最终单位 m2。`);
+  assert.equal(plan.parts[0]!.sourceStart, 0);
+  for (let i = 1; i < plan.parts.length; i++) assert.equal(plan.parts[i]!.sourceStart, plan.parts[i - 1]!.sourceEnd);
+  assert.match(plan.parts[0]!.source, /<del>旧义务。<\/del>/);
+  assert.match(plan.parts.at(-1)!.source, /<sup>2<\/sup>/);
+  assert.ok(plan.requests.every((r) => r.sourceBytes <= POLICY_PLAN_LIMITS.requestBytes));
+});

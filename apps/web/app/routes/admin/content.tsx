@@ -76,7 +76,7 @@ export default function Content({ loaderData }: Route.ComponentProps) {
           />
         </Card>
       )}
-      {!q && <Empty>输入 ID、链接或标题开始查找。</Empty>}
+      {!q && <Empty title="先查找一条">输入编号、原文链接或标题，再点查找。</Empty>}
     </AdminPage>
   );
 }

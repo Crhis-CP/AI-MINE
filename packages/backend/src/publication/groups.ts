@@ -11,6 +11,7 @@ import {
   categoryCondition,
   channelCondition,
   selectedCondition,
+  listedCondition,
   tagCondition,
   toItemSummary,
   topicCondition,
@@ -93,6 +94,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
 }
 
 export interface DevelopmentsQuery {
+  scope?: "all" | "selected";
   storyPublicId: string;
   channel: ChannelKey;
   category: CategoryKey | null;
@@ -116,9 +118,10 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   if (!story) return { kind: "not_found" };
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)}`;
   type Member = Pick<ItemRow, "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
+  const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible` : selectedCondition(now);
   const selected = await sql<Member[]>`
     SELECT p.article_id AS id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
-    FROM publications p WHERE p.story_id = ${story.id} AND ${selectedCondition(now)} ${filters}`;
+    FROM publications p WHERE p.story_id = ${story.id} AND ${scope} ${filters}`;
   if (selected.length === 0) return { kind: "not_found" };
   const counts = new Map(
     (
@@ -153,7 +156,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
     .map((d) => d.development);
 
   const revision = shortHash(list.map((d) => `${d.factId}:${d.representativeId}:${d.reportCount}`).join(","), 10);
-  const binding = queryBinding({ s: q.storyPublicId, c: q.channel, k: q.category, t: q.tag, p: q.topicTags });
+  const binding = queryBinding({ scope: q.scope ?? "selected", s: q.storyPublicId, c: q.channel, k: q.category, t: q.tag, p: q.topicTags });
   let offset = 0;
   if (q.cursor) {
     const c = decodeCursor<{ o: number; r: string; b: string }>("dv1", q.cursor);
@@ -170,7 +173,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       ? (
           await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(page.map((d) => d.representativeId))}
-      AND p.story_id = ${story.id} AND ${selectedCondition(now)} ${filters}`
+      AND p.story_id = ${story.id} AND ${scope} ${filters}`
         ).map((row) => [row.id, row])
       : [],
   );

@@ -23,7 +23,7 @@ const CREDENTIALS = [
   "FEISHU_PUSH_WEBHOOK_URL",
   "AMP_CREDENTIALS_DIR",
 ];
-const PROXIES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "EGRESS_PROXY_URL"].flatMap((key) => [key, key.toLowerCase()]);
+const PROXIES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"].flatMap((key) => [key, key.toLowerCase()]);
 
 /** D8 parity and Compose checks. Diagnostics contain variable names, never configuration values. */
 export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public-api")[] = ["web", "public-api"]): string[] {
@@ -40,6 +40,8 @@ export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public
     check(role, { NODE_ENV: "production", API_BASE_URL: "http://api", ALLOW_PRIVATE_NETWORK_FETCH: "false" }, []);
     for (const key of [...PROXIES, "DEV_AUTH_USER", "DEV_AUTH_FUTURE"])
       for (const value of ["", "fixture-value"]) check(role, { NODE_ENV: "production", AMP_ENVIRONMENT: "preview", [key]: value }, [key]);
+    for (const key of ["EGRESS_PROXY_URL", "egress_proxy_url"])
+      for (const value of ["", "http://127.0.0.1:7890"]) check(role, { NODE_ENV: "production", [key]: value }, []);
     check(role, { NODE_ENV: "production", ALLOW_PRIVATE_NETWORK_FETCH: "true" }, ["ALLOW_PRIVATE_NETWORK_FETCH"]);
     check(role, { NODE_ENV: "development", AMP_ENVIRONMENT: "production", HTTP_PROXY: "", DEV_AUTH_USER: "", ALLOW_PRIVATE_NETWORK_FETCH: "true" }, []);
   }

@@ -55,21 +55,21 @@ beforeEach(async () => {
 
 test("dry-run reports inserts, touches and revisions with both tables byte-for-byte unchanged", async () => {
   let before = await snapshot();
-  assert.equal((await run([second], { dryRun: true })).nbs.inserted, 10);
+  assert.equal((await run([second], { dryRun: true })).nbs.inserted, 11);
   assert.deepEqual(await snapshot(), before);
   await recorded(() => run([first]));
   before = await snapshot();
   const preview = (await run([first, second], { dryRun: true })).nbs;
-  assert.deepEqual([preview.ok, preview.inserted, preview.touched], [true, 10, 10]);
+  assert.deepEqual([preview.ok, preview.inserted, preview.touched], [true, 11, 11]);
   assert.deepEqual(await snapshot(), before);
-  assert.equal((await run([high], { dryRun: true, force })).nbs.inserted, 10);
+  assert.equal((await run([high], { dryRun: true, force })).nbs.inserted, 11);
   assert.deepEqual(await snapshot(), before);
   await run([second]);
   before = await snapshot();
   const changed = { ...second, rows: second.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "0108800.0" } : row)) };
   const result = (await run([changed], { dryRun: true })).nbs;
   assert.deepEqual(result.periods[0].changed, [{ key: "nbs.copper", before: "108770.0", after: "108800.0" }]);
-  assert.equal(result.touched, 9);
+  assert.equal(result.touched, 10);
   assert.deepEqual(await snapshot(), before);
   assert.deepEqual((await run([changed])).nbs, result);
 });
@@ -81,7 +81,7 @@ test("manual 2.1-times period clears the hold, records forced detail, and the sc
   const held = (await readMetalPriceRuns(NOW)).sources.nbs.held;
   const result = await recorded(() => run([high], { force: { ...force, held } }), "metals.prices.manual");
   assert.deepEqual(result.nbs.forced, { period: second.period.label, skipped: ["行数", "倍数"] });
-  assert.equal(result.nbs.inserted, 10);
+  assert.equal(result.nbs.inserted, 11);
   const manual = (await jobs()).at(-1)!;
   assert.deepEqual(manual.detail, result);
   const read = await readMetalPriceRuns(NOW);
@@ -167,7 +167,7 @@ test("dry-run compares later fetched periods with the values it would have store
   const later = { ...second, period: { start: "2026-09-21", end: "2026-09-30", label: "2026年9月下旬" } };
   const before = await snapshot();
   const preview = await run([high, later], { dryRun: true, force });
-  assert.equal(preview.nbs.periods[0].inserted, 10);
+  assert.equal(preview.nbs.periods[0].inserted, 11);
   assert.match(preview.nbs.periods[1].held!, /0.47 倍/);
   assert.deepEqual(await snapshot(), before);
   assert.deepEqual(await run([high, later], { force }), preview);

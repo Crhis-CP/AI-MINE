@@ -132,7 +132,15 @@
     "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.feedback\",\"read\",\"split-debt\"]": 1,
     "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.receipts\",\"read\",\"split-debt\"]": 1,
     "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/nav-counts>/[c]\",\"sources\",\"public.deliveries\",\"read\",\"split-debt\"]": 1,
-    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/audit>/rows\",\"sources\",\"public.audit_log\",\"read\",\"split-debt\"]": 1
+    "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/audit>/rows\",\"sources\",\"public.audit_log\",\"read\",\"split-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"poolCounts/[row]\",\"ai-gateway\",\"public.analyses\",\"read\",\"cross-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"poolCounts/[row]\",\"ai-gateway\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"poolCounts/[row]\",\"ai-gateway\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"poolCounts/[row]\",\"ai-gateway\",\"public.editorial_overrides\",\"read\",\"cross-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"pick\",\"ai-gateway\",\"public.analyses\",\"read\",\"cross-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"pick\",\"ai-gateway\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"pick\",\"ai-gateway\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
+    "[\"packages/backend/src/admin/prefilter-audit.ts\",\"pick\",\"ai-gateway\",\"public.editorial_overrides\",\"read\",\"cross-debt\"]": 1
   },
   "unknown": {
     "packages/backend/src/admin/feedback.ts:updateFeedback/<closure@34:20>/[after]:179077aeccce37d07bb13a60bf8c6c6ccb3c96366f6bf833c38041ad9d014385": 1,

@@ -191,10 +191,23 @@ async function saveReport(
   });
 }
 
-/** Daily report for Beijing date D covers [D-1 08:00, D 08:00) Beijing time. */
+async function publishedEntries(kind: string, key: string): Promise<number> {
+  const [row] = await sql<
+    { content: { sections?: Array<{ items?: unknown[] }>; themes?: Array<{ storyRefs?: unknown[] }>; flashes?: unknown[] } }[]
+  >`SELECT content FROM reports WHERE kind = ${kind} AND key = ${key}`;
+  if (!row) return 0;
+  const content = row.content;
+  const sections = (content.sections ?? []).reduce((n: number, section: { items?: unknown[] }) => n + (section.items?.length ?? 0), 0);
+  const themes = (content.themes ?? []).reduce((n: number, theme: { storyRefs?: unknown[] }) => n + (theme.storyRefs?.length ?? 0), 0);
+  return sections + themes + (content.flashes?.length ?? 0);
+}
+
+/** Daily report for Beijing date D covers [D-1 08:00, D 08:00). An empty window is not published. An issue that already has entries is left as published. */
 export async function composeDaily(date: string, reason = "scheduled"): Promise<{ key: string; entries: number }> {
   const publication = await requireRuntimeRunning("news", ["publication"]),
     processing = await runtimeControlSnapshot("news", ["processing"]);
+  const already = await publishedEntries("daily", date);
+  if (already > 0) return { key: date, entries: already };
   const end = new Date(beijingMidnight(date).getTime() + 8 * 3600 * 1000);
   const start = new Date(end.getTime() - 86400000);
   const covered = await recentlyCovered("daily", date);
@@ -215,11 +228,13 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     items: perSection.get(label)!.map(({ category: _c, factKey: _f, ...entry }) => entry),
   }));
   const ordered = sections.flatMap((s) => s.items).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  if (ordered.length === 0 && flashes.length === 0) return { key: date, entries: 0 };
   const model = await modelFor("report");
   const lead = ordered.length ? await writeLead("daily", date, ordered, model) : null;
   const actualModel = lead?.model ?? model;
   const content = {
     date,
+    generationStatus: lead ? "ready" : "summary",
     lead: lead?.lead ?? null,
     highlights: lead?.highlights ?? [],
     sections,
@@ -272,6 +287,9 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   const end = beijingMidnight(addDays(endDateInclusive, 1));
   const all = await candidates(start, end);
   const top = all.slice(0, kind === "weekly" ? 40 : 60);
+  const kept = await publishedEntries(kind, key);
+  if (kept > 0) return { key, entries: kept };
+  if (!top.length) return { key, entries: 0 };
   const dailyCount =
     (await sql<{ n: number }[]>`SELECT count(*) AS n FROM reports WHERE kind = 'daily' AND key >= ${startDate} AND key <= ${endDateInclusive}`)[0]?.n ?? 0;
   let themes: Array<{ heading: string; summary: string; storyRefs: ReportEntry[] }> = [];
@@ -310,6 +328,7 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   }
   const content = {
     kind,
+    generationStatus: receiptId ? "ready" : "summary",
     title: kind === "weekly" ? `${SITE.name} 周报 · ${key}` : `${SITE.name} 月报 · ${key}`,
     ...(kind === "weekly" ? { isoLabel: key } : { monthLabel: key }),
     periodStart: startDate,
@@ -340,9 +359,42 @@ export async function composeMonthly(label: string, reason = "scheduled") {
   return composePeriod("monthly", label, start, addDays(next, -1), reason);
 }
 
+/** Entries a catch-up would put in daily D. Zero means the gap stays missing instead of becoming a blank issue. */
+async function freshDailyCount(date: string): Promise<number> {
+  const end = new Date(beijingMidnight(date).getTime() + 8 * 3600 * 1000);
+  const start = new Date(end.getTime() - 86400000);
+  const covered = await recentlyCovered("daily", date);
+  const all = await candidates(start, end);
+  return all.filter((c) => !covered.has(c.factKey) && !covered.has(`a:${c.itemId}`)).length;
+}
+
+async function periodEntryCount(startDate: string, endDateInclusive: string): Promise<number> {
+  return (await candidates(beijingMidnight(startDate), beijingMidnight(addDays(endDateInclusive, 1)))).length;
+}
+
+/**
+ * How many qualified new selections the composer would put in this issue.
+ * Daily is the fresh items in [D-1 08:00, D 08:00). Weekly and monthly are the selections in that
+ * calendar period. Zero is why an issue is left missing; it is not a count of older selections.
+ */
+export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
+  if (kind === "daily") return freshDailyCount(key);
+  if (kind === "weekly") {
+    const range = isoWeekRange(key);
+    if (!range) throw new Error(`bad week label ${key}`);
+    return periodEntryCount(range.start, range.end);
+  }
+  const match = /^(\d{4})-(\d{2})$/.exec(key);
+  if (!match) throw new Error(`bad month label ${key}`);
+  const start = `${key}-01`;
+  const next = Number(match[2]) === 12 ? `${Number(match[1]) + 1}-01-01` : `${match[1]}-${String(Number(match[2]) + 1).padStart(2, "0")}-01`;
+  return periodEntryCount(start, addDays(next, -1));
+}
+
 /**
  * Catch-up: generates any missing daily report for the last `days` days (never the future and never
  * before the first report in the database), the last complete week and the last complete month.
+ * A gap with nothing new is left missing. The edition clock does not publish an empty issue.
  */
 export async function catchUpReports(now = new Date(), days = 7): Promise<{ generated: string[] }> {
   const generated: string[] = [];
@@ -355,7 +407,7 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
     const d = addDays(latestDue, -i);
     if (first?.key && d < first.key) continue;
     const [exists] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${d}`;
-    if (!exists) {
+    if (!exists && (await freshDailyCount(d)) > 0) {
       await composeDaily(d, "catch-up");
       generated.push(`daily:${d}`);
     }
@@ -366,7 +418,8 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
   const weekDue = dow > 0 || bjHour >= 10;
   if (weekDue) {
     const [w] = await sql`SELECT 1 FROM reports WHERE kind = 'weekly' AND key = ${lastWeek}`;
-    if (!w) {
+    const range = isoWeekRange(lastWeek);
+    if (!w && range && (await periodEntryCount(range.start, range.end)) > 0) {
       await composeWeekly(lastWeek, "catch-up");
       generated.push(`weekly:${lastWeek}`);
     }
@@ -377,7 +430,9 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
   const monthDue = dd > 1 || bjHour > 10 || (bjHour === 10 && Number(new Date(now.getTime() + 8 * 3600000).toISOString().slice(14, 16)) >= 30);
   if (monthDue) {
     const [m] = await sql`SELECT 1 FROM reports WHERE kind = 'monthly' AND key = ${prevMonth}`;
-    if (!m) {
+    const monthStart = `${prevMonth}-01`;
+    const monthEnd = addDays(`${y}-${String(mo).padStart(2, "0")}-01`, -1);
+    if (!m && (await periodEntryCount(monthStart, monthEnd)) > 0) {
       await composeMonthly(prevMonth, "catch-up");
       generated.push(`monthly:${prevMonth}`);
     }

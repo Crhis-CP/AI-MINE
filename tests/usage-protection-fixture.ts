@@ -58,3 +58,24 @@ export async function installUsageFixtureForService(service: string, db: Db = sq
   };
   await db`INSERT INTO ai.usage_prices(id,version,price) VALUES(${usagePriceId(service, "", null)},1,${db.json(price)}) ON CONFLICT(id) DO UPDATE SET price=EXCLUDED.price,version=ai.usage_prices.version+1,updated_at=now()`;
 }
+
+/** Explicit input-only vector fixture; no production provider/price inference. */
+export async function installUsageFixtureForEmbedding(model: string, service = "dashscope", db: Db = sql) {
+  await installUsageProtectionFixture(db);
+  const price = {
+    service,
+    model,
+    configuration_hash: null,
+    currency: "CNY",
+    input_per_million_micros: "0",
+    output_per_million_micros: "0",
+    per_request_micros: null,
+    max_request_micros: null,
+    image_input_token_bound: null,
+    protocol_input_token_allowance: 0,
+    basis_url: "https://synthetic-pricing.invalid",
+    observed_on: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+    valid_until: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+  };
+  await db`INSERT INTO ai.usage_prices(id,version,price) VALUES(${usagePriceId(service, model, null)},1,${db.json(price)}) ON CONFLICT(id) DO UPDATE SET price=EXCLUDED.price,version=ai.usage_prices.version+1`;
+}

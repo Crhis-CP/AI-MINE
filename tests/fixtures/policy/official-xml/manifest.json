@@ -1,0 +1,39 @@
+{
+  "source_id": "CA-002",
+  "source_url": "https://laws-lois.justice.gc.ca/eng/XML/SOR-2002-222.xml",
+  "official_title": "Metal and Diamond Mining Effluent Regulations",
+  "publisher": "Department of Justice Canada",
+  "retrieved_at": "2026-10-12T02:19:42.764983+00:00",
+  "response_bytes": 331050,
+  "response_sha256": "6e8f37e8fca10bc68826d8b849371a64444b4f8c298a7d9b280e4736c268fe48",
+  "root_opening": "<Regulation lims:pit-date=\"2026-06-04\" hasPreviousVersion=\"true\" lims:lastAmendedDate=\"2026-06-04\" lims:current-date=\"2026-06-14\" lims:inforce-start-date=\"2018-06-01\" lims:fid=\"684553\" lims:id=\"684553\" regulation-type=\"SOR\" xml:lang=\"en\" xmlns:lims=\"http://justice.gc.ca/lims\">",
+  "license_basis": ["https://laws-lois.justice.gc.ca/eng/regulations/SI-97-5/", "https://laws-lois.justice.gc.ca/eng/FAQ/"],
+  "robots": {
+    "url": "https://laws-lois.justice.gc.ca/robots.txt",
+    "status": 404,
+    "result": "No robots directives; official XML links verified before bounded research requests."
+  },
+  "scope": "Offline development verification only. Exact provision/table substrings plus their original root/Body/Schedule ancestor openings; omitted siblings make these excerpts, not complete or official reproductions. No source activation, model processing or public product publication.",
+  "fragments": [
+    {
+      "file": "ca-sor-2002-222-provisions.xml",
+      "sha256": "840931cbf658486bca636020250468302bedf9cb78e58ac57787d49a1880a32d",
+      "source_byte_ranges": [[20634, 23726], [100244, 100450]]
+    },
+    {
+      "file": "ca-sor-2002-222-table.xml",
+      "sha256": "94036806afb447f01517e2c3664a6c04f6c49fba893f378ff3d861e43a440b38",
+      "source_byte_ranges": [[304048, 316294]]
+    }
+  ],
+  "blocked_secondary_family": {
+    "source_id": "GB-001",
+    "robots_url": "https://www.legislation.gov.uk/robots.txt",
+    "robots_rule": "Crawl-delay: 5; XML is not disallowed; PDF/DOCX disallowed",
+    "url": "https://www.legislation.gov.uk/ukpga/2008/27/section/1/data.xml",
+    "status": 202,
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "result": "Empty response; no challenge solving, proxy/reader or alternate identity used."
+  }
+}

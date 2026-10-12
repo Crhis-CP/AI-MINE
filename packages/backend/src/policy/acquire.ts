@@ -72,9 +72,12 @@ export async function acquirePolicyOriginal(
   };
   const original = await fetch(input.identity.officialUrl, false);
   let catalogueClosed = false;
-  if (original.body && /html/i.test(original.mediaType ?? "") && profile.attachmentSelector) {
+  if (original.body && /html|xml/i.test(original.mediaType ?? "") && profile.attachmentSelector) {
     try {
-      const $ = cheerio.load(decodeOriginal(original.body, original.mediaType));
+      const xml = /xml/i.test(original.mediaType ?? "") && !/html/i.test(original.mediaType ?? ""),
+        decoded = decodeOriginal(original.body, original.mediaType);
+      if (xml && /<!DOCTYPE|<!ENTITY|\0/i.test(decoded)) throw new Error("Unsafe XML envelope");
+      const $ = xml ? cheerio.load(decoded, { xml: true }) : cheerio.load(decoded);
       const referenceLabels = (text: string) => {
         const labels = new Set<string>();
         for (const match of text.matchAll(new RegExp(profile.attachmentReferencePattern!, "giu"))) {

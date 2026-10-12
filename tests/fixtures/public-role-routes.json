@@ -740,6 +740,505 @@
     ]
   },
   {
+    "route": "GET /api/site/content-version",
+    "cases": [
+      {
+        "url": "/api/site/content-version",
+        "status": 200,
+        "contains": ["version", "withdrawalVersion"]
+      }
+    ],
+    "fixture": "同一事务更新的publication.read_watermarks"
+  },
+  {
+    "route": "GET /api/site/items/saved",
+    "cases": [
+      {
+        "url": "/api/site/items/saved?ids=pr9-editorial-public-full,pr9-editorial-withdrawn-full",
+        "status": 200,
+        "array": "items",
+        "equals": {
+          "unavailableIds": ["pr9-editorial-withdrawn-full"]
+        }
+      }
+    ],
+    "fixture": "PR9公开与撤回材料引用解析"
+  },
+  {
+    "route": "GET /api/site/information",
+    "cases": [
+      {
+        "url": "/api/site/information",
+        "status": 200,
+        "contains": ["contactEmail"]
+      }
+    ],
+    "noDataReason": "公开站点设置投影；本夹具不写运营设置，验证合法默认状态"
+  },
+  {
+    "route": "GET /api/site/policies",
+    "cases": [
+      {
+        "url": "/api/site/policies",
+        "status": 200,
+        "equals": {
+          "items": []
+        }
+      }
+    ],
+    "noDataReason": "本角色夹具不创建法规版本，合法空库由真实公开投影返回；非空资格在policy-public-api测试覆盖"
+  },
+  {
+    "route": "GET /api/site/policies/:id",
+    "cases": [
+      {
+        "url": "/api/site/policies/policy-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，证明公开身份走不可查看分支而不泄露私有数据"
+  },
+  {
+    "route": "GET /api/site/policies/:id/history",
+    "cases": [
+      {
+        "url": "/api/site/policies/policy-absent/history",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，验证历史公开快照拒绝分支"
+  },
+  {
+    "route": "GET /api/v1/policies",
+    "cases": [
+      {
+        "url": "/api/v1/policies",
+        "status": 200,
+        "equals": {
+          "items": []
+        }
+      }
+    ],
+    "noDataReason": "本角色夹具不创建法规版本，合法空库由真实公开投影返回；非空资格在policy-public-api测试覆盖"
+  },
+  {
+    "route": "GET /api/v1/policies/:id",
+    "cases": [
+      {
+        "url": "/api/v1/policies/policy-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，证明公开身份走不可查看分支而不泄露私有数据"
+  },
+  {
+    "route": "GET /api/v1/policies/:id/history",
+    "cases": [
+      {
+        "url": "/api/v1/policies/policy-absent/history",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，验证历史公开快照拒绝分支"
+  },
+  {
+    "route": "GET /api/v3/policies",
+    "cases": [
+      {
+        "url": "/api/v3/policies",
+        "status": 200,
+        "equals": {
+          "items": []
+        }
+      }
+    ],
+    "noDataReason": "本角色夹具不创建法规版本，合法空库由真实公开投影返回；非空资格在policy-public-api测试覆盖"
+  },
+  {
+    "route": "GET /api/v3/policies/:id",
+    "cases": [
+      {
+        "url": "/api/v3/policies/policy-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，证明公开身份走不可查看分支而不泄露私有数据"
+  },
+  {
+    "route": "GET /api/v3/policies/:id/history",
+    "cases": [
+      {
+        "url": "/api/v3/policies/policy-absent/history",
+        "status": 404
+      }
+    ],
+    "noDataReason": "固定不存在文书，验证历史公开快照拒绝分支"
+  },
+  {
+    "route": "GET /api/site/policies/:id/reading",
+    "cases": [
+      {
+        "url": "/api/site/policies/policy-absent/reading?expression_id=expression-absent&document_revision_id=revision-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "参数完整的不存在文书续读，验证公开读取拒绝而非身份回退"
+  },
+  {
+    "route": "GET /api/site/policies/scope",
+    "cases": [
+      {
+        "url": "/api/site/policies/scope",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "行业法域字典与实际已公开篇数（夹具为零）"
+  },
+  {
+    "route": "GET /api/site/policies/reports",
+    "cases": [
+      {
+        "url": "/api/site/policies/reports?kind=weekly",
+        "status": 200,
+        "equals": {
+          "items": []
+        }
+      }
+    ],
+    "noDataReason": "本角色夹具无冻结法规报告，验证合法空目录"
+  },
+  {
+    "route": "GET /api/site/policies/reports/:id",
+    "cases": [
+      {
+        "url": "/api/site/policies/reports/report-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "未公开报告ID，验证不可查看分支"
+  },
+  {
+    "route": "GET /api/site/policy-threads/:id",
+    "cases": [
+      {
+        "url": "/api/site/policy-threads/thread-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "未公开政策线ID，验证不可查看分支"
+  },
+  {
+    "route": "GET /api/v3/policies/:id/reading",
+    "cases": [
+      {
+        "url": "/api/v3/policies/policy-absent/reading?expression_id=expression-absent&document_revision_id=revision-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "参数完整的不存在文书续读，验证公开读取拒绝而非身份回退"
+  },
+  {
+    "route": "GET /api/v3/policies/scope",
+    "cases": [
+      {
+        "url": "/api/v3/policies/scope",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "行业法域字典与实际已公开篇数（夹具为零）"
+  },
+  {
+    "route": "GET /api/v3/policies/reports",
+    "cases": [
+      {
+        "url": "/api/v3/policies/reports?type=policy_weekly",
+        "status": 200,
+        "equals": {
+          "items": []
+        }
+      }
+    ],
+    "noDataReason": "本角色夹具无冻结法规报告，验证合法空目录"
+  },
+  {
+    "route": "GET /api/v3/policies/reports/:id",
+    "cases": [
+      {
+        "url": "/api/v3/policies/reports/report-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "未公开报告ID，验证不可查看分支"
+  },
+  {
+    "route": "GET /api/v3/policy-threads/:id",
+    "cases": [
+      {
+        "url": "/api/v3/policy-threads/thread-absent",
+        "status": 404
+      }
+    ],
+    "noDataReason": "未公开政策线ID，验证不可查看分支"
+  },
+  {
+    "route": "GET /api/site/jurisdictions",
+    "cases": [
+      {
+        "url": "/api/site/jurisdictions",
+        "status": 200,
+        "contains": ["news_scope", "policy_scope"]
+      }
+    ],
+    "fixture": "同一公开法域字典及PR9新闻计数"
+  },
+  {
+    "route": "GET /api/v3/version",
+    "cases": [
+      {
+        "url": "/api/v3/version",
+        "status": 200,
+        "equals": {
+          "state": "available"
+        }
+      }
+    ],
+    "fixture": "PR9公开投影的真实版本水位"
+  },
+  {
+    "route": "GET /api/v3/freshness",
+    "cases": [
+      {
+        "url": "/api/v3/freshness",
+        "status": 200,
+        "array": "lanes"
+      }
+    ],
+    "fixture": "publication.read_watermarks两条业务线公开时间与计划检查水位"
+  },
+  {
+    "route": "GET /api/v3/items",
+    "cases": [
+      {
+        "url": "/api/v3/items?limit=2",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "PR9全部已公开合格新闻，游标不封7日范围"
+  },
+  {
+    "route": "GET /api/v3/items/:id",
+    "cases": [
+      {
+        "url": "/api/v3/items/pr9-editorial-public-full",
+        "status": 200,
+        "contains": ["PR9", "ai_label"]
+      }
+    ],
+    "fixture": "PR9已公开材料的严格机器字段与署名"
+  },
+  {
+    "route": "GET /api/v3/items/:id/reading",
+    "cases": [
+      {
+        "url": "/api/v3/items/pr9-editorial-public-full/reading",
+        "status": 200,
+        "array": "blocks"
+      }
+    ],
+    "fixture": "PR9来源明确开启再分发的已验证完整译文块"
+  },
+  {
+    "route": "GET /api/v3/saved",
+    "cases": [
+      {
+        "url": "/api/v3/saved?ids=pr9-editorial-public-full,pr9-editorial-withdrawn-full",
+        "status": 200,
+        "array": "items",
+        "equals": {
+          "unavailable_ids": ["pr9-editorial-withdrawn-full"]
+        }
+      }
+    ],
+    "fixture": "PR9公开与撤回引用，无浏览器收藏写入"
+  },
+  {
+    "route": "GET /api/v3/events",
+    "cases": [
+      {
+        "url": "/api/v3/events",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "PR9有当前公开成员的两个事件"
+  },
+  {
+    "route": "GET /api/v3/events/:id",
+    "cases": [
+      {
+        "url": "/api/v3/events/$STORY",
+        "status": 200,
+        "array": "items"
+      },
+      {
+        "url": "/api/v3/events/$ALIAS",
+        "status": 308,
+        "location": "/api/v3/events/$STORY"
+      }
+    ],
+    "fixture": "PR9事件及本站合并别名"
+  },
+  {
+    "route": "GET /api/v3/stories/:id",
+    "cases": [
+      {
+        "url": "/api/v3/stories/$STORY",
+        "status": 200,
+        "array": "timeline"
+      }
+    ],
+    "fixture": "PR9事实进展与当前公开代表稿"
+  },
+  {
+    "route": "GET /api/v3/hot",
+    "cases": [
+      {
+        "url": "/api/v3/hot",
+        "status": 200,
+        "array": "entries"
+      }
+    ],
+    "fixture": "PR9合成热点名次；机器出口剔除热度和趋势"
+  },
+  {
+    "route": "GET /api/v3/featured/snapshot",
+    "cases": [
+      {
+        "url": "/api/v3/featured/snapshot?limit=1",
+        "status": 200,
+        "array": "items",
+        "positive": ["count"]
+      }
+    ],
+    "fixture": "PR9已过露出闸的精选账本快照"
+  },
+  {
+    "route": "GET /api/v3/featured/changes",
+    "cases": [
+      {
+        "url": "/api/v3/featured/changes?cursor=$CURSOR",
+        "status": 200,
+        "prepare": "v3-cursor",
+        "equals": {
+          "changes": []
+        }
+      }
+    ],
+    "fixture": "先真实读取HMAC快照水位，再读取该水位之后的无变化结果"
+  },
+  {
+    "route": "GET /api/v3/topics",
+    "cases": [
+      {
+        "url": "/api/v3/topics",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "PR9非空合成主题"
+  },
+  {
+    "route": "GET /api/v3/topics/:id",
+    "cases": [
+      {
+        "url": "/api/v3/topics/pr9-mining",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "PR9主题及当前公开成员"
+  },
+  {
+    "route": "GET /api/v3/reports",
+    "cases": [
+      {
+        "url": "/api/v3/reports?type=daily",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "PR9固定日报目录"
+  },
+  {
+    "route": "GET /api/v3/reports/:id",
+    "cases": [
+      {
+        "url": "/api/v3/reports/daily%3A$DAILY",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "PR9固定日报，当前撤回引用实时移除"
+  },
+  {
+    "route": "GET /api/v3/changelog",
+    "cases": [
+      {
+        "url": "/api/v3/changelog",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "行业包经校验的真实产品更新记录"
+  },
+  {
+    "route": "GET /api/v3/jurisdictions",
+    "cases": [
+      {
+        "url": "/api/v3/jurisdictions",
+        "status": 200,
+        "array": "items"
+      }
+    ],
+    "fixture": "公开法域字典与当前新闻/法规计数"
+  },
+  {
+    "route": "GET /openapi-v3.json",
+    "cases": [
+      {
+        "url": "/openapi-v3.json",
+        "status": 200,
+        "contains": ["3.0.0", "/api/v3/items"]
+      }
+    ],
+    "noDataReason": "与实际Zod路由注册表一起生成的匿名API规范，无数据库操作"
+  },
+  {
+    "route": "GET /feed/policies.xml",
+    "cases": [
+      {
+        "url": "/feed/policies.xml",
+        "status": 200,
+        "contains": ["<rss"]
+      }
+    ],
+    "noDataReason": "无公开法规夹具时的合法空RSS，不能伪造法规内容"
+  },
+  {
+    "route": "GET /sitemaps/:file",
+    "cases": [
+      {
+        "url": "/sitemaps/1.xml",
+        "status": 200,
+        "contains": ["<urlset"]
+      }
+    ],
+    "fixture": "当前公开对象的首个站点地图分页"
+  },
+  {
     "route": "GET /api/v1/selected/changes",
     "fixture": "真实snapshot cursor；控制夹具释放未来upsert并追加remove，响应必须含两种变更",
     "cases": [

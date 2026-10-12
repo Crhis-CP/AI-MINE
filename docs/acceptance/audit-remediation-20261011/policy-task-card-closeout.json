@@ -1,0 +1,538 @@
+{
+  "reviewed_date": "2026-10-12 America/Argentina/Catamarca",
+  "scope": "TASK-0180..0198 documentation closeout plus root-delegated TASK-0199 directory fixture correction; no runtime edits",
+  "wbs_registry": "docs/06-agents/02-roadmap-and-wbs.md",
+  "notes": [
+    "原T-0626不在roadmap中，逐卡映射既有工作包，没有修改守卫或roadmap。",
+    "删去模板复制留下的非本卡改动路径；验收记录路径明确列入。",
+    "TASK-0188改为源目录/矩阵只读对账，不再把类型检查当文档验收。",
+    "已完成一个真实官方XML家族补验，英国网络与整份法规质量边界继续保留。",
+    "本轮没有把locally_verified升级为integrated/live_verified/quality_accepted。",
+    "遗留F-047/F-048/F-050别名不被任务守卫识别，逐卡换为现有canonical F-POL/F-RDR/F-AI/F-MAT编号，未修改守卫。"
+  ],
+  "cards": [
+    {
+      "id": "TASK-0180",
+      "wbs": "T-0531",
+      "specs": [
+        "F-POL-02",
+        "F-RDR-17"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/publication/policies-publish.ts",
+        "tests/policy-automation-runtime.test.ts",
+        "tasks/TASK-0180.md",
+        "changes/TASK-0180-policy.md",
+        "packages/backend/src/policy/README.md",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-automation-runtime.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0181",
+      "wbs": "T-0504",
+      "specs": [
+        "F-POL-08",
+        "BR-POL-18"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/automation.ts",
+        "packages/backend/src/policy/recipe.ts",
+        "tests/policy-automation-runtime.test.ts",
+        "tasks/TASK-0181.md",
+        "changes/TASK-0181-policy.md",
+        "packages/backend/src/policy/README.md",
+        "database/migrations/policy/202610120100_policy_workflow_recipe.sql",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-automation-runtime.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0182",
+      "wbs": "T-0531",
+      "specs": [
+        "F-POL-02",
+        "F-RDR-17",
+        "BR-POL-12"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/publication/policies-project.ts",
+        "apps/web/app/features/policy/PolicyReading.tsx",
+        "tests/policy-reading-semantics.test.ts",
+        "tasks/TASK-0182.md",
+        "changes/TASK-0182-policy.md",
+        "packages/backend/src/policy/README.md",
+        "packages/backend/src/policy/semantic-html.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-reading-semantics.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0183",
+      "wbs": "T-0512",
+      "specs": [
+        "F-POL-02",
+        "BR-POL-15"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/annotations.ts",
+        "packages/backend/src/policy/extraction.ts",
+        "packages/backend/src/policy/processing-plan.ts",
+        "packages/backend/src/policy/interpretation-schema.ts",
+        "tests/policy-extraction.test.ts",
+        "tasks/TASK-0183.md",
+        "changes/TASK-0183-policy.md",
+        "packages/backend/src/policy/README.md",
+        "packages/backend/src/policy/acquire.ts",
+        "packages/backend/src/policy/capture.ts",
+        "industry/prompts/policy-group-check.md",
+        "industry/prompts/policy-group-merge.md",
+        "industry/prompts/policy-interpret.md",
+        "industry/prompts/policy-verify.md",
+        "packages/backend/src/publication/policies-project.ts",
+        "packages/backend/src/publication/policies-publish.ts",
+        "apps/web/app/features/policy/PolicyReading.tsx",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-extraction.test.ts tests/policy-interpretation.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0184",
+      "wbs": "T-0504",
+      "specs": [
+        "F-POL-09"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/processing-fragments.ts",
+        "packages/backend/src/policy/processing-plan.ts",
+        "tests/policy-processing-plan.test.ts",
+        "tasks/TASK-0184.md",
+        "changes/TASK-0184-policy.md",
+        "packages/backend/src/policy/README.md",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-processing-plan.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0185",
+      "wbs": "T-0502",
+      "specs": [
+        "F-POL-02",
+        "F-POL-07",
+        "BR-POL-12"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/capture.ts",
+        "packages/backend/src/policy/metadata.ts",
+        "packages/backend/src/publication/policies-project.ts",
+        "packages/backend/src/publication/policies-publish.ts",
+        "tests/policy-publication.test.ts",
+        "tasks/TASK-0185.md",
+        "changes/TASK-0185-policy.md",
+        "packages/backend/src/policy/README.md",
+        "packages/backend/src/policy/processing-notice.ts",
+        "packages/backend/src/policy/automation.ts",
+        "apps/web/app/features/policy/PolicyUI.tsx",
+        "tests/policy-basic-facts.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-basic-facts.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0186",
+      "wbs": "T-0521",
+      "specs": [
+        "F-POL-07",
+        "F-POL-10"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "apps/web/app/routes/policy-report.tsx",
+        "apps/web/app/routes/policy-reports.tsx",
+        "apps/web/app/features/policy/PolicyReportFilters.tsx",
+        "packages/backend/src/publication/policies-reports.ts",
+        "packages/backend/src/publication/policies.ts",
+        "tests/policy-reports.test.ts",
+        "tasks/TASK-0186.md",
+        "changes/TASK-0186-policy.md",
+        "packages/backend/src/policy/README.md",
+        "apps/web/app/features/policy/PolicyUI.tsx",
+        "tests/policy-automation-runtime.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-reports.test.ts tests/policy-automation-runtime.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0187",
+      "wbs": "T-0192",
+      "specs": [
+        "F-POL-11",
+        "BR-POL-17"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/quality.ts",
+        "tasks/TASK-0187.md",
+        "changes/TASK-0187-policy.md",
+        "packages/backend/src/policy/README.md",
+        "tests/policy-basic-facts.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-basic-facts.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0188",
+      "wbs": "T-0602",
+      "specs": [
+        "F-POL-01"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "docs/research/policy-coverage-audit-2026-10-11.md",
+        "tasks/TASK-0188.md",
+        "changes/TASK-0188-policy.md",
+        "packages/backend/src/policy/README.md",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "python3 -c 'import json; from pathlib import Path; s=json.load(open(\"industry/policy-sources.json\"))[\"sources\"]; j=[x for x in json.load(open(\"industry/jurisdictions/data.json\"))[\"jurisdictions\"] if x[\"policy_scope\"]]; t=Path(\"docs/research/policy-coverage-audit-2026-10-11.md\").read_text(); assert len([x for x in t.splitlines() if x.startswith(\"| \") and \" | 未核验 | 未核验 | 未核验 |\" in x])==len(j)*7; print({\"sources\":len(s),\"jurisdictions\":len(j),\"matrix_cells\":len(j)*7})'"
+      ]
+    },
+    {
+      "id": "TASK-0189",
+      "wbs": "T-0504",
+      "specs": [
+        "F-POL-09",
+        "F-RDR-03"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/publication/policies.ts",
+        "packages/backend/src/policy/interpretation-engine.ts",
+        "packages/backend/src/publication/policies-publish.ts",
+        "tests/policy-interpretation.test.ts",
+        "tasks/TASK-0189.md",
+        "changes/TASK-0189-policy.md",
+        "packages/backend/src/policy/README.md",
+        "tests/policy-basic-facts.test.ts",
+        "industry/prompts/policy-verify.md",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-basic-facts.test.ts tests/policy-interpretation.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0190",
+      "wbs": "T-0502",
+      "specs": [
+        "F-POL-02"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/interpretation-schema.ts",
+        "packages/backend/src/publication/policies-project.ts",
+        "apps/web/app/routes/policy.tsx",
+        "tests/policy-interpretation.test.ts",
+        "tasks/TASK-0190.md",
+        "changes/TASK-0190-policy.md",
+        "packages/backend/src/policy/README.md",
+        "industry/prompts/policy-interpret.md",
+        "tests/policy-date-events.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-date-events.test.ts tests/policy-interpretation.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0191",
+      "wbs": "T-0511",
+      "specs": [
+        "F-POL-02",
+        "F-POL-10",
+        "BR-POL-22"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/public-state.ts",
+        "packages/backend/src/publication/policies.ts",
+        "tasks/TASK-0191.md",
+        "changes/TASK-0191-policy.md",
+        "packages/backend/src/policy/README.md",
+        "packages/backend/src/acquisition/directory-membership.ts",
+        "tests/policy-basic-facts.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-basic-facts.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0192",
+      "wbs": "T-0501",
+      "specs": [
+        "F-POL-02",
+        "BR-POL-23"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/publication/policies.ts",
+        "tasks/TASK-0192.md",
+        "changes/TASK-0192-policy.md",
+        "packages/backend/src/policy/README.md",
+        "packages/backend/src/policy/types.ts",
+        "packages/backend/src/policy/originals.ts",
+        "packages/backend/src/policy/automation-profile.ts",
+        "packages/backend/src/policy/capture.ts",
+        "apps/web/app/routes/policy.tsx",
+        "apps/web/app/features/policy/PolicyReading.tsx",
+        "tests/policy-originals.test.ts",
+        "tests/policy-basic-facts.test.ts",
+        "database/migrations/policy/202610120140_policy_material_current.sql",
+        "packages/backend/src/policy/public-state.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-basic-facts.test.ts tests/policy-originals.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0193",
+      "wbs": "T-0602",
+      "specs": [
+        "F-POL-07",
+        "F-POL-01"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/sources/policy-coverage.ts",
+        "tasks/TASK-0193.md",
+        "changes/TASK-0193-policy.md",
+        "packages/backend/src/policy/README.md",
+        "tests/policy-basic-facts.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-basic-facts.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0194",
+      "wbs": "T-0531",
+      "specs": [
+        "F-RDR-17",
+        "F-POL-10"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "tasks/TASK-0194.md",
+        "changes/TASK-0194-policy.md",
+        "packages/backend/src/policy/README.md",
+        "apps/web/tests/policy-browser.test.ts",
+        "apps/web/app/features/policy/PolicyReportFilters.tsx",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "pnpm --filter @amp/web build",
+        "node --test apps/web/tests/policy-browser.test.ts",
+        "pnpm --filter @amp/web typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0195",
+      "wbs": "T-0115",
+      "specs": [
+        "F-POL-02",
+        "F-POL-09",
+        "BR-POL-12",
+        "BR-POL-15"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/policy/xml-structure.ts",
+        "packages/backend/src/policy/annotations.ts",
+        "packages/backend/src/policy/extraction.ts",
+        "packages/backend/src/policy/semantic-html.ts",
+        "packages/backend/src/policy/README.md",
+        "tests/policy-official-xml.test.ts",
+        "tests/fixtures/policy/official-xml/**",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-official-xml.json",
+        "tasks/TASK-0195.md",
+        "changes/TASK-0195-policy-xml.md",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-official-xml.test.ts tests/policy-extraction.test.ts tests/policy-processing-plan.test.ts tests/policy-reading-semantics.test.ts tests/policy-fulltext-candidate.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0196",
+      "wbs": "T-0141",
+      "specs": [
+        "F-AI-01",
+        "F-POL-09"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "packages/backend/src/providers/llm.ts",
+        "packages/backend/src/providers/policy.ts",
+        "tests/policy-gateway.test.ts",
+        "packages/backend/src/policy/README.md",
+        "tasks/TASK-0196.md",
+        "changes/TASK-0196-policy-regression.md",
+        "docs/acceptance/audit-remediation-20261011/policy-regression-followup.json",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-gateway.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0197",
+      "wbs": "T-0511",
+      "specs": [
+        "F-POL-01",
+        "F-POL-08"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "scripts/policy-sources.ts",
+        "packages/backend/src/admin/source-previews.ts",
+        "tests/policy-source-seed.test.ts",
+        "tests/source-preview-gate.test.ts",
+        "packages/backend/src/policy/README.md",
+        "tasks/TASK-0197.md",
+        "changes/TASK-0197-policy-regression.md",
+        "docs/acceptance/audit-remediation-20261011/policy-regression-followup.json",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-source-seed.test.ts tests/source-preview-gate.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0198",
+      "wbs": "T-0623",
+      "specs": [
+        "F-POL-02",
+        "F-POL-03"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "tests/policy-automation.test.ts",
+        "tests/policy-relations.test.ts",
+        "packages/backend/src/policy/README.md",
+        "tasks/TASK-0198.md",
+        "changes/TASK-0198-policy-regression.md",
+        "docs/acceptance/audit-remediation-20261011/policy-regression-followup.json",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/policy-automation.test.ts tests/policy-relations.test.ts",
+        "pnpm typecheck"
+      ]
+    },
+    {
+      "id": "TASK-0199",
+      "wbs": "T-0511",
+      "specs": [
+        "F-POL-01",
+        "F-MAT-05",
+        "BR-POL-18"
+      ],
+      "status": "locally_verified",
+      "allowed_paths": [
+        "tests/directory-scans.test.ts",
+        "tasks/TASK-0199.md",
+        "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json",
+        "docs/acceptance/audit-remediation-20261011/policy-regression-followup.json",
+        "docs/acceptance/audit-remediation-20261011/policy-status.json"
+      ],
+      "verify": [
+        "node scripts/verify/test-files.ts tests/directory-scans.test.ts",
+        "pnpm typecheck"
+      ]
+    }
+  ],
+  "task_guard": {
+    "checked_cards": 20,
+    "problems": [],
+    "guard_modified": false
+  },
+  "source_date_type_blocker": {
+    "status": "resolved",
+    "file": "tests/source-date-automatic.test.ts",
+    "line": 189,
+    "current_value": "excerpt:\"\"",
+    "verification": "source readback plus root confirmation"
+  },
+  "original_failed_files_resolved": 5,
+  "focused_replacement_tests_passed": 32,
+  "matrix_readback": {
+    "rows": 252,
+    "sources": 156,
+    "registered_jurisdictions": 35,
+    "product_jurisdictions": 36,
+    "original_profiles": 7,
+    "directory_profiles": 1,
+    "all_rows_compared": true
+  }
+}

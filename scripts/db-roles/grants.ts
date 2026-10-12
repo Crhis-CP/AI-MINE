@@ -187,7 +187,20 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         spec.publicColumns.length === 2 &&
         new Set(spec.publicColumns).size === 2 &&
         spec.publicColumns.every((column) => ["id", "current_revision_id"].includes(column));
-      if (spec.publicColumns.length && ((identity.schema !== "publication" && !sourceProjection && !policyHead) || spec.access !== "business"))
+      const currentMembershipColumns: Record<string, string[]> = {
+        "policy.material_discoveries": ["expression_id", "source_id", "material_id", "is_current"],
+        "acquisition.directory_heads": ["source_id", "scan_id"],
+        "acquisition.directory_records": ["scan_id", "record_id", "role"],
+        "acquisition.directory_bindings": ["scan_id", "record_id", "material_id"],
+      };
+      const membershipProjection =
+        currentMembershipColumns[name] &&
+        new Set(spec.publicColumns).size === spec.publicColumns.length &&
+        spec.publicColumns.every((column) => currentMembershipColumns[name]!.includes(column));
+      if (
+        spec.publicColumns.length &&
+        ((identity.schema !== "publication" && !sourceProjection && !policyHead && !membershipProjection) || spec.access !== "business")
+      )
         problems.push(`Public columns outside approved projections: ${name}`);
     }
   }

@@ -5,20 +5,26 @@ import { checkMpAccount } from "../sources/mp.ts";
 import { ensureQueue, QUEUES } from "./queue.ts";
 import { ensureSourceQueues, enqueueSourceFetch, sourceFetchQueue, collectionEnabled, collectionConcurrency, type CollectionLane } from "./source-queues.ts";
 export { ensureSourceQueues, SOURCE_QUEUES } from "./source-queues.ts";
-import { readSourceDateContext } from "@amp/backend/admin/sources";
+import { readSourceDateContext, runSourcePreview, SOURCE_PREVIEW_QUEUE } from "@amp/backend/admin/sources";
 import { registerExtractionJobs } from "./content.ts";
+import { recordScheduledCheck } from "../publication/availability.ts";
 
 export async function registerSourceJobs(boss: PgBoss) {
+  await ensureQueue(SOURCE_PREVIEW_QUEUE);
+  await boss.work<{ previewId: string }>(SOURCE_PREVIEW_QUEUE, { localConcurrency: 1, pollingIntervalSeconds: 2 }, async ([job]) => {
+    if (job) return runSourcePreview(job.data.previewId);
+  });
   await ensureQueue(QUEUES.fetchSource);
   await ensureSourceQueues();
   for (const lane of ["news", "policy"] as const) {
     if (!collectionEnabled(lane)) continue;
-    await boss.work<{ sourceId: string; lane: CollectionLane; force?: boolean; crawlSessionId?: string }>(
+    await boss.work<{ sourceId: string; lane: CollectionLane; force?: boolean; crawlSessionId?: string; scheduled?: boolean }>(
       sourceFetchQueue(lane),
       { localConcurrency: collectionConcurrency(lane), pollingIntervalSeconds: 2 },
       async ([job]) => {
         if (!job) return;
         const result = await collectSource(job.data.sourceId, { force: job.data.force, lane, crawlSessionId: job.data.crawlSessionId });
+        if (job.data.scheduled && result.status === "ok") await recordScheduledCheck(lane);
         if (result.status === "deferred")
           await enqueueSourceFetch(
             lane,

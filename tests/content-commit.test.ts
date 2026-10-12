@@ -1,3 +1,5 @@
+import { installUsageFixtureForModel, installUsageFixtureForService } from "./usage-protection-fixture.ts";
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -22,8 +24,11 @@ const provider = await stub(async () => {
 process.env.DASHSCOPE_BASE_URL = `${provider.url}/v1`;
 process.env.DASHSCOPE_API_KEY = "test-key";
 before(async () => {
+  await installUsageFixtureForModel("qwen3.7-flash");
+  await installUsageFixtureForService("dashscope");
   await sql`INSERT INTO sources(id,name,kind,tier,participation_mode,next_fetch_at)
     VALUES (${SOURCE},${SOURCE},'rss','T1','editorial','2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://fixture.invalid/source"]);
   await getBoss();
 });
 after(async () => {
@@ -92,7 +97,7 @@ test("fixed failure grouping keeps masking, truncation, aggregation and targeted
 test("content transaction rolls back result and receipt on callback or final-state failure, then releases for retry", async () => {
   const { articleId } = await material("rollback");
   await sql`UPDATE articles SET processing_error='synthetic-content-rollback' WHERE id=${articleId}`;
-  const receipt = await paidRequest({ service: "dashscope", purpose: "content_commit_test", identity: { articleId } }, async () => ({
+  const receipt = await paidRequest({ lane: "news", service: "dashscope", purpose: "content_commit_test", identity: { articleId } }, async () => ({
     response: { ok: true },
   }));
   const write = async (tx: Tx) => {
@@ -187,7 +192,7 @@ test("derived-body transactions preserve analysis state and refuse changed revis
     ...(await sql`SELECT processing_state,processing_error,processing_attempts,processing_retry_at FROM articles WHERE id=${articleId}`)[0],
   });
   const before = await state();
-  const receipt = await paidRequest({ service: "dashscope", purpose: "body_commit_test", identity: { articleId } }, async () => ({
+  const receipt = await paidRequest({ lane: "news", service: "dashscope", purpose: "body_commit_test", identity: { articleId } }, async () => ({
     response: { text: "合成译文" },
   }));
   const write = async (tx: Tx) => {

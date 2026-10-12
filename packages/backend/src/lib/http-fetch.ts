@@ -12,8 +12,9 @@ import { SITE } from "@amp/industry/site";
  * through the egress proxy when EGRESS_PROXY_URL is set (for example a rule-based proxy that connects
  * .cn and .local names and Chinese or private addresses directly and sends the rest abroad); the names
  * and address literals such a proxy would connect directly are connected here instead, so the
- * connect-time address check still applies. "direct" is for paid APIs called straight (Dajiala) and
- * the site's own addresses.
+ * connect-time address check still applies. Empty means a direct connection. "direct" is for model
+ * calls and paid APIs called straight (Dajiala). This dispatcher is per request: it is not installed
+ * as HTTP_PROXY, so plain fetch (unregistered models and embeddings) does not use it.
  */
 export type EgressRoute = "egress" | "direct";
 

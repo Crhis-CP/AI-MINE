@@ -1,3 +1,5 @@
+import { verifiedCompanyContext } from "./reader-context.ts";
+import { manualRevisionState } from "../editorial/manual-revisions.ts";
 import { requireRuntimeRunning, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
@@ -44,6 +46,7 @@ interface AnalysisRow {
   id: number;
   input_revision: number;
   relevance: string | null;
+  output: unknown;
   category: string | null;
   tags: string[];
   subjects: string[];
@@ -61,6 +64,7 @@ interface OverrideRow {
 
 interface PublicationRow {
   article_id: string;
+  company_context?: ReturnType<typeof verifiedCompanyContext>;
   revision: number;
   visibility: string;
   eligible: boolean;
@@ -198,18 +202,31 @@ export async function publishArticleTx(
     SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
   const [storedAnalysis] = await tx<AnalysisRow[]>`
-    SELECT id, input_revision, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
+    SELECT id, input_revision, relevance, output, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
   const [override] = await tx<OverrideRow[]>`SELECT fields, visibility FROM editorial_overrides WHERE article_id = ${articleId}`;
   const [membership] = await tx<{ fact_id: number; story_id: number | null }[]>`
     SELECT fa.fact_id, f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
     LEFT JOIN stories s ON s.id = f.story_id
-    WHERE fa.article_id = ${articleId} AND fa.role IN ('primary', 'report') AND (s.id IS NULL OR s.merged_into IS NULL)
+    WHERE fa.article_id = ${articleId} AND (fa.manual OR fa.input_revision=${article.revision}) AND fa.role IN ('primary', 'report') AND (s.id IS NULL OR s.merged_into IS NULL)
     ORDER BY (fa.role = 'primary') DESC, fa.created_at LIMIT 1`;
   const [previous] = await tx<PublicationRow[]>`SELECT * FROM publications WHERE article_id = ${articleId}`;
 
   const analysis = storedAnalysis?.input_revision === article.revision ? storedAnalysis : undefined;
-  const f = override?.fields ?? {};
+  const manual = await manualRevisionState(articleId, article.revision, article.title + "\n" + (article.body_text ?? ""), tx);
+  const f: Record<string, unknown> = manual.fields;
+  const [previousManual] = await tx<{ manual_revision_id: number | null; body_html: string | null; state: string }[]>`
+    SELECT manual_revision_id,body_html,state FROM publication.manual_copies WHERE article_id=${articleId}`;
+  const manualChanged =
+    (previousManual?.manual_revision_id ?? null) !== manual.manualRevisionId ||
+    (previousManual?.body_html ?? null) !== manual.bodyHtml ||
+    (previousManual?.state ?? "none") !== (manual.state ?? "none");
+  const companyContext = verifiedCompanyContext(analysis?.output, article.title + "\n" + (article.body_text ?? ""), article.url);
+  await tx`INSERT INTO publication.manual_copies(article_id,manual_revision_id,material_revision,body_html,label,state)
+    VALUES(${articleId},${manual.manualRevisionId},${article.revision},${manual.bodyHtml},'AI 辅助整理，经人工修订',${manual.state ?? "none"})
+    ON CONFLICT(article_id) DO UPDATE SET manual_revision_id=EXCLUDED.manual_revision_id,material_revision=EXCLUDED.material_revision,body_html=EXCLUDED.body_html,label=EXCLUDED.label,state=EXCLUDED.state
+    WHERE (manual_copies.manual_revision_id,manual_copies.material_revision,manual_copies.body_html,manual_copies.state)
+      IS DISTINCT FROM (EXCLUDED.manual_revision_id,EXCLUDED.material_revision,EXCLUDED.body_html,EXCLUDED.state)`;
   const hasMaterial = !!usableSourceText(article.body_text, article.excerpt);
   const language = normalizeSourceLanguage(article.language);
   const nativeChinese = isChineseOriginal(language);
@@ -254,9 +271,11 @@ export async function publishArticleTx(
         translation,
       )
     );
-  // A pending/withdrawn row is not proof of prior public reading. New foreign material has no exception here.
-  const previouslyPublic = previous?.visibility === "public" && previous.eligible;
-  const readingReady = !!language && (nativeChinese || (bodyMode === "full" && (wholeChinese || previouslyPublic)));
+  // 2026-10-10 Owner 测试阶段决定：外文先按导读公开，全文后补。
+  // 有中文标题和中文导读即可进入读者站；站内全文关着、或完整译文还没有，不再挡住。
+  // 已有获准完整中文正文的仍按全文显示。不要把空正文伪装成译文，也不要为了上站把全文转载开关打开。
+  // 不要把 DEC-35「必须先有完整中文正文」加回这个门槛。
+  const readingReady = !!language && (nativeChinese || chineseCopy);
   const visibility =
     source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady ? "withdrawn" : (override?.visibility ?? "public");
   const needsTranslation =
@@ -337,6 +356,8 @@ export async function publishArticleTx(
   };
   const changed =
     !previous ||
+    manualChanged ||
+    stableJson(previous.company_context ?? []) !== stableJson(companyContext) ||
     stableJson({ ...next, tags: [...next.tags].sort() }) !==
       stableJson({
         visibility: previous.visibility,
@@ -401,6 +422,7 @@ export async function publishArticleTx(
         EXCLUDED.indexable, EXCLUDED.story_id, EXCLUDED.fact_id, EXCLUDED.search_text,
         EXCLUDED.sort_at)`;
 
+  await tx`UPDATE publications SET company_context=${tx.json(companyContext as never)} WHERE article_id=${articleId} AND company_context IS DISTINCT FROM ${tx.json(companyContext as never)}`;
   await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
   if (eligible) {
@@ -513,4 +535,11 @@ export async function newsCompositionPublications(articleIds: string[]) {
   >`
     SELECT article_id,analysis_id,revision,source_id,title,summary,category FROM publications
     WHERE article_id=ANY(${articleIds}::text[]) AND visibility='public' AND eligible AND channel='news' ORDER BY article_id`;
+}
+
+export { newsRelationJurisdictions, publicNewsDigestInput } from "./items.ts";
+
+export async function publishedStoryId(articleId: string, tx: Tx): Promise<number | null> {
+  const [row] = await tx<{ story_id: number | null }[]>`SELECT story_id FROM publications WHERE article_id=${articleId}`;
+  return row?.story_id ?? null;
 }

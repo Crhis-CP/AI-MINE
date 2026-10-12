@@ -1,3 +1,5 @@
+import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -53,11 +55,33 @@ async function evaluate(
   let reportPath: string | undefined;
   try {
     const gold = path.join(dir, "gold.jsonl");
-    writeFileSync(gold, rows.map((item) => JSON.stringify(item)).join("\n"));
+    const boundRows = await Promise.all(
+      rows.map(async (item) => ({
+        ...item,
+        ...(await boundEvaluationFixture({
+          title: item.material.originalTitle ?? item.material.title,
+          body: item.material.bodyOriginal ?? item.material.bodyZh,
+          source: item.material.sourceName,
+          tier: item.sourceFacts.sourceTier,
+          kind: item.sourceFacts.sourceKind,
+          firstParty: item.sourceFacts.firstParty,
+          publishedAt: item.material.publishedAt,
+          language: item.sourceFacts.language,
+        })),
+      })),
+    );
+    process.env.DASHSCOPE_BASE_URL = `${providers.prefilter}/v1`;
+    process.env.DASHSCOPE_API_KEY = "test-key";
+    process.env.ZHIPU_BASE_URL = `${providers.score}/v1`;
+    process.env.ZHIPU_API_KEY = "test-key";
+    await installUsageFixtureForModel("qwen3.7-flash");
+    await installUsageFixtureForModel("glm-5.3-flash-selection");
+    writeFileSync(gold, boundRows.map((item) => JSON.stringify(item)).join("\n"));
     const args = ["scripts/eval-selection.ts", "--gold", gold, "--concurrency", "6", "--no-import"];
     if (opts.split) args.push("--split", opts.split);
-    // The model stubs listen on 127.0.0.1, so the child needs no proxy. Executors that reach the internet through a
-    // proxy carry these variables, and packages/platform/config refuses to start a production process that holds them.
+    // The model stubs listen on 127.0.0.1, so the child needs no proxy. Production still refuses
+    // HTTP_PROXY, HTTPS_PROXY and ALL_PROXY. EGRESS_PROXY_URL is allowed for collectors; strip it here
+    // too so scoring does not depend on an executor's egress proxy.
     const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|EGRESS_PROXY_URL)$/i.test(name)));
     const { stdout } = await exec(process.execPath, args, {
       cwd: REPO_ROOT,
@@ -202,9 +226,9 @@ test("custom split names cannot escape the evaluation output directory", async (
 });
 
 test("in a production environment the evaluation still scores the draft, before any Owner confirmation", async (t) => {
-  // A production child refuses to start while it holds proxy variables, so evaluate() must drop them. Set them here
-  // (pointing at a port with nothing behind it) so that step is exercised on every executor, not only on those that
-  // reach the internet through a proxy (TASK-0059).
+  // A production child still refuses HTTP_PROXY, HTTPS_PROXY and ALL_PROXY, so evaluate() must drop
+  // them. EGRESS_PROXY_URL would be allowed and is dropped with them. Set them here (pointing at a port
+  // with nothing behind it) so that step is exercised on every executor (TASK-0059).
   const proxies = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy", "EGRESS_PROXY_URL"];
   const saved = proxies.map((name) => [name, process.env[name]] as const);
   for (const name of proxies) process.env[name] = "http://127.0.0.1:9";

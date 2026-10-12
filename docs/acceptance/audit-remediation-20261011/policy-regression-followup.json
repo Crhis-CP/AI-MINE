@@ -1,0 +1,132 @@
+{
+  "phase": "development_full_suite_failure_followup",
+  "source_failure_report": ".verify/audit-remediation-20261011/full-failures.json",
+  "resolved_files": [
+    {
+      "file": "tests/policy-automation.test.ts",
+      "classification": "旧预期与已批准PIPE-01来源独立材料身份冲突",
+      "fix": "同URL跨源不再共用materialId；继续逐条分页并断言3个唯一材料和两个同URL来源均完整返回。",
+      "production_code_changed": false,
+      "passed": 4
+    },
+    {
+      "file": "tests/policy-gateway.test.ts",
+      "classification": "真实回归：主模型收回结果后的许可复检先于gateway复检抛普通Error，丢失已知回执的错误语义",
+      "fix": "llm仅在已有真实result后包装ModelPostReceiptGuardError，携带receiptId/attemptId/cause；policy仅转该类为PolicyInputChangedError。发送前、未知结果、忙碌与供应商失败不改。",
+      "assertions": "暂停/许可撤销不晋升，实际receiptId和attemptId精确匹配已留存回执；usage仍保留；unknown不重购。",
+      "passed": 6
+    },
+    {
+      "file": "tests/policy-relations.test.ts",
+      "classification": "新增可信目录资格读取后，旧角色fixture遗漏acquisition注入",
+      "fix": "补同一隔离管理身份的acquisition连接，公开端点撤回与版本变化断言不变。",
+      "production_code_changed": false,
+      "passed": 2
+    },
+    {
+      "file": "tests/policy-source-seed.test.ts",
+      "classification": "旧robots夹具不合法，加上旧CLI未接新增成功预览门的真实集成缺口",
+      "fix": "夹具提供明确robots允许规则；CLI用requestSourcePreview inline准备当前config/permission绑定、runSourcePreview完成实际检查，updateSource使用该preview_id。dry-run不排预览任务，不改来源/许可/审核状态；仅短host_pacing有界等待，60秒HTTP503保持deferred，不启用或重复发送。",
+      "passed": 5
+    },
+    {
+      "file": "tests/source-preview-gate.test.ts",
+      "classification": "预览前置业务失败应可操作反馈",
+      "fix": "无成功预览、草稿不存在、许可或配置变化等明确前置失败使用Conflict；新增真实本地私有HTTP验证409 + conflict + 中文原因且source仍暂停，基础设施异常不做统一Conflict转换。",
+      "passed": 2
+    },
+    {
+      "file": "tests/directory-scans.test.ts",
+      "classification": "旧日期兼容字段预期及嵌套采集注入fixture未保持deferred预留",
+      "fix": "逐条核对65个真实持久SourceDateEvidence绑定/date-only、不补UTC，新闻published_at保持null；结构化等待在外层注入session重新抛CrawlDeferred保留预留，等待后仍断言实际读页及malformed失败。",
+      "production_code_changed": false,
+      "passed": 13
+    }
+  ],
+  "verification": {
+    "isolated_pg": "UTF8 per-file clones at localhost:56433",
+    "focused_passed": 32,
+    "focused_failed": 0,
+    "typecheck": "原excerpt:null并行阻挡已消除（2026-10-12源码读回为excerpt:\"\"且root确认）；冻结后的全仓检查由根集成人记录。",
+    "network": "只访问本地HTTP/provider夹具",
+    "real_model_calls": 0,
+    "production_changes": false,
+    "source_activation": "仅隔离合成来源，不操作真实来源",
+    "directory_rerun": {
+      "command": "node scripts/verify/test-files.ts tests/directory-scans.test.ts",
+      "passed": 13,
+      "failed": 0,
+      "execution": "functions exec session 93244 completed with exit 0"
+    }
+  },
+  "remaining": "这里只替代原48个失败文件中本泳道负责的5个；全库最终check/verify与固定SHA由根集成人记录。",
+  "source_type_blocker": {
+    "status": "resolved",
+    "file": "tests/source-date-automatic.test.ts",
+    "line": 189,
+    "current_value": "excerpt:\"\"",
+    "verification": "source readback plus root confirmation"
+  },
+  "superseded_failure_snapshot": {
+    "file": ".verify/audit-remediation-20261011/full-failures.json",
+    "sha256": "59091bf737eb79e2b5786836c959802ad8c3109621b1013c61885f972fb9a808",
+    "failed_file_count": 48,
+    "assigned_original_failed_files": [
+      {
+        "file": "tests/policy-automation.test.ts",
+        "present_in_original": true,
+        "replacement_evidence": {
+          "file": "tests/policy-automation.test.ts",
+          "classification": "旧预期与已批准PIPE-01来源独立材料身份冲突",
+          "fix": "同URL跨源不再共用materialId；继续逐条分页并断言3个唯一材料和两个同URL来源均完整返回。",
+          "production_code_changed": false,
+          "passed": 4
+        }
+      },
+      {
+        "file": "tests/policy-gateway.test.ts",
+        "present_in_original": true,
+        "replacement_evidence": {
+          "file": "tests/policy-gateway.test.ts",
+          "classification": "真实回归：主模型收回结果后的许可复检先于gateway复检抛普通Error，丢失已知回执的错误语义",
+          "fix": "llm仅在已有真实result后包装ModelPostReceiptGuardError，携带receiptId/attemptId/cause；policy仅转该类为PolicyInputChangedError。发送前、未知结果、忙碌与供应商失败不改。",
+          "assertions": "暂停/许可撤销不晋升，实际receiptId和attemptId精确匹配已留存回执；usage仍保留；unknown不重购。",
+          "passed": 6
+        }
+      },
+      {
+        "file": "tests/policy-relations.test.ts",
+        "present_in_original": true,
+        "replacement_evidence": {
+          "file": "tests/policy-relations.test.ts",
+          "classification": "新增可信目录资格读取后，旧角色fixture遗漏acquisition注入",
+          "fix": "补同一隔离管理身份的acquisition连接，公开端点撤回与版本变化断言不变。",
+          "production_code_changed": false,
+          "passed": 2
+        }
+      },
+      {
+        "file": "tests/policy-source-seed.test.ts",
+        "present_in_original": true,
+        "replacement_evidence": {
+          "file": "tests/policy-source-seed.test.ts",
+          "classification": "旧robots夹具不合法，加上旧CLI未接新增成功预览门的真实集成缺口",
+          "fix": "夹具提供明确robots允许规则；CLI用requestSourcePreview inline准备当前config/permission绑定、runSourcePreview完成实际检查，updateSource使用该preview_id。dry-run不排预览任务，不改来源/许可/审核状态；仅短host_pacing有界等待，60秒HTTP503保持deferred，不启用或重复发送。",
+          "passed": 5
+        }
+      },
+      {
+        "file": "tests/directory-scans.test.ts",
+        "present_in_original": true,
+        "replacement_evidence": {
+          "file": "tests/directory-scans.test.ts",
+          "classification": "旧日期兼容字段预期及嵌套采集注入fixture未保持deferred预留",
+          "fix": "逐条核对65个真实持久SourceDateEvidence绑定/date-only、不补UTC，新闻published_at保持null；结构化等待在外层注入session重新抛CrawlDeferred保留预留，等待后仍断言实际读页及malformed失败。",
+          "production_code_changed": false,
+          "passed": 13
+        }
+      }
+    ],
+    "scope": "这五个原失败文件的后续通过证据替代其当前失败状态；原168文件首轮日志保留，不改写为整库通过。"
+  }
+}

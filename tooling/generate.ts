@@ -49,8 +49,51 @@ for (const [audience, contracts] of [
     // Declaration-only server: it never listens or imports backend handlers.
     for (const route of Object.values(contracts.routes)) app.route({ ...route, handler: () => undefined });
     await app.ready();
-    const json = `${JSON.stringify(ordered(app.swagger()), null, 2)}\n`;
+    const document = app.swagger();
+    if (audience === "public") {
+      for (const [routePath, pathItem] of Object.entries(document.paths ?? {})) {
+        if (!routePath.startsWith("/api/v3/")) continue;
+        const responses = pathItem?.get?.responses;
+        if (!responses) continue;
+        for (const status of ["200", "304", "429", "503"]) {
+          const response = responses[status];
+          if (!response || "$ref" in response) continue;
+          const headers: Record<string, { description: string; schema: { type: "string"; enum?: string[]; pattern?: string } }> = {
+            "Cache-Control": { description: "每次请求重新确认当前公开资格；不保存响应副本。", schema: { type: "string", enum: ["no-store"] } },
+          };
+          if ((status === "200" || status === "304") && routePath !== "/api/v3/freshness")
+            headers.ETag = { description: "当前公开表示的弱实体标签；不包含每次请求的生成时刻。", schema: { type: "string" } };
+          if (status === "429" || status === "503")
+            headers["Retry-After"] = { description: "建议等待的秒数。", schema: { type: "string", pattern: "^[0-9]+$" } };
+          response.headers = { ...response.headers, ...headers };
+        }
+      }
+    }
+    const json = `${JSON.stringify(ordered(document), null, 2)}\n`;
     outputs.set(`reference/contracts/${audience}.openapi.json`, json);
+    if (audience === "public") {
+      const source = JSON.parse(json);
+      const paths = Object.fromEntries(Object.entries(source.paths).filter(([name]) => name.startsWith("/api/v3/")));
+      const used = new Set<string>();
+      const visit = (value: unknown) => {
+        if (!value || typeof value !== "object") return;
+        for (const [key, child] of Object.entries(value)) {
+          if (key === "$ref" && typeof child === "string" && child.startsWith("#/components/schemas/")) {
+            const name = child.slice("#/components/schemas/".length);
+            if (!used.has(name)) {
+              used.add(name);
+              visit(source.components?.schemas?.[name]);
+            }
+          } else visit(child);
+        }
+      };
+      visit(paths);
+      const schemas = Object.fromEntries([...used].map((name) => [name, source.components.schemas[name]]));
+      outputs.set(
+        "reference/contracts/v3.openapi.json",
+        `${JSON.stringify(ordered({ openapi: "3.1.0", info: { title: "AI矿策公开 API", version: "3.0.0" }, paths, components: { schemas } }), null, 2)}\n`,
+      );
+    }
     const prefix = `packages/api-client/src/${audience}`;
     outputs.set(`${prefix}.types.ts`, format(`${prefix}.types.ts`, astToString(await openapiTS(json, { alphabetize: true }))));
     const name = audience === "public" ? "Public" : "Private";

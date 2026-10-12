@@ -1,5 +1,8 @@
+import { installUsageFixtureForService, installUsageFixtureForEmbedding } from "./usage-protection-fixture.ts";
 import { buildApp } from "../apps/api/src/app.ts";
 import { config } from "@amp/backend/config";
+import { SESSION_COOKIE } from "@amp/backend/admin/auth";
+import { sha256 } from "@amp/backend/lib/ids";
 import { stub } from "./setup.ts";
 import { ensureEmbeddings } from "@amp/backend/providers/embeddings";
 import assert from "node:assert/strict";
@@ -42,8 +45,14 @@ async function owner(lane: "news" | "policy" | "all", mode: "processing" | "auto
   );
 }
 test("claim stops before creating attempts; in-flight cost remains received and resume reuses it without a new send", async () => {
+  await installUsageFixtureForService("synthetic-runtime");
+  await installUsageFixtureForService("jina");
   let calls = 0;
-  const outcome = () => ({ response: { ok: true }, usage: { total_tokens: 1 }, cost: { amount: 0.1, currency: "CNY", basis: "actual" as const } });
+  const outcome = () => ({
+    response: { ok: true },
+    usage: { prompt_tokens: 1, completion_tokens: 0, total_tokens: 1 },
+    cost: { amount: 0.1, currency: "CNY", basis: "actual" as const },
+  });
   const input = { service: "synthetic-runtime", purpose: "control-test", subject: "control-before-claim", lane: "news" as const, identity: { case: "new" } };
   await owner("news", "processing", "pause");
   await assert.rejects(
@@ -152,12 +161,13 @@ test("collection CAS rejects stale stored material while publication pause prese
 });
 
 test("in-flight embedding cannot persist across pause and reuses the same recorded response on resume", async () => {
+  await installUsageFixtureForEmbedding("text-embedding-v4");
   const entered = Promise.withResolvers<void>(),
     release = Promise.withResolvers<void>();
   const provider = await stub(async () => {
     entered.resolve();
     await release.promise;
-    return { data: [{ index: 0, embedding: [0.5, 0.5] }], usage: { total_tokens: 1 } };
+    return { data: [{ index: 0, embedding: [0.5, 0.5] }], usage: { prompt_tokens: 1, completion_tokens: 0, total_tokens: 1 } };
   });
   const oldUrl = process.env.DASHSCOPE_BASE_URL,
     oldKey = process.env.DASHSCOPE_API_KEY;
@@ -192,7 +202,31 @@ test("private control routes require a session and CSRF, reject another holder, 
   try {
     assert.equal((await app.inject({ url: "/api/admin/lane-controls", headers: { "x-forwarded-host": config.privateHost } })).statusCode, 401);
     config.devAdmin = { displayName: "Synthetic authenticated operator" };
-    const get = await app.inject({ url: "/api/admin/lane-controls", headers: { "x-forwarded-host": config.privateHost } });
+    assert.equal(
+      (
+        await app.inject({
+          method: "POST",
+          url: "/api/admin/lane-controls/actions",
+          headers: { "x-forwarded-host": config.privateHost, "x-csrf-token": "dev" },
+          payload: {
+            lane: "policy",
+            mode: "processing",
+            action: "resume",
+            reason: "Synthetic developer cannot act as Owner",
+            expected_revisions: { processing: 0 },
+          },
+        })
+      ).statusCode,
+      403,
+    );
+    config.devAdmin = null;
+    const [user] = await sql`INSERT INTO admin_users(email,display_name) VALUES('lane-owner@synthetic.test','Synthetic Owner') RETURNING id`;
+    await sql`INSERT INTO identity.account_access(user_id,role) VALUES(${user.id},'owner')`;
+    const token = "synthetic-lane-owner-session",
+      csrf = "synthetic-lane-csrf";
+    await sql`INSERT INTO admin_sessions(id_hash,user_id,csrf_token,expires_at) VALUES(${sha256(token)},${user.id},${csrf},now()+interval '1 hour')`;
+    const headers = { "x-forwarded-host": config.privateHost, cookie: `${SESSION_COOKIE}=${token}` };
+    const get = await app.inject({ url: "/api/admin/lane-controls", headers });
     assert.equal(get.statusCode, 200);
     const revision = get.json().owner_revisions.find((r: { lane: string; switch: string }) => r.lane === "policy" && r.switch === "processing").revision;
     const payload = {
@@ -203,14 +237,11 @@ test("private control routes require a session and CSRF, reject another holder, 
       expires_at: expires(),
       expected_revisions: { processing: revision },
     };
-    assert.equal(
-      (await app.inject({ method: "POST", url: "/api/admin/lane-controls/actions", headers: { "x-forwarded-host": config.privateHost }, payload })).statusCode,
-      403,
-    );
+    assert.equal((await app.inject({ method: "POST", url: "/api/admin/lane-controls/actions", headers, payload })).statusCode, 403);
     const bad = await app.inject({
       method: "POST",
       url: "/api/admin/lane-controls/actions",
-      headers: { "x-forwarded-host": config.privateHost, "x-csrf-token": "dev" },
+      headers: { ...headers, "x-csrf-token": csrf },
       payload: { ...payload, holder: "deploy" },
     });
     assert.equal(bad.statusCode, 400);
@@ -220,7 +251,7 @@ test("private control routes require a session and CSRF, reject another holder, 
         await app.inject({
           method: "POST",
           url: "/api/admin/lane-controls/actions",
-          headers: { "x-forwarded-host": config.privateHost, "x-csrf-token": "dev" },
+          headers: { ...headers, "x-csrf-token": csrf },
           payload,
         })
       ).statusCode,
@@ -231,7 +262,7 @@ test("private control routes require a session and CSRF, reject another holder, 
         await app.inject({
           method: "POST",
           url: "/api/admin/lane-controls/actions",
-          headers: { "x-forwarded-host": config.privateHost, "x-csrf-token": "dev" },
+          headers: { ...headers, "x-csrf-token": csrf },
           payload,
         })
       ).statusCode,

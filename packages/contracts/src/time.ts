@@ -24,6 +24,16 @@ export function addDays(date: string, days: number): string {
   return new Date(t).toISOString().slice(0, 10);
 }
 
+/** Shift a YYYY-MM-DD by whole calendar months. The day clamps to the last day of the target month. */
+export function addCalendarMonths(date: string, months: number): string {
+  const [y, m, d] = date.split("-").map(Number) as [number, number, number];
+  const monthIndex = m - 1 + months;
+  const year = y + Math.floor(monthIndex / 12);
+  const month = ((monthIndex % 12) + 12) % 12;
+  const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(d, last))).toISOString().slice(0, 10);
+}
+
 const WEEKDAYS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
 
 export function beijingWeekday(date: string): string {

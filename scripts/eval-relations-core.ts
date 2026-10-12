@@ -1,6 +1,9 @@
+import type { AnalyzeInputArticle } from "@amp/backend/editorial/analyze";
 import { RELATIONS, type Relation, type ReportView } from "@amp/backend/events/relate";
 
 export interface RelationGoldReport {
+  analysisInput?: AnalyzeInputArticle;
+  inputFingerprint?: string;
   title: string;
   source: string;
   firstParty: boolean;
@@ -69,6 +72,8 @@ function parseReport(value: unknown, line: number, field: string): RelationGoldR
   if (publishedAt && Number.isNaN(new Date(publishedAt).getTime())) throw new Error(`line ${line}: ${field}.publishedAt is not a valid date`);
   if (obj.firstParty !== undefined && typeof obj.firstParty !== "boolean") throw new Error(`line ${line}: ${field}.firstParty must be a boolean`);
   return {
+    ...(obj.analysisInput ? { analysisInput: record(obj.analysisInput, line, "analysisInput") as unknown as AnalyzeInputArticle } : {}),
+    ...(typeof obj.inputFingerprint === "string" ? { inputFingerprint: obj.inputFingerprint } : {}),
     title: stringField(obj, "title", line),
     source: stringField(obj, "source", line),
     firstParty: obj.firstParty === true,

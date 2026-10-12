@@ -58,7 +58,22 @@ const sourceCredit = z.strictObject({
   insecure_transport: z.boolean(),
   published_time: TimeAssertion,
 });
+export const PolicySourceAnnotation = z.strictObject({
+  annotation_id: id,
+  name: text,
+  value: z.string(),
+  scope: z.enum(["self", "ancestor", "descendant"]),
+  locator: text,
+});
+export const PolicyDate = TimeAssertion.safeExtend({
+  event_kind: z.enum(["original_publication", "substantive_change", "registration", "other"]).optional(),
+  occurrence: z.enum(["occurred", "planned"]).optional(),
+});
 export const PolicyEvidence = z.strictObject({
+  annotation_id: id.optional(),
+  annotation_name: text.optional(),
+  annotation_value: z.string().optional(),
+  annotation_scope: z.enum(["self", "ancestor", "descendant"]).optional(),
   evidence_id: id,
   source: sourceCredit,
   locator: text,
@@ -140,6 +155,8 @@ export const PolicyExpression = z
   })
   .refine((value) => value.kind !== "official_translation" || !!value.issuing_body, "official translations need their issuing body");
 export const PolicyReadingBlock = z.strictObject({
+  semantic_html: z.string().optional(),
+  source_annotations: z.array(PolicySourceAnnotation).optional(),
   block_id: id,
   kind: z.enum(["heading", "paragraph", "list_item", "table", "quote", "footnote"]),
   text: z.string(),
@@ -173,7 +190,7 @@ export const PolicyReadingSummary = z
   });
 export const Policy = PolicyCard.safeExtend({
   legal_state: PolicyLegalState,
-  dates: z.array(TimeAssertion),
+  dates: z.array(PolicyDate),
   attachment_inventory: z.array(
     z.strictObject({
       title: text,
@@ -347,16 +364,28 @@ export const PolicyReportCard = z
   })
   .refine((v) => Date.parse(v.period_start) < Date.parse(v.period_end), "report period must be nonempty");
 const reportVersion = PolicyHistoryEntry.extend({
+  main_points: z.array(z.strictObject({ text, clause_ref: text, evidence_ids: ids.min(1) })).optional(),
+  impacts: z.array(PolicyImpact).optional(),
+  evidence_references: z.array(PolicyEvidence).optional(),
   label: z.enum(["period_change", "source_date_unknown", "backfill", "interpretation_update"]),
   summary: z.string().nullable(),
   public_after_period_end: z.boolean(),
 });
 export const PolicyReport = PolicyReportCard.safeExtend({
+  change: z.strictObject({ added: z.int().nonnegative(), removed: z.int().nonnegative(), reason: z.string() }).optional(),
   ...envelope,
   groups: z.array(
     z.strictObject({
       kind: z.enum(["domestic", "foreign", "organizations"]),
-      documents: z.array(z.strictObject({ policy: PolicyCard, versions: z.array(reportVersion).min(1) })),
+      documents: z.array(
+        z.strictObject({
+          policy: PolicyCard,
+          versions: z.array(reportVersion).min(1),
+          main_points: z.array(z.strictObject({ text, clause_ref: text, evidence_ids: ids.min(1) })).optional(),
+          impacts: z.array(PolicyImpact).optional(),
+          evidence_references: z.array(PolicyEvidence).optional(),
+        }),
+      ),
     }),
   ),
   pending_interpretations: z.array(PolicyCard),
@@ -464,6 +493,8 @@ export const policySchemas = {
   PolicyLegalState,
   PolicyDateArrangement,
   PolicyEvidence,
+  PolicySourceAnnotation,
+  PolicyDate,
   PolicyImpact,
   PolicyVersionRef,
   PolicyExpression,

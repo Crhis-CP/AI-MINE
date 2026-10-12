@@ -622,6 +622,14 @@ test("real permission storage is immutable, CAS/audit atomic, fenced and recover
       ],
       { DATABASE_URL_WORKER: f.urlFor("worker"), DATABASE_URL_BACKUP: f.urlFor("backup") },
     );
+    await f.admin`UPDATE sources SET kind='rss',config='{"feedUrl":"https://source.invalid/mining/fixture"}'::jsonb WHERE id='source_fixture'`;
+    const { requestSourcePreview, runSourcePreview } = await import("@amp/backend/admin/sources");
+    const preview = await requestSourcePreview("source_fixture", {}, "admin:42", { inline: true });
+    await runSourcePreview(String(preview.preview_id), async () => ({
+      ms: 1,
+      count: 1,
+      items: [{ title: "Synthetic scoped item", url: "https://source.invalid/mining/fixture", publishedAt: null, excerpt: "Synthetic permission fixture" }],
+    }));
     const beforeEdit = (await sessions.private_ops`SELECT * FROM sources WHERE id='source_fixture'`)[0];
     const patch = {
       name: "changed fixture",
@@ -634,7 +642,7 @@ test("real permission storage is immutable, CAS/audit atomic, fenced and recover
       site_fulltext: false,
       syndicate_fulltext: false,
       tags: ["synthetic"],
-      config: {},
+      config: { feedUrl: "https://source.invalid/mining/fixture" },
     };
     const afterEdit = await updateSource("source_fixture", { patch, version: beforeEdit.updated_at.toISOString(), reason: "same behavior" }, "admin:42");
     for (const [key, value] of Object.entries(patch)) assert.deepEqual(afterEdit![key], value);

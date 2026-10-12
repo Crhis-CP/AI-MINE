@@ -11,7 +11,7 @@ import { buildApp } from "../apps/api/src/app.ts";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
-import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { installUsageFixtureForModel, installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
 import { BudgetExceededError, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
@@ -35,6 +35,7 @@ const ask = (subject: string) =>
   chatJson({
     model: "deepseek-flash",
     purpose: "invariant_test",
+    lane: "news",
     subject,
     promptVersion: "t1",
     system: "s",
@@ -44,6 +45,8 @@ const ask = (subject: string) =>
 
 let savedBudget: { per_minute: number; per_hour: number; per_day: number } | undefined;
 before(async () => {
+  await installUsageFixtureForModel("deepseek-flash");
+  await installUsageFixtureForService("invariant-unbudgeted");
   [savedBudget] = await sql<
     { per_minute: number; per_hour: number; per_day: number }[]
   >`SELECT per_minute, per_hour, per_day FROM budgets WHERE service = 'deepseek'`;
@@ -173,7 +176,7 @@ test("with the valve off nothing is sent", async () => {
 });
 
 test("a sent request timing out stays unknown beyond 30 minutes and cannot be bought again", async () => {
-  const req = { service: "invariant-unbudgeted", purpose: "invariant_test", subject: `lost-${tag()}`, identity: { lost: tag() } };
+  const req = { lane: "news" as const, service: "invariant-unbudgeted", purpose: "invariant_test", subject: `lost-${tag()}`, identity: { lost: tag() } };
   const started = gate(),
     finish = gate(),
     abort = new AbortController();
@@ -184,7 +187,7 @@ test("a sent request timing out stays unknown beyond 30 minutes and cannot be bo
   });
   const lost = async () => ({ response: await (await fetch(remote.url, { signal: abort.signal })).json() });
   try {
-    const first = assert.rejects(paidRequest(req, lost), /timeout/);
+    const first = assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
     await started.promise;
     abort.abort(new Error("fixture timeout after sending"));
     await first;
@@ -222,7 +225,7 @@ async function stoppedArticle(purpose: string, needsBody = false) {
     bodyText: needsBody ? undefined : "body",
   });
   const subject = needsBody ? `article:${articleId}` : `article:${articleId}@1`;
-  const request = { service: "invariant-unbudgeted", purpose, subject, identity: { key } };
+  const request = { lane: "news" as const, service: "invariant-unbudgeted", purpose, subject, identity: { key } };
   await assert.rejects(paidRequest(request, () => Promise.reject(new Error("socket hang up after sending"))));
   await sql`UPDATE articles SET processing_state = 'failed', processing_attempts = 3,
     processing_retry_at = now() + interval '1 hour', processing_error = 'receipt outcome unknown' WHERE id = ${articleId}`;
@@ -332,7 +335,7 @@ test("manual HTTP resolution rejects billed/invalid inputs and commits audit, re
 });
 
 test("stale recovery keeps unresolved attempts but never overwrites a concurrently saved response", async () => {
-  const req = { service: "invariant-unbudgeted", purpose: "invariant_test", subject: `stale-${tag()}`, identity: { stale: tag() } };
+  const req = { lane: "news" as const, service: "invariant-unbudgeted", purpose: "invariant_test", subject: `stale-${tag()}`, identity: { stale: tag() } };
   const started = gate(),
     answerReady = gate();
   const calling = paidRequest(req, async () => {

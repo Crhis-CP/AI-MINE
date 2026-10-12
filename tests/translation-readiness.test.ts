@@ -29,6 +29,14 @@ test("DR-35 model segments use exact text envelopes; old batch arrays and extra 
   assert.equal(z.globalRegistry.has(TranslationTextSchema), false);
 });
 
+test("a one-token original name is kept, while an echoed sentence is still rejected", () => {
+  assert.equal(translationTextIssue("Sarfartoq"), "no_han");
+  assert.equal(restoreTranslationText("Sarfartoq", { text: "Sarfartoq" }), "Sarfartoq");
+  assert.equal(restoreTranslationText("Skaergaard", { text: "Skaergaard" }), "Skaergaard");
+  assert.equal(restoreTranslationText("Only the original English text", { text: "Only the original English text" }), null);
+  assert.equal(restoreTranslationText("Sarfartoq", { text: "Sarfartoq", note: "extra" }), null);
+});
+
 test("DR-35 six bad-segment conditions reject independently, including invisible Han and URL decoys", () => {
   const bad = [
     ["Only the original English text", "no_han"],

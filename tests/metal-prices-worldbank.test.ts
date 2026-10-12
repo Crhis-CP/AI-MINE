@@ -7,7 +7,7 @@ import type { FetchedPeriod, PageGetter } from "../packages/backend/src/publicat
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { loadMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
+import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
 
 const raw = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"));
 const registry = loadMetalPriceRegistry();
@@ -244,6 +244,58 @@ test("description drift and explicit missing markers hold only that series, reta
   assert.equal((await run({ fetchers: fetchers(missing) })).inserted, 9);
 });
 
+test("a missing lithium column leaves the other metals; a present column keeps the cell text", () => {
+  const withLithium = parseMetalPriceRegistry({
+    ...raw,
+    items: [
+      ...raw.items,
+      {
+        key: "wb.lithium",
+        source: "worldbank",
+        sourceName: "Lithium",
+        name: "锂",
+        metal: "lithium",
+        quote: "国际 · 锂",
+        unit: "美元/千克",
+        sourceUnit: "($/kg)",
+        benchmark: "Lithium carbonate",
+        descriptionIncludes: ["Lithium carbonate"],
+      },
+    ],
+  });
+  const missing = worldbankPeriods(withLithium, openWorkbook(bytes), release, "2026-09-01");
+  assert.deepEqual(missing[0].held, []);
+  assert.deepEqual(missing[0].heldSeries, [{ key: "wb.lithium", reason: "世界银行表里没有锂这一列" }]);
+  assert.equal(
+    missing[0].rows.some((row) => row.key === "wb.copper"),
+    true,
+  );
+  assert.equal(
+    missing[0].rows.some((row) => row.key === "wb.lithium"),
+    false,
+  );
+  const present = worldbankPeriods(
+    withLithium,
+    copied((prices, descriptions) => {
+      prices.get(5)!.set("BU", "Lithium");
+      prices.get(6)!.set("BU", "($/kg)");
+      prices.get(806)!.set("BU", "11.25");
+      prices.get(807)!.set("BU", "12.50");
+      descriptions.get(88)!.set("B", `${descriptions.get(88)!.get("B")} Lithium carbonate`);
+    }),
+    release,
+    "2026-09-01",
+  );
+  const september = present.find((period) => period.period.start === "2026-09-01");
+  assert.ok(september);
+  assert.deepEqual(september.held, []);
+  assert.equal(september.heldSeries, undefined);
+  assert.deepEqual(
+    september.rows.find((row) => row.key === "wb.lithium"),
+    { key: "wb.lithium", unit: "($/kg)", value: "12.50" },
+  );
+});
+
 test("bad headers, duplicate columns, units and ordinary missing values hold the whole period with no database change", async () => {
   await run();
   const before = await snapshot();
@@ -327,5 +379,5 @@ test("off-host links, redirects, bad statuses, oversized and unreadable files fa
   const result = await refreshMetalPrices({ registry: raw, get, now: NOW });
   assert.equal(result.worldbank.ok, false);
   assert.equal(result.nbs.ok, true);
-  assert.equal(result.nbs.inserted, 5);
+  assert.equal(result.nbs.inserted, 6);
 });

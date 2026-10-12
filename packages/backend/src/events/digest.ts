@@ -1,3 +1,7 @@
+import { publicNewsDigestInput } from "@amp/backend/publication/publish";
+import { prepareNewsFallback } from "../providers/news-fallback.ts";
+import { newsMaterialBindings } from "@amp/backend/content/materials";
+import { shutdownSignal } from "../jobs/queue.ts";
 // Story digest: rewritten incrementally as reports arrive; contradictions with earlier reporting are
 // stated explicitly. v1 `digest` and `latest` read the same stored version.
 import { z } from "zod";
@@ -68,6 +72,11 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
     : `事件当前标题：${story.title}\n${story.digest ? `上一版综述：${story.digest}\n` : ""}\n报道（按时间，标【新】的是上一版之后的新报道）：\n${lines.join("\n")}`;
   const publication = await requireRuntimeRunning("news", ["publication"]),
     processing = await runtimeControlSnapshot("news", ["processing"]);
+  const materials = await newsMaterialBindings(ids);
+  const read = () => publicNewsDigestInput(ids);
+  const expected = await read();
+  const fallbackInput = await prepareNewsFallback({ root: shutdownSignal.signal, expected, current: read, articles: materials });
+  if (!fallbackInput) throw new Error("事件综述材料的模型处理许可未证明");
   const res = await chatJson({
     model: await modelFor("digest"),
     purpose: "story_digest",
@@ -75,6 +84,7 @@ export async function composeStoryDigest(storyId: number, opts: { afterCorrectio
     promptVersion: DIGEST_PROMPT_VERSION,
     system: SYSTEM,
     user,
+    fallbackPermit: fallbackInput({ system: SYSTEM, user }),
     schema: Schema,
     temperature: 0.3,
     maxTokens: 1200,

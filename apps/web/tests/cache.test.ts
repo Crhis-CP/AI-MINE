@@ -28,6 +28,7 @@ let privatePageFixtures = false;
 let reconciliationUnavailable = false;
 let poolMode: "ok" | "busy" | "bad" | "missing" | "empty" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
+let statsSelected = 0;
 const timelineCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
 const timeline = publicSchemas.TimelineResponse.parse(
   JSON.parse(readFileSync(new URL("../../../scripts/verify/tests/fixtures/timeline-response.json", import.meta.url), "utf8")),
@@ -84,16 +85,19 @@ function syntheticPrices() {
   const data = publicSchemas.MetalPrices.parse({
     generatedAt: "2026-10-06T04:00:00Z",
     intro: "合成价格测试导语",
-    sources: ["甲", "乙"].map((tag) => ({
-      key: tag,
-      name: `合成来源${tag}`,
+    sources: [
+      ["甲", "日"],
+      ["乙", "月"],
+    ].map(([key, tag]) => ({
+      key,
+      name: `合成来源${key}`,
       tag,
-      status: "fresh",
+      status: "fresh" as const,
       latest: { label: "合成报价期", release: { label: "合成发布", url: "https://source.invalid/release", date: null } },
     })),
     latest: [
-      { tag: "甲", label: "合成新期", stale: false, extras: [{ metals: ["合成乙"], label: "合成旧期", stale: false }] },
-      { tag: "乙", label: "合成新期", stale: false, extras: [] },
+      { tag: "日", label: "合成新期", stale: false, extras: [{ metals: ["合成乙"], label: "合成旧期", stale: false }] },
+      { tag: "月", label: "合成新期", stale: false, extras: [] },
     ],
     metals: [
       { key: "first", name: "合成甲", quotes: [q("a", "甲", "108770.0", "1.0"), q("b", "乙", "64.599999999999994", "-1.6", 2)] },
@@ -111,13 +115,14 @@ function syntheticPrices() {
   }
   if (priceMode === "empty" || priceMode === "partial") {
     const stopped = new Set(priceMode === "empty" ? data.sources.map((source) => source.key) : ["乙"]);
+    const stoppedTags = new Set(data.sources.filter((source) => stopped.has(source.key)).map((source) => source.tag));
     for (const source of data.sources)
       if (stopped.has(source.key)) {
         source.status = "empty";
         source.latest = null;
       }
     for (const latest of data.latest)
-      if (stopped.has(latest.tag)) {
+      if (stoppedTags.has(latest.tag)) {
         latest.label = null;
         latest.stale = false;
         latest.extras = [];
@@ -167,6 +172,42 @@ const privateApi = createServer((req, res) => {
     if (req.url === "/api/admin/model-connections") return res.end(JSON.stringify({ storage: "ready", connections: [] }));
     if (req.url === "/api/admin/model-fallbacks") return res.end(JSON.stringify({ routes: [], sources: [] }));
     if (req.url === "/api/admin/selectbench/control") return res.end(JSON.stringify({ enabled: false, expiresAt: null, revision: 0 }));
+    if (req.url === "/api/admin/selectbench/prefilter-audit")
+      return res.end(
+        JSON.stringify({
+          pools: { discarded: 2, kept: 1, unknown: 0 },
+          excluded: 1,
+          batchSize: 20,
+          draw: null,
+        }),
+      );
+    if (req.url === "/api/admin/selectbench/standards") {
+      const hash = "ab".repeat(32);
+      return res.end(
+        JSON.stringify({
+          tool: { enabled: false, expiresAt: null, revision: 0 },
+          current: {
+            standardVersion: "selection-score@09b414c0c5",
+            contentHash: hash,
+            prefilterVersion: "prefilter@synthetic",
+            thresholdVersion: hash,
+            thresholds: { T1: 60, T1_5: 65, T2: 76 },
+            text: "合成评分标准",
+            prefilterText: "合成预筛",
+            deploymentConfirmedVersion: null,
+            configuredForCurrent: false,
+            effectiveAt: null,
+            model: { model: "synthetic", configurationHash: null, state: "unknown", reason: null },
+          },
+          submission: null,
+          reviewStatus: "draft",
+          records: [],
+          calibrations: [],
+          checks: { ownerStandardReview: false, ownerHoldout: false, versionsMatch: false, ready: false },
+          missing: [],
+        }),
+      );
+    }
     if (req.url === "/api/admin/accounts")
       return res.end(
         JSON.stringify({
@@ -314,6 +355,19 @@ const api = createServer((req, res) => {
     const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
   }
+  if (url.pathname === "/api/site/stats") {
+    return res.end(
+      JSON.stringify({
+        sources: 0,
+        sourceKinds: {},
+        heatOnlySources: 0,
+        items: statsSelected,
+        selected: statsSelected,
+        dailies: 0,
+        day: { collected: 0, selected: 0 },
+      }),
+    );
+  }
   if (url.pathname === "/api/site/timeline") {
     timelineCalls.push({ path: req.url!, accept: req.headers.accept, ssr: req.headers["x-amp-ssr"] as string | undefined });
     if (["busy", "missing", "invalid"].includes(timelineMode)) {
@@ -445,8 +499,8 @@ test("public route subsets produce the same complete navigation data; filters st
     ["", "?_routes=root", "?_routes=routes%2Fhome", "?_routes=unknown"].map(async (query) => {
       const res = await fetch(`${origin}/_.data${query}`);
       assert.equal(res.status, 200);
-      assert.match(res.headers.get("Cache-Control")!, /^public,/);
-      assert.equal(res.headers.get("X-Accel-Expires"), `@${deadline}`);
+      assert.equal(res.headers.get("Cache-Control"), "private, no-store");
+      assert.equal(res.headers.get("X-Accel-Expires"), "0");
       assert.doesNotMatch(res.headers.get("Cache-Control")!, /stale/);
       const body = await res.text();
       assert.ok(body.includes("public-layout") && body.includes("routes/home"));
@@ -523,10 +577,10 @@ test("every public page carries the ICP filing number in the phone footer; the �
   assert.equal(more.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
 });
 
-test("HTML and navigation share freshness; cookies do not personalize public results", async () => {
+test("HTML and navigation preserve current reading state; cookies do not personalize public results", async () => {
   const html = await fetch(`${origin}/`);
   assert.equal(html.status, 200);
-  assert.equal(html.headers.get("X-Accel-Expires"), `@${deadline}`);
+  assert.equal(html.headers.get("X-Accel-Expires"), "0");
   assert.match(await html.text(), /精选/);
   const plain = await fetch(`${origin}/about.data`);
   const signedIn = await fetch(`${origin}/about.data?_routes=root`, { headers: { cookie: "admin_session=private; amp_vid=reader" } });
@@ -576,7 +630,7 @@ test("an elapsed release deadline cannot be extended by a fresh page/data respon
     for (const pathname of ["/", "/_.data?_routes=routes%2Fhome"]) {
       const res = await fetch(origin + pathname);
       assert.equal(res.status, 200);
-      assert.equal(res.headers.get("Cache-Control"), "no-cache");
+      assert.equal(res.headers.get("Cache-Control"), "private, no-store");
       assert.equal(res.headers.get("X-Accel-Expires"), "0");
       await res.text();
     }
@@ -590,7 +644,7 @@ test("an elapsed release deadline cannot be extended by a fresh page/data respon
   assert.equal(headers["X-Accel-Expires"], upstream.get("X-Accel-Expires"));
 });
 
-test("browser freshness shares the selected deadline, including slow sibling loaders", async () => {
+test("selected release metadata cannot make reader responses cacheable, including slow sibling loaders", async () => {
   const savedDeadline = deadline;
   const savedRefresh = refreshAt;
   try {
@@ -599,16 +653,12 @@ test("browser freshness shares the selected deadline, including slow sibling loa
     for (const pathname of ["/", "/_.data?_routes=routes%2Fhome"]) {
       const res = await fetch(origin + pathname);
       const cc = res.headers.get("Cache-Control")!;
-      const browser = Number(cc.match(/(?:^|,)\s*max-age=(\d+)/)![1]);
-      const shared = Number(cc.match(/(?:^|,)\s*s-maxage=(\d+)/)![1]);
-      assert.ok(browser > 0 && browser === shared);
-      assert.ok(Date.parse(res.headers.get("Date")!) / 1000 + browser <= deadline);
-      assert.equal(res.headers.get("X-Accel-Expires"), `@${deadline}`);
-      assert.match(cc, /must-revalidate/);
+      assert.equal(cc, "private, no-store");
+      assert.equal(res.headers.get("X-Accel-Expires"), "0");
       assert.doesNotMatch(cc, /stale/);
       await res.text();
     }
-    // The selected loader initially grants a positive TTL, but public layout metadata finishes after it.
+    // Upstream grants a positive TTL, but public layout metadata finishes after that release deadline.
     deadline = Math.floor(Date.now() / 1000) + 2;
     refreshAt = new Date((deadline + 5) * 1000).toISOString();
     metaDelayMs = 2300;
@@ -616,7 +666,7 @@ test("browser freshness shares the selected deadline, including slow sibling loa
       ["/", "/_.data?_routes=routes%2Fhome"].map(async (pathname) => {
         const res = await fetch(origin + pathname);
         assert.equal(res.status, 200);
-        assert.equal(res.headers.get("Cache-Control"), "no-cache");
+        assert.equal(res.headers.get("Cache-Control"), "private, no-store");
         assert.equal(res.headers.get("X-Accel-Expires"), "0");
         await res.text();
       }),
@@ -628,10 +678,11 @@ test("browser freshness shares the selected deadline, including slow sibling loa
   }
 });
 
-test("the edge may keep a page longer than browsers, which a withdrawal purge cannot reach", async () => {
+test("article navigation cannot be retained by either browsers or the edge after a withdrawal", async () => {
   const res = await fetch(`${origin}/items/long-lived.data`);
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=300, s-maxage=600, must-revalidate");
+  assert.equal(res.headers.get("Cache-Control"), "private, no-store");
+  assert.equal(res.headers.get("X-Accel-Expires"), "0");
   await res.text();
 });
 
@@ -664,7 +715,11 @@ test("private proxy and login SSR use the private API, preserve raw queries, and
   const html = await login.text();
   assert.equal(login.status, 200);
   assert.match(html, /用飞书登录/);
-  assert.match(html, /账号尚未开通/);
+  assert.match(html, /账号登录暂未配置，请联系网站负责人。/);
+  assert.match(html, /name="login_name"/);
+  assert.match(html, /name="password"/);
+  assert.match(html, /name="login_nonce" value=""/);
+  assert.match(html, /<button[^>]*type="submit"[^>]*disabled/);
   assert.ok(privateCalls.slice(before).some((call) => call.path === "/api/auth/options" && call.forwarded === PRIVATE_HOST));
   assert.equal(login.headers.get("Cache-Control"), "private, no-store");
   const reader = await fetch(`${origin}/api/site/echo-routing?q=/api/auth/options`);
@@ -677,7 +732,7 @@ test("the real /all page consumes its generated pool contract and preserves erro
     assert.equal(page.status, 200);
     assert.match(await page.text(), /真实列表消费者/);
     assert.deepEqual(poolCalls.at(-1), { path: "/api/site/pool?q=%E9%93%9C+%E9%87%91&page=2", accept: "application/json", ssr: "1" });
-    assert.equal(page.headers.get("Cache-Control"), "public, max-age=60, s-maxage=60, must-revalidate");
+    assert.equal(page.headers.get("Cache-Control"), "private, no-store");
     assert.ok(apiCookies.every((cookie) => !cookie));
     for (const [mode, status] of [
       ["bad", 503],
@@ -716,7 +771,7 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
       accept: "application/json",
       ssr: "1",
     });
-    assert.equal(response.headers.get("X-Accel-Expires"), `@${deadline}`);
+    assert.equal(response.headers.get("X-Accel-Expires"), "0");
     for (const [mode, status] of [
       ["bad", 503],
       ["busy", 503],
@@ -766,7 +821,7 @@ test("until the first pick exists the unfiltered home page shows the newest item
     assert.match(html, /真实列表消费者/);
     assert.match(html, /href="\/all\?page=2"/);
     assert.deepEqual(poolCalls.slice(before), [{ path: "/api/site/pool", accept: "application/json", ssr: "1" }]);
-    assert.equal(home.headers.get("X-Accel-Expires"), `@${deadline}`);
+    assert.equal(home.headers.get("X-Accel-Expires"), "0");
     // “全部” stays on the home page (the current page); the other tabs lead to 全部动态.
     const rows = filterTabs(html);
     assert.ok(rows.length > 0);
@@ -787,14 +842,14 @@ test("until the first pick exists the unfiltered home page shows the newest item
       assert.match(body, /这个筛选下还没有精选内容/, query);
       assert.equal(poolCalls.length, before, query);
     }
-    // 全部动态 empty: the picks empty state of DR-85, cached as usual.
+    // 全部动态 empty: the picks empty state of DR-85 remains uncached so later arrivals are observable.
     poolMode = "empty";
     const empty = await fetch(`${origin}/`);
     assert.equal(empty.status, 200);
     const emptyBody = await empty.text();
     assert.doesNotMatch(emptyBody, notice);
     assert.match(emptyBody, noPicks);
-    assert.equal(empty.headers.get("X-Accel-Expires"), `@${deadline}`);
+    assert.equal(empty.headers.get("X-Accel-Expires"), "0");
     // 全部动态 unreadable or unusable: the same empty state, and nothing is cached so the next request reads again.
     for (const mode of ["busy", "bad"] as const) {
       poolMode = mode;
@@ -803,7 +858,7 @@ test("until the first pick exists the unfiltered home page shows the newest item
       const body = await failed.text();
       assert.doesNotMatch(body, notice, mode);
       assert.match(body, noPicks, mode);
-      assert.equal(failed.headers.get("Cache-Control"), "no-cache", mode);
+      assert.equal(failed.headers.get("Cache-Control"), "private, no-store", mode);
       assert.equal(failed.headers.get("X-Accel-Expires"), "0", mode);
     }
     poolMode = "ok";
@@ -828,6 +883,23 @@ test("until the first pick exists the unfiltered home page shows the newest item
   }
 });
 
+test("an empty featured window stays the featured entrance when older picks still exist", async () => {
+  timelineMode = "empty";
+  statsSelected = 1;
+  try {
+    const before = poolCalls.length;
+    const home = await fetch(`${origin}/`);
+    assert.equal(home.status, 200);
+    const html = await home.text();
+    assert.doesNotMatch(html, /精选还没开始/);
+    assert.match(html, /这个筛选下还没有精选内容/);
+    assert.equal(poolCalls.length, before);
+  } finally {
+    statsSelected = 0;
+    timelineMode = "empty";
+  }
+});
+
 test("金属价格 renders registry-driven quotes, exact decimal text, footnotes and all five states", async () => {
   priceMode = "full";
   const res = await fetch(`${origin}/metals`),
@@ -836,7 +908,9 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   assert.equal(res.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
   const table = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
   const text = table.replace(/<[^>]+>/g, "");
-  assert.match(text, /品种报价价格较上期规格/);
+  assert.match(text, /品种报价价格变化规格/);
+  assert.ok(text.includes("较上一交易日") && text.includes("较上月"));
+  assert.doesNotMatch(text, /较上期/);
   assert.match(table, /scope="rowgroup" rowspan="2"/i);
   for (const value of ["合成甲", "合成乙", "合成报价 a", "甲", "乙", "合成规格", "108,770.0", "64.60", "+1.0%", "−1.6%", "0.0%", "暂缺"])
     assert.ok(text.includes(value), value);
@@ -1291,7 +1365,19 @@ test("retired daily pages are absent and private navigation no longer requests c
     );
     const controlPage = await fetchWithHost(origin + "/admin/selectbench", PRIVATE_HOST);
     assert.equal(controlPage.status, 200);
-    assert.match(await controlPage.text(), /建设期抽样工具未开启/);
+    const selectbenchHtml = await controlPage.text();
+    assert.match(selectbenchHtml, /预筛抽查/);
+    assert.match(selectbenchHtml, /抽出大约 20 条/);
+    assert.match(selectbenchHtml, /预筛丢掉/);
+    assert.match(selectbenchHtml, /判定保留/);
+    assert.match(selectbenchHtml, /应该留下/);
+    assert.match(selectbenchHtml, /丢掉是对的/);
+    assert.match(selectbenchHtml, /应该丢掉/);
+    assert.match(selectbenchHtml, /留下是对的/);
+    assert.match(selectbenchHtml, /点了选项就会马上记下/);
+    assert.match(selectbenchHtml, /再抽一批不会清掉已经记下的判断/);
+    assert.match(selectbenchHtml, /标完只是记下来，供以后改预筛规则，不会立刻把稿公开或撤下/);
+    assert.doesNotMatch(selectbenchHtml, /不该丢|不该留|判得对/);
     const runPage = await fetchWithHost(origin + "/admin/selectbench/example", PRIVATE_HOST);
     assert.equal(runPage.status, 302);
     assert.equal(runPage.headers.get("Location"), "/admin/selectbench");

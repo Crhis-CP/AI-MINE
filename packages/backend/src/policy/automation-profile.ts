@@ -14,6 +14,7 @@ export const PolicyAutomationProfile = z
     titleSelector: text,
     numberSelector: text.nullable(),
     originalLinkSelector: text.nullable(),
+    officialLanguageLinksSelector: text.optional(),
     versionSelector: text.nullable(),
     identity: z.strictObject({ jurisdiction: evidence, authority: evidence, documentType: evidence.nullable() }),
     language: text.refine((value) => normalizeSourceLanguage(value) === value, "A supported explicit source language is required"),

@@ -287,6 +287,54 @@
     {
       "name": "ai-gateway/202610091800_model_fallback.sql",
       "dependsOn": ["ai-gateway/202610091330_usage_task_budget.sql"]
+    },
+    {
+      "name": "ai-gateway/202610101720_prefilter_audit.sql",
+      "dependsOn": ["ai-gateway/202610091800_model_fallback.sql"]
+    },
+    {
+      "name": "events/202610120010_membership_revision.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "policy/202610120100_policy_workflow_recipe.sql",
+      "dependsOn": ["policy/202610090700_policy_automation.sql"]
+    },
+    {
+      "name": "publication/202610120200_public_read_watermarks.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "feedback/202610120020_feedback_retention.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "publication/202610120130_topic_project_axis.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "publication/202610120210_reader_context.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "editorial/202610120030_manual_revisions.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "sources/202610120040_source_previews.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "publication/202610120220_public_read_invalidation.sql",
+      "dependsOn": ["publication/202610120200_public_read_watermarks.sql"]
+    },
+    {
+      "name": "publication/202610120031_manual_copies.sql",
+      "dependsOn": ["editorial/202610120030_manual_revisions.sql"]
+    },
+    {
+      "name": "policy/202610120140_policy_material_current.sql",
+      "dependsOn": ["policy/202610090100_policy_originals.sql"]
     }
   ]
 }

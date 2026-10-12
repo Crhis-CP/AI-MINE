@@ -12,7 +12,7 @@ const sql = dbOf("identity");
 export const SESSION_COOKIE = isProduction ? "__Host-amp_admin" : "amp_admin";
 export const LOGIN_NONCE_COOKIE = isProduction ? "__Host-amp_login_nonce" : "amp_login_nonce";
 export const STATE_COOKIE = "amp_oauth_state";
-/** AIHOT keeps an administrator signed in for 30 days. The cookie lifetime uses the same number. */
+/** 上游基础方案 keeps an administrator signed in for 30 days. The cookie lifetime uses the same number. */
 export const SESSION_DAYS = 30;
 /** Register this callback in the Feishu open platform when Feishu sign-in is used. */
 export const CALLBACK_URL = `${config.siteUrl}/api/auth/callback`;
@@ -29,6 +29,8 @@ export interface AdminPrincipal {
   dev: boolean;
   accessRevision?: number | null;
   mustChangePassword?: boolean;
+  /** Set only while resolving an authenticated session; never accepted from an HTTP request body. */
+  legacySharedOperator?: boolean;
 }
 
 function secret(): string {
@@ -190,6 +192,7 @@ export async function sessionPrincipal(cookieHeader: string | undefined): Promis
         dev: false,
         accessRevision: row.access_revision,
         mustChangePassword: row.must_change_password ?? false,
+        legacySharedOperator: row.email === "admin@local",
       };
   }
   if (config.devAdmin && !isProduction) return { userId: null, name: config.devAdmin.displayName, csrf: "dev", dev: true };

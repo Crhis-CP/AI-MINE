@@ -7,7 +7,8 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { randomUUID } from "node:crypto";
 import { OAUTH_PROBE_PATHS, resolveRedirect } from "@amp/contracts/http-policy";
-import { config } from "@amp/backend/config";
+import { config, credential } from "@amp/backend/config";
+import { publicReadLimiter } from "./http/public-limits.ts";
 import { dbOf } from "@amp/backend/db";
 import { registerSite } from "./routes/site.ts";
 import { registerPolicies } from "./routes/policies.ts";
@@ -17,11 +18,12 @@ import { registerOperationsMcp } from "./routes/mcp-ops.ts";
 import { registerUsageProtection } from "./routes/admin-usage-protection.ts";
 
 import { registerAdmin } from "./routes/admin.ts";
+import { registerV3 } from "./routes/v3.ts";
 import { registerV1, registerV1Fallbacks } from "./routes/v1.ts";
 import { registerFeeds } from "./routes/feeds.ts";
 import { registerStatic } from "./routes/static.ts";
 import { registerMcp } from "./routes/mcp.ts";
-import { sendProblem } from "./http/respond.ts";
+import { applyPublicHeaders, sendProblem } from "./http/respond.ts";
 
 const sql = dbOf("publication");
 
@@ -52,6 +54,22 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
   });
 
   app.setValidatorCompiler(validatorCompiler);
+  if (publicRoutes) {
+    const limited = publicReadLimiter(credential("auth", "PUBLIC_RATE_LIMIT_SECRET") ?? "development-public-read-limit");
+    app.addHook("onRequest", async (req, reply) => {
+      if (!/^\/api\/v[13](?:\/|$)/.test(req.url) || req.method === "OPTIONS") return;
+      const retry = limited(req.ip);
+      if (!retry) return;
+      applyPublicHeaders(reply);
+      if (req.url.startsWith("/api/v3/"))
+        return reply
+          .code(429)
+          .header("Retry-After", retry)
+          .header("Cache-Control", "no-store")
+          .send({ code: "rate_limited", message: "请求过于频繁，请稍后再试。", request_id: req.id, retry_after_seconds: retry });
+      return sendProblem(req, reply, { status: 429, code: "rate_limited", detail: "请求过于频繁，请稍后再试。", retryAfter: retry });
+    });
+  }
   app.setSerializerCompiler(serializerCompiler);
 
   app.addHook("onRequest", async (req) => {
@@ -131,10 +149,15 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     registerPolicies(app);
     registerStatic(app);
     registerV1(app);
+    registerV3(app);
     registerV1Fallbacks(app);
   }
 
   app.setNotFoundHandler((req, reply) => {
+    if ((req.raw.url ?? "").startsWith("/api/v3/")) {
+      applyPublicHeaders(reply);
+      return reply.code(404).header("Cache-Control", "no-store").send({ code: "not_found", message: "当前接口不存在", request_id: req.id });
+    }
     if ((req.raw.url ?? "").startsWith("/api/")) {
       return sendProblem(req, reply, { status: 404, code: "not_found", detail: "No such endpoint." });
     }
@@ -144,6 +167,20 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
   app.setErrorHandler((error, req, reply) => {
     req.log.error({ err: error }, "unhandled");
     const status = (error as { statusCode?: number }).statusCode ?? 500;
+    if ((req.raw.url ?? "").startsWith("/api/v3/")) {
+      applyPublicHeaders(reply);
+      const invalid = [400, 413, 415].includes(status);
+      if (!invalid) reply.header("Retry-After", "10");
+      return reply
+        .code(invalid ? 400 : 503)
+        .header("Cache-Control", "no-store")
+        .send({
+          code: invalid ? "invalid_request" : "service_unavailable",
+          message: invalid ? "请求参数不正确" : "内容暂时无法读取，请稍后重试",
+          request_id: req.id,
+          ...(!invalid ? { retry_after_seconds: 10 } : {}),
+        });
+    }
     if (status === 400 || status === 413 || status === 415) {
       return sendProblem(req, reply, { status: status === 400 ? 400 : status, code: "invalid_request", detail: "The request could not be processed." });
     }

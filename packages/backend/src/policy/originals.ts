@@ -42,8 +42,14 @@ export async function assertOriginalPermissions(
 type IdentityInput = Pick<PolicyOriginalInput, "identity" | "sourceId" | "versionKey" | "language" | "kind">;
 function originalIdentity(value: IdentityInput) {
   const { identity } = value;
-  const key =
-    identity.documentNumber === null
+  const key = identity.officialEquivalence
+    ? {
+        jurisdiction: identity.jurisdiction,
+        authority: identity.authority,
+        type: identity.documentType,
+        officialUrls: [...identity.officialEquivalence.urls].sort(),
+      }
+    : identity.documentNumber === null
       ? { source: value.sourceId, url: identity.officialUrl }
       : {
           jurisdiction: identity.jurisdiction,

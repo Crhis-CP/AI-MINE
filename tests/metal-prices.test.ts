@@ -104,6 +104,7 @@ test("the fourth-version registry preserves source facts, five active bureau quo
       ["lead", "国内 · 铅锭 1#", "铅含量不低于 99.994%"],
       ["zinc", "国内 · 锌锭 0#", "锌含量不低于 99.995%"],
       ["sulfuric_acid", "国内 · 硫酸（98%）", null],
+      ["lithium", "国内 · 磷酸铁锂（普通动力型）", "普通动力型，能量密度不低于 120Wh/kg"],
     ],
   );
   assert.deepEqual(
@@ -113,7 +114,7 @@ test("the fourth-version registry preserves source facts, five active bureau quo
   for (const item of items) assert.deepEqual([item.benchmark, item.deliveryBasis, item.unit, item.sourceUnit], ["全国流通领域市场价格", null, "元/吨", "吨"]);
   inOrder(
     registry.metals.map((metal) => metal.key),
-    "gold silver platinum palladium copper aluminum zinc lead tin nickel iron_ore sulfuric_acid".split(" "),
+    "gold copper lithium aluminum silver platinum palladium zinc lead tin nickel iron_ore sulfuric_acid".split(" "),
   );
   assert.equal(registry.intro, "官方机构定期发布的金属价格，注明出处。不是实时行情。");
   assert.deepEqual(
@@ -245,9 +246,9 @@ test("unregistered but known note sources are allowed, and the real bureau fixtu
   assert.deepEqual(
     periods.map((period) => period.rows.map((row) => [row.key, row.unit, row.value])),
     [
-      ["110492.5", "24356.3", "16006.3", "26991.9", "1835.7"],
-      ["108770.0", "24191.7", "15883.3", "26257.5", "1777.3"],
-    ].map((values) => values.map((value, i) => [`nbs.${["copper", "aluminum", "lead", "zinc", "sulfuric_acid"][i]}`, "吨", value])),
+      ["110492.5", "24356.3", "16006.3", "26991.9", "1835.7", "55800.8"],
+      ["108770.0", "24191.7", "15883.3", "26257.5", "1777.3", "51881.1"],
+    ].map((values) => values.map((value, i) => [`nbs.${["copper", "aluminum", "lead", "zinc", "sulfuric_acid", "lithium"][i]}`, "吨", value])),
   );
   assert.ok(periods.every((period) => period.held.length === 0));
 });

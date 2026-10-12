@@ -1,3 +1,4 @@
+import { computeHotRanking } from "../events/hot.ts";
 import { isModelRouteWaiting } from "../providers/model-fallback.ts";
 import { ReceiptBusyError, ReceiptUnknownError, BudgetExceededError } from "../providers/receipts.ts";
 // Event jobs: serial grouping, debounced digests.
@@ -16,6 +17,8 @@ const isWaiting = (error: unknown) =>
   error instanceof ReceiptUnknownError ||
   error instanceof BudgetExceededError;
 export async function registerEventJobs(boss: PgBoss) {
+  await ensureQueue("events.hot-refresh");
+  await boss.work("events.hot-refresh", { localConcurrency: 1, pollingIntervalSeconds: 2 }, async () => computeHotRanking());
   await ensureQueue(QUEUES.group);
   // Serial on purpose: two reports of the same new fact must not both create it.
   await boss.work<{ articleId: string; signalOnly?: boolean; force?: boolean }>(

@@ -506,7 +506,18 @@
     "publication.policy_report_revisions": {
       "module": "publication",
       "access": "business",
-      "publicColumns": ["report_id", "revision", "revision_id", "previous_revision", "content_hash", "generated_at", "card", "coverage", "attributions"],
+      "publicColumns": [
+        "report_id",
+        "revision",
+        "revision_id",
+        "previous_revision",
+        "content_hash",
+        "generated_at",
+        "card",
+        "coverage",
+        "attributions",
+        "change"
+      ],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
@@ -524,7 +535,7 @@
     "policy.material_discoveries": {
       "module": "policy",
       "access": "business",
-      "publicColumns": [],
+      "publicColumns": ["expression_id", "source_id", "material_id", "is_current"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
@@ -835,7 +846,7 @@
     "acquisition.directory_records": {
       "module": "acquisition",
       "access": "business",
-      "publicColumns": [],
+      "publicColumns": ["scan_id", "record_id", "role"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
@@ -844,7 +855,7 @@
     "acquisition.directory_heads": {
       "module": "acquisition",
       "access": "business",
-      "publicColumns": [],
+      "publicColumns": ["source_id", "scan_id"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
@@ -853,7 +864,7 @@
     "acquisition.directory_bindings": {
       "module": "acquisition",
       "access": "business",
-      "publicColumns": [],
+      "publicColumns": ["scan_id", "record_id", "material_id"],
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT"]
@@ -1020,6 +1031,33 @@
         "worker": ["SELECT"]
       }
     },
+    "ai.prefilter_audit_draws": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.prefilter_audit_items": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
+    "ai.prefilter_audit_labels": {
+      "module": "ai-gateway",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT"]
+      }
+    },
     "ai.model_fallback_routes": {
       "module": "ai-gateway",
       "access": "business",
@@ -1036,6 +1074,87 @@
       "permissions": {
         "private_ops": ["SELECT"],
         "worker": ["SELECT", "INSERT", "UPDATE"]
+      }
+    },
+    "publication.read_watermarks": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["lane", "version", "withdrawal_version", "last_public_at", "last_scheduled_check_ok_at"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "publication.manual_copies": {
+      "module": "publication",
+      "access": "business",
+      "publicColumns": ["article_id", "manual_revision_id", "material_revision", "body_html", "label", "state"],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "editorial.manual_revisions": {
+      "module": "editorial",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "editorial.manual_revision_events": {
+      "module": "editorial",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "sources.source_config_drafts": {
+      "module": "sources",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "sources.source_previews": {
+      "module": "sources",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "sources.source_config_activations": {
+      "module": "sources",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT"],
+        "worker": ["SELECT", "INSERT"]
+      }
+    },
+    "feedback.feedback_private_deletions": {
+      "module": "feedback",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
+      }
+    },
+    "feedback.feedback_weekly_summaries": {
+      "module": "feedback",
+      "access": "business",
+      "publicColumns": [],
+      "permissions": {
+        "private_ops": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+        "worker": ["SELECT", "INSERT", "UPDATE", "DELETE"]
       }
     }
   },
@@ -1054,6 +1173,11 @@
     "receipt_attempts_id_seq": "receipt_attempts",
     "receipts_id_seq": "receipts",
     "reports_id_seq": "reports",
-    "stories_id_seq": "stories"
+    "stories_id_seq": "stories",
+    "editorial.manual_revisions_id_seq": "editorial.manual_revisions",
+    "editorial.manual_revision_events_id_seq": "editorial.manual_revision_events",
+    "sources.source_config_drafts_id_seq": "sources.source_config_drafts",
+    "sources.source_previews_id_seq": "sources.source_previews",
+    "sources.source_config_activations_id_seq": "sources.source_config_activations"
   }
 }

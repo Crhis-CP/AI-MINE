@@ -1,4 +1,7 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // Public scope and sync through the real api routes: a licence revocation or a withdrawal reaches
 // every exit, body pictures reach the page and the full feed only as links, reports stop quoting
 // withdrawn items, the hot board drops a withdrawn item at once, item pages follow the site's rule, an
@@ -16,7 +19,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { overrideFields, setVisibility } from "@amp/backend/admin/content";
+import { setVisibility } from "@amp/backend/admin/content";
 import { updateSource } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -59,6 +62,7 @@ async function translateFixture(id: string) {
 const app = await buildApp("public-api");
 
 before(async () => {
+  await installUsageFixtureForModel("deepseek-flash");
   // An interrupted earlier run may have left entries behind the release gate, holding the watermark.
   await sql`UPDATE selected_ledger SET visible_at = now() WHERE visible_at > now()`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
@@ -75,6 +79,7 @@ after(async () => {
 let n = 0;
 /** A selected article with full text and a summary. */
 async function article(body = BODY, language?: string, sourceId = SOURCE): Promise<string> {
+  await ensureModelSourceFixture(sourceId, ["https://example.com/source"]);
   n += 1;
   const { articleId } = await upsertMaterial({
     sourceId,
@@ -618,8 +623,8 @@ test("summary-only never falls back to source text after clearing a manual intro
     // In the activated pipeline publishArticle also derives this field from the confirmed source.
     await sql`UPDATE publications SET source_excerpt = ${`来源摘录：${body.slice(0, 400)}`} WHERE article_id = ${id}`;
     const manual = `人工导读 ${size} ${T}`;
-    await overrideFields(id, { fields: { summary: manual }, reason: "fixture introduction", version: 0 }, "test");
-    await overrideFields(id, { fields: {}, clear: ["summary"], reason: "fixture clear", version: 1 }, "test");
+    await confirmedManualEdit(id, { fields: { summary: manual }, reason: "fixture introduction", version: 0 }, "test");
+    await confirmedManualEdit(id, { fields: {}, clear: ["summary"], reason: "fixture clear", version: 1 }, "test");
     const before = JSON.parse((await get(`/api/site/items/${id}`)).body);
     assert.ok(before.summary.includes(body.slice(0, 80)), "public reading retains its permitted source excerpt");
     await setVisibility(id, { visibility: "summary-only", reason: "fixture limitation", version: 2 }, "test");
@@ -628,8 +633,49 @@ test("summary-only never falls back to source text after clearing a manual intro
     const detail = JSON.parse(limited.body);
     assert.deepEqual([detail.readingMode, detail.body, detail.summary], ["summary-only", null, null], `source length ${size}`);
     assert.ok(!limited.body.includes(body.slice(0, 80)), "source text does not escape through metadata");
-    await overrideFields(id, { fields: { summary: manual }, reason: "fixture authored summary", version: 3 }, "test");
+    await confirmedManualEdit(id, { fields: { summary: manual }, reason: "fixture authored summary", version: 3 }, "test");
     const authored = JSON.parse((await get(`/api/site/items/${id}`)).body);
     assert.deepEqual([authored.readingMode, authored.body, authored.summary], ["summary-only", null, manual]);
   }
+});
+
+test("a foreign item with a Chinese title and guide is public without a full translation", async () => {
+  const source = `test-guide-${T}`;
+  await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, site_fulltext, syndicate_fulltext, next_fetch_at)
+            VALUES (${source}, 'Guide only', 'rss', 'T2', 'editorial', false, false, '2100-01-01')`;
+  const id = await article(BODY, "en", source);
+  await publishArticle(id, released());
+  const page = await get(`/api/site/items/${id}`);
+  assert.equal(page.status, 200, page.body);
+  const detail = JSON.parse(page.body);
+  assert.match(detail.summary, /合成摘要/);
+  assert.ok(detail.links.original.includes("example.com"));
+  assert.equal(detail.body, null, "closed full text does not invent a body");
+  assert.ok(!page.body.includes(`FULLTEXT-${T}`));
+  const listed = JSON.parse((await get("/api/v1/items?mode=all")).body).items.find((row: { id: string }) => row.id === id);
+  assert.match(listed.summary, /合成摘要/);
+  assert.ok(listed.links.original.includes("example.com"));
+  const feedItem = (await get("/feed/all.xml")).body.split("<item>").find((item) => item.includes(id));
+  assert.ok(feedItem?.includes("合成摘要"));
+  assert.ok(!feedItem?.includes(`FULLTEXT-${T}`));
+  assert.equal((await sql`SELECT site_fulltext FROM sources WHERE id = ${source}`)[0]!.site_fulltext, false);
+
+  const noSummary = await article(BODY, "en", source);
+  await sql`UPDATE analyses SET summary_zh = NULL WHERE article_id = ${noSummary}`;
+  await publishArticle(noSummary, released());
+  assert.equal((await get(`/api/site/items/${noSummary}`)).status, 404, "no Chinese guide");
+
+  const noTitle = await article(BODY, "en", source);
+  await sql`UPDATE analyses SET title_zh = NULL WHERE article_id = ${noTitle}`;
+  await publishArticle(noTitle, released());
+  assert.equal((await get(`/api/site/items/${noTitle}`)).status, 404, "no Chinese title");
+
+  const blocked = await article(BODY, "en", source);
+  await sql`UPDATE analyses SET relevance = 'block' WHERE article_id = ${blocked}`;
+  await publishArticle(blocked, released());
+  assert.equal((await get(`/api/site/items/${blocked}`)).status, 404, "a prefilter block stays out");
+
+  await setVisibility(id, { visibility: "withdrawn", reason: "test withdrawal", version: 0 }, "test");
+  await publishArticle(id, released());
+  assert.equal((await get(`/api/site/items/${id}`)).status, 404, "a withdrawal is not revived by publishing again");
 });

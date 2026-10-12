@@ -33,6 +33,7 @@ test("real session identity and current access revision distinguish Owner, deleg
   assert.ok(shared);
   assert.equal(await currentCapability(shared, "owner"), true);
   assert.equal(await currentCapability(shared, "models.manage"), true);
+  await dbs.private_ops.begin((tx) => requireOwner(shared, tx));
   await requireOwner(owner.principal);
   await requireCapability(owner.principal, "models.manage");
   await requireCapability(manager.principal, "models.manage");

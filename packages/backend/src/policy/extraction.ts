@@ -1,7 +1,9 @@
 import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
+import { sourceAnnotations, xmlReadingHtml, type SourceAnnotation } from "./annotations.ts";
 import { fileURLToPath } from "node:url";
 import { getDocument, OPS, version } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { sanitizeBody } from "@amp/backend/content/sanitize";
+import { policySemanticHtml } from "./semantic-html.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { dbOf } from "../db.ts";
 import { assertOriginalPermissions, readPolicyOriginal } from "./originals.ts";
@@ -25,6 +27,7 @@ export type OriginalNode = {
   transform?: number[];
   visualLocations?: { page: number; bbox: number[]; imageHash: string }[];
   selector?: string;
+  annotations?: SourceAnnotation[];
 };
 export type ResourceExtraction = {
   url: string;
@@ -40,7 +43,7 @@ export type PolicyExtraction = {
   resources: ResourceExtraction[];
   visualProof?: { runId: string; contentHash: string; recipe: string };
 };
-export const EXTRACTION_RECIPE = `html-policy-1/pdfjs-${version}`;
+export const EXTRACTION_RECIPE = `html-policy-2/xml-policy-2/pdfjs-${version}`;
 const sql = dbOf("policy"),
   normalized = (value: string) => value.replace(/\s+/g, " ").trim();
 export function validateProfile(profile: ExtractionProfile) {
@@ -102,24 +105,39 @@ async function parseResource(
     } finally {
       await task.destroy();
     }
-  } else if (/html/i.test(resource.mediaType ?? "")) {
-    const $ = cheerio.load(decodeOriginal(resource.body, resource.mediaType)),
+  } else if (/html|xml/i.test(resource.mediaType ?? "")) {
+    const xml = /xml/i.test(resource.mediaType ?? "") && !/html/i.test(resource.mediaType ?? ""),
+      decoded = decodeOriginal(resource.body, resource.mediaType);
+    if (xml && /<!DOCTYPE|<!ENTITY|\0/i.test(decoded)) return { ...result, state: "incomplete", gaps: ["XML外部实体、文档类型或字符完整性未通过"] };
+    const $ = xml ? cheerio.load(decoded, { xml: true }) : cheerio.load(decoded),
       selected = profile.bodySelector ? $(profile.bodySelector) : null;
     if (selected?.length !== 1) result.gaps.push("正文选择器未明确或未唯一命中");
     else {
-      const raw = selected.html() ?? "",
-        safe = sanitizeBody(raw, resource.url),
-        clean = cheerio.load(safe, null, false);
-      const original = selected.clone();
-      original.find("script,style,noscript,template").remove();
-      if (normalized(original.text()) !== normalized(clean.root().text())) result.gaps.push("安全清洗后的文字与完整正文选区不一致");
-      if (selected.find("img,svg,object,embed,iframe,math").length) result.gaps.push("正文含未核验图件、公式或嵌入材料");
-      clean
-        .root()
-        .children()
-        .each((_, element) => {
-          add({ text: clean(element).text(), html: clean.html(element), selector: profile.bodySelector! });
-        });
+      if (selected.find("img,svg,object,embed,iframe,math,Image,Formula").length) result.gaps.push("正文含未核验图件、公式或嵌入材料");
+      const elements: Element[] = [];
+      const collect = (element: Element) => {
+        if (xml && /^(?:Regulation|Statute|Body|Schedule|RegulationPiece|TableGroup)$/i.test(element.name))
+          $(element)
+            .children()
+            .each((_, child) => {
+              collect(child);
+            });
+        else elements.push(element);
+      };
+      selected.children().each((_, child) => {
+        collect(child);
+      });
+      for (const element of elements) {
+        const raw = xml ? xmlReadingHtml($, element) : $.html(element),
+          safe = policySemanticHtml(raw, resource.url),
+          clean = cheerio.load(safe, null, false),
+          original = $(element).clone();
+        original.find("script,style,noscript,template").remove();
+        if (normalized(original.text()) !== normalized(clean.root().text())) result.gaps.push("安全清洗后的文字与完整正文选区不一致");
+        add({ text: clean.root().text(), html: safe, selector: profile.bodySelector!, annotations: sourceAnnotations($, element, resource.sha256 ?? "") });
+      }
+      if (normalized(selected.clone().find("script,style,noscript,template").remove().end().text()) !== normalized(result.nodes.map((n) => n.text).join("")))
+        result.gaps.push("正文存在尚未定位的直接文字节点");
       if (!result.nodes.length) result.gaps.push("正文没有可提取节点");
     }
   } else result.gaps.push("文件格式尚未支持");

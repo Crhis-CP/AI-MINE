@@ -298,7 +298,7 @@ packages/domains/<name>/
 | `packages/backend/src/site/` | `publication` | 保留 |
 | `packages/backend/src/media/` | `content`（`images.ts`、`imgproxy.ts`、`renditions.ts`）；分享图渲染（`apps/api/src/og/`）归 `publication` | `images.ts`、`imgproxy.ts`、`renditions.ts` **关闭**：公开页不用，仅保留给视觉理解输入（须 `external_model` 许可）与 Owner 明确授权的来源（DR-78）；`prepare.ts` 的图片预热**删除**（随图片代理按 `04-aihot-adoption.md` 4.7 处理）；其中推送用的分享图预热 `warmShareImage` 随飞书内容推送保留（Owner 2026-10-02）；分享图为候选、首版不注册路由 |
 | `packages/backend/src/jobs/` | `apps/worker` 组合根 + 各模块 `jobs.ts` + `platform/queue` | 拆分；队列改为 `<lane>.<stage>` |
-| `packages/backend/src/lib/http-fetch.ts`、`url.ts` | `acquisition` 的 fetch 运行时 | 只搬 SSRF、连接时地址校验、总超时、字节上限、字符集解码；删除出网代理分流（`EGRESS_PROXY_URL`） |
+| `packages/backend/src/lib/http-fetch.ts`、`url.ts` | `acquisition` 的 fetch 运行时 | 搬 SSRF、连接时地址校验、总超时、字节上限、字符集解码，以及 AIHOT 的 `EGRESS_PROXY_URL`：不填直连；抓取和图片可走，模型不走（Owner 2026-10-10） |
 | `packages/backend/src/lib/cursor.ts`、`ids.ts`、`text.ts`、`cache.ts` | 使用方模块或 `contracts`（纯函数） | 按使用方归位，不建通用 utils |
 | `packages/backend/src/ingest/` | `acquisition`（外部推送入口，默认关闭） | 若保留，移出公开 API |
 | `packages/backend/src/config.ts`、`db.ts` | `platform/config`（按角色配置、`dbFor(role)`） | 改为注入，不再 import 全局 `sql` |

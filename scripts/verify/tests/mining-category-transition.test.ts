@@ -10,6 +10,7 @@ type Site = MiningCategoryTransition["sites"][number];
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/mining-category-transition.json", import.meta.url), "utf8")) as {
   sources: Record<string, { before: string; after: string }>;
   transition: MiningCategoryTransition;
+  fixedDependencies: Record<string, string>;
 };
 const sources = fixture.sources as Record<string, { before: string; after: string }>;
 const key = (site: Site, side: "before" | "after") => `${site.file}:${site.scopeName}:` + digest(JSON.stringify([site.sourceHash, site[side], site.reasons]));
@@ -22,7 +23,8 @@ const inventory = [...new Set<string>(fixture.transition.sites.map((s) => s.file
     .map((s) => ({ scopeName: s.scopeName, kind: s.kind, sourceHash: s.sourceHash, shape: s.shape, unknown: s.reasons, dependencies: s.after })),
 })) as ReturnType<typeof extractOwnership>;
 const lock = fixture.transition.sites[0]!.after["sql/parser-locked-subgraph"]!;
-const read = (file: string, before: boolean) => sources[file]?.[before ? "before" : "after"] ?? readFileSync(path.join(ROOT, file), "utf8");
+const read = (file: string, before: boolean) =>
+  sources[file]?.[before ? "before" : "after"] ?? fixture.fixedDependencies[file] ?? readFileSync(path.join(ROOT, file), "utf8");
 // The real extractor supplies pnpm-lock rather than the normalized parser dependency key.
 for (const f of inventory)
   for (const s of f.sites) {

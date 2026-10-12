@@ -120,3 +120,25 @@ test("real application roles cannot alter history and public readers cannot quer
     await denied(roles.public_read, `SELECT * FROM policy.${table}`);
   }
 });
+
+test("explicit official URL equivalence joins different language numbers but never their individual versions", async () => {
+  const english = input(),
+    french = input();
+  const fr = `${url}/fr`;
+  const equivalence = { urls: [url, fr], evidenceUrl: url, locator: "a[hreflang]" };
+  english.identity.officialEquivalence = equivalence;
+  english.identity.documentNumber = "SOR/2002-222";
+  english.language = "en";
+  french.identity.officialEquivalence = { ...equivalence, urls: [fr, url], evidenceUrl: fr };
+  french.identity.documentNumber = "DORS/2002-222";
+  french.identity.officialUrl = fr;
+  french.language = "fr";
+  french.versionKey = "different-official-version";
+  french.resources[0]!.url = fr;
+  const a = await recordPolicyOriginal(english),
+    b = await recordPolicyOriginal(french);
+  assert.equal(a.instrumentId, b.instrumentId);
+  assert.notEqual(a.versionId, b.versionId);
+  assert.notEqual(a.expressionId, b.expressionId);
+  assert.equal((await readPolicyOriginal(b.expressionId))!.manifest.identity.documentNumber, "DORS/2002-222");
+});

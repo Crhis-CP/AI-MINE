@@ -96,12 +96,13 @@ export async function modelsOverview(days = 7) {
   const families = BUILTIN_MODEL_FAMILIES.map((family) => ({
     id: family.id,
     label: family.label,
+    duty: family.duty,
     presets: family.presets.map((key) => ({ ...environmentModelMetadata(key)!, ready: modelPresetReady(key) })),
   }));
   return { days, capabilities, choices, families, deploymentReady: modelPresetReady("default"), history, benches };
 }
 
-/** AIHOT switch: pick a configured model, or a registered connection that already passed its test. Applies to new work only. */
+/** 上游基础方案 switch: pick a configured model, or a registered connection that already passed its test. Applies to new work only. */
 export async function switchModel(capability: string, model: string | null, reason: string, actor: string) {
   const c = (CAPABILITIES as Record<string, Capability>)[capability];
   if (!c) throw Object.assign(new Error("没有这个处理环节"), { statusCode: 400 });

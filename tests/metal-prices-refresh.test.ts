@@ -56,10 +56,10 @@ const registry = {
 };
 const parsed = parseMetalPriceRegistry(registry);
 /** 本期价格 as the fixtures write it, by series, in the order of the bureau's table. */
-const KEYS = "rebar wire_rod medium_plate hr_coil seamless_pipe angle_steel copper aluminum lead zinc".split(" ").map((key) => `nbs.${key}`);
+const KEYS = "rebar wire_rod medium_plate hr_coil seamless_pipe angle_steel copper aluminum lead zinc lithium".split(" ").map((key) => `nbs.${key}`);
 const published = (values: string) => new Map(values.split(" ").map((value, i) => [KEYS[i], value]));
-const EARLY_VALUES = published("3182.7 3367.1 3564.7 3351.6 4026.9 3469.8 110492.5 24356.3 16006.3 26991.9");
-const MID_VALUES = published("3165.1 3353.7 3548.0 3308.9 4022.4 3433.1 108770.0 24191.7 15883.3 26257.5");
+const EARLY_VALUES = published("3182.7 3367.1 3564.7 3351.6 4026.9 3469.8 110492.5 24356.3 16006.3 26991.9 55800.8");
+const MID_VALUES = published("3165.1 3353.7 3548.0 3308.9 4022.4 3433.1 108770.0 24191.7 15883.3 26257.5 51881.1");
 
 /** Fixtures by address; `change` swaps in edited copies. Any other address fails, as an unknown page would. */
 const pages = (change: Record<string, string> = {}): PageGetter => {
@@ -90,19 +90,19 @@ const values = async (start: string) =>
 
 test("the first run stores the newest period alone, ten rows exactly as published; its record says there is no previous period", async () => {
   // A thousands separator written into a copy of the page is dropped, and nothing else changes.
-  assert.deepEqual(await run({ [MID]: mid.replace(">108770.0<", ">108,770.0<") }), record(true, [period(SEP2, { inserted: 10, notes: NO_PREVIOUS })]));
+  assert.deepEqual(await run({ [MID]: mid.replace(">108770.0<", ">108,770.0<") }), record(true, [period(SEP2, { inserted: 11, notes: NO_PREVIOUS })]));
   const rows = await sql`SELECT series_key, name_zh, grade, value::text, unit, source_unit, currency, period_type, period_start::text, period_end::text,
                                 period_label, release_label, release_url, released_on::text FROM publication.metal_prices`;
   const release = { period_label: SEP2, release_label: SEP2 + TAIL, release_url: MID, released_on: "2026-09-24" };
   const fixed = { unit: "元/吨", source_unit: "吨", currency: "CNY", period_type: "ten_day", period_start: "2026-09-11", period_end: "2026-09-20", ...release };
   const expected = parsed.items.map((item) => [item.key, { name_zh: item.name, grade: item.grade, value: MID_VALUES.get(item.key), ...fixed }]);
-  assert.equal(rows.length, 10);
+  assert.equal(rows.length, 11);
   assert.deepEqual(Object.fromEntries(rows.map(({ series_key, ...row }) => [series_key, row])), Object.fromEntries(expected));
 });
 
 test("a later run reads the stored period again, moving only its fetched_at, and stores the new period after it", async () => {
-  assert.deepEqual(await run({ [NBS_LIST_URL]: earlyList }), record(true, [period(SEP1, { inserted: 10, notes: NO_PREVIOUS })]));
-  assert.deepEqual(await run({}, LATER), record(true, [period(SEP1, { touched: 10 }), period(SEP2, { inserted: 10 })], LATER));
+  assert.deepEqual(await run({ [NBS_LIST_URL]: earlyList }), record(true, [period(SEP1, { inserted: 11, notes: NO_PREVIOUS })]));
+  assert.deepEqual(await run({}, LATER), record(true, [period(SEP1, { touched: 11 }), period(SEP2, { inserted: 11 })], LATER));
   const times = await sql`SELECT period_start::text AS start, min(first_fetched_at) AS first, max(fetched_at) AS last FROM publication.metal_prices
                           GROUP BY 1 ORDER BY 1`;
   assert.deepEqual(
@@ -119,15 +119,15 @@ test("a value changed in the same version replaces the old one, before and after
   await run();
   const changed = [{ key: "nbs.copper", before: "108770.0", after: "108800.0" }];
   const copper = { [MID]: mid.replace(">108770.0<", ">108800.0<") };
-  assert.deepEqual(await run(copper, LATER), record(true, [period(SEP2, { touched: 9, changed, notes: NO_PREVIOUS })], LATER));
+  assert.deepEqual(await run(copper, LATER), record(true, [period(SEP2, { touched: 10, changed, notes: NO_PREVIOUS })], LATER));
   assert.equal((await values("2026-09-11")).get("nbs.copper"), "108800.0");
   // The bureau's titles name the period, so a revised version only comes from another source: stored directly here.
   const [fetched] = await nbsFetcher(parsed, pages()).fetch(async () => null);
   const revised = { ...fetched, release: { ...fetched.release, label: `${fetched.release.label}（修订）` } };
   const before = await table();
-  assert.deepEqual(await storePeriod(parsed.sources[0], parsed.items, revised, LATER), { inserted: 10, touched: 0, changed: [] });
+  assert.deepEqual(await storePeriod(parsed.sources[0], parsed.items, revised, LATER), { inserted: 11, touched: 0, changed: [] });
   const rows = await table();
-  assert.deepEqual([rows.length, rows.filter((row) => row.release_label === SEP2 + TAIL)], [20, before]);
+  assert.deepEqual([rows.length, rows.filter((row) => row.release_label === SEP2 + TAIL)], [22, before]);
 });
 
 test("a revised version: the next period is compared with the previous period's newest version, the stored newest with its own", async () => {
@@ -136,17 +136,17 @@ test("a revised version: the next period is compared with the previous period's 
   const rows = sep1!.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "176788.0" } : row));
   await storePeriod(parsed.sources[0], parsed.items, { ...sep1!, rows, release: { ...sep1!.release, label: `${sep1!.release.label}（修订）` } }, LATER);
   const reason = "nbs.copper 是 108770.0，是上一期 176788.0 的 0.62 倍，超出 0.67–1.5 倍";
-  assert.deepEqual(await run({}, LATER), record(false, [period(SEP1, { touched: 10 }), period(SEP2, { held: reason })], LATER));
+  assert.deepEqual(await run({}, LATER), record(false, [period(SEP1, { touched: 11 }), period(SEP2, { held: reason })], LATER));
 });
 
 test("a new period failing a check is held back whole and the next one waits for it, the store unchanged; they go in once it passes", async () => {
   await run({ [NBS_LIST_URL]: earlyList });
   const before = await table();
-  const sep1 = period(SEP1, { touched: 10 });
+  const sep1 = period(SEP1, { touched: 11 });
   const held = [sep1, period(SEP2, { held: COPPER_REASON }), period(SEP3, { held: `等 ${SEP2}` })];
   assert.deepEqual(await run({ [NBS_LIST_URL]: lateList, ...COPPER_UP }), record(false, held));
   assert.deepEqual(await table(), before);
-  assert.deepEqual(await run({ [NBS_LIST_URL]: lateList }), record(true, [sep1, period(SEP2, { inserted: 10 }), period(SEP3, { inserted: 10 })]));
+  assert.deepEqual(await run({ [NBS_LIST_URL]: lateList }), record(true, [sep1, period(SEP2, { inserted: 11 }), period(SEP3, { inserted: 11 })]));
 });
 
 test("the stored newest period failing when read again keeps its rows and holds nothing back: the next period is stored", async () => {
@@ -154,8 +154,8 @@ test("the stored newest period failing when read again keeps its rows and holds 
   const before = await table();
   const zero = { [EARLY]: early.replace(">110492.5<", ">0<") };
   const held = period(SEP1, { held: "nbs.copper 的数值 0 不大于 0", notes: NO_PREVIOUS });
-  assert.deepEqual(await run(zero, LATER), record(false, [held, period(SEP2, { inserted: 10 })], LATER));
-  assert.deepEqual((await table()).slice(0, 10), before);
+  assert.deepEqual(await run(zero, LATER), record(false, [held, period(SEP2, { inserted: 11 })], LATER));
+  assert.deepEqual((await table()).slice(0, before.length), before);
   assert.deepEqual(await values("2026-09-11"), MID_VALUES);
 });
 
@@ -164,7 +164,7 @@ test("a period stored by force, copper at 1.6 times the one before, read again u
   const [forced] = await nbsFetcher(parsed, pages(COPPER_UP)).fetch(async () => "2026-09-11");
   await storePeriod(parsed.sources[0], parsed.items, forced, NOW);
   const before = await table();
-  assert.deepEqual(await run(COPPER_UP, LATER), record(true, [period(SEP2, { touched: 10 })], LATER));
+  assert.deepEqual(await run(COPPER_UP, LATER), record(true, [period(SEP2, { touched: 11 })], LATER));
   const moved = before.map((row) => (row.period_start === "2026-09-11" ? { ...row, fetched_at: LATER } : row));
   assert.deepEqual(await table(), moved);
   // Once any value changes, every check applies again: copper's ratio holds the period back.
@@ -178,7 +178,7 @@ test("a second copy of the price table differing by one number holds the period 
   const price = /<table[\s\S]*<\/table>/.exec(mid)![0];
   const copy = { [MID]: mid.replace(price, () => price + price.replace(">108770.0<", ">108800.0<")) };
   const reason = "价格表第 2 份与第 1 份不同：第 1 份是“nbs.copper 吨 108770.0”，第 2 份是“nbs.copper 吨 108800.0”";
-  assert.deepEqual(await run(copy), record(false, [period(SEP1, { touched: 10 }), period(SEP2, { held: reason })]));
+  assert.deepEqual(await run(copy), record(false, [period(SEP1, { touched: 11 }), period(SEP2, { held: reason })]));
   assert.deepEqual(await table(), before);
 });
 
@@ -212,7 +212,7 @@ test("a stopped series gets no new rows and keeps its old ones, and no period is
   await run({ [NBS_LIST_URL]: earlyList });
   const stopped = { ...registry, items: registry.items.map((item) => (item.key === "nbs.zinc" ? { ...item, enabled: false } : item)) };
   const noZinc = { [MID]: mid.replace(/<tr\b(?:(?!<\/tr>)[\s\S])*锌锭(?:(?!<\/tr>)[\s\S])*<\/tr>/, "") };
-  assert.deepEqual(await run(noZinc, LATER, stopped), record(true, [period(SEP1, { touched: 9 }), period(SEP2, { inserted: 9 })], LATER));
+  assert.deepEqual(await run(noZinc, LATER, stopped), record(true, [period(SEP1, { touched: 10 }), period(SEP2, { inserted: 10 })], LATER));
   const zinc = await sql`SELECT period_start::text AS start, fetched_at FROM publication.metal_prices WHERE series_key = 'nbs.zinc'`;
   assert.deepEqual([...zinc], [{ start: "2026-09-01", fetched_at: NOW }]);
 });
@@ -225,7 +225,7 @@ test("a stopped source is not fetched and has no entry in the run record", async
 test("two runs at the same moment: the second adds no rows and changes no values, the table is one run's, its record only 只更新时间; the schedule", async () => {
   await run();
   const once = await table();
-  assert.deepEqual(await run(), record(true, [period(SEP2, { touched: 10 })]));
+  assert.deepEqual(await run(), record(true, [period(SEP2, { touched: 11 })]));
   assert.deepEqual(await table(), once);
   // Three times a day after the bureau's 09:30 release, a missed slot run once; with the collectors (no lane).
   const schedule = SCHEDULES.find((candidate) => candidate.name === "metals.prices");
@@ -329,9 +329,9 @@ test("a new version repeating the stored newest period, copper at 1.6 times the 
   assert.deepEqual(await table(), before);
   // Copper back to the bureau's figure: every check applies and passes, and the new version is a row beside the old one.
   const copper = forced.rows.map((row) => (row.key === "nbs.copper" ? { ...row, value: "108770.0" } : row));
-  assert.deepEqual(await again(copper), record(true, [period(SEP2, { version, inserted: 10 })], LATER));
+  assert.deepEqual(await again(copper), record(true, [period(SEP2, { version, inserted: 11 })], LATER));
   // A third version is compared with the latest one stored, so repeating it adds nothing.
   assert.deepEqual(await again(copper, "三"), record(true, [period(SEP2, { version: "三", notes: ["和库里已有的一样，不另存"] })], LATER));
   const rows = await table();
-  assert.deepEqual([rows.length, rows.filter((row) => row.release_label !== version)], [30, before]);
+  assert.deepEqual([rows.length, rows.filter((row) => row.release_label !== version)], [33, before]);
 });

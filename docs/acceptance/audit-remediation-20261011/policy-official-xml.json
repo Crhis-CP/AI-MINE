@@ -1,0 +1,96 @@
+{
+  "finding": "POL-04",
+  "task": "TASK-0195",
+  "phase": "development_real_source_validation",
+  "source_family": "Justice Canada Web XML / CA-002",
+  "source_url": "https://laws-lois.justice.gc.ca/eng/XML/SOR-2002-222.xml",
+  "official_title": "Metal and Diamond Mining Effluent Regulations",
+  "publisher": "Department of Justice Canada",
+  "response_bytes": 331050,
+  "response_sha256": "6e8f37e8fca10bc68826d8b849371a64444b4f8c298a7d9b280e4736c268fe48",
+  "recording_manifest": "tests/fixtures/policy/official-xml/manifest.json",
+  "permit": {
+    "fetch_public_sample": true,
+    "local_structure_processing": true,
+    "retain_minimal_accurate_excerpt": true,
+    "retained_bytes": 16412,
+    "basis": [
+      "https://laws-lois.justice.gc.ca/eng/regulations/SI-97-5/",
+      "https://laws-lois.justice.gc.ca/eng/FAQ/"
+    ],
+    "conditions": [
+      "标注完整标题、Department of Justice Canada、原始URL；摘录及其转换结果不声称是官方版本或完整法规。",
+      "仅保留规范条文及表格，没有政府符号、第三方附加评论或生产数据。"
+    ],
+    "production_permission_matrix_modified": false,
+    "source_enabled": false,
+    "real_model_calls": 0
+  },
+  "observed_source_dates": {
+    "lims:pit-date": "2026-06-04",
+    "lims:lastAmendedDate": "2026-06-04",
+    "lims:current-date": "2026-06-14",
+    "interpretation": "逐字保留XML属性性质与定位；不把current-date/pit-date当发布日期或替换为HTML页日期、抓取时刻。"
+  },
+  "before_fix": {
+    "namespaced_annotations": 0,
+    "provision_superscripts": 0,
+    "provision_repealed_markers": 0,
+    "cals_table_rows": 0,
+    "cals_spans": 0,
+    "plain_text_retained": true
+  },
+  "after_fix": {
+    "namespaced_annotations": "lims命名空间按真实namespace URI解析，保留日期与self/ancestor/descendant及原属性定位",
+    "provision_superscripts": 2,
+    "provision_repealed_markers": 1,
+    "provision_numbers": [
+      "2",
+      "29"
+    ],
+    "table_superscripts": 1,
+    "cals_table_rows": 14,
+    "cals_table_columns": 13,
+    "cals_named_span": {
+      "from": "col1",
+      "to": "col12",
+      "inserted_column": "COLSPEC0",
+      "html_colspan": 13
+    },
+    "text_retained_exactly_after_whitespace_normalization": true,
+    "whole_excerpt_processing_plan": "planned within existing request limits; neither whole law completeness nor semantic approval",
+    "malformed_unknown_column": "incomplete with no nodes; cannot promote to a complete table"
+  },
+  "fixes": [
+    "独立保留Justice Canada的lims版本、施行和修订日期；前缀须解析到http://justice.gc.ca/lims。",
+    "XML Sup/Sub/Repealed映射为sup/sub/del；编号与段落结构保留。",
+    "CALS按colspec顺序映射具名列、跨列/跨行，拒绝无定义列、非法跨度和重叠。",
+    "XML Body/Schedule/TableGroup按结构展开为处理节点，长表沿既有表格行分组；不截断为成功。"
+  ],
+  "validation": {
+    "command": "node scripts/verify/test-files.ts tests/policy-official-xml.test.ts tests/policy-extraction.test.ts tests/policy-processing-plan.test.ts tests/policy-reading-semantics.test.ts tests/policy-fulltext-candidate.test.ts",
+    "database": "isolated per-file UTF8 PostgreSQL clones, localhost:56433",
+    "passed": 32,
+    "failed": 0,
+    "typecheck": "pnpm typecheck passed",
+    "format": "biome check of touched code and test files passed",
+    "tests_use_network": false,
+    "fixtures": "2 recorded real official excerpts plus an explicitly corrupted negative fixture generated in memory"
+  },
+  "second_family": {
+    "source_id": "GB-001",
+    "robots_url": "https://www.legislation.gov.uk/robots.txt",
+    "robots_rule": "Crawl-delay: 5; XML is not disallowed; PDF/DOCX disallowed",
+    "url": "https://www.legislation.gov.uk/ukpga/2008/27/section/1/data.xml",
+    "status": 202,
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "result": "Empty response; no challenge solving, proxy/reader or alternate identity used."
+  },
+  "bounds": [
+    "只验证一个真实官方XML家族的已录制条文/表格形态；英国第二家族未取得原件，不宣称已适配或验收。",
+    "官方完整XML响应只在内存读取、核对和定位，未落盘；留存最小摘录与来源证据。",
+    "加拿大完整法规另含Formula/Image等结构，既有提取器继续保持不完整缺口；本次未完成整份法规中文或模型语义验收。",
+    "未配置或启用CA-002、GB-001；未写生产、未调用真实模型、未授Owner质量资格。"
+  ]
+}

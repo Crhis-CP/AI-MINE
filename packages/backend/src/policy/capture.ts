@@ -7,7 +7,7 @@ import {
   readCurrentSourcePolicy,
   readSourceDateContext,
 } from "@amp/backend/admin/sources";
-import { policyMaterialReference, lockPolicyMaterial } from "@amp/backend/content/materials";
+import { policyMaterialReference, lockPolicyMaterial, readPolicyMaterialDate } from "@amp/backend/content/materials";
 import { dbOf } from "../db.ts";
 import { createHash } from "node:crypto";
 import { guardedFetch, type GuardedResponse, type GuardedFetchOptions } from "../lib/http-fetch.ts";
@@ -53,11 +53,15 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
     response.url !== material.url ||
     !response.body.length ||
     response.body.length > profile.extraction.maxBytes ||
-    !/html/i.test(response.headers.get("content-type") ?? "")
+    !/html|xml/i.test(response.headers.get("content-type") ?? "")
   )
     return { status: "metadata_unavailable" as const };
   const observedAt = response.fetchedAt ?? new Date().toISOString(),
-    $ = cheerio.load(decodeOriginal(response.body, response.headers.get("content-type")));
+    mediaType = response.headers.get("content-type"),
+    decoded = decodeOriginal(response.body, mediaType),
+    xml = /xml/i.test(mediaType ?? "") && !/html/i.test(mediaType ?? "");
+  if (xml && /<!DOCTYPE|<!ENTITY|\0/i.test(decoded)) return { status: "metadata_unavailable" as const };
+  const $ = xml ? cheerio.load(decoded, { xml: true }) : cheerio.load(decoded);
   const field = (selector: string) => {
     const nodes = $(selector);
     if (nodes.length !== 1) throw new Error("Policy identity field is missing or ambiguous");
@@ -76,6 +80,22 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
   const originalTarget = new URL(officialUrl);
   if (originalTarget.protocol !== "https:" || originalTarget.username || originalTarget.password) return { status: "identity" as const };
   if (!(await allowed("store_metadata", officialUrl))) return { status: "permission" as const };
+  const equivalentUrls = new Set([officialUrl]);
+  if (profile.officialLanguageLinksSelector)
+    $(profile.officialLanguageLinksSelector).each((_, node) => {
+      const href = $(node).attr("href"),
+        language = $(node).attr("hreflang");
+      if (!href || !language || language === profile.language) return;
+      const url = new URL(href, material.url);
+      if (
+        url.origin !== originalTarget.origin ||
+        url.username ||
+        url.password ||
+        !new RegExp(profile.officialRole.singleObjectPattern, "u").test(url.toString())
+      )
+        return;
+      equivalentUrls.add(url.toString());
+    });
   const input = {
     sourceId,
     permissionVersion: permission.permission_version,
@@ -86,6 +106,9 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
       documentType: profile.identity.documentType?.value ?? null,
       documentNumber: number?.raw ?? null,
       officialUrl,
+      ...(equivalentUrls.size > 1
+        ? { officialEquivalence: { urls: [...equivalentUrls].sort(), evidenceUrl: material.url, locator: profile.officialLanguageLinksSelector! } }
+        : {}),
     },
     language: profile.language,
     kind: profile.kind,
@@ -127,6 +150,7 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
     officialUrl,
     observedAt,
     discoveredAt: material.discoveredAt.toISOString(),
+    publicationDate: await readPolicyMaterialDate(materialId, sourceId),
     provenance: {
       sourceUrl: material.url,
       responseStatus: 200,
@@ -152,6 +176,7 @@ async function capturePolicyMaterial(sourceId: string, materialId: string, get: 
     if (head?.current_revision_id !== original.revisionId) throw new Error("Policy original changed before metadata commit");
     await tx`INSERT INTO policy.material_discoveries(expression_id,material_id,source_id,material_revision,discovered_at)
       VALUES(${original.expressionId},${materialId},${sourceId},${material.materialRevision},${material.discoveredAt}) ON CONFLICT DO NOTHING`;
+    await tx`UPDATE policy.material_discoveries SET is_current=(expression_id=${original.expressionId}) WHERE source_id=${sourceId} AND material_id=${materialId}`;
     await tx`INSERT INTO policy.metadata_observations(id,expression_id,document_revision_id,source_id,material_id,material_revision,permission_version,observed_at,metadata)
       VALUES(${sha256(stableJson(metadata))},${original.expressionId},${original.revisionId},${sourceId},${materialId},${material.materialRevision},${permission.permission_version},${observedAt},${tx.json(metadata as never)}) ON CONFLICT DO NOTHING`;
   });

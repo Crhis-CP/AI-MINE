@@ -150,6 +150,46 @@ export const SelectionRunEvidence = z.strictObject({
   missing: z.array(z.string()),
   models: z.array(z.strictObject({ model: text, evidenceHash: hash, confirmable: z.boolean(), missing: z.array(z.string()) })),
 });
+export const PrefilterAuditDecision = z.enum(["should_not_discard", "should_not_keep", "agree"]);
+export const PrefilterAuditLabel = z.strictObject({
+  decision: PrefilterAuditDecision,
+  note: z.string(),
+  revision: z.number().int().positive(),
+  actor: z.string(),
+  at: time,
+});
+export const PrefilterAuditItem = z.strictObject({
+  position: z.number().int().nonnegative(),
+  articleId: text,
+  pool: z.enum(["discarded", "kept"]),
+  title: z.string(),
+  preview: z.string(),
+  sourceName: z.string(),
+  discoveredAt: time.nullable(),
+  label: PrefilterAuditLabel.nullable(),
+});
+export const PrefilterAuditDraw = z.strictObject({
+  id: text,
+  createdAt: time,
+  discarded: z.number().int().nonnegative(),
+  kept: z.number().int().nonnegative(),
+  items: z.array(PrefilterAuditItem),
+});
+export const PrefilterAuditView = z.strictObject({
+  pools: z.strictObject({
+    discarded: z.number().int().nonnegative(),
+    kept: z.number().int().nonnegative(),
+    unknown: z.number().int().nonnegative(),
+  }),
+  excluded: z.number().int().nonnegative(),
+  batchSize: z.number().int().positive(),
+  draw: PrefilterAuditDraw.nullable(),
+});
+export const PrefilterAuditDrawRequest = z.strictObject({ requestId: z.uuid(), nonce: z.uuid() });
+export const PrefilterAuditLabelRequest = SelectionCommand.extend({
+  decision: PrefilterAuditDecision,
+  note: z.string().max(4000),
+});
 export const selectionCalibrationSchemas = {
   SelectionToolState,
   SelectionToolRequest,
@@ -165,6 +205,13 @@ export const selectionCalibrationSchemas = {
   SelectionStandards,
   SelectionCalibrationSummary,
   SelectionRunEvidence,
+  PrefilterAuditDecision,
+  PrefilterAuditLabel,
+  PrefilterAuditItem,
+  PrefilterAuditDraw,
+  PrefilterAuditView,
+  PrefilterAuditDrawRequest,
+  PrefilterAuditLabelRequest,
 };
 const errors = {
   400: ProblemResponse,
@@ -224,5 +271,25 @@ export const selectionCalibrationRoutes = {
     method: "GET" as const,
     url: "/api/admin/selectbench/:id/evidence",
     schema: { operationId: "selectionRunEvidence", params: z.strictObject({ id: text }), response: { 200: SelectionRunEvidence, ...errors } },
+  },
+  prefilterAudit: {
+    method: "GET" as const,
+    url: "/api/admin/selectbench/prefilter-audit",
+    schema: { operationId: "prefilterAudit", response: { 200: PrefilterAuditView, ...errors } },
+  },
+  prefilterAuditDraw: {
+    method: "POST" as const,
+    url: "/api/admin/selectbench/prefilter-audit",
+    schema: { operationId: "prefilterAuditDraw", body: PrefilterAuditDrawRequest, response: { 200: PrefilterAuditView, ...errors } },
+  },
+  prefilterAuditLabel: {
+    method: "POST" as const,
+    url: "/api/admin/selectbench/prefilter-audit/:articleId",
+    schema: {
+      operationId: "prefilterAuditLabel",
+      params: z.strictObject({ articleId: z.string().regex(/^[a-zA-Z0-9_-]{1,80}$/) }),
+      body: PrefilterAuditLabelRequest,
+      response: { 200: PrefilterAuditLabel, ...errors },
+    },
   },
 };

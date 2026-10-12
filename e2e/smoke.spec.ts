@@ -96,12 +96,14 @@ test("production empty reader, private Host boundary and WCAG smoke", async ({ p
     const login = await page.goto(`${site.privateOrigin}/admin/login`);
     expect(login!.status()).toBe(200);
     expect(login!.headers()["cache-control"]).toContain("no-store");
-    await expect(page.getByLabel("管理员密码")).toBeVisible();
+    await expect(page.getByLabel("登录名", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("密码", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "用飞书登录" })).toBeVisible();
     expect(privateAssets.some(({ pathname }) => pathname.endsWith(".js"))).toBe(true);
     expect(privateAssets.some(({ pathname }) => pathname.endsWith(".css"))).toBe(true);
     expect(privateAssets.every(({ status }) => status === 200)).toBe(true);
-    await page.getByLabel("管理员密码").fill("synthetic-not-submitted");
+    await page.getByLabel("登录名", { exact: true }).fill("synthetic.operator");
+    await page.getByLabel("密码", { exact: true }).fill("synthetic-not-submitted");
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "登录", exact: true })).toBeFocused();
     await audit("private-login");

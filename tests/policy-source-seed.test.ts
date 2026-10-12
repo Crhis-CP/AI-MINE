@@ -14,6 +14,16 @@ const sql = dbOf("sources");
 let requests = 0;
 const server = http.createServer((req, res) => {
   requests++;
+  if (req.url === "/robots.txt") {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("User-agent: *\nAllow: /\n");
+    return;
+  }
+  if (req.url?.startsWith("/slow")) {
+    res.writeHead(503, { "retry-after": "60", "content-type": "text/plain" });
+    res.end("temporarily unavailable");
+    return;
+  }
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   res.end(req.url?.startsWith("/empty") ? "<p>没有文书</p>" : '<ul><li><a href="/doc/1">合成矿业管理办法第一号</a></li></ul>');
 });
@@ -101,7 +111,7 @@ test("same-address entries skip duplication and malformed batch config is reject
   assert.deepEqual(await snapshot(), before);
 });
 
-test("selection is explicit and bounded; dry run previews without database writes or enabling", async () => {
+test("selection is explicit and bounded; dry run previews without changing source, permission or audit state or enabling", async () => {
   const e = entry(9);
   assert.throws(() => selectPolicySources([e], {}), /请选择/);
   assert.throws(
@@ -120,7 +130,7 @@ test("selection is explicit and bounded; dry run previews without database write
   assert.equal(result.ok, true);
   assert.equal(result.results[0]?.status, "would_enable");
   assert.equal(result.results[0]?.count, 1);
-  assert.equal(requests, beforeRequests + 1);
+  assert.equal(requests, beforeRequests + 2, "the first preview checks robots and then the source list");
   assert.deepEqual(await snapshot(), before);
 });
 
@@ -137,6 +147,10 @@ test("live fixture preview enables only eligible policy sources and writes separ
   assert.equal(result.results.filter((r) => r.status === "enabled").length, 1);
   assert.equal((await source(ok)).enabled, true);
   assert.ok((await source(ok)).next_fetch_at);
+  const [boundPreview] =
+    await sql`SELECT status,config_hash,permission_version FROM sources.source_previews WHERE source_id=${id(ok)} ORDER BY id DESC LIMIT 1`;
+  assert.equal(boundPreview?.status, "succeeded");
+  assert.equal(boundPreview.permission_version, (await readCurrentSourcePolicy(id(ok)))!.permission_version);
   for (const e of [empty, held, overseas, news]) assert.equal((await source(e)).enabled, false);
   assert.equal((await source(news)).lane, "news");
   const actions = await sql`SELECT action FROM audit_log WHERE subject=${`source:${id(ok)}`} ORDER BY id`;
@@ -152,4 +166,19 @@ test("live fixture preview enables only eligible policy sources and writes separ
   const callsBeforeDenied = requests;
   assert.equal((await enablePolicySources([denied], { ids: [denied.id] })).ok, false);
   assert.equal(requests, callsBeforeDenied, "permission must cover the actual collection URL, not only the catalogue page");
+});
+
+test("long transport delays stay deferred without an enable or a second preview sender", async () => {
+  const e = entry(16, { entry: `${base}/slow`, collect: { kind: "web_list", config: { url: `${base}/slow`, itemSelector: "li", linkSelector: "a[href]" } } });
+  await seedPolicySources([e]);
+  const before = requests,
+    started = Date.now();
+  const result = await enablePolicySources([e], { ids: [e.id] });
+  assert.equal(result.ok, false);
+  assert.equal(result.results[0]?.status, "deferred");
+  assert.equal((await source(e)).enabled, false);
+  assert.equal(requests - before, 1, "inline execution does not enqueue a competing sender or retry a 60-second outage");
+  assert.ok(Date.now() - started < 10_000);
+  const [preview] = await sql`SELECT status FROM sources.source_previews WHERE source_id=${id(e)} ORDER BY id DESC LIMIT 1`;
+  assert.equal(preview?.status, "failed", "a deferred sample is never recorded as a successful enable proof");
 });

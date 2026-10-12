@@ -118,6 +118,38 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
     limit: 20,
   });
   assert.ok(reading.blocks.length);
+  const original = detail.expressions.find((e) => e.kind === "original")!;
+  const originalDetail = await policyDetail(complete.policyId, { expression_id: original.id });
+  const originalPage = await policyReading(complete.policyId, {
+    expression_id: original.id,
+    document_revision_id: original.document_revision_id,
+    cursor: originalDetail.reading!.next_cursor!,
+    limit: 20,
+  });
+  assert.deepEqual(
+    reading.blocks.map((b) => b.block_id),
+    originalPage.blocks.map((b) => b.block_id),
+    "actual publisher aligns both reading streams by the source part",
+  );
+  const { policyPublicVersions } = await import("../packages/backend/src/publication/policies.ts");
+  const { planPolicyReport } = await import("../packages/backend/src/publication/policy-report-plan.ts");
+  const { savePolicyReport } = await import("../packages/backend/src/publication/policy-report-store.ts");
+  const { policyReport } = await import("../packages/backend/src/publication/policies-reports.ts");
+  const draft = planPolicyReport(
+    "weekly",
+    "2026-W01",
+    await policyPublicVersions(),
+    [],
+    { name: "Synthetic report", url: "https://source.invalid/" },
+    new Date(),
+  );
+  const reportRef = await savePolicyReport(draft);
+  const report = await policyReport(reportRef.id!, { limit: 50 });
+  const referenced = report.groups.flatMap((g) => g.documents).find((d) => d.policy.id === complete.policyId)!;
+  assert.ok(referenced.versions[0]!.main_points?.length);
+  assert.ok(referenced.versions[0]!.impacts?.length);
+  assert.ok(referenced.versions[0]!.evidence_references?.length);
+  assert.deepEqual(referenced.versions[0]!.impacts, detail.impacts, "report uses the exact qualified edition, including its conditions and exceptions");
   const retry = await publishPolicyPublication({ expressionId: final.expression_id! });
   assert.equal(retry.status, "published");
   assert.equal("editionId" in retry && retry.editionId, complete.editionId);
@@ -234,4 +266,48 @@ test("collection and model switches leave resumable work without making a new ne
     config.modelCallsEnabled = true;
     await installUsageFixtureForModel("default", sql);
   }
+});
+
+test("provider and receipt waits resume their original stage without changing the original or losing checkpoints", async () => {
+  for (const waiting of ["provider_unavailable", "waiting_receipt"] as const) {
+    const f = await fixture(),
+      job = { lane: "policy" as const, sourceId: f.sourceId, materialId: f.materialId };
+    await discoverPolicyWorkflows();
+    let attempts = 0;
+    const ports: PolicyAutomationPorts = {
+      publish,
+      capture: (s, m) => capturePolicyMaterial(s, m, f.get),
+      fulltext: async () => {
+        attempts++;
+        return { status: waiting, runId: "synthetic-run", requestsAttempted: 0, semantic_verified: false, runtime_authorization: "none" };
+      },
+    };
+    await advancePolicyMaterial(job, "acquire", ports, { root, collectionEnabled: true });
+    await advancePolicyMaterial(job, "fulltext", ports, { root, collectionEnabled: true });
+    const before = await readPolicyWorkflow(f.sourceId, f.materialId);
+    assert.equal(before?.stage, "fulltext");
+    await advancePolicyMaterial(job, "fulltext", ports, { root, collectionEnabled: true });
+    assert.equal(attempts, 2);
+    assert.equal((await readPolicyWorkflow(f.sourceId, f.materialId))?.document_revision_id, before!.document_revision_id);
+    const visible = (await listPolicies({})).items.find((p) => p.original_url === f.url)!;
+    assert.ok((await policyDetail(visible.id)).gaps.some((gap) => /自动复查/.test(gap)));
+  }
+});
+
+test("the bounded discovery sweep wakes completed old recipes without forging an acquisition revision", async () => {
+  const f = await fixture(),
+    job = { lane: "policy" as const, sourceId: f.sourceId, materialId: f.materialId };
+  await discoverPolicyWorkflows();
+  const ports: PolicyAutomationPorts = { publish, capture: (s, m) => capturePolicyMaterial(s, m, f.get) };
+  await advancePolicyMaterial(job, "acquire", ports, { root, collectionEnabled: true });
+  const before = await readPolicyWorkflow(f.sourceId, f.materialId);
+  await sql`UPDATE policy.material_workflows SET status='published',stage='acquire',processing_recipe_hash='older-recipe',next_check_at=now()+interval '10 days' WHERE source_id=${f.sourceId} AND material_id=${f.materialId}`;
+  await discoverPolicyWorkflows(100);
+  const due = await readPolicyWorkflow(f.sourceId, f.materialId);
+  assert.ok(due!.next_check_at.getTime() <= Date.now());
+  await advancePolicyMaterial(job, "acquire", ports, { root, collectionEnabled: true });
+  const after = await readPolicyWorkflow(f.sourceId, f.materialId);
+  assert.equal(after!.stage, "fulltext");
+  assert.equal(after!.document_revision_id, before!.document_revision_id);
+  assert.notEqual(after!.processing_recipe_hash, "older-recipe");
 });

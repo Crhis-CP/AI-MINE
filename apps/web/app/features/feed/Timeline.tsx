@@ -6,6 +6,7 @@ import { useLocation, useNavigation } from "react-router";
 import { Collapse } from "@amp/ui/Presence";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
+import { useReaderItemScope } from "./ContentVersionGuard";
 import { FeedItem } from "./FeedItem";
 import { IconChevronDown } from "../../components/icons";
 import { LoadingDots } from "../../components/Logo";
@@ -65,6 +66,18 @@ export function DayHeader({
         <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
         {day === today && <span className="text-[12.5px] text-ink-4">{date}</span>}
         <span className="text-[12.5px] text-ink-4">{short}</span>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? `展开${date}` : `收起${date}`}
+            className="ml-auto flex min-h-8 items-center gap-1 text-[12px] text-ink-3"
+          >
+            {collapsed ? "展开" : "收起"}
+            <IconChevronDown size={14} className={collapsed ? "-rotate-90" : ""} />
+          </button>
+        )}
       </div>
       {/* Desktop: the date ends where the times end, the fold toggle sits on the rail. */}
       <div className="hidden h-11 grid-cols-[64px_22px_minmax(0,1fr)] items-center lg:grid">
@@ -145,6 +158,7 @@ export function TimelineSlot({
 }
 
 export function Timeline({ initial, filters }: { initial: TimelineResponse; filters: TimelineFilters }) {
+  const allowedIds = useReaderItemScope();
   const location = useLocation();
   const navigation = useNavigation();
   const historyKey = location.key;
@@ -154,11 +168,18 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   const [state, setState] = useState<ListState>(() => {
     if (isHydrated()) {
       const snap = readSnapshot<ListState>(historyKey);
-      if (snap && snap.data.cards.length > 0) return snap.data;
+      if (snap) return { ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] };
     }
     return fromResponse(initial);
   });
   const restoredRef = useRef(false);
+  const lastInitial = useRef(initial);
+  useLayoutEffect(() => {
+    if (lastInitial.current !== initial) {
+      lastInitial.current = initial;
+      setState((old) => ({ ...fromResponse(initial), collapsed: old.collapsed }));
+    }
+  }, [initial]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [freshKeys, setFreshKeys] = useState<Set<string>>(() => new Set());
@@ -179,8 +200,8 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       pageRequest.current = null;
       setLoadingMore(false);
       const snap = readSnapshot<ListState>(historyKey);
-      if (snap && snap.data.cards.length > 0) {
-        setState(snap.data);
+      if (snap) {
+        setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
         restoreAnchor(snap.anchor, snap.scrollY);
       } else {
         setState(fromResponse(initial));
@@ -196,24 +217,24 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       markHydrated();
       // A full load keeps the server's fresh list when the reader reloaded; after a back/forward
       // that reloaded the document, it restores the saved list and position.
-      if (snap && snap.data.cards.length > 0 && !isReload()) {
-        setState(snap.data);
+      if (snap && !isReload()) {
+        setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
         requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY));
       }
       return;
     }
-    if (snap && snap.data.cards.length > 0) restoreAnchor(snap.anchor, snap.scrollY);
-  }, [historyKey]);
+    if (snap) restoreAnchor(snap.anchor, snap.scrollY);
+  }, [historyKey, initial]);
 
   // Save the snapshot whenever we leave this history entry.
   useEffect(() => {
     if (navigation.state === "loading" && navigation.location && navigation.location.key !== historyKey) {
-      saveSnapshot(historyKey, stateRef.current);
+      saveSnapshot(historyKey, { ...stateRef.current, cards: [] });
     }
   }, [navigation.state, navigation.location, historyKey]);
   useEffect(() => {
-    const save = () => saveSnapshot(historyKey, stateRef.current);
-    const onHide = () => saveSnapshot(historyKey, stateRef.current, "[data-card-key]", true);
+    const save = () => saveSnapshot(historyKey, { ...stateRef.current, cards: [] });
+    const onHide = () => saveSnapshot(historyKey, { ...stateRef.current, cards: [] }, "[data-card-key]", true);
     // A prefetched navigation can commit without a loading render. Capture its anchor before the
     // router replaces the list; modifiers/new tabs leave this history entry in place.
     const onClick = (event: MouseEvent) => {
@@ -309,13 +330,14 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
   const days = useMemo(() => {
     const out: Array<{ day: string; cards: TimelineCard[] }> = [];
     for (const c of state.cards) {
+      if (allowedIds && !allowedIds.has(c.item.id)) continue;
       const d = beijingDate(c.anchorAt);
       const last = out[out.length - 1];
       if (last && last.day === d) last.cards.push(c);
       else out.push({ day: d, cards: [c] });
     }
     return out;
-  }, [state.cards]);
+  }, [state.cards, allowedIds]);
 
   const toggleDay = (day: string) =>
     setState((s) => ({ ...s, collapsed: s.collapsed.includes(day) ? s.collapsed.filter((d) => d !== day) : [...s.collapsed, day] }));

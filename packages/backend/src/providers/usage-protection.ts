@@ -6,6 +6,7 @@ import {
   UsageBreaker,
   UsageConfigRecord,
   UsagePriceRecord,
+  UsagePrice,
   UsageProtectionEvent,
   UsageProtectionOverview,
   type UsageScope,
@@ -37,6 +38,33 @@ export async function usageConfiguration(db: Db = sql) {
   >`SELECT version,config,effective_at,actor,reason FROM ai.usage_control_versions ORDER BY version DESC LIMIT 1`;
   if (!row) return null;
   return UsageConfigRecord.parse({ ...row, effective_at: row.effective_at.toISOString() });
+}
+/**
+ * Writes the controlled initial version once when the table is empty.
+ * An existing version, including one a person changed later, is left as it is.
+ * A role that cannot write leaves the gate closed; it does not invent another threshold.
+ */
+export async function installInitialUsageControl(db: Db = sql): Promise<"installed" | "present" | "unavailable"> {
+  let config: UsageConfig;
+  try {
+    config = UsageProtectionConfig.parse(JSON.parse(await readFile(path.join(REPO_ROOT, "industry/usage-controls.json"), "utf8")));
+  } catch {
+    return "unavailable";
+  }
+  try {
+    const install = async (tx: Db) => {
+      await usageLock(tx);
+      if (await usageConfiguration(tx)) return "present" as const;
+      await tx`INSERT INTO ai.usage_control_versions(version,config,actor,reason) VALUES(1,${tx.json(config)},'system:usage','受控配置初始版本')`;
+      return "installed" as const;
+    };
+    return await (typeof (db as typeof sql).begin === "function" ? (db as typeof sql).begin(install) : install(db));
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "42501") return "unavailable";
+    if (code === "23505") return "present";
+    throw error;
+  }
 }
 export async function usageEvent(
   db: Db,
@@ -321,45 +349,122 @@ async function evaluateNotices(db: Db, configuration: Configuration, now: Date) 
   });
   await db`INSERT INTO ai.usage_notice_progress(month,notified_micros,last_total_micros) VALUES(${month},${threshold.toString()},${amount.toString()}) ON CONFLICT(month) DO UPDATE SET notified_micros=EXCLUDED.notified_micros,last_total_micros=EXCLUDED.last_total_micros,updated_at=now()`;
 }
-/** Index only already recorded CNY charges with explicit lane; no currency conversion or historical repricing. */
+/** Purposes each belong to one lane. Mirrors CAPABILITIES in editorial/models.ts; a purpose in both or neither is not guessed. */
+const NEWS_PURPOSES = [
+  "prefilter_article",
+  "score_article",
+  "understand_article",
+  "summarize_article",
+  "structure_article",
+  "group_article",
+  "group_signal",
+  "group_story",
+  "group_review",
+  "group_story_review",
+  "story_digest",
+  "report_lead",
+  "report_daily",
+  "report_weekly",
+  "report_monthly",
+  "translate_body",
+] as const;
+const POLICY_PURPOSES = ["policy_fulltext", "policy_group", "policy_interpret", "policy_vision", "policy_verify"] as const;
+const ATTRIBUTABLE_PURPOSES = [...NEWS_PURPOSES, ...POLICY_PURPOSES];
+function laneFromPurpose(purpose: string): "news" | "policy" | null {
+  const news = (NEWS_PURPOSES as readonly string[]).includes(purpose),
+    policy = (POLICY_PURPOSES as readonly string[]).includes(purpose);
+  return news === policy ? null : news ? "news" : "policy";
+}
+type RecordedAttempt = {
+  attempt_id: string;
+  receipt_id: string;
+  logical_key: string;
+  purpose: string;
+  subject: string | null;
+  status: string;
+  cost: string | null;
+  currency: string | null;
+  cost_basis: string | null;
+  request: Record<string, unknown> | null;
+  started_at: Date;
+  usage: Record<string, unknown> | null;
+  service: string;
+  model: string | null;
+  configuration_hash: string | null;
+};
+function recordedLane(row: RecordedAttempt): "news" | "policy" | null {
+  const explicit = row.request?.lane;
+  if (explicit === "news" || explicit === "policy") return explicit;
+  return explicit ? null : laneFromPurpose(row.purpose);
+}
+/** Use a receipt's own CNY figure. Token-only receipts take the single price valid that day; foreign bills and unknown calls stay out. */
+async function recordedMicros(db: Db, row: RecordedAttempt, day: string): Promise<bigint | null> {
+  if (row.currency && row.currency !== "CNY") return null;
+  if (row.status === "failed") return 0n;
+  if (row.currency === "CNY" && ["actual", "estimated"].includes(row.cost_basis ?? "")) return amountMicros(row.cost ?? "");
+  if (row.status !== "received" || row.cost !== null || row.currency) return null;
+  const prices = await db<
+    { id: string; version: number; price: unknown }[]
+  >`SELECT id,version,price FROM ai.usage_prices WHERE price->>'service'=${row.service} AND price->>'model'=${row.model ?? ""} AND price->>'currency'='CNY'`;
+  const valid = prices.flatMap((item) => {
+    const parsed = UsagePrice.safeParse(item.price);
+    if (!parsed.success || parsed.data.observed_on > day || parsed.data.valid_until < day) return [];
+    if (row.configuration_hash && parsed.data.configuration_hash !== row.configuration_hash) return [];
+    return [{ id: item.id, version: item.version, price: parsed.data }];
+  });
+  if (valid.length !== 1) return null;
+  const settled = settleQuotedCost(
+    { price_id: valid[0]!.id, price_version: valid[0]!.version, price: valid[0]!.price, reserved_micros: "0", bounds: null },
+    row.usage,
+    null,
+  );
+  return settled?.basis === "estimated" ? settled.micros : null;
+}
+async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
+  const lane = recordedLane(row);
+  if (!lane) return false;
+  const day = beijingDate(row.started_at),
+    cost = await recordedMicros(db, row, day);
+  if (cost === null) return false;
+  const explicit = row.request?.lane === "news" || row.request?.lane === "policy";
+  if (!explicit)
+    await db`UPDATE receipts SET request=jsonb_set(coalesce(request,'{}'::jsonb),'{lane}',to_jsonb(${lane}::text),true) WHERE id=${row.receipt_id} AND coalesce(request->>'lane','') NOT IN ('news','policy')`;
+  if (row.status !== "failed" && row.cost === null && !row.currency) {
+    const text = centsText(cost);
+    const written =
+      await db`UPDATE receipt_attempts SET cost=${text},currency='CNY',cost_basis='estimated' WHERE id=${row.attempt_id} AND cost IS NULL AND currency IS NULL RETURNING id`;
+    if (!written.length) return false;
+    await db`UPDATE receipts SET cost=${text},currency='CNY',cost_basis='estimated' WHERE id=${row.receipt_id} AND response_attempt_id=${row.attempt_id} AND cost IS NULL AND currency IS NULL`;
+  }
+  const supplied = row.request?.usage_object as { kind?: unknown; id?: unknown } | undefined,
+    article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(row.subject ?? "");
+  const object =
+    supplied && ["article", "policy"].includes(String(supplied.kind)) && typeof supplied.id === "string"
+      ? { kind: supplied.kind as "article" | "policy", id: supplied.id }
+      : article
+        ? { kind: "article" as const, id: article[1]! }
+        : null;
+  const context: UsageContext = {
+    lane,
+    capability: row.purpose,
+    sourceIds: Array.isArray(row.request?.sourceIds) ? row.request.sourceIds.filter((v): v is string => typeof v === "string") : [],
+    object,
+  };
+  const inserted = await db<
+    { attempt_id: string }[]
+  >`INSERT INTO ai.usage_attempts(attempt_id,receipt_id,logical_key,lane,capability,source_ids,object_kind,object_id,reserved_micros,settled_micros,state,quote,occurred_at,submitted) VALUES(${row.attempt_id},${row.receipt_id},${row.logical_key},${lane},${row.purpose},${context.sourceIds},${object?.kind ?? null},${object?.id ?? null},'0',${cost.toString()},${row.status === "failed" ? "failed" : "settled"},${db.json({ recorded_attempt: true })},${row.started_at},true) ON CONFLICT(attempt_id) DO NOTHING RETURNING attempt_id`;
+  if (inserted.length) await applySums(db, context, day, { settled: cost, unknown: 0n, reserved: 0n });
+  return true;
+}
+/** Bring recorded receipts into the ledger. CNY already on the receipt is kept; token counts use the one registered price. No currency conversion and no resend. */
 async function adoptRecordedUsage(db: Db, since: Date) {
-  const rows = await db<
-    {
-      attempt_id: string;
-      receipt_id: string;
-      logical_key: string;
-      purpose: string;
-      subject: string | null;
-      status: string;
-      cost: string | null;
-      currency: string | null;
-      cost_basis: string | null;
-      request: Record<string, unknown> | null;
-      started_at: Date;
-    }[]
-  >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND u.attempt_id IS NULL AND a.status IN ('received','failed') ORDER BY a.id LIMIT 1000`;
-  for (const row of rows) {
-    const lane = String(row.request?.lane ?? "");
-    if (lane !== "news" && lane !== "policy") continue;
-    const cost =
-      row.status === "failed" ? 0n : row.currency === "CNY" && ["actual", "estimated"].includes(row.cost_basis ?? "") ? amountMicros(row.cost ?? "") : null;
-    if (cost === null) continue;
-    const supplied = row.request?.usage_object as { kind?: unknown; id?: unknown } | undefined,
-      article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(row.subject ?? "");
-    const object =
-      supplied && ["article", "policy"].includes(String(supplied.kind)) && typeof supplied.id === "string"
-        ? { kind: supplied.kind as "article" | "policy", id: supplied.id }
-        : article
-          ? { kind: "article" as const, id: article[1]! }
-          : null;
-    const context: UsageContext = {
-      lane,
-      capability: row.purpose,
-      sourceIds: Array.isArray(row.request?.sourceIds) ? row.request.sourceIds.filter((v): v is string => typeof v === "string") : [],
-      object,
-    };
-    await db`INSERT INTO ai.usage_attempts(attempt_id,receipt_id,logical_key,lane,capability,source_ids,object_kind,object_id,reserved_micros,settled_micros,state,quote,occurred_at,submitted) VALUES(${row.attempt_id},${row.receipt_id},${row.logical_key},${lane},${row.purpose},${context.sourceIds},${object?.kind ?? null},${object?.id ?? null},'0',${cost.toString()},${row.status === "failed" ? "failed" : "settled"},${db.json({ recorded_attempt: true })},${row.started_at},true)`;
-    await applySums(db, context, beijingDate(row.started_at), { settled: cost, unknown: 0n, reserved: 0n });
+  const skipped: string[] = [];
+  for (let pass = 0; pass < 40; pass++) {
+    const rows = await db<
+      RecordedAttempt[]
+    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND u.attempt_id IS NULL AND a.status IN ('received','failed') AND (cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
+    if (!rows.length) return;
+    for (const row of rows) if (!(await adoptOne(db, row))) skipped.push(row.attempt_id);
   }
 }
 /** Existing attempts without a price/reservation must be reconciled, never silently counted as zero. */

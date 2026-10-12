@@ -2,20 +2,29 @@ import { Link, data as withHeaders, useLoaderData } from "react-router";
 import type { Route } from "./+types/policy-reports";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { PolicyReportQuery } from "@amp/contracts/http/public";
+import { PolicyReportFilters } from "../features/policy/PolicyReportFilters";
 import { apiBaseFor } from "../../api-target.ts";
 import { pageMeta } from "../lib/seo.ts";
 import { EmptyState } from "../components/ui/Page";
 import { PolicyTabs, PolicyError, policyCache, usePolicyRecheck } from "../features/policy/PolicyUI";
 export async function loader({ request }: Route.LoaderArgs) {
   const url = new URL(request.url),
-    parsed = PolicyReportQuery.safeParse({ kind: "weekly", ...Object.fromEntries([...url.searchParams].filter(([key]) => key !== "_routes")) });
+    parsed = PolicyReportQuery.safeParse({
+      kind: "weekly",
+      ...Object.fromEntries([...url.searchParams].filter(([key, value]) => key !== "_routes" && value !== "")),
+    });
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports", {
     params: { query: parsed.data },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
   });
   if (!result.response.ok) throw withHeaders(null, { status: 503 });
-  return { listing: publicSchemas.PolicyReportList.parse(result.data), query: parsed.data };
+  const scope = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/scope", { signal: request.signal });
+  return {
+    listing: publicSchemas.PolicyReportList.parse(result.data),
+    query: parsed.data,
+    scope: scope.response.ok ? publicSchemas.PolicyScopeList.parse(scope.data) : null,
+  };
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
@@ -23,7 +32,7 @@ export function meta({ location }: Route.MetaArgs) {
   return pageMeta({ title: "法规周报与月报", path: location.pathname + location.search });
 }
 export default function PolicyReportsPage() {
-  const { listing, query } = useLoaderData<typeof loader>(),
+  const { listing, query, scope } = useLoaderData<typeof loader>(),
     { kind } = query;
   const filters = new URLSearchParams();
   if (query.jurisdiction) filters.set("jurisdiction", query.jurisdiction);
@@ -35,6 +44,7 @@ export default function PolicyReportsPage() {
     <article className="mx-auto max-w-[var(--page-max-reading)] pb-10 pt-5">
       <h1 className="text-[24px] font-semibold">法规政策动态</h1>
       <PolicyTabs active={kind} />
+      <PolicyReportFilters query={query} jurisdictions={scope?.items.map((row) => row.jurisdiction) ?? []} />
       {listing.items.length ? (
         <ul className="mt-5 divide-y divide-line">
           {listing.items.map((report) => (

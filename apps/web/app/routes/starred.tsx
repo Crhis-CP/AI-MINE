@@ -1,102 +1,151 @@
 import { SITE } from "@amp/industry/site";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+import type { FeedItemSummary } from "@amp/contracts/site";
 import { pageMeta } from "../lib/seo";
 import { removeStar, useStarred } from "../lib/local-state";
-import { fullDateTime, shortSourceName, sourceDateTime } from "../lib/format";
+import { fullDateTime } from "../lib/format";
+import { FeedItem } from "../features/feed/FeedItem";
 import { PolicySavedList } from "../features/policy/PolicySaved";
-import { IconBookmark, IconClose } from "../components/icons";
+import { IconBookmark } from "../components/icons";
 
-/** Shared caches may keep this page for five minutes. */
-export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" };
-}
-
-export function meta() {
-  return pageMeta({ title: "我的收藏", description: `保存在这台设备上的 ${SITE.name} 收藏。`, path: "/starred", noindex: true });
-}
+export const headers = () => ({ "Cache-Control": "no-store" });
+export const meta = () => pageMeta({ title: "我的收藏", description: `保存在这台设备上的 ${SITE.name} 收藏。`, path: "/starred", noindex: true });
 
 export default function StarredPage() {
-  const starred = useStarred();
-  const [mounted, setMounted] = useState(false);
-  const [availability, setAvailability] = useState<Record<string, string>>({});
-  useEffect(() => setMounted(true), []);
-
-  const starredIds = starred.map((s) => s.id).join(",");
+  const references = useStarred();
+  const starred = references.filter((ref) => ref.type === "item");
+  const ids = starred.map((ref) => ref.id).join(",");
+  const [state, setState] = useState<{ items: FeedItemSummary[]; unavailable: string[]; loading: boolean; failed: boolean }>({
+    items: [],
+    unavailable: [],
+    loading: true,
+    failed: false,
+  });
+  const [error, setError] = useState<string | null>(null);
+  const retry = useRef<() => void>(() => {});
   useEffect(() => {
-    if (!mounted || !starredIds) return;
     const controller = new AbortController();
-    fetch(`/api/site/items/availability?ids=${encodeURIComponent(starredIds)}`, { signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((data) => {
-        if (!controller.signal.aborted) setAvailability(data);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, [mounted, starredIds]);
-
+    let pending = false;
+    const read = async () => {
+      if (pending || document.visibilityState !== "visible") return;
+      pending = true;
+      setState({ items: [], unavailable: [], loading: true, failed: false });
+      try {
+        const client = createPublicClient({ baseUrl: location.origin });
+        // Existing over-limit references are preserved, and resolved in bounded batches.
+        const refs = ids ? ids.split(",") : [];
+        const batches = [];
+        for (let i = 0; i < refs.length; i += 100) batches.push(refs.slice(i, i + 100));
+        const values = await Promise.all(
+          batches.map(async (batch) => {
+            const response = await client.GET("/api/site/items/saved", {
+              params: { query: { ids: batch.join(",") } },
+              cache: "no-store",
+              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
+            });
+            if (!response.response.ok) throw new Error("saved content unavailable");
+            return publicSchemas.SavedItems.parse(response.data);
+          }),
+        );
+        if (!controller.signal.aborted)
+          setState({
+            items: values.flatMap((value) => value.items),
+            unavailable: values.flatMap((value) => value.unavailableIds),
+            loading: false,
+            failed: false,
+          });
+      } catch {
+        if (!controller.signal.aborted) setState({ items: [], unavailable: [], loading: false, failed: true });
+      } finally {
+        pending = false;
+      }
+    };
+    retry.current = () => {
+      void read();
+    };
+    void read();
+    const timer = setInterval(read, 60_000);
+    window.addEventListener("focus", read);
+    document.addEventListener("visibilitychange", read);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      window.removeEventListener("focus", read);
+      document.removeEventListener("visibilitychange", read);
+    };
+  }, [ids]);
+  const remove = (id: string) => {
+    const result = removeStar(id);
+    setError(result.ok ? null : result.message);
+  };
   return (
     <div className="pb-12">
-      <header className="flex flex-col gap-2 pb-4 pt-5 sm:flex-row sm:items-start sm:justify-between lg:pt-1">
-        <div>
-          <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">收藏</h1>
-          <p className="mt-1.5 text-[13px] text-ink-3">本机收藏的 {SITE.name} 内容，适合稍后阅读和回看。</p>
-        </div>
+      <header className="pb-4 pt-5 lg:pt-1">
+        <h1 className="text-[24px] font-semibold text-ink">收藏</h1>
+        <p className="mt-2 text-[13px] text-ink-3">保存在当前浏览器中的阅读清单，最多100条。更换设备后不会自动同步。</p>
       </header>
-      <p className="rounded-tile border border-line bg-surface px-4 py-2.5 text-[12.5px] text-ink-3">
-        收藏只保存在当前浏览器；清除浏览器数据或换设备后不会同步。
-      </p>
-      {!mounted ? null : starred.length === 0 ? (
-        <div className="mt-3 flex flex-col items-center rounded-card border border-dashed border-line-strong px-6 py-12 text-center">
-          <IconBookmark size={20} className="text-ink-4" />
-          <p className="mt-3 text-[13px] text-ink-3">还没有收藏矿业动态。点开一条动态，在详情页点击收藏即可添加。</p>
-          <Link to="/" className="mt-4 text-[12.5px] font-medium text-accent hover:text-accent-ink">
+      <p className="text-[12px] text-ink-4">已收藏 {references.length} 条；仅保存引用，内容以当前公开版本为准。</p>
+      {error && (
+        <p role="alert" className="mt-3 text-[13px] text-hot">
+          {error}
+        </p>
+      )}
+      {state.loading && (
+        <p role="status" className="mt-3 text-[13px]">
+          正在读取收藏…
+        </p>
+      )}
+      {state.failed && (
+        <p role="alert" className="mt-3 text-[13px]">
+          收藏暂时无法读取 — 请稍后重试。
+          <button type="button" onClick={() => retry.current()} className="ml-2 text-accent">
+            重试
+          </button>
+        </p>
+      )}
+      {state.unavailable.length > 0 && (
+        <div role="status" className="my-3 rounded-control bg-bg-sunk p-3 text-[13px]">
+          {state.unavailable.length} 条收藏当前不可查看，已停止展示。
+          <button
+            type="button"
+            className="ml-2 text-accent"
+            onClick={() => {
+              for (const id of state.unavailable) remove(id);
+            }}
+          >
+            移除不可用收藏
+          </button>
+        </div>
+      )}
+      {!state.loading && !state.failed && !references.length && (
+        <div className="mt-3 rounded-card border border-dashed border-line p-10 text-center">
+          <IconBookmark size={20} className="mx-auto text-ink-4" />
+          <p className="mt-3 text-[13px] text-ink-3">还没有收藏 — 点击资讯旁的书签，即可加入你的阅读清单。</p>
+          <Link to="/" className="mt-4 block text-accent">
             去看精选 →
           </Link>
         </div>
-      ) : (
-        <ul className="mt-3 lg:space-y-3">
-          {starred.map((s) => {
-            const status = availability[s.id];
-            const unavailable = status === "unavailable";
-            return (
-              <li
-                key={s.id}
-                className={`relative border-b border-line-soft py-4 lg:card lg:px-[18px] lg:py-[15px] ${unavailable ? "opacity-70" : "lg:card-hover"}`}
-              >
-                <div className="flex items-center gap-2 text-[12.5px] text-ink-4">
-                  <span className="min-w-0 truncate text-ink-3">{shortSourceName(s.sourceName)}</span>
-                  {s.publishedAt && <span className="num shrink-0">· {sourceDateTime(s.publishedAt)}</span>}
-                  <span className="ml-auto hidden shrink-0 sm:inline">
-                    收藏于 <span className="num">{fullDateTime(s.savedAt)}</span>
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="取消收藏"
-                    title="取消收藏"
-                    onClick={() => removeStar(s.id)}
-                    className="relative z-10 -my-1 ml-auto grid size-7 shrink-0 place-items-center rounded-full text-ink-4 transition-colors hover:bg-bg-sunk hover:text-ink sm:ml-0"
-                  >
-                    <IconClose size={14} />
-                  </button>
-                </div>
-                <h2 className="mt-1.5 text-[16px] font-[650] leading-[1.55] text-ink">
-                  {unavailable ? (
-                    s.title
-                  ) : (
-                    <Link to={`/items/${s.id}`} className="transition-colors after:absolute after:inset-0 after:content-[''] hover:text-accent">
-                      {s.title}
-                    </Link>
-                  )}
-                </h2>
-                {s.summary && <p className="mt-1.5 line-clamp-2 text-[14px] leading-[1.75] text-ink-3">{s.summary}</p>}
-                {unavailable && <p className="mt-2 text-[12.5px] text-hot">这条内容已不再公开，收藏会保留直到你手动移除。</p>}
-                {status === "summary-only" && <p className="mt-2 text-[12.5px] text-amber-ink">应来源方要求，这条内容现在只提供摘要。</p>}
-              </li>
-            );
-          })}
-        </ul>
       )}
+      <ul className="mt-3 space-y-3">
+        {starred.flatMap((ref) => {
+          const item = state.items.find((value) => value.id === ref.id);
+          return item
+            ? [
+                <li key={ref.id}>
+                  <FeedItem item={item} showTags />
+                  <p className="mt-1 text-[12px] text-ink-4">
+                    收藏于 {fullDateTime(ref.savedAt)}{" "}
+                    <button type="button" className="ml-3 text-accent" onClick={() => remove(ref.id)}>
+                      移除
+                    </button>
+                  </p>
+                </li>,
+              ]
+            : [];
+        })}
+      </ul>
       <PolicySavedList />
     </div>
   );

@@ -8,12 +8,13 @@ export type FallbackTarget = { modelKey: string; configurationHash: string };
 export type FallbackPermitPort = {
   sourceIds: readonly string[];
   inputFingerprint: string;
-  authorize(target: FallbackTarget): Promise<{ inputFingerprint: string; beforeRequest(): Promise<void>; close(): void }>;
+  authorize(target: FallbackTarget): Promise<{ inputFingerprint: string; beforeRequest(): Promise<void>; afterResponse?(): Promise<void>; close(): void }>;
 };
 export type FallbackMaterialSnapshot = { manifest: z.infer<typeof SourceInputManifestSchema>; inputFingerprint: string };
 /** Trusted workers capture the actual prepared material and reconstruct its current identity. This does not accept an allow boolean. */
 export function createFallbackPermitPort(ports: {
   root: AbortSignal;
+  stopBeforeSend?: AbortSignal;
   snapshot: FallbackMaterialSnapshot;
   current(): Promise<FallbackMaterialSnapshot>;
 }): FallbackPermitPort {
@@ -86,15 +87,19 @@ export function createFallbackPermitPort(ports: {
           if (!result.ok) throw new Error(`备用材料许可未通过：${result.reason}`);
           permits.push({ request, permit: result.permit });
         }
-        const beforeRequest = async () => {
+        const afterResponse = async () => {
           await current();
           for (const item of permits) {
             const check = await verifier.verify(item.permit, item.request);
             if (!check.ok) throw new Error(`备用材料许可已变化：${check.reason}`);
           }
         };
+        const beforeRequest = async () => {
+          if (ports.stopBeforeSend?.aborted) throw new Error("worker stopping before model send");
+          await afterResponse();
+        };
         await beforeRequest();
-        return { inputFingerprint: bound, beforeRequest, close };
+        return { inputFingerprint: bound, beforeRequest, afterResponse, close };
       } catch (error) {
         close();
         throw error;

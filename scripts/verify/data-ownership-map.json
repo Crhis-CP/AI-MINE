@@ -1,7 +1,7 @@
 {
   "version": 1,
   "basis": ["tasks/TASK-0004.md D12-D13", "docs/appendix/B-aihot-file-inventory.md B.7.1-B.7.2", "docs/04-architecture/04-aihot-adoption.md 3.1"],
-  "grantCatalogueSha256": "146c2485ac8470fe07603f8b59de994a19e12f4addf9919b94405ee3deca6904",
+  "grantCatalogueSha256": "42711a21c9c70537dfaa708a98bad0126d59cd371c3ac7e9b16c20886af815e5",
   "moduleAliases": {
     "identity": "platform/identity",
     "ops": "platform/ops",
@@ -526,12 +526,60 @@
       "module": "ai-gateway",
       "access": "business"
     },
+    "ai.prefilter_audit_draws": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.prefilter_audit_items": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
+    "ai.prefilter_audit_labels": {
+      "module": "ai-gateway",
+      "access": "business"
+    },
     "ai.model_fallback_routes": {
       "module": "ai-gateway",
       "access": "business"
     },
     "ai.model_fallback_resolutions": {
       "module": "ai-gateway",
+      "access": "business"
+    },
+    "publication.read_watermarks": {
+      "module": "publication",
+      "access": "business"
+    },
+    "publication.manual_copies": {
+      "module": "publication",
+      "access": "business"
+    },
+    "editorial.manual_revisions": {
+      "module": "editorial",
+      "access": "business"
+    },
+    "editorial.manual_revision_events": {
+      "module": "editorial",
+      "access": "business"
+    },
+    "sources.source_config_drafts": {
+      "module": "sources",
+      "access": "business"
+    },
+    "sources.source_previews": {
+      "module": "sources",
+      "access": "business"
+    },
+    "sources.source_config_activations": {
+      "module": "sources",
+      "access": "business"
+    },
+    "feedback.feedback_private_deletions": {
+      "module": "feedback",
+      "access": "business"
+    },
+    "feedback.feedback_weekly_summaries": {
+      "module": "feedback",
       "access": "business"
     }
   },

@@ -149,7 +149,12 @@ test("pause or permission revocation during a call retains paid usage but return
       await finish.promise;
       return {};
     };
-    const pending = assert.rejects(f.run(), PolicyInputChangedError);
+    let failure: PolicyInputChangedError | undefined;
+    const pending = assert.rejects(f.run(), (error) => {
+      assert.ok(error instanceof PolicyInputChangedError);
+      failure = error;
+      return true;
+    });
     await started.promise;
     if (mode === "pause") f.state.input.processingAllowed = false;
     else {
@@ -167,10 +172,12 @@ test("pause or permission revocation during a call retains paid usage but return
     finish.open();
     await pending;
     const [row] =
-      await sql`SELECT r.status,a.status AS attempt,a.usage FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.subject=${`policy:${f.id}@1`}`;
+      await sql`SELECT r.id,r.status,a.id AS attempt_id,a.status AS attempt,a.usage FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.subject=${`policy:${f.id}@1`}`;
     assert.equal(row!.status, "received");
     assert.equal(row!.attempt, "received");
     assert.equal(row!.usage.completion_tokens, 3);
+    assert.equal(failure!.receiptId, Number(row!.id));
+    assert.equal(failure!.attemptId, String(row!.attempt_id));
   }
 });
 

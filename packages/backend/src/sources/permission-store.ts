@@ -83,6 +83,23 @@ export async function readCurrentPublicPolicy(sourceId: string, db: Db = sql) {
   return policy;
 }
 
+/** A bounded publication batch uses the same identity validation as a single-source lookup. */
+export async function readCurrentPublicPolicies(sourceIds: string[], db: Db = sql) {
+  const ids = [...new Set(sourceIds)];
+  if (ids.length > 100) throw new Error("Public source policy batch exceeds 100 sources");
+  const result = new Map<string, z.infer<typeof PublicPolicy>>();
+  if (!ids.length) return result;
+  const rows = await db<{ source_id: string; permission_version: string | number; public_policy: unknown }[]>`
+    SELECT source_id,permission_version,public_policy FROM sources.source_policy_current WHERE source_id=ANY(${ids}::text[])`;
+  for (const row of rows) {
+    const policy = PublicPolicy.parse(row.public_policy);
+    if (policy.source_id !== row.source_id || policy.permission_version !== Number(row.permission_version))
+      throw new Error("Public source policy identity mismatch");
+    result.set(row.source_id, policy);
+  }
+  return result;
+}
+
 /** Only the minimum eligibility projection is readable here, never the private processing permission evidence. */
 export async function publicProcessingAllowed(sourceId: string, resource: z.infer<typeof EvaluateSourcePolicyInputSchema>["resource"], now = Date.now()) {
   const policy = await readCurrentPublicPolicy(sourceId);

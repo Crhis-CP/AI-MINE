@@ -1,3 +1,5 @@
+import { saveSourceDraft, requireSuccessfulSourcePreview } from "./source-previews.ts";
+export { requestSourcePreview, runSourcePreview, sourcePreviewState, SOURCE_PREVIEW_QUEUE } from "./source-previews.ts";
 import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
@@ -105,14 +107,36 @@ const EDITABLE = z
   .partial()
   .strict();
 
-export async function updateSource(id: string, input: { patch: unknown; version: string; reason?: string }, actor: string) {
+export async function updateSource(
+  id: string,
+  input: { patch: unknown; version: string; reason?: string; config_command?: "activate_draft"; draft_id?: number; preview_id?: number },
+  actor: string,
+) {
   const patch = EDITABLE.parse(input.patch);
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(23621, hashtext(${id}))`;
     const [before] = await tx`SELECT * FROM sources WHERE id = ${id} FOR UPDATE`;
     if (!before) return null;
     if (new Date(before.updated_at as Date).toISOString() !== input.version) throw new Conflict("信源已被其他操作修改，请刷新后再改");
+    if (input.config_command === "activate_draft") {
+      const [draft] = await tx`SELECT config FROM sources.source_config_drafts WHERE id=${input.draft_id ?? null} AND source_id=${id}`;
+      if (!draft) throw new Conflict("信源配置草稿不存在");
+      patch.config = draft.config as Record<string, unknown>;
+      const preview = await requireSuccessfulSourcePreview({ id, kind: before.kind as SourceRow["kind"], config: patch.config }, tx, input.preview_id);
+      await tx`INSERT INTO sources.source_config_activations(source_id,draft_id,preview_id,config,actor)
+        VALUES(${id},${input.draft_id!},${preview.id},${tx.json(patch.config as never)},${actor})`;
+    } else if (patch.config && stableJson(patch.config) !== stableJson(before.config)) {
+      assertSupportedConfig(before.kind as SourceRow["kind"], patch.config);
+      const draft = await saveSourceDraft(id, String(before.kind), patch.config, actor, tx);
+      return { ...before, draft, pending_config: true };
+    }
     if (patch.config) assertSupportedConfig(before.kind as SourceRow["kind"], patch.config);
+    if (patch.enabled === true && !before.enabled)
+      await requireSuccessfulSourcePreview(
+        { id, kind: before.kind as SourceRow["kind"], config: (patch.config ?? before.config) as SourceRow["config"] },
+        tx,
+        input.preview_id,
+      );
     if (patch.site_fulltext === true) {
       const current = await readCurrentSourcePolicy(id, tx);
       if (current?.permissions.public_original_fulltext !== "allow" || current?.permissions.public_translation !== "allow")
@@ -135,8 +159,9 @@ export async function updateSource(id: string, input: { patch: unknown; version:
       config = CASE WHEN ${Object.hasOwn(patch, "config")} THEN ${patch.config === undefined ? null : tx.json(patch.config as never)} ELSE config END,
       source_date_config_hash = CASE WHEN ${Object.hasOwn(patch, "config")} THEN ${patch.config ? sourceDateConfigHash(before.kind as SourceRow["kind"], patch.config) : null} ELSE source_date_config_hash END,
       updated_at = now(),
+      cursor = CASE WHEN ${input.config_command === "activate_draft"} THEN NULL ELSE cursor END,
       health = CASE WHEN ${patch.enabled ?? null}::boolean IS FALSE THEN 'paused' WHEN ${patch.enabled ?? null}::boolean IS TRUE AND health = 'paused' THEN 'unknown' ELSE health END,
-      next_fetch_at = CASE WHEN ${patch.enabled ?? null}::boolean IS TRUE THEN now() ELSE next_fetch_at END
+      next_fetch_at = CASE WHEN ${patch.enabled ?? null}::boolean IS TRUE OR ${input.config_command === "activate_draft"} THEN now() ELSE next_fetch_at END
       WHERE id = ${id} RETURNING *`;
     if (patch.site_fulltext === false) {
       const current = await readCurrentSourcePolicy(id, tx);
@@ -293,6 +318,7 @@ import { SourceCreateRequest } from "@amp/contracts/http/private";
 export {
   readCurrentSourcePolicy,
   readCurrentPublicPolicy,
+  readCurrentPublicPolicies,
   publicProcessingAllowed,
   lockCurrentSourcePolicies,
   evaluateSourcePolicy,
@@ -353,4 +379,12 @@ export { exportSourceTargets } from "./source-exports.ts";
 /** Explicit source choices for model routing; contains no connection or permission secrets. */
 export async function modelFallbackSources(db: Db = sql) {
   return db<{ id: string; name: string; lane: "news" | "policy" }[]>`SELECT id,name,lane FROM sources ORDER BY lane,name,id`;
+}
+
+export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
+  const [row] = await db<{ lane: "news" | "policy"; kind: SourceRow["kind"]; config: SourceRow["config"]; source_date_config_hash: string | null }[]>`
+    SELECT lane,kind,config,source_date_config_hash FROM sources WHERE id=${sourceId}`;
+  return row
+    ? { lane: row.lane, configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null }
+    : null;
 }

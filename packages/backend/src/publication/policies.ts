@@ -1,3 +1,4 @@
+import { relatedNewsForPolicy } from "./news-policy-links.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../policy/model-evidence.ts";
 import type { z } from "zod";
 import { createHash } from "node:crypto";
@@ -126,7 +127,11 @@ type Filters = { q?: string; jurisdiction?: string; theme?: string; nature?: str
 function matches(card: PolicyCard, q: Filters) {
   const date = card.sort_time?.local_date ?? card.published_time.local_date;
   return (
-    (!q.q || [card.title, card.original_title, card.instrument_number, card.summary].join(" ").toLocaleLowerCase().includes(q.q.toLocaleLowerCase())) &&
+    (!q.q ||
+      [card.title, card.original_title, card.instrument_number, card.authority.name, card.summary]
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(q.q.toLocaleLowerCase())) &&
     (!q.jurisdiction || card.jurisdictions.some((j) => j.code === q.jurisdiction || j.parent === q.jurisdiction)) &&
     (!q.theme || card.themes.some((t) => t.code === q.theme)) &&
     (!q.nature || card.nature.code === q.nature) &&
@@ -156,7 +161,17 @@ export async function listPolicies(q: Filters & { page?: number; page_size?: num
     hash = createHash("sha256");
   let total = 0;
   for await (const view of currentViews(ctx)) {
-    if (!matches(view.card, filters)) continue;
+    if (!matches(view.card, filters)) {
+      let match = false;
+      for (const variant of await editions(view.card.id)) {
+        const language = await eligible(variant, ctx, true);
+        if (language && matches(language.card, filters)) {
+          match = true;
+          break;
+        }
+      }
+      if (!match) continue;
+    }
     hash.update(stableJson(view.card));
     total++;
     const key = policyOrder(view.card);
@@ -218,7 +233,12 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
   await ensureDocument(id);
   const historical = !!q.document_revision_id,
     ctx = context();
-  for (const row of await editions(id, true)) {
+  const candidates = await editions(id, true);
+  if (!historical)
+    candidates.sort(
+      (a, b) => a.source_language.localeCompare(b.source_language) || b.released_at.getTime() - a.released_at.getTime() || b.id.localeCompare(a.id),
+    );
+  for (const row of candidates) {
     if (
       (q.policy_version_id && q.policy_version_id !== row.policy_version_id) ||
       (q.expression_id && !row.expression_ids.includes(q.expression_id)) ||
@@ -272,6 +292,29 @@ export async function policyDetail(id: string, q: DetailQuery = {}, machine = fa
       if (!stream || !view.readable[stream.mode]) expression.reading_state = "restricted";
     }
     if (detail.reading && !view.readable[detail.reading.mode ?? "original"]) detail.reading = null;
+    if (!historical) {
+      const represented = new Set(detail.expressions.map((e) => e.id));
+      const languages = new Set([row.source_language]);
+      for (const sibling of candidates) {
+        if (languages.has(sibling.source_language)) continue;
+        const other = await eligible(sibling, ctx, true);
+        if (!other) continue;
+        languages.add(sibling.source_language);
+        const siblingDetail = Policy.parse(other.complete ? sibling.complete_detail : sibling.basic_detail);
+        for (const expression of siblingDetail.expressions) {
+          if (represented.has(expression.id)) continue;
+          const stream = sibling.reading?.[expression.id];
+          detail.expressions.push({ ...expression, reading_state: stream && other.readable[stream.mode] ? "complete" : "restricted" });
+          represented.add(expression.id);
+        }
+        for (const version of siblingDetail.versions) {
+          const existing = detail.versions.find((v) => v.id === version.id);
+          if (existing) existing.expression_ids = [...new Set([...existing.expression_ids, ...version.expression_ids])];
+          else detail.versions.push({ ...version, current: true });
+        }
+      }
+    }
+    if (!historical) detail.related_items = await relatedNewsForPolicy(detail.original_url);
     return Policy.parse(await decoratePolicyRelationships(detail, row.id));
   }
   throw new PolicyReadError(404, "policy_not_found");
@@ -387,6 +430,9 @@ export async function policyPublicMembers(editionIds: string[]) {
       sourceLanguage: row.source_language,
       preferredSourceLanguage: row.preferred_source_language,
       attributions: policy.attributions,
+      main_points: policy.main_points,
+      impacts: policy.impacts,
+      evidence_references: policy.evidence,
       versions: selected
         ? [
             {

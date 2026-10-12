@@ -1,0 +1,274 @@
+{
+  "scope": "本子Agent负责的PIPE-01..PIPE-10与EXT-01；完整仅指仓库实现和注明的隔离验证，不代表生产部署或质量验收",
+  "recorded_at": "2026-10-12T03:50:26.420619+00:00",
+  "phase": "locally_verified",
+  "implementation_complete": true,
+  "verification": {
+    "focused_files": 11,
+    "focused_assertions_passed": 48,
+    "focused_failures": 0,
+    "logs": [
+      ".verify/audit-remediation-20261011/pipeline-final-tests.log",
+      ".verify/audit-remediation-20261011/pipeline-port-final-tests.log",
+      ".verify/audit-remediation-20261011/pipeline-followup-tests.log",
+      ".verify/audit-remediation-20261011/pipeline-group-runtime.log"
+    ],
+    "typecheck": [
+      "tsc -p packages/backend",
+      "tsc -p tests",
+      "pnpm --filter @amp/web typecheck"
+    ],
+    "latest_ui_typecheck_log": ".verify/audit-remediation-20261011/pipeline-web-typecheck.log",
+    "regression_recovery": "docs/acceptance/audit-remediation-20261011/pipeline-regression-recovery.json",
+    "original_pipeline_failed_files": 33,
+    "latest_pipeline_failed_files": 0,
+    "regression_logs": [
+      ".verify/audit-remediation-20261011/cost-control-regressions.log",
+      ".verify/audit-remediation-20261011/eval-bound-and-pipeline-v3.log",
+      ".verify/audit-remediation-20261011/fee-event-fixtures.log",
+      ".verify/audit-remediation-20261011/final-signal-and-fee-isolation.log",
+      ".verify/audit-remediation-20261011/lane-controls-final.log",
+      ".verify/audit-remediation-20261011/lifetime-and-permits-tests.log",
+      ".verify/audit-remediation-20261011/manual-contract-compat-tests-v2.log",
+      ".verify/audit-remediation-20261011/pipeline-final-regressions.log",
+      ".verify/audit-remediation-20261011/remaining-pipeline-regressions.log",
+      ".verify/audit-remediation-20261011/remaining-source-fixtures.log",
+      ".verify/audit-remediation-20261011/source-fixtures-final.log",
+      ".verify/audit-remediation-20261011/translation-permit-fixtures.log"
+    ],
+    "typecheck_final_backend_log": ".verify/audit-remediation-20261011/pipeline-backend-typecheck-final.log",
+    "typecheck_final_tests_log": ".verify/audit-remediation-20261011/pipeline-tests-typecheck-final.log",
+    "lint_no_new_warnings_log": ".verify/audit-remediation-20261011/pipeline-lint-final.json",
+    "selftests_final_log": ".verify/audit-remediation-20261011/pipeline-selftests-final.log",
+    "typecheck_final_web_log": ".verify/audit-remediation-20261011/pipeline-web-typecheck-final.log",
+    "all_original_failures_have_replacement_logs": true,
+    "original_full_run_failed_files": 48,
+    "replacement_log_boundary": "48原失败文件各有最后定向通过日志；只修失败相关范围，非同一不可变SHA的一次全库执行。"
+  },
+  "findings": [
+    {
+      "id": "PIPE-01",
+      "title": "来源材料身份隔离",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/content/materials.ts"
+      ],
+      "tests": [
+        "tests/materials.test.ts"
+      ],
+      "result": "默认URL和保留fragment的URL键都按来源隔离；保留来源本身已有身份，未复制生产数据。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-02",
+      "title": "主模型、缓存、写回当前许可",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/providers/llm.ts",
+        "packages/backend/src/providers/news-fallback.ts",
+        "packages/backend/src/editorial/analyze.ts",
+        "packages/backend/src/editorial/input.ts",
+        "packages/backend/src/events/group.ts",
+        "packages/backend/src/events/digest.ts",
+        "packages/backend/src/editorial/translation-runtime.ts",
+        "packages/backend/src/editorial/evaluation-input.ts",
+        "scripts/eval-selection.ts",
+        "scripts/eval-relations.ts"
+      ],
+      "tests": [
+        "tests/news-model-permission.test.ts",
+        "tests/selection-eval-runtime.test.ts",
+        "tests/relation-eval-runtime.test.ts",
+        "tests/content-commit.test.ts",
+        "tests/analyze-shutdown.test.ts",
+        "tests/translate-shutdown.test.ts"
+      ],
+      "result": "主模型和备用使用同一签名许可门；图片另核附件许可；分析写回锁当前来源许可。真实模型及全部类型的真实材料质量未验收。 译文与评测均绑定当前原材料/来源/修订，不豁免evaluation；未绑定或被改写gold明确拒绝。停机停止新发送，但已付费回执依然结算并复检当前输入/许可；陈旧结果不覆盖当前内容。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-03",
+      "title": "跨模型未知费用屏障",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/providers/receipts.ts"
+      ],
+      "tests": [
+        "tests/news-receipt-barrier.test.ts"
+      ],
+      "result": "按news同材料修订+能力拦截pending/unknown/未确认用量的旧回执，模型与attemptTag变更不能解除；已收到同key仍可受许可控制免费复用。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-04",
+      "title": "不可变人工草稿、发布和冲突",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/admin/content.ts",
+        "packages/backend/src/editorial/manual-revisions.ts",
+        "packages/backend/src/publication/publish.ts",
+        "packages/backend/src/publication/detail.ts",
+        "packages/backend/src/publication/feeds.ts",
+        "apps/web/app/routes/admin/content-item.tsx"
+      ],
+      "tests": [
+        "tests/manual-revisions.test.ts"
+      ],
+      "result": "草稿不改变公开内容；发布要求人确认与原文引文；来源更正引文失效则停用人工依据；状态异常由root接既有alerts；统一人工标签由共享契约及reader联调。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-05",
+      "title": "下架、投影、审计与补偿原子性",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/admin/content.ts"
+      ],
+      "tests": [
+        "tests/manual-revisions.test.ts"
+      ],
+      "result": "可注入审计失败同时回滚覆盖与投影；events.hot-refresh可靠队列与下架同事务，root注册worker。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-06",
+      "title": "事件原文与低置信硬校验",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/events/relate.ts",
+        "packages/backend/src/events/group.ts",
+        "industry/prompts/group-batch.md",
+        "industry/prompts/group-pair.md",
+        "industry/prompts/group-signal.md"
+      ],
+      "tests": [
+        "tests/relate.test.ts",
+        "tests/group-evidence-runtime.test.ts",
+        "tests/events.test.ts",
+        "tests/signals.test.ts"
+      ],
+      "result": "双方原文逐字引文、共同锚点动作、法域实体、阶段与后续时间变化均检查；所有关系入口低于0.8分开；只用来源发布时间，发现时间不证明后续。真实关系准确率需独立质量评测。 已在真实隔离PG+本地假模型完成可合并正例，确认硬门没有阻断有完整依据的同事件归组。 embedding停用时信号沿用有界词法召回，并经过同一证据硬门。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-07",
+      "title": "修订使自动事件关系失效",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/events/group.ts",
+        "packages/backend/src/publication/publish.ts",
+        "packages/backend/src/publication/detail.ts",
+        "database/migrations/events/202610120010_membership_revision.sql"
+      ],
+      "tests": [
+        "tests/group-revision.test.ts"
+      ],
+      "result": "automatic membership绑定input_revision；新修订重判且旧投影不继续选用旧关系；人工关系保留needs_review。既有NULL绑定不伪造，repairUnboundEventMemberships有界投递由root接schedule。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-08",
+      "title": "恢复旧文本仍建新修订",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/content/materials.ts"
+      ],
+      "tests": [
+        "tests/materials.test.ts"
+      ],
+      "result": "A→B→A为三个观察修订；仅当前正文幂等，历史hash不吞更新。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-09",
+      "title": "报告综合文字统一撤回",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/publication/reports.ts"
+      ],
+      "tests": [
+        "tests/report-withdrawal.test.ts"
+      ],
+      "result": "网站/目录/报告API读取所有引用及快讯当前资格；任一撤回则导语综述栏目总结失效；缺失projection同样失败关闭；目录不回退过期缓存。",
+      "live_verified": false
+    },
+    {
+      "id": "PIPE-10",
+      "title": "反馈周汇总与180天去标识",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/admin/feedback.ts",
+        "apps/web/app/routes/admin/feedback.tsx",
+        "database/migrations/feedback/202610120020_feedback_retention.sql"
+      ],
+      "tests": [
+        "tests/feedback-maintenance.test.ts"
+      ],
+      "result": "记录首次处理完成时间；满180天清联系人截图与source_hash，正文中明确邮箱电话去标识；周统计按北京自然周、不含正文/联系人/截图、发送失败重试且成功去重；三状态与保存处理、私有截图按需读取。旧记录无已知完成日期不补造；任意自然语言中的全部个人信息不能仅靠规则保证识别。",
+      "live_verified": false
+    },
+    {
+      "id": "EXT-01",
+      "title": "来源预览、配置草稿与启用门",
+      "completion": "完整",
+      "status": "locally_verified",
+      "files": [
+        "packages/backend/src/admin/source-previews.ts",
+        "packages/backend/src/admin/sources.ts",
+        "apps/api/src/routes/admin.ts",
+        "apps/web/app/routes/admin/source.tsx",
+        "apps/web/app/routes/admin/source-new.tsx",
+        "database/migrations/sources/202610120040_source_previews.sql"
+      ],
+      "tests": [
+        "tests/source-preview-gate.test.ts",
+        "tests/automatic-feed.test.ts",
+        "tests/foreign-automatic.test.ts",
+        "tests/source-permissions.test.ts"
+      ],
+      "result": "HTTP仅投递与读状态；worker预览成功绑定配置hash与许可版本，首次启用和配置切换须有成功证据；配置草稿不替换当前采集配置，明确应用后才清该配置检查点；新建源默认暂停。 真实隔离来源worker与本地RSS假站完成预览→启用→采集→模型回执→发布；robots/限速等待保留，未启用真实来源。",
+      "live_verified": false
+    }
+  ],
+  "integration_dependencies": [
+    "root shared contracts and generated clients",
+    "root worker source-preview/hot-refresh and feedback scheduling",
+    "root ownership map/role grant registration",
+    "root make verify and final immutable SHA receipt",
+    "post-development independent no-history comparison agents"
+  ],
+  "not_performed": [
+    "No production deployment/DNS/data cleanup",
+    "No existing secrets read",
+    "No real model calls",
+    "No live Feishu alert transmission",
+    "No old-code clone/export/import",
+    "No git commit or branch change by this subagent"
+  ],
+  "additional_work": [
+    "Source-date policy lane selected evidence narrow read for POL06",
+    "Current analyzed company_context extraction with existing model call only for RDR09",
+    "Explicit report generationStatus stored and read for RDR11",
+    "Role-plan fixture tracks precisely added schemas/tables/sequences and still denies manual-history mutation",
+    "DetailNeed fixture adds explicit title/summary=false without relaxing guards",
+    "修复dbOf Proxy不支持has导致的upsertMaterial与初始化费用事务误判；以typeof begin保留真实事务。",
+    "MP采集重试按新来源范围身份键识别现有材料，兼容同来源legacy key。",
+    "统一历史合成夹具的显式人工确认、费用价格、材料许可与可验证原文证据，未弱化生产前置条件。",
+    "所有权开工快照对比JSON记录真实新增范围及既有指纹漂移；没有修改守卫或扩大基线预算。"
+  ],
+  "known_limits": [
+    "完整历史events、signals、自动采集、费用/回执、译文、来源权限和评测绑定定向回归已取得通过日志。集成人全库首次168文件运行后按失败文件修复补跑；混合版本日志不等于最终SHA的完整verify回执。",
+    "新增来源草稿/人工稿/反馈UI通过静态类型检查；后台浏览器逐项点击与真实来源质量验收未由本子Agent执行。",
+    "未生产部署、未真实模型调用、未真实飞书推送；公开网站live_verified和quality_accepted均不据本地结果宣称。"
+  ]
+}

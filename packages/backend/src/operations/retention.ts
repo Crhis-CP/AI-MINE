@@ -4,6 +4,7 @@ import path from "node:path";
 import { config } from "../config.ts";
 import { dbOf } from "../db.ts";
 
+import { anonymizeExpiredFeedback } from "../admin/feedback.ts";
 const sql = dbOf("ops");
 
 /** Derived caches (proxied images and share cards) are rebuilt on demand; drop ones older than a month. */
@@ -40,5 +41,6 @@ export async function dailyRetention(now = new Date()) {
   const prunedCache =
     (await pruneCache(path.join(config.dataDir, "imgcache"), monthMs, now.getTime())) +
     (await pruneCache(path.join(config.dataDir, "ogcache"), monthMs, now.getTime()));
-  return { deletedLeases: leases.count, deletedJobRuns: runs.count, deletedFiles: files.length, prunedCache };
+  const anonymizedFeedback = await anonymizeExpiredFeedback(now);
+  return { anonymizedFeedback, deletedLeases: leases.count, deletedJobRuns: runs.count, deletedFiles: files.length, prunedCache };
 }

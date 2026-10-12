@@ -51,6 +51,12 @@ export function worldbankPeriods(
     const one: FetchedPeriod = { source: "worldbank", period, release, rows: [], held: [], heldSeries: [] };
     for (const item of items) {
       const columns = [...(prices.get(5) ?? [])].filter(([, name]) => normalizeSourceName(name) === normalizeSourceName(item.sourceName));
+      // Lithium is not in every Pink Sheet edition. A missing column leaves that series out;
+      // the other metals of the same month still store. A duplicate column still holds the month.
+      if (columns.length === 0 && item.metal === "lithium") {
+        one.heldSeries!.push({ key: item.key, reason: "世界银行表里没有锂这一列" });
+        continue;
+      }
       if (columns.length !== 1) {
         one.held.push(`${item.key} 应有一列，实际 ${columns.length} 列`);
         continue;

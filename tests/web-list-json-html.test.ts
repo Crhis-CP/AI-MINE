@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { fetchWebList } from "@amp/backend/sources/web-list";
+import { fetchDetail, fetchWebList } from "@amp/backend/sources/web-list";
 import { sourceDateConfigHash, unsupportedConfig } from "@amp/backend/sources/config-keys";
 import { DROPPED_RETRY } from "@amp/backend/lib/http-fetch";
 
@@ -16,7 +16,13 @@ const LIST =
   `<li><a href="/jmxw/art/2026/art_0001.html" target="_blank">某国调整铜精矿出口政策</a><span>2026-08-06 18:42:37</span></li>` +
   `<li><a href="/jmxw/art/2026/art_0002.html" target="_blank">某国收回未使用的钴出口配额</a><span>[2026-07-02]</span></li>` +
   `</ul></div><div class="pagination" rows="15" count="417" pageNo="1"></div></div>`;
+const XINJIANG = `<html><head><meta name="PubDate" content="2026-06-29 18:27:39"/></head><body>
+<span class="date">发布日期：2026-06-29 18:29</span>
+<p>自2026年5月1日起对非洲建交国实施零关税。</p></body></html>`;
 const pages: Record<string, string> = {
+  "/xinjiang": XINJIANG,
+  "/effective-only": "<html><body><p>自2026年5月1日起施行。成文日期：2026-02-14。</p></body></html>",
+  "/selector-wins": `<html><body><time class="pub">2026-08-01 09:00</time><span>发布日期：2026-06-29 18:29</span></body></html>`,
   "/unit": JSON.stringify({ success: true, code: "200", data: { html: LIST } }),
   "/not-json": `<html><body>${LIST}</body></html>`,
   "/no-html": JSON.stringify({ success: false, data: null }),
@@ -29,7 +35,8 @@ const server = http.createServer((req, res) => {
     return;
   }
   const body = pages[path === "/unit-retry" ? "/unit" : path];
-  res.writeHead(body === undefined ? 404 : 200, { "content-type": "application/json;charset=UTF-8" });
+  const htmlPage = path === "/xinjiang" || path === "/effective-only" || path === "/selector-wins";
+  res.writeHead(body === undefined ? 404 : 200, { "content-type": htmlPage ? "text/html;charset=UTF-8" : "application/json;charset=UTF-8" });
   res.end(body ?? "");
 });
 await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
@@ -96,6 +103,28 @@ test("htmlJsonPath only with a direct JSON listing and a named page: through Jin
   assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { htmlJsonPath: "" })), ["htmlJsonPath"]);
   assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { htmlJsonPath: 3 })), ["htmlJsonPath"]);
   assert.deepEqual(unsupportedConfig("web_list", listing("/unit", { baseUrl: undefined })), ["htmlJsonPath without baseUrl"]);
+});
+
+test("a detail page with no configured date keeps the labeled publication date, and ignores an unlabeled effective date", async () => {
+  const missed = await fetchDetail(`${base}/xinjiang`, source({ url: `${base}/list`, detail: { publishedAtSelector: ".missing" } }), {
+    date: true,
+    title: false,
+    summary: false,
+  });
+  assert.equal(missed.sourceDateObservation?.raw, "2026-06-29 18:29");
+  assert.equal(missed.publishedAt?.toISOString(), "2026-06-29T10:29:00.000Z");
+  const none = await fetchDetail(`${base}/effective-only`, source({ url: `${base}/list`, detail: { publishedAtSelector: ".missing" } }), {
+    date: true,
+    title: false,
+    summary: false,
+  });
+  assert.equal(none.publishedAt, null);
+  const kept = await fetchDetail(`${base}/selector-wins`, source({ url: `${base}/list`, detail: { publishedAtSelector: "time.pub" } }), {
+    date: true,
+    title: false,
+    summary: false,
+  });
+  assert.equal(kept.sourceDateObservation?.raw, "2026-08-01 09:00");
 });
 
 test("htmlJsonPath decides where list dates come from, so it is part of the date configuration hash", () => {

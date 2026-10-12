@@ -80,6 +80,12 @@ function currentAccess(): Access {
   return active.access;
 }
 
+/** The DB root remains live during graceful worker drain and is revoked when its registrations close. */
+export function databaseLifetimeSignal(): AbortSignal {
+  currentAccess();
+  return active!.lifetime.signal;
+}
+
 /** The worker owns installation; private-api only sends to existing queues. */
 export function queueConnection(): QueueConnection {
   const access = currentAccess();

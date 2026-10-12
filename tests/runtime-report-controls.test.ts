@@ -1,3 +1,5 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -39,6 +41,7 @@ const provider = await stub(async () => {
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "synthetic-test-key";
+await installUsageFixtureForModel("deepseek-flash");
 after(async () => {
   await provider.close();
   await stopBoss();
@@ -62,6 +65,7 @@ async function owner(action: "pause" | "resume", lane: "news" | "policy") {
 }
 async function seed() {
   await sql`INSERT INTO sources(id,name,kind,lane) VALUES('runtime-report-source','Synthetic report source','external','news')`;
+  await ensureModelSourceFixture("runtime-report-source", ["https://example.invalid/source"]);
   const at = new Date("2020-02-01T04:00:00Z"),
     { articleId } = await upsertMaterial({
       sourceId: "runtime-report-source",
@@ -71,8 +75,11 @@ async function seed() {
       publishedAt: at,
       via: "fetch",
     });
+  const [analysis] = await sql<{ id: number }[]>`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh)
+    VALUES(${articleId},1,'rule','pass','合成矿业报告材料','只用于隔离测试') RETURNING id`;
   await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visible_after,selected,eligible,category)
     VALUES(${articleId},'合成矿业报告材料','只用于隔离测试','runtime-report-source','news','https://example.invalid/runtime-report',${at},${at},${at},${at},${at},true,true,'company_project')`;
+  await sql`UPDATE publications SET analysis_id=${analysis!.id} WHERE article_id=${articleId}`;
   return articleId;
 }
 

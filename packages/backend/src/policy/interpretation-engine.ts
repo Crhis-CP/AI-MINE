@@ -191,7 +191,7 @@ export async function executePolicyInterpretation(input: InterpretationInput, ca
     );
     const claims = candidateClaims(candidate),
       candidateHash = sha256(stableJson(candidate));
-    if (candidate.relevance !== "relevant")
+    if (candidate.relevance === "uncertain")
       return {
         status: candidate.relevance,
         candidate,
@@ -228,7 +228,7 @@ export async function executePolicyInterpretation(input: InterpretationInput, ca
     verification.push({ candidateHash, matrix, decisions });
     if (decisions.every((d) => d.verdict === "passes"))
       return {
-        status: "semantic_verified" as const,
+        status: candidate.relevance === "excluded" ? ("excluded" as const) : ("semantic_verified" as const),
         candidate,
         groups,
         root: merged,

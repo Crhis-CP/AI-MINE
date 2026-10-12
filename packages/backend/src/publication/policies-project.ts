@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { policySemanticHtml } from "../policy/semantic-html.ts";
 import { Policy, PolicyCard, PolicyReadingBlock } from "@amp/contracts/http/public";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
@@ -42,6 +43,13 @@ export function basicPolicy(meta: PolicyMetadataObservation, ids: PublicIds, at:
   if (!jurisdiction || !meta.authority) return null;
   const unknown = { value: "unknown", basis: null, evidence_ids: [] },
     brief = { stage: "unknown", in_force: "unknown", repeal: "unknown" };
+  const sourceDate = meta.publicationDate;
+  const observedDate =
+    sourceDate?.origin === "source" && sourceDate.interpretation === "parsed" && sourceDate.time.local_date && !sourceDate.time.condition_text
+      ? sourceDate.time
+      : null;
+  const published = observedDate?.meaning === "published" ? observedDate : null;
+  const sortDate = published ?? (observedDate?.meaning === "formally_published" ? observedDate : null);
   return Policy.parse({
     id: ids.policy,
     title: meta.titleZh ?? (meta.documentNumber ? `文书 ${meta.documentNumber}` : meta.originalTitle),
@@ -59,13 +67,13 @@ export function basicPolicy(meta: PolicyMetadataObservation, ids: PublicIds, at:
     nature: { code: "unknown", label: "尚未确认" },
     themes: [],
     change_kind: null,
-    published_time: policyTime("published", null),
-    sort_time: null,
-    sort_kind: null,
+    published_time: published ?? policyTime("published", null),
+    sort_time: sortDate,
+    sort_kind: sortDate ? "published" : null,
     first_public_at: policyTime("site_public", at),
     first_public_basis: "live",
     source_checked_at: policyTime("checked", meta.observedAt),
-    is_backfill: false,
+    is_backfill: policyBackfill(sortDate, meta.discoveredAt),
     legal_brief: brief,
     interpretation_state: "basic_facts",
     summary: null,
@@ -83,7 +91,20 @@ export function basicPolicy(meta: PolicyMetadataObservation, ids: PublicIds, at:
       deadlines: [],
       repeal: unknown,
     },
-    dates: [],
+    dates: observedDate
+      ? [
+          {
+            ...observedDate,
+            event_kind:
+              observedDate.meaning === "registered"
+                ? "registration"
+                : ["published", "formally_published"].includes(observedDate.meaning)
+                  ? "original_publication"
+                  : "other",
+            occurrence: "occurred",
+          },
+        ]
+      : [],
     attachment_inventory: [],
     versions: [
       {
@@ -122,6 +143,17 @@ export function basicPolicy(meta: PolicyMetadataObservation, ids: PublicIds, at:
     ai_metadata: { provider: SITE.name, content_id: ids.policy },
   });
 }
+export function policyBackfill(time: Policy["published_time"] | null, discoveredAt: string | null) {
+  if (!time?.local_date || !time.timezone || !discoveredAt) return false;
+  try {
+    const discoveredDay = new Intl.DateTimeFormat("en-CA", { timeZone: time.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+      new Date(discoveredAt),
+    );
+    return time.local_date < discoveredDay;
+  } catch {
+    return false;
+  }
+}
 const natureLabels = {
   law: "法律",
   regulation: "法规",
@@ -157,7 +189,14 @@ function refs(value: unknown, map: Record<string, string>): unknown {
     ]),
   );
 }
-export function completePolicy(basic: Policy, candidate: Candidate, run: FulltextRun, evidenceIds: Record<string, string>) {
+export function completePolicy(
+  basic: Policy,
+  candidate: Candidate,
+  run: FulltextRun,
+  evidenceIds: Record<string, string>,
+  annotationIds: Record<string, string> = {},
+  discoveredAt: string | null = null,
+) {
   const c = refs(candidate, evidenceIds) as Candidate,
     force = { whole: "yes", partial: "partial", not_in_force: "no", unknown: "unknown" } as const;
   const result = {
@@ -176,7 +215,16 @@ export function completePolicy(basic: Policy, candidate: Candidate, run: Fulltex
     gaps: c.gaps,
     evidence: candidate.evidence.map((e) => {
       const part = run.plan.parts.find((p) => p.partId === e.part_id)!;
+      const annotation = e.annotation_id ? part.annotations?.find((a) => a.annotation_id === e.annotation_id) : null;
       return {
+        ...(annotation
+          ? {
+              annotation_id: annotationIds[annotation.annotation_id],
+              annotation_name: annotation.name,
+              annotation_value: annotation.value,
+              annotation_scope: annotation.scope,
+            }
+          : {}),
         evidence_id: evidenceIds[e.id],
         source: {
           source_id: run.snapshot.sourceId,
@@ -186,7 +234,7 @@ export function completePolicy(basic: Policy, candidate: Candidate, run: Fulltex
           insecure_transport: part.resourceUrl.startsWith("http:"),
           published_time: basic.published_time,
         },
-        locator: part.nodePath,
+        locator: annotation?.locator ?? part.nodePath,
         excerpt: e.quote,
         relation: "supports",
       };
@@ -199,6 +247,31 @@ export function completePolicy(basic: Policy, candidate: Candidate, run: Fulltex
     result.sort_time = publication;
     result.sort_kind = "published";
   }
+  const events = c.publication_events ?? [];
+  if (events.length) result.dates = events.map((event) => event.time);
+  else if (publication) result.dates = [{ ...publication, event_kind: "original_publication", occurrence: "occurred" }];
+  const occurred = events.filter((event) => event.time.occurrence === "occurred" && event.time.local_date && !event.time.condition_text);
+  const change = occurred
+    .filter((event) => event.time.event_kind === "substantive_change")
+    .sort((a, b) => b.time.local_date!.localeCompare(a.time.local_date!))[0];
+  const firstPublication = occurred
+    .filter((event) => event.time.event_kind === "original_publication" && event.time.meaning === "published")
+    .sort((a, b) => a.time.local_date!.localeCompare(b.time.local_date!))[0];
+  const withoutEvent = (event: NonNullable<Candidate["publication_events"]>[number]) => {
+    const { event_kind: _kind, occurrence: _occurrence, ...time } = event.time;
+    return time;
+  };
+  if (firstPublication) result.published_time = withoutEvent(firstPublication);
+  if (change) {
+    result.sort_time = withoutEvent(change);
+    result.sort_kind = "substantive_change";
+    result.change_kind = { code: "substantive_change", label: "实质变化" };
+  } else if (firstPublication) {
+    result.sort_time = withoutEvent(firstPublication);
+    result.sort_kind = "published";
+    result.change_kind = { code: "first_publication", label: "首次公布" };
+  }
+  if (discoveredAt) result.is_backfill = policyBackfill(result.sort_time, discoveredAt);
   return Policy.safeParse(result);
 }
 function grid(html: string) {
@@ -244,6 +317,7 @@ export function readingBlock(id: string, content: string, format: "text" | "html
     kind: tag === "table" ? "table" : /^h[1-6]$/.test(tag ?? "") ? "heading" : tag === "li" ? "list_item" : tag === "blockquote" ? "quote" : "paragraph",
     text: format === "html" ? $.root().text() : content,
     table_rows: tag === "table" ? grid(content) : null,
+    ...(format === "html" ? { semantic_html: policySemanticHtml(content, base) } : {}),
     evidence_ids,
     links,
   });

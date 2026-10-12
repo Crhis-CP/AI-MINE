@@ -15,6 +15,7 @@ export const PolicyIdentity = z.strictObject({
   documentType: text.nullable(),
   documentNumber: text.nullable(),
   officialUrl: url,
+  officialEquivalence: z.strictObject({ urls: z.array(url).min(2).max(16), evidenceUrl: url, locator: text }).optional(),
 });
 export const OriginalResource = z
   .strictObject({
@@ -43,6 +44,14 @@ export const PolicyOriginalInput = z
     resources: z.array(OriginalResource).min(1),
   })
   .superRefine((value, ctx) => {
+    const equivalent = value.identity.officialEquivalence;
+    if (
+      equivalent &&
+      (!equivalent.urls.includes(value.identity.officialUrl) ||
+        new Set(equivalent.urls).size !== equivalent.urls.length ||
+        equivalent.urls.some((u) => new URL(u).origin !== new URL(equivalent.evidenceUrl).origin))
+    )
+      ctx.addIssue({ code: "custom", message: "Official language equivalence needs distinct same-publisher URLs including this original" });
     if (value.identity.documentNumber !== null && value.identity.documentType === null)
       ctx.addIssue({ code: "custom", message: "Numbered identity requires a source document type" });
     if (value.resources[0]?.attachment || !value.resources[0]?.required || value.resources.slice(1).some((item) => !item.attachment))

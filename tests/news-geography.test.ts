@@ -1,3 +1,6 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -6,7 +9,7 @@ import { config } from "@amp/backend/config";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, ANALYZE_PROMPT_VERSION } from "@amp/backend/editorial/analyze";
 import { publishArticle } from "@amp/backend/publication/publish";
-import { overrideFields, setVisibility } from "@amp/backend/admin/content";
+import { setVisibility } from "@amp/backend/admin/content";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { prepareGeographyBackfill } from "@amp/backend/jobs/content";
 import { loadPool } from "@amp/backend/publication/pool";
@@ -56,6 +59,7 @@ Object.assign(process.env, {
   SUMMARIZE_MODEL: "default",
 });
 config.modelCallsEnabled = true;
+await installUsageFixtureForModel("default");
 after(async () => {
   await app.close();
   await provider.close();
@@ -70,6 +74,7 @@ async function fixture(body: string, geo: unknown = undefined) {
     sourceId = `geo-${id}`,
     url = `https://source.invalid/${id}`;
   await sql`INSERT INTO sources(id,name,kind,lane,tier,enabled,participation_mode,site_fulltext) VALUES(${sourceId},${sourceId},'external','news','EXCLUDE_MP',false,'editorial',true)`;
+  await ensureModelSourceFixture(sourceId, [url]);
   const input = {
     sourceId,
     url,
@@ -175,7 +180,7 @@ test("unknown, explicit none, old cache coverage, low-priority dry-run and manua
   assert.equal(requests.length, oldRequests);
   const body = "加拿大公司总部发布消息，阿根廷矿区发生生产变化。",
     f = await fixture(body, candidate([assignment("CA", "加拿大", body, "headquarters")], "none"));
-  await overrideFields(
+  await confirmedManualEdit(
     f.articleId,
     { version: 0, reason: "synthetic geography correction", fields: { geography: { revision: 1, value: candidate([assignment("AR", "阿根廷", body)]) } } },
     "test",

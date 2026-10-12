@@ -284,6 +284,78 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["ai"],
         dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610091330_usage_task_budget.sql"],
       },
+      {
+        name: "ai-gateway/202610101720_prefilter_audit.sql",
+        module: "ai-gateway",
+        schemas: ["ai"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610091800_model_fallback.sql"],
+      },
+      {
+        name: "events/202610120010_membership_revision.sql",
+        module: "events",
+        schemas: ["events"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
+        name: "feedback/202610120020_feedback_retention.sql",
+        module: "feedback",
+        schemas: ["feedback"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
+        name: "editorial/202610120030_manual_revisions.sql",
+        module: "editorial",
+        schemas: ["editorial"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
+        name: "publication/202610120031_manual_copies.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "editorial/202610120030_manual_revisions.sql"],
+      },
+      {
+        name: "sources/202610120040_source_previews.sql",
+        module: "sources",
+        schemas: ["sources"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
+        name: "policy/202610120100_policy_workflow_recipe.sql",
+        module: "policy",
+        schemas: ["policy"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "policy/202610090700_policy_automation.sql"],
+      },
+      {
+        name: "publication/202610120130_topic_project_axis.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
+        name: "policy/202610120140_policy_material_current.sql",
+        module: "policy",
+        schemas: ["policy"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "policy/202610090100_policy_originals.sql"],
+      },
+      {
+        name: "publication/202610120200_public_read_watermarks.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610090500_policy_publication.sql"],
+      },
+      {
+        name: "publication/202610120210_reader_context.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql"],
+      },
+      {
+        name: "publication/202610120220_public_read_invalidation.sql",
+        module: "publication",
+        schemas: ["publication"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "publication/202610120200_public_read_watermarks.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

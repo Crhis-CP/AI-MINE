@@ -17,6 +17,15 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
     [
+      ["2026-10-10", undefined, "金属价格增加了锂"],
+      ["2026-10-10", undefined, "金属价格把金、铜、锂放在前面"],
+      ["2026-10-10", undefined, "金属价格写明比的是哪一期"],
+      ["2026-10-10", undefined, "按国家、矿种和公司能筛到更多稿"],
+      ["2026-10-10", undefined, "外文稿先显示中文导读"],
+      ["2026-10-10", undefined, "目前是测试版"],
+      ["2026-10-10", undefined, "新闻按原始发布日期显示"],
+      ["2026-10-10", undefined, "没有大事的期不再留空"],
+      ["2026-10-10", undefined, "精选入口只留近三个月"],
       ["2026-10-10", undefined, "金属价格：电脑上列宽更匀"],
       ["2026-10-10", undefined, "首页换回精选"],
       ["2026-10-10", undefined, "金属价格页开始显示官方报价"],

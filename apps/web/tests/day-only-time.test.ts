@@ -87,6 +87,8 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/meta") return res.end(JSON.stringify({ changelogVersion: "2026-10-06T00:00" }));
   if (url.pathname === "/api/site/hot") return res.end(JSON.stringify({ entries: [] }));
   if (url.pathname === "/api/site/items/day-only") return res.end(JSON.stringify(detail));
+  if (url.pathname === "/api/site/items/undated")
+    return res.end(JSON.stringify({ ...detail, id: "undated", title: "读不到发布日期的合成稿", publishedAt: null, discoveredAt: "2026-10-10T02:57:07.420Z" }));
   if (url.pathname === "/api/site/stories/s-day") return res.end(JSON.stringify(story));
   if (url.pathname === "/api/site/pool")
     return res.end(
@@ -174,6 +176,15 @@ test("an article page shows a date-only source's stated date alone, not 00:00 or
   assert.doesNotMatch(visible, /04:30/, "never the moment it was found");
   assert.doesNotMatch(visible, /00:00/, "never the day's start as a time");
   assert.doesNotMatch(visible, /天前|小时前/, "no relative time from the day's start");
+});
+
+test("an article with no source date says it is unconfirmed and labels the collection time separately", async () => {
+  const res = await fetch(`${origin}/items/undated`);
+  assert.equal(res.status, 200);
+  const visible = (await res.text()).replace(/<script[\s\S]*?<\/script>/g, "");
+  assert.match(visible, /发布时间[\s\S]{0,80}尚未确认/);
+  assert.match(visible, /收录时间[\s\S]{0,160}2026-10-10 10:57/);
+  assert.doesNotMatch(visible, /发布时间[\s\S]{0,80}10:57/);
 });
 
 test("a story page shows a date-only report and update by date, not as hours ago or 00:00", async () => {

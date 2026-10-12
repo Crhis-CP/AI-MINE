@@ -2,6 +2,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
+import { readPolicyMaterialDate } from "@amp/backend/content/materials";
 import { readSourceDateContext, readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource, directoryMaterialState } from "@amp/backend/sources/collect";
@@ -129,8 +130,18 @@ test("bounded JSON turns persist every page, fresh homepage probe, old records b
   assert.equal(stored[0]!.first_seen_at.toISOString(), f.calls[0]!.at);
   const material = (await sql`SELECT discovered_at,backfill FROM articles WHERE id=${stored[0]!.material_id}`)[0];
   assert.equal(material.discovered_at.toISOString(), f.calls[0]!.at);
-  const dates = await sql`SELECT published_at FROM articles WHERE source_id=${f.id}`;
-  assert.ok(dates.every((row) => row.published_at.toISOString().slice(0, 10) === "2000-12-31"));
+  const dates = await sql`SELECT id,published_at FROM articles WHERE source_id=${f.id}`;
+  assert.equal(dates.length, 65);
+  for (const row of dates) {
+    assert.equal(row.published_at, null, "policy source dates do not fill the news publication timestamp");
+    const evidence = await readPolicyMaterialDate(String(row.id), f.id);
+    assert.ok(evidence, "every acquired policy record retains its own current source-date evidence");
+    assert.equal(evidence.binding.articleId, row.id);
+    assert.equal(evidence.binding.sourceId, f.id);
+    assert.equal(evidence.time.local_date, "2001-01-01");
+    assert.equal(evidence.time.precision, "date");
+    assert.equal(evidence.time.utc, null, "a date-only source must not acquire an invented midnight/timezone");
+  }
   assert.equal(
     (
       await sql`SELECT count(*)::int n FROM acquisition.directory_records WHERE scan_id IN (SELECT id FROM acquisition.directory_scans WHERE source_id=${f.id}) AND role='history'`
@@ -266,9 +277,28 @@ test("missing structure and HTTP 200 alone do not yield completion; declared emp
   delete f.source.config.directoryProfile;
   await sql`UPDATE sources SET config=${sql.json(f.source.config)} WHERE id=${f.id}`;
   const before = f.calls.length;
-  const result = await withSourceCrawl(f.source, `missing:${f.id}`, () => collectSource(f.id), { get: f.get, now: () => new Date(clock) });
+  const run = () =>
+    withSourceCrawl(
+      f.source,
+      `missing:${f.id}`,
+      async () => {
+        const result = await collectSource(f.id);
+        // This test injects a crawl outside the public wrapper. Propagate its structured wait so the
+        // injected session retains the same reservation, as the production wrapper does internally.
+        if (result.status === "deferred") {
+          assert.ok(result.retryAt && result.reservationId);
+          throw new CrawlDeferred(new Date(result.retryAt), result.reservationId, result.error ?? "host_pacing");
+        }
+        return result;
+      },
+      { get: f.get, now: () => new Date(clock) },
+    );
+  await assert.rejects(run, CrawlDeferred);
+  assert.equal(f.calls.length, before, "host pacing is not a fetch failure and issues no premature request");
+  const result = await drain(run);
   assert.equal(result.status, "failed");
   assert.match(result.error ?? "", /items path did not resolve to an array/);
+  assert.doesNotMatch(result.error ?? "", /目录结构配置缺失/);
   assert.equal(f.calls.length, before + 1, "the current list page is read when the catalogue declaration is absent");
   assert.equal((await bindings(f.id)).length, 0);
 });

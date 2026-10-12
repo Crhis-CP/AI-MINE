@@ -110,9 +110,6 @@
     "lint/correctness/noUnusedImports": 1,
     "lint/correctness/useExhaustiveDependencies": 5
   },
-  "apps/web/app/routes/topic.tsx": {
-    "lint/correctness/noUnusedImports": 1
-  },
   "apps/worker/src/main.ts": {
     "lint/style/noProcessEnv": 1
   },
@@ -197,10 +194,10 @@
     "lint/complexity/useOptionalChain": 1
   },
   "packages/backend/src/publication/reports.ts": {
-    "lint/suspicious/noExplicitAny": 26
+    "lint/suspicious/noExplicitAny": 24
   },
   "packages/backend/src/publication/v1.ts": {
-    "lint/suspicious/noAssignInExpressions": 2
+    "lint/suspicious/noAssignInExpressions": 1
   },
   "packages/backend/src/reports/compose.ts": {
     "lint/suspicious/noExplicitAny": 1

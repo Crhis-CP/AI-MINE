@@ -50,3 +50,18 @@ export async function matchingPolicyQuality(
    AND models @> ${input.models}::text[] ORDER BY valid_until DESC,id LIMIT 1`;
   return r ?? null;
 }
+
+/** Bounded operational reminder input. It never renews a qualification or changes source permissions. */
+export async function expiringPolicyQualityReleases(now = new Date(), horizonDays = 7, limit = 100) {
+  if (!Number.isInteger(horizonDays) || horizonDays < 1 || horizonDays > 90 || !Number.isInteger(limit) || limit < 1 || limit > 500)
+    throw new Error("Invalid quality reminder bounds");
+  return sql<{ id: string; source_ids: string[]; languages: string[]; fulltext_recipe: string; interpretation_recipe: string; valid_until: Date }[]>`
+    SELECT q.id,q.source_ids,q.languages,q.fulltext_recipe,q.interpretation_recipe,q.valid_until FROM policy.quality_releases q
+    WHERE NOT q.revoked AND q.reviewed_by='owner' AND q.reviewed_at<=${now} AND q.valid_until>${now}
+      AND q.valid_until<=${new Date(now.getTime() + horizonDays * 86400_000)}
+      AND NOT EXISTS (SELECT 1 FROM policy.quality_releases newer WHERE NOT newer.revoked AND newer.reviewed_by='owner'
+        AND newer.reviewed_at<=${now} AND newer.valid_until>q.valid_until AND newer.fulltext_recipe=q.fulltext_recipe
+        AND newer.interpretation_recipe=q.interpretation_recipe AND newer.source_ids @> q.source_ids
+        AND newer.languages @> q.languages AND newer.models @> q.models)
+    ORDER BY q.valid_until,q.id LIMIT ${limit}`;
+}

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import * as cheerio from "cheerio";
-import { PolicyLegalState, PolicyImpact, Policy } from "@amp/contracts/http/public";
+import { PolicyLegalState, PolicyImpact, Policy, PolicyDate } from "@amp/contracts/http/public";
 import type { TimeAssertion, SourceDateParseInput } from "@amp/contracts/time-assertion";
 import { parseSourceDate } from "@amp/backend/admin/sources";
 import { explicitPolicyReference } from "./references.ts";
@@ -13,7 +13,7 @@ const text = z
   .refine((value) => !!value.trim() && !value.includes("\0") && !value.includes("\uFFFD") && value.isWellFormed());
 const id = text.max(80),
   hash = z.string().regex(/^[a-f0-9]{64}$/);
-export const Quote = z.strictObject({ part_id: id, quote: text.max(200) });
+export const Quote = z.strictObject({ part_id: id, quote: text.max(200), annotation_id: id.optional() });
 const envelope = { id: hash, input_hash: hash, input_ids: z.array(id).min(1) };
 export const MergeReply = z.strictObject({ ...envelope, summary: text, quotes: z.array(Quote).min(1) });
 export const GroupReply = MergeReply.extend({
@@ -33,6 +33,10 @@ export const CandidateReply = z.strictObject({
   relevance: z.enum(["relevant", "excluded", "uncertain"]),
   relevance_evidence_ids: z.array(id),
   legal_state: PolicyLegalState,
+  publication_events: z
+    .array(z.strictObject({ time: PolicyDate.refine((time) => !!time.event_kind && !!time.occurrence), evidence_ids: z.array(id).min(1) }))
+    .max(32)
+    .optional(),
   main_points: Policy.shape.main_points.max(16),
   impacts: z.array(PolicyImpact).max(12),
   relationships: Policy.shape.relationships.max(20),
@@ -40,7 +44,7 @@ export const CandidateReply = z.strictObject({
   gaps: z.array(text).max(5),
   comparisons: z.array(z.unknown()).max(0),
   evidence: z
-    .array(z.strictObject({ id, part_id: id, quote: text.max(200) }))
+    .array(z.strictObject({ id, part_id: id, quote: text.max(200), annotation_id: id.optional() }))
     .min(1)
     .max(64),
 });
@@ -68,7 +72,12 @@ export function sameIds(actual: string[], expected: string[]) {
 export function checkQuotes(quotes: Quote[], parts: PolicyPart[], allowed?: Quote[]) {
   for (const quote of quotes) {
     const part = parts.find((p) => p.partId === quote.part_id);
-    if (!part || !originalText(part).includes(quote.quote) || (allowed && !allowed.some((q) => q.part_id === quote.part_id && q.quote.includes(quote.quote))))
+    const actual = quote.annotation_id ? part?.annotations?.find((a) => a.annotation_id === quote.annotation_id)?.value : part && originalText(part);
+    if (
+      !part ||
+      !actual?.includes(quote.quote) ||
+      (allowed && !allowed.some((q) => q.part_id === quote.part_id && q.annotation_id === quote.annotation_id && q.quote.includes(quote.quote)))
+    )
       throw new Error("quote_outside_actual_input");
   }
 }
@@ -166,6 +175,13 @@ export function checkCandidate(
   }
   if (candidate.legal_state.publication.time)
     checkDate(candidate.legal_state.publication.time, evidenceFor(candidate.legal_state.publication.evidence_ids), plan, identity.sequence);
+  for (const event of candidate.publication_events ?? []) {
+    const evidence = evidenceFor(event.evidence_ids);
+    if (!evidence.length) throw new Error("publication_event_requires_evidence");
+    if (event.time.occurrence === "occurred" && event.time.condition_text) throw new Error("conditional_event_not_occurred");
+    if (event.time.event_kind === "substantive_change" && event.time.meaning !== "updated") throw new Error("substantive_change_date_meaning");
+    checkDate(event.time, evidence, plan, identity.sequence);
+  }
   for (const item of [...candidate.legal_state.enforcement.arrangements, ...candidate.legal_state.applicability, ...candidate.legal_state.deadlines]) {
     const evidence = evidenceFor(item.evidence_ids);
     if (!evidence.length) throw new Error("date_arrangement_requires_evidence");
@@ -197,6 +213,7 @@ export function candidateClaims(candidate: Candidate): Claim[] {
   for (const key of ["nature", "legislative_stage", "publication", "enforcement", "repeal"] as const)
     add(`legal_state.${key}`, candidate.legal_state[key], candidate.legal_state[key].value !== "unknown");
   for (const [path, entries] of Object.entries({
+    publication_events: candidate.publication_events ?? [],
     main_points: candidate.main_points,
     impacts: candidate.impacts,
     relationships: candidate.relationships,

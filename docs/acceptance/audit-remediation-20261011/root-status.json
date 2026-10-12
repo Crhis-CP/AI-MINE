@@ -1,0 +1,48 @@
+{
+  "phase": "regression_closeout",
+  "production_changed": false,
+  "findings": [
+    {
+      "id": "ROOT-01",
+      "status": "implemented_and_focused_verified",
+      "evidence": [
+        "tests/account-lifecycle.test.ts",
+        "e2e/smoke.spec.ts",
+        "tests/account-capabilities.test.ts"
+      ]
+    },
+    {
+      "id": "ROOT-05",
+      "status": "implemented_and_focused_verified",
+      "evidence": [
+        "tests/account-lifecycle.test.ts"
+      ],
+      "detail": "auth身份连接解析共享口令旧账号；业务事务仅核对最小权限投影。单连接与12并发通过，真实private_ops没有admin_users读权限。"
+    },
+    {
+      "id": "ROOT-03",
+      "status": "implemented_and_focused_verified",
+      "evidence": [
+        "tests/public-read-watermarks.test.ts",
+        "tests/public-read-limits.test.ts"
+      ],
+      "remaining": "external deployment and external monitor activation are not authorized by this development request"
+    },
+    {
+      "id": "ROOT-04",
+      "status": "assurance_gap",
+      "evidence": [
+        ".verify/audit-remediation-20261011/check.log"
+      ],
+      "remaining": "当前实现待固定版本；历史data-ownership基线不匹配、无Docker full verify、release-check仍为既有未实现入口；均不宣称通过。"
+    }
+  ],
+  "integration": {
+    "node": "24.19.0",
+    "pnpm": "12.8.1",
+    "postgres": "17 UTF8 isolated 127.0.0.1:56433",
+    "contracts": "Zod generated; owner authorized co-integration; separate contract PR pending",
+    "gate": "not yet passed",
+    "independent_legacy_review": "not yet started"
+  }
+}

@@ -6,6 +6,9 @@ import {
   changeSelectionTool,
   selectionSamples,
   labelSelectionSample,
+  prefilterAuditView,
+  drawPrefilterAudit,
+  labelPrefilterAudit,
   reviewSelectionStandard,
   confirmSelectionHoldout,
   selectionRunEvidence,
@@ -42,6 +45,21 @@ export function registerSelectionCalibration(app: FastifyInstance) {
     routes.selectionSamples.url,
     routes.selectionSamples,
     handler(async (req, _reply, p) => selectionSamples(p, (req.query as { datasetId?: string }).datasetId, (req.query as { page?: number }).page ?? 1)),
+  );
+  app.get(
+    routes.prefilterAudit.url,
+    routes.prefilterAudit,
+    handler(async (_req, _reply, p) => prefilterAuditView(p)),
+  );
+  app.post(
+    routes.prefilterAuditDraw.url,
+    routes.prefilterAuditDraw,
+    handler(async (req, _reply, p) => drawPrefilterAudit(req.body, p)),
+  );
+  app.post(
+    routes.prefilterAuditLabel.url,
+    routes.prefilterAuditLabel,
+    handler(async (req, _reply, p) => labelPrefilterAudit((req.params as { articleId: string }).articleId, req.body, p)),
   );
   app.post(
     routes.selectionLabel.url,

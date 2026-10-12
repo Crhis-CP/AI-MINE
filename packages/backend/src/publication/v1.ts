@@ -1,17 +1,27 @@
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
 import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
-import { dbOf, type Db } from "../db.ts";
+import { dbOf, withCustomPlans, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
-import { newShortId } from "../lib/ids.ts";
-import { categoryCondition, API_ITEM_COLUMNS, API_ITEM_FROM, listedCondition, selectedCondition, type ApiItemRow } from "./items.ts";
-import { publicMatchCondition, searchTerms, withSearchCapacity } from "./pool.ts";
+import { addDays, beijingMidnight } from "@amp/contracts/time";
+import { newsJurisdictionScope, readPublicApiItems, type ApiItemRow } from "./items.ts";
+import { readMatcherValues } from "./mentions.ts";
+import { searchTerms, withSearchCapacity } from "./pool.ts";
 import { v1Payload, type V1ItemPayload } from "./publish.ts";
 
 const sql = dbOf("publication");
 
 export interface V1ItemsQuery {
   mode: "selected" | "all";
-  window: "24h" | "7d";
+  window: "24h" | "7d" | "all";
+  rangeStart?: Date | null;
+  rangeEnd?: Date | null;
+  source?: string;
+  mineral?: string;
+  jurisdiction?: string;
+  on?: string;
+  from?: string;
+  to?: string;
+  topicTags?: string[];
   by: "timeline" | "published";
   category: PublicApiCategoryKey | null;
   q: string | null;
@@ -45,29 +55,54 @@ export function rowToV1(row: ApiItemRow): V1ItemPayload {
 
 export async function v1Items(query: V1ItemsQuery, now = new Date()): Promise<V1ItemsResult> {
   const windowMs = query.window === "24h" ? 86400000 : 7 * 86400000;
-  const windowStart = new Date(now.getTime() - windowMs);
-  const binding = queryBinding({ m: query.mode, w: query.window, b: query.by, c: query.category, q: query.q });
+  const windowStart = query.window === "all" ? null : new Date(now.getTime() - windowMs);
+  const binding = queryBinding({
+    m: query.mode,
+    w: query.window,
+    b: query.by,
+    c: query.category,
+    q: query.q,
+    source: query.source,
+    mineral: query.mineral,
+    jurisdiction: query.jurisdiction,
+    on: query.on,
+    from: query.from,
+    to: query.to,
+    topicTags: query.topicTags,
+  });
   // by=timeline is the site's own order: a selected item at its reading-group anchor, anything else at its timeline time.
-  const sortCol = query.by === "published" ? sql`coalesce(p.published_at, p.discovered_at)` : query.mode === "selected" ? sql`p.sort_at` : sql`p.timeline_at`;
   let after: { a: number; i: string } | null = null;
   if (query.cursor) {
     const c = decodeCursor<{ a: number; i: string; c: string }>("it3", query.cursor);
     if (c.c !== binding || typeof c.a !== "number" || typeof c.i !== "string") throw new InvalidCursorError("cursor does not belong to this query");
     // The rolling window slid past the anchor: tell the client instead of returning an empty page.
-    if (c.a < windowStart.getTime()) throw new InvalidCursorError("the rolling window moved past this cursor");
+    if (windowStart && c.a < windowStart.getTime()) throw new InvalidCursorError("the rolling window moved past this cursor");
     after = { a: c.a, i: c.i };
   }
-  const scope = query.mode === "selected" ? selectedCondition(now) : sql`${listedCondition(now)} AND p.eligible`;
   const terms = query.q ? searchTerms(query.q) : [];
 
-  const run = (db: Db) => db<(ApiItemRow & { sort_at: Date })[]>`
-    SELECT ${API_ITEM_COLUMNS}, ${sortCol} AS sort_at ${API_ITEM_FROM}
-    WHERE ${scope} ${categoryCondition(query.category, true)} ${publicMatchCondition(terms)}
-      AND ${sortCol} >= ${windowStart} AND ${sortCol} <= ${now}
-      ${after ? sql`AND (${sortCol}, p.article_id) < (${new Date(after.a)}, ${after.i})` : sql``}
-    ORDER BY ${sortCol} DESC, p.article_id DESC
-    LIMIT ${query.limit + 1}`;
-  const rows = terms.length ? await withSearchCapacity(run) : await run(sql);
+  const geo = newsJurisdictionScope(query.jurisdiction);
+  const start = query.on ?? query.from,
+    end = query.on ?? query.to;
+  const matchers = readMatcherValues(query.mineral, query.topicTags, geo.jurisdictionCodes, terms);
+  const request = {
+    category: query.category,
+    source: query.source ?? null,
+    jurisdiction: query.jurisdiction ?? null,
+    jurisdictionCodes: geo.jurisdictionCodes,
+    jurisdictionRecipe: geo.jurisdictionRecipe,
+    rangeStart: start ? beijingMidnight(start) : null,
+    rangeEnd: end ? beijingMidnight(addDays(end, 1)) : null,
+    selected: query.mode === "selected",
+    by: query.by,
+    now,
+    windowStart,
+    afterAt: after ? new Date(after.a) : null,
+    afterId: after?.i ?? null,
+    limit: query.limit + 1,
+  };
+  const run = (db: Db) => readPublicApiItems(db, request, matchers);
+  const rows = terms.length ? await withSearchCapacity(run) : await withCustomPlans(run);
 
   const page = rows.slice(0, query.limit);
   const hasMore = rows.length > query.limit;
@@ -106,10 +141,7 @@ export async function ledgerEpoch(): Promise<string> {
   if (epochCache) return epochCache;
   const [row] = await sql<{ value: { epoch: string } }[]>`SELECT value FROM settings WHERE key = 'selected_ledger_epoch'`;
   if (row) return (epochCache = row.value.epoch);
-  const epoch = newShortId(6);
-  await sql`INSERT INTO settings (key, value) VALUES ('selected_ledger_epoch', ${sql.json({ epoch })}) ON CONFLICT (key) DO NOTHING`;
-  const [again] = await sql<{ value: { epoch: string } }[]>`SELECT value FROM settings WHERE key = 'selected_ledger_epoch'`;
-  return (epochCache = again!.value.epoch);
+  throw new SnapshotRequiredError("selected ledger epoch unavailable");
 }
 
 /** Highest sequence whose entries (and all earlier ones) have passed the release gate. */
@@ -118,6 +150,12 @@ export async function effectiveWatermark(now = new Date()): Promise<number> {
     SELECT coalesce((SELECT min(seq) - 1 FROM selected_ledger WHERE visible_at > ${now}),
                     (SELECT coalesce(max(seq), 0) FROM selected_ledger)) AS w`;
   return Number(row?.w ?? 0);
+}
+
+/** A later release must change reader versions even while an earlier sequence still blocks sync. */
+export async function pendingReleaseCount(now = new Date()): Promise<number> {
+  const [row] = await sql<{ pending: number }[]>`SELECT count(*)::int AS pending FROM selected_ledger WHERE visible_at > ${now}`;
+  return row?.pending ?? 0;
 }
 
 function minimalOf(item: V1ItemPayload) {
@@ -232,3 +270,6 @@ export async function selectedChanges(q: { cursor: string; limit: number }, now 
     ),
   };
 }
+
+// Anonymous v3 reuses this existing public read boundary; implementation stays in focused modules.
+export * from "./v3.ts";

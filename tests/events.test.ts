@@ -1,3 +1,6 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 // Event grouping invariants: an editor's decision made while the model is deciding stands; a
 // revision keeps its membership without asking the model; an explicit regroup decides again; a
@@ -42,9 +45,20 @@ const provider = await stub(async (_hit, req) => {
   const user = body.messages[1]!.content;
   const pair = user.includes("报道 A");
   const ids = answerAll ? [...user.matchAll(/【候选 (C\d+)】/g)].map((m) => m[1]!) : ["C1"];
+  const quotes = [...user.matchAll(/原文证据：([\s\S]*?)\n法域：/g)].map((m) => m[1]!.split("\n").at(-1)!);
+  const evidence = (index: number) => ({
+    queryQuote: quotes[0] ?? "",
+    candidateQuote: quotes[index] ?? "",
+    anchor: "Alpha project",
+    queryAction: "announced",
+    candidateAction: "announced",
+    queryStage: "other",
+    candidateStage: "other",
+    change: "production quantity changed",
+  });
   const answer = pair
-    ? { a: "发布", b: "发布", relation: pairRelation ?? relation, difference: "", confidence: 0.95 }
-    : { query: "发布新模型", decisions: ids.map((id) => ({ id, relation, confidence: 0.95, note: "" })) };
+    ? { a: "发布", b: "发布", relation: pairRelation ?? relation, difference: "", confidence: 0.95, evidence: evidence(1) }
+    : { query: "发布新模型", decisions: ids.map((id) => ({ id, relation, confidence: 0.95, note: "", evidence: evidence(Number(id.slice(1))) })) };
   return { id: "stub", choices: [{ message: { content: JSON.stringify(answer) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
@@ -59,24 +73,30 @@ let factId: number;
 // capital letters now and then did and tied unrelated stories together (PIT-070).
 const randomText = () => Array.from({ length: 16 }, () => String.fromCharCode(0x4e00 + Math.floor(Math.random() * (0x9fa5 - 0x4e00 + 1)))).join("");
 
+let reportSequence = 0;
 async function report(suffix: string, title = FACT_TITLE, summary = "摘要", publishedAt = new Date()) {
+  const sourceTitle = `Model launch ${T} ${suffix}`;
+  const body = `Argentina Alpha project announced mining production ${++reportSequence} units. Synthetic material ${T}.`;
   const { articleId } = await upsertMaterial({
     sourceId: SOURCE,
+    language: "en",
     url: `https://example.com/events-${T}-${suffix}`,
-    title: `Model launch ${T} ${suffix}`,
-    bodyText: "A new model.",
+    title: sourceTitle,
+    bodyText: body,
     bodyStatus: "ok",
     via: "fetch",
     publishedAt,
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${title}, ${summary}, 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, fact: { title, subject: "测试", action: "发布", object: "模型" } })})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${title}, ${summary}, 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, fact: { title, subject: "Alpha", action: "announced", object: "Alpha project" }, geography: validateGeography({ status: "identified", primary: "AR", assignments: [{ code: "AR", role: "event_location", mention: "Argentina", segment: "body_head", quote: body }], reason: "synthetic evidence" }, { title: sourceTitle, bodyText: body, excerpt: null, bodyStatus: "ok" }) })})`;
   await publishArticle(articleId);
   return articleId;
 }
 
 before(async () => {
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES (${SOURCE}, 'Test events', 'rss', 'T1', 'editorial', '2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://example.com/source"]);
+  await installUsageFixtureForModel("deepseek-flash");
   // An existing fact with one report: the candidate every later report meets.
   const [story] = await sql<
     { id: number }[]
@@ -85,7 +105,7 @@ before(async () => {
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`f-${T}`}, ${storyId}, ${FACT_TITLE}) RETURNING id`;
   factId = fact!.id;
   const first = await report("first");
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${factId}, ${first}, 'report')`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${factId}, ${first}, 'report',1)`;
   await sql`INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
             VALUES (${storyId}, ${first}, ${`source:${SOURCE}`}, ${SOURCE}, 'editorial', now())`;
 });
@@ -112,7 +132,7 @@ test("a detach made while the model is deciding the report's fact stands", async
   assert.deepEqual({ ...publication }, { fact_id: null, story_id: null }, "it is shown on its own");
 });
 
-test("a report joins the fact the model names, and a revision keeps that membership without asking again", async () => {
+test("a report joins the named fact, and the unchanged revision reuses its membership", async () => {
   hold = gate();
   hold.open();
   const id = await report("second");
@@ -121,7 +141,7 @@ test("a report joins the fact the model names, and a revision keeps that members
   assert.equal(first.factId, factId);
   const hits = provider.hits();
 
-  // A revision sends the report through grouping again: nothing to decide, nothing to pay.
+  // Unchanged material through grouping again: nothing to decide, nothing to pay; revised material is covered by group-revision.test.ts.
   const again = await groupArticle(id);
   assert.equal(again.verdict, "kept");
   assert.equal(again.factId, factId);
@@ -171,7 +191,7 @@ test("a report waiting for a regroup is not evidence for others, and its own tur
   >`INSERT INTO stories (public_id, title, first_report_at, latest_at) VALUES (${randomUUID()}, ${text}, now(), now()) RETURNING id`;
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`fw-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const oldFact = Number(fact!.id);
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${oldFact}, ${waiting}, 'report')`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${oldFact}, ${waiting}, 'report',1)`;
   await sql`INSERT INTO regroup_pending (article_id) VALUES (${waiting})`;
 
   // A later report of the same occurrence does not meet the waiting one: nothing to compare with.
@@ -205,7 +225,7 @@ test("a development attaches to the story's earliest fact that still holds repor
   await sql`INSERT INTO facts (public_id, story_id, title) VALUES (${`fe-${T}`}, ${story!.id}, 'emptied')`;
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`fr-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const first = await report("root", text, text);
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${fact!.id}, ${first}, 'report')`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${fact!.id}, ${first}, 'report',1)`;
 
   relation = "SAME_STORY";
   try {
@@ -227,7 +247,7 @@ async function storyWithRoot(text: string, suffix: string) {
     { id: number }[]
   >`INSERT INTO facts (public_id, story_id, title) VALUES (${`fs-${suffix}-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const article = await report(suffix, text, text);
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${fact!.id}, ${article}, 'report')`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${fact!.id}, ${article}, 'report',1)`;
   return { storyId: Number(story!.id), publicId: String(story!.public_id), factId: Number(fact!.id), articleId: article };
 }
 
@@ -242,8 +262,8 @@ test("a story's root is the fact reported first, not the one with the lowest num
   // Created first (lower id), reported later: a fact carried over from a merged or imported story.
   const [later] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`ft-late-${T}`}, ${story!.id}, ${late}) RETURNING id`;
   const [first] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`ft-early-${T}`}, ${story!.id}, ${early}) RETURNING id`;
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${later!.id}, ${await report("late-fact", late, late)}, 'report')`;
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${first!.id}, ${await report("early-fact", early, early, new Date(Date.now() - 2 * 3600_000))}, 'report')`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${later!.id}, ${await report("late-fact", late, late)}, 'report',1)`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${first!.id}, ${await report("early-fact", early, early, new Date(Date.now() - 2 * 3600_000))}, 'report',1)`;
 
   // A development of the fact reported first joins the story through it.
   relation = "SAME_STORY";
@@ -317,7 +337,7 @@ test("a story whose reports all moved away keeps its address: it redirects to wh
   // A second report of the old story, about something no other report mentions.
   const other = randomText();
   const staying = await report("staying", other, other);
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role) VALUES (${old.factId}, ${staying}, 'report')`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${old.factId}, ${staying}, 'report',1)`;
   const target = await storyWithRoot(text, "target");
 
   // The first report moves to the story it belongs to; the old story still has a report and stays.

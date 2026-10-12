@@ -71,8 +71,8 @@ function FeedbackAside() {
   );
 }
 
-const MAX_IMAGE = 5 * 1024 * 1024;
-const MAX_TEXT = 2000;
+const MAX_IMAGE = 2 * 1024 * 1024;
+const MAX_TEXT = 5000;
 
 export default function FeedbackPage() {
   const [params] = useSearchParams();
@@ -100,7 +100,7 @@ export default function FeedbackPage() {
   const pick = (file: File | null | undefined) => {
     if (!file) return;
     if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return setState({ kind: "error", message: "截图需要是 PNG、JPEG 或 WebP。" });
-    if (file.size > MAX_IMAGE) return setState({ kind: "error", message: "截图原图不超过 5 MB。" });
+    if (file.size > MAX_IMAGE) return setState({ kind: "error", message: "截图原图不超过 2 MB。" });
     setShot({ file, url: URL.createObjectURL(file) });
     setState({ kind: "idle" });
   };
@@ -116,7 +116,7 @@ export default function FeedbackPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (draft.content.trim().length < 2) return setState({ kind: "error", message: "请写下反馈内容。" });
+    if (draft.content.trim().length < 10 || draft.content.trim().length > MAX_TEXT) return setState({ kind: "error", message: "反馈内容需要 10–5000 字。" });
     setState({ kind: "sending" });
     try {
       const form = new FormData();
@@ -147,6 +147,9 @@ export default function FeedbackPage() {
           <p className="mt-2 text-[14px] text-ink-3">
             反馈编号 <span className="mono font-semibold text-ink">#{state.id}</span>，需要回复时我们会引用这个编号。
           </p>
+          <button type="button" onClick={() => setState({ kind: "idle" })} className="mt-6 mr-4 text-[14px] text-accent">
+            再写一条
+          </button>
           <Link
             to="/"
             className="mt-8 inline-flex h-10 items-center rounded-full bg-ink px-6 text-[14px] font-medium text-bg transition-opacity hover:opacity-90"
@@ -161,7 +164,7 @@ export default function FeedbackPage() {
   const field =
     "w-full rounded-card bg-bg-sunk text-ink outline-none ring-1 ring-inset ring-line-soft transition-[background-color,box-shadow] placeholder:text-ink-4 hover:ring-line-strong focus:bg-surface focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:ring-accent dark:bg-bg-muted/60 dark:focus:bg-surface";
   const label = "mb-2 block text-[13px] font-semibold text-ink";
-  const canSend = draft.content.trim().length >= 2 && state.kind !== "sending";
+  const canSend = draft.content.trim().length >= 10 && draft.content.trim().length <= MAX_TEXT && state.kind !== "sending";
   return (
     <ReadingLayout aside={<FeedbackAside />}>
       <header>
@@ -195,6 +198,7 @@ export default function FeedbackPage() {
                 id="fb-content"
                 required
                 rows={9}
+                minLength={10}
                 maxLength={MAX_TEXT}
                 value={draft.content}
                 onChange={(e) => setDraft({ ...draft, content: e.target.value })}
@@ -209,14 +213,15 @@ export default function FeedbackPage() {
 
           <div>
             <label htmlFor="fb-email" className={label}>
-              邮箱 <span className="font-normal text-ink-4">（选填）</span>
+              联系方式 <span className="font-normal text-ink-4">（选填）</span>
             </label>
             <input
               id="fb-email"
-              type="email"
+              type="text"
+              maxLength={254}
               value={draft.email}
               onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-              placeholder="留下邮箱，我可以回信联系你"
+              placeholder="邮箱、电话或其他方便联系你的方式"
               className={`${field} h-11 px-4 text-[14.5px]`}
             />
           </div>
@@ -253,7 +258,7 @@ export default function FeedbackPage() {
                 <span className="min-w-0">
                   <span className="block text-[13.5px] font-semibold text-ink-2">添加一张问题截图</span>
                   <span className="mt-0.5 block text-[12px] leading-relaxed text-ink-4">
-                    粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG 或 WebP，原图不超过 5 MB
+                    粘贴或拖到这里也可以 · 请先遮盖敏感信息；PNG、JPEG 或 WebP，原图不超过 2 MB
                   </span>
                 </span>
               </button>
@@ -270,7 +275,7 @@ export default function FeedbackPage() {
 
         <div className="flex flex-col-reverse gap-4 border-t border-line-soft bg-bg-sunk/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:bg-bg-muted/30">
           <p className="text-[12px] leading-relaxed text-ink-4 sm:max-w-[400px]">
-            请勿提交密钥、身份证件或与问题无关的敏感信息。提交即表示你知悉反馈内容、选填邮箱、页面信息和截图将按
+            请勿提交密钥、身份证件或与问题无关的敏感信息。提交即表示你知悉反馈内容、选填联系方式、页面信息和截图将按
             <Link to="/privacy" className="text-accent hover:underline">
               隐私说明
             </Link>

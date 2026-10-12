@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { dbOf, type Db } from "../db.ts";
 import { selectionMaterialSnapshot } from "@amp/backend/content/materials";
-import { buildScoreInput, loadAnalyzeInput, type AnalyzeInputArticle } from "@amp/backend/editorial/analyze";
+import { buildScoreInput, loadAnalyzeInput, evaluationInputFingerprint, type AnalyzeInputArticle } from "@amp/backend/editorial/analyze";
 import { audit, type AdminPrincipal } from "./auth.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { SelectionLabel, SelectionLabelRequest, SelectionSamples } from "@amp/contracts/http/private";
@@ -172,6 +172,8 @@ export async function exportSelectionGold(datasetId: string) {
       synthetic: dataset.synthetic,
       rows: dataset.cases.map((c) => ({
         caseId: c.case_id,
+        analysisInput: c.hidden_input,
+        inputFingerprint: evaluationInputFingerprint(c.hidden_input),
         material: {
           title: c.hidden_input.title,
           originalTitle: c.hidden_input.title,

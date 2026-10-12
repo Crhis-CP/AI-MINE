@@ -1,3 +1,8 @@
+import { prepareEvaluationInput, currentEvaluationDerivedInput, loadAnalyzeInput } from "@amp/backend/editorial/analyze";
+import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
+import { shutdownSignal } from "@amp/backend/jobs/queue";
+import { newsRelationJurisdictions } from "@amp/backend/publication/publish";
+import { stableJson } from "@amp/backend/lib/ids";
 // Evaluates the production pairwise event-relation judge on a user-supplied gold set.
 // Usage: node --env-file=.env scripts/eval-relations.ts --gold .data/relation-gold.jsonl
 //        [--models default,deepseek-flash] [--split development] [--n 200] [--thresholds 0.75,0.8]
@@ -19,7 +24,48 @@ import {
   storyTieMetrics,
   toReportView,
   type RelationPrediction,
+  type RelationGoldRow,
 } from "./eval-relations-core.ts";
+
+async function authorizedPair(row: RelationGoldRow) {
+  const a = await prepareEvaluationInput(row.a.analysisInput, row.a.inputFingerprint);
+  const b = await prepareEvaluationInput(row.b.analysisInput, row.b.inputFingerprint);
+  const read = async () => ({
+    a: await loadAnalyzeInput(a.input.id),
+    b: await loadAnalyzeInput(b.input.id),
+    da: await currentEvaluationDerivedInput(a.input.id, a.input.revision),
+    db: await currentEvaluationDerivedInput(b.input.id, b.input.revision),
+  });
+  const initial = await read();
+  const contexts = await newsRelationJurisdictions([a.input, b.input]);
+  const reports = [row.a, row.b].map((report, i) => {
+    const input = i === 0 ? a.input : b.input,
+      derived = i === 0 ? initial.da : initial.db;
+    if (
+      ![input.title, derived?.title_zh].includes(report.title) ||
+      report.source !== input.source.name ||
+      report.firstParty !== input.source.firstParty ||
+      ![null, input.excerpt, derived?.summary_zh].includes(report.summary) ||
+      (report.publishedAt ? new Date(report.publishedAt).toISOString() : null) !== (input.publishedAt?.toISOString() ?? null)
+    )
+      throw new Error("关系gold中的标题、导读或来源元数据不再匹配当前已绑定材料，请重新导出");
+    const fact = (derived?.output?.fact ?? {}) as Record<string, unknown>;
+    const frame = { subject: fact.subject ?? null, action: fact.action ?? null, object: fact.object ?? null, occurredAt: fact.occurredAt ?? null };
+    if (report.frame && stableJson(report.frame) !== stableJson(frame)) throw new Error("关系gold事实框架没有当前修订的已存依据");
+    return {
+      ...toReportView(report),
+      articleId: input.id,
+      revision: input.revision,
+      originalText: input.title + "\n" + (input.bodyText ?? input.excerpt ?? ""),
+      jurisdiction: contexts.find((c) => c.id === input.id)?.jurisdiction ?? null,
+    };
+  });
+  const articles = [...new Map([a.input, b.input].map((input) => [input.id, input])).values()];
+  const permit = await prepareNewsFallback({ root: shutdownSignal.signal, expected: initial, current: read, articles });
+  if (!permit) throw new Error("关系评测缺少当前材料许可");
+  const user = pairUser(reports[0]!, reports[1]!);
+  return { user, fallbackPermit: permit({ system: PAIR_SYSTEM, user }) };
+}
 
 await initializeDb("worker");
 
@@ -104,7 +150,7 @@ async function main() {
     const requests = new Map<string, ReturnType<typeof chatJson<typeof PairSchema>>>();
     const results = await pmap(sample, concurrency, async (row) => {
       try {
-        const user = pairUser(toReportView(row.a), toReportView(row.b));
+        const { user, fallbackPermit } = await authorizedPair(row);
         let request = requests.get(user);
         const shared = request !== undefined;
         if (!request) {
@@ -116,6 +162,10 @@ async function main() {
               promptVersion: RELATE_PROMPT_VERSION,
               system: PAIR_SYSTEM,
               user,
+              fallbackPermit,
+              sourceIds: [...fallbackPermit.sourceIds],
+              usagePurpose: "evaluation",
+              lane: "news",
               schema: PairSchema,
               temperature: 0,
               maxTokens: 400,

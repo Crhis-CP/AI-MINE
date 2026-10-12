@@ -29,8 +29,8 @@ async function upload(file: Buffer, ip: string) {
   return app.inject({ method: "POST", url: "/api/site/feedback", headers: { "content-type": request.headers.get("content-type")!, "x-real-ip": ip }, payload });
 }
 
-test("a 5 MiB multipart screenshot is stored intact", async () => {
-  const file = Buffer.alloc(5 * 1024 * 1024, 137);
+test("a 2 MiB multipart screenshot is stored intact", async () => {
+  const file = Buffer.alloc(2 * 1024 * 1024, 137);
   const result = await upload(file, "203.0.113.211");
   assert.equal(result.statusCode, 201, result.body);
   assert.equal(result.headers["cache-control"], "no-store");
@@ -41,7 +41,7 @@ test("a 5 MiB multipart screenshot is stored intact", async () => {
   assert.deepEqual(await readFile(path.join(config.dataDir, "feedback-screenshots", row!.screenshot_key.slice(6))), file);
 });
 
-test("malformed multipart and screenshots above the existing backend limit are rejected", async () => {
+test("malformed multipart and screenshots above the approved 2 MiB limit are rejected", async () => {
   const bad = await app.inject({
     method: "POST",
     url: "/api/site/feedback",
@@ -49,9 +49,9 @@ test("malformed multipart and screenshots above the existing backend limit are r
     payload: Buffer.from("bad"),
   });
   assert.equal(bad.statusCode, 400);
-  const result = await upload(Buffer.alloc(8 * 1024 * 1024 + 1), "203.0.113.212");
+  const result = await upload(Buffer.alloc(2 * 1024 * 1024 + 1), "203.0.113.212");
   assert.equal(result.statusCode, 400);
-  assert.match(result.json().detail, /8MB/);
+  assert.match(result.json().detail, /2MB/);
 });
 
 test("the JSON screenshot sent by an already-open tab remains accepted", async () => {
@@ -60,7 +60,7 @@ test("the JSON screenshot sent by an already-open tab remains accepted", async (
     method: "POST",
     url: "/api/site/feedback",
     headers: { "x-real-ip": "203.0.113.213" },
-    payload: { content: "旧标签页", screenshot: { mime: "image/png", data: file.toString("base64") } },
+    payload: { content: "旧标签页继续提交有效反馈文字", screenshot: { mime: "image/png", data: file.toString("base64") } },
   });
   assert.equal(result.statusCode, 201);
   const [row] = await sql`SELECT screenshot_key FROM feedback WHERE id = ${result.json().id}`;

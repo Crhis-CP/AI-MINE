@@ -319,6 +319,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/selectbench/prefilter-audit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["prefilterAudit"];
+    put?: never;
+    post: operations["prefilterAuditDraw"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/selectbench/prefilter-audit/{articleId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["prefilterAuditLabel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/selectbench/samples": {
     parameters: {
       query?: never;
@@ -1654,6 +1686,110 @@ export interface components {
       note: string;
       /** Format: uri */
       url: string;
+    };
+    /** @enum {string} */
+    PrefilterAuditDecision: "should_not_discard" | "should_not_keep" | "agree";
+    /** @enum {string} */
+    PrefilterAuditDecisionInput: "should_not_discard" | "should_not_keep" | "agree";
+    PrefilterAuditDraw: {
+      /** Format: date-time */
+      createdAt: string;
+      discarded: number;
+      id: string;
+      items: components["schemas"]["PrefilterAuditItem"][];
+      kept: number;
+    };
+    PrefilterAuditDrawInput: {
+      /** Format: date-time */
+      createdAt: string;
+      discarded: number;
+      id: string;
+      items: components["schemas"]["PrefilterAuditItemInput"][];
+      kept: number;
+    };
+    PrefilterAuditDrawRequest: {
+      /** Format: uuid */
+      nonce: string;
+      /** Format: uuid */
+      requestId: string;
+    };
+    PrefilterAuditDrawRequestInput: {
+      /** Format: uuid */
+      nonce: string;
+      /** Format: uuid */
+      requestId: string;
+    };
+    PrefilterAuditItem: {
+      articleId: string;
+      discoveredAt: string | null;
+      label: components["schemas"]["PrefilterAuditLabel"] | null;
+      /** @enum {string} */
+      pool: "discarded" | "kept";
+      position: number;
+      preview: string;
+      sourceName: string;
+      title: string;
+    };
+    PrefilterAuditItemInput: {
+      articleId: string;
+      discoveredAt: string | null;
+      label: components["schemas"]["PrefilterAuditLabelInput"] | null;
+      /** @enum {string} */
+      pool: "discarded" | "kept";
+      position: number;
+      preview: string;
+      sourceName: string;
+      title: string;
+    };
+    PrefilterAuditLabel: {
+      actor: string;
+      /** Format: date-time */
+      at: string;
+      decision: components["schemas"]["PrefilterAuditDecision"];
+      note: string;
+      revision: number;
+    };
+    PrefilterAuditLabelInput: {
+      actor: string;
+      /** Format: date-time */
+      at: string;
+      decision: components["schemas"]["PrefilterAuditDecisionInput"];
+      note: string;
+      revision: number;
+    };
+    PrefilterAuditLabelRequest: {
+      decision: components["schemas"]["PrefilterAuditDecision"];
+      expectedRevision: number;
+      note: string;
+      /** Format: uuid */
+      requestId: string;
+    };
+    PrefilterAuditLabelRequestInput: {
+      decision: components["schemas"]["PrefilterAuditDecisionInput"];
+      expectedRevision: number;
+      note: string;
+      /** Format: uuid */
+      requestId: string;
+    };
+    PrefilterAuditView: {
+      batchSize: number;
+      draw: components["schemas"]["PrefilterAuditDraw"] | null;
+      excluded: number;
+      pools: {
+        discarded: number;
+        kept: number;
+        unknown: number;
+      };
+    };
+    PrefilterAuditViewInput: {
+      batchSize: number;
+      draw: components["schemas"]["PrefilterAuditDrawInput"] | null;
+      excluded: number;
+      pools: {
+        discarded: number;
+        kept: number;
+        unknown: number;
+      };
     };
     Problem: {
       code: string;
@@ -4884,6 +5020,265 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SelectionRecord"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  prefilterAudit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PrefilterAuditView"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  prefilterAuditDraw: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PrefilterAuditDrawRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PrefilterAuditView"];
+        };
+      };
+      /** @description Problem response */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  prefilterAuditLabel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        articleId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PrefilterAuditLabelRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PrefilterAuditLabel"];
         };
       };
       /** @description Problem response */

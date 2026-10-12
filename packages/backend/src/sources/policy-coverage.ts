@@ -28,9 +28,9 @@ export async function policySourceCoverage(start: string, end: string) {
         ...(jurisdiction.parent ? { parent: jurisdiction.parent } : {}),
       }),
       registered_source_count: registered.length,
-      complete_receipt_count: receipts.filter((r) => names.has(r.source_id) && r.outcome === "complete").reduce((n, r) => n + r.count, 0),
-      incomplete_receipt_count: receipts.filter((r) => names.has(r.source_id) && r.outcome === "incomplete").reduce((n, r) => n + r.count, 0),
-      missing_receipt_count: registered.filter((s) => !receipts.some((r) => r.source_id === s.id)).length,
+      complete_receipt_count: new Set(receipts.filter((r) => names.has(r.source_id) && r.outcome === "complete").map((r) => r.source_id)).size,
+      incomplete_receipt_count: new Set(receipts.filter((r) => names.has(r.source_id) && r.outcome === "incomplete").map((r) => r.source_id)).size,
+      missing_receipt_count: registered.filter((s) => !receipts.some((r) => r.source_id === s.id && r.outcome === "complete")).length,
       available_count: 0,
       failures: failures
         .filter((failure) => names.has(failure.source_id))

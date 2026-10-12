@@ -1,9 +1,10 @@
+import { attachSourcePolicies } from "./reader-context.ts";
 // Home timeline: selected items folded into reading groups (reference SELECTED_READING):
 // one card per story, per fact outside a story, or per standalone article. A card sits at its latest
 // development's first appearance, so a new development brings it back up while a representative swap
 // never moves it; the representative is the first-party pick of the story's initiating fact.
 import type { GroupInfo, TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
-import { beijingDate } from "@amp/contracts/time";
+import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { dbOf } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
@@ -13,7 +14,6 @@ import {
   jurisdictionCondition,
   newsJurisdictionScope,
   channelCondition,
-  selectedCondition,
   tagCondition,
   toFeedItemSummary,
   topicCondition,
@@ -23,6 +23,9 @@ import {
 const sql = dbOf("publication");
 
 export interface TimelineQuery extends TimelineFilters {
+  scope?: "all" | "selected";
+  featuredSince?: Date;
+  offset?: number;
   jurisdictionCodes?: string[];
   jurisdictionRecipe?: string;
   cursor?: string | null;
@@ -36,12 +39,24 @@ interface GroupRow {
   anchor_at: Date;
 }
 
+function entryCondition(q: TimelineQuery, now: Date) {
+  if (q.scope === "all") return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now}) AND p.eligible`;
+  return sql`p.visibility = 'public' AND p.selected AND p.visible_after <= ${now} AND p.timeline_at >= ${q.featuredSince ?? null}`;
+}
+
 function filterSql(q: TimelineQuery) {
   return sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)}`;
 }
 
 function binding(q: TimelineQuery): string {
-  return queryBinding({ c: q.channel, k: q.category, t: q.tag, p: q.topic ?? null, ...(q.jurisdiction ? { j: q.jurisdiction } : {}) });
+  return queryBinding({
+    scope: q.scope ?? "selected",
+    c: q.channel,
+    k: q.category,
+    t: q.tag,
+    p: q.topic ?? null,
+    ...(q.jurisdiction ? { j: q.jurisdiction } : {}),
+  });
 }
 
 /** Representative preference: first-party, full text, higher score, earliest. */
@@ -102,16 +117,17 @@ async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
       WITH base AS (
         SELECT p.sort_at, coalesce('s' || p.story_id::text, 'f' || p.fact_id::text, 'a' || p.article_id) AS gk
         FROM publications p
-        WHERE ${selectedCondition(now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}
+        WHERE ${entryCondition(q, now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}
       )
       SELECT gk, max(sort_at) AS anchor_at FROM base GROUP BY gk ORDER BY anchor_at DESC, gk COLLATE "C" DESC`
   ).map((r) => ({ gk: r.gk, anchor: r.anchor_at.getTime() }));
   return rows;
 }
 
-export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineResponse, "hot" | "generatedAt">> {
+export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineResponse, "hot" | "generatedAt"> & { total: number }> {
   q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
   const now = q.now ?? new Date();
+  q = { ...q, featuredSince: beijingMidnight(addCalendarMonths(beijingDate(now), -3)) };
   const limit = Math.min(Math.max(q.limit ?? 20, 1), 40);
   const bind = binding(q);
   let after: { a: number; g: string } | null = null;
@@ -125,7 +141,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const refreshAtRead = nextRelease(q, now);
   refreshAtRead.catch(() => {});
   const grouped = await groupedAnchors(q, now);
-  const start = after ? grouped.findIndex((g) => g.anchor < after!.a || (g.anchor === after!.a && g.gk < after!.g)) : 0;
+  const start = after ? grouped.findIndex((g) => g.anchor < after!.a || (g.anchor === after!.a && g.gk < after!.g)) : (q.offset ?? 0);
   const groups: GroupRow[] = (start < 0 ? [] : grouped.slice(start, start + limit + 1)).map((g) => ({ gk: g.gk, anchor_at: new Date(g.anchor) }));
 
   const page = groups.slice(0, limit);
@@ -141,7 +157,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
       ? sql<Member[]>`
         SELECT p.story_id, p.fact_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
         WHERE (p.story_id IN ${sql(storyIds.length ? storyIds : [0])} OR (p.story_id IS NULL AND p.fact_id IN ${sql(factIds.length ? factIds : [0])}))
-          AND ${selectedCondition(now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`
+          AND ${entryCondition(q, now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`
       : Promise.resolve([] as Member[]),
     groupPool(q, now, storyIds, factIds),
   ]);
@@ -200,10 +216,11 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
       ? (
           await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(planned.map((p) => p.id))}
-      AND ${selectedCondition(now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`
+      AND ${entryCondition(q, now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`
         ).map((row) => [row.id, row])
       : [],
   );
+  await attachSourcePolicies([...rows.values()]);
   const cards: TimelineCard[] = planned.flatMap(({ id, key, anchorAt, group }) => {
     const row = rows.get(id);
     if (!row) return [];
@@ -225,6 +242,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const last = page[page.length - 1];
   const nextCursor = hasMore && last ? encodeCursor("tl1", { a: last.anchor_at.getTime(), g: last.gk, b: bind }) : null;
   return {
+    total: grouped.length,
     filters: { channel: q.channel, category: q.category, tag: q.tag, topic: q.topic ?? null, ...(q.jurisdiction ? { jurisdiction: q.jurisdiction } : {}) },
     cards,
     nextCursor,

@@ -50,12 +50,35 @@ function extraFromEnv(value: string | undefined): Record<string, unknown> | unde
   }
 }
 
-/** AIHOT's four built-in providers. Presets stay in this list; a later key does not change the admin page. */
+/**
+ * 上游基础方案's four built-in providers. Presets stay in this list; a later key does not change the admin page.
+ * `duty` is the mining job of that seat. Until the other three keys exist, every seat still calls `default`.
+ */
 export const BUILTIN_MODEL_FAMILIES = [
-  { id: "deepseek", label: "DeepSeek", presets: ["deepseek-flash", "deepseek-flash-think"] },
-  { id: "glm", label: "智谱 GLM", presets: ["glm-5.3-flash", "glm-5.3-flash-selection"] },
-  { id: "qwen", label: "通义千问", presets: ["qwen3.8-flash", "qwen3.7-flash", "qwen3-vl-flash"] },
-  { id: "mimo", label: "小米 MiMo", presets: ["mimo-v2.6-flash"] },
+  {
+    id: "deepseek",
+    label: "DeepSeek",
+    duty: "其余稿的中文标题和摘要；几篇报道是不是同一件矿业上的事；事件综述；日报、周报、月报。全文翻译也归这一家。",
+    presets: ["deepseek-flash", "deepseek-flash-think"],
+  },
+  {
+    id: "glm",
+    label: "智谱 GLM",
+    duty: "精选评分：同一标准独立打两次分。入选或接近入选的稿，写中文标题、导读和推荐理由。",
+    presets: ["glm-5.3-flash", "glm-5.3-flash-selection"],
+  },
+  {
+    id: "qwen",
+    label: "通义千问",
+    duty: "预筛：是不是金属矿业的事，宽进，只拦明显无关。结构抽取：分类、主体和事件事实，不写给读者看的文字。能看图的预设留给法规附件，现在不单独接。",
+    presets: ["qwen3.8-flash", "qwen3.7-flash", "qwen3-vl-flash"],
+  },
+  {
+    id: "mimo",
+    label: "小米 MiMo",
+    duty: "归组拿不准时再读一遍：两篇要不要并成一件事。设计上最好和归组不是同一家；测试阶段先共用已经接入的那一个模型。",
+    presets: ["mimo-v2.6-flash"],
+  },
 ] as const;
 
 /** True only when this preset has an address, a model name and a key. The key itself is not returned. */
@@ -242,6 +265,17 @@ export interface ChatJsonResult<T> {
   usage: Record<string, unknown> | null;
   finishReason: string | null;
   attemptId: string | null;
+}
+
+/** The response is already paid and durable, but its current material permit no longer allows promotion. */
+export class ModelPostReceiptGuardError extends Error {
+  readonly receiptId: number;
+  readonly attemptId: string | null;
+  constructor(receiptId: number, attemptId: string | null, cause: unknown) {
+    super("Model input permit changed after response; receipt retained", { cause });
+    this.receiptId = receiptId;
+    this.attemptId = attemptId;
+  }
 }
 
 export class ModelOutputError extends Error {
@@ -532,6 +566,38 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       attemptId: receipt.attemptId,
     };
   };
+  // Both paid sends and free cache reuse require the same current source permit.
+  const permittedPrimary = async () => {
+    const permit = opts.fallbackPermit ? await opts.fallbackPermit.authorize({ modelKey: opts.model, configurationHash }) : null;
+    if (
+      !permit &&
+      !opts.fallbackHop &&
+      !opts.registeredProbe &&
+      Object.values(CAPABILITIES).some((capability) => (capability.purposes as readonly string[]).includes(opts.purpose)) &&
+      !opts.policyContext
+    )
+      throw new Error("新闻主模型处理缺少当前材料许可");
+    const previous = opts.beforeRequest;
+    try {
+      if (permit) {
+        opts.beforeRequest = async () => {
+          await permit.beforeRequest();
+          await previous?.();
+        };
+        await opts.beforeRequest();
+      }
+      const result = await primary();
+      try {
+        await (permit?.afterResponse ?? permit?.beforeRequest)?.();
+      } catch (error) {
+        throw new ModelPostReceiptGuardError(result.receiptId, result.attemptId, error);
+      }
+      return result;
+    } finally {
+      opts.beforeRequest = previous;
+      permit?.close();
+    }
+  };
   return withModelFallback(
     {
       request,
@@ -546,7 +612,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
       contractHash,
       vision: Array.isArray(opts.user) && opts.user.some((p) => p.type === "image_url"),
     },
-    primary,
+    permittedPrimary,
     (model, authorize) => chatJson({ ...opts, model, beforeRequest: authorize, fallbackHop: true, maxPhysicalAttempts: 1 }),
   );
 }

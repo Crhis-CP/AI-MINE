@@ -163,7 +163,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
   return (
     <AdminPage
       title="模型与评测"
-      subtitle="每个处理环节当前用哪个模型。测试站默认走已经接入的这一路。下面四家是 AIHOT 内置模型，已接入的可以切换，尚未接入的位置留着。切换只影响之后的新任务，已有结果不重算。"
+      subtitle="查看和切换各处理环节使用的模型。已接入的可以切换，尚未接入的供应商保留位置。切换只影响之后的新任务，已有结果不重算。"
       actions={
         <FilterChips
           param="days"
@@ -177,7 +177,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
     >
       <Card title="内置模型">
         <p className="text-[13px] leading-6 text-ink-2">
-          沿用 AIHOT 的四家模型。测试站各环节默认使用已经接入的部署模型
+          查看四家内置供应商的接入情况。各处理环节默认使用已经配置的模型
           {m.deploymentReady ? "（这一路已接入）" : ""}
           ，不会因为这一页改去尚未接入的模型。以后补上接口即可切换，不用改页面结构。
         </p>
@@ -311,7 +311,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
           right={
             me.owner ? (
               <Link to="/admin/selectbench" className="text-accent">
-                打开校准页
+                打开精选校准
               </Link>
             ) : null
           }
@@ -345,7 +345,7 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
               ]}
             />
           ) : (
-            <Empty>还没有导入对比运行。评分是否在首页生效，仍由负责人在精选校准页自己确认。</Empty>
+            <Empty title="还没有对比运行">评分是否在首页生效，仍由负责人在精选校准页自己确认。预筛抽查也在那一页。</Empty>
           )}
         </Card>
         <Card title="切换记录" pad={false}>

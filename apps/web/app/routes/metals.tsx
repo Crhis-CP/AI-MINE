@@ -39,6 +39,13 @@ function priceText(value: string, decimals: number | null) {
 const Tag = ({ value }: { value: string }) => (
   <span className="mr-1.5 inline-block rounded-mark bg-bg-muted px-1.5 py-0.5 text-[10px] leading-none text-ink-3">{value}</span>
 );
+/** The column used to say “较上期” for every row. The phrase names that row’s own previous period. */
+const COMPARE_PHRASE: Record<string, string> = {
+  日: "较上一交易日",
+  周: "较上周",
+  旬: "较上一旬",
+  月: "较上月",
+};
 const NewWindow = () => <span className="sr-only">（在新窗口打开）</span>;
 
 export default function MetalsPage() {
@@ -135,20 +142,24 @@ export default function MetalsPage() {
                 className="mt-4 overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline-accent"
               >
                 <table className="w-full table-fixed border-collapse text-[12px] sm:text-[14px]">
-                  <caption className="sr-only">按品种分组的官方机构报价及较上期变化</caption>
+                  <caption className="sr-only">按品种分组的官方机构报价。每一行写明比的是上一交易日、上一周、上一旬还是上个月</caption>
                   <thead className="bg-bg-sunk text-left text-[11px] font-medium text-ink-3 sm:text-[12px]">
                     <tr>
                       <th scope="col" className="w-11 px-2 py-2.5 sm:w-[10%] sm:px-4">
                         品种
                       </th>
-                      <th scope="col" className="px-2 py-2.5 sm:w-[30%] sm:px-4">
+                      <th scope="col" className="px-2 py-2.5 sm:w-[24%] sm:px-4">
                         报价
                       </th>
                       <th scope="col" className="w-24 px-2 py-2.5 text-right sm:w-[18%] sm:px-4">
                         价格
                       </th>
-                      <th scope="col" className="w-16 px-2 py-2.5 text-right sm:w-[14%] sm:px-4">
-                        较上期
+                      <th
+                        scope="col"
+                        title="每一行写明比的是上一交易日、上一周、上一旬还是上个月"
+                        className="w-[5.25rem] px-1 py-2.5 text-right sm:w-[20%] sm:px-4"
+                      >
+                        变化
                       </th>
                       <th scope="col" className="hidden px-4 py-2.5 sm:table-cell sm:w-[28%]">
                         规格
@@ -159,7 +170,9 @@ export default function MetalsPage() {
                     <tbody key={metal.key} className="border-t border-line sm:even:bg-bg-sunk/40">
                       {metal.quotes.map((quote, index) => {
                         const parts = quote.title.split(" · "),
-                          percent = quote.change?.percent;
+                          percent = quote.change?.percent,
+                          phrase = quote.value === null ? undefined : COMPARE_PHRASE[tags.get(quote.source) ?? ""];
+                        const shown = percent ? `${percent === "0.0" ? percent : percent.startsWith("-") ? `−${percent.slice(1)}` : `+${percent}`}%` : "";
                         return (
                           <tr key={quote.key} className={`sm:hover:bg-bg-sunk/60 ${index ? "border-t border-line-soft" : ""}`}>
                             {index === 0 && (
@@ -192,10 +205,22 @@ export default function MetalsPage() {
                               </span>
                               <span className="mt-1 block text-[10px] leading-4 text-ink-4 sm:text-[11px]">{quote.unit}</span>
                             </td>
-                            <td
-                              className={`mono whitespace-nowrap px-2 py-3 text-right align-top sm:px-4 ${!percent || percent === "0.0" ? "text-ink-3" : percent.startsWith("-") ? "text-ok" : "text-hot"}`}
-                            >
-                              {percent && `${percent === "0.0" ? percent : percent.startsWith("-") ? `−${percent.slice(1)}` : `+${percent}`}%`}
+                            <td className="px-1 py-3 text-right align-top sm:px-4">
+                              {shown && (
+                                <span
+                                  className={`mono block whitespace-nowrap ${percent === "0.0" ? "text-ink-3" : percent?.startsWith("-") ? "text-ok" : "text-hot"}`}
+                                >
+                                  {shown}
+                                </span>
+                              )}
+                              {phrase && (
+                                <span
+                                  className="mt-0.5 block whitespace-nowrap text-[10px] font-normal leading-tight text-ink-4 sm:text-[11px]"
+                                  title={percent ? undefined : "没有紧挨着的上一期，所以不显示涨跌"}
+                                >
+                                  {phrase}
+                                </span>
+                              )}
                             </td>
                             <td className="hidden px-4 py-3 align-top text-[12px] leading-5 text-ink-4 sm:table-cell">{quote.spec}</td>
                           </tr>

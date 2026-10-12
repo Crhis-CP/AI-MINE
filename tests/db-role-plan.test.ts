@@ -23,6 +23,8 @@ function catalog(): Catalog {
     schemas: {
       public: "pg_database_owner",
       enrichment: "bootstrap",
+      editorial: "bootstrap",
+      feedback: "bootstrap",
       sources: "bootstrap",
       content: "bootstrap",
       ai: "bootstrap",
@@ -65,6 +67,18 @@ test("all current migration tables and serial sequences have one explicit classi
     Object.keys(TABLE_GRANTS).sort(),
     [
       ...tables.map((name) => `public.${name}`),
+      "ai.prefilter_audit_draws",
+      "ai.prefilter_audit_items",
+      "ai.prefilter_audit_labels",
+      "editorial.manual_revisions",
+      "editorial.manual_revision_events",
+      "feedback.feedback_private_deletions",
+      "feedback.feedback_weekly_summaries",
+      "publication.manual_copies",
+      "publication.read_watermarks",
+      "sources.source_config_drafts",
+      "sources.source_previews",
+      "sources.source_config_activations",
       "enrichment.translation_segments",
       "sources.source_policy_current",
       "sources.source_policy_versions",
@@ -153,10 +167,20 @@ test("all current migration tables and serial sequences have one explicit classi
     ].sort(),
   );
   const serials = [...sql.matchAll(/CREATE TABLE (\w+)\s*\(\s*id\s+bigserial/g)].map((m) => `${m[1]}_id_seq`);
-  assert.deepEqual(Object.keys(SEQUENCES).sort(), serials.map((name) => `public.${name}`).sort());
+  assert.deepEqual(
+    Object.keys(SEQUENCES).sort(),
+    [
+      ...serials.map((name) => `public.${name}`),
+      "editorial.manual_revisions_id_seq",
+      "editorial.manual_revision_events_id_seq",
+      "sources.source_config_drafts_id_seq",
+      "sources.source_previews_id_seq",
+      "sources.source_config_activations_id_seq",
+    ].sort(),
+  );
   assert.equal(tables.length, 48);
   assert.equal(serials.length, 15);
-  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 31);
+  assert.equal(Object.values(TABLE_GRANTS).filter((t) => t.publicColumns.length).length, 37);
   assert.deepEqual(TABLE_GRANTS["public.settings"].publicColumns, ["key", "value"]);
   assert.deepEqual(TABLE_GRANTS["enrichment.translation_segments"], {
     module: "enrichment",
@@ -190,7 +214,10 @@ test("the plan separates eight identities, column reads, append-only audit, owne
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "content"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "ai"')).length, 4);
   assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "publication"')).length, 4);
-  assert.equal(defaults.length, 44);
+  assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "editorial"')).length, 4);
+  assert.equal(defaults.filter((s) => s.includes('FOR ROLE "fixture_migrate" IN SCHEMA "feedback"')).length, 4);
+  assert.equal(defaults.length, 52);
+  assert.doesNotMatch(sql, /GRANT [^;]*(?:UPDATE|DELETE)[^;]* ON TABLE editorial\."manual_(?:revisions|revision_events)" TO "fixture_(?:worker|private_ops)"/);
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "ai"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.ok(defaults.filter((s) => s.includes('IN SCHEMA "enrichment"') && s.includes(" GRANT ")).every((s) => s.endsWith('TO "fixture_migrate"')));
   assert.doesNotMatch(sql, /GRANT .* TO PUBLIC/);

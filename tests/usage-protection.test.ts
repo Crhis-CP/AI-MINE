@@ -1,3 +1,6 @@
+import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
+import { readCurrentBody } from "@amp/backend/content/materials";
+import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { stub } from "./setup.ts";
 import { z } from "zod";
 import { chatJson, environmentModelMetadata } from "../packages/backend/src/providers/llm.ts";
@@ -9,7 +12,13 @@ import { sha256 } from "@amp/backend/lib/ids";
 import { sessionPrincipal, SESSION_COOKIE, type AdminPrincipal } from "@amp/backend/admin/auth";
 import { paidRequest, logicalKeyFor, ReceiptUnknownError, UsageProtectionError } from "@amp/backend/providers/receipts";
 import { changeUsageProtection, changeUsagePrice, recoverUsageBreaker, usageProtectionOverview } from "../packages/backend/src/admin/usage-protection.ts";
-import { evaluateUsageProtection, readUsageProtection, settleUsageAttempt } from "../packages/backend/src/providers/usage-protection.ts";
+import {
+  evaluateUsageProtection,
+  installInitialUsageControl,
+  readUsageProtection,
+  settleUsageAttempt,
+  usageConfiguration,
+} from "../packages/backend/src/providers/usage-protection.ts";
 import { priceQuote } from "../packages/backend/src/providers/usage-pricing.ts";
 import { usageMonthly } from "../packages/backend/src/operations/usage-monthly.ts";
 import { deliverUsageProtectionEvents } from "../packages/backend/src/operations/usage-protection.ts";
@@ -107,6 +116,26 @@ async function charge(key: string, amount: string, opts: Parameters<typeof reque
   return paidRequest(request(key, opts), send);
 }
 
+test("an empty protection table receives the controlled initial version once and does not overwrite a later change", async () => {
+  assert.equal(await installInitialUsageControl(), "installed");
+  const first = await usageConfiguration();
+  assert.equal(first?.version, 1);
+  assert.deepEqual(first?.config, defaults);
+  assert.equal(first?.actor, "system:usage");
+  assert.equal(await installInitialUsageControl(), "present");
+  assert.equal((await usageConfiguration())?.version, 1);
+  await changeUsageProtection(
+    {
+      expected_version: 1,
+      config: { ...defaults, usage_report: { push_time: "10:15" } },
+      reason: "synthetic later change stays",
+      high_risk_confirmed: true,
+    },
+    owner,
+  );
+  assert.equal(await installInitialUsageControl(), "present");
+  assert.equal((await usageConfiguration())?.config.usage_report.push_time, "10:15");
+});
 test("missing protection rejects new payment, while an existing paid response remains reusable; only real Owner can configure", async () => {
   await assert.rejects(paidRequest(request("missing"), send), UsageProtectionError);
   assert.equal(calls, 0);
@@ -452,14 +481,41 @@ test("legacy unhashed unknown cannot be bypassed by a new config identity; an ex
     });
     delete process.env.LLM_EXTRA_JSON;
     config.modelCallsEnabled = true;
-    const user = "same legacy input",
-      subject = "article:legacy@1",
+    const user = "same legacy input";
+    const binding = await boundEvaluationFixture({
+      title: "Legacy receipt test",
+      body: user,
+      source: "Legacy test source",
+      kind: "rss",
+      tier: "T2",
+      firstParty: false,
+      publishedAt: null,
+    });
+    const body = (await readCurrentBody(binding.analysisInput.id))!;
+    const factory = await prepareNewsFallback({
+      root: new AbortController().signal,
+      expected: body,
+      current: () => readCurrentBody(body.id),
+      articles: [body],
+    });
+    assert.ok(factory);
+    const permit = factory({ system: "", user });
+    const subject = `article:${binding.analysisInput.id}@${binding.analysisInput.revision}`,
       purpose = "understand_article";
     const [old] =
       await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts) VALUES('synthetic-old-unhashed','previous-service','previous-model',${purpose},${subject},'unknown',${sql.json({ userHash: sha256(user), configuration_hash: "f".repeat(64) })},1) RETURNING id`;
     await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status) VALUES(${old!.id},1,'previous-service','previous-model','unknown')`;
     await assert.rejects(
-      chatJson({ model: "default", purpose, subject, promptVersion: "new-recipe", system: "", user, schema: z.strictObject({ ok: z.literal(true) }) }),
+      chatJson({
+        model: "default",
+        fallbackPermit: permit,
+        purpose,
+        subject,
+        promptVersion: "new-recipe",
+        system: "",
+        user,
+        schema: z.strictObject({ ok: z.literal(true) }),
+      }),
       ReceiptUnknownError,
     );
     assert.equal(provider.hits(), 0);
@@ -484,6 +540,7 @@ test("legacy unhashed unknown cannot be bypassed by a new config identity; an ex
     await sql`DELETE FROM ai.usage_control_versions`;
     const reused = await chatJson({
       model: "default",
+      fallbackPermit: permit,
       purpose,
       subject,
       promptVersion: "old-recipe",
@@ -615,4 +672,62 @@ test("price expiry is notified once per evidence revision; monthly report honors
   await usageMonthly(new Date("2026-11-01T02:37:00Z"), send);
   await usageMonthly(new Date("2026-11-01T02:38:00Z"), send);
   assert.equal(messages, 1);
+});
+
+test("token-only receipts take the single registered price and their capability lane; foreign bills and unknown calls stay out", async () => {
+  await install();
+  await price("0", "llm", "deepseek-flash", null);
+  const usage = { prompt_tokens: 1000, completion_tokens: 10 };
+  const insert = async (key: string, purpose: string, attempt: { status?: string; cost?: string | null; currency?: string | null; basis?: string | null }) => {
+    const [receipt] =
+      await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,response,attempts) VALUES(${key},'llm','deepseek-flash',${purpose},${`article:${key}@1`},'received',${sql.json({})},${sql.json({ ok: true })},1) RETURNING id`;
+    const [row] =
+      await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status,response,usage,cost,currency,cost_basis) VALUES(${receipt!.id},1,'llm','deepseek-flash',${attempt.status ?? "received"},${sql.json({ ok: true })},${sql.json(usage)},${attempt.cost ?? null},${attempt.currency ?? null},${attempt.basis ?? null}) RETURNING id`;
+    await sql`UPDATE receipts SET response_attempt_id=${row!.id} WHERE id=${receipt!.id}`;
+    return { receiptId: receipt!.id, attemptId: row!.id };
+  };
+  const priced = await insert(`tokens-${index}`, "prefilter_article", {});
+  const foreign = await insert(`usd-${index}`, "prefilter_article", { cost: "1.500000", currency: "USD", basis: "actual" });
+  const unknown = await insert(`unknown-${index}`, "score_article", { status: "unknown" });
+  const first = await evaluateUsageProtection();
+  assert.equal(first.missing[0], "有2次历史调用尚未纳入可核费用，需要补齐原回执费用和业务归属");
+  const [settled] = await sql`SELECT lane,capability,settled_micros::text,state,source_ids FROM ai.usage_attempts WHERE attempt_id=${priced.attemptId}`;
+  assert.equal(settled!.lane, "news");
+  assert.equal(settled!.capability, "prefilter_article");
+  assert.equal(settled!.settled_micros, "2040");
+  assert.equal(settled!.state, "settled");
+  assert.deepEqual(settled!.source_ids, []);
+  const [receipt] = await sql`SELECT request->>'lane' AS lane,cost::text,currency,cost_basis FROM receipts WHERE id=${priced.receiptId}`;
+  assert.equal(receipt!.lane, "news");
+  assert.equal(receipt!.currency, "CNY");
+  assert.equal(receipt!.cost_basis, "estimated");
+  assert.equal(receipt!.cost, "0.002040");
+  const [untouched] =
+    await sql`SELECT r.request->>'lane' AS lane,a.currency,a.cost::text,a.status FROM receipts r JOIN receipt_attempts a ON a.id=${foreign.attemptId} WHERE r.id=${foreign.receiptId}`;
+  assert.equal(untouched!.lane, null);
+  assert.equal(untouched!.currency, "USD");
+  assert.equal(untouched!.cost, "1.500000");
+  const [pending] = await sql`SELECT status FROM receipt_attempts WHERE id=${unknown.attemptId}`;
+  assert.equal(pending!.status, "unknown");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE attempt_id=${foreign.attemptId} OR attempt_id=${unknown.attemptId}`)[0]!.n, 0);
+  await evaluateUsageProtection();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE attempt_id=${priced.attemptId}`)[0]!.n, 1);
+});
+
+test("two registered prices for one model do not invent a charge for a token-only receipt", async () => {
+  await install();
+  await price("0", "llm", "deepseek-flash", "a".repeat(64));
+  await price("0", "llm", "deepseek-flash", "b".repeat(64));
+  const key = `ambiguous-${index}`;
+  const [receipt] =
+    await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,response,attempts) VALUES(${key},'llm','deepseek-flash','prefilter_article',${`article:${key}@1`},'received',${sql.json({})},${sql.json({ ok: true })},1) RETURNING id`;
+  const [row] =
+    await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status,usage) VALUES(${receipt!.id},1,'llm','deepseek-flash','received',${sql.json({ prompt_tokens: 10, completion_tokens: 1 })}) RETURNING id`;
+  await sql`UPDATE receipts SET response_attempt_id=${row!.id} WHERE id=${receipt!.id}`;
+  const result = await evaluateUsageProtection();
+  assert.equal(result.missing[0], "有1次历史调用尚未纳入可核费用，需要补齐原回执费用和业务归属");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM ai.usage_attempts WHERE attempt_id=${row!.id}`)[0]!.n, 0);
+  const [attempt] = await sql`SELECT cost,currency FROM receipt_attempts WHERE id=${row!.id}`;
+  assert.equal(attempt!.cost, null);
+  assert.equal(attempt!.currency, null);
 });

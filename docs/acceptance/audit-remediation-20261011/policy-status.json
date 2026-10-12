@@ -1,0 +1,321 @@
+{
+  "scope": "法规审计开发阶段；保留既有脏改动，未提交/切分支/部署/启用来源/读取秘密/调用真实模型。",
+  "phase": "implemented_and_focused_verified",
+  "date": "2026-10-11 America/Argentina/Catamarca",
+  "live_verified": false,
+  "quality_accepted": false,
+  "tests": {
+    "backend_and_contract_focused": 54,
+    "desktop_mobile_browser": 2,
+    "environment": "Node 24; isolated UTF8 PostgreSQL 127.0.0.1:56433 with per-file cloned databases; local fake model; production web build + local synthetic read-only HTTP; external requests blocked",
+    "commands": [
+      "node scripts/verify/test-files.ts tests/policy-automation-runtime.test.ts tests/policy-basic-facts.test.ts tests/policy-extraction.test.ts tests/policy-interpretation.test.ts tests/policy-originals.test.ts tests/policy-processing-plan.test.ts tests/policy-reading-semantics.test.ts tests/policy-reports.test.ts",
+      "node scripts/verify/test-files.ts tests/policy-basic-facts.test.ts tests/policy-publication.test.ts tests/policy-public-api.test.ts tests/policy-date-events.test.ts",
+      "pnpm --filter @amp/web build",
+      "pnpm --filter @amp/web typecheck",
+      "node --test apps/web/tests/policy-browser.test.ts"
+    ],
+    "result": "全部列示focused测试、public_read真实角色/HTTP、生产构建、web类型、1440与390px浏览器回归通过；全仓pnpm check与最终SHA由根集成人独立记录。",
+    "official_xml_followup": {
+      "real_family": "Justice Canada Web XML",
+      "recorded_excerpts": 2,
+      "new_regression_cases": 3,
+      "related_regression_cases_passed": 32,
+      "typecheck": "passed",
+      "evidence": "docs/acceptance/audit-remediation-20261011/policy-official-xml.json"
+    },
+    "full_suite_failure_followup": {
+      "evidence": "docs/acceptance/audit-remediation-20261011/policy-regression-followup.json",
+      "resolved_original_failed_files": 5,
+      "passed": 32,
+      "private_http": "409 conflict with actionable missing-preview/draft details",
+      "typecheck": "原excerpt:null并行阻挡已消除（2026-10-12源码读回为excerpt:\"\"且root确认）；冻结后的全仓检查由根集成人记录。",
+      "source_date_type_blocker": "resolved"
+    }
+  },
+  "findings": [
+    {
+      "id": "POL-01",
+      "status": "完整",
+      "change": "同一part中外文使用共同公开block_id；真实发布器与桌面/手机对照均通过。",
+      "files": [
+        "packages/backend/src/publication/policies-publish.ts",
+        "apps/web/app/features/policy/PolicyReading.tsx"
+      ],
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-02",
+      "status": "完整",
+      "change": "provider_unavailable/waiting_receipt保留原处理阶段，通过既有回执继续恢复；unknown仍受付费屏障约束。",
+      "files": [
+        "packages/backend/src/policy/automation.ts"
+      ],
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-03",
+      "status": "完整",
+      "change": "公开块独立净化静态HTML，保留删除线、上下标、列表编号和单元格跨度；脚本/事件/样式/嵌入移除。",
+      "files": [
+        "packages/backend/src/policy/semantic-html.ts",
+        "packages/backend/src/publication/policies-project.ts",
+        "apps/web/app/features/policy/PolicyReading.tsx"
+      ],
+      "evidence": [
+        "tests/policy-reading-semantics.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-04",
+      "status": "完整",
+      "change": "HTML/XML属性证据通道已实现，并以CA-002真实Justice Canada XML条文和CALS表格摘录补验修复：lims日期、Sup/Sub、Repealed、编号、具名列与跨度；32项相关回归及全仓typecheck通过。",
+      "files": [
+        "packages/backend/src/policy/annotations.ts",
+        "packages/backend/src/policy/acquire.ts",
+        "packages/backend/src/policy/extraction.ts",
+        "packages/backend/src/policy/interpretation-schema.ts",
+        "packages/backend/src/policy/xml-structure.ts",
+        "tests/fixtures/policy/official-xml/manifest.json"
+      ],
+      "evidence": [
+        "tests/policy-extraction.test.ts",
+        "tests/policy-interpretation.test.ts",
+        "tests/policy-official-xml.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-official-xml.json"
+      ],
+      "remaining": [
+        "GB-001第二家族直接XML请求返回HTTP202空体，未绕过WAF，保留未验收。",
+        "真实完整法规中的公式/图件与完整中文/模型语义、逐源启用和Owner质量资格仍独立待验；不以局部摘录证明整份法规通过。"
+      ],
+      "verified_scope": "本次要求的一个真实官方XML家族及已录制形态；不代表所有来源或整份法规质量验收。"
+    },
+    {
+      "id": "POL-05",
+      "status": "完整",
+      "change": "长普通节点按显式句/子条款/词边界分段，保存起止偏移与HTML祖先/列表序号；不可分割表格群仍明确阻塞。",
+      "files": [
+        "packages/backend/src/policy/processing-fragments.ts",
+        "packages/backend/src/policy/processing-plan.ts"
+      ],
+      "evidence": [
+        "tests/policy-processing-plan.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-06",
+      "status": "完整",
+      "change": "消费content持久当前材料/配置绑定SourceDateEvidence，独立事实与日期筛选无需模型资格，日期性质保持分开。",
+      "files": [
+        "packages/backend/src/policy/capture.ts",
+        "packages/backend/src/policy/metadata.ts",
+        "packages/backend/src/publication/policies-project.ts"
+      ],
+      "evidence": [
+        "tests/policy-basic-facts.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-07",
+      "status": "完整",
+      "change": "基本事实直接显示取得/附件清单和安全状态说明，缺附件不再伪装处理中。",
+      "files": [
+        "packages/backend/src/policy/processing-notice.ts",
+        "packages/backend/src/publication/policies-publish.ts",
+        "apps/web/app/features/policy/PolicyUI.tsx"
+      ],
+      "evidence": [
+        "tests/policy-basic-facts.test.ts",
+        "tests/policy-automation-runtime.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-08",
+      "status": "完整",
+      "change": "报告国家主题筛选、上次/最新修订入口与增减原因已恢复，链接保留筛选/指定版本。",
+      "files": [
+        "apps/web/app/features/policy/PolicyReportFilters.tsx",
+        "apps/web/app/routes/policy-report.tsx",
+        "apps/web/app/routes/policy-reports.tsx",
+        "packages/backend/src/publication/policies-reports.ts"
+      ],
+      "evidence": [
+        "apps/web/tests/policy-browser.test.ts",
+        "tests/policy-public-api.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-09",
+      "status": "完整",
+      "change": "按不同source_id计完整/不完整来源；仅有不完整回执仍列缺完整回执。",
+      "files": [
+        "packages/backend/src/sources/policy-coverage.ts"
+      ],
+      "evidence": [
+        "tests/policy-basic-facts.test.ts",
+        "tests/policy-reports.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-10",
+      "status": "完整",
+      "change": "七天内有界到期扫描已提供，根集成人接入既有运维告警去重；真实新资格覆盖旧范围时抑制旧提醒。",
+      "files": [
+        "packages/backend/src/policy/quality.ts",
+        "packages/backend/src/operations/alerts.ts"
+      ],
+      "evidence": [
+        "tests/policy-basic-facts.test.ts"
+      ],
+      "remaining": [
+        "生产自然定时与实际Owner续期尚未执行；本次仅合成资格记录和本地集成。"
+      ]
+    },
+    {
+      "id": "POL-11",
+      "status": "部分",
+      "change": "已建立36法域×七经营主题的研究/目录配置/原件配置/中文/解读/持续运行事实台账。",
+      "files": [
+        "docs/research/policy-coverage-audit-2026-10-11.md"
+      ],
+      "evidence": [
+        "industry/policy-sources.json",
+        "industry/jurisdictions/data.json"
+      ],
+      "remaining": [
+        "本次授权仅覆盖事实呈现，未擅自新增或启用来源；目录登记/配置存在不等于真实原件、完整中文、合格解读或持续运行。"
+      ]
+    },
+    {
+      "id": "POL-12",
+      "status": "完整",
+      "change": "报告每个固定合格版本分别引用main_points/impacts/evidence，包含条件、例外、期限，读时重新核当前公开资格。",
+      "files": [
+        "packages/backend/src/publication/policies.ts",
+        "packages/backend/src/publication/policies-reports.ts",
+        "apps/web/app/routes/policy-report.tsx"
+      ],
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts",
+        "tests/policy-public-api.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-13",
+      "status": "完整",
+      "change": "已公开authority.name纳入搜索，标题不含机关名称也能检索。",
+      "files": [
+        "packages/backend/src/publication/policies.ts"
+      ],
+      "evidence": [
+        "tests/policy-basic-facts.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-14",
+      "status": "完整",
+      "change": "excluded也经过所有原文组核验；有反证时semantic_failed，只有验证通过才自动排除。",
+      "files": [
+        "packages/backend/src/policy/interpretation-engine.ts",
+        "packages/backend/src/publication/policies-publish.ts",
+        "industry/prompts/policy-verify.md"
+      ],
+      "evidence": [
+        "tests/policy-interpretation.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-15",
+      "status": "完整",
+      "change": "实际处理配方指纹入workflow，既有有界发现扫描唤醒配方变化，原件修订不伪造；人工/unknown边界保留。",
+      "files": [
+        "packages/backend/src/policy/recipe.ts",
+        "packages/backend/src/policy/automation.ts",
+        "database/migrations/policy/202610120100_policy_workflow_recipe.sql"
+      ],
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-16",
+      "status": "完整",
+      "change": "候选支持有引文的多次公布/登记/实质变化，已发生与计划分开；按已发生实质变化排序，可信来源时区判定补录。",
+      "files": [
+        "packages/backend/src/policy/interpretation-schema.ts",
+        "packages/backend/src/publication/policies-project.ts",
+        "apps/web/app/routes/policy.tsx",
+        "industry/prompts/policy-interpret.md"
+      ],
+      "evidence": [
+        "tests/policy-date-events.test.ts"
+      ],
+      "remaining": [
+        "未知来源时区不推测补录；真实模型新提示词效果和新资格仍需实际样本验收。"
+      ]
+    },
+    {
+      "id": "POL-17",
+      "status": "完整",
+      "change": "当前公开资格读取可信已完成目录成员，目录移除不再当前公开，显式历史保留且不推断废止。",
+      "files": [
+        "packages/backend/src/acquisition/directory-membership.ts",
+        "packages/backend/src/policy/public-state.ts"
+      ],
+      "evidence": [
+        "tests/policy-basic-facts.test.ts",
+        "tests/policy-publication.test.ts",
+        "tests/policy-public-api.test.ts"
+      ],
+      "remaining": []
+    },
+    {
+      "id": "POL-18",
+      "status": "完整",
+      "change": "汇集各原语言自己的当前版本并切换；显式配置官方hreflang同域单对象链接形成等价身份，不以相似标题合并；材料身份变化退役旧当前expression。",
+      "files": [
+        "packages/backend/src/policy/automation-profile.ts",
+        "packages/backend/src/policy/capture.ts",
+        "packages/backend/src/policy/types.ts",
+        "packages/backend/src/policy/originals.ts",
+        "packages/backend/src/publication/policies.ts",
+        "database/migrations/policy/202610120140_policy_material_current.sql"
+      ],
+      "evidence": [
+        "tests/policy-originals.test.ts",
+        "tests/policy-basic-facts.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "remaining": [
+        "尚未替实际官方来源配置或启用officialLanguageLinksSelector；有真实官方配对证据后才可逐源使用。"
+      ]
+    }
+  ],
+  "post_development_comparison": "未执行；须由根集成人使用fork_turns=none新Agent按功能模块重新与只读旧库比较。",
+  "documentation_closeout": {
+    "date": "2026-10-12 America/Argentina/Catamarca",
+    "tasks": "TASK-0180..0199",
+    "evidence": "docs/acceptance/audit-remediation-20261011/policy-task-card-closeout.json",
+    "runtime_changes_in_closeout": false,
+    "additional_authorized_test_change": "tests/directory-scans.test.ts"
+  }
+}

@@ -1,4 +1,5 @@
 // Cron-style schedules (Asia/Shanghai). Each run is recorded in job_runs; missed slots run once.
+import { sendWeeklyFeedbackSummary } from "@amp/backend/admin/feedback";
 import type { PgBoss } from "pg-boss";
 import { ensureQueue, recordRun } from "@amp/backend/jobs/queue";
 import { sweepUnprocessed, sweepPolicyMaterials } from "@amp/backend/jobs/content";
@@ -7,7 +8,7 @@ import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
-import { linkRelatedStories } from "@amp/backend/events/group";
+import { linkRelatedStories, repairUnboundEventMemberships } from "@amp/backend/events/group";
 import { catchUpReports, composeDaily, composeMonthly, composeWeekly, composePolicyReports } from "@amp/backend/reports/compose";
 import { addDays, beijingDate, isoWeekLabel } from "@amp/contracts/time";
 import { dailyRetention } from "@amp/backend/operations/retention";
@@ -38,6 +39,7 @@ export const SCHEDULES: Scheduled[] = [
   { name: "hot.rank", cron: "*/5 * * * *", run: () => computeHotRanking() },
   { name: "hot.snapshot", cron: "2 * * * *", run: () => snapshotHeat() },
   { name: "stories.status", cron: "7 * * * *", run: refreshStoryStatuses },
+  { name: "events.membership-repair", cron: "*/5 * * * *", run: () => repairUnboundEventMemberships(100) },
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
   { name: "reports.daily", cron: "0 8 * * *", missed: "once", run: () => composeDaily(beijingDate(Date.now())) },
   { name: "reports.weekly", cron: "0 10 * * 1", missed: "once", run: () => composeWeekly(isoWeekLabel(addDays(beijingDate(Date.now()), -7))) },
@@ -68,6 +70,7 @@ export const SCHEDULES: Scheduled[] = [
   // One message with the follow-ups that do not touch readers (nothing when there are none).
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },
   ...(backupConfigured() ? [{ name: "ops.backup", cron: "10 4 * * *", missed: "once" as const, run: () => runBackup() }] : []),
+  { name: "feedback.weekly", cron: "0 8 * * 1", missed: "once", run: () => sendWeeklyFeedbackSummary(new Date(Date.now() - 7 * 86400_000)) },
   { name: "reports.source-health", cron: "0 9 * * 1", missed: "once", run: () => sourceHealthWeekly() },
   { name: "reports.usage-weekly", cron: "5 9 * * 1", missed: "once", run: () => usageWeekly() },
   // The job checks the Owner-configured Beijing push time; notification claiming prevents duplicate delivery.

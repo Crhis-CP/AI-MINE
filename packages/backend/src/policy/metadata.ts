@@ -1,5 +1,6 @@
 import { readSourceDateContext, readCurrentSourcePolicy, evaluateSourcePolicy } from "@amp/backend/admin/sources";
-import { policyMaterialReference } from "@amp/backend/content/materials";
+import type { SourceDateEvidence } from "@amp/contracts/time-assertion";
+import { policyMaterialReference, readPolicyMaterialDate } from "@amp/backend/content/materials";
 import { dbOf } from "../db.ts";
 import { stableJson } from "../lib/ids.ts";
 import { policyProfile } from "./automation-profile.ts";
@@ -12,6 +13,7 @@ export interface PolicyMetadataObservation {
   materialRevision: number;
   originalTitle: string;
   titleZh?: string;
+  publicationDate?: SourceDateEvidence | null;
   documentNumber: string | null;
   authority: string | null;
   jurisdiction: string | null;
@@ -102,5 +104,6 @@ export async function readPolicyMetadataObservation(expressionId: string): Promi
   const [first] = await sql<
     { discovered_at: Date | null }[]
   >`SELECT min(discovered_at) AS discovered_at FROM policy.material_discoveries WHERE expression_id=${expressionId}`;
-  return { ...metadata, discoveredAt: first?.discovered_at?.toISOString() ?? null };
+  const date = await readPolicyMaterialDate(metadata.materialId, metadata.sourceId);
+  return { ...metadata, publicationDate: date, discoveredAt: first?.discovered_at?.toISOString() ?? null };
 }

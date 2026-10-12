@@ -224,6 +224,8 @@ export default function NewSource() {
           )}
           <div className="mt-5 flex justify-end gap-2">
             <Button
+              disabled
+              title="先保存暂停的信源，再在信源详情请求预览；成功后可以启用"
               busy={pending === "preview"}
               onClick={async () => {
                 const c = parsed();
@@ -237,7 +239,7 @@ export default function NewSource() {
                 if (r) setPreview(r);
               }}
             >
-              预览抓取
+              保存后预览
             </Button>
             <Button
               tone="primary"

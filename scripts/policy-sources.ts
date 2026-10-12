@@ -1,7 +1,8 @@
 // Explicit worker-side operations for the reviewed policy catalogue. Importing this file does nothing.
+import { setTimeout as delay } from "node:timers/promises";
 import { POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
 import { audit } from "@amp/backend/admin/auth";
-import { evaluateSourcePolicy, previewSource, readCurrentSourcePolicy, updateSource } from "@amp/backend/admin/sources";
+import { evaluateSourcePolicy, previewSource, requestSourcePreview, runSourcePreview, readCurrentSourcePolicy, updateSource } from "@amp/backend/admin/sources";
 import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { sourceDateConfigHash } from "@amp/backend/sources/config-keys";
 
@@ -53,6 +54,20 @@ async function permittedVersion(id: string, url: string) {
   return policy.permission_version;
 }
 
+class PolicyPreviewDeferred extends Error {}
+/** A worker CLI may finish a short host pacing wait; longer outages remain resumable rather than becoming empty results. */
+async function previewWithinBound(source: Parameters<typeof previewSource>[0]) {
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const result = await previewSource(source);
+    if (!("status" in result) || result.status !== "deferred") return result;
+    const wait = Math.max(1, Date.parse(result.retryAt) - Date.now());
+    if (result.reason !== "host_pacing" || Date.now() + wait > deadline)
+      throw new PolicyPreviewDeferred(`现场试抓等待重试：${result.reason}；${result.retryAt}`);
+    await delay(wait);
+  }
+}
+
 export async function enablePolicySources(entries: readonly PolicySource[], options: PolicySourceSelection, actor = "policy-sources:enable") {
   const selected = selectPolicySources(entries, options);
   const results: { id: string; status: string; reason?: string; count?: number; samples?: { title: string; url: string; publishedAt: string | null }[] }[] = [];
@@ -78,7 +93,12 @@ export async function enablePolicySources(entries: readonly PolicySource[], opti
     try {
       const requestUrl = String(source.config.feedUrl ?? source.config.url ?? source.config.listUrl ?? source.config.endpoint ?? "");
       const permissionVersion = await permittedVersion(source.id, requestUrl);
-      const preview = await previewSource(source);
+      let previewId: number | undefined;
+      if (!options.dryRun) {
+        previewId = Number((await requestSourcePreview(source.id, {}, actor, { inline: true })).preview_id);
+      }
+      const preview = options.dryRun ? await previewWithinBound(source) : await runSourcePreview(String(previewId), previewWithinBound);
+      if (!preview) throw new Error("现场预览结果缺失");
       if ((await permittedVersion(source.id, requestUrl)) !== permissionVersion) throw new Error("permission");
       const samples = preview.items.slice(0, 3).map(({ title, url, publishedAt }) => ({ title, url, publishedAt }));
       if (!options.dryRun) await audit(actor, "source.preview", `source:${source.id}`, null, null, { count: preview.count, samples });
@@ -91,6 +111,7 @@ export async function enablePolicySources(entries: readonly PolicySource[], opti
           source.id,
           {
             patch: { enabled: true },
+            preview_id: previewId,
             version: new Date(source.updated_at).toISOString(),
             reason: "法规信源按批准清单分批启用，现场试抓通过",
           },
@@ -100,7 +121,13 @@ export async function enablePolicySources(entries: readonly PolicySource[], opti
     } catch (error) {
       results.push({
         ...row,
-        reason: error instanceof Error && error.message === "permission" ? "当前抓取或处理许可未允许" : "现场试抓或启用未完成，未覆盖人工修改",
+        ...(error instanceof PolicyPreviewDeferred ? { status: "deferred" } : {}),
+        reason:
+          error instanceof PolicyPreviewDeferred
+            ? error.message
+            : error instanceof Error && error.message === "permission"
+              ? "当前抓取或处理许可未允许"
+              : "现场试抓或启用未完成，未覆盖人工修改",
       });
     }
   }

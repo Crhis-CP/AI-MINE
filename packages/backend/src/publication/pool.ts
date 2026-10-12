@@ -1,9 +1,12 @@
+import { attachSourcePolicies } from "./reader-context.ts";
 // Public pool (/all) with numeric pages, and search in its two orderings.
 import type { PoolResponse, TimelineFilters } from "@amp/contracts/site";
-import { beijingDate, beijingMidnight } from "@amp/contracts/time";
+import { addDays, isValidDate, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { one, dbOf, withCustomPlans, type Db } from "../db.ts";
 import {
   categoryCondition,
+  publicationDateCondition,
+  currentGeographyMatch,
   jurisdictionCondition,
   newsJurisdictionScope,
   channelCondition,
@@ -15,11 +18,14 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
+import { publicationTextMatches } from "./read-predicates.ts";
+import { termExpands, termMatchSql, readMatcherValues, type ReadMatcherValues } from "./mentions.ts";
+import { loadTimeline } from "./timeline.ts";
+import { MINERAL_TAGS } from "@amp/industry/taxonomy";
 
 const sql = dbOf("publication");
 
-export const POOL_PAGE_SIZE = 40;
-export const POOL_MAX_PAGES = 50;
+export const POOL_PAGE_SIZE = 20;
 
 export class SearchBusyError extends Error {
   readonly retryAfter: number;
@@ -72,10 +78,10 @@ export function searchTerms(q: string): string[] {
     .map((t) => t.replace(/[\\%_]/g, (m) => `\\${m}`));
 }
 
-/** Default search: subject, title or summary match (search_text), newest first. */
+/** Default search: subject, title or summary match (search_text), newest first. Aliases of one term are OR. */
 export function directMatchCondition(terms: string[]) {
   if (terms.length === 0) return sql``;
-  return terms.reduce((acc, t) => sql`${acc} AND p.search_text LIKE ${"%" + t + "%"}`, sql``);
+  return terms.reduce((acc, t) => sql`${acc} AND ${termMatchSql(sql`p.search_text`, t)}`, sql``);
 }
 
 /**
@@ -88,8 +94,8 @@ export function publicMatchCondition(terms: string[]) {
   // Keep the body lookup correlated to the time-ordered candidates. Without OFFSET 0, PostgreSQL
   // may hash every matching body in pool_search before serving even the first 40 recent items.
   return terms.reduce(
-    (acc, t) => sql`${acc} AND (p.search_text LIKE ${"%" + t + "%"} OR EXISTS (
-      SELECT 1 FROM pool_search ps WHERE ps.article_id = p.article_id AND ps.body LIKE ${"%" + t + "%"} OFFSET 0))`,
+    (acc, t) => sql`${acc} AND (${termMatchSql(sql`p.search_text`, t)} OR EXISTS (
+      SELECT 1 FROM pool_search ps WHERE ps.article_id = p.article_id AND ${termMatchSql(sql`ps.body`, t)} OFFSET 0))`,
     sql``,
   );
 }
@@ -118,6 +124,12 @@ async function poolCount(key: string | null, query: () => Promise<Array<{ n: num
 }
 
 export interface PoolQuery extends TimelineFilters {
+  source?: string | null;
+  mineral?: string | null;
+  on?: string | null;
+  from?: string | null;
+  to?: string | null;
+  selected?: boolean;
   jurisdictionCodes?: string[];
   jurisdictionRecipe?: string;
   q?: string | null;
@@ -125,20 +137,39 @@ export interface PoolQuery extends TimelineFilters {
   page?: number;
   topicTags?: string[] | null;
   now?: Date;
+  rangeStart?: Date | null;
+  rangeEnd?: Date | null;
 }
 
-export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
+export async function loadPool(
+  query: PoolQuery,
+  matchers: ReadMatcherValues = readMatcherValues(
+    query.mineral,
+    query.topicTags,
+    newsJurisdictionScope(query.jurisdiction).jurisdictionCodes,
+    query.q ? searchTerms(query.q.trim()) : [],
+  ),
+): Promise<PoolResponse> {
   query = { ...query, ...newsJurisdictionScope(query.jurisdiction) };
   const now = query.now ?? new Date();
-  const page = Math.min(Math.max(query.page ?? 1, 1), POOL_MAX_PAGES);
+  const page = Number.isSafeInteger(query.page) ? Math.max(query.page!, 1) : 1;
   const q = query.q?.trim() || null;
   const tab = q && query.tab === "relevance" ? "relevance" : "time";
   const terms = q ? searchTerms(q) : [];
-  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)}`;
+  const on = query.on && isValidDate(query.on) ? query.on : null;
+  const from = on ?? (query.from && isValidDate(query.from) ? query.from : null);
+  const to = on ?? (query.to && isValidDate(query.to) ? query.to : null);
+  query = { ...query, rangeStart: from ? beijingMidnight(from) : null, rangeEnd: to ? beijingMidnight(addDays(to, 1)) : null };
+  const dateFilter = publicationDateCondition(query.rangeStart, query.rangeEnd);
+  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)} ${dateFilter}
+    ${query.selected ? sql`AND p.selected` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``}
+    AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
-  const cap = POOL_MAX_PAGES * POOL_PAGE_SIZE;
   // A fixed clock (tests, replays) never shares cached totals.
-  const filterKey = query.now || query.jurisdiction ? null : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null]);
+  const filterKey =
+    query.now || query.jurisdiction
+      ? null
+      : JSON.stringify([query.channel, query.category, query.tag, query.topicTags ?? null, query.source, query.mineral, from, to, query.selected]);
 
   // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small
   // table to scan for one- and two-character ones.
@@ -157,19 +188,20 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
         total: await poolCount(
           filterKey,
           () => db<{ n: number }[]>`
-        SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")} LIMIT ${cap}) t`,
+        SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")}) t`,
         ),
       };
     }
     if (tab === "relevance") {
       // Rank narrow rows first: no article bodies or translations enter the sort/count. The public
-      // total stops at 2,000, even though ranking must consider every matching item.
+      // total is exact and ranking considers every matching item.
       // For an unfiltered trigram search, match each indexed field separately. OR across fields
       // can make PostgreSQL scan every toasted body instead. Keep other searches inline so short
       // terms, additional terms and selective publication filters retain their existing plans.
       const splitFields =
         terms.length === 1 &&
         /[\p{L}\p{N}]{3}/u.test(terms[0]!) &&
+        !termExpands(terms[0]!) &&
         (!query.channel || query.channel === "all") &&
         !query.category &&
         !query.tag &&
@@ -179,7 +211,7 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
         sql`0`,
       );
       const titleScore = terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`);
-      const anyMatch = terms.reduce((acc, t) => sql`${acc} AND (${like(sql`ps.direct`, t)} OR ${like(sql`ps.body`, t)})`, sql`TRUE`);
+      const anyMatch = terms.reduce((acc, t) => sql`${acc} AND (${termMatchSql(sql`ps.direct`, t)} OR ${termMatchSql(sql`ps.body`, t)})`, sql`TRUE`);
       const matches = splitFields
         ? sql`
         SELECT coalesce(d.article_id, b.article_id) AS article_id,
@@ -196,7 +228,7 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
         ), page AS MATERIALIZED (
           SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
-        ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored LIMIT ${cap}) capped)
+        ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
           SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id
         ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`;
@@ -211,16 +243,17 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
         ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
       SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
       ORDER BY p.timeline_at DESC, p.article_id DESC`;
-    const direct = terms.reduce((acc, t) => sql`${acc} AND ${like(sql`ps.direct`, t)}`, sql``);
+    const direct = terms.reduce((acc, t) => sql`${acc} AND ${termMatchSql(sql`ps.direct`, t)}`, sql``);
     const { n } = one(
       await db<{ n: number }[]>`
       SELECT count(*) AS n FROM (SELECT 1 FROM pool_search ps JOIN publications p ON p.article_id = ps.article_id
-        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")} ${direct} LIMIT ${cap}) t`,
+        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")} ${direct}) t`,
     );
     return { rows, total: Number(n) };
   };
 
-  const { rows, total } = q ? await withSearchCapacity(run) : await run(sql);
+  const { rows, total } = q ? await withSearchCapacity(run) : await withCustomPlans(run);
+  await attachSourcePolicies(rows);
   const today = beijingDate(now);
   const meta = one(
     await sql<{ today_count: number; updated_at: Date | null }[]>`
@@ -229,8 +262,38 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
       (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`,
   );
 
+  const unfiltered =
+    !q &&
+    (!query.channel || query.channel === "all") &&
+    !query.category &&
+    !query.tag &&
+    !query.topic &&
+    !query.topicTags?.length &&
+    !query.jurisdiction &&
+    !query.source &&
+    !query.mineral &&
+    !from &&
+    !to &&
+    !query.selected;
+  const [grouped, sourceFacets] = await Promise.all([
+    unfiltered ? loadTimeline({ ...query, scope: "all", offset, limit: POOL_PAGE_SIZE, now }) : null,
+    loadPoolSourceFacets(
+      query,
+      readMatcherValues(query.tag, query.topicTags, query.jurisdictionCodes ?? [], terms),
+      matchers,
+      now,
+      query.jurisdictionCodes ?? [],
+      query.jurisdictionRecipe ?? "",
+    ),
+  ]);
   return {
     filters: {
+      source: query.source ?? null,
+      mineral: query.mineral ?? null,
+      on,
+      from: on ? null : from,
+      to: on ? null : to,
+      selected: query.selected ?? false,
       channel: query.channel,
       category: query.category,
       tag: query.tag,
@@ -239,12 +302,39 @@ export async function loadPool(query: PoolQuery): Promise<PoolResponse> {
       q,
       tab,
     },
-    items: rows.map(toFeedItemSummary),
+    items: grouped ? grouped.cards.map((card) => card.item) : rows.map(toFeedItemSummary),
+    ...(grouped ? { cards: grouped.cards, reportTotal: total } : {}),
+    facets: { sources: sourceFacets.map((row) => ({ ...row, count: Number(row.count) })), minerals: [...MINERAL_TAGS] },
     page,
-    pageCount: Math.min(POOL_MAX_PAGES, Math.max(1, Math.ceil(total / POOL_PAGE_SIZE))),
-    total,
+    pageCount: Math.max(1, Math.ceil((grouped?.total ?? total) / POOL_PAGE_SIZE)),
+    total: grouped?.total ?? total,
     todayCount: Number(meta.today_count),
     freshness: (meta.updated_at ?? now).toISOString(),
     generatedAt: now.toISOString(),
   };
+}
+
+/** Source facets share the same bound aliases, dates and geography without changing the source-independent count scope. */
+async function loadPoolSourceFacets(query: PoolQuery, names: ReadMatcherValues, minerals: ReadMatcherValues, now: Date, codes: string[], recipe: string) {
+  return withCustomPlans(
+    async (db) => db<{ id: string; name: string; count: number }[]>`
+    SELECT s.id,s.name,count(*) AS count FROM publications p JOIN sources s ON s.id=p.source_id
+    WHERE p.visibility='public' AND p.eligible AND (NOT p.selected OR p.visible_after<=${now})
+      AND (${query.channel}='all' OR (${query.channel}='firstParty' AND p.first_party) OR p.channel=${query.channel})
+      AND (${query.category}::text IS NULL OR p.category=${query.category})
+      AND (${query.selected ?? false}=false OR p.selected)
+      ${publicationDateCondition(query.rangeStart, query.rangeEnd)}
+      AND (${names.tagTags}::text[] IS NULL OR p.tags && ${names.tagTags}::text[] OR (${names.tagText.active} AND ${publicationTextMatches(names.tagText)}))
+      AND (${minerals.tagTags}::text[] IS NULL OR p.tags && ${minerals.tagTags}::text[] OR (${minerals.tagText.active} AND ${publicationTextMatches(minerals.tagText)}))
+      AND (${names.topicTags}::text[] IS NULL OR p.tags && ${names.topicTags}::text[] OR (${names.topicText.active} AND ${publicationTextMatches(names.topicText)}))
+      AND (${query.jurisdiction ?? null}::text IS NULL OR ${currentGeographyMatch(query.jurisdiction ?? null, codes, recipe)}
+        OR (${query.jurisdiction ?? null} NOT IN ('unknown','none') AND (p.tags && ${names.jurisdictionTags}::text[] OR ${publicationTextMatches(names.jurisdictionText)})))
+      AND (${!names.term0.active} OR ${publicationTextMatches(names.term0)})
+      AND (${!names.term1.active} OR ${publicationTextMatches(names.term1)})
+      AND (${!names.term2.active} OR ${publicationTextMatches(names.term2)})
+      AND (${!names.term3.active} OR ${publicationTextMatches(names.term3)})
+      AND (${!names.term4.active} OR ${publicationTextMatches(names.term4)})
+      AND (${!names.term5.active} OR ${publicationTextMatches(names.term5)})
+    GROUP BY s.id,s.name ORDER BY count DESC,s.name`,
+  );
 }

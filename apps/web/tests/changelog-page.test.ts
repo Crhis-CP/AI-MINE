@@ -80,6 +80,7 @@ test("a date-only entry has no time on the page; a major update shows its versio
   const page = html.replace(/<script\b[\s\S]*?<\/script>/g, "");
   assert.match(page, />02:50</);
   assert.match(page, />重大更新 2\.0</);
+  assert.match(page, /id="d-2026-10-06"/, "a feature-only day remains the month navigation target");
   assert.match(page, /合成的只有日期的条目/);
   assert.match(page, /2026 年 9 月 15 日/);
   assert.doesNotMatch(page, /00:00|undefined/);

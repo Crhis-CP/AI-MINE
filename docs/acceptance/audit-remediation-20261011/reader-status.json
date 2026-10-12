@@ -1,0 +1,258 @@
+{
+  "stage": "locally_verified_with_data_limits",
+  "production": false,
+  "findings": [
+    {
+      "id": "RDR-01",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/lib/local-state.ts",
+        "apps/web/app/routes/starred.tsx",
+        "apps/web/app/features/policy/PolicySaved.tsx"
+      ],
+      "result": "引用收藏按当前公开接口解析，撤回/读取失败不显示旧副本，60秒与聚焦复核"
+    },
+    {
+      "id": "RDR-02",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/features/feed/ContentVersionGuard.tsx",
+        "apps/web/app/features/feed/Timeline.tsx",
+        "apps/web/app/features/feed/ReadingGroup.tsx",
+        "apps/web/app/routes/public-layout.tsx"
+      ],
+      "result": "版本检查与撤回代次分流；旧内容不从会话恢复；资讯HTML和data禁用旧缓存；混合新增/撤回也等待用户载入新稿；公开版本也包含时钟放行计数，前序精选同步水位空洞不会遮蔽后序到时可见内容"
+    },
+    {
+      "id": "RDR-04",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/features/feed/Filters.tsx",
+        "apps/web/app/routes/all.tsx",
+        "packages/backend/src/publication/pool.ts"
+      ],
+      "result": "source/mineral/on/from/to与现有国家分类组合，地址保留"
+    },
+    {
+      "id": "RDR-05",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/features/feed/DayList.tsx",
+        "packages/backend/src/publication/pool.ts"
+      ],
+      "result": "20条页、精确总数、跳页、51页可读与越界空态"
+    },
+    {
+      "id": "RDR-06",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/routes/item.tsx"
+      ],
+      "result": "手机正文目录含分节/正文/来源/事件锚点"
+    },
+    {
+      "id": "RDR-07",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/features/feed/FeedItem.tsx",
+        "apps/web/app/features/feed/DayList.tsx",
+        "apps/web/app/features/feed/Timeline.tsx"
+      ],
+      "result": "手机行内收藏、桌面和手机日期折叠、会话折叠保存"
+    },
+    {
+      "id": "RDR-08",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/components/shell/nav.ts",
+        "apps/web/app/components/shell/MobileTabBar.tsx"
+      ],
+      "result": "五项底栏恢复热点，详情隐藏底栏"
+    },
+    {
+      "id": "RDR-09",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/routes/item.tsx"
+      ],
+      "result": "核实公司资料/原名/依据入口已接，缺资料隐藏；数据生产由root负责"
+    },
+    {
+      "id": "RDR-10",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/features/feed/parts.tsx",
+        "apps/web/app/features/feed/FeedItem.tsx",
+        "apps/web/app/routes/item.tsx"
+      ],
+      "result": "前置署名、多发布方链接与正文末许可/声明/官网入口；root提供真实许可投影"
+    },
+    {
+      "id": "RDR-11",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/features/report/report-period.ts",
+        "apps/web/app/routes/report-latest.tsx",
+        "apps/web/app/features/report/ReportPaper.tsx"
+      ],
+      "result": "实际排期缺期提示、覆盖窗口、生成时间与综合四态"
+    },
+    {
+      "id": "RDR-12",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/routes/feedback.tsx"
+      ],
+      "result": "10–5000字、一般联系方式254字、再写一条；截图按root确认规格2MB"
+    },
+    {
+      "id": "RDR-13",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/lib/local-state.ts",
+        "apps/web/app/features/feed/parts.tsx",
+        "apps/web/app/features/policy/PolicySaved.tsx"
+      ],
+      "result": "所有引用合计100，新增满额拒绝、存储错误提示、既有溢出引用不暗删"
+    },
+    {
+      "id": "RDR-14",
+      "status": "implemented",
+      "files": [
+        "packages/backend/src/publication/pool.ts",
+        "packages/backend/src/publication/timeline.ts",
+        "packages/backend/src/publication/groups.ts",
+        "apps/web/app/routes/all.tsx"
+      ],
+      "result": "未筛选全部动态按事件折叠，搜索筛选逐篇；卡片/报道分计数，scope=all展开非精选进展"
+    },
+    {
+      "id": "RDR-15",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/routes/all.tsx",
+        "apps/web/app/routes/item.tsx"
+      ],
+      "result": "独立最多5法规搜索结果/总数/查看全部；新闻关联法规，反向投影root负责"
+    },
+    {
+      "id": "RDR-16",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/routes/topics.tsx",
+        "apps/web/app/routes/topic.tsx",
+        "packages/backend/src/publication/topics.ts",
+        "industry/topics.json"
+      ],
+      "result": "项目轴协议与组定义、法律监管入口、主题内搜索日期国家矿种/精选切换；无核实项目词表故诚实隐藏，不能宣称真实五轴供稿已完备"
+    },
+    {
+      "id": "RDR-17",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/components/shell/ThemeSwitch.tsx"
+      ],
+      "result": "system监听media change，storage跨标签偏好同步html主题"
+    },
+    {
+      "id": "RDR-18",
+      "status": "implemented",
+      "files": [
+        "apps/web/app/routes/changelog.tsx"
+      ],
+      "result": "月份锚点放共用日期容器，纯重大更新日仍可跳转"
+    },
+    {
+      "id": "ROOT-02",
+      "status": "implemented",
+      "files": [
+        "packages/contracts/src/http/v3.ts",
+        "packages/backend/src/publication/v3.ts",
+        "packages/backend/src/publication/v3-reading.ts",
+        "packages/backend/src/publication/v3-collections.ts",
+        "apps/api/src/routes/v3.ts",
+        "tooling/generate.ts"
+      ],
+      "result": "正式v3匿名已实现对象读取与Zod生成独立OpenAPI，实际公有只读角色通过；源码级数据不完备仍unknown，不虚构首次公开或来源时间；稳定ETag/304配合no-store，freshness明确不304；游标签名及公开内容版本含时钟放行边界"
+    }
+  ],
+  "verification": {
+    "web_production_build": "public/private passed",
+    "types": "web public/private, backend, api, tests and tooling TS5.9 passed",
+    "reader_browser": "2 passed after lint cleanup; includes settled saved-list failure/retry, withdrawal-plus-arrival, mobile controls and system/storage themes",
+    "local_state": "5 passed",
+    "report_period": "3 passed",
+    "changelog_ssr": "1 passed including feature-only anchor",
+    "reader_pool": "3 passed including 1005 count/page51/combination/grouping",
+    "topics_mentions_featured": "7 passed",
+    "public_v3": "6 passed on UTF8 test DB; historical full-library/HMAC cursors, restrictive rights/reading revision, stable ETag 200→304→withdrawal 200, generated OpenAPI response headers, nonempty public objects, clock release behind an earlier ledger hole",
+    "public_v3_role": "1 passed with actual public_read process; anonymous v3 queries do not require a write role",
+    "public_role_routes": "4 passed: all 101 declared GET routes use public_read only; feedback is isolated to feedback_write; existing source/visibility/body qualification cases remain covered",
+    "feedback_upload": "3 passed: exactly 2MiB accepted intact, 2MiB+1 rejected, malformed multipart and identity boundaries preserved",
+    "reader_predicate_parity": "3 passed: alias/guard/literal wildcard semantics, matching source facets and existing trigram/pool timeline/published indexes verified with EXPLAIN",
+    "public_read_watermarks": "1 passed including timed visibility while an earlier selected ledger entry still blocks the contiguous watermark",
+    "generated_v3_response_headers": {
+      "200": [
+        "Cache-Control: no-store",
+        "ETag"
+      ],
+      "304": [
+        "Cache-Control: no-store",
+        "ETag"
+      ],
+      "429": [
+        "Cache-Control",
+        "Retry-After"
+      ],
+      "503": [
+        "Cache-Control",
+        "Retry-After"
+      ],
+      "freshness": "200/no-store only; no ETag or 304"
+    },
+    "new_sql_unknowns": {
+      "opening_relative_new_sites": 21,
+      "remaining_new_sites": 0,
+      "independent_evidence": "docs/acceptance/audit-remediation-20261011/root04-ownership-diff.json",
+      "guard_budget_map_changed_by_reader": false,
+      "limit": "仅本轮新增21处清零；未宣称历史冻结门或full verify通过"
+    },
+    "web_cache": "30 passed: all 9 stale expectations corrected to actual no-store or named-login behavior; routing/filter/Host/security assertions retained",
+    "reader_lint": "All assigned new warnings removed; only 5 existing app.css !important warnings remain, budget unchanged",
+    "final_logs": {
+      "public_v3_and_actual_roles_and_feedback": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-lint-public-tests.log",
+      "web_public_private_build": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-lint-web-build.log",
+      "backend_api_web_types": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-lint-types.log",
+      "reader_browser": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-lint-browser-final.log",
+      "cache_regression": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-cache-final.log",
+      "assigned_lint": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-lint-final.log"
+    },
+    "browser_fixture_note": "Initial added retry scenario raced initial component remount; final test waits for initial content then exercises focus-failure/retry. Final 2/2 passed; no weakened runtime withdrawal check."
+  },
+  "limits": [
+    "真实项目词表尚无记录，项目轴隐藏",
+    "新闻source_time只有当前材料/来源日期配置绑定有效才可输出，缺证据unknown；首次公开时间现无证明字段，unknown",
+    "法规站外全文保持Q-47 restricted，新闻全文只对现有syndicate_fulltext和对应公开权均明确允许的来源开放",
+    "本轮未生产部署、未做真人内容质量验收；独立旧库复核由root后置启动"
+  ],
+  "cross_agent_earlier_failures": [
+    {
+      "issue": "旧夹具的ProcessingPermit/人工revision前置及新增表/function授权曾阻塞较早测试",
+      "current_reader_scope": "真实public_read及101条路由、读者/API相关定向测试现已通过；其它泳道完整状态以root统一检查为准"
+    }
+  ],
+  "recorded_at": "2026-10-12T03:49:52.439085+00:00",
+  "code_stable": true,
+  "next_stage": "root统一contracts:gen/check后固定版本，再启动独立旧库功能对照",
+  "engineering_closeout": {
+    "scope": "items/pool/stories/timeline/v1/v3Reports新增SQL可证明性，公开路由/反馈旧断言修复",
+    "tasks": [
+      "TASK-0240",
+      "TASK-0241",
+      "TASK-0242",
+      "TASK-0243"
+    ],
+    "result": "固定字面SQL、明确参数类型和预先计算日期；保持别名、guard字、转义、日期范围、地理资格、分页与现有索引语义",
+    "full_verify_claimed": false
+  }
+}

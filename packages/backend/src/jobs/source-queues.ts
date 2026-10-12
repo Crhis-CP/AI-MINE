@@ -12,7 +12,7 @@ export async function ensureSourceQueues() {
 }
 export async function enqueueSourceFetch(
   lane: CollectionLane,
-  data: { sourceId: string; force?: boolean; crawlSessionId?: string },
+  data: { sourceId: string; force?: boolean; crawlSessionId?: string; scheduled?: boolean },
   options: SendOptions = {},
   tx?: Db,
 ) {

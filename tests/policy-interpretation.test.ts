@@ -124,6 +124,11 @@ const provider = await stub(async (_hit, req) => {
   requests.push(input);
   await beforeResponse(input);
   const output = answer(input);
+  if (["excluded_pass", "excluded_veto"].includes(mode) && input.phase === "candidate") output.relevance = "excluded";
+  if (mode === "excluded_veto" && input.phase === "verify") {
+    const relevance = input.claims.find((claim: Payload) => claim.path === "relevance");
+    output.judgments.find((j: Payload) => j.claim_id === relevance.id).verdict = "vetoes";
+  }
   if (mode === "bad_group" && input.phase === "group") output.input_ids = [];
   if (mode === "bad_merge" && input.phase === "merge") output.quotes = [groupReplies.at(-1)!.quotes[0]];
   if (mode === "bad_candidate" && input.phase === "candidate") output.evidence = [{ id: "e1", ...groupReplies.at(-1)!.quotes[0] }];
@@ -362,4 +367,22 @@ test("literal date components, source title, evidence references and law targets
       ),
     /coverage_mismatch/,
   );
+});
+
+test("excluded relevance must survive every original-group verification before it may hide a policy", async () => {
+  for (const [choice, expected] of [
+    ["excluded_veto", "semantic_failed"],
+    ["excluded_pass", "excluded"],
+  ]) {
+    const f = await fixture(20),
+      before = requests.length;
+    mode = choice!;
+    const result = await runPolicyInterpretation(f.runId, { root, maxRequests: 100 });
+    assert.equal(result.status, expected);
+    const calls = requests.slice(before);
+    const groups = calls.filter((r) => r.phase === "group");
+    assert.ok(groups.length > 1);
+    assert.equal(calls.filter((r) => r.phase === "verify").length, groups.length);
+    assert.equal(result.semantic_verified, expected === "excluded");
+  }
 });

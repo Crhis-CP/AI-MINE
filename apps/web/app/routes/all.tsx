@@ -6,9 +6,10 @@ import { apiBaseFor } from "../../api-target.ts";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
-import { CategoryTabs, JurisdictionFilter, SearchField } from "../features/feed/Filters";
+import { CategoryTabs, JurisdictionFilter, SearchField, SourceDateFilters } from "../features/feed/Filters";
 import { PillTabs } from "../components/ui/Tabs";
 import { DayList, Pagination } from "../features/feed/DayList";
+import { HotTopics } from "../features/feed/HotTopics";
 import { EmptyState } from "../components/ui/Page";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -22,7 +23,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const q = url.searchParams.get("q")?.trim().slice(0, 200) || null;
   const tab = url.searchParams.get("tab") === "relevance" ? "relevance" : null;
   // Legacy deep-paging parameters (deep, anchorAt) still open a normal page.
-  const page = Math.min(Math.max(Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1, 1), 50);
+  const page = Math.max(Number.parseInt(url.searchParams.get("page") ?? "1", 10) || 1, 1);
   const query = {
     channel: channel === "all" ? undefined : channel,
     category: category ?? undefined,
@@ -31,6 +32,11 @@ export async function loader({ request }: Route.LoaderArgs) {
     q: q ?? undefined,
     tab: tab ?? undefined,
     page: page > 1 ? page : undefined,
+    source: url.searchParams.get("source") || undefined,
+    mineral: url.searchParams.get("mineral") || undefined,
+    on: url.searchParams.get("on") || undefined,
+    from: url.searchParams.get("from") || undefined,
+    to: url.searchParams.get("to") || undefined,
   } as const;
   const data = await loadOr404(
     () =>
@@ -44,7 +50,17 @@ export async function loader({ request }: Route.LoaderArgs) {
         .then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal },
   );
-  return { data };
+  const policyMatches = q
+    ? await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") })
+        .GET("/api/site/policies", {
+          params: { query: { q, page: 1, page_size: 5 } },
+          headers: { accept: "application/json", "x-amp-ssr": "1" },
+          signal: request.signal,
+        })
+        .then((result) => contractResult(result, publicSchemas.PolicyListResponse))
+        .catch(() => null)
+    : null;
+  return { data, policyMatches, policySearchFailed: !!q && policyMatches === null };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -59,6 +75,11 @@ export function meta({ loaderData }: Route.MetaArgs) {
       category: f?.category,
       tag: f?.tag,
       jurisdiction: f?.jurisdiction,
+      source: f?.source,
+      mineral: f?.mineral,
+      on: f?.on,
+      from: f?.from,
+      to: f?.to,
       q,
       tab: f?.tab === "relevance" ? "relevance" : null,
       page: page > 1 ? page : null,
@@ -68,7 +89,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=30" };
+  return { "Cache-Control": "no-store" };
 }
 
 function pageHref(params: URLSearchParams, page: number) {
@@ -83,12 +104,12 @@ function pageHref(params: URLSearchParams, page: number) {
 }
 
 export default function AllPage() {
-  const { data } = useLoaderData<typeof loader>();
+  const { data, policyMatches, policySearchFailed } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const navigation = useNavigation();
   const f = data.filters;
   const busy = navigation.state === "loading" && navigation.location?.pathname === "/all";
-  const keep = { channel: f.channel === "all" ? null : f.channel, category: f.category, jurisdiction: f.jurisdiction ?? null };
+  const keep = Object.fromEntries([...params].filter(([key]) => !["q", "page", "cursor", "search"].includes(key)));
   const searchTabHref = (tab: "time" | "relevance") => {
     const sp = new URLSearchParams(params);
     sp.delete("page");
@@ -127,6 +148,37 @@ export default function AllPage() {
       </div>
 
       <JurisdictionFilter base="/all" value={f.jurisdiction ?? null} />
+      <SourceDateFilters base="/all" facets={data.facets} />
+      {data.hot && <HotTopics entries={data.hot} />}
+      {f.q && (
+        <section aria-label="法规政策搜索结果" className="my-4 rounded-card border border-line px-4 py-3">
+          <div className="flex justify-between text-[14px]">
+            <h2 className="font-semibold">法规政策{policyMatches ? `（${policyMatches.total} 条）` : ""}</h2>
+            <Link to={`/policies?q=${encodeURIComponent(f.q)}`} className="text-accent">
+              查看全部法规结果 →
+            </Link>
+          </div>
+          {policySearchFailed ? (
+            <p className="mt-2 text-[13px] text-ink-3">法规结果暂时无法读取，可进入法规栏目重试。</p>
+          ) : policyMatches?.items.length ? (
+            <ul className="mt-2 divide-y divide-line">
+              {policyMatches.items.slice(0, 5).map((policy) => (
+                <li key={policy.id} className="py-2 text-[14px]">
+                  <Link to={`/policies/${encodeURIComponent(policy.id)}`} className="text-accent">
+                    {policy.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-[13px] text-ink-3">未找到相符的法规文书。</p>
+          )}
+        </section>
+      )}
+      <p className="my-3 text-[12px] text-ink-4">
+        第 {data.page} 页 · 共 {data.total} {data.cards ? "张事件卡" : "条动态"}
+        {data.reportTotal !== undefined ? ` · ${data.reportTotal} 篇报道` : ""}
+      </p>
       {f.q && (
         <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2 lg:mt-0">
           <PillTabs
@@ -137,7 +189,7 @@ export default function AllPage() {
             items={(["time", "relevance"] as const).map((t) => ({ key: t, label: t === "time" ? "最新（标题与摘要）" : "全文相关", to: searchTabHref(t) }))}
           />
           <span className="text-[12px] text-ink-4">
-            找到 <span className="num">{data.total >= 2000 ? "2000+" : data.total}</span> 条 · 更新于 <span className="num">{updated}</span>
+            找到 <span className="num">{data.total}</span> 条 · 更新于 <span className="num">{updated}</span>
           </span>
         </div>
       )}
@@ -159,11 +211,15 @@ export default function AllPage() {
             </EmptyState>
           </div>
         ) : (
-          <DayList items={data.items} todayCount={f.q ? null : data.todayCount} showTags />
+          <DayList items={data.items} cards={data.cards} todayCount={f.q ? null : data.todayCount} showTags />
         )}
       </div>
       <Pagination page={data.page} pageCount={data.pageCount} href={(p) => pageHref(params, p)} />
-      {data.page >= 50 && <p className="mt-4 text-center text-[12px] text-ink-4">最多提供 50 页，更早的内容请使用搜索或主题页。</p>}
+      {data.page > data.pageCount && (
+        <Link to={pageHref(params, 1)} className="block py-4 text-center text-accent">
+          回到第 1 页
+        </Link>
+      )}
     </div>
   );
 }
