@@ -250,7 +250,7 @@ test("exception 7 and allowedPhrases.files must list the same files", () => {
   assert.deepEqual(lists([file], []), ["scripts/verify/names.json: allowedPhrases has phrases but no files, so no file is limited to them"]);
 });
 
-test("the site's outputs are fetched whole with their statuses checked, the changes feed by the snapshot's cursor, every MCP tool once, and error results only where allowed", async () => {
+test("the site's outputs are fetched whole with their statuses checked, the changes feed by the snapshot's cursor, every installed MCP probe once, and error results only where allowed", async () => {
   const called: string[] = [];
   const privateHost = "private.brand.test:8443";
   const loginHosts: string[] = [];
@@ -300,7 +300,15 @@ test("the site's outputs are fetched whole with their statuses checked, the chan
     assert.deepEqual(checkOutputs(site.outputs, rules), [`private /admin/login (HTTP 200), line 1: "${N}"`]);
     const changes = site.outputs.find((o) => o.label.startsWith("/api/v1/selected/changes"));
     assert.deepEqual(changes, { label: "/api/v1/selected/changes?cursor=<snapshot cursor> (HTTP 200)", text: "changes since c/1" });
-    assert.deepEqual(called.sort(), Object.values(MCP_TOOL_NAMES).sort());
+    // This contract-only branch does not install the additional MCP consumers. Keep the five
+    // existing runtime probes exact; the expanded identity list is tested in taxonomy-identity.
+    assert.deepEqual(called.sort(), [
+      "aiminingpolicy_get_daily",
+      "aiminingpolicy_get_hot_topics",
+      "aiminingpolicy_get_latest",
+      "aiminingpolicy_get_story",
+      "aiminingpolicy_search",
+    ]);
     for (const [mode, problem] of [
       ["private-missing", "private /admin/login: HTTP 404, expected 200"],
       ["public-cookie", "/admin/login: public rejection set a cookie"],
