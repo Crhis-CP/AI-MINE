@@ -383,6 +383,10 @@
     {
       "name": "feedback/202610121230_feedback_forward.sql",
       "dependsOn": ["feedback/202610120520_feedback_quota.sql"]
+    },
+    {
+      "name": "publication/202610131500_metal_prices_cochilco.sql",
+      "dependsOn": ["publication/202610090010_metal_prices_weekly.sql"]
     }
   ]
 }

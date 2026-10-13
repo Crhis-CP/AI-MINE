@@ -84,6 +84,31 @@
       "benchmark": "俄罗斯银行贵金属核算价",
       "unit": "卢布/克",
       "sourceUnit": "卢布/克"
+    },
+    {
+      "key": "cochilco",
+      "name": "智利铜业委员会（Cochilco）",
+      "section": "international",
+      "frequency": "day",
+      "currency": "USD",
+      "delay": "按官方日报发布的报价日期更新，非实时行情",
+      "staleDays": 5,
+      "hosts": ["www.cochilco.cl"],
+      "officialUrl": "https://www.cochilco.cl/web/la-rueda-diaria/",
+      "terms": {
+        "name": "Cochilco La Rueda 署名转载说明",
+        "url": "https://www.cochilco.cl/web/download/1037/octubre-2026/16976/rueda-13-10-2026.pdf"
+      },
+      "attribution": ["来源：Comisión Chilena del Cobre（Cochilco）《La Rueda》", "日报注明金属指标来自 LSEG"],
+      "license": [
+        "日报页脚明确允许注明 Cochilco 来源后全部或部分转载。",
+        "自动抽取、历史数据库及上游数据权利未取得单独确认；Owner于2026-10-13要求不发询证邮件并接受未确认风险后直接使用，不等同提供方已授权。",
+        "不销售行情、不开放批量行情下载或对外行情 API；收到权利异议时可单独停用来源。"
+      ],
+      "decimals": 2,
+      "benchmark": "Cochilco 日报列示的 LME 现货报价",
+      "unit": "美元/吨",
+      "sourceUnit": "US$/TM"
     }
   ],
   "items": [
@@ -387,6 +412,60 @@
       "grade": "1#",
       "metal": "zinc",
       "quote": "国内 · 锌 1#"
+    },
+    {
+      "key": "cochilco.copper",
+      "source": "cochilco",
+      "sourceName": "Cobre",
+      "name": "铜",
+      "metal": "copper",
+      "quote": "国际 · LME 现货价",
+      "footnote": "cochilco"
+    },
+    {
+      "key": "cochilco.aluminum",
+      "source": "cochilco",
+      "sourceName": "Aluminio",
+      "name": "铝",
+      "metal": "aluminum",
+      "quote": "国际 · LME 现货价",
+      "footnote": "cochilco"
+    },
+    {
+      "key": "cochilco.lead",
+      "source": "cochilco",
+      "sourceName": "Plomo",
+      "name": "铅",
+      "metal": "lead",
+      "quote": "国际 · LME 现货价",
+      "footnote": "cochilco"
+    },
+    {
+      "key": "cochilco.zinc",
+      "source": "cochilco",
+      "sourceName": "Zinc",
+      "name": "锌",
+      "metal": "zinc",
+      "quote": "国际 · LME 现货价",
+      "footnote": "cochilco"
+    },
+    {
+      "key": "cochilco.tin",
+      "source": "cochilco",
+      "sourceName": "Estaño",
+      "name": "锡",
+      "metal": "tin",
+      "quote": "国际 · LME 现货价",
+      "footnote": "cochilco"
+    },
+    {
+      "key": "cochilco.nickel",
+      "source": "cochilco",
+      "sourceName": "Níquel",
+      "name": "镍",
+      "metal": "nickel",
+      "quote": "国际 · LME 现货价",
+      "footnote": "cochilco"
     }
   ],
   "metals": [
@@ -424,6 +503,14 @@
       "key": "cbr",
       "text": "俄央行核算价：俄罗斯银行（俄罗斯央行）每个工作日公布的贵金属核算价，原为卢布/克，本站按它同一天公布的美元汇率换算成美元/盎司。来源：{link}。",
       "link": { "name": "俄罗斯银行 贵金属核算价", "url": "https://www.cbr.ru/hd_base/metall/metall_base_new/" }
+    },
+    {
+      "key": "cochilco",
+      "text": "国际日价摘自{link}的《La Rueda》日报，原文列示 LME 现货报价，金属指标来源标为 LSEG。按日报实际报价日期显示，非实时行情。",
+      "link": {
+        "name": "智利铜业委员会（Cochilco）",
+        "url": "https://www.cochilco.cl/web/la-rueda-diaria/"
+      }
     }
   ],
   "notes": [

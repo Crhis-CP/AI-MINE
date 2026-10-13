@@ -4,6 +4,7 @@
 // job_runs.detail.
 import { checkPeriod } from "./check.ts";
 import { cbrFetcher } from "./cbr.ts";
+import { cochilcoFetcher } from "./cochilco.ts";
 import { mofcomFetcher } from "./mofcom.ts";
 import { nbsFetcher } from "./nbs.ts";
 import { loadMetalPriceRegistry, type MetalPriceSource, type MetalPriceSourceKey, parseMetalPriceRegistry } from "./registry.ts";
@@ -17,6 +18,7 @@ const FETCHERS: Partial<Record<MetalPriceSourceKey, typeof nbsFetcher>> = {
   worldbank: worldbankFetcher,
   cbr: cbrFetcher,
   mofcom: mofcomFetcher,
+  cochilco: cochilcoFetcher,
 };
 
 /** One period of a source in the run record; TASK-0046 adds the series held back alone. */

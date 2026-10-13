@@ -15,18 +15,20 @@ export const METAL_PRICE_HOSTS = [
   "www.cbr.ru",
   "bank.gov.ua",
   "cif.mofcom.gov.cn",
+  "www.cochilco.cl",
 ] as const;
 
-const SOURCE_KEYS = ["nbs", "worldbank", "imf", "cbr", "mofcom"] as const;
+const SOURCE_KEYS = ["nbs", "worldbank", "imf", "cbr", "mofcom", "cochilco"] as const;
 export type MetalPriceSourceKey = (typeof SOURCE_KEYS)[number];
 /** Series key prefix and period type of each source: the same pairs publication.metal_prices checks. */
-const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = { nbs: "nbs", worldbank: "wb", imf: "imf", cbr: "cbr", mofcom: "mofcom" };
+const SERIES_PREFIX: Record<MetalPriceSourceKey, string> = { nbs: "nbs", worldbank: "wb", imf: "imf", cbr: "cbr", mofcom: "mofcom", cochilco: "cochilco" };
 const PERIOD_TYPE: Record<MetalPriceSourceKey, "ten_day" | "month" | "day" | "week"> = {
   nbs: "ten_day",
   worldbank: "month",
   imf: "month",
   cbr: "day",
   mofcom: "week",
+  cochilco: "day",
 };
 
 const text = z.string().regex(/\S/, "must not be blank");
@@ -57,7 +59,7 @@ const Source = z.strictObject({
 });
 
 const Item = z.strictObject({
-  key: z.string().regex(/^(nbs|wb|imf|cbr|mofcom)\.[a-z0-9_]+$/),
+  key: z.string().regex(/^(nbs|wb|imf|cbr|mofcom|cochilco)\.[a-z0-9_]+$/),
   source: z.enum(SOURCE_KEYS),
   /** The product name as the source writes it, matched exactly after normalizeSourceName. */
   sourceName: text,

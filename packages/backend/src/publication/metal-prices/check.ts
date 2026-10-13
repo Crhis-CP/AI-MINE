@@ -16,7 +16,9 @@ export function checkPeriod({ fetched, source, items, previous, newest, compareW
   if (!onSourceHost(source, release.url)) reasons.push(`发布页链接 ${release.url} 不在登记的主机上或不是 https`);
   // A period still running has no price yet: its last day must be before today in Beijing (a day stricter than "not future").
   const today = beijingDate(now);
-  if (period.end >= today) reasons.push(`所属期${period.label}还没结束（最后一天 ${period.end}，北京时间今天 ${today}）`);
+  // Cochilco publishes a completed dated cash quotation within that Beijing day; its PDF and table dates must agree.
+  if (period.end > today || (period.end === today && source.key !== "cochilco"))
+    reasons.push(`所属期${period.label}还没结束（最后一天 ${period.end}，北京时间今天 ${today}）`);
   // With nothing stored for the source (the first run) there is nothing to be older than.
   if (newest && period.start < newest) reasons.push(`所属期${period.label}比库里最新一期（${newest} 开始）旧`);
   // With no period stored before this one, the row count and ratio checks have nothing to compare with.
