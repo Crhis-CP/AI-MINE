@@ -85,7 +85,7 @@ services:
     <<: *app
     volumes:
       - data:/data
-      - ${METAL_PRICE_RELAY_KEY_DIR:-./.credentials/price-relay}:/run/price-relay:ro
+      - price-relay-keys:/run/price-relay:ro
     command: ["node", "apps/worker/src/main.ts"]
     # On stop the worker lets a paid call in flight finish (STOP_TIMEOUT_MS, 195 s); Docker's default
     # 10 s would kill it mid-call and leave "outcome unknown" receipts that are paid for again.
@@ -143,6 +143,7 @@ services:
       - web
 
 volumes:
+  price-relay-keys:
   db: {}
   data: {}
   caddy: {}

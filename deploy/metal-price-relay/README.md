@@ -6,4 +6,4 @@
 
 `edgeone.json` 使用 `outputDirectory: public` 与 `cloudFunctions: {regions:{overseas:[ap-singapore]},maxDuration:30}`。官方 CLI `edgeone@1.6.41 makers deploy <上传目录> --name aimine-price-fetch --area overseas --env production --json --skip-ai-gateway-sync`，避免启用不需要的 AI 网关。绑定经 Owner 许可的 `price-fetch.aiminingpolicy.com` 后，从生产主机验证签名列表及真实 PDF 原件；保留前一函数部署作为回退。
 
-worker 的私钥保存在主机 `.credentials/price-relay/signing.pem`，mode 0600、仅应用 UID 可读，只读挂载 `/run/price-relay`。网站读者、公开 API 及海外服务均不持私钥。不将本服务配置为 `EGRESS_PROXY_URL`，它不是通用代理。停用只清空 `METAL_PRICE_RELAY_URL` 并恢复此前应用版本；保留既有真实报价历史。
+私钥原始副本保存在主机 `.credentials/price-relay/signing.pem`，mode 0600、仅应用 UID 可读。发布前运行 `deploy/metal-price-relay/install-key.sh`，将同一私钥幂等写入专用 `amp_price-relay-keys` 卷；只有 worker 只读挂载到 `/run/price-relay`。未配置取价地址时，该空卷不触发任何访问。网站读者、公开 API 及海外服务均不持私钥。不将本服务配置为 `EGRESS_PROXY_URL`，它不是通用代理。停用只清空 `METAL_PRICE_RELAY_URL` 并恢复此前应用版本；保留既有真实报价历史。
