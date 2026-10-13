@@ -49,3 +49,7 @@ TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public reg
 阅读摘要不内嵌正文，续读绑定 expression_id/document_revision_id，默认20、最多50节点。复杂合并表格尚需完整原件提取端证明，不由矩阵字段声称保真。私有使用许可与来源契约不公开；attachment_inventory 的 public/restricted/unknown 是读者可见的附件结果，报告 coverage 仅为聚合检查摘要。严格 schema 通过不等于公开资格或覆盖完成。
 
 `tests/fixtures/policy-public/` 全部为显式合成的状态预览，不是尽调资料或真实法规。没有公开投影时必须显示读取失败/未接通，不用合成样本或空模板填生产；基本事实与完整解读、无结果与读取失败、来源尚未接通与没有新规则始终分开。集中全面验证与公开端接线留给后续，不变更模型身份或质量设置。
+
+## 定向金属日价取件
+
+`@amp/contracts/metal-price-relay`定义海外取件服务的独立协议：仅GET固定Cochilco目录或原始日报PDF，Ed25519签名绑定资源、方法与90秒时效。私钥保留在生产worker的专用只读挂载，海外服务只有公钥。响应保留原件字节并附原始地址和SHA-256；目录上限2MiB、PDF上限4MiB，拒绝任意URL、重定向和额外请求字段。该协议不改变站内价格API，不转发数据库、模型或读者凭据。
