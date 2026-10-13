@@ -380,3 +380,31 @@ export async function newsRelationMaterials(ids: string[], db: Db = sql) {
 export async function lockNewsModelMaterials(ids: string[], db: Db) {
   return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id FOR SHARE`;
 }
+
+/** Grouping and human detachment serialize on the material row without exposing its body. */
+export async function lockMaterialForGrouping(db: Db, articleId: string) {
+  await db`SELECT 1 FROM articles WHERE id=${articleId} FOR UPDATE`;
+}
+export async function markMaterialGrouped(db: Db, articleId: string, preserveExisting: boolean) {
+  await db`UPDATE articles SET grouped_at=CASE WHEN ${preserveExisting} THEN coalesce(grouped_at,now()) ELSE now() END WHERE id=${articleId}`;
+}
+/** Acquisition owns the retry decision; content owns persistence of its material metadata. */
+export async function updateMaterialBodyRetry(db: Db, articleId: string, retry: { attempts: number; error: string } | null) {
+  await db`UPDATE articles SET raw=CASE WHEN ${retry !== null}
+    THEN jsonb_set(raw,'{dajiala,bodyRetry}',${db.json(retry as never)}) ELSE raw #- '{dajiala,bodyRetry}' END WHERE id=${articleId}`;
+}
+export async function resetFailedMaterialForRetry(db: Db, articleId: string): Promise<boolean> {
+  const [row] = await db`UPDATE articles SET processing_state='new',processing_attempts=0,processing_retry_at=NULL,processing_error=NULL
+    WHERE id=${articleId} AND processing_state='failed' RETURNING id`;
+  return !!row;
+}
+
+export async function prefilterAuditMaterialSources(articleIds: string[], db: Db) {
+  if (!articleIds.length) return [];
+  return db<{ id: string; source_id: string }[]>`SELECT id,source_id FROM articles WHERE id=ANY(${articleIds}::text[])`;
+}
+export async function prefilterAuditMaterialCopies(articleIds: string[], db: Db) {
+  if (!articleIds.length) return [];
+  return db<{ id: string; title: string; excerpt: string | null; body_text: string | null; discovered_at: Date | null }[]>`
+    SELECT id,title,excerpt,body_text,discovered_at FROM articles WHERE id=ANY(${articleIds}::text[])`;
+}

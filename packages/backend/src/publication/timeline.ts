@@ -1,3 +1,4 @@
+import { readMatcherValues } from "./mentions.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 // Home timeline: selected items folded into reading groups (reference SELECTED_READING):
 // one card per story, per fact outside a story, or per standalone article. A card sits at its latest
@@ -44,10 +45,6 @@ function entryCondition(q: TimelineQuery, now: Date) {
   return sql`p.visibility = 'public' AND p.selected AND p.visible_after <= ${now} AND p.timeline_at >= ${q.featuredSince ?? null}`;
 }
 
-function filterSql(q: TimelineQuery) {
-  return sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)}`;
-}
-
 function binding(q: TimelineQuery): string {
   return queryBinding({
     scope: q.scope ?? "selected",
@@ -77,12 +74,13 @@ export function pickRepresentative<T extends RepresentativeRow>(rows: T[]): T {
  * filters (non-selected included): the sets "另有 N 家信源报道" expands and the group counts come from.
  */
 async function groupPool(q: TimelineQuery, now: Date, storyIds: number[], factIds: number[]) {
+  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
   if (!storyIds.length && !factIds.length) return [];
   return sql<{ story_id: number | null; fact_id: number; article_id: string; source_id: string; at: Date }[]>`
     SELECT DISTINCT f.story_id, f.id AS fact_id, p.article_id, p.source_id, p.timeline_at AS at
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
     WHERE (f.story_id IN ${sql(storyIds.length ? storyIds : [0])} OR f.id IN ${sql(factIds.length ? factIds : [0])})
-      AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`;
+      AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${now}) ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
 }
 
 /**
@@ -112,12 +110,13 @@ async function groupedAnchors(q: TimelineQuery, now: Date): Promise<Array<{ gk: 
 }
 
 async function queryGroupedAnchors(q: TimelineQuery, now: Date) {
+  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
   const rows = (
     await sql<{ gk: string; anchor_at: Date }[]>`
       WITH base AS (
         SELECT p.sort_at, coalesce('s' || p.story_id::text, 'f' || p.fact_id::text, 'a' || p.article_id) AS gk
         FROM publications p
-        WHERE ${entryCondition(q, now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}
+        WHERE ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}
       )
       SELECT gk, max(sort_at) AS anchor_at FROM base GROUP BY gk ORDER BY anchor_at DESC, gk COLLATE "C" DESC`
   ).map((r) => ({ gk: r.gk, anchor: r.anchor_at.getTime() }));
@@ -128,6 +127,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
   const now = q.now ?? new Date();
   q = { ...q, featuredSince: beijingMidnight(addCalendarMonths(beijingDate(now), -3)) };
+  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
   const limit = Math.min(Math.max(q.limit ?? 20, 1), 40);
   const bind = binding(q);
   let after: { a: number; g: string } | null = null;
@@ -157,7 +157,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
       ? sql<Member[]>`
         SELECT p.story_id, p.fact_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
         WHERE (p.story_id IN ${sql(storyIds.length ? storyIds : [0])} OR (p.story_id IS NULL AND p.fact_id IN ${sql(factIds.length ? factIds : [0])}))
-          AND ${entryCondition(q, now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`
+          AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
       : Promise.resolve([] as Member[]),
     groupPool(q, now, storyIds, factIds),
   ]);
@@ -216,7 +216,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
       ? (
           await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(planned.map((p) => p.id))}
-      AND ${entryCondition(q, now)} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`
+      AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
         ).map((row) => [row.id, row])
       : [],
   );
@@ -254,9 +254,10 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
 /** Earliest pending release in this scope; caches of this scope must expire by then. */
 export async function nextRelease(q: TimelineQuery, now: Date): Promise<string | null> {
   q = { ...q, ...newsJurisdictionScope(q.jurisdiction) };
+  const matchers = readMatcherValues(q.tag, q.topicTags, q.jurisdictionCodes?.length ? q.jurisdictionCodes : q.jurisdiction ? [q.jurisdiction] : [], []);
   const [row] = await sql<{ t: Date | null }[]>`
     SELECT min(p.visible_after) AS t FROM publications p
-    WHERE p.visibility = 'public' AND p.selected AND p.visible_after > ${now} ${filterSql(q)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "")}`;
+    WHERE p.visibility = 'public' AND p.selected AND p.visible_after > ${now} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`;
   return row?.t ? row.t.toISOString() : null;
 }
 

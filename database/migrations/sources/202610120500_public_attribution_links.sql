@@ -3,7 +3,7 @@ WITH evidence_links AS (
   SELECT c.source_id,c.permission_version,e.value->>'kind' AS kind,e.value->>'url' AS url
   FROM sources.source_policy_current c JOIN sources.source_policy_versions v
     ON v.source_id=c.source_id AND v.permission_version=c.permission_version
-  CROSS JOIN LATERAL jsonb_array_elements(v.policy->'evidence') e(value)
+  CROSS JOIN LATERAL jsonb_array_elements(v.policy->'evidence') e
   WHERE e.value->>'kind' IN ('open_license','official_policy','robots_terms')
     AND e.value->>'url' ~* '^https?://[^/?#[:space:]@\\]+([/?#][^[:space:]\\]*)?$'
 ), chosen AS (
@@ -22,6 +22,6 @@ WITH evidence_links AS (
 UPDATE sources.source_policy_current c
 SET public_policy=c.public_policy||jsonb_build_object('licence_url',chosen.licence_url,'legal_url',chosen.legal_url)
 FROM chosen WHERE c.source_id=chosen.source_id AND (
-  c.public_policy->'licence_url' IS DISTINCT FROM coalesce(to_jsonb(chosen.licence_url),'null'::jsonb)
-  OR c.public_policy->'legal_url' IS DISTINCT FROM coalesce(to_jsonb(chosen.legal_url),'null'::jsonb)
+  c.public_policy->'licence_url' IS DISTINCT FROM coalesce(pg_catalog.to_jsonb(chosen.licence_url),'null'::jsonb)
+  OR c.public_policy->'legal_url' IS DISTINCT FROM coalesce(pg_catalog.to_jsonb(chosen.legal_url),'null'::jsonb)
 );

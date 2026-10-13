@@ -1,6 +1,7 @@
 // /api/admin/*: queries are GET, creation POST, edits PATCH, business commands POST.
 // Every route goes through adminHandler (session + CSRF); manual changes are audited in the modules.
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { actorOf, requireOwner, requireCapability } from "@amp/backend/admin/auth";
 
@@ -78,6 +79,7 @@ import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
 
 const sql = dbOf("sources");
+const AuditQuery = z.object({ subject: z.string().optional(), action: z.string().optional(), page: z.coerce.number().int().positive().default(1) });
 
 type Q = Record<string, string | undefined>;
 const q = (req: FastifyRequest) => req.query as Q;
@@ -458,13 +460,15 @@ export function registerAdmin(app: FastifyInstance) {
   // Audit trail
   app.get(
     "/api/admin/audit",
-    adminHandler(async (req) => {
-      const f = q(req);
+    adminHandler(async (req, reply) => {
+      const parsed = AuditQuery.safeParse(req.query);
+      if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "审计筛选必须使用单个文本值和正整数页码。" });
+      const f = parsed.data;
       const rows = await sql`
       SELECT id, created_at, actor, action, subject, reason, before, after FROM audit_log
       WHERE (${f.subject ?? null}::text IS NULL OR subject = ${f.subject ?? null}) AND (${f.action ?? null}::text IS NULL OR action LIKE ${`${f.action ?? ""}%`})
-      ORDER BY created_at DESC LIMIT 100 OFFSET ${(page(req) - 1) * 100}`;
-      return { page: page(req), rows };
+      ORDER BY created_at DESC LIMIT 100 OFFSET ${(f.page - 1) * 100}`;
+      return { page: f.page, rows };
     }),
   );
 }

@@ -82,4 +82,13 @@ test("current source evidence permits a genuine same-occurrence runtime join", a
   assert.equal(result.verdict, "same-fact");
   assert.equal(result.factId, Number(fact!.id));
   assert.equal(provider.hits(), 1);
+  // Isolate the new-fact insertion path after proving the valid same-occurrence join.
+  await sql`DELETE FROM fact_articles WHERE article_id IN (${first},${second})`;
+  const malformed = await report("malformed-frame");
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{fact,subject}','{"unexpected":"object"}'::jsonb) WHERE article_id=${malformed}`;
+  const created = await groupArticle(malformed);
+  assert.equal(created.verdict, "new-story");
+  assert.ok(created.factId);
+  const [stored] = await sql`SELECT subject,action,object FROM facts WHERE id=${created.factId!}`;
+  assert.deepEqual({ ...stored }, { subject: null, action: null, object: null }, "malformed model frames cannot become SQL text values");
 });

@@ -11,7 +11,7 @@ CREATE FUNCTION publication.bump_read_version() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, publication AS $$
 DECLARE line text := TG_ARGV[0];
 BEGIN
-  IF TG_OP='UPDATE' AND (to_jsonb(NEW)-'updated_at') IS NOT DISTINCT FROM (to_jsonb(OLD)-'updated_at') THEN RETURN NULL; END IF;
+  IF TG_OP='UPDATE' AND (pg_catalog.to_jsonb(NEW)-'updated_at') IS NOT DISTINCT FROM (pg_catalog.to_jsonb(OLD)-'updated_at') THEN RETURN NULL; END IF;
   UPDATE publication.read_watermarks SET version=version+1,
     withdrawal_version=withdrawal_version + CASE WHEN TG_OP='INSERT' THEN 0 ELSE 1 END
     WHERE lane=line;
@@ -27,8 +27,8 @@ CREATE TRIGGER policy_edition_read_version AFTER INSERT OR UPDATE OR DELETE ON p
 CREATE FUNCTION publication.record_news_public_time() RETURNS trigger
 LANGUAGE plpgsql SET search_path = pg_catalog, publication AS $$
 BEGIN
-  IF NEW.visibility='public' AND NEW.eligible AND (NOT NEW.selected OR NEW.visible_after<=now()) THEN
-    UPDATE publication.read_watermarks SET last_public_at=now() WHERE lane='news';
+  IF NEW.visibility='public' AND NEW.eligible AND (NOT NEW.selected OR NEW.visible_after<=pg_catalog.now()) THEN
+    UPDATE publication.read_watermarks SET last_public_at=pg_catalog.now() WHERE lane='news';
   END IF;
   RETURN NULL;
 END;

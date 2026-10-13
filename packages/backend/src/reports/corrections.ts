@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { dbOf, type Db } from "../db.ts";
 import { stableJson } from "../lib/ids.ts";
-import { enqueue } from "../jobs/queue.ts";
+import { enqueue, ensureQueue } from "../jobs/queue.ts";
 import { currentReportPublications, lockReportPublications } from "@amp/backend/publication/publish";
 import { readCurrentSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
 import { isReportWithdrawn } from "@amp/backend/publication/reports";
@@ -10,6 +11,9 @@ import { reportMemberIds, type StoredReportContent } from "./references.ts";
 import { generateReportCorrection } from "./correction-compose.ts";
 const sql = dbOf("reports");
 export const REPORT_CORRECTION_QUEUE = "reports.correct";
+export async function ensureReportCorrectionQueue() {
+  await ensureQueue(REPORT_CORRECTION_QUEUE, { policy: "exclusive", retryLimit: 0, expireInSeconds: 900 });
+}
 export type CorrectionReason = "manual_correction" | "withdrawal" | "restoration";
 const publicReason: Record<CorrectionReason, string> = {
   manual_correction: "引用报道已更正，本期内容随之更新。",
@@ -48,6 +52,7 @@ export async function invalidateReportCorrections(db: Db, itemIds: string[], rea
     await db`UPDATE reports SET revision=${revision},content=${db.json(content)},updated_at=now() WHERE id=${report.id}`;
     await db`INSERT INTO reports.correction_jobs(report_id,requested_revision,state,reason_code) VALUES(${report.id},${revision},'pending',${reason})
       ON CONFLICT(report_id) DO UPDATE SET requested_revision=EXCLUDED.requested_revision,state='pending',reason_code=EXCLUDED.reason_code,last_error=NULL,updated_at=now()`;
+    await ensureReportCorrectionQueue();
     await enqueue(REPORT_CORRECTION_QUEUE, { reportId: String(report.id), lane: "news" }, { singletonKey: `${report.id}:${revision}` }, db);
     changed++;
   }
@@ -75,6 +80,7 @@ export async function correctNewsReport(reportId: string) {
     );
     await sql`UPDATE reports.correction_jobs SET state='running',updated_at=now() WHERE report_id=${report.id} AND requested_revision=${report.revision}`;
     const generated = await generateReportCorrection(report, entries);
+    const generatedModel = z.string().min(1).parse(generated.model);
     const saved = await sql.begin(async (tx) => {
       await assertRuntimeControl(tx, control);
       await lockCurrentSourcePolicies(tx, permissions);
@@ -89,7 +95,7 @@ export async function correctNewsReport(reportId: string) {
         corrections: [...corrections(report.content), { revision, reason: "已依据当前公开报道完成本期更正。", at: new Date().toISOString() }],
       };
       await tx`INSERT INTO report_revisions(report_id,revision,content,generated_at,reason) VALUES(${report.id},${report.revision},${tx.json(report.content as never)},${report.generated_at},'更正后的报告已生成') ON CONFLICT DO NOTHING`;
-      await tx`UPDATE reports SET content=${tx.json(content as never)},revision=${revision},model=${generated.model},generated_at=now(),updated_at=now() WHERE id=${report.id}`;
+      await tx`UPDATE reports SET content=${tx.json(content as never)},revision=${revision},model=${generatedModel},generated_at=now(),updated_at=now() WHERE id=${report.id}`;
       await tx`UPDATE reports.correction_jobs SET state='done',last_error=NULL,updated_at=now() WHERE report_id=${report.id} AND requested_revision=${report.revision}`;
       if (generated.receiptId) await completeReceipt(tx, generated.receiptId);
       return true;
@@ -108,6 +114,7 @@ export async function correctNewsReport(reportId: string) {
 
 /** Retry the same durable repair after a control pause or receipt reconciliation; the gateway still refuses unknown bills. */
 export async function enqueuePendingReportCorrections(limit = 20) {
+  await ensureReportCorrectionQueue();
   const rows = await sql<{ report_id: number; requested_revision: number }[]>`SELECT report_id,requested_revision FROM reports.correction_jobs
     WHERE state IN ('pending','blocked','running') AND updated_at<now()-interval '5 minutes' ORDER BY updated_at LIMIT ${limit}`;
   for (const row of rows)

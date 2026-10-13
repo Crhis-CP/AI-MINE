@@ -1,7 +1,7 @@
 import { dbOf } from "./module-db.ts";
 import { columns, published, category, combined, field, sideEffect, effectCondition, mutating, raw, relation,
   relationBranch, nestedRelation, recursive, partial, takeFragment, identifier, column, alias, opaque,
-  commaProjection, functionName, suffix, tableChoice, calledTag, rebound } from "./helpers.ts";
+  commaProjection, functionName, suffix, tableChoice, calledTag, rebound, localConst, conditionalValue, ignoredEffect, ignoredWrite, wrongConst, projection, qualified, qualifiedExists, scalarRead, scalarWrite, scalarEscape } from "./helpers.ts";
 const sql = dbOf("publication");
 export function good(now: Date, q: {category: string | null; tags: string[] | null}, flag: boolean) {
   return sql`SELECT ${columns}, ${field(flag)} AS shown FROM publications p WHERE ${published(now)} ${combined(q)}`;
@@ -42,3 +42,20 @@ export function capped(flag: boolean) {
 export function aliasUse(now: Date) { return sql`SELECT 1 FROM publications WHERE ${alias(now)}`; }
 export function opaqueUse() { return sql`SELECT 1 FROM publications WHERE ${opaque()}`; }
 export function mixed(now: Date) { return sql`SELECT 1 FROM publications WHERE ${published(now)} AND ${opaque()}`; }
+
+export function localConstUse(now: Date, q: {offset: number; category: string | null}) {return sql`SELECT 1 FROM publications p WHERE ${localConst(now,q)}`;}
+export function conditionalValueUse(flag: boolean,a:string,b:string) {return sql`SELECT 1 FROM publications p WHERE ${conditionalValue(flag,a,b)}`;}
+export function ignoredEffectUse(now:Date) {return sql`SELECT 1 FROM publications p WHERE ${ignoredEffect(now)}`;}
+export function ignoredWriteUse() {return sql`SELECT 1 FROM publications p WHERE ${ignoredWrite()}`;}
+export function wrongConstUse() {return sql`SELECT 1 FROM publications p WHERE ${wrongConst()}`;}
+
+export function projectionUse(flag: boolean) { return sql`SELECT ${projection(flag, sql`p.payload`)} FROM publications p`; }
+export function projectionDefault(flag: boolean) { return sql`SELECT ${projection(flag)} FROM publications p`; }
+export function qualifiedUse() { return sql`SELECT 1 FROM publications p WHERE ${qualified("p")}`; }
+export function qualifiedExistsUse() { return sql`SELECT 1 FROM publications p WHERE ${qualifiedExists("p")}`; }
+export function badAliasUse(alias: string) { return sql`SELECT 1 FROM publications p WHERE ${qualified(alias)}`; }
+export function badAliasLiteral() { return sql`SELECT 1 FROM publications p WHERE ${qualified("p JOIN receipts r ON true --")}`; }
+
+export function scalarReadUse() { return sql`SELECT ${scalarRead(sql`p.id`)} FROM publications p`; }
+export function scalarWriteUse() { return sql`SELECT ${scalarWrite()} FROM publications p`; }
+export function scalarEscapeUse() { return sql`SELECT ${scalarEscape()} FROM publications p`; }

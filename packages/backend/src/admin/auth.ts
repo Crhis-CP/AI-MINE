@@ -2,6 +2,7 @@
 // union_ids / emails; opaque sessions stored hashed, and an audit trail for every manual change.
 // Development may impersonate an admin with DEV_AUTH_ROLE=admin; production refuses to start with it.
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
 import { config, credential, isProduction } from "../config.ts";
 import { dbOf, type Db } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
@@ -96,12 +97,13 @@ export function safeReturn(target: string): string {
   return /^\/admin(\/|\?|$)/.test(path) && !path.startsWith("//") ? path : "/admin";
 }
 
-interface FeishuUser {
-  union_id?: string;
-  email?: string;
-  enterprise_email?: string;
-  name?: string;
-}
+const FeishuUserSchema = z.object({
+  union_id: z.string().nullish(),
+  email: z.string().nullish(),
+  enterprise_email: z.string().nullish(),
+  name: z.string().nullish(),
+});
+type FeishuUser = z.infer<typeof FeishuUserSchema>;
 
 async function feishuUser(code: string): Promise<FeishuUser> {
   const appId = credential("integrations", "FEISHU_LOGIN_APP_ID");
@@ -113,13 +115,13 @@ async function feishuUser(code: string): Promise<FeishuUser> {
     body: new URLSearchParams({ grant_type: "authorization_code", client_id: appId, client_secret: appSecret, code, redirect_uri: CALLBACK_URL }),
     signal: AbortSignal.timeout(15_000),
   });
-  const token = (await tokenRes.json()) as { access_token?: string; error?: string };
+  const token = z.object({ access_token: z.string().optional(), error: z.string().nullish() }).parse(await tokenRes.json());
   if (!token.access_token) throw new Error(`Feishu token exchange failed: ${token.error ?? tokenRes.status}`);
   const userRes = await fetch("https://passport.feishu.cn/suite/passport/oauth/userinfo", {
     headers: { authorization: `Bearer ${token.access_token}` },
     signal: AbortSignal.timeout(15_000),
   });
-  return (await userRes.json()) as FeishuUser;
+  return FeishuUserSchema.parse(await userRes.json());
 }
 
 export class LoginRejected extends Error {}

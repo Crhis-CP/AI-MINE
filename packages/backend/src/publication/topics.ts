@@ -1,3 +1,4 @@
+import { topicTextMatches } from "./read-predicates.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { readFileSync } from "node:fs";
@@ -6,7 +7,7 @@ import { REPO_ROOT } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { cached } from "../lib/cache.ts";
 import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
-import { matchesTopicTags, topicMemberSql } from "./mentions.ts";
+import { matchesTopicTags, readMatcherValues } from "./mentions.ts";
 
 const sql = dbOf("publication");
 
@@ -168,12 +169,12 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   const pageCount = Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE));
   if (page < 1 || page > pageCount) return null;
   // Page ids from the set the counts follow first, then the joins for those rows only.
-  const match = topicMatchTags(row);
+  const match = readMatcherValues(null, topicMatchTags(row), [], []);
   const offset = (page - 1) * TOPIC_PAGE_SIZE;
   const rows = await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${listedCondition(now)} AND p.eligible AND ${topicMemberSql(match)}
+      WHERE ${listedCondition(now)} AND p.eligible AND ${topicTextMatches(match)}
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)

@@ -81,7 +81,31 @@ test("empty pool draws nothing; a real pool samples both sides without publishin
     );
   const before = await finger();
   const receiptsBefore = (await sql`SELECT count(*)::int AS n FROM receipts`)[0].n;
-  const drawn = await drawPrefilterAudit({ requestId: randomUUID(), nonce: randomUUID() }, owner);
+  // Reference the established draw ordering independently of the new cross-module ports.
+  const expectedDraw = async (seed: string) => {
+    const [previous] = await sql`SELECT id FROM ai.prefilter_audit_draws ORDER BY created_at DESC,id DESC LIMIT 1`;
+    const result: string[] = [];
+    for (const relevance of ["block", "pass"] as const) {
+      const rows = await sql<{ article_id: string }[]>`WITH latest AS (
+        SELECT DISTINCT ON(article_id) article_id,relevance FROM analyses ORDER BY article_id,input_revision DESC,id DESC
+      ) SELECT a.id AS article_id FROM latest l JOIN articles a ON a.id=l.article_id
+        JOIN sources s ON s.id=a.source_id AND s.lane='news'
+        LEFT JOIN editorial_overrides o ON o.article_id=a.id AND (o.visibility='withdrawn' OR o.fields->>'relevance'='block')
+        LEFT JOIN LATERAL(SELECT revision FROM ai.prefilter_audit_labels WHERE article_id=a.id ORDER BY revision DESC LIMIT 1) lab ON true
+        LEFT JOIN ai.prefilter_audit_items prev ON prev.article_id=a.id AND prev.draw_id=${previous?.id ?? null}
+        WHERE l.relevance=${relevance} AND o.article_id IS NULL AND s.id <> 'cgs-news'
+        ORDER BY (lab.revision IS NULL AND prev.article_id IS NULL) DESC,(lab.revision IS NULL) DESC,hashtext(a.id || ${seed}),a.id LIMIT 10`;
+      result.push(...rows.map((row) => row.article_id));
+    }
+    return result;
+  };
+  const seed = randomUUID(),
+    expected = await expectedDraw(seed);
+  const drawn = await drawPrefilterAudit({ requestId: randomUUID(), nonce: seed }, owner);
+  assert.deepEqual(
+    drawn.draw!.items.map((row) => row.articleId),
+    expected,
+  );
   assert.equal(drawn.draw!.items.length, 20);
   assert.equal(drawn.draw!.discarded, 10);
   assert.equal(drawn.draw!.kept, 10);
@@ -105,4 +129,13 @@ test("empty pool draws nothing; a real pool samples both sides without publishin
   await assert.rejects(labelPrefilterAudit(sample.articleId, { ...labelInput, requestId: randomUUID(), decision: "agree" }, owner), /标注已变化|操作编号/);
   assert.equal(await finger(), before);
   assert.equal((await sql`SELECT visibility FROM publications WHERE article_id = ${publishedDropped}`)[0].visibility, "withdrawn");
+  const nextSeed = randomUUID(),
+    nextExpected = await expectedDraw(nextSeed);
+  const next = await drawPrefilterAudit({ requestId: randomUUID(), nonce: nextSeed }, owner);
+  assert.deepEqual(
+    next.draw!.items.map((row) => row.articleId),
+    nextExpected,
+    "unlabeled and not-previously-sampled priority stays exact",
+  );
+  assert.equal(await finger(), before);
 });

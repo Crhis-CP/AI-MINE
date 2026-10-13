@@ -47,3 +47,12 @@ test("weekly alerts retry failure and send only aggregate data once", async () =
   assert.equal(again.delivery, "already_sent");
   assert.equal(hits, 2);
 });
+
+test("status-only feedback edits preserve the stored typed note while explicit null clears it", async () => {
+  const [row] = await sql`INSERT INTO feedback(content,status,note) VALUES('合成反馈备注保留验证','new','保留此备注') RETURNING id,updated_at`;
+  const changed = await updateFeedback(row!.id, { status: "triaged", version: row!.updated_at.toISOString() }, "test");
+  assert.equal(changed!.note, "保留此备注");
+  const cleared = await updateFeedback(row!.id, { note: null, version: changed!.updated_at.toISOString() }, "test");
+  assert.equal(cleared!.note, null);
+  await assert.rejects(updateFeedback(row!.id, { note: "过期写入", version: row!.updated_at.toISOString() }, "test"), { code: "conflict" });
+});

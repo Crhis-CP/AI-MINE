@@ -1,5 +1,13 @@
-import { newsRelationJurisdictions } from "@amp/backend/publication/publish";
-import { newsRelationMaterials, lockNewsModelMaterials, manualMaterialSnapshot } from "@amp/backend/content/materials";
+import { z } from "zod";
+import { isValidDate } from "@amp/contracts/time";
+import { newsRelationJurisdictions, readEventPublicationTimes } from "@amp/backend/publication/publish";
+import {
+  newsRelationMaterials,
+  lockNewsModelMaterials,
+  manualMaterialSnapshot,
+  lockMaterialForGrouping,
+  markMaterialGrouped,
+} from "@amp/backend/content/materials";
 import { prepareNewsFallback, lockNewsProcessingPermissions } from "../providers/news-fallback.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 // Event grouping. A report attaches to a fact, the same real-world occurrence, and
@@ -39,6 +47,26 @@ export async function captureEventWithdrawal(db: Db, articleId: string) {
   let held = false;
   for (const member of memberships) held = (await articleWithdrawalHeld(db, articleId, member.fact_public_id, member.story_public_id)) || held;
   if (held) await publishArticleTx(db as Tx, articleId);
+}
+
+/** Human standalone decision and membership removal share the caller's editorial transaction. */
+export async function detachArticleFromFactTx(tx: Tx, articleId: string, reason: string, actor: string) {
+  await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+  await captureEventWithdrawal(tx, articleId);
+  await lockMaterialForGrouping(tx, articleId);
+  const removed = await tx<{ fact_id: number }[]>`DELETE FROM fact_articles WHERE article_id=${articleId} RETURNING fact_id`;
+  const facts = removed.map((row) => row.fact_id);
+  const storyRows = facts.length ? await tx<{ story_id: number }[]>`SELECT DISTINCT story_id FROM facts WHERE id=ANY(${facts}) AND story_id IS NOT NULL` : [];
+  const stories = storyRows.map((row) => row.story_id);
+  if (stories.length) await tx`DELETE FROM story_signals WHERE article_id=${articleId} AND story_id=ANY(${stories})`;
+  await tx`INSERT INTO grouping_overrides(article_id,reason,actor) VALUES(${articleId},${reason},${actor})
+    ON CONFLICT(article_id) DO UPDATE SET reason=EXCLUDED.reason,actor=EXCLUDED.actor,created_at=now()`;
+  await markMaterialGrouped(tx, articleId, false);
+  return { facts, stories };
+}
+export async function factArticleIds(factIds: number[], db: Db = sql): Promise<string[]> {
+  if (!factIds.length) return [];
+  return (await db<{ article_id: string }[]>`SELECT DISTINCT article_id FROM fact_articles WHERE fact_id=ANY(${factIds})`).map((row) => row.article_id);
 }
 
 /** All members, including individually hidden items, form the editorial withdrawal snapshot. */
@@ -163,19 +191,36 @@ export function participantKey(source: { id: string }): string {
 // ---------------------------------------------------------------------------
 
 /** A membership is evidence unless its report waits for a regroup; a manual one always is. */
-const trusted = (alias: string) => sql`(${sql(alias)}.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id = ${sql(alias)}.article_id))`;
+function trusted(alias: "x" | "z" | "fa") {
+  if (alias === "x") return sql`(x.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=x.article_id))`;
+  if (alias === "z") return sql`(z.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=z.article_id))`;
+  return sql`(fa.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=fa.article_id))`;
+}
 
-/**
- * The fact that started a story: the one whose earliest trusted report came first. Fact ids do not
- * follow time once stories merge or come from an import, and an emptied fact starts nothing.
- */
-const rootFactOf = (story: ReturnType<typeof sql> | number) => sql`(
-  SELECT y.id FROM facts y
-  JOIN fact_articles z ON z.fact_id = y.id AND z.role IN ('primary', 'report') AND ${trusted("z")}
-  JOIN publications q ON q.article_id = z.article_id
-  WHERE y.story_id = ${story}
-  ORDER BY coalesce(q.published_at, q.discovered_at), y.id
-  LIMIT 1)`;
+/** Empty facts do not start a story; trusted report time wins, then fact ID. */
+async function storyRootFacts(storyIds: number[], db: Db = sql): Promise<Map<number, number>> {
+  if (!storyIds.length) return new Map();
+  const members = await db<{ story_id: number; fact_id: number; article_id: string }[]>`
+    SELECT y.story_id,y.id AS fact_id,z.article_id FROM facts y
+    JOIN fact_articles z ON z.fact_id=y.id AND z.role IN ('primary','report')
+    WHERE y.story_id=ANY(${storyIds}) AND (z.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=z.article_id))`;
+  const times = new Map(
+    (
+      await readEventPublicationTimes(
+        members.map((m) => m.article_id),
+        db,
+      )
+    ).map((p) => [p.article_id, BigInt(p.order_time)]),
+  );
+  const roots = new Map<number, { factId: number; at: bigint }>();
+  for (const member of members) {
+    const at = times.get(member.article_id);
+    if (at === undefined) continue;
+    const before = roots.get(member.story_id);
+    if (!before || at < before.at || (at === before.at && member.fact_id < before.factId)) roots.set(member.story_id, { factId: member.fact_id, at });
+  }
+  return new Map([...roots].map(([story, root]) => [story, root.factId]));
+}
 
 /** Reports of the recall window that belong to a live fact; those waiting for a regroup only when asked for (the warm-up). */
 async function recallPool(withWaiting = false): Promise<PoolRow[]> {
@@ -185,7 +230,7 @@ async function recallPool(withWaiting = false): Promise<PoolRow[]> {
     JOIN facts f ON f.id = fa.fact_id
     JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
     JOIN articles a ON a.id = fa.article_id
-    WHERE fa.role IN ('primary', 'report') AND ${withWaiting ? sql`true` : trusted("fa")} AND a.discovered_at > now() - make_interval(days => ${RECALL_DAYS})`;
+    WHERE fa.role IN ('primary', 'report') AND (${withWaiting} OR fa.manual OR NOT EXISTS (SELECT 1 FROM regroup_pending rp WHERE rp.article_id=fa.article_id)) AND a.discovered_at > now() - make_interval(days => ${RECALL_DAYS})`;
 }
 
 /** The public title and summary of reports (the analysis when a report has no publication yet). */
@@ -320,9 +365,14 @@ async function recallFacts(queryId: string, queryText: string, minScore: number,
  * What the judge sees of a candidate fact: its representative report (first-party first, else the
  * earliest), its size, and whether it started its story (rootFactOf).
  */
-async function candidateViews(recalled: Recalled[]): Promise<CandidateView[]> {
+async function candidateViews(recalled: Recalled[], db?: Db): Promise<CandidateView[]> {
   if (recalled.length === 0) return [];
-  const rows = await sql<
+  if (!db) return sql.begin("isolation level repeatable read read only", (tx) => candidateViews(recalled, tx));
+  const roots = await storyRootFacts(
+    recalled.map((r) => r.storyId),
+    db,
+  );
+  const rows = await db<
     {
       article_id: string;
       input_revision: number | null;
@@ -340,13 +390,11 @@ async function candidateViews(recalled: Recalled[]): Promise<CandidateView[]> {
       first_party: boolean;
       at: Date;
       members: number;
-      root_fact_id: number;
     }[]
   >`
     SELECT DISTINCT ON (fa.fact_id) fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title, f.subject, f.action, f.object, f.occurred_at,
            p.title, p.summary, s.name AS source, p.first_party, coalesce(p.published_at, p.discovered_at) AS at,
-           (SELECT count(*) FROM fact_articles x WHERE x.fact_id = fa.fact_id AND x.role IN ('primary', 'report') AND ${trusted("x")}) AS members,
-           ${rootFactOf(sql`f.story_id`)} AS root_fact_id
+           (SELECT count(*) FROM fact_articles x WHERE x.fact_id = fa.fact_id AND x.role IN ('primary', 'report') AND ${trusted("x")}) AS members
     FROM fact_articles fa
     JOIN facts f ON f.id = fa.fact_id
     JOIN publications p ON p.article_id = fa.article_id
@@ -366,7 +414,7 @@ async function candidateViews(recalled: Recalled[]): Promise<CandidateView[]> {
         storyId: Number(row.story_id),
         factTitle: row.fact_title,
         members: Number(row.members),
-        storyRoot: Number(row.root_fact_id) === r.factId,
+        storyRoot: roots.get(Number(row.story_id)) === r.factId,
         score: r.score,
         report: {
           articleId: row.article_id,
@@ -477,9 +525,18 @@ async function createStory(db: Db, title: string, at: Date): Promise<number> {
   return row!.id;
 }
 
-async function createFact(db: Db, storyId: number, title: string, frame: Record<string, any> | null, at: Date): Promise<number> {
-  const occurred =
-    typeof frame?.occurredAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(frame.occurredAt) ? new Date(`${frame.occurredAt}T00:00:00+08:00`) : null;
+const FactFrame = z
+  .object({
+    title: z.string().max(80).nullish(),
+    subject: z.string().max(80).nullish(),
+    action: z.string().max(80).nullish(),
+    object: z.string().max(160).nullish(),
+    occurredAt: z.string().nullish(),
+  })
+  .nullable()
+  .catch(null);
+async function createFact(db: Db, storyId: number, title: string, frame: z.infer<typeof FactFrame>, at: Date): Promise<number> {
+  const occurred = typeof frame?.occurredAt === "string" && isValidDate(frame.occurredAt) ? new Date(`${frame.occurredAt}T00:00:00+08:00`) : null;
   const [row] = await db<{ id: number }[]>`
     INSERT INTO facts (public_id, story_id, title, subject, action, object, occurred_at, created_at)
     VALUES (${`f${newShortId(8)}`}, ${storyId}, ${title}, ${frame?.subject ?? null}, ${frame?.action ?? null}, ${frame?.object ?? null}, ${occurred}, ${at})
@@ -538,7 +595,7 @@ async function resetAutomatic(articleId: string, control: RuntimeControlSnapshot
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await assertRuntimeControl(tx, control);
-    await tx`SELECT 1 FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    await lockMaterialForGrouping(tx, articleId);
     await captureEventWithdrawal(tx, articleId);
     const left = await tx<{ story_id: number }[]>`
       SELECT DISTINCT f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
@@ -599,8 +656,11 @@ interface StoryRoot {
 }
 
 /** A story's root (rootFactOf), when it started, and the report that stands for it. */
-async function storyRoot(storyId: number): Promise<StoryRoot | null> {
-  const [row] = await sql<
+async function storyRoot(storyId: number, db?: Db): Promise<StoryRoot | null> {
+  if (!db) return sql.begin("isolation level repeatable read read only", (tx) => storyRoot(storyId, tx));
+  const root = (await storyRootFacts([storyId], db)).get(storyId);
+  if (root === undefined) return null;
+  const [row] = await db<
     {
       article_id: string;
       input_revision: number | null;
@@ -627,7 +687,7 @@ async function storyRoot(storyId: number): Promise<StoryRoot | null> {
     JOIN fact_articles fa ON fa.fact_id = f.id AND fa.role IN ('primary', 'report') AND ${trusted("fa")}
     JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
-    WHERE f.id = ${rootFactOf(storyId)}
+    WHERE f.id = ${root}
     ORDER BY (fa.role = 'primary') DESC, p.timeline_at ASC
     LIMIT 1`;
   if (!row || (!row.manual && (await newsRelationMaterials([row.article_id]))[0]?.revision !== row.input_revision)) return null;
@@ -719,7 +779,7 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
     if (s !== null) live.add(s);
   }
   if (live.size < 2) return [];
-  const roots = (await Promise.all([...live].map(storyRoot))).filter((r): r is StoryRoot => !!r && !r.roundup);
+  const roots = (await Promise.all([...live].map((id) => storyRoot(id)))).filter((r): r is StoryRoot => !!r && !r.roundup);
   if (roots.length < 2) return [];
   await requireRuntimeRunning("news", ["publication"]);
   const control = await runtimeControlSnapshot("news", ["processing", "publication"]);
@@ -755,11 +815,6 @@ export async function consolidate(storyIds: number[], opts: { dryRun?: boolean }
 /** Reports that must tie two stories that stay apart before each lists the other as a related event. */
 const RELATED_MIN_REPORTS = 2;
 
-/** The story began with a multi-topic digest: it is neither merged nor linked. */
-const startedByRoundup = (story: ReturnType<typeof sql>) => sql`EXISTS (
-  SELECT 1 FROM fact_articles r JOIN grouping_decisions d ON d.article_id = r.article_id AND d.verdict = 'roundup'
-  WHERE r.fact_id = ${rootFactOf(story)})`;
-
 /**
  * Stories that stay apart although reports tie them (a reaction, a development of a later fact, a
  * comparison) list each other as related events: at least two reports decided in the recall window,
@@ -771,7 +826,7 @@ export async function linkRelatedStories(): Promise<{ added: number }> {
   return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await requireRuntimeRunning("news", ["publication"], tx);
-    const [row] = await tx<{ added: number }[]>`
+    const pairs = await tx<{ x: number; y: number }[]>`
     WITH latest AS (
       SELECT DISTINCT ON (article_id) article_id, verdict, candidates FROM grouping_decisions
       WHERE created_at > now() - make_interval(days => ${RECALL_DAYS}) ORDER BY article_id, id DESC),
@@ -788,15 +843,24 @@ export async function linkRelatedStories(): Promise<{ added: number }> {
     pairs AS (
       SELECT least(a, b) AS x, greatest(a, b) AS y FROM ties GROUP BY 1, 2 HAVING count(DISTINCT article_id) >= ${RELATED_MIN_REPORTS}),
     linked AS (
-      SELECT p.x, p.y FROM pairs p
-      JOIN stories sx ON sx.id = p.x AND sx.merged_into IS NULL
-      JOIN stories sy ON sy.id = p.y AND sy.merged_into IS NULL
-      WHERE NOT ${startedByRoundup(sql`p.x`)} AND NOT ${startedByRoundup(sql`p.y`)}),
-    added AS (
-      INSERT INTO story_links (story_id, other_id, relation)
-      SELECT x, y, 'related' FROM linked UNION ALL SELECT y, x, 'related' FROM linked
-      ON CONFLICT (story_id, other_id) DO NOTHING RETURNING 1)
-    SELECT count(*)::int AS added FROM added`;
+      SELECT p.x,p.y FROM pairs p
+      JOIN stories sx ON sx.id=p.x AND sx.merged_into IS NULL
+      JOIN stories sy ON sy.id=p.y AND sy.merged_into IS NULL)
+    SELECT x,y FROM linked`;
+    const roots = await storyRootFacts([...new Set(pairs.flatMap((p) => [p.x, p.y]))], tx);
+    const roundup = await tx<{ fact_id: number }[]>`
+      SELECT DISTINCT r.fact_id FROM fact_articles r JOIN grouping_decisions d ON d.article_id=r.article_id AND d.verdict='roundup'
+      WHERE r.fact_id=ANY(${[...roots.values()]})`;
+    const excluded = new Set(roundup.map((r) => r.fact_id));
+    const linked = pairs.filter((p) => !excluded.has(roots.get(p.x)!) && !excluded.has(roots.get(p.y)!));
+    const left = linked.map((p) => p.x),
+      right = linked.map((p) => p.y);
+    const [row] = await tx<{ added: number }[]>`
+      WITH pairs AS (SELECT * FROM unnest(${left}::bigint[],${right}::bigint[]) AS p(x,y)),
+      added AS (INSERT INTO story_links(story_id,other_id,relation)
+        SELECT x,y,'related' FROM pairs UNION ALL SELECT y,x,'related' FROM pairs
+        ON CONFLICT(story_id,other_id) DO NOTHING RETURNING 1)
+      SELECT count(*)::int AS added FROM added`;
     return { added: row?.added ?? 0 };
   });
 }
@@ -887,10 +951,11 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     return { verdict: "kept", factId: kept.factId, storyId: kept.storyId };
   }
 
-  const [an] = await sql<{ relevance: string | null; title_zh: string | null; summary_zh: string | null; output: Record<string, any> | null }[]>`
+  const [an] = await sql<{ relevance: string | null; title_zh: string | null; summary_zh: string | null; output: unknown }[]>`
     SELECT relevance, title_zh, summary_zh, output FROM analyses WHERE article_id = ${articleId} AND input_revision=${a.revision} ORDER BY id DESC LIMIT 1`;
-  const frame = (an?.output?.fact ?? null) as Record<string, any> | null;
-  if (!an || an.relevance !== "pass") {
+  const parsedOutput = z.object({ fact: FactFrame.optional() }).safeParse(an?.output);
+  const frame = parsedOutput.success ? (parsedOutput.data.fact ?? null) : null;
+  if (an?.relevance !== "pass") {
     await markGrouped(articleId);
     await publishArticle(articleId);
     return { verdict: "standalone" };
@@ -989,7 +1054,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     if (currentRevision?.revision !== a.revision) throw new Error("事件材料在裁决期间已修订");
     const late = await manualDecision(tx, articleId);
     if (late) {
-      await tx`UPDATE articles SET grouped_at = coalesce(grouped_at, now()) WHERE id = ${articleId}`;
+      await markMaterialGrouped(tx, articleId, true);
       return { manual: late, factId: null, storyId: null };
     }
     const story = storyId ?? (await createStory(tx, newTitle, observedAt));
@@ -999,7 +1064,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     await tx`INSERT INTO fact_articles (fact_id, article_id, role, created_at, input_revision) VALUES (${fact}, ${articleId}, ${role}, ${observedAt}, ${a.revision}) ON CONFLICT (fact_id, article_id) DO NOTHING`;
     await recordSignal(tx, story, articleId, source, "editorial", observedAt);
     await recordDecision(tx, articleId, fact, story, verdict, decisionCandidates, receipts[0] ?? null);
-    await tx`UPDATE articles SET grouped_at = coalesce(grouped_at, now()) WHERE id = ${articleId}`;
+    await markMaterialGrouped(tx, articleId, true);
     return { manual: null, factId: fact, storyId: story };
   });
   for (const id of receipts) await completeReceipt(sql, id);

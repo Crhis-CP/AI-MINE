@@ -18,8 +18,8 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
-import { publicationTextMatches } from "./read-predicates.ts";
-import { termExpands, termMatchSql, readMatcherValues, type ReadMatcherValues } from "./mentions.ts";
+import { publicationTextMatches, poolDirectTextMatches, bodyTextMatches, searchPartScore, searchTitleScore } from "./read-predicates.ts";
+import { termExpands, readMatcherValues, searchScoreValues, type ReadMatcherValues } from "./mentions.ts";
 import { loadTimeline } from "./timeline.ts";
 import { MINERAL_TAGS } from "@amp/industry/taxonomy";
 
@@ -76,28 +76,6 @@ export function searchTerms(q: string): string[] {
     .filter(Boolean)
     .slice(0, 6)
     .map((t) => t.replace(/[\\%_]/g, (m) => `\\${m}`));
-}
-
-/** Default search: subject, title or summary match (search_text), newest first. Aliases of one term are OR. */
-export function directMatchCondition(terms: string[]) {
-  if (terms.length === 0) return sql``;
-  return terms.reduce((acc, t) => sql`${acc} AND ${termMatchSql(sql`p.search_text`, t)}`, sql``);
-}
-
-/**
- * The public APIs' q (v1 and MCP): every term matches the subject, title or summary, or
- * the start of a body whose full text may be shown, as the API documents it ("title / Chinese
- * title / Chinese summary / body"). Results stay in time order.
- */
-export function publicMatchCondition(terms: string[]) {
-  if (terms.length === 0) return sql``;
-  // Keep the body lookup correlated to the time-ordered candidates. Without OFFSET 0, PostgreSQL
-  // may hash every matching body in pool_search before serving even the first 40 recent items.
-  return terms.reduce(
-    (acc, t) => sql`${acc} AND (${termMatchSql(sql`p.search_text`, t)} OR EXISTS (
-      SELECT 1 FROM pool_search ps WHERE ps.article_id = p.article_id AND ${termMatchSql(sql`ps.body`, t)} OFFSET 0))`,
-    sql``,
-  );
 }
 
 /** Unfiltered-by-search totals only set the page count; they are reused for 30 seconds per filter. */
@@ -161,7 +139,13 @@ export async function loadPool(
   const to = on ?? (query.to && isValidDate(query.to) ? query.to : null);
   query = { ...query, rangeStart: from ? beijingMidnight(from) : null, rangeEnd: to ? beijingMidnight(addDays(to, 1)) : null };
   const dateFilter = publicationDateCondition(query.rangeStart, query.rangeEnd);
-  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(query.tag)} ${topicCondition(query.topicTags)} ${dateFilter}
+  const names = readMatcherValues(
+    query.tag,
+    query.topicTags,
+    query.jurisdictionCodes?.length ? query.jurisdictionCodes : query.jurisdiction ? [query.jurisdiction] : [],
+    [],
+  );
+  const filters = sql`${channelCondition(query.channel)} ${categoryCondition(query.category)} ${tagCondition(names)} ${topicCondition(names)} ${dateFilter}
     ${query.selected ? sql`AND p.selected` : sql``} ${query.source ? sql`AND p.source_id = ${query.source}` : sql``}
     AND (${matchers.tagTags}::text[] IS NULL OR p.tags && ${matchers.tagTags}::text[] OR (${matchers.tagText.active} AND ${publicationTextMatches(matchers.tagText)}))`;
   const offset = (page - 1) * POOL_PAGE_SIZE;
@@ -173,13 +157,14 @@ export async function loadPool(
 
   // Searches go through pool_search (eligible items only): trigram indexes for longer terms, a small
   // table to scan for one- and two-character ones.
-  const like = (col: ReturnType<typeof sql>, t: string) => sql`${col} LIKE ${"%" + t + "%"}`;
+  const scores = searchScoreValues(terms);
+  const textMatchers = readMatcherValues(null, null, [], terms);
   const run = async (db: Db) => {
     if (!q) {
       // Page ids from the timeline index first, then the joins for those rows only.
       const rows = await db<ItemRow[]>`
         WITH page AS (
-          SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")}
+          SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
           ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
         SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
         ORDER BY p.timeline_at DESC, p.article_id DESC`;
@@ -188,7 +173,7 @@ export async function loadPool(
         total: await poolCount(
           filterKey,
           () => db<{ n: number }[]>`
-        SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")}) t`,
+        SELECT count(*) AS n FROM (SELECT 1 FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}) t`,
         ),
       };
     }
@@ -206,25 +191,37 @@ export async function loadPool(
         !query.category &&
         !query.tag &&
         !query.topicTags?.length;
-      const partScore = terms.reduce(
-        (acc, t) => sql`${acc} + (CASE WHEN ${like(sql`ps.direct`, t)} THEN 3 ELSE 0 END) + (CASE WHEN ${like(sql`ps.body`, t)} THEN 1 ELSE 0 END)`,
-        sql`0`,
-      );
-      const titleScore = terms.reduce((acc, t) => sql`${acc} + (CASE WHEN ${like(sql`lower(p.title)`, t)} THEN 6 ELSE 0 END)`, sql`0`);
-      const anyMatch = terms.reduce((acc, t) => sql`${acc} AND (${termMatchSql(sql`ps.direct`, t)} OR ${termMatchSql(sql`ps.body`, t)})`, sql`TRUE`);
-      const matches = splitFields
-        ? sql`
-        SELECT coalesce(d.article_id, b.article_id) AS article_id,
-          (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END) + (CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part
-        FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${"%" + terms[0]! + "%"}) d
-        FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${"%" + terms[0]! + "%"}) b ON b.article_id = d.article_id`
-        : sql`SELECT ps.article_id, (${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}`;
+      const partScore = searchPartScore(scores);
+      const titleScore = searchTitleScore(scores);
+      const anyMatch = sql`(${!textMatchers.term0.active} OR (${poolDirectTextMatches(textMatchers.term0)} OR ${bodyTextMatches(textMatchers.term0)}))
+        AND (${!textMatchers.term1.active} OR (${poolDirectTextMatches(textMatchers.term1)} OR ${bodyTextMatches(textMatchers.term1)}))
+        AND (${!textMatchers.term2.active} OR (${poolDirectTextMatches(textMatchers.term2)} OR ${bodyTextMatches(textMatchers.term2)}))
+        AND (${!textMatchers.term3.active} OR (${poolDirectTextMatches(textMatchers.term3)} OR ${bodyTextMatches(textMatchers.term3)}))
+        AND (${!textMatchers.term4.active} OR (${poolDirectTextMatches(textMatchers.term4)} OR ${bodyTextMatches(textMatchers.term4)}))
+        AND (${!textMatchers.term5.active} OR (${poolDirectTextMatches(textMatchers.term5)} OR ${bodyTextMatches(textMatchers.term5)}))`;
       type RankedRow = Omit<ItemRow, "id"> & { id: string | null; rel: number; total: number };
-      const result = await db<RankedRow[]>`
-        WITH matches AS ${splitFields ? sql`MATERIALIZED` : sql`NOT MATERIALIZED`} (${matches}), scored AS MATERIALIZED (
+      const result = splitFields
+        ? await db<RankedRow[]>`
+        WITH matches AS MATERIALIZED (
+        SELECT coalesce(d.article_id,b.article_id) AS article_id,
+          (CASE WHEN d.article_id IS NOT NULL THEN 3 ELSE 0 END)+(CASE WHEN b.article_id IS NOT NULL THEN 1 ELSE 0 END) AS part
+        FROM (SELECT article_id FROM pool_search WHERE direct LIKE ${"%" + terms[0]! + "%"})d
+        FULL JOIN (SELECT article_id FROM pool_search WHERE body LIKE ${"%" + terms[0]! + "%"})b ON b.article_id=d.article_id), scored AS MATERIALIZED (
           SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel
           FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id
-          WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")}
+          WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
+        ), page AS MATERIALIZED (
+          SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC
+          LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
+        ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
+        SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
+          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id
+        ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`
+        : await db<RankedRow[]>`
+        WITH matches AS NOT MATERIALIZED (SELECT ps.article_id,(${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}), scored AS MATERIALIZED (
+          SELECT p.article_id, p.timeline_at, matches.part + (${titleScore}) AS rel
+          FROM matches JOIN publications p ON p.article_id = matches.article_id JOIN sources s ON s.id = p.source_id
+          WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
         ), page AS MATERIALIZED (
           SELECT article_id, rel FROM scored ORDER BY rel DESC, timeline_at DESC, article_id DESC
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
@@ -239,15 +236,25 @@ export async function loadPool(
     // search rows, where one- and two-character terms scan a small table instead of every item.
     const rows = await db<ItemRow[]>`
       WITH page AS (
-        SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")} ${directMatchCondition(terms)}
+        SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)} AND (${!textMatchers.term0.active} OR ${publicationTextMatches(textMatchers.term0)})
+          AND (${!textMatchers.term1.active} OR ${publicationTextMatches(textMatchers.term1)})
+          AND (${!textMatchers.term2.active} OR ${publicationTextMatches(textMatchers.term2)})
+          AND (${!textMatchers.term3.active} OR ${publicationTextMatches(textMatchers.term3)})
+          AND (${!textMatchers.term4.active} OR ${publicationTextMatches(textMatchers.term4)})
+          AND (${!textMatchers.term5.active} OR ${publicationTextMatches(textMatchers.term5)})
         ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
       SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
       ORDER BY p.timeline_at DESC, p.article_id DESC`;
-    const direct = terms.reduce((acc, t) => sql`${acc} AND ${termMatchSql(sql`ps.direct`, t)}`, sql``);
+    const direct = sql`(${!textMatchers.term0.active} OR ${poolDirectTextMatches(textMatchers.term0)})
+      AND (${!textMatchers.term1.active} OR ${poolDirectTextMatches(textMatchers.term1)})
+      AND (${!textMatchers.term2.active} OR ${poolDirectTextMatches(textMatchers.term2)})
+      AND (${!textMatchers.term3.active} OR ${poolDirectTextMatches(textMatchers.term3)})
+      AND (${!textMatchers.term4.active} OR ${poolDirectTextMatches(textMatchers.term4)})
+      AND (${!textMatchers.term5.active} OR ${poolDirectTextMatches(textMatchers.term5)})`;
     const { n } = one(
       await db<{ n: number }[]>`
       SELECT count(*) AS n FROM (SELECT 1 FROM pool_search ps JOIN publications p ON p.article_id = ps.article_id
-        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")} ${direct}) t`,
+        WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)} AND ${direct}) t`,
     );
     return { rows, total: Number(n) };
   };
@@ -258,7 +265,7 @@ export async function loadPool(
   const meta = one(
     await sql<{ today_count: number; updated_at: Date | null }[]>`
     SELECT (SELECT count(*) FROM publications p
-      WHERE ${listedCondition(now)} AND p.eligible AND p.timeline_at >= ${beijingMidnight(today)} ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "")}) AS today_count,
+      WHERE ${listedCondition(now)} AND p.eligible AND p.timeline_at >= ${beijingMidnight(today)} ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}) AS today_count,
       (SELECT max(p.updated_at) FROM publications p WHERE p.eligible) AS updated_at`,
   );
 

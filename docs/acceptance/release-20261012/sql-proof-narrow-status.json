@@ -1,0 +1,82 @@
+{
+  "task": "TASK-0324",
+  "scope": "Two bounded correction rounds for five already-confirmed parameter false rejections; no SQL grammar, business source, budget or ownership-map changes.",
+  "status": "four_runtime_categories_resolved_one_partially_resolved_and_returned",
+  "rounds": 2,
+  "tests": {
+    "existing_groups": 16,
+    "passed_round_1": 16,
+    "passed_round_2": 16,
+    "existing_negative_controls_preserved": 28,
+    "existing_positive_controls_preserved": 5,
+    "new_extracted_positive_controls": 5,
+    "logs": [
+      ".verify/release-20261012/sql-proof-narrow-round1.log",
+      ".verify/release-20261012/sql-proof-narrow-round2.log"
+    ]
+  },
+  "checks": {
+    "scripts_typecheck": "pass: .verify/release-20261012/sql-proof-narrow-typecheck.log",
+    "biome": "pass: .verify/release-20261012/sql-proof-narrow-biome.log",
+    "diff_whitespace": "pass"
+  },
+  "resolved": [
+    {
+      "category": "Typed SQL row destructuring and reassignment",
+      "sites": [
+        "admin/content.ts:211,238,239",
+        "admin/source-previews.ts:60,73"
+      ],
+      "proof": "Assign/destructure each RHS using the exact selected-field path rather than requiring the entire row to be a scalar parameter."
+    },
+    {
+      "category": "Generic one<T> actual-argument projection",
+      "sites": [
+        "publication/publish.ts:178,484,490"
+      ],
+      "proof": "Forward generic identifiers/indexes to the actual call arguments; an unbound T does not establish data."
+    },
+    {
+      "category": "normalizeUrl scalar self-update",
+      "sites": [
+        "admin/content.ts:32"
+      ],
+      "proof": "Check original value plus every write; a write does not recursively re-check itself."
+    },
+    {
+      "category": "Typed DTO self-spread reassignment",
+      "sites": [
+        "publication/pool.ts:165 standalone query.source template"
+      ],
+      "proof": "Preserve selected-property paths across self-spread; other writes remain checked."
+    }
+  ],
+  "remaining": [
+    {
+      "category": "Typed async result field",
+      "sites": [
+        "packages/backend/src/editorial/translation-store.ts:147",
+        "packages/backend/src/editorial/translation-store.ts:174"
+      ],
+      "expressions": [
+        "settled.rejected",
+        "settled?.rejected ?? 0"
+      ],
+      "status": "Minimal extracted typed-async DTO positive passes; real settleTranslationResponse producer chain remains UNKNOWN. Returned after round 2 without broadening proof."
+    },
+    {
+      "category": "Outside this bounded correction",
+      "description": "publication/publish tags erasure and pool existing opaque filtering/reducer fragments remain; these were not changed."
+    }
+  ],
+  "actual_runtime_evidence": ".verify/release-20261012/sql-proof-narrow-runtime.json",
+  "actual_runtime_unknown_sites_by_file": {
+    "packages/backend/src/admin/content.ts": 0,
+    "packages/backend/src/admin/source-previews.ts": 0,
+    "packages/backend/src/editorial/translation-store.ts": 2,
+    "packages/backend/src/publication/publish.ts": 1,
+    "packages/backend/src/publication/pool.ts": 36
+  },
+  "known_removed_sites_in_these_files": 10,
+  "caveat": "This five-file snapshot is not a full integrated ownership gate report. The final Biome-only callback formatting does not change evaluated behavior."
+}

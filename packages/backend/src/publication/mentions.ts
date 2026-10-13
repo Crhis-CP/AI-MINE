@@ -5,10 +5,6 @@
 // because every caller still applies its own visibility condition.
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { ENTITIES, MINERAL_TAGS, TAG_SYNONYMS } from "@amp/industry/taxonomy";
-import { dbOf } from "../db.ts";
-
-const sql = dbOf("publication");
-const sqlFragment = () => sql``;
 const FOLD_DROP = /[\s（）()【】[\]「」『』·・,，.。\-‐‑–—_/]/g;
 const SHORT_LATIN = new Set(["drc", "uk", "eu", "un"]);
 /** Single-character minerals that also sit inside unrelated words. Strip those words, then look. */
@@ -225,50 +221,6 @@ export function matchesTopicTags(tags: string[], searchText: string, topicTags: 
   });
 }
 
-function needleSql(column: ReturnType<typeof sqlFragment>, needle: Needle) {
-  if (needle.kind === "latin") {
-    const body = escapeReg(needle.text.toLowerCase());
-    return sql`${column} ~* ${`(^|[^a-z0-9])${body}([^a-z0-9]|$)`}`;
-  }
-  if (needle.kind === "guarded") {
-    const pattern = [...needle.blockers]
-      .sort((a, b) => b.length - a.length)
-      .map(escapeReg)
-      .join("|");
-    return sql`regexp_replace(${column}, ${pattern}, '', 'gi') ILIKE ${likePattern(needle.text)}`;
-  }
-  return sql`${column} ILIKE ${likePattern(needle.text)}`;
-}
-
-export function mentionPredicate(needles: Needle[], column = sql`p.search_text`) {
-  if (needles.length === 0) return sql`FALSE`;
-  return needles.map((needle) => needleSql(column, needle)).reduce((acc, part) => sql`${acc} OR ${part}`);
-}
-
-/** Tag array overlap is not enough: the same names in title or summary count too. */
-export function topicMemberSql(topicTags: string[]) {
-  const tags = sql`p.tags && ${topicTags}::text[]`;
-  const needles = topicTags.flatMap((tag) => mentionByTag(tag)?.needles ?? []);
-  if (needles.length === 0) return tags;
-  return sql`(${tags} OR ${mentionPredicate(needles)})`;
-}
-
-export function jurisdictionTextSql(codes: string[]) {
-  const labels: string[] = [];
-  const needles: Needle[] = [];
-  for (const code of codes) {
-    const draft = countryById.get(code);
-    const mention = draft ? mentionByTag(draft.label) : null;
-    if (!mention) continue;
-    labels.push(mention.label);
-    needles.push(...mention.needles);
-  }
-  if (labels.length === 0 && needles.length === 0) return sql`FALSE`;
-  const tags = labels.length > 0 ? sql`p.tags && ${labels}::text[]` : sql`FALSE`;
-  const text = needles.length > 0 ? mentionPredicate(needles) : sql`FALSE`;
-  return sql`(${tags} OR ${text})`;
-}
-
 function preferredAliases(mention: Mention) {
   return [...mention.aliases].sort((a, b) => Number(isLatin(a)) - Number(isLatin(b)) || a.length - b.length).slice(0, 12);
 }
@@ -300,16 +252,6 @@ function rewriteTerm(term: string): string[] {
   const prefix = term.slice(0, start);
   const suffix = term.slice(end);
   return [...new Set([term, ...preferredAliases(best.mention).map((alias) => prefix + alias + suffix)])];
-}
-
-/** One search term. An alias matches every way of writing that country, mineral or company. */
-export function termMatchSql(column: ReturnType<typeof sqlFragment>, term: string) {
-  const plain = unescapeLike(term);
-  const exact = mentionByFold(foldMention(plain));
-  if (exact) return sql`(${mentionPredicate(exact.needles, column)})`;
-  const forms = rewriteTerm(plain);
-  if (forms.length > 1) return sql`(${forms.map((form) => sql`${column} ILIKE ${likePattern(form)}`).reduce((acc, part) => sql`${acc} OR ${part}`)})`;
-  return sql`${column} ILIKE ${likePattern(plain)}`;
 }
 
 export function termExpands(term: string) {
@@ -370,3 +312,17 @@ export function readMatcherValues(tag: string | null | undefined, topicTags: str
   };
 }
 export type ReadMatcherValues = ReturnType<typeof readMatcherValues>;
+
+/** Literal LIKE terms used for the established ranking weights; matching still expands aliases separately. */
+export function searchScoreValues(terms: string[]) {
+  const patterns = terms.map((term) => `%${term}%`);
+  return {
+    term0: patterns[0] ?? null,
+    term1: patterns[1] ?? null,
+    term2: patterns[2] ?? null,
+    term3: patterns[3] ?? null,
+    term4: patterns[4] ?? null,
+    term5: patterns[5] ?? null,
+  };
+}
+export type SearchScoreValues = ReturnType<typeof searchScoreValues>;

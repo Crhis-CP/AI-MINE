@@ -1,3 +1,4 @@
+import { decodeCursor, encodeCursor } from "../packages/backend/src/lib/cursor.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
@@ -552,6 +553,16 @@ test("minimal sync projection preserves snapshot fields, pagination bindings and
     400,
     "page tokens stay bound to the requested projection",
   );
+  const pageToken = decodeCursor<Record<string, unknown>>("ax1", firstPage.nextPage);
+  for (const bad of [{ w: "1" }, { a: ["not-text"] }, { t: null }]) {
+    const token = encodeCursor("ax1", { ...pageToken, ...bad });
+    assert.equal((await get(`/api/v1/selected/snapshot?page=${encodeURIComponent(token)}`)).status, 400);
+  }
+  const syncToken = decodeCursor<Record<string, unknown>>("ax1", minimal.cursor);
+  for (const bad of [{ w: "1" }, { w: -1 }, { f: {} }]) {
+    const token = encodeCursor("ax1", { ...syncToken, ...bad });
+    assert.equal((await get(`/api/v1/selected/changes?cursor=${encodeURIComponent(token)}`)).status, 409);
+  }
   await sql`UPDATE analyses SET title_zh = '更新标题 Updated sync title', summary_zh = ${"长摘要 large summary ".repeat(200)} WHERE article_id = ${id}`;
   await publishArticle(id, released());
   const getChanges = async (cursor: string) => {

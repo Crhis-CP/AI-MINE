@@ -8,7 +8,7 @@ import {
 // WeChat official accounts. Dajiala (极致了, a paid service) supplies each account's latest posts and
 // article bodies; every enabled account is checked once per source interval.
 import { dbOf } from "../db.ts";
-import { identityKeyFor, upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
+import { identityKeyFor, upsertMaterial, updateMaterialSourceDate, updateMaterialBodyRetry } from "@amp/backend/content/materials";
 import {
   SourceCollectionPaused,
   lockSourceCollectionActive,
@@ -116,9 +116,7 @@ export async function checkMpAccount(sourceId: string, reason: "schedule" | "man
         await sql.begin(async (tx) => {
           await assertRuntimeControl(tx, control);
           await lockSourceCollectionActive(tx, sourceId);
-          await tx`UPDATE articles SET raw = CASE WHEN ${!!passing}
-            THEN jsonb_set(raw, '{dajiala,bodyRetry}', ${tx.json({ attempts: known.retry!.attempts + 1, error: passing })})
-            ELSE raw #- '{dajiala,bodyRetry}' END WHERE id = ${known.id}`;
+          await updateMaterialBodyRetry(tx, known.id, passing ? { attempts: known.retry!.attempts + 1, error: passing } : null);
         });
         continue;
       }

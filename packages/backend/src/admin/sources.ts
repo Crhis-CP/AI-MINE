@@ -7,7 +7,7 @@ import { z } from "zod";
 import { dbOf, type Db, type Tx } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { enqueueSourceFetch } from "../jobs/source-queues.ts";
-import { republishKey } from "../jobs/publication.ts";
+import { republishKey, queueSourceRepublication } from "../jobs/publication.ts";
 import { normalizeUrl } from "../lib/url.ts";
 import { fetchJsonList } from "../sources/json-list.ts";
 import { fetchRss } from "../sources/rss.ts";
@@ -200,9 +200,7 @@ export async function updateSource(
     // What public exits show for this source's articles is derived from these fields: re-derive them
     // all (in the worker) so a revoked licence or an isolated source stops on every exit.
     if (keys.some((k) => PUBLICATION_FIELDS.includes(k) && JSON.stringify(before[k]) !== JSON.stringify(patch[k]))) {
-      await tx`INSERT INTO settings (key, value, updated_by) VALUES (${republishKey(id)}, ${tx.json({ status: "queued", queuedAt: new Date().toISOString() })}, ${actor})
-               ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`;
-      await enqueue(QUEUES.republishSource, { sourceId: id }, { singletonKey: id }, tx);
+      await queueSourceRepublication(id, actor, tx);
     }
     return after;
   });
@@ -429,4 +427,9 @@ export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
   return row
     ? { lane: row.lane, configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null }
     : null;
+}
+
+/** Private audit scope reads identities/names only and never source configuration or permissions. */
+export async function newsAuditSourceNames(db: Db) {
+  return db<{ id: string; name: string }[]>`SELECT id,name FROM sources WHERE lane='news'`;
 }

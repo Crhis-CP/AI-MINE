@@ -1,3 +1,4 @@
+import { z } from "zod";
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
 import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
 import { dbOf, withCustomPlans, type Db } from "../db.ts";
@@ -174,9 +175,21 @@ function minimalOf(item: V1ItemPayload) {
 
 // Drop unused wide fields before crossing the database connection; minimalOf remains the output
 // whitelist, preserving its omission of absent keys and all existing null values.
-function ledgerPayload(minimal: boolean, payload = sql`payload`) {
-  return minimal ? sql`${payload} - ARRAY['originalTitle', 'summary', 'reason', 'attribution', 'links']::text[]` : payload;
+function ledgerPayload(minimal: boolean) {
+  return minimal ? sql`payload - ARRAY['originalTitle', 'summary', 'reason', 'attribution', 'links']::text[]` : sql`payload`;
 }
+function latestLedgerPayload(minimal: boolean) {
+  return minimal ? sql`latest.payload - ARRAY['originalTitle', 'summary', 'reason', 'attribution', 'links']::text[]` : sql`latest.payload`;
+}
+const SnapshotToken = z.object({
+  k: z.literal("page"),
+  e: z.string(),
+  w: z.number().int().nonnegative(),
+  f: z.enum(["default", "minimal"]),
+  a: z.string(),
+  t: z.iso.datetime(),
+});
+const ChangeToken = z.object({ k: z.literal("sync"), e: z.string(), w: z.number().int().nonnegative(), f: z.enum(["default", "minimal"]) });
 
 export interface SnapshotQuery {
   fields?: "default" | "minimal";
@@ -191,9 +204,10 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
   let afterId = "";
   let asOf: string;
   if (q.page) {
-    const p = decodeCursor<{ k: string; e: string; w: number; f: string; a: string; t: string }>(SYNC_PREFIX, q.page);
-    if (p.k !== "page" || p.e !== epoch || (p.f !== "default" && p.f !== "minimal") || (q.fields !== undefined && p.f !== q.fields) || typeof p.w !== "number")
+    const parsed = SnapshotToken.safeParse(decodeCursor<Record<string, unknown>>(SYNC_PREFIX, q.page));
+    if (!parsed.success || parsed.data.e !== epoch || (q.fields !== undefined && parsed.data.f !== q.fields))
       throw new InvalidCursorError("page token does not match this snapshot");
+    const p = parsed.data;
     // Only the first page defaults to full fields; continuations inherit their original projection.
     fields = p.f;
     w = p.w;
@@ -207,7 +221,7 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
   // behind a not-yet-released entry must not reach new snapshots. Its remove still follows in changes,
   // which the client applies as a no-op.
   const rows = await sql<{ article_id: string; payload: V1ItemPayload }[]>`
-    SELECT latest.article_id, ${ledgerPayload(fields === "minimal", sql`latest.payload`)} AS payload FROM (
+    SELECT latest.article_id, ${latestLedgerPayload(fields === "minimal")} AS payload FROM (
       SELECT DISTINCT ON (article_id) article_id, op, payload FROM selected_ledger
       WHERE seq <= ${w} AND article_id > ${afterId}
       ORDER BY article_id, seq DESC
@@ -233,9 +247,9 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
 
 export async function selectedChanges(q: { cursor: string; limit: number }, now = new Date()) {
   const epoch = await ledgerEpoch();
-  let c: { k: string; e: string; w: number; f: "default" | "minimal" };
+  let c: z.infer<typeof ChangeToken>;
   try {
-    c = decodeCursor(SYNC_PREFIX, q.cursor);
+    c = ChangeToken.parse(decodeCursor<Record<string, unknown>>(SYNC_PREFIX, q.cursor));
   } catch {
     throw new SnapshotRequiredError("unknown watermark");
   }

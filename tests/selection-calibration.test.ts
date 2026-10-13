@@ -15,6 +15,7 @@ import {
   submitSelectionStandard,
   reviewSelectionStandard,
   importSelectBenchRun,
+  selectBenchRun,
   recordSelectionEvaluation,
   selectionRunEvidence,
   confirmSelectionHoldout,
@@ -266,4 +267,22 @@ test("matched 100-case development/holdout manifest, two completed score receipt
   await labelSelectionSample(f.id, first.caseId, labelInput({ expectedRevision: 1, decision: "either" }), owner);
   assert.equal((await selectionRunEvidence(run.id, owner, undefined, modelPort)).models[0]!.confirmable, false);
   assert.equal(await readApprovedSelectionCalibration({ modelKey: model, configurationHash: hash }, undefined, modelPort), null);
+});
+
+test("legacy comparison metadata validates SQL scalars and retains explicit model arrays", async () => {
+  const models = { "synthetic-comparison": { summary: { n: 1 }, cases: [{ caseId: "one", title: "合成对照", gold: "select", decision: "select" }] } };
+  const baseline = (await sql`SELECT count(*)::int n FROM selectbench_runs`)[0]!.n;
+  for (const meta of [{ split: {} }, { seed: [1] }, { promptVersion: 7 }, { n: {} }]) {
+    await assert.rejects(importSelectBenchRun({ meta, models }, "Malformed fixture", "test"));
+    assert.equal((await sql`SELECT count(*)::int n FROM selectbench_runs`)[0]!.n, baseline);
+  }
+  const run = await importSelectBenchRun({ meta: { split: "holdout", seed: "42", promptVersion: "synthetic-v1", n: "1" }, models }, "Valid fixture", "test");
+  const result = await selectBenchRun(run.id, { outcome: "tp" });
+  assert.equal(result!.run.seed, 42);
+  assert.equal(result!.run.split, "holdout");
+  assert.equal(result!.run.prompt_version, "synthetic-v1");
+  assert.deepEqual(result!.run.models, ["synthetic-comparison"]);
+  assert.equal(result!.rows.length, 1);
+  const legacy = await importSelectBenchRun(models, "Older shape", "test");
+  assert.deepEqual((await selectBenchRun(legacy.id, {}))!.run.models, ["synthetic-comparison"]);
 });

@@ -185,3 +185,17 @@ TASK-0148新闻备用输入通过内部`providers/news-fallback.ts`在主请求�
 ### 资讯日期筛选（TASK-0314 / DEC-67）
 
 `publicationDateCondition` 供资讯列表、搜索、分面、公开条目和事件目录共同使用，按时间线的北京自然日计算左闭右开边界；来源日期未知不单独排除，来源日期字段和公开资格保持原样。显式来源日期排序只改变顺序。带日期条件的条目及事件游标绑定该语义版本，旧口径游标要求重新读取首屏。法规的法律日期筛选不变。
+
+
+### 数据所属模块的事务端口（TASK-0316 / TASK-0319）
+
+人工拆组由`events/group.detachArticleFromFactTx`接收原编辑事务，成员/独立决定由events保存，材料行锁与归组时间交`content/materials`；公众号正文重试元数据和失败材料复位也只由content写入。回执非计费确认由`providers/receipts.releaseUnknownReceiptUnbilled`在调用方事务内完成原版本CAS与尝试结算，随后仍同事务入队和写审计。来源编辑通过`jobs/publication.queueSourceRepublication`同事务写重投进度与队列。
+
+预筛审计分别读取sources身份名称、content材料、editorial人工排除和enrichment最新判断的窄端口，只在ai自表保存抽样与标注；保留PostgreSQL的既有hashtext种子排序、标注与上一批优先规则，不触发模型或发布。`publication/groups.reportCandidateRows`承载原READ COMMITTED事务、report_candidates咨询锁和选材SQL；机器报告引用经items读取当前公开导读，不继承网站摘录。没有新增公开HTTP字段、表白名单或数据库权限。
+
+
+TASK-0327补齐SQL值入口验证：审计筛选只接受文本与正整数页码；飞书token/userinfo先核JSON结构，再读白名单或写身份；SelectBench新旧导入形状先核元数据、样例与持久模型数组；事件模型fact按结构化分析同一字段类型读取，损坏框架清空为null，日期仍只接受真实日历日期。有效输入保持原行为，不以类型强转或修改ownership证明器绕过检查。
+
+### 日报无新增精选（TASK-0334）
+
+日报仍只取精选；当期已有公开合格报道完成评分，但没有新鲜精选时，保存零条目的当天日报及“今日无大事发生”说明，不调模型。dailyJudgedReportCount仅计数确认评分已执行，普通资讯不进入报告。没有评分依据的刊期待补刊；补刊只在实际保存后报告成功。零条目刊期同样幂等，历史期不因后来内容变更而重写；周月报规则不变。

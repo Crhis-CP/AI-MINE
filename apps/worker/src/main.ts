@@ -5,7 +5,7 @@ import { registerContentJobs, registerPolicyJobs, registerModelConnectionProbeJo
 import { registerSourceJobs, ensureSourceQueues } from "@amp/backend/jobs/sources";
 import { registerEventJobs } from "@amp/backend/jobs/events";
 import { registerNotifyJobs } from "@amp/backend/jobs/notify";
-import { correctNewsReport, REPORT_CORRECTION_QUEUE } from "@amp/backend/reports/compose";
+import { correctNewsReport, ensureReportCorrectionQueue, REPORT_CORRECTION_QUEUE } from "@amp/backend/reports/compose";
 import { registerPublicationJobs } from "@amp/backend/jobs/publication";
 import { registerSchedules } from "./schedules.ts";
 import { ensureContentTargets } from "@amp/backend/notify/deliver";
@@ -16,6 +16,7 @@ await initializeDb("worker");
 await ensureContentTargets();
 const boss = await getBoss();
 for (const queue of Object.values(QUEUES)) await ensureQueue(queue);
+await ensureReportCorrectionQueue();
 await ensureSourceQueues();
 await registerContentJobs(boss);
 await registerPolicyJobs(boss);

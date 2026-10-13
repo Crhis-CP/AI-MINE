@@ -1,3 +1,7 @@
+import { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "@amp/backend/editorial/analyze";
+import { prefilterAuditMaterialSources, prefilterAuditMaterialCopies } from "@amp/backend/content/materials";
+import { prefilterAuditExclusions } from "@amp/backend/admin/content";
+import { newsAuditSourceNames } from "@amp/backend/admin/sources";
 // A small random look at articles the prefilter already judged. Drawing and labeling only write
 // these audit tables. They do not publish, withdraw, translate, or change the prefilter rules.
 import { randomBytes } from "node:crypto";
@@ -46,61 +50,80 @@ function iso(value: Date | string | null) {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-async function poolCounts(db: Db): Promise<PoolRow> {
-  const [row] = await db<PoolRow[]>`
-    WITH latest AS (
-      SELECT DISTINCT ON (article_id) article_id, relevance
-      FROM analyses
-      ORDER BY article_id, input_revision DESC, id DESC
-    )
-    SELECT
-      count(*) FILTER (WHERE l.relevance = 'block' AND NOT l.excluded)::int AS discarded,
-      count(*) FILTER (WHERE l.relevance = 'pass' AND NOT l.excluded)::int AS kept,
-      count(*) FILTER (WHERE l.relevance = 'unknown' AND NOT l.excluded)::int AS unknown,
-      count(*) FILTER (WHERE l.relevance IN ('block', 'pass') AND l.excluded)::int AS excluded
-    FROM (
-      SELECT l.relevance,
-             (o.article_id IS NOT NULL OR s.id = ANY(${EXCLUDED_SOURCES})) AS excluded
-      FROM latest l
-      JOIN articles a ON a.id = l.article_id
-      JOIN sources s ON s.id = a.source_id AND s.lane = 'news'
-      LEFT JOIN editorial_overrides o ON o.article_id = a.id
-        AND (o.visibility = 'withdrawn' OR o.fields->>'relevance' = 'block')
-    ) l`;
-  return row ?? { discarded: 0, kept: 0, unknown: 0, excluded: 0 };
+type AuditPoolItem = { article_id: string; analysis_id: number; relevance: string | null; source_name: string; excluded: boolean };
+async function auditPool(db: Db): Promise<AuditPoolItem[]> {
+  const latest = await latestPrefilterAuditJudgments(db);
+  const ids = latest.map((row) => row.article_id);
+  const sourceNames = new Map((await newsAuditSourceNames(db)).map((row) => [row.id, row.name]));
+  const materialSources = new Map((await prefilterAuditMaterialSources(ids, db)).map((row) => [row.id, row.source_id]));
+  const humanExcluded = new Set(await prefilterAuditExclusions(ids, db));
+  return latest.flatMap((row) => {
+    const sourceId = materialSources.get(row.article_id);
+    const sourceName = sourceId ? sourceNames.get(sourceId) : undefined;
+    if (sourceName === undefined) return [];
+    return [{ ...row, source_name: sourceName, excluded: humanExcluded.has(row.article_id) || EXCLUDED_SOURCES.includes(sourceId!) }];
+  });
 }
-
-async function pick(db: Db, relevance: "block" | "pass", limit: number, seed: string, previousId: string | null) {
+function poolCounts(pool: AuditPoolItem[]): PoolRow {
+  const counts = { discarded: 0, kept: 0, unknown: 0, excluded: 0 };
+  for (const row of pool) {
+    if (row.excluded) {
+      if (row.relevance === "block" || row.relevance === "pass") counts.excluded++;
+    } else if (row.relevance === "block") counts.discarded++;
+    else if (row.relevance === "pass") counts.kept++;
+    else if (row.relevance === "unknown") counts.unknown++;
+  }
+  return counts;
+}
+async function pick(db: Db, pool: AuditPoolItem[], relevance: "block" | "pass", limit: number, seed: string, previousId: string | null): Promise<PickRow[]> {
   if (limit <= 0) return [];
-  return db<PickRow[]>`
-    WITH latest AS (
-      SELECT DISTINCT ON (article_id) article_id, id AS analysis_id, relevance, title_zh, summary_zh
-      FROM analyses
-      ORDER BY article_id, input_revision DESC, id DESC
-    )
-    SELECT a.id AS article_id, l.analysis_id, l.title_zh, a.title AS article_title,
-           l.summary_zh, a.excerpt, a.body_text, s.name AS source_name, a.discovered_at
-    FROM latest l
-    JOIN articles a ON a.id = l.article_id
-    JOIN sources s ON s.id = a.source_id AND s.lane = 'news'
-    LEFT JOIN editorial_overrides o ON o.article_id = a.id
-      AND (o.visibility = 'withdrawn' OR o.fields->>'relevance' = 'block')
-    LEFT JOIN LATERAL (
-      SELECT revision FROM ai.prefilter_audit_labels WHERE article_id = a.id ORDER BY revision DESC LIMIT 1
-    ) lab ON true
-    LEFT JOIN ai.prefilter_audit_items prev ON prev.article_id = a.id AND prev.draw_id = ${previousId}
-    WHERE l.relevance = ${relevance}
-      AND o.article_id IS NULL
-      AND (s.id = ANY(${EXCLUDED_SOURCES})) IS NOT TRUE
-    ORDER BY (lab.revision IS NULL AND prev.article_id IS NULL) DESC,
-             (lab.revision IS NULL) DESC,
-             hashtext(a.id || ${seed}),
-             a.id
-    LIMIT ${limit}`;
+  const eligible = new Map(pool.filter((row) => row.relevance === relevance && !row.excluded).map((row) => [row.article_id, row]));
+  const ids = [...eligible.keys()];
+  if (!ids.length) return [];
+  const selected = await db<{ article_id: string }[]>`WITH candidates AS (SELECT unnest(${ids}::text[]) AS article_id)
+    SELECT a.article_id FROM candidates a
+    LEFT JOIN LATERAL(SELECT revision FROM ai.prefilter_audit_labels WHERE article_id=a.article_id ORDER BY revision DESC LIMIT 1) lab ON true
+    LEFT JOIN ai.prefilter_audit_items prev ON prev.article_id=a.article_id AND prev.draw_id=${previousId}
+    ORDER BY (lab.revision IS NULL AND prev.article_id IS NULL) DESC,(lab.revision IS NULL) DESC,hashtext(a.article_id || ${seed}),a.article_id LIMIT ${limit}`;
+  const materials = new Map(
+    (
+      await prefilterAuditMaterialCopies(
+        selected.map((row) => row.article_id),
+        db,
+      )
+    ).map((row) => [row.id, row]),
+  );
+  const analyses = new Map(
+    (
+      await prefilterAuditAnalysisCopies(
+        selected.map((row) => eligible.get(row.article_id)!.analysis_id),
+        db,
+      )
+    ).map((row) => [row.id, row]),
+  );
+  return selected.flatMap(({ article_id }) => {
+    const decision = eligible.get(article_id)!,
+      material = materials.get(article_id),
+      analysis = analyses.get(decision.analysis_id);
+    if (!material || !analysis) return [];
+    return [
+      {
+        article_id,
+        analysis_id: decision.analysis_id,
+        title_zh: analysis.title_zh,
+        article_title: material.title,
+        summary_zh: analysis.summary_zh,
+        excerpt: material.excerpt,
+        body_text: material.body_text,
+        source_name: decision.source_name,
+        discovered_at: material.discovered_at,
+      },
+    ];
+  });
 }
 
 async function auditView(db: Db) {
-  const pools = await poolCounts(db);
+  const pools = poolCounts(await auditPool(db));
   const [draw] = await db<{ id: string; created_at: Date; discarded_count: number; kept_count: number }[]>`
     SELECT id, created_at, discarded_count, kept_count FROM ai.prefilter_audit_draws ORDER BY created_at DESC, id DESC LIMIT 1`;
   if (!draw)
@@ -176,11 +199,12 @@ export async function prefilterAuditView(principal: AdminPrincipal) {
 /** Insert one batch. Caller holds the transaction. Does not touch publications, translations, or jobs. */
 export async function recordPrefilterAuditDraw(db: Db, actor: string, seed: string) {
   await db`SELECT pg_advisory_xact_lock(hashtext('prefilter-audit-draw'))`;
-  const pools = await poolCounts(db);
+  const pool = await auditPool(db);
+  const pools = poolCounts(pool);
   const take = prefilterAuditTake(PREFILTER_AUDIT_BATCH, pools);
   const [previous] = await db<{ id: string }[]>`SELECT id FROM ai.prefilter_audit_draws ORDER BY created_at DESC, id DESC LIMIT 1`;
-  const discarded = await pick(db, "block", take.discarded, seed, previous?.id ?? null);
-  const kept = await pick(db, "pass", take.kept, seed, previous?.id ?? null);
+  const discarded = await pick(db, pool, "block", take.discarded, seed, previous?.id ?? null);
+  const kept = await pick(db, pool, "pass", take.kept, seed, previous?.id ?? null);
   const id = `pa-${randomBytes(6).toString("hex")}`;
   await db`INSERT INTO ai.prefilter_audit_draws (id, actor, seed, discarded_count, kept_count)
     VALUES (${id}, ${actor}, ${seed}, ${discarded.length}, ${kept.length})`;

@@ -1,7 +1,7 @@
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
 import { geographyRecipe } from "../editorial/geography.ts";
-import { jurisdictionCodesInText, jurisdictionTextSql, mentionByTag, mentionPredicate, topicMemberSql, type ReadMatcherValues } from "./mentions.ts";
+import { jurisdictionCodesInText, type ReadMatcherValues } from "./mentions.ts";
 // Public read layer, item level. Every exit (site API, v1, RSS, MCP, sitemap) reads
 // items through these functions; visibility, release gate and body licences are applied here.
 import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
@@ -101,28 +101,17 @@ export function featuredEntryCondition(now: Date) {
 }
 
 export function channelCondition(channel: ChannelKey | null | undefined) {
-  if (!channel || channel === "all") return sql``;
-  if (channel === "firstParty") return sql`AND p.first_party`;
-  return sql`AND p.channel = ${channel}`;
+  return sql`AND (${!channel || channel === "all"} OR (${channel === "firstParty"} AND p.first_party) OR (${channel !== "firstParty"} AND p.channel=${channel ?? null}))`;
 }
-
 export function categoryCondition(category: CategoryKey | null | undefined, _v1 = false) {
-  if (!category) return sql``;
-  return sql`AND p.category = ${category}`;
+  return sql`AND (${!category} OR p.category=${category ?? null})`;
 }
 
-export function tagCondition(tag: string | null | undefined) {
-  if (!tag) return sql``;
-  const mention = mentionByTag(tag);
-  if (!mention) return sql`AND p.tags @> ${[tag]}::text[]`;
-  // A company tag also accepts the entity marker the topic page already uses.
-  const stored = mention.kind === "company" ? [mention.label, `entity:${mention.id}`] : [tag];
-  return sql`AND (p.tags && ${stored}::text[] OR ${mentionPredicate(mention.needles)})`;
+export function tagCondition(values: ReadMatcherValues) {
+  return sql`AND (${values.tagTags}::text[] IS NULL OR p.tags && ${values.tagTags}::text[] OR ${publicationTextMatches(values.tagText)})`;
 }
-
-export function topicCondition(topicTags: string[] | null | undefined) {
-  if (!topicTags || topicTags.length === 0) return sql``;
-  return sql`AND ${topicMemberSql(topicTags)}`;
+export function topicCondition(values: ReadMatcherValues) {
+  return sql`AND (${values.topicTags}::text[] IS NULL OR p.tags && ${values.topicTags}::text[] OR ${publicationTextMatches(values.topicText)})`;
 }
 
 export function toItemSummary(row: ItemRow): ItemSummary {
@@ -183,9 +172,8 @@ export async function fetchItemsByIds(ids: string[], db: Db = sql): Promise<Map<
 export function newsJurisdictionScope(value: string | null | undefined) {
   return { jurisdictionCodes: jurisdictionDescendants(value ?? ""), jurisdictionRecipe: geographyRecipe() };
 }
-export function jurisdictionCondition(value: string | null, descendants: string[] | undefined, recipe: string) {
+export function jurisdictionCondition(value: string | null, descendants: string[] | undefined, recipe: string, values: ReadMatcherValues) {
   const named = !!value && value !== "unknown" && value !== "none";
-  const text = named ? jurisdictionTextSql(descendants?.length ? descendants : [value]) : sql`FALSE`;
   // Geography tags stay authoritative. Title, summary and the country tag count as well,
   // so a published article is not dropped only because the geography pass never tagged it.
   // "unknown" and "none" stay geography states: a named country in the title is not "unknown".
@@ -201,7 +189,7 @@ export function jurisdictionCondition(value: string | null, descendants: string[
       EXISTS (SELECT 1 FROM articles ga LEFT JOIN publication.news_geography g
         ON g.article_id=ga.id AND g.article_revision=ga.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${recipe}
         WHERE ga.id=p.article_id AND g.jurisdictions && coalesce(${descendants ?? null}::text[], '{}'::text[]))
-      OR ${text}
+      OR p.tags && ${values.jurisdictionTags}::text[] OR ${publicationTextMatches(values.jurisdictionText)}
     ))
   )`;
 }
@@ -253,10 +241,8 @@ export async function readPublicNewsLinkCandidates(articleId: string | null, off
 
 /** Beijing day bounds apply to the timeline; source dates and their precision remain unchanged. */
 export function publicationDateCondition(start: Date | null | undefined, end: Date | null | undefined) {
-  if (start && end) return sql`AND p.timeline_at >= ${start} AND p.timeline_at < ${end}`;
-  if (start) return sql`AND p.timeline_at >= ${start}`;
-  if (end) return sql`AND p.timeline_at < ${end}`;
-  return sql``;
+  return sql`AND (${start ?? null}::timestamptz IS NULL OR p.timeline_at>=${start ?? null})
+    AND (${end ?? null}::timestamptz IS NULL OR p.timeline_at<${end ?? null})`;
 }
 
 /** Geography qualification stays in this established article/publication read port. */
@@ -337,4 +323,20 @@ export async function readPublicStoryDirectory(db: Db, query: PublicStoryReadSco
     AND (${!matchers.term4.active} OR ${publicationTextMatches(matchers.term4)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term4)} OFFSET 0))
     AND (${!matchers.term5.active} OR ${publicationTextMatches(matchers.term5)} OR EXISTS (SELECT 1 FROM pool_search ps WHERE ps.article_id=p.article_id AND ${bodyTextMatches(matchers.term5)} OFFSET 0))
     GROUP BY st.public_id ORDER BY latest DESC,st.public_id DESC`;
+}
+
+/** Reports reuse current item qualification but machine citations never use the website excerpt fallback. */
+export async function fetchMachineReportItems(ids: string[]): Promise<Map<string, ItemRow>> {
+  if (!ids.length) return new Map();
+  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS},p.summary AS machine_summary
+    ${ITEM_FROM} WHERE p.article_id IN ${sql(ids)}`;
+  return new Map(rows.map((row) => [row.id, { ...row, summary: row.machine_summary }]));
+}
+
+/** Event ranking reads only these published timestamps inside the caller's existing transaction. */
+export async function readEventPublicationTimes(articleIds: string[], db: Db) {
+  if (!articleIds.length) return [];
+  return db<{ article_id: string; published_at: Date | null; discovered_at: Date; order_time: string }[]>`SELECT article_id,published_at,discovered_at,
+    (extract(epoch from coalesce(published_at,discovered_at))*1000000)::bigint::text AS order_time
+    FROM publications WHERE article_id=ANY(${articleIds}::text[])`;
 }

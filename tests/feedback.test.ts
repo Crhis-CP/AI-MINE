@@ -1,6 +1,4 @@
-// Reader feedback stays on the server (INV-27): even with the internal Feishu chat switched on and its
-// app configured, feedback with a screenshot sends nothing to Feishu, and the screenshot is kept as a
-// local file that only the admin pages read.
+// The public submission stores feedback without sending; only the worker forwards the approved copy.
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -23,6 +21,7 @@ process.env.FEISHU_INTERNAL_ENABLED = "true";
 process.env.FEISHU_APP_ID = "test-app";
 process.env.FEISHU_APP_SECRET = "test-secret";
 process.env.FEISHU_INTERNAL_CHAT_ID = "oc_test";
+process.env.FEISHU_FEEDBACK_ENABLED = "true";
 
 // Feishu, answered here: every request is recorded.
 const feishuRequests: string[] = [];
@@ -43,7 +42,7 @@ const PNG = await sharp({ create: { width: 2, height: 2, channels: 3, background
   .png()
   .toBuffer();
 
-test("feedback with a screenshot is kept here and nothing goes to Feishu", async () => {
+test("public submission keeps the screenshot and never sends directly even when forwarding is enabled", async () => {
   const { id } = await submitFeedback({
     idempotencyKey: randomUUID(),
     content: `反馈 ${T}`,

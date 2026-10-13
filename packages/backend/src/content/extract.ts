@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Article body extraction: readable text from the article page, or "unconfirmed" — never a wrong body.
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
@@ -151,6 +152,7 @@ async function extractArticleBody(articleId: string, allowJina = process.env.JIN
     });
     return "unconfirmed";
   }
+  const body = z.object({ html: z.string(), text: z.string() }).parse(got);
   // The body is new content: a new revision, so an analysis of the body-less input counts as stale.
   await sql.begin(async (tx) => {
     await assertRuntimeControl(tx, control);
@@ -160,12 +162,12 @@ async function extractArticleBody(articleId: string, allowJina = process.env.JIN
     if (!row) return;
     const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
     const [r] = await tx<{ revision: number }[]>`
-      UPDATE articles SET body_html = ${got.html}, body_text = ${got.text}, body_status = 'ok',
+      UPDATE articles SET body_html = ${body.html}, body_text = ${body.text}, body_status = 'ok',
         media = CASE WHEN jsonb_array_length(media) = 0 THEN ${tx.json(got.images as never)}::jsonb ELSE media END,
         revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
       WHERE id = ${articleId} RETURNING revision`;
     await tx`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
-             VALUES (${articleId}, ${r!.revision}, ${hash}, ${row.title}, ${got.text})`;
+             VALUES (${articleId}, ${r!.revision}, ${hash}, ${row.title}, ${body.text})`;
   });
   return "ok";
 }

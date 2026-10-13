@@ -1,6 +1,6 @@
 // Publication jobs: re-deriving a whole source after an admin change.
 import type { PgBoss } from "pg-boss";
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 
 import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
@@ -12,6 +12,14 @@ export { refreshMetalPrices } from "../publication/metal-prices/refresh.ts";
 const sql = dbOf("publication");
 
 export const republishKey = (sourceId: string) => `republish.source:${sourceId}`;
+
+/** Queue intent and its progress marker commit with the source edit. */
+export async function queueSourceRepublication(sourceId: string, actor: string, db: Db) {
+  await db`INSERT INTO settings(key,value,updated_by)
+    VALUES(${republishKey(sourceId)},${db.json({ status: "queued", queuedAt: new Date().toISOString() })},${actor})
+    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()`;
+  return enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: sourceId }, db);
+}
 
 async function progress(sourceId: string, value: Record<string, unknown>) {
   await sql`INSERT INTO settings (key, value, updated_by) VALUES (${republishKey(sourceId)}, ${sql.json(value as never)}, 'worker')

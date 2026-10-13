@@ -201,7 +201,7 @@ after(async () => {
 });
 
 /** Observe hydration and the initial version reconciliation before changing the shared fixture. */
-async function openSavedReader(page: Page, path: string) {
+async function openReaderPage(page: Page, path: string) {
   const versionUrl = `${origin}/api/site/content-version`;
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -213,7 +213,8 @@ async function openSavedReader(page: Page, path: string) {
   };
   await page.route(versionUrl, heldVersion, { times: 1 });
   const version = page.waitForResponse((response) => response.url() === versionUrl);
-  const revalidation = path.startsWith("/story/") ? page.waitForResponse((response) => new URL(response.url()).pathname === `${path}.data`) : null;
+  const detail = /^\/(?:story|daily|weekly|monthly)\//.test(path);
+  const revalidation = detail ? page.waitForResponse((response) => new URL(response.url()).pathname === `${path}.data`) : null;
   void version.catch(() => {});
   void revalidation?.catch(() => {});
   try {
@@ -232,7 +233,8 @@ async function openSavedReader(page: Page, path: string) {
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     if (path.startsWith("/story/")) await expect(page.getByRole("heading", { name: story.title, exact: true })).toBeVisible();
-    else await expect(page.getByRole("region", { name: "事件收藏" }).getByRole("link").first()).toBeVisible();
+    else if (path === "/starred") await expect(page.getByRole("region", { name: "事件收藏" }).getByRole("link").first()).toBeVisible();
+    else await expect(page.getByRole("article").getByRole("button", { name: "复制链接", exact: true })).toBeVisible();
   } finally {
     release();
     await page.unroute(versionUrl, heldVersion);
@@ -250,13 +252,13 @@ test("story references resolve current merged identities, clear text on failure/
   t.after(() => closeSavedContext(context));
   const blocked = await isolateBrowser(context, [origin]);
   const page = await context.newPage();
-  await openSavedReader(page, `/story/${original}`);
+  await openReaderPage(page, `/story/${original}`);
   await page.getByRole("button", { name: "收藏事件", exact: true }).click();
   await expect(page.getByRole("button", { name: "已收藏事件", exact: true })).toHaveAttribute("aria-pressed", "true");
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("amp-starred-items")!));
   assert.deepEqual(Object.keys(saved[0]).sort(), ["id", "savedAt", "type"]);
   assert.equal(saved[0].type, "story");
-  await openSavedReader(page, "/starred");
+  await openReaderPage(page, "/starred");
   const list = page.getByRole("region", { name: "事件收藏" });
   await expect(list.getByRole("link", { name: "事件收藏当前标题" })).toBeVisible();
   await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
@@ -300,7 +302,7 @@ test("saved event revalidation is periodic and has at most three concurrent requ
       ),
     ),
   );
-  await openSavedReader(page, "/starred");
+  await openReaderPage(page, "/starred");
   const list = page.getByRole("region", { name: "事件收藏" });
   await expect(list.getByRole("link")).toHaveCount(7);
   await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
@@ -349,13 +351,14 @@ async function shareMocks(page: import("@playwright/test").Page) {
   });
 }
 const paths = [`/story/${original}`, "/daily/2026-10-12", "/weekly/2026-W41", "/monthly/2026-10"];
-test("desktop copies canonical story and report links and never reports a rejected copy as success", { timeout: 30000 }, async () => {
+test("desktop copies canonical story and report links and never reports a rejected copy as success", { timeout: 30000 }, async (t) => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  t.after(() => context.close());
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   await shareMocks(page);
   for (const path of paths) {
-    await page.goto(origin + path);
+    await openReaderPage(page, path);
     await page.getByRole("button", { name: "复制链接", exact: true }).click();
     await expect(page.getByText("链接已复制", { exact: true })).toBeVisible();
     assert.deepEqual(await page.evaluate(() => window.__copied), [origin + path]);
@@ -367,15 +370,15 @@ test("desktop copies canonical story and report links and never reports a reject
   await expect(page.getByText("复制失败，请手动复制地址栏中的链接。", { exact: true })).toBeVisible();
   await expect(page.getByText("链接已复制", { exact: true })).toHaveCount(0);
   assert.equal(await page.evaluate(() => window.__legacyCopies), 1);
-  await context.close();
 });
-test("mobile invokes system sharing for events and all report kinds, and treats cancellation separately from failure", { timeout: 30000 }, async () => {
+test("mobile invokes system sharing for events and all report kinds, and treats cancellation separately from failure", { timeout: 30000 }, async (t) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  t.after(() => context.close());
   await isolateBrowser(context, [origin]);
   const page = await context.newPage();
   await shareMocks(page);
   for (const path of paths) {
-    await page.goto(origin + path);
+    await openReaderPage(page, path);
     await page.getByRole("button", { name: "分享", exact: true }).click();
     await expect(page.getByText("分享已完成", { exact: true })).toBeVisible();
     assert.equal((await page.evaluate(() => window.__shares))[0]!.url, origin + path);
@@ -394,5 +397,4 @@ test("mobile invokes system sharing for events and all report kinds, and treats 
   await expect(page.getByText("分享失败，请重试或复制链接。", { exact: true })).toHaveCount(0);
   await expect(page.getByText("分享已完成", { exact: true })).toHaveCount(0);
   assert.deepEqual(await page.evaluate(() => window.__copied), []);
-  await context.close();
 });

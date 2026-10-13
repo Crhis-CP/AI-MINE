@@ -1,4 +1,5 @@
-import { settleUsageAttempt } from "../providers/usage-protection.ts";
+import { releaseUnknownReceiptUnbilled } from "@amp/backend/providers/receipts";
+import { resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
 import { dbOf, type Db } from "../db.ts";
@@ -113,20 +114,12 @@ const ARTICLE_STEPS = new Set([
 type ReceiptVersion = { attempts: number; version: string };
 
 async function release(id: number, error: string, actor: string, note: string, billed: false, db: Db, observed: ReceiptVersion) {
-  const [before] = await db<{ subject: string | null; purpose: string }[]>`
-    UPDATE receipts SET status = 'failed', error = ${error}, updated_at = now() WHERE id = ${id} AND status = 'unknown'
-      AND attempts = ${observed.attempts} AND updated_at::text = ${observed.version} RETURNING subject, purpose`;
+  const before = await releaseUnknownReceiptUnbilled(db, id, error, observed);
   if (!before) throw new Conflict("这条回执已被其他操作处理，请刷新后重试");
-  const attempts = await db<
-    { id: string }[]
-  >`UPDATE receipt_attempts SET status = 'failed', error = ${error} WHERE receipt_id = ${id} AND status = 'unknown' RETURNING id::text`;
-  for (const attempt of attempts) await settleUsageAttempt(db, attempt.id, "failed");
   const article = ARTICLE_STEPS.has(before.purpose) ? /^article:([^@:#]+)/.exec(before.subject ?? "")?.[1] : undefined;
   let requeued = false;
   if (article) {
-    const [a] = await db`UPDATE articles SET processing_state = 'new', processing_attempts = 0, processing_retry_at = NULL, processing_error = NULL
-                          WHERE id = ${article} AND processing_state = 'failed' RETURNING id`;
-    if (a) requeued = !!(await queueProcessing(article, { db }));
+    if (await resetFailedMaterialForRetry(db, article)) requeued = !!(await queueProcessing(article, { db }));
   }
   await audit(
     actor,

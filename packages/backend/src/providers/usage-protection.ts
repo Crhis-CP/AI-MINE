@@ -11,7 +11,7 @@ import {
   UsageProtectionOverview,
   type UsageScope,
 } from "@amp/contracts/http/private";
-import type { z } from "zod";
+import { z } from "zod";
 import { beijingDate, beijingMidnight } from "@amp/contracts/time";
 import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
@@ -421,14 +421,14 @@ async function recordedMicros(db: Db, row: RecordedAttempt, day: string): Promis
   return settled?.basis === "estimated" ? settled.micros : null;
 }
 async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
-  const lane = recordedLane(row);
+  const lane = z.enum(["news", "policy"]).nullable().parse(recordedLane(row));
   if (!lane) return false;
   const day = beijingDate(row.started_at),
     cost = await recordedMicros(db, row, day);
   if (cost === null) return false;
   const explicit = row.request?.lane === "news" || row.request?.lane === "policy";
   if (!explicit)
-    await db`UPDATE receipts SET request=jsonb_set(coalesce(request,'{}'::jsonb),'{lane}',to_jsonb(${lane}::text),true) WHERE id=${row.receipt_id} AND coalesce(request->>'lane','') NOT IN ('news','policy')`;
+    await db`UPDATE receipts SET request=jsonb_set(coalesce(request,'{}'::jsonb),'{lane}',pg_catalog.to_jsonb(${lane}::text),true) WHERE id=${row.receipt_id} AND coalesce(request->>'lane','') NOT IN ('news','policy')`;
   if (row.status !== "failed" && row.cost === null && !row.currency) {
     const text = centsText(cost);
     const written =
@@ -438,12 +438,8 @@ async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
   }
   const supplied = row.request?.usage_object as { kind?: unknown; id?: unknown } | undefined,
     article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(row.subject ?? "");
-  const object =
-    supplied && ["article", "policy"].includes(String(supplied.kind)) && typeof supplied.id === "string"
-      ? { kind: supplied.kind as "article" | "policy", id: supplied.id }
-      : article
-        ? { kind: "article" as const, id: article[1]! }
-        : null;
+  const parsedObject = z.object({ kind: z.enum(["article", "policy"]), id: z.string() }).safeParse(supplied);
+  const object = parsedObject.success ? parsedObject.data : article ? { kind: "article" as const, id: article[1]! } : null;
   const context: UsageContext = {
     lane,
     capability: row.purpose,
@@ -462,7 +458,7 @@ async function adoptRecordedUsage(db: Db, since: Date) {
   for (let pass = 0; pass < 40; pass++) {
     const rows = await db<
       RecordedAttempt[]
-    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND u.attempt_id IS NULL AND a.status IN ('received','failed') AND (cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
+    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND u.attempt_id IS NULL AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
     if (!rows.length) return;
     for (const row of rows) if (!(await adoptOne(db, row))) skipped.push(row.attempt_id);
   }

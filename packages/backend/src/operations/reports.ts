@@ -28,7 +28,7 @@ export async function sourceHealthWeekly(now = Date.now()) {
              (SELECT count(*)::int FROM publications p WHERE p.selected AND p.visibility <> 'withdrawn' AND p.discovered_at >= ${since}) AS selected
       FROM articles WHERE discovered_at >= ${before}`,
     sql<{ name: string; fail_count: number; last_ok_at: Date | null; last_error: string | null }[]>`
-      SELECT name, fail_count, last_ok_at, left(regexp_replace(last_error, '\s+', ' ', 'g'), 80) AS last_error FROM sources
+      SELECT name, fail_count, last_ok_at, left(regexp_replace(last_error, '[[:space:]]+', ' ', 'g'), 160) AS last_error FROM sources
       WHERE enabled AND health = 'failing' ORDER BY fail_count DESC LIMIT 10`,
     // Enabled sources that fetched fine but produced nothing for a week (external and WeChat ones report on their own).
     sql<{ name: string; last: Date | null }[]>`

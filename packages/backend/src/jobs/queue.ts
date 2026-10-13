@@ -53,7 +53,6 @@ export const QUEUES = {
 
   notifySelected: "notify.selected",
   republishSource: "publication.republish-source",
-  reportCorrection: "reports.correct",
 } as const;
 
 type QueueOptions = NonNullable<Parameters<PgBoss["createQueue"]>[1]>;
@@ -68,7 +67,6 @@ export const QUEUE_OPTIONS: Record<string, QueueOptions> = {
   [QUEUES.fetchSource]: { policy: "short", retryLimit: 0, expireInSeconds: 600 },
   [QUEUES.mpCheck]: { policy: "short", retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
   [QUEUES.notifySelected]: { policy: "short", retryLimit: 0, expireInSeconds: 300 },
-  [QUEUES.reportCorrection]: { policy: "exclusive", retryLimit: 0, expireInSeconds: 900 },
   [QUEUES.republishSource]: { policy: "short", retryLimit: 2, retryDelay: 60, expireInSeconds: 3600 },
 };
 

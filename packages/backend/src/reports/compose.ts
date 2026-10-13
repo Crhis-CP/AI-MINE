@@ -1,3 +1,4 @@
+import { dailyJudgedReportCount, reportCandidateRows } from "@amp/backend/publication/groups";
 import { reportFallbackInput } from "./fallback-input.ts";
 export { newsReportWithdrawalSnapshot } from "./references.ts";
 // Daily, weekly and monthly reports. Windows are Beijing calendar based and written into the report;
@@ -53,40 +54,7 @@ function roleOf(kind: string, firstParty: boolean): string {
 }
 
 export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
-  const rows = await sql.begin("isolation level read committed", async (tx) => {
-    // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
-    // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
-    await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    return tx<
-      {
-        id: string;
-        revision: number;
-        title: string;
-        summary: string | null;
-        url: string;
-        category: string | null;
-        score: number | null;
-        first_party: boolean;
-        source_id: string;
-        source_name: string;
-        source_kind: string;
-        fact_public_id: string | null;
-        story_public_id: string | null;
-        at: Date;
-        backfill: boolean;
-      }[]
-    >`
-      SELECT p.article_id AS id,p.revision, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
-             s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
-      FROM publications p JOIN sources s ON s.id = p.source_id
-      LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
-      -- Attribute each item by the later of arrival and release; either range can use its index.
-      WHERE p.visibility = 'public' AND p.selected AND NOT p.backfill
-        AND (
-          (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
-          OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})
-        )`;
-  });
+  const rows = await reportCandidateRows(start, end);
   // One entry per fact: first-party first, then score.
   const byFact = new Map<string, Candidate>();
   for (const r of rows) {
@@ -175,7 +143,7 @@ async function saveReport(
   end: Date,
   content: Record<string, unknown>,
   reason: string,
-  model: string,
+  model: string | null,
   control: { publication: RuntimeControlSnapshot; processing?: RuntimeControlSnapshot },
 ) {
   await sql.begin(async (tx) => {
@@ -183,6 +151,8 @@ async function saveReport(
     if (control.processing) await assertRuntimeControl(tx, control.processing);
     const [existing] = await tx<{ id: number; revision: number; content: unknown; generated_at: Date }[]>`
       SELECT id, revision, content, generated_at FROM reports WHERE kind = ${kind} AND key = ${key} FOR UPDATE`;
+    // Scheduled daily retries preserve even a zero-entry issue. Corrections use their own writer.
+    if (existing && kind === "daily") return;
     if (existing) {
       await tx`INSERT INTO report_revisions (report_id, revision, content, generated_at, reason)
                VALUES (${existing.id}, ${existing.revision}, ${tx.json(existing.content as never)}, ${existing.generated_at}, ${reason}) ON CONFLICT DO NOTHING`;
@@ -190,7 +160,7 @@ async function saveReport(
                  model = ${model}, revision = revision + 1, origin = 'model', updated_at = now() WHERE id = ${existing.id}`;
     } else {
       await tx`INSERT INTO reports (kind, key, window_start, window_end, content, generated_at, model, origin)
-               VALUES (${kind}, ${key}, ${start}, ${end}, ${tx.json(content as never)}, now(), ${model}, 'model')`;
+               VALUES (${kind}, ${key}, ${start}, ${end}, ${tx.json(content as never)}, now(), ${model}, 'model') ON CONFLICT (kind,key) DO NOTHING`;
     }
   });
 }
@@ -206,12 +176,12 @@ async function publishedEntries(kind: string, key: string): Promise<number> {
   return sections + themes + (content.flashes?.length ?? 0);
 }
 
-/** Daily report for Beijing date D covers [D-1 08:00, D 08:00). An empty window is not published. An issue that already has entries is left as published. */
+/** Daily D covers [D-1 08:00, D 08:00). A judged window without selections gets a quiet issue; unjudged windows wait. */
 export async function composeDaily(date: string, reason = "scheduled"): Promise<{ key: string; entries: number }> {
   const publication = await requireRuntimeRunning("news", ["publication"]),
     processing = await runtimeControlSnapshot("news", ["processing"]);
-  const already = await publishedEntries("daily", date);
-  if (already > 0) return { key: date, entries: already };
+  const [existing] = await sql`SELECT 1 FROM reports WHERE kind='daily' AND key=${date}`;
+  if (existing) return { key: date, entries: await publishedEntries("daily", date) };
   const end = new Date(beijingMidnight(date).getTime() + 8 * 3600 * 1000);
   const start = new Date(end.getTime() - 86400000);
   const covered = await recentlyCovered("daily", date);
@@ -239,14 +209,22 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     items: perSection.get(label)!.map(({ category: _c, factKey: _f, ...entry }) => entry),
   }));
   const ordered = sections.flatMap((s) => s.items).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  if (ordered.length === 0 && flashes.length === 0) return { key: date, entries: 0 };
-  const model = await modelFor("report");
-  const lead = ordered.length ? await writeLead("daily", date, ordered, model) : null;
+  const quiet = ordered.length === 0 && flashes.length === 0;
+  if (quiet && (await dailyJudgedReportCount(start, end)) === 0) return { key: date, entries: 0 };
+  const model = quiet ? null : await modelFor("report");
+  const lead = ordered.length ? await writeLead("daily", date, ordered, model!) : null;
   const actualModel = lead?.model ?? model;
   const content = {
     date,
     generationStatus: lead ? "ready" : "summary",
-    lead: lead?.lead ?? null,
+    lead:
+      lead?.lead ??
+      (quiet
+        ? {
+            title: "今日无大事发生",
+            leadParagraph: "本期已完成评分的矿业资讯中，没有新增内容入选日报。",
+          }
+        : null),
     highlights: lead?.highlights ?? [],
     sections,
     flashes,
@@ -386,7 +364,7 @@ async function periodEntryCount(startDate: string, endDateInclusive: string): Pr
 /**
  * How many qualified new selections the composer would put in this issue.
  * Daily is the fresh items in [D-1 08:00, D 08:00). Weekly and monthly are the selections in that
- * calendar period. Zero is why an issue is left missing; it is not a count of older selections.
+ * calendar period. Zero may be a quiet daily; it is not a count of older selections.
  */
 export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
   if (kind === "daily") return freshDailyCount(key);
@@ -405,7 +383,7 @@ export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly
 /**
  * Catch-up: generates any missing daily report for the last `days` days (never the future and never
  * before the first report in the database), the last complete week and the last complete month.
- * A gap with nothing new is left missing. The edition clock does not publish an empty issue.
+ * A judged daily without new selections still publishes its quiet issue; unjudged windows wait.
  */
 export async function catchUpReports(now = new Date(), days = 7): Promise<{ generated: string[] }> {
   const generated: string[] = [];
@@ -418,9 +396,9 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
     const d = addDays(latestDue, -i);
     if (first?.key && d < first.key) continue;
     const [exists] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${d}`;
-    if (!exists && (await freshDailyCount(d)) > 0) {
+    if (!exists) {
       await composeDaily(d, "catch-up");
-      generated.push(`daily:${d}`);
+      if ((await sql`SELECT 1 FROM reports WHERE kind='daily' AND key=${d}`).length) generated.push(`daily:${d}`);
     }
   }
   // Last complete ISO week (Monday 10:00 onwards).
@@ -451,4 +429,10 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
   return { generated };
 }
 
-export { correctNewsReport, enqueuePendingReportCorrections, invalidateReportCorrections, REPORT_CORRECTION_QUEUE } from "./corrections.ts";
+export {
+  ensureReportCorrectionQueue,
+  correctNewsReport,
+  enqueuePendingReportCorrections,
+  invalidateReportCorrections,
+  REPORT_CORRECTION_QUEUE,
+} from "./corrections.ts";

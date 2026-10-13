@@ -1,3 +1,4 @@
+export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "../enrichment/records.ts";
 import { ModelContentFiltered } from "../providers/model-fallback.ts";
 import { evaluateSourcePolicy } from "../admin/sources.ts";
 import { prepareNewsFallback, lockNewsProcessingPermissions, type NewsFallbackInput } from "../providers/news-fallback.ts";

@@ -1,5 +1,6 @@
 // Cron-style schedules (Asia/Shanghai). Each run is recorded in job_runs; missed slots run once.
 import { sendWeeklyFeedbackSummary } from "@amp/backend/admin/feedback";
+import { forwardPendingFeedback } from "@amp/backend/operations/feedback";
 import { recoverSourcePreviews } from "@amp/backend/admin/sources";
 import type { PgBoss } from "pg-boss";
 import { ensureQueue, recordRun } from "@amp/backend/jobs/queue";
@@ -81,6 +82,7 @@ export const SCHEDULES: Scheduled[] = [
   { name: "ops.digest", cron: "0 9 * * *", missed: "once", run: () => sendDigest() },
   ...(backupConfigured() ? [{ name: "ops.backup", cron: "10 4 * * *", missed: "once" as const, run: () => runBackup() }] : []),
   { name: "feedback.weekly", cron: "0 8 * * 1", missed: "once", run: () => sendWeeklyFeedbackSummary(new Date(Date.now() - 7 * 86400_000)) },
+  { name: "feedback.forward", cron: "* * * * *", run: forwardPendingFeedback },
   { name: "reports.source-health", cron: "0 9 * * 1", missed: "once", run: () => sourceHealthWeekly() },
   { name: "reports.usage-weekly", cron: "5 9 * * 1", missed: "once", run: () => usageWeekly() },
   // The job checks the Owner-configured Beijing push time; notification claiming prevents duplicate delivery.

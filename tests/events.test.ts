@@ -265,6 +265,11 @@ test("a story's root is the fact reported first, not the one with the lowest num
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${later!.id}, ${await report("late-fact", late, late)}, 'report',1)`;
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${first!.id}, ${await report("early-fact", early, early, new Date(Date.now() - 2 * 3600_000))}, 'report',1)`;
 
+  // PostgreSQL retains microseconds: both times occupy the same JS millisecond, but the higher ID is earlier.
+  await sql`UPDATE publications p SET published_at=date_trunc('second',now())+
+    CASE WHEN fa.fact_id=${first!.id} THEN interval '0.000100 seconds' ELSE interval '0.000900 seconds' END
+    FROM fact_articles fa WHERE fa.article_id=p.article_id AND fa.fact_id IN (${first!.id},${later!.id})`;
+
   // A development of the fact reported first joins the story through it.
   relation = "SAME_STORY";
   try {

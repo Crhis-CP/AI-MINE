@@ -1,0 +1,134 @@
+{
+  "task_cards": [
+    "TASK-0316",
+    "TASK-0319"
+  ],
+  "baseline": "b7f7cfff95f5c2e4d0edbb92ad52a355d2738d86",
+  "recorded_at": "2026-10-12T12:20:44.537127+00:00",
+  "stage": "locally_verified",
+  "editing": "stopped",
+  "changes": [
+    "人工拆组及事实成员读取经events拥有的窄口；原全局成员锁、材料行锁、撤回捕获与人工独立决定顺序不变，content负责材料归组时间。",
+    "回执释放的unknown+attempts+精确updated_at CAS与attempt费用结算移交ai-gateway；失败材料复位交content。原人工确认、审计及入队仍同事务。",
+    "公众号正文重试元数据交content，原collection控制快照与来源暂停/归档事务检查不变。",
+    "来源变更重投进度与入队由publication拥有的jobs端口在原source事务内完成。",
+    "报告选材原SQL、READ COMMITTED与report_candidates咨询锁整体迁至既有publication/groups读模型范围，没有新增白名单。",
+    "机器报告当前引用改经publication/items窄口，仍只使用p.summary而非网站source_excerpt回退。",
+    "预筛审计经sources/content/editorial/enrichment窄投影取候选，AI模块只读写自有抽样记录；在数据库保留原hashtext种子及标注/上一批优先排序。"
+  ],
+  "validation": {
+    "tests": [
+      {
+        "file": "tests/collection.test.ts",
+        "pass": 2,
+        "fail": 0,
+        "sha256": "50c2e088e1020b094676887544510ec7fd0f1f2802170513b45d0e18bbf70e38"
+      },
+      {
+        "file": "tests/events.test.ts",
+        "pass": 12,
+        "fail": 0,
+        "sha256": "e98cfc20695234f44ce721eb43f6bbe51aeb828cbf2cc321801b459ee3f0ed36"
+      },
+      {
+        "file": "tests/group-revision.test.ts",
+        "pass": 1,
+        "fail": 0,
+        "sha256": "9498516c694a95148483aaf459bdda19c3bd1555526a5ba0e19606a496366644"
+      },
+      {
+        "file": "tests/group-withdrawal.test.ts",
+        "pass": 3,
+        "fail": 0,
+        "sha256": "9c7698bcf1eda0c21b5cc89fabc145c5b77d42ada97d9306ddeaa79f41406ea1"
+      },
+      {
+        "file": "tests/mcp-public-tools.test.ts",
+        "pass": 1,
+        "fail": 0,
+        "sha256": "ccac57342c473c78cec98a1d4d5377a18f87f2734d60d3d8a4042b6968c343ff"
+      },
+      {
+        "file": "tests/prefilter-audit.test.ts",
+        "pass": 2,
+        "fail": 0,
+        "sha256": "aea073ff4545521115e946f4ff14ef4138223918d2f70b9672f175b97e387438"
+      },
+      {
+        "file": "tests/receipts.test.ts",
+        "pass": 10,
+        "fail": 0,
+        "sha256": "6d15a0cd7c98964232171ce978f75e0eea8a54c1cdd713f96c6bd7574a08cc57"
+      },
+      {
+        "file": "tests/report-candidates.test.ts",
+        "pass": 5,
+        "fail": 0,
+        "sha256": "51a63ec5b50ff1562d2e2031b94a0aef89199fccde71b51f524e47ec1ca72eba"
+      },
+      {
+        "file": "tests/report-corrections.test.ts",
+        "pass": 5,
+        "fail": 0,
+        "sha256": "8603d0bd72d076a2fb7cf9c759260ad32ead012f5d118323fc5ec85d26c3dd59"
+      },
+      {
+        "file": "tests/source-permissions.test.ts",
+        "pass": 10,
+        "fail": 0,
+        "sha256": "033c90165ca2c62aab41845bc5b83d3f07437aca6ca71ad892455c9985839faf"
+      },
+      {
+        "file": "tests/unknown-release-race.test.ts",
+        "pass": 1,
+        "fail": 0,
+        "sha256": "0d964aed0a26eac4b08c8c3390c74b7eee2a4f7510aa3c22fe688a4b34873f66"
+      }
+    ],
+    "unique_pass": 52,
+    "fail": 0,
+    "log": ".verify/release-20261012/task0316-regressions.log",
+    "log_sha256": "03ac6433af8c27c7d5f3a3368d1d9c2099c40e0cedd7685bd203280949e0d9d9",
+    "backend_typecheck": {
+      "status": "pass",
+      "log": ".verify/release-20261012/task0316-backend-types.log"
+    },
+    "tests_typecheck": {
+      "status": "pass",
+      "log": ".verify/release-20261012/task0316-test-types.log"
+    },
+    "format_lint": {
+      "status": "pass_with_existing_warnings",
+      "log": ".verify/release-20261012/task0316-format-lint.log"
+    },
+    "new_regression": "prefilter-audit的第一次/已标注后的再次抽样，与原SQL规则在同seed下逐项比较ID和顺序；既有人工下架、cgs排除、pool平衡、不触发公开/翻译/模型断言保留。"
+  },
+  "runtime_sha256": {
+    "packages/backend/src/admin/content.ts": "6232ef655665c3e2049d0a55c88bfb4a271bc426f0302a044c7d55ac3b854625",
+    "packages/backend/src/admin/runs.ts": "770dc6b7fa591e500a830e7840b6ce998d3728d6db204c6a386efadbeff37ac6",
+    "packages/backend/src/admin/sources.ts": "2a584144fd7b3a0c74a1bb5c76d1e73554b99bc19ef7cdc8487553d16aa44c8d",
+    "packages/backend/src/admin/prefilter-audit.ts": "251d40a2febac50ac2357f0b80bf6084c514a3736438c718c38c7f23eff84a9a",
+    "packages/backend/src/content/materials.ts": "49f377dfe2d872ac541b44f65c8eef0d8147cacd575b8fccdeac33473259870c",
+    "packages/backend/src/enrichment/records.ts": "73503d61abf486ed1ff38dcda919d6658b14eb2b980d213da55d88649bec1323",
+    "packages/backend/src/editorial/analyze.ts": "e7958414e95ecd770d1e0fb52b4e2e970f70b391f7a87d017a22bb5a10a779ee",
+    "packages/backend/src/events/group.ts": "923d377b6eed8f6ddc27fc90a737704ce868949ff9ae428e2c6c57a117477b60",
+    "packages/backend/src/jobs/publication.ts": "072ddd2f9032190181e9a1346e7de3d2d5bcd1d03d7d1a84e39715ad3deecb42",
+    "packages/backend/src/publication/groups.ts": "1ebb3a1ec7f4d39fdcf0b4439263f7eb724ea9f3ac92c7e61452831b96e3fdf1",
+    "packages/backend/src/publication/items.ts": "ad7cf12fb9b312bb9fc0e116e301e4abe8d9c46a75864e723899e5229e74048b",
+    "packages/backend/src/publication/reports.ts": "ac74c171ab899c1c1a5ae1a50b988dd3d15ac60a31bee21b9016d5e470b321ab",
+    "packages/backend/src/reports/compose.ts": "69ef30e3deb0a652b046a2505967bf2a7aa02cfc773589dff1a5ab4db625ae6f",
+    "packages/backend/src/sources/mp.ts": "15d2232672e23f1c4360c4df888502d2307a42f455da1bf77af207efffb7029f",
+    "packages/backend/src/providers/receipts.ts": "382169409051b6ddeb4167bae5a3706c88e55961beee9368c20f2b65efc8b350"
+  },
+  "unmodified_guards": [
+    "checker",
+    "ownership map",
+    "baseline budget",
+    "global table/function allowlists"
+  ],
+  "remaining": [
+    "root在静态证明器稳定后统一运行ownership，确认剩余诊断并只删除已消失的旧额度；本记录不宣称ownership gate通过。",
+    "统一pnpm check与最终SHA full verify/CI由root取得。",
+    "本Agent没有执行生产操作、读取秘密、真实模型调用、提交或推送；没有修改反馈转发。"
+  ]
+}

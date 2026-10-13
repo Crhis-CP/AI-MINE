@@ -182,3 +182,38 @@ test("trigger target recognition does not approve function bodies, dynamic targe
   ])
     assert.ok(sqlOwnership(statement).unknown.length, statement);
 });
+
+test("only explicit pg_catalog date_trunc, to_jsonb and cardinality are known scalar functions", () => {
+  for (const [name, argument] of [
+    ["date_trunc", "'day', (SELECT started_at FROM receipts LIMIT 1)"],
+    ["to_jsonb", "(SELECT request FROM receipts LIMIT 1)"],
+    ["cardinality", "(SELECT ids FROM receipts LIMIT 1)"],
+  ]) {
+    const result = sqlOwnership(`SELECT pg_catalog.${name}(${argument})`);
+    assert.deepEqual(result.unknown, [], name);
+    assert.deepEqual(
+      result.relations.map(({ table, mode }) => `${mode}:${table}`),
+      ["read:public.receipts"],
+      name,
+    );
+    for (const called of [name, `public.${name}`, `pg_catalog."${name}"`, `"pg_catalog".${name}`, `other.pg_catalog.${name}`])
+      assert.ok(sqlOwnership(`SELECT ${called}(value)`).unknown.includes(`opaque SQL function ${name}`), called);
+    assert.ok(sqlOwnership(`SELECT pg_catalog.${name}(custom_mutator())`).unknown.includes("opaque SQL function custom_mutator"));
+  }
+});
+
+test("ALL is a comparison quantifier, not an approved same-name function", () => {
+  for (const operator of ["=", "<>", "!=", "<", ">", "<=", ">="]) {
+    const result = sqlOwnership(`SELECT id FROM articles WHERE id ${operator} ALL(SELECT id FROM receipts)`);
+    assert.deepEqual(result.unknown, [], operator);
+    assert.deepEqual(
+      result.relations.map(({ table, mode }) => `${mode}:${table}`),
+      ["read:public.articles", "read:public.receipts"],
+    );
+  }
+  assert.deepEqual(sqlOwnership("SELECT id FROM articles WHERE id <> ALL(§0§::bigint[])", [{ kind: "value" }]).unknown, []);
+  for (const name of ["all", "public.all", "pg_catalog.all", '"all"'])
+    assert.ok(sqlOwnership(`SELECT ${name}(value)`).unknown.includes("opaque SQL function all"), name);
+  assert.ok(sqlOwnership("SELECT 1 <> ALL(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
+  assert.ok(sqlOwnership("SELECT 1 <> ALL(§0§)", [{ kind: "sql" }]).unknown.includes("unexpanded SQL fragment"));
+});

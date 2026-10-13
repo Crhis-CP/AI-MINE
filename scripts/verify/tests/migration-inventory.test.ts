@@ -422,6 +422,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["feedback"],
         dependsOn: ["0038_publication_source_excerpt.sql", "feedback/202610120410_feedback_idempotency.sql"],
       },
+      {
+        name: "feedback/202610121230_feedback_forward.sql",
+        module: "feedback",
+        schemas: ["feedback"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "feedback/202610120520_feedback_quota.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

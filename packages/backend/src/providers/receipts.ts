@@ -775,8 +775,10 @@ export async function settleTranslationResponse(
     if (knownUsage && row.status !== "failed")
       await db`UPDATE receipts SET status='failed',error=${verdict.reason.slice(0, 2000)},updated_at=now() WHERE id=${receipt.receiptId}`;
   }
-  const [count] = await db`SELECT count(*)::int AS n FROM receipt_attempts WHERE receipt_id=${receipt.receiptId} AND output_rejected_at IS NOT NULL`;
-  return { rejected: count!.n as number };
+  const [count] = await db<
+    { n: number }[]
+  >`SELECT count(*)::int AS n FROM receipt_attempts WHERE receipt_id=${receipt.receiptId} AND output_rejected_at IS NOT NULL`;
+  return { rejected: count!.n };
 }
 
 /** A truncation branch requires this attempt's actual response/usage; never infer it from caller flags. */
@@ -789,4 +791,15 @@ export async function canReplaceTranslationResponse(db: Db, receipt: Pick<Receip
       AND NOT EXISTS (SELECT 1 FROM receipt_attempts old WHERE old.receipt_id=r.id AND old.output_rejected_at IS NOT NULL)
     FOR UPDATE OF r,a`;
   return row?.finish === "length" && knownTranslationUsage(row.usage);
+}
+
+/** Called only after an operator's documented non-billing confirmation; CAS and settlement share its transaction. */
+export async function releaseUnknownReceiptUnbilled(db: Db, receiptId: number, error: string, observed: { attempts: number; version: string }) {
+  const [before] = await db<{ subject: string | null; purpose: string }[]>`UPDATE receipts SET status='failed',error=${error},updated_at=now()
+    WHERE id=${receiptId} AND status='unknown' AND attempts=${observed.attempts} AND updated_at::text=${observed.version} RETURNING subject,purpose`;
+  if (!before) return null;
+  const attempts = await db<{ id: string }[]>`UPDATE receipt_attempts SET status='failed',error=${error}
+    WHERE receipt_id=${receiptId} AND status='unknown' RETURNING id::text`;
+  for (const attempt of attempts) await settleUsageAttempt(db, attempt.id, "failed");
+  return before;
 }

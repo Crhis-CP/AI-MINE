@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   runtimeControlSnapshot,
   assertRuntimeControl,
@@ -307,13 +308,13 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
     await sql.begin(async (tx) => {
       await assertRuntimeControl(tx, collectionControl);
       await recordSourceCollectionSuccess(sourceId, nextCursor, tx);
-      await tx`UPDATE fetch_runs SET status = 'ok', finished_at = now(), found_count = ${found}, new_count = ${created},
+      await tx`UPDATE fetch_runs SET status = 'ok', finished_at = now(), found_count = ${z.number().int().nonnegative().parse(found)}, new_count = ${created},
                 detail = ${detail ? sql.json(detail as never) : null} WHERE id = ${run!.id}`;
     });
     return { sourceId, status: "ok", found, created, revised };
   } catch (error) {
     if (error instanceof SourceCollectionPaused || error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
-      await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),found_count=${found},new_count=${created},error='运行控制暂停或变化' WHERE id=${run!.id}`;
+      await sql`UPDATE fetch_runs SET status='skipped',finished_at=now(),found_count=${z.number().int().nonnegative().parse(found)},new_count=${created},error='运行控制暂停或变化' WHERE id=${run!.id}`;
       return {
         sourceId,
         status: "skipped",
@@ -339,7 +340,7 @@ async function collectSource(sourceId: string, opts: { force?: boolean; lane?: C
         updated_at = now()
       WHERE id = ${sourceId} AND enabled AND archived_at IS NULL`;
     if (error instanceof DirectoryRoundFailed) await deferSourceFetch(sourceId, new Date(Date.now() + 60_000));
-    await sql`UPDATE fetch_runs SET status = 'failed', finished_at = now(), found_count = ${found}, new_count = ${created}, error = ${message} WHERE id = ${run!.id}`;
+    await sql`UPDATE fetch_runs SET status = 'failed', finished_at = now(), found_count = ${z.number().int().nonnegative().parse(found)}, new_count = ${created}, error = ${message} WHERE id = ${run!.id}`;
     return { sourceId, status: "failed", found, created, revised, error: message };
   }
 }

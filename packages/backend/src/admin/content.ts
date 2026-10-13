@@ -1,5 +1,5 @@
 import { manualMaterialSnapshot } from "@amp/backend/content/materials";
-import { captureEventWithdrawal } from "@amp/backend/events/group";
+import { detachArticleFromFactTx, factArticleIds } from "@amp/backend/events/group";
 import { invalidateReportCorrections } from "@amp/backend/reports/compose";
 export { previewWithdrawal, actWithdrawal } from "../editorial/withdrawals.ts";
 import { manualRevisionHistory } from "../editorial/manual-revisions.ts";
@@ -282,28 +282,11 @@ export async function rerun(id: string, step: "extract" | "analyze" | "group", r
  * evidence leaves the old story, whose digest is rewritten.
  */
 export async function detachFromFact(id: string, reason: string, actor: string) {
-  const { facts, stories } = await sql.begin(async (tx) => {
-    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
-    await captureEventWithdrawal(tx, id);
-    // The grouping job writes under the same lock and reads this decision again before it does.
-    await tx`SELECT 1 FROM articles WHERE id = ${id} FOR UPDATE`;
-    const removed = await tx<{ fact_id: number }[]>`DELETE FROM fact_articles WHERE article_id = ${id} RETURNING fact_id`;
-    const factIds = removed.map((r) => r.fact_id);
-    const storyRows = factIds.length
-      ? await tx<{ story_id: number }[]>`SELECT DISTINCT story_id FROM facts WHERE id = ANY(${factIds}) AND story_id IS NOT NULL`
-      : [];
-    const storyIds = storyRows.map((r) => r.story_id);
-    if (storyIds.length) await tx`DELETE FROM story_signals WHERE article_id = ${id} AND story_id = ANY(${storyIds})`;
-    await tx`INSERT INTO grouping_overrides (article_id, reason, actor) VALUES (${id}, ${reason}, ${actor})
-             ON CONFLICT (article_id) DO UPDATE SET reason = EXCLUDED.reason, actor = EXCLUDED.actor, created_at = now()`;
-    await tx`UPDATE articles SET grouped_at = now() WHERE id = ${id}`;
-    return { facts: factIds, stories: storyIds };
-  });
+  const { facts, stories } = await sql.begin((tx) => detachArticleFromFactTx(tx, id, reason, actor));
   await publishArticle(id);
   // The fact's other reports may take a new reading-group anchor.
   if (facts.length) {
-    const others = await sql<{ article_id: string }[]>`SELECT DISTINCT article_id FROM fact_articles WHERE fact_id = ANY(${facts})`;
-    for (const o of others) await publishArticle(o.article_id);
+    for (const articleId of await factArticleIds(facts, sql)) await publishArticle(articleId);
   }
   for (const storyId of stories) await enqueue(QUEUES.digest, { storyId }, { singletonKey: `story:${storyId}` });
   await audit(actor, "content.detach", `content:${id}`, reason, { facts, stories }, null);
@@ -325,4 +308,13 @@ export async function manualReviewExceptions() {
   return sql`SELECT o.article_id,e.state,e.created_at FROM editorial_overrides o
     JOIN LATERAL(SELECT state,created_at FROM editorial.manual_revision_events WHERE revision_id=o.manual_revision_id ORDER BY id DESC LIMIT 1)e ON true
     WHERE e.state IN ('needs_review','conflict') ORDER BY e.created_at LIMIT 100`;
+}
+
+/** Human takedown/relevance decisions remain authoritative for the private prefilter sample. */
+export async function prefilterAuditExclusions(articleIds: string[], db: Db) {
+  if (!articleIds.length) return [];
+  return (
+    await db<{ article_id: string }[]>`SELECT article_id FROM editorial_overrides WHERE article_id=ANY(${articleIds}::text[])
+    AND (visibility='withdrawn' OR fields->>'relevance'='block')`
+  ).map((row) => row.article_id);
 }

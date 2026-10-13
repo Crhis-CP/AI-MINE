@@ -1,0 +1,124 @@
+{
+  "task": "TASK-0326",
+  "recorded_at": "2026-10-13T13:39:29.208259+00:00",
+  "stage": "locally_verified",
+  "editing": "stopped",
+  "scope": "publication查询的SQL形状固定化；保持既有HTTP/契约、匹配语义、评分与排序。",
+  "changes": [
+    "mentions只生成纯数据模式；移除运行期SQL map/reduce/循环拼接。",
+    "tag/topic/jurisdiction先生成readMatcherValues，再用固定谓词绑定。频道、分类和日期空值条件也用静态参数。",
+    "搜索保留最多六词；直接/正文/标题原3/1/6分及时间/ID并列排序保持；split-fields MATERIALIZED和常规NOT MATERIALIZED各自保留为固定SQL。",
+    "保留空数组、SQL NULL、Latin词边界、单字矿种排除和LIKE字面转义；旧规则保留为独立测试fixture做逐项对照。",
+    "readEventPublicationTimes仅按显式ID读取公开时间，保留调用方事务；按root要求增加epoch微秒整数文本order_time，供root用BigInt保持原数据库时间排序精度。"
+  ],
+  "ownership": {
+    "before_report": ".verify/release-20261012/ownership-runtime-parameters-final.json",
+    "before_selected_unknown": 90,
+    "after_report": ".verify/release-20261012/task0326-ownership-final-v2.json",
+    "after_selected_unknown": 0,
+    "sql_sites": 208,
+    "sql_files": 6,
+    "scope_files": [
+      "packages/backend/src/publication/mentions.ts",
+      "packages/backend/src/publication/read-predicates.ts",
+      "packages/backend/src/publication/items.ts",
+      "packages/backend/src/publication/pool.ts",
+      "packages/backend/src/publication/timeline.ts",
+      "packages/backend/src/publication/groups.ts",
+      "packages/backend/src/publication/topics.ts"
+    ],
+    "errors": [],
+    "note": "定向范围七文件，其中mentions已无SQL；本Agent未更改checker/map/baseline/白名单。before报告含并行改动，不是冻结源码的checker A/B。零UNKNOWN仅指本范围，不等于全仓门禁通过。"
+  },
+  "validation": {
+    "tests": [
+      {
+        "file": "tests/day-only-timeline.test.ts",
+        "passed": 5,
+        "failed": 0
+      },
+      {
+        "file": "tests/mention-filter.test.ts",
+        "passed": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/public-v3.test.ts",
+        "passed": 6,
+        "failed": 0
+      },
+      {
+        "file": "tests/reader-pool-regression.test.ts",
+        "passed": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/reader-predicate-parity.test.ts",
+        "passed": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/reader-static-query.test.ts",
+        "passed": 2,
+        "failed": 0
+      },
+      {
+        "file": "tests/timeline-date-filter.test.ts",
+        "passed": 3,
+        "failed": 0
+      },
+      {
+        "file": "tests/topics.test.ts",
+        "passed": 2,
+        "failed": 0
+      }
+    ],
+    "passed": 26,
+    "failed": 0,
+    "log": ".verify/release-20261012/task0326-final-regressions.log",
+    "earlier_backend_types": {
+      "status": "pass",
+      "log": ".verify/release-20261012/task0326-backend-types.log"
+    },
+    "test_types": {
+      "status": "pass",
+      "log": ".verify/release-20261012/task0326-test-types.log",
+      "note": "已取得结果；后续并行整合仍须统一类型检查。"
+    },
+    "latest_backend_types": {
+      "status": "blocked_by_root_parallel_changes",
+      "log": ".verify/release-20261012/task0326-backend-types-final.log",
+      "diagnostics": [
+        "events/group.ts:782 map(storyRoot)将index传入可选db参数。",
+        "reports/compose.ts:58,94,97普通数组与推导的RowList返回类型不一致。"
+      ],
+      "owner": "root",
+      "decision": "root已确认接手四处修复，并要求本Agent不等待/不重复测试。"
+    },
+    "biome": {
+      "status": "pass",
+      "log": ".verify/release-20261012/task0326-final-lint.log",
+      "warnings": "2条既有pool process.env警告，无新增warning；3条信息级建议。"
+    },
+    "new_cases": "guarded-only谓词NULL真值、空模式、别名与字面%_；1至6词相关度/默认时间排序、总数和并列ID；既有索引EXPLAIN、全库分页、主题、日期、v3及日期精度。"
+  },
+  "runtime_sha256": {
+    "packages/backend/src/publication/mentions.ts": "aa02784faa0b064e1de8cb36abc24f05394223b19994e4757a3bfb3060f50e53",
+    "packages/backend/src/publication/read-predicates.ts": "d4f43b0cc27c51db0ab8dfe8ec5ae990cd579a611026ef2b81148b29bdbb19a3",
+    "packages/backend/src/publication/items.ts": "89605d203531be85f1f7237c44b0497c6e928faf5bb3303eab435a47eb2b2427",
+    "packages/backend/src/publication/pool.ts": "965120e0e73d7668c77ba27e9d002893da4ed20e90ec87578324d6d62cd33e2a",
+    "packages/backend/src/publication/timeline.ts": "278a7343335d63ffe9c3d7b7ac3ac953d510d16f93f6ff73c8a1114d6991d4b9",
+    "packages/backend/src/publication/groups.ts": "42a41f7179f65e6b90116ee5148fbaedad3b17eea97e9d18139178226f377535",
+    "packages/backend/src/publication/topics.ts": "878a7abe5b122d6cd0739cbc6b5627898f607e49c5e3e3e7e66331439c94a18b"
+  },
+  "evidence_sha256": {
+    ".verify/release-20261012/task0326-ownership-final-v2.json": "afe7d22744367ed1fa24f7708a6b7d99c3759c28ca7842bd3491feefc5864cb9",
+    ".verify/release-20261012/task0326-final-regressions.log": "0c62dfbccaaf9a0a4b24f3762eaf49fb7a2275861e92b7902b38c5025d4629eb"
+  },
+  "remaining": [
+    "root修复并行events/report四处类型错误并取得统一结果。",
+    "事件微秒排序调用方、read-only repeatable-read快照及其回归由root负责。",
+    "最终SHA的全仓ownership/check/full verify、发布与线上验收由root持有，本记录不声明这些已通过。"
+  ],
+  "constraints": "未改checker、预算、map、白名单、反馈、契约；未提交、推送、执行生产操作或调用真实模型。"
+}

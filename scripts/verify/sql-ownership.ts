@@ -337,10 +337,12 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       !wordAt(n - 1, "as") &&
       !wordAt(n - 1, "using") &&
       !relationNames.has(n) &&
-      !(tokens[n].kind === "word" && syntax.has(value(n)))
+      !(tokens[n].kind === "word" && syntax.has(value(n))) &&
+      !(wordAt(n, "all") && ["=", "<", ">"].some((operator) => punctuation(n - 1, operator)))
     ) {
       const catalogScalar =
-        (["to_char", "round", "pg_column_size"].some((name) => wordAt(n, name)) || (wordAt(n, "clock_timestamp") && punctuation(n + 2, ")"))) &&
+        (["to_char", "round", "pg_column_size", "date_trunc", "to_jsonb", "cardinality"].some((name) => wordAt(n, name)) ||
+          (wordAt(n, "clock_timestamp") && punctuation(n + 2, ")"))) &&
         punctuation(n - 1, ".") &&
         wordAt(n - 2, "pg_catalog") &&
         !punctuation(n - 3, ".");

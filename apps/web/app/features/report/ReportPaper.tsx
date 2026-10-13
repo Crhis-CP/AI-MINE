@@ -25,7 +25,7 @@ const keyOf = (c: ReportCitation) => c.itemId ?? c.title;
 const anchorOf = (c: ReportCitation) => (c.itemId ? `r-${c.itemId}` : null);
 const LINK = "inline-flex min-h-7 items-center gap-0.5 font-medium transition-colors hover:text-accent";
 
-function Masthead({ report, index }: { report: ReportDetail; index: ReportNavigationEntry[] }) {
+function Masthead({ report, index, quiet = false }: { report: ReportDetail; index: ReportNavigationEntry[]; quiet?: boolean }) {
   const issue = issueNumber(index, report.key);
   const mark = dateMark(report.kind, report.key);
   return (
@@ -70,15 +70,19 @@ function Masthead({ report, index }: { report: ReportDetail; index: ReportNaviga
         </div>
       </div>
 
-      <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1.5 border-y border-line-strong py-3">
-        {metricItems(report.metrics).map((m) => (
-          <span key={m.unit} className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
-            <span className="num text-[22px] font-bold leading-none tracking-[-0.02em] text-ink @[880px]:text-[24px]">{m.value}</span>
-            <span className="text-[12px] text-ink-4">{m.unit}</span>
-          </span>
-        ))}
-        <span className="ml-auto whitespace-nowrap text-[12px] text-ink-4">约 {report.readingMinutes} 分钟读完</span>
-      </div>
+      {quiet ? (
+        <div aria-hidden="true" className="border-t border-line-strong" />
+      ) : (
+        <div className="flex flex-wrap items-baseline gap-x-8 gap-y-1.5 border-y border-line-strong py-3">
+          {metricItems(report.metrics).map((m) => (
+            <span key={m.unit} className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+              <span className="num text-[22px] font-bold leading-none tracking-[-0.02em] text-ink @[880px]:text-[24px]">{m.value}</span>
+              <span className="text-[12px] text-ink-4">{m.unit}</span>
+            </span>
+          ))}
+          <span className="ml-auto whitespace-nowrap text-[12px] text-ink-4">约 {report.readingMinutes} 分钟读完</span>
+        </div>
+      )}
     </header>
   );
 }
@@ -359,25 +363,28 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
   const leadStory = leadStoryOf(report);
   const pages = pagesOf(report, leadStory);
   const count = pages.reduce((sum, p) => sum + p.items.length, 0) + (leadStory ? 1 : 0);
+  const quiet = daily && count === 0 && report.flashes.length === 0 && report.generationStatus === "summary" && !!report.lead;
   return (
     <article className="@container">
       <div className="flex justify-end pt-3 lg:pt-0">
         <ShareLink path={reportPath(report.kind, report.key)} title={report.title} />
       </div>
-      <Masthead report={report} index={index} />
+      <Masthead report={report} index={index} quiet={quiet} />
       <div className="my-4 space-y-1 text-[12px] text-ink-3">
         <p>
           覆盖时间：{fullDateTime(report.windowStart)} 至 {fullDateTime(report.windowEnd)}（北京时间，结束时刻不含）
         </p>
         <p>
           生成于 {fullDateTime(report.generatedAt)} ·{" "}
-          {report.generationStatus === "ready"
-            ? "AI 综合已完成"
-            : report.generationStatus === "pending"
-              ? "AI 综合正在排队，当前为资料汇总"
-              : report.generationStatus === "failed"
-                ? "AI 综合暂未成功，当前为资料汇总"
-                : "资料汇总"}{" "}
+          {quiet
+            ? "本期无新增精选"
+            : report.generationStatus === "ready"
+              ? "AI 综合已完成"
+              : report.generationStatus === "pending"
+                ? "AI 综合正在排队，当前为资料汇总"
+                : report.generationStatus === "failed"
+                  ? "AI 综合暂未成功，当前为资料汇总"
+                  : "资料汇总"}{" "}
           · AI 辅助生成
         </p>
       </div>
@@ -399,7 +406,14 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
         </section>
       )}
       {count === 0 && report.flashes.length === 0 ? (
-        <p className="py-16 text-center text-[14px] text-ink-4">本期没有入选内容。</p>
+        quiet ? (
+          <section aria-label="本期说明" className="py-12 @[880px]:py-16">
+            <h2 className="text-[32px] font-black leading-[1.3] tracking-[-0.03em] text-ink @[520px]:text-[40px]">{report.lead!.title}</h2>
+            <p className="mt-5 max-w-2xl text-[15px] leading-[1.9] text-ink-2">{report.lead!.leadParagraph}</p>
+          </section>
+        ) : (
+          <p className="py-16 text-center text-[14px] text-ink-4">本期没有入选内容。</p>
+        )
       ) : (
         <FrontPage report={report} pages={pages} leadStory={leadStory} count={count} />
       )}

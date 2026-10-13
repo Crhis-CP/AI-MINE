@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { verifiedCompanyContext } from "./reader-context.ts";
 import { articleWithdrawalHeld } from "./withdrawals.ts";
 export {
@@ -265,9 +266,9 @@ export async function publishArticleTx(
   const displaySummary = summary ?? sourceExcerpt;
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
   // Tags set by hand stay as they are; analysed ones show renamed categories by their current name (TASK-0041).
-  const tags = Array.isArray(f.tags)
-    ? (f.tags as string[])
-    : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]);
+  const tags = z
+    .array(z.string())
+    .parse(Array.isArray(f.tags) ? f.tags : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
@@ -603,3 +604,5 @@ export async function publishedStoryId(articleId: string, tx: Tx): Promise<numbe
   const [row] = await tx<{ story_id: number | null }[]>`SELECT story_id FROM publications WHERE article_id=${articleId}`;
   return row?.story_id ?? null;
 }
+
+export { readEventPublicationTimes } from "./items.ts";

@@ -1,10 +1,11 @@
+import { legacyText, legacyPublicMatch } from "./fixtures/reader-legacy-predicates.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, dbOf, withCustomPlans, type Db } from "@amp/backend/db";
-import { loadPool, publicMatchCondition, searchTerms } from "@amp/backend/publication/pool";
+import { loadPool, searchTerms } from "@amp/backend/publication/pool";
 import { v1Items } from "@amp/backend/publication/v1";
-import { tagCondition, listedCondition, readPublicApiItems, readPublicNewsLinkCandidates } from "../packages/backend/src/publication/items.ts";
+import { listedCondition, readPublicApiItems, readPublicNewsLinkCandidates } from "../packages/backend/src/publication/items.ts";
 import { readMatcherValues } from "../packages/backend/src/publication/mentions.ts";
 import { publicationTextMatches } from "../packages/backend/src/publication/read-predicates.ts";
 const sql = dbOf("publication"),
@@ -35,9 +36,9 @@ test("fixed bound predicates preserve aliases, guarded mineral names and literal
   );
   const now = new Date("2026-10-12T12:00:00+08:00");
   for (const mineral of ["铜", "金", "银", "铁", "刚果金", "紫金矿业", "未登记标签"]) {
-    const previous = await sql<
-      { id: string }[]
-    >`SELECT p.article_id AS id FROM publications p WHERE p.source_id=${source} AND ${listedCondition(now)} AND p.eligible ${tagCondition(mineral)} ORDER BY p.article_id`;
+    const values = readMatcherValues(mineral, null, [], []);
+    const previous = await sql<{ id: string }[]>`SELECT p.article_id AS id FROM publications p WHERE p.source_id=${source}
+      AND ${listedCondition(now)} AND p.eligible AND (p.tags && ${values.tagTags}::text[] OR ${legacyText(sql`p.search_text`, values.tagText)}) ORDER BY p.article_id`;
     const current = await loadPool({ channel: "all", category: null, tag: null, source, mineral, now });
     assert.deepEqual(
       current.items.map((x) => x.id).sort(),
@@ -49,7 +50,7 @@ test("fixed bound predicates preserve aliases, guarded mineral names and literal
   for (const q of ["DRC", "刚果金", "金", "copper", "紫金", "literal%_link", "铜 项目"]) {
     const previous = await sql<
       { id: string }[]
-    >`SELECT p.article_id AS id FROM publications p WHERE p.source_id=${source} AND ${listedCondition(now)} AND p.eligible ${publicMatchCondition(searchTerms(q))} ORDER BY p.article_id`;
+    >`SELECT p.article_id AS id FROM publications p WHERE p.source_id=${source} AND ${listedCondition(now)} AND p.eligible ${legacyPublicMatch(readMatcherValues(null, null, [], searchTerms(q)))} ORDER BY p.article_id`;
     const current = await v1Items({ mode: "all", window: "all", by: "timeline", category: null, q, source, limit: 100, cursor: null }, now);
     assert.deepEqual(
       current.items.map((x) => x.id).sort(),

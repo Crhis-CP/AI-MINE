@@ -26,6 +26,13 @@ test("real Owner archive and private withdrawal commands retain authentication, 
     await sql`INSERT INTO admin_sessions(id_hash,user_id,csrf_token,expires_at) VALUES(${sha256(token)},${user.id},${csrf},now()+interval '1 hour')`;
     const base = { "x-forwarded-host": config.privateHost };
     const headers = { ...base, cookie: `${SESSION_COOKIE}=${token}`, "x-csrf-token": csrf };
+    await sql`INSERT INTO audit_log(actor,action,subject) VALUES('typing-fixture','typing.test','typing-one')`;
+    const audit = await app.inject({ url: "/api/admin/audit?subject=typing-one&action=typing&page=1", headers });
+    assert.equal(audit.statusCode, 200, audit.body);
+    assert.equal(audit.json().rows.length, 1);
+    for (const query of ["subject=one&subject=two", "action=one&action=two", "page=object"])
+      assert.equal((await app.inject({ url: `/api/admin/audit?${query}`, headers })).statusCode, 400, query);
+
     const [source] = await sql`INSERT INTO sources(id,name,kind,config,enabled) VALUES('round2-http-source','Synthetic Archive','rss','{}',true) RETURNING *`;
     const archive = { version: source.updated_at.toISOString(), reason: "Synthetic archive", high_risk_confirmed: true };
     const url = "/api/admin/sources/round2-http-source/archive";

@@ -5,7 +5,7 @@ import { dbOf } from "../db.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { isValidDate, isoWeekRange } from "@amp/contracts/time";
-import { fetchItemsByIds, ITEM_COLUMNS, ITEM_FROM, type ItemRow } from "./items.ts";
+import { fetchItemsByIds, fetchMachineReportItems } from "./items.ts";
 export { isReportWithdrawn, storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 
 const sql = dbOf("publication");
@@ -103,14 +103,7 @@ async function availability(ids: string[], machine = false): Promise<Map<string,
   const out = new Map<string, Availability>();
   if (ids.length === 0) return out;
   // Machine citations use only the current public guide, never ITEM_COLUMNS' website excerpt fallback.
-  const rows = machine
-    ? new Map(
-        (
-          await sql<(ItemRow & { machine_summary: string | null })[]>`
-        SELECT ${ITEM_COLUMNS},p.summary AS machine_summary ${ITEM_FROM} WHERE p.article_id IN ${sql(ids)}`
-        ).map((row) => [row.id, { ...row, summary: row.machine_summary }]),
-      )
-    : await fetchItemsByIds(ids);
+  const rows = machine ? await fetchMachineReportItems(ids) : await fetchItemsByIds(ids);
   for (const r of rows.values()) {
     out.set(r.id, {
       available: r.visibility === "public" && r.eligible && r.source_mode === "editorial",

@@ -148,10 +148,6 @@
   "packages/backend/src/editorial/models.ts": {
     "lint/style/noProcessEnv": 4
   },
-  "packages/backend/src/events/group.ts": {
-    "lint/complexity/useOptionalChain": 1,
-    "lint/suspicious/noExplicitAny": 3
-  },
   "packages/backend/src/jobs/content.ts": {
     "lint/style/noProcessEnv": 1
   },
