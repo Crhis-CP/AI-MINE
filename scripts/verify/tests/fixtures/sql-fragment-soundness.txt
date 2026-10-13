@@ -189,3 +189,25 @@ export async function soundnessAwaitedDtoControl() {
   const result = await typedOutcome();
   return sql`SELECT 1 FROM publications WHERE rejected = ${result?.rejected ?? 0}`;
 }
+
+export function computedFieldErased(q: Part) {
+  const r = { ["v"]: q as unknown as string }; return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function spreadFirstErased(q: Part) {
+  const r = [...[q as unknown as string]]; return sql`SELECT 1 FROM publications WHERE ${r[0]}`;
+}
+export function spreadShiftErased(q: Part) {
+  const r = [...["safe",q as unknown as string],"safe"]; return sql`SELECT 1 FROM publications WHERE ${r[1]}`;
+}
+export function constantKeyRebound(q: Part) {
+  const r = {v:"safe"}; const k = "v"; r[k] = q as unknown as string; return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function dynamicKeyRebound(q: Part, k: "v" | "other") {
+  const r = {v:"safe",other:"safe"}; r[k] = q as unknown as string; return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function computedDestructuringErased(q: Part) {
+  const r={v:"safe"}; ({["v"]: r.v}={v:q as unknown as string}); return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function soundnessComputedArrayControl() {
+  const r = {["v"]:"safe"}; const a=[...[r.v],"safe"]; return sql`SELECT 1 FROM publications WHERE title=${a[1]}`;
+}

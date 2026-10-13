@@ -401,7 +401,10 @@ async function candidateViews(recalled: Recalled[], db?: Db): Promise<CandidateV
     JOIN sources s ON s.id = p.source_id
     WHERE fa.fact_id = ANY(${recalled.map((r) => r.factId)}) AND fa.role IN ('primary', 'report') AND ${trusted("fa")}
     ORDER BY fa.fact_id, (fa.role = 'primary') DESC, p.timeline_at ASC`;
-  const materials = await newsRelationMaterials(rows.map((r) => r.article_id));
+  const materials = await newsRelationMaterials(
+    rows.map((r) => r.article_id),
+    db,
+  );
   const byFact = new Map(
     rows.filter((r) => r.manual || materials.some((m) => m.id === r.article_id && m.revision === r.input_revision)).map((r) => [Number(r.fact_id), r]),
   );
@@ -690,7 +693,7 @@ async function storyRoot(storyId: number, db?: Db): Promise<StoryRoot | null> {
     WHERE f.id = ${root}
     ORDER BY (fa.role = 'primary') DESC, p.timeline_at ASC
     LIMIT 1`;
-  if (!row || (!row.manual && (await newsRelationMaterials([row.article_id]))[0]?.revision !== row.input_revision)) return null;
+  if (!row || (!row.manual && (await newsRelationMaterials([row.article_id], db))[0]?.revision !== row.input_revision)) return null;
   return {
     storyId,
     at: row.started_at,

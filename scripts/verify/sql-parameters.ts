@@ -106,6 +106,12 @@ export function sqlParameterExpression(
   // their input unchanged. Computations and explicit serialization need not be pure.
   type Bindings = Map<ts.Node, ts.Node>;
   type Target = { root: ts.Node; path: string[] };
+  const fixedKey = (node: ts.Node): string | undefined => {
+    if (ts.isComputedPropertyName(node)) return fixedKey(node.expression);
+    if (ts.isStringLiteral(node) || ts.isNumericLiteral(node)) return node.text;
+    return undefined;
+  };
+
   const target = (node: ts.Node, seen = new Set<ts.Node>()): Target | undefined => {
     if (seen.has(node)) return undefined;
     seen.add(node);
@@ -119,7 +125,7 @@ export function sqlParameterExpression(
     }
     if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
       const base = target(node.expression, seen);
-      const key = ts.isPropertyAccessExpression(node) ? node.name.text : node.argumentExpression.getText().replace(/^['"]|['"]$/g, "");
+      const key = ts.isPropertyAccessExpression(node) ? node.name.text : (fixedKey(node.argumentExpression) ?? "*");
       return base && { root: base.root, path: [...base.path, key] };
     }
     return undefined;
@@ -163,6 +169,10 @@ export function sqlParameterExpression(
       if (activeWrites.has(write)) return true; // The original value and every other write are checked separately.
       const paths: string[][] = [];
       const check = (part: ts.Node, prefix: string[] = []) => {
+        if (ts.isSpreadElement(part)) {
+          check(part.expression, [...prefix, "*"]);
+          return;
+        }
         if (ts.isArrayLiteralExpression(part)) {
           part.elements.forEach((element, index) => {
             check(element, [...prefix, String(index)]);
@@ -171,16 +181,23 @@ export function sqlParameterExpression(
         }
         if (ts.isObjectLiteralExpression(part)) {
           for (const property of part.properties)
-            if (ts.isPropertyAssignment(property)) check(property.initializer, [...prefix, property.name.getText()]);
-            else if (ts.isShorthandPropertyAssignment(property)) check(property.name, [...prefix, property.name.getText()]);
+            if (ts.isPropertyAssignment(property))
+              check(property.initializer, [...prefix, ts.isIdentifier(property.name) ? property.name.text : (fixedKey(property.name) ?? "*")]);
+            else if (ts.isShorthandPropertyAssignment(property))
+              check(property.name, [...prefix, ts.isIdentifier(property.name) ? property.name.text : (fixedKey(property.name) ?? "*")]);
+            else if (ts.isSpreadAssignment(property)) check(property.expression, [...prefix, "*"]);
           return;
         }
         const actual = target(part);
         if (
           actual?.root === expected.root &&
-          actual.path.slice(0, Math.min(actual.path.length, expected.path.length)).every((key, i) => key === expected.path[i])
+          actual.path
+            .slice(0, Math.min(actual.path.length, expected.path.length))
+            .every((key, i) => key === "*" || expected.path[i] === "*" || key === expected.path[i])
         )
-          paths.push(write.project ? [...prefix, ...expected.path.slice(actual.path.length)] : []);
+          paths.push(
+            write.project && ![...prefix, ...actual.path, ...expected.path].includes("*") ? [...prefix, ...expected.path.slice(actual.path.length)] : [],
+          );
       };
       check(write.left);
       activeWrites.add(write);
@@ -338,7 +355,11 @@ export function sqlParameterExpression(
       if (ts.isAwaitExpression(node)) return safeAwaited(node.expression, seen, bindings, selection);
       if (ts.isObjectLiteralExpression(node) && selection.length) {
         const [key, ...rest] = selection;
-        const values = node.properties.filter((property) => "name" in property && property.name?.getText().replace(/^['"]|['"]$/g, "") === key);
+        const values = node.properties.filter((property) => {
+          if (!("name" in property) || !property.name) return false;
+          const name = ts.isIdentifier(property.name) ? property.name.text : fixedKey(property.name);
+          return name === key || (name === undefined && ts.isComputedPropertyName(property.name));
+        });
         return (
           values.every((property) =>
             ts.isPropertyAssignment(property)
@@ -351,6 +372,9 @@ export function sqlParameterExpression(
       }
       if (ts.isArrayLiteralExpression(node) && selection.length) {
         if (selection[0] === "length") return true;
+        // Spread changes runtime indices: only an entirely pure-data array can certify any projection.
+        if (node.elements.some(ts.isSpreadElement))
+          return node.elements.every((element) => safeDataSource(ts.isSpreadElement(element) ? element.expression : element, seen, bindings));
         const element = node.elements[Number(selection[0])];
         return !element || safeDataSource(element, seen, bindings, selection.length > 1, selection.slice(1));
       }

@@ -206,6 +206,12 @@ test("SQL aliases, erased values and rebound raw text cannot be certified as sca
       "selectedErasedDtoField",
       "commaErasedParameter",
       "spreadOverridesSelectedField",
+      "computedFieldErased",
+      "spreadFirstErased",
+      "spreadShiftErased",
+      "constantKeyRebound",
+      "dynamicKeyRebound",
+      "computedDestructuringErased",
     ]) {
       const sites = soundness.sites.filter((site) => site.scopeName === scope && ["template", "unsafe"].includes(site.kind));
       assert.equal(sites.length, 1, scope);
@@ -227,6 +233,7 @@ test("SQL aliases, erased values and rebound raw text cannot be certified as sca
       "soundnessComputedStringControl",
       "soundnessDtoSelfSpreadControl",
       "soundnessAwaitedDtoControl",
+      "soundnessComputedArrayControl",
     ]) {
       const sites = soundness.sites.filter((site) => site.scopeName === scope);
       assert.equal(sites.length, 1, scope);
