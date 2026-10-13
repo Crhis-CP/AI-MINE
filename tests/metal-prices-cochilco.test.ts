@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { cochilcoFetcher, cochilcoLines, cochilcoPeriod } from "../packages/backend/src/publication/metal-prices/cochilco.ts";
+import { COCHILCO_URL, cochilcoFetcher, cochilcoLines, cochilcoPeriod } from "../packages/backend/src/publication/metal-prices/cochilco.ts";
 import { loadMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
 import { checkPeriod } from "../packages/backend/src/publication/metal-prices/check.ts";
 import { refreshMetalPrices } from "../packages/backend/src/publication/metal-prices/refresh.ts";
@@ -153,4 +153,38 @@ test("daily migration, idempotent refresh, revision history and public reading u
   const read = await loadMetalPrices(opts.now, input);
   assert.equal(read.metals.find((m) => m.key === "copper")!.quotes[0].value, "8801.00");
   await assert.rejects(sql`UPDATE publication.metal_prices SET period_type='month' WHERE source='cochilco'`);
+});
+
+test("a broken daily PDF stays held while later days store, and the next run advances past the broken day", async () => {
+  const raw = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"));
+  const input = {
+    ...raw,
+    sources: raw.sources.filter((s: { key: string }) => s.key === "cochilco"),
+    items: raw.items.filter((i: { source: string }) => i.source === "cochilco"),
+  };
+  const now = new Date("2026-10-15T14:00:00Z");
+  await refreshMetalPrices({ registry: input, now, fetchers: { cochilco: () => ({ sourceKeys: ["cochilco"], fetch: async () => [period()] }) } });
+  const calls: string[] = [];
+  const list = [13, 14, 15].map((n) => `<a class="wpfd-file-link" href="https://www.cochilco.cl/${n}.pdf" title="Rueda ${n}-10-2026">PDF</a>`).join("");
+  const get = async (address: string) => {
+    calls.push(address);
+    const n = /\/(\d+)\.pdf$/.exec(address)?.[1];
+    return {
+      url: address,
+      status: 200,
+      text: () => list,
+      body: n === "14" ? Buffer.from("<html>unavailable</html>") : pdf(lines.map((line) => line.replaceAll("13", n ?? "13"))),
+    };
+  };
+  const run = (await refreshMetalPrices({ registry: input, now, get })).cochilco;
+  assert.equal(run.ok, false);
+  assert.equal(run.inserted, 6);
+  assert.match(run.periods[1].held!, /PDF/);
+  assert.equal(run.periods[2].held, null);
+  const read = await loadMetalPrices(now, input);
+  assert.ok(read.metals.every((metal) => metal.quotes[0].period?.start === "2026-10-15"));
+  assert.equal((await sql`SELECT count(*)::int AS n FROM publication.metal_prices WHERE period_start='2026-10-14'`)[0].n, 0);
+  calls.length = 0;
+  assert.equal((await refreshMetalPrices({ registry: input, now, get })).cochilco.ok, true);
+  assert.deepEqual(calls, [COCHILCO_URL, "https://www.cochilco.cl/15.pdf"]);
 });

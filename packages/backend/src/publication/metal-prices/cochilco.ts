@@ -123,9 +123,21 @@ export function cochilcoFetcher(registry: MetalPriceRegistry, get: PageGetter = 
       const selected = since ? sorted.filter(([day]) => day >= since).slice(-32) : sorted.slice(-2);
       const result: FetchedPeriod[] = [];
       for (const [day, url] of selected) {
-        const file = await request(url, 4 * 1024 * 1024);
-        if (!file.body) throw new Error("Cochilco PDF 没有字节");
-        result.push(cochilcoPeriod(registry, day, url, await cochilcoLines(file.body), createHash("sha256").update(file.body).digest("hex")));
+        try {
+          const file = await request(url, 4 * 1024 * 1024);
+          if (!file.body) throw new Error("Cochilco PDF 没有字节");
+          result.push(cochilcoPeriod(registry, day, url, await cochilcoLines(file.body), createHash("sha256").update(file.body).digest("hex")));
+        } catch (error) {
+          // A broken daily observation must not prevent newer valid days from advancing the stored cursor.
+          const [year, month, date] = day.split("-");
+          result.push({
+            source: "cochilco",
+            period: { start: day, end: day, label: `${year}年${Number(month)}月${Number(date)}日` },
+            release: { label: `Cochilco La Rueda ${day}（读取失败）`, url, releasedOn: day },
+            rows: [],
+            held: [`日报读取失败：${(error instanceof Error ? error.message : String(error)).slice(0, 500).toWellFormed()}`],
+          });
+        }
       }
       return result;
     },
