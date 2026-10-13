@@ -1,13 +1,11 @@
 {
   "note": {
-    "kind": "更新",
-    "title": "金属日价与网站体验更新",
+    "kind": "优化",
+    "title": "反馈字数要求更清楚",
     "body": [
-      "铜、铝、铅、锌、锡、镍新增官方日价，显示实际报价日期、单位和来源；休市或来源未更新时保留最近有效报价。",
-      "反馈表单不再显示自动记录的页面路径，填写反馈更简洁。",
-      "网站更新上线后同步登记产品变化，新的记录显示在旧公告之前。",
-      "调整资讯归组的处理方式，减少回答被截断造成的失败和重复处理。"
+      "反馈仍需填写10至5000字，输入框下方明确提示至少填写10字。",
+      "字数不足时实时显示还差几字可发送，达到最低字数后自动隐藏剩余提示；首尾空白不计入最低字数。"
     ]
   },
-  "fragments": ["changes/TASK-0343-release-notes-feedback.md", "changes/TASK-0344-truncated-output.md", "changes/TASK-0346-metal-price-relay.md"]
+  "fragments": ["changes/TASK-0347-feedback-length-hint.md"]
 }

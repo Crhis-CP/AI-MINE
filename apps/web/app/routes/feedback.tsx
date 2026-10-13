@@ -79,6 +79,7 @@ function FeedbackAside() {
 }
 
 const MAX_IMAGE = 2 * 1024 * 1024;
+const MIN_TEXT = 10;
 const MAX_TEXT = 5000;
 
 export default function FeedbackPage() {
@@ -129,7 +130,8 @@ export default function FeedbackPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (draft.content.trim().length < 10 || draft.content.trim().length > MAX_TEXT) return setState({ kind: "error", message: "反馈内容需要 10–5000 字。" });
+    if (draft.content.trim().length < MIN_TEXT || draft.content.trim().length > MAX_TEXT)
+      return setState({ kind: "error", message: "反馈内容需要 10–5000 字。" });
     setState({ kind: "sending" });
     try {
       const pageUrl = draft.pageUrl ? new URL(draft.pageUrl, location.origin).href : "";
@@ -186,7 +188,9 @@ export default function FeedbackPage() {
   const field =
     "w-full rounded-card bg-bg-sunk text-ink outline-none ring-1 ring-inset ring-line-soft transition-[background-color,box-shadow] placeholder:text-ink-4 hover:ring-line-strong focus:bg-surface focus:shadow-[0_0_0_3px_var(--accent-soft)] focus:ring-accent dark:bg-bg-muted/60 dark:focus:bg-surface";
   const label = "mb-2 block text-[13px] font-semibold text-ink";
-  const canSend = draft.content.trim().length >= 10 && draft.content.trim().length <= MAX_TEXT && state.kind !== "sending";
+  const contentLength = draft.content.trim().length;
+  const remaining = Math.max(0, MIN_TEXT - contentLength);
+  const canSend = contentLength >= MIN_TEXT && contentLength <= MAX_TEXT && state.kind !== "sending";
   return (
     <ReadingLayout aside={<FeedbackAside />}>
       <header>
@@ -218,9 +222,10 @@ export default function FeedbackPage() {
             <div className="relative">
               <textarea
                 id="fb-content"
+                aria-describedby="fb-content-hint"
                 required
                 rows={9}
-                minLength={10}
+                minLength={MIN_TEXT}
                 maxLength={MAX_TEXT}
                 value={draft.content}
                 onChange={(e) => setDraft({ ...draft, content: e.target.value })}
@@ -231,6 +236,9 @@ export default function FeedbackPage() {
                 {draft.content.length} / {MAX_TEXT}
               </span>
             </div>
+            <p id="fb-content-hint" aria-live="polite" className="mt-2 text-[12px] text-ink-3">
+              至少填写{MIN_TEXT}字{remaining > 0 && `，还差 ${remaining} 字可发送`}
+            </p>
           </div>
 
           <div>

@@ -266,3 +266,4 @@
 | [TASK-0311](TASK-0311.md) | T-0101 | M3 | web | locally_verified | 读者首次版本基线与浏览器用例清理 | — | 3563ade |
 | [TASK-0312](TASK-0312.md) | T-0101 | M3 | web | locally_verified | 流式路由测试等待页面提交而非网络流关闭 | — | 3fc3cea |
 | [TASK-0314](TASK-0314.md) | T-0101 | M3 | web | locally_verified | 统一日期筛选实现与北京日边界回归 | — | — |
+| [TASK-0347](TASK-0347.md) | T-0101 | M3 | web | locally_verified | 反馈最低字数及剩余字数提示 | — | 04b1cce |

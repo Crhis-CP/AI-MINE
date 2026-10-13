@@ -328,6 +328,24 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   await page.goto(origin + path);
   await page.getByRole("navigation", { name: "主导航" }).getByRole("link", { name: "反馈", exact: true }).click();
   await expect(page.getByLabel("关联页面")).toHaveCount(0);
+  const content = page.getByLabel("想说点什么？");
+  const send = page.getByRole("button", { name: "发送反馈", exact: true });
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    for (const [value, remaining] of [
+      ["", 10],
+      ["   ", 10],
+      ["  一二三四五六七八九  ", 1],
+      ["一二三四五六七八九十", 0],
+      ["一二三四五六七八九", 1],
+    ] as const) {
+      await content.fill(value);
+      await expect(content).toHaveAccessibleDescription(`至少填写10字${remaining ? `，还差 ${remaining} 字可发送` : ""}`);
+      await expect(page.locator("#fb-content-hint")).toBeVisible();
+      if (remaining) await expect(send).toBeDisabled();
+      else await expect(send).toBeEnabled();
+    }
+  }
   await page.getByLabel("想说点什么？").fill("这是本地合成反馈，不发送到外部。");
   await page.getByRole("button", { name: /提交|发送/ }).click();
   await expect(page.getByText("合成网络未知，重试同一次提交", { exact: true })).toBeVisible();
