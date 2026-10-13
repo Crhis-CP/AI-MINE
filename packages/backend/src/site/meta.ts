@@ -1,7 +1,9 @@
 // Small site-wide facts for the web shell, and the changelog behind the changelog page.
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { beijingDate, beijingTime } from "@amp/contracts/time";
 import path from "node:path";
-import { REPO_ROOT } from "../config.ts";
+import { config, environmentValue, REPO_ROOT } from "../config.ts";
 
 /** 重大更新 is the hand-written entry of a major version; change fragments (changes/*.md) keep the other four. */
 export const CHANGELOG_KINDS = ["重大更新", "更新", "优化", "公告", "下线"] as const;
@@ -80,9 +82,97 @@ export function loadChangelog(): Changelog {
     const file = process.env.AMP_CHANGELOG_FILE || path.join(REPO_ROOT, "industry/changelog.json");
     changelogCache = validateChangelog(JSON.parse(readFileSync(file, "utf8")));
   }
-  return changelogCache;
+  const runtime = environmentValue("AMP_RELEASE_CHANGELOG_FILE") || path.join(config.dataDir, "site", "release-notes.json");
+  return mergeReleaseRecords(changelogCache, readReleaseRecords(runtime));
 }
 
 export function siteMeta() {
   return { changelogVersion: loadChangelog().latestVersion };
+}
+
+export type ReleaseNote = Pick<ChangelogRelease, "kind" | "title" | "body">;
+export type ReleaseRecord = { sha: string; publishedAt: string; noteHash: string; release: ChangelogRelease };
+export const maintenanceNote: ReleaseNote = { kind: "优化", title: "例行维护", body: ["对网站运行进行了例行维护。"] };
+
+export function validateReleaseNote(value: unknown): ReleaseNote {
+  if (!value || typeof value !== "object" || Object.keys(value).some((k) => !["kind", "title", "body"].includes(k))) throw new Error("产品更新说明字段无效");
+  const note = value as ReleaseNote;
+  if (!["公告", "更新", "优化", "下线"].includes(note.kind) || typeof note.title !== "string" || [...note.title].length > 24)
+    throw new Error("产品更新类型或标题无效");
+  validateChangelog({ latestVersion: "2026-01-01", releases: [{ ...note, date: "2026-01-01" }] });
+  if (/[a-f0-9]{40}|TASK-\d{4}|\b(?:pnpm|docker|git commit|make verify)\b/i.test(JSON.stringify(note)))
+    throw new Error("产品更新说明不能包含提交号、任务号或部署命令");
+  return note;
+}
+
+export function readReleaseRecords(filename: string): ReleaseRecord[] {
+  if (!existsSync(filename)) return [];
+  const data: unknown = JSON.parse(readFileSync(filename, "utf8"));
+  if (!Array.isArray(data)) throw new Error("已发布更新记录格式无效");
+  const seen = new Set<string>();
+  for (const row of data as ReleaseRecord[]) {
+    if (
+      !row ||
+      Object.keys(row).some((k) => !["sha", "publishedAt", "noteHash", "release"].includes(k)) ||
+      !/^[a-f0-9]{40}$/.test(row.sha) ||
+      !/^[a-f0-9]{64}$/.test(row.noteHash) ||
+      seen.has(row.sha) ||
+      !Number.isFinite(Date.parse(row.publishedAt))
+    )
+      throw new Error("已发布更新身份无效");
+    const release = row.release;
+    validateChangelog({ latestVersion: release.time ? `${release.date}T${release.time}` : release.date, releases: [release] });
+    seen.add(row.sha);
+  }
+  return data as ReleaseRecord[];
+}
+
+export function mergeReleaseRecords(base: Changelog, records: ReleaseRecord[]): Changelog {
+  if (!records.length) return base;
+  const releases = [...records.map((r) => r.release), ...base.releases];
+  releases.sort(
+    (a, b) =>
+      b.date.localeCompare(a.date) ||
+      (a.time === undefined && b.time === undefined ? 0 : a.time === undefined ? -1 : b.time === undefined ? 1 : b.time.localeCompare(a.time)),
+  );
+  const first = releases[0]!;
+  return validateChangelog({ latestVersion: first.time ? `${first.date}T${first.time}` : first.date, releases });
+}
+
+/** Called only by the deployment/maintenance command while the shared host release lock is held. */
+export function recordSuccessfulRelease(input: {
+  filename: string;
+  sha: string;
+  health: { ok: boolean; db: string; release: string };
+  publishedAt: string;
+  note: unknown;
+  lockHeld: boolean;
+}) {
+  if (
+    !input.lockHeld ||
+    !/^[a-f0-9]{40}$/.test(input.sha) ||
+    !/^[a-f0-9]{12,40}$/.test(input.health.release) ||
+    !input.sha.startsWith(input.health.release) ||
+    !input.health.ok ||
+    input.health.db !== "ok"
+  )
+    throw new Error("仅能登记已核对健康且持发布锁的准确版本");
+  const note = validateReleaseNote(input.note),
+    records = readReleaseRecords(input.filename);
+  const noteHash = createHash("sha256").update(JSON.stringify(note)).digest("hex");
+  const prior = records.find((r) => r.sha === input.sha);
+  if (prior) {
+    if (prior.noteHash !== noteHash) throw new Error("同一版本的产品说明发生冲突");
+    return { status: "already_recorded", release: prior.release };
+  }
+  const at = new Date(input.publishedAt);
+  if (!Number.isFinite(at.getTime())) throw new Error("实际上线时间无效");
+  const description = records.some((r) => r.noteHash === noteHash) ? maintenanceNote : note;
+  const release = { ...description, date: beijingDate(at), time: beijingTime(at) };
+  mergeReleaseRecords({ latestVersion: release.date, releases: [] }, [{ sha: input.sha, publishedAt: at.toISOString(), noteHash, release }]);
+  mkdirSync(path.dirname(input.filename), { recursive: true });
+  const next = `${input.filename}.${process.pid}.tmp`;
+  writeFileSync(next, `${JSON.stringify([...records, { sha: input.sha, publishedAt: at.toISOString(), noteHash, release }], null, 2)}\n`, { mode: 0o600 });
+  renameSync(next, input.filename);
+  return { status: "recorded", release };
 }

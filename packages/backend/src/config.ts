@@ -49,6 +49,8 @@ export const config = {
    * prompt version (selection-score@…). Production scores and selects only with that exact version.
    */
   selectionConfirmedVersion: env.SELECTION_CONFIRMED_VERSION || null,
+  metalPriceRelayUrl: env.METAL_PRICE_RELAY_URL || null,
+  metalPriceRelayKeyFile: str("METAL_PRICE_RELAY_KEY_FILE", "/run/price-relay/signing.pem"),
   egressProxyUrl: env.EGRESS_PROXY_URL || null,
   allowPrivateNetworkFetch: bool("ALLOW_PRIVATE_NETWORK_FETCH", false),
   feishuContentPushEnabled: bool("FEISHU_CONTENT_PUSH_ENABLED", false),

@@ -17,6 +17,7 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
     [
+      ["2026-10-14", "00:19", "阅读、反馈与日报体验更新"],
       ["2026-10-10", undefined, "金属价格增加了锂"],
       ["2026-10-10", undefined, "金属价格把金、铜、锂放在前面"],
       ["2026-10-10", undefined, "金属价格写明比的是哪一期"],
@@ -43,12 +44,12 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   );
   const launch = changelog.releases[launchAt]!;
   assert.deepEqual([launch.date, launch.time, launch.kind, launch.version], ["2026-10-06", "02:50", "重大更新", "2.0"]);
-  assert.equal(changelog.latestVersion, "2026-10-10");
+  assert.equal(changelog.latestVersion, "2026-10-14T00:19");
   assert.ok(!changelog.releases.some((r) => r.date === "2026-10-01"));
   // Only the launch has a time; the old site's records and the thanks have their dates alone.
   assert.deepEqual(
     changelog.releases.filter((r) => r.time !== undefined).map((r) => r.date),
-    ["2026-10-06"],
+    ["2026-10-14", "2026-10-06"],
   );
   assert.equal(changelog.releases.at(-1)!.date, "2026-09-15");
   assert.doesNotMatch(text, /来历|"note"/);

@@ -477,7 +477,8 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
     ...prepared,
     schema: BatchSchema,
     temperature: 0,
-    maxTokens: 200 + 90 * cands.length,
+    // Each verdict now carries two source quotations and the shared action/stage evidence.
+    maxTokens: 512 + 2048 * cands.length,
   });
   return { verdicts: verdictsByFact(res.data.decisions, cands, query), receiptId: res.receiptId };
 }
@@ -495,7 +496,7 @@ async function confirmMerge(articleId: string, query: ReportView, cand: Candidat
     ...prepared,
     schema: PairSchema,
     temperature: 0,
-    maxTokens: 400,
+    maxTokens: 2560,
   });
   return { relation: validatedRelation(query, cand.report, res.data), receiptId: res.receiptId };
 }
@@ -512,7 +513,7 @@ async function judgeSignal(articleId: string, query: ReportView, cands: Candidat
     ...prepared,
     schema: SignalSchema,
     temperature: 0,
-    maxTokens: 150 + 60 * cands.length,
+    maxTokens: 512 + 2048 * cands.length,
   });
   return { verdicts: verdictsByFact(res.data.decisions, cands, query), receiptId: res.receiptId };
 }
@@ -725,7 +726,7 @@ async function judgeStories(
     ...prepared,
     schema: PairSchema,
     temperature: 0,
-    maxTokens: 400,
+    maxTokens: 2560,
   });
   const e = res.data.evidence;
   const verdict =

@@ -327,7 +327,7 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   const path = "/all?q=%E9%93%9C&source=mine";
   await page.goto(origin + path);
   await page.getByRole("navigation", { name: "主导航" }).getByRole("link", { name: "反馈", exact: true }).click();
-  await expect(page.getByLabel("关联页面")).toHaveValue(path);
+  await expect(page.getByLabel("关联页面")).toHaveCount(0);
   await page.getByLabel("想说点什么？").fill("这是本地合成反馈，不发送到外部。");
   await page.getByRole("button", { name: /提交|发送/ }).click();
   await expect(page.getByText("合成网络未知，重试同一次提交", { exact: true })).toBeVisible();
@@ -340,7 +340,7 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   assert.ok(submitted.includes(origin + path));
   await page.goto(`${origin}/items/none?view=detail`);
   await page.getByRole("link", { name: "内容有误？告诉我们" }).click();
-  await expect(page.getByLabel("关联页面")).toHaveValue("/items/none?view=detail");
+  await expect(page.getByLabel("关联页面")).toHaveCount(0);
   await page.getByLabel("想说点什么？").fill("另一条本地合成反馈，验证修改后新提交。");
   await page.getByRole("button", { name: /提交|发送/ }).click();
   await expect(page.getByText("合成网络未知，重试同一次提交", { exact: true })).toBeVisible();
@@ -348,6 +348,7 @@ test("SPA feedback carries the current filtered page and item correction URL wit
   await page.getByRole("button", { name: /提交|发送/ }).click();
   await expect(page.getByRole("heading", { name: "收到了，谢谢你" })).toBeVisible();
   assert.notEqual(feedbackKeys[2], feedbackKeys[3], "an edited payload starts a new submission identity");
+  assert.ok(submitted.includes(origin + "/items/none?view=detail"), "the hidden origin still reaches the inbox");
   await context.close();
 });
 

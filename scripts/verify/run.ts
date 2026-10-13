@@ -30,6 +30,7 @@ import { formatLint } from "./lint.ts";
 import { checkNames, checkOutputs, checkOutputTree, fetchSiteOutputs } from "./names.ts";
 import { cardFromBranch, pathGuard } from "./path-guard.ts";
 import { scanSecrets, type SecretScan } from "./secrets.ts";
+import { checkProductUpdate } from "./product-update.ts";
 import { checkTasks } from "./tasks.ts";
 import { checkRoleConfig } from "./role-config.ts";
 import { backendTestGroups, runRoleTests } from "./role-tests.ts";
@@ -41,7 +42,7 @@ import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
 import { sourceIdentity } from "@amp/backend/admin/sources";
 
 const WEB_PACKAGE = "@amp/web";
-const PENDING_STAGES = ["contracts (TASK-0005)", "product-update", "pit-checks (TASK-0011)"];
+const PENDING_STAGES = ["contracts (TASK-0005)", "pit-checks (TASK-0011)"];
 const PASS_ENV = [
   "PATH",
   "HOME",
@@ -288,6 +289,20 @@ const receipt: Record<string, unknown> = {};
 // ---------- stages ----------
 
 const STAGES: Stage[] = [
+  {
+    name: "product-update",
+    quick: true,
+    run: async ({ log, base }) =>
+      problems(
+        checkProductUpdate(
+          ROOT,
+          base ? [...git(["diff", "--name-only", base]).trim().split("\n"), ...git(["ls-files", "--others", "--exclude-standard"]).trim().split("\n")] : [],
+          base ? tryGit(["show", `${base}:industry/release-note.json`]) : null,
+        ),
+        log,
+        "reader note, fragment types and visible route coverage",
+      ),
+  },
   {
     name: "install",
     run: async ({ log, env }) => {

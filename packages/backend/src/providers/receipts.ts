@@ -555,6 +555,16 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         }
         if (count!.cooldown > 0) return { kind: "cooldown" as const, id: existing.id, seconds: count!.cooldown as number };
       }
+      // A known output-limit truncation cannot finish under the same immutable request budget.
+      // Retain/reuse its bound response until the caller changes the request configuration.
+      if (
+        req.model &&
+        existing.response_bound &&
+        (existing.response as { choices?: Array<{ finish_reason?: string }> } | null)?.choices?.[0]?.finish_reason === "length"
+      ) {
+        await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
+        return { kind: "reuse" as const, row: existing };
+      }
       // BR-COST-04: invalid output with proven usage may be bought again at most twice (three billed
       // answers). A stored answer without usage proof is not bought again either. Translation keeps its own limit above.
       if (req.maxRejectedOutputs === undefined && existing.has_response) {

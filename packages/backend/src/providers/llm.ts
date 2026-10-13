@@ -550,6 +550,7 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     const content = response.choices?.[0]?.message?.content ?? "";
     let parsed: z.infer<S>;
     try {
+      if (opts.purpose !== "translate_body" && response.choices?.[0]?.finish_reason === "length") throw new Error("回答达到长度上限，需调整输出配置后再处理");
       parsed = opts.schema.parse(opts.parse ? opts.parse(content) : extractJson(content));
     } catch (error) {
       // Unusable output: keep the answer. A later attempt may pay for a fresh one at most twice; after that the saved response is reused.
