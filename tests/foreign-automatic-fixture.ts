@@ -1,5 +1,6 @@
 // SELF_AUTHORED intake through real HTTP, source workers and translation jobs; never a quality sample.
 import assert from "node:assert/strict";
+import { previewSourceFixture } from "./source-preview-fixture.ts";
 import type { TestContext } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
@@ -11,6 +12,7 @@ import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { registerContentJobs } from "@amp/backend/jobs/content";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { automaticFeedFixture, type FeedCase } from "./automatic-feed-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 
 export async function foreignFixture(
   t: TestContext,
@@ -54,6 +56,8 @@ export async function foreignFixture(
     await closeDb();
   });
   for (const key of keys) process.env[key] = key.endsWith("BASE_URL") ? `${fixture.providerUrl}/v1` : "synthetic-key";
+  for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"])
+    await installUsageFixtureForModel(model);
   Object.assign(config, {
     allowPrivateNetworkFetch: true,
     modelCallsEnabled: true,
@@ -82,6 +86,7 @@ export async function foreignFixture(
     },
   });
   assert.equal(created.statusCode, 200, created.body);
+  await previewSourceFixture(options.name);
   const current = (await admin.inject({ url: `/api/admin/sources/${options.name}`, headers })).json().source;
   const enabled = await admin.inject({
     method: "PATCH",

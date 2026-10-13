@@ -68,9 +68,6 @@
   "apps/web/app/root.tsx": {
     "lint/security/noDangerouslySetInnerHtml": 1
   },
-  "apps/web/app/routes/about.tsx": {
-    "lint/suspicious/noArrayIndexKey": 1
-  },
   "apps/web/app/routes/admin-login.tsx": {
     "lint/a11y/noAutofocus": 1
   },
@@ -94,8 +91,7 @@
     "lint/suspicious/noArrayIndexKey": 3
   },
   "apps/web/app/routes/feedback.tsx": {
-    "lint/correctness/noUnusedImports": 1,
-    "lint/correctness/useExhaustiveDependencies": 2
+    "lint/correctness/useExhaustiveDependencies": 1
   },
   "apps/web/app/routes/home.tsx": {
     "lint/complexity/useOptionalChain": 1,
@@ -112,9 +108,6 @@
   "apps/web/app/routes/story.tsx": {
     "lint/correctness/noUnusedImports": 1,
     "lint/correctness/useExhaustiveDependencies": 5
-  },
-  "apps/web/app/routes/topic.tsx": {
-    "lint/correctness/noUnusedImports": 1
   },
   "apps/worker/src/main.ts": {
     "lint/style/noProcessEnv": 1
@@ -155,14 +148,7 @@
   "packages/backend/src/editorial/models.ts": {
     "lint/style/noProcessEnv": 4
   },
-  "packages/backend/src/events/group.ts": {
-    "lint/complexity/useOptionalChain": 1,
-    "lint/suspicious/noExplicitAny": 3
-  },
   "packages/backend/src/jobs/content.ts": {
-    "lint/style/noProcessEnv": 1
-  },
-  "packages/backend/src/jobs/sources.ts": {
     "lint/style/noProcessEnv": 1
   },
   "packages/backend/src/lib/text.ts": {
@@ -203,10 +189,10 @@
     "lint/complexity/useOptionalChain": 1
   },
   "packages/backend/src/publication/reports.ts": {
-    "lint/suspicious/noExplicitAny": 26
+    "lint/suspicious/noExplicitAny": 21
   },
   "packages/backend/src/publication/v1.ts": {
-    "lint/suspicious/noAssignInExpressions": 2
+    "lint/suspicious/noAssignInExpressions": 1
   },
   "packages/backend/src/reports/compose.ts": {
     "lint/suspicious/noExplicitAny": 1
@@ -241,9 +227,6 @@
   "tests/analyze.test.ts": {
     "lint/correctness/noUnusedImports": 1,
     "lint/suspicious/noExplicitAny": 3
-  },
-  "tests/events.test.ts": {
-    "lint/style/useConst": 1
   },
   "tests/publication.test.ts": {
     "lint/suspicious/noExplicitAny": 7

@@ -300,8 +300,8 @@
 **出网层**（AIHOT `lib/http-fetch.ts`、`lib/url.ts` 搬入 acquisition 的 fetch 运行时，`03-module-map.md` 第 8 节）：
 
 1. 只搬移：SSRF 检查、连接时地址校验、总超时、字节上限、字符集解码、undici 连接池。
-2. **删除 `EGRESS_PROXY_URL` 出网代理分流与相关测试**；生产配置出现出网代理设置即拒绝启动（ADR-0019 第 6 条）。
-3. **部署文档不写“抓不到就配代理”**（AIHOT `docs/deploy.md:24` 的做法不沿用）。境外信源从大陆不可达时，记录来源健康态 `blocked`、原因码 `blocked_network`（显示“不可达（网络）”），覆盖表与日报如实标注，不伪造实时性。依据：旧ADR-0006 第 7 条【Owner 决定，2026-07-22】——大陆采集全球公开信源不得绕过合规网络，任何境外采集节点属于未来独立的法律与安全决策、不作为默认架构（`docs/architecture/decisions/0006-mainland-tencent-cloud.md:26@main`）；旧仓库的付费调用传输层也刻意没有代理（`services/model_gateway/transport.py:146@main`：“no redirect, proxy, or streaming behavior”）。
+2. **`EGRESS_PROXY_URL` 照 AIHOT 保留**（Owner 2026-10-10）：不填就直连。填了以后，抓信源（列表、正文）和图片走这个地址，模型调用不走。生产不因为设置了它而拒绝启动。`HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 仍拒绝启动，避免整进程代理把模型流量带走。
+3. 不另设境外采集机，仓库不提供代理程序或地址。正式站不填时，境外信源不可达仍记录来源健康态 `blocked`、原因码 `blocked_network`（显示“不可达（网络）”），不伪造实时性。模型调用保持直连（旧仓库付费调用传输层也不走代理）。
 4. 法规线 33 个法域底表里除中国外全部在境外，Owner 原始信源表的 320 个唯一目标里也有 67 个境外来源（A:01-product/07-sources-and-coverage.md 第 15、66 行），“不可达”会经常出现，来源健康与覆盖表要为它设计（属 acquisition 验收）。M0 在目标部署区域对全部境外目标做一次可达性基线，不以开发者本机结果代替。
 5. 境外采集节点默认不设；是否要单独评估，是 Owner 的独立决定（`08-open-questions.md`）。
 
@@ -508,7 +508,7 @@ M0 最小工具集（全部由 `make verify` 调用；与 ADR-0015 第 4 条一�
 | 全局编号迁移 | 按模块目录 + 时间戳 | 改造 | 改 `scripts/migrate.ts` | ADR-0003 |
 | 单一 web 应用含 `/admin`；飞书 OAuth 登录 | `apps/web` 内私有路由组；具名账号 + 密码 | 改造 | 删除 admin 壳；飞书登录保留、默认关闭（Owner 2026-10-02） | ADR-0018；DEC-05 |
 | providers（回执 + 调用次数熔断） | `ai-gateway`（加许可、用量账本与异常熔断、能力注册、评测） | 改造 | 中 | ADR-0006、ADR-0007 |
-| `EGRESS_PROXY_URL` 出网代理分流 | 删除；生产拒绝启动 | 不搬移 | 删代码与测试 | 旧ADR-0006 第 7 条 |
+| `EGRESS_PROXY_URL` 出网代理分流 | 照 AIHOT 保留：不填直连；抓取和图片可走，模型不走 | 搬移 | 生产不因该变量拒绝启动；全局代理变量仍拒绝 | Owner 2026-10-10 |
 | 浮动镜像标签；`npm ci` 构建 | 补丁版 + 摘要；独立构建执行器 | 改造 | 摘要维护 | 构建可复现、可回滚 |
 | 本地数据卷存原文 | 对象存储端口（COS） | 新增 | 中：端口、暂存/回收、COS 实测 | ADR-0005 |
 | 抓取在 worker 内 | 独立 fetcher | 新增 | 一个内部端点 + 暂存对象回收 | ADR-0019 |

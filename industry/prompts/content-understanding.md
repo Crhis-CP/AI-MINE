@@ -8,19 +8,21 @@
 
 ## 内容类型
 
-`itemType` 必须七选一：
+`itemType` 必须九选一，代码名与网站分类相同：
 
-- `model_release`：新模型或大版本更新
-- `product_launch`：新产品、工具或重大功能更新
-- `tool_or_prompt`：可直接复用的方法、Prompt、Skill 或技巧
-- `research_paper`：论文、研究或技术报告
-- `industry_event`：融资、收购、监管、诉讼、商业动作或人事
-- `opinion_analysis`：观点、行业判断、复盘或长访谈
-- `tutorial_explainer`：教程、科普、解读或评测
+- `policy_regulation`：政策监管
+- `company_project`：企业与项目
+- `commodity_market`：商品与市场
+- `capital_ma`：投资并购
+- `supply_trade_controls`：供应链、贸易与制裁
+- `esg_community_labor`：ESG、社区与劳工
+- `safety_incident`：矿山安全
+- `technology_processing`：技术与冶炼
+- `exploration_resource`：勘探与资源
 
-优先级：发了模型选 model_release；发了工具选 product_launch；发了 Prompt 或方法选 tool_or_prompt；论文优先 research_paper；评测选 tutorial_explainer。
+观点、解读、研报和访谈不单列，归到它所讨论的那一类事件。
 
-内容类型用于现有评分与写作，和矿业主类别相互独立，不从 itemType 推断主类别。
+内容类型与网站分类使用同一套代码名。这一步仍不得打分，也不得判断是否精选。
 
 ## 作者角色
 
@@ -58,4 +60,4 @@
 
 只返回合法 JSON，不要 Markdown，不要解释。顶层必须且只能包含以下六个字段：
 
-{"itemType":"industry_event","authorRole":"principal","tags":["企业与项目"],"editorialJudgment":"原文列出了扩建范围与计划产能，可据此了解项目的建设进度。","titleZh":"某铜矿公布扩建进度","summaryZh":"某铜矿公布扩建范围、计划产能与施工进度。"}
+{"itemType":"company_project","authorRole":"principal","tags":["企业与项目"],"editorialJudgment":"原文列出了扩建范围与计划产能，可据此了解项目的建设进度。","titleZh":"某铜矿公布扩建进度","summaryZh":"某铜矿公布扩建范围、计划产能与施工进度。"}

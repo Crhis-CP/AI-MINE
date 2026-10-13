@@ -1,3 +1,4 @@
+import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -24,7 +25,14 @@ test("observed receipt versions preserve guard order and reject an old UI form b
     res.end(JSON.stringify({ ok: true }));
   });
   const headers = { "x-forwarded-host": "private.receipt.test", "x-csrf-token": "dev" };
-  const request = { service: "fixture-client-version", purpose: "invariant_test", subject: `observed-${process.pid}`, identity: { pid: process.pid } };
+  await installUsageFixtureForService("fixture-client-version");
+  const request = {
+    lane: "news" as const,
+    service: "fixture-client-version",
+    purpose: "invariant_test",
+    subject: `observed-${process.pid}`,
+    identity: { pid: process.pid },
+  };
   try {
     await getBoss();
     provider.listen(0, "127.0.0.1");

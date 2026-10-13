@@ -10,7 +10,7 @@ import { after, before, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { autoStopsBetween, checkAlerts, collectFindings, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
+import { autoStopsBetween, checkAlerts, collectFindings, dueReports, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
 
 const sql = dbOf("ops");
 
@@ -54,6 +54,11 @@ test("an outage is announced once, repeated hourly, and closed with one recovery
   await sql`INSERT INTO settings (key, value, updated_by) VALUES ('alerts.state', ${sql.json({ "receipts.unknown": { title: "付费请求结果未知", since: new Date(t0 - 86400_000).toISOString(), sentAt: new Date(t0 - 3600_000).toISOString() } })}, 'test')
             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`;
   const stuck = (sent: string[]) => sent.filter((k) => k.startsWith("content.process"));
+  await sql`UPDATE articles SET processing_error = 'extract: crawl_deferred: transport_unavailable' WHERE id IN ${sql(ids)}`;
+  const recorded = (await collectFindings(t0)).find((f) => f.key === "content.process");
+  assert.match(recorded?.detail ?? "", /extract: crawl_deferred: transport_unavailable（10）/);
+  assert.doesNotMatch(recorded?.detail ?? "", /没有记录错误/);
+  await sql`UPDATE articles SET processing_error = NULL WHERE id IN ${sql(ids)}`;
 
   let r = await checkAlerts(t0);
   assert.deepEqual(stuck(r.sent), ["content.process"]);
@@ -344,7 +349,9 @@ test("metal prices: the reminder goes out in the 09:00 digest only, never as an 
   try {
     await seed({ hours: 30, record: { nbs: entry([period("2099年12月下旬")]) } }, { hours: 10, record: { nbs: entry([], "列表页返回 HTTP 503") } });
     const r = await checkAlerts(NOW);
-    assert.ok(!r.sent.some((key) => key.startsWith("metals.")) && !r.open.includes("metals.fetch"));
+    // The fetch reminder stays in the digest. An empty price table while those runs exist is a separate immediate alert.
+    assert.ok(!r.sent.includes("metals.fetch") && !r.open.includes("metals.fetch"));
+    assert.ok(r.sent.includes("metals.table"));
     log.mock.resetCalls();
     await sendDigest(NOW);
     // Until Feishu is on, the worker log keeps it: the line saying it was not sent, titled 系统日报.
@@ -572,5 +579,260 @@ test("auto-stops: autoStopsBetween counts the days a stop was open, per service 
     assert.deepEqual(await autoStopsBetween(at("2100-02-01T00:00:00Z"), at("2100-02-08T00:00:00Z")), { days: 0, byService: {}, coveredFrom: null });
   } finally {
     await sql`DELETE FROM job_runs WHERE id IN ${sql(ids)}`;
+  }
+});
+
+// ---- Scheduled reader products: reports, hot ranking, metal-price periods -----------------------------------------
+// 12:00 Beijing on Saturday 2026-10-10: the daily, the previous week and September are all past their grace.
+const PRODUCT_AT = Date.parse("2026-10-10T04:00:00Z");
+
+test("due reports follow the publish clock, with two hours of grace and no extra wait after that", () => {
+  const keys = (at: string) => dueReports(Date.parse(at)).map((issue) => `${issue.kind}:${issue.key}`);
+  assert.deepEqual(keys("2026-10-10T01:59:00Z"), ["weekly:2026-W40", "monthly:2026-09"]);
+  assert.deepEqual(keys("2026-10-10T02:00:00Z"), ["daily:2026-10-10", "weekly:2026-W40", "monthly:2026-09"]);
+  assert.deepEqual(keys("2026-10-05T03:00:00Z"), ["daily:2026-10-05", "monthly:2026-09"]);
+  assert.ok(keys("2026-10-05T04:00:00Z").includes("weekly:2026-W40"));
+  assert.deepEqual(
+    keys("2026-10-01T04:29:00Z").filter((key) => key.startsWith("monthly")),
+    [],
+  );
+  assert.deepEqual(
+    keys("2026-10-01T04:30:00Z").filter((key) => key.startsWith("monthly")),
+    ["monthly:2026-09"],
+  );
+});
+
+const okReport = (kind: string) =>
+  kind === "daily"
+    ? {
+        lead: { leadParagraph: "今天有一条。" },
+        sections: [{ label: "矿业", items: [{ itemId: "a1", title: "一条矿业消息", sourceName: "来源", sourceUrl: "https://example.com/a" }] }],
+        flashes: [],
+      }
+    : {
+        overview: "这一期有综述。",
+        themes: [{ heading: "一周", summary: "有内容", storyRefs: [{ itemId: "a1", title: "一条矿业消息" }] }],
+        storyOrder: ["a1"],
+      };
+
+async function putReport(kind: string, key: string, content: unknown) {
+  const [row] = await sql<{ id: number }[]>`
+    INSERT INTO reports (kind, key, window_start, window_end, content, generated_at, origin)
+    VALUES (${kind}, ${key}, ${new Date(PRODUCT_AT - 86400_000)}, ${new Date(PRODUCT_AT)}, ${sql.json(content as never)}, ${new Date(PRODUCT_AT)}, 'model')
+    RETURNING id`;
+  return row!.id;
+}
+
+test("a missing, empty or unreadable report is alerted, and a real issue is not", async () => {
+  process.env.COLLECT_ENABLED = "true";
+  process.env.MODEL_CALLS_ENABLED = "true";
+  const due = dueReports(PRODUCT_AT);
+  const ids: number[] = [];
+  const jobs: number[] = [];
+  const finding = async (key: string) => (await collectFindings(PRODUCT_AT)).find((item) => item.key === key);
+  try {
+    for (const issue of due) ids.push(await putReport(issue.kind, issue.key, okReport(issue.kind)));
+    assert.equal(await finding("report.daily"), undefined);
+    assert.equal(await finding("report.daily.empty"), undefined);
+    assert.equal(await finding("report.weekly"), undefined);
+    assert.equal(await finding("report.monthly"), undefined);
+
+    await sql`DELETE FROM reports WHERE id IN ${sql(ids)}`;
+    ids.length = 0;
+    for (const issue of due) if (issue.kind !== "weekly") ids.push(await putReport(issue.kind, issue.key, okReport(issue.kind)));
+    const [failed] = await sql<{ id: number }[]>`
+      INSERT INTO job_runs (job, started_at, finished_at, status, error)
+      VALUES ('reports.weekly', ${new Date(PRODUCT_AT - 3600_000)}, ${new Date(PRODUCT_AT - 3600_000)}, 'failed', '模型没有返回周报')
+      RETURNING id`;
+    jobs.push(failed!.id);
+    const missing = await finding("report.weekly");
+    assert.equal(missing?.level, "now");
+    assert.equal(missing?.title, "这一期周报的出刊任务失败了");
+    assert.match(missing?.detail ?? "", /模型没有返回周报/);
+    assert.doesNotMatch(missing?.detail ?? "", /没有记录错误/);
+    assert.equal(missing?.action, "转给 AI 处理");
+
+    await sql`UPDATE job_runs SET error = NULL WHERE id = ${failed!.id}`;
+    const unsaid = await finding("report.weekly");
+    assert.equal(unsaid?.level, "now");
+    assert.match(unsaid?.detail ?? "", /没有写下错误原因/);
+    assert.doesNotMatch(unsaid?.detail ?? "", /没有记录错误/);
+
+    const weekly = due.find((issue) => issue.kind === "weekly")!;
+    ids.push(await putReport("weekly", weekly.key, { overview: "", themes: [], storyOrder: [] }));
+    const [blankOk] = await sql<{ id: number }[]>`
+      INSERT INTO job_runs (job, started_at, finished_at, status)
+      VALUES ('reports.weekly', ${new Date(PRODUCT_AT - 60_000)}, ${new Date(PRODUCT_AT - 60_000)}, 'ok')
+      RETURNING id`;
+    jobs.push(blankOk!.id);
+    const empty = await finding("report.weekly.empty");
+    assert.equal(empty?.level, "today");
+    assert.equal(empty?.title, "这一期周报出了，但里面没有内容");
+    assert.match(empty?.detail ?? "", /够格的新精选是 0 条/);
+    assert.match(empty?.heals ?? "", /本来可以不留这一期/);
+    assert.equal(await finding("report.weekly"), undefined);
+
+    const daily = due.find((issue) => issue.kind === "daily")!;
+    await sql`DELETE FROM reports WHERE kind = 'daily' AND key = ${daily.key}`;
+    const [quiet] = await sql<{ id: number }[]>`
+      INSERT INTO job_runs (job, started_at, finished_at, status)
+      VALUES ('reports.daily', ${new Date(PRODUCT_AT - 30 * 60_000)}, ${new Date(PRODUCT_AT - 30 * 60_000)}, 'ok')
+      RETURNING id`;
+    jobs.push(quiet!.id);
+    assert.equal(await finding("report.daily"), undefined, "a succeeded job and an empty window leave no daily issue, and that is not an outage");
+    assert.equal(await finding("report.daily.empty"), undefined);
+    await sql`DELETE FROM settings WHERE key = 'alerts.state'`;
+    const checked = await checkAlerts(PRODUCT_AT);
+    const dailyAlerts = [...checked.sent, ...checked.opened, ...checked.open].filter((key) => key === "report.daily" || key === "report.daily:recovered");
+    assert.deepEqual(dailyAlerts, []);
+
+    await sql`DELETE FROM job_runs WHERE id = ${quiet!.id}`;
+    const notRun = await finding("report.daily");
+    assert.equal(notRun?.level, "now");
+    assert.equal(notRun?.title, "今天的日报任务没有跑成");
+    assert.match(notRun?.detail ?? "", /还没有运行记录/);
+
+    const at = new Date("2026-10-09T12:00:00Z");
+    const { articleId } = await upsertMaterial({
+      sourceId: SOURCE,
+      url: `https://example.com/${T}-qualified`,
+      title: "够格的新精选",
+      bodyStatus: "none",
+      via: "fetch",
+    } as never);
+    await sql`INSERT INTO publications (article_id, title, summary, source_id, channel, url, discovered_at, timeline_at, sort_at, visible_after, selected, visibility)
+      VALUES (${articleId}, '够格的新精选', '只用于告警测试', ${SOURCE}, 'news', ${`https://example.com/${T}-qualified`}, ${at}, ${at}, ${at}, ${at}, true, 'public')`;
+    const [wrote] = await sql<{ id: number }[]>`
+      INSERT INTO job_runs (job, started_at, finished_at, status)
+      VALUES ('reports.catch-up', ${new Date(PRODUCT_AT - 60_000)}, ${new Date(PRODUCT_AT - 60_000)}, 'ok')
+      RETURNING id`;
+    jobs.push(wrote!.id);
+    const dropped = await finding("report.daily");
+    assert.equal(dropped?.level, "now");
+    assert.equal(dropped?.title, "今天的日报该有内容，但没有这一期");
+    assert.match(dropped?.detail ?? "", /够格的新精选是 1 条/);
+    await sql`DELETE FROM publications WHERE article_id = ${articleId}`;
+    await sql`DELETE FROM articles WHERE id = ${articleId}`;
+
+    ids.push(await putReport("daily", daily.key, okReport("daily")));
+    await sql`UPDATE reports SET content = ${sql.json({ sections: "坏了" } as never)} WHERE kind = 'daily' AND key = ${daily.key}`;
+    const broken = await finding("report.daily.broken");
+    assert.equal(broken?.level, "now");
+    assert.match(broken?.detail ?? "", /not a function|无法|坏/);
+    assert.doesNotMatch(broken?.detail ?? "", /没有记录错误/);
+    assert.match(broken?.heals ?? "", /不会自己修好/);
+  } finally {
+    await sql`DELETE FROM publications WHERE url = ${`https://example.com/${T}-qualified`}`;
+    await sql`DELETE FROM articles WHERE url = ${`https://example.com/${T}-qualified`}`;
+    if (ids.length) await sql`DELETE FROM reports WHERE id IN ${sql(ids)}`;
+    if (jobs.length) await sql`DELETE FROM job_runs WHERE id IN ${sql(jobs)}`;
+    process.env.COLLECT_ENABLED = "true";
+    process.env.MODEL_CALLS_ENABLED = "true";
+  }
+});
+
+test("hot ranking alerts when the calculation fails or the page cannot be read, and a fresh empty list does not", async () => {
+  const ids: number[] = [];
+  const jobs: number[] = [];
+  const hot = async () => (await collectFindings(PRODUCT_AT)).filter((item) => item.key.startsWith("hot."));
+  try {
+    const [fresh] = await sql<{ id: number }[]>`
+      INSERT INTO hot_rankings (computed_at, rule_version, entries, published)
+      VALUES (${new Date(PRODUCT_AT - 60_000)}, 'heat-v1-48h-halflife24h', ${sql.json([])}, true)
+      RETURNING id`;
+    ids.push(fresh!.id);
+    const [ok] = await sql<{ id: number }[]>`
+      INSERT INTO job_runs (job, started_at, finished_at, status) VALUES ('hot.rank', ${new Date(PRODUCT_AT - 60_000)}, ${new Date(PRODUCT_AT - 60_000)}, 'ok') RETURNING id`;
+    jobs.push(ok!.id);
+    assert.deepEqual(await hot(), []);
+
+    await sql`UPDATE job_runs SET status = 'failed', error = '热度算不出来', started_at = ${new Date(PRODUCT_AT - 3 * 3600_000)} WHERE id = ${ok!.id}`;
+    await sql`UPDATE hot_rankings SET computed_at = ${new Date(PRODUCT_AT - 3 * 3600_000)} WHERE id = ${fresh!.id}`;
+    const late = await hot();
+    assert.equal(late.length, 1);
+    assert.equal(late[0]?.key, "hot.rank");
+    assert.equal(late[0]?.title, "热点榜超过 20 分钟没有更新");
+    assert.match(late[0]?.detail ?? "", /热度算不出来/);
+    assert.doesNotMatch(late[0]?.detail ?? "", /没有记录错误/);
+
+    await sql`UPDATE hot_rankings SET computed_at = ${new Date(PRODUCT_AT - 60_000)}, entries = ${sql.json({ bad: true } as never)} WHERE id = ${fresh!.id}`;
+    await sql`UPDATE job_runs SET status = 'ok', error = NULL, started_at = ${new Date(PRODUCT_AT - 60_000)} WHERE id = ${ok!.id}`;
+    const page = await hot();
+    assert.equal(page[0]?.key, "hot.page");
+    assert.match(page[0]?.impact ?? "", /不是“暂时没有热点”/);
+    assert.match(page[0]?.detail ?? "", /not a function|无法/);
+  } finally {
+    if (ids.length) await sql`DELETE FROM hot_rankings WHERE id IN ${sql(ids)}`;
+    if (jobs.length) await sql`DELETE FROM job_runs WHERE id IN ${sql(jobs)}`;
+  }
+});
+
+test("metal prices alert when a period is past its own window, a quote is missing, or the table cannot be read", async () => {
+  process.env.COLLECT_ENABLED = "true";
+  const price = (change: Record<string, string | null> = {}) => ({
+    series_key: "nbs.copper",
+    source: "nbs",
+    name_zh: "电解铜",
+    grade: "1#",
+    benchmark: "全国流通领域市场价格",
+    delivery_basis: null,
+    currency: "CNY",
+    unit: "元/吨",
+    source_unit: "吨",
+    period_type: "ten_day",
+    period_start: "2026-09-01",
+    period_end: "2026-09-10",
+    period_label: "2026年9月上旬",
+    value: "100000",
+    release_label: "alert-test-release",
+    release_url: "https://www.stats.gov.cn/sj/zxfb/202609/t20260923_1965403.html",
+    released_on: "2026-09-14",
+    first_fetched_at: "2026-09-14T01:45:00Z",
+    fetched_at: "2026-09-14T01:45:00Z",
+    ...change,
+  });
+  const metals = async () => (await collectFindings(PRODUCT_AT)).filter((item) => item.key.startsWith("metals."));
+  try {
+    assert.deepEqual(
+      (await metals()).map((item) => item.key),
+      [],
+      "no stored prices and no grab runs is not yet a missed update",
+    );
+    await sql`INSERT INTO publication.metal_prices ${sql(price())}`;
+    const stale = await metals();
+    assert.equal(stale.find((item) => item.key === "metals.period")?.title, "国家统计局的价格过了该更新的期限");
+    assert.match(stale.find((item) => item.key === "metals.period")?.detail ?? "", /没有把期限改长/);
+    assert.equal(stale.find((item) => item.key === "metals.gap")?.title, "金属价格有报价是暂缺");
+    assert.equal(
+      stale.find((item) => item.key === "metals.fetch"),
+      undefined,
+    );
+
+    await sql`DELETE FROM publication.metal_prices WHERE release_label = 'alert-test-release'`;
+    await sql`INSERT INTO publication.metal_prices ${sql(price({ period_start: "2026-09-21", period_end: "2026-09-30", period_label: "2026年9月下旬" }))}`;
+    const fresh = await metals();
+    assert.equal(
+      fresh.find((item) => item.key === "metals.period"),
+      undefined,
+    );
+    assert.equal(
+      fresh.find((item) => item.key === "metals.change"),
+      undefined,
+      "one stored ten-day period, still inside its window, is waiting for the next official release",
+    );
+    assert.ok(fresh.some((item) => item.key === "metals.gap"));
+
+    await sql`DELETE FROM publication.metal_prices WHERE release_label = 'alert-test-release'`;
+    await sql`INSERT INTO publication.metal_prices ${sql(price({ unit: "千克" }))}`;
+    const broken = await metals();
+    assert.equal(broken.find((item) => item.key === "metals.table")?.title, "金属价格表读不出来");
+    assert.match(broken.find((item) => item.key === "metals.table")?.detail ?? "", /nbs\.copper/);
+    assert.equal(
+      broken.find((item) => item.key === "metals.period"),
+      undefined,
+    );
+    assert.match(broken.find((item) => item.key === "metals.table")?.heals ?? "", /不会拿别的数字填上/);
+  } finally {
+    await sql`DELETE FROM publication.metal_prices WHERE release_label = 'alert-test-release'`;
   }
 });

@@ -4,7 +4,7 @@ import path from "node:path";
 import { API, SignatureKind, SymbolFlags, type Checker, type Type } from "typescript/unstable/sync";
 import * as ts from "typescript/unstable/ast";
 import { sqlOwnership, type Hole } from "./sql-ownership.ts";
-import { fragmentProduct, sqlExpressionFragment } from "./sql-fragments.ts";
+import { fragmentProduct, sqlExpressionFragment, sqlParameterExpression } from "./sql-fragments.ts";
 import { stableRouteClosure } from "./route-identities.ts";
 import { stableTransactionClosure } from "./transaction-identity.ts";
 
@@ -169,11 +169,46 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
           }
           if (ts.isCallExpression(item)) {
             const declared = declaration(checker, item.expression);
-            const fn = declared && ts.isVariableDeclaration(declared) ? declared.initializer : declared;
-            if (fn) remember(fn);
-            if (fn && (ts.isArrowFunction(fn) || ts.isFunctionDeclaration(fn)) && fn.body && !ts.isBlock(fn.body)) {
-              remember(fn);
-              return constant(fn.body, visiting, prefix);
+            const fn = declared && ts.isVariableDeclaration(declared) && declared.parent.flags & ts.NodeFlags.Const ? declared.initializer : declared;
+            if (
+              fn &&
+              (ts.isFunctionDeclaration(fn) || ts.isArrowFunction(fn)) &&
+              fn.body &&
+              !fn.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword) &&
+              !(ts.isFunctionDeclaration(fn) && fn.asteriskToken)
+            ) {
+              let written = false;
+              const target = (part: ts.Node): void => {
+                if (ts.isIdentifier(part) && declaration(checker, part) === declared) written = true;
+                if (
+                  ts.isShorthandPropertyAssignment(part) &&
+                  checker.getShorthandAssignmentValueSymbol(part)?.declarations.some((entry) => entry.resolve() === declared)
+                )
+                  written = true;
+                part.forEachChild(target);
+              };
+              const walk = (part: ts.Node): void => {
+                if (ts.isBinaryExpression(part) && ts.isAssignmentOperator(part.operatorToken.kind)) target(part.left);
+                if (ts.isForInStatement(part) || ts.isForOfStatement(part)) target(part.initializer);
+                if (
+                  (ts.isPrefixUnaryExpression(part) || ts.isPostfixUnaryExpression(part)) &&
+                  [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(part.operator)
+                )
+                  target(part.operand);
+                if (part !== fn && ts.isFunctionDeclaration(part) && part.name && declaration(checker, part.name) === declared) written = true;
+                part.forEachChild(walk);
+              };
+              walk(fn.getSourceFile());
+              const body =
+                ts.isBlock(fn.body) && fn.body.statements.length === 1 && ts.isReturnStatement(fn.body.statements[0]!)
+                  ? fn.body.statements[0]!.expression
+                  : !ts.isBlock(fn.body)
+                    ? fn.body
+                    : undefined;
+              if (!written && body) {
+                remember(fn);
+                return constant(body, visiting, prefix);
+              }
             }
           }
           return undefined;
@@ -199,7 +234,14 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
           }
           if (ts.isIdentifier(item)) {
             const declared = declaration(checker, item);
-            if (declared && ts.isVariableDeclaration(declared) && declared.initializer && declared.parent.flags & ts.NodeFlags.Const) {
+            if (
+              declared &&
+              ts.isVariableDeclaration(declared) &&
+              declared.initializer &&
+              declared.parent.flags & ts.NodeFlags.Const &&
+              (driverResult(checker.getTypeAtLocation(item), ["PendingQuery", "PendingRawQuery", "PendingValuesQuery", "Helper"]) ||
+                (ts.isTaggedTemplateExpression(declared.initializer) && postgresTag(checker, declared.initializer.tag)))
+            ) {
               seen.add(item);
               remember(declared);
               const value = render(declared.initializer);
@@ -222,10 +264,16 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
             if (item === input && kind === "unresolved-call") reasons.shift();
             return fragments;
           }
-          const type = checker.getTypeAtLocation(item),
-            name = type && checker.typeToString(type);
-          // Only the compiler's resolved type chooses SQL vs parameter; source spelling is irrelevant.
-          if (!type || name === "any" || name === "unknown" || /PendingQuery|Helper<|Fragment/.test(name ?? "")) {
+          // A SQL alias/container must never become a value merely because its display name changes.
+          if (
+            !sqlParameterExpression(
+              checker,
+              item,
+              (part) => declaration(checker, part),
+              (tag) => postgresTag(checker, tag),
+              remember,
+            )
+          ) {
             const declared = declaration(checker, ts.isCallExpression(item) ? item.expression : item);
             if (declared) remember(declared);
             reasons.push(`opaque interpolation: ${item.getText()}`);

@@ -1,3 +1,5 @@
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // The open-source default: one OpenAI-compatible model (LLM_BASE_URL, LLM_API_KEY, LLM_MODEL) runs every
 // step of the analysis, with no per-step configuration.
 import { stub, tag } from "./setup.ts";
@@ -27,7 +29,7 @@ const provider = await stub((_hit, req) => {
       ? { attentionScore: 80 }
       : system.includes("内容理解编辑")
         ? {
-            itemType: "product_launch",
+            itemType: "company_project",
             authorRole: "principal",
             tags: ["产品更新"],
             editorialJudgment: "理由",
@@ -49,7 +51,9 @@ const provider = await stub((_hit, req) => {
 Object.assign(process.env, { LLM_BASE_URL: `${provider.url}/v1`, LLM_API_KEY: "test-key", LLM_MODEL: "one-model", MODEL_CALLS_ENABLED: "true" });
 
 before(async () => {
+  await installUsageFixtureForModel("default", sql);
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES (${SOURCE}, 'Test default model', 'rss', 'T1', 'editorial', '2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://example.com/source"]);
 });
 after(async () => {
   await provider.close();

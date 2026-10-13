@@ -1,3 +1,8 @@
+export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "../enrichment/records.ts";
+import { ModelContentFiltered } from "../providers/model-fallback.ts";
+import { evaluateSourcePolicy } from "../admin/sources.ts";
+import { prepareNewsFallback, lockNewsProcessingPermissions, type NewsFallbackInput } from "../providers/news-fallback.ts";
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // analyzeArticle: the judging and writing steps, each with its own prompt from the industry pack
 // (industry/prompts/):
 //   1. prefilter: does the material belong to this industry at all (wide recall). Only BLOCK stops an
@@ -14,7 +19,7 @@ import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SELECTION } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
-import { chatJson, MODELS, ModelOutputError, type ContentPart } from "../providers/llm.ts";
+import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { collapseWhitespace, normalizedUppercase } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
@@ -39,6 +44,8 @@ import {
 } from "./writing.ts";
 import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, normalizeTags, TOPIC_TAGS } from "./vocabulary.ts";
 import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } from "./prompts.ts";
+import { GEOGRAPHY_DICTIONARY, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
+import { stableJson } from "../lib/ids.ts";
 
 const sql = dbOf("enrichment");
 
@@ -53,6 +60,7 @@ const STRUCTURE_CONFIG = {
   categoryTags: CATEGORY_TAGS.join("、"),
   topicTags: TOPIC_TAGS.join("、"),
   entityTags: ENTITY_TAGS.join("、"),
+  jurisdictions: GEOGRAPHY_DICTIONARY,
   entities: Object.entries(ENTITIES)
     .map(([id, e]) => `${id}（${e.aliases.slice(0, 3).join("/")}）`)
     .join("，"),
@@ -171,6 +179,20 @@ const StructureSchema = z.object({
   tags: z.array(z.string()).max(12).catch([]),
   subjects: z.array(z.string()).max(6).catch([]),
   fact: FactSchema,
+  geography: z.unknown().optional(),
+  company_context: z
+    .array(
+      z.object({
+        entityId: z.string(),
+        name: z.string().max(160),
+        originalName: z.string().max(160),
+        description: z.string().max(1200),
+        quote: z.string().max(1600),
+        sources: z.array(z.object({ name: z.string().max(160), url: z.url() })).max(5),
+      }),
+    )
+    .max(6)
+    .catch([]),
 });
 
 const UnderstandSchema = z.object({
@@ -190,7 +212,7 @@ export interface AnalysisRun {
    * The independent score calls and the tier threshold they are held against; absent when the material
    * is not scored. `refused`: the model's content filter declined it, so it is not selected.
    */
-  scores: { model: string; threshold: number; values: number[]; receiptIds: number[]; reused: boolean; refused?: boolean } | null;
+  scores: { model: string; models?: string[]; threshold: number; values: number[]; receiptIds: number[]; reused: boolean; refused?: boolean } | null;
   /** The reader-facing copy: `understand` (selected, near-selected), `summarize`, `none`. */
   writing: {
     kind: "understand" | "summarize" | "none";
@@ -211,24 +233,33 @@ export interface AnalysisRun {
     tags: string[];
     subjects: string[];
     fact: z.infer<typeof FactSchema>;
+    geography: NewsGeography;
+    company_context: z.infer<typeof StructureSchema>["company_context"];
     receiptId: number;
     reused: boolean;
   } | null;
 }
 
-const isContentFilter = (error: unknown) => error instanceof ProviderRejectedError && !error.retryable && /contentFilter|"1301"/.test(error.message);
+const isContentFilter = (error: unknown) =>
+  error instanceof ModelContentFiltered || (error instanceof ProviderRejectedError && !error.retryable && /contentFilter|"1301"/.test(error.message));
 
 /** Only a title or a feed summary, and a page to fetch: the article is judged on the page. */
 export function waitsForPage(a: AnalyzeInputArticle): boolean {
   return a.bodyStatus === "pending" && !a.bodyText && pageFetchable(a.url, a.source.kind);
 }
 
-type StepOpts = { attemptTag?: string; scoreModel?: string };
+type StepOpts = {
+  usagePurpose?: "production" | "evaluation";
+  attemptTag?: string;
+  scoreModel?: string;
+  runtimeControl?: RuntimeControlSnapshot;
+  fallbackInput?: NewsFallbackInput;
+};
 type ReceiptObserver = (receiptId: number) => void;
 export class AnalysisInterruptedError extends Error {}
 
 const observableReceiptId = (error: unknown): number | null =>
-  error instanceof ModelOutputError || error instanceof ReceiptUnknownError ? error.receiptId : null;
+  error instanceof ModelOutputError || error instanceof ReceiptUnknownError || error instanceof ModelContentFiltered ? error.receiptId : null;
 
 function checkAnalysisRunning() {
   if (shutdownSignal.signal.aborted) throw new AnalysisInterruptedError("worker shutting down between analysis stages");
@@ -244,13 +275,17 @@ async function runPrefilter(a: AnalyzeInputArticle, opts: StepOpts): Promise<Ana
     model,
     purpose: "prefilter_article",
     subject: subjectOf(a),
+    sourceIds: a.sourceId ? [a.sourceId] : [],
     promptVersion: PROMPT_VERSIONS.prefilter,
     system: PREFILTER_SYSTEM,
     user: prefilterUser(a),
+    usagePurpose: opts.usagePurpose,
+    fallbackPermit: opts.fallbackInput?.({ system: PREFILTER_SYSTEM, user: prefilterUser(a) }),
     schema: PrefilterSchema,
     temperature: 0,
     maxTokens: 512,
     attemptTag: opts.attemptTag,
+    runtimeControl: opts.runtimeControl,
   });
   // A BLOCK without material to back it counts as UNKNOWN (which goes on).
   const label = res.data.label === "BLOCK" && missingEvidence(a) ? "UNKNOWN" : res.data.label;
@@ -276,6 +311,7 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
   const input = buildScoreInput(a);
   const values: number[] = [];
   const receiptIds: number[] = [];
+  const models: string[] = [];
   let reused = true;
   // One after the other: the second call reuses the provider's cached prompt.
   for (let i = 0; i < SCORE_CALLS; i++) {
@@ -285,29 +321,37 @@ async function runScores(a: AnalyzeInputArticle, threshold: number, opts: StepOp
         model,
         purpose: "score_article",
         subject: subjectOf(a),
+        sourceIds: a.sourceId ? [a.sourceId] : [],
         promptVersion: PROMPT_VERSIONS.score,
         system: SCORE_SYSTEM,
         user: input,
+        usagePurpose: opts.usagePurpose,
+        fallbackPermit: opts.fallbackInput?.({ system: SCORE_SYSTEM, user: input }),
         schema: ScoreSchema,
         temperature: call.temperature,
         maxTokens: call.maxTokens,
         timeoutMs: call.timeoutMs,
         // Each call is its own paid request; an explicit re-evaluation gets new ones.
         attemptTag: tagged(opts.attemptTag, `score-${i + 1}`),
+        runtimeControl: opts.runtimeControl,
       });
       onReceipt?.(res.receiptId);
       values.push(res.data.attentionScore);
+      models.push(res.model);
       receiptIds.push(res.receiptId);
       reused &&= res.reused;
     } catch (error) {
       const receiptId = observableReceiptId(error);
       if (receiptId !== null) onReceipt?.(receiptId);
       // The model's content filter declines the material (Zhipu 1301): not scored, so not selected.
-      if (isContentFilter(error)) return { model, threshold, values, receiptIds, reused: false, refused: true };
+      if (isContentFilter(error)) {
+        if (receiptId !== null) receiptIds.push(receiptId);
+        return { model: [...new Set(models)].join("+") || model, models, threshold, values, receiptIds, reused: false, refused: true };
+      }
       throw error;
     }
   }
-  return { model, threshold, values, receiptIds, reused };
+  return { model: [...new Set(models)].join("+"), models, threshold, values, receiptIds, reused };
 }
 
 /**
@@ -326,17 +370,39 @@ export async function runSelectionScores(
 async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["structure"]>> {
   const model = await modelFor("structure");
   checkAnalysisRunning();
+  const inputFor = (material: ReturnType<typeof geographyMaterial>) =>
+    stableJson({
+      source: { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty },
+      url: a.url,
+      publishedAt: a.publishedAt?.toISOString() ?? null,
+      segments: material.segments,
+      complete_material: material.complete,
+    });
+  let material = geographyMaterial(a),
+    user = inputFor(material),
+    overflow = Buffer.byteLength(STRUCTURE_SYSTEM + user) - 32000;
+  if (overflow > 0) {
+    const bodyBudget = 22000 - overflow - 128;
+    if (bodyBudget < 1024) throw new ModelOutputError("Bounded structure metadata exceeds capacity");
+    material = geographyMaterial(a, bodyBudget);
+    user = inputFor(material);
+  }
+  if (Buffer.byteLength(STRUCTURE_SYSTEM + user) > 32000) throw new ModelOutputError("Bounded structure input exceeds capacity");
   const res = await chatJson({
     model,
     purpose: "structure_article",
     subject: subjectOf(a),
+    sourceIds: a.sourceId ? [a.sourceId] : [],
     promptVersion: PROMPT_VERSIONS.structure,
     system: STRUCTURE_SYSTEM,
-    user: buildMaterial(a),
+    user,
+    usagePurpose: opts.usagePurpose,
+    fallbackPermit: opts.fallbackInput?.({ system: STRUCTURE_SYSTEM, user }),
     schema: StructureSchema,
     temperature: 0.2,
-    maxTokens: 800,
+    maxTokens: 1500,
     attemptTag: tagged(opts.attemptTag, "structure"),
+    runtimeControl: opts.runtimeControl,
   });
   const subjects = [...new Set(res.data.subjects.map((s) => s.trim().toLowerCase()).filter((s) => s in ENTITIES))];
   return {
@@ -345,6 +411,8 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     tags: normalizeTags(res.data.tags),
     subjects,
     fact: res.data.fact,
+    geography: validateGeography(res.data.geography, a, material.bodyBudget),
+    company_context: res.data.company_context,
     receiptId: res.receiptId,
     reused: res.reused,
   };
@@ -360,18 +428,35 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
       model,
       purpose: "understand_article",
       subject: subjectOf(a),
+      sourceIds: a.sourceId ? [a.sourceId] : [],
       promptVersion: PROMPT_VERSIONS.understand,
       system: UNDERSTAND_SYSTEM,
       user: image ? [{ type: "text", text }, image] : text,
+      usagePurpose: opts.usagePurpose,
+      fallbackPermit: opts.fallbackInput?.({ system: UNDERSTAND_SYSTEM, user: image ? [{ type: "text", text }, image] : text }),
+      beforeRequest: image
+        ? async () => {
+            const url = a.media.find((m) => m.kind === "image" && m.url)?.url;
+            if (!a.sourceId || !url) throw new Error("图片原材料身份缺失");
+            const permit = await evaluateSourcePolicy({
+              source_id: a.sourceId,
+              lane: "news",
+              capability: "external_model",
+              resource: { url: String(url), attachment: true, document_type: null },
+            });
+            if (permit.decision !== "allow") throw new Error("图片外部模型许可已变化");
+          }
+        : undefined,
       schema: UnderstandSchema,
       temperature: 0.2,
       maxTokens: 16_384,
       timeoutMs: 180_000,
       attemptTag: tagged(opts.attemptTag, "understand"),
+      runtimeControl: opts.runtimeControl,
     });
   };
   // A model that is known not to read images gets the text only.
-  const image = MODELS[model]?.vision === false ? null : await firstImagePart(a);
+  const image = (await modelSpecFor(model))?.vision === false ? null : await firstImagePart(a);
   let res: Awaited<ReturnType<typeof call>>;
   try {
     res = await call(image);
@@ -415,15 +500,19 @@ async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     model,
     purpose: "summarize_article",
     subject: subjectOf(a),
+    sourceIds: a.sourceId ? [a.sourceId] : [],
     promptVersion: PROMPT_VERSIONS.summarize,
     system: "",
     user: buildArticlePrompt(t),
+    usagePurpose: opts.usagePurpose,
+    fallbackPermit: opts.fallbackInput?.({ system: "", user: buildArticlePrompt(t) }),
     schema: SummarizeSchema,
     json: false,
     parse: parseTranslateOutput,
     temperature: 0.2,
     maxTokens: 2048,
     attemptTag: tagged(opts.attemptTag, "summarize"),
+    runtimeControl: opts.runtimeControl,
   });
   const p = res.data;
   const copy = finalizeCopy(t, { titleZh: p.titleZh || (looksZh(t.title) ? t.title : ""), summaryZh: p.summaryZh });
@@ -520,6 +609,8 @@ export function normalizeAnalysis(run: AnalysisRun) {
     summaryZh,
     reasonZh: run.writing?.reasonZh ?? null,
     fact: run.structure?.fact ?? null,
+    geography: run.structure?.geography ?? null,
+    company_context: run.structure?.company_context ?? [],
   };
 }
 
@@ -541,63 +632,116 @@ const isCompleteJudgement = (output: unknown) => !!output && typeof output === "
  * is kept for traceability but never overwrites a newer input (stale = true).
  */
 export async function analyzeArticle(articleId: string, opts: StepOpts = {}, afterScope?: () => Promise<unknown>): Promise<AnalyzeResult | null> {
+  const runtimeControl = await runtimeControlSnapshot("news", ["processing"]);
+  opts = { ...opts, runtimeControl };
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
   checkAnalysisRunning();
-  const prefilter = await runSelectionPrefilter(input, opts);
-  // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
-  // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
-  // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
-  // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
-  await sql.begin(async (tx) => {
-    const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]>`
+  opts = {
+    ...opts,
+    fallbackInput:
+      input.translationZh && !input.bodyText
+        ? undefined
+        : await prepareNewsFallback({ root: shutdownSignal.signal, expected: input, current: () => loadAnalyzeInput(articleId), articles: [input] }),
+  };
+  try {
+    const prefilter = await runSelectionPrefilter(input, opts);
+    // Commit scope separately: a later score/writing failure cannot erase confirmed admission.
+    // Repeated attempts retain a complete current judgement instead of replacing it with an empty one: while this
+    // revision is judged again, its last complete judgement keeps its copy, score and selection (BR-PUB-08), so only
+    // a first judgement, a new revision or a change into or out of BLOCK is committed ahead of the rest.
+    await sql.begin(async (tx) => {
+      await lockNewsProcessingPermissions([articleId], tx);
+      await assertRuntimeControl(tx, runtimeControl);
+      const [latest] = await tx<{ input_revision: number; prompt_version: string | null; output: unknown; receipt_ids: number[]; relevance: string | null }[]>`
       SELECT input_revision, prompt_version, output, receipt_ids, relevance FROM analyses WHERE article_id = ${articleId}
       ORDER BY input_revision DESC, id DESC LIMIT 1`;
-    const settled =
-      latest?.input_revision === input.revision && isCompleteJudgement(latest.output) && latest.relevance !== "block" && prefilter.label !== "BLOCK";
-    if (!settled && (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))) {
-      await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
+      const settled =
+        latest?.input_revision === input.revision && isCompleteJudgement(latest.output) && latest.relevance !== "block" && prefilter.label !== "BLOCK";
+      if (!settled && (currentPrefilter(latest, input.revision) !== prefilter.label || !latest?.receipt_ids.includes(prefilter.receiptId))) {
+        await tx`INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, selected, output)
         VALUES (${articleId}, ${input.revision}, 'model', ${prefilter.model}, ${PROMPT_VERSIONS.prefilter}, ${[prefilter.receiptId]},
           ${prefilter.label.toLowerCase()}, false, ${tx.json({ prefilter: { label: prefilter.label, reason: prefilter.reason } })})`;
-    }
-    await completeReceipt(tx, prefilter.receiptId);
-  });
-  // The caller may publish now on the committed scope (a Chinese original need not wait for the writing).
-  await afterScope?.();
-  const run = await finishAnalysis(input, prefilter, opts);
-  const out = normalizeAnalysis(run);
-  const receiptIds = [
-    run.prefilter.receiptId,
-    ...(run.scores?.receiptIds ?? []),
-    ...(run.writing?.receiptIds ?? []),
-    ...(run.structure ? [run.structure.receiptId] : []),
-  ];
-  const w = run.writing;
-  const detail = {
-    prefilter: { label: run.prefilter.label, reason: run.prefilter.reason },
-    scores: out.scores,
-    scoreModel: out.scoreModel,
-    threshold: out.threshold,
-    ...(out.scoreRefused ? { scoreRefused: true } : {}),
-    ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
-    ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
-    fact: out.fact,
-  };
-  const committed = await commitProcessingResult(articleId, input.revision, out.relevance === "block" ? "blocked" : "analyzed", async (tx) => {
-    // Enrichment owns the statement; content owns the locked transaction executing it.
-    const insert = sql`
+      }
+      await completeReceipt(tx, prefilter.receiptId);
+    });
+    // The caller may publish now on the committed scope (a Chinese original need not wait for the writing).
+    await afterScope?.();
+    const run = await finishAnalysis(input, prefilter, opts);
+    const out = normalizeAnalysis(run);
+    const receiptIds = [
+      run.prefilter.receiptId,
+      ...(run.scores?.receiptIds ?? []),
+      ...(run.writing?.receiptIds ?? []),
+      ...(run.structure ? [run.structure.receiptId] : []),
+    ];
+    const w = run.writing;
+    const detail = {
+      prefilter: { label: run.prefilter.label, reason: run.prefilter.reason },
+      scores: out.scores,
+      scoreModel: out.scoreModel,
+      scoreModels: run.scores?.models ?? [],
+      threshold: out.threshold,
+      ...(out.scoreRefused ? { scoreRefused: true } : {}),
+      ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
+      ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
+      fact: out.fact,
+      geography: out.geography,
+      company_context: out.company_context,
+    };
+    const committed = await commitProcessingResult(
+      articleId,
+      input.revision,
+      out.relevance === "block" ? "blocked" : "analyzed",
+      async (tx) => {
+        await assertRuntimeControl(tx, runtimeControl);
+        // Enrichment owns the statement; content owns the locked transaction executing it.
+        const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,
         subjects, title_zh, summary_zh, reason_zh, score, selected, output)
       VALUES (${articleId}, ${input.revision}, 'model', ${w?.model ?? run.prefilter.model}, ${ANALYZE_PROMPT_VERSION}, ${receiptIds},
         ${out.relevance}, ${out.category}, ${out.tags}, ${out.subjects}, ${out.titleZh}, ${out.summaryZh}, ${out.reasonZh},
         ${out.score}, ${out.selected}, ${sql.json(detail as never)})
       RETURNING id`;
-    const [row] = await tx<{ id: number }[]>`${insert}`;
-    for (const id of receiptIds) await completeReceipt(tx, id);
-    return row!.id;
-  });
-  const reused = run.prefilter.reused && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
-  return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };
+        const [row] = await tx<{ id: number }[]>`${insert}`;
+        for (const id of receiptIds) await completeReceipt(tx, id);
+        return row!.id;
+      },
+      (tx) => lockNewsProcessingPermissions([articleId], tx),
+    );
+    const reused = run.prefilter.reused && (run.scores?.reused ?? true) && (w?.reused ?? true) && (run.structure?.reused ?? true);
+    return { analysisId: committed.value, stale: committed.stale, output: out, receiptIds, reused };
+  } catch (error) {
+    if (!(error instanceof ModelPostReceiptGuardError)) throw error;
+    const current = await loadAnalyzeInput(articleId);
+    if (!current || current.revision === input.revision) throw error;
+    // Keep only a stale diagnostic and its real billing receipt; never recover the rejected model payload.
+    const saved = await commitProcessingResult(
+      articleId,
+      input.revision,
+      "analyzed",
+      async (tx) => {
+        const [row] = await tx<{ id: number }[]>`INSERT INTO analyses(article_id,input_revision,origin,prompt_version,receipt_ids,output)
+        VALUES(${articleId},${input.revision},'model',${ANALYZE_PROMPT_VERSION},${[error.receiptId]},${tx.json({ stale_after_response: true, output_applied: false })}) RETURNING id`;
+        await completeReceipt(tx, error.receiptId);
+        return row!.id;
+      },
+      (tx) => lockNewsProcessingPermissions([articleId], tx),
+    );
+    return { analysisId: saved.value, stale: true, output: null, receiptIds: [error.receiptId], reused: true };
+  }
 }
+
+/** Provenance only: consumers must also match the publication and current content revision. */
+export async function analysisMaterialRevisions(ids: number[]) {
+  if (!ids.length) return [];
+  return sql<
+    { id: number; article_id: string; input_revision: number }[]
+  >`SELECT id,article_id,input_revision FROM analyses WHERE id=ANY(${ids}::bigint[]) ORDER BY id`;
+}
+
+export { prepareEvaluationInput, evaluationInputFingerprint } from "./evaluation-input.ts";
+
+export { currentEvaluationDerivedInput } from "./input.ts";

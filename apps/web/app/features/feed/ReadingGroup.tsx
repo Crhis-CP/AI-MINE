@@ -14,6 +14,7 @@ function filterParams(filters: TimelineFilters | undefined, cursor: string | nul
   if (filters?.channel && filters.channel !== "all") sp.set("channel", filters.channel);
   if (filters?.category) sp.set("category", filters.category);
   if (filters?.tag) sp.set("tag", filters.tag);
+  if (filters?.scope) sp.set("scope", filters.scope);
   if (cursor) sp.set("cursor", cursor);
   return sp;
 }
@@ -40,7 +41,7 @@ function remember(entry: string, key: string, saved: Saved) {
   // Most groups are never opened: nothing to read or write for them.
   if (!keep && !groups?.[key]) return;
   const next = { ...(groups ?? stored(entry)) };
-  if (keep) next[key] = { ...saved, paged: { ...saved.paged, loading: false } };
+  if (keep) next[key] = { ...saved, paged: { ...saved.paged, items: [], loaded: false, next: null, loading: false } };
   else delete next[key];
   groupsCache.set(entry, { savedAt: Date.now(), groups: next });
 }
@@ -50,7 +51,7 @@ function useGroupState<T>(key: string, url: (cursor: string | null) => string, p
   const entry = useLocation().key;
   const initial = groupsCache.peek(entry)?.groups[key] as (Saved & { paged: Paged<T> & { scope: string } }) | undefined;
   const [open, setOpen] = useState(initial?.open ?? false);
-  const paged = usePaged<T>(url, pick, initial?.paged);
+  const paged = usePaged<T>(url, pick);
   // A document the browser reloaded on back/forward (never a reader's reload, which asks for a fresh
   // list) gets its groups back after hydration, as the list itself does.
   useEffect(() => {
@@ -59,10 +60,10 @@ function useGroupState<T>(key: string, url: (cursor: string | null) => string, p
     if (!saved) return;
     if (!inMemory) {
       setOpen(saved.open);
-      paged.restore(saved.paged);
+      paged.restore({ ...saved.paged, items: [], loaded: false, next: null });
     }
     // Left open while its first page was still loading: load it again.
-    if (saved.open && !saved.paged.loaded) void paged.load(null);
+    if (saved.open) void paged.load(null);
   }, [entry, key]);
   useEffect(() => {
     remember(entry, key, { open, paged: paged.raw as Saved["paged"] });
@@ -228,6 +229,14 @@ export function GroupSources({ group, filters, parentId }: { group: GroupInfo; f
           onMore={() => load(state.next)}
           onRetry={() => load(null)}
         />
+        {group.story && (
+          <Link
+            to={`/story/${group.story.publicId}`}
+            className="mt-1 inline-flex items-center gap-0.5 py-1 text-[12.5px] font-medium text-accent hover:text-accent-ink"
+          >
+            查看完整事件 <IconArrowUpRight size={12} />
+          </Link>
+        )}
       </Panel>
     </div>
   );

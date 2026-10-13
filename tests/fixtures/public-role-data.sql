@@ -112,3 +112,8 @@ SELECT seq,id,op,CASE WHEN seq=4 THEN now()+interval '1 hour' ELSE now()-interva
 FROM (VALUES (1,'pr9-editorial-public-full','upsert'),(2,'pr9-second-report','upsert'),(3,'pr9-editorial-withdrawn-full','remove'),(4,'pr9-future','upsert')) entries(seq,id,op);
 INSERT INTO selected_state(article_id,in_set,last_seq)
 SELECT article_id,op='upsert',seq FROM selected_ledger;
+
+-- Synthetic site-only prices; never evidence for current market conditions.
+INSERT INTO publication.metal_prices(series_key,source,name_zh,benchmark,currency,unit,source_unit,period_type,period_start,period_end,period_label,value,release_label,release_url,released_on,first_fetched_at,fetched_at) VALUES
+('nbs.copper','nbs','合成铜','synthetic','CNY','元/吨','吨','ten_day','2026-09-11','2026-09-20','合成价格期',110000.0,'Synthetic release','https://www.stats.gov.cn/synthetic-price','2026-09-21',now(),now()),
+('nbs.aluminum','nbs','合成铝','synthetic','CNY','元/吨','吨','ten_day','2026-09-11','2026-09-20','合成价格期',24000.0,'Synthetic release','https://www.stats.gov.cn/synthetic-price','2026-09-21',now(),now());

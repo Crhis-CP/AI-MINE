@@ -5,8 +5,7 @@ import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { dbOf, closeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { collectSource } from "@amp/backend/sources/collect";
-import { previewSource } from "@amp/backend/admin/sources";
+import { collectSource, previewSource } from "./crawl-fixture.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
 const sql = dbOf("acquisition");

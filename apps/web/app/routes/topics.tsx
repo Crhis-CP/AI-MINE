@@ -5,7 +5,7 @@ import { pageMeta } from "../lib/seo";
 interface TopicSummary {
   slug: string;
   name: string;
-  group: "company" | "field" | "genre";
+  group: "company" | "field" | "genre" | "project";
   definition: string;
   total: number;
   recent: number;
@@ -29,17 +29,19 @@ export function meta() {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" };
+  return { "Cache-Control": "no-store" };
 }
 
 const GROUPS = [
   { key: "genre", name: "国家与地区", blurb: "按国家与地区看金属矿业：政策、项目与市场" },
   { key: "field", name: "金属", blurb: "按金属看矿业：铜、金、锂、镍……" },
   { key: "company", name: "矿企", blurb: "按公司追踪：项目、产量、并购与经营" },
+  { key: "project", name: "项目", blurb: "按核实的矿业项目追踪建设、运营与关键进展" },
 ] as const;
 
 export default function TopicsPage() {
-  const { topics } = useLoaderData<typeof loader>();
+  const { topics: allTopics } = useLoaderData<typeof loader>();
+  const topics = allTopics.filter((topic) => topic.total > 0);
   const picks = topics[0]?.basis !== "all";
   return (
     <div className="pb-10">
@@ -49,7 +51,7 @@ export default function TopicsPage() {
           按国家与地区、金属、矿企浏览 <span className="num">{topics.length}</span> 个主题，持续汇集近期{picks ? "焦点与精选" : "动态"}。
         </p>
       </header>
-      {GROUPS.map((g) => (
+      {GROUPS.filter((group) => topics.some((topic) => topic.group === group.key)).map((g) => (
         <section key={g.key} aria-labelledby={`topics-${g.key}`} className="pt-8">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
             <h2 id={`topics-${g.key}`} className="text-[15px] font-bold text-ink">
@@ -60,6 +62,7 @@ export default function TopicsPage() {
           <ul className="mt-3.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {topics
               .filter((t) => t.group === g.key)
+              .sort((a, b) => b.recent - a.recent || a.name.localeCompare(b.name, "zh-CN"))
               .map((t) => (
                 <li key={t.slug}>
                   <Link
@@ -71,7 +74,7 @@ export default function TopicsPage() {
                     <span className="text-[15px] font-bold text-ink transition-colors group-hover:text-accent">{t.name}</span>
                     <span className="mt-1.5 line-clamp-2 flex-1 text-[12.5px] leading-[1.7] text-ink-3">{t.definition}</span>
                     <span className="mono mt-3 text-[11.5px] text-accent">
-                      查看 {t.total} 条{picks ? "精选" : "动态"}{" "}
+                      近 30 天 {t.recent} 条{picks ? "精选" : "动态"}{" "}
                       <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
                     </span>
                   </Link>
@@ -80,6 +83,12 @@ export default function TopicsPage() {
           </ul>
         </section>
       ))}
+      <section className="mt-8 border-t border-line pt-5">
+        <h2 className="text-[15px] font-bold">法律监管</h2>
+        <Link to="/policies" className="mt-3 inline-block text-[14px] text-accent">
+          查看法规政策动态 →
+        </Link>
+      </section>
     </div>
   );
 }

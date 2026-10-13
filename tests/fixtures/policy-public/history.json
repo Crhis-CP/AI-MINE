@@ -1,0 +1,60 @@
+{
+  "content_version": "fixture-v1",
+  "generated_at": "2026-10-09T00:00:00Z",
+  "policy_id": "policy-complete-fixture",
+  "items": [
+    {
+      "policy_version_id": "version-fixture",
+      "expression_id": "expression-zh",
+      "document_revision_id": "revision-zh",
+      "language": "zh-CN",
+      "instrument_number": "SYN-2026-1",
+      "kind": "ai_translation",
+      "current": true,
+      "first_public_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "site_public",
+        "meaning_label": "本站收录",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      },
+      "published_time": {
+        "raw": "2026-10-08",
+        "local_date": "2026-10-08",
+        "local_time": null,
+        "timezone": null,
+        "utc": null,
+        "precision": "date",
+        "meaning": "published",
+        "meaning_label": "来源发布",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-08",
+        "beijing_date": "2026-10-08"
+      },
+      "original_version": "合成正式版本一",
+      "checked_at": {
+        "raw": "2026-10-09",
+        "local_date": "2026-10-09",
+        "local_time": "08:00:00",
+        "timezone": "Asia/Shanghai",
+        "utc": "2026-10-09T00:00:00Z",
+        "precision": "second",
+        "meaning": "checked",
+        "meaning_label": "原文核对",
+        "basis": "合成契约测试依据，不是真实法规记录",
+        "condition_text": null,
+        "label": "2026-10-09",
+        "beijing_date": "2026-10-09"
+      }
+    }
+  ],
+  "next_cursor": null
+}

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
@@ -8,10 +9,10 @@ import { TRANSACTION_FILE, TRANSACTION_SCOPE, stableTransactionDebt } from "../t
 import { ROOT } from "../lib.ts";
 import { scratch, write } from "./helpers.ts";
 
-const original = readFileSync(path.join(ROOT, TRANSACTION_FILE), "utf8");
-const start = original.indexOf("export async function detachFromFact("),
-  end = original.indexOf("\n}\n", start) + 2;
-const body = original.slice(start, end);
+// The allowance is intentionally immutable. Test that reviewed function, not today's evolving runtime.
+// Source: this repository at 978efa88dbe293053b1fa91915b3cef68d9715d8, TRANSACTION_FILE.
+const body = readFileSync(new URL("./fixtures/transaction-detach-reviewed.txt", import.meta.url), "utf8");
+assert.equal(createHash("sha256").update(body).digest("hex"), "694a8b7c9563751a3bf2d4c183e27321ff3707d69de706cb2e9c43b6a6772af5");
 const source = (fn = body, root = 'const sql = dbOf("editorial");') => `
 import {dbOf} from "../module-db.ts";
 ${root}

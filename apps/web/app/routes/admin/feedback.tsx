@@ -4,9 +4,8 @@ import { Form, useSearchParams } from "react-router";
 import type { Route } from "./+types/feedback";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
-import { bj } from "../../features/admin/format";
-import { FEEDBACK_STATUS } from "../../features/admin/labels";
-import { AdminPage, Badge, Button, Card, Empty, FilterChips, Input, Pager, ReasonDialog, Select, Textarea, Time } from "../../features/admin/ui";
+const FEEDBACK_STATUS: Record<string, string> = { new: "待处理", resolved: "已处理", archived: "已归档" };
+import { AdminPage, Badge, Button, Card, Empty, FilterChips, Input, Pager, Select, Textarea, Time } from "../../features/admin/ui";
 
 interface Feedback {
   id: number;
@@ -28,6 +27,16 @@ interface Data {
   page: number;
   rows: Feedback[];
   counts: Record<string, number>;
+  weeklySummary?: {
+    summary: {
+      week: string;
+      total: number;
+      types: Record<string, number>;
+      statuses: Array<{ status: string; count: number }>;
+      pages: Array<{ page: string; count: number }>;
+      oldest: Array<{ id: number; created_at: string }>;
+    };
+  } | null;
   bans: Array<{ source_hash: string; reason: string | null; created_by: string | null; created_at: string }>;
 }
 
@@ -42,7 +51,8 @@ const TONE: Record<string, "accent" | "warn" | "ok" | "muted"> = { new: "accent"
 function FeedbackCard({ f }: { f: Feedback }) {
   const { run, pending } = useAdminAction();
   const [note, setNote] = useState(f.note ?? "");
-  const [dialog, setDialog] = useState<null | "ban" | "erase">(null);
+  const [status, setStatus] = useState(f.status);
+  const [showScreenshot, setShowScreenshot] = useState(false);
   const base = `/api/admin/feedback/${f.id}`;
   const version = new Date(f.updated_at).toISOString();
   return (
@@ -66,21 +76,22 @@ function FeedbackCard({ f }: { f: Feedback }) {
             同来源 {f.from_source} 条
           </Badge>
         )}
-        {f.banned && <Badge tone="bad">来源已封禁</Badge>}
       </div>
       <p className="mt-2.5 whitespace-pre-wrap text-[14px] leading-relaxed text-ink">{f.content}</p>
       {f.screenshot === "local" && (
-        <a href={`${base}/screenshot`} target="_blank" rel="noreferrer" className="mt-2 inline-block">
-          <img src={`${base}/screenshot`} alt="反馈截图" loading="lazy" className="max-h-48 rounded-control ring-1 ring-line" />
-        </a>
+        <div>
+          <Button tone="ghost" onClick={() => setShowScreenshot(!showScreenshot)}>
+            {showScreenshot ? "收起截图" : "查看私有截图"}
+          </Button>
+          {showScreenshot && (
+            <a href={`${base}/screenshot`} target="_blank" rel="noreferrer">
+              <img src={`${base}/screenshot`} alt="反馈截图" className="max-h-48 rounded-control ring-1 ring-line" />
+            </a>
+          )}
+        </div>
       )}
       <div className="mt-3 grid gap-2 sm:grid-cols-[180px_1fr_auto] sm:items-start">
-        <Select
-          aria-label="处理状态"
-          value={f.status}
-          disabled={!!pending}
-          onChange={(e) => run("PATCH", base, { status: e.target.value, version }, { label: "status", success: "状态已更新" })}
-        >
+        <Select aria-label="处理状态" value={status} disabled={!!pending} onChange={(e) => setStatus(e.target.value)}>
           {Object.entries(FEEDBACK_STATUS).map(([k, v]) => (
             <option key={k} value={k}>
               {v}
@@ -91,51 +102,43 @@ function FeedbackCard({ f }: { f: Feedback }) {
         <div className="flex gap-1.5">
           <Button
             size="md"
-            disabled={note === (f.note ?? "")}
+            disabled={note === (f.note ?? "") && status === f.status}
             busy={pending === "note"}
-            onClick={() => run("PATCH", base, { note: note || null, version }, { label: "note", success: "备注已保存" })}
+            onClick={() => run("PATCH", base, { note: note || null, status, version }, { label: "note", success: "反馈处理状态已保存" })}
           >
-            保存备注
-          </Button>
-          <Button tone="ghost" onClick={() => setDialog(f.banned ? null : "ban")} disabled={f.banned} title="拒绝这个来源的后续反馈">
-            封禁来源
-          </Button>
-          <Button tone="ghost" onClick={() => setDialog("erase")} title="按隐私说明删除提交者的资料">
-            删除资料
+            保存处理
           </Button>
         </div>
       </div>
-      <ReasonDialog
-        open={dialog === "ban"}
-        title="封禁这个反馈来源"
-        description="同一来源之后提交反馈会被拒绝。来源标识不可还原成 IP。"
-        danger
-        confirmLabel="封禁"
-        onClose={() => setDialog(null)}
-        onSubmit={async (reason) =>
-          (await run("POST", "/api/admin/feedback-bans", { sourceHash: f.source_hash, reason }, { label: "ban", success: "已封禁" })) !== null
-        }
-      />
-      <ReasonDialog
-        open={dialog === "erase"}
-        title="删除提交者资料"
-        description="删除正文、邮箱、页面地址和截图，只保留处理记录。不可恢复。"
-        danger
-        confirmLabel="删除"
-        onClose={() => setDialog(null)}
-        onSubmit={async (reason) => (await run("POST", `${base}/erase`, { reason }, { label: "erase", success: "资料已删除" })) !== null}
-      />
     </article>
   );
 }
 
 export default function FeedbackAdmin({ loaderData }: Route.ComponentProps) {
-  const { rows, counts, bans, page } = loaderData;
+  const { rows, counts, page, weeklySummary } = loaderData;
   const [sp] = useSearchParams();
-  const { run } = useAdminAction();
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   return (
     <AdminPage title="反馈" subtitle={`回复用飞书邮箱发送，收件人、主题、正文都确认后再发；“已修复上线”要有生产证据。签名统一 ${SITE.name}。`}>
+      {weeklySummary && (
+        <Card title={`每周反馈汇总 · ${weeklySummary.summary.week}`}>
+          <p>
+            收到 {weeklySummary.summary.total} 条反馈；事实或翻译更正 {weeklySummary.summary.types.correction ?? 0} 条；功能故障{" "}
+            {weeklySummary.summary.types.technical ?? 0} 条。
+          </p>
+          <p>{weeklySummary.summary.pages.map((p) => `${p.page}：${p.count}条`).join("；")}</p>
+          <p>
+            待处理最久：
+            {weeklySummary.summary.oldest.length
+              ? weeklySummary.summary.oldest.map((r) => (
+                  <a className="mr-2 text-accent" key={r.id} href={`/admin/feedback?id=${r.id}`}>
+                    #{r.id}
+                  </a>
+                ))
+              : "无"}
+          </p>
+        </Card>
+      )}
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <FilterChips
           param="status"
@@ -154,36 +157,11 @@ export default function FeedbackAdmin({ loaderData }: Route.ComponentProps) {
           rows.map((f) => <FeedbackCard key={`${f.id}-${f.updated_at}`} f={f} />)
         ) : (
           <Card>
-            <Empty>没有符合条件的反馈</Empty>
+            <Empty title="这一筛是空的">没有符合条件的反馈。可以换个状态，或等读者新的意见。</Empty>
           </Card>
         )}
       </div>
       <Pager page={page} hasMore={rows.length === 50} />
-      {bans.length > 0 && (
-        <Card className="mt-8" title="已封禁的来源">
-          <ul className="space-y-2 text-[13px]">
-            {bans.map((b) => (
-              <li key={b.source_hash} className="flex flex-wrap items-center justify-between gap-2">
-                <span>
-                  <span className="font-mono text-[12px] text-ink-3">{b.source_hash}</span> · {b.reason} · {b.created_by} · {bj(b.created_at, true)}
-                </span>
-                <Button
-                  size="sm"
-                  tone="ghost"
-                  onClick={() =>
-                    run("DELETE", `/api/admin/feedback-bans/${encodeURIComponent(b.source_hash)}`, undefined, {
-                      label: `unban-${b.source_hash}`,
-                      success: "已解除封禁",
-                    })
-                  }
-                >
-                  解除
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
     </AdminPage>
   );
 }

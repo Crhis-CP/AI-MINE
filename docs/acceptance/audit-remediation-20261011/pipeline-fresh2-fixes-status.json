@@ -1,0 +1,278 @@
+{
+  "scope": "fresh2-pipeline明确遗漏的5项修复；PIPE2-05由root修复，不改独立审计原报告",
+  "audit_baseline": "6996788c58347fa2483edc8e7d9e916292b20885",
+  "recorded_at": "2026-10-12T07:15:02.498961+00:00",
+  "stage": "locally_verified",
+  "code_editing": "stopped",
+  "changes": [
+    {
+      "id": "PIPE2-06",
+      "status": "locally_verified",
+      "behavior": "同source/config/permission/draft绑定串行登记；queued/running始终复用相同preview_id/job_id，完成或失败在首次请求1分钟内仍复用，超过1分钟可新建。短事务CAS领取执行令牌、90秒执行时限/120秒租约；过期running扫描原子重排，旧令牌晚成功/失败不可覆盖新执行或归档；暂停来源仍可合法预览，24小时启用门保留。",
+      "tests": [
+        "tests/source-preview-idempotency.test.ts",
+        "tests/source-preview-gate.test.ts",
+        "tests/source-archive.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE2-09",
+      "status": "locally_verified",
+      "behavior": "实际采集材料/重试元数据/成功水位在事务内通过sources端口依次取许可共享锁和sources FOR SHARE，重核enabled与archived；collector、MP、目录、external ingest均接入；暂停结果不入库、不推进cursor/last_ok/health，错误路径也不覆盖暂停来源健康态。",
+      "tests": [
+        "tests/source-pause-commit.test.ts",
+        "tests/collection.test.ts",
+        "tests/directory-scans.test.ts",
+        "tests/source-date-automatic.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE2-28",
+      "status": "locally_verified",
+      "behavior": "截图按PNG/JPEG/WebP魔数识别并用sharp完整解码；拒绝空文件、伪造MIME、GIF/SVG、损坏或截断输入；输入≤2MiB、≤40000000像素、单边≤16000，重编码剥离EXIF/ICC后私有哈希文件保存。",
+      "tests": [
+        "tests/feedback-validation.test.ts",
+        "tests/feedback-upload.test.ts",
+        "tests/feedback.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE2-29",
+      "status": "locally_verified",
+      "behavior": "相关页面只接受站内绝对路径或config.siteUrl同origin的http(s)地址，拒绝credentials、协议相对路径、反斜杠和控制字符；最多2048字符且不静默截500；请求Host不参与白名单。",
+      "tests": [
+        "tests/feedback-validation.test.ts",
+        "tests/feedback-upload.test.ts"
+      ]
+    },
+    {
+      "id": "PIPE2-30",
+      "status": "locally_verified",
+      "behavior": "feedback.quota_buckets持久固定小时客户端5条、北京时间自然日全站500条；两个INSERT/ON CONFLICT条件增量和收件写在同一事务，任一拒绝整体回滚。幂等回执先读；重复和未知响应重交不再扣额度；同键异内容仍409。",
+      "tests": [
+        "tests/feedback-quota.test.ts",
+        "tests/feedback.test.ts",
+        "tests/feedback-upload.test.ts"
+      ]
+    }
+  ],
+  "migrations": [
+    "database/migrations/sources/202610120510_preview_inflight.sql",
+    "database/migrations/feedback/202610120520_feedback_quota.sql"
+  ],
+  "integration": "root已登记迁移和精确角色；HTTP形状未变，最终pnpm check/CI由root取得统一版本回执。",
+  "tests": [
+    {
+      "file": "tests/source-preview-idempotency.test.ts",
+      "pass": 2,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-single-connection-after.log",
+      "sha256": "7129c18578011712996128059b32dbeb6a69c95f4d83a4b01b869dc5f8823568"
+    },
+    {
+      "file": "tests/source-preview-gate.test.ts",
+      "pass": 2,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-single-connection-after.log",
+      "sha256": "8f0bfae88bed5994885f5fae56060dbb44d2399c0a1c8f48c854b506d785cd16"
+    },
+    {
+      "file": "tests/source-archive.test.ts",
+      "pass": 2,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-single-connection-after.log",
+      "sha256": "06fbf7767d2ad0f21bb63dc8897358c135bd9767c6579df1685b50e8eae1e9fb"
+    },
+    {
+      "file": "tests/source-pause-commit.test.ts",
+      "pass": 4,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-source-locks.log",
+      "sha256": "2958746df8916293407215ccce3bc7ba0c053c601318b29aff8739f050323b20"
+    },
+    {
+      "file": "tests/collection.test.ts",
+      "pass": 2,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-source-locks.log",
+      "sha256": "50c2e088e1020b094676887544510ec7fd0f1f2802170513b45d0e18bbf70e38"
+    },
+    {
+      "file": "tests/directory-scans.test.ts",
+      "pass": 13,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-source-locks.log",
+      "sha256": "62e28e7d58395a054226d8c6731b7313019b6ff2ecdb40297a33fb868b891ab5"
+    },
+    {
+      "file": "tests/source-date-automatic.test.ts",
+      "pass": 6,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-source-locks.log",
+      "sha256": "f98bf7a29fab36563d7b29bce6459f6f5f382458ee9a76914a2a4696055d9244"
+    },
+    {
+      "file": "tests/feedback-validation.test.ts",
+      "pass": 3,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-validation-final.log",
+      "sha256": "190b7f57b38fe417a3b7219e1e0cda81b7126bd944424a90f393c58e4e38d9a4"
+    },
+    {
+      "file": "tests/feedback-quota.test.ts",
+      "pass": 2,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-regressions.log",
+      "sha256": "74c8eaab8ba3dd50dbf4c0bec8a5057f5b4ba70be818899bae4ad062c5970bd1"
+    },
+    {
+      "file": "tests/feedback.test.ts",
+      "pass": 3,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-regressions.log",
+      "sha256": "bac3700eb99307d1266a9ae4e755e7d816afb10323877d6d0c358f81321eaa72"
+    },
+    {
+      "file": "tests/feedback-upload.test.ts",
+      "pass": 5,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-fresh2-regressions.log",
+      "sha256": "0fc1fa2e473cdd59ca17dba866afbca484b2f9366bd280fb707a6da590894055"
+    },
+    {
+      "file": "tests/source-preview-recovery.test.ts",
+      "pass": 4,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-single-connection-after.log",
+      "sha256": "cf8b8554be0d44ca9ce6cda1fd4e5d132b7f6e00a03597097f9cdc182e5542b6"
+    },
+    {
+      "file": "tests/source-preview-single-connection.test.ts",
+      "pass": 2,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-real-transports-final.log",
+      "sha256": "416d09df0b73b7ce3564969147b6835a328e61f9726c18c2bdc61d1830c94bbc"
+    },
+    {
+      "file": "tests/source-preview-jina-timeout.test.ts",
+      "pass": 1,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-real-transports-final.log",
+      "sha256": "06c7f80e34631a3c0db74c0ee7fdb7bdc5b54292c5db9497715c59c94d27c504"
+    },
+    {
+      "file": "tests/automatic-feed.test.ts",
+      "pass": 1,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-adjacent-final.log",
+      "sha256": "97fe27c6d3be42e290b666fa8ea4ee980bc544eb1e5840c57d7568acb16bfbea"
+    },
+    {
+      "file": "tests/foreign-automatic.test.ts",
+      "pass": 1,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-adjacent-final.log",
+      "sha256": "92999eda853121ea2aacccca9107d3f6fcc3453c502971b980bb2a20a167972a"
+    },
+    {
+      "file": "tests/http-fetch-retry.test.ts",
+      "pass": 11,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-adjacent-final.log",
+      "sha256": "7aa417b861c01a1852d089fd5cd7b7e437c2c13ae450f4cd4592793fe7a23148"
+    },
+    {
+      "file": "tests/receipts.test.ts",
+      "pass": 10,
+      "fail": 0,
+      "log": ".verify/audit-remediation-20261011/preview-adjacent-final.log",
+      "sha256": "6d15a0cd7c98964232171ce978f75e0eea8a54c1cdd713f96c6bd7574a08cc57"
+    }
+  ],
+  "unique_test_total": 74,
+  "log_sha256": {
+    ".verify/audit-remediation-20261011/pipeline-fresh2-preview-final.log": "f0f02b7e2a65ea5756e0a03136a7f7461065f5379ced6fafbbaa7a0d51a5a656",
+    ".verify/audit-remediation-20261011/pipeline-fresh2-regressions.log": "27ef77c250a248bc03db27cad4e2d8df251523557b065222ed29fbe499417ccf",
+    ".verify/audit-remediation-20261011/pipeline-fresh2-source-locks.log": "831f2dc125ae57a09637c61b0c93dd791f326fa443aecbf1160eedfa84e32779",
+    ".verify/audit-remediation-20261011/pipeline-fresh2-validation-final.log": "c023ae8fbb148d13da87653f0ffd1c0d84e7009c87b5cd3e8aef38992c1b3ea6",
+    ".verify/audit-remediation-20261011/preview-single-connection-after.log": "a5fec1bd271b522d0f6d3baffab6f323448a0ccf9b76192055cad9acea34f04f",
+    ".verify/audit-remediation-20261011/preview-real-transports-final.log": "d0ae1d992fc6077ac0df480107009671f182956180bef8127f201c6d9e245c5b",
+    ".verify/audit-remediation-20261011/preview-adjacent-final.log": "ef9626a12b61f8a2a32dcf62592b06f89dd47a2de109666944af056fad402b4f"
+  },
+  "types": {
+    "backend": "pass",
+    "tests": "pass",
+    "logs": [
+      ".verify/audit-remediation-20261011/pipeline-fresh2-backend-types.log",
+      ".verify/audit-remediation-20261011/pipeline-fresh2-test-types.log"
+    ]
+  },
+  "lint": {
+    "new_warnings": 0,
+    "existing_warnings": 4,
+    "existing_info": 2,
+    "log": ".verify/audit-remediation-20261011/pipeline-fresh2-lint-final.log",
+    "note": "保留既有admin/sources noImplicitAnyLet与collect的3个noProcessEnv；未刷新baseline或守卫。"
+  },
+  "runtime_sha256": {
+    "packages/backend/src/admin/source-previews.ts": "7a1bbbe20484b9a4290acb0ea8c670062ea5fa546f5c7b9707d22aaeeb4f858e",
+    "packages/backend/src/admin/sources.ts": "fd86c7df468ef5d35814ac6abe2894736843b359575cd9d9c419025550565ddd",
+    "packages/backend/src/content/materials.ts": "6a3bf1b5b2bfce9b9009661b2cc95430196e9ef3687134dab59a44db505b095b",
+    "packages/backend/src/sources/collect.ts": "40b4a5df0d768c37438864d6be29c3d6fea8ab90de5d8ffc68fe03ff17993bd6",
+    "packages/backend/src/sources/mp.ts": "8e8d8785df39c868aeb5f768935836dc0017832cbb92367d2a152518d91e4c14",
+    "packages/backend/src/ingest/items.ts": "75539f768cb026d942e49283c9cbf96261488e0299f6f93f93a931a19002fc38",
+    "packages/backend/src/acquisition/directory-store.ts": "b3f1ee3912167f8a8cb86c4a83fad0ca1479f31fbbbdc0974642a2638db89dc5",
+    "packages/backend/src/operations/feedback.ts": "c91cc8e1ad2c6b78337bb8406ae5106932134795afeaa351c88a12eb8c2eb47e",
+    "packages/backend/src/operations/feedback-validation.ts": "a4b09ae58d792f1f8f78db94177ed12a06aa85fbffd13f476be3925e02534862",
+    "packages/backend/src/operations/feedback-quota.ts": "7fb9f29076cad383378769f116cd29ecae6c7e35095fc5842c6b1bd8325fa30d",
+    "packages/backend/src/lib/http-fetch.ts": "8839ec5fc21a4a0be0fe2563569e610d0cf362d06b37c63cc4f1e75eef8aa35f",
+    "packages/backend/src/acquisition/crawl.ts": "f6c759fbf67e7391cd9061bce4c270a4f95ddeedef347bab84820775cf3c851c",
+    "packages/backend/src/sources/types.ts": "4b7d1f06fe961d8d9b988a061e299a9f36508299b2e4f737892702d8cf19280a",
+    "packages/backend/src/sources/web-list.ts": "ffc5e6859f8dc5410d7df4224e23a64178fb80c02f43cc5f0d7b5740bfbd7933",
+    "packages/backend/src/providers/jina.ts": "d64e746caf5bbfd170d13a3838aca8f90421f737761cb80a6e2dbc84355621bd",
+    "packages/backend/src/providers/receipts.ts": "4e7b24f147a5e89e53a3216c121e6814e5bd6c44407ad066d3ae3d1759f8aef0"
+  },
+  "known_limits": [
+    "验证使用隔离PostgreSQL和合成HTTP/图片；没有真实模型、真实来源启用、秘密读取或生产操作。",
+    "首轮聚合日志包含一个测试import启动失败；已改内部路径并由source-locks日志4项通过替代；原日志保留不重写。",
+    "本状态为模块本地行为证据，不宣称最终SHA完整verify、CI或线上/质量验收通过。",
+    "原fresh2审计中uncertain不在本次修复范围；未开启新审计循环。"
+  ],
+  "single_connection_followup": {
+    "status": "locally_verified",
+    "tasks": [
+      "TASK-0301",
+      "TASK-0302",
+      "TASK-0303",
+      "TASK-0304"
+    ],
+    "reproduced": {
+      "log": ".verify/audit-remediation-20261011/preview-single-connection-before.log",
+      "outcome": "DATABASE_POOL_MAX=1真实RSS预览在4秒子进程期限内未结束，SIGTERM退出；原实现跨网络持有连接并再次借连接自等待。"
+    },
+    "fixed": "不再跨网络持有数据库连接。source_previews.execution_token/lease_until短CAS串行执行；网络AbortSignal在90秒中止，租约120秒覆盖执行时限。recoverSourcePreviews只扫描过期running，并与重新入队同事务；已failed/succeeded不盲目重开。root已接每5分钟恢复扫描。",
+    "billing": "Jina preview readKey固定preview:<持久id>，跨恢复不变；另外既有paidRequest claim事务按lane+source subject屏蔽Jina source_listing预览的pending/unknown回执，换preview ID/URL不能绕过。未修改其它供应商和金额策略。",
+    "transport": "实际RSS与本地合成Jina provider均走生产HTTP路径，在单连接池验证成功/有界中止；Jina原始URL许可检查与生产采集保持一致。",
+    "recovery_evidence": "真实SIGKILL中断、并发扫描只入队一次、旧令牌迟到成功/失败不能覆盖恢复结果、归档不能复活；Jina模拟回执unknown已保存而预览终态未写的中断窗口，恢复同ID与新ID均保持物理HTTP 1次、receipt_attempt 1条。",
+    "fixture_fix": "source-preview-fixture仅在合成数据库推进已结束失败记录的一分钟重复窗口，再请求新预览；不重跑已结束任务、不放宽生产准入/间隔。automatic-feed与foreign-automatic原行为断言通过。",
+    "types": {
+      "backend": "pass",
+      "tests": "pass",
+      "logs": [
+        ".verify/audit-remediation-20261011/preview-final-backend-types.log",
+        ".verify/audit-remediation-20261011/preview-final-test-types.log"
+      ]
+    },
+    "lint": {
+      "new_warnings": 0,
+      "existing_warnings": 3,
+      "existing_infos": 4,
+      "log": ".verify/audit-remediation-20261011/preview-final-lint.log"
+    },
+    "limits": [
+      "只验证本地隔离数据库、合成HTTP与假模型；真实模型调用0。",
+      "预览状态及恢复端口已验证，最终统一版本CI与真实定时运行证据由root取得。",
+      "保留首次复现与中间失败日志，成功证据按最终逐文件结果替代，不改写原记录。"
+    ]
+  }
+}

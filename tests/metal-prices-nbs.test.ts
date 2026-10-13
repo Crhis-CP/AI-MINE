@@ -17,14 +17,20 @@ const TAIL = "流通领域重要生产资料市场价格变动情况";
 const NOW = new Date("2026-10-06T04:00:00Z");
 const all = loadMetalPriceRegistry();
 // Only the bureau's part: later cards add the World Bank and the IMF to the same file.
-const registry = { sources: all.sources.filter((source) => source.key === "nbs"), items: all.items.filter((item) => item.source === "nbs") };
+const registry = {
+  ...all,
+  sources: all.sources.filter((source) => source.key === "nbs"),
+  items: all.items
+    .filter((item) => item.source === "nbs" && item.key !== "nbs.sulfuric_acid")
+    .map((item) => ({ ...item, metal: item.metal ?? "copper", quote: item.quote ?? item.key, enabled: true })),
+};
 const [source] = registry.sources;
 /** The ten registered series in the order of the bureau's table, and 本期价格 as the two fixtures write it. */
-const KEYS = "rebar wire_rod medium_plate hr_coil seamless_pipe angle_steel copper aluminum lead zinc".split(" ").map((key) => `nbs.${key}`);
+const KEYS = "rebar wire_rod medium_plate hr_coil seamless_pipe angle_steel copper aluminum lead zinc lithium".split(" ").map((key) => `nbs.${key}`);
 const published = (values: string) => values.split(" ").map((value, i) => ({ key: KEYS[i], unit: "吨", value }));
 const PUBLISHED = {
-  [EARLY]: published("3182.7 3367.1 3564.7 3351.6 4026.9 3469.8 110492.5 24356.3 16006.3 26991.9"),
-  [MID]: published("3165.1 3353.7 3548.0 3308.9 4022.4 3433.1 108770.0 24191.7 15883.3 26257.5"),
+  [EARLY]: published("3182.7 3367.1 3564.7 3351.6 4026.9 3469.8 110492.5 24356.3 16006.3 26991.9 55800.8"),
+  [MID]: published("3165.1 3353.7 3548.0 3308.9 4022.4 3433.1 108770.0 24191.7 15883.3 26257.5 51881.1"),
 };
 
 /** Fixtures by address; `change` swaps in edited copies. Any other address fails, as an unknown page would. */
@@ -68,7 +74,10 @@ test("both releases read as ten rows exactly as published, in the periods the li
   assert.deepEqual([both[0].rows, both[1].rows], [PUBLISHED[EARLY], PUBLISHED[MID]]);
   const zincStopped = { ...registry, items: registry.items.map((item) => ({ ...item, enabled: item.key !== "nbs.zinc" })) };
   const [inKilograms] = await nbsFetcher(zincStopped, pages({ [MID]: mid.replace(/(电解铜[\s\S]*?)吨/, "$1千克") })).fetch(async () => "2026-09-11");
-  assert.deepEqual(inKilograms.rows, copper({ unit: "千克" }).fetched.rows.slice(0, 9));
+  assert.deepEqual(
+    inKilograms.rows,
+    copper({ unit: "千克" }).fetched.rows.filter((row) => row.key !== "nbs.zinc"),
+  );
   // Nor does the check hold either: 9月上旬 with nothing stored, 9月中旬 after it.
   assert.deepEqual([checkPeriod({ ...base, fetched: previous, previous: null, newest: null }), checkPeriod(base)], [FIRST, NONE]);
   // 下旬 runs to the month's last day: February 28, or 29 in a leap year.
@@ -140,7 +149,7 @@ test("the check gives the reason for each way a period is held back", () => {
   ];
   for (const [change, reason] of cases) assert.deepEqual(checkPeriod({ ...base, ...change }), { reasons: [reason], notes: [] }, reason);
   // Under half the rows of the previous period, each missing series named too; series no longer enabled do not count.
-  assert.deepEqual(checkPeriod({ ...base, ...four }).reasons, ["只有 4 行，不到上一期仍启用的 10 个品种的一半", ...missingSteel]);
+  assert.deepEqual(checkPeriod({ ...base, ...four }).reasons, ["只有 5 行，不到上一期仍启用的 11 个品种的一半", ...missingSteel]);
   assert.deepEqual(checkPeriod({ ...base, ...four, items: registry.items.filter((item) => !KEYS.slice(0, 6).includes(item.key)) }).reasons, []);
 });
 

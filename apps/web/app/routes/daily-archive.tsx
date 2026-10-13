@@ -24,7 +24,7 @@ export function meta() {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=600, stale-while-revalidate=300" };
+  return { "Cache-Control": "no-store" };
 }
 
 export default function DailyArchive() {

@@ -1,6 +1,8 @@
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 // Exercise the real queue callback and process shutdown: already sent model answers must settle
 // before the DB closes, and the next process must recover using those receipts.
-import { gate, Reply, stub, tag } from "./setup.ts";
+import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -39,7 +41,9 @@ const provider = await stub(async (_hit, request) => {
   if (step === "score" && count === 1) {
     active.scoreAsked.open();
     await active.scoreAnswer.promise;
-    if (active.failScore) return new Reply(503, { error: "temporary score outage" });
+    // A received, billed invalid score can be retried; an ambiguous HTTP failure cannot.
+    if (active.failScore)
+      return { choices: [{ message: { content: '{"attentionScore":"invalid"}' } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
   }
   if (step === "structure" && count === 1) {
     active.structureAsked.open();
@@ -57,7 +61,7 @@ const provider = await stub(async (_hit, request) => {
         : step === "structure"
           ? { category: "ai-models", tags: ["模型发布"], subjects: [], fact: { title: "新模型发布" } }
           : {
-              itemType: "model_release",
+              itemType: "policy_regulation",
               authorRole: "principal",
               tags: ["模型发布"],
               editorialJudgment: "模型有明确的能力提升",
@@ -134,8 +138,15 @@ async function until(check: () => Promise<boolean>, label: string) {
 }
 
 before(async () => {
+  for (const prefix of ["DASHSCOPE", "ZHIPU", "DEEPSEEK"]) {
+    process.env[`${prefix}_BASE_URL`] = `${provider.url}/v1`;
+    process.env[`${prefix}_API_KEY`] = "test-key";
+  }
+  for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"])
+    await installUsageFixtureForModel(model);
   await sql`INSERT INTO sources (id,name,kind,tier,participation_mode,next_fetch_at)
     VALUES (${SOURCE},'Analysis shutdown','rss','T1','editorial','2100-01-01')`;
+  await ensureModelSourceFixture(SOURCE, ["https://example.org/source"]);
 });
 after(async () => {
   active?.scoreAnswer.open();
@@ -190,8 +201,8 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   const [projection] = await sql`SELECT visibility,selected FROM publications WHERE article_id=${articleId}`;
   assert.deepEqual(
     { ...projection },
-    { visibility: "withdrawn", selected: false },
-    "finishing analysis during shutdown does not publish untranslated material",
+    { visibility: "public", selected: true },
+    "Owner guide-first mode retains the completed Chinese introduction while full translation remains pending",
   );
   assert.equal((await sql`SELECT 1 FROM receipts WHERE subject=${`article:${articleId}@1`} AND status='completed'`).length, 5);
 });

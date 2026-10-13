@@ -1,0 +1,112 @@
+{
+  "stage": "locally_verified_ready_for_independent_comparison",
+  "source_report": "independent-reader.json",
+  "fixed_report_unchanged": true,
+  "production": false,
+  "real_model_calls": 0,
+  "scope": [
+    "R10",
+    "R13",
+    "R14",
+    "R16",
+    "R17",
+    "R29",
+    "R33",
+    "R34",
+    "R35"
+  ],
+  "excluded": "uncertain findings and unrelated independent findings",
+  "checks": {
+    "build": "public/private passed",
+    "types": "backend/tests/web public/private passed",
+    "browser": "New round2 3/3 passed, including persistent unknown-response idempotency retry after reload and a new key after editing. Existing reader-browser 2 tests passed in combined run.",
+    "database": "New detail 2/2, new RSS 2/2, existing v3 6/6, report withdrawal 1/1, real public_read 1/1 passed. UTF8 isolated database clones; no production/model calls.",
+    "lint": "Focused new files clean; touched legacy files retain only pre-existing budgeted warnings. No budget/guard changes."
+  },
+  "changes": {
+    "R10": "Other sources panel links to full event.",
+    "R13": "Explicit current readingState and source original link without relaxing source rights.",
+    "R14": "First-public evidence shown separately; unknown historical time remains null. Shared writer/DDL by root and pipeline.",
+    "R16": "First-party-priority representative and latest distinct fact shown separately, current item marked, one-report block hidden.",
+    "R17": "Generated-client followups: waiting/loading/error+retry/empty/success, summaries included and current fact excluded.",
+    "R29": "Feedback links carry current SPA pathname+search; read-only associated page; PIPE22 stable UUID key survives unknown-response reload and changes with edited payload.",
+    "R33": "RSS publisher first, visible AI notice and per-item machine metadata; manual edit label only from current active evidence.",
+    "R34": "dailyFeed uses reportLeadParagraph(content,gone) supplied by pipeline for withdrawal/correction qualification.",
+    "R35": "All RSS routes use shared immediate revalidation cache control; no stale extension; ttl=1."
+  },
+  "remaining": [
+    "Root final integration and second independent functional comparison."
+  ],
+  "recorded_at": "2026-10-12T05:51:56.076227+00:00",
+  "code_stable": true,
+  "evidence": {
+    "detail": {
+      "path": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-db.log",
+      "test_file": "tests/reader-detail-round2.test.ts",
+      "passed": 2,
+      "note": "This initial combined log also contains fixture failures in other files; those files were fixed and rerun below."
+    },
+    "rss_and_v3": {
+      "path": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-db-rerun.log",
+      "passed": 8
+    },
+    "report_withdrawal": {
+      "path": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-report-compat.log",
+      "passed": 1
+    },
+    "public_read": {
+      "path": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-public-role.log",
+      "passed": 1
+    },
+    "new_browser": {
+      "path": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-browser-rerun.log",
+      "passed": 3
+    },
+    "existing_browser": {
+      "path": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-browser-final.log",
+      "test_file": "apps/web/tests/reader-browser.test.ts",
+      "passed": 2,
+      "note": "The new followups fixture failed in this combined run before being corrected to the strict contract and passing in new_browser."
+    },
+    "build": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-build.log",
+    "backend_tests_types": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-types-final.log",
+    "web_types": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/reader-round2-web-types.log"
+  },
+  "fixture_repairs": [
+    "RSS fixture now supplies required discovered_at/timeline_at.",
+    "Existing report fixtures record actual publication revision so they are valid before the withdrawal under PIPE25; no production qualification was weakened.",
+    "Followups fixture uses strict response fields; initial browser interaction waits for first withdrawal revalidation to finish."
+  ],
+  "limits": [
+    "Historical first public timestamps remain unknown when no recorded observation exists.",
+    "First-party metadata proves the combined official/party category, not a guessed government-versus-company subtype.",
+    "Browser test backend is synthetic; real database API and public_read tests are separate evidence.",
+    "No production deployment, real-person content quality acceptance, or claim that the second independent comparison has passed."
+  ],
+  "report_corrections_closeout": {
+    "task": "TASK-0286",
+    "status": "locally_verified",
+    "ui": "ReportPaper renders public reason/revision/Beijing time across daily/weekly/monthly; absent history stays absent.",
+    "api": "v3Report maps only revision/reason/at; root supplied optional V3Report schema and generated OpenAPI.",
+    "boundary": "Pipeline public DTO now validates correction records, whitelists system public reasons or a generic notice, and drops actor/audit_reason/invalid rows; actual API test covers both site and v3.",
+    "checks": {
+      "browser": "4/4 passed",
+      "api": "public-v3 6/6 passed again with the final split-migration template; site/v3 correction privacy projection covered",
+      "build": "public/private passed",
+      "types": "backend/tests passed and web public/private passed",
+      "lint": "Only the 2 pre-existing ReportPaper array-index key warnings; budget unchanged"
+    },
+    "logs": {
+      "build": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/task0286-build-final.log",
+      "browser": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/task0286-browser-final.log",
+      "api": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/task0286-api-post-migration.log",
+      "types": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/task0286-types-final.log",
+      "lint": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/task0286-lint.log",
+      "api_before_migration_split": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/task0286-api-final.log"
+    },
+    "resolved_initial_failures": [
+      "Initial private build failed on the other agent new root api-client import; owning agent fixed it, final build and web types passed.",
+      "Initial site report API leaked synthetic extra correction fields; pipeline added public field/reason filtering, final site/v3 API assertions passed."
+    ]
+  }
+}

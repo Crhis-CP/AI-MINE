@@ -1,3 +1,4 @@
+import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 // Category display names the Owner changed on 2026-10-05 (TASK-0041) are also kept as an item's first tag:
 // an item analysed under an old name (full name or short name) is published with the new one only, so the
 // new tag and search find it in 全部矿业动态 and the old name no longer does; tags someone set by hand stay
@@ -8,7 +9,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { overrideFields, setVisibility } from "@amp/backend/admin/content";
+import { setVisibility } from "@amp/backend/admin/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -71,7 +72,7 @@ test("an item analysed under an old category name is published with the new one 
 
 test("tags set by hand stay as they were", async () => {
   const id = await analysed("safety_incident", ["矿山安全"]);
-  await overrideFields(id, { fields: { tags: ["人身与生产安全", "人工标签"] }, reason: "合成：人工改标签", version: 0 }, "test");
+  await confirmedManualEdit(id, { fields: { tags: ["人身与生产安全", "人工标签"] }, reason: "合成：人工改标签", version: 0 }, "test");
   assert.deepEqual(await tagsOf(id), ["人身与生产安全", "人工标签"], "listed for a person to change, not changed automatically");
 });
 
@@ -82,7 +83,7 @@ test("the rename script lists by default, republishes with --apply without a mod
   const withdrawn = await analysed("safety_incident", ["人身与生产安全"]);
   const manual = await analysed("technology_processing", ["技术与加工"]);
   await setVisibility(withdrawn, { visibility: "withdrawn", reason: "合成：人工下架", version: 0 }, "test");
-  await overrideFields(manual, { fields: { tags: ["技术与加工", "人工标签"] }, reason: "合成：人工改标签", version: 0 }, "test");
+  await confirmedManualEdit(manual, { fields: { tags: ["技术与加工", "人工标签"] }, reason: "合成：人工改标签", version: 0 }, "test");
   for (const [id, name, old] of [
     [safety, "矿山安全", "人身与生产安全"],
     [tech, "技术与冶炼", "技术加工"],

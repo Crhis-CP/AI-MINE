@@ -5,6 +5,75 @@ import { CATEGORY_KEYS, type CategoryKey, type ChannelKey } from "@amp/contracts
 import { CATEGORY_LABELS, CHANNEL_LABELS } from "@amp/industry/taxonomy";
 import { IconClose, IconSearch } from "../../components/icons";
 import { PillTabs } from "../../components/ui/Tabs";
+import { createPublicClient, publicSchemas } from "@amp/api-client/public";
+
+/** The selector describes event/impact geography; publication-source tags are not an input. */
+export function JurisdictionFilter({ base, value }: { base: string; value: string | null }) {
+  const [params] = useSearchParams(),
+    navigation = useNavigation();
+  const [choices, setChoices] = useState<{ code: string; label: string; kind: string; news_count: number }[] | null>(null),
+    [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    createPublicClient({ baseUrl: window.location.origin })
+      .GET("/api/site/jurisdictions", { signal: controller.signal })
+      .then((response) => {
+        if (!response.response.ok) throw new Error("jurisdictions unavailable");
+        if (!controller.signal.aborted) setChoices(publicSchemas.PolicyJurisdictionList.parse(response.data));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+    return () => controller.abort();
+  }, []);
+  const keep = [...new Set(params.keys())]
+    .filter((key) => !["jurisdiction", "page", "cursor", "deep", "anchorAt", "_routes"].includes(key))
+    .map((key) => [key, params.get(key)!] as const);
+  return (
+    <Form method="get" action={base} className="my-3 flex flex-wrap items-center gap-2 text-[13px]">
+      {keep.map(([key, value]) => (
+        <input key={key} type="hidden" name={key} value={value} />
+      ))}
+      <label className="flex items-center gap-2">
+        国家 / 地区
+        <select
+          name="jurisdiction"
+          defaultValue={value ?? ""}
+          key={`${value ?? "all"}:${choices ? "ready" : "loading"}`}
+          className="max-w-[220px] rounded-md border border-line-strong bg-surface px-3 py-2 text-ink"
+        >
+          <option value="">全部国家 / 地区</option>
+          {value && !["unknown", "none"].includes(value) && !choices?.some((j) => j.code === value) && <option value={value}>当前国家条件</option>}
+          {[
+            { label: "国家", kind: "country" },
+            { label: "中国省区", kind: "subdivision" },
+            { label: "国际组织", kind: "organization" },
+          ].map(({ label, kind }) => (
+            <optgroup key={kind} label={label}>
+              {(choices ?? [])
+                .filter((j) => j.kind === kind)
+                .map((j) => (
+                  <option key={j.code} value={j.code}>
+                    {j.label}（{j.news_count}）
+                  </option>
+                ))}
+            </optgroup>
+          ))}
+          <optgroup label="其他归属">
+            <option value="unknown">国家尚未完全确定</option>
+            <option value="none">未限定国家</option>
+          </optgroup>
+        </select>
+      </label>
+      <button type="submit" disabled={navigation.state === "loading"} className="rounded-md border border-line-strong px-3 py-2 text-ink disabled:opacity-50">
+        筛选
+      </button>
+      <span className="text-ink-4">
+        {failed ? "国家选项暂时不可用，当前筛选仍保留。" : choices ? "按事件或影响地区 · 数字为已识别资讯数" : "正在读取国家选项…"}
+      </span>
+    </Form>
+  );
+}
 
 /** Same page with some query parameters changed (paging state dropped). */
 export function hrefWith(base: string, params: URLSearchParams, patch: Record<string, string | null>) {
@@ -179,13 +248,83 @@ export function SearchField({
 
 /** Mobile home: the search icon at the end of the category row opens search on 全部动态. */
 export function SearchIconLink() {
+  const [params] = useSearchParams();
   return (
     <Link
-      to="/all?search=1"
+      to={hrefWith("/all", params, { search: "1" })}
       aria-label="搜索"
       className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
     >
       <IconSearch size={19} />
     </Link>
+  );
+}
+
+/** Shareable source, mineral and calendar-day conditions; submitting resets only pagination. */
+export function SourceDateFilters({
+  base,
+  facets,
+}: {
+  base: string;
+  facets?: { sources: Array<{ id: string; name: string; count: number }>; minerals: string[] };
+}) {
+  const [params] = useSearchParams();
+  const controls = ["source", "mineral", "on", "from", "to"];
+  const field = "min-w-0 rounded-control border border-line-strong bg-surface px-2 py-2 text-[16px] text-ink sm:text-[13px]";
+  return (
+    <details className="my-3 rounded-control border border-line px-3 py-2" open={controls.some((name) => params.get(name)) || undefined}>
+      <summary className="cursor-pointer text-[13px] text-ink-3">来源、矿种与日期筛选</summary>
+      <Form key={params.toString()} method="get" action={base} className="mt-3 flex flex-wrap items-end gap-3" aria-label="资讯组合筛选">
+        {[...params]
+          .filter(([name]) => ![...controls, "page", "cursor", "_routes"].includes(name))
+          .map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
+        <label className="flex max-w-full flex-col gap-1 text-[12px] text-ink-3">
+          来源
+          <select name="source" defaultValue={params.get("source") ?? ""} className={field}>
+            <option value="">全部来源</option>
+            {params.get("source") && !facets?.sources.some((source) => source.id === params.get("source")) && (
+              <option value={params.get("source")!}>当前来源（暂无匹配）</option>
+            )}
+            {facets?.sources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name}（{source.count}）
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-[12px] text-ink-3">
+          矿种
+          <select name="mineral" defaultValue={params.get("mineral") ?? ""} className={field}>
+            <option value="">全部矿种</option>
+            {facets?.minerals.map((mineral) => (
+              <option key={mineral} value={mineral}>
+                {mineral}
+              </option>
+            ))}
+          </select>
+        </label>
+        {[
+          ["on", "指定日期"],
+          ["from", "开始日期"],
+          ["to", "结束日期"],
+        ].map(([name, label]) => (
+          <label key={name} className="flex flex-col gap-1 text-[12px] text-ink-3">
+            {label}
+            <input type="date" name={name} defaultValue={params.get(name!) ?? ""} className={field} />
+          </label>
+        ))}
+        <button type="submit" className={`${field} text-accent`}>
+          应用筛选
+        </button>
+        <Link to={hrefWith(base, params, { source: null, mineral: null, on: null, from: null, to: null })} className="py-2 text-[13px] text-ink-3">
+          清除这些条件
+        </Link>
+        <p className="w-full text-[12px] text-ink-4">
+          按时间线的北京日期筛选，与列表分组和“今天”一致；指定日期优先于日期范围，来源日期待核实的内容也可按时间线日期查找。
+        </p>
+      </Form>
+    </details>
   );
 }

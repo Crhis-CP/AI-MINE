@@ -18,6 +18,10 @@ export const RELATIONS = ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP
 export type Relation = (typeof RELATIONS)[number];
 
 export interface ReportView {
+  articleId?: string;
+  revision?: number;
+  originalText?: string;
+  jurisdiction?: string | null;
   title: string;
   source: string;
   firstParty: boolean;
@@ -43,6 +47,7 @@ export interface Verdict {
   relation: Relation;
   confidence: number;
   note: string;
+  evidence?: RelationEvidence | null;
 }
 
 /** The relation prompts (industry/prompts/group-*.md): a new report against candidate facts, a pair, a signal post. */
@@ -52,10 +57,71 @@ export const SIGNAL_SYSTEM = promptText("group-signal");
 
 const RelationSchema = z.enum(RELATIONS).catch("UNRELATED");
 
+const RelationEvidenceSchema = z.object({
+  queryQuote: z.string().min(12).max(600),
+  candidateQuote: z.string().min(12).max(600),
+  anchor: z.string().min(2).max(120),
+  queryAction: z.string().min(1).max(120),
+  candidateAction: z.string().min(1).max(120),
+  queryStage: z.enum(["proposed", "approved", "stopped", "resumed", "other"]),
+  candidateStage: z.enum(["proposed", "approved", "stopped", "resumed", "other"]),
+  change: z.string().max(300),
+});
+export type RelationEvidence = z.infer<typeof RelationEvidenceSchema>;
+const evidence = RelationEvidenceSchema.nullable().catch(null);
+
+function statedStage(quote: string): string | null {
+  if (/(?:尚未|未获|拟议|计划|propos|planned|not approved|previst|proyectad)/i.test(quote)) return "proposed";
+  if (/(?:批准|获批|approved|autorizad|aprob[óoa])/i.test(quote)) return "approved";
+  if (/(?:停产|停工|suspend|halted|stopped)/i.test(quote)) return "stopped";
+  if (/(?:复产|复工|resum|restart)/i.test(quote)) return "resumed";
+  return null;
+}
+
+/** Raw quotations and material identity outrank confidence and lexical recall. */
+export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
+  if (verdict.relation !== "SAME_OCCURRENCE" && verdict.relation !== "SAME_STORY") return verdict.relation;
+  const e = verdict.evidence;
+  if (verdict.confidence < 0.8 || !e || !a.originalText || !b.originalText || !a.jurisdiction || a.jurisdiction !== b.jurisdiction) return "UNRELATED";
+  if (!a.originalText.includes(e.queryQuote) || !b.originalText.includes(e.candidateQuote)) return "UNRELATED";
+  if (
+    ![e.queryQuote, e.candidateQuote].every((q) => q.includes(e.anchor)) ||
+    !e.queryQuote.includes(e.queryAction) ||
+    !e.candidateQuote.includes(e.candidateAction)
+  )
+    return "UNRELATED";
+  const aStage = statedStage(e.queryQuote),
+    bStage = statedStage(e.candidateQuote);
+  if ((aStage && aStage !== e.queryStage) || (bStage && bStage !== e.candidateStage)) return "UNRELATED";
+  if (a.frame?.object && b.frame?.object && a.frame.object !== b.frame.object) return "UNRELATED";
+  if (a.frame?.subject && b.frame?.subject && a.frame.subject !== b.frame.subject) return "UNRELATED";
+  if (verdict.relation === "SAME_OCCURRENCE" && (e.queryStage !== e.candidateStage || e.queryAction !== e.candidateAction)) return "UNRELATED";
+  if (
+    verdict.relation === "SAME_STORY" &&
+    (!a.at ||
+      !b.at ||
+      a.at <= b.at ||
+      !e.change.trim() ||
+      (e.queryStage === e.candidateStage &&
+        e.queryAction === e.candidateAction &&
+        JSON.stringify(e.queryQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? []) === JSON.stringify(e.candidateQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? [])))
+  )
+    return "UNRELATED";
+  return verdict.relation;
+}
+
 export const BatchSchema = z.object({
   query: z.string().max(400).catch(""),
   decisions: z
-    .array(z.object({ id: z.string(), relation: RelationSchema, confidence: z.coerce.number().min(0).max(1).catch(0.5), note: z.string().max(400).catch("") }))
+    .array(
+      z.object({
+        id: z.string(),
+        relation: RelationSchema,
+        confidence: z.coerce.number().min(0).max(1).catch(0.5),
+        note: z.string().max(400).catch(""),
+        evidence,
+      }),
+    )
     .catch([]),
 });
 
@@ -64,11 +130,12 @@ export const PairSchema = z.object({
   b: z.string().max(400).catch(""),
   relation: RelationSchema,
   difference: z.string().max(400).catch(""),
+  evidence,
   confidence: z.coerce.number().min(0).max(1).catch(0.5),
 });
 
 export const SignalSchema = z.object({
-  decisions: z.array(z.object({ id: z.string(), relation: RelationSchema, confidence: z.coerce.number().min(0).max(1).catch(0.5) })).catch([]),
+  decisions: z.array(z.object({ id: z.string(), relation: RelationSchema, confidence: z.coerce.number().min(0).max(1).catch(0.5), evidence })).catch([]),
 });
 
 function when(at: Date | null): string {
@@ -81,6 +148,8 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
     `【${label}】${extra}`,
     `标题：${r.title}`,
     `来源：${r.source}${r.firstParty ? "（当事方/官方）" : ""}｜发布时间：${when(r.at)}`,
+    `原文证据：${r.originalText ?? "（无）"}`,
+    `法域：${r.jurisdiction ?? "未知"}`,
     `摘要：${(r.summary ?? "").slice(0, 360) || "（无）"}`,
     f && (f.subject || f.action || f.object)
       ? `事实要素：主体=${f.subject || "?"}；动作=${f.action || "?"}；对象=${f.object || "?"}；日期=${f.occurredAt || "未知"}`
@@ -105,14 +174,21 @@ export function pairUser(a: ReportView, b: ReportView): string {
 
 /** Verdicts by fact id; a candidate the model skipped counts as UNRELATED. */
 export function verdictsByFact(
-  decisions: Array<{ id: string; relation: Relation; confidence: number; note?: string }>,
+  decisions: Array<{ id: string; relation: Relation; confidence: number; note?: string; evidence?: RelationEvidence | null }>,
   cands: CandidateView[],
+  query?: ReportView,
 ): Map<number, Verdict> {
   const out = new Map<number, Verdict>();
   for (const d of decisions) {
     const n = Number(String(d.id).trim().replace(/^C/i, ""));
     const c = Number.isInteger(n) ? cands[n - 1] : undefined;
-    if (c && !out.has(c.factId)) out.set(c.factId, { relation: d.relation, confidence: d.confidence, note: d.note ?? "" });
+    if (c && !out.has(c.factId))
+      out.set(c.factId, {
+        relation: query ? validatedRelation(query, c.report, d) : d.relation,
+        confidence: d.confidence,
+        note: d.note ?? "",
+        evidence: d.evidence,
+      });
   }
   for (const c of cands) if (!out.has(c.factId)) out.set(c.factId, { relation: "UNRELATED", confidence: 0, note: "" });
   return out;
@@ -121,13 +197,17 @@ export function verdictsByFact(
 /** Candidates the model calls the same occurrence, most confident first (recall similarity breaks ties). */
 export function sameOccurrence(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView[] {
   return cands
-    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE")
+    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE" && verdicts.get(c.factId)!.confidence >= 0.8)
     .sort((a, b) => verdicts.get(b.factId)!.confidence - verdicts.get(a.factId)!.confidence || b.score - a.score);
 }
 
 /** The story a development joins: the most similar candidate that is its story's root occurrence. */
 export function storyForDevelopment(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView | null {
-  return cands.filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY").sort((a, b) => b.score - a.score)[0] ?? null;
+  return (
+    cands
+      .filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY" && verdicts.get(c.factId)!.confidence >= 0.8)
+      .sort((a, b) => b.score - a.score)[0] ?? null
+  );
 }
 
 export function looksLikeRoundup(cands: CandidateView[], verdicts: Map<number, Verdict>): boolean {

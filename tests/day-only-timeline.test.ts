@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { collectSource } from "@amp/backend/sources/collect";
+import { collectSource } from "./crawl-fixture.ts";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { loadPool } from "@amp/backend/publication/pool";
 import { setVisibility } from "@amp/backend/admin/content";

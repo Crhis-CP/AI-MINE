@@ -53,6 +53,9 @@ export async function readRoleCatalog(sql: Db, prefix = "amp"): Promise<Catalog>
     await sql<{ name: string }[]>`SELECT 'function '||n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')' AS name
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
       WHERE n.nspname !~ '^pg_' AND n.nspname NOT IN ('information_schema','public','pgboss')
+      AND NOT (n.nspname||'.'||p.proname = ANY(ARRAY['publication.bump_read_version','publication.record_news_public_time','publication.record_policy_public_time','publication.invalidate_source_readers','sources.retain_archive_state'])
+        AND p.pronargs=0 AND p.prorettype='trigger'::regtype AND NOT p.prosecdef
+        AND pg_get_userbyid(p.proowner) IN (current_user,${roleNames(prefix).migrate}))
       UNION ALL SELECT 'type '||n.nspname||'.'||t.typname FROM pg_type t JOIN pg_namespace n ON n.oid=t.typnamespace
       WHERE n.nspname !~ '^pg_' AND n.nspname NOT IN ('information_schema','public','pgboss')
       AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_type row_type ON row_type.oid=c.reltype

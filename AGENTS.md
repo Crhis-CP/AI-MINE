@@ -61,6 +61,8 @@ make verify                        # 合并前必过：在独立执行器上对 
 make release-check                 # 发布前：制品、SBOM、签名、冒烟（运维泳道）
 ```
 
+**每次生产发布的版本保留与清理**：Owner 2026-10-12已授权持续执行。发布全程持有`/opt/aimine/.ops/release.lock`，保留现役及两个必要历史版本；健康稳定后由已安装维护timer清理确认无用的旧程序标签与过期构建缓存。不要删除/替换锁文件，不清理稿件、法规、数据库卷或必要回退副本；详见`docs/runbooks/release-retention.md`。
+
 **提交前跑 `check`；合并前以 `verify` 回执为准。** 不依赖 GitHub Actions：执行器可替换，不得是生产主机；缺 Docker 的本机只能跑 focused 子集，**不得宣称完整通过**。`nightly` 用 `make nightly`，不假设云端 cron。
 
 ## 5. 授权边界（完整清单：`docs/06-agents/01-parallel-development-rules.md` 第 14 节）

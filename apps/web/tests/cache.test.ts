@@ -1,10 +1,11 @@
 // Run after `npm run build -w @amp/web`. Real production server/router, synthetic HTTP API only.
 import { SITE } from "@amp/industry/site";
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -27,6 +28,7 @@ let privatePageFixtures = false;
 let reconciliationUnavailable = false;
 let poolMode: "ok" | "busy" | "bad" | "missing" | "empty" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
+let statsSelected = 0;
 const timelineCalls: Array<{ path: string; accept: string | undefined; ssr: string | undefined }> = [];
 const timeline = publicSchemas.TimelineResponse.parse(
   JSON.parse(readFileSync(new URL("../../../scripts/verify/tests/fixtures/timeline-response.json", import.meta.url), "utf8")),
@@ -62,6 +64,101 @@ const footerItem = {
   hasTranslation: false,
   bodyLanguage: "zh",
 };
+let priceMode: "full" | "stale" | "partial" | "empty" | "error" = "full";
+let policyMode: "full" | "empty" | "error" | "withdrawn" | "reading_error" | "revision" = "full";
+const policyFixture = (name: string) => JSON.parse(readFileSync(new URL(`../../../tests/fixtures/policy-public/${name}.json`, import.meta.url), "utf8"));
+function syntheticPrices() {
+  const period = { start: "2026-09-11", end: "2026-09-20", label: "合成报价期" };
+  const q = (key: string, source: string, value: string | null, percent: string | null, decimals: number | null = null) => ({
+    key,
+    source,
+    title: `合成报价 ${key} · 最后一段`,
+    spec: key === "a" ? "合成规格" : null,
+    footnote: key === "a" ? 1 : null,
+    value,
+    unit: "合成单位",
+    currency: "CNY",
+    decimals,
+    period: value ? period : null,
+    change: percent ? { percent, previous: { value: "100.0", period } } : null,
+  });
+  const data = publicSchemas.MetalPrices.parse({
+    generatedAt: "2026-10-06T04:00:00Z",
+    intro: "合成价格测试导语",
+    sources: [
+      ["甲", "日"],
+      ["乙", "月"],
+    ].map(([key, tag]) => ({
+      key,
+      name: `合成来源${key}`,
+      tag,
+      status: "fresh" as const,
+      latest: { label: "合成报价期", release: { label: "合成发布", url: "https://source.invalid/release", date: null } },
+    })),
+    latest: [
+      { tag: "日", label: "合成新期", stale: false, extras: [{ metals: ["合成乙"], label: "合成旧期", stale: false }] },
+      { tag: "月", label: "合成新期", stale: false, extras: [] },
+    ],
+    metals: [
+      { key: "first", name: "合成甲", quotes: [q("a", "甲", "108770.0", "1.0"), q("b", "乙", "64.599999999999994", "-1.6", 2)] },
+      { key: "second", name: "合成乙", quotes: [q("c", "甲", "200.0", "0.0"), q("d", "乙", null, null)] },
+    ],
+    notes: [
+      { ref: 1, text: "合成脚注见{link}。", link: { name: "合成许可", url: "https://source.invalid/license" } },
+      { ref: null, text: "合成普通说明", link: null },
+    ],
+    officialLinks: ["甲", "乙"].map((name, i) => ({ name: `合成官方入口${name}`, note: `合成入口说明${name}`, url: `https://source.invalid/official-${i}` })),
+  });
+  if (priceMode === "stale") {
+    data.sources[0]!.status = "stale";
+    data.latest[0]!.stale = true;
+  }
+  if (priceMode === "empty" || priceMode === "partial") {
+    const stopped = new Set(priceMode === "empty" ? data.sources.map((source) => source.key) : ["乙"]);
+    const stoppedTags = new Set(data.sources.filter((source) => stopped.has(source.key)).map((source) => source.tag));
+    for (const source of data.sources)
+      if (stopped.has(source.key)) {
+        source.status = "empty";
+        source.latest = null;
+      }
+    for (const latest of data.latest)
+      if (stoppedTags.has(latest.tag)) {
+        latest.label = null;
+        latest.stale = false;
+        latest.extras = [];
+      }
+    for (const metal of data.metals)
+      for (const quote of metal.quotes)
+        if (stopped.has(quote.source)) {
+          quote.value = null;
+          quote.period = null;
+          quote.change = null;
+        }
+  }
+  return publicSchemas.MetalPrices.parse(data);
+}
+
+const siteInformationFixture = publicSchemas.SiteInformation.parse({
+  revision: 1,
+  updatedAt: "2026-10-09T00:00:00Z",
+  about: "合成网站资料介绍",
+  contactEmail: null,
+  contactPage: null,
+  metalLinks: [{ name: "合成官方入口", url: "https://source.invalid/metals", note: "合成说明" }],
+});
+const protectedSiteFixture = {
+  siteUrl: "https://public.preview.test",
+  siteUrlOrigin: "runtime",
+  icp: { configured: true, origin: "build", footerDisplayed: true, aboutDisplayed: false },
+  publicSecurity: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
+  newsLicense: { configured: false, origin: "not_recorded", footerDisplayed: false, aboutDisplayed: false },
+  newsLicenseValidUntil: null,
+  newsLicenseDateState: "not_recorded",
+  remainingDays: null,
+  warningDays: 60,
+  productionFilingConfigured: false,
+};
+
 const apiCookies: Array<string | undefined> = [];
 const privateCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
@@ -72,8 +169,68 @@ const privateApi = createServer((req, res) => {
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
   if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
   if (privatePageFixtures) {
-    if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false }));
-    if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 888, feedback: 888, runs: 888 }));
+    if (req.url === "/api/admin/model-connections") return res.end(JSON.stringify({ storage: "ready", connections: [] }));
+    if (req.url === "/api/admin/model-fallbacks") return res.end(JSON.stringify({ routes: [], sources: [] }));
+    if (req.url === "/api/admin/selectbench/control") return res.end(JSON.stringify({ enabled: false, expiresAt: null, revision: 0 }));
+    if (req.url === "/api/admin/selectbench/prefilter-audit")
+      return res.end(
+        JSON.stringify({
+          pools: { discarded: 2, kept: 1, unknown: 0 },
+          excluded: 1,
+          batchSize: 20,
+          draw: null,
+        }),
+      );
+    if (req.url === "/api/admin/selectbench/standards") {
+      const hash = "ab".repeat(32);
+      return res.end(
+        JSON.stringify({
+          tool: { enabled: false, expiresAt: null, revision: 0 },
+          current: {
+            standardVersion: "selection-score@09b414c0c5",
+            contentHash: hash,
+            prefilterVersion: "prefilter@synthetic",
+            thresholdVersion: hash,
+            thresholds: { T1: 60, T1_5: 65, T2: 76 },
+            text: "合成评分标准",
+            prefilterText: "合成预筛",
+            deploymentConfirmedVersion: null,
+            configuredForCurrent: false,
+            effectiveAt: null,
+            model: { model: "synthetic", configurationHash: null, state: "unknown", reason: null },
+          },
+          submission: null,
+          reviewStatus: "draft",
+          records: [],
+          calibrations: [],
+          checks: { ownerStandardReview: false, ownerHoldout: false, versionsMatch: false, ready: false },
+          missing: [],
+        }),
+      );
+    }
+    if (req.url === "/api/admin/accounts")
+      return res.end(
+        JSON.stringify({
+          limit: 10,
+          accounts: [
+            {
+              id: 1,
+              login_name: "synthetic-owner",
+              display_name: "合成管理员",
+              role: "owner",
+              active: true,
+              models_manage: true,
+              must_change_password: false,
+              revision: 1,
+              managed: true,
+              last_login_at: null,
+            },
+          ],
+        }),
+      );
+    if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
+    if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false, owner: true, modelsManage: true }));
+    if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 2, feedback: 1, runs: 0 }));
     if (req.url?.startsWith("/api/admin/models?"))
       return res.end(
         JSON.stringify({
@@ -135,10 +292,81 @@ const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   apiCookies.push(req.headers.cookie);
   res.setHeader("Content-Type", "application/json");
+  if (url.pathname.startsWith("/api/site/policies")) {
+    const send = (body: unknown, status = 200) => {
+      res.statusCode = status;
+      return res.end(JSON.stringify(body));
+    };
+    if (policyMode === "error") return send({ code: "temporarily_unavailable" }, 503);
+    if (url.pathname.endsWith("/scope")) return send(policyFixture("scope"));
+    if (url.pathname === "/api/site/policies/reports") return send(policyFixture("report-list"));
+    if (url.pathname === "/api/site/policies/reports/report-fixture") return send(policyFixture("report"));
+    if (url.pathname === "/api/site/policies") {
+      const list = policyFixture("list");
+      if (policyMode === "empty") {
+        list.items = [];
+        list.total = 0;
+      }
+      return send(list);
+    }
+    if (policyMode === "withdrawn") return send({ code: "not_found" }, 404);
+    if (url.pathname.endsWith("/history")) return send(policyFixture("history"));
+    if (url.pathname.endsWith("/reading")) {
+      if (url.searchParams.get("cursor")?.startsWith("next:") && ["reading_error", "revision"].includes(policyMode))
+        return send({ code: "revision_changed" }, policyMode === "revision" ? 409 : 503);
+      const page = policyFixture("reading"),
+        original = url.searchParams.get("expression_id") === "expression-en";
+      if (original) {
+        page.expression_id = "expression-en";
+        page.document_revision_id = "revision-en";
+        page.language = "en";
+        page.mode = "original";
+        page.blocks[0].text = "Synthetic original clause one";
+      }
+      const cursor = url.searchParams.get("cursor"),
+        binding = `${page.expression_id}:${page.document_revision_id}`;
+      if (cursor !== `init:${binding}` && cursor !== `next:${binding}`) return send({ code: "revision_changed" }, 409);
+      const next = cursor.startsWith("next:");
+      page.blocks = page.blocks.slice(next ? 1 : 0, next ? 2 : 1);
+      page.next_cursor = next ? null : `next:${binding}`;
+      return send(page);
+    }
+    const policy = policyFixture(url.pathname.endsWith("/policy-fixture") ? "basic-facts" : "complete");
+    if (url.searchParams.get("expression_id") === "expression-en") {
+      policy.selected_expression_id = "expression-en";
+      policy.reading.expression_id = "expression-en";
+      policy.reading.document_revision_id = "revision-en";
+      policy.reading.language = "en";
+      policy.reading.mode = "original";
+    }
+    if (policy.reading) policy.reading.next_cursor = `init:${policy.reading.expression_id}:${policy.reading.document_revision_id}`;
+    return send(policy);
+  }
+  if (url.pathname === "/api/site/metal-prices") {
+    if (priceMode === "error") {
+      res.statusCode = 503;
+      return res.end(JSON.stringify({ code: "temporarily_unavailable" }));
+    }
+    return res.end(JSON.stringify(syntheticPrices()));
+  }
+  if (url.pathname === "/api/site/information") return res.end(JSON.stringify(siteInformationFixture));
   if (url.pathname === "/api/site/meta") {
     metaCalls++;
     const respond = () => res.end(JSON.stringify({ changelogVersion: "2026-09-28T12:00" }));
     return metaDelayMs ? setTimeout(respond, metaDelayMs) : respond();
+  }
+  if (url.pathname === "/api/site/stats") {
+    return res.end(
+      JSON.stringify({
+        sources: 0,
+        sourceKinds: {},
+        heatOnlySources: 0,
+        items: statsSelected,
+        selected: statsSelected,
+        dailies: 0,
+        day: { collected: 0, selected: 0 },
+      }),
+    );
   }
   if (url.pathname === "/api/site/timeline") {
     timelineCalls.push({ path: req.url!, accept: req.headers.accept, ssr: req.headers["x-amp-ssr"] as string | undefined });
@@ -271,8 +499,8 @@ test("public route subsets produce the same complete navigation data; filters st
     ["", "?_routes=root", "?_routes=routes%2Fhome", "?_routes=unknown"].map(async (query) => {
       const res = await fetch(`${origin}/_.data${query}`);
       assert.equal(res.status, 200);
-      assert.match(res.headers.get("Cache-Control")!, /^public,/);
-      assert.equal(res.headers.get("X-Accel-Expires"), `@${deadline}`);
+      assert.equal(res.headers.get("Cache-Control"), "private, no-store");
+      assert.equal(res.headers.get("X-Accel-Expires"), "0");
       assert.doesNotMatch(res.headers.get("Cache-Control")!, /stale/);
       const body = await res.text();
       assert.ok(body.includes("public-layout") && body.includes("routes/home"));
@@ -349,17 +577,15 @@ test("every public page carries the ICP filing number in the phone footer; the �
   assert.equal(more.split(icp).length - 1, 2, "once in the sidebar, once in the 更多 page's own footer");
 });
 
-test("HTML and navigation share freshness; cookies do not personalize public results", async () => {
+test("HTML and navigation preserve current reading state; cookies do not personalize public results", async () => {
   const html = await fetch(`${origin}/`);
   assert.equal(html.status, 200);
-  assert.equal(html.headers.get("X-Accel-Expires"), `@${deadline}`);
+  assert.equal(html.headers.get("X-Accel-Expires"), "0");
   assert.match(await html.text(), /精选/);
   const plain = await fetch(`${origin}/about.data`);
   const signedIn = await fetch(`${origin}/about.data?_routes=root`, { headers: { cookie: "admin_session=private; amp_vid=reader" } });
-  assert.match(plain.headers.get("Cache-Control")!, /^public,/);
-  assert.match(plain.headers.get("X-Accel-Expires")!, /^@\d+$/);
-  assert.equal(plain.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
-  assert.equal(Date.parse(plain.headers.get("Date")!) / 1000 + 300, Number(plain.headers.get("X-Accel-Expires")!.slice(1)));
+  assert.equal(plain.headers.get("Cache-Control"), "no-cache", "editable about material must be revalidated after saving");
+  assert.equal(plain.headers.get("X-Accel-Expires"), "0");
   assert.equal(signedIn.headers.get("Set-Cookie"), null);
   assert.equal(await signedIn.text(), await plain.text());
   assert.ok(apiCookies.every((cookie) => !cookie));
@@ -404,7 +630,7 @@ test("an elapsed release deadline cannot be extended by a fresh page/data respon
     for (const pathname of ["/", "/_.data?_routes=routes%2Fhome"]) {
       const res = await fetch(origin + pathname);
       assert.equal(res.status, 200);
-      assert.equal(res.headers.get("Cache-Control"), "no-cache");
+      assert.equal(res.headers.get("Cache-Control"), "private, no-store");
       assert.equal(res.headers.get("X-Accel-Expires"), "0");
       await res.text();
     }
@@ -418,7 +644,7 @@ test("an elapsed release deadline cannot be extended by a fresh page/data respon
   assert.equal(headers["X-Accel-Expires"], upstream.get("X-Accel-Expires"));
 });
 
-test("browser freshness shares the selected deadline, including slow sibling loaders", async () => {
+test("selected release metadata cannot make reader responses cacheable, including slow sibling loaders", async () => {
   const savedDeadline = deadline;
   const savedRefresh = refreshAt;
   try {
@@ -427,16 +653,12 @@ test("browser freshness shares the selected deadline, including slow sibling loa
     for (const pathname of ["/", "/_.data?_routes=routes%2Fhome"]) {
       const res = await fetch(origin + pathname);
       const cc = res.headers.get("Cache-Control")!;
-      const browser = Number(cc.match(/(?:^|,)\s*max-age=(\d+)/)![1]);
-      const shared = Number(cc.match(/(?:^|,)\s*s-maxage=(\d+)/)![1]);
-      assert.ok(browser > 0 && browser === shared);
-      assert.ok(Date.parse(res.headers.get("Date")!) / 1000 + browser <= deadline);
-      assert.equal(res.headers.get("X-Accel-Expires"), `@${deadline}`);
-      assert.match(cc, /must-revalidate/);
+      assert.equal(cc, "private, no-store");
+      assert.equal(res.headers.get("X-Accel-Expires"), "0");
       assert.doesNotMatch(cc, /stale/);
       await res.text();
     }
-    // The selected loader initially grants a positive TTL, but public layout metadata finishes after it.
+    // Upstream grants a positive TTL, but public layout metadata finishes after that release deadline.
     deadline = Math.floor(Date.now() / 1000) + 2;
     refreshAt = new Date((deadline + 5) * 1000).toISOString();
     metaDelayMs = 2300;
@@ -444,7 +666,7 @@ test("browser freshness shares the selected deadline, including slow sibling loa
       ["/", "/_.data?_routes=routes%2Fhome"].map(async (pathname) => {
         const res = await fetch(origin + pathname);
         assert.equal(res.status, 200);
-        assert.equal(res.headers.get("Cache-Control"), "no-cache");
+        assert.equal(res.headers.get("Cache-Control"), "private, no-store");
         assert.equal(res.headers.get("X-Accel-Expires"), "0");
         await res.text();
       }),
@@ -456,10 +678,11 @@ test("browser freshness shares the selected deadline, including slow sibling loa
   }
 });
 
-test("the edge may keep a page longer than browsers, which a withdrawal purge cannot reach", async () => {
+test("article navigation cannot be retained by either browsers or the edge after a withdrawal", async () => {
   const res = await fetch(`${origin}/items/long-lived.data`);
   assert.equal(res.status, 200);
-  assert.equal(res.headers.get("Cache-Control"), "public, max-age=300, s-maxage=600, must-revalidate");
+  assert.equal(res.headers.get("Cache-Control"), "private, no-store");
+  assert.equal(res.headers.get("X-Accel-Expires"), "0");
   await res.text();
 });
 
@@ -492,7 +715,11 @@ test("private proxy and login SSR use the private API, preserve raw queries, and
   const html = await login.text();
   assert.equal(login.status, 200);
   assert.match(html, /用飞书登录/);
-  assert.match(html, /还没有设置管理员密码/);
+  assert.match(html, /账号登录暂未配置，请联系网站负责人。/);
+  assert.match(html, /name="login_name"/);
+  assert.match(html, /name="password"/);
+  assert.match(html, /name="login_nonce" value=""/);
+  assert.match(html, /<button[^>]*type="submit"[^>]*disabled/);
   assert.ok(privateCalls.slice(before).some((call) => call.path === "/api/auth/options" && call.forwarded === PRIVATE_HOST));
   assert.equal(login.headers.get("Cache-Control"), "private, no-store");
   const reader = await fetch(`${origin}/api/site/echo-routing?q=/api/auth/options`);
@@ -505,7 +732,7 @@ test("the real /all page consumes its generated pool contract and preserves erro
     assert.equal(page.status, 200);
     assert.match(await page.text(), /真实列表消费者/);
     assert.deepEqual(poolCalls.at(-1), { path: "/api/site/pool?q=%E9%93%9C+%E9%87%91&page=2", accept: "application/json", ssr: "1" });
-    assert.equal(page.headers.get("Cache-Control"), "public, max-age=60, s-maxage=60, must-revalidate");
+    assert.equal(page.headers.get("Cache-Control"), "private, no-store");
     assert.ok(apiCookies.every((cookie) => !cookie));
     for (const [mode, status] of [
       ["bad", 503],
@@ -544,7 +771,7 @@ test("home consumes the timeline contract, preserves query/cache headers and kee
       accept: "application/json",
       ssr: "1",
     });
-    assert.equal(response.headers.get("X-Accel-Expires"), `@${deadline}`);
+    assert.equal(response.headers.get("X-Accel-Expires"), "0");
     for (const [mode, status] of [
       ["bad", 503],
       ["busy", 503],
@@ -594,7 +821,7 @@ test("until the first pick exists the unfiltered home page shows the newest item
     assert.match(html, /真实列表消费者/);
     assert.match(html, /href="\/all\?page=2"/);
     assert.deepEqual(poolCalls.slice(before), [{ path: "/api/site/pool", accept: "application/json", ssr: "1" }]);
-    assert.equal(home.headers.get("X-Accel-Expires"), `@${deadline}`);
+    assert.equal(home.headers.get("X-Accel-Expires"), "0");
     // “全部” stays on the home page (the current page); the other tabs lead to 全部动态.
     const rows = filterTabs(html);
     assert.ok(rows.length > 0);
@@ -615,14 +842,14 @@ test("until the first pick exists the unfiltered home page shows the newest item
       assert.match(body, /这个筛选下还没有精选内容/, query);
       assert.equal(poolCalls.length, before, query);
     }
-    // 全部动态 empty: the picks empty state of DR-85, cached as usual.
+    // 全部动态 empty: the picks empty state of DR-85 remains uncached so later arrivals are observable.
     poolMode = "empty";
     const empty = await fetch(`${origin}/`);
     assert.equal(empty.status, 200);
     const emptyBody = await empty.text();
     assert.doesNotMatch(emptyBody, notice);
     assert.match(emptyBody, noPicks);
-    assert.equal(empty.headers.get("X-Accel-Expires"), `@${deadline}`);
+    assert.equal(empty.headers.get("X-Accel-Expires"), "0");
     // 全部动态 unreadable or unusable: the same empty state, and nothing is cached so the next request reads again.
     for (const mode of ["busy", "bad"] as const) {
       poolMode = mode;
@@ -631,7 +858,7 @@ test("until the first pick exists the unfiltered home page shows the newest item
       const body = await failed.text();
       assert.doesNotMatch(body, notice, mode);
       assert.match(body, noPicks, mode);
-      assert.equal(failed.headers.get("Cache-Control"), "no-cache", mode);
+      assert.equal(failed.headers.get("Cache-Control"), "private, no-store", mode);
       assert.equal(failed.headers.get("X-Accel-Expires"), "0", mode);
     }
     poolMode = "ok";
@@ -656,26 +883,82 @@ test("until the first pick exists the unfiltered home page shows the newest item
   }
 });
 
-test("金属价格 shows the official LME entry and the notice, never a number or a table", async () => {
-  const res = await fetch(`${origin}/metals`);
+test("an empty featured window stays the featured entrance when older picks still exist", async () => {
+  timelineMode = "empty";
+  statsSelected = 1;
+  try {
+    const before = poolCalls.length;
+    const home = await fetch(`${origin}/`);
+    assert.equal(home.status, 200);
+    const html = await home.text();
+    assert.doesNotMatch(html, /精选还没开始/);
+    assert.match(html, /这个筛选下还没有精选内容/);
+    assert.equal(poolCalls.length, before);
+  } finally {
+    statsSelected = 0;
+    timelineMode = "empty";
+  }
+});
+
+test("金属价格 renders registry-driven quotes, exact decimal text, footnotes and all five states", async () => {
+  priceMode = "full";
+  const res = await fetch(`${origin}/metals`),
+    html = await res.text();
   assert.equal(res.status, 200);
-  const html = await res.text();
-  const start = html.indexOf(">", html.indexOf("data-metals")) + 1;
-  const article = html.slice(start, html.indexOf("</article>", start));
-  const text = article.replace(/<[^>]+>/g, "");
-  for (const line of [
-    "金属价格",
-    "通过伦敦金属交易所（LME）官方入口查看金属行情。",
-    "LME 官方金属行情",
-    "本站目前不展示或转售 LME 报价。行情的时间、计价单位与使用规则以 LME 官方页面为准。",
-    "站内价格表尚未开通，暂无已授权价格数据。",
-    "浏览矿业市场动态",
-  ])
-    assert.ok(text.includes(line), line);
-  assert.doesNotMatch(text, /\d/);
-  assert.doesNotMatch(article, /<table/);
-  assert.match(article, /<a href="https:\/\/www\.lme\.com\/metals" target="_blank" rel="noopener noreferrer"/);
-  assert.match(article, /href="\/all\?category=commodity_market"/);
+  assert.equal(res.headers.get("Cache-Control"), "public, max-age=300, s-maxage=300, must-revalidate");
+  const table = html.slice(html.indexOf("<table"), html.indexOf("</table>"));
+  const text = table.replace(/<[^>]+>/g, "");
+  assert.match(text, /品种报价价格变化规格/);
+  assert.ok(text.includes("较上一交易日") && text.includes("较上月"));
+  assert.doesNotMatch(text, /较上期/);
+  assert.match(table, /scope="rowgroup" rowspan="2"/i);
+  for (const value of ["合成甲", "合成乙", "合成报价 a", "甲", "乙", "合成规格", "108,770.0", "64.60", "+1.0%", "−1.6%", "0.0%", "暂缺"])
+    assert.ok(text.includes(value), value);
+  assert.match(table, /text-hot[^>]*>\+1.0%/);
+  assert.match(table, /text-ok[^>]*>−1.6%/);
+  assert.match(table, /text-ink-3[^>]*>0.0%/);
+  assert.doesNotMatch(table, /2026-|合成报价期/);
+  assert.match(html, /href="#n1"[^>]*aria-label="见说明第 1 条"/);
+  assert.match(html, /id="n1"/);
+  assert.match(html, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);
+  assert.ok(html.includes("合成旧期") && html.includes("合成普通说明"));
+  assert.ok(!html.slice(html.indexOf("data-metals"), html.indexOf("</article>")).includes("{link}"));
+  const links = [...html.matchAll(/<a href="(https:\/\/source.invalid\/official-\d+)"[^>]*>([\s\S]*?)<\/a>/g)];
+  assert.equal(links.length, syntheticPrices().officialLinks.length);
+  for (const [, url, label] of links) {
+    const link = syntheticPrices().officialLinks.find((link) => link.url === url)!;
+    assert.ok(label!.includes(link.name));
+    assert.ok(!label!.includes(link.note));
+  }
+  try {
+    for (const mode of ["stale", "partial", "empty", "error"] as const) {
+      priceMode = mode;
+      const response = await fetch(`${origin}/metals`),
+        body = await response.text();
+      assert.equal(response.status, mode === "error" ? 503 : 200);
+      if (mode === "stale") {
+        assert.ok(body.includes("数据已陈旧"));
+        assert.ok(body.includes("108,770.0"));
+      }
+      if (mode === "partial") {
+        assert.ok(body.includes("暂无已授权价格数据"));
+        assert.ok(body.includes("暂缺"));
+        assert.ok(body.includes("108,770.0"));
+      }
+      if (mode === "empty") {
+        assert.ok(body.includes("暂无已授权价格数据"));
+        assert.doesNotMatch(body, /<table|id="metals-notes"/);
+        assert.ok(body.includes("合成官方入口甲"));
+      }
+      if (mode === "error") {
+        assert.match(response.headers.get("Cache-Control") ?? "", /no-store/);
+        assert.ok(body.includes("价格数据暂时无法读取"));
+        assert.doesNotMatch(body, /<table|暂无已授权价格数据|合成价格测试导语|合成官方入口/);
+      }
+    }
+  } finally {
+    priceMode = "full";
+  }
   // Desktop sidebar entry; on phones the bottom bar keeps “更多” highlighted.
   assert.match(html, /<aside[\s\S]*href="\/metals"[\s\S]*<\/aside>/);
   const tabbar = html.slice(html.indexOf('aria-label="底部导航"'));
@@ -689,6 +972,163 @@ test("金属价格 shows the official LME entry and the notice, never a number o
   for (const links of [hrefs(html.slice(html.indexOf("<aside"), html.indexOf("</aside>"))), hrefs(body)]) {
     assert.ok(links.includes("/starred"), links.join(" "));
     assert.equal(links[links.indexOf("/starred") + 1], "/metals", links.join(" "));
+  }
+});
+
+test("policy pages distinguish basic facts, complete interpretations, unknown dates, honest emptiness and failures", async () => {
+  try {
+    const list = await fetch(`${origin}/policies`);
+    assert.equal(list.status, 200);
+    assert.match(await list.text(), /目标国家|跨国与国际组织/);
+    const basic = await fetch(`${origin}/policies/policy-fixture`);
+    assert.equal(basic.status, 200);
+    const html = await basic.text();
+    assert.match(html, /决定性附件尚未取得，完整解读不可用/);
+    assert.match(html, /来源发布日期：/);
+    assert.doesNotMatch(html, /id="analysis"/);
+    const report = await fetch(`${origin}/policies/reports/report-fixture`);
+    assert.equal(report.status, 200);
+    assert.match(await report.text(), /本期来源检查说明/);
+    policyMode = "empty";
+    assert.match(await (await fetch(`${origin}/policies`)).text(), /当前筛选暂无已公开法规/);
+    policyMode = "error";
+    const failed = await fetch(`${origin}/policies`);
+    assert.equal(failed.status, 503);
+    const error = await failed.text();
+    assert.match(error, /暂时无法读取政策法规/);
+    assert.doesNotMatch(error, /当前筛选暂无已公开法规/);
+    policyMode = "withdrawn";
+    assert.equal((await fetch(`${origin}/policies/policy-complete-fixture`)).status, 404);
+    const invalid = await fetch(`${origin}/policies?theme=mining_rights&q=retained`);
+    assert.equal(invalid.status, 400);
+    assert.match(await invalid.text(), /value="retained"/);
+  } finally {
+    policyMode = "full";
+  }
+});
+test("policy reading retains pages on failure, aligns original nodes and removes stale interpretation on withdrawal or revision", async () => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((p) => p && existsSync(p));
+  assert.ok(executablePath);
+  const browser = await chromium.launch({ executablePath });
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  await context.route("**/*", (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient")));
+  const page = await context.newPage();
+  try {
+    await page.goto(`${origin}/policies/policy-complete-fixture`);
+    await page.getByRole("button", { name: "收藏法规", exact: true }).click();
+    await expect(page.getByRole("button", { name: "已收藏法规", exact: true })).toBeVisible();
+    await page.goto(`${origin}/starred`);
+    await expect(page.getByRole("region", { name: "法规收藏" })).toContainText("【合成预览】融资信息报告规则");
+    await page.goto(`${origin}/policies/policy-complete-fixture`);
+    await expect(page.getByText(/已载入 1 \/ 2/)).toBeVisible();
+    await page.getByRole("button", { name: "对照原文", exact: true }).click();
+    await expect(page.getByText("Synthetic original clause one", { exact: true })).toBeVisible();
+    policyMode = "reading_error";
+    await page.getByRole("button", { name: "继续读取正文" }).click();
+    await expect(page.getByText(/暂时无法继续读取/)).toBeVisible();
+    await expect(page.getByText("【合成预览】第一条", { exact: true })).toBeVisible();
+    policyMode = "full";
+    await page.getByRole("button", { name: "重新读取正文" }).click();
+    await expect(page.getByText("已载入全部正文节点。", { exact: true })).toBeVisible();
+    await page.getByRole("link", { name: "原文 en", exact: true }).click();
+    await expect(page.getByText(/原文 · en · 已载入 1 \/ 2/)).toBeVisible();
+    policyMode = "withdrawn";
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.getByText("这篇法规当前不可查看", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-policy]")).toHaveCount(0);
+    policyMode = "revision";
+    await page.goto(`${origin}/policies/policy-complete-fixture`);
+    await expect(page.getByText(/已载入 1 \/ 2/)).toBeVisible();
+    await page.getByRole("button", { name: "继续读取正文" }).click();
+    await expect(page.getByRole("heading", { name: "当前内容已变化或暂不可查看" })).toBeVisible();
+    await expect(page.locator("#analysis")).toHaveCount(0);
+  } finally {
+    policyMode = "full";
+    await browser.close();
+  }
+});
+
+test("metal prices refresh only while visible, recover on focus and keep the last successful result on failure", async () => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((file) => file && existsSync(file));
+  assert.ok(executablePath, "An existing Chrome/Chromium is required; no browser download");
+  const browser = await chromium.launch({ executablePath, args: ["--disable-background-networking", "--disable-component-update"] });
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const blocked: string[] = [];
+  await context.route("**/*", (route) => {
+    if (new URL(route.request().url()).origin === origin) return route.continue();
+    blocked.push(route.request().url());
+    return route.abort("blockedbyclient");
+  });
+  let calls = 0,
+    unavailable = false,
+    value = "123456.7";
+  const page = await context.newPage();
+  await page.route("**/api/site/metal-prices", async (route) => {
+    calls++;
+    assert.equal(route.request().method(), "GET");
+    const next = syntheticPrices();
+    next.metals[0]!.quotes[0]!.value = value;
+    await route.fulfill({
+      status: unavailable ? 503 : 200,
+      contentType: "application/json",
+      body: JSON.stringify(unavailable ? { code: "unavailable" } : next),
+    });
+  });
+  try {
+    await page.clock.install();
+    await page.goto(`${origin}/metals`, { waitUntil: "networkidle" });
+    await expect(page.locator("[data-metals]")).toContainText("108,770.0");
+    assert.equal(calls, 0, "SSR data is reused until the first interval");
+    await page.clock.fastForward(300_001);
+    await expect(page.locator("[data-metals]")).toContainText("123,456.7");
+    assert.equal(calls, 1);
+    unavailable = true;
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("focus"));
+      window.dispatchEvent(new Event("focus"));
+    });
+    await expect(page.getByRole("status")).toContainText("更新暂时失败");
+    assert.equal(calls, 2, "focus events do not create overlapping refreshes");
+    await expect(page.locator("[data-metals]")).toContainText("123,456.7");
+    unavailable = false;
+    value = "123999.8";
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(page.locator("[data-metals]")).toContainText("123,999.8");
+    await expect(page.getByRole("status")).not.toContainText("更新暂时失败");
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    const beforeHidden = calls;
+    await page.clock.fastForward(600_001);
+    assert.equal(calls, beforeHidden, "hidden documents stop polling");
+    value = "124888.9";
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(page.locator("[data-metals]")).toContainText("124,888.9");
+    assert.equal(calls, beforeHidden + 1, "becoming visible refreshes immediately");
+    await page.getByRole("link", { name: "浏览矿业市场动态 →" }).click();
+    await expect(page.locator("[data-metals]")).toHaveCount(0);
+    const beforeLeaving = calls;
+    await page.clock.fastForward(300_001);
+    assert.equal(calls, beforeLeaving, "leaving the route removes the timer and listeners");
+    assert.deepEqual(blocked, []);
+  } finally {
+    await browser.close();
   }
 });
 
@@ -876,7 +1316,7 @@ test("retired daily pages are absent and private navigation no longer requests c
   const before = privateCalls.length;
   privatePageFixtures = true;
   try {
-    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/selectbench", "/admin/selectbench/example", "/admin/runs"]) {
+    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/runs"]) {
       for (const suffix of ["", ".data?_routes=root"]) {
         for (const method of ["GET", "HEAD"]) {
           const response = path.startsWith("/admin")
@@ -895,14 +1335,58 @@ test("retired daily pages are absent and private navigation no longer requests c
     const html = await response.text();
     assert.match(html, /合成管理员/);
     assert.match(html, /模型与评测/);
-    for (const path of ["content", "sources", "usage-models", "site", "feedback", "accounts", "usage-models/reconciliation", "usage-models/settings"]) {
+    assert.match(html, /内容诊断/);
+    assert.match(html, /精选校准/);
+    assert.match(html, /费用核对/);
+    for (const path of [
+      "content",
+      "sources",
+      "sources/targets",
+      "usage-models",
+      "site",
+      "feedback",
+      "account",
+      "accounts",
+      "selectbench",
+      "usage-models/reconciliation",
+      "usage-models/settings",
+    ]) {
       assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
     }
-    assert.doesNotMatch(html, /\/admin\/(?:selectbench|audit|runs)|同批样本对比|888/);
-    assert.ok(privateCalls.slice(before).every(({ path }) => path === "/api/admin/me" || path.startsWith("/api/admin/models?")));
+    assert.doesNotMatch(html, /\/admin\/(?:audit|runs)|同批样本对比|Codex|888/);
+    assert.ok(
+      privateCalls
+        .slice(before)
+        .every(
+          ({ path }) =>
+            ["/api/admin/me", "/api/admin/nav-counts", "/api/admin/model-connections", "/api/admin/model-fallbacks"].includes(path) ||
+            path.startsWith("/api/admin/models?"),
+        ),
+    );
+    const controlPage = await fetchWithHost(origin + "/admin/selectbench", PRIVATE_HOST);
+    assert.equal(controlPage.status, 200);
+    const selectbenchHtml = await controlPage.text();
+    assert.match(selectbenchHtml, /预筛抽查/);
+    assert.match(selectbenchHtml, /抽出大约 20 条/);
+    assert.match(selectbenchHtml, /预筛丢掉/);
+    assert.match(selectbenchHtml, /判定保留/);
+    assert.match(selectbenchHtml, /应该留下/);
+    assert.match(selectbenchHtml, /丢掉是对的/);
+    assert.match(selectbenchHtml, /应该丢掉/);
+    assert.match(selectbenchHtml, /留下是对的/);
+    assert.match(selectbenchHtml, /点了选项就会马上记下/);
+    assert.match(selectbenchHtml, /再抽一批不会清掉已经记下的判断/);
+    assert.match(selectbenchHtml, /标完只是记下来，供以后改预筛规则，不会立刻把稿公开或撤下/);
+    assert.doesNotMatch(selectbenchHtml, /不该丢|不该留|判得对/);
+    const runPage = await fetchWithHost(origin + "/admin/selectbench/example", PRIVATE_HOST);
+    assert.equal(runPage.status, 302);
+    assert.equal(runPage.headers.get("Location"), "/admin/selectbench");
+    await runPage.text();
     for (const group of ["public", "private"]) {
       const modules = readFileSync(new URL(`../build/${group}/modules.json`, import.meta.url), "utf8");
-      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|selectbench|runs))/);
+      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|runs))/);
+      if (group === "public") assert.doesNotMatch(modules, /routes\/admin\/selectbench/);
+      else assert.match(modules, /routes\/admin\/selectbench/);
     }
   } finally {
     privatePageFixtures = false;
@@ -968,19 +1452,40 @@ test("six private groups reuse existing capabilities and old bookmarks have only
       const main = html.match(/<main\b[\s\S]*?<\/main>/)![0];
       if (path.endsWith("accounts")) {
         assert.match(main, /合成管理员/);
-        const logout = main.match(/<form\b[^>]*>/)![0];
-        assert.match(logout, /method="post"/);
-        assert.match(logout, /action="\/api\/auth\/logout"/);
+        assert.match(main, /新增管理员/);
+        assert.match(main, /我的账号/);
+        assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/accounts"));
         assert.doesNotMatch(main, /type="password"|<input/);
       } else if (path.endsWith("site")) {
-        assert.match(main, /网站资料管理暂未开放/);
-        assert.doesNotMatch(main, /<form|<input|<textarea|<select/);
+        assert.match(main, /公开介绍/);
+        assert.match(main, /保存网站资料/);
+        assert.match(main, /受保护的展示配置/);
+        assert.doesNotMatch(main, /name="(?:icp|publicSecurity|newsLicense)"/);
+        assert.match(main, /<textarea/);
+        assert.match(main, /id="site-about"/);
       } else {
         assert.match(main, /通知目的地/);
         assert.match(main, /付费请求上限/);
         assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/settings"));
       }
     }
+  } finally {
+    privatePageFixtures = false;
+  }
+});
+
+test("site information page loads its real contract and keeps protected fields outside the edit form", async () => {
+  privatePageFixtures = true;
+  try {
+    const res = await fetchWithHost(origin + "/admin/site", PRIVATE_HOST);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.match(html, /合成网站资料介绍/);
+    assert.match(html, /保存网站资料/);
+    const form = html.match(/<form\b[^>]*class="space-y-5"[\s\S]*?<\/form>/)?.[0];
+    assert.ok(form);
+    assert.doesNotMatch(form, /ICP备案|公安联网备案|新闻信息服务许可证/);
+    assert.equal(res.headers.get("Cache-Control"), "private, no-store");
   } finally {
     privatePageFixtures = false;
   }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { verify as verifySignature } from "node:crypto";
+import { randomUUID, verify as verifySignature } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import type { z } from "zod";
 import { SourcePolicySchema, type IssueProcessingPermitInputSchema, type SignedProcessingPermit } from "@amp/contracts/source-policy";
@@ -236,7 +236,13 @@ test("private creation confirms an explicit scope atomically and the real evalua
   };
   try {
     assert.equal((await app.inject({ method: "POST", url: "/api/admin/sources", headers: forwarded, payload: {} })).statusCode, 401);
-    const login = await app.inject({ method: "POST", url: "/api/auth/password", headers: forwarded, payload: { password: config.adminPassword } });
+    const nonce = await app.inject({ url: "/api/auth/password-nonce", headers: forwarded });
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/password",
+      headers: { ...forwarded, cookie: String(nonce.headers["set-cookie"]).split(";")[0]! },
+      payload: { login_name: "admin@local", login_nonce: nonce.json().token, password: config.adminPassword },
+    });
     assert.equal(login.statusCode, 303);
     const cookie = String(login.headers["set-cookie"]).split(";")[0];
     const who = await app.inject({ url: "/api/admin/me", headers: { ...forwarded, cookie } });
@@ -616,6 +622,14 @@ test("real permission storage is immutable, CAS/audit atomic, fenced and recover
       ],
       { DATABASE_URL_WORKER: f.urlFor("worker"), DATABASE_URL_BACKUP: f.urlFor("backup") },
     );
+    await f.admin`UPDATE sources SET kind='rss',config='{"feedUrl":"https://source.invalid/mining/fixture"}'::jsonb WHERE id='source_fixture'`;
+    const { requestSourcePreview, runSourcePreview } = await import("@amp/backend/admin/sources");
+    const preview = await requestSourcePreview("source_fixture", {}, "admin:42", { inline: true });
+    await runSourcePreview(String(preview.preview_id), async () => ({
+      ms: 1,
+      count: 1,
+      items: [{ title: "Synthetic scoped item", url: "https://source.invalid/mining/fixture", publishedAt: null, excerpt: "Synthetic permission fixture" }],
+    }));
     const beforeEdit = (await sessions.private_ops`SELECT * FROM sources WHERE id='source_fixture'`)[0];
     const patch = {
       name: "changed fixture",
@@ -628,7 +642,7 @@ test("real permission storage is immutable, CAS/audit atomic, fenced and recover
       site_fulltext: false,
       syndicate_fulltext: false,
       tags: ["synthetic"],
-      config: {},
+      config: { feedUrl: "https://source.invalid/mining/fixture" },
     };
     const afterEdit = await updateSource("source_fixture", { patch, version: beforeEdit.updated_at.toISOString(), reason: "same behavior" }, "admin:42");
     for (const [key, value] of Object.entries(patch)) assert.deepEqual(afterEdit![key], value);
@@ -666,4 +680,128 @@ test("real permission storage is immutable, CAS/audit atomic, fenced and recover
     await stopBoss();
     await closeDb();
   }
+});
+
+test("public attribution links expose only explicit public evidence and backfill old current projections without changing permissions", async (t) => {
+  const withUserInfo = (address: string) => {
+    const url = new URL(address);
+    url.username = "synthetic-user";
+    url.password = randomUUID();
+    return url.href;
+  };
+  const f = await roleFixture(t);
+  await provisionRoles(f.admin, { prefix: f.prefix, apply: true });
+  const sessions = await f.login();
+  const { readerAttribution } = await import("../packages/backend/src/publication/reader-context.ts");
+  const { readCurrentPublicPolicies } = await import("../packages/backend/src/sources/permission-store.ts");
+  const evidence = (kind: z.infer<typeof SourcePolicySchema>["evidence"][number]["kind"], url: string) => ({
+    ...structuredClone(sourcePolicyExample.evidence[0]!),
+    kind,
+    url,
+    basis_zh: "PRIVATE EVIDENCE BODY: never publish",
+  });
+  const privateEvidence = [
+    evidence("owner_declared", "https://private.invalid/owner-record"),
+    evidence("written_authorization", "https://private.invalid/signed-letter"),
+  ];
+  const cases = [
+    {
+      id: "links-public",
+      evidence: [
+        ...privateEvidence,
+        evidence("open_license", "https://license.invalid/by/4.0"),
+        evidence("open_license", "https://license.invalid/by/4.0"),
+        evidence("official_policy", "https://source.invalid/legal"),
+        evidence("robots_terms", "https://source.invalid/robots.txt"),
+      ],
+      licence: "https://license.invalid/by/4.0",
+      legal: "https://source.invalid/legal",
+    },
+    { id: "links-private", evidence: privateEvidence, licence: null, legal: null },
+    {
+      id: "links-robots",
+      evidence: [...privateEvidence, evidence("robots_terms", "https://source.invalid/terms")],
+      licence: null,
+      legal: "https://source.invalid/terms",
+    },
+    {
+      id: "links-ambiguous",
+      evidence: [
+        ...privateEvidence,
+        evidence("open_license", "https://license.invalid/one"),
+        evidence("open_license", "https://license.invalid/two"),
+        evidence("official_policy", "https://source.invalid/one"),
+        evidence("official_policy", "https://source.invalid/two"),
+        evidence("robots_terms", "https://source.invalid/terms"),
+      ],
+      licence: null,
+      legal: null,
+    },
+    {
+      id: "links-userinfo",
+      evidence: [
+        ...privateEvidence,
+        evidence("open_license", withUserInfo("https://license.invalid/terms")),
+        evidence("official_policy", withUserInfo("https://source.invalid/terms")),
+      ],
+      licence: null,
+      legal: null,
+    },
+  ];
+  const check = async () => {
+    const batch = await readCurrentPublicPolicies(
+      cases.map((c) => c.id),
+      sessions.public_read,
+    );
+    for (const c of cases) {
+      const published = await readCurrentPublicPolicy(c.id, sessions.public_read);
+      assert.deepEqual(published, batch.get(c.id));
+      assert.equal(published!.licence_url, c.licence);
+      assert.equal(published!.legal_url, c.legal);
+      const attribution = readerAttribution("合成发布方", "https://source.invalid", published);
+      assert.equal(attribution.license!.url, c.licence);
+      assert.equal(attribution.legalUrl, c.legal);
+      assert.doesNotMatch(
+        JSON.stringify(published),
+        /private\.invalid|signed-letter|PRIVATE EVIDENCE BODY|reviewed_by|reviewed_at|written_authorization|owner_declared|user:private/,
+      );
+    }
+  };
+  for (const c of cases) {
+    await f.admin`INSERT INTO sources(id,name,kind,lane,enabled) VALUES(${c.id},'合成许可来源','external','news',false)`;
+    await f.admin.begin((tx) => appendSourcePolicy(tx, null, { ...structuredClone(sourcePolicyExample), source_id: c.id, evidence: c.evidence }));
+  }
+  await check();
+  const before =
+    await f.admin`SELECT source_id,permission_version,policy,policy_hash FROM sources.source_policy_versions ORDER BY source_id,permission_version`;
+  const permissionsBefore =
+    await f.admin`SELECT source_id,public_policy-'licence_url'-'legal_url' AS old_public FROM sources.source_policy_current ORDER BY source_id`;
+  await f.admin`UPDATE sources.source_policy_current SET public_policy=public_policy-'licence_url'-'legal_url'`;
+  assert.equal((await readCurrentPublicPolicy("links-public", sessions.public_read))!.licence_url, null, "old public policy shape remains readable");
+  const migration = readFileSync(path.join(ROOT, "database/migrations/sources/202610120500_public_attribution_links.sql"), "utf8");
+  await f.admin.unsafe(migration);
+  await check();
+  assert.deepEqual(
+    await f.admin`SELECT source_id,permission_version,policy,policy_hash FROM sources.source_policy_versions ORDER BY source_id,permission_version`,
+    before,
+  );
+  assert.deepEqual(
+    await f.admin`SELECT source_id,public_policy-'licence_url'-'legal_url' AS old_public FROM sources.source_policy_current ORDER BY source_id`,
+    permissionsBefore,
+  );
+  const projected = await f.admin`SELECT source_id,permission_version,public_policy FROM sources.source_policy_current ORDER BY source_id`;
+  await f.admin.unsafe(migration);
+  assert.deepEqual(await f.admin`SELECT source_id,permission_version,public_policy FROM sources.source_policy_current ORDER BY source_id`, projected);
+  await denied(sessions.public_read, "SELECT policy FROM sources.source_policy_versions");
+  await denied(sessions.public_read, "UPDATE sources.source_policy_current SET public_policy=public_policy WHERE false");
+  await f.admin.begin((tx) =>
+    appendSourcePolicy(tx, 1, { ...structuredClone(sourcePolicyExample), source_id: "links-public", permission_version: 2, evidence: privateEvidence }),
+  );
+  assert.equal(
+    (await readCurrentPublicPolicy("links-public", sessions.public_read))!.licence_url,
+    null,
+    "new current permission does not reuse an older public evidence URL",
+  );
+  await f.admin.unsafe(migration);
+  assert.equal((await readCurrentPublicPolicy("links-public", sessions.public_read))!.legal_url, null, "backfill reads only the current version");
 });

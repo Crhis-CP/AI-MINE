@@ -1,6 +1,6 @@
 import { SITE } from "@amp/industry/site";
 import { motion } from "motion/react";
-import { NavLink, Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
+import { redirect, NavLink, Outlet, useLocation, useNavigation, type ShouldRevalidateFunction } from "react-router";
 import type { Route } from "./+types/layout";
 import { ThemeSwitch } from "../../components/shell/ThemeSwitch";
 import { Wordmark } from "../../components/Logo";
@@ -9,8 +9,21 @@ import type { AdminMe } from "../../features/admin/action";
 import { Toaster } from "../../features/admin/toast";
 import { adminGet } from "../../lib/admin.server";
 
+type Counts = Partial<Record<"feedback" | "sources", number>>;
+
 export async function loader({ request }: Route.LoaderArgs) {
-  return { me: await adminGet<AdminMe>(request, "/api/admin/me") };
+  const me = await adminGet<AdminMe>(request, "/api/admin/me");
+  const path = new URL(request.url).pathname;
+  if (me.mustChangePassword && path !== "/admin/account") throw redirect("/admin/account");
+  let counts: Counts = {};
+  if (!me.mustChangePassword) {
+    try {
+      counts = await adminGet<Counts>(request, "/api/admin/nav-counts");
+    } catch (error) {
+      if (error instanceof Response && error.status >= 300 && error.status < 400) throw error;
+    }
+  }
+  return { me, counts };
 }
 
 // Keep identity revalidation after navigation and commands.
@@ -20,52 +33,81 @@ export const meta: Route.MetaFunction = () => [{ title: `${SITE.name} 后台` },
 
 export const headers: Route.HeadersFunction = () => ({ "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow" });
 
-const NAV: Array<{ group: string; items: Array<{ to: string; label: string }> }> = [
+type NavEntry = {
+  to: string;
+  label: string;
+  end?: boolean;
+  owner?: boolean;
+  count?: keyof Counts;
+  tone?: "bad" | "accent";
+};
+
+const NAV: Array<{ group: string; items: NavEntry[] }> = [
   {
     group: "内容",
     items: [
-      { to: "/admin/sources", label: "信源" },
-      { to: "/admin/content", label: "内容" },
-      { to: "/admin/feedback", label: "反馈" },
+      { to: "/admin/content", label: "内容诊断" },
+      { to: "/admin/sources", label: "信源", count: "sources", tone: "bad" },
+      { to: "/admin/sources/targets", label: "原表对账" },
+      { to: "/admin/feedback", label: "反馈", count: "feedback", tone: "accent" },
     ],
   },
   {
-    group: "设置",
+    group: "系统",
     items: [
-      { to: "/admin/usage-models", label: "用量与模型密钥" },
-      { to: "/admin/site", label: "网站资料" },
+      { to: "/admin/usage-models", label: "模型与评测", end: true },
+      { to: "/admin/selectbench", label: "精选校准", owner: true },
+      { to: "/admin/usage-models/reconciliation", label: "费用核对", end: true },
+      { to: "/admin/usage-models/settings", label: "设置", end: true },
+      { to: "/admin/site", label: "网站资料", owner: true },
+      { to: "/admin/accounts", label: "账号", owner: true, end: true },
     ],
   },
 ];
 
-const ACCOUNT = { to: "/admin/accounts", label: "账号" };
+const ACCOUNT: NavEntry = { to: "/admin/account", label: "我的账号", end: true };
 
-function NavItem({ to, label }: { to: string; label: string }) {
+function navActive(pathname: string, item: { to: string; end?: boolean }) {
+  if (item.to === "/admin/sources") return pathname === "/admin/sources" || /^\/admin\/sources\/(?!targets(?:\/|$)|new(?:\/|$))/.test(pathname);
+  if (item.end) return pathname === item.to;
+  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+}
+
+function NavItem({ item, count, pathname }: { item: NavEntry; count?: number; pathname: string }) {
+  const active = navActive(pathname, item);
   return (
-    <NavLink to={to} prefetch="intent" className="group relative block">
-      {({ isActive }) => (
-        <span
-          className={`relative flex items-center justify-between rounded-control px-3 py-[7px] text-[13.5px] transition-colors ${isActive ? "font-medium text-ink" : "text-ink-3 hover:text-ink"}`}
-        >
-          {isActive && (
-            <motion.span
-              layoutId="admin-nav"
-              className="absolute inset-0 rounded-control bg-surface shadow-sm ring-1 ring-line"
-              transition={{ type: "spring", stiffness: 520, damping: 38 }}
-            />
-          )}
-          <span className="relative">{label}</span>
-        </span>
-      )}
+    <NavLink to={item.to} end={item.end} prefetch="intent" className="group relative block">
+      <span
+        className={`relative flex items-center justify-between rounded-control px-3 py-[7px] text-[13.5px] transition-colors ${active ? "font-medium text-ink" : "text-ink-3 hover:text-ink"}`}
+      >
+        {active && (
+          <motion.span
+            layoutId="admin-nav"
+            className="absolute inset-0 rounded-control bg-surface shadow-sm ring-1 ring-line"
+            transition={{ type: "spring", stiffness: 520, damping: 38 }}
+          />
+        )}
+        <span className="relative">{item.label}</span>
+        {!!count && (
+          <span
+            className={`num relative min-w-5 rounded-full px-1.5 text-center text-[11px] font-semibold leading-5 ${item.tone === "bad" ? "bg-hot text-white" : "bg-accent-soft text-accent"}`}
+          >
+            {count}
+          </span>
+        )}
+      </span>
     </NavLink>
   );
 }
 
 export default function AdminLayout({ loaderData }: Route.ComponentProps) {
-  const { me } = loaderData;
+  const { me, counts } = loaderData;
   const navigation = useNavigation();
   const location = useLocation();
-  const flat = [...NAV.flatMap((g) => g.items), ACCOUNT];
+  const groups = me.mustChangePassword
+    ? []
+    : NAV.map((group) => ({ ...group, items: group.items.filter((item) => !item.owner || me.owner) })).filter((group) => group.items.length);
+  const flat = [...groups.flatMap((g) => g.items), ACCOUNT];
   return (
     <div className="flex min-h-dvh bg-bg">
       <NavigationProgress active={navigation.state === "loading"} />
@@ -75,12 +117,12 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
           <span className="text-[15px] font-semibold tracking-tight text-ink">后台</span>
         </a>
         <nav className="flex-1 space-y-4 overflow-y-auto">
-          {NAV.map((g) => (
+          {groups.map((g) => (
             <div key={g.group}>
               <div className="mb-1 px-3 text-[11.5px] font-medium tracking-wide text-ink-4">{g.group}</div>
               <div className="space-y-0.5">
                 {g.items.map((i) => (
-                  <NavItem key={i.to} to={i.to} label={i.label} />
+                  <NavItem key={i.to} item={i} count={i.count ? counts[i.count] : undefined} pathname={location.pathname} />
                 ))}
               </div>
             </div>
@@ -88,12 +130,13 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
         </nav>
         <ThemeSwitch />
         <div className="mt-3 border-t border-line px-2 pt-3 text-[12.5px] text-ink-3">
-          <NavItem {...ACCOUNT} />
+          <NavItem item={ACCOUNT} pathname={location.pathname} />
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">{me.name}</span>
             {me.dev && <span className="rounded bg-amber/15 px-1.5 text-[11px] font-medium text-amber">开发</span>}
           </div>
           <form method="post" action="/api/auth/logout" className="mt-1.5">
+            <input type="hidden" name="csrf" value={me.csrf} />
             <button type="submit" className="text-ink-4 hover:text-ink-2">
               退出登录
             </button>
@@ -110,7 +153,8 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
           </div>
           <nav className="no-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
             {flat.map((i) => {
-              const active = location.pathname === i.to || location.pathname.startsWith(`${i.to}/`);
+              const active = navActive(location.pathname, i);
+              const n = i.count ? counts[i.count] : 0;
               return (
                 <NavLink
                   key={i.to}
@@ -118,6 +162,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
                   className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-[13px] ${active ? "bg-ink text-bg" : "text-ink-3"}`}
                 >
                   {i.label}
+                  {!!n && <span className="num ml-1 text-[11px] opacity-70">{n}</span>}
                 </NavLink>
               );
             })}

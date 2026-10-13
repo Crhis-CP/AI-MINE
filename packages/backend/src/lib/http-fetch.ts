@@ -12,8 +12,9 @@ import { SITE } from "@amp/industry/site";
  * through the egress proxy when EGRESS_PROXY_URL is set (for example a rule-based proxy that connects
  * .cn and .local names and Chinese or private addresses directly and sends the rest abroad); the names
  * and address literals such a proxy would connect directly are connected here instead, so the
- * connect-time address check still applies. "direct" is for paid APIs called straight (Dajiala) and
- * the site's own addresses.
+ * connect-time address check still applies. Empty means a direct connection. "direct" is for model
+ * calls and paid APIs called straight (Dajiala). This dispatcher is per request: it is not installed
+ * as HTTP_PROXY, so plain fetch (unregistered models and embeddings) does not use it.
  */
 export type EgressRoute = "egress" | "direct";
 
@@ -39,12 +40,20 @@ function dispatcherFor(viaProxy: boolean): Dispatcher | undefined {
 
 export interface GuardedFetchOptions {
   method?: string;
+  /** Separate physical directory verification from a resumable earlier page read. */
+  crawlKey?: string;
+  crawlResponseHeaders?: string[];
+  /** Explicit collector resource binding; unused by model transports. */
+  sourceResource?: { documentType: string | null; attachment: boolean };
   headers?: Record<string, string>;
   body?: string;
   timeoutMs?: number;
+  signal?: AbortSignal;
   maxBytes?: number;
   /** Follow redirects manually so every hop passes the SSRF guard. */
   maxRedirects?: number;
+  /** Collector scheduler handles each redirect as its own paced request. Other transports keep existing behavior. */
+  followRedirects?: boolean;
   /** "egress" by default; see EgressRoute. */
   route?: EgressRoute;
   /** GET only: repeat a dropped connection once with a fresh time budget; not timeouts, connect failures or HTTP errors. */
@@ -52,6 +61,7 @@ export interface GuardedFetchOptions {
 }
 
 export interface GuardedResponse {
+  fetchedAt?: string;
   status: number;
   url: string;
   headers: Headers;
@@ -70,12 +80,13 @@ export function droppedConnection(error: unknown): boolean {
 }
 
 export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}): Promise<GuardedResponse> {
+  opts.signal?.throwIfAborted();
   const firstAttempt = { receivedHttpError: false };
   try {
     return await fetchOnce(input, opts, firstAttempt);
   } catch (error) {
     if (!opts.retryDropped || firstAttempt.receivedHttpError || (opts.method ?? "GET").toUpperCase() !== "GET" || !droppedConnection(error)) throw error;
-    await delay(DROPPED_RETRY.afterMs * (1 + Math.random()));
+    await delay(DROPPED_RETRY.afterMs * (1 + Math.random()), undefined, { signal: opts.signal });
     return fetchOnce(input, opts);
   }
 }
@@ -84,7 +95,8 @@ async function fetchOnce(input: string, opts: GuardedFetchOptions, attempt?: { r
   // One budget includes DNS, every redirect and the body. Restarting it at each hop allowed a
   // nominal 20 s image request to occupy the API for minutes. A retry gets its own complete budget;
   // only source listings (including admin preview) and direct body extraction opt in.
-  const signal = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
+  const timeout = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
+  const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout;
   const route = opts.route ?? "egress";
   const check = (target: string) => withinDeadline(assertPublicUrl(target, config.allowPrivateNetworkFetch, proxied(new URL(target), route)), signal);
   let url = await check(input);
@@ -101,7 +113,7 @@ async function fetchOnce(input: string, opts: GuardedFetchOptions, attempt?: { r
     });
     // A truncated error page is still an HTTP error, not permission to retry (including Retry-After).
     if (attempt) attempt.receivedHttpError = res.status >= 400;
-    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+    if (opts.followRedirects !== false && res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       // Release the connection even when the next URL is refused or the redirect limit is reached.
       await res.body?.cancel();
       if (hop >= maxRedirects) throw new Error(`Too many redirects for ${input}`);
@@ -144,7 +156,7 @@ async function withinDeadline<T>(work: Promise<T>, signal: AbortSignal): Promise
   }
 }
 
-function decodeBody(body: Buffer, contentType: string | null): string {
+export function decodeBody(body: Buffer, contentType: string | null): string {
   const m = /charset=([\w-]+)/i.exec(contentType ?? "");
   let charset = m?.[1]?.toLowerCase() ?? "utf-8";
   if (!m) {

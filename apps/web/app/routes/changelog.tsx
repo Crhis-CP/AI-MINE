@@ -1,10 +1,10 @@
 import { SITE, withSubject } from "@amp/industry/site";
-import { Fragment } from "react";
 import { Link, useLoaderData } from "react-router";
 import { apiGet } from "../lib/api.server";
 import { pageMeta } from "../lib/seo";
 import { AsideCard, ReadingLayout } from "../components/ui/Page";
 import { IconChevronRight } from "../components/icons";
+import { FeatureNotice } from "../features/changelog/MajorNotice";
 import { Inline, dateHeading } from "../features/changelog/text";
 
 /** Shared caches may keep this page for five minutes. */
@@ -38,6 +38,10 @@ const KIND_DOT: Record<Release["kind"], string> = {
   公告: "bg-amber",
   下线: "bg-ink-4",
 };
+
+function isFeatureNotice(r: Release): boolean {
+  return r.kind === "重大更新" || (r.kind === "公告" && r.title === "目前是测试版");
+}
 
 function ReleaseBody({ lines }: { lines: string[] }) {
   const blocks: Array<string | string[]> = [];
@@ -116,11 +120,15 @@ export default function ChangelogPage() {
       <div className="space-y-4">
         {[...groups.entries()].map(([date, releases]) => {
           const h = dateHeading(date);
-          const plain = releases;
+          const features = releases.filter(isFeatureNotice);
+          const plain = releases.filter((r) => !isFeatureNotice(r));
           return (
-            <Fragment key={date}>
+            <div key={date} id={`d-${date}`} className="scroll-mt-6 space-y-4">
+              {features.map((r) => (
+                <FeatureNotice key={`${r.date}-${r.time ?? ""}-${r.title}`} release={r} />
+              ))}
               {plain.length > 0 && (
-                <section id={`d-${date}`} className="card scroll-mt-6 px-5 lg:px-7">
+                <section className="card scroll-mt-6 px-5 lg:px-7">
                   <h2 className="flex items-baseline gap-3 border-b border-line-soft py-4">
                     <time dateTime={date} className="text-[18px] font-bold text-ink">
                       {h.label}
@@ -151,7 +159,7 @@ export default function ChangelogPage() {
                   </ol>
                 </section>
               )}
-            </Fragment>
+            </div>
           );
         })}
       </div>

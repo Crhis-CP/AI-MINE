@@ -80,6 +80,12 @@ function currentAccess(): Access {
   return active.access;
 }
 
+/** The DB root remains live during graceful worker drain and is revoked when its registrations close. */
+export function databaseLifetimeSignal(): AbortSignal {
+  currentAccess();
+  return active!.lifetime.signal;
+}
+
 /** The worker owns installation; private-api only sends to existing queues. */
 export function queueConnection(): QueueConnection {
   const access = currentAccess();
@@ -91,6 +97,11 @@ export function queueConnection(): QueueConnection {
       : {}),
   });
   return active!.queue;
+}
+
+/** Dedicated observer handle: optional and never falls back to a writer role. */
+export function operationsReadDatabase() {
+  return currentAccess().dbFor("ops_read");
 }
 
 /** Reserved for the worker's pg_dump invocation, never a module query connection. */

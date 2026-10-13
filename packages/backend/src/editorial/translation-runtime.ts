@@ -1,8 +1,9 @@
+import { prepareNewsFallback } from "../providers/news-fallback.ts";
 // Strict segment runner used by the per-item worker; network calls stay outside content locks.
 import { z } from "zod";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { readCurrentBody } from "../content/materials.ts";
-import { chatJson, type ChatJsonResult } from "../providers/llm.ts";
+import { chatJson, ModelPostReceiptGuardError, type ChatJsonResult } from "../providers/llm.ts";
 import { ReceiptUnknownError, ReceiptOutputLimitError, ReceiptCooldownError } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import {
@@ -46,6 +47,7 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     return { status: "partial" as const, revision: body.revision, reason: "pending_capacity" };
   const run = await beginTranslation(body, recipe.id);
   if (!run) return { status: "skipped" as const, revision: body?.revision };
+  const fallbackInput = await prepareNewsFallback({ root: shutdownSignal.signal, expected: body, current: () => readCurrentBody(articleId), articles: [body] });
   const saved = await translationCheckpoints(run);
   let inheritedObservations = await translationObservations(body);
   const leaves = translationLeaves(
@@ -60,6 +62,7 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     const checkpoint = saved.find((row) => row.index === segment.index && row.sourceHash === segment.sourceHash);
     if (checkpoint?.state === "complete") continue;
     const part = shield(segment.html).html;
+    const user = JSON.stringify({ text: part, ...(segment.reference ? { referenceOnly: segment.reference } : {}) });
     let reply: ChatJsonResult<unknown>;
     try {
       const observations = inheritedObservations;
@@ -67,10 +70,13 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
       reply = await chatJson({
         model: recipe.model,
         purpose: "translate_body",
+        sourceIds: [body.source_id],
+        runtimeControl: run.runtimeControl,
         subject: `article:${articleId}@${body!.revision}#${segment.index}`,
         promptVersion: recipe.promptVersion,
         system: recipe.system,
-        user: JSON.stringify({ text: part, ...(segment.reference ? { referenceOnly: segment.reference } : {}) }),
+        user,
+        fallbackPermit: fallbackInput?.({ system: recipe.system, user }),
         // Retain usage before strict validation: unusable output without known usage must not buy a retry.
         schema: z.unknown(),
         parse: (content) => content,
@@ -81,6 +87,11 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
         translationObservations: observations,
       });
     } catch (error) {
+      if (error instanceof ModelPostReceiptGuardError) {
+        const current = await readCurrentBody(articleId);
+        if (!current || current.revision !== body.revision || current.body_html !== body.body_html)
+          return { status: "stale" as const, revision: body.revision };
+      }
       if (error instanceof ReceiptOutputLimitError) continue;
       if (error instanceof ReceiptCooldownError) {
         pendingReason = "retry_cooldown";
@@ -102,16 +113,24 @@ export async function runBodyTranslation(articleId: string, recipe: TranslationR
     }
     if (reply.finishReason !== null && reply.finishReason !== "" && reply.finishReason !== "stop")
       return { status: "partial" as const, revision: body!.revision, reason: reply.finishReason === "length" ? "truncated" : "unfinished response" };
-    let parsed: z.infer<typeof TranslationTextSchema>;
+    let raw: unknown;
     try {
-      parsed = TranslationTextSchema.parse(JSON.parse(String(reply.data)));
-      if (restoreTranslationText(segment.html, parsed) === null) throw new Error("source structure changed");
+      raw = JSON.parse(String(reply.data));
     } catch (error) {
       if ((await recordTranslationFailure(run, segment.index, "failed", reply.receiptId, String(error), reply.attemptId)) === null)
         return { status: "stale" as const, revision: body!.revision };
       continue;
     }
-    if (!(await saveTranslationSegment(run, segment.index, { ...reply, data: parsed }))) return { status: "stale" as const, revision: body!.revision };
+    if (restoreTranslationText(segment.html, raw) === null) {
+      const schema = TranslationTextSchema.safeParse(raw);
+      const reason = schema.success ? "source structure changed" : String(schema.error);
+      if ((await recordTranslationFailure(run, segment.index, "failed", reply.receiptId, reason, reply.attemptId)) === null)
+        return { status: "stale" as const, revision: body!.revision };
+      continue;
+    }
+    const parsed = TranslationTextSchema.safeParse(raw);
+    const data = parsed.success ? parsed.data : { text: (raw as { text: string }).text };
+    if (!(await saveTranslationSegment(run, segment.index, { ...reply, data }))) return { status: "stale" as const, revision: body!.revision };
   }
   assertRunning();
   return {

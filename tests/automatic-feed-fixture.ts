@@ -26,6 +26,10 @@ export async function automaticFeedFixture(
   const feedRequests: string[] = [];
   const calls: { marker: string; step: string; user: string }[] = [];
   const feed = createServer((req, res) => {
+    if (req.url === "/robots.txt") {
+      res.setHeader("content-type", "text/plain");
+      return res.end("User-agent: *\nAllow: /\n");
+    }
     feedRequests.push(req.url ?? "");
     if (req.url !== "/feed.xml") {
       res.writeHead(404);
@@ -85,7 +89,7 @@ export async function automaticFeedFixture(
                 ? { category: null, tags: [], subjects: [], fact: null }
                 : step === "understand"
                   ? {
-                      itemType: "model_release",
+                      itemType: "policy_regulation",
                       authorRole: "principal",
                       tags: [],
                       editorialJudgment: "合成判断",

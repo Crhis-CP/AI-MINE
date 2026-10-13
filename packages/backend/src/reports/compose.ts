@@ -1,3 +1,6 @@
+import { dailyJudgedReportCount, reportCandidateRows } from "@amp/backend/publication/groups";
+import { reportFallbackInput } from "./fallback-input.ts";
+export { newsReportWithdrawalSnapshot } from "./references.ts";
 // Daily, weekly and monthly reports. Windows are Beijing calendar based and written into the report;
 // missed schedule points are caught up; regeneration creates a revision. The editors' prompts are in
 // the industry pack (industry/prompts/report-*.md), the sections follow its categories.
@@ -11,6 +14,8 @@ import { dbOf } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
+import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
+export { composePolicyReports } from "../publication/policy-report-job.ts";
 
 const sql = dbOf("reports");
 
@@ -23,6 +28,7 @@ const reportSection = (category: string | null) => SECTION_OF.get(category ?? ""
 
 export interface ReportEntry {
   itemId: string;
+  publicationRevision?: number;
   factId: string | null;
   storyPublicId: string | null;
   title: string;
@@ -48,45 +54,14 @@ function roleOf(kind: string, firstParty: boolean): string {
 }
 
 export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
-  const rows = await sql.begin("isolation level read committed", async (tx) => {
-    // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
-    // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
-    await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    return tx<
-      {
-        id: string;
-        title: string;
-        summary: string | null;
-        url: string;
-        category: string | null;
-        score: number | null;
-        first_party: boolean;
-        source_id: string;
-        source_name: string;
-        source_kind: string;
-        fact_public_id: string | null;
-        story_public_id: string | null;
-        at: Date;
-        backfill: boolean;
-      }[]
-    >`
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
-             s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
-      FROM publications p JOIN sources s ON s.id = p.source_id
-      LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
-      -- Attribute each item by the later of arrival and release; either range can use its index.
-      WHERE p.visibility = 'public' AND p.selected AND NOT p.backfill
-        AND (
-          (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
-          OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})
-        )`;
-  });
+  const rows = await reportCandidateRows(start, end);
   // One entry per fact: first-party first, then score.
   const byFact = new Map<string, Candidate>();
   for (const r of rows) {
     const key = r.fact_public_id ?? `a:${r.id}`;
     const c: Candidate = {
       itemId: r.id,
+      publicationRevision: r.revision,
       factId: r.fact_public_id,
       storyPublicId: r.story_public_id,
       title: r.title,
@@ -133,18 +108,22 @@ const LeadSchema = z.object({
     .catch([]),
 });
 
-async function writeLead(kind: string, key: string, entries: ReportEntry[], model: string) {
+export async function writeLead(kind: string, key: string, entries: ReportEntry[], model: string) {
   if (entries.length === 0) return null;
   const list = entries
     .slice(0, 30)
     .map((e, i) => `${i + 1}. ${e.title}｜${e.summary.slice(0, 120)}`)
     .join("\n");
+  const fallbackInput = await reportFallbackInput(entries);
+  const system = promptText("report-daily-lead");
   const res = await chatJson({
     model,
     purpose: "report_lead",
+    sourceIds: [...new Set(entries.map((e) => e.sourceId))],
+    fallbackPermit: fallbackInput?.({ system, user: list }),
     subject: `report:${kind}:${key}`,
     promptVersion: REPORT_VERSION,
-    system: promptText("report-daily-lead"),
+    system,
     user: list,
     schema: LeadSchema,
     temperature: 0.3,
@@ -154,7 +133,7 @@ async function writeLead(kind: string, key: string, entries: ReportEntry[], mode
     .map((h) => entries[Number(h) - 1])
     .filter((e): e is ReportEntry => !!e)
     .map((e) => e.itemId);
-  return { lead: { title: res.data.title, leadParagraph: res.data.leadParagraph }, highlights, receiptId: res.receiptId };
+  return { lead: { title: res.data.title, leadParagraph: res.data.leadParagraph }, highlights, receiptId: res.receiptId, model: res.model };
 }
 
 async function saveReport(
@@ -164,11 +143,16 @@ async function saveReport(
   end: Date,
   content: Record<string, unknown>,
   reason: string,
-  model: string,
+  model: string | null,
+  control: { publication: RuntimeControlSnapshot; processing?: RuntimeControlSnapshot },
 ) {
   await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, control.publication);
+    if (control.processing) await assertRuntimeControl(tx, control.processing);
     const [existing] = await tx<{ id: number; revision: number; content: unknown; generated_at: Date }[]>`
       SELECT id, revision, content, generated_at FROM reports WHERE kind = ${kind} AND key = ${key} FOR UPDATE`;
+    // Scheduled daily retries preserve even a zero-entry issue. Corrections use their own writer.
+    if (existing && kind === "daily") return;
     if (existing) {
       await tx`INSERT INTO report_revisions (report_id, revision, content, generated_at, reason)
                VALUES (${existing.id}, ${existing.revision}, ${tx.json(existing.content as never)}, ${existing.generated_at}, ${reason}) ON CONFLICT DO NOTHING`;
@@ -176,26 +160,48 @@ async function saveReport(
                  model = ${model}, revision = revision + 1, origin = 'model', updated_at = now() WHERE id = ${existing.id}`;
     } else {
       await tx`INSERT INTO reports (kind, key, window_start, window_end, content, generated_at, model, origin)
-               VALUES (${kind}, ${key}, ${start}, ${end}, ${tx.json(content as never)}, now(), ${model}, 'model')`;
+               VALUES (${kind}, ${key}, ${start}, ${end}, ${tx.json(content as never)}, now(), ${model}, 'model') ON CONFLICT (kind,key) DO NOTHING`;
     }
   });
 }
 
-/** Daily report for Beijing date D covers [D-1 08:00, D 08:00) Beijing time. */
+async function publishedEntries(kind: string, key: string): Promise<number> {
+  const [row] = await sql<
+    { content: { sections?: Array<{ items?: unknown[] }>; themes?: Array<{ storyRefs?: unknown[] }>; flashes?: unknown[] } }[]
+  >`SELECT content FROM reports WHERE kind = ${kind} AND key = ${key}`;
+  if (!row) return 0;
+  const content = row.content;
+  const sections = (content.sections ?? []).reduce((n: number, section: { items?: unknown[] }) => n + (section.items?.length ?? 0), 0);
+  const themes = (content.themes ?? []).reduce((n: number, theme: { storyRefs?: unknown[] }) => n + (theme.storyRefs?.length ?? 0), 0);
+  return sections + themes + (content.flashes?.length ?? 0);
+}
+
+/** Daily D covers [D-1 08:00, D 08:00). A judged window without selections gets a quiet issue; unjudged windows wait. */
 export async function composeDaily(date: string, reason = "scheduled"): Promise<{ key: string; entries: number }> {
+  const publication = await requireRuntimeRunning("news", ["publication"]),
+    processing = await runtimeControlSnapshot("news", ["processing"]);
+  const [existing] = await sql`SELECT 1 FROM reports WHERE kind='daily' AND key=${date}`;
+  if (existing) return { key: date, entries: await publishedEntries("daily", date) };
   const end = new Date(beijingMidnight(date).getTime() + 8 * 3600 * 1000);
   const start = new Date(end.getTime() - 86400000);
   const covered = await recentlyCovered("daily", date);
   const all = await candidates(start, end);
   const fresh = all.filter((c) => !covered.has(c.factKey) && !covered.has(`a:${c.itemId}`));
   const perSection = new Map<string, Candidate[]>();
-  const flashes: Array<{ itemId: string; title: string; sourceName: string; sourceUrl: string; publishedAt: string }> = [];
+  const flashes: Array<{ itemId: string; publicationRevision?: number; title: string; sourceName: string; sourceUrl: string; publishedAt: string }> = [];
   for (const c of fresh) {
     const label = reportSection(c.category);
     const list = label ? (perSection.get(label) ?? []) : [];
     if (label && list.length < 8) list.push(c);
     else if (flashes.length < 12)
-      flashes.push({ itemId: c.itemId, title: c.title, sourceName: c.sourceName, sourceUrl: c.sourceUrl, publishedAt: c.publishedAt });
+      flashes.push({
+        itemId: c.itemId,
+        publicationRevision: c.publicationRevision,
+        title: c.title,
+        sourceName: c.sourceName,
+        sourceUrl: c.sourceUrl,
+        publishedAt: c.publishedAt,
+      });
     if (label) perSection.set(label, list);
   }
   const sections = SECTION_ORDER.filter((l) => perSection.get(l)?.length).map((label) => ({
@@ -203,11 +209,22 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     items: perSection.get(label)!.map(({ category: _c, factKey: _f, ...entry }) => entry),
   }));
   const ordered = sections.flatMap((s) => s.items).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  const model = await modelFor("report");
-  const lead = ordered.length ? await writeLead("daily", date, ordered, model) : null;
+  const quiet = ordered.length === 0 && flashes.length === 0;
+  if (quiet && (await dailyJudgedReportCount(start, end)) === 0) return { key: date, entries: 0 };
+  const model = quiet ? null : await modelFor("report");
+  const lead = ordered.length ? await writeLead("daily", date, ordered, model!) : null;
+  const actualModel = lead?.model ?? model;
   const content = {
     date,
-    lead: lead?.lead ?? null,
+    generationStatus: lead ? "ready" : "summary",
+    lead:
+      lead?.lead ??
+      (quiet
+        ? {
+            title: "今日无大事发生",
+            leadParagraph: "本期已完成评分的矿业资讯中，没有新增内容入选日报。",
+          }
+        : null),
     highlights: lead?.highlights ?? [],
     sections,
     flashes,
@@ -219,9 +236,9 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
     },
     windowStart: start.toISOString(),
     windowEnd: end.toISOString(),
-    generator: { version: REPORT_VERSION, model, repeatsSuppressed: all.length - fresh.length },
+    generator: { version: REPORT_VERSION, model: actualModel, repeatsSuppressed: all.length - fresh.length },
   };
-  await saveReport("daily", date, start, end, content, reason, model);
+  await saveReport("daily", date, start, end, content, reason, actualModel, { publication, ...(lead ? { processing } : {}) });
   if (lead) await completeReceipt(sql, lead.receiptId);
   return { key: date, entries: ordered.length };
 }
@@ -253,10 +270,15 @@ export function periodPrompt(kind: "weekly" | "monthly", startDate: string, endD
 }
 
 async function composePeriod(kind: "weekly" | "monthly", key: string, startDate: string, endDateInclusive: string, reason: string) {
+  const publication = await requireRuntimeRunning("news", ["publication"]),
+    processing = await runtimeControlSnapshot("news", ["processing"]);
   const start = beijingMidnight(startDate);
   const end = beijingMidnight(addDays(endDateInclusive, 1));
   const all = await candidates(start, end);
   const top = all.slice(0, kind === "weekly" ? 40 : 60);
+  const kept = await publishedEntries(kind, key);
+  if (kept > 0) return { key, entries: kept };
+  if (!top.length) return { key, entries: 0 };
   const dailyCount =
     (await sql<{ n: number }[]>`SELECT count(*) AS n FROM reports WHERE kind = 'daily' AND key >= ${startDate} AND key <= ${endDateInclusive}`)[0]?.n ?? 0;
   let themes: Array<{ heading: string; summary: string; storyRefs: ReportEntry[] }> = [];
@@ -264,18 +286,24 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   let overview = "";
   let receiptId: number | null = null;
   const model = await modelFor("report");
+  let actualModel = model;
   if (top.length) {
+    const prompt = periodPrompt(kind, startDate, endDateInclusive, top);
+    const fallbackInput = await reportFallbackInput(top);
     const res = await chatJson({
       model,
       purpose: `report_${kind}`,
       subject: `report:${kind}:${key}`,
       promptVersion: REPORT_VERSION,
-      ...periodPrompt(kind, startDate, endDateInclusive, top),
+      ...prompt,
+      sourceIds: [...new Set(top.map((e) => e.sourceId))],
+      fallbackPermit: fallbackInput?.(prompt),
       schema: PeriodSchema,
       temperature: 0.3,
       maxTokens: 2500,
     });
     receiptId = res.receiptId;
+    actualModel = res.model;
     headline = res.data.headline.trim();
     overview = res.data.overview;
     themes = res.data.themes.map((t) => ({
@@ -289,6 +317,7 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
   }
   const content = {
     kind,
+    generationStatus: receiptId ? "ready" : "summary",
     title: kind === "weekly" ? `${SITE.name} 周报 · ${key}` : `${SITE.name} 月报 · ${key}`,
     ...(kind === "weekly" ? { isoLabel: key } : { monthLabel: key }),
     periodStart: startDate,
@@ -298,9 +327,9 @@ async function composePeriod(kind: "weekly" | "monthly", key: string, startDate:
     themes,
     storyOrder: top.map((e) => e.itemId),
     metrics: { totalStories: themes.reduce((n, t) => n + t.storyRefs.length, 0), selectedCount: all.length, reportsCovered: Number(dailyCount) },
-    generator: { version: REPORT_VERSION, model },
+    generator: { version: REPORT_VERSION, model: actualModel },
   };
-  await saveReport(kind, key, start, end, content, reason, model);
+  await saveReport(kind, key, start, end, content, reason, actualModel, { publication, ...(receiptId ? { processing } : {}) });
   if (receiptId) await completeReceipt(sql, receiptId);
   return { key, entries: top.length };
 }
@@ -319,9 +348,42 @@ export async function composeMonthly(label: string, reason = "scheduled") {
   return composePeriod("monthly", label, start, addDays(next, -1), reason);
 }
 
+/** Entries a catch-up would put in daily D. Zero means the gap stays missing instead of becoming a blank issue. */
+async function freshDailyCount(date: string): Promise<number> {
+  const end = new Date(beijingMidnight(date).getTime() + 8 * 3600 * 1000);
+  const start = new Date(end.getTime() - 86400000);
+  const covered = await recentlyCovered("daily", date);
+  const all = await candidates(start, end);
+  return all.filter((c) => !covered.has(c.factKey) && !covered.has(`a:${c.itemId}`)).length;
+}
+
+async function periodEntryCount(startDate: string, endDateInclusive: string): Promise<number> {
+  return (await candidates(beijingMidnight(startDate), beijingMidnight(addDays(endDateInclusive, 1)))).length;
+}
+
+/**
+ * How many qualified new selections the composer would put in this issue.
+ * Daily is the fresh items in [D-1 08:00, D 08:00). Weekly and monthly are the selections in that
+ * calendar period. Zero may be a quiet daily; it is not a count of older selections.
+ */
+export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
+  if (kind === "daily") return freshDailyCount(key);
+  if (kind === "weekly") {
+    const range = isoWeekRange(key);
+    if (!range) throw new Error(`bad week label ${key}`);
+    return periodEntryCount(range.start, range.end);
+  }
+  const match = /^(\d{4})-(\d{2})$/.exec(key);
+  if (!match) throw new Error(`bad month label ${key}`);
+  const start = `${key}-01`;
+  const next = Number(match[2]) === 12 ? `${Number(match[1]) + 1}-01-01` : `${match[1]}-${String(Number(match[2]) + 1).padStart(2, "0")}-01`;
+  return periodEntryCount(start, addDays(next, -1));
+}
+
 /**
  * Catch-up: generates any missing daily report for the last `days` days (never the future and never
  * before the first report in the database), the last complete week and the last complete month.
+ * A judged daily without new selections still publishes its quiet issue; unjudged windows wait.
  */
 export async function catchUpReports(now = new Date(), days = 7): Promise<{ generated: string[] }> {
   const generated: string[] = [];
@@ -336,7 +398,7 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
     const [exists] = await sql`SELECT 1 FROM reports WHERE kind = 'daily' AND key = ${d}`;
     if (!exists) {
       await composeDaily(d, "catch-up");
-      generated.push(`daily:${d}`);
+      if ((await sql`SELECT 1 FROM reports WHERE kind='daily' AND key=${d}`).length) generated.push(`daily:${d}`);
     }
   }
   // Last complete ISO week (Monday 10:00 onwards).
@@ -345,7 +407,8 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
   const weekDue = dow > 0 || bjHour >= 10;
   if (weekDue) {
     const [w] = await sql`SELECT 1 FROM reports WHERE kind = 'weekly' AND key = ${lastWeek}`;
-    if (!w) {
+    const range = isoWeekRange(lastWeek);
+    if (!w && range && (await periodEntryCount(range.start, range.end)) > 0) {
       await composeWeekly(lastWeek, "catch-up");
       generated.push(`weekly:${lastWeek}`);
     }
@@ -356,10 +419,20 @@ export async function catchUpReports(now = new Date(), days = 7): Promise<{ gene
   const monthDue = dd > 1 || bjHour > 10 || (bjHour === 10 && Number(new Date(now.getTime() + 8 * 3600000).toISOString().slice(14, 16)) >= 30);
   if (monthDue) {
     const [m] = await sql`SELECT 1 FROM reports WHERE kind = 'monthly' AND key = ${prevMonth}`;
-    if (!m) {
+    const monthStart = `${prevMonth}-01`;
+    const monthEnd = addDays(`${y}-${String(mo).padStart(2, "0")}-01`, -1);
+    if (!m && (await periodEntryCount(monthStart, monthEnd)) > 0) {
       await composeMonthly(prevMonth, "catch-up");
       generated.push(`monthly:${prevMonth}`);
     }
   }
   return { generated };
 }
+
+export {
+  ensureReportCorrectionQueue,
+  correctNewsReport,
+  enqueuePendingReportCorrections,
+  invalidateReportCorrections,
+  REPORT_CORRECTION_QUEUE,
+} from "./corrections.ts";

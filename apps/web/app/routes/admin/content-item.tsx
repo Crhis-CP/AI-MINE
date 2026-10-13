@@ -5,6 +5,7 @@ import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import type { Route } from "./+types/content-item";
 import { adminGet } from "../../lib/admin.server";
+import { WithdrawalControls } from "../../features/admin/withdrawal";
 import { useAdminAction } from "../../features/admin/action";
 import { bj, bjSource, money } from "../../features/admin/format";
 import { KIND_LABEL, MODE_LABEL, VISIBILITY_LABEL } from "../../features/admin/labels";
@@ -30,6 +31,7 @@ interface Chain {
   decisions: Row[];
   deliveries: Row[];
   history: Row[];
+  manualRevisions: Row[];
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -76,7 +78,12 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
   const { run, pending } = useAdminAction();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [visibility, setVisibility] = useState<string>(p?.visibility ?? "public");
-  const [fields, setFields] = useState({ title: "", summary: "", reason: "", category: "", tags: "", selected: "", silent: "", relevance: "" });
+  const [fields, setFields] = useState({ body: "", title: "", summary: "", reason: "", category: "", tags: "", selected: "", silent: "", relevance: "" });
+  const [manualCommand, setManualCommand] = useState<"save_draft" | "publish">("save_draft");
+  const [evidenceQuote, setEvidenceQuote] = useState("");
+  const [sourceChecked, setSourceChecked] = useState(false);
+  const [factsChecked, setFactsChecked] = useState(false);
+  const [resolutionNote, setResolutionNote] = useState("");
   const [mergeInto, setMergeInto] = useState("");
   const version = c.override?.version ?? 0;
   const base = `/api/admin/content/${encodeURIComponent(a.id)}`;
@@ -84,8 +91,16 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
   const title = p?.title ?? a.title;
 
   const openOverride = () => {
-    const f = (c.override?.fields ?? {}) as Record<string, unknown>;
+    const f = (c.manualRevisions?.find((r) => r.status === "draft" && r.source_revision === a.revision)?.fields ?? c.override?.fields ?? {}) as Record<
+      string,
+      unknown
+    >;
+    setManualCommand("save_draft");
+    setSourceChecked(false);
+    setFactsChecked(false);
+    setEvidenceQuote("");
     setFields({
+      body: String(f.body ?? ""),
       title: String(f.title ?? ""),
       summary: String(f.summary ?? ""),
       reason: String(f.reason ?? ""),
@@ -312,6 +327,16 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
                   ))}
                 </ul>
               )}
+              {story?.fact_public_id && (
+                <div className="mt-3">
+                  <WithdrawalControls key={story.fact_public_id} target={{ type: "event", id: String(story.fact_public_id) }} label="该事件下架 / 恢复" />
+                </div>
+              )}
+              {story?.story_public_id && (
+                <div className="mt-3">
+                  <WithdrawalControls key={story.story_public_id} target={{ type: "story", id: String(story.story_public_id) }} label="该发展线下架 / 恢复" />
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => setDialog("group")}>
                   重新归组
@@ -437,13 +462,13 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
         open={dialog === "override"}
         title="人工修正"
         description="人工值优先于模型输出，之后的重处理不会覆盖；留空表示不修正该字段（清除已有修正请选“清除”）。"
-        confirmLabel="保存修正"
+        confirmLabel={manualCommand === "publish" ? "发布人工修订" : "保存草稿"}
         busy={pending === "override"}
         onClose={() => setDialog(null)}
         onSubmit={async (reason) => {
           const next: Record<string, unknown> = {};
           const clear: string[] = [];
-          for (const k of ["title", "summary", "reason"] as const) {
+          for (const k of ["title", "summary", "reason", "body"] as const) {
             if (fields[k].trim()) next[k] = fields[k].trim();
             else if (c.override?.fields[k] !== undefined) clear.push(k);
           }
@@ -462,10 +487,51 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
           if (fields.relevance) next.relevance = fields.relevance;
           else if (c.override?.fields.relevance !== undefined) clear.push("relevance");
           return (
-            (await run("POST", `${base}/override`, { fields: next, clear, reason, version }, { label: "override", success: "修正已保存并重新发布" })) !== null
+            (await run(
+              "POST",
+              `${base}/override`,
+              {
+                fields: next,
+                clear,
+                reason,
+                version,
+                command: manualCommand,
+                source_revision: a.revision,
+                evidence_quote: evidenceQuote,
+                source_checked: sourceChecked,
+                facts_checked: factsChecked,
+                resolution_note: resolutionNote,
+              },
+              { label: "override", success: manualCommand === "publish" ? "人工修订已发布" : "草稿已保存，公开内容未改变" },
+            )) !== null
           );
         }}
       >
+        <Field label="保存方式">
+          <Select value={manualCommand} onChange={(e) => setManualCommand(e.target.value as "save_draft" | "publish")}>
+            <option value="save_draft">保存草稿</option>
+            <option value="publish">发布人工修订</option>
+          </Select>
+        </Field>
+        {manualCommand === "publish" && (
+          <>
+            <label>
+              <input type="checkbox" checked={sourceChecked} onChange={(e) => setSourceChecked(e.target.checked)} /> 已核对当前原始来源
+            </label>
+            <label>
+              <input type="checkbox" checked={factsChecked} onChange={(e) => setFactsChecked(e.target.checked)} /> 已核对中文事实
+            </label>
+            <Field label="原文依据（至少12字，逐字引用）">
+              <Textarea value={evidenceQuote} onChange={(e) => setEvidenceQuote(e.target.value)} />
+            </Field>
+            <Field label="冲突处理说明（解决事实冲突时至少10字）">
+              <Textarea value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} />
+            </Field>
+          </>
+        )}
+        <Field label="中文正文（HTML；留空沿用自动正文）">
+          <Textarea rows={6} value={fields.body} onChange={(e) => setFields({ ...fields, body: e.target.value })} />
+        </Field>
         <Field label="标题">
           <Input value={fields.title} placeholder={p?.title ?? ""} onChange={(e) => setFields({ ...fields, title: e.target.value })} />
         </Field>

@@ -15,6 +15,13 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
   const pref = useThemePreference();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => document.documentElement.setAttribute("data-theme", resolvedTheme(pref));
+    apply();
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [pref]);
   const current: Choice = !mounted ? "system" : (pref ?? "system");
   const index = OPTIONS.findIndex((o) => o.key === current);
 

@@ -1,6 +1,10 @@
+import type { RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import type { MaterialInput } from "../content/materials.ts";
 
 export interface SourceRow {
+  collectionControl?: RuntimeControlSnapshot;
+  collectionSignal?: AbortSignal;
+  collectionReadKey?: string;
   id: string;
   name: string;
   kind: "rss" | "web_list" | "json_list" | "mp_account" | "external";
@@ -12,6 +16,7 @@ export interface SourceRow {
   first_party: boolean;
   interval_minutes: number;
   enabled: boolean;
+  archived_at?: Date | null;
   cursor: Record<string, any> | null;
   fail_count: number;
 }

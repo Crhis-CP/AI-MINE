@@ -10,9 +10,14 @@ import { scratch, write } from "./helpers.ts";
 
 function fixture() {
   const root = scratch();
-  cpSync(path.join(ROOT, "database"), path.join(root, "database"), { recursive: true });
+  cpSync(path.join(ROOT, "database/roles"), path.join(root, "database/roles"), { recursive: true });
   for (const file of [OWNERSHIP_BASELINE, OWNERSHIP_MAP]) write(root, { [file]: readFileSync(path.join(ROOT, file), "utf8") });
-  const manifest = JSON.parse(readFileSync(path.join(root, "database/migration-inventory.json"), "utf8"));
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, "database/migration-inventory.json"), "utf8"));
+  // Each unit case owns its module topology; production checkDataOwnership still checks the complete repository separately.
+  for (const entry of manifest.legacy)
+    write(root, { [`database/migrations/${entry.name}`]: readFileSync(path.join(ROOT, "database/migrations", entry.name), "utf8") });
+  manifest.migrations = [];
+  write(root, { "database/migration-inventory.json": JSON.stringify(manifest) });
   const add = (name: string, text: string, dependsOn: string[] = []) => {
     manifest.migrations.push({ name, dependsOn });
     write(root, { [`database/migrations/${name}`]: text, "database/migration-inventory.json": JSON.stringify(manifest) });
@@ -30,7 +35,7 @@ test("all 30 legacy relation reports and migration UNKNOWN identities remain byt
     });
   assert.equal(flat.length, 30);
   assert.deepEqual(
-    migrationOwnership().filter((entry) => !entry.module),
+    migrationOwnership(fixture().root).filter((entry) => !entry.module),
     flat,
   );
   const baseline = JSON.parse(readFileSync(path.join(ROOT, OWNERSHIP_BASELINE), "utf8"));
@@ -97,6 +102,7 @@ test("new module DDL/DML must write its registered logical owner, including lega
     "CREATE TABLE enrichment.owner_probe(id integer);",
     "ALTER TABLE public.translations ADD COLUMN fixture text;",
     "UPDATE public.articles SET title='fixture' WHERE false;",
+    "CREATE TRIGGER fixture BEFORE UPDATE ON public.articles FOR EACH ROW EXECUTE FUNCTION sources.guard();",
   ]) {
     const f = fixture();
     const map = JSON.parse(readFileSync(path.join(f.root, OWNERSHIP_MAP), "utf8")) as OwnershipMap;

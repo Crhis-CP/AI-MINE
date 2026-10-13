@@ -1,12 +1,14 @@
+import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
+import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived, lockSourceCollectionActive } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
 import { dbOf, type Db, type Tx } from "../db.ts";
 import { newArticleId, sha256 } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
-import { MaterialSourceDateInput, MaterialUpdateResult } from "@amp/contracts/time-assertion";
+import { MaterialSourceDateInput, MaterialUpdateResult, SourceDateEvidence } from "@amp/contracts/time-assertion";
 import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
-export { updateMaterialSourceDate, materialDateHeads } from "./date-evidence.ts";
+export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
 
 const sql = dbOf("content");
 
@@ -105,9 +107,9 @@ function sameBarringLoss(a: string | null | undefined, b: string | null | undefi
 }
 
 export function identityKeyFor(m: MaterialInput): string {
-  if (m.identityKey) return m.identityKey;
+  if (m.identityKey) return /^(url:|x:)/.test(m.identityKey) ? `source:${m.sourceId}:${m.identityKey}` : m.identityKey;
   const fromUrl = identityKeyForUrl(m.url);
-  if (fromUrl) return fromUrl;
+  if (fromUrl) return `source:${m.sourceId}:${fromUrl}`;
   return `src:${m.sourceId}:${sha256(m.url + "\u0001" + m.title).slice(0, 32)}`;
 }
 
@@ -116,24 +118,41 @@ export function identityKeyFor(m: MaterialInput): string {
  * stored content really changes. Concurrent reports of the same material are serialised on the row,
  * so every change gets its own revision number. Returns whether processing is needed.
  */
-export async function upsertMaterial(m: MaterialInput, db: Db = sql): Promise<MaterialResult> {
+export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionControl?: RuntimeControlSnapshot): Promise<MaterialResult> {
+  const source = await readSourceDateContext(m.sourceId, db);
+  if (!source) throw new Error("Material source missing");
+  const control = collectionControl ?? (await runtimeControlSnapshot(source.lane, ["collection"], db));
+  if (control.lane !== source.lane || control.switches.length !== 1 || control.switches[0] !== "collection") throw new Error("Material control scope mismatch");
   const date = MaterialSourceDateInput.parse({
     sourceDateObservation: m.sourceDateObservation,
     expectedSourceDateVersion: m.expectedSourceDateVersion,
     permissionVersion: m.permissionVersion,
   });
   const run = async (tx: Tx) => {
+    await assertRuntimeControl(tx, control);
+    if (collectionControl) await lockSourceCollectionActive(tx, m.sourceId);
     await prepareDateMutation(tx, m.sourceId, date);
+    if (!collectionControl) await lockSourceNotArchived(tx, m.sourceId);
     const result = await upsertIn(tx, m);
     // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
     const listed = decideTimeline(m.publishedAt, m.discoveredAt ?? new Date()).publishedAt;
     return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now(), undefined, listed)) });
   };
-  return "begin" in db ? (db as typeof sql).begin(run) : run(db as Tx);
+  return typeof (db as typeof sql).begin === "function" ? (db as typeof sql).begin(run) : run(db as Tx);
 }
 
 async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
-  const identityKey = identityKeyFor(m);
+  let identityKey = identityKeyFor(m);
+  // Retain this source's existing material IDs while new sources receive independent identities.
+  // Serialise first insertion with compatibility lookup; a foreign source can never claim the row.
+  await db`SELECT pg_advisory_xact_lock(hashtext(${identityKey}))`;
+  if (!m.identityKey || /^(url:|x:)/.test(m.identityKey)) {
+    const legacy = m.identityKey ?? identityKeyForUrl(m.url);
+    if (legacy) {
+      const [own] = await db`SELECT identity_key FROM articles WHERE source_id=${m.sourceId} AND identity_key=${legacy}`;
+      if (own) identityKey = legacy;
+    }
+  }
   const discoveredAt = m.discoveredAt ?? new Date();
   const title = collapseWhitespace(m.title).slice(0, 1000) || m.url;
 
@@ -193,12 +212,7 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
              VALUES (${existing!.id}, ${existing!.revision}, ${next}, ${title}, ${bodyText}) ON CONFLICT DO NOTHING`;
     return unchanged;
   }
-  // A version this article already had is no new material (listings that alternate between two
-  // renderings, pages that rotate promotions): the current revision was analysed and published once
-  // already. Any earlier version counts, however long ago: a rotation with many variants would
-  // otherwise start over, and a real edit reverted later is rare and loses nothing.
-  const [seen] = await db`SELECT 1 FROM article_revisions WHERE article_id = ${existing!.id} AND content_hash = ${next} LIMIT 1`;
-  if (seen) return unchanged;
+  // Only the current revision is idempotent. A source reverting A → B → A is a new observation.
   // Nor is the stored version with other characters lost in transit, or with them restored.
   if (sameBarringLoss(existing!.title, title) && sameBarringLoss(existing!.body_text, bodyText) && sameBarringLoss(existing!.excerpt, excerpt))
     return unchanged;
@@ -224,8 +238,10 @@ export async function commitProcessingResult<T>(
   inputRevision: number,
   state: "blocked" | "analyzed",
   writeResult: (tx: Tx) => Promise<T>,
+  beforeMaterialLock?: (tx: Tx) => Promise<void>,
 ): Promise<{ value: T; stale: boolean }> {
   return sql.begin(async (tx) => {
+    await beforeMaterialLock?.(tx);
     const [current] = await tx<{ revision: number }[]>`SELECT revision FROM articles WHERE id = ${articleId} FOR UPDATE`;
     const stale = !current || current.revision !== inputRevision;
     const value = await writeResult(tx);
@@ -262,4 +278,133 @@ export async function commitBodyResult<T>(body: Pick<CurrentBody, "id" | "revisi
     return { value: await write(tx) };
   });
   return result.value;
+}
+
+/** Stored material references only; policy owns its processing and never changes the news state. */
+export interface PolicyMaterialReference {
+  materialId: string;
+  sourceId: string;
+  materialRevision: number;
+  url: string;
+  originalTitle: string;
+  discoveredAt: Date;
+  sourceDiscoveredAt: Date;
+}
+export async function policyMaterialReferences(sourceIds: string[], after = { materialId: "", sourceId: "" }, limit = 50): Promise<PolicyMaterialReference[]> {
+  if (!sourceIds.length) return [];
+  return sql<PolicyMaterialReference[]>`SELECT a.id AS "materialId", d.source_id AS "sourceId", a.revision AS "materialRevision",
+    a.url, a.title AS "originalTitle", a.discovered_at AS "discoveredAt", min(d.discovered_at) AS "sourceDiscoveredAt"
+    FROM articles a JOIN article_discoveries d ON d.article_id=a.id
+    WHERE d.source_id=ANY(${sourceIds}::text[]) AND (a.id,d.source_id)>(${after.materialId},${after.sourceId})
+    GROUP BY a.id,d.source_id ORDER BY a.id,d.source_id LIMIT ${Math.min(Math.max(limit, 1), 100)}`;
+}
+export async function policyMaterialReference(materialId: string, sourceId: string): Promise<PolicyMaterialReference | null> {
+  const [row] = await sql<PolicyMaterialReference[]>`SELECT a.id AS "materialId", d.source_id AS "sourceId", a.revision AS "materialRevision",
+    a.url,a.title AS "originalTitle",a.discovered_at AS "discoveredAt",min(d.discovered_at) AS "sourceDiscoveredAt"
+    FROM articles a JOIN article_discoveries d ON d.article_id=a.id
+    WHERE a.id=${materialId} AND d.source_id=${sourceId} GROUP BY a.id,d.source_id`;
+  return row ?? null;
+}
+
+/** Keep the real stored discovery/revision stable while policy records its provenance. */
+export async function lockPolicyMaterial(tx: Tx, reference: PolicyMaterialReference): Promise<void> {
+  const [row] = await tx`SELECT a.revision,a.url,a.discovered_at FROM articles a
+    WHERE a.id=${reference.materialId} AND EXISTS(SELECT 1 FROM article_discoveries d WHERE d.article_id=a.id AND d.source_id=${reference.sourceId}) FOR SHARE`;
+  if (
+    !row ||
+    row.revision !== reference.materialRevision ||
+    row.url !== reference.url ||
+    row.discovered_at.toISOString() !== reference.discoveredAt.toISOString()
+  )
+    throw new Error("Policy material changed");
+}
+
+/** Directory-native identities stay separate from a legacy URL-only discovery of another record. */
+export async function materialDateIdentityHeads(sourceId: string, identities: string[], db: Db = sql) {
+  if (!identities.length) return [];
+  return db<{ id: string; identity_key: string; revision: number; source_date_version: string }[]>`
+    SELECT id,identity_key,revision,source_date_version FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
+}
+
+/** Freeze only the source material used by the score input; same transaction fences concurrent source revisions/date changes. */
+export async function selectionMaterialSnapshot(articleId: string, db: Db = sql) {
+  const [row] = await db<
+    {
+      id: string;
+      revision: number;
+      source_date_version: number;
+      source_id: string;
+      title: string;
+      body_text: string | null;
+      excerpt: string | null;
+      language: string | null;
+      published_at: Date | null;
+      discovered_at: Date;
+    }[]
+  >`
+  SELECT id,revision,source_date_version,source_id,title,body_text,excerpt,language,published_at,discovered_at FROM articles WHERE id=${articleId} FOR SHARE`;
+  return row ?? null;
+}
+
+/** Current stored bytes used by a news model request; discoveries are not extra material sources. */
+export async function newsMaterialBindings(articleIds: string[], db: Db = sql) {
+  if (!articleIds.length) return [];
+  return db<{ id: string; source_id: string; revision: number; content_hash: string | null; url: string; source_date_version: string }[]>`
+    SELECT id,source_id,revision,content_hash,url,source_date_version FROM articles WHERE id=ANY(${articleIds}::text[]) ORDER BY id`;
+}
+
+/** The selected, current observation only; policy applies its own legal date semantics. */
+export async function readPolicyMaterialDate(materialId: string, sourceId: string): Promise<SourceDateEvidence | null> {
+  const source = await sourceDateConfiguration(sourceId);
+  if (source?.lane !== "policy" || !source.configHash) return null;
+  const [row] = await sql<{ result: unknown }[]>`SELECT o.result FROM articles a
+    JOIN content.source_date_observations o ON o.id=a.source_date_observation_id
+    WHERE a.id=${materialId} AND a.source_id=${sourceId}
+      AND a.source_date_version>0 AND o.article_id=a.id AND o.source_id=a.source_id
+      AND o.revision=a.revision AND o.config_hash=${source.configHash}`;
+  const evidence = SourceDateEvidence.safeParse((row?.result as { evidence?: unknown } | undefined)?.evidence);
+  return evidence.success && evidence.data.interpretation !== "conflict" ? evidence.data : null;
+}
+
+export async function manualMaterialSnapshot(articleId: string, db: Db = sql) {
+  const [row] = await db<
+    { id: string; revision: number; title: string; body_text: string | null }[]
+  >`SELECT id,revision,title,body_text FROM articles WHERE id=${articleId} FOR UPDATE`;
+  return row ?? null;
+}
+export async function newsRelationMaterials(ids: string[], db: Db = sql) {
+  return db<
+    { id: string; revision: number; original_text: string; published_at: Date | null }[]
+  >`SELECT id,revision,published_at,title || E'\n' || coalesce(body_text,excerpt,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+}
+export async function lockNewsModelMaterials(ids: string[], db: Db) {
+  return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id FOR SHARE`;
+}
+
+/** Grouping and human detachment serialize on the material row without exposing its body. */
+export async function lockMaterialForGrouping(db: Db, articleId: string) {
+  await db`SELECT 1 FROM articles WHERE id=${articleId} FOR UPDATE`;
+}
+export async function markMaterialGrouped(db: Db, articleId: string, preserveExisting: boolean) {
+  await db`UPDATE articles SET grouped_at=CASE WHEN ${preserveExisting} THEN coalesce(grouped_at,now()) ELSE now() END WHERE id=${articleId}`;
+}
+/** Acquisition owns the retry decision; content owns persistence of its material metadata. */
+export async function updateMaterialBodyRetry(db: Db, articleId: string, retry: { attempts: number; error: string } | null) {
+  await db`UPDATE articles SET raw=CASE WHEN ${retry !== null}
+    THEN jsonb_set(raw,'{dajiala,bodyRetry}',${db.json(retry as never)}) ELSE raw #- '{dajiala,bodyRetry}' END WHERE id=${articleId}`;
+}
+export async function resetFailedMaterialForRetry(db: Db, articleId: string): Promise<boolean> {
+  const [row] = await db`UPDATE articles SET processing_state='new',processing_attempts=0,processing_retry_at=NULL,processing_error=NULL
+    WHERE id=${articleId} AND processing_state='failed' RETURNING id`;
+  return !!row;
+}
+
+export async function prefilterAuditMaterialSources(articleIds: string[], db: Db) {
+  if (!articleIds.length) return [];
+  return db<{ id: string; source_id: string }[]>`SELECT id,source_id FROM articles WHERE id=ANY(${articleIds}::text[])`;
+}
+export async function prefilterAuditMaterialCopies(articleIds: string[], db: Db) {
+  if (!articleIds.length) return [];
+  return db<{ id: string; title: string; excerpt: string | null; body_text: string | null; discovered_at: Date | null }[]>`
+    SELECT id,title,excerpt,body_text,discovered_at FROM articles WHERE id=ANY(${articleIds}::text[])`;
 }

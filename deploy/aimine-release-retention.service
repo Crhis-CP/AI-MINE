@@ -1,0 +1,14 @@
+[Unit]
+Description=AI-MINE healthy release retention (images and build cache only)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/aimine-maintenance/release-retention.py --apply --automatic
+TimeoutStartSec=15min
+Nice=15
+IOSchedulingClass=idle
+UMask=0077
+StandardOutput=journal
+StandardError=journal

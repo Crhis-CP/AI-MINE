@@ -1,5 +1,4 @@
-// Reader state kept only in this browser; nothing about a reader leaves it. Storage failures degrade
-// silently. Keep the keys and formats once readers have data under them.
+// Reader preferences and saved references remain in this browser. Never retain article content.
 import { useSyncExternalStore } from "react";
 import { beijingDate } from "@amp/contracts/time";
 
@@ -9,19 +8,17 @@ export const KEYS = {
   feedbackDraft: "amp-feedback-draft-v1",
 } as const;
 
-export const STARRED_LIMIT = 500;
+export const STARRED_LIMIT = 100;
+const POLICY_KEY = "amp-policy-saved-v1";
 const ID_PATTERN = /^[a-zA-Z0-9_-]{1,80}$/;
 
 export interface LocalStarredItem {
+  type: "item" | "policy" | "story";
   id: string;
-  title: string;
-  summary: string | null;
-  sourceName: string;
   savedAt: string;
-  publishedAt: string | null;
-  score: number | null;
-  aiSelected: boolean;
 }
+export type SaveResult = { ok: true; added: boolean } | { ok: false; message: string };
+const STORAGE_ERROR = "浏览器暂时无法保存收藏。";
 
 function storage(kind: "local" | "session"): Storage | null {
   try {
@@ -95,75 +92,78 @@ function invalidate(key: string) {
 }
 
 // --- starred ---
-function isStarredItem(v: unknown): v is LocalStarredItem {
-  if (!v || typeof v !== "object") return false;
-  const o = v as Record<string, unknown>;
-  return typeof o.id === "string" && ID_PATTERN.test(o.id) && typeof o.title === "string";
-}
-
-/** Stored dates must be representable in the page's display timezone. */
-function isDisplayableDate(value: unknown): value is string {
-  if (typeof value !== "string") return false;
-  try {
-    beijingDate(value);
-    return true;
-  } catch {
-    return false;
+function normalizeStarred(value: unknown): LocalStarredItem | null {
+  if (!value || typeof value !== "object") return null;
+  const v = value as Record<string, unknown>;
+  if (typeof v.id !== "string" || !ID_PATTERN.test(v.id)) return null;
+  let savedAt = new Date().toISOString();
+  if (typeof v.savedAt === "string") {
+    try {
+      beijingDate(v.savedAt);
+      savedAt = v.savedAt;
+    } catch {
+      /* Keep the reference with a usable added time. */
+    }
   }
-}
-
-function normalizeStarred(v: Record<string, unknown>): LocalStarredItem {
-  return {
-    id: String(v.id),
-    title: String(v.title),
-    summary: typeof v.summary === "string" ? v.summary : null,
-    sourceName: typeof v.sourceName === "string" ? v.sourceName : "",
-    savedAt: isDisplayableDate(v.savedAt) ? v.savedAt : new Date().toISOString(),
-    publishedAt: isDisplayableDate(v.publishedAt) ? v.publishedAt : null,
-    score: typeof v.score === "number" ? v.score : null,
-    aiSelected: v.aiSelected === true,
-  };
+  return { type: v.type === "policy" || v.type === "story" ? v.type : "item", id: v.id, savedAt };
 }
 
 export function getStarred(): LocalStarredItem[] {
   return cached(KEYS.starred, () => {
     const raw = readRaw(KEYS.starred);
-    if (!raw) return [];
+    let refs: LocalStarredItem[] = [];
     try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed
-        .filter(isStarredItem)
-        .map((v) => normalizeStarred(v as unknown as Record<string, unknown>))
-        .slice(0, STARRED_LIMIT);
+      const parsed: unknown = JSON.parse(raw ?? "[]");
+      if (Array.isArray(parsed))
+        refs = parsed.flatMap((v) => {
+          const ref = normalizeStarred(v);
+          return ref ? [ref] : [];
+        });
     } catch {
-      return [];
+      /* Corrupt entries cannot become content. */
     }
+    // Migrate only this new site's former policy references, never the retired site's keys.
+    try {
+      const policies: unknown = JSON.parse(readRaw(POLICY_KEY) ?? "[]");
+      if (Array.isArray(policies))
+        for (const id of policies) {
+          if (typeof id === "string" && ID_PATTERN.test(id)) refs.push({ type: "policy", id, savedAt: new Date().toISOString() });
+        }
+    } catch {
+      /* Ignore corrupt legacy references. */
+    }
+    const seen = new Set<string>();
+    refs = refs.filter((ref) => {
+      const key = `${ref.type}:${ref.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    // Remove old title/summary copies. Existing references above the new limit remain removable.
+    if ((raw || refs.length) && writeRaw(KEYS.starred, JSON.stringify(refs))) writeRaw(POLICY_KEY, null);
+    return refs;
   });
 }
 
-const starredSetCache = { items: null as LocalStarredItem[] | null, ids: new Set<string>() };
-export function isStarred(id: string): boolean {
-  const items = getStarred();
-  if (starredSetCache.items !== items) {
-    starredSetCache.items = items;
-    starredSetCache.ids = new Set(items.map((item) => item.id));
-  }
-  return starredSetCache.ids.has(id);
+export function isStarred(id: string, type: LocalStarredItem["type"] = "item"): boolean {
+  return getStarred().some((ref) => ref.type === type && ref.id === id);
 }
 
-export function toggleStar(item: Omit<LocalStarredItem, "savedAt">): boolean {
-  const list = getStarred();
-  const exists = list.some((s) => s.id === item.id);
-  const next = exists ? list.filter((s) => s.id !== item.id) : [{ ...item, savedAt: new Date().toISOString() }, ...list].slice(0, STARRED_LIMIT);
-  writeRaw(KEYS.starred, JSON.stringify(next));
+export function toggleStar(item: { id: string; type?: LocalStarredItem["type"] }): SaveResult {
+  const list = getStarred(),
+    type = item.type ?? "item";
+  const exists = list.some((s) => s.id === item.id && s.type === type);
+  if (!exists && list.length >= STARRED_LIMIT) return { ok: false, message: "最多收藏100条，请先移除一些收藏。" };
+  const next = exists ? list.filter((s) => s.id !== item.id || s.type !== type) : [{ type, id: item.id, savedAt: new Date().toISOString() }, ...list];
+  if (!writeRaw(KEYS.starred, JSON.stringify(next))) return { ok: false, message: STORAGE_ERROR };
   invalidate(KEYS.starred);
-  return !exists;
+  return { ok: true, added: !exists };
 }
 
-export function removeStar(id: string) {
-  writeRaw(KEYS.starred, JSON.stringify(getStarred().filter((s) => s.id !== id)));
+export function removeStar(id: string, type: LocalStarredItem["type"] = "item"): SaveResult {
+  if (!writeRaw(KEYS.starred, JSON.stringify(getStarred().filter((s) => s.id !== id || s.type !== type)))) return { ok: false, message: STORAGE_ERROR };
   invalidate(KEYS.starred);
+  return { ok: true, added: false };
 }
 
 // --- theme ---
@@ -201,10 +201,10 @@ export function useStarred(): LocalStarredItem[] {
   return useSyncExternalStore(subscribeStarred, getStarred, () => EMPTY_STARRED);
 }
 
-export function useIsStarred(id: string): boolean {
+export function useIsStarred(id: string, type: LocalStarredItem["type"] = "item"): boolean {
   return useSyncExternalStore(
     subscribeStarred,
-    () => isStarred(id),
+    () => isStarred(id, type),
     () => false,
   );
 }

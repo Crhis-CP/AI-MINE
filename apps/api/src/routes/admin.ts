@@ -1,13 +1,38 @@
 // /api/admin/*: queries are GET, creation POST, edits PATCH, business commands POST.
 // Every route goes through adminHandler (session + CSRF); manual changes are audited in the modules.
 import { readFile } from "node:fs/promises";
+import { z } from "zod";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { actorOf } from "@amp/backend/admin/auth";
+import { actorOf, requireOwner, requireCapability } from "@amp/backend/admin/auth";
 
-import { importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
-import { modelsOverview, switchModel } from "@amp/backend/admin/models";
+import { registerSelectionCalibration } from "./selection-calibration.ts";
+import { withSelectionTool, importSelectBenchRun, listSelectBenchRuns, selectBenchRun } from "@amp/backend/admin/selectbench";
+import {
+  modelsOverview,
+  switchModel,
+  listModelConnections,
+  createModelConnection,
+  updateModelConnection,
+  disableModelConnection,
+  requestModelConnectionProbe,
+  readModelConnectionProbe,
+  assignRegisteredModel,
+  queueModelConnectionProbe,
+  type ModelRegistryGuards,
+} from "@amp/backend/admin/models";
 
-import { contentChain, detachFromFact, mergeStories, overrideFields, rerun, searchContent, setSeoIndexed, setVisibility } from "@amp/backend/admin/content";
+import {
+  previewWithdrawal,
+  actWithdrawal,
+  contentChain,
+  detachFromFact,
+  mergeStories,
+  overrideFields,
+  rerun,
+  searchContent,
+  setSeoIndexed,
+  setVisibility,
+} from "@amp/backend/admin/content";
 import { banSource, eraseFeedback, feedbackScreenshot, listFeedback, unbanSource, updateFeedback } from "@amp/backend/admin/feedback";
 import { releaseReceipt, requeueFailedArticles, resolveDelivery, runsOverview } from "@amp/backend/admin/runs";
 import {
@@ -18,14 +43,43 @@ import {
   SourceCreateRequest,
   SourceCreateResponse,
   SourceDetailResponse,
+  SourceArchiveRequest,
+  SourceArchiveResponse,
+  WithdrawalPreviewRequest,
+  WithdrawalPreviewResponse,
+  WithdrawalActionRequest,
+  WithdrawalActionResponse,
+  LaneControlActionRequest,
+  LaneControlsResponse,
+  MonthlyUsageList,
+  MonthlyUsageEntry,
+  UsageMonth,
 } from "@amp/contracts/http/private";
-import { listBudgets, listTargets, setTargetEnabled, updateBudget } from "@amp/backend/admin/settings";
-import { createSource, fetchNow, listSources, previewSource, sourceDetail, updateSource } from "@amp/backend/admin/sources";
+import {
+  listBudgets,
+  listTargets,
+  setTargetEnabled,
+  updateBudget,
+  listLaneControls,
+  changeOwnerLaneControls,
+  monthlyUsageReports,
+} from "@amp/backend/admin/settings";
+import {
+  archiveSource,
+  createSource,
+  fetchNow,
+  listSources,
+  requestSourcePreview,
+  sourcePreviewState,
+  sourceDetail,
+  updateSource,
+} from "@amp/backend/admin/sources";
 import { dbOf } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
 
 const sql = dbOf("sources");
+const AuditQuery = z.object({ subject: z.string().optional(), action: z.string().optional(), page: z.coerce.number().int().positive().default(1) });
 
 type Q = Record<string, string | undefined>;
 const q = (req: FastifyRequest) => req.query as Q;
@@ -35,13 +89,119 @@ const notFound = (req: FastifyRequest, reply: FastifyReply) => sendProblem(req, 
 const orNotFound = <T>(req: FastifyRequest, reply: FastifyReply, value: T | null) => (value === null || value === undefined ? notFound(req, reply) : value);
 const page = (req: FastifyRequest) => Math.max(1, Number(q(req).page) || 1);
 
+const modelGuards: ModelRegistryGuards = {
+  manage: (principal, db) => requireCapability(principal, "models.manage", db),
+  owner: (principal, db) => requireOwner(principal, db),
+};
+
 export function registerAdmin(app: FastifyInstance) {
+  registerSelectionCalibration(app);
+  app.get(
+    contracts.modelRegistry.url,
+    contracts.modelRegistry,
+    adminHandler(async (_req, _reply, admin) => listModelConnections(admin, modelGuards)),
+  );
+  app.post(
+    contracts.createModelConnection.url,
+    contracts.createModelConnection,
+    adminHandler(async (req, _reply, admin) => createModelConnection(req.body, admin, modelGuards)),
+  );
+  app.put(
+    contracts.updateModelConnection.url,
+    contracts.updateModelConnection,
+    adminHandler(async (req, _reply, admin) => updateModelConnection(param(req, "id"), req.body, admin, modelGuards)),
+  );
+  app.post(
+    contracts.disableModelConnection.url,
+    contracts.disableModelConnection,
+    adminHandler(async (req, _reply, admin) => disableModelConnection(param(req, "id"), req.body, admin, modelGuards)),
+  );
+  app.post(
+    contracts.probeModelConnection.url,
+    contracts.probeModelConnection,
+    adminHandler(async (req, _reply, admin) => {
+      const test = await requestModelConnectionProbe(param(req, "id"), req.body, admin, modelGuards);
+      await queueModelConnectionProbe(test);
+      return test;
+    }),
+  );
+  app.get(
+    contracts.modelConnectionProbe.url,
+    contracts.modelConnectionProbe,
+    adminHandler(async (req, _reply, admin) => readModelConnectionProbe(param(req, "id"), admin, modelGuards)),
+  );
+  app.post(
+    contracts.assignRegisteredModel.url,
+    contracts.assignRegisteredModel,
+    adminHandler(async (req, _reply, admin) => assignRegisteredModel(param(req, "capability"), req.body, admin, modelGuards)),
+  );
+
+  app.get(
+    contracts.usageMonthlyList.url,
+    contracts.usageMonthlyList,
+    adminHandler(async (req, reply) => {
+      try {
+        return MonthlyUsageList.parse({ items: await monthlyUsageReports() });
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "月度用量历史暂时无法读取" });
+      }
+    }),
+  );
+  app.get(
+    contracts.usageMonthlyDetail.url,
+    contracts.usageMonthlyDetail,
+    adminHandler(async (req, reply) => {
+      const month = UsageMonth.safeParse(param(req, "month"));
+      if (!month.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请使用有效的年月" });
+      try {
+        const result = (await monthlyUsageReports(month.data))[0];
+        return result ? MonthlyUsageEntry.parse(result) : notFound(req, reply);
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "月度用量报告暂时无法读取" });
+      }
+    }),
+  );
+  app.get(
+    contracts.laneControls.url,
+    contracts.laneControls,
+    adminHandler(async (req, reply) => {
+      try {
+        return LaneControlsResponse.parse(await listLaneControls());
+      } catch {
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "运行控制状态暂时不可用" });
+      }
+    }),
+  );
+  app.post(
+    contracts.laneControlAction.url,
+    {
+      ...contracts.laneControlAction,
+      errorHandler(error, req, reply) {
+        if (error.statusCode === 400) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });
+        req.log.error({ err: error }, "runtime control action failed");
+        return sendProblem(req, reply, { status: 503, code: "temporarily_unavailable", detail: "运行控制暂时不可用，请稍后再试" });
+      },
+    },
+    adminHandler(async (req, reply, admin) => {
+      const parsed = LaneControlActionRequest.safeParse(req.body);
+      if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对暂停范围、原因、期限与当前版本" });
+      return LaneControlsResponse.parse(await changeOwnerLaneControls(parsed.data, actorOf(admin), (tx) => requireOwner(admin, tx)));
+    }),
+  );
   // Sources (F18)
   app.get(
     "/api/admin/sources",
     adminHandler(async (req) => {
       const f = q(req);
-      return listSources({ q: f.q, kind: f.kind, health: f.health, mode: f.mode, enabled: f.enabled as "true" | "false" | undefined, page: page(req) });
+      return listSources({
+        q: f.q,
+        kind: f.kind,
+        health: f.health,
+        mode: f.mode,
+        enabled: f.enabled as "true" | "false" | undefined,
+        archived: f.archived as "true" | "false" | undefined,
+        page: page(req),
+      });
     }),
   );
   app.post(
@@ -56,7 +216,21 @@ export function registerAdmin(app: FastifyInstance) {
   );
   app.post(
     "/api/admin/sources/preview",
-    adminHandler(async (req) => previewSource(body(req) as never)),
+    adminHandler(async (req, _reply, admin) => {
+      const input = body<{ id: string; config?: Record<string, unknown> }>(req);
+      return requestSourcePreview(input.id, input, actorOf(admin));
+    }),
+  );
+  app.post(
+    contracts.archiveSource.url,
+    { schema: { operationId: contracts.archiveSource.schema.operationId, response: contracts.archiveSource.schema.response } },
+    adminHandler(async (req, reply, admin) => {
+      await requireOwner(admin);
+      const input = SourceArchiveRequest.safeParse(body(req));
+      if (!input.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对信源版本、归档原因和归档确认。" });
+      const source = await archiveSource(param(req, "id"), input.data, actorOf(admin));
+      return source === null ? notFound(req, reply) : SourceArchiveResponse.parse(JSON.parse(JSON.stringify({ source: sourceWire(source.source) })));
+    }),
   );
   app.get(
     contracts.sourceDetail.url,
@@ -77,16 +251,36 @@ export function registerAdmin(app: FastifyInstance) {
       return orNotFound(req, reply, await updateSource(param(req, "id"), b, actorOf(admin)));
     }),
   );
+  app.get(
+    "/api/admin/sources/:id/preview",
+    adminHandler(async (req) => sourcePreviewState(param(req, "id"))),
+  );
   app.post(
     "/api/admin/sources/:id/preview",
-    adminHandler(async (req, reply) => {
-      const [s] = await sql`SELECT * FROM sources WHERE id = ${param(req, "id")}`;
-      return s ? previewSource(s as never) : notFound(req, reply);
-    }),
+    adminHandler(async (req, _reply, admin) => requestSourcePreview(param(req, "id"), body(req) as never, actorOf(admin))),
   );
   app.post(
     "/api/admin/sources/:id/fetch",
     adminHandler(async (req, reply, admin) => orNotFound(req, reply, await fetchNow(param(req, "id"), actorOf(admin)))),
+  );
+
+  app.post(
+    contracts.previewWithdrawal.url,
+    { schema: { operationId: contracts.previewWithdrawal.schema.operationId, response: contracts.previewWithdrawal.schema.response } },
+    adminHandler(async (req, reply) => {
+      const input = WithdrawalPreviewRequest.safeParse(body(req));
+      if (!input.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对下架对象、业务线及刊期。" });
+      return WithdrawalPreviewResponse.parse(await previewWithdrawal(input.data.target));
+    }),
+  );
+  app.post(
+    contracts.actWithdrawal.url,
+    { schema: { operationId: contracts.actWithdrawal.schema.operationId, response: contracts.actWithdrawal.schema.response } },
+    adminHandler(async (req, reply, admin) => {
+      const input = WithdrawalActionRequest.safeParse(body(req));
+      if (!input.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "请核对影响范围、操作原因和要恢复的下架记录。" });
+      return WithdrawalActionResponse.parse(await actWithdrawal(input.data, actorOf(admin)));
+    }),
   );
 
   // Content and events (F19)
@@ -219,6 +413,7 @@ export function registerAdmin(app: FastifyInstance) {
   app.post(
     "/api/admin/models/:capability",
     adminHandler(async (req, _reply, admin) => {
+      await requireCapability(admin, "models.manage");
       const b = body<{ model: string | null; reason: string }>(req);
       return switchModel(param(req, "capability"), b.model ?? null, String(b.reason ?? ""), actorOf(admin));
     }),
@@ -227,24 +422,26 @@ export function registerAdmin(app: FastifyInstance) {
   // SelectBench
   app.get(
     "/api/admin/selectbench",
-    adminHandler(async () => ({ runs: await listSelectBenchRuns() })),
+    adminHandler(async (_req, _reply, principal) => withSelectionTool(principal, async (tx) => ({ runs: await listSelectBenchRuns(tx) }))),
   );
   app.get(
     "/api/admin/selectbench/:id",
-    adminHandler(async (req, reply) => {
-      const f = q(req);
-      return orNotFound(
-        req,
-        reply,
-        await selectBenchRun(param(req, "id"), { model: f.model, outcome: f.outcome, stratum: f.stratum, disagree: f.disagree === "1" }),
-      );
-    }),
+    adminHandler(async (req, reply, principal) =>
+      withSelectionTool(principal, async (tx) => {
+        const f = q(req);
+        return orNotFound(
+          req,
+          reply,
+          await selectBenchRun(param(req, "id"), { model: f.model, outcome: f.outcome, stratum: f.stratum, disagree: f.disagree === "1" }, tx),
+        );
+      }),
+    ),
   );
   app.post(
     "/api/admin/selectbench/import",
     adminHandler(async (req, _reply, admin) => {
       const b = body<{ label: string; report: unknown }>(req);
-      return importSelectBenchRun(b.report, String(b.label || "导入的对比运行"), actorOf(admin));
+      return withSelectionTool(admin, (tx) => importSelectBenchRun(b.report, String(b.label || "导入的对比运行"), actorOf(admin), tx));
     }),
   );
 
@@ -263,13 +460,15 @@ export function registerAdmin(app: FastifyInstance) {
   // Audit trail
   app.get(
     "/api/admin/audit",
-    adminHandler(async (req) => {
-      const f = q(req);
+    adminHandler(async (req, reply) => {
+      const parsed = AuditQuery.safeParse(req.query);
+      if (!parsed.success) return sendProblem(req, reply, { status: 400, code: "invalid_request", detail: "审计筛选必须使用单个文本值和正整数页码。" });
+      const f = parsed.data;
       const rows = await sql`
       SELECT id, created_at, actor, action, subject, reason, before, after FROM audit_log
       WHERE (${f.subject ?? null}::text IS NULL OR subject = ${f.subject ?? null}) AND (${f.action ?? null}::text IS NULL OR action LIKE ${`${f.action ?? ""}%`})
-      ORDER BY created_at DESC LIMIT 100 OFFSET ${(page(req) - 1) * 100}`;
-      return { page: page(req), rows };
+      ORDER BY created_at DESC LIMIT 100 OFFSET ${(f.page - 1) * 100}`;
+      return { page: f.page, rows };
     }),
   );
 }

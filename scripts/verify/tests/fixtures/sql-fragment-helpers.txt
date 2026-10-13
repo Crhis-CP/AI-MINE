@@ -69,3 +69,36 @@ export function rebound() { return sql`true`; }
 rebound = () => sql`EXISTS (SELECT 1 FROM receipts)`;
 export const alias = published;
 export declare function opaque(): postgres.PendingQuery<postgres.Row[]>;
+
+export function localConst(now: Date, q: { offset: number; category: string | null }) {
+  const until = new Date(now.getTime() + q.offset);
+  const condition = q.category ? sql`AND p.category = ${q.category}` : sql``;
+  if (!q.category) return sql`p.at <= ${until}`;
+  return sql`p.at <= ${until} ${condition}`;
+}
+export function conditionalValue(flag: boolean, first: string, second: string) {
+  const value = flag ? first : second;
+  return sql`p.title = ${value}`;
+}
+export function ignoredEffect(now: Date) {
+  const unused = observe();
+  return sql`p.at < ${now}`;
+}
+export function ignoredWrite() {
+  const unused = sql`DELETE FROM receipts`;
+  return sql`TRUE`;
+}
+export function wrongConst() {
+  const value = sql`EXISTS (SELECT 1 FROM receipts)` as unknown as string;
+  return sql`p.title=${value}`;
+}
+
+export function projection(flag: boolean, value = sql`p.payload`) {
+  return flag ? sql`${value} - ARRAY['private']::text[]` : value;
+}
+export function qualified(alias: string) { return sql`${sql(alias)}.id = 1`; }
+export function qualifiedExists(alias: string) { return sql`EXISTS(SELECT 1 FROM receipts r WHERE r.id = ${sql(alias)}.id)`; }
+
+export function scalarRead(column = sql`p.id`) { return sql`(SELECT r.id FROM receipts r WHERE r.id = ${column} ORDER BY r.id LIMIT 1)`; }
+export function scalarWrite() { return sql`(DELETE FROM receipts RETURNING id)`; }
+export function scalarEscape() { return sql`(SELECT id FROM receipts) JOIN hidden h ON true`; }

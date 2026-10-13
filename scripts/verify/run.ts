@@ -38,6 +38,7 @@ import { checkApiSplit } from "./api-split.ts";
 import { stopSiteProcesses } from "./site-processes.ts";
 import { webEnvironment } from "../../apps/web/runtime-env.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
+import { sourceIdentity } from "@amp/backend/admin/sources";
 
 const WEB_PACKAGE = "@amp/web";
 const PENDING_STAGES = ["contracts (TASK-0005)", "product-update", "pit-checks (TASK-0011)"];
@@ -109,7 +110,7 @@ const list = (v: string | undefined) =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-if (flag("--release-check") || flag("--nightly")) {
+if (import.meta.main && (flag("--release-check") || flag("--nightly"))) {
   // Skeletons (rules §8.1): they must not pass by accident while their stages do not exist.
   const what = flag("--nightly")
     ? "make nightly: full E2E (TASK-0008) and capacity benchmarks (TASK-0012) — not implemented yet"
@@ -227,8 +228,60 @@ function siteEnv(db: Db): Record<string, string> {
   };
 }
 
-const industrySourceCount = (root: string) =>
-  (JSON.parse(readFileSync(path.join(root, "industry/sources.json"), "utf8")) as { sources: unknown[] }).sources.length;
+/** Reproduce seed identity selection, including held policy entries and same-entry duplicates. */
+export function industrySourceIds(root: string): string[] {
+  type SeedIdentity = { id: string; kind: string; config: Record<string, unknown> };
+  const news = JSON.parse(readFileSync(path.join(root, "industry/sources.json"), "utf8")) as { sources: SeedIdentity[] };
+  const policy = JSON.parse(readFileSync(path.join(root, "industry/policy-sources.json"), "utf8")) as {
+    sources: Array<{ id: string; status: string; collect: Omit<SeedIdentity, "id"> | null }>;
+  };
+  if (!Array.isArray(news.sources) || !Array.isArray(policy.sources)) throw new Error("Seed catalogues must contain source arrays");
+  const sources = new Map<string, SeedIdentity>();
+  const identity = (entry: SeedIdentity) => {
+    if (
+      !entry ||
+      typeof entry.id !== "string" ||
+      !entry.id.trim() ||
+      typeof entry.kind !== "string" ||
+      !entry.config ||
+      typeof entry.config !== "object" ||
+      Array.isArray(entry.config)
+    )
+      throw new Error("Invalid seed source identity");
+    return sourceIdentity(entry.config);
+  };
+  for (const entry of news.sources) {
+    identity(entry);
+    if (!sources.has(entry.id)) sources.set(entry.id, entry);
+  }
+  for (const entry of policy.sources) {
+    if (!entry.collect || !["ready", "needs_overseas"].includes(entry.status)) continue;
+    if (typeof entry.id !== "string" || !entry.id.trim()) throw new Error("Invalid policy seed identity");
+    const source = { ...entry.collect, id: `policy-${entry.id.toLowerCase()}` },
+      key = identity(source);
+    if (sources.has(source.id)) continue;
+    if (key && [...sources.values()].some((existing) => existing.kind === source.kind && sourceIdentity(existing.config) === key)) continue;
+    sources.set(source.id, source);
+  }
+  return [...sources.keys()].sort();
+}
+
+/** Equal counts cannot hide a missing catalogue ID replaced by an unexpected source. */
+export function seedSourceMismatch(expected: string[], output: string): string | null {
+  let actual: unknown;
+  try {
+    actual = JSON.parse(output);
+  } catch {
+    return "seed source IDs were not valid JSON";
+  }
+  if (!Array.isArray(actual) || !actual.every((id): id is string => typeof id === "string")) return "seed source IDs were not a string array";
+  const ids = new Set(actual),
+    want = new Set(expected);
+  const missing = expected.filter((id) => !ids.has(id)),
+    unexpected = [...ids].filter((id) => !want.has(id));
+  if (actual.length === expected.length && ids.size === actual.length && !missing.length && !unexpected.length) return null;
+  return `seeded ${actual.length} sources, catalogues require ${expected.length}; missing: ${missing.slice(0, 10).join(", ") || "none"}; unexpected: ${unexpected.slice(0, 10).join(", ") || "none"}; duplicate IDs: ${actual.length - ids.size}`;
+}
 
 const receipt: Record<string, unknown> = {};
 
@@ -372,18 +425,22 @@ const STAGES: Stage[] = [
       const e = env({ DATABASE_URL: db!.url });
       if ((await run("node", ["scripts/migrate.ts"], { log, env: e })) !== 0) return fail("migrations failed on an empty database");
       if ((await run("node", ["scripts/seed.ts", "--topics-only"], { log, env: e })) !== 0) return fail("topic seed failed");
-      // The full seed on a second empty database: every source in industry/sources.json lands (this replaces
-      // the upstream check that there are exactly 18 sources, its demo count).
+      // The full seed on a second empty database: exact IDs from both news and eligible policy catalogues.
       const seedDb = sibling(db!, "seed");
       try {
         if (!(await recreate(seedDb, log))) return fail(`could not create database ${seedDb.name}`);
         const se = env({ DATABASE_URL: seedDb.url });
         if ((await run("node", ["scripts/migrate.ts"], { log, env: se })) !== 0) return fail("migrations failed on the seed database");
         if ((await run("node", ["scripts/seed.ts"], { log, env: se })) !== 0) return fail("full seed failed");
-        const count = await capture("psql", ["-qXAt", "-c", "select count(*) from sources"], { log, env: env(pgEnv(seedDb.url)) });
-        const want = industrySourceCount(ROOT);
-        if (Number(count.stdout.trim()) !== want) return fail(`seeded ${count.stdout.trim()} sources, industry/sources.json has ${want}`);
-        return pass(`empty-database migrations; ${want} seed sources`);
+        const seeded = await capture("psql", ["-qXAt", "-c", "select coalesce(json_agg(id order by id), '[]'::json) from sources"], {
+          log,
+          env: env(pgEnv(seedDb.url)),
+        });
+        if (seeded.code !== 0) return fail("could not read seeded source IDs");
+        const want = industrySourceIds(ROOT),
+          mismatch = seedSourceMismatch(want, seeded.stdout.trim());
+        if (mismatch) return fail(mismatch);
+        return pass(`empty-database migrations; ${want.length} seed source IDs matched`);
       } finally {
         await dropDb(seedDb, log);
       }
@@ -464,7 +521,11 @@ const STAGES: Stage[] = [
       if ((await run("node", ["--test", "scripts/verify/tests/*.test.ts"], { log, env: env() })) !== 0) failed.push("verify self-tests");
       // The web tests start the production server, so they need the build (pnpm check runs them when it exists).
       const webTests = !quick || existsSync(path.join(ROOT, "apps/web/build"));
-      if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: webEnvironment(env()) })) !== 0) failed.push("web tests");
+      if (webTests && (await run("node", ["--test", "apps/web/tests/*.test.ts"], { log, env: webEnvironment(env()) })) !== 0) {
+        failed.push("web tests");
+        // Later backend output must not hide the browser assertion on executors without log artifacts.
+        for (const line of readFileSync(log.file, "utf8").trimEnd().split("\n").slice(-160)) console.log(`    | web tests: ${line}`);
+      }
       // After the smoke check, which reads an empty database: the backend tests write their own rows.
       if (
         !quick &&
@@ -530,17 +591,33 @@ const STAGES: Stage[] = [
           )) !== 0
         )
           return fail("compose API split check failed");
-        const count = await capture(
+        const seeded = await capture(
           "docker",
-          ["compose", "-p", project, "exec", "-T", "db", "psql", "-U", "amp", "-d", "amp", "-Atc", "select count(*) from sources"],
+          [
+            "compose",
+            "-p",
+            project,
+            "exec",
+            "-T",
+            "db",
+            "psql",
+            "-U",
+            "amp",
+            "-d",
+            "amp",
+            "-Atc",
+            "select coalesce(json_agg(id order by id), '[]'::json) from sources",
+          ],
           {
             log,
             env: e,
             cwd: dir,
           },
         );
-        const want = industrySourceCount(dir);
-        if (Number(count.stdout.trim()) !== want) return fail(`compose seeded ${count.stdout.trim()} sources, industry/sources.json has ${want}`);
+        if (seeded.code !== 0) return fail("compose could not read seeded source IDs");
+        const want = industrySourceIds(dir),
+          mismatch = seedSourceMismatch(want, seeded.stdout.trim());
+        if (mismatch) return fail(`compose ${mismatch}`);
         const image = await capture("docker", ["--host", "unix:///var/run/docker.sock", "image", "inspect", "amp-app", "--format", "{{.Id}}"], { log, env: e });
         const previous = image.stdout.trim();
         if (image.code !== 0 || !/^sha256:[a-f0-9]{64}$/.test(previous)) return fail("local normal image identity unavailable");
@@ -560,7 +637,7 @@ const STAGES: Stage[] = [
         );
         receipt.local_rehearsal = evidence;
         if (!evidence.accepted) return fail(`local fault preparation or rollback checks failed; evidence ${path.relative(ROOT, record)}`);
-        return pass(`compose smoke, ${want} seed sources; actual unhealthy candidate recovered and rechecked on this executor`);
+        return pass(`compose smoke, ${want.length} seed source IDs matched; actual unhealthy candidate recovered and rechecked on this executor`);
       } finally {
         if (existsSync(path.join(dir, "docker-compose.yml"))) {
           await compose("logs", "--tail", "80");
@@ -613,151 +690,153 @@ function tampering(): string[] {
   return out;
 }
 
-const startState = treeState();
-const head = startState.head;
-const problemsAtStart = tampering();
-if (problemsAtStart.length) {
-  for (const p of problemsAtStart) console.error(`refusing to run: ${p}`);
-  process.exit(2);
-}
-const sha = option("--sha");
-if (sha && sha !== head) {
-  console.error(`refusing to run: HEAD is ${head}, not the requested ${sha}`);
-  process.exit(2);
-}
-const cleanAtStart = startState.status === "";
-if (!cleanAtStart && !quick && !allowDirty) {
-  console.error("refusing to run: the checkout has uncommitted or untracked files (commit them, or pass --allow-dirty for a focused run)");
-  console.error(startState.status.split("\n").slice(0, 10).join("\n"));
-  process.exit(2);
-}
-
-const baseRef = process.env.VERIFY_BASE || (tryGit(["rev-parse", "--verify", "-q", "origin/main"]) ? "origin/main" : "main");
-const baseHead = tryGit(["rev-parse", "--verify", "-q", baseRef]);
-const base = baseHead ? tryGit(["merge-base", baseHead, head]) : null;
-const branch = tryGit(["rev-parse", "--abbrev-ref", "HEAD"]) ?? "";
-const task = option("--task") || process.env.VERIFY_TASK || cardFromBranch(branch);
-const db = quick ? null : databaseFromEnv();
-const onMain = baseHead === head;
-
-const runId = `${onMain ? "main-" : ""}${head.slice(0, 12)}`;
-const logDir = path.join(ROOT, ".verify", quick ? "check-logs" : "logs", runId);
-rmSync(logDir, { recursive: true, force: true });
-mkdirSync(logDir, { recursive: true });
-
-const selected = STAGES.filter((s) => (quick ? s.quick : true)).filter((s) => !only.length || only.includes(s.name));
-const results: Array<{ name: string; status: Status; duration_s: number; note?: string }> = [];
-let current = "";
-const startedAt = new Date();
-
-function writeReceipt(exitStatus: number, failedStage: string | null, endState: TreeState | null): string {
-  const logs = results.map((r, i) => path.join(logDir, `${String(i + 1).padStart(2, "0")}-${r.name}.log`)).filter((f) => existsSync(f));
-  const full = !quick && !only.length && results.length === STAGES.length && results.every((r) => r.status !== "skipped") && cleanAtStart;
-  const body = {
-    receipt_version: 1,
-    command: quick ? "pnpm check" : "make verify",
-    verify_revision: sha256(git(["ls-files", "-s", "--", "Makefile", "scripts/verify", "scripts/docs-check"])),
-    scope: full ? "full" : "focused",
-    git: {
-      sha: head,
-      tree: startState.tree,
-      base_ref: baseRef,
-      base,
-      main_head_at_start: baseHead,
-      lockfile_sha256: startState.lockfile,
-      tracked_and_untracked_clean_at_start: cleanAtStart,
-      tracked_and_untracked_clean_at_end: endState ? endState.status === "" : null,
-    },
-    task_card: task,
-    executor: {
-      id: process.env.VERIFY_EXECUTOR_ID || "unnamed",
-      os: process.platform,
-      arch: process.arch === "x64" ? "amd64" : process.arch,
-      docker: probe("docker", ["version", "--format", "{{.Server.Version}}"]),
-      node: process.versions.node,
-      pnpm: probe("pnpm", ["--version"]),
-      postgres: db ? probe("psql", ["-XAtqc", "show server_version"], { ...process.env, ...pgEnv(db.url) }) : null,
-    },
-    started_at: startedAt.toISOString(),
-    finished_at: new Date().toISOString(),
-    stages: results,
-    pending_stages: PENDING_STAGES,
-    exit_status: exitStatus,
-    failed_stage: failedStage,
-    secret_scan: receipt.secret_scan ?? null,
-    audit: receipt.audit ?? null,
-    local_rehearsal: receipt.local_rehearsal ?? null,
-    log_digest: `sha256:${sha256(Buffer.concat(logs.map((f) => readFileSync(f))))}`,
-  };
-  // No receipt without both supply-chain sections (rules §8.3): it would read as a pass it is not.
-  if (!quick && (!body.secret_scan || !body.audit) && body.exit_status === 0) {
-    body.exit_status = 1;
-    body.failed_stage = body.failed_stage ?? (!body.secret_scan ? "secrets" : "audit");
+if (import.meta.main) {
+  const startState = treeState();
+  const head = startState.head;
+  const problemsAtStart = tampering();
+  if (problemsAtStart.length) {
+    for (const p of problemsAtStart) console.error(`refusing to run: ${p}`);
+    process.exit(2);
   }
-  const dir = path.join(ROOT, ".verify", "receipts");
-  mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `${runId}.json`);
-  writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`);
-  return path.relative(ROOT, file);
-}
+  const sha = option("--sha");
+  if (sha && sha !== head) {
+    console.error(`refusing to run: HEAD is ${head}, not the requested ${sha}`);
+    process.exit(2);
+  }
+  const cleanAtStart = startState.status === "";
+  if (!cleanAtStart && !quick && !allowDirty) {
+    console.error("refusing to run: the checkout has uncommitted or untracked files (commit them, or pass --allow-dirty for a focused run)");
+    console.error(startState.status.split("\n").slice(0, 10).join("\n"));
+    process.exit(2);
+  }
 
-let interruption: Promise<never> | undefined;
-const interrupt = () => {
-  interruption ??= (async () => {
-    await stopAll();
-    if (!quick) console.error(`interrupted; receipt ${writeReceipt(130, `${current || "start"} (interrupted)`, null)}`);
-    process.exit(130);
-  })();
-};
-process.on("SIGINT", interrupt).on("SIGTERM", interrupt);
+  const baseRef = process.env.VERIFY_BASE || (tryGit(["rev-parse", "--verify", "-q", "origin/main"]) ? "origin/main" : "main");
+  const baseHead = tryGit(["rev-parse", "--verify", "-q", baseRef]);
+  const base = baseHead ? tryGit(["merge-base", baseHead, head]) : null;
+  const branch = tryGit(["rev-parse", "--abbrev-ref", "HEAD"]) ?? "";
+  const task = option("--task") || process.env.VERIFY_TASK || cardFromBranch(branch);
+  const db = quick ? null : databaseFromEnv();
+  const onMain = baseHead === head;
 
-console.log(
-  `${quick ? "pnpm check" : "make verify"} on ${head.slice(0, 12)}${base ? ` (base ${base.slice(0, 12)} from ${baseRef})` : ""}${task ? `, ${task}` : ""}`,
-);
-for (const [i, stage] of selected.entries()) {
-  current = stage.name;
-  const log = openLog(path.join(logDir, `${String(results.length + 1).padStart(2, "0")}-${stage.name}.log`));
-  const t0 = performance.now();
-  let outcome: Outcome;
-  const blocked = (stage.after ?? []).find((n) => results.some((r) => r.name === n && r.status !== "pass"));
-  if (skip.includes(stage.name)) outcome = { status: "skipped", note: "skipped on request (VERIFY_SKIP / --skip)" };
-  else if (blocked) outcome = { status: "skipped", note: `${blocked} did not pass` };
-  else if (stage.needsDb && !db) outcome = { status: "skipped", note: "no database (set VERIFY_DATABASE_URL to a *_ci or *_test database)" };
-  else {
-    try {
-      outcome = await stage.run({ log, head, base, task, db, quick, env: childEnv });
-    } catch (e) {
-      outcome = fail((e as Error).message);
+  const runId = `${onMain ? "main-" : ""}${head.slice(0, 12)}`;
+  const logDir = path.join(ROOT, ".verify", quick ? "check-logs" : "logs", runId);
+  rmSync(logDir, { recursive: true, force: true });
+  mkdirSync(logDir, { recursive: true });
+
+  const selected = STAGES.filter((s) => (quick ? s.quick : true)).filter((s) => !only.length || only.includes(s.name));
+  const results: Array<{ name: string; status: Status; duration_s: number; note?: string }> = [];
+  let current = "";
+  const startedAt = new Date();
+
+  function writeReceipt(exitStatus: number, failedStage: string | null, endState: TreeState | null): string {
+    const logs = results.map((r, i) => path.join(logDir, `${String(i + 1).padStart(2, "0")}-${r.name}.log`)).filter((f) => existsSync(f));
+    const full = !quick && !only.length && results.length === STAGES.length && results.every((r) => r.status !== "skipped") && cleanAtStart;
+    const body = {
+      receipt_version: 1,
+      command: quick ? "pnpm check" : "make verify",
+      verify_revision: sha256(git(["ls-files", "-s", "--", "Makefile", "scripts/verify", "scripts/docs-check"])),
+      scope: full ? "full" : "focused",
+      git: {
+        sha: head,
+        tree: startState.tree,
+        base_ref: baseRef,
+        base,
+        main_head_at_start: baseHead,
+        lockfile_sha256: startState.lockfile,
+        tracked_and_untracked_clean_at_start: cleanAtStart,
+        tracked_and_untracked_clean_at_end: endState ? endState.status === "" : null,
+      },
+      task_card: task,
+      executor: {
+        id: process.env.VERIFY_EXECUTOR_ID || "unnamed",
+        os: process.platform,
+        arch: process.arch === "x64" ? "amd64" : process.arch,
+        docker: probe("docker", ["version", "--format", "{{.Server.Version}}"]),
+        node: process.versions.node,
+        pnpm: probe("pnpm", ["--version"]),
+        postgres: db ? probe("psql", ["-XAtqc", "show server_version"], { ...process.env, ...pgEnv(db.url) }) : null,
+      },
+      started_at: startedAt.toISOString(),
+      finished_at: new Date().toISOString(),
+      stages: results,
+      pending_stages: PENDING_STAGES,
+      exit_status: exitStatus,
+      failed_stage: failedStage,
+      secret_scan: receipt.secret_scan ?? null,
+      audit: receipt.audit ?? null,
+      local_rehearsal: receipt.local_rehearsal ?? null,
+      log_digest: `sha256:${sha256(Buffer.concat(logs.map((f) => readFileSync(f))))}`,
+    };
+    // No receipt without both supply-chain sections (rules §8.3): it would read as a pass it is not.
+    if (!quick && (!body.secret_scan || !body.audit) && body.exit_status === 0) {
+      body.exit_status = 1;
+      body.failed_stage = body.failed_stage ?? (!body.secret_scan ? "secrets" : "audit");
+    }
+    const dir = path.join(ROOT, ".verify", "receipts");
+    mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${runId}.json`);
+    writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`);
+    return path.relative(ROOT, file);
+  }
+
+  let interruption: Promise<never> | undefined;
+  const interrupt = () => {
+    interruption ??= (async () => {
+      await stopAll();
+      if (!quick) console.error(`interrupted; receipt ${writeReceipt(130, `${current || "start"} (interrupted)`, null)}`);
+      process.exit(130);
+    })();
+  };
+  process.on("SIGINT", interrupt).on("SIGTERM", interrupt);
+
+  console.log(
+    `${quick ? "pnpm check" : "make verify"} on ${head.slice(0, 12)}${base ? ` (base ${base.slice(0, 12)} from ${baseRef})` : ""}${task ? `, ${task}` : ""}`,
+  );
+  for (const [i, stage] of selected.entries()) {
+    current = stage.name;
+    const log = openLog(path.join(logDir, `${String(results.length + 1).padStart(2, "0")}-${stage.name}.log`));
+    const t0 = performance.now();
+    let outcome: Outcome;
+    const blocked = (stage.after ?? []).find((n) => results.some((r) => r.name === n && r.status !== "pass"));
+    if (skip.includes(stage.name)) outcome = { status: "skipped", note: "skipped on request (VERIFY_SKIP / --skip)" };
+    else if (blocked) outcome = { status: "skipped", note: `${blocked} did not pass` };
+    else if (stage.needsDb && !db) outcome = { status: "skipped", note: "no database (set VERIFY_DATABASE_URL to a *_ci or *_test database)" };
+    else {
+      try {
+        outcome = await stage.run({ log, head, base, task, db, quick, env: childEnv });
+      } catch (e) {
+        outcome = fail((e as Error).message);
+      }
+    }
+    if (interruption) await interruption;
+    const duration = Math.round((performance.now() - t0) / 100) / 10;
+    log.line(`== ${stage.name}: ${outcome.status}${outcome.note ? ` — ${outcome.note}` : ""}`);
+    results.push({ name: stage.name, status: outcome.status, duration_s: duration, ...(outcome.note ? { note: outcome.note } : {}) });
+    console.log(`[${i + 1}/${selected.length}] ${stage.name.padEnd(13)} ${outcome.status.padEnd(7)} ${String(duration).padStart(6)} s  ${outcome.note ?? ""}`);
+    if (outcome.status === "fail") {
+      const tail = readFileSync(log.file, "utf8").trimEnd().split("\n").slice(-25);
+      for (const l of tail) console.log(`    | ${l}`);
     }
   }
-  if (interruption) await interruption;
-  const duration = Math.round((performance.now() - t0) / 100) / 10;
-  log.line(`== ${stage.name}: ${outcome.status}${outcome.note ? ` — ${outcome.note}` : ""}`);
-  results.push({ name: stage.name, status: outcome.status, duration_s: duration, ...(outcome.note ? { note: outcome.note } : {}) });
-  console.log(`[${i + 1}/${selected.length}] ${stage.name.padEnd(13)} ${outcome.status.padEnd(7)} ${String(duration).padStart(6)} s  ${outcome.note ?? ""}`);
-  if (outcome.status === "fail") {
-    const tail = readFileSync(log.file, "utf8").trimEnd().split("\n").slice(-25);
-    for (const l of tail) console.log(`    | ${l}`);
+  current = "";
+
+  const endState = treeState();
+  const drift: string[] = [];
+  if (endState.head !== startState.head) drift.push("HEAD moved");
+  if (endState.tree !== startState.tree) drift.push("the commit's tree changed");
+  if (endState.lockfile !== startState.lockfile) drift.push("pnpm-lock.yaml changed");
+  if (cleanAtStart && endState.status !== "") drift.push(`the checks left files behind:\n${endState.status.split("\n").slice(0, 10).join("\n")}`);
+  for (const d of drift) console.log(`drift: ${d}`);
+
+  const failedStage = drift.length ? "end-state" : (results.find((r) => r.status === "fail")?.name ?? null);
+  const exitStatus = failedStage ? 1 : 0;
+  if (quick) {
+    console.log(exitStatus ? "pnpm check: failed" : "pnpm check: passed (fast subset; merging needs a make verify receipt)");
+    process.exit(exitStatus);
   }
+  const file = writeReceipt(exitStatus, failedStage, endState);
+  const scope = (JSON.parse(readFileSync(path.join(ROOT, file), "utf8")) as { scope: string; exit_status: number }).scope;
+  const finalStatus = (JSON.parse(readFileSync(path.join(ROOT, file), "utf8")) as { exit_status: number }).exit_status;
+  console.log(`receipt ${file}: ${finalStatus === 0 ? "passed" : "FAILED"}, scope ${scope}${scope === "focused" ? " (cannot be used to merge)" : ""}`);
+  process.exit(finalStatus === 0 ? 0 : 1);
 }
-current = "";
-
-const endState = treeState();
-const drift: string[] = [];
-if (endState.head !== startState.head) drift.push("HEAD moved");
-if (endState.tree !== startState.tree) drift.push("the commit's tree changed");
-if (endState.lockfile !== startState.lockfile) drift.push("pnpm-lock.yaml changed");
-if (cleanAtStart && endState.status !== "") drift.push(`the checks left files behind:\n${endState.status.split("\n").slice(0, 10).join("\n")}`);
-for (const d of drift) console.log(`drift: ${d}`);
-
-const failedStage = drift.length ? "end-state" : (results.find((r) => r.status === "fail")?.name ?? null);
-const exitStatus = failedStage ? 1 : 0;
-if (quick) {
-  console.log(exitStatus ? "pnpm check: failed" : "pnpm check: passed (fast subset; merging needs a make verify receipt)");
-  process.exit(exitStatus);
-}
-const file = writeReceipt(exitStatus, failedStage, endState);
-const scope = (JSON.parse(readFileSync(path.join(ROOT, file), "utf8")) as { scope: string; exit_status: number }).scope;
-const finalStatus = (JSON.parse(readFileSync(path.join(ROOT, file), "utf8")) as { exit_status: number }).exit_status;
-console.log(`receipt ${file}: ${finalStatus === 0 ? "passed" : "FAILED"}, scope ${scope}${scope === "focused" ? " (cannot be used to merge)" : ""}`);
-process.exit(finalStatus === 0 ? 0 : 1);

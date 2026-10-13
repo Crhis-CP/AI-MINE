@@ -142,11 +142,19 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
         if (!punctuation(cursor++, ",")) break;
       }
     }
+  // Only these complete positive transaction-local timeout statements are ownership-neutral.
+  const boundedTimeout =
+    tokens.length === 5 &&
+    wordAt(0, "set") &&
+    wordAt(1, "local") &&
+    punctuation(3, "=") &&
+    tokens[4]?.kind === "value" &&
+    ((wordAt(2, "statement_timeout") && tokens[4].text === "2s") || (wordAt(2, "lock_timeout") && tokens[4].text === "250ms"));
   const changedContext = tokens.some(
     (t, n) =>
       t.kind === "word" &&
       (["search_path", "set_config", "reset", "discard"].includes(t.text) ||
-        (t.text === "set" && (n === 0 || punctuation(n - 1, ";")) && !(wordAt(n + 1, "local") && wordAt(n + 2, "plan_cache_mode")))),
+        (t.text === "set" && (n === 0 || punctuation(n - 1, ";")) && !boundedTimeout && !(wordAt(n + 1, "local") && wordAt(n + 2, "plan_cache_mode")))),
   );
   if (changedContext) unknown.push("SQL context or search_path change");
   const read = (at: number, mode: Relation["mode"], allowFunction = true): void => {
@@ -245,8 +253,37 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
     }
     relations.push({ table: qualified ? name : `public.${name}`, mode, keys: [...new Set(ownKeys)] });
   };
+  // Trigger event keywords describe when it fires; only its ON relation is the DDL write target.
+  // Recognizing this header does not inspect or approve the invoked function or its body.
+  const triggerHeader = (start: number): { on: number; events: Set<number> } | null => {
+    let n = start;
+    if (!wordAt(n++, "create")) return null;
+    if (wordAt(n, "or") && wordAt(n + 1, "replace")) n += 2;
+    if (wordAt(n, "constraint")) n++;
+    if (!wordAt(n++, "trigger") || !identifier(n++)) return null;
+    if (wordAt(n, "before") || wordAt(n, "after")) n++;
+    else if (wordAt(n, "instead") && wordAt(n + 1, "of")) n += 2;
+    else return null;
+    const events = new Set<number>();
+    while (["insert", "update", "delete", "truncate"].some((event) => wordAt(n, event))) {
+      const update = wordAt(n, "update");
+      events.add(n++);
+      if (update && wordAt(n, "of")) {
+        n++;
+        if (!identifier(n++)) return null;
+        while (punctuation(n, ",")) {
+          n++;
+          if (!identifier(n++)) return null;
+        }
+      }
+      if (wordAt(n, "on")) return { on: n, events };
+      if (!wordAt(n++, "or")) return null;
+    }
+    return null;
+  };
   const from = new Set<number>();
-  let statementStart = 0;
+  let statementStart = 0,
+    trigger = triggerHeader(0);
   for (let n = 0; n < tokens.length; n++) {
     const word = value(n),
       previous = tokens[n - 1]?.kind === "word" ? value(n - 1) : undefined,
@@ -254,6 +291,7 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
     if (punctuation(n, ";")) {
       from.clear();
       statementStart = n + 1;
+      trigger = triggerHeader(statementStart);
     }
     const indexDdl =
       wordAt(statementStart, "create") &&
@@ -264,7 +302,8 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
     if (["execute", "call", "prepare", "copy", "merge"].includes(word) || (word === "do" && !["update", "nothing"].includes(value(n + 1))))
       unknown.push(`opaque SQL command ${word}`);
     if (word === "rename") unknown.push("DDL rename needs ownership review");
-    if (word === "truncate" || (word === "drop" && wordAt(n + 1, "table"))) unknown.push("TRUNCATE/DROP target list requires review");
+    if ((word === "truncate" && !trigger?.events.has(n)) || (word === "drop" && wordAt(n + 1, "table")))
+      unknown.push("TRUNCATE/DROP target list requires review");
     if (word === "into" && previous !== "insert") unknown.push("SELECT INTO target requires review");
     if (word === "table" && !["create", "alter", "drop", "truncate", "temp", "temporary", "unlogged"].includes(previous ?? ""))
       unknown.push("TABLE shorthand requires review");
@@ -277,10 +316,10 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       from.add(depth);
     }
     if (word === "into" && previous === "insert") read(n + 1, "write");
-    if (word === "update" && !["for", "key", "do", "on"].includes(previous ?? "") && !wordAt(n + 1, "set")) read(n + 1, "write");
+    if (word === "update" && !trigger?.events.has(n) && !["for", "key", "do", "on"].includes(previous ?? "") && !wordAt(n + 1, "set")) read(n + 1, "write");
     if (word === "table" && ["create", "alter", "drop", "truncate"].includes(previous ?? "")) read(n + 1, previous === "create" ? "create" : "write");
-    if (word === "truncate" && !wordAt(n + 1, "table")) read(n + 1, "write");
-    if (word === "references" || (word === "on" && indexDdl)) read(n + 1, word === "references" ? "read" : "write", false);
+    if (word === "truncate" && !trigger?.events.has(n) && !wordAt(n + 1, "table")) read(n + 1, "write");
+    if (word === "references" || (word === "on" && (indexDdl || trigger?.on === n))) read(n + 1, word === "references" ? "read" : "write", false);
     if (word === "create" && ["temp", "temporary", "unlogged"].includes(value(n + 1)) && wordAt(n + 2, "table")) read(n + 3, "create");
   }
   const syntax = new Set(
@@ -298,10 +337,16 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       !wordAt(n - 1, "as") &&
       !wordAt(n - 1, "using") &&
       !relationNames.has(n) &&
-      !(tokens[n].kind === "word" && syntax.has(value(n)))
+      !(tokens[n].kind === "word" && syntax.has(value(n))) &&
+      !(wordAt(n, "all") && ["=", "<", ">"].some((operator) => punctuation(n - 1, operator)))
     ) {
-      const catalogFormatter = wordAt(n, "to_char") && punctuation(n - 1, ".") && wordAt(n - 2, "pg_catalog") && !punctuation(n - 3, ".");
-      if (tokens[n].kind === "quoted" || (!functions.has(value(n)) && !catalogFormatter) || (punctuation(n - 1, ".") && value(n - 2) !== "pg_catalog"))
+      const catalogScalar =
+        (["to_char", "round", "pg_column_size", "date_trunc", "to_jsonb", "cardinality"].some((name) => wordAt(n, name)) ||
+          (wordAt(n, "clock_timestamp") && punctuation(n + 2, ")"))) &&
+        punctuation(n - 1, ".") &&
+        wordAt(n - 2, "pg_catalog") &&
+        !punctuation(n - 3, ".");
+      if (tokens[n].kind === "quoted" || (!functions.has(value(n)) && !catalogScalar) || (punctuation(n - 1, ".") && value(n - 2) !== "pg_catalog"))
         unknown.push(`opaque SQL function ${value(n)}`);
     }
   return { relations, unknown: [...new Set(unknown)], shape: tokens.map((t) => (t.kind === "value" || t.kind === "hole" ? "?" : t.text)).join(" ") };

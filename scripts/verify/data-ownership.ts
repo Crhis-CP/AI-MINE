@@ -6,6 +6,7 @@ import { relationIdentity } from "../db-roles/grants.ts";
 import { ROOT } from "./lib.ts";
 import { digest, extractOwnership } from "./ts-ownership.ts";
 import { sqlOwnership } from "./sql-ownership.ts";
+import { migrationSql, type MigrationFunctions } from "./migration-sql.ts";
 import { sqlLockFingerprint } from "./sql-lock.ts";
 import { rekeyUnknownBudget, unknownRekeysSchema, type UnknownRekey } from "./unknown-rekeys.ts";
 import { publicationProjectionBudget, publicationProjectionSchema, type PublicationProjection } from "./publication-projection.ts";
@@ -190,8 +191,9 @@ export function checkCatalogue(map: OwnershipMap, catalogue: { tables: Record<st
 
 /** Preserve migration budget identities while sharing the executor's validated, ordered inventory. */
 export function migrationOwnership(root = ROOT) {
-  return loadMigrationInventory(root).map(({ name, module, sha256, text }) => {
-    const parsed = sqlOwnership(text);
+  const functions: MigrationFunctions = new Map();
+  return loadMigrationInventory(root).map(({ name, module, schemas, sha256, text }) => {
+    const parsed = module ? migrationSql(text, module, schemas, functions) : sqlOwnership(text);
     if (module) {
       const map = read<OwnershipMap>(root, OWNERSHIP_MAP);
       for (const relation of parsed.relations.filter((relation) => relation.mode !== "read")) {

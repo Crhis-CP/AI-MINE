@@ -39,7 +39,18 @@ function fixture(run: (root: string, files: string[], helper: string) => void) {
 test("pure SQL return paths are proved without executing helpers or dropping any SQL site", () => {
   fixture((root, files) => {
     const calls = extractOwnership(root, files).find((file) => file.file.endsWith("calls.ts"))!;
-    for (const scope of ["good", "inline", "nativeDate"]) {
+    for (const scope of [
+      "good",
+      "inline",
+      "nativeDate",
+      "localConstUse",
+      "conditionalValueUse",
+      "projectionUse",
+      "projectionDefault",
+      "qualifiedUse",
+      "qualifiedExistsUse",
+      "scalarReadUse",
+    ]) {
       const sites = calls.sites.filter((site) => site.scopeName === scope);
       assert.ok(sites.length);
       assert.ok(
@@ -80,6 +91,13 @@ test("side effects, raw SQL, recursive, unsupported relational, partial and unre
       "calledTagUse",
       "reboundUse",
       "capped",
+      "ignoredEffectUse",
+      "ignoredWriteUse",
+      "wrongConstUse",
+      "badAliasUse",
+      "badAliasLiteral",
+      "scalarWriteUse",
+      "scalarEscapeUse",
     ]) {
       const site = calls.sites.find((item) => item.scopeName === scope && item.kind === "template")!;
       assert.ok(site.unknown.length, scope);
@@ -151,6 +169,77 @@ test("new UNKNOWN, helper-source changes and cross-module statements still fail 
     // biome-ignore lint/suspicious/noTemplateCurlyInString: Compile-only TypeScript fixture, never executed.
     writeFileSync(file, original.concat("\nexport function added() { return sql`SELECT 1 WHERE ${opaque()}`; }\n"));
     assert.ok(compareOwnership(report(), initial).some((error) => error.startsWith("unknown: new or increased")));
+  });
+});
+
+test("SQL aliases, erased values and rebound raw text cannot be certified as scalar parameters", () => {
+  fixture((root, files) => {
+    const file = "packages/example/soundness.ts";
+    writeFileSync(path.join(root, file), readFileSync(path.join(import.meta.dirname, "fixtures/sql-fragment-soundness.txt"), "utf8"));
+    const soundness = extractOwnership(root, [...files, file]).find((entry) => entry.file === file)!;
+    for (const scope of [
+      "directAlias",
+      "directUnion",
+      "directArray",
+      "directRecord",
+      "recordMember",
+      "directPromiseLike",
+      "genericPromiseLike",
+      "intersectionQuery",
+      "stringAssertion",
+      "anyAssertion",
+      "erasedQueryCall",
+      "stringReturnCall",
+      "mutableTableName",
+      "mutableRawText",
+      "anyReturnProducer",
+      "aliasedErasedProducer",
+      "objectErasedProducer",
+      "inlineErasedProducer",
+      "destructuredErasure",
+      "reboundScalarParameter",
+      "reboundRecordParameter",
+      "awaitedRecordErasure",
+      "pushedErasedQuery",
+      "assignedErasedQuery",
+      "selectedUnknownDtoField",
+      "selectedErasedDtoField",
+      "commaErasedParameter",
+      "spreadOverridesSelectedField",
+      "computedFieldErased",
+      "spreadFirstErased",
+      "spreadShiftErased",
+      "constantKeyRebound",
+      "dynamicKeyRebound",
+      "computedDestructuringErased",
+    ]) {
+      const sites = soundness.sites.filter((site) => site.scopeName === scope && ["template", "unsafe"].includes(site.kind));
+      assert.equal(sites.length, 1, scope);
+      const site = sites[0]!;
+      assert.ok(
+        site.unknown.length ||
+          site.relations.some((relation) => relation.table === "public.receipts" && (scope !== "mutableRawText" || relation.mode === "write")),
+        `${scope}: concealed SQL must remain UNKNOWN or expose the real relation and write mode`,
+      );
+    }
+    for (const scope of [
+      "soundnessScalarControl",
+      "soundnessLiteralControl",
+      "soundnessMappedDtoControl",
+      "soundnessDeclaredDtoFieldControl",
+      "soundnessLocalDtoFieldControl",
+      "soundnessTypedReassignmentControl",
+      "soundnessGenericProjectionControl",
+      "soundnessComputedStringControl",
+      "soundnessDtoSelfSpreadControl",
+      "soundnessAwaitedDtoControl",
+      "soundnessComputedArrayControl",
+    ]) {
+      const sites = soundness.sites.filter((site) => site.scopeName === scope);
+      assert.equal(sites.length, 1, scope);
+      assert.deepEqual(sites[0]!.unknown, [], scope);
+      assert.deepEqual(sites[0]!.relations, [{ table: "public.publications", mode: "read", keys: [] }], scope);
+    }
   });
 });
 

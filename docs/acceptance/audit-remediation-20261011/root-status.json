@@ -1,0 +1,52 @@
+{
+  "phase": "locally_verified_delivery_with_open_integration_gates",
+  "production_changed": false,
+  "findings": [
+    {
+      "id": "ROOT-01",
+      "status": "implemented_and_focused_verified",
+      "evidence": [
+        "tests/account-lifecycle.test.ts",
+        "e2e/smoke.spec.ts",
+        "tests/account-capabilities.test.ts"
+      ]
+    },
+    {
+      "id": "ROOT-05",
+      "status": "implemented_and_focused_verified",
+      "evidence": [
+        "tests/account-lifecycle.test.ts"
+      ],
+      "detail": "auth身份连接解析共享口令旧账号；业务事务仅核对最小权限投影。单连接与12并发通过，真实private_ops没有admin_users读权限。"
+    },
+    {
+      "id": "ROOT-03",
+      "status": "implemented_and_focused_verified",
+      "evidence": [
+        "tests/public-read-watermarks.test.ts",
+        "tests/public-read-limits.test.ts"
+      ],
+      "remaining": "external deployment and external monitor activation are not authorized by this development request"
+    },
+    {
+      "id": "ROOT-04",
+      "status": "assurance_gap",
+      "evidence": [
+        "docs/acceptance/audit-remediation-20261011/verification-summary.json",
+        "docs/acceptance/audit-remediation-20261011/root04-ownership-diff.json"
+      ],
+      "remaining": "已统一并推送建设分支，契约独立PR208；data-ownership冻结门仍失败，无Docker完整verify、release-check与生产质量证据。"
+    }
+  ],
+  "integration": {
+    "node": "24.19.0",
+    "pnpm": "12.8.1",
+    "postgres": "17 UTF8 isolated 127.0.0.1:56433",
+    "contracts": "独立草稿PR208，干净main基底仅契约/生成物/工具/卡验证通过",
+    "gate": "isolated precommit check 8/9; frozen ownership 230 diagnostics, base-card path check not passed; final exact-head CI evidence external to commit",
+    "independent_legacy_review": "two rounds complete; round2 101 rows, 12 confirmed omissions locally fixed, 11 uncertain",
+    "code_sha": "6996788c58347fa2483edc8e7d9e916292b20885 (audit snapshot; fixes after snapshot, delivery is PR current head)",
+    "product_complete": false,
+    "ci": "All identified runtime/fixture failures repaired with focused evidence; prior web CI failure not reproduced in two local 74-test runs. Final exact-head CI result retained separately."
+  }
+}

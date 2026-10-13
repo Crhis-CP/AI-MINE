@@ -13,6 +13,8 @@ import { fetchRss } from "@amp/backend/sources/rss";
 import { fetchJsonList } from "@amp/backend/sources/json-list";
 import { noiseFiltered } from "@amp/backend/sources/collect";
 import { normalizeSourceLanguage, unsupportedConfig } from "@amp/backend/sources/config-keys";
+import { closeDb, dbOf } from "@amp/backend/db";
+import { upsertMaterial } from "@amp/backend/content/materials";
 
 const source = (config: Record<string, unknown>) => ({ id: "test-list", config }) as never;
 
@@ -46,6 +48,15 @@ const pages: Record<string, () => string> = {
   "/days-atom.xml": () =>
     `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><entry><title>An Atom day</title>` +
     `<link rel="alternate" href="https://example.org/atom-day"/><published>2026-09-22</published></entry></feed>`,
+  "/relative.xml": () =>
+    `<rss version="2.0"><channel><title>Relative</title>` +
+    `<item><title>Relative link</title><link>/documents/one</link><pubDate>Thu, 08 Oct 2026 10:00:00 +03:00</pubDate></item>` +
+    `<item><title>Relative guid</title><guid>documents/two</guid><pubDate>Thu, 08 Oct 2026 10:00:00 +0300</pubDate></item></channel></rss>`,
+  "/updated-atom.xml": () =>
+    `<feed xmlns="http://www.w3.org/2005/Atom">` +
+    `<entry><title>Updated only</title><link href="/documents/updated"/><updated>2026-10-08T10:00:00+03:00</updated></entry>` +
+    `<entry><title>Published only</title><link href="/documents/published"/><published>2026-10-07</published></entry>` +
+    `<entry><title>Two dates</title><link href="/documents/both"/><published>2026-10-07</published><updated>2026-10-08T10:00:00+03:00</updated></entry></feed>`,
   // Google Developers Blog: no date in the feed or in meta tags, only in JSON-LD.
   "/ld-post": () =>
     `<html><head><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"Blog"},` +
@@ -61,6 +72,7 @@ await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve
 const site = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 config.allowPrivateNetworkFetch = true;
 after(() => new Promise<void>((resolve) => server.close(() => resolve())));
+after(() => closeDb());
 
 test("Jina card links become posts with their own titles", () => {
   const md = [
@@ -262,4 +274,56 @@ test("collected source language declarations are canonical BCP47; unknown labels
     assert.equal(normalizeSourceLanguage(value), expected);
   for (const value of [null, undefined, "", "  ", "und", "mul", "zxx", "zz", "unknown", "en_US", "x-private", "u-ca-gregory", 17, {}])
     assert.equal(normalizeSourceLanguage(value), null);
+});
+
+test("RSS offset colons preserve the instant and relative link/guid addresses reach material storage", async () => {
+  const { candidates } = await fetchRss({ id: "test-relative-feed", kind: "rss", config: { feedUrl: `${site}/relative.xml` }, cursor: null } as never);
+  assert.deepEqual(
+    candidates.map((c) => [c.url, c.publishedAt?.toISOString()]),
+    [
+      [`${site}/documents/one`, "2026-10-08T07:00:00.000Z"],
+      [`${site}/documents/two`, "2026-10-08T07:00:00.000Z"],
+    ],
+  );
+  assert.equal(candidates[0]!.sourceDateObservation?.raw, "Thu, 08 Oct 2026 10:00:00 +03:00");
+  const sql = dbOf("content"),
+    sourceId = "test-relative-feed";
+  await sql`INSERT INTO sources(id,name,kind) VALUES(${sourceId},'Synthetic relative feed','rss')`;
+  try {
+    // Exercise URL identity/storage separately from the source-date permission fixture.
+    for (const candidate of candidates) {
+      const result = await upsertMaterial({ sourceId, via: "fetch", url: candidate.url, title: candidate.title, publishedAt: candidate.publishedAt });
+      assert.equal(result.created, true);
+      const [row] = await sql`SELECT url,published_at FROM articles WHERE id=${result.articleId}`;
+      assert.equal(row!.url, candidate.url);
+      assert.equal(row!.published_at.toISOString(), "2026-10-08T07:00:00.000Z");
+    }
+  } finally {
+    await sql`DELETE FROM articles WHERE source_id=${sourceId}`;
+    await sql`DELETE FROM sources WHERE id=${sourceId}`;
+  }
+});
+
+test("Atom updated is a source date only when explicitly selected and never falls back to published", async () => {
+  const feed = (publishedAtField?: string) =>
+    fetchRss({
+      id: "test-updated-feed",
+      kind: "rss",
+      cursor: null,
+      config: { feedUrl: `${site}/updated-atom.xml`, ...(publishedAtField ? { publishedAtField } : {}) },
+    } as never);
+  const implicit = (await feed()).candidates,
+    explicit = (await feed("updated")).candidates;
+  assert.deepEqual(
+    implicit.map((c) => c.publishedAt?.toISOString() ?? null),
+    [null, "2026-10-06T16:00:00.000Z", "2026-10-06T16:00:00.000Z"],
+  );
+  assert.deepEqual(
+    explicit.map((c) => c.publishedAt?.toISOString() ?? null),
+    ["2026-10-08T07:00:00.000Z", null, "2026-10-08T07:00:00.000Z"],
+  );
+  assert.equal(explicit[0]!.sourceDateObservation?.basis, "Atom updated");
+  assert.match(explicit[0]!.sourceDateObservation?.locator ?? "", /Atom updated.*\.updated/);
+  assert.equal(implicit[0]!.sourceDateObservation?.raw, "");
+  assert.deepEqual(unsupportedConfig("rss", { publishedAtField: "updated" }), []);
 });

@@ -13,6 +13,7 @@ interface SourceRow {
   tier: string;
   participation_mode: string;
   enabled: boolean;
+  archived_at: string | null;
   health: string;
   fail_count: number;
   interval_minutes: number;
@@ -28,7 +29,7 @@ interface SourceRow {
 interface SourcesData {
   page: number;
   rows: SourceRow[];
-  totals: { total: number; enabled: number; failing: number; degraded: number };
+  totals: { total: number; enabled: number; failing: number; degraded: number; archived: number };
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -45,11 +46,14 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
   return (
     <AdminPage
       title="信源"
-      subtitle="列表按健康度排序：失败的在最前。点进详情可以预览抓取、手动采集、调整频率与参与方式。"
+      subtitle="列表按健康度排序：失败的在最前。点进一条信源可以查看详情，并单独暂停或恢复采集。"
       actions={
-        <ButtonLink to="/admin/sources/new" tone="primary">
-          新建信源
-        </ButtonLink>
+        <div className="flex gap-2">
+          <ButtonLink to="/admin/sources/targets">原表对账</ButtonLink>
+          <ButtonLink to="/admin/sources/new" tone="primary">
+            新建信源
+          </ButtonLink>
+        </div>
       }
     >
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -61,10 +65,17 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
       <Card pad={false}>
         <div className="flex flex-col gap-3 border-b border-line p-3 lg:flex-row lg:items-center lg:justify-between">
           <Form method="get" className="flex w-full max-w-md gap-2" preventScrollReset>
-            {["kind", "health", "mode"].map((k) => sp.get(k) && <input key={k} type="hidden" name={k} value={sp.get(k)!} />)}
+            {["kind", "health", "mode", "archived"].map((k) => sp.get(k) && <input key={k} type="hidden" name={k} value={sp.get(k)!} />)}
             <Input name="q" defaultValue={sp.get("q") ?? ""} placeholder="名称、ID 或地址" aria-label="搜索信源" />
           </Form>
           <div className="flex flex-wrap items-center gap-3">
+            <FilterChips
+              param="archived"
+              options={[
+                { value: "", label: "未归档" },
+                { value: "true", label: `已归档 ${totals.archived}` },
+              ]}
+            />
             <FilterChips
               param="health"
               options={[
@@ -117,6 +128,7 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
                 </div>
               ),
             },
+            { key: "state", label: "管理状态", render: (r) => <Badge>{r.archived_at ? "已归档" : r.enabled ? "已启用" : "已暂停"}</Badge> },
             { key: "kind", label: "类型", render: (r) => <Badge>{KIND_LABEL[r.kind] ?? r.kind}</Badge> },
             {
               key: "mode",
@@ -135,7 +147,7 @@ export default function Sources({ loaderData }: Route.ComponentProps) {
               render: (r) => (
                 <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Dot tone={r.enabled ? healthTone(r.health) : "muted"} />
-                  {r.enabled ? (HEALTH_LABEL[r.health] ?? r.health) : "已暂停"}
+                  {HEALTH_LABEL[r.health] ?? r.health}
                   {r.fail_count > 0 && <span className="num text-[11.5px] text-ink-4">×{r.fail_count}</span>}
                 </span>
               ),

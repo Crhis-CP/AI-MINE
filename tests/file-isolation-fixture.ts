@@ -1,3 +1,4 @@
+import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -19,7 +20,8 @@ export function isolatedFile(label: string) {
     assert.equal((await sql`SELECT count(*)::int AS n FROM receipts`)[0].n, 0);
     assert.ok((await sql`SELECT count(*)::int AS n FROM topics`)[0].n > 0);
     await sql`UPDATE budgets SET per_minute=1, per_hour=1, per_day=1 WHERE service='deepseek'`;
-    const request = { service: "deepseek", purpose: "file-isolation", identity: "same-input" };
+    await installUsageFixtureForService("deepseek");
+    const request = { lane: "news" as const, service: "deepseek", purpose: "file-isolation", identity: "same-input" };
     const call = async () => ({ response: await (await fetch(provider.url)).json() });
     const result = await paidRequest(request, call);
     assert.equal(result.reused, false);

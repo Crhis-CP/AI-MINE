@@ -1,9 +1,22 @@
 import { SITE } from "@amp/industry/site";
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
+import { feedbackPath } from "../lib/feedback-origin";
 import { pageMeta } from "../lib/seo";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
-import { IconBookmark, IconChevronRight, IconFlame, IconGrid, IconHeart, IconHistory, IconMessage, IconMoon, IconPlug, IconTrendUp } from "../components/icons";
+import {
+  IconBookmark,
+  IconDoc,
+  IconChevronRight,
+  IconFlame,
+  IconGrid,
+  IconHeart,
+  IconHistory,
+  IconMessage,
+  IconMoon,
+  IconPlug,
+  IconTrendUp,
+} from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -20,6 +33,7 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
     title: "内容",
     rows: [
+      { to: "/policies", label: "法规政策动态", icon: <IconDoc size={18} /> },
       { to: "/topics", label: "主题索引", icon: <IconGrid size={18} /> },
       { to: "/agent", label: "Agent 接入", icon: <IconPlug size={18} /> },
     ],
@@ -52,6 +66,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function MorePage() {
+  const location = useLocation();
   return (
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
       <h1 className="pb-4 pt-5 text-[22px] font-bold text-ink lg:pt-1">更多</h1>
@@ -61,7 +76,7 @@ export default function MorePage() {
             {g.rows.map((r) => (
               <li key={r.to}>
                 <Link
-                  to={r.to}
+                  to={r.to === "/feedback" ? feedbackPath(location.pathname, location.search) : r.to}
                   className="flex h-[50px] items-center gap-3 px-4 text-[15px] font-medium text-ink transition-colors active:bg-bg-sunk lg:hover:bg-bg-sunk"
                 >
                   <span className="text-ink-3">{r.icon}</span>

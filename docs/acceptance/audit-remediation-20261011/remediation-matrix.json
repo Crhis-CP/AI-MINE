@@ -1,0 +1,635 @@
+{
+  "updated_at": "2026-10-12T06:43:46.212606+00:00",
+  "source_findings": 50,
+  "items": [
+    {
+      "id": "PIPE-01",
+      "title": "普通列表按URL跨来源、跨业务线共用材料身份，会吞掉第二来源材料",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/materials.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-02",
+      "title": "资讯主模型链绕过逐源external_model许可",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/news-model-permission.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-03",
+      "title": "切换新闻模型可绕开同一材料未核清的付费回执",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/news-receipt-barrier.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-04",
+      "title": "人工修订缺少草稿发布分离与原材料冲突复核",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/manual-revisions.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-05",
+      "title": "下架、公开投影与审计未在同一事务提交",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/manual-revisions.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-06",
+      "title": "事件归组丢失原文证据、阶段及低置信度硬门",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/relate.test.ts",
+        "tests/group-evidence-runtime.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-07",
+      "title": "来源修订后已有事件关系永远沿用",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/group-revision.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-08",
+      "title": "恢复到曾出现的旧原文被当成重复而吞掉",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/materials.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-09",
+      "title": "报告网页与目录继续展示已撤回引用的综合文字",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/report-withdrawal.test.ts"
+      ],
+      "production_verified": false,
+      "post_development_open_findings": [
+        "reader/R34",
+        "reader/R35"
+      ],
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "PIPE-10",
+      "title": "反馈每周汇总与180天自动去标识未接入运行",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/feedback-maintenance.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-01",
+      "title": "新闻收藏继续展示已下架内容的本机副本",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/lib/local-state.ts",
+        "apps/web/app/routes/starred.tsx",
+        "apps/web/app/features/policy/PolicySaved.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-02",
+      "title": "资讯页面缺失撤回检查，会话恢复会重新显示旧稿",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/features/feed/ContentVersionGuard.tsx",
+        "apps/web/app/features/feed/Timeline.tsx",
+        "apps/web/app/features/feed/ReadingGroup.tsx",
+        "apps/web/app/routes/public-layout.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-04",
+      "title": "原有来源、指定日期和日期范围筛选消失",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/features/feed/Filters.tsx",
+        "apps/web/app/routes/all.tsx",
+        "packages/backend/src/publication/pool.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-05",
+      "title": "页码跳转丢失，搜索仍锁在前50页并截断总数",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/features/feed/DayList.tsx",
+        "packages/backend/src/publication/pool.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-06",
+      "title": "手机详情的正文目录被彻底隐藏",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/routes/item.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-07",
+      "title": "手机列表不能直接收藏，全部动态日期分组不能折叠",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/features/feed/FeedItem.tsx",
+        "apps/web/app/features/feed/DayList.tsx",
+        "apps/web/app/features/feed/Timeline.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-08",
+      "title": "手机热点入口多一步，详情仍占用固定底栏",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/components/shell/nav.ts",
+        "apps/web/app/components/shell/MobileTabBar.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-09",
+      "title": "文章文中公司资料及其依据入口遗漏",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/routes/item.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-10",
+      "title": "来源前置署名与正文许可声明未保留",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/features/feed/parts.tsx",
+        "apps/web/app/features/feed/FeedItem.tsx",
+        "apps/web/app/routes/item.tsx"
+      ],
+      "production_verified": false,
+      "post_development_open_findings": [
+        "reader/R33"
+      ],
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-11",
+      "title": "报告不再提示缺期、覆盖时间窗和AI综合状态",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/features/report/report-period.ts",
+        "apps/web/app/routes/report-latest.tsx",
+        "apps/web/app/features/report/ReportPaper.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-12",
+      "title": "反馈可填写内容缩短且联系方式只能用邮箱",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/routes/feedback.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-13",
+      "title": "收藏满额静默挤掉旧收藏，存储失败无提示",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/lib/local-state.ts",
+        "apps/web/app/features/feed/parts.tsx",
+        "apps/web/app/features/policy/PolicySaved.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-14",
+      "title": "全部动态仍按篇堆叠，事件折叠及当前热点只在精选出现",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "packages/backend/src/publication/pool.ts",
+        "packages/backend/src/publication/timeline.ts",
+        "packages/backend/src/publication/groups.ts",
+        "apps/web/app/routes/all.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-15",
+      "title": "新闻与法规的双向关联入口未接通",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/routes/all.tsx",
+        "apps/web/app/routes/item.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-16",
+      "title": "主题仅实现三轴，无项目/法律监管入口及主题内组合筛选",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/routes/topics.tsx",
+        "apps/web/app/routes/topic.tsx",
+        "packages/backend/src/publication/topics.ts",
+        "industry/topics.json"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-17",
+      "title": "跟随系统只在加载/点击时计算，不跟随运行中的系统变化",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/components/shell/ThemeSwitch.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "RDR-18",
+      "title": "更新日志月份入口可指向不存在的锚点",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "apps/web/app/routes/changelog.tsx"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-01",
+      "title": "法规“对照原文”按不可能相等的中英文块 ID 配对",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-02",
+      "title": "暂时故障后法规自动流程不再续跑",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-03",
+      "title": "公开法规正文丢失删除线、上标和有序列表，改变法律阅读含义",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-reading-semantics.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-04",
+      "title": "法规原始结构化状态/日期标注通道未恢复，XML 原件也没有适配器",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-extraction.test.ts",
+        "tests/policy-interpretation.test.ts",
+        "tests/policy-official-xml.test.ts",
+        "docs/acceptance/audit-remediation-20261011/policy-official-xml.json"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-05",
+      "title": "普通完整段落超过 2,000 字节即整份文书停止处理",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-processing-plan.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-06",
+      "title": "已取得的日期没有进入独立基本事实，日期筛选与待解读归期失真",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-basic-facts.test.ts"
+      ],
+      "production_verified": false,
+      "post_development_open_findings": [
+        "policy/POL-18"
+      ],
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-07",
+      "title": "决定性附件缺失和处理阻塞没有传到读者页，只显示“整理中”",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-basic-facts.test.ts",
+        "tests/policy-automation-runtime.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-08",
+      "title": "法规周月报丢失国家/主题筛选控件和上一修订版核对入口",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "apps/web/tests/policy-browser.test.ts",
+        "tests/policy-public-api.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-09",
+      "title": "报告把回执次数当来源数，且“缺完整回执”错误排除仅有失败/不完整回执的源",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-basic-facts.test.ts",
+        "tests/policy-reports.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-10",
+      "title": "质量资格到期前提醒任务没有接入",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-basic-facts.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-11",
+      "title": "法规接入仍停在少量原件配置，不能据目录规模宣称全范围供稿",
+      "implementation": "partial",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "industry/policy-sources.json",
+        "industry/jurisdictions/data.json"
+      ],
+      "production_verified": false,
+      "closure": "事实台账已交付；实际覆盖未完成"
+    },
+    {
+      "id": "POL-12",
+      "title": "法规汇总只传卡片摘要，未提供规格要求的主要条款与经营影响引用",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts",
+        "tests/policy-public-api.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-13",
+      "title": "法规搜索框承诺可搜机关，但检索字段不含机关名称",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-basic-facts.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "EXT-01",
+      "title": "首次启用预览门、配置版本及异步预览流程未还原",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/pipeline-status.json",
+      "evidence": [
+        "tests/source-preview-gate.test.ts"
+      ],
+      "production_verified": false,
+      "post_development_open_findings": [
+        "pipeline/PIPE-04"
+      ],
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-14",
+      "title": "模型判定“排除”时绕过全篇反证复核，直接隐藏法规",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-interpretation.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-15",
+      "title": "处理提示词/配方升级不能唤醒已完成或已排除的法规",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-automation-runtime.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-16",
+      "title": "法规实质变更日期、多次公布记录及补录标记没有进入新解读投影",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-date-events.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-17",
+      "title": "完整来源目录确认移除的条目仍出现在本站当前列表",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-basic-facts.test.ts",
+        "tests/policy-publication.test.ts",
+        "tests/policy-public-api.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "POL-18",
+      "title": "同一详情缺少其他合格官方语言的发现与切换入口",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/policy-status.json",
+      "evidence": [
+        "tests/policy-originals.test.ts",
+        "tests/policy-basic-facts.test.ts",
+        "apps/web/tests/policy-browser.test.ts"
+      ],
+      "production_verified": false,
+      "post_development_open_findings": [
+        "policy/POL-14"
+      ],
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "ROOT-01",
+      "title": "具名密码账号可以创建 但登录页没有登录名入口",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/root-status.json",
+      "evidence": [
+        "tests/account-lifecycle.test.ts",
+        "e2e/smoke.spec.ts",
+        "tests/account-capabilities.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "ROOT-02",
+      "title": "公开API缺少全库检索和多类已有产品对象的正式出口",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/reader-status.json",
+      "evidence": [
+        "packages/contracts/src/http/v3.ts",
+        "packages/backend/src/publication/v3.ts",
+        "packages/backend/src/publication/v3-reading.ts",
+        "packages/backend/src/publication/v3-collections.ts",
+        "apps/api/src/routes/v3.ts",
+        "tooling/generate.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "ROOT-03",
+      "title": "停更新鲜度探针尚未实现",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/root-status.json",
+      "evidence": [
+        "tests/public-read-watermarks.test.ts",
+        "tests/public-read-limits.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    },
+    {
+      "id": "ROOT-05",
+      "title": "支持的单连接配置下后台权限检查会挂起",
+      "implementation": "reported_implemented",
+      "domain_record": "docs/acceptance/audit-remediation-20261011/root-status.json",
+      "evidence": [
+        "tests/account-lifecycle.test.ts"
+      ],
+      "production_verified": false,
+      "closure": "已形成实现与本地证据；两轮独立对照的确认遗漏补修见fresh2-closure.json；完整门禁、线上及质量验收仍单列。"
+    }
+  ],
+  "assurance_gaps": [
+    "ROOT-04: data-ownership frozen gate, full verify, release-check and production quality remain open"
+  ],
+  "live_observations": [
+    "LIVE-01: no production article correction performed",
+    "LIVE-02: full policy interpretation and real quality acceptance not performed"
+  ],
+  "independent_comparison": "三组fork_turns=none已各自完成固定代码比较；结果另见independent-*.json，新增缺口未自动写回首轮开发结论。",
+  "second_independent_review": {
+    "summary": "fresh2-summary.json",
+    "closure": "fresh2-closure.json",
+    "confirmed_omissions_locally_fixed": 12,
+    "uncertain": 11,
+    "live_verified": false
+  }
+}

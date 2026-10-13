@@ -1,7 +1,8 @@
 // Feishu delivery. Two separate apps: the login app (admin OAuth) and the message app (operations alerts
 // to an internal chat). Content groups use custom bot webhooks. Alerts never go to content groups, content
-// never goes to internal chats, and reader feedback goes to neither: it stays on the server (INV-27).
+// never goes to internal chats. Reader feedback uses only its explicitly enabled private feedback chat.
 // Everything outward is off unless explicitly enabled (development and parallel runs stay silent).
+import { z } from "zod";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { config, credential } from "../config.ts";
 
@@ -41,6 +42,50 @@ async function sendToChat(chatId: string, msgType: "text" | "post" | "interactiv
   const json = (await res.json()) as { code: number; data?: { message_id: string }; msg?: string };
   if (json.code !== 0) throw new Error(`feishu send: ${json.msg}`);
   return json.data?.message_id ?? "";
+}
+
+export class FeedbackDeliveryUncertain extends Error {}
+const FeedbackResponse = z.object({ code: z.number(), data: z.unknown().optional() });
+const FeedbackImage = z.object({ image_key: z.string().refine((value) => value.trim().length > 0) });
+const FeedbackMessage = z.object({ message_id: z.string().refine((value) => value.trim().length > 0) });
+
+/** Reuses the message app; only the feedback worker calls these two helpers. */
+export async function uploadFeedbackImage(data: Buffer, filename: string): Promise<string> {
+  const form = new FormData();
+  form.set("image_type", "message");
+  form.set("image", new Blob([new Uint8Array(data)]), filename);
+  const res = await fetch(`${API}/im/v1/images`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${await tenantToken()}` },
+    body: form,
+    signal: AbortSignal.timeout(30_000),
+  });
+  const json = FeedbackResponse.safeParse(await res.json());
+  const image = FeedbackImage.safeParse(json.success ? json.data.data : null);
+  if (!res.ok || !json.success || json.data.code !== 0 || !image.success) throw new Error("feedback_image_upload_failed");
+  return image.data.image_key;
+}
+
+export async function sendFeedbackToChat(chatId: string, content: unknown, uuid: string): Promise<string> {
+  const token = await tenantToken();
+  let res: Response;
+  let json: unknown;
+  try {
+    res = await fetch(`${API}/im/v1/messages?receive_id_type=chat_id`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+      body: JSON.stringify({ receive_id: chatId, msg_type: "post", content: JSON.stringify(content), uuid }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    json = await res.json();
+  } catch {
+    throw new FeedbackDeliveryUncertain("feedback_send_unconfirmed");
+  }
+  const envelope = FeedbackResponse.safeParse(json);
+  if (envelope.success && envelope.data.code !== 0) throw new Error("feedback_send_rejected");
+  const message = FeedbackMessage.safeParse(envelope.success ? envelope.data.data : null);
+  if (!res.ok || !envelope.success || envelope.data.code !== 0 || !message.success) throw new FeedbackDeliveryUncertain("feedback_send_unconfirmed");
+  return message.data.message_id;
 }
 
 // ---- Operations alerts ------------------------------------------------------------------------------

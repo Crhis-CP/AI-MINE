@@ -1,6 +1,7 @@
 import { Outlet, useNavigation, type ShouldRevalidateFunction } from "react-router";
 import type { ReactNode } from "react";
 import type { Route } from "./+types/public-layout";
+import { ContentVersionGuard } from "../features/feed/ContentVersionGuard";
 import { Sidebar } from "../components/shell/Sidebar";
 import { MobileTabBar } from "../components/shell/MobileTabBar";
 import { MobileFooter } from "../components/shell/MobileFooter";
@@ -54,7 +55,9 @@ function SiteShell({ children }: { children: ReactNode }) {
 export default function PublicLayout() {
   return (
     <SiteShell>
-      <Outlet />
+      <ContentVersionGuard>
+        <Outlet />
+      </ContentVersionGuard>
     </SiteShell>
   );
 }

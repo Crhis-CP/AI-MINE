@@ -3,14 +3,21 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { createServer } from "node:http";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { saveSourcePolicy, readSourceDateContext, updateSource } from "@amp/backend/admin/sources";
+import {
+  saveSourcePolicy,
+  readSourceDateContext,
+  updateSource,
+  requestSourcePreview,
+  runSourcePreview,
+  SOURCE_PREVIEW_QUEUE,
+} from "@amp/backend/admin/sources";
 import { sourceDateConfigHash } from "@amp/backend/sources/config-keys";
 import { upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
 import type { SourceDateObservationInput } from "@amp/contracts/time-assertion";
 import { sourcePolicyExample } from "./permission-fixture.ts";
-import { collectSource } from "@amp/backend/sources/collect";
+import { collectSource } from "./crawl-fixture.ts";
 import { config } from "@amp/backend/config";
-import { stopBoss } from "@amp/backend/jobs/queue";
+import { stopBoss, ensureQueue } from "@amp/backend/jobs/queue";
 import { fetchDetail } from "@amp/backend/sources/web-list";
 import { fetchRss } from "@amp/backend/sources/rss";
 
@@ -169,7 +176,7 @@ test("RDF dc:date is retained as unproved evidence until an explicit source decl
     ["pending", "not_source_publication", raw],
   );
   const [row] = await sql`SELECT updated_at FROM sources WHERE id=${id}`;
-  await updateSource(
+  const draft = await updateSource(
     id,
     {
       version: row!.updated_at.toISOString(),
@@ -182,6 +189,26 @@ test("RDF dc:date is retained as unproved evidence until an explicit source decl
       },
     },
     "test",
+  );
+  assert.ok(draft && "draft" in draft);
+  await ensureQueue(SOURCE_PREVIEW_QUEUE);
+  const preview = await requestSourcePreview(id, { draft_id: Number(draft.draft!.id) }, "synthetic-date-test");
+  await runSourcePreview(String(preview.preview_id), async () => ({
+    ms: 1,
+    count: 1,
+    items: [{ title: "合成日期配置样例", url: `${base}/article`, publishedAt: null, excerpt: "" }],
+  }));
+  const [current] = await sql`SELECT updated_at FROM sources WHERE id=${id}`;
+  await updateSource(
+    id,
+    {
+      patch: {},
+      version: current!.updated_at.toISOString(),
+      config_command: "activate_draft",
+      draft_id: Number(draft.draft!.id),
+      preview_id: Number(preview.preview_id),
+    },
+    "synthetic-date-test",
   );
   assert.equal((await collectSource(id)).status, "ok");
   assert.equal((await state()).source_date_state, "reliable");
@@ -226,7 +253,7 @@ test("current evidence uses CAS and live source identity/permission; rejected ob
   await assert.rejects(updateMaterialSourceDate(first.articleId, 1, bad), /configuration/);
   const outside = observed(id, "2026-09-03", 1);
   outside.sourceDateObservation.url = "https://other.invalid/mining/item";
-  await assert.rejects(updateMaterialSourceDate(first.articleId, 1, outside), /permission denied/);
+  await assert.rejects(updateMaterialSourceDate(first.articleId, 1, outside), /permission denied: fetch\/resource_mismatch \(other\.invalid\)/);
   await sql`UPDATE sources SET enabled=false WHERE id=${id}`;
   await assert.rejects(updateMaterialSourceDate(first.articleId, 1, observed(id, "2026-09-03", 1)), /configuration/);
   await sql`UPDATE sources SET enabled=true WHERE id=${id}`;

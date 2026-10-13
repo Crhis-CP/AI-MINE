@@ -24,7 +24,7 @@
 
 | 序号 | 结论 |
 |---|---|
-| 1 | B 的 31 个操作中 **29 个保留**（全部改路径前缀，多数改字段），**2 个移出**：`getMetalLinks` 并入站点设置，`listMetalPrices` 按 DEC-07 移出首版；46 个 DTO 中 **3 个移出、1 个拆分、2 个改名（`PolicyScope`→`SourcePermission`、`CostSummary`→`UsageSummary`）、其余改造或保留**（§3、§4） |
+| 1 | B 的 31 个操作中 **29 个保留**（全部改路径前缀，多数改字段），**2 个移出**：`getMetalLinks` 并入站点设置，`listMetalPrices` 按 DEC-07 不进入公开API（站内另设`siteMetalPrices`）；46 个 DTO 中 **3 个移出、1 个拆分、2 个改名（`PolicyScope`→`SourcePermission`、`CostSummary`→`UsageSummary`）、其余改造或保留**（§3、§4） |
 | 2 | B 的 OpenAPI 缺的资源清单见 §5：事件列表、热点、精选同步、主题详情、发展线、政策线、法规范围与周月汇总、法域字典、更新日志分页，以及站点接口、账号、下架/恢复、模型、用量与熔断、反馈处理、站点设置、告警渠道、审计等私有资源；非 JSON 出口（RSS 多路、站点地图、robots、`llms.txt`、分享图、MCP）另有 `non-json-outputs.md` |
 | 3 | 转写时必须落实的全局改造 25 项见 §2，核心是：`/api/v3` 前缀、去掉 `content_version` 钉住读取、双通道分页、统一错误体、`TimeAssertion` 加中文 `label`、`jurisdictions` 对象、http 链接放宽、署名与 AI 标识及再分发、缓存头、金额整数微元、公开新鲜度探针、条目评分与热点只给名次、旧站地址一概不兼容、用量与熔断资源；其他文件提来的字段级请求在 §11 逐条登记 |
 | 4 | `examples.json` 只覆盖 46 个 DTO 中的 15 个，必须补齐到每个操作至少 1 个成功响应样例、每个请求体至少 1 个样例，并把“schema 覆盖率 100%”纳入自检（§6） |
@@ -111,7 +111,7 @@ B 的 README 称它“覆盖核心浏览”，但照它生成客户端，读者�
 | 26 | `updateSource` | `PUT /private/v1/source-profiles/{id}` | 保留，改路径 | 区分“即时生效字段”与“生成新配置版本字段” |
 | 27 | `sourceAction` | `POST …/{id}/actions` | 保留，改路径 | `action` 增 `resume`；`activate` 仅用于首次启用；删“暂停使预览失效” |
 | 28 | `getCommandStatus` | `GET /private/v1/commands/{id}` | 保留，改路径 | 不变 |
-| 29 | `listMetalPrices` | `GET /api/v1/metal-prices` | **移出首版** | DEC-07；`Quote`/`Quotes` 保留为延后草案（契约 §3.9） |
+| 29 | `listMetalPrices` | `GET /api/v1/metal-prices` | **公开API不设** | 站内另设`siteMetalPrices`（`/api/site/metal-prices`），第四版形状见契约§3.9、PG-11；B原件不作为当前站内形状 |
 | 30 | `getItemReading` | `GET /api/v1/items/{id}/reading` | 保留 | 删 `content_version`；游标绑定 `document_revision_id`/`expression_id`；换版 409 `revision_changed`；仅再分发允许的来源返回正文 |
 | 31 | `getPolicyReading` | `GET /api/v1/policies/{id}/reading` | 保留 | 同上 |
 

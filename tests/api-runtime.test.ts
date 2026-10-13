@@ -1,7 +1,7 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { apiChildEnvironment } from "../scripts/verify/api-harness.ts";
@@ -96,13 +96,14 @@ test("a public production process serves readers and feedback without private se
   assert.equal((await fetch(`${app.url}/api/auth/options`)).status, 404);
   const feedback = await fetch(`${app.url}/api/site/feedback`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-real-ip": "203.0.113.42", "user-agent": "Firefox" },
+    headers: { "content-type": "application/json", "x-real-ip": "203.0.113.42", "user-agent": "Firefox", "idempotency-key": randomUUID() },
     body: JSON.stringify({ content: marker }),
   });
   assert.equal(feedback.status, 201);
   const { id } = (await feedback.json()) as { id: number };
   const expected = createHmac("sha256", secrets.PUBLIC_RATE_LIMIT_SECRET).update("203.0.113.42|Firefox").digest("base64url").slice(0, 24);
   assert.equal((await sql`SELECT source_hash FROM feedback WHERE id=${id}`)[0].source_hash, expected);
+  await sql`DELETE FROM feedback.submissions WHERE feedback_id=${id}`;
   await sql`DELETE FROM feedback WHERE id=${id}`;
   assert.deepEqual(await settings(), before);
   assert.equal(await queueSchema(), schema);
@@ -118,20 +119,26 @@ test("a private production process logs in without public/image secrets and clos
   await app.ready();
   assert.deepEqual(await (await fetch(`${app.url}/api/auth/options`)).json(), { password: true, feishu: false });
   assert.equal((await fetch(`${app.url}/api/site/meta`)).status, 404);
+  const nonce = await fetch(`${app.url}/api/auth/password-nonce`);
+  const login_nonce = ((await nonce.json()) as { token: string }).token;
   const login = await fetch(`${app.url}/api/auth/password`, {
     method: "POST",
     redirect: "manual",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password: secrets.ADMIN_PASSWORD, return: "/admin" }),
+    headers: { "content-type": "application/json", cookie: nonce.headers.get("set-cookie")!.split(";")[0]! },
+    body: JSON.stringify({ login_name: "admin@local", login_nonce, password: secrets.ADMIN_PASSWORD, return: "/admin" }),
   });
   assert.equal(login.status, 303);
   const cookie = login.headers.get("set-cookie")?.split(";")[0];
   assert.ok(cookie);
   const me = await fetch(`${app.url}/api/admin/me`, { headers: { cookie } });
   assert.equal(me.status, 200);
-  assert.equal(((await me.json()) as { dev: boolean }).dev, false);
+  const principal = (await me.json()) as { dev: boolean; csrf: string };
+  assert.equal(principal.dev, false);
   assert.equal((await sql`SELECT count(*)::int AS n FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`)[0].n, 1);
-  assert.equal((await fetch(`${app.url}/api/auth/logout`, { method: "POST", redirect: "manual", headers: { cookie } })).status, 303);
+  assert.equal(
+    (await fetch(`${app.url}/api/auth/logout`, { method: "POST", redirect: "manual", headers: { cookie, "x-csrf-token": principal.csrf } })).status,
+    303,
+  );
   assert.equal(await app.stop(), 0, app.output());
   await noConnections();
   await sql`DELETE FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`;

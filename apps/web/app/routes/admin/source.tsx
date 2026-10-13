@@ -32,6 +32,11 @@ type Source = z.infer<typeof privateSchemas.SourceRecord>;
 type Detail = z.infer<typeof privateSchemas.SourceDetailResponse>;
 
 interface Preview {
+  status?: "deferred" | "queued" | "succeeded" | "failed";
+  preview_id?: number;
+  error?: string;
+  retryAt?: string;
+  reason?: string;
   ms: number;
   count: number;
   items: Array<{ title: string; url: string; publishedAt: string | null; excerpt: string }>;
@@ -45,7 +50,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       signal: init.signal,
     }),
   );
-  return privateSchemas.SourceDetailResponse.parse(response);
+  const previewInfo = await adminGet<{
+    draft: { id: number } | null;
+    previews: Array<{ id: number; draft_id: number | null; status: string; result: Preview | null; error: string | null }>;
+  }>(request, `/api/admin/sources/${encodeURIComponent(params.id)}/preview`);
+  return { ...privateSchemas.SourceDetailResponse.parse(response), previewInfo };
 }
 
 export const meta: Route.MetaFunction = ({ loaderData }) => [{ title: `${loaderData?.source.name ?? "信源"} · ${SITE.name} 后台` }];
@@ -75,8 +84,15 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
   const { run, pending } = useAdminAction();
   const [draft, setDraft] = useState<Draft>(() => draftOf(s));
   const [draftFor, setDraftFor] = useState(s.updated_at);
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [dialog, setDialog] = useState<null | "save" | "toggle">(null);
+  const [preview, setPreview] = useState<Preview | null>(() => {
+    const latest = loaderData.previewInfo.previews.find((p) => String(p.draft_id ?? "") === String(loaderData.previewInfo.draft?.id ?? ""));
+    return latest
+      ? { ms: 0, count: 0, items: [], ...latest.result, preview_id: latest.id, status: latest.status as Preview["status"], error: latest.error ?? undefined }
+      : null;
+  });
+  const [pendingDraft, setPendingDraft] = useState<number | null>(loaderData.previewInfo.draft?.id ?? null);
+  const [dialog, setDialog] = useState<null | "save" | "toggle" | "archive">(null);
+  const [archiveConfirmed, setArchiveConfirmed] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
   if (draftFor !== s.updated_at) {
     // The source changed (our own save or someone else's): start from the saved state.
@@ -125,6 +141,7 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
       title={
         <span className="flex flex-wrap items-center gap-2">
           {s.name}
+          <Badge>{s.archived_at ? "已归档" : s.enabled ? "已启用" : "已暂停"}</Badge>
           <Badge>{KIND_LABEL[s.kind] ?? s.kind}</Badge>
           <Badge tone={s.participation_mode === "editorial" ? "accent" : "muted"}>{MODE_LABEL[s.participation_mode]}</Badge>
         </span>
@@ -133,30 +150,82 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
       actions={
         <>
           <Button
+            disabled={!!s.archived_at}
             busy={pending === "preview"}
             onClick={async () => {
-              const r = await run<Preview>("POST", `${base}/preview`, {}, { label: "preview", revalidate: false });
-              if (r) setPreview(r);
+              const r = await run<Preview>("POST", `${base}/preview`, pendingDraft ? { draft_id: pendingDraft } : {}, { label: "preview", revalidate: false });
+              if (r) {
+                setPreview(r);
+                for (let i = 0; i < 120 && r.status === "queued"; i++) {
+                  await new Promise((resolve) => setTimeout(resolve, 1000));
+                  const response = await fetch(`${base}/preview`, { credentials: "same-origin", cache: "no-store" });
+                  if (!response.ok) break;
+                  const state = (await response.json()) as {
+                    previews?: Array<{ id: number; status: Preview["status"]; result: Preview | null; error?: string | null }>;
+                  };
+                  const done = state.previews?.find((p) => p.id === r.preview_id);
+                  if (done && done.status !== "queued") {
+                    setPreview({ ...r, ...done.result, status: done.status, error: done.error ?? undefined });
+                    break;
+                  }
+                }
+              }
             }}
           >
             预览抓取
           </Button>
-          <Button busy={pending === "fetch"} onClick={() => run("POST", `${base}/fetch`, {}, { label: "fetch", success: "已加入采集队列" })}>
+          {pendingDraft && (
+            <Button
+              disabled={!!s.archived_at || preview?.status !== "succeeded"}
+              onClick={() =>
+                run(
+                  "PATCH",
+                  base,
+                  {
+                    patch: {},
+                    version: new Date(s.updated_at).toISOString(),
+                    config_command: "activate_draft",
+                    draft_id: pendingDraft,
+                    preview_id: preview?.preview_id,
+                  },
+                  { success: "已切换到通过预览的配置" },
+                )
+              }
+            >
+              应用配置草稿
+            </Button>
+          )}
+          <Button
+            disabled={!!s.archived_at}
+            busy={pending === "fetch"}
+            onClick={() => run("POST", `${base}/fetch`, {}, { label: "fetch", success: "已加入采集队列" })}
+          >
             立即采集
           </Button>
-          <Button tone={s.enabled ? "danger" : "primary"} onClick={() => setDialog("toggle")}>
+          <Button disabled={!!s.archived_at} tone={s.enabled ? "danger" : "primary"} onClick={() => setDialog("toggle")}>
             {s.enabled ? "暂停" : "恢复"}
+          </Button>
+          <Button
+            disabled={!!s.archived_at}
+            tone="danger"
+            onClick={() => {
+              setArchiveConfirmed(false);
+              setDialog("archive");
+            }}
+          >
+            归档
           </Button>
         </>
       }
     >
+      {s.archived_at && <p className="mb-5 text-ink-2">信源已归档，停止采集并保留已公开内容。归档不能撤销，如需再次采集请重新添加。</p>}
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat
           label="健康"
           value={
             <span className="inline-flex items-center gap-2 text-[18px]">
               <Dot tone={s.enabled ? healthTone(s.health) : "muted"} />
-              {s.enabled ? (HEALTH_LABEL[s.health] ?? s.health) : "已暂停"}
+              {HEALTH_LABEL[s.health] ?? s.health}
             </span>
           }
           hint={s.fail_count ? `连续失败 ${s.fail_count} 次` : `上次成功 ${s.last_ok_at ? bj(s.last_ok_at) : "—"}`}
@@ -170,8 +239,25 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
       )}
 
       {preview && (
-        <Card className="mb-5" title={`预览：${preview.count} 条（${preview.ms}ms，未入库）`} right={<button onClick={() => setPreview(null)}>收起</button>}>
-          {preview.items.length ? (
+        <Card
+          className="mb-5"
+          title={preview.status === "deferred" ? "预览等待中（未入库）" : `预览：${preview.count} 条（${preview.ms}ms，未入库）`}
+          right={<button onClick={() => setPreview(null)}>收起</button>}
+        >
+          {preview.status === "queued" ? (
+            <p>预览已排队，结果由采集进程返回；可以稍后刷新查看。</p>
+          ) : preview.status === "failed" ? (
+            <p>{preview.error ?? "预览失败，当前配置不能启用"}</p>
+          ) : preview.status === "deferred" ? (
+            <Empty>
+              {preview.reason === "source_reader_pending"
+                ? "本次来源读取尚待确认，已保留进度。"
+                : preview.reason === "robots_unavailable"
+                  ? "暂时无法核实网站抓取规则，本次未读取内容。"
+                  : "正在等待来源网站允许的抓取时段。"}
+              {preview.retryAt ? `可在 ${bj(preview.retryAt)} 后再次预览。` : "请稍后再试。"}
+            </Empty>
+          ) : preview.items.length ? (
             <ul className="space-y-2.5">
               {preview.items.map((i) => (
                 <li key={i.url} className="text-[13px]">
@@ -290,10 +376,10 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
             </div>
             <div className="mt-4 flex items-center justify-end gap-2">
               {changes > 0 && <span className="text-[12.5px] text-ink-3">{changes} 项改动未保存</span>}
-              <Button tone="ghost" disabled={!changes} onClick={() => setDraft(draftOf(s))}>
+              <Button tone="ghost" disabled={!!s.archived_at || !changes} onClick={() => setDraft(draftOf(s))}>
                 还原
               </Button>
-              <Button tone="primary" disabled={!changes} onClick={() => patch() && setDialog("save")}>
+              <Button tone="primary" disabled={!!s.archived_at || !changes} onClick={() => patch() && setDialog("save")}>
                 保存
               </Button>
             </div>
@@ -401,6 +487,31 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
       </div>
 
       <ReasonDialog
+        open={dialog === "archive"}
+        title="归档这个信源"
+        danger
+        confirmLabel="确认归档"
+        busy={pending === "archive"}
+        description={`${s.name}（${s.id}），保留已有 ${stats.total} 条材料及公开内容。归档后停止采集，不能撤销；如需再次采集请重新添加。`}
+        onClose={() => setDialog(null)}
+        onSubmit={async (reason) => {
+          if (!archiveConfirmed) return false;
+          return (
+            (await run(
+              "POST",
+              `${base}/archive`,
+              { version: new Date(s.updated_at).toISOString(), reason, high_risk_confirmed: true },
+              { label: "archive", success: "信源已归档，已公开内容保留" },
+            )) !== null
+          );
+        }}
+      >
+        <label className="mt-3 flex gap-2">
+          <input type="checkbox" required checked={archiveConfirmed} onChange={(e) => setArchiveConfirmed(e.target.checked)} />
+          我已了解归档不能撤销及停止采集的后果
+        </label>
+      </ReasonDialog>
+      <ReasonDialog
         open={dialog === "save"}
         title="保存信源设置"
         description={`将修改：${Object.keys(patchPreview(draft, s)).join("、") || "无"}`}
@@ -409,7 +520,16 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
         onSubmit={async (reason) => {
           const p = patch();
           if (!p) return false;
-          const r = await run("PATCH", base, { patch: p, version: new Date(s.updated_at).toISOString(), reason }, { label: "save", success: "已保存" });
+          const r = await run<{ pending_config?: boolean; draft?: { id: number } }>(
+            "PATCH",
+            base,
+            { patch: p, version: new Date(s.updated_at).toISOString(), reason },
+            { label: "save", success: "已保存" },
+          );
+          if (r?.pending_config && r.draft) {
+            setPendingDraft(r.draft.id);
+            setPreview(null);
+          }
           return r !== null;
         }}
       />

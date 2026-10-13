@@ -11,7 +11,10 @@ export interface SourceFacts {
   syndicate_fulltext: boolean;
 }
 
-/** Public pool (/all): editorial sources, AI relevant, with a Chinese title and summary. */
+/**
+ * Public pool (/all): editorial sources, kept, with a Chinese title and summary.
+ * 2026-10-10 Owner 测试阶段决定：外文先按导读公开，全文后补。不要把「必须先有完整中文正文」加回这里。
+ */
 export function isPoolEligible(input: { participationMode: string; relevance: string | null; title: string | null; summary: string | null }): boolean {
   return input.participationMode === "editorial" && input.relevance === "pass" && !!input.title && !!input.summary;
 }

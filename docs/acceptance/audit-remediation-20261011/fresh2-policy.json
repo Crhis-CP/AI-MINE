@@ -1,0 +1,1144 @@
+{
+  "schema_version": 1,
+  "audit": "fresh2-policy",
+  "auditor": "clean_policy_round2",
+  "scope": "独立法规功能行为对照；不以实现/框架不同或测试缺少判缺陷",
+  "new_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+  "old_main_ref": "65d362407226da856f66477807c5437acf1af27b",
+  "old_unmerged_policy_ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+  "source_method": "新库仅 git show 固定 SHA；旧库 gh api 在线读取、内存处理；未读取本目录既有开发/审计报告",
+  "baseline_boundary": "旧 main 文件树不存在完整法规服务；完整法规对照均来自未合并参考分支，不能称旧生产能力。",
+  "summary": {
+    "preserved": 23,
+    "intentional_change": 2,
+    "omission": 1,
+    "uncertain": 4
+  },
+  "limitations": [
+    "除明确标为 locally_tested/locally_reproduced 的纯函数外，preserved 为静态调用链与固定源码行为对照，不代表生产验收。",
+    "未跑数据库集成测试、未读取生产秘密、未访问线上运行数据、未调用真实模型。",
+    "本轮未发现其他已被证据证明的实质遗漏；不以 absence of tests 判定功能缺失。",
+    "运行覆盖、PDF/扫描件真实语义、法律经营影响质量和连续供给分别保留 uncertain。"
+  ],
+  "items": [
+    {
+      "id": "FRESH2-POL-01",
+      "feature": "独立法规栏目与旧新闻分类的边界",
+      "old_evidence": [
+        {
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "path": "/",
+          "line": null,
+          "url": "https://api.github.com/repos/Crhis-CP/global-mining-policy-intelligence/git/trees/65d362407226da856f66477807c5437acf1af27b?recursive=1",
+          "baseline": "old_main",
+          "evidence_type": "tree_absence",
+          "observation": "完整文件树没有 services/policy_intelligence、config/policy 或 apps/web/app/policies。"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/public_reader.py",
+          "line": "78-89",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/public_reader.py#L78-L89",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/10-policy-service.md",
+          "line": "318-322"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies.ts",
+          "line": "196-234"
+        }
+      ],
+      "expected_behavior": "旧新闻法规分类不能冒充独立法规文书，独立法规服务按现行规格重新建设。",
+      "result": "intentional_change",
+      "reason": "旧 main 没有完整法规服务；本表其余完整法规比较对象均为未合并参考分支，不是旧生产能力。现行规格明确旧 policy_regulation 新闻不迁移、不进入法规栏目。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-02",
+      "feature": "36 对象及七主题的真实来源覆盖",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/coverage.py",
+          "line": "294-348",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/coverage.py#L294-L348",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "industry/policy-sources.ts",
+          "line": "3-22"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/sources/policy-coverage.ts",
+          "line": "20-45"
+        }
+      ],
+      "expected_behavior": "逐法域证明正式发布体系、必要补充渠道、完整取得和运行，不能把已登记或 HTTP 成功视为覆盖完成。",
+      "result": "uncertain",
+      "reason": "冻结目录有 156 条来源记录、35 个来源法域、7 个 policyProfile；覆盖展示仍遍历完整既定法域。配置不证明所有来源的实际取得、语义质量或持续供给，本轮未访问生产运行证据。",
+      "evidence_layer": "runtime_not_observed"
+    },
+    {
+      "id": "FRESH2-POL-03",
+      "feature": "报告覆盖计数与失败时间线",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/report_store.py",
+          "line": "16-65",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/report_store.py#L16-L65",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/sources/policy-coverage.ts",
+          "line": "11-45"
+        }
+      ],
+      "expected_behavior": "成功结构回执、不完整回执、无完整回执分开；失败保留类别和起止时间。",
+      "result": "preserved",
+      "reason": "新库按完整目录回执而非普通 fetch 成功计数，并保留未归属来源数量；未取得回执不会被写成没有新法规。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-04",
+      "feature": "整轮目录分页与重启续扫",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/paged_store.py",
+          "line": "70-119",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/paged_store.py#L70-L119",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/paged_store.py",
+          "line": "330-359",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/paged_store.py#L330-L359",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/acquisition/directory-runtime.ts",
+          "line": "9-27"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/acquisition/directory-store.ts",
+          "line": "36-55"
+        }
+      ],
+      "expected_behavior": "每页持久化；有界轮次结束和进程重启从 next_page 续扫；契约变化从新首页重开。",
+      "result": "preserved",
+      "reason": "新库复用仍 running 且契约、权限版本一致的扫描，逐页落库，延期保持状态；不以单轮 maxPagesPerTurn 截断总目录。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-05",
+      "feature": "目录漂移、跨页重复和首页复核",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/paged_store.py",
+          "line": "253-322",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/paged_store.py#L253-L322",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/acquisition/directory-store.ts",
+          "line": "98-128"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/acquisition/directory-store.ts",
+          "line": "151-172"
+        }
+      ],
+      "expected_behavior": "完整页序、来源声明总量、跨页唯一 ID、末页后的首页指纹一致才原子发布目标集。",
+      "result": "preserved",
+      "reason": "新库拒绝总数漂移和重复 ID；apply 同时验证 next_page、record_count 与首页指纹。失败保留回执并约一分钟后重开，不应用部分页。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-06",
+      "feature": "目录条目消失与历史保留",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/discovery_store.py",
+          "line": "400-415",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/discovery_store.py#L400-L415",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/acquisition/directory-store.ts",
+          "line": "179-237"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/public-state.ts",
+          "line": "5-18"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/automation.ts",
+          "line": "73-77"
+        }
+      ],
+      "expected_behavior": "仅在完整目录生效后让缺失条目退出当前目标；保留原件与历史，不推断废止。",
+      "result": "preserved",
+      "reason": "新库按当前目录成员决定 currentPolicyHeads；不再列出的材料停在 not_current，旧原件仍可作为显式历史读取依据。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-07",
+      "feature": "传输等待不破坏扫描和处理断点",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/paged_store.py",
+          "line": "100-108",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/paged_store.py#L100-L108",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/store.py",
+          "line": "716-741",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/store.py#L716-L741",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/acquisition/directory-runtime.ts",
+          "line": "22-27"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/jobs/policy.ts",
+          "line": "49-59"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/automation.ts",
+          "line": "208-224"
+        }
+      ],
+      "expected_behavior": "限速和传输延期保留扫描、当前处理阶段与检查点，不当成终局失败。",
+      "result": "preserved",
+      "reason": "新库对 CrawlDeferred 单独延期并携带 crawlSessionId 续队列；只改 due 时间，不丢原件或处理检查点。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-08",
+      "feature": "文书身份、原件不可变版本及同 URL 更新",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/material.py",
+          "line": "80-172",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/material.py#L80-L172",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/originals.ts",
+          "line": "43-64"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/originals.ts",
+          "line": "73-109"
+        }
+      ],
+      "expected_behavior": "身份基于法域、机关、类型、文号；无文号退化为来源和 URL；内容变化追加修订而非改写旧原件。",
+      "result": "preserved",
+      "reason": "新库不使用中文标题计算身份；原件内容/目录哈希、来源与许可版本相同才复用，否则 CAS 追加 sequence 和 previous_id，A→B→A 仍追加。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-09",
+      "feature": "必要附件完整门和容量阻断",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/material.py",
+          "line": "133-140",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/material.py#L133-L140",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/acquisition.py",
+          "line": "446-495",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/acquisition.py#L446-L495",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/acquire.ts",
+          "line": "73-128"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/extraction.ts",
+          "line": "155-190"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/processing-plan.ts",
+          "line": "115-140"
+        }
+      ],
+      "expected_behavior": "完整枚举正文与附件；缺项、容量超限或目录未闭合时不能进入完整全文处理。",
+      "result": "preserved",
+      "reason": "新库逐附件核许可，正文引用附件标签须被链接覆盖；目录未闭合或任一提取资源不完整使 plan 不可执行，超限不截断成合格正文。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-10",
+      "feature": "严格原件解码及字符完整性",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/acquisition.py",
+          "line": "471-492",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/acquisition.py#L471-L492",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/material.py",
+          "line": "65-73",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/material.py#L65-L73",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/encoding.ts",
+          "line": "23-54"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/extraction.ts",
+          "line": "165-175"
+        }
+      ],
+      "expected_behavior": "依据声明/BOM 解码；冲突、非法字节、U+FFFD 或 NUL 都保留为缺口，不生成完整正文。",
+      "result": "preserved",
+      "reason": "新库保留并加强旧 XML 入口的失败关闭原则；本轮纯冻结函数已验证 UTF-8 成功、非法 UTF-8、替代字符和冲突声明拒绝。",
+      "evidence_layer": "locally_tested_pure_frozen_blobs"
+    },
+    {
+      "id": "FRESH2-POL-11",
+      "feature": "XML 表格、条款标注作用范围",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/parsers.py",
+          "line": "283-363",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/parsers.py#L283-L363",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/parsers.py",
+          "line": "365-428",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/parsers.py#L365-L428",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/xml-structure.ts",
+          "line": "5-115"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/annotations.ts",
+          "line": "18-51"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/extraction.ts",
+          "line": "117-142"
+        }
+      ],
+      "expected_behavior": "保留表格行列/跨度和条款节点；结构日期标注带定位和 self/ancestor/descendant，不能继承成无依据的施行日。",
+      "result": "preserved",
+      "reason": "新库转换 XML/CALS 表格并比较清洗前后文字，标注作为独立定位证据流转，未处理图件、公式和直接文本缺失仍使提取 incomplete。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-12",
+      "feature": "扫描 PDF、图件和跨页表格的真实可用性",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/parsers.py",
+          "line": "598-644",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/parsers.py#L598-L644",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/extraction.ts",
+          "line": "73-108"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/vision-runtime.ts",
+          "line": "258-329"
+        }
+      ],
+      "expected_behavior": "所有页、图件、跨页表格及决定性附件被逐位置核验才算完整。",
+      "result": "uncertain",
+      "reason": "文字层和视觉双阶段及缺口门已存在；本轮没有真实多法域 PDF、图件、数字和跨页长表的模型语义质量证据，不能把结构实现视为真实能力验收。",
+      "evidence_layer": "runtime_not_observed"
+    },
+    {
+      "id": "FRESH2-POL-13",
+      "feature": "完整中文、中文原文不重复翻译",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/content.py",
+          "line": "90-108",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/content.py#L90-L108",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/content.py",
+          "line": "268-317",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/content.py#L268-L317",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/fulltext-candidate.ts",
+          "line": "174-250"
+        }
+      ],
+      "expected_behavior": "每个计划部分都有合法候选；中文原文直接保留，外文有完整中文且数字/结构守恒，缺任何部分不能拼成完整正文。",
+      "result": "preserved",
+      "reason": "新库拒绝缺项、重复、哈希不符和错误翻译模式；中文候选要求 zh=null，内容回用 source；只有全覆盖时才装配 resources。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-14",
+      "feature": "全文语义和法律经营影响质量",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/analysis_graph.py",
+          "line": "242-362",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/analysis_graph.py#L242-L362",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/interpretation.py",
+          "line": "399-492",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/interpretation.py#L399-L492",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/interpretation-engine.ts",
+          "line": "160-248"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/10-policy-service.md",
+          "line": "198-219"
+        }
+      ],
+      "expected_behavior": "文末例外能否决前段结论，主体、may/must、条件、期限和七主题经营影响均经全文核对。",
+      "result": "uncertain",
+      "reason": "代码对每个候选结论重查全部组，并拒绝 unsupported/vetoes；这只能证明核验结构。没有真实模型/Owner 多法域样本评审，不证明法律语义质量。",
+      "evidence_layer": "runtime_not_observed"
+    },
+    {
+      "id": "FRESH2-POL-15",
+      "feature": "未知付费结果和处理恢复",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/content_store.py",
+          "line": "413-500",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/content_store.py#L413-L500",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/analysis_worker.py",
+          "line": "18-35",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/analysis_worker.py#L18-L35",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/fulltext-runtime.ts",
+          "line": "116-195"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/automation.ts",
+          "line": "104-142"
+        }
+      ],
+      "expected_behavior": "相同输入先回读真实回执；结果未知不重购；原件或配方变化重新建立检查点，已完成结果不得串用。",
+      "result": "preserved",
+      "reason": "新运行器从 receipt/attempt 恢复，unknown/busy 保持阻断状态；workflow 将原件、profile 与 processing_recipe 变化纳入重跑条件，不凭任务次数猜回执。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-16",
+      "feature": "逐用途许可和读时撤权",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/contracts.py",
+          "line": "473-495",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/contracts.py#L473-L495",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/publication.py",
+          "line": "104-117",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/publication.py#L104-L117",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/acquire.ts",
+          "line": "23-35"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/originals.ts",
+          "line": "14-39"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies.ts",
+          "line": "62-106"
+        }
+      ],
+      "expected_behavior": "取得、保存、处理、公开原文/译文分别核准；当前许可收紧后所有公开入口立即停止相应用途。",
+      "result": "preserved",
+      "reason": "新库逐 URL 和 attachment 检查，公开读取再次计算当前许可。失去译文/模型处理资格会退回独立基本事实，不继续暴露完整解读。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-17",
+      "feature": "Owner 质量资格及完整公开前提",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/publication.py",
+          "line": "39-88",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/publication.py#L39-L88",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/publication.py",
+          "line": "118-136",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/publication.py#L118-L136",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/quality.ts",
+          "line": "7-51"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies-publish.ts",
+          "line": "72-108"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/contracts/src/http/policy.ts",
+          "line": "234-256"
+        }
+      ],
+      "expected_behavior": "完整解读必须符合实际来源、语言、配方、模型集合、有效期和法律状态前提。",
+      "result": "preserved",
+      "reason": "新库按 Owner 审阅记录、实际模型绑定和配方匹配；DTO 进一步阻止 nature/stage/publication 未知或决定性附件缺失的完整公开；资格失效读时降级。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-18",
+      "feature": "基本事实与未完成解读清单",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/publication.py",
+          "line": "118-136",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/publication.py#L118-L136",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/reports.py",
+          "line": "109-119",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/reports.py#L109-L119",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/10-policy-service.md",
+          "line": "194-200"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/10-policy-service.md",
+          "line": "232-234"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies-publish.ts",
+          "line": "283-308"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies-reports.ts",
+          "line": "62-77"
+        }
+      ],
+      "expected_behavior": "原件身份已核但全文/质量未完成时提供独立基本事实，报告给待解读文件清单，不借候选导读填充。",
+      "result": "intentional_change",
+      "reason": "旧参考分支完整公开失败即不公开，报告明确尚不提供逐项待解读清单；现行 F-047/F-051 明确补齐。新库保存 basic/full 双投影并清空 basic 的 guide/impact。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-19",
+      "feature": "新闻/法规与三个暂停的隔离",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/store.py",
+          "line": "62-83",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/store.py#L62-L83",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/store.py",
+          "line": "129-209",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/store.py#L129-L209",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/operations/lane-controls.ts",
+          "line": "65-85"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/jobs/policy.ts",
+          "line": "18-48"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/public-state.ts",
+          "line": "4-18"
+        }
+      ],
+      "expected_behavior": "新闻单线暂停不停止法规；采集、处理、公开暂停互相独立，既有公开阅读不因采集暂停消失。",
+      "result": "preserved",
+      "reason": "新库队列和控制查询显式 lane=policy，新闻控制不被选入法规快照；当前公开资格不读取采集/处理暂停。部署或系统 all 控制不作为新闻单线暂停。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-20",
+      "feature": "日期精度、事实/计划区分和状态不自动推进",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/timing.py",
+          "line": "27-59",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/timing.py#L27-L59",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/interpretation.py",
+          "line": "324-363",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/interpretation.py#L324-L363",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/interpretation-schema.ts",
+          "line": "89-135"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/interpretation-schema.ts",
+          "line": "172-190"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies-project.ts",
+          "line": "244-275"
+        }
+      ],
+      "expected_behavior": "来源只有日期时不补时分；登记、公布、实质变化、生效及计划/条件分别记录；不按日历自动推断法律状态。",
+      "result": "preserved",
+      "reason": "候选日期须与逐字依据及确定性日期解析一致；只取 occurrence=occurred 且无条件的事件参与排序，法律 brief 从已核状态维度拷贝。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-21",
+      "feature": "默认来源语言稳定且一致",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/public_reader.py",
+          "line": "259-265",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/public_reader.py#L259-L265",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/reports.py",
+          "line": "66-79",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/reports.py#L66-L79",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-language.ts",
+          "line": "1-12"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies.ts",
+          "line": "108-145"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-report-plan.ts",
+          "line": "86-92"
+        }
+      ],
+      "expected_behavior": "同一文书列表、详情、报告选用稳定合格语言，不随哪种语言最后处理完成而跳变。",
+      "result": "preserved",
+      "reason": "统一 policyLanguageOrder 使用有效配置偏好，再按语言码；本轮冻结纯函数验证输入顺序变化不改变默认语言，明确 fr 偏好后稳定选择 fr。",
+      "evidence_layer": "locally_tested_pure_frozen_blobs"
+    },
+    {
+      "id": "FRESH2-POL-22",
+      "feature": "语言切换使用各自当前版本",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/public_reader.py",
+          "line": "237-282",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/public_reader.py#L237-L282",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies.ts",
+          "line": "108-132"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies.ts",
+          "line": "275-355"
+        }
+      ],
+      "expected_behavior": "切换原文/译文或语言时，文号、原件修订、核对时间与选中语言一致，不能借另一语言版本。",
+      "result": "preserved",
+      "reason": "新库先取每种语言当前原件的最新公开投影，再绑定 expression/revision；语言列表以当前资格筛选，过期的新投影不回退成旧译文。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-23",
+      "feature": "正文全文检索与组合筛选",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/public_reader.py",
+          "line": "159-188",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/public_reader.py#L159-L188",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies.ts",
+          "line": "149-233"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "tests/policy-round2-public.test.ts",
+          "line": "138-183"
+        }
+      ],
+      "expected_behavior": "检索中文完整正文及元数据，筛选法域/主题/性质/阶段/日期；非默认语言的合格正文也能命中；旧译文及失格内容不命中。",
+      "result": "preserved",
+      "reason": "新库在每种当前合格语言上匹配中文 reading blocks，再与其他筛选组合；只读，不触发写入或模型。固定版本测试包含末段词、非默认语言和旧译文反例，本轮未重跑数据库测试。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-24",
+      "feature": "长文分页、显式历史和版本变化提示",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/public_reader.py",
+          "line": "206-246",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/public_reader.py#L206-L246",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/public_reader.py",
+          "line": "332-366",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/public_reader.py#L332-L366",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies.ts",
+          "line": "361-448"
+        }
+      ],
+      "expected_behavior": "正文游标绑定文书/表达/修订；普通阅读不悄悄落入历史；显式历史仍受当前许可和质量约束。",
+      "result": "preserved",
+      "reason": "新库正文令牌带 edition/version/expression/revision 与 historical，当前头变化返回 409；历史列表重核 eligible，并使旧游标在资格变化后失效。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-25",
+      "feature": "法定关系、脉络和无依据新旧法比较",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/relationships.py",
+          "line": "23-50",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/relationships.py#L23-L50",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/interpretation.py",
+          "line": "492-532",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/interpretation.py#L492-L532",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/policy/interpretation-schema.ts",
+          "line": "45-45"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-relations.ts",
+          "line": "12-52"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-relations.ts",
+          "line": "74-149"
+        }
+      ],
+      "expected_behavior": "仅逐字文号及官方单文书链接、同法域且唯一目标才链接；不猜废止/修订，不用模型记忆作新旧比较。",
+      "result": "preserved",
+      "reason": "新库要求 explicitPolicyReference 并核目标元数据，撤权/原件变更使边退出；历史详情不借当前关系，comparisons 仍强制空数组。脉络只作阅读导航。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-26",
+      "feature": "周月报周期、固定版本、稳定语言和幂等",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/timing.py",
+          "line": "63-95",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/timing.py#L63-L95",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/reports.py",
+          "line": "17-105",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/reports.py#L17-L105",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/report_store.py",
+          "line": "148-204",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/report_store.py#L148-L204",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-report-plan.ts",
+          "line": "33-138"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-report-store.ts",
+          "line": "10-54"
+        }
+      ],
+      "expected_behavior": "北京时间自然周/月；固定合格版本，月报独立归并；同原件多次解读取最新，输入不变不出新修订。",
+      "result": "preserved",
+      "reason": "本轮冻结纯函数验证周/月边界、当期/补录/当期发现的未知日期/已知旧日期解读更新四类、输入顺序变化的内容哈希幂等。未知日期的跨期解读更新另列遗漏。",
+      "evidence_layer": "locally_tested_pure_frozen_blobs"
+    },
+    {
+      "id": "FRESH2-POL-27",
+      "feature": "周月报停跑后的漏期补刊",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/report_store.py",
+          "line": "238-295",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/report_store.py#L238-L295",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-report-periods.ts",
+          "line": "4-28"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-report-job.ts",
+          "line": "22-51"
+        }
+      ],
+      "expected_behavior": "重启后补齐站内发现以来已结束且过出刊时刻的漏期，不能只出最近一期或从古老来源日期回溯。",
+      "result": "preserved",
+      "reason": "旧参考只发现最近已关闭期并重查已有期；新库扩大为所有缺失已关闭期的有界批次。本轮冻结函数验证 W40–W44、9/10 月漏期、排除开放期且不回到 1980 年。属于能力增强，不是回归。",
+      "evidence_layer": "locally_tested_pure_frozen_blobs"
+    },
+    {
+      "id": "FRESH2-POL-28",
+      "feature": "报告成员撤回、更正与报告自身撤回",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/publication_store.py",
+          "line": "83-98",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/publication_store.py#L83-L98",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/report_reader.py",
+          "line": "127-152",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/report_reader.py#L127-L152",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/report_store.py",
+          "line": "170-204",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/report_store.py#L170-L204",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policies-reports.ts",
+          "line": "14-33"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-report-store.ts",
+          "line": "20-53"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "tests/policy-round2-public.test.ts",
+          "line": "195-210"
+        }
+      ],
+      "expected_behavior": "被撤回或失格成员立即从报告新旧修订移除；随后产生带原因修订；整份报告撤回不误撤其成员文书。",
+      "result": "preserved",
+      "reason": "新库只存成员 ID、每次读时重新取 policyPublicMembers；报告自身撤回返回 410 并从列表移除。暂停公开时仍允许仅减少成员的修订。固定版本含报告撤回与成员仍可读反例。",
+      "evidence_layer": "static"
+    },
+    {
+      "id": "FRESH2-POL-29",
+      "feature": "来源日期未知的跨期解读更新入报",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/reports.py",
+          "line": "46-55",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/reports.py#L46-L55",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/publication/policy-report-plan.ts",
+          "line": "94-106"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/10-policy-service.md",
+          "line": "228-234"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/10-policy-service.md",
+          "line": "352-358"
+        }
+      ],
+      "expected_behavior": "前期已发现、来源日期未知的文书，本期才完成或更新合格解读，应作为解读更新纳入本期周/月报，不能静默遗漏。",
+      "result": "omission",
+      "reason": "旧参考 reading_updates 接受 day is None；新实现 interpretation_update 强制 day !== null。该文书的 discoveredAt 早于本期，又不能命中 source_date_unknown，因此本期两类报告都不含它。现行 F-051/BR-POL-14 没有授权排除这类更新。",
+      "evidence_layer": "locally_reproduced_pure_frozen_blobs",
+      "priority": "P2",
+      "reproduction": {
+        "preconditions": "已公开合格文书版本；来源日期 unknown；存在真实首次发现时间；本期新公开/更新合格解读。",
+        "input": {
+          "discoveredAt": "2026-09-20T00:00:00Z",
+          "releasedAt": "2026-10-10T00:00:00Z",
+          "sourceDate": null,
+          "editionId": "unknown-date-complete-oct10",
+          "sourceLanguage": "es",
+          "versions": [
+            {
+              "current": true
+            }
+          ]
+        },
+        "calls": [
+          {
+            "kind": "weekly",
+            "periodKey": "2026-W41",
+            "now": "2026-10-12T02:00:00Z"
+          },
+          {
+            "kind": "monthly",
+            "periodKey": "2026-10",
+            "now": "2026-11-02T02:00:00Z"
+          }
+        ],
+        "expected": "各返回该文书，label=interpretation_update。",
+        "actual_new": "两次 members=[]。",
+        "actual_old": "旧参考 select_members 返回 section=reading_updates，available_by_cutoff=true。",
+        "method": "Node 从 git show 冻结 blob 读取 policy-report-plan、time、policy-language 和 ids，stripTypeScriptTypes 后用内存 data URL 执行；旧 reports.py 经 gh api 在线读取、AST 提取原 select_members 在内存执行；未写源码、未连接数据库、未调用真实模型。"
+      },
+      "suggested_fix": "允许 day 为 null 的前期已发现、本期公开解读进入 interpretation_update，并补周报/月报反例。"
+    },
+    {
+      "id": "FRESH2-POL-30",
+      "feature": "无人值守供给、真实公开与持续运行",
+      "old_evidence": [
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "services/policy_intelligence/service.py",
+          "line": "51-193",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/services/policy_intelligence/service.py#L51-L193",
+          "baseline": "unmerged_policy_reference"
+        },
+        {
+          "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+          "path": "config/policy/report-schedule.json",
+          "line": "1-8",
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/6d37df802b7b7ff14ed9b34436166c7eb60a9b76/config/policy/report-schedule.json#L1-L8",
+          "baseline": "unmerged_policy_reference"
+        }
+      ],
+      "new_evidence": [
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "apps/worker/src/schedules.ts",
+          "line": "40-65"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "packages/backend/src/jobs/policy.ts",
+          "line": "29-65"
+        },
+        {
+          "ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+          "path": "docs/01-product/10-policy-service.md",
+          "line": "231-236"
+        }
+      ],
+      "expected_behavior": "同一部署实际持续采集、处理、合格公开并按时出报，重启后不中断；24 小时/7 天分别有证据。",
+      "result": "uncertain",
+      "reason": "新库存在分钟级法规处理和小时级报告任务，旧参考报告默认 disabled；这不证明线上启用、实际模型出刊或 24 小时/7 天连续供给。本轮无生产运行或公网验收。",
+      "evidence_layer": "runtime_not_observed"
+    }
+  ]
+}

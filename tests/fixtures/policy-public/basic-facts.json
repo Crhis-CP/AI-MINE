@@ -1,0 +1,145 @@
+{
+  "id": "policy-fixture",
+  "title": "【合成预览】矿业经营规则通知",
+  "original_title": "Synthetic Mining Rule",
+  "jurisdictions": [
+    {
+      "code": "AR",
+      "label": "阿根廷",
+      "kind": "country"
+    }
+  ],
+  "authority": {
+    "id": "authority-fixture",
+    "name": "合成发布机关"
+  },
+  "instrument_number": null,
+  "nature": {
+    "code": "unknown",
+    "label": "尚未确认"
+  },
+  "themes": [],
+  "change_kind": null,
+  "published_time": {
+    "raw": "",
+    "local_date": null,
+    "local_time": null,
+    "timezone": null,
+    "utc": null,
+    "precision": "unknown",
+    "meaning": "published",
+    "meaning_label": "来源发布",
+    "basis": "合成契约测试依据，不是真实法规记录",
+    "condition_text": null,
+    "label": "来源发布日期尚未确认",
+    "beijing_date": null
+  },
+  "sort_time": null,
+  "sort_kind": null,
+  "first_public_at": {
+    "raw": "2026-10-09",
+    "local_date": "2026-10-09",
+    "local_time": "08:00:00",
+    "timezone": "Asia/Shanghai",
+    "utc": "2026-10-09T00:00:00Z",
+    "precision": "second",
+    "meaning": "site_public",
+    "meaning_label": "本站收录",
+    "basis": "合成契约测试依据，不是真实法规记录",
+    "condition_text": null,
+    "label": "2026-10-09",
+    "beijing_date": "2026-10-09"
+  },
+  "first_public_basis": "live",
+  "source_checked_at": {
+    "raw": "2026-10-09",
+    "local_date": "2026-10-09",
+    "local_time": "08:00:00",
+    "timezone": "Asia/Shanghai",
+    "utc": "2026-10-09T00:00:00Z",
+    "precision": "second",
+    "meaning": "checked",
+    "meaning_label": "原文核对",
+    "basis": "合成契约测试依据，不是真实法规记录",
+    "condition_text": null,
+    "label": "2026-10-09",
+    "beijing_date": "2026-10-09"
+  },
+  "is_backfill": false,
+  "legal_brief": {
+    "stage": "unknown",
+    "in_force": "unknown",
+    "repeal": "unknown"
+  },
+  "interpretation_state": "basic_facts",
+  "summary": "【合成预览】仅展示文书身份、来源入口和已知事实；日期未知保持未知。",
+  "applicability_summary": null,
+  "thread_id": null,
+  "original_url": "https://example.invalid/policy/1",
+  "attributions": [
+    {
+      "name": "合成发布机关",
+      "url": "https://example.invalid/policy/1"
+    }
+  ],
+  "ai_label": "ai_generated",
+  "legal_state": {
+    "nature": {
+      "value": "unknown",
+      "basis": null,
+      "evidence_ids": []
+    },
+    "legislative_stage": {
+      "value": "unknown",
+      "basis": null,
+      "evidence_ids": []
+    },
+    "publication": {
+      "value": "unknown",
+      "basis": null,
+      "evidence_ids": [],
+      "time": null
+    },
+    "enforcement": {
+      "value": "unknown",
+      "basis": null,
+      "evidence_ids": [],
+      "arrangements": []
+    },
+    "applicability": [],
+    "deadlines": [],
+    "repeal": {
+      "value": "unknown",
+      "basis": null,
+      "evidence_ids": []
+    }
+  },
+  "dates": [],
+  "attachment_inventory": [
+    {
+      "title": "合成必要附件",
+      "url": "https://example.invalid/policy/annex.pdf",
+      "decisive": true,
+      "rights": "public",
+      "status": "missing"
+    }
+  ],
+  "versions": [],
+  "expressions": [],
+  "selected_policy_version_id": null,
+  "selected_expression_id": null,
+  "reading": null,
+  "main_points": [],
+  "guide": null,
+  "gaps": ["合成必要附件尚未取得"],
+  "impacts": [],
+  "sections": [],
+  "relationships": [],
+  "related_items": [],
+  "evidence": [],
+  "limitation": "【合成预览】不是真实法规或法律建议。",
+  "ai_metadata": {
+    "provider": "AI矿策",
+    "content_id": "policy-fixture"
+  }
+}

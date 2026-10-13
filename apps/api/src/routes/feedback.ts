@@ -43,7 +43,9 @@ export function registerFeedback(app: FastifyInstance) {
     try {
       const body = await readBody(req.body, String(req.headers["content-type"] ?? ""));
       const ip = String(req.headers["x-real-ip"] ?? req.ip ?? "");
-      const result = await submitFeedback({ ...body, ip, userAgent: String(req.headers["user-agent"] ?? "") });
+      const idempotencyKey = req.headers["idempotency-key"];
+      if (typeof idempotencyKey !== "string") throw new FeedbackRejected(400, "invalid_request", "提交标识缺失，请刷新页面后重试。");
+      const result = await submitFeedback({ ...body, idempotencyKey, ip, userAgent: String(req.headers["user-agent"] ?? "") });
       return reply.header("Cache-Control", "no-store").code(201).send(result);
     } catch (error) {
       if (error instanceof FeedbackRejected)

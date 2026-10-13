@@ -1,3 +1,4 @@
+import { feedbackPath } from "../../lib/feedback-origin";
 import { SITE } from "@amp/industry/site";
 import { Link, useLocation } from "react-router";
 import { Wordmark } from "../Logo";
@@ -5,13 +6,13 @@ import { SIDEBAR, tabIsActive, type NavItem } from "./nav";
 import { ThemeSwitch } from "./ThemeSwitch";
 
 function SideLink({ item }: { item: NavItem }) {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // Weekly and monthly reports belong to the daily report entry, as the phone tab bar has it.
   const isActive = tabIsActive(item, pathname);
   const Icon = item.icon;
   return (
     <Link
-      to={item.to}
+      to={item.to === "/feedback" ? feedbackPath(pathname, search) : item.to}
       prefetch="intent"
       aria-current={isActive ? "page" : undefined}
       className={`flex h-10 items-center gap-2.5 rounded-control px-2.5 text-[14px] transition-colors duration-150 ${

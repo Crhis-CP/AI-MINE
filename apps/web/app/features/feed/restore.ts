@@ -1,4 +1,4 @@
-// Return-position snapshots for list pages: loaded cards, expanded/collapsed state and the
+// Return-position snapshots for list pages: expanded/collapsed state and the
 // on-screen anchor (card key + offset), keyed by the history entry. Session-scoped, not a contract.
 
 import { sessionCache } from "./session-cache";
@@ -67,6 +67,7 @@ export function restoreAnchor(anchor: ListSnapshot<unknown>["anchor"], scrollY: 
       if (el) {
         const top = el.getBoundingClientRect().top + window.scrollY - anchor.offset;
         window.scrollTo({ top, behavior: "instant" as ScrollBehavior });
+        el.querySelector<HTMLElement>("h3 a, h2 a, a")?.focus({ preventScroll: true });
         return;
       }
     }

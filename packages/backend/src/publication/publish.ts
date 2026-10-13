@@ -1,3 +1,16 @@
+import { z } from "zod";
+import { verifiedCompanyContext } from "./reader-context.ts";
+import { articleWithdrawalHeld } from "./withdrawals.ts";
+export {
+  applyWithdrawalProjection,
+  policyReportWithdrawalSnapshot,
+  projectedWithdrawalMembers,
+  withdrawalIdentity,
+  articleWithdrawalHeld,
+} from "./withdrawals.ts";
+export type { WithdrawalTarget } from "./withdrawals.ts";
+import { manualRevisionState } from "../editorial/manual-revisions.ts";
+import { requireRuntimeRunning, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
 // Rebuilding only re-reads stored results; it never calls a model.
@@ -5,7 +18,8 @@ import { renameCategoryTags } from "@amp/industry/mining-taxonomy";
 import { SITE } from "@amp/industry/site";
 import { toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { config } from "../config.ts";
-import { one, dbOf, type Tx } from "../db.ts";
+import { one, dbOf, type Tx, type Db } from "../db.ts";
+import { fetchItemsByIds } from "./items.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { collapseWhitespace, usableSourceText } from "../lib/text.ts";
 import { promptVersion } from "../editorial/prompts.ts";
@@ -16,6 +30,7 @@ import { readStoredTranslation } from "../editorial/translation-store.ts";
 import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
+import { projectNewsGeography } from "./news-geography.ts";
 
 const sql = dbOf("publication");
 
@@ -42,6 +57,7 @@ interface AnalysisRow {
   id: number;
   input_revision: number;
   relevance: string | null;
+  output: unknown;
   category: string | null;
   tags: string[];
   subjects: string[];
@@ -59,6 +75,9 @@ interface OverrideRow {
 
 interface PublicationRow {
   article_id: string;
+  first_public_at: Date | null;
+  first_publication_observed: boolean;
+  company_context?: ReturnType<typeof verifiedCompanyContext>;
   revision: number;
   visibility: string;
   eligible: boolean;
@@ -196,18 +215,31 @@ export async function publishArticleTx(
     SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
   const [storedAnalysis] = await tx<AnalysisRow[]>`
-    SELECT id, input_revision, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
+    SELECT id, input_revision, relevance, output, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
   const [override] = await tx<OverrideRow[]>`SELECT fields, visibility FROM editorial_overrides WHERE article_id = ${articleId}`;
-  const [membership] = await tx<{ fact_id: number; story_id: number | null }[]>`
-    SELECT fa.fact_id, f.story_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
+  const [membership] = await tx<{ fact_id: number; story_id: number | null; fact_public_id: string; story_public_id: string | null }[]>`
+    SELECT fa.fact_id, f.story_id,f.public_id AS fact_public_id,s.public_id::text AS story_public_id FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id
     LEFT JOIN stories s ON s.id = f.story_id
-    WHERE fa.article_id = ${articleId} AND fa.role IN ('primary', 'report') AND (s.id IS NULL OR s.merged_into IS NULL)
+    WHERE fa.article_id = ${articleId} AND (fa.manual OR fa.input_revision=${article.revision}) AND fa.role IN ('primary', 'report') AND (s.id IS NULL OR s.merged_into IS NULL)
     ORDER BY (fa.role = 'primary') DESC, fa.created_at LIMIT 1`;
   const [previous] = await tx<PublicationRow[]>`SELECT * FROM publications WHERE article_id = ${articleId}`;
 
   const analysis = storedAnalysis?.input_revision === article.revision ? storedAnalysis : undefined;
-  const f = override?.fields ?? {};
+  const manual = await manualRevisionState(articleId, article.revision, article.title + "\n" + (article.body_text ?? ""), tx);
+  const f: Record<string, unknown> = manual.fields;
+  const [previousManual] = await tx<{ manual_revision_id: number | null; body_html: string | null; state: string }[]>`
+    SELECT manual_revision_id,body_html,state FROM publication.manual_copies WHERE article_id=${articleId}`;
+  const manualChanged =
+    (previousManual?.manual_revision_id ?? null) !== manual.manualRevisionId ||
+    (previousManual?.body_html ?? null) !== manual.bodyHtml ||
+    (previousManual?.state ?? "none") !== (manual.state ?? "none");
+  const companyContext = verifiedCompanyContext(analysis?.output, article.title + "\n" + (article.body_text ?? ""), article.url);
+  await tx`INSERT INTO publication.manual_copies(article_id,manual_revision_id,material_revision,body_html,label,state)
+    VALUES(${articleId},${manual.manualRevisionId},${article.revision},${manual.bodyHtml},'AI 辅助整理，经人工修订',${manual.state ?? "none"})
+    ON CONFLICT(article_id) DO UPDATE SET manual_revision_id=EXCLUDED.manual_revision_id,material_revision=EXCLUDED.material_revision,body_html=EXCLUDED.body_html,label=EXCLUDED.label,state=EXCLUDED.state
+    WHERE (manual_copies.manual_revision_id,manual_copies.material_revision,manual_copies.body_html,manual_copies.state)
+      IS DISTINCT FROM (EXCLUDED.manual_revision_id,EXCLUDED.material_revision,EXCLUDED.body_html,EXCLUDED.state)`;
   const hasMaterial = !!usableSourceText(article.body_text, article.excerpt);
   const language = normalizeSourceLanguage(article.language);
   const nativeChinese = isChineseOriginal(language);
@@ -234,9 +266,9 @@ export async function publishArticleTx(
   const displaySummary = summary ?? sourceExcerpt;
   const category = toPublicApiCategory(f.category === null ? null : pickString(f.category, analysis?.category ?? null));
   // Tags set by hand stay as they are; analysed ones show renamed categories by their current name (TASK-0041).
-  const tags = Array.isArray(f.tags)
-    ? (f.tags as string[])
-    : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]);
+  const tags = z
+    .array(z.string())
+    .parse(Array.isArray(f.tags) ? f.tags : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
@@ -252,11 +284,16 @@ export async function publishArticleTx(
         translation,
       )
     );
-  // A pending/withdrawn row is not proof of prior public reading. New foreign material has no exception here.
-  const previouslyPublic = previous?.visibility === "public" && previous.eligible;
-  const readingReady = !!language && (nativeChinese || (bodyMode === "full" && (wholeChinese || previouslyPublic)));
+  // 2026-10-10 Owner 测试阶段决定：外文先按导读公开，全文后补。
+  // 有中文标题和中文导读即可进入读者站；站内全文关着、或完整译文还没有，不再挡住。
+  // 已有获准完整中文正文的仍按全文显示。不要把空正文伪装成译文，也不要为了上站把全文转载开关打开。
+  // 不要把 DEC-35「必须先有完整中文正文」加回这个门槛。
+  const readingReady = !!language && (nativeChinese || chineseCopy);
+  const withdrawnByGroup = await articleWithdrawalHeld(tx, articleId, membership?.fact_public_id ?? null, membership?.story_public_id ?? null);
   const visibility =
-    source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady ? "withdrawn" : (override?.visibility ?? "public");
+    withdrawnByGroup || source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady
+      ? "withdrawn"
+      : (override?.visibility ?? "public");
   const needsTranslation =
     !!language &&
     !nativeChinese &&
@@ -335,6 +372,8 @@ export async function publishArticleTx(
   };
   const changed =
     !previous ||
+    manualChanged ||
+    stableJson(previous.company_context ?? []) !== stableJson(companyContext) ||
     stableJson({ ...next, tags: [...next.tags].sort() }) !==
       stableJson({
         visibility: previous.visibility,
@@ -353,16 +392,27 @@ export async function publishArticleTx(
         fact_id: previous.fact_id,
         indexable: previous.indexable,
       });
+  const wasPublic = !!previous && previous.visibility !== "withdrawn" && previous.eligible;
+  const reduced =
+    wasPublic &&
+    (visibility === "withdrawn" ||
+      !eligible ||
+      (previous!.visibility === "public" && visibility !== "public") ||
+      (previous!.selected && !selected) ||
+      (previous!.body_mode === "full" && bodyMode !== "full"));
+  if (visibility === "public" && eligible && !reduced) await requireRuntimeRunning("news", ["publication"], tx);
   const revision = previous ? previous.revision + (changed ? 1 : 0) : 1;
+  const firstPublicationObserved = previous ? previous.first_publication_observed === true : true;
+  const firstPublicAt = previous?.first_public_at ?? (firstPublicationObserved && visibility === "public" && eligible ? now : null);
 
   await tx`
     INSERT INTO publications (article_id, analysis_id, revision, visibility, eligible, selected, title, original_title, summary, source_excerpt,
       reason, category, tags, score, source_id, channel, first_party, url, published_at, discovered_at, timeline_at, backfill,
-      selected_ready_at, visible_after, body_mode, syndicate, indexable, story_id, fact_id, search_text, sort_at, updated_at)
+      selected_ready_at, visible_after, body_mode, syndicate, indexable, story_id, fact_id, search_text, sort_at, updated_at,first_public_at,first_publication_observed)
     VALUES (${articleId}, ${analysis?.id ?? null}, ${revision}, ${visibility}, ${eligible}, ${selected}, ${next.title},
       ${originalTitle}, ${summary}, ${sourceExcerpt}, ${reason}, ${category}, ${tags}, ${next.score}, ${source.id}, 'news', ${source.first_party},
       ${article.url}, ${article.published_at}, ${article.discovered_at}, ${article.timeline_at}, ${article.backfill},
-      ${selectedReadyAt}, ${visibleAfter}, ${bodyMode}, ${syndicate}, ${indexable}, ${next.story_id}, ${next.fact_id}, ${searchText}, ${sortAt}, now())
+      ${selectedReadyAt}, ${visibleAfter}, ${bodyMode}, ${syndicate}, ${indexable}, ${next.story_id}, ${next.fact_id}, ${searchText}, ${sortAt}, now(),${firstPublicAt},${firstPublicationObserved})
     ON CONFLICT (article_id) DO UPDATE SET
       analysis_id = EXCLUDED.analysis_id, revision = EXCLUDED.revision, visibility = EXCLUDED.visibility,
       eligible = EXCLUDED.eligible, selected = EXCLUDED.selected, title = EXCLUDED.title, original_title = EXCLUDED.original_title,
@@ -372,7 +422,7 @@ export async function publishArticleTx(
       timeline_at = EXCLUDED.timeline_at, backfill = EXCLUDED.backfill, selected_ready_at = EXCLUDED.selected_ready_at,
       visible_after = EXCLUDED.visible_after, body_mode = EXCLUDED.body_mode, syndicate = EXCLUDED.syndicate,
       indexable = EXCLUDED.indexable, story_id = EXCLUDED.story_id, fact_id = EXCLUDED.fact_id,
-      search_text = EXCLUDED.search_text, sort_at = EXCLUDED.sort_at, updated_at = now()
+      search_text = EXCLUDED.search_text, sort_at = EXCLUDED.sort_at, updated_at = now(),first_public_at=coalesce(publications.first_public_at,EXCLUDED.first_public_at)
     WHERE (publications.analysis_id, publications.revision, publications.visibility, publications.eligible,
         publications.selected, publications.title, publications.original_title, publications.summary, publications.source_excerpt,
         publications.reason, publications.category, publications.tags, publications.score,
@@ -380,7 +430,7 @@ export async function publishArticleTx(
         publications.published_at, publications.discovered_at, publications.timeline_at, publications.backfill,
         publications.selected_ready_at, publications.visible_after, publications.body_mode, publications.syndicate,
         publications.indexable, publications.story_id, publications.fact_id, publications.search_text,
-        publications.sort_at)
+        publications.sort_at,publications.first_public_at)
       IS DISTINCT FROM (EXCLUDED.analysis_id, EXCLUDED.revision, EXCLUDED.visibility, EXCLUDED.eligible,
         EXCLUDED.selected, EXCLUDED.title, EXCLUDED.original_title, EXCLUDED.summary, EXCLUDED.source_excerpt,
         EXCLUDED.reason, EXCLUDED.category, EXCLUDED.tags, EXCLUDED.score,
@@ -388,8 +438,10 @@ export async function publishArticleTx(
         EXCLUDED.published_at, EXCLUDED.discovered_at, EXCLUDED.timeline_at, EXCLUDED.backfill,
         EXCLUDED.selected_ready_at, EXCLUDED.visible_after, EXCLUDED.body_mode, EXCLUDED.syndicate,
         EXCLUDED.indexable, EXCLUDED.story_id, EXCLUDED.fact_id, EXCLUDED.search_text,
-        EXCLUDED.sort_at)`;
+        EXCLUDED.sort_at,EXCLUDED.first_public_at)`;
 
+  await tx`UPDATE publications SET company_context=${tx.json(companyContext as never)} WHERE article_id=${articleId} AND company_context IS DISTINCT FROM ${tx.json(companyContext as never)}`;
+  await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
   if (eligible) {
     const body = bodyMode === "full" ? (article.body_text ?? "").slice(0, 12000).toLowerCase() : "";
@@ -440,14 +492,6 @@ export async function publishArticleTx(
     ledger = "remove";
   }
 
-  const wasPublic = !!previous && previous.visibility !== "withdrawn" && previous.eligible;
-  const reduced =
-    wasPublic &&
-    (visibility === "withdrawn" ||
-      !eligible ||
-      (previous!.visibility === "public" && visibility !== "public") ||
-      (previous!.selected && !selected) ||
-      (previous!.body_mode === "full" && bodyMode !== "full"));
   return { articleId, changed, selected, visibility, ledger, reduced };
 }
 
@@ -461,13 +505,14 @@ export async function publishArticleTx(
 export async function republishSource(
   sourceId: string,
   onProgress?: (done: number, total: number) => Promise<void>,
-): Promise<{ total: number; changed: number; reduced: number; failed: number; failedIds: string[] }> {
+): Promise<{ total: number; changed: number; reduced: number; failed: number; failedIds: string[]; deferred: number }> {
   const { total } = one(await sql<{ total: number }[]>`SELECT count(*)::int AS total FROM publications WHERE source_id = ${sourceId}`);
   let after = "";
   let done = 0;
   let changed = 0;
   let reduced = 0;
   const retry: string[] = [];
+  const deferred = new Set<string>();
   const attempt = async (articleId: string): Promise<boolean> => {
     // Stopping mid-way is safe: the job is retried after the restart and re-derives from the start.
     if (shutdownSignal.signal.aborted) throw new Error("worker is stopping; republish resumes after restart");
@@ -477,6 +522,10 @@ export async function republishSource(
       if (r?.reduced) reduced += 1;
       return true;
     } catch (error) {
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) {
+        deferred.add(articleId);
+        return true;
+      }
       if (shutdownSignal.signal.aborted) throw error;
       return false;
     }
@@ -493,5 +542,67 @@ export async function republishSource(
   // A passing failure (a lock wait, a dropped connection) gets one more try; it costs no model call.
   const failedIds: string[] = [];
   for (const articleId of retry) if (!(await attempt(articleId))) failedIds.push(articleId);
-  return { total, changed, reduced, failed: failedIds.length, failedIds: failedIds.slice(0, 20) };
+  return { total, changed, reduced, failed: failedIds.length, failedIds: failedIds.slice(0, 20), deferred: deferred.size };
 }
+
+/** Private composition provenance, restricted to the still eligible news projection. No model work on reads. */
+export async function newsCompositionPublications(articleIds: string[]) {
+  if (!articleIds.length) return [];
+  return sql<
+    {
+      article_id: string;
+      analysis_id: number | null;
+      revision: number;
+      source_id: string;
+      title: string;
+      summary: string | null;
+      category: string | null;
+      manual_material_revision: number | null;
+      manual_state: string | null;
+    }[]
+  >`
+    SELECT p.article_id,p.analysis_id,p.revision,p.source_id,p.title,p.summary,p.category,m.material_revision AS manual_material_revision,m.state AS manual_state FROM publications p
+    LEFT JOIN publication.manual_copies m ON m.article_id=p.article_id
+    WHERE p.article_id=ANY(${articleIds}::text[]) AND p.visibility='public' AND p.eligible AND p.channel='news' ORDER BY p.article_id`;
+}
+
+/** Report corrections preserve the issue's references while resolving their current public facts. */
+export async function currentReportPublications(ids: string[], db: Db = sql) {
+  const rows = await fetchItemsByIds(ids, db);
+  return ids.flatMap((id) => {
+    const row = rows.get(id);
+    if (row?.visibility !== "public" || !row.eligible || row.source_mode !== "editorial") return [];
+    return [
+      {
+        itemId: id,
+        publicationRevision: row.revision,
+        factId: null,
+        storyPublicId: row.story_public_id,
+        title: row.title,
+        summary: row.summary ?? "",
+        sourceName: row.source_name,
+        sourceUrl: row.url,
+        sourceId: row.source_id,
+        firstParty: row.first_party,
+        role: row.first_party ? "官方" : row.source_kind === "mp_account" ? "公众号" : "媒体",
+        score: row.score,
+        publishedAt: (row.published_at ?? row.discovered_at).toISOString(),
+        category: row.category,
+        factKey: row.fact_id ? `fact:${row.fact_id}` : `a:${id}`,
+      },
+    ];
+  });
+}
+
+export async function lockReportPublications(ids: string[], db: Db) {
+  if (ids.length) await db`SELECT article_id FROM publications WHERE article_id=ANY(${ids}::text[]) ORDER BY article_id FOR SHARE`;
+}
+
+export { newsRelationJurisdictions, publicNewsDigestInput } from "./items.ts";
+
+export async function publishedStoryId(articleId: string, tx: Tx): Promise<number | null> {
+  const [row] = await tx<{ story_id: number | null }[]>`SELECT story_id FROM publications WHERE article_id=${articleId}`;
+  return row?.story_id ?? null;
+}
+
+export { readEventPublicationTimes } from "./items.ts";

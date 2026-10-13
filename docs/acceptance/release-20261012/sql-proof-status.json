@@ -1,0 +1,111 @@
+{
+  "tasks": [
+    "TASK-0315",
+    "TASK-0324",
+    "TASK-0325"
+  ],
+  "status": "locally_verified_with_remaining_ownership_unknown",
+  "scope": "Static SQL proof only; no business source, frozen baseline, map, production, commit or push changes by this agent.",
+  "checks": {
+    "focused_tests": {
+      "passed": 16,
+      "failed": 0,
+      "log": ".verify/release-20261012/sql-proof-final-focused-tests.log"
+    },
+    "scripts_typecheck": {
+      "log": ".verify/release-20261012/sql-proof-final-typecheck.log"
+    },
+    "biome": {
+      "log": ".verify/release-20261012/sql-proof-final-biome.log"
+    }
+  },
+  "runtime_snapshot": {
+    "path": ".verify/release-20261012/ownership-runtime-parameters-final.json",
+    "unknown_sites": 143,
+    "opening_unknown_sites": 127,
+    "caveat": "Snapshot includes concurrent business edits and predates final comma/spread soundness fixes; focused tests cover those fixes. Root must obtain final integrated ownership report. Counts are not an unchanged-source checker-only A/B comparison.",
+    "by_file": {
+      "apps/api/src/routes/admin.ts": 1,
+      "packages/backend/src/admin/auth.ts": 3,
+      "packages/backend/src/admin/content.ts": 4,
+      "packages/backend/src/admin/feedback.ts": 1,
+      "packages/backend/src/admin/selectbench.ts": 2,
+      "packages/backend/src/admin/source-previews.ts": 2,
+      "packages/backend/src/content/extract.ts": 2,
+      "packages/backend/src/editorial/analyze.ts": 2,
+      "packages/backend/src/editorial/translation-store.ts": 2,
+      "packages/backend/src/events/group.ts": 7,
+      "packages/backend/src/jobs/queue.ts": 3,
+      "packages/backend/src/operations/feedback-forward.ts": 2,
+      "packages/backend/src/operations/feedback-quota.ts": 2,
+      "packages/backend/src/operations/watch.ts": 2,
+      "packages/backend/src/providers/receipts.ts": 1,
+      "packages/backend/src/providers/usage-protection.ts": 3,
+      "packages/backend/src/publication/groups.ts": 10,
+      "packages/backend/src/publication/items.ts": 6,
+      "packages/backend/src/publication/mentions.ts": 17,
+      "packages/backend/src/publication/news-geography.ts": 2,
+      "packages/backend/src/publication/policies-publish.ts": 1,
+      "packages/backend/src/publication/pool.ts": 37,
+      "packages/backend/src/publication/publish.ts": 4,
+      "packages/backend/src/publication/timeline.ts": 18,
+      "packages/backend/src/publication/topics.ts": 2,
+      "packages/backend/src/publication/v1.ts": 3,
+      "packages/backend/src/reports/corrections.ts": 1,
+      "packages/backend/src/sources/collect.ts": 3
+    }
+  },
+  "proven_structures": [
+    "immutable local constants",
+    "relation-free SQL projection arguments and defaults",
+    "literal-only identifier arguments inside expression templates",
+    "read-only scalar SELECT enclosed as an expression",
+    "all branch texts retained with matching SQL relations"
+  ],
+  "negative_coverage": [
+    "SQL aliases/unions/arrays/records",
+    "PromiseLike/intersections/callables",
+    "visible any/unknown/type assertion erasure",
+    "rebound functions and scalar/record values",
+    "destructuring and awaited erasure",
+    "array pushes and Object.assign",
+    "comma forwarding and object spread overwrite",
+    "original side effects, raw SQL, recursive, incomplete, and varying-relation branches"
+  ],
+  "unchanged_limits": {
+    "fragment_product": 128,
+    "proof_visits": 512
+  },
+  "remaining_categories": {
+    "structure": [
+      "publication/mentions.ts map/reduce and jurisdictionTextSql for-of data preparation",
+      "publication/pool.ts reducer fragments and dependencies",
+      "publication/timeline.ts and groups.ts use the same opaque filtering helpers",
+      "events/group.ts SQL-typed parameters in helper bodies",
+      "historical dynamic raw SQL and unsupported SQL-function parser cases"
+    ],
+    "confirmed_untyped_or_erased": [
+      "apps/api/src/routes/admin.ts:463 req.query as Q",
+      "packages/backend/src/admin/auth.ts:150/157/159 userRes.json() as FeishuUser",
+      "packages/backend/src/admin/selectbench.ts:41 unknown metadata assertions",
+      "packages/backend/src/events/group.ts:509 Record<string, any> frame"
+    ],
+    "known_conservative_false_rejections": [
+      "packages/backend/src/admin/content.ts:211/238/239 typed SQL-row destructuring and reassignment",
+      "packages/backend/src/admin/source-previews.ts:60/73 typed SQL-row destructuring and reassignment",
+      "packages/backend/src/publication/publish.ts:178/484/490 one<T>(rows):T actual-argument propagation",
+      "packages/backend/src/admin/content.ts:32 normalizeUrl string result",
+      "packages/backend/src/publication/pool.ts:165 typed DTO self-spread reassignment"
+    ],
+    "not_yet_attributed": [
+      "receiptIds",
+      "settled.rejected",
+      "result.codes",
+      "generated.model",
+      "found",
+      "some awaited DTO fields"
+    ]
+  },
+  "remaining_site_details": ".verify/release-20261012/ownership-runtime-parameters-final.json",
+  "follow_up": "docs/acceptance/release-20261012/sql-proof-narrow-status.json"
+}

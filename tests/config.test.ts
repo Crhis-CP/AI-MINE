@@ -18,7 +18,7 @@ test("each process can select only its database roles, even in single-URL transi
   for (const [name, allowed] of Object.entries(PROCESS_DATABASE_ROLES)) {
     const config = databaseConfig(name as ProcessRole, allowed.length ? { DATABASE_URL: url } : {});
     for (const role of DATABASE_ROLES) {
-      if ((allowed as readonly string[]).includes(role)) assert.equal(config.urlFor(role), url);
+      if ((allowed as readonly string[]).includes(role) && (role !== "ops_read" || name === "test")) assert.equal(config.urlFor(role), url);
       else assert.throws(() => config.urlFor(role), /cannot use database role/);
     }
   }
@@ -159,7 +159,7 @@ test("web and fetcher reject credential names even with empty values, without di
 });
 
 test("only NODE_ENV enables production proxy and development-bypass checks for every role", () => {
-  const proxies = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "EGRESS_PROXY_URL"].flatMap((name) => [name, name.toLowerCase()]);
+  const proxies = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"].flatMap((name) => [name, name.toLowerCase()]);
   for (const role of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[]) {
     for (const name of [...proxies, "DEV_AUTH_ROLE", "DEV_AUTH_DISPLAY_NAME"])
       for (const value of ["", "PRIVATE_MARKER"]) {
@@ -183,7 +183,11 @@ test("only NODE_ENV enables production proxy and development-bypass checks for e
   };
   assert.deepEqual(environmentProblems("worker", worker), []);
   assert.equal(databaseConfig("worker", worker).urlFor("backup"), url);
+  assert.equal(databaseConfig("worker", { ...worker, EGRESS_PROXY_URL: "http://127.0.0.1:7890" }).urlFor("backup"), url);
   assert.throws(() => databaseConfig("worker", { ...worker, https_proxy: "PRIVATE_MARKER" }), { message: "worker must not hold https_proxy" });
+  for (const role of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[])
+    for (const name of ["EGRESS_PROXY_URL", "egress_proxy_url"])
+      for (const value of ["", "http://127.0.0.1:7890"]) assert.deepEqual(environmentProblems(role, { NODE_ENV: "production", [name]: value }), []);
 });
 
 test("role-selected connections preserve numeric decoding and support real transactions", async (t) => {
@@ -197,4 +201,16 @@ test("role-selected connections preserve numeric decoding and support real trans
   } finally {
     await access.close();
   }
+});
+
+test("private observer config is optional but never inherits the shared writer address", () => {
+  const privateOnly = { DATABASE_URL_PRIVATE_OPS: url, DATABASE_URL_AUTH: url };
+  const normal = databaseConfig("private-api", privateOnly);
+  assert.throws(() => normal.urlFor("ops_read"), /cannot use/);
+  assert.throws(() => databaseConfig("private-api", { ...privateOnly, DATABASE_URL_OPS_READ: "" }), /Missing/);
+  assert.equal(databaseConfig("private-api", { ...privateOnly, DATABASE_URL_OPS_READ: url }).urlFor("ops_read"), url);
+  assert.throws(
+    () => databaseConfig("public-api", { DATABASE_URL_PUBLIC_READ: url, DATABASE_URL_FEEDBACK_WRITE: url, DATABASE_URL_OPS_READ: url }),
+    /must not hold/,
+  );
 });

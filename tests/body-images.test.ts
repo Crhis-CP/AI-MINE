@@ -2,6 +2,10 @@
 // and the full feed never fetch, re-host or show a source's pictures.
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
+import { contentHash } from "@amp/backend/content/materials";
+import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
+import { sourcePolicyExample } from "./permission-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { test } from "node:test";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { linkBodyImages } from "@amp/backend/content/sanitize";
@@ -105,6 +109,25 @@ test("real public_read detail and full RSS reject unproved translations and tigh
     };
   });
   t.after(() => provider.close());
+  const [material] = await f.admin`SELECT title,body_text,excerpt FROM articles WHERE id=${id}`;
+  await f.admin`UPDATE articles SET content_hash=${contentHash({ title: material.title, bodyText: material.body_text, excerpt: material.excerpt })} WHERE id=${id}`;
+  const policy = structuredClone(sourcePolicyExample);
+  policy.source_id = "pr9-editorial";
+  policy.scope = { hosts: ["source.example.test"], path_prefixes: ["/"], document_types: [], excluded_content: [] };
+  policy.evidence = policy.evidence.map((e) => ({ ...e, scope: policy.scope }));
+  await f.admin.begin((tx) => appendSourcePolicy(tx, null, policy));
+  const oldUrl = process.env.DEEPSEEK_BASE_URL,
+    oldKey = process.env.DEEPSEEK_API_KEY;
+  try {
+    process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
+    process.env.DEEPSEEK_API_KEY = "synthetic-fixture";
+    await installUsageFixtureForModel("deepseek-flash", f.admin);
+  } finally {
+    if (oldUrl === undefined) delete process.env.DEEPSEEK_BASE_URL;
+    else process.env.DEEPSEEK_BASE_URL = oldUrl;
+    if (oldKey === undefined) delete process.env.DEEPSEEK_API_KEY;
+    else process.env.DEEPSEEK_API_KEY = oldKey;
+  }
   const script = `
     import {initializeDb,closeDb} from '@amp/backend/db';
     import {runBodyTranslation} from './packages/backend/src/editorial/translation-runtime.ts';

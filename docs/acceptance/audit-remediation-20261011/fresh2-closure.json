@@ -1,0 +1,199 @@
+{
+  "recorded_at": "2026-10-12T06:43:46.210849+00:00",
+  "method": "Root responses after the immutable fresh2 audit; no independent finding was deleted or reclassified to conceal a repair. No third scan was launched.",
+  "confirmed_omissions": 12,
+  "locally_verified": 12,
+  "items": [
+    {
+      "id": "F2-RDR-013",
+      "module": "reader",
+      "feature": "开放许可链接与来源官网最新法律信息",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0293",
+      "evidence": [
+        "public-attribution-role-tests.log"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "F2-RDR-018",
+      "module": "reader",
+      "feature": "事件对象收藏与收藏列表解析",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0294",
+      "evidence": [
+        "task0294-0295-browser.log"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "F2-RDR-027",
+      "module": "reader",
+      "feature": "事件与报告详情的复制链接、手机系统分享",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0295",
+      "evidence": [
+        "task0294-0295-browser.log"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "F2-RDR-033",
+      "module": "reader",
+      "feature": "公开v3 OpenAPI文档主域名可达",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0292",
+      "evidence": [
+        "fresh2-v3-web-test.log"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "F2-RDR-034",
+      "module": "reader",
+      "feature": "Agent指南与llms.txt发现v3能力",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0292",
+      "evidence": [
+        "fresh2-v3-web-test.log"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "FRESH2-POL-29",
+      "module": "policy",
+      "feature": "来源日期未知的跨期解读更新入报",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0292",
+      "evidence": [
+        "fresh2-root-tests.log"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "PIPE2-05",
+      "module": "pipeline",
+      "feature": "首次启用的成功预览 24 小时有效期",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0292",
+      "evidence": [
+        "fresh2-preview-test-final.log"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "PIPE2-06",
+      "module": "pipeline",
+      "feature": "同一配置的重复预览请求复用在途任务",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0296",
+      "evidence": [
+        "pipeline-fresh2-fixes-status.json"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "PIPE2-09",
+      "module": "pipeline",
+      "feature": "单源暂停后在途无日期材料仍可写入",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0297",
+      "evidence": [
+        "pipeline-fresh2-fixes-status.json"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "PIPE2-28",
+      "module": "pipeline",
+      "feature": "反馈截图真实格式与像素上限",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0298",
+      "evidence": [
+        "pipeline-fresh2-fixes-status.json"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "PIPE2-29",
+      "module": "pipeline",
+      "feature": "反馈关联页面仅允许本站地址",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0298",
+      "evidence": [
+        "pipeline-fresh2-fixes-status.json"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    },
+    {
+      "id": "PIPE2-30",
+      "module": "pipeline",
+      "feature": "反馈客户端小时上限、全站日上限与跨进程保持",
+      "reviewed_ref": "6996788c58347fa2483edc8e7d9e916292b20885",
+      "status": "locally_verified",
+      "task": "TASK-0299",
+      "evidence": [
+        "pipeline-fresh2-fixes-status.json"
+      ],
+      "boundary": "not live_verified or quality_accepted"
+    }
+  ],
+  "additional_ci_fix": {
+    "task": "TASK-0310",
+    "issue": "MCP item nested coverage and report citations inherited site-only source excerpts; machine projections now use public guide text and current qualified references.",
+    "status": "locally_verified",
+    "evidence": [
+      "ci-three-fixes-tests.log",
+      "ci-three-fixes-publication-final.log",
+      "machine-report-excerpt-fix.log",
+      "machine-report-excerpt-final.log"
+    ],
+    "latest_file_test_total": 24
+  },
+  "date_filter_decision": {
+    "status": "locally_verified",
+    "finding": "F2-RDR-009",
+    "owner_decision": "2026-10-12: 按时间线北京日期统一",
+    "decision": "DEC-67 / ADR-0027",
+    "task_cards": [
+      "TASK-0313",
+      "TASK-0314"
+    ],
+    "code_changed": true,
+    "evidence": [
+      ".verify/date-filter-20261012/date-test-final.log",
+      ".verify/date-filter-20261012/focused-tests.log",
+      ".verify/date-filter-20261012/contracts-check.log"
+    ],
+    "boundary": "Original independent report remains immutable; no live acceptance claimed."
+  },
+  "remaining_external_evidence": "The original 11 uncertain entries remain in the immutable report. F2-RDR-009 was resolved by Owner and implemented; the other 10 still require the evidence described in that report.",
+  "additional_runtime_fix": {
+    "task_cards": [
+      "TASK-0301",
+      "TASK-0302",
+      "TASK-0303",
+      "TASK-0304"
+    ],
+    "status": "locally_verified",
+    "issue": "Source preview retained a database connection across network I/O and could wait for itself in a one-connection pool.",
+    "behavior": "Short CAS claims, bounded cancellation, expired-lease recovery and old-token rejection; a new preview identity does not bypass unresolved paid Reader receipts.",
+    "evidence": [
+      "preview-real-transports-final.log",
+      "preview-single-connection-after.log",
+      "preview-adjacent-final.log"
+    ],
+    "bounded_followup": "No new whole-repository or functional scan was opened."
+  }
+}

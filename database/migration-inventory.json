@@ -167,6 +167,222 @@
     {
       "name": "sources/202610081510_source_lane.sql",
       "dependsOn": ["publication/202610060435_metal_prices.sql"]
+    },
+    {
+      "name": "publication/202610082354_metal_prices_cbr.sql",
+      "dependsOn": ["publication/202610060435_metal_prices.sql"]
+    },
+    {
+      "name": "publication/202610090010_metal_prices_weekly.sql",
+      "dependsOn": ["publication/202610082354_metal_prices_cbr.sql"]
+    },
+    {
+      "name": "policy/202610090100_policy_originals.sql",
+      "dependsOn": ["sources/202610081510_source_lane.sql"]
+    },
+    {
+      "name": "content/202610090100_source_date_observation_seen.sql",
+      "dependsOn": ["content/202610042020_source_date_evidence.sql"]
+    },
+    {
+      "name": "policy/202610090200_policy_extractions.sql",
+      "dependsOn": ["policy/202610090100_policy_originals.sql"]
+    },
+    {
+      "name": "policy/202610090300_policy_fulltext.sql",
+      "dependsOn": ["policy/202610090200_policy_extractions.sql"]
+    },
+    {
+      "name": "policy/202610090500_policy_quality.sql",
+      "dependsOn": ["policy/202610090300_policy_fulltext.sql"]
+    },
+    {
+      "name": "publication/202610090500_policy_publication.sql",
+      "dependsOn": ["policy/202610090500_policy_quality.sql"]
+    },
+    {
+      "name": "policy/202610090400_policy_interpretations.sql",
+      "dependsOn": ["policy/202610090300_policy_fulltext.sql"]
+    },
+    {
+      "name": "publication/202610090600_policy_reports.sql",
+      "dependsOn": ["publication/202610060435_metal_prices.sql"]
+    },
+    {
+      "name": "policy/202610090700_policy_automation.sql",
+      "dependsOn": ["policy/202610090300_policy_fulltext.sql"]
+    },
+    {
+      "name": "policy/202610090700_policy_vision.sql",
+      "dependsOn": ["policy/202610090300_policy_fulltext.sql"]
+    },
+    {
+      "name": "publication/202610090800_policy_relations.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "publication/202610090800_news_geography.sql",
+      "dependsOn": ["sources/202610081510_source_lane.sql"]
+    },
+    {
+      "name": "platform/ops/202610090900_lane_controls.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "platform/identity/202610091100_password_accounts.sql",
+      "dependsOn": ["platform/identity/202610091000_account_access.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091100_usage_reports.sql",
+      "dependsOn": ["0022_receipt_attempts_budgets.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091200_model_registry.sql",
+      "dependsOn": ["ai-gateway/202610051210_translation_receipt_observations.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091210_model_attempt_snapshot.sql",
+      "dependsOn": ["ai-gateway/202610091200_model_registry.sql"]
+    },
+    {
+      "name": "platform/identity/202610091000_account_access.sql",
+      "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
+    },
+    {
+      "name": "acquisition/202610090900_host_pacing.sql",
+      "dependsOn": ["sources/202610081510_source_lane.sql"]
+    },
+    {
+      "name": "platform/ops/202610091600_operational_snapshots.sql",
+      "dependsOn": ["platform/ops/202610090900_lane_controls.sql"]
+    },
+    {
+      "name": "acquisition/202610091100_directory_scans.sql",
+      "dependsOn": ["acquisition/202610090900_host_pacing.sql"]
+    },
+    {
+      "name": "policy/202610091101_directory_workflows.sql",
+      "dependsOn": ["policy/202610090700_policy_automation.sql", "acquisition/202610091100_directory_scans.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091300_usage_protection.sql",
+      "dependsOn": ["ai-gateway/202610091210_model_attempt_snapshot.sql", "ai-gateway/202610091100_usage_reports.sql"]
+    },
+    {
+      "name": "publication/202610091300_policy_quality_binding.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "publication/202610091500_site_information.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091330_usage_task_budget.sql",
+      "dependsOn": ["ai-gateway/202610091300_usage_protection.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091600_selection_calibration.sql",
+      "dependsOn": ["platform/identity/202610091100_password_accounts.sql"]
+    },
+    {
+      "name": "ai-gateway/202610091800_model_fallback.sql",
+      "dependsOn": ["ai-gateway/202610091330_usage_task_budget.sql"]
+    },
+    {
+      "name": "ai-gateway/202610101720_prefilter_audit.sql",
+      "dependsOn": ["ai-gateway/202610091800_model_fallback.sql"]
+    },
+    {
+      "name": "events/202610120010_membership_revision.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "policy/202610120100_policy_workflow_recipe.sql",
+      "dependsOn": ["policy/202610090700_policy_automation.sql"]
+    },
+    {
+      "name": "publication/202610120200_public_read_watermarks.sql",
+      "dependsOn": ["publication/202610090500_policy_publication.sql"]
+    },
+    {
+      "name": "feedback/202610120020_feedback_retention.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "publication/202610120130_topic_project_axis.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "publication/202610120210_reader_context.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "editorial/202610120030_manual_revisions.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "sources/202610120040_source_previews.sql",
+      "dependsOn": []
+    },
+    {
+      "name": "publication/202610120220_public_read_invalidation.sql",
+      "dependsOn": ["publication/202610120200_public_read_watermarks.sql"]
+    },
+    {
+      "name": "publication/202610120031_manual_copies.sql",
+      "dependsOn": ["editorial/202610120030_manual_revisions.sql"]
+    },
+    {
+      "name": "policy/202610120140_policy_material_current.sql",
+      "dependsOn": ["policy/202610090100_policy_originals.sql"]
+    },
+    {
+      "name": "publication/202610120300_news_first_public_time.sql",
+      "dependsOn": ["publication/202610120210_reader_context.sql"]
+    },
+    {
+      "name": "sources/202610120400_source_archive.sql",
+      "dependsOn": ["sources/202610120040_source_previews.sql"]
+    },
+    {
+      "name": "feedback/202610120410_feedback_idempotency.sql",
+      "dependsOn": ["feedback/202610120020_feedback_retention.sql"]
+    },
+    {
+      "name": "editorial/202610120420_withdrawals.sql",
+      "dependsOn": ["editorial/202610120030_manual_revisions.sql"]
+    },
+    {
+      "name": "publication/202610120421_withdrawal_holds.sql",
+      "dependsOn": ["editorial/202610120420_withdrawals.sql", "publication/202610120220_public_read_invalidation.sql"]
+    },
+    {
+      "name": "reports/202610120430_report_corrections.sql",
+      "dependsOn": ["publication/202610120421_withdrawal_holds.sql"]
+    },
+    {
+      "name": "reports/202610120201_report_read_watermark.sql",
+      "dependsOn": ["publication/202610120200_public_read_watermarks.sql"]
+    },
+    {
+      "name": "sources/202610120221_source_read_invalidation.sql",
+      "dependsOn": ["publication/202610120220_public_read_invalidation.sql"]
+    },
+    {
+      "name": "sources/202610120500_public_attribution_links.sql",
+      "dependsOn": ["sources/202610120221_source_read_invalidation.sql"]
+    },
+    {
+      "name": "sources/202610120510_preview_inflight.sql",
+      "dependsOn": ["sources/202610120040_source_previews.sql"]
+    },
+    {
+      "name": "feedback/202610120520_feedback_quota.sql",
+      "dependsOn": ["feedback/202610120410_feedback_idempotency.sql"]
+    },
+    {
+      "name": "feedback/202610121230_feedback_forward.sql",
+      "dependsOn": ["feedback/202610120520_feedback_quota.sql"]
     }
   ]
 }

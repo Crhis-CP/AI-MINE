@@ -1,0 +1,490 @@
+{
+  "recorded_at": "2026-10-12T03:50:26.420619+00:00",
+  "method": "Latest completed per-file block identified by ℹ file, never by concurrent # starting lines. Paths and counts are local logs; not immutable final-SHA receipt.",
+  "original_failed_files": 48,
+  "pipeline_assigned_failed_files": 33,
+  "pipeline_current_failures": [],
+  "latest_results": [
+    {
+      "file": "tests/account-capabilities.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/auth-regressions.log",
+      "log_mtime": "2026-10-12T02:39:22.108502+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/analyze-shutdown.test.ts",
+      "status": "passed",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-final-regressions.log",
+      "log_mtime": "2026-10-12T03:27:16.789079+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/analyze.test.ts",
+      "status": "passed",
+      "tests": 18,
+      "passed": 18,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/remaining-pipeline-regressions.log",
+      "log_mtime": "2026-10-12T03:41:05.384661+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/automatic-feed.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/source-fixtures-final.log",
+      "log_mtime": "2026-10-12T03:44:45.054056+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/body-images.test.ts",
+      "status": "passed",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/remaining-source-fixtures.log",
+      "log_mtime": "2026-10-12T03:42:51.873207+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/category-rename.test.ts",
+      "status": "passed",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/manual-contract-compat-tests-v2.log",
+      "log_mtime": "2026-10-12T02:34:19.794856+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/collection.test.ts",
+      "status": "passed",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-final-regressions.log",
+      "log_mtime": "2026-10-12T03:27:16.789079+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/content-commit.test.ts",
+      "status": "passed",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/lifetime-and-permits-tests.log",
+      "log_mtime": "2026-10-12T03:06:52.048874+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/crawl-pacing.test.ts",
+      "status": "passed",
+      "tests": 13,
+      "passed": 13,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/cost-control-regressions.log",
+      "log_mtime": "2026-10-12T03:33:56.483609+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/db-role-matrix.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/role-matrix-final.log",
+      "log_mtime": "2026-10-12T02:52:35.144096+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/default-model.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/translation-permit-fixtures.log",
+      "log_mtime": "2026-10-12T02:48:56.559719+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/directory-scans.test.ts",
+      "status": "passed",
+      "tests": 13,
+      "passed": 13,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/policy-regression-recovery.log",
+      "log_mtime": "2026-10-12T03:49:50.702240+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/events.test.ts",
+      "status": "passed",
+      "tests": 12,
+      "passed": 12,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/fee-event-fixtures.log",
+      "log_mtime": "2026-10-12T03:21:28.582164+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/feedback-upload.test.ts",
+      "status": "passed",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/reader-lint-public-tests.log",
+      "log_mtime": "2026-10-12T03:45:51.543712+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/file-isolation-left.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/final-signal-and-fee-isolation.log",
+      "log_mtime": "2026-10-12T03:30:56.533175+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/file-isolation-right.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/final-signal-and-fee-isolation.log",
+      "log_mtime": "2026-10-12T03:30:56.533175+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/foreign-automatic.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/source-fixtures-final.log",
+      "log_mtime": "2026-10-12T03:44:45.054056+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/lane-controls-runtime.test.ts",
+      "status": "passed",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/lane-controls-final.log",
+      "log_mtime": "2026-10-12T03:37:54.270609+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/mining-taxonomy.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/eval-bound-and-pipeline-v3.log",
+      "log_mtime": "2026-10-12T03:04:19.092373+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/model-fallback-access.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/auth-regressions.log",
+      "log_mtime": "2026-10-12T02:39:22.108502+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/model-registry-http.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/auth-regressions.log",
+      "log_mtime": "2026-10-12T02:39:22.108502+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/news-geography.test.ts",
+      "status": "passed",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/eval-bound-and-pipeline-v3.log",
+      "log_mtime": "2026-10-12T03:04:19.092373+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/policy-automation.test.ts",
+      "status": "passed",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/policy-regression-recovery.log",
+      "log_mtime": "2026-10-12T03:49:50.702240+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/policy-gateway.test.ts",
+      "status": "passed",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/policy-regression-recovery.log",
+      "log_mtime": "2026-10-12T03:49:50.702240+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/policy-relations.test.ts",
+      "status": "passed",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/policy-regression-recovery.log",
+      "log_mtime": "2026-10-12T03:49:50.702240+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/policy-source-seed.test.ts",
+      "status": "passed",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/policy-regression-recovery.log",
+      "log_mtime": "2026-10-12T03:49:50.702240+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/public-role-routes.test.ts",
+      "status": "passed",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/reader-lint-public-tests.log",
+      "log_mtime": "2026-10-12T03:45:51.543712+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/publication.test.ts",
+      "status": "passed",
+      "tests": 18,
+      "passed": 18,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/eval-bound-and-pipeline-v3.log",
+      "log_mtime": "2026-10-12T03:04:19.092373+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/receipt-observed-version.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/fee-event-fixtures.log",
+      "log_mtime": "2026-10-12T03:21:28.582164+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/receipts.test.ts",
+      "status": "passed",
+      "tests": 10,
+      "passed": 10,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/fee-event-fixtures.log",
+      "log_mtime": "2026-10-12T03:21:28.582164+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/relation-eval-runtime.test.ts",
+      "status": "passed",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-final-regressions.log",
+      "log_mtime": "2026-10-12T03:27:16.789079+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/report-candidates.test.ts",
+      "status": "passed",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-final-regressions.log",
+      "log_mtime": "2026-10-12T03:27:16.789079+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/runtime-report-controls.test.ts",
+      "status": "passed",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-final-regressions.log",
+      "log_mtime": "2026-10-12T03:27:16.789079+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/selection-calibration-access.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/auth-regressions.log",
+      "log_mtime": "2026-10-12T02:39:22.108502+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/selection-eval-runtime.test.ts",
+      "status": "passed",
+      "tests": 4,
+      "passed": 4,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/eval-bound-and-pipeline-v3.log",
+      "log_mtime": "2026-10-12T03:04:19.092373+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/signals.test.ts",
+      "status": "passed",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/final-signal-and-fee-isolation.log",
+      "log_mtime": "2026-10-12T03:30:56.533175+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/site-information.test.ts",
+      "status": "passed",
+      "tests": 2,
+      "passed": 2,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/auth-regressions.log",
+      "log_mtime": "2026-10-12T02:39:22.108502+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/source-date-automatic.test.ts",
+      "status": "passed",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/date-regressions.log",
+      "log_mtime": "2026-10-12T02:46:54.192037+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/source-permissions.test.ts",
+      "status": "passed",
+      "tests": 9,
+      "passed": 9,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/source-fixtures-final.log",
+      "log_mtime": "2026-10-12T03:44:45.054056+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/source-rules.test.ts",
+      "status": "passed",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/fee-event-fixtures.log",
+      "log_mtime": "2026-10-12T03:21:28.582164+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/translate-shutdown.test.ts",
+      "status": "passed",
+      "tests": 3,
+      "passed": 3,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/lifetime-and-permits-tests.log",
+      "log_mtime": "2026-10-12T03:06:52.048874+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/translate.test.ts",
+      "status": "passed",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/lifetime-and-permits-tests.log",
+      "log_mtime": "2026-10-12T03:06:52.048874+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/translation-attempts.test.ts",
+      "status": "passed",
+      "tests": 5,
+      "passed": 5,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/lifetime-and-permits-tests.log",
+      "log_mtime": "2026-10-12T03:06:52.048874+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/translation-checkpoints.test.ts",
+      "status": "passed",
+      "tests": 6,
+      "passed": 6,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/pipeline-final-regressions.log",
+      "log_mtime": "2026-10-12T03:27:16.789079+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/translation-long.test.ts",
+      "status": "passed",
+      "tests": 13,
+      "passed": 13,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/lifetime-and-permits-tests.log",
+      "log_mtime": "2026-10-12T03:06:52.048874+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/unknown-release-race.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/fee-event-fixtures.log",
+      "log_mtime": "2026-10-12T03:21:28.582164+00:00",
+      "pipeline_assigned": true
+    },
+    {
+      "file": "tests/usage-protection-http.test.ts",
+      "status": "passed",
+      "tests": 1,
+      "passed": 1,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/auth-regressions.log",
+      "log_mtime": "2026-10-12T02:39:22.108502+00:00",
+      "pipeline_assigned": false
+    },
+    {
+      "file": "tests/usage-protection.test.ts",
+      "status": "passed",
+      "tests": 19,
+      "passed": 19,
+      "failed": 0,
+      "log": ".verify/audit-remediation-20261011/remaining-source-fixtures.log",
+      "log_mtime": "2026-10-12T03:42:51.873207+00:00",
+      "pipeline_assigned": true
+    }
+  ],
+  "all_original_failures_recovered": true
+}

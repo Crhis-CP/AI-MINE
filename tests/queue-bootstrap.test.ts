@@ -79,10 +79,11 @@ test("the real worker creates every application queue with collection disabled a
       import { setTimeout as delay } from 'node:timers/promises';
       await import('./apps/worker/src/main.ts');
       const { getBoss, QUEUES } = await import('@amp/backend/jobs/queue');
+      const { SOURCE_QUEUES } = await import('@amp/backend/jobs/sources');
       const boss = await getBoss();
       for (const name of Object.values(QUEUES)) assert.ok(await boss.getQueue(name), name);
       const pending = [];
-      for (const name of [QUEUES.fetchSource, QUEUES.mpCheck, QUEUES.extractBody]) {
+      for (const name of [QUEUES.fetchSource, SOURCE_QUEUES.news, SOURCE_QUEUES.policy, QUEUES.mpCheck, QUEUES.extractBody]) {
         const id = await boss.send(name, {});
         assert.ok(id);
         pending.push([name, id]);

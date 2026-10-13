@@ -39,3 +39,5 @@ URL 查询参数只接受 sslmode、target_session_attrs、application_name；�
 测试在 `tests/config.test.ts`；无数据库的校验用例可直接执行，数据库用例需一次性测试库。`pnpm check` 检查类型、格式和模块依赖；`make verify` 包含完整测试。
 
 依赖仅为仓库已经使用的 postgres 3.4.9。角色地址和诊断不得包含在日志、异常或仓库中。修改角色矩阵须与任务卡、公开接口和正反例同步；真正的数据库权限由后续建角色步骤与真实登录矩阵验证，配置检查不能替代它。
+
+TASK-0143增加专用`ops_read`数据库身份。仅private-api可选持有`DATABASE_URL_OPS_READ`，该地址只允许进入private-api进程；worker/public-api/web/fetcher仍不能取得。未配置时原后台保持可用，只有私网运维读取报不可用；不使用单一DATABASE_URL回退该身份。读取池最多2连接，角色仅SELECT固定脱敏快照表。test进程仍仅使用隔离测试库过渡地址，真实只读权限另以角色登录验证。

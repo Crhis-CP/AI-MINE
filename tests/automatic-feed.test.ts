@@ -1,4 +1,6 @@
 import "./setup.ts";
+import { previewSourceFixture } from "./source-preview-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -10,6 +12,7 @@ import { getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { registerContentJobs } from "@amp/backend/jobs/content";
 import { registerPublicationJobs } from "@amp/backend/jobs/publication";
+import { SOURCE_QUEUES } from "@amp/backend/jobs/sources";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { automaticFeedFixture, authoredSummary, authoredTitle, FEED_CASES } from "./automatic-feed-fixture.ts";
 
@@ -39,6 +42,8 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     await closeDb();
   });
   for (const name of variables) process.env[name] = name.endsWith("BASE_URL") ? `${fixture.providerUrl}/v1` : "synthetic-test-key";
+  for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"])
+    await installUsageFixtureForModel(model);
   Object.assign(config, {
     allowPrivateNetworkFetch: true,
     egressProxyUrl: null,
@@ -100,13 +105,15 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     await registerPublicationJobs(boss);
     assert.equal((await scheduleDueSources()).enqueued, 0, "paused fixture is not collected");
     assert.equal(fixture.feedRequests.length, 0);
+    await previewSourceFixture(sourceId);
+    assert.equal(fixture.feedRequests.length, 1, "preview fetch is explicit and stores no material");
     await editSource({ enabled: true });
     assert.equal((await scheduleDueSources()).enqueued, 1);
     await waitFor("three actual worker analyses completed", async () => {
       const [r] = await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.analyze} AND state='completed'`;
       return r.n === FEED_CASES.length;
     });
-    assert.equal(fixture.feedRequests.length, 1);
+    assert.equal(fixture.feedRequests.length, 2);
     const materials = await sql`SELECT id, title, body_status, revision FROM articles WHERE source_id=${sourceId}`;
     assert.equal(materials.length, 3);
     const ids = new Map(FEED_CASES.map(({ marker }) => [marker, materials.find((r) => r.title.includes(marker))!.id as string]));
@@ -149,8 +156,8 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     const modelCalls = fixture.calls.length;
     const fetch = await admin.inject({ method: "POST", url: `/api/admin/sources/${sourceId}/fetch`, headers });
     assert.equal(fetch.statusCode, 200, fetch.body);
-    await waitFor("duplicate collection settled", () => settled(QUEUES.fetchSource, 1));
-    assert.equal(fixture.feedRequests.length, 2);
+    await waitFor("duplicate collection settled", () => settled(SOURCE_QUEUES.news, 1));
+    assert.equal(fixture.feedRequests.length, 3);
     assert.equal(fixture.calls.length, modelCalls, "unchanged source bytes do not cause another paid request");
     assert.equal((await sql`SELECT count(*)::int AS n FROM articles WHERE source_id=${sourceId}`)[0].n, 3);
     assert.equal((await sql`SELECT count(*)::int AS n FROM articles WHERE source_id=${sourceId} AND revision<>1`)[0].n, 0);
@@ -173,7 +180,7 @@ test("INV-01: real source/content workers collect, book model receipts and publi
     }
     assert.deepEqual(await counts(), beforeRead, "public reads do not collect, model, enqueue or write analyses");
     assert.equal(fixture.calls.length, modelCalls);
-    assert.equal(fixture.feedRequests.length, 2);
+    assert.equal(fixture.feedRequests.length, 3);
     // A rename re-derives from stored judgements: nothing is withdrawn and no paid call is made.
     const [beforeRename] = await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.republishSource} AND state='completed'`;
     await editSource({ name: "SELF_AUTHORED 自动链夹具（改名）", tier: "T1" });

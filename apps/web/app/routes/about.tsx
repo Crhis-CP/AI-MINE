@@ -12,10 +12,18 @@ import { IconArrowRight } from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=600" };
+  return { "Cache-Control": "public, max-age=0, must-revalidate" };
 }
 
 export async function loader({ request }: { request: Request }) {
+  const informationRequest = createPublicClient({ baseUrl: apiBaseFor("/api/site/information") })
+    .GET("/api/site/information", {
+      cache: "no-store",
+      headers: { accept: "application/json", "x-amp-ssr": "1" },
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+    })
+    .then((result) => contractResult(result, publicSchemas.SiteInformation))
+    .catch(() => null);
   const stats = await createPublicClient({ baseUrl: apiBaseFor("/api/site/stats") })
     .GET("/api/site/stats", {
       headers: { accept: "application/json", "x-amp-ssr": "1" },
@@ -23,7 +31,7 @@ export async function loader({ request }: { request: Request }) {
     })
     .then((result) => contractResult(result, publicSchemas.SiteStats))
     .catch(() => null);
-  return { stats };
+  return { stats, information: await informationRequest };
 }
 
 export function meta() {
@@ -116,7 +124,7 @@ function stagesOf(stats: SiteStats | null): Stage[] {
 }
 
 export default function AboutPage() {
-  const { stats } = useLoaderData<typeof loader>();
+  const { stats, information } = useLoaderData<typeof loader>();
   const stages = useMemo(() => stagesOf(stats), [stats]);
 
   return (
@@ -129,14 +137,15 @@ export default function AboutPage() {
             <br />
             <span className="text-accent">{ABOUT.headline[1]}</span>
           </h1>
-          <p className="mt-5 max-w-[36em] text-[15.5px] leading-[1.85] text-ink-3 xl:text-[17px]">
-            {ABOUT.lead.split("{sources}").map((part, i) => (
-              <span key={i}>
-                {i > 0 && (stats ? <span className="num font-semibold text-ink">{stats.sources}</span> : "上百")}
-                {part}
-              </span>
-            ))}
-          </p>
+          {information === null ? (
+            <p role="status" className="mt-5 text-sm text-ink-3">
+              网站资料暂时无法读取，请稍后重试。
+            </p>
+          ) : (
+            information.about && (
+              <p className="mt-5 max-w-[36em] whitespace-pre-wrap text-[15.5px] leading-[1.85] text-ink-3 xl:text-[17px]">{information.about}</p>
+            )
+          )}
         </div>
         <div className="flex flex-wrap gap-3 lg:pb-2">
           <Link to="/" prefetch="intent" className={buttonClass("primary", "lg")}>
@@ -166,6 +175,26 @@ export default function AboutPage() {
           ))}
         </ol>
       </section>
+
+      {information && (information.contactEmail || information.contactPage) && (
+        <section className="mt-10 rounded-card border border-line p-5" aria-labelledby="about-contact">
+          <h2 id="about-contact" className="text-lg font-semibold">
+            联系我们
+          </h2>
+          <div className="mt-3 flex flex-col items-start gap-3 text-sm">
+            {information.contactEmail && (
+              <a href={`mailto:${information.contactEmail}`} className="break-all text-accent hover:underline">
+                {information.contactEmail}
+              </a>
+            )}
+            {information.contactPage && (
+              <a href={information.contactPage} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                联系页面 ↗
+              </a>
+            )}
+          </div>
+        </section>
+      )}
 
       <p className="mt-16 well rounded-card px-5 py-4 text-[13px] leading-[1.85] text-ink-3">
         {ABOUT.copyright}

@@ -475,6 +475,46 @@
   animation: amp-draw 900ms var(--ease-out-quart) both;
 }
 
+/* A light that keeps traveling the notice line after the entrance has finished. */
+@keyframes notice-sheen {
+  from {
+    transform: translateX(-130%);
+  }
+  to {
+    transform: translateX(430%);
+  }
+}
+@keyframes notice-sheen-y {
+  from {
+    transform: translateY(-130%);
+  }
+  to {
+    transform: translateY(520%);
+  }
+}
+@keyframes notice-breathe {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.55);
+    opacity: 0.9;
+  }
+}
+.notice-sheen {
+  background: linear-gradient(90deg, transparent, var(--hot), var(--accent), transparent);
+  animation: notice-sheen 2.8s linear infinite;
+}
+.notice-sheen-y {
+  background: linear-gradient(180deg, transparent, var(--hot), var(--accent), transparent);
+  animation: notice-sheen-y 2.8s linear infinite;
+}
+.notice-breathe {
+  animation: notice-breathe 2.2s ease-in-out infinite;
+}
+
 /* Cross-fade between pages; the theme switch fades the whole document. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -487,6 +527,7 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
@@ -494,7 +535,13 @@
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
-    animation: none !important;
+    animation: none;
+  }
+  .notice-sheen,
+  .notice-sheen-y,
+  .notice-breathe {
+    animation: none;
+    opacity: 0;
   }
 }
 

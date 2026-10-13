@@ -1,11 +1,14 @@
+import { registeredModelId, registeredModelSpec, connectionRow, modelConfigurationHash, modelRegistryLock } from "../providers/model-registry.ts";
+import { audit } from "./auth.ts";
 // Admin "模型与评测": the model each capability uses and where that choice comes from,
 // the prompt versions in use, quality / latency / cost of the last days per model, the switch history
 // and the SelectBench runs that compare models on the same batch. A switch is audited and applies to
 // new work only.
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { CAPABILITIES, invalidateModelCache, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
-import { MODELS } from "../providers/llm.ts";
-import { audit } from "./auth.ts";
+import { BUILTIN_MODEL_FAMILIES, MODELS, environmentModelMetadata, modelPresetReady } from "../providers/llm.ts";
+
+import { modelRouteRevisions } from "./model-registry.ts";
 
 const sql = dbOf("ai-gateway");
 
@@ -50,6 +53,7 @@ export async function modelsOverview(days = 7) {
              (SELECT coalesce(jsonb_object_agg(key, value - 'sweep'), '{}'::jsonb) FROM jsonb_each(r.summary)) AS summary,
              created_at FROM selectbench_runs r ORDER BY created_at DESC LIMIT 8`,
   ]);
+  const routeRevisions = await modelRouteRevisions();
   const serviceOf = (model: string) => Object.values(MODELS).find((m) => m.model === model || m.key === model)?.service ?? null;
   const priced = (u: UsageRow) => {
     const service = u.model ? serviceOf(u.model) : null;
@@ -67,6 +71,8 @@ export async function modelsOverview(days = 7) {
     defaultModel: c.default,
     vision: !!c.vision,
     current: sources[key]!,
+    routeRevision: routeRevisions.find((r) => r.capability === key)?.revision ?? 0,
+    unevaluated: routeRevisions.find((r) => r.capability === key)?.unevaluated ?? false,
     usage: usage
       .filter((u) => c.purposes.includes(u.purpose))
       .map((u) => ({
@@ -86,29 +92,108 @@ export async function modelsOverview(days = 7) {
         estimate: priced(u),
       })),
   }));
-  const choices = Object.values(MODELS).map((m) => ({ key: m.key, service: m.service, vision: !!m.vision }));
-  return { days, capabilities, choices, history, benches };
+  const choices = Object.values(MODELS).map((m) => ({ ...environmentModelMetadata(m.key)!, ready: modelPresetReady(m.key) }));
+  const families = BUILTIN_MODEL_FAMILIES.map((family) => ({
+    id: family.id,
+    label: family.label,
+    duty: family.duty,
+    presets: family.presets.map((key) => ({ ...environmentModelMetadata(key)!, ready: modelPresetReady(key) })),
+  }));
+  return { days, capabilities, choices, families, deploymentReady: modelPresetReady("default"), history, benches };
 }
 
-/** Switches a capability to another registered model (or back to the environment/default when null). */
+/** 上游基础方案 switch: pick a configured model, or a registered connection that already passed its test. Applies to new work only. */
 export async function switchModel(capability: string, model: string | null, reason: string, actor: string) {
   const c = (CAPABILITIES as Record<string, Capability>)[capability];
-  if (!c) throw Object.assign(new Error("unknown capability"), { statusCode: 400 });
-  if (!reason.trim()) throw Object.assign(new Error("a reason is required"), { statusCode: 400 });
+  if (!c) throw Object.assign(new Error("没有这个处理环节"), { statusCode: 400 });
+  if (!reason.trim()) throw Object.assign(new Error("请填写切换原因"), { statusCode: 400 });
   if (model !== null) {
-    const spec = MODELS[model];
-    if (!spec) throw Object.assign(new Error("unknown model"), { statusCode: 400 });
+    const spec = registeredModelId(model) ? await registeredModelSpec(model) : MODELS[model];
+    if (!spec) throw Object.assign(new Error("请选择已经配置的模型"), { statusCode: 400 });
     if (!!c.vision !== !!spec.vision)
-      throw Object.assign(new Error(c.vision ? "this capability needs a vision model" : "a vision-only model cannot do this"), { statusCode: 400 });
+      throw Object.assign(new Error(c.vision ? "这个环节需要能看图的模型" : "只看图的模型不能用于这个环节"), { statusCode: 400 });
+    if (!registeredModelId(model) && !modelPresetReady(model))
+      throw Object.assign(new Error("这个模型已内置，当前还没有可用的接口，不能切换过去"), { statusCode: 400 });
   }
   const before = (await modelSources())[capability];
   if (model === null) await sql`DELETE FROM settings WHERE key = ${`models.${capability}`}`;
-  else {
+  else
     await sql`INSERT INTO settings (key, value, updated_by) VALUES (${`models.${capability}`}, ${sql.json({ model })}, ${actor})
               ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`;
-  }
   invalidateModelCache();
   const after = (await modelSources())[capability];
   await audit(actor, "models.switch", `capability:${capability}`, reason, before ?? null, after ?? null);
   return { capability, before, after };
 }
+
+export {
+  listModelConnections,
+  createModelConnection,
+  updateModelConnection,
+  disableModelConnection,
+  requestModelConnectionProbe,
+  readModelConnectionProbe,
+  assignRegisteredModel,
+  modelRouteRevisions,
+  type ModelRegistryGuards,
+} from "./model-registry.ts";
+export { queueModelConnectionProbe } from "../providers/model-probe.ts";
+
+/** Canonical identity only; no credential, connection-test or Owner-quality assertion. */
+export type ModelConfigurationIdentity = { key: string; service: string | null; requestedModel: string | null; configuration_hash: string | null };
+export async function modelConfigurationIdentity(key: string, db: Db = sql): Promise<ModelConfigurationIdentity> {
+  if (db === sql) return sql.begin((tx) => modelConfigurationIdentity(key, tx));
+  await modelRegistryLock(db);
+  const id = registeredModelId(key);
+  if (id) {
+    const row = await connectionRow(id, db);
+    return { key, service: key, requestedModel: row.config.model, configuration_hash: modelConfigurationHash(row.config) };
+  }
+  const configured = environmentModelMetadata(key);
+  return { key, service: configured?.service ?? null, requestedModel: configured?.model || null, configuration_hash: configured?.configuration_hash ?? null };
+}
+export async function currentModelConfiguration(capability: string, db: Db = sql): Promise<ModelConfigurationIdentity> {
+  if (!Object.hasOwn(CAPABILITIES, capability)) throw Object.assign(new Error("unknown capability"), { statusCode: 400 });
+  if (db === sql) return sql.begin((tx) => currentModelConfiguration(capability, tx));
+  await modelRegistryLock(db);
+  return modelConfigurationIdentity((await modelSources(db))[capability]!.model, db);
+}
+
+export async function pricingModelChoices() {
+  const environment = Object.keys(MODELS)
+    .map(environmentModelMetadata)
+    .filter((m) => m?.configuration_hash)
+    .map((m) => ({
+      key: m!.key,
+      label: m!.model,
+      service: m!.service,
+      model: m!.model,
+      configuration_hash: m!.configuration_hash!,
+      vision: m!.vision,
+      registered: false,
+      input_cny_per_million: null,
+      output_cny_per_million: null,
+      basis_url: null,
+    }));
+  const rows = await sql<{ id: string }[]>`SELECT id FROM ai.model_connections WHERE enabled ORDER BY created_at`;
+  const registered = await Promise.all(
+    rows.map(async (r) => {
+      const row = await connectionRow(r.id);
+      return {
+        key: `registered:${row.id}`,
+        label: row.config.name,
+        service: `registered:${row.id}`,
+        model: row.config.model,
+        configuration_hash: modelConfigurationHash(row.config),
+        vision: row.config.vision,
+        registered: true,
+        input_cny_per_million: row.config.input_cny_per_million,
+        output_cny_per_million: row.config.output_cny_per_million,
+        basis_url: row.config.billing_basis,
+      };
+    }),
+  );
+  return [...registered, ...environment];
+}
+
+export { modelFallbacks, changeModelFallback } from "./model-fallback.ts";

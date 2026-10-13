@@ -1,0 +1,175 @@
+{
+  "stage": "round2-development",
+  "base_commit": "bd19124f7e41c30455c4cfbe94e74282b20d18d2",
+  "baseline_reports_unchanged": [
+    "docs/acceptance/audit-remediation-20261011/independent-policy.json",
+    "docs/acceptance/audit-remediation-20261011/independent-policy.md"
+  ],
+  "scope": "仅首轮独立复核的五项确定法规遗漏，加root协调的独立报告撤回只读接线；未处理uncertain。",
+  "items": [
+    {
+      "id": "POL-14",
+      "task": "TASK-0280",
+      "title": "稳定默认原语言",
+      "status": "locally_verified",
+      "behavior": "优先当前合格语言的既有偏好，否则按规范化语言码排序；列表、默认详情及报告共用该规则，同语言旧投影的旧偏好不参与选择。",
+      "files": [
+        "packages/backend/src/publication/policy-language.ts",
+        "packages/backend/src/publication/policies.ts",
+        "packages/backend/src/publication/policy-report-plan.ts"
+      ],
+      "tests": [
+        "tests/policy-round2-public.test.ts",
+        "tests/policy-reports.test.ts"
+      ],
+      "missing_in_authorized_scope": [],
+      "evidence_log": ".verify/audit-remediation-20261011/policy-round2-final-public.log"
+    },
+    {
+      "id": "POL-15",
+      "task": "TASK-0281",
+      "title": "完整中文跨语言检索",
+      "status": "locally_verified",
+      "behavior": "只有各语言当前合格完整中文阅读正文参加全文匹配；保留独立基本事实匹配、日期筛选与游标。过期质量、许可撤回、原件换头、当前目录移除与旧译文不参加正文命中。",
+      "files": [
+        "packages/backend/src/publication/policies.ts"
+      ],
+      "tests": [
+        "tests/policy-round2-public.test.ts"
+      ],
+      "missing_in_authorized_scope": [],
+      "evidence_log": ".verify/audit-remediation-20261011/policy-round2-final-public.log"
+    },
+    {
+      "id": "POL-18",
+      "task": "TASK-0282",
+      "title": "正式公布日期归期",
+      "status": "locally_verified",
+      "behavior": "formally_published与published/updated一并按原精度归期；日期值不补时分、时区，条件日期仍拒绝。",
+      "files": [
+        "packages/backend/src/publication/policy-report-plan.ts"
+      ],
+      "tests": [
+        "tests/policy-reports.test.ts"
+      ],
+      "missing_in_authorized_scope": [],
+      "evidence_log": ".verify/audit-remediation-20261011/policy-round2-public-tests.log"
+    },
+    {
+      "id": "POL-19",
+      "task": "TASK-0283",
+      "title": "停跑后的缺刊期补齐",
+      "status": "locally_verified",
+      "behavior": "北京时间已结束且到08:00出刊点的周月缺期每批最多24个；从新系统材料发现/公开或已有报告起点续补，不按旧法公布年份追造旧系统报告；相同内容幂等。",
+      "files": [
+        "packages/backend/src/publication/policy-report-periods.ts",
+        "packages/backend/src/publication/policy-report-job.ts",
+        "packages/backend/src/publication/policy-report-store.ts"
+      ],
+      "tests": [
+        "tests/policy-reports.test.ts"
+      ],
+      "missing_in_authorized_scope": [],
+      "evidence_log": ".verify/audit-remediation-20261011/policy-round2-public-tests.log"
+    },
+    {
+      "id": "POL-21",
+      "task": "TASK-0284",
+      "title": "原件严格编码识别",
+      "status": "locally_verified",
+      "behavior": "响应头→BOM→页面/XML声明→可核验Unicode探测；GBK/GB18030声明可用，冲突/不支持/非法字节/NUL/U+FFFD明确失败；更新提取配方避免旧缓存绕过。",
+      "files": [
+        "packages/backend/src/policy/encoding.ts",
+        "packages/backend/src/policy/extraction.ts"
+      ],
+      "tests": [
+        "tests/policy-encoding.test.ts",
+        "tests/policy-extraction.test.ts"
+      ],
+      "missing_in_authorized_scope": [],
+      "evidence_log": ".verify/audit-remediation-20261011/policy-round2-tests.log"
+    },
+    {
+      "id": "policy-report-withdrawal-integration",
+      "task": "TASK-0285",
+      "title": "独立报告撤回接线",
+      "status": "locally_verified",
+      "behavior": "通过publication公开端口读报告撤回状态，详情/历史410、目录/站点地图跳过，成员法规与RSS不随报告撤回；存储错误不忽略。",
+      "files": [
+        "packages/backend/src/publication/policies-reports.ts",
+        "packages/backend/src/publication/sitemap.ts"
+      ],
+      "tests": [
+        "tests/policy-round2-public.test.ts"
+      ],
+      "missing_in_authorized_scope": [],
+      "evidence_log": ".verify/audit-remediation-20261011/policy-round2-final-public.log"
+    }
+  ],
+  "verification": {
+    "focused_tests": {
+      "result": "pass",
+      "files": 5,
+      "tests": 23,
+      "failures": 0,
+      "latest_evidence_by_file": {
+        "tests/policy-encoding.test.ts": {
+          "passed": 2,
+          "log": ".verify/audit-remediation-20261011/policy-round2-tests.log"
+        },
+        "tests/policy-extraction.test.ts": {
+          "passed": 10,
+          "log": ".verify/audit-remediation-20261011/policy-round2-tests.log"
+        },
+        "tests/policy-reports.test.ts": {
+          "passed": 9,
+          "log": ".verify/audit-remediation-20261011/policy-round2-public-tests.log"
+        },
+        "tests/policy-round2-public.test.ts": {
+          "passed": 1,
+          "log": ".verify/audit-remediation-20261011/policy-round2-final-public.log"
+        },
+        "tests/policy-public-api.test.ts": {
+          "passed": 1,
+          "log": ".verify/audit-remediation-20261011/policy-round2-existing-public.log"
+        }
+      },
+      "superseded_failures": "首次public角色fixture反馈表分类、随后并行新增迁移未登记均由集成人修复；旧政策RSS断言依reader批准的新s-maxage=0规则更新，保留所有资格断言。按每文件最新日志判定，不把前置失败或旧缓存预期算作未解决法规故障。"
+    },
+    "typecheck": {
+      "result": "pass",
+      "log": ".verify/audit-remediation-20261011/policy-round2-typecheck.log",
+      "final_backend_and_tests": {
+        "result": "pass",
+        "log": ".verify/audit-remediation-20261011/policy-round2-final-types.log",
+        "commands": [
+          "pnpm exec tsc -p packages/backend",
+          "pnpm exec tsc -p tests"
+        ],
+        "exit_code": 0
+      }
+    },
+    "biome": {
+      "result": "pass",
+      "files": 15,
+      "log": ".verify/audit-remediation-20261011/policy-round2-biome.log"
+    },
+    "task_cards": {
+      "result": "pass",
+      "cards": 6,
+      "log": ".verify/audit-remediation-20261011/policy-round2-tasks.json"
+    },
+    "diff_whitespace": {
+      "result": "pass",
+      "command": "git diff --check -- owned policy paths"
+    }
+  },
+  "limits": [
+    "全部测试仅隔离PostgreSQL、合成夹具与本地HTTP，真实模型调用0、生产数据访问0；未启用任何来源或部署。",
+    "无声明旧编码不作统计猜测；仅可无损往返的Unicode或明确UTF16字节签名可走探测，否则留下待核实缺口。",
+    "补刊只使用新系统当前可公开版本及本系统发现依据，未导入旧库数据。",
+    "独立报告本身保持原首轮审计基线；第二轮须由root冻结后另启无历史Agent。",
+    "本地行为回归不等于完整verify、线上或Owner质量验收。"
+  ],
+  "remaining": "授权范围内五项确定遗漏与报告撤回接线均已本地验证；待root统一集成check/冻结及第二轮无历史功能复核。"
+}

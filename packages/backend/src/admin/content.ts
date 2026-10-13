@@ -1,14 +1,20 @@
+import { manualMaterialSnapshot } from "@amp/backend/content/materials";
+import { detachArticleFromFactTx, factArticleIds } from "@amp/backend/events/group";
+import { invalidateReportCorrections } from "@amp/backend/reports/compose";
+export { previewWithdrawal, actWithdrawal } from "../editorial/withdrawals.ts";
+import { manualRevisionHistory } from "../editorial/manual-revisions.ts";
+import { GeographyCandidate } from "../editorial/geography.ts";
 // Content diagnostics and corrections (F19). Find any item by id, URL or title and see its whole
 // chain: source → discoveries → revisions → model receipts → decisions → publication and sync
 // ledger → grouping → deliveries. Visibility changes and manual corrections go through editorial
 // overrides with a version check, are re-projected to every public exit, and are audited.
 import { z } from "zod";
 import { ARTICLE_ID_PATTERN, CATEGORY_KEYS } from "@amp/contracts/taxonomy";
-import { dbOf } from "../db.ts";
+import { dbOf, type Db } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { normalizeUrl } from "../lib/url.ts";
-import { publishArticle } from "../publication/publish.ts";
+import { publishArticle, publishArticleTx, publishedStoryId } from "../publication/publish.ts";
 
 import { computeHotRanking } from "../events/hot.ts";
 import { mergeStoryInto } from "../events/merge.ts";
@@ -53,7 +59,7 @@ export async function contentChain(id: string) {
     sql`SELECT fields, visibility, reason, version, updated_by, updated_at FROM editorial_overrides WHERE article_id = ${id}`,
     sql`SELECT seq, op, visible_at, changed_at FROM selected_ledger WHERE article_id = ${id} ORDER BY seq DESC LIMIT 10`,
     sql`
-      SELECT fa.fact_id, fa.role, fa.manual, f.public_id AS fact_public_id, f.title AS fact_title, st.id AS story_id, st.public_id AS story_public_id, st.title AS story_title
+      SELECT fa.fact_id, fa.role, fa.manual, (fa.manual AND fa.input_revision IS DISTINCT FROM ${Number(article.revision)}) AS needs_review, f.public_id AS fact_public_id, f.title AS fact_title, st.id AS story_id, st.public_id AS story_public_id, st.title AS story_title
       FROM fact_articles fa JOIN facts f ON f.id = fa.fact_id LEFT JOIN stories st ON st.id = f.story_id WHERE fa.article_id = ${id}`,
     sql`SELECT verdict, fact_id, story_id, receipt_id, candidates, created_at FROM grouping_decisions WHERE article_id = ${id} ORDER BY created_at DESC LIMIT 5`,
     sql`SELECT target_key, dedupe_key, status, attempts, response, created_at, sent_at FROM deliveries WHERE subject_id = ${id} ORDER BY created_at DESC`,
@@ -71,6 +77,7 @@ export async function contentChain(id: string) {
     decisions,
     deliveries,
     history,
+    manualRevisions: await manualRevisionHistory(id),
   };
 }
 
@@ -85,8 +92,8 @@ async function inHotRanking(id: string): Promise<boolean> {
 
 const STALE = "这条内容的人工设置已被修改，请刷新后再操作";
 
-async function overrideRow(id: string) {
-  const [o] = await sql<
+async function overrideRow(id: string, db: Db = sql) {
+  const [o] = await db<
     { fields: Record<string, unknown>; visibility: string | null; version: number }[]
   >`SELECT fields, visibility, version FROM editorial_overrides WHERE article_id = ${id}`;
   return o ?? { fields: {}, visibility: null, version: 0 };
@@ -102,21 +109,24 @@ export async function setVisibility(
   actor: string,
 ) {
   if (!input.reason?.trim()) throw new Error("reason is required");
-  const before = await overrideRow(id);
-  if (before.version !== input.version) throw new Conflict(STALE);
-  // The version check and the write are one statement: of two tabs saving the same version, one wins.
-  const written = await sql`
-    INSERT INTO editorial_overrides (article_id, visibility, reason, version, updated_by) VALUES (${id}, ${input.visibility}, ${input.reason}, 1, ${actor})
-    ON CONFLICT (article_id) DO UPDATE SET visibility = EXCLUDED.visibility, reason = EXCLUDED.reason, version = editorial_overrides.version + 1, updated_by = EXCLUDED.updated_by, updated_at = now()
-    WHERE editorial_overrides.version = ${input.version}
-    RETURNING version`;
-  if (!written.count) throw new Conflict(STALE);
-  const published = await publishArticle(id);
-  if (published?.reduced || (before.visibility ?? "public") !== input.visibility) {
-    // On the hot board the change shows at once, not at the next five-minute ranking.
-    if (await inHotRanking(id)) await computeHotRanking();
-  }
-  await audit(actor, "content.visibility", `content:${id}`, input.reason, { visibility: before.visibility }, { visibility: input.visibility });
+  const published = await sql.begin(async (tx) => {
+    await manualMaterialSnapshot(id, tx);
+    const before = await overrideRow(id, tx);
+    if (before.version !== input.version) throw new Conflict(STALE);
+    const written = await tx`
+      INSERT INTO editorial_overrides (article_id, visibility, reason, version, updated_by) VALUES (${id}, ${input.visibility}, ${input.reason}, 1, ${actor})
+      ON CONFLICT (article_id) DO UPDATE SET visibility = EXCLUDED.visibility, reason = EXCLUDED.reason, version = editorial_overrides.version + 1, updated_by = EXCLUDED.updated_by, updated_at = now()
+      WHERE editorial_overrides.version = ${input.version} RETURNING version`;
+    if (!written.count) throw new Conflict(STALE);
+    const published = await publishArticleTx(tx, id);
+    if (published?.changed) await invalidateReportCorrections(tx, [id], input.visibility === "withdrawn" ? "withdrawal" : "restoration");
+    await enqueue("events.hot-refresh", { articleId: id, lane: "news" }, { singletonKey: "hot-ranking" }, tx);
+    await audit(actor, "content.visibility", `content:${id}`, input.reason, { visibility: before.visibility }, { visibility: input.visibility }, undefined, tx);
+    return published;
+  });
+  // The durable queue is committed with the withdrawal. Try the inexpensive current ranking now;
+  // a failure cannot undo the already committed action and is retried by that queue.
+  if (published?.reduced && (await inHotRanking(id))) await computeHotRanking().catch(() => undefined);
   return published;
 }
 
@@ -139,9 +149,11 @@ const FieldsSchema = z
   .object({
     title: z.string().min(1).max(300),
     summary: z.string().max(2000),
+    body: z.string().max(500000),
     reason: z.string().max(1000),
     category: z.enum(CATEGORY_KEYS).nullable(),
     tags: z.array(z.string().max(60)).max(20),
+    geography: z.strictObject({ revision: z.number().int().positive(), value: GeographyCandidate }),
     selected: z.boolean(),
     silent: z.boolean(),
     // 收录 (AI-01 人工覆盖): "pass" admits despite a model BLOCK, "block" keeps the item off every public page.
@@ -151,27 +163,94 @@ const FieldsSchema = z
   .strict();
 
 /** Manual corrections win over model output; null clears a correction. */
-export async function overrideFields(id: string, input: { fields: unknown; clear?: string[]; reason: string; version: number }, actor: string) {
+type ManualDraft = {
+  id: number;
+  source_revision: number;
+  fields: Record<string, unknown>;
+  evidence_quote: string | null;
+  source_checked: boolean;
+  facts_checked: boolean;
+};
+export async function overrideFields(
+  id: string,
+  input: {
+    fields: unknown;
+    clear?: string[];
+    reason: string;
+    version: number;
+    command?: "save_draft" | "publish";
+    source_revision?: number;
+    draft_id?: number;
+    evidence_quote?: string;
+    source_checked?: boolean;
+    facts_checked?: boolean;
+    resolution_note?: string;
+  },
+  actor: string,
+) {
   if (!input.reason?.trim()) throw new Error("reason is required");
   const fields = FieldsSchema.parse(input.fields ?? {});
-  const before = await overrideRow(id);
-  if (before.version !== input.version) throw new Conflict(STALE);
-  const next = { ...before.fields, ...fields };
-  for (const k of input.clear ?? []) delete (next as Record<string, unknown>)[k];
-  const written = await sql`
-    INSERT INTO editorial_overrides (article_id, fields, reason, version, updated_by) VALUES (${id}, ${sql.json(next as never)}, ${input.reason}, 1, ${actor})
-    ON CONFLICT (article_id) DO UPDATE SET fields = EXCLUDED.fields, reason = EXCLUDED.reason, version = editorial_overrides.version + 1, updated_by = EXCLUDED.updated_by, updated_at = now()
-    WHERE editorial_overrides.version = ${input.version}
-    RETURNING version`;
-  if (!written.count) throw new Conflict(STALE);
-  const published = await publishArticle(id);
-  // A corrected title or summary reaches the event summary: rewrite the digest of its story.
-  if (published?.changed) {
-    const [st] = await sql<{ story_id: number | null }[]>`SELECT story_id FROM publications WHERE article_id = ${id}`;
-    if (st?.story_id) await enqueue(QUEUES.digest, { storyId: st.story_id, afterCorrection: true }, { singletonKey: `story:${st.story_id}:correction` });
-  }
-  await audit(actor, "content.override", `content:${id}`, input.reason, before.fields, next);
-  return published;
+  return sql.begin(async (tx) => {
+    const material = await manualMaterialSnapshot(id, tx);
+    if (!material) return null;
+    const before = await overrideRow(id, tx);
+    if (before.version !== input.version) throw new Conflict(STALE);
+    if (input.source_revision !== material.revision) throw new Conflict("原材料修订已变化，请核对当前原文");
+    let next: Record<string, unknown> = { ...before.fields, ...fields };
+    for (const k of input.clear ?? []) delete next[k];
+    let draft: ManualDraft | undefined;
+    if (input.draft_id) {
+      [draft] = await tx<ManualDraft[]>`SELECT * FROM editorial.manual_revisions WHERE id=${input.draft_id} AND article_id=${id}`;
+      if (!draft || draft.source_revision !== material.revision) throw new Conflict("草稿来源修订已过期");
+      next = draft.fields as Record<string, unknown>;
+    } else {
+      [draft] = await tx<
+        ManualDraft[]
+      >`INSERT INTO editorial.manual_revisions(article_id,source_revision,fields,evidence_quote,source_checked,facts_checked,actor,reason)
+        VALUES(${id},${material.revision},${tx.json(next as never)},${input.evidence_quote?.trim() ?? null},${input.source_checked === true},${input.facts_checked === true},${actor},${input.reason}) RETURNING *`;
+      await tx`INSERT INTO editorial.manual_revision_events(revision_id,state,actor) VALUES(${draft!.id},'draft',${actor})`;
+    }
+    if (input.command !== "publish") {
+      await audit(actor, "content.draft", `content:${id}`, input.reason, null, { draft_id: draft!.id }, undefined, tx);
+      return { draft_id: draft!.id, version: before.version, status: "draft" };
+    }
+    const quote = String(input.evidence_quote ?? draft!.evidence_quote ?? "").trim();
+    if (
+      input.source_checked !== true ||
+      input.facts_checked !== true ||
+      quote.length < 12 ||
+      !(material.title + "\n" + (material.body_text ?? "")).includes(quote)
+    )
+      throw new Conflict("发布人工修订须核对原始来源及中文事实，并填写当前原文逐字依据（至少12字）");
+    const [active] = await tx<
+      { id: number; state: string }[]
+    >`SELECT m.id,(SELECT state FROM editorial.manual_revision_events WHERE revision_id=m.id ORDER BY id DESC LIMIT 1) AS state
+      FROM editorial_overrides o JOIN editorial.manual_revisions m ON m.id=o.manual_revision_id WHERE o.article_id=${id}`;
+    if (active?.state === "conflict" && (input.resolution_note?.trim().length ?? 0) < 10) throw new Conflict("解决事实冲突须填写至少10字处理说明");
+    // Publishing a saved draft creates a separately bound, immutable confirmed revision.
+    if (input.draft_id || draft!.evidence_quote !== quote || !draft!.source_checked || !draft!.facts_checked) {
+      [draft] = await tx<
+        ManualDraft[]
+      >`INSERT INTO editorial.manual_revisions(article_id,source_revision,fields,evidence_quote,source_checked,facts_checked,actor,reason)
+        VALUES(${id},${material.revision},${tx.json(next as never)},${quote},true,true,${actor},${input.reason}) RETURNING *`;
+    }
+    if (active) await tx`INSERT INTO editorial.manual_revision_events(revision_id,state,actor) VALUES(${active.id},'superseded',${actor})`;
+    await tx`INSERT INTO editorial.manual_revision_events(revision_id,state,actor,note) VALUES(${draft!.id},'active',${actor},${input.resolution_note ?? null})`;
+    const written = await tx`INSERT INTO editorial_overrides(article_id,fields,reason,version,updated_by,manual_revision_id,material_revision)
+      VALUES(${id},${tx.json(next as never)},${input.reason},1,${actor},${draft!.id},${material.revision})
+      ON CONFLICT(article_id) DO UPDATE SET fields=EXCLUDED.fields,reason=EXCLUDED.reason,version=editorial_overrides.version+1,
+        updated_by=EXCLUDED.updated_by,updated_at=now(),manual_revision_id=EXCLUDED.manual_revision_id,material_revision=EXCLUDED.material_revision
+      WHERE editorial_overrides.version=${input.version} RETURNING version`;
+    if (!written.count) throw new Conflict(STALE);
+    const published = await publishArticleTx(tx, id);
+    if (published?.changed) {
+      await invalidateReportCorrections(tx, [id], "manual_correction");
+      const storyId = await publishedStoryId(id, tx);
+      if (storyId) await enqueue(QUEUES.digest, { storyId, afterCorrection: true }, { singletonKey: `story:${storyId}:correction` }, tx);
+    }
+    await audit(actor, "content.override", `content:${id}`, input.reason, before.fields, { fields: next, manual_revision_id: draft!.id }, undefined, tx);
+    return { draft_id: draft!.id, version: written[0]!.version, status: "active", publication: published };
+  });
 }
 
 /**
@@ -203,26 +282,11 @@ export async function rerun(id: string, step: "extract" | "analyze" | "group", r
  * evidence leaves the old story, whose digest is rewritten.
  */
 export async function detachFromFact(id: string, reason: string, actor: string) {
-  const { facts, stories } = await sql.begin(async (tx) => {
-    // The grouping job writes under the same lock and reads this decision again before it does.
-    await tx`SELECT 1 FROM articles WHERE id = ${id} FOR UPDATE`;
-    const removed = await tx<{ fact_id: number }[]>`DELETE FROM fact_articles WHERE article_id = ${id} RETURNING fact_id`;
-    const factIds = removed.map((r) => r.fact_id);
-    const storyRows = factIds.length
-      ? await tx<{ story_id: number }[]>`SELECT DISTINCT story_id FROM facts WHERE id = ANY(${factIds}) AND story_id IS NOT NULL`
-      : [];
-    const storyIds = storyRows.map((r) => r.story_id);
-    if (storyIds.length) await tx`DELETE FROM story_signals WHERE article_id = ${id} AND story_id = ANY(${storyIds})`;
-    await tx`INSERT INTO grouping_overrides (article_id, reason, actor) VALUES (${id}, ${reason}, ${actor})
-             ON CONFLICT (article_id) DO UPDATE SET reason = EXCLUDED.reason, actor = EXCLUDED.actor, created_at = now()`;
-    await tx`UPDATE articles SET grouped_at = now() WHERE id = ${id}`;
-    return { facts: factIds, stories: storyIds };
-  });
+  const { facts, stories } = await sql.begin((tx) => detachArticleFromFactTx(tx, id, reason, actor));
   await publishArticle(id);
   // The fact's other reports may take a new reading-group anchor.
   if (facts.length) {
-    const others = await sql<{ article_id: string }[]>`SELECT DISTINCT article_id FROM fact_articles WHERE fact_id = ANY(${facts})`;
-    for (const o of others) await publishArticle(o.article_id);
+    for (const articleId of await factArticleIds(facts, sql)) await publishArticle(articleId);
   }
   for (const storyId of stories) await enqueue(QUEUES.digest, { storyId }, { singletonKey: `story:${storyId}` });
   await audit(actor, "content.detach", `content:${id}`, reason, { facts, stories }, null);
@@ -237,4 +301,20 @@ export async function mergeStories(fromId: number, intoId: number, reason: strin
   const found = await sql<{ id: number }[]>`SELECT id FROM stories WHERE id IN (${fromId}, ${intoId})`;
   if (found.length < 2) throw new Error("story not found");
   throw new Conflict("两个事件都必须是未合并的事件");
+}
+
+/** Minimal current exceptions for operations; no source body or human draft is exposed. */
+export async function manualReviewExceptions() {
+  return sql`SELECT o.article_id,e.state,e.created_at FROM editorial_overrides o
+    JOIN LATERAL(SELECT state,created_at FROM editorial.manual_revision_events WHERE revision_id=o.manual_revision_id ORDER BY id DESC LIMIT 1)e ON true
+    WHERE e.state IN ('needs_review','conflict') ORDER BY e.created_at LIMIT 100`;
+}
+
+/** Human takedown/relevance decisions remain authoritative for the private prefilter sample. */
+export async function prefilterAuditExclusions(articleIds: string[], db: Db) {
+  if (!articleIds.length) return [];
+  return (
+    await db<{ article_id: string }[]>`SELECT article_id FROM editorial_overrides WHERE article_id=ANY(${articleIds}::text[])
+    AND (visibility='withdrawn' OR fields->>'relevance'='block')`
+  ).map((row) => row.article_id);
 }

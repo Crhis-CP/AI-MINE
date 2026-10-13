@@ -53,13 +53,14 @@ export function quoteRelation(value: string): string {
   return `${schema === "public" ? "public" : quote(schema)}.${quote(local)}`;
 }
 
-const APP_ROLES = ["private_ops", "worker", "auth", "feedback_write"] as const;
+const APP_ROLES = ["private_ops", "worker", "auth", "feedback_write", "ops_read"] as const;
 const PRIVILEGES = ["SELECT", "INSERT", "UPDATE", "DELETE"] as const;
+const QUOTA_UPDATE = "UPDATE (used)" as const;
 export interface TableGrant {
   module: string;
   access: string;
   publicColumns: string[];
-  permissions?: Partial<Record<(typeof APP_ROLES)[number], (typeof PRIVILEGES)[number][]>>;
+  permissions?: Partial<Record<(typeof APP_ROLES)[number], ((typeof PRIVILEGES)[number] | typeof QUOTA_UPDATE)[]>>;
 }
 function qualified<T>(values: Record<string, T>): Record<string, T> {
   const result: Record<string, T> = {};
@@ -76,7 +77,7 @@ const dataSchemas = [...new Set(Object.keys(TABLE_GRANTS).map((name) => relation
 function applicationGrants(name: string, spec: TableGrant): [DatabaseRole, string][] {
   if (relationIdentity(name).schema !== "public")
     return APP_ROLES.flatMap((role) => {
-      const permissions = PRIVILEGES.filter((p) => spec.permissions?.[role]?.includes(p));
+      const permissions = [...PRIVILEGES, QUOTA_UPDATE].filter((p) => spec.permissions?.[role]?.includes(p));
       return permissions.length ? [[role, permissions.join(", ")] as [DatabaseRole, string]] : [];
     });
   const result: [DatabaseRole, string][] = [];
@@ -102,7 +103,7 @@ export function roleState(name: string, role: DatabaseRole, limit = 10): RoleSta
     replication: false,
     bypassrls: role === "backup",
     inherit: false,
-    connectionLimit: role === "public_read" ? limit : -1,
+    connectionLimit: role === "public_read" ? limit : role === "ops_read" ? 2 : -1,
   };
 }
 const rls = ["articles", "translations", "settings"];
@@ -137,7 +138,31 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         (identity.schema === "audit" && spec.access !== "audit")
       )
         problems.push(`Invalid module access classification: ${name}`);
+      const capabilityColumns = ["user_id", "role", "models_manage", "active", "revision", "must_change_password"];
+      const capabilityProjection =
+        name === "identity.account_access" &&
+        spec.module === "platform/identity" &&
+        spec.access === "identity" &&
+        spec.publicColumns.length === 0 &&
+        c.tables.find((table) => table.name === name)?.columns.length === capabilityColumns.length &&
+        capabilityColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
+      const feedbackSubmissionColumns = ["key_hash", "payload_hash", "feedback_id", "created_at"];
+      const feedbackSubmission =
+        name === "feedback.submissions" &&
+        spec.module === "feedback" &&
+        spec.access === "business" &&
+        spec.publicColumns.length === 0 &&
+        c.tables.find((table) => table.name === name)?.columns.length === feedbackSubmissionColumns.length &&
+        feedbackSubmissionColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
       const permissions = spec.permissions;
+      const quotaColumns = ["scope", "bucket_key", "window_start", "used"];
+      const feedbackQuota =
+        name === "feedback.quota_buckets" &&
+        spec.module === "feedback" &&
+        spec.access === "business" &&
+        spec.publicColumns.length === 0 &&
+        c.tables.find((table) => table.name === name)?.columns.length === quotaColumns.length &&
+        quotaColumns.every((column) => c.tables.find((table) => table.name === name)?.columns.includes(column));
       if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) problems.push(`Explicit permissions missing: ${name}`);
       else
         for (const [role, values] of Object.entries(permissions)) {
@@ -145,14 +170,26 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
             !APP_ROLES.includes(role as never) ||
             !Array.isArray(values) ||
             new Set(values).size !== values.length ||
-            values.some((p) => !PRIVILEGES.includes(p))
+            values.some((p) => !(PRIVILEGES as readonly string[]).includes(p) && !(feedbackQuota && role === "feedback_write" && p === QUOTA_UPDATE))
           )
             problems.push(`Invalid permissions: ${name}/${role}`);
           else if (
             values.length &&
             !(
               (role === "auth" && ["identity", "audit"].includes(spec.access)) ||
-              (["private_ops", "worker"].includes(role) && ["business", "audit"].includes(spec.access))
+              (role === "feedback_write" && feedbackSubmission && values.every((permission) => permission === "SELECT" || permission === "INSERT")) ||
+              (role === "feedback_write" &&
+                feedbackQuota &&
+                values.every((permission) => permission === "SELECT" || permission === "INSERT" || permission === QUOTA_UPDATE)) ||
+              (["private_ops", "worker"].includes(role) && ["business", "audit"].includes(spec.access)) ||
+              (capabilityProjection && ["private_ops", "worker"].includes(role) && values.length === 1 && values[0] === "SELECT") ||
+              (role === "ops_read" &&
+                name === "ops.operational_snapshots" &&
+                spec.module === "platform/ops" &&
+                spec.access === "business" &&
+                spec.publicColumns.length === 0 &&
+                values.length === 1 &&
+                values[0] === "SELECT")
             )
           )
             problems.push(`Permissions exceed access classification: ${name}/${role}`);
@@ -165,7 +202,26 @@ export function catalogProblems(c: Catalog, prefix = "amp", publicConnections = 
         spec.publicColumns.length === 3 &&
         new Set(spec.publicColumns).size === 3 &&
         spec.publicColumns.every((column) => ["source_id", "permission_version", "public_policy"].includes(column));
-      if (spec.publicColumns.length && ((identity.schema !== "publication" && !sourceProjection) || spec.access !== "business"))
+      const policyHead =
+        name === "policy.expressions" &&
+        spec.module === "policy" &&
+        spec.publicColumns.length === 2 &&
+        new Set(spec.publicColumns).size === 2 &&
+        spec.publicColumns.every((column) => ["id", "current_revision_id"].includes(column));
+      const currentMembershipColumns: Record<string, string[]> = {
+        "policy.material_discoveries": ["expression_id", "source_id", "material_id", "is_current"],
+        "acquisition.directory_heads": ["source_id", "scan_id"],
+        "acquisition.directory_records": ["scan_id", "record_id", "role"],
+        "acquisition.directory_bindings": ["scan_id", "record_id", "material_id"],
+      };
+      const membershipProjection =
+        currentMembershipColumns[name] &&
+        new Set(spec.publicColumns).size === spec.publicColumns.length &&
+        spec.publicColumns.every((column) => currentMembershipColumns[name]!.includes(column));
+      if (
+        spec.publicColumns.length &&
+        ((identity.schema !== "publication" && !sourceProjection && !policyHead && !membershipProjection) || spec.access !== "business")
+      )
         problems.push(`Public columns outside approved projections: ${name}`);
     }
   }
@@ -231,7 +287,7 @@ export function planRoleGrants(c: Catalog, prefix = "amp", publicConnections = 1
   for (const role of DATABASE_ROLES)
     if (!c.roles.some((r) => r.name === roles[role]))
       add(
-        `CREATE ROLE ${quote(roles[role])} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION ${role === "backup" ? "BYPASSRLS" : "NOBYPASSRLS"} CONNECTION LIMIT ${role === "public_read" ? publicConnections : -1}`,
+        `CREATE ROLE ${quote(roles[role])} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION ${role === "backup" ? "BYPASSRLS" : "NOBYPASSRLS"} CONNECTION LIMIT ${role === "public_read" ? publicConnections : role === "ops_read" ? 2 : -1}`,
       );
   add(`ALTER DATABASE ${quote(c.database)} OWNER TO ${quote(roles.migrate)}`);
   add(`REVOKE ALL ON DATABASE ${quote(c.database)} FROM ${all}`);

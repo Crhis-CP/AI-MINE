@@ -1,5 +1,5 @@
 import { SITE, withSubject } from "@amp/industry/site";
-import { useLoaderData } from "react-router";
+import { Link, useLoaderData } from "react-router";
 import type { Route } from "./+types/report-latest";
 import type { ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
@@ -8,6 +8,7 @@ import { beijingDate } from "../lib/format";
 import { EmptyState } from "../components/ui/Page";
 import { ReportLayout } from "../features/report/ReportLayout";
 import { ReportPaper } from "../features/report/ReportPaper";
+import { expectedReportKey } from "../features/report/report-period";
 import { KIND_LABEL, kindFromPath } from "../features/report/format";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -15,7 +16,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   const { index, report } = await loadOr404<{ index: ReportNavigationEntry[]; report: ReportDetail | null }>(`/api/site/reports/${kind}/latest-page`, {
     signal: request.signal,
   });
-  return { kind, report, index, today: beijingDate(Date.now()) };
+  return { kind, report, index, today: beijingDate(Date.now()), expected: expectedReportKey(kind) };
 }
 
 export function meta({ loaderData, location }: Route.MetaArgs) {
@@ -29,13 +30,21 @@ export function meta({ loaderData, location }: Route.MetaArgs) {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=600, stale-while-revalidate=300" };
+  return { "Cache-Control": "no-store" };
 }
 
 export default function ReportLatestPage() {
-  const { kind, report, index, today } = useLoaderData<typeof loader>();
+  const { kind, report, index, today, expected } = useLoaderData<typeof loader>();
   return (
     <ReportLayout kind={kind} index={index} current={report?.key ?? null} today={today}>
+      <Link to="/policies" className="mb-4 block text-[13px] text-accent">
+        法规政策动态 →
+      </Link>
+      {report && report.key < expected && (
+        <p role="status" className="mb-4 rounded-control bg-bg-sunk px-4 py-3 text-[13px] text-ink-3">
+          按出刊安排，{expected} 期尚未发布；以下为最近一期。
+        </p>
+      )}
       {report ? (
         <ReportPaper report={report} index={index} />
       ) : (

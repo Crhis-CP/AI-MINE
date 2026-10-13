@@ -17,20 +17,33 @@ test("the real changelog passes: the first deploy's entries, then the 2.0 launch
   assert.deepEqual(
     changelog.releases.slice(0, launchAt).map((r) => [r.date, r.time, r.title]),
     [
+      ["2026-10-10", undefined, "金属价格增加了锂"],
+      ["2026-10-10", undefined, "金属价格把金、铜、锂放在前面"],
+      ["2026-10-10", undefined, "金属价格写明比的是哪一期"],
+      ["2026-10-10", undefined, "按国家、矿种和公司能筛到更多稿"],
+      ["2026-10-10", undefined, "外文稿先显示中文导读"],
+      ["2026-10-10", undefined, "目前是测试版"],
+      ["2026-10-10", undefined, "新闻按原始发布日期显示"],
+      ["2026-10-10", undefined, "没有大事的期不再留空"],
+      ["2026-10-10", undefined, "精选入口只留近三个月"],
+      ["2026-10-10", undefined, "金属价格：电脑上列宽更匀"],
+      ["2026-10-10", undefined, "首页换回精选"],
+      ["2026-10-10", undefined, "金属价格页开始显示官方报价"],
+      ["2026-10-10", undefined, "法规政策动态可以按国家查看"],
+      ["2026-10-10", undefined, "后台改到网站主域名"],
       ["2026-10-06", undefined, "首页：精选开始之前，先放最新动态"],
       ["2026-10-06", undefined, "金属价格：侧栏新增入口"],
       ["2026-10-06", undefined, "带 www 的网址也能打开本站"],
       ["2026-10-06", undefined, "只写日期的稿子：只显示日期，旧稿归到原来那天"],
       ["2026-10-06", undefined, "全部动态更聚焦金属矿业"],
       ["2026-10-06", undefined, "两个分类改名：矿山安全、技术与冶炼"],
-      ["2026-10-06", undefined, "新增信源：商务部驻外经商处"],
       ["2026-10-06", undefined, "事件归并改按矿业的写法"],
       ["2026-10-06", undefined, "手机上每个页面都显示备案号"],
     ],
   );
   const launch = changelog.releases[launchAt]!;
   assert.deepEqual([launch.date, launch.time, launch.kind, launch.version], ["2026-10-06", "02:50", "重大更新", "2.0"]);
-  assert.equal(changelog.latestVersion, "2026-10-06");
+  assert.equal(changelog.latestVersion, "2026-10-10");
   assert.ok(!changelog.releases.some((r) => r.date === "2026-10-01"));
   // Only the launch has a time; the old site's records and the thanks have their dates alone.
   assert.deepEqual(

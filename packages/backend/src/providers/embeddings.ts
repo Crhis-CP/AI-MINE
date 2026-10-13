@@ -1,3 +1,5 @@
+import { storeEmbeddingBatch } from "../events/embedding-store.ts";
+import { runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 // Text embeddings through receipts, used only for the event grouping's candidate recall. Any
 // OpenAI-compatible /embeddings endpoint (EMBEDDING_BASE_URL, EMBEDDING_API_KEY, EMBEDDING_MODEL);
 // with a DashScope key and nothing else set, Aliyun text-embedding-v4 at 1024 dimensions. Without
@@ -37,7 +39,7 @@ export function embeddingsAvailable(): boolean {
   );
 }
 
-async function embedBatch(texts: string[], subject: string): Promise<number[][]> {
+async function embedBatch(texts: string[], subject: string, runtimeControl: RuntimeControlSnapshot): Promise<number[][]> {
   if (!config.modelCallsEnabled) throw new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
   const base = own
     ? (credential("models", "EMBEDDING_BASE_URL") ?? "https://api.openai.com/v1")
@@ -47,8 +49,10 @@ async function embedBatch(texts: string[], subject: string): Promise<number[][]>
   const receipt = await paidRequest(
     {
       service: SERVICE,
+      costBounds: { input_tokens: texts.reduce((n, t) => n + Buffer.byteLength(t), 0), output_tokens: 0 },
       model: EMBEDDING_MODEL,
       purpose: "embedding",
+      runtimeControl,
       subject,
       identity: { model: EMBEDDING_MODEL, dims: EMBEDDING_DIMS, texts: texts.map((t) => sha256(t)) },
       requestSummary: { count: texts.length },
@@ -103,21 +107,21 @@ export async function ensureEmbeddings(kind: "fact" | "article" | "story", items
     }
     return true;
   });
+  const runtimeControl = missing.length ? await runtimeControlSnapshot("news", ["processing"]) : null;
   for (let i = 0; i < missing.length; i += 10) {
     const batch = missing.slice(i, i + 10);
     const vectors = await embedBatch(
       batch.map((b) => b.text.slice(0, 2000)),
       `${kind}:${batch[0]!.id}`,
+      runtimeControl!,
     );
-    for (let j = 0; j < batch.length; j++) {
-      const item = batch[j]!;
-      const v = vectors[j]!;
-      out.set(item.id, v);
-      await sql`INSERT INTO embeddings (kind, ref_id, model, text_hash, vector) VALUES (${kind}, ${item.id}, ${EMBEDDING_MODEL}, ${hashes.get(item.id)!}, ${v})
-                ON CONFLICT (kind, ref_id, model) DO UPDATE SET text_hash = EXCLUDED.text_hash, vector = EXCLUDED.vector, created_at = now()`;
-      // Cache only vectors read back from PostgreSQL. Its real[] text representation can round
-      // provider doubles; reusing the provider response here would change later cosine results.
-    }
+    await storeEmbeddingBatch(
+      kind,
+      EMBEDDING_MODEL,
+      batch.map((item, index) => ({ id: item.id, textHash: hashes.get(item.id)!, vector: vectors[index]! })),
+      runtimeControl!,
+    );
+    for (const [index, item] of batch.entries()) out.set(item.id, vectors[index]!);
   }
   return out;
 }

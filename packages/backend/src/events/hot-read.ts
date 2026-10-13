@@ -1,6 +1,7 @@
 // Reading the latest published hot ranking. The web shows heat values; machine exits only ranks.
 import type { HotStripEntry } from "@amp/contracts/site";
 import { dbOf } from "../db.ts";
+import { currentPublicReferenceTitles, storyTextNeedsRefresh, storyWithdrawalAffected } from "@amp/backend/publication/reports";
 
 const sql = dbOf("events");
 
@@ -56,18 +57,50 @@ async function queryLatestHotRanking(): Promise<HotRanking | null> {
   const [row] = await sql<{ id: number; computed_at: Date; rule_version: string; entries: HotEntry[]; evidence: Record<string, unknown> | null }[]>`
     SELECT id, computed_at, rule_version, entries, evidence FROM hot_rankings WHERE published ORDER BY computed_at DESC LIMIT 1`;
   if (!row) return null;
-  return { id: row.id, computedAt: row.computed_at.toISOString(), ruleVersion: row.rule_version, entries: row.entries, coverage: row.evidence };
+  const titles = await currentPublicReferenceTitles(row.entries.flatMap((entry) => (entry.representativeItemId ? [entry.representativeItemId] : [])));
+  const current = await sql<
+    {
+      id: number;
+      public_id: string;
+      title: string;
+      merged_into: number | null;
+      origin: string;
+      version: number;
+      updated_at: Date;
+      digest_updated_at: Date | null;
+      text_stale: boolean;
+    }[]
+  >`
+    SELECT id,public_id::text,title,merged_into,origin,version,updated_at,digest_updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale FROM stories WHERE id=ANY(${row.entries.map((entry) => entry.storyId)}::bigint[])`;
+  const byId = new Map(current.map((story) => [Number(story.id), story]));
+  const entries = (
+    await Promise.all(
+      row.entries.map(async (entry) => {
+        const story = byId.get(Number(entry.storyId));
+        if (!story || story.merged_into || !entry.representativeItemId || !titles.has(entry.representativeItemId)) return [];
+        const facts = await sql<{ public_id: string }[]>`SELECT public_id FROM facts WHERE story_id=${story.id}`;
+        const safeTitle =
+          storyTextNeedsRefresh(story) ||
+          (story.origin === "manual" &&
+            (await storyWithdrawalAffected(
+              story.id,
+              story.public_id,
+              facts.map((f) => f.public_id),
+            )));
+        return [{ ...entry, title: safeTitle ? titles.get(entry.representativeItemId)! : story.title }];
+      }),
+    )
+  ).flat();
+  return { id: row.id, computedAt: row.computed_at.toISOString(), ruleVersion: row.rule_version, entries, coverage: row.evidence };
 }
 
 // The words change only with the ranking, so they are read once per ranking.
 interface Extras {
   texts: Map<number, { summary: string | null; latest: string | null }>;
 }
-let extrasCache: { rankingId: number; extras: Extras } | null = null;
 const extrasPending = new Map<number, Promise<Extras>>();
 
 async function readExtras(ranking: HotRanking): Promise<Extras> {
-  if (extrasCache?.rankingId === ranking.id) return extrasCache.extras;
   const pending = extrasPending.get(ranking.id);
   if (pending) return pending;
   const load = queryExtras(ranking);
@@ -81,12 +114,15 @@ async function readExtras(ranking: HotRanking): Promise<Extras> {
 
 async function queryExtras(ranking: HotRanking): Promise<Extras> {
   const ids = ranking.entries.map((e) => e.storyId);
-  const texts = await sql<{ id: number; digest: string | null; summary: string | null; latest: string | null }[]>`
-    SELECT id, digest, summary, latest FROM stories WHERE id = ANY(${ids}::bigint[])`;
+  const texts = await sql<
+    { id: number; digest: string | null; summary: string | null; latest: string | null; version: number; updated_at: Date; digest_updated_at: Date | null }[]
+  >`
+    SELECT id, digest, summary, latest,version,updated_at,digest_updated_at,((digest_updated_at IS NULL AND version>1) OR coalesce(updated_at>digest_updated_at,false)) AS text_stale FROM stories WHERE id = ANY(${ids}::bigint[])`;
   const extras: Extras = {
-    texts: new Map(texts.map((t) => [Number(t.id), { summary: t.digest ?? t.summary, latest: t.latest }])),
+    texts: new Map(
+      texts.map((t) => [Number(t.id), storyTextNeedsRefresh(t) ? { summary: null, latest: null } : { summary: t.digest ?? t.summary, latest: t.latest }]),
+    ),
   };
-  extrasCache = { rankingId: ranking.id, extras };
   return extras;
 }
 

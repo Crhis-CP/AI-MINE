@@ -10,10 +10,10 @@ export { Badge, Dot } from "@amp/ui/Status";
 export function AdminPage({ title, subtitle, actions, children }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
     <div className="mx-auto w-full max-w-[1320px] px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pt-8">
-      <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-[22px] font-semibold tracking-tight text-ink sm:text-[24px]">{title}</h1>
-          {subtitle && <p className="mt-1 text-[13.5px] leading-relaxed text-ink-3">{subtitle}</p>}
+          {subtitle && <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-ink-2">{subtitle}</p>}
         </div>
         {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
       </header>
@@ -38,12 +38,12 @@ export function Card({
   return (
     <section className={`rounded-panel bg-surface ring-1 ring-line ${className}`}>
       {(title || right) && (
-        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-          <h2 className="text-[14px] font-semibold text-ink">{title}</h2>
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
+          <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
           {right && <div className="flex items-center gap-2 text-[12.5px] text-ink-3">{right}</div>}
         </div>
       )}
-      <div className={pad ? "p-4" : ""}>{children}</div>
+      <div className={pad ? "p-5" : ""}>{children}</div>
     </section>
   );
 }
@@ -131,8 +131,13 @@ export function DataTable<T>({
   );
 }
 
-export function Empty({ children }: { children: ReactNode }) {
-  return <div className="px-4 py-10 text-center text-[13px] text-ink-4">{children}</div>;
+export function Empty({ title, children }: { title?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="px-5 py-12 text-center">
+      {title && <p className="text-[15px] font-medium text-ink">{title}</p>}
+      <div className={`${title ? "mt-1.5" : ""} text-[13.5px] leading-relaxed text-ink-3`}>{children}</div>
+    </div>
+  );
 }
 
 type ButtonTone = "primary" | "secondary" | "danger" | "ghost";
@@ -293,6 +298,8 @@ export function ReasonDialog({
   confirmLabel = "确认",
   danger,
   requireReason = true,
+  reasonField = true,
+  focusReason = true,
   children,
   onClose,
   onSubmit,
@@ -304,6 +311,8 @@ export function ReasonDialog({
   confirmLabel?: string;
   danger?: boolean;
   requireReason?: boolean;
+  reasonField?: boolean;
+  focusReason?: boolean;
   children?: ReactNode;
   onClose: () => void;
   onSubmit: (reason: string) => Promise<boolean | void> | boolean | void;
@@ -314,14 +323,17 @@ export function ReasonDialog({
   useEffect(() => {
     if (!open) return;
     setReason("");
-    const t = setTimeout(() => ref.current?.focus(), 60);
+    const t = setTimeout(() => {
+      if (focusReason) ref.current?.focus();
+      else ref.current?.form?.querySelector<HTMLElement>("input,select,textarea")?.focus();
+    }, 60);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, focusReason]);
   return (
     <AnimatePresence>
       {open && (
@@ -339,7 +351,7 @@ export function ReasonDialog({
             animate={{ y: 0, scale: 1, opacity: 1 }}
             exit={{ y: 10, scale: 0.98, opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
-            className="relative w-full max-w-lg rounded-sheet bg-raised p-5 shadow-2xl ring-1 ring-line-strong"
+            className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto rounded-sheet bg-raised p-5 shadow-2xl ring-1 ring-line-strong"
             onSubmit={async (e) => {
               e.preventDefault();
               if (requireReason && !reason.trim()) return;
@@ -350,11 +362,19 @@ export function ReasonDialog({
             <h2 className="text-[16px] font-semibold text-ink">{title}</h2>
             {description && <div className="mt-1.5 text-[13px] leading-relaxed text-ink-3">{description}</div>}
             {children && <div className="mt-4 space-y-3">{children}</div>}
-            <div className="mt-4">
-              <Field label={requireReason ? "原因（写进审计记录）" : "备注（可选）"}>
-                <Textarea ref={ref} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={requireReason ? "为什么做这个改动" : ""} rows={2} />
-              </Field>
-            </div>
+            {reasonField && (
+              <div className="mt-4">
+                <Field label={requireReason ? "原因（写进审计记录）" : "备注（可选）"}>
+                  <Textarea
+                    ref={ref}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder={requireReason ? "为什么做这个改动" : ""}
+                    rows={2}
+                  />
+                </Field>
+              </div>
+            )}
             <div className="mt-5 flex justify-end gap-2">
               <Button tone="ghost" onClick={onClose}>
                 取消

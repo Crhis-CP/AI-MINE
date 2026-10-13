@@ -5,6 +5,7 @@
 @source "./features/feed";
 @source "./features/hot";
 @source "./features/item";
+@source "./features/policy";
 @source "./features/report";
 @source "./features/story";
 @source "./lib";

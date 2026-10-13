@@ -1,17 +1,20 @@
+import { topicTextMatches } from "./read-predicates.ts";
+import { attachSourcePolicies } from "./reader-context.ts";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { cached } from "../lib/cache.ts";
-import { ITEM_COLUMNS, ITEM_FROM, listedCondition, selectedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
+import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
+import { matchesTopicTags, readMatcherValues } from "./mentions.ts";
 
 const sql = dbOf("publication");
 
 export interface TopicRow {
   slug: string;
   name: string;
-  grp: "company" | "field" | "genre";
+  grp: "company" | "field" | "genre" | "project";
   entity_id: string | null;
   tags: string[];
   definition: string;
@@ -20,9 +23,9 @@ export interface TopicRow {
 }
 
 /**
- * What topics count: 精选, as the upstream's do, or 全部矿业动态 (the same condition as /all) while the site
- * has no 精选 at all yet; they switch back by themselves at the first 精选, the same switch as the home page
- * (Owner 2026-10-05; DEC-13).
+ * Topic pages list 全部矿业动态: every public eligible article whose tag or title/summary names the
+ * country, mineral or company. The homepage 精选 filter stays 精选-only (Owner 2026-10-10).
+ * `selected` remains in the type so older responses still parse; new counts are `all`.
  */
 export type TopicBasis = "selected" | "all";
 type TopicCount = { slug: string; total: number; recent: number; pages: number; indexable: boolean; latest: Date | null; basis: TopicBasis };
@@ -63,8 +66,8 @@ export async function loadTopic(slug: string): Promise<TopicRow | null> {
 }
 
 /**
- * Tags that put an article in a topic. A company topic takes only articles actually about the company
- * (its entity subject tag), never mere mentions; field and genre topics match their tags.
+ * Tags that put an article in a topic. A company topic takes its entity subject tag.
+ * Title and summary aliases are matched separately, so a display tag alone is not a company hit.
  */
 export function topicMatchTags(t: Pick<TopicRow, "entity_id" | "tags">): string[] {
   return t.entity_id ? [`entity:${t.entity_id}`] : t.tags;
@@ -83,28 +86,26 @@ export function topicPageCounts(): Promise<TopicCount[]> {
 }
 
 /**
- * One pass over the counted set (精选, a few thousand rows from its partial index; or 全部矿业动态 before
- * the first 精选) instead of one scan per topic; a topic counts an item when their tags overlap, as
- * `p.tags && match` does.
+ * One pass over 全部矿业动态. A topic counts an item when its tags overlap, or the title / summary
+ * uses that country, mineral or company name (including aliases).
  */
 async function queryTopicCounts(): Promise<TopicCount[]> {
   const now = new Date();
-  const [row] = await sql<{ picked: boolean }[]>`SELECT EXISTS (SELECT 1 FROM publications p WHERE ${selectedCondition(now)}) AS picked`;
-  const basis: TopicBasis = row?.picked ? "selected" : "all";
+  const basis: TopicBasis = "all";
   const [topics, items] = await Promise.all([
     sql<Array<Pick<TopicRow, "slug" | "entity_id" | "tags">>>`SELECT slug, entity_id, tags FROM topics ORDER BY position`,
-    basis === "selected"
-      ? sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE p.visibility = 'public' AND p.selected`
-      : sql<{ tags: string[]; timeline_at: Date }[]>`SELECT p.tags, p.timeline_at FROM publications p WHERE ${listedCondition(now)} AND p.eligible`,
+    sql<{ tags: string[]; timeline_at: Date; search_text: string }[]>`
+      SELECT p.tags, p.timeline_at, coalesce(p.search_text, '') AS search_text
+      FROM publications p WHERE ${listedCondition(now)} AND p.eligible`,
   ]);
   const recentFrom = Date.now() - 30 * 86400_000;
   return topics.map((t) => {
-    const match = new Set(topicMatchTags(t));
+    const match = topicMatchTags(t);
     let total = 0;
     let recent = 0;
     let latest: Date | null = null;
     for (const it of items) {
-      if (!it.tags.some((tag) => match.has(tag))) continue;
+      if (!matchesTopicTags(it.tags, it.search_text, match)) continue;
       total += 1;
       if (it.timeline_at.getTime() > recentFrom) recent += 1;
       if (!latest || it.timeline_at > latest) latest = it.timeline_at;
@@ -124,7 +125,7 @@ async function queryTopicCounts(): Promise<TopicCount[]> {
 export interface TopicSummary {
   slug: string;
   name: string;
-  group: "company" | "field" | "genre";
+  group: "company" | "field" | "genre" | "project";
   definition: string;
   total: number;
   recent: number;
@@ -168,22 +169,12 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   const pageCount = Math.max(1, Math.ceil(topic.total / TOPIC_PAGE_SIZE));
   if (page < 1 || page > pageCount) return null;
   // Page ids from the set the counts follow first, then the joins for those rows only.
-  const match = topicMatchTags(row);
+  const match = readMatcherValues(null, topicMatchTags(row), [], []);
   const offset = (page - 1) * TOPIC_PAGE_SIZE;
-  const rows =
-    topic.basis === "selected"
-      ? await sql<ItemRow[]>`
+  const rows = await sql<ItemRow[]>`
     WITH page AS (
       SELECT p.article_id FROM publications p
-      WHERE ${selectedCondition(now)} AND p.tags && ${match}::text[]
-      ORDER BY p.timeline_at DESC, p.article_id DESC
-      LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
-    SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
-    ORDER BY p.timeline_at DESC, p.article_id DESC`
-      : await sql<ItemRow[]>`
-    WITH page AS (
-      SELECT p.article_id FROM publications p
-      WHERE ${listedCondition(now)} AND p.eligible AND p.tags && ${match}::text[]
+      WHERE ${listedCondition(now)} AND p.eligible AND ${topicTextMatches(match)}
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
@@ -192,5 +183,6 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
     .map((r) => topics.find((t) => t.slug === r))
     .filter((t): t is TopicSummary => !!t)
     .map((t) => ({ slug: t.slug, name: t.name }));
+  await attachSourcePolicies(rows);
   return { topic: { ...topic, related }, items: rows.map(toFeedItemSummary), page, pageCount };
 }

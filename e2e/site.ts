@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { schemas as publicSchemas } from "@amp/contracts/http/public";
+import { LoginNonce } from "@amp/contracts/http/private";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { webEnvironment } from "../apps/web/runtime-env.ts";
 import { openLog, ROOT, start } from "../scripts/verify/lib.ts";
@@ -22,14 +23,26 @@ export async function startBrowserSite(logFile: string) {
   }
   const calls: Array<{ role: string; path: string; method: string }> = [];
   let privateAuthority = "";
+  let loginNonceSequence = 0;
   const api = (role: string) =>
     createServer((req, res) => {
       const url = new URL(req.url!, "http://fixture");
       calls.push({ role, path: req.url!, method: req.method! });
       res.setHeader("content-type", "application/json");
       if (role === "private") {
-        if (req.headers["x-forwarded-host"] === privateAuthority && url.pathname === "/api/auth/options")
-          return res.end(JSON.stringify({ password: true, feishu: true }));
+        if (req.method === "GET" && req.headers["x-forwarded-host"] === privateAuthority) {
+          res.setHeader("cache-control", "no-store");
+          if (url.pathname === "/api/auth/options") return res.end(JSON.stringify({ password: true, feishu: true }));
+          if (url.pathname === "/api/auth/password-nonce")
+            return res.end(
+              JSON.stringify(
+                LoginNonce.parse({
+                  token: `synthetic-login-nonce-${++loginNonceSequence}`,
+                  expires_at: new Date(Date.parse(FIXED_TIME) + 300_000).toISOString(),
+                }),
+              ),
+            );
+        }
         res.statusCode = 404;
         return res.end("{}");
       }

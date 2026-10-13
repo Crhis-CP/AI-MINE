@@ -3,6 +3,7 @@
 import { config } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { audit } from "./auth.ts";
+export { monthlyUsageReports } from "../operations/usage-monthly.ts";
 
 const sql = dbOf("ai-gateway");
 
@@ -45,3 +46,9 @@ export async function updateBudget(service: string, input: { perMinute: number; 
   await audit(actor, "budget.update", `budget:${service}`, input.reason, before ?? null, after);
   return after;
 }
+
+export { listLaneControls, changeOwnerLaneControls, LaneControlConflict } from "../operations/lane-controls.ts";
+
+export { usageProtectionOverview, changeUsageProtection, changeUsagePrice, recoverUsageBreaker, type UsageOwnerGuard } from "./usage-protection.ts";
+export { readManagedSiteInformation, saveSiteInformation } from "../publication/site-information.ts";
+export { protectedSiteInformation } from "../site/protected-information.ts";

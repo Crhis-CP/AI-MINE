@@ -413,11 +413,26 @@ export function unshield(translated: string, s: Shielded): string | null {
   return $.html().replace(/⟦(\d+)⟧/g, (_m, n: string) => s.tokens[Number(n)]!);
 }
 
+/**
+ * A one-token fragment the naming rule keeps in the original script. A sentence echoed in the source
+ * language still fails no_han; only this exact token is a finished translation.
+ */
+function preservedOriginalToken(sourceHtml: string, response: unknown): string | null {
+  if (!response || typeof response !== "object" || Array.isArray(response)) return null;
+  const record = response as Record<string, unknown>;
+  if (Object.keys(record).length !== 1 || typeof record.text !== "string") return null;
+  if (translationTextIssue(record.text) !== "no_han") return null;
+  const source = visibleText(sourceHtml).replace(/\s+/g, " ").trim();
+  const reply = visibleText(record.text).replace(/\s+/g, " ").trim();
+  if (!source || /\s/u.test(source) || source !== reply || !/\p{L}/u.test(source)) return null;
+  return record.text;
+}
+
 /** Restore only original source tokens; model-provided protected/active markup is never exempt. */
 export function restoreTranslationText(sourceHtml: string, response: unknown): string | null {
   const parsed = TranslationTextSchema.safeParse(response);
-  if (!parsed.success) return null;
-  const raw = parsed.data.text;
+  const raw = parsed.success ? parsed.data.text : preservedOriginalToken(sourceHtml, response);
+  if (raw === null) return null;
   const model = cheerio.load(raw, null, false);
   if (model("pre,code,picture,video,img,script,style,template").length) return null;
   const original = shield(sourceHtml);

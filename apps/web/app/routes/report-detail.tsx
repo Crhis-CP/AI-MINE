@@ -39,7 +39,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=600" };
+  return { "Cache-Control": "no-store" };
 }
 
 export default function ReportDetailPage() {

@@ -24,7 +24,7 @@ export function meta() {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=120, stale-while-revalidate=60" };
+  return { "Cache-Control": "no-store" };
 }
 
 const BADGES: Record<HotEntryView["badges"][number], { label: string; tone: "hot" | "accent" | "amber"; hint: string }> = {

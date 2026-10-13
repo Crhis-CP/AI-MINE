@@ -6,6 +6,8 @@ import type { StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { data as routeData } from "react-router";
 import { breadcrumbLd, pageMeta, titled } from "../lib/seo";
 import { beijingDate, beijingTime, isDateOnlyInstant, NO_TIME, relativeTime, shortSourceName, sourceMonthDayTime } from "../lib/format";
+import { ShareLink } from "../components/ShareLink";
+import { StorySaveButton } from "../features/story/StorySaved";
 import { HeatChart } from "../features/story/HeatChart";
 import { Badge, SelectedBadge } from "@amp/ui/Badge";
 import { PillTabs } from "../components/ui/Tabs";
@@ -44,7 +46,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 }
 
 export function headers() {
-  return { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=120" };
+  return { "Cache-Control": "no-store" };
 }
 
 const STATUS = {
@@ -233,6 +235,10 @@ export default function StoryPage() {
         <span>事件详情</span>
       </nav>
 
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1">
+        <StorySaveButton id={story.publicId} />
+        <ShareLink path={`/story/${story.publicId}`} title={story.title} />
+      </div>
       <header className="max-w-[960px]">
         <div className="flex items-center gap-2 text-[12px] text-ink-4">
           热点事件

@@ -1,0 +1,203 @@
+{
+  "recorded_at": "2026-10-12T04:01:44.785040+00:00",
+  "code_sha": "bfc6a0c18be7918f3bf45c5b45847a7048fbc169",
+  "independent_review_sha": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+  "post_review_baseline_code_changes": "后续仅验证辅助、格式、技术句过滤及CI夹具/种子核验/失败摘要；业务审计基线没有继续修补。",
+  "clean_checkout": true,
+  "pnpm_check": "failed",
+  "quick_stages": [
+    {
+      "stage": "toolchain",
+      "result": "pass",
+      "seconds": 0.1,
+      "detail": "pins, lockfile, images, workflow shape"
+    },
+    {
+      "stage": "format-lint",
+      "result": "pass",
+      "seconds": 1.3,
+      "detail": "biome ci; warnings at baseline"
+    },
+    {
+      "stage": "typecheck",
+      "result": "pass",
+      "seconds": 7.4,
+      "detail": "[4/9] contracts     pass       3.6 s  "
+    },
+    {
+      "stage": "boundaries",
+      "result": "pass",
+      "seconds": 0.4,
+      "detail": "workspace graph and imports"
+    },
+    {
+      "stage": "names",
+      "result": "pass",
+      "seconds": 0.2,
+      "detail": "upstream name and marks only on the exception paths; no upstream brand asset"
+    },
+    {
+      "stage": "data-ownership",
+      "result": "fail",
+      "seconds": 14.6,
+      "detail": "200 problems (first: debt: new or increased [\"packages/backend/src/admin/runs.ts\",\"release/attempts\",\"platform/ops\",\"public.receipt_attempts\",\"write\",\"split-debt\"] (1 > 0))"
+    },
+    {
+      "stage": "role-config",
+      "result": "pass",
+      "seconds": 0.2,
+      "detail": "environment/configuration and pure grant plans; no database matrix in quick mode"
+    },
+    {
+      "stage": "test",
+      "result": "pass",
+      "seconds": 13.7,
+      "detail": "verify self-tests and web tests"
+    }
+  ],
+  "full_verify": "not_run: Docker unavailable; no scope:full receipt",
+  "backend_regressions": "首轮168文件中的48失败，均有后续定向pass映射；不是该SHA整库统一回执。",
+  "secret_scan": "origin/main..978efa88 与978efa88..bfc6a0c均由固定trufflehog 3.97.9 +项目规则扫描，0发现，未验证候选密钥或请求供应商。",
+  "contract_sha": "50af1566260041013bbad3d9dd2cefae634d6994",
+  "contract_pr": "https://github.com/Crhis-CP/AI-MINE/pull/208",
+  "integration_pr": "https://github.com/Crhis-CP/AI-MINE/pull/207",
+  "sources": [
+    {
+      "path": ".verify/audit-remediation-20261011/final-clean-check.log",
+      "sha256": "0517645d404f0e6afd5c4af0838db6fea15421719adc9c275675c1747cc5dd33"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/final-clean-web-build.log",
+      "sha256": "d5ce717ee6498d3e8eee808282c9281679f55bd2de0a38c88ef07a79e6dee251"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/final-clean-install.log",
+      "sha256": "39039d47ed0c94be21fd68758fb20a70aaafc09b5bc42bc620760ec3c7836c58"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/contracts-only-check.log",
+      "sha256": "784f3b57027c421348f777371b9fe5fef73e37f0d39a235ae89989624c60ff91"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/final-secret-scan.json",
+      "sha256": "dba9bc38da9bbf62a3d69f7515b605204289c0b544a3e1db3aedd16978286538"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/pipeline-selftests-final.log",
+      "sha256": "4fa9eb78b41d822548801ddf4036e06ab0b88e5291e34b21c202b84f09cd5e66"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/verify-fixtures-final.log",
+      "sha256": "1e19fa5285d35f580c933a02938573b97253366c8edb00f0128f35b11045931c"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/policy-regression-recovery.log",
+      "sha256": "85a138ef408018c55a11c3dc522770ea6d27cdc6b66053bac5aa3b3cb40e6f99"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/reader-cache-final.log",
+      "sha256": "19dba73db3f4e12019d76ae888d40afae78320d1b4138ad4080bb877971a7dc1"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/reader-lint-browser-final.log",
+      "sha256": "97273cdd825bde1e547a3be9de60962d7a204389d299d12e594fcae33d9cda55"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/reader-lint-public-tests.log",
+      "sha256": "d6d30b59c33c4b9d570b7d73da56057d4ec0e0d4c94870a41502957ec40b072c"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/ci-backend-reproduction.log",
+      "sha256": "7ce434f061224f7272b14c894e5b3b71f032842996a89df72676692f03dfd06a"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/task-0251-model-fallback.log",
+      "sha256": "6229f16f6a62b53c150fe59620967e7b61e46d504ffc76713853b9346b09540e"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/task-0249-tests.log",
+      "sha256": "26841516efc3f12b1c2bd7285ff221db943be09cb1f0d947a3cdce4c8b0168d2"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/task0250-smoke-after.log",
+      "sha256": "1c08dc3f063664b24db1a1b6e889fcacff2968cf64c1e27d36e9c1eee9c94318"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/contract-fixture-check.log",
+      "sha256": "2c12ec4235d816957608d0275c3453b58c451c1f9a75c12be42ac6c1100a870f"
+    },
+    {
+      "path": ".verify/audit-remediation-20261011/contract-receipt-check.log",
+      "sha256": "f121964bc2e0a5ac74cfac1a7e1227ae61464d00aeff2f6e19c72d667334a9af"
+    }
+  ],
+  "production_changed": false,
+  "real_model_calls": 0,
+  "real_notifications_sent": 0,
+  "prior_task_card_errors": 34,
+  "new_task_card_errors": 0,
+  "data_ownership": "200 guard diagnostics; 原开工132 UNKNOWN现125，新增scope0；冻结身份尚未闭环，未扩大预算或放行。",
+  "raw_stage_logs": "/Users/liangchen/Documents/AI-MINE/.verify/audit-remediation-20261011/clean-stage-logs",
+  "cleanup": {
+    "local_test_clusters": "stopped and removed",
+    "verifier_worktree": "archived after preserving necessary logs",
+    "original_scratch": "preserved"
+  },
+  "first_ci": {
+    "207": {
+      "sha": "13554824117b86c9e5ec8460cfbf6b7913cb4a7d",
+      "scope": "focused",
+      "exit_status": 1,
+      "failed_stages": [
+        "data-ownership",
+        "path-guard",
+        "e2e-smoke",
+        "migrations",
+        "test",
+        "compose-smoke",
+        "tasks"
+      ],
+      "receipt": ".verify/audit-remediation-20261011/ci-207-receipt.json"
+    },
+    "208": {
+      "sha": "4291083c3735909e6db274d11d1efc00e23963d0",
+      "scope": "full",
+      "exit_status": 1,
+      "failed_stages": [
+        "contracts",
+        "data-ownership",
+        "path-guard",
+        "test"
+      ],
+      "receipt": ".verify/audit-remediation-20261011/ci-208-receipt.json"
+    }
+  },
+  "first_ci_followup": {
+    "runtime_code_changed": false,
+    "backend_full_reproduction": {
+      "files": 169,
+      "passed_files": 168,
+      "failed_file": "tests/model-fallback.test.ts",
+      "subsequent_file_result": "8/8 passed with current synthetic material + permit"
+    },
+    "seed_inventory": "exact news+eligible-policy ID set, 228; not weakened to a count tolerance",
+    "e2e": "fixture supplies real-contract password nonce; original keyboard/Host/CSP/WCAG assertions retained; desktop/mobile 2 pass",
+    "verifier_tests": "9 pass",
+    "contract_only": "5 contract + 5 receipt schema checks pass",
+    "gate_limit": "data-ownership frozen debt and base task-card/path scope remain open; no merge authorized by these checks"
+  },
+  "latest_local_checkpoint": {
+    "recorded_at": "2026-10-12T06:48:35.651850+00:00",
+    "code_basis": "working patch after immutable audit 6996788; commit and CI identified by PR head",
+    "isolated_precommit_check": "8 of 9 stages pass; only data-ownership fails with 230 diagnostics",
+    "log": ".verify/audit-remediation-20261011/last-precommit-clean-check.log",
+    "full_ci": "No successful final full verify claimed; exact-head receipts are in .verify and GitHub PR checks.",
+    "focused_evidence": [
+      "fresh2-closure.json",
+      "pipeline-fresh2-fixes-status.json",
+      "tasks/TASK-0310.md"
+    ],
+    "real_role_quota_test": ".verify/audit-remediation-20261011/fresh2-quota-role-matrix.log",
+    "production_or_real_model": false
+  }
+}

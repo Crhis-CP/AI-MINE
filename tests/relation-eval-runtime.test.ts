@@ -1,6 +1,10 @@
+import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { after, test } from "node:test";
+import { closeDb } from "@amp/backend/db";
+after(closeDb);
 import { execFile } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -29,7 +33,39 @@ async function evaluate(rows: RelationGoldRow[], providerUrl: string, concurrenc
   let report: string | undefined;
   try {
     const gold = path.join(dir, "gold.jsonl");
-    writeFileSync(gold, rows.map((item) => JSON.stringify(item)).join("\n"));
+    const boundRows = await Promise.all(
+      rows.map(async (item) => ({
+        ...item,
+        a: {
+          ...item.a,
+          ...(await boundEvaluationFixture({
+            title: item.a.title,
+            body: item.a.summary,
+            source: item.a.source,
+            tier: "T2",
+            kind: "rss",
+            firstParty: item.a.firstParty,
+            publishedAt: item.a.publishedAt,
+          })),
+        },
+        b: {
+          ...item.b,
+          ...(await boundEvaluationFixture({
+            title: item.b.title,
+            body: item.b.summary,
+            source: item.b.source,
+            tier: "T2",
+            kind: "rss",
+            firstParty: item.b.firstParty,
+            publishedAt: item.b.publishedAt,
+          })),
+        },
+      })),
+    );
+    process.env.DEEPSEEK_BASE_URL = `${providerUrl}/v1`;
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    await installUsageFixtureForModel("deepseek-flash");
+    writeFileSync(gold, boundRows.map((item) => JSON.stringify(item)).join("\n"));
     const { stdout } = await exec(
       process.execPath,
       ["scripts/eval-relations.ts", "--gold", gold, "--models", "deepseek-flash", "--concurrency", String(concurrency)],

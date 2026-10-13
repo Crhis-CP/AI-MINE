@@ -300,15 +300,7 @@ test("the site's outputs are fetched whole with their statuses checked, the chan
     assert.deepEqual(checkOutputs(site.outputs, rules), [`private /admin/login (HTTP 200), line 1: "${N}"`]);
     const changes = site.outputs.find((o) => o.label.startsWith("/api/v1/selected/changes"));
     assert.deepEqual(changes, { label: "/api/v1/selected/changes?cursor=<snapshot cursor> (HTTP 200)", text: "changes since c/1" });
-    // This contract-only branch does not install the additional MCP consumers. Keep the five
-    // existing runtime probes exact; the expanded identity list is tested in taxonomy-identity.
-    assert.deepEqual(called.sort(), [
-      "aiminingpolicy_get_daily",
-      "aiminingpolicy_get_hot_topics",
-      "aiminingpolicy_get_latest",
-      "aiminingpolicy_get_story",
-      "aiminingpolicy_search",
-    ]);
+    assert.deepEqual(called.sort(), Object.values(MCP_TOOL_NAMES).sort());
     for (const [mode, problem] of [
       ["private-missing", "private /admin/login: HTTP 404, expected 200"],
       ["public-cookie", "/admin/login: public rejection set a cookie"],

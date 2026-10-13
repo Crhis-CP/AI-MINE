@@ -1,4 +1,6 @@
+import { ensureModelSourceFixture, materialFixturePermit } from "./model-source-fixture.ts";
 import { gate, tag } from "./setup.ts";
+import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
 import { z } from "zod";
@@ -57,7 +59,9 @@ await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
 process.env.DEEPSEEK_BASE_URL = `http://127.0.0.1:${(provider.address() as { port: number }).port}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
 before(async () => {
+  await installUsageFixtureForModel("deepseek-flash");
   await sql`INSERT INTO sources(id,name,kind,site_fulltext) VALUES(${SOURCE},'Self authored long fixture','rss',true)`;
+  await ensureModelSourceFixture(SOURCE, ["https://fixture.invalid/source"]);
 });
 after(async () => {
   hold?.release.open();
@@ -273,9 +277,10 @@ test("A/B sharing an unknown receipt cannot evade the hold by changing B's recip
   const rows =
     await sql`SELECT s.article_id,s.receipt_id,s.attempt_id,r.subject,r.status FROM enrichment.translation_segments s JOIN receipts r ON r.id=s.receipt_id
     WHERE s.article_id=ANY(${[a.articleId, b.articleId]}::text[]) ORDER BY s.article_id`;
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0]!.article_id, b.articleId);
-  assert.ok(rows.every((row) => row.subject.startsWith(`article:${a.articleId}@1#`)));
+  assert.equal(rows.length, 2);
+  assert.equal(new Set(rows.map((row) => String(row.receipt_id))).size, 1);
+  assert.ok(rows.some((row) => row.article_id === b.articleId));
+  assert.ok(rows.every((row) => row.subject.startsWith(`article:${a.articleId}@1#`) && row.status === "unknown"));
   assert.equal(requests.length - start, 1);
   mode = "normal";
   let result: unknown, error: unknown;
@@ -363,6 +368,9 @@ test("an explicit non-billing decision resolves only the unproved historical cou
   const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${`article:${articleId}@1#0`}`;
   // A pre-attempt history fixture: no actual attempt evidence is invented during recovery.
   await sql`DELETE FROM ai.translation_receipt_observations WHERE receipt_id=${receipt!.id}`;
+  await sql`DELETE FROM enrichment.translation_segments WHERE receipt_id=${receipt!.id}`;
+  await sql`DELETE FROM ai.usage_attempts WHERE attempt_id IN (SELECT id FROM receipt_attempts WHERE receipt_id=${receipt!.id})`;
+  await sql`DELETE FROM ai.model_attempt_snapshots WHERE attempt_id IN (SELECT id FROM receipt_attempts WHERE receipt_id=${receipt!.id})`;
   await sql`DELETE FROM receipt_attempts WHERE receipt_id=${receipt!.id}`;
   await assert.rejects(runBodyTranslation(articleId, recipe), /unknown outcome/);
   assert.equal((await sql`SELECT attempt_id FROM ai.translation_receipt_observations WHERE scope=${`article:${articleId}@1`}`)[0]!.attempt_id, null);
@@ -390,8 +398,10 @@ test("upgrade recovers an own paid attempt before any segment or observation exi
     mode = initial === "pending" ? "reset" : initial;
     if (initial === "pending") hold = { asked: gate(), release: gate() };
     // The old chatJson/paidRequest path has no translation opt-in and writes no observation.
+    const legacyRequest = { system: recipe.system, user: JSON.stringify({ text: `Legacy ${initial} ${T}.` }) };
     const stopped = chatJson({
       ...recipe,
+      fallbackPermit: await materialFixturePermit(articleId, legacyRequest),
       purpose: "translate_body",
       subject: `${stage}#0`,
       user: JSON.stringify({ text: `Legacy ${initial} ${T}.` }),

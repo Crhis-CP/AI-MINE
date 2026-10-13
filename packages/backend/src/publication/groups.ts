@@ -1,3 +1,4 @@
+import { readMatcherValues } from "./mentions.ts";
 // Reading-group expansions: the reports behind "另有 N 家信源报道" and the developments behind
 // "展开 N 条进展". Members must pass the same visibility, pool eligibility and parent-page filters.
 import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";
@@ -11,6 +12,7 @@ import {
   categoryCondition,
   channelCondition,
   selectedCondition,
+  listedCondition,
   tagCondition,
   toItemSummary,
   topicCondition,
@@ -36,7 +38,8 @@ export type GroupReportsResult = { kind: "ok"; body: GroupReportsResponse } | { 
 export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): Promise<GroupReportsResult> {
   const [fact] = await sql<{ id: number }[]>`SELECT id FROM facts WHERE public_id = ${q.factPublicId}`;
   if (!fact) return { kind: "not_found" };
-  const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)}`;
+  const matchers = readMatcherValues(q.tag, q.topicTags, [], []);
+  const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
   const members = await sql<
     {
       id: string;
@@ -93,6 +96,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
 }
 
 export interface DevelopmentsQuery {
+  scope?: "all" | "selected";
   storyPublicId: string;
   channel: ChannelKey;
   category: CategoryKey | null;
@@ -114,11 +118,13 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   const [story] = await sql<{ id: number; public_id: string; title: string }[]>`
     SELECT id, public_id::text, title FROM stories WHERE public_id = ${q.storyPublicId} AND merged_into IS NULL`;
   if (!story) return { kind: "not_found" };
-  const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(q.tag)} ${topicCondition(q.topicTags)}`;
+  const matchers = readMatcherValues(q.tag, q.topicTags, [], []);
+  const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
   type Member = Pick<ItemRow, "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
+  const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible` : selectedCondition(now);
   const selected = await sql<Member[]>`
     SELECT p.article_id AS id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
-    FROM publications p WHERE p.story_id = ${story.id} AND ${selectedCondition(now)} ${filters}`;
+    FROM publications p WHERE p.story_id = ${story.id} AND ${scope} ${filters}`;
   if (selected.length === 0) return { kind: "not_found" };
   const counts = new Map(
     (
@@ -153,7 +159,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
     .map((d) => d.development);
 
   const revision = shortHash(list.map((d) => `${d.factId}:${d.representativeId}:${d.reportCount}`).join(","), 10);
-  const binding = queryBinding({ s: q.storyPublicId, c: q.channel, k: q.category, t: q.tag, p: q.topicTags });
+  const binding = queryBinding({ scope: q.scope ?? "selected", s: q.storyPublicId, c: q.channel, k: q.category, t: q.tag, p: q.topicTags });
   let offset = 0;
   if (q.cursor) {
     const c = decodeCursor<{ o: number; r: string; b: string }>("dv1", q.cursor);
@@ -170,7 +176,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       ? (
           await sql<ItemRow[]>`
     SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(page.map((d) => d.representativeId))}
-      AND p.story_id = ${story.id} AND ${selectedCondition(now)} ${filters}`
+      AND p.story_id = ${story.id} AND ${scope} ${filters}`
         ).map((row) => [row.id, row])
       : [],
   );
@@ -183,4 +189,54 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
     kind: "ok",
     body: { story: { publicId: story.public_id, title: story.title }, revision, developments, nextCursor: next },
   };
+}
+
+/** The published report-candidate snapshot owns the existing release lock and time-window query. */
+export async function reportCandidateRows(start: Date, end: Date) {
+  return sql.begin("isolation level read committed", async (tx) => {
+    // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
+    // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
+    await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
+    return tx<
+      {
+        id: string;
+        revision: number;
+        title: string;
+        summary: string | null;
+        url: string;
+        category: string | null;
+        score: number | null;
+        first_party: boolean;
+        source_id: string;
+        source_name: string;
+        source_kind: string;
+        fact_public_id: string | null;
+        story_public_id: string | null;
+        at: Date;
+        backfill: boolean;
+      }[]
+    >`
+      SELECT p.article_id AS id,p.revision, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
+             s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
+      FROM publications p JOIN sources s ON s.id = p.source_id
+      LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
+      -- Attribute each item by the later of arrival and release; either range can use its index.
+      WHERE p.visibility = 'public' AND p.selected AND NOT p.backfill
+        AND (
+          (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
+          OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})
+        )`;
+  });
+}
+
+/** A scored public report proves judging ran; ordinary news is counted here, never included in the daily. */
+export async function dailyJudgedReportCount(start: Date, end: Date): Promise<number> {
+  const [row] = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM publications p JOIN sources s ON s.id=p.source_id
+    WHERE p.visibility='public' AND p.eligible AND p.channel='news' AND s.lane='news'
+      AND s.participation_mode='editorial' AND p.score IS NOT NULL AND NOT p.backfill
+      AND (NOT p.selected OR p.visible_after <= ${end})
+      AND p.timeline_at >= ${start} AND p.timeline_at < ${end}
+      AND (p.first_public_at IS NULL OR p.first_public_at < ${end})`;
+  return row!.n;
 }

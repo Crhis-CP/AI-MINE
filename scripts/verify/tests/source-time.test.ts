@@ -205,6 +205,68 @@ function unknown(raw: string, reason: string, change: Partial<SourceDateParseInp
   assert.equal(verdict(result.evidence).status, "pending");
 }
 
+test("declared day-first numeric formats accept unpadded dates without changing undeclared order", () => {
+  for (const [raw, formatPattern] of [
+    ["8.10.2026", "DD.MM.YYYY"],
+    ["05-10-2026", "DD-MM-YYYY"],
+    ["5-10-2026", "DD-MM-YYYY"],
+    ["8/10/2026", "DD/MM/YYYY"],
+  ]) {
+    const { reason, evidence } = parseSourceDate(request(raw, { format: "declared", formatPattern, language: "en" }));
+    assert.equal(reason, null, raw);
+    assert.equal(evidence.time.local_date, raw.includes("5") ? "2026-10-05" : "2026-10-08");
+    assert.deepEqual([evidence.time.precision, evidence.time.local_time, evidence.time.utc], ["date", null, null]);
+  }
+  unknown("31.02.2026", "invalid_calendar", { format: "declared", formatPattern: "DD.MM.YYYY", language: "ru" });
+  unknown("8/10/2026", "ambiguous_format");
+  for (const raw of ["8.10.2026", "5-10-2026"]) unknown(raw, "unrecognized_format");
+  unknown("3/4/2026", "unrecognized_format", { format: "declared", formatPattern: "MM/DD/YYYY", language: "en" });
+});
+
+test("declared month names use only the stated language, including accents, abbreviations and Russian cases", () => {
+  for (const [raw, language, formatPattern, expected] of [
+    ["02 October 2026", "en-GB", "D MMMM YYYY", "2026-10-02"],
+    ["September 30, 2026", "en", "MMMM D, YYYY", "2026-09-30"],
+    ["8 Oct 2026", "en", "D MMM YYYY", "2026-10-08"],
+    ["05-OCT-2026", "es", "DD-MMM-YYYY", "2026-10-05"],
+    ["6 de octubre de 2026", "es-AR", "D MMMM YYYY", "2026-10-06"],
+    ["6 de março de 2026", "pt", "D MMMM YYYY", "2026-03-06"],
+    ["17 août 2026", "fr", "D MMMM YYYY", "2026-08-17"],
+    ["17 AOUT 2026", "fr", "D MMMM YYYY", "2026-08-17"],
+    ["8 oktober 2026", "nl", "D MMMM YYYY", "2026-10-08"],
+    ["02 Juli 2026", "id", "D MMMM YYYY", "2026-07-02"],
+    ["8 октября 2026 г.", "ru", "D MMMM YYYY", "2026-10-08"],
+    ["8 октябрь 2026", "ru", "D MMMM YYYY", "2026-10-08"],
+    ["8 März 2026", "de", "D MMMM YYYY", "2026-03-08"],
+  ]) {
+    const { reason, evidence } = parseSourceDate(request(raw, { format: "declared", formatPattern, language }));
+    assert.deepEqual([reason, evidence.time.local_date, evidence.time.utc], [null, expected, null], raw);
+    assert.equal(evidence.time.raw, raw);
+    assert.equal(evidence.language, language);
+  }
+  for (const language of [null, "", "und", "mn", "en_US", "toString", "__proto__"])
+    unknown("8 October 2026", "unrecognized_format", { format: "declared", formatPattern: "D MMMM YYYY", language });
+  unknown("8 October 2026", "unrecognized_format");
+  unknown("8 octubre 2026", "unrecognized_format", { format: "declared", formatPattern: "D MMMM YYYY", language: "en" });
+  unknown("31 February 2026", "invalid_calendar", { format: "declared", formatPattern: "D MMMM YYYY", language: "en" });
+});
+
+test("new declared formats retain explicit offsets and never infer an unverified clock", () => {
+  for (const [raw, formatPattern, utc] of [
+    ["8.10.2026 10:30", "DD.MM.YYYY HH:mm", null],
+    ["8 October 2026 10:30:15 +03:00", "D MMMM YYYY HH:mm:ss Z", "2026-10-08T07:30:15Z"],
+    ["8 Oct 2026 10:30 +0300", "D MMM YYYY HH:mm Z", "2026-10-08T07:30:00Z"],
+    ["05-OCT-2026 23:30 -03:00", "DD-MMM-YYYY HH:mm Z", "2026-10-06T02:30:00Z"],
+  ]) {
+    const { reason, evidence } = parseSourceDate(request(raw!, { format: "declared", formatPattern, language: "en" }));
+    assert.deepEqual([reason, evidence.time.utc], [null, utc], raw!);
+    if (!utc) assert.deepEqual([evidence.time.precision, evidence.time.local_time], ["date", null]);
+  }
+  for (const zone of ["+03:00", "+0300"]) assert.equal(parseSourceDate(request(`Thu, 08 Oct 2026 10:00:00 ${zone}`)).evidence.time.utc, "2026-10-08T07:00:00Z");
+  unknown("8 October 2026 24:00", "invalid_time", { format: "declared", formatPattern: "D MMMM YYYY HH:mm", language: "en" });
+  unknown("8 October 2026 10:00 +24:00", "invalid_offset", { format: "declared", formatPattern: "D MMMM YYYY HH:mm Z", language: "en" });
+});
+
 test("strict raw parsing closes the measured loose-parser rollover, inferred-midnight and guessed-zone shapes", () => {
   for (const raw of ["2026-10-04", "2026-10-04 10:30"]) {
     const result = parseSourceDate(request(raw));

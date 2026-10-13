@@ -48,6 +48,13 @@ export function webHostPolicy(env: Environment = process.env) {
   const expected = privateWebHostname(env);
   const sharedHost = expected === hostname(new URL(env.SITE_URL || "http://localhost:3000").host);
   return (req: IncomingMessage, res: ServerResponse): "public" | "private" | null => {
+    const rawPath = decodeURIComponent(new URL(req.url ?? "/", "http://web.invalid").pathname);
+    const normalized = path.posix.normalize(rawPath.replaceAll("\\", "/")).replace(/\.data$/i, "");
+    if (/^\/mcp-ops(?:\/|$)/i.test(normalized)) {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "private, no-store" });
+      res.end("Not found");
+      return null;
+    }
     const hosts = req.rawHeaders.filter((name, index) => index % 2 === 0 && name.toLowerCase() === "host").length;
     if (hosts === 1 && hostname(req.headers.host) === expected && (!sharedHost || privatePath(req.url ?? "/"))) {
       noStore(res);

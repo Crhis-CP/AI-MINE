@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { test } from "node:test";
 import manifest from "./fixtures/public-role-routes.json" with { type: "json" };
 import { publicRoleFixture, publicServer, roleConnections, STORY, ALIAS, RATE_SECRET, type PublicFixture } from "./public-role-fixture.ts";
@@ -70,6 +70,14 @@ test("every registered public GET reaches its documented data fixture or explici
     for (const row of routes) {
       assert.ok(Boolean(row.fixture) !== Boolean(row.noDataReason), row.route);
       for (const sample of row.cases) {
+        if (sample.prepare === "v3-cursor") {
+          const snapshotResponse = await app.request("/api/v3/featured/snapshot?limit=1");
+          assert.equal(snapshotResponse.status, 200);
+          const snapshot = (await snapshotResponse.json()) as { cursor: string; items: { id: string }[] };
+          assert.equal(snapshot.items.length, 1);
+          assert.match(snapshot.cursor, /^cv3\./);
+          cursor = snapshot.cursor;
+        }
         if (sample.prepare === "advance-ledger") {
           const snapshotResponse = await app.request("/api/v1/selected/snapshot?limit=1");
           assert.equal(snapshotResponse.status, 200);
@@ -109,7 +117,7 @@ test("every registered public GET reaches its documented data fixture or explici
           }
           for (const [key, value] of Object.entries(sample.equals ?? {})) assert.deepEqual(at(body, key), value, sample.url);
           for (const key of sample.positive ?? []) assert.ok(Number(at(body, key)) > 0, `${sample.url} empty ${key}`);
-          if (sample.prepare)
+          if (sample.prepare === "advance-ledger")
             assert.deepEqual(
               body.changes.map((change: { op: string }) => change.op),
               ["upsert", "remove"],
@@ -231,7 +239,7 @@ test("feedback uses only feedback_write in a fresh public process", async (t) =>
     app = await publicServer(t, f);
   try {
     assert.deepEqual(await roleConnections(f), { public_read: 0, feedback_write: 0 });
-    const headers = { "content-type": "application/json", "user-agent": "Chrome", "x-real-ip": "192.0.2.50" };
+    const headers = { "idempotency-key": randomUUID(), "content-type": "application/json", "user-agent": "Chrome", "x-real-ip": "192.0.2.50" };
     const response = await app.request("/api/site/feedback", {
       method: "POST",
       headers,
@@ -246,7 +254,11 @@ test("feedback uses only feedback_write in a fresh public process", async (t) =>
     const hash = createHmac("sha256", RATE_SECRET).update("192.0.2.50|Chrome").digest("base64url").slice(0, 24);
     assert.equal(stored.source_hash, hash);
     await f.admin`INSERT INTO feedback_bans(source_hash)VALUES(${hash})`;
-    const banned = await app.request("/api/site/feedback", { method: "POST", headers, body: JSON.stringify({ content: "PR9 banned feedback" }) });
+    const banned = await app.request("/api/site/feedback", {
+      method: "POST",
+      headers: { ...headers, "idempotency-key": randomUUID() },
+      body: JSON.stringify({ content: "PR9 banned feedback" }),
+    });
     assert.equal(banned.status, 403);
     const connections = await roleConnections(f);
     assert.deepEqual(connections, { public_read: 0, feedback_write: 1 });

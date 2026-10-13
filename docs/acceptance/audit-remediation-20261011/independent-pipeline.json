@@ -1,0 +1,1762 @@
+{
+  "schema_version": 1,
+  "title": "独立旧新功能/逻辑对照：流水线与后台",
+  "generated_at": "2026-10-12",
+  "reviewer": "fresh_pipeline_comparison",
+  "comparison_mode": "independent_functional_static_review",
+  "new_ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+  "old_main": {
+    "repo": "Crhis-CP/global-mining-policy-intelligence",
+    "ref": "65d362407226da856f66477807c5437acf1af27b"
+  },
+  "old_policy_branch": {
+    "ref": "6d37df802b7b7ff14ed9b34436166c7eb60a9b76",
+    "status": "unmerged_undeployed_reference_only",
+    "inspected_in_this_lane": false,
+    "reason": "政策专线由其他独立泳道对照，本泳道不把该分支功能当作旧线上既有功能。"
+  },
+  "scope": "来源录入、预览、启停与采集；目录、正文、时间与修订；许可、资讯筛选/评分/翻译、模型费用与失败；事件归组；人工编辑与撤回；新闻报告；账号、运行控制、运维可见性、反馈。",
+  "method": [
+    "先在线读取旧 main 文件清单与实际功能入口，建立旧行为清单，再检查新固定版本及当前规格。",
+    "旧源代码只经 gh api 在线读到工具输出/内存；没有 clone、保存旧源文件、导出旧数据或运行旧代码。",
+    "未读取 docs/acceptance/audit-remediation-20261011 中开发结果、其他独立报告或用户原审计报告。",
+    "对工作树读取的实现与指定提交作差异核对；检查范围内实现无未提交差异，其他 Agent 的无关页面改动不纳入本结论。",
+    "判定依据是代码路径与状态写入，不以测试名称或旧代码等于产品规范为依据。",
+    "只对新闻报告引用的纯函数做一次合成输入逻辑复现；没有数据库集成测试、外部站点抓取、真实模型或生产操作。"
+  ],
+  "summary": {
+    "rows": 30,
+    "counts": {
+      "preserved": 13,
+      "intentional_change": 10,
+      "omission": 5,
+      "uncertain": 2
+    },
+    "scope_completion": "本轮有界静态对照已完成；不是全部功能质量验收",
+    "omission_origin": {
+      "legacy_and_current_spec": [
+        "PIPE-05",
+        "PIPE-23",
+        "PIPE-25"
+      ],
+      "current_spec_only_not_old_regression": [
+        "PIPE-04",
+        "PIPE-30"
+      ]
+    }
+  },
+  "not_verified": [
+    "旧库各国专用适配器与新来源配置的逐站真实样本等价性。",
+    "具体来源正文/日期解析的全部语言和附件格式；真实法域目录完整性。",
+    "真实模型的事实准确性、翻译质量、跨语言归组质量、备用供应商响应身份。",
+    "共享模型/Jina 服务拥堵时法规、官方一手、其他工作的完整优先级。",
+    "公网、移动端、60秒全出口撤回、持续调度、告警送达、备份恢复及生产账单核销。",
+    "旧 policy 未合并分支内法规解读、政策关系和政策报告专线。"
+  ],
+  "rows": [
+    {
+      "id": "PIPE-01",
+      "feature": "信源录入、重复识别及初始暂停",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_admin.py",
+          "line_start": 152,
+          "line_end": 171,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_admin.py#L152"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_registry.py",
+          "line_start": 140,
+          "line_end": 170,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_registry.py#L140"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/sources.ts",
+          "line_start": 205,
+          "line_end": 276
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 350,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧入口先校验配置并创建来源；新入口校验、以规范化地址查重、同事务保存初始许可和审计，新来源 enabled=false，成功预览之前不能启用。",
+      "impact": "保留了录入后先检查再启用的操作结果；不同采集类型同一地址是否算重复未做穷举。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-02",
+      "feature": "预览绑定当前配置与许可",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_admin.py",
+          "line_start": 173,
+          "line_end": 191,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_admin.py#L173"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_preview.py",
+          "line_start": 6,
+          "line_end": 23,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_preview.py#L6"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/source-previews.ts",
+          "line_start": 34,
+          "line_end": 106
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 433,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧任务绑定 config_revision，来源变化后丢弃；新预览绑定草稿/config_hash/permission_version，抓取前后复查，零样例或延后不算成功，启用时再次匹配。",
+      "impact": "旧预览不能误放行新的配置或许可证版本；本轮未验证真实站点样例质量。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-03",
+      "feature": "启停与配置草稿保持供稿",
+      "result": "intentional_change",
+      "basis": "owner_spec_improvement",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_admin.py",
+          "line_start": 161,
+          "line_end": 211,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_admin.py#L161"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/sources.ts",
+          "line_start": 110,
+          "line_end": 165
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 403,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧版统一编辑配置；新版采集配置变更先保存草稿，成功预览后显式激活，名称等元数据直接更新。暂停/恢复由 enabled 控制；成功旧预览可复用。",
+      "impact": "符合新版避免编辑期间中断供稿的要求；游标保留另见 PIPE-04。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-04",
+      "feature": "不改变入口/分页时的检查点保留",
+      "result": "omission",
+      "basis": "current_spec_unmet_not_claimed_as_legacy_regression",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_admin.py",
+          "line_start": 161,
+          "line_end": 171,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_admin.py#L161"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/sources.ts",
+          "line_start": 121,
+          "line_end": 162
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/collect.ts",
+          "line_start": 173,
+          "line_end": 178
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/collect.ts",
+          "line_start": 214,
+          "line_end": 231
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 403,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "新 activate_draft 分支无论入口/分页是否变化，均将 cursor 清空。旧编辑行为不作为正确规范；新版规格明确入口与分页不变时保留检查点。",
+      "impact": "仅调整初始回填上限等非分页配置也会重新进入 firstImport 分支，重新限缩候选和标记回填，影响采集连续性。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。",
+      "severity": "P2",
+      "reproduction": [
+        "已有 RSS 来源 cursor.initializedAt 和 RSS validators。",
+        "只修改 config._amp.initialBackfillLimit，入口 feedUrl 与分页规则保持不变。",
+        "成功预览并激活草稿；updateSource 的 CASE 无条件把 cursor 写为 NULL。",
+        "下一轮 collectSource 认为 firstImport=true，按初始回填分支执行。"
+      ],
+      "dynamic_reproduction": false
+    },
+    {
+      "id": "PIPE-05",
+      "feature": "信源归档与归档后的不可误恢复",
+      "result": "omission",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_admin.py",
+          "line_start": 173,
+          "line_end": 201,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_admin.py#L173"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_preview.py",
+          "line_start": 11,
+          "line_end": 16,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_preview.py#L11"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/sources.ts",
+          "line_start": 24,
+          "line_end": 53
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/sources.ts",
+          "line_start": 110,
+          "line_end": 165
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/admin.ts",
+          "line_start": 200,
+          "line_end": 218
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/admin/source.tsx",
+          "line_start": 82,
+          "line_end": 101
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 392,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        },
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 433,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧 change_state 有 archived 状态，归档来源不能试抓；新版来源入口只有 enabled 暂停/恢复，未找到归档命令、归档状态和对应列表排除。",
+      "impact": "弃用或错误来源只能长期混在暂停来源中；无法保留“已归档”语义及防误恢复约束。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。",
+      "severity": "P2",
+      "reproduction": [
+        "选择已不用的来源，希望归档并保留历史。",
+        "现有 UI 仅有暂停/恢复；API source patch 更新 enabled，后端列表仍返回该来源。",
+        "代码全范围搜索来源 archived/source.archive/归档无实现（反馈归档不属于信源）。"
+      ],
+      "dynamic_reproduction": false
+    },
+    {
+      "id": "PIPE-06",
+      "feature": "定时采集、失败退避与单源任务去重",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 120,
+          "line_end": 194,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L120"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/collect.ts",
+          "line_start": 156,
+          "line_end": 175
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/collect.ts",
+          "line_start": 303,
+          "line_end": 364
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/jobs/source-queues.ts",
+          "line_start": 8,
+          "line_end": 25
+        }
+      ],
+      "spec_evidence": [],
+      "behavior": "旧按到期时间采集并延期失败来源；新版同样检查启用/业务线，按到期调度，失败增加健康错误并退避，已有 created/retry/active 单源任务不重复排入。",
+      "impact": "持续采集与失败可见性保留；配置频率的自适应数值属于新版设计，不按旧数值机械对照。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-07",
+      "feature": "分页目录检查与中途继续",
+      "result": "intentional_change",
+      "basis": "new_scope_extension",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 196,
+          "line_end": 249,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L196"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/acquisition/directory-runtime.ts",
+          "line_start": 9,
+          "line_end": 45
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/10-policy-service.md",
+          "line": 165,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧 worker 有按来源的分段检查点；新版声明目录契约的 policy 来源逐页保存，跨轮继续，全页完成后复查首页再 apply，结构错误记录失败证据。",
+      "impact": "目录完整性检查是新版强化；本条只证明控制路径，不代表任一真实法域目录已完整取得。",
+      "confidence": "medium",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-08",
+      "feature": "来源原表对账与运行/产出分层计数",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_intake.py",
+          "line_start": 151,
+          "line_end": 233,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_intake.py#L151"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_intake_store.py",
+          "line_start": 79,
+          "line_end": 127,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_intake_store.py#L79"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/target-catalogue.ts",
+          "line_start": 25,
+          "line_end": 117
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 505,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧目录区分关联、自动采集、取得条目、公开与正文；新版按原始记录关联新配置，并分别读取抓取、材料、正文、原件、公开数量；observed 只是有观测证据。",
+      "impact": "核心对账维度可用，observed 不能解释为全部接通或持续运行完成。",
+      "confidence": "medium",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-09",
+      "feature": "来源专用适配器等价覆盖",
+      "result": "uncertain",
+      "basis": "not_exhaustively_checked",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_registry.py",
+          "line_start": 318,
+          "line_end": 407,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_registry.py#L318"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_ingestion.py",
+          "line_start": 930,
+          "line_end": 1000,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_ingestion.py#L930"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/collect.ts",
+          "line_start": 188,
+          "line_end": 209
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/content/extract.ts",
+          "line_start": 88,
+          "line_end": 117
+        }
+      ],
+      "spec_evidence": [],
+      "behavior": "旧库有多国网站专用适配器；新版主要使用 rss/web_list/json_list 和目录配置，正文走直接抽取与获准的备用读取。",
+      "impact": "本轮未逐一把旧专用适配器的分页、附件、正文选择与新来源配置做真实样本对齐；不能判定所有具体来源行为已等价。",
+      "confidence": "low",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-10",
+      "feature": "来源日期、未知时间和日期精度",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_ingestion.py",
+          "line_start": 117,
+          "line_end": 161,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_ingestion.py#L117"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_ingestion.py",
+          "line_start": 265,
+          "line_end": 329,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_ingestion.py#L265"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/content/source-time.ts",
+          "line_start": 1,
+          "line_end": 30
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/content/materials.ts",
+          "line_start": 121,
+          "line_end": 137
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/04-time-semantics.md",
+          "line": 1,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧日期解析区分 date/second，来源发布时间、登记和更新分开；新版时间证据绑定来源/修订/配置/权限，未知或非来源发布时间维持 pending，日期字段保持精度。",
+      "impact": "没有把只有日期的来源直接伪装成真实精确时刻；所有语言日期格式与未来日期边界未穷举。",
+      "confidence": "medium",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-11",
+      "feature": "材料身份、修订、同稿幂等与历史优先级",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_ingestion.py",
+          "line_start": 276,
+          "line_end": 303,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_ingestion.py#L276"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_store.py",
+          "line_start": 2282,
+          "line_end": 2340,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_store.py#L2282"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/content/materials.ts",
+          "line_start": 109,
+          "line_end": 230
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/jobs/content.ts",
+          "line_start": 81,
+          "line_end": 137
+        }
+      ],
+      "spec_evidence": [],
+      "behavior": "旧以来源及记录标识定位材料、变化产生修订；新版按 source+url 身份、锁定行比对正文哈希，同版本不重复处理，A→B→A 仍生成新观察；历史工作低于实时工作。",
+      "impact": "保留了重复采集不重复创建、内容变化可继续处理以及回填不挤占即时内容的核心行为。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-12",
+      "feature": "用途许可、版本变化和缓存重判",
+      "result": "intentional_change",
+      "basis": "owner_spec_improvement",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_ingestion.py",
+          "line_start": 230,
+          "line_end": 246,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_ingestion.py#L230"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/source_ingestion.py",
+          "line_start": 291,
+          "line_end": 337,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/source_ingestion.py#L291"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/model.py",
+          "line_start": 467,
+          "line_end": 485,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/model.py#L467"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/permission-store.ts",
+          "line_start": 125,
+          "line_end": 204
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/providers/permissions.ts",
+          "line_start": 48,
+          "line_end": 85
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/sources.ts",
+          "line_start": 246,
+          "line_end": 274
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 412,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        },
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 413,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧按 processing_scope 和许可指纹限制处理；新版按用途独立允许/关闭、不可变许可版本、请求当前状态核对，新增来源依据 Owner 声明确认初始用途，撤销独立生效。",
+      "impact": "权限收紧不应被旧缓存或旧处理许可绕过；真实授权材料与线上权限配置不在本轮核验范围。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-13",
+      "feature": "资讯预筛、精选评分与独立两次采样",
+      "result": "intentional_change",
+      "basis": "owner_approved_product_change",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/translation_model.py",
+          "line_start": 26,
+          "line_end": 35,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/translation_model.py#L26"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 627,
+          "line_end": 645,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L627"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/editorial/analyze.ts",
+          "line_start": 80,
+          "line_end": 105
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/editorial/analyze.ts",
+          "line_start": 307,
+          "line_end": 340
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/editorial/analyze.ts",
+          "line_start": 584,
+          "line_end": 587
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/00-decision-ledger.md",
+          "line": 36,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        },
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 450,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧主运行翻译链固定不做精选；新版采用预筛、两次独立评分、按来源分级门槛，采样序号进入 attemptTag，正式启用有评分版本确认条件。",
+      "impact": "这是 Owner 指定的矿业版评分变更，不应恢复旧固定零分/未启用逻辑；本条不证明正式环境评分已获准生效或质量合格。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-14",
+      "feature": "外文先导读公开，全文后补",
+      "result": "intentional_change",
+      "basis": "owner_approved_product_change",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 575,
+          "line_end": 621,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L575"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 627,
+          "line_end": 645,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L627"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/rules.ts",
+          "line_start": 14,
+          "line_end": 19
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/publish.ts",
+          "line_start": 246,
+          "line_end": 280
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/06-content-standards.md",
+          "line": 117,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        },
+        {
+          "path": "docs/01-product/06-content-standards.md",
+          "line": 119,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧主运行链要求完整翻译结果再完成；新版有中文标题和导读即可公开，获准正文翻译另行补齐。",
+      "impact": "2026-10-10 测试阶段明确决定，不能按更早全文前置规则报为遗漏；不能把未完成正文显示成完整译文。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-15",
+      "feature": "翻译分段续接、截断处理与旧修订隔离",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 585,
+          "line_end": 621,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L585"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/translation_model.py",
+          "line_start": 117,
+          "line_end": 152,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/translation_model.py#L117"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/translation_model.py",
+          "line_start": 309,
+          "line_end": 357,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/translation_model.py#L309"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/editorial/translation-runtime.ts",
+          "line_start": 40,
+          "line_end": 140
+        }
+      ],
+      "spec_evidence": [],
+      "behavior": "旧保留结构和各段检查点；新版读取已完成段直接跳过，内容修订不匹配返回 stale，未知回执停止，首次截断可派生子段，完成后再提交完整译文。",
+      "impact": "已成功片段不因恢复整篇重付费；未运行真实模型校验译文准确性与表格/附件语义。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-16",
+      "feature": "付费回执预留、持久返回与未知结果禁止重发",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/model.py",
+          "line_start": 656,
+          "line_end": 740,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/model.py#L656"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/model.py",
+          "line_start": 897,
+          "line_end": 949,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/model.py#L897"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/providers/receipts.ts",
+          "line_start": 429,
+          "line_end": 502
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/runs.ts",
+          "line_start": 144,
+          "line_end": 164
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/05-cost-and-budget.md",
+          "line": 64,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "两版均在请求前登记并复用已知结果；新版 pending 超时转 unknown，单纯时间经过不自动放行，人工确认未计费且版本一致才释放。",
+      "impact": "防止超时、重启、改路由后对结果未知的请求重复收费；账单供应商实时对账未验证。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-17",
+      "feature": "已知无效输出有界重试及备用路由",
+      "result": "intentional_change",
+      "basis": "new_scope_extension",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/model.py",
+          "line_start": 715,
+          "line_end": 740,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/model.py#L715"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/model.py",
+          "line_start": 897,
+          "line_end": 942,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/model.py#L897"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/providers/receipts.ts",
+          "line_start": 517,
+          "line_end": 553
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/providers/model-fallback.ts",
+          "line_start": 46,
+          "line_end": 83
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/providers/model-fallback.ts",
+          "line_start": 109,
+          "line_end": 178
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/05-cost-and-budget.md",
+          "line": 64,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧限次数重试有确切用量的无效输出；新版继续限制次数/冷却，并仅对发送前连接失败或有已结算拒答证明，使用通过质量及来源许可的备用接入一次；unknown 不能回退绕行。",
+      "impact": "路由能力扩大，核心费用未知禁重发边界仍保留；实际供应商回执语义没有实测。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-18",
+      "feature": "取消月度预算硬停，异常熔断与透明用量",
+      "result": "intentional_change",
+      "basis": "owner_approved_product_change",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 694,
+          "line_end": 715,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L694"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 1363,
+          "line_end": 1403,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L1363"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/operations/usage-protection.ts",
+          "line_start": 12,
+          "line_end": 83
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/jobs/content.ts",
+          "line_start": 217,
+          "line_end": 255
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/worker/src/schedules.ts",
+          "line_start": 68,
+          "line_end": 77
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/05-cost-and-budget.md",
+          "line": 7,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        },
+        {
+          "path": "docs/00-decision-ledger.md",
+          "line": 34,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧超预算任务延至下月；新版以服务次数窗口/异常范围暂停付费、等待恢复不耗业务失败次数，并定期发送用量报告与阈值提示。",
+      "impact": "符合不设月度金额上限、按线记账和异常保护的新决定，不应恢复旧月度硬停。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-19",
+      "feature": "失败分类、当前工作优先和业务线公平",
+      "result": "uncertain",
+      "basis": "partly_verified",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 694,
+          "line_end": 730,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L694"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/jobs/content.ts",
+          "line_start": 81,
+          "line_end": 137
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/jobs/content.ts",
+          "line_start": 217,
+          "line_end": 255
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/sources/collect.ts",
+          "line_start": 335,
+          "line_end": 357
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 1140,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "已确认新版等待类不耗尝试、业务错误有上限，实时优先历史、policy 来源轮流分国；但本轮未证明共享服务拥堵时法规＞官方一手＞其他的全链路次序。",
+      "impact": "不能把独立队列等同于所有上游服务的公平性已验收；需要受控积压样本验证。",
+      "confidence": "medium",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-20",
+      "feature": "同事件/后续进展、失败保持独立、人工归组优先",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/event_association.py",
+          "line_start": 309,
+          "line_end": 350,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/event_association.py#L309"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/event_association.py",
+          "line_start": 400,
+          "line_end": 415,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/event_association.py#L400"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/event_association.py",
+          "line_start": 462,
+          "line_end": 548,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/event_association.py#L462"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/events/group.ts",
+          "line_start": 801,
+          "line_end": 954
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/content.ts",
+          "line_start": 274,
+          "line_end": 303
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/events/merge.ts",
+          "line_start": 12,
+          "line_end": 43
+        }
+      ],
+      "spec_evidence": [],
+      "behavior": "旧区分同事件/进展，关联失败不阻止独立阅读；新版区分事实与发展线、同 URL 优先、失败保持独立，提交时复查修订和人工决定，人工拆分防自动重新附着，合并保留旧链接。",
+      "impact": "核心用户结果保留；跨语言真实语料归组质量未验证，不以召回架构差异判遗漏。",
+      "confidence": "medium",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-21",
+      "feature": "人工草稿、发布确认、冲突状态与自动不得覆盖",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 868,
+          "line_end": 929,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L868"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 1083,
+          "line_end": 1142,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L1083"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/content.ts",
+          "line_start": 170,
+          "line_end": 247
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/editorial/manual-revisions.ts",
+          "line_start": 7,
+          "line_end": 31
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 561,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "两版均绑定来源修订、操作版本与原文证据；新版不可变人工稿、草稿与生效稿分离，公开须核对来源/事实和至少12字原文，冲突需10字处理说明；自动结果不写人工正文。",
+      "impact": "人工优先保留；来源修订后依据仍在则 needs_review，依据失效则 conflict，不能当作已人工复核。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-22",
+      "feature": "单篇下架、重跑不得复活",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/store.py",
+          "line_start": 1506,
+          "line_end": 1567,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/store.py#L1506"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/content.ts",
+          "line_start": 103,
+          "line_end": 126
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/publish.ts",
+          "line_start": 207,
+          "line_end": 216
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/publish.ts",
+          "line_start": 275,
+          "line_end": 283
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 567,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧有持久下架，发布过滤仍生效；新版将单篇 visibility 存到人工覆盖并重建公开投影，后续发布仍服从该覆盖，撤回刷新热点有耐久队列。",
+      "impact": "已核单篇机制，未对所有出口与60秒传播进行公网验证；组级能力另见 PIPE-23。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-23",
+      "feature": "事件/发展线/报告独立下架与恢复",
+      "result": "omission",
+      "basis": "legacy_group_withdrawal_and_current_report_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "db/migrations/0013_persistent_withdrawal_membership.up.sql",
+          "line_start": 3,
+          "line_end": 33,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/db/migrations/0013_persistent_withdrawal_membership.up.sql#L3"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "db/migrations/0013_persistent_withdrawal_membership.up.sql",
+          "line_start": 154,
+          "line_end": 183,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/db/migrations/0013_persistent_withdrawal_membership.up.sql#L154"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/admin.ts",
+          "line_start": 229,
+          "line_end": 257
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/content.ts",
+          "line_start": 103,
+          "line_end": 126
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "line_start": 207,
+          "line_end": 220
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 567,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧 main 明确支持 item/event/story 并保存组成员快照、独立叠加下架；新版找到的运营入口只有单篇 visibility、拆分与合并，没有整事件/发展线撤回记录及成员快照。报告独立下架是当前规格另增要求，旧 main 的该 SQL 不支持 report。",
+      "impact": "运营者无法一次撤下存在问题的整组并保证后续重组不复活；也无法独立撤回一份仍含公开文章的报告。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。",
+      "severity": "P1",
+      "reproduction": [
+        "A、B 属于同一发展线 S，先独立下架 A。",
+        "应可对 S 下架并保存 A/B 成员，再恢复 S 后 A 仍独立下架。",
+        "新版只有 content/:id/visibility，逐篇操作只有每篇单一 visibility 值，没有 S 的独立持有记录/成员快照，无法表达上述恢复语义。",
+        "报告仍有公开成员时也没有报告级撤回命令或报告读取撤回判定。"
+      ],
+      "dynamic_reproduction": false
+    },
+    {
+      "id": "PIPE-24",
+      "feature": "日报周报月报选材、归期及漏刊补出",
+      "result": "intentional_change",
+      "basis": "owner_approved_product_change",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/processing.py",
+          "line_start": 593,
+          "line_end": 681,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/processing.py#L593"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/report_store.py",
+          "line_start": 55,
+          "line_end": 88,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/report_store.py#L55"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/reports/compose.ts",
+          "line_start": 53,
+          "line_end": 111
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/reports/compose.ts",
+          "line_start": 205,
+          "line_end": 230
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/worker/src/schedules.ts",
+          "line_start": 44,
+          "line_end": 57
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/00-decision-ledger.md",
+          "line": 91,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        },
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 660,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧报告以期内可读材料归组；新版仅精选非回填、同事实一手优先，再按AIHOT版面与北京时间08:00/周一10:00/月初10:30出刊，每小时补缺期。",
+      "impact": "这是明确产品取舍，不把全部收录内容进入报告当作需保留旧行为；真实运行准点和模型综述质量未验证。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-25",
+      "feature": "新闻报告跟随人工更正并形成修订",
+      "result": "omission",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 1037,
+          "line_end": 1078,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L1037"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/processing.py",
+          "line_start": 530,
+          "line_end": 565,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/processing.py#L530"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/content.ts",
+          "line_start": 241,
+          "line_end": 244
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/reports/compose.ts",
+          "line_start": 205,
+          "line_end": 210
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "line_start": 66,
+          "line_end": 104
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/publication/reports.ts",
+          "line_start": 160,
+          "line_end": 193
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 681,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        },
+        {
+          "path": "docs/01-product/06-content-standards.md",
+          "line": 989,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧人工公开会重建快照并按报告正文变化增加修订；新版人工稿只刷新文章和事件摘要，报告成员仍公开时读取 raw.title/raw.summary，已刊报告 composeDaily 又直接返回，未找到更正传播任务。",
+      "impact": "已更正文章的新事实不会自动修正已刊日报/周月报，报告继续展示旧数字或旧表述；撤回时只隐藏失效内容也未形成所要求的新修订记录。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。",
+      "severity": "P1",
+      "reproduction": [
+        "先刊日报，其中文章 A 的标题为“项目产量为100吨”。",
+        "人工将 A 改为“项目产量更正为10吨”并公开，A 保持 public。",
+        "loadReport 的 availability 只给出可见性等元数据；citationFrom 继续使用报告中的 raw.title/raw.summary。",
+        "再次执行 composeDaily，已存在条目直接返回，不生成更正修订。"
+      ],
+      "dynamic_reproduction": true,
+      "reproduction_evidence": {
+        "method": "从指定版本 reports.ts 提取原 citationFrom 函数体，仅去除函数签名类型，在 Node vm 内用合成输入执行；无导入、数据库或网络。",
+        "stored_report_title": "项目产量为100吨",
+        "synthetic_current_publication_title": "项目产量更正为10吨",
+        "actual_returned_title": "项目产量为100吨",
+        "result": "reproduced"
+      }
+    },
+    {
+      "id": "PIPE-26",
+      "feature": "具名账号、权限撤销、强制改密",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/admin/password_accounts.py",
+          "line_start": 349,
+          "line_end": 407,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/admin/password_accounts.py#L349"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/admin/password_accounts.py",
+          "line_start": 408,
+          "line_end": 519,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/admin/password_accounts.py#L408"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/accounts.ts",
+          "line_start": 82,
+          "line_end": 146
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/account-access.ts",
+          "line_start": 19,
+          "line_end": 53
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/account-login.ts",
+          "line_start": 21,
+          "line_end": 54
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 1194,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧负责人创建/禁用/重置并撤销会话；新版保留，新增独立模型管理能力、版本检查和首次强制改密，账号变更删除其会话；业务写入复核当前权限版本。",
+      "impact": "账户停用/权限撤回结果不依赖旧页面按钮状态；本轮未做浏览器登录、会话抢占或安全扫描。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-27",
+      "feature": "分线运行控制及人工暂停持有者",
+      "result": "intentional_change",
+      "basis": "owner_approved_product_change",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 1336,
+          "line_end": 1363,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L1336"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/worker.py",
+          "line_start": 527,
+          "line_end": 538,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/worker.py#L527"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/operations/lane-controls.ts",
+          "line_start": 33,
+          "line_end": 86
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/operations/lane-controls.ts",
+          "line_start": 119,
+          "line_end": 177
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 820,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧共用 processing_paused；新版新闻/法规、采集/处理/发布、owner/deploy/system 分开，版本变化拒绝旧任务提交，到期只告警、明确恢复才释放本持有者。",
+      "impact": "可暂停新闻而法规继续，部署恢复不覆盖人工暂停；本轮未做多进程竞争动态验证。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-28",
+      "feature": "运行可见性、告警及未送达记录",
+      "result": "intentional_change",
+      "basis": "new_scope_extension",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 1152,
+          "line_end": 1186,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L1152"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/health.py",
+          "line_start": 1,
+          "line_end": 5,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/health.py#L1"
+        },
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/health.py",
+          "line_start": 90,
+          "line_end": 133,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/health.py#L90"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/runs.ts",
+          "line_start": 29,
+          "line_end": 101
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/operations/alerts.ts",
+          "line_start": 1,
+          "line_end": 37
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/operations/alerts.ts",
+          "line_start": 84,
+          "line_end": 125
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/worker/src/schedules.ts",
+          "line_start": 61,
+          "line_end": 77
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/01-product/04-private-operations.md",
+          "line": 977,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧可见异常及进程就绪；新版读取心跳、队列、失败、滞后、未知回执/投递，告警按读者影响分级并记录恢复，出刊缺项区分无合格材料和真实任务失败。",
+      "impact": "运维证据更细，不能把进程健康等同于采集/模型/发布成功；本轮未实际发消息，告警渠道送达仍未核。",
+      "confidence": "medium",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-29",
+      "feature": "反馈收件、私有截图、状态与到期去标识",
+      "result": "preserved",
+      "basis": "legacy_and_spec",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 1187,
+          "line_end": 1294,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L1187"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/operations/feedback.ts",
+          "line_start": 57,
+          "line_end": 83
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/feedback.ts",
+          "line_start": 17,
+          "line_end": 60
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/admin/feedback.ts",
+          "line_start": 82,
+          "line_end": 126
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 710,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "两版支持正文/联系方式/截图/页面与处理状态；新版保留私有读取、增加版本冲突检测、处理完成180天去联系方式及截图，清理失败可续接。",
+      "impact": "反馈业务闭环保留；截图真实文件读取与清理任务线上执行未核，幂等问题另见 PIPE-30。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。"
+    },
+    {
+      "id": "PIPE-30",
+      "feature": "反馈结果未知后的同一提交去重",
+      "result": "omission",
+      "basis": "current_spec_unmet_not_claimed_as_legacy_regression",
+      "old_evidence": [
+        {
+          "repo": "Crhis-CP/global-mining-policy-intelligence",
+          "ref": "65d362407226da856f66477807c5437acf1af27b",
+          "baseline": "main_code",
+          "path": "services/live_pipeline/operations.py",
+          "line_start": 1187,
+          "line_end": 1240,
+          "url": "https://github.com/Crhis-CP/global-mining-policy-intelligence/blob/65d362407226da856f66477807c5437acf1af27b/services/live_pipeline/operations.py#L1187"
+        }
+      ],
+      "new_evidence": [
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/web/app/routes/feedback.tsx",
+          "line_start": 117,
+          "line_end": 135
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "apps/api/src/routes/feedback.ts",
+          "line_start": 42,
+          "line_end": 47
+        },
+        {
+          "repo": "AI-MINE",
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8",
+          "path": "packages/backend/src/operations/feedback.ts",
+          "line_start": 57,
+          "line_end": 83
+        }
+      ],
+      "spec_evidence": [
+        {
+          "path": "docs/02-rules/01-business-rules.md",
+          "line": 710,
+          "ref": "978efa88dbe293053b1fa91915b3cef68d9715d8"
+        }
+      ],
+      "behavior": "旧 main 也没有稳定提交键；新版浏览器/API未传递/读取幂等键，后端每次 INSERT。当前规格明确采用幂等键。",
+      "impact": "数据库已收件但客户端响应丢失时，用户重交会新增重复反馈并再次占用处理工作。",
+      "confidence": "high",
+      "verification_boundary": "代码静态路径核验；未运行数据库集成、真实采集、模型调用或公网验收。",
+      "severity": "P2",
+      "reproduction": [
+        "提交有效反馈，服务器 INSERT 成功后丢弃201响应。",
+        "客户端显示网络错误并保留草稿，用户重试相同内容。",
+        "前后请求没有相同稳定键，第二次再次 INSERT，产生两个反馈ID。"
+      ],
+      "dynamic_reproduction": false
+    }
+  ],
+  "workspace_head_at_final_check": "bfc6a0c18be7918f3bf45c5b45847a7048fbc169",
+  "fixed_ref_verification": "共享 HEAD 后续推进，但本报告引用的新库实现和规格文件相对 978efa88dbe293053b1fa91915b3cef68d9715d8 无差异；对照对象不随 HEAD 变更。"
+}

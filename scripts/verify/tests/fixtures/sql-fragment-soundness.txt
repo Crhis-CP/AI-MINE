@@ -1,0 +1,213 @@
+import type postgres from "postgres";
+import { dbOf } from "./module-db.ts";
+const sql = dbOf("publication");
+type Part = postgres.PendingQuery<postgres.Row[]>;
+type Parts = Part[];
+type MaybePart = Part | number;
+type PromiseView = PromiseLike<postgres.Row[]>;
+type BrandedPart = Part & { readonly marker?: "fragment" };
+
+export function directAlias(value: Part) {
+  return sql`SELECT 1 FROM publications WHERE ${value}`;
+}
+export function directUnion(value: MaybePart) {
+  return sql`SELECT 1 FROM publications WHERE ${value}`;
+}
+export function directArray(value: Parts) {
+  return sql`SELECT 1 FROM publications WHERE ${value}`;
+}
+export function directRecord(value: { part: Part }) {
+  return sql`SELECT 1 FROM publications WHERE ${value}`;
+}
+export function recordMember(value: { part: Part }) {
+  return sql`SELECT 1 FROM publications WHERE ${value.part}`;
+}
+export function directPromiseLike(value: PromiseView) {
+  return sql`SELECT 1 FROM publications WHERE ${value}`;
+}
+export function genericPromiseLike<T extends PromiseView>(value: T) {
+  return sql`SELECT 1 FROM publications WHERE ${value}`;
+}
+export function intersectionQuery(value: BrandedPart) {
+  return sql`SELECT 1 FROM publications WHERE ${value}`;
+}
+export function stringAssertion(value: Part) {
+  return sql`SELECT 1 FROM publications WHERE ${value as unknown as string}`;
+}
+export function anyAssertion(value: Part) {
+  return sql`SELECT 1 FROM publications WHERE ${value as any}`;
+}
+declare function erasedQuery(): PromiseView;
+export function erasedQueryCall() {
+  return sql`SELECT 1 FROM publications WHERE ${erasedQuery()}`;
+}
+function queryAsString(): string {
+  return sql`EXISTS (SELECT 1 FROM receipts)` as unknown as string;
+}
+export function stringReturnCall() {
+  return sql`SELECT 1 FROM publications WHERE ${queryAsString()}`;
+}
+export function mutableTableName() {
+  let table = () => "publications";
+  table = () => "receipts";
+  return sql`SELECT 1 FROM ${sql(table())}`;
+}
+export function mutableRawText() {
+  let statement = () => "SELECT 1 FROM publications";
+  statement = () => "DELETE FROM receipts";
+  return sql.unsafe(statement());
+}
+function anyAsText(value: any): string {
+  return value;
+}
+export function anyReturnProducer(value: any) {
+  return sql`SELECT 1 FROM publications WHERE ${anyAsText(value)}`;
+}
+const aliasedStringProducer = queryAsString;
+export function aliasedErasedProducer() {
+  return sql`SELECT 1 FROM publications WHERE ${aliasedStringProducer()}`;
+}
+const objectStringProducer = { value: queryAsString };
+export function objectErasedProducer() {
+  return sql`SELECT 1 FROM publications WHERE ${objectStringProducer.value()}`;
+}
+export function inlineErasedProducer(value: Part) {
+  return sql`SELECT 1 FROM publications WHERE ${(() => value as unknown as string)()}`;
+}
+export function destructuredErasure(value: { part: Part }) {
+  const { part } = value as unknown as { part: string };
+  return sql`SELECT 1 FROM publications WHERE ${part}`;
+}
+export function reboundScalarParameter(value: Part) {
+  let bound = "safe";
+  bound = value as unknown as string;
+  return sql`SELECT 1 FROM publications WHERE ${bound}`;
+}
+export function reboundRecordParameter(value: Part) {
+  const record = { part: "safe" };
+  record.part = value as unknown as string;
+  return sql`SELECT 1 FROM publications WHERE ${record.part}`;
+}
+export async function awaitedRecordErasure(value: Part) {
+  const record = Promise.resolve({ part: value }) as unknown as Promise<{ part: string }>;
+  return sql`SELECT 1 FROM publications WHERE ${(await record).part}`;
+}
+export function pushedErasedQuery(value: Part) {
+  const values = ["safe"];
+  values.push(value as unknown as string);
+  return sql`SELECT 1 FROM publications WHERE ${values}`;
+}
+export function assignedErasedQuery(value: Part) {
+  const record = { part: "safe" };
+  Object.assign(record, { part: value as unknown as string });
+  return sql`SELECT 1 FROM publications WHERE ${record.part}`;
+}
+
+export function soundnessScalarControl(title: string, id: number, tags: string[]) {
+  return sql`SELECT 1 FROM publications WHERE title = ${title} AND id = ${id} AND tags && ${tags}::text[]`;
+}
+export function soundnessLiteralControl() {
+  return sql`SELECT ${"DELETE FROM receipts"} FROM publications`;
+}
+declare function parseSchema<S>(schema: S, input: unknown): { [K in keyof S]: S[K] extends () => infer V ? V : never };
+const dataSchema = { title: () => "", count: () => 1 };
+export function soundnessMappedDtoControl(input: unknown) {
+  const row = parseSchema(dataSchema, input);
+  return sql`SELECT 1 FROM publications WHERE title = ${row.title} AND id = ${row.count}`;
+}
+declare function declaredMixedDto(input: unknown): { title: string; privateValue: unknown };
+function localMixedDto(privateValue: unknown): { title: string; privateValue: unknown } {
+  return { title: "known", privateValue };
+}
+function localErasedMixedDto(value: Part): { title: string; privateValue: unknown } {
+  return { title: value as unknown as string, privateValue: null };
+}
+export function soundnessDeclaredDtoFieldControl(input: unknown) {
+  const row = declaredMixedDto(input);
+  return sql`SELECT 1 FROM publications WHERE title = ${row.title}`;
+}
+export function soundnessLocalDtoFieldControl(input: unknown) {
+  const row = localMixedDto(input);
+  return sql`SELECT 1 FROM publications WHERE title = ${row.title}`;
+}
+export function selectedUnknownDtoField(input: unknown) {
+  const row = localMixedDto(input);
+  return sql`SELECT 1 FROM publications WHERE ${row.privateValue}`;
+}
+export function selectedErasedDtoField(value: Part) {
+  const row = localErasedMixedDto(value);
+  return sql`SELECT 1 FROM publications WHERE ${row.title}`;
+}
+export function commaErasedParameter(value: Part) {
+  return sql`SELECT 1 FROM publications WHERE ${(0, value as unknown as string)}`;
+}
+export function spreadOverridesSelectedField(value: Part) {
+  const record = { part: "safe", ...{ part: value as unknown as string } };
+  return sql`SELECT 1 FROM publications WHERE ${record.part}`;
+}
+
+type DataRow = { id: number; next: number; config_hash: string; rejected: number; privateValue: unknown };
+async function typedRows() { return await sql<DataRow[]>`SELECT * FROM publications`; }
+async function typedSavedRow() { const [row] = await typedRows(); return row!; }
+export async function soundnessTypedReassignmentControl(flag: boolean) {
+  let draft: DataRow | undefined;
+  if (flag) [draft] = await typedRows();
+  draft ??= await typedSavedRow();
+  return sql`SELECT 1 FROM publications WHERE id = ${draft!.id} AND hash = ${draft?.config_hash ?? null}`;
+}
+function firstTyped<T>(rows: readonly T[]): T {
+  const row = rows[0];
+  if (row === undefined) throw Error("missing");
+  return row;
+}
+export async function soundnessGenericProjectionControl() {
+  const { next } = firstTyped(await typedRows());
+  return sql`SELECT 1 FROM publications WHERE id = ${next}`;
+}
+function normalizedValue(input: string): string | null {
+  let url: URL;
+  try { url = new URL(input.trim()); } catch { return null; }
+  url.hash = "";
+  let value = url.toString();
+  if (value.endsWith("/") && url.pathname !== "/") value = value.slice(0, -1);
+  return value;
+}
+export function soundnessComputedStringControl(input: string) {
+  const value = normalizedValue(input);
+  return sql`SELECT 1 FROM publications WHERE url = ${value}`;
+}
+export function soundnessDtoSelfSpreadControl(query: { source?: string; from?: Date; privateValue?: unknown }) {
+  query = { ...query, from: new Date() };
+  query = { ...query, source: query.source?.trim() };
+  return sql`SELECT 1 FROM publications WHERE source = ${query.source}`;
+}
+async function typedOutcome() {
+  const [row] = await typedRows();
+  return row ? { rejected: Number(row.rejected), privateValue: row.privateValue } : null;
+}
+export async function soundnessAwaitedDtoControl() {
+  const result = await typedOutcome();
+  return sql`SELECT 1 FROM publications WHERE rejected = ${result?.rejected ?? 0}`;
+}
+
+export function computedFieldErased(q: Part) {
+  const r = { ["v"]: q as unknown as string }; return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function spreadFirstErased(q: Part) {
+  const r = [...[q as unknown as string]]; return sql`SELECT 1 FROM publications WHERE ${r[0]}`;
+}
+export function spreadShiftErased(q: Part) {
+  const r = [...["safe",q as unknown as string],"safe"]; return sql`SELECT 1 FROM publications WHERE ${r[1]}`;
+}
+export function constantKeyRebound(q: Part) {
+  const r = {v:"safe"}; const k = "v"; r[k] = q as unknown as string; return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function dynamicKeyRebound(q: Part, k: "v" | "other") {
+  const r = {v:"safe",other:"safe"}; r[k] = q as unknown as string; return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function computedDestructuringErased(q: Part) {
+  const r={v:"safe"}; ({["v"]: r.v}={v:q as unknown as string}); return sql`SELECT 1 FROM publications WHERE ${r.v}`;
+}
+export function soundnessComputedArrayControl() {
+  const r = {["v"]:"safe"}; const a=[...[r.v],"safe"]; return sql`SELECT 1 FROM publications WHERE title=${a[1]}`;
+}
