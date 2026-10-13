@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import time
 import urllib.request
+from release_changelog import retry_pending
 
 APP_NAMES = {"/amp-web-1", "/amp-public-api-1", "/amp-private-api-1", "/amp-worker-1"}
 REPOS = {"amp-app", "amp-release", "amp-rollback", "amp-retained"}
@@ -98,6 +99,8 @@ def execute(args):
     containers, images = inventory()
     result = plan(containers, images, state.get("history", []), args.seed, now)
     result["release"] = health()
+    if args.apply:
+        retry_pending("/opt/aimine", result["release"])
     if args.automatic and state.get("history", [None])[0] == result["current"] and now - state.get("cleaned_at", 0) < 86400:
         print(json.dumps({"status": "unchanged", "release": result["release"]}))
         return

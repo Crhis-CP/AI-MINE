@@ -17,3 +17,7 @@ timer每15分钟检查：四个应用服务必须运行同一镜像，数据库�
 离线检查：`python3 -B -m unittest discover -s deploy -p test_release_retention.py`。生产验收只做真实维护及只读读回，禁止拿生产主机运行测试或verify。
 
 首次盘点发现现役镜像登记缺失且四个服务有历史代码热补丁。先按内容hash恢复原始程序镜像，另存四个服务的程序目录快照及清单；不使用`docker commit`封存运行时环境。恢复资料保存在`/opt/aimine-backup/program-retention-20261012`，自动清理器不会触碰该目录；恢复现役行为时还需逐服务恢复相应程序快照，不把基础镜像等同热补丁后的完整行为。
+
+2026-10-13补齐每次发布流程：`deploy/production-release.sh` 接收已完整验证的 SHA、归档及其 SHA-256，全程持同一发布锁，备份后切换并检查网站。健康后在 `.ops/changelog-pending.json` 保存实际上线时间，再由 worker 的 `scripts/register-release-notes.ts` 登记读者更新；同版本重试不重复，失败不会触发网站回滚。维护器每次合格检查先补记，再判断是否需要清理；下一版本切换前必须处理上一版本的待补记。
+
+维护器旁同时安装 `release_changelog.py`。持久更新记录使用现有 data 卷下 `site/release-notes.json` 原子替换，保留 AIHOT 静态历史读取方式，无新增业务数据库表；公开站每次读取合并结果，无需再次重启。发布说明以 `industry/release-note.json` 中读者文字为准并引用产品片段；`product-update` 门禁检查枚举、标题、要点及可见变更是否更新了实际登记文字。纯维护版本重复沿用说明时自动登记“例行维护”。不把内容采集任务记成软件发布。

@@ -20,3 +20,6 @@ fontsource-noto-sans-sc-*.tgz
 .verify/
 # Pinned tool binaries downloaded by scripts/verify (checksum-verified)
 .tools/
+
+# Private runtime credentials must never enter Git or a shared application image.
+.credentials

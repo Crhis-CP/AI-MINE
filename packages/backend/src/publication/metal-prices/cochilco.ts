@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { load } from "cheerio";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { guardedFetch } from "../../lib/http-fetch.ts";
+import { fetchCochilco } from "./relay.ts";
 import { type MetalPriceRegistry, onSourceHost } from "./registry.ts";
 import type { FetchedPeriod, Fetcher, PageGetter } from "./types.ts";
 
@@ -92,7 +92,7 @@ export function cochilcoPeriod(registry: MetalPriceRegistry, day: string, url: s
   return one;
 }
 
-export function cochilcoFetcher(registry: MetalPriceRegistry, get: PageGetter = guardedFetch): Fetcher {
+export function cochilcoFetcher(registry: MetalPriceRegistry, get: PageGetter = fetchCochilco): Fetcher {
   return {
     sourceKeys: ["cochilco"],
     async fetch(newest) {

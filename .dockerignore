@@ -16,3 +16,6 @@ docs
 tasks
 changes
 upstream
+
+# Private runtime credentials must never enter Git or a shared application image.
+.credentials

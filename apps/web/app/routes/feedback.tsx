@@ -211,14 +211,6 @@ export default function FeedbackPage() {
         className={`card mt-6 overflow-hidden transition-shadow ${dragging ? "shadow-[0_0_0_3px_var(--accent-soft)] ring-1 ring-accent" : ""}`}
       >
         <div className="space-y-5 p-5 sm:p-6">
-          {draft.pageUrl && (
-            <div>
-              <label htmlFor="fb-page" className={label}>
-                关联页面
-              </label>
-              <input id="fb-page" readOnly value={draft.pageUrl} className={`${field} h-11 px-4 text-[13px]`} />
-            </div>
-          )}
           <div>
             <label htmlFor="fb-content" className={label}>
               想说点什么？
