@@ -3683,6 +3683,7 @@
       },
       "tier": "T2",
       "first_party": true,
+      "owner_entity_id": "ivanhoe",
       "interval_minutes": 60,
       "tags": ["CA"],
       "participation_mode": "editorial",
@@ -3768,7 +3769,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-cmoc",
@@ -3799,7 +3800,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-jiangxi-copper",
@@ -3831,7 +3832,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-minmetals",
@@ -3861,7 +3862,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mmg",
@@ -3892,7 +3893,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ganfeng",
@@ -3923,7 +3924,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-huayou",
@@ -3954,7 +3955,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-rio-tinto",
@@ -3986,7 +3987,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-vale",
@@ -4020,7 +4021,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-freeport",
@@ -4054,7 +4055,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-codelco",
@@ -4085,7 +4086,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-first-quantum",
@@ -4115,7 +4116,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-albemarle",
@@ -4146,7 +4147,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-equinox-gold",
@@ -4174,7 +4175,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-harmony",
@@ -4202,7 +4203,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-implats",
@@ -4234,7 +4235,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-african-rainbow-minerals",
@@ -4266,7 +4267,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-northam",
@@ -4294,7 +4295,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-drdgold",
@@ -4322,7 +4323,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-teck",
@@ -4354,7 +4355,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-lundin-mining",
@@ -4385,7 +4386,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-aurubis",
@@ -4416,7 +4417,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-trekor-metals",
@@ -4447,7 +4448,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-capstone-copper",
@@ -4475,7 +4476,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-kazakhmys",
@@ -4506,7 +4507,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-polyus",
@@ -4537,7 +4538,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-kghm",
@@ -4568,7 +4569,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-kaz-minerals",
@@ -4596,7 +4597,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-pan-american-silver",
@@ -4627,7 +4628,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-first-majestic",
@@ -4658,7 +4659,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-silvercorp",
@@ -4690,7 +4691,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-abrasilver",
@@ -4721,7 +4722,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-new-pacific",
@@ -4748,7 +4749,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-fortescue",
@@ -4782,7 +4783,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mineral-resources",
@@ -4813,7 +4814,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-cleveland-cliffs",
@@ -4843,7 +4844,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-aya-gold-silver",
@@ -4874,7 +4875,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-liontown",
@@ -4905,7 +4906,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-century-lithium",
@@ -4936,7 +4937,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-lundin-gold",
@@ -4967,7 +4968,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-artemis-gold",
@@ -5001,7 +5002,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-northern-star",
@@ -5032,7 +5033,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-evolution-mining",
@@ -5059,7 +5060,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-resolute-mining",
@@ -5092,7 +5093,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-dpm-metals",
@@ -5126,7 +5127,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-trilogy-metals",
@@ -5156,7 +5157,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-solaris-resources",
@@ -5188,7 +5189,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-alkane",
@@ -5215,7 +5216,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-silver-tiger",
@@ -5246,7 +5247,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-endeavour-mining",
@@ -5277,7 +5278,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-jinchuan",
@@ -5308,7 +5309,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-cnmc",
@@ -5345,7 +5346,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-gold-royalty",
@@ -5377,7 +5378,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-zhaojin",
@@ -5408,7 +5409,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-nonfemet",
@@ -5444,7 +5445,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-yunnan-tin",
@@ -5475,7 +5476,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-eramet",
@@ -5506,7 +5507,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-nornickel",
@@ -5539,7 +5540,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-merdeka",
@@ -5569,7 +5570,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-arafura",
@@ -5601,7 +5602,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-energy-fuels",
@@ -5631,7 +5632,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-championiron",
@@ -5658,7 +5659,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-chinagoldgroup",
@@ -5694,7 +5695,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-cxtc",
@@ -5723,7 +5724,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-gem",
@@ -5755,7 +5756,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-hydro",
@@ -5787,7 +5788,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-igo",
@@ -5832,7 +5833,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-k92mining",
@@ -5863,7 +5864,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-qhyhgf",
@@ -5894,7 +5895,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-tronox",
@@ -5922,7 +5923,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-sigmalithiumresources",
@@ -5950,7 +5951,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-torexgold",
@@ -5983,7 +5984,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sup-20261014-oceanagold",
@@ -6015,7 +6016,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sup-20261014-ivanhoe-electric",
@@ -6054,7 +6055,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sup-20261014-cfgold",
@@ -6087,7 +6088,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "sup-20261014-ngex",
@@ -6119,7 +6120,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining-technology",
@@ -6147,7 +6148,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-international-mining",
@@ -6175,7 +6176,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-northern-miner",
@@ -6207,7 +6208,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-canadian-mining-journal",
@@ -6238,7 +6239,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-australian-mining",
@@ -6266,7 +6267,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-global-mining-review",
@@ -6297,7 +6298,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-australian-mining-review",
@@ -6325,7 +6326,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining-zimbabwe",
@@ -6357,7 +6358,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-miningmx",
@@ -6385,7 +6386,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-african-mining-market",
@@ -6414,7 +6415,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining-connection",
@@ -6448,7 +6449,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-energiminas",
@@ -6476,7 +6477,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mineria-chilena",
@@ -6504,7 +6505,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mineria-desarrollo",
@@ -6532,7 +6533,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining-press",
@@ -6566,7 +6567,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mineria-en-linea",
@@ -6594,7 +6595,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-reporte-minero",
@@ -6625,7 +6626,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-portal-minero",
@@ -6653,7 +6654,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-panorama-minero",
@@ -6679,7 +6680,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mineria-panamericana",
@@ -6701,7 +6702,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-dipromin",
@@ -6723,7 +6724,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-minerandina",
@@ -6745,7 +6746,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-antaike",
@@ -6778,7 +6779,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-fastmarkets",
@@ -6809,7 +6810,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-cru",
@@ -6839,7 +6840,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-benchmark-minerals",
@@ -6869,7 +6870,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-kitco-news",
@@ -6902,7 +6903,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-smm",
@@ -6949,7 +6950,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mysteel",
@@ -6982,7 +6983,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-at-minerals",
@@ -7008,7 +7009,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-resource-world",
@@ -7031,7 +7032,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-australian-resources-investment",
@@ -7053,7 +7054,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining-life",
@@ -7084,7 +7085,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-proactivo",
@@ -7106,7 +7107,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-outlet-minero",
@@ -7128,7 +7129,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining-metal-news",
@@ -7162,7 +7163,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mineria-sustentable",
@@ -7195,7 +7196,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-petromindo",
@@ -7228,7 +7229,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-mongolianminingjournal",
@@ -7257,7 +7258,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-nuevamineria",
@@ -7289,7 +7290,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-theassay",
@@ -7311,7 +7312,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-investingnews",
@@ -7343,7 +7344,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-world-gold-council",
@@ -7374,7 +7375,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-cobalt-institute",
@@ -7406,7 +7407,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-international-tin",
@@ -7433,7 +7434,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-imoa",
@@ -7465,7 +7466,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-wpic-platinum",
@@ -7497,7 +7498,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-international-aluminium",
@@ -7524,7 +7525,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-european-metals",
@@ -7551,7 +7552,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining-association-canada",
@@ -7578,7 +7579,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-minerals-council-australia",
@@ -7610,7 +7611,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ame-bc",
@@ -7645,7 +7646,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-nma",
@@ -7675,7 +7676,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ausimm",
@@ -7710,7 +7711,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-cim",
@@ -7745,7 +7746,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-saimm",
@@ -7772,7 +7773,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-sonami",
@@ -7799,7 +7800,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-iimp",
@@ -7830,7 +7831,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-snmpe",
@@ -7862,7 +7863,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ibram",
@@ -7890,7 +7891,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-acm-colombia",
@@ -7919,7 +7920,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-silver-institute",
@@ -7947,7 +7948,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ilia",
@@ -7976,7 +7977,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-icmm",
@@ -8015,7 +8016,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-caem",
@@ -8043,7 +8044,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-icsg",
@@ -8081,7 +8082,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-euromines",
@@ -8109,7 +8110,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-chinamining",
@@ -8147,7 +8148,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-zambia-chamber",
@@ -8175,7 +8176,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-metso",
@@ -8206,7 +8207,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-sandvik",
@@ -8234,7 +8235,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-komatsu",
@@ -8268,7 +8269,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-maptek",
@@ -8300,7 +8301,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ausenco",
@@ -8334,7 +8335,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ilzsg",
@@ -8365,7 +8366,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-irma",
@@ -8394,7 +8395,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-rmi",
@@ -8427,7 +8428,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-crirsco",
@@ -8455,7 +8456,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-mining3",
@@ -8483,7 +8484,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "exp-20261014-ceec",
@@ -8523,7 +8524,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-ac-rei",
@@ -8556,7 +8557,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-cngold",
@@ -8587,7 +8588,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-dynonobel",
@@ -8618,7 +8619,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-liebherr",
@@ -8652,7 +8653,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-micromine",
@@ -8674,7 +8675,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-normet",
@@ -8700,7 +8701,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-seequent",
@@ -8725,7 +8726,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-weir",
@@ -8757,7 +8758,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-wencomine",
@@ -8788,7 +8789,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-amq-inc",
@@ -8820,7 +8821,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-chamberofmines",
@@ -8845,7 +8846,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-consejominero",
@@ -8867,7 +8868,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-copperalliance",
@@ -8898,7 +8899,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-dataminesoftware",
@@ -8920,7 +8921,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-ila-lead",
@@ -8942,7 +8943,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     },
     {
       "id": "rpl-rpmglobal",
@@ -8964,7 +8965,7 @@
       "tags": [],
       "site_fulltext": false,
       "syndicate_fulltext": false,
-      "enabled": false
+      "enabled": true
     }
   ]
 }
