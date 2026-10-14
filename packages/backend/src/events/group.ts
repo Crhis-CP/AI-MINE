@@ -149,7 +149,7 @@ const RECALL_TOP_FACTS = 10;
 const CONFIRM_BELOW_COSINE = 0.85;
 /** Discussion posts are judged only against clear candidates, and attach without a call when nearly identical. */
 const SIGNAL_MIN_COSINE = 0.72;
-const SIGNAL_TOP_FACTS = 3;
+const SIGNAL_TOP_FACTS = 4;
 
 interface ArticleRow {
   id: string;
@@ -1082,7 +1082,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     const fact = factId ?? (await createFact(tx, story, newTitle, frame, observedAt));
     const [hasPrimary] = await tx<{ n: number }[]>`SELECT count(*) AS n FROM fact_articles WHERE fact_id = ${fact} AND role = 'primary'`;
     const role = a.first_party && Number(hasPrimary?.n ?? 0) === 0 ? "primary" : "report";
-    // The public event title follows the first official report (BR-EVT-06), not whichever reprint arrived first.
+    // The public event title follows the first official report, not whichever reprint arrived first.
     if (role === "primary" && factId) {
       await tx`UPDATE stories SET title = ${newTitle}, updated_at = now() WHERE id = ${story} AND origin <> 'manual'`;
       await tx`UPDATE facts SET title = ${newTitle} WHERE id = ${fact}`;

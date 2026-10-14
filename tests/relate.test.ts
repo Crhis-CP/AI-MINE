@@ -23,19 +23,36 @@ const evidence: RelationEvidence = {
   candidateStage: "approved",
   change: "",
 };
-test("event relationship requires confidence and current bilateral raw evidence", () => {
+test("event relationship keeps a confident same event and splits conflicts", () => {
   const v = { relation: "SAME_OCCURRENCE" as const, confidence: 0.95, evidence };
   assert.equal(validatedRelation(a, b, v), "SAME_OCCURRENCE");
+  assert.equal(validatedRelation(a, b, { ...v, evidence: null }), "SAME_OCCURRENCE", "a paraphrase without a boxed quote still joins");
+  assert.equal(
+    validatedRelation(a, b, { ...v, evidence: { ...evidence, queryQuote: "a wording the original does not contain verbatim" } }),
+    "SAME_OCCURRENCE",
+    "the quote does not have to be a verbatim slice of both originals",
+  );
   for (const bad of [
     { ...v, confidence: 0 },
-    { ...v, evidence: null },
-    { ...v, evidence: { ...evidence, queryQuote: "invented quotation" } },
     { ...v, evidence: { ...evidence, queryStage: "proposed" as const } },
   ])
     assert.equal(validatedRelation(a, b, bad), "UNRELATED");
   assert.equal(validatedRelation(a, { ...b, jurisdiction: "CL" }, v), "UNRELATED");
+  assert.equal(validatedRelation(a, { ...b, jurisdiction: "CN-AH" }, { ...v }), "UNRELATED", "a Chinese province is not Argentina");
   assert.equal(validatedRelation(a, { ...b, frame: { object: "Beta project" } }, v), "UNRELATED");
-  assert.equal(validatedRelation(a, b, { ...v, relation: "SAME_STORY" }), "UNRELATED");
+  assert.equal(validatedRelation(a, b, { ...v, relation: "SAME_STORY" }), "SAME_OCCURRENCE", "a reprint labeled as a development still joins the same event");
+  assert.equal(
+    validatedRelation(
+      { ...a, at: new Date("2026-10-12"), originalText: "Argentina Alpha project approved 80 tonnes." },
+      { ...b, originalText: "Argentina Alpha project approved 10 tonnes." },
+      {
+        relation: "SAME_STORY",
+        confidence: 0.9,
+        evidence: { ...evidence, queryQuote: "approved 80", candidateQuote: "approved 10", queryAction: "扩大", change: "产能提高" },
+      },
+    ),
+    "SAME_STORY",
+  );
 });
 function reprint(over: Partial<ReportView> & { originalText: string }): ReportView {
   return {
@@ -189,18 +206,60 @@ test("one policy or one speech stays one occurrence when outlets word it differe
   );
   assert.equal(validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB, jurisdiction: "CL" }), catalog), "UNRELATED");
   assert.equal(
+    validatedRelation(
+      reprint({ originalText: catalogA, jurisdiction: "CN", frame: { subject: "自然资源部", action: "公布", object: "矿产资源目录" } }),
+      reprint({ originalText: catalogB, jurisdiction: "CN-AH", frame: { subject: "安徽省自然资源厅", action: "印发", object: "《矿产资源目录》" } }),
+      { ...catalog, evidence: { ...catalog.evidence, queryAction: "公布", candidateAction: "印发" } },
+    ),
+    "SAME_OCCURRENCE",
+    "a province and the country are one country, and 印发 is the same announcement",
+  );
+  assert.equal(
+    validatedRelation(reprint({ originalText: catalogA, jurisdiction: "CN" }), reprint({ originalText: catalogB, jurisdiction: "中国" }), catalog),
+    "SAME_OCCURRENCE",
+    "中国 and CN name the same country",
+  );
+  assert.equal(
     validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB }), {
       ...catalog,
       evidence: { ...catalog.evidence, queryStage: "approved", candidateStage: "proposed" },
     }),
     "UNRELATED",
+    "proposed and approved stay apart",
+  );
+  assert.equal(
+    validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB }), {
+      ...catalog,
+      evidence: { ...catalog.evidence, queryStage: "stopped", candidateStage: "resumed" },
+    }),
+    "UNRELATED",
+    "stopped and resumed stay apart",
+  );
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: "原文只写了已经批准，没有停产。", frame: { object: "矿产资源目录" } }),
+      reprint({ originalText: "原文只写了尚在拟议，没有复产。", frame: { object: "矿产资源目录" } }),
+      {
+        ...catalog,
+        evidence: {
+          ...catalog.evidence,
+          queryQuote: "已经批准",
+          candidateQuote: "尚在拟议",
+          queryStage: "other",
+          candidateStage: "other",
+        },
+      },
+    ),
+    "UNRELATED",
+    "opposite stages written in the originals stay apart even when the model marks both as other",
   );
   assert.equal(
     validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB }), {
       ...catalog,
       evidence: { ...catalog.evidence, queryQuote: "这是一句不在原文里的编造引文" },
     }),
-    "UNRELATED",
+    "SAME_OCCURRENCE",
+    "a non-verbatim paraphrase of the same document still joins",
   );
 });
 

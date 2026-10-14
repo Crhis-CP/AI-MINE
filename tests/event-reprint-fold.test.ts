@@ -10,6 +10,7 @@ import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle } from "@amp/backend/events/group";
+import { loadHotStrip } from "@amp/backend/events/hot-read";
 import { computeHotRanking } from "@amp/backend/events/hot";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
@@ -24,8 +25,22 @@ const provider = await stub(async (_hit, req) => {
   const user = body.messages[1]!.content;
   const pair = user.includes("报道 A");
   const quotes = [...user.matchAll(/原文证据：([\s\S]*?)\n法域：/g)].map((m) => m[1]!.split("\n").at(-1)!);
-  const anchorOf = (line: string) => (line.includes("矿产资源目录") ? "矿产资源目录" : line.includes("中非矿业合作") ? "中非矿业合作" : "");
-  const verb = (line: string) => (line.includes("公布") ? "公布" : line.includes("发布") ? "发布" : line.includes("提出") ? "提出" : "报道");
+  const anchorOf = (line: string) =>
+    line.includes("矿产资源目录")
+      ? "矿产资源目录"
+      : line.includes("中非矿业合作")
+        ? "中非矿业合作"
+        : line.includes("某铜矿")
+          ? "某铜矿"
+          : line.includes("加达锂矿")
+            ? "加达锂矿"
+            : line.includes("试验文书甲")
+              ? "试验文书甲"
+              : "";
+  const verb = (line: string) =>
+    line.includes("公布") ? "公布" : line.includes("发布") ? "发布" : line.includes("印发") ? "印发" : line.includes("提出") ? "提出" : "报道";
+  const stageOf = (line: string) =>
+    line.includes("拟议") ? "proposed" : line.includes("批准") ? "approved" : line.includes("停产") ? "stopped" : line.includes("复产") ? "resumed" : "other";
   const evidence = (index: number) => {
     const query = quotes[0] ?? "";
     const candidate = quotes[index] ?? "";
@@ -36,8 +51,8 @@ const provider = await stub(async (_hit, req) => {
       anchor: shared || "没有共同锚点",
       queryAction: verb(query),
       candidateAction: verb(candidate),
-      queryStage: "other" as const,
-      candidateStage: "other" as const,
+      queryStage: stageOf(query),
+      candidateStage: stageOf(candidate),
       change: "",
     };
   };
@@ -136,20 +151,108 @@ test("reprints of one policy and one speech fold into one featured item with sta
   assert.equal(place(speechOfficial), "CN");
   assert.equal(place(lone), null);
 
+  const catalogProvince = await article({
+    key: "catalog-province",
+    name: "安徽省自然资源厅",
+    firstParty: true,
+    country: "CN-AH",
+    mention: "安徽",
+    score: 61,
+    title: "安徽印发矿产资源目录转发通知",
+    summary: "安徽省转发优化调整后的矿产资源目录。",
+    body: "安徽省自然资源厅印发矿产资源目录通知",
+    frame: { subject: "安徽省自然资源厅", action: "印发", object: "矿产资源目录" },
+    publishedAt: new Date(now - 35 * 60_000),
+  });
+  const speechProvince = await article({
+    key: "speech-province",
+    name: "福建省自然资源厅",
+    firstParty: false,
+    country: "CN-FJ",
+    mention: "福建",
+    selected: false,
+    score: 36,
+    title: "福建转述中非矿业合作4点主张",
+    summary: "福建省转述中非矿业合作的4点主张。",
+    body: "福建省自然资源厅转述中非矿业合作提出4点主张",
+    frame: { subject: "福建省自然资源厅", action: "提出", object: "中非矿业合作4点主张" },
+    publishedAt: new Date(now - 15 * 60_000),
+  });
+  const speechChile = await article({
+    key: "speech-chile",
+    name: "智利矿政简报",
+    firstParty: false,
+    country: "CL",
+    mention: "智利",
+    score: 70,
+    title: "智利媒体编译中非矿业合作4点主张",
+    summary: "智利媒体编译了中非矿业合作的4点主张。",
+    body: "智利媒体编译中非矿业合作提出4点主张",
+    frame: { subject: "智利矿政简报", action: "提出", object: "中非矿业合作4点主张" },
+    publishedAt: new Date(now - 12 * 60_000),
+  });
+  const copperProposed = await article({
+    key: "copper-proposed",
+    name: "西部矿业公司",
+    firstParty: true,
+    country: "CN",
+    score: 66,
+    title: "西部矿业拟议开发某铜矿",
+    summary: "某铜矿仍在拟议阶段。",
+    body: "中国西部矿业拟议开发某铜矿",
+    frame: { subject: "西部矿业公司", action: "拟议", object: "某铜矿" },
+    publishedAt: new Date(now - 8 * 60_000),
+  });
+  const copperApproved = await article({
+    key: "copper-approved",
+    name: "西部矿业公司",
+    firstParty: true,
+    country: "CN",
+    score: 80,
+    title: "西部矿业某铜矿获得批准",
+    summary: "某铜矿已获批准。",
+    body: "中国西部矿业某铜矿获得批准",
+    frame: { subject: "西部矿业公司", action: "批准", object: "某铜矿" },
+    publishedAt: new Date(now - 6 * 60_000),
+  });
+
   assert.equal((await groupArticle(catalogReprint)).verdict, "new-story");
   assert.equal((await groupArticle(catalogOfficial)).verdict, "same-fact");
+  assert.equal((await groupArticle(catalogProvince)).verdict, "same-fact");
   assert.equal((await groupArticle(speechReprint)).verdict, "new-story");
   assert.equal((await groupArticle(speechOfficial)).verdict, "same-fact");
+  assert.equal((await groupArticle(speechProvince)).verdict, "same-fact");
+  assert.equal((await groupArticle(speechChile)).verdict, "new-story");
   assert.equal((await groupArticle(lone)).verdict, "new-story");
+  assert.equal((await groupArticle(copperProposed)).verdict, "new-story");
+  assert.equal((await groupArticle(copperApproved)).verdict, "new-story");
 
+  const tracked = [
+    catalogReprint,
+    catalogOfficial,
+    catalogProvince,
+    speechReprint,
+    speechOfficial,
+    speechProvince,
+    speechChile,
+    lone,
+    copperProposed,
+    copperApproved,
+  ];
   const rows = await sql<{ article_id: string; story_id: number; title: string }[]>`
     SELECT p.article_id, p.story_id, st.title FROM publications p JOIN stories st ON st.id = p.story_id
-    WHERE p.article_id IN ${sql([catalogReprint, catalogOfficial, speechReprint, speechOfficial, lone])}`;
+    WHERE p.article_id IN ${sql(tracked)}`;
   const storyOf = (id: string) => Number(rows.find((r) => r.article_id === id)!.story_id);
   assert.equal(storyOf(catalogReprint), storyOf(catalogOfficial));
   assert.equal(storyOf(speechReprint), storyOf(speechOfficial));
   assert.notEqual(storyOf(catalogOfficial), storyOf(speechOfficial));
+  assert.equal(storyOf(catalogProvince), storyOf(catalogOfficial));
+  assert.equal(storyOf(speechProvince), storyOf(speechOfficial));
+  assert.notEqual(storyOf(speechChile), storyOf(speechOfficial));
   assert.notEqual(storyOf(lone), storyOf(catalogOfficial));
+  assert.notEqual(storyOf(lone), storyOf(copperProposed));
+  assert.notEqual(storyOf(copperProposed), storyOf(copperApproved));
+  assert.notEqual(storyOf(copperApproved), storyOf(catalogOfficial));
   assert.equal(rows.find((r) => r.article_id === catalogOfficial)!.title, "自然资源部会同国家发展改革委公布优化调整后的《矿产资源目录》");
   assert.equal(rows.find((r) => r.article_id === speechOfficial)!.title, "习近平就推动中非矿业合作提出4点主张");
 
@@ -173,16 +276,24 @@ test("reprints of one policy and one speech fold into one featured item with sta
   const hot = new Map(stored!.entries.map((entry) => [Number(entry.storyId), entry]));
   const catalogHot = hot.get(storyOf(catalogOfficial));
   const speechHot = hot.get(storyOf(speechOfficial));
-  assert.ok(catalogHot && catalogHot.participantCount === 2 && catalogHot.heat >= 15, "两家来源的目录热度应高于单篇入选线");
-  assert.ok(speechHot && speechHot.participantCount === 2 && speechHot.heat >= 15, "两家来源的讲话热度应高于单篇入选线");
+  assert.ok(catalogHot && catalogHot.participantCount >= 2 && catalogHot.heat >= 15, "多家来源的目录热度应高于单篇入选线");
+  assert.ok(speechHot && speechHot.participantCount >= 2 && speechHot.heat >= 15, "多家来源的讲话热度应高于单篇入选线");
   assert.equal(hot.has(storyOf(lone)), false);
+
+  const strip = await loadHotStrip();
+  const stripTitles = (strip ?? []).map((entry) => entry.title);
+  assert.ok(stripTitles.includes("自然资源部会同国家发展改革委公布优化调整后的《矿产资源目录》"), "两家以上来源的目录出现在首页热点榜");
+  assert.ok(stripTitles.includes("习近平就推动中非矿业合作提出4点主张"), "两家以上来源的讲话出现在首页热点榜");
+  assert.equal(stripTitles.includes("四川加达锂矿新增氧化锂资源量42.37万吨"), false, "只有一家来源的矿项目不上首页热点榜");
+  assert.ok((strip ?? []).every((entry) => entry.heat > 0));
 });
 
 async function article(input: {
   key: string;
   name: string;
   firstParty: boolean;
-  country?: boolean;
+  country?: boolean | string;
+  mention?: string;
   selected?: boolean;
   score: number;
   title: string;
@@ -207,18 +318,19 @@ async function article(input: {
     via: "fetch",
     publishedAt: input.publishedAt,
   });
-  const geography =
-    input.country === true
-      ? validateGeography(
-          {
-            status: "identified",
-            primary: "CN",
-            assignments: [{ code: "CN", role: "event_location", mention: "中国", segment: "body_head", quote: input.body }],
-            reason: "合成地理证据",
-          },
-          { title: input.title, bodyText: input.body, excerpt: null, bodyStatus: "ok" },
-        )
-      : null;
+  const country = input.country === true ? "CN" : typeof input.country === "string" ? input.country : null;
+  const mention = input.mention ?? "中国";
+  const geography = country
+    ? validateGeography(
+        {
+          status: "identified",
+          primary: country,
+          assignments: [{ code: country, role: "event_location", mention, segment: "body_head", quote: input.body }],
+          reason: "合成地理证据",
+        },
+        { title: input.title, bodyText: input.body, excerpt: null, bodyStatus: "ok" },
+      )
+    : null;
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
     VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${input.title}, ${input.summary}, ${input.score}, ${input.selected !== false}, ${scopeVersion}, ${[await scopeReceipt(articleId)]},
       ${sql.json({ ...scopeOutput, fact: { title: input.title, ...input.frame }, ...(geography ? { geography } : {}) })})`;
