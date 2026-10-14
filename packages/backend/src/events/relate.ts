@@ -139,13 +139,12 @@ function oppositeStage(left: string | null | undefined, right: string | null | u
 }
 
 /**
- * The model decides whether two reports are one real event. The program only rejects a confident
- * same-event answer when the two sides are different projects, opposite stages, or different countries.
- * A missing country, a province of that country, a paraphrase, or 公布/发布/印发 does not split them.
+ * The model decides whether two reports are one real event. The program only rejects that answer
+ * when the two sides are different projects, opposite stages, or different countries. A low
+ * confidence, a missing country, a province of that country, a paraphrase, or 公布/发布/印发 does not split them.
  */
 export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
   if (verdict.relation !== "SAME_OCCURRENCE" && verdict.relation !== "SAME_STORY") return verdict.relation;
-  if (verdict.confidence < 0.8) return "UNRELATED";
   if (jurisdictionsConflict(a.jurisdiction, b.jurisdiction)) return "UNRELATED";
   if (!sameName(a.frame?.object, b.frame?.object)) return "UNRELATED";
   const e = verdict.evidence;
@@ -259,17 +258,13 @@ export function verdictsByFact(
 /** Candidates the model calls the same occurrence, most confident first (recall similarity breaks ties). */
 export function sameOccurrence(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView[] {
   return cands
-    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE" && verdicts.get(c.factId)!.confidence >= 0.8)
+    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE")
     .sort((a, b) => verdicts.get(b.factId)!.confidence - verdicts.get(a.factId)!.confidence || b.score - a.score);
 }
 
 /** The story a development joins: the most similar candidate that is its story's root occurrence. */
 export function storyForDevelopment(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView | null {
-  return (
-    cands
-      .filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY" && verdicts.get(c.factId)!.confidence >= 0.8)
-      .sort((a, b) => b.score - a.score)[0] ?? null
-  );
+  return cands.filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY").sort((a, b) => b.score - a.score)[0] ?? null;
 }
 
 export function looksLikeRoundup(cands: CandidateView[], verdicts: Map<number, Verdict>): boolean {

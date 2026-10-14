@@ -32,11 +32,8 @@ test("event relationship keeps a confident same event and splits conflicts", () 
     "SAME_OCCURRENCE",
     "the quote does not have to be a verbatim slice of both originals",
   );
-  for (const bad of [
-    { ...v, confidence: 0 },
-    { ...v, evidence: { ...evidence, queryStage: "proposed" as const } },
-  ])
-    assert.equal(validatedRelation(a, b, bad), "UNRELATED");
+  assert.equal(validatedRelation(a, b, { ...v, confidence: 0 }), "SAME_OCCURRENCE", "a same-event answer joins even when confidence is low");
+  assert.equal(validatedRelation(a, b, { ...v, evidence: { ...evidence, queryStage: "proposed" as const } }), "UNRELATED");
   assert.equal(validatedRelation(a, { ...b, jurisdiction: "CL" }, v), "UNRELATED");
   assert.equal(validatedRelation(a, { ...b, jurisdiction: "CN-AH" }, { ...v }), "UNRELATED", "a Chinese province is not Argentina");
   assert.equal(validatedRelation(a, { ...b, frame: { object: "Beta project" } }, v), "UNRELATED");
@@ -263,8 +260,12 @@ test("one policy or one speech stays one occurrence when outlets word it differe
   );
 });
 
-test("low confidence cannot enter occurrence or development through a secondary path", () => {
+test("a same-event answer joins even when confidence is below the old 0.8 bar", () => {
   const c = { factId: 1, storyId: 1, factTitle: "A", members: 2, storyRoot: true, score: 1, report: b };
-  assert.deepEqual(sameOccurrence([c], new Map([[1, { relation: "SAME_OCCURRENCE", confidence: 0, note: "" }]])), []);
-  assert.equal(storyForDevelopment([c], new Map([[1, { relation: "SAME_STORY", confidence: 0, note: "" }]])), null);
+  assert.deepEqual(
+    sameOccurrence([c], new Map([[1, { relation: "SAME_OCCURRENCE", confidence: 0.7, note: "" }]])).map((item) => item.factId),
+    [1],
+  );
+  assert.equal(storyForDevelopment([c], new Map([[1, { relation: "SAME_STORY", confidence: 0.7, note: "" }]]))?.factId, 1);
+  assert.deepEqual(sameOccurrence([c], new Map([[1, { relation: "UNRELATED", confidence: 0.99, note: "" }]])), []);
 });

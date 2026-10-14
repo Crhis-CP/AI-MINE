@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { groupArticle } from "@amp/backend/events/group";
+import { groupArticle, replayStoredRelations } from "@amp/backend/events/group";
 import { loadHotStrip } from "@amp/backend/events/hot-read";
 import { computeHotRanking } from "@amp/backend/events/hot";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -58,12 +58,12 @@ const provider = await stub(async (_hit, req) => {
   };
   const relation = (index: number) => (evidence(index).anchor === "没有共同锚点" ? "UNRELATED" : "SAME_OCCURRENCE");
   const answer = pair
-    ? { a: "甲", b: "乙", relation: relation(1), difference: "", confidence: 0.95, evidence: evidence(1) }
+    ? { a: "甲", b: "乙", relation: relation(1), difference: "", confidence: 0.7, evidence: evidence(1) }
     : {
         query: "归组",
         decisions: [...user.matchAll(/【候选 (C\d+)】/g)].map((m) => {
           const index = Number(m[1]!.slice(1));
-          return { id: m[1], relation: relation(index), confidence: 0.95, note: "", evidence: evidence(index) };
+          return { id: m[1], relation: relation(index), confidence: 0.7, note: "", evidence: evidence(index) };
         }),
       };
   return { id: "stub", choices: [{ message: { content: JSON.stringify(answer) } }], usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 } };
@@ -286,6 +286,66 @@ test("reprints of one policy and one speech fold into one featured item with sta
   assert.ok(stripTitles.includes("习近平就推动中非矿业合作提出4点主张"), "两家以上来源的讲话出现在首页热点榜");
   assert.equal(stripTitles.includes("四川加达锂矿新增氧化锂资源量42.37万吨"), false, "只有一家来源的矿项目不上首页热点榜");
   assert.ok((strip ?? []).every((entry) => entry.heat > 0));
+});
+
+test("a stored same-event answer joins a split government and media pair without another model call", async () => {
+  const now = Date.now();
+  const kept = await article({
+    key: "replay-kept",
+    name: "自然资源部",
+    firstParty: true,
+    country: false,
+    score: 72,
+    title: "自然资源部公布试验文书乙共一百七十四项",
+    summary: "公布优化调整后的试验文书乙，细目也一并列出。",
+    body: "自然资源部公布试验文书乙",
+    frame: { subject: "自然资源部", action: "公布", object: "试验文书乙" },
+    publishedAt: new Date(now - 5 * 60_000),
+  });
+  const held = await article({
+    key: "replay-held",
+    name: "地方转载",
+    firstParty: false,
+    country: false,
+    score: 40,
+    title: "转载自然资源部公布的试验文书乙共一百七十四项",
+    summary: "转载了优化调整后的试验文书乙，细目也一并列出。",
+    body: "地方网站只转发了分类调整的消息",
+    frame: { subject: "地方转载", action: "转发", object: "试验文书乙" },
+    publishedAt: new Date(now - 4 * 60_000),
+  });
+  assert.equal((await groupArticle(kept)).verdict, "new-story");
+  assert.equal((await groupArticle(held)).verdict, "new-story");
+  const [keptFact] = await sql<{ id: number }[]>`SELECT fact_id AS id FROM fact_articles WHERE article_id = ${kept}`;
+  const [decision] = await sql<{ receipt_id: number; candidates: Array<{ id: number }> }[]>`
+    SELECT receipt_id, candidates FROM grouping_decisions WHERE article_id = ${held} ORDER BY id DESC LIMIT 1`;
+  assert.equal(decision!.candidates?.[0]?.id, Number(keptFact!.id), "the split reprint was still shown the existing event");
+  const content = JSON.stringify({
+    query: "重放",
+    decisions: [
+      {
+        id: "C1",
+        relation: "SAME_OCCURRENCE",
+        confidence: 0.7,
+        note: "",
+        evidence: {
+          queryQuote: "转述措辞不同",
+          candidateQuote: "原文措辞不同",
+          anchor: "试验文书乙",
+          queryAction: "转发",
+          candidateAction: "公布",
+          queryStage: "other",
+          candidateStage: "other",
+          change: "",
+        },
+      },
+    ],
+  });
+  await sql`UPDATE receipts SET response = ${sql.json({ choices: [{ message: { content } }] })} WHERE id = ${decision!.receipt_id}`;
+  const replay = await replayStoredRelations(new Date(now - 60 * 60_000));
+  assert.ok(replay.merged >= 1);
+  const stories = await sql<{ story_id: number }[]>`SELECT story_id FROM publications WHERE article_id IN ${sql([kept, held])}`;
+  assert.equal(stories[0]!.story_id, stories[1]!.story_id);
 });
 
 async function article(input: {

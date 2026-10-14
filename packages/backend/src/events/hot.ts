@@ -136,7 +136,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       rank: entries.length + 1,
       storyId: r.story_id,
       storyPublicId: r.public_id,
-      title: r.title,
+      title: rep.title,
       heat,
       trend: prevAll <= 0 ? "new" : pct === null ? "unknown" : pct > 0.1 ? "up" : pct < -0.1 ? "down" : "flat",
       trendPct: pct === null ? null : Math.round(pct * 1000) / 10,

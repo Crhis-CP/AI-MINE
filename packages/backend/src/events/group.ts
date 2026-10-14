@@ -30,7 +30,7 @@ import { modelFor } from "../editorial/models.ts";
 import { dbOf, type Db, type Tx } from "../db.ts";
 import { newShortId, newUuid, sha256 } from "../lib/ids.ts";
 import { chatJson } from "../providers/llm.ts";
-import { BudgetExceededError, ReceiptBusyError, completeReceipt } from "../providers/receipts.ts";
+import { BudgetExceededError, ReceiptBusyError, completeReceipt, readStoredModelResponse } from "../providers/receipts.ts";
 import { embeddingsAvailable, ensureEmbeddings } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
 import { enqueue, ensureQueue, QUEUES } from "../jobs/queue.ts";
@@ -921,6 +921,110 @@ export interface GroupOptions {
   signalOnly?: boolean;
   /** An explicit regroup: drop the automatic membership and decide again (manual decisions still win). A report waiting in regroup_pending is regrouped the same way. */
   force?: boolean;
+}
+
+function storedModelDecisions(response: unknown) {
+  const content = (response as { choices?: Array<{ message?: { content?: unknown } }> } | null)?.choices?.[0]?.message?.content;
+  if (typeof content !== "string" || !content.trim()) return null;
+  try {
+    return BatchSchema.parse(JSON.parse(content)).decisions;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Join a report onto a fact the saved model answer already called the same event.
+ * Manual membership and manual story titles stay put. No new model call.
+ */
+async function moveOntoStoredFact(
+  articleId: string,
+  targetFactId: number,
+  decision: { relation: Relation; confidence: number; evidence?: Verdict["evidence"] },
+): Promise<boolean> {
+  const [current] = await sql<{ fact_id: number; manual: boolean; origin: string }[]>`
+    SELECT fa.fact_id, fa.manual, st.origin FROM fact_articles fa
+    JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id
+    WHERE fa.article_id = ${articleId} AND fa.role IN ('primary', 'report') AND st.merged_into IS NULL
+    ORDER BY (fa.role = 'primary') DESC LIMIT 1`;
+  if (!current || current.manual || current.origin === "manual" || Number(current.fact_id) === targetFactId) return false;
+  const [target] = await sql<{ article_id: string; story_id: number }[]>`
+    SELECT fa.article_id, f.story_id FROM fact_articles fa
+    JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id
+    WHERE fa.fact_id = ${targetFactId} AND fa.role IN ('primary', 'report') AND NOT fa.manual
+      AND st.merged_into IS NULL AND st.origin <> 'manual'
+    ORDER BY (fa.role = 'primary') DESC, fa.created_at LIMIT 1`;
+  if (!target) return false;
+  const materials = await newsRelationMaterials([articleId, target.article_id]);
+  const queryMat = materials.find((item) => item.id === articleId);
+  const candidateMat = materials.find((item) => item.id === target.article_id);
+  if (!queryMat || !candidateMat) return false;
+  const jurisdictions = await newsRelationJurisdictions([
+    { id: articleId, revision: queryMat.revision },
+    { id: target.article_id, revision: candidateMat.revision },
+  ]);
+  const times = await readEventPublicationTimes([articleId, target.article_id], sql);
+  const atOf = (id: string) => {
+    const row = times.find((item) => item.article_id === id);
+    return row?.published_at ?? row?.discovered_at ?? null;
+  };
+  const jurisdictionOf = (id: string, revision: number) => jurisdictions.find((item) => item.id === id && item.revision === revision)?.jurisdiction ?? null;
+  const view = (id: string, material: typeof queryMat): ReportView => ({
+    title: "",
+    source: "",
+    firstParty: false,
+    at: atOf(id),
+    summary: null,
+    originalText: material.original_text,
+    jurisdiction: jurisdictionOf(id, material.revision),
+    frame: null,
+  });
+  if (validatedRelation(view(articleId, queryMat), view(target.article_id, candidateMat), decision) !== "SAME_OCCURRENCE") return false;
+  const moved = await sql.begin(async (tx) => {
+    if (await manualDecision(tx, articleId)) return false;
+    const [updated] = await tx<{ article_id: string }[]>`
+      UPDATE fact_articles SET fact_id = ${targetFactId},
+        role = CASE WHEN EXISTS (
+          SELECT 1 FROM fact_articles p WHERE p.fact_id = ${targetFactId} AND p.role = 'primary' AND p.article_id <> ${articleId}
+        ) THEN 'report' ELSE role END
+      WHERE article_id = ${articleId} AND NOT manual AND fact_id <> ${targetFactId}
+      RETURNING article_id`;
+    if (!updated) return false;
+    await tx`UPDATE story_signals SET story_id = ${target.story_id} WHERE article_id = ${articleId}`;
+    return true;
+  });
+  if (!moved) return false;
+  await publishArticle(articleId);
+  return true;
+}
+
+/** Re-apply saved same-event answers from the last two weeks. Does not call a model or rescore. */
+export async function replayStoredRelations(since: Date): Promise<{ merged: number }> {
+  const rows = await sql<{ article_id: string; receipt_id: number; candidates: Array<{ id: number }> | null }[]>`
+    SELECT DISTINCT ON (article_id) article_id, receipt_id, candidates FROM grouping_decisions
+    WHERE receipt_id IS NOT NULL AND created_at > ${since}
+    ORDER BY article_id, id DESC`;
+  let merged = 0;
+  for (const row of rows) {
+    if (!row.candidates?.length) continue;
+    if (await manualDecision(sql, row.article_id)) continue;
+    const decisions = storedModelDecisions(await readStoredModelResponse(Number(row.receipt_id)));
+    if (!decisions) continue;
+    const ranked = decisions
+      .flatMap((decision) => {
+        const index = Number(String(decision.id).trim().replace(/^C/i, ""));
+        const factId = Number.isInteger(index) ? Number(row.candidates?.[index - 1]?.id) : Number.NaN;
+        return Number.isInteger(factId) && factId > 0 ? [{ factId, decision }] : [];
+      })
+      .sort((a, b) => b.decision.confidence - a.decision.confidence);
+    for (const pick of ranked) {
+      if (await moveOntoStoredFact(row.article_id, pick.factId, pick.decision)) {
+        merged += 1;
+        break;
+      }
+    }
+  }
+  return { merged };
 }
 
 export async function groupArticle(articleId: string, opts: GroupOptions = {}): Promise<GroupResult> {
