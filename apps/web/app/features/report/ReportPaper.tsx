@@ -372,11 +372,11 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
       <Masthead report={report} index={index} quiet={quiet} />
       <div className="my-4 space-y-1 text-[12px] text-ink-3">
         <p>
-          覆盖时间：{fullDateTime(report.windowStart)} 至 {fullDateTime(report.windowEnd)}（北京时间，结束时刻不含）
+          覆盖时间：{fullDateTime(report.windowStart)} 至 {fullDateTime(report.windowEnd)}（北京时间{daily ? "" : "，结束时刻不含"}）
         </p>
         {daily && (
-          <p>
-            本期以 {fullDateTime(report.windowEnd)} 为截稿时间；此后公开的精选进入后续日报，不回填本期。
+          <p className="pt-1 text-[13px] text-ink-2">
+            本期收录截至 {fullDateTime(report.windowEnd)} 的精选。之后入选的内容，请看后续日报。
             <Link to="/" className="ml-1 underline underline-offset-2">
               查看最新精选
             </Link>
@@ -418,7 +418,6 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
           <section aria-label="本期说明" className="py-12 @[880px]:py-16">
             <h2 className="text-[32px] font-black leading-[1.3] tracking-[-0.03em] text-ink @[520px]:text-[40px]">{report.lead!.title}</h2>
             <p className="mt-5 max-w-2xl text-[15px] leading-[1.9] text-ink-2">{report.lead!.leadParagraph}</p>
-            <p className="mt-3 max-w-2xl text-[14px] leading-[1.9] text-ink-3">“今日”指本期截至早上 08:00 的收录时段，不代表出刊当天一整天都没有精选。</p>
           </section>
         ) : (
           <p className="py-16 text-center text-[14px] text-ink-4">本期没有入选内容。</p>
