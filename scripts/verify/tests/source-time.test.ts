@@ -221,6 +221,30 @@ test("declared day-first numeric formats accept unpadded dates without changing 
   unknown("8/10/2026", "ambiguous_format");
   for (const raw of ["8.10.2026", "5-10-2026"]) unknown(raw, "unrecognized_format");
   unknown("3/4/2026", "unrecognized_format", { format: "declared", formatPattern: "MM/DD/YYYY", language: "en" });
+  const shortYear = parseSourceDate(request("08.10.26", { format: "declared", formatPattern: "DD.MM.YY", language: "en" }));
+  assert.equal(shortYear.reason, null);
+  assert.equal(shortYear.evidence.time.local_date, "2026-10-08");
+  unknown("08.10.26", "unrecognized_format");
+});
+
+test("a date-only reading agrees with one timed reading of the same civil day, and two clocks do not", () => {
+  const { binding: current, ...input } = request("2026-10-04");
+  const drop = ({ binding: _binding, observationId: _id, observedAt: _at, url: _url, ...rest }: SourceDateParseInput) => rest;
+  const sameDay = drop(request("2026-10-04T09:00:00+08:00", { locator: "head/publication-metadata[0]", excerpt: "2026-10-04T09:00:00+08:00" }));
+  const observation = { ...input, sourceId: current.sourceId, configHash: current.configHash, alternatives: [sameDay] };
+  assert.equal(previewSourceDate(observation)?.local_date, "2026-10-04");
+  const otherClock = drop(request("2026-10-04T15:00:00+08:00", { locator: "json-ld", excerpt: "2026-10-04T15:00:00+08:00" }));
+  const clocks = {
+    ...input,
+    raw: "2026-10-04T09:00:00+08:00",
+    excerpt: "2026-10-04T09:00:00+08:00",
+    sourceId: current.sourceId,
+    configHash: current.configHash,
+    alternatives: [otherClock],
+  };
+  assert.equal(previewSourceDate(clocks), null);
+  const otherDay = drop(request("2026-10-05", { locator: "json-ld", excerpt: "2026-10-05" }));
+  assert.equal(previewSourceDate({ ...observation, alternatives: [otherDay] }), null);
 });
 
 test("declared month names use only the stated language, including accents, abbreviations and Russian cases", () => {
