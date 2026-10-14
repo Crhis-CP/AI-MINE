@@ -2667,6 +2667,154 @@
       "low_frequency_exception": null,
       "manual_decision": null,
       "config_sha256": "0a909d18e88e077d823d06996d01754e21688f3e316afa036eff3e7db1a58c6f"
+    },
+    {
+      "id": "sup-20261014-oceanagold",
+      "name": "OceanaGold · 新闻稿",
+      "website": "oceanagold.com",
+      "category": "矿企官网",
+      "origin": "续作补充（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://oceanagold.com/investors/news-releases",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 25,
+      "newest": "2026-10-05",
+      "samples": [
+        {
+          "title": "OceanaGold Provides Notice of Third Quarter 2026 Results and Conference Call",
+          "url": "https://oceanagold.com/news/oceanagold-provides-notice-of-third-quarter-2026-results-and-conference-call",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "OceanaGold Reports Exceptional High-Grade Drill Results at Wharekirauponga and Progress on Waihi North Project",
+          "url": "https://oceanagold.com/news/oceanagold-reports-exceptional-high-grade-drill-results-at-wharekirauponga-and-progress-on-waihi-north-project",
+          "published_at": "2026-09-23T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "OceanaGold President and CEO to Retire in Q2 2027",
+          "url": "https://oceanagold.com/news/oceanagold-president-and-ceo-to-retire-in-q2-2027",
+          "published_at": "2026-09-22T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "续作补充。新闻稿列表 a.news-listing__item，日期在 span（Oct 6, 2026），声明 MMMM D, YYYY，仅日期精度，按北京时间零点理解，与已通过的日期源同一写法。25/25 有日期，最新 2026-10-06。文章页可以打开，但没有发布元数据，以列表日期为准。",
+      "config_sha256": "72796aefd794e2998f4f3e9099921f489d4044eb19d04c384cf633291f66800f"
+    },
+    {
+      "id": "sup-20261014-ivanhoe-electric",
+      "name": "Ivanhoe Electric · 新闻稿",
+      "website": "ivanhoeelectric.com",
+      "category": "矿企官网",
+      "origin": "续作补充（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://ivanhoeelectric.com/news/2026/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 9,
+      "newest": "2026-09-22",
+      "samples": [
+        {
+          "title": "2026 Preliminary Feasibility Study for the Santa Cruz Copper Project in Arizona Confirms High-Grade, Low-Cost Project with Strong Economics",
+          "url": "https://ivanhoeelectric.com/news/2026-preliminary-feasibility-study-for-the-santa-cruz-copper-project-in-arizona-confirms-high-grade-low-cost-project-with/",
+          "published_at": "2026-09-22T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Ivanhoe Electric to Release the 2026 Santa Cruz Copper Project Preliminary Feasibility Study before U.S. Markets Open on September 23, 2026",
+          "url": "https://ivanhoeelectric.com/news/ivanhoe-electric-to-release-the-2026-santa-cruz-copper-project-preliminary-feasibility-study-before-u.s-markets-open-on/",
+          "published_at": "2026-09-21T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Ivanhoe Electric Receives Preliminary Project Letter from the Export-Import Bank of the United States for $1.1 Billion in Potential Debt Financing for the Santa Cruz Copper Project",
+          "url": "https://ivanhoeelectric.com/news/ivanhoe-electric-receives-preliminary-project-letter-from-the-export-import-bank-of-the-united-states-for-1.1-billion-in/",
+          "published_at": "2026-08-23T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "续作补充。与艾芬豪矿业不是同一家，不挂 ivanhoe 主题。入口是当年新闻页 /news/2026/（2027 年需改年份路径）。日期在列表 div 内（Sep 23, 2026），9/9 有日期。文章页可以打开，没有发布元数据，以列表日期为准。",
+      "config_sha256": "3c08efe2bb0d53f1a669de4f7aa0c2918a2ea318faf6bfb51c5b7a78e52841d3"
+    },
+    {
+      "id": "sup-20261014-cfgold",
+      "name": "赤峰黄金 · 官方动态",
+      "website": "cfgold.com",
+      "category": "矿企官网",
+      "origin": "续作补充（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.cfgold.com/col36/list",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 6,
+      "newest": "2026-10-04",
+      "samples": [
+        {
+          "title": "赤峰黄金高管团队密集走访子公司：盯安全、抓生产、督进度",
+          "url": "https://www.cfgold.com/col36/996",
+          "published_at": "2026-10-01T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "赤峰黄金副董事长、总裁高波一行赴瀚丰矿业调研指导工作",
+          "url": "https://www.cfgold.com/col36/995",
+          "published_at": "2026-10-04T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "自治区首家、首日落地！赤峰黄金获批本外币跨境资金集中运营业务",
+          "url": "https://www.cfgold.com/col36/994",
+          "published_at": "2026-09-17T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "续作补充。新闻中心 div.news_list a.item，日期 YYYY.MM.DD，6/6 有日期。文章页“发布日期”与列表一致（2026-10-02、2026-10-05、2026-09-18）。",
+      "config_sha256": "fb97c1b3ec320cbe4e4adda20a9faa4e81daf25cd239f67fdde3148527218e83"
+    },
+    {
+      "id": "sup-20261014-ngex",
+      "name": "NGEx Minerals · 新闻稿",
+      "website": "ngexminerals.com",
+      "category": "矿企官网",
+      "origin": "续作补充（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://ngexminerals.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "NGEx Minerals Reminds Shareholders to Vote at Special Meeting for the Proposed Spin-Out of Valle Ancho Project to be Held on October 29, 2026",
+          "url": "https://ngexminerals.com/news/ngex-minerals-reminds-shareholders-to-vote-at-spec-122822/",
+          "published_at": "2026-10-13T17:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "NGEx Minerals Files Notice of Special Meeting and Information Circular for Proposed Spin-Out of the Valle Ancho Project",
+          "url": "https://ngexminerals.com/news/ngex-minerals-files-notice-of-special-meeting-and-122821/",
+          "published_at": "2026-10-02T17:30:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "NGEx Minerals Announces Chair Succession and Appointment of New Director",
+          "url": "https://ngexminerals.com/news/ngex-minerals-announces-chair-succession-and-appoi-122820/",
+          "published_at": "2026-09-17T17:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "续作补充。官网新闻列表 li.wp-block-post，time 的 datetime 为带时区的发布时间，10/10 有日期，最新 2026-10-13。文章页 head 读到同一原始时间；页面同时有一致的多个日期候选，预览因此不把文章页日期再写一遍，列表日期已经可用。",
+      "config_sha256": "db42f982bb4b10f629516e40eae6b75113adce69965e6e13cb2e24302db50d1a"
     }
   ]
 }

@@ -44,5 +44,10 @@
     "pending": 2,
     "verified": 9,
     "blocked": 2
+  },
+  "continuation/company": {
+    "total": 4,
+    "verified": 4,
+    "note": "2026-10-14 续作，在原先 45 个替补之外另找并通过预览；仍待 Q-70 确认"
   }
 }
