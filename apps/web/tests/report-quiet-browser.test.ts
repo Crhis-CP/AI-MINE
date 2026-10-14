@@ -113,6 +113,10 @@ for (const width of [390, 1440])
       await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
       await expect(page.getByText("本期无新增精选", { exact: false })).toBeVisible();
       await expect(page.getByText("覆盖时间：", { exact: false })).toBeVisible();
+      await expect(page.getByText(report.lead.leadParagraph, { exact: true })).toBeVisible();
+      await expect(page.getByText("此后公开的精选进入后续日报，不回填本期。", { exact: false })).toBeVisible();
+      await expect(page.getByText("不代表出刊当天一整天都没有精选。", { exact: false })).toBeVisible();
+      await expect(page.getByRole("link", { name: "查看最新精选", exact: true })).toHaveAttribute("href", "/");
       await expect(page.getByText(/约 \d+ 分钟读完/)).toHaveCount(0);
       await expect(page.getByText("第一期发布后会出现在这里。", { exact: true })).toHaveCount(0);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
