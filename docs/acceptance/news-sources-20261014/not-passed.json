@@ -632,6 +632,15 @@
       "actual_response_and_next_step": "整个站点 Cloudflare 人机验证。下一步建议：需要人工在浏览器确认是否对普通访问也弹验证；若只针对爬虫，可联系公司 IR 申请白名单或由集成人决定暂缓。"
     },
     {
+      "id": "exp-20261014-mundo-minero",
+      "name": "Mundo Minero",
+      "website": "mundominero.mx",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "文章页正文由脚本加载（HTML 里只有“Loading...”），站点接口的 post_content 也只是约 380 字的截断摘要；生产取不到完整正文，外文新稿无法满足“完整中文正文”公开条件（AGENTS 铁律 15）。列为未完成。下一步：联系站点确认是否有含全文的接口或 RSS。"
+    },
+    {
       "id": "exp-20261014-argentina-mining",
       "name": "Argentina Mining",
       "website": "argentinamining.com",
