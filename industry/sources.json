@@ -7109,34 +7109,6 @@
       "enabled": false
     },
     {
-      "id": "exp-20261014-mundo-minero",
-      "name": "Mundo Minero · 行业资讯",
-      "kind": "json_list",
-      "config": {
-        "language": "es",
-        "url": "https://mundominero.mx/api/posts?page=1",
-        "itemsPath": "posts",
-        "titlePaths": ["post_title"],
-        "summaryPaths": ["post_content"],
-        "urlTemplate": "https://mundominero.mx/noticias/{slug}",
-        "externalIdPath": "ID",
-        "publishedAtPath": "created_at",
-        "allowUrlPrefixes": ["https://mundominero.mx/noticias/"],
-        "crawlProfile": {
-          "minimumIntervalSeconds": 5
-        }
-      },
-      "tier": "T2",
-      "first_party": false,
-      "owner_entity_id": null,
-      "participation_mode": "editorial",
-      "interval_minutes": 60,
-      "tags": [],
-      "site_fulltext": false,
-      "syndicate_fulltext": false,
-      "enabled": false
-    },
-    {
       "id": "exp-20261014-outlet-minero",
       "name": "Outletminero · 行业资讯",
       "kind": "rss",
