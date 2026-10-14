@@ -7344,6 +7344,1627 @@
       "site_fulltext": false,
       "syndicate_fulltext": false,
       "enabled": false
+    },
+    {
+      "id": "exp-20261014-world-gold-council",
+      "name": "世界黄金协会 World Gold Council · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.gold.org/news-and-events/press-releases",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.gold.org/news-and-events/press-releases/"],
+        "itemSelector": "div.view-content wgc-card",
+        "linkSelector": "a",
+        "titleSelector": "h3.m-card__title",
+        "publishedAtRegex": "<time datetime=\"(\\d{4}-\\d{2}-\\d{2})T",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-cobalt-institute",
+      "name": "Cobalt Institute · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cobaltinstitute.org/resources/news/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.cobaltinstitute.org/news/"],
+        "itemSelector": "div.mc-posts-list.news-list div.list-item.news",
+        "linkSelector": "h4.list-title a",
+        "titleSelector": "h4.list-title",
+        "publishedAtSelector": "span.list-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD.MM.YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-international-tin",
+      "name": "International Tin Association · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.internationaltin.org/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.internationaltin.org/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-imoa",
+      "name": "International Molybdenum Association · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.imoa.info/news-events-blog/latest-news.php",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.imoa.info/news-events-blog/latest-news-details.php"],
+        "itemSelector": "div.lv_news_textfield",
+        "linkSelector": "a.link_left_icon_right",
+        "titleSelector": "div.heading",
+        "publishedAtSelector": "div.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-wpic-platinum",
+      "name": "World Platinum Investment Council · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://platinuminvestment.com/news/archive",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://platinuminvestment.com/files/"],
+        "itemSelector": "section.imgpanel.article",
+        "linkSelector": "a[href$=\".pdf\"]",
+        "titleSelector": "h2",
+        "publishedAtRegex": "<h2>[\\s\\S]*?,\\s*(\\d{1,2}\\s[A-Z][a-z]+\\s\\d{4})\\s*</h2>",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-international-aluminium",
+      "name": "International Aluminium Institute · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://international-aluminium.org/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "allowUrlPrefixes": ["https://international-aluminium.org/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-european-metals",
+      "name": "European Metals（原Eurometaux） · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://european-metals.eu/category/publications/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "allowUrlPrefixes": ["https://european-metals.eu/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining-association-canada",
+      "name": "Mining Association of Canada · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://mining.ca/resources/press-releases/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "allowUrlPrefixes": ["https://mining.ca/resources/press-releases/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-minerals-council-australia",
+      "name": "Minerals Council of Australia · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://minerals.org.au/latest-news/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://minerals.org.au/resources/"],
+        "itemSelector": "div.news-listing__col",
+        "linkSelector": "a.click",
+        "titleSelector": "h5",
+        "publishedAtSelector": "div.news-listing__details-top span:nth-child(2)",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ame-bc",
+      "name": "Association for Mineral Exploration · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://ame.ca/news/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://ame.ca/news/"],
+        "itemSelector": "li.wp-block-post.type-news",
+        "linkSelector": "h4 a",
+        "titleSelector": "h4",
+        "publishedAtSelector": "span.text-sm.text-gray-500",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["registration now open"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-nma",
+      "name": "National Mining Association · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://nma.org/content-type/press-releases/feed/",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "allowUrlPrefixes": ["https://nma.org/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["coal"]
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ausimm",
+      "name": "Australasian Institute of Mining and Metallurgy · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ausimm.com/news-and-media/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.ausimm.com/news-and-media/media-releases/"],
+        "itemSelector": "div.cardTileWidget",
+        "linkSelector": "h3.cardTileWidget-title a",
+        "titleSelector": "h3.cardTileWidget-title",
+        "detail": {
+          "maxFetches": 10,
+          "publishedAtSelector": "span.articleSectionHeaderBlock-author-date",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "D MMM YYYY",
+            "language": "en"
+          }
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-cim",
+      "name": "Canadian Institute of Mining Metallurgy and Petroleum · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cim.org/news",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.cim.org/news/20"],
+        "itemSelector": "div.news-item",
+        "linkSelector": "div.news-item-title a",
+        "titleSelector": "div.news-item-title h2",
+        "detail": {
+          "maxFetches": 20,
+          "publishedAtRegex": "<!--new author-date section-->[\\s\\S]{0,400}?<span>(\\d{1,2} [A-Z][a-z]+ \\d{4})</span>",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "D MMMM YYYY",
+            "language": "en"
+          }
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-saimm",
+      "name": "Southern African Institute of Mining and Metallurgy · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.saimm.co.za/news?format=feed&type=rss",
+        "publishedAtField": "pubDate",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.saimm.co.za/news/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-sonami",
+      "name": "Sociedad Nacional de Minería · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.sonami.cl/v2/noticias/feed/",
+        "publishedAtField": "pubDate",
+        "language": "es",
+        "allowUrlPrefixes": ["https://www.sonami.cl/v2/noticias/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-iimp",
+      "name": "Instituto de Ingenieros de Minas del Perú · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://iimp.org.pe/noticias",
+        "language": "es",
+        "itemSelector": "div.home__noticias__card__info__info",
+        "linkSelector": "a[href*=\"/noticias/interna/\"]",
+        "titleSelector": "h5",
+        "allowUrlPrefixes": ["https://iimp.org.pe/noticias/interna/"],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es"
+        },
+        "publishedAtRegex": "</h5>\\s*<span class=\"boton[^\"]*\">[\\s\\S]*?(\\d{2}/\\d{2}/\\d{4})",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-snmpe",
+      "name": "Sociedad Nacional de Minería Petróleo y Energía · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe.feed?type=rss",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["electricidad", "hidrocarburo", "petróleo", "petroleo", "gas natural"],
+          "keepIfMatches": ["miner", "metal", "cobre", "oro"]
+        },
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ibram",
+      "name": "Instituto Brasileiro de Mineração · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://ibram.org.br/feed/",
+        "language": "pt",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://ibram.org.br/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-acm-colombia",
+      "name": "Asociación Colombiana de Minería · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://acmineria.com.co/feed/",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://acmineria.com.co/blog/"],
+        "allowCategories": ["Comunicados", "Sala de Prensa"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-silver-institute",
+      "name": "The Silver Institute · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://silverinstitute.org/category/press-releases/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://silverinstitute.org/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ilia",
+      "name": "International Lithium Association · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://lithium.org/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://lithium.org/"],
+        "allowCategories": ["Press Release", "Lithium Voice", "Blog Post"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-icmm",
+      "name": "国际采矿与金属理事会 ICMM · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.icmm.com/news",
+        "language": "en",
+        "itemSelector": "div.results-container__inner > a",
+        "titleSelector": "h3",
+        "allowUrlPrefixes": ["https://www.icmm.com/en-gb/news/"],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD-MMM-YYYY",
+          "language": "en"
+        },
+        "detail": {
+          "maxFetches": 10,
+          "publishedAtSelector": "article.section__article div.date",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "D MMMM YYYY",
+            "language": "en"
+          }
+        },
+        "publishedAtRegex": "<time>\\s*(\\d{2}-[A-Za-z]{3,4}-\\d{4})\\s*</time>",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-caem",
+      "name": "阿根廷矿业企业商会 CAEM · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://caem.com.ar/category/noticias/feed/",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://caem.com.ar/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-icsg",
+      "name": "国际铜研究组 ICSG · 官方动态",
+      "kind": "json_list",
+      "config": {
+        "url": "https://icsg.org/wp-json/wpdm/search",
+        "language": "en",
+        "itemsPath": "packages",
+        "titlePaths": ["post_title"],
+        "urlTemplate": "{raw:guid}",
+        "externalIdPath": "ID",
+        "allowUrlPrefixes": ["https://icsg.org/download/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["copper bulletin", "joint meetings", "strategic analysis"]
+        },
+        "detail": {
+          "maxFetches": 10,
+          "publishedAtRegex": "Create Date\\s*<span class=\"badge\">([A-Z][a-z]+ \\d{1,2}, \\d{4})</span>",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMMM D, YYYY",
+            "language": "en"
+          }
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-euromines",
+      "name": "Euromines · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://euromines.org/category/news/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://euromines.org/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-chinamining",
+      "name": "中国矿业联合会·中国矿业网 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://chinamining.org.cn/index.php/news/4",
+        "parseMode": "html",
+        "language": "zh-CN",
+        "itemSelector": "div.newlist div.newlb ul > li",
+        "linkSelector": "div.title a",
+        "titleSelector": "div.title a",
+        "publishedAtSelector": "div.riqi",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh-CN"
+        },
+        "allowUrlPrefixes": ["https://chinamining.org.cn/index.php/news/4/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["瓦斯", "煤矿", "煤炭", "地面沉降", "地质灾害", "地热"]
+        },
+        "detail": {
+          "maxFetches": 10,
+          "titleSelector": "div.newinfo div.futitle"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-zambia-chamber",
+      "name": "Zambia Chamber of Mines · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://mines.org.zm/category/press-statement/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://mines.org.zm/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-metso",
+      "name": "Metso 美卓 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.metso.com/corporate/media/",
+        "parseMode": "html",
+        "language": "en",
+        "itemSelector": "div.latest-releases-block a.list-results__item:has(div.list-results__col--type:contains(\"Press release\")), div.latest-releases-block a.list-results__item:has(div.list-results__col--type:contains(\"Product news\"))",
+        "titleSelector": "div.list-results__col--title",
+        "publishedAtSelector": "div.list-results__col--date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.metso.com/corporate/media/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-sandvik",
+      "name": "Sandvik 山特维克 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.home.sandvik/en/news.xml",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.home.sandvik/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-komatsu",
+      "name": "Komatsu 小松 · 官方动态",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.komatsu.com/content/api/getarticleGridData?pagePath=/content/komatsu/websites/na/en-us/newsroom&filterGroupOne=komatsu:industry/surface-mining&filterGroupTwo=&limit=12&startLimit=0",
+        "language": "en",
+        "itemsPath": "gridDetails",
+        "titlePaths": ["title"],
+        "publishedAtPath": "publishDate",
+        "urlTemplate": "https://www.komatsu.com{raw:path}",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.komatsu.com/en-us/newsroom/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["internship", "Best of CES"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-maptek",
+      "name": "Maptek · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.maptek.com/news/",
+        "parseMode": "html",
+        "language": "en",
+        "itemSelector": "div.col-xl-9 div.row > div.col-lg-4",
+        "linkSelector": "h4 a",
+        "titleSelector": "h4 a",
+        "publishedAtSelector": "h5",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.maptek.com/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ausenco",
+      "name": "Ausenco · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://ausenco.com/insights/?cat=news",
+        "parseMode": "html",
+        "language": "en",
+        "itemSelector": "div.insight-cards article.card",
+        "linkSelector": "h3 a",
+        "titleSelector": "h3 a",
+        "allowUrlPrefixes": ["https://ausenco.com/insights/"],
+        "detail": {
+          "maxFetches": 12,
+          "publishedAtSelector": "header.single-head time",
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "en"
+          }
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ilzsg",
+      "name": "国际铅锌研究组 ILZSG · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ilzsg.org/press-releases/",
+        "language": "en",
+        "itemSelector": "tr.wptb-row",
+        "linkSelector": "a.wptb-link-target",
+        "titleSelector": "td[data-x-index=\"1\"]",
+        "publishedAtSelector": "td[data-x-index=\"0\"]",
+        "allowUrlPrefixes": ["https://www.ilzsg.org/wp-content/uploads/"],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY.MM.DD",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-irma",
+      "name": "IRMA 负责任采矿保证倡议 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://responsiblemining.net/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://responsiblemining.net/"],
+        "denyCategories": ["Spanish", "Portuguese", "French"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-rmi",
+      "name": "Responsible Minerals Initiative · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.responsiblemineralsinitiative.org/news/",
+        "baseUrl": "https://www.responsiblemineralsinitiative.org/",
+        "parseMode": "html",
+        "language": "en",
+        "itemSelector": "div.newsList div.newsItem",
+        "linkSelector": "h3 a",
+        "titleSelector": "h3 a",
+        "publishedAtSelector": "p.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.responsiblemineralsinitiative.org/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-crirsco",
+      "name": "CRIRSCO 矿产储量报告标准委员会 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://crirsco.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://crirsco.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining3",
+      "name": "Mining3 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mining3.com/blog-feed.xml",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.mining3.com/post/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ceec",
+      "name": "CEEC 矿业能效协作机构 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ceecthefuture.org/news",
+        "parseMode": "html",
+        "language": "en",
+        "itemSelector": "article.news-item",
+        "linkSelector": "a[href^=\"/news/\"]",
+        "titleSelector": "h3",
+        "publishedAtRegex": "<div class=\"cck-clrfix\">[A-Za-z]+, (\\d{2} [A-Za-z]+ \\d{4})</div>",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.ceecthefuture.org/news/"],
+        "denyUrlPrefixes": [
+          "https://www.ceecthefuture.org/news/ceec-international-is-hiring",
+          "https://www.ceecthefuture.org/news/were-hiring",
+          "https://www.ceecthefuture.org/news/we-re-hiring"
+        ],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["hiring"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-ac-rei",
+      "name": "中国稀土行业协会 · 官方动态",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.ac-rei.org.cn/module/list.json?moduleId=2756d2c3-0db3-4eeb-a699-6fd4c9b82177&start=1&limit=10",
+        "language": "zh",
+        "itemsPath": "data.list",
+        "titlePaths": ["title"],
+        "summaryPaths": ["summry"],
+        "publishedAtPath": "cTime",
+        "externalIdPath": "id",
+        "urlTemplate": "https://www.ac-rei.org.cn/article/{id}",
+        "allowUrlPrefixes": ["https://www.ac-rei.org.cn/article/"],
+        "detail": {
+          "maxFetches": 10,
+          "publishedAtAuthoritative": true,
+          "publishedAtRegex": "class=\"news_author\">(?:&nbsp;|\\s)*(\\d{4}-\\d{2}-\\d{2})"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-cngold",
+      "name": "中国黄金协会 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cngold.org.cn/news-325.html",
+        "language": "zh",
+        "itemSelector": "ul.newsList > li",
+        "linkSelector": "a",
+        "titleSelector": "div.t1",
+        "publishedAtSelector": "div.min",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.cngold.org.cn/news/show-"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-dynonobel",
+      "name": "Dyno Nobel · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.dynonobel.com/",
+        "language": "en",
+        "itemSelector": "div.shadow-lg:has(a[href*='/news-and-media/news/'])",
+        "linkSelector": "a[href*='/news-and-media/news/']",
+        "titleSelector": "h3",
+        "publishedAtSelector": "p.text-sm",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.dynonobel.com/news-and-media/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-liebherr",
+      "name": "Liebherr 利勃海尔 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.liebherr.com/en-ar/mining-equipment/news/news-and-press-releases/news-and-press-releases-6336737",
+        "language": "en",
+        "itemSelector": "div[data-testid='nlp-item']",
+        "linkSelector": "a[href*='/n/']",
+        "titleSelector": "a[href*='/n/'] span",
+        "publishedAtSelector": "div.text-steel-700 > p",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MM/DD/YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.liebherr.com/en-ar/n/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["career"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-micromine",
+      "name": "Micromine · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.micromine.com/category/press-release/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.micromine.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-normet",
+      "name": "Normet · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.normet.com/en/news",
+        "language": "en",
+        "itemSelector": "div:has(> time[datetime]):has(> a[href^='/en/news/'])",
+        "linkSelector": "a[href^='/en/news/']",
+        "titleSelector": "h2",
+        "publishedAtSelector": "time",
+        "allowUrlPrefixes": ["https://www.normet.com/en/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-seequent",
+      "name": "Seequent · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.seequent.com/category/mining/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.seequent.com/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["watch:", "frogblog"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-weir",
+      "name": "Weir Group 伟尔集团 · 官方动态",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.global.weir/api/news/search?sid=8362&language=en&q=&p=1&ps=12&old=false",
+        "language": "en",
+        "itemsPath": "items",
+        "titlePaths": ["listingTitle"],
+        "summaryPaths": ["listingIntro"],
+        "publishedAtPath": "publishDate",
+        "urlTemplate": "https://www.global.weir{raw:targetUrl}",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.global.weir/newsroom/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-wencomine",
+      "name": "Wenco International Mining Systems · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.wencomine.com/resources/news",
+        "language": "en",
+        "itemSelector": "div.news-page-item",
+        "linkSelector": "a",
+        "titleSelector": "h2",
+        "publishedAtSelector": "p.paragraph-152",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.wencomine.com/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-amq-inc",
+      "name": "Association minière du Québec 魁北克矿业协会 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://amq-inc.com/category/communiques-de-presse/",
+        "language": "fr",
+        "itemSelector": "article.post-card",
+        "linkSelector": "h2.post-card__title a",
+        "titleSelector": "h2.post-card__title a",
+        "publishedAtSelector": "div.post-card__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "fr"
+        },
+        "allowUrlPrefixes": ["https://amq-inc.com/"],
+        "denyUrlPrefixes": ["https://amq-inc.com/category/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-chamberofmines",
+      "name": "Chamber of Mines of Namibia 纳米比亚矿业商会 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://chamberofmines.org.na/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://chamberofmines.org.na/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["vacancy"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-consejominero",
+      "name": "Consejo Minero 智利矿业理事会 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://consejominero.cl/feed/",
+        "language": "es",
+        "allowUrlPrefixes": ["https://consejominero.cl/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-copperalliance",
+      "name": "International Copper Association 国际铜业协会 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://internationalcopper.org/",
+        "language": "en",
+        "itemSelector": "div.item:has(li.resource-date)",
+        "linkSelector": "a[href]",
+        "titleSelector": "h1",
+        "publishedAtSelector": "li.resource-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://internationalcopper.org/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-dataminesoftware",
+      "name": "Datamine · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://dataminesoftware.com/category/news/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://dataminesoftware.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-ila-lead",
+      "name": "International Lead Association 国际铅协会 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://ila-lead.org/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://ila-lead.org/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-rpmglobal",
+      "name": "RPMGlobal · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://rpmglobal.com/post-type/press-release/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://rpmglobal.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 360,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
     }
   ]
 }

@@ -1,0 +1,1992 @@
+{
+  "$comment": "逐源核验摘要：真实预览（仓库采集代码，开发机网络，2026-10-14）。每源 3 条样例；config_sha256 绑定 industry/sources.json 中该源的完整条目。复核人为 AI 开发 Agent，非人工金标。",
+  "group": "assoc-tech",
+  "sources": [
+    {
+      "id": "exp-20261014-world-gold-council",
+      "name": "世界黄金协会 World Gold Council · 官方动态",
+      "website": "gold.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.gold.org/news-and-events/press-releases",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 5,
+      "newest": "2026-10-11",
+      "samples": [
+        {
+          "title": "World Gold Council and EITI Join Forces to Strengthen ASGM Governance and Combat Illicit Gold Flows",
+          "url": "https://www.gold.org/news-and-events/press-releases/world-gold-council-and-eiti-join-forces-strengthen-asgm-governance",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "World Gold Council appoints Paul Brink as new Chair of the Board",
+          "url": "https://www.gold.org/news-and-events/press-releases/world-gold-council-appoints-paul-brink-new-chair-board",
+          "published_at": "2026-09-27T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "World Gold Council launches Gold Dealer Assurance Standard",
+          "url": "https://www.gold.org/news-and-events/press-releases/world-gold-council-launches-gold-dealer-assurance-standard",
+          "published_at": "2026-08-18T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "98887bdb45f72aae18aadca19deb5d5166cdf9ec905f9957fee9dbdee5f9b18e"
+    },
+    {
+      "id": "exp-20261014-cobalt-institute",
+      "name": "Cobalt Institute · 官方动态",
+      "website": "cobaltinstitute.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.cobaltinstitute.org/resources/news/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-09-20",
+      "samples": [
+        {
+          "title": "Europe’s Cobalt Recycling Ambitions Collide With Its Own Rulebook",
+          "url": "https://www.cobaltinstitute.org/news/europes-cobalt-recycling-ambitions-collide-with-its-own-rulebook/",
+          "published_at": "2026-09-20T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Cobalt Institute Statement on the EU Interinstitutional Agreement on the Cobalt Occupational Exposure Limit",
+          "url": "https://www.cobaltinstitute.org/news/cobalt-institute-statement-on-the-eu-interinstitutional-agreement-on-the-cobalt-occupational-exposure-limit/",
+          "published_at": "2026-06-23T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Europe’s Cobalt OEL: Is Europe About to Undermine Its Own Strategic Ambitions?",
+          "url": "https://www.cobaltinstitute.org/news/europes-cobalt-oel-is-europe-about-to-undermine-its-own-strategic-ambitions/",
+          "published_at": "2026-06-07T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b6da5d16c623ba41379abc90ef1ae7bdc982ca4fd8336db2968e7eccf33d0044"
+    },
+    {
+      "id": "exp-20261014-international-tin",
+      "name": "International Tin Association · 官方动态",
+      "website": "internationaltin.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.internationaltin.org/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Tin’s growing role in future hydrogen production",
+          "url": "https://www.internationaltin.org/tins-growing-role-in-future-hydrogen-production/?utm_source=rss&utm_medium=rss&utm_campaign=tins-growing-role-in-future-hydrogen-production",
+          "published_at": "2026-10-13T12:25:39.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Eloro Resources is first ITA Explorer & Developer to publish Tin Code report",
+          "url": "https://www.internationaltin.org/eloro-resources-is-first-ita-explorer-developer-to-publish-tin-code-report/?utm_source=rss&utm_medium=rss&utm_campaign=eloro-resources-is-first-ita-explorer-developer-to-publish-tin-code-report",
+          "published_at": "2026-10-12T11:15:04.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Metals X targets full takeover of First Tin",
+          "url": "https://www.internationaltin.org/metals-x-targets-full-takeover-of-first-tin/?utm_source=rss&utm_medium=rss&utm_campaign=metals-x-targets-full-takeover-of-first-tin",
+          "published_at": "2026-10-09T14:40:15.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b51c53dd686f11a6ca72c75b94552aed13fb10bdcd30ee906c3981bcf2d59ec3"
+    },
+    {
+      "id": "exp-20261014-imoa",
+      "name": "International Molybdenum Association · 官方动态",
+      "website": "imoa.info",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.imoa.info/news-events-blog/latest-news.php",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-09-30",
+      "samples": [
+        {
+          "title": "Global molybdenum production falls while usage rises in Q2 2026",
+          "url": "https://www.imoa.info/news-events-blog/latest-news-details.php?objectID=843&lang=en",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "IMOA’s largest-ever AGM concludes a successful year",
+          "url": "https://www.imoa.info/news-events-blog/latest-news-details.php?objectID=842&lang=en",
+          "published_at": "2026-09-17T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Global usage of molybdenum rises while production remains static",
+          "url": "https://www.imoa.info/news-events-blog/latest-news-details.php?objectID=838&lang=en",
+          "published_at": "2026-06-30T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1f408f73f1037d5ffa21f9bc833d9c6139e4b99db638ee14ea2fd7c5dfeaa733"
+    },
+    {
+      "id": "exp-20261014-wpic-platinum",
+      "name": "World Platinum Investment Council · 官方动态",
+      "website": "platinuminvestment.com",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://platinuminvestment.com/news/archive",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 80,
+      "newest": "2026-07-15",
+      "samples": [
+        {
+          "title": "Platinum demand boosted by AI trends embedded in China’s 15th Five-Year Plan – London, 16 July 2026",
+          "url": "https://platinuminvestment.com/files/556881/WPIC_News_Release_SPW2026_Key_Takeaway_Platinum_demand_boosted_by_AI_trends_07_16_26.pdf",
+          "published_at": "2026-07-15T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Fourth consecutive platinum market deficit forecast for 2026 - supply to fall short of demand by 297 koz – London, 18 May 2026",
+          "url": "https://platinuminvestment.com/files/634916/WPIC_PR_PQ_Q1_2026_20260518.pdf",
+          "published_at": "2026-05-17T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Fourth consecutive platinum market deficit: 240 koz expected in 2026 following 1.1 Moz in 2025 – London, 4 March 2026",
+          "url": "https://platinuminvestment.com/files/473349/WPIC_PR_PQ_Q4_2025_20260304.pdf",
+          "published_at": "2026-03-03T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "766c029f15c93ebccbdba5589b043ef0f27e2edf0718308077c1302d44bba3f2"
+    },
+    {
+      "id": "exp-20261014-international-aluminium",
+      "name": "International Aluminium Institute · 官方动态",
+      "website": "international-aluminium.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://international-aluminium.org/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-22",
+      "samples": [
+        {
+          "title": "Aluminium cans lead global beverage recycling, new international dataset shows",
+          "url": "https://international-aluminium.org/aluminium-cans-lead-global-beverage-recycling-new-international-dataset-shows/",
+          "published_at": "2026-09-22T12:11:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Nespresso expands curbside aluminium recycling in Westchester County, with IAI supporting demand for recycled metal",
+          "url": "https://international-aluminium.org/nespresso-expands-curbside-aluminium-recycling-in-westchester-county-with-iai-supporting-demand-for-recycled-metal/",
+          "published_at": "2026-09-21T20:26:55.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Advancing Aluminium Recycling as a Business Opportunity: IAI at Climate Week NYC",
+          "url": "https://international-aluminium.org/iai-at-climate-week-nyc-2026-the-business-case-for-recycling/",
+          "published_at": "2026-09-20T15:17:47.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "6706cdc48902deb57586443d54dd370ffd74e2f2d9259d92a5763d5eb24bfb7f"
+    },
+    {
+      "id": "exp-20261014-european-metals",
+      "name": "European Metals（原Eurometaux） · 官方动态",
+      "website": "european-metals.eu",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://european-metals.eu/category/publications/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "European Metals Position Paper on the Public Procurement Act",
+          "url": "https://european-metals.eu/european-metals-position-paper-on-the-public-procurement-act/",
+          "published_at": "2026-10-13T13:37:52.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "European Metals Letter to EU heads of State and government",
+          "url": "https://european-metals.eu/european-metals-letter-to-eu-heads-of-state-and-government/",
+          "published_at": "2026-10-09T07:43:50.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Cross-European Organisations Statement on more ambition in EU Trade Defence",
+          "url": "https://european-metals.eu/cross-european-organisations-statement-on-more-ambition-in-eu-trade-defence/",
+          "published_at": "2026-10-08T15:45:31.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "cb9c4809135390f6d4ab299baafaede3bd8e86335d4bcca9e272336de6d94e03"
+    },
+    {
+      "id": "exp-20261014-mining-association-canada",
+      "name": "Mining Association of Canada · 官方动态",
+      "website": "mining.ca",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://mining.ca/resources/press-releases/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-23",
+      "samples": [
+        {
+          "title": "Mining Association of Canada names Ben Chalmers as next President and CEO",
+          "url": "https://mining.ca/resources/press-releases/mining-association-of-canada-names-ben-chalmers-as-next-president-and-ceo/",
+          "published_at": "2026-09-23T15:21:58.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Mining Association of Canada applauds Productivity Mega Deduction as transformative step for mining investment in Canada",
+          "url": "https://mining.ca/resources/press-releases/mac-statement-productivity-mega-deduction/",
+          "published_at": "2026-09-15T16:51:26.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Mining Association of Canada Awards Gabriel Louer the 2026 Paul Stothart Memorial Scholarship",
+          "url": "https://mining.ca/resources/press-releases/2026-scholarship-gabriel-louer/",
+          "published_at": "2026-06-24T14:16:55.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "9459939c62555af998a3ac0b499f183ca464543f610b5afd18419c8760ef47ca"
+    },
+    {
+      "id": "exp-20261014-minerals-council-australia",
+      "name": "Minerals Council of Australia · 官方动态",
+      "website": "minerals.org.au",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://minerals.org.au/latest-news/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Federal Court decision reinforces need for confidence in cultural heritage protections",
+          "url": "https://minerals.org.au/resources/federal-court-decision-reinforces-need-for-confidence-in-cultural-heritage-protections/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Victorian antimony processing grants the first step in a more secure critical minerals supply chain",
+          "url": "https://minerals.org.au/resources/victorian-antimony-processing-grants-the-first-step-in-a-more-secure-critical-minerals-supply-chain/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "AI’s future growth powered by Australian minerals",
+          "url": "https://minerals.org.au/resources/ais-future-growth-powered-by-australian-minerals/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b5318fbcd898d27ba800a8bf1b26c0b25e48eb495e83256a2173b31ce4e05e82"
+    },
+    {
+      "id": "exp-20261014-ame-bc",
+      "name": "Association for Mineral Exploration · 官方动态",
+      "website": "ame.ca",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://ame.ca/news/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 99,
+      "newest": "2026-10-06",
+      "samples": [
+        {
+          "title": "Federal plan to expand eligible mineral exploration expenses will create 34,000 full time jobs and up to $33 billion in economic growth",
+          "url": "https://ame.ca/news/federal-plan-to-expand-eligible-mineral-exploration-expenses-will-create-34000-full-time-jobs-and-up-to-33-billion-in-economic-growth/",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "BC Election 2026 | A Platform for Mineral Exploration",
+          "url": "https://ame.ca/news/bc-election-2026-a-platform-for-mineral-exploration/",
+          "published_at": "2026-09-27T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Mineral Claims Consultation Framework (MCCF) Bulletin: Backlog declines by 48%",
+          "url": "https://ame.ca/news/mineral-claims-consultation-framework-mccf-bulletin-backlog-declines-by-32/",
+          "published_at": "2026-09-16T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f1a105d8c402391e21d9be83853466ecfb4ee5863db82c10dde20c2d7b8fd18c"
+    },
+    {
+      "id": "exp-20261014-nma",
+      "name": "National Mining Association · 官方动态",
+      "website": "nma.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://nma.org/content-type/press-releases/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Leaders in Mining Excellence Honored by NMA, Federal Agencies",
+          "url": "https://nma.org/leaders-in-mining-excellence-honored-by-nma-federal-agencies/",
+          "published_at": "2026-10-01T14:00:07.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "NMA Applauds Progress on Permitting Reform",
+          "url": "https://nma.org/nma-applauds-progress-on-permitting-reform/",
+          "published_at": "2026-09-30T17:39:37.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "NMA Applauds Passage of Russian Sanctions Bill",
+          "url": "https://nma.org/nma-applauds-passage-of-russian-sanctions-bill/",
+          "published_at": "2026-09-16T22:38:48.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "bfaf0a6ad89877a6e24931fda7985507f72902fd837e04614be22b0f3c0512a7"
+    },
+    {
+      "id": "exp-20261014-ausimm",
+      "name": "Australasian Institute of Mining and Metallurgy · 官方动态",
+      "website": "ausimm.com",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.ausimm.com/news-and-media/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 4,
+      "newest": null,
+      "samples": [
+        {
+          "title": "Australia’s global standing and critical minerals advantage built on trust, say AusIMM CEO and Queensland Premier",
+          "url": "https://www.ausimm.com/news-and-media/media-releases/australias-global-standing-and-critical-minerals-advantage-built-on-trust-say-ausimm-ceo-and-queensland-premier/",
+          "published_at": "2026-09-21T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "AusIMM to showcase Australian mining leadership across Latin America",
+          "url": "https://www.ausimm.com/news-and-media/media-releases/ausimm-to-showcase-australian-mining-leadership-across-latin-america/",
+          "published_at": "2026-06-01T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Statement on tragedy in Cobar",
+          "url": "https://www.ausimm.com/news-and-media/media-releases/statement-on-tragedy-in-cobar/",
+          "published_at": "2025-10-27T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "14ecd04cc6dcbeb93ca0dfd0da4f9d491a604f3ff46cff36fe2d438ddc2524b5"
+    },
+    {
+      "id": "exp-20261014-cim",
+      "name": "Canadian Institute of Mining Metallurgy and Petroleum · 官方动态",
+      "website": "cim.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.cim.org/news",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 50,
+      "newest": null,
+      "samples": [
+        {
+          "title": "Capital Projects Symposium 2026",
+          "url": "https://www.cim.org/news/2026/cps-2026-technical-program-highlights/",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Mental health in mining: What’s changing?",
+          "url": "https://www.cim.org/news/2026/mental-health-in-mining-whats-changing/",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "A champion for battery-electric vehicles",
+          "url": "https://www.cim.org/news/2026/a-champion-for-battery-electric-vehicles/",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "df448157ee91a508d0c88987f9287e7f63a79e17598a7206e47267ea9f8e4317"
+    },
+    {
+      "id": "exp-20261014-saimm",
+      "name": "Southern African Institute of Mining and Metallurgy · 官方动态",
+      "website": "saimm.co.za",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.saimm.co.za/news?format=feed&type=rss",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 14,
+      "newest": "2026-10-07",
+      "samples": [
+        {
+          "title": "SAIMM Annual General Meeting: 2026 Annual Report and Proceedings",
+          "url": "https://www.saimm.co.za/news/1418-saimm-annual-general-meeting-2026-annual-report-and-proceedings",
+          "published_at": "2026-10-07T15:40:32.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "A Call for Safety, Respect, and Action",
+          "url": "https://www.saimm.co.za/news/1417-a-call-for-safety-respect-and-action",
+          "published_at": "2026-09-23T18:10:32.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Global Mineral Processing Community Heads to Cape Town",
+          "url": "https://www.saimm.co.za/news/1413-global-mineral-processing-community-heads-to-cape-town",
+          "published_at": "2026-09-03T08:10:56.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "d2edb94e10ec9678c1b55f1e765352e938278a6d07d780fa866ed53cce24eb1d"
+    },
+    {
+      "id": "exp-20261014-sonami",
+      "name": "Sociedad Nacional de Minería · 官方动态",
+      "website": "sonami.cl",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.sonami.cl/v2/noticias/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-08",
+      "samples": [
+        {
+          "title": "Declaración Sonami Aprobación proyecto de ley de Patentes Mineras",
+          "url": "https://www.sonami.cl/v2/noticias/declaracion-sonami-aprobacion-proyecto-de-ley-de-patentes-mineras/",
+          "published_at": "2026-10-08T17:35:55.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CChC y SONAMI firman acuerdo de colaboración para ampliar Sello PRO en la minería",
+          "url": "https://www.sonami.cl/v2/noticias/cchc-y-sonami-firman-acuerdo-de-colaboracion-para-ampliar-sello-pro-en-la-mineria/",
+          "published_at": "2026-10-08T10:03:27.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Beca “Mujer Minera” de SONAMI busca incorporar más mujeres en la minería",
+          "url": "https://www.sonami.cl/v2/noticias/beca-mujer-minera-de-sonami-busca-incorporar-mas-mujeres-en-la-mineria/",
+          "published_at": "2026-10-02T21:30:35.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "7e2e56026df27061bd219969f166e8aa724d9c8033e219ad0eec89adc19be2d0"
+    },
+    {
+      "id": "exp-20261014-iimp",
+      "name": "Instituto de Ingenieros de Minas del Perú · 官方动态",
+      "website": "iimp.org.pe",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://iimp.org.pe/noticias",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 519,
+      "newest": "2026-10-12",
+      "samples": [
+        {
+          "title": "Experto de la Universidad McGill dictará curso sobre modelación numérica para el análisis geomecánico de minas",
+          "url": "https://iimp.org.pe/noticias/interna/experto-de-la-universidad-mcgill-dictara-curso-sobre-modelacion-numerica-para-el-analisis-geomecanico-de-minas",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "IIMP participó en reunión convocada por el Minem para analizar nueva propuesta de Ley MAPE",
+          "url": "https://iimp.org.pe/noticias/interna/iimp-participo-en-reunion-convocada-por-el-minem-para-analizar-nueva-propuesta-de-ley-mape",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Formalización minera podría aportar 1,5% adicional al PBI y generar hasta 400.000 empleos",
+          "url": "https://iimp.org.pe/noticias/interna/formalizacion-minera-podria-aportar-15-adicional-al-pbi-y-generar-hasta-400000-empleos",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "01069d02a7c16aff67fed17f1358bf795f780cac9c444880a9cc8ecb8714ee26"
+    },
+    {
+      "id": "exp-20261014-snmpe",
+      "name": "Sociedad Nacional de Minería Petróleo y Energía · 官方动态",
+      "website": "snmpe.org.pe",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe.feed?type=rss",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-03",
+      "samples": [
+        {
+          "title": "SNMPE: 12 ESCOLARES DE LIMA Y REGIONES SON PREMIADOS EN EL CONCURSO “LA RUTA DE LA ELECTRICIDAD”",
+          "url": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe/9901-snmpe-12-escolares-de-lima-y-regiones-son-premiados-en-el-concurso-la-ruta-de-la-electricidad.html",
+          "published_at": "2026-09-03T20:47:40.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "SNMPE CONDENA ATAQUE A COMPAÑÍA MINERA PODEROSA Y DEMANDA AL GOBIERNO ACTUAR CON FIRMEZA PARA EVITAR QUE PATAZ SEA “ZONA LIBERADA” POR MINERÍA ILEGAL",
+          "url": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe/9803-snmpe-condena-ataque-a-compania-minera-poderosa-y-demanda-al-gobierno-actuar-con-firmeza-para-evitar-que-pataz-sea-zona-liberada-por-mineria-ilegal.html",
+          "published_at": "2026-06-24T21:30:26.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "XVI SIMPOSIO: SNMPE LLAMA A ACTUAR CON UNA VISIÓN PAÍS QUE TRASCIENDA EL CAMBIO DE AUTORIDADES",
+          "url": "https://www.snmpe.org.pe/prensa/notas-de-prensa/notas-de-prensa-de-la-snmpe/9767-xvi-simposio-snmpe-llama-a-actuar-con-una-vision-pais-que-trascienda-el-cambio-de-autoridades.html",
+          "published_at": "2026-05-29T21:34:32.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "a4f027e4e6ca570aa145e5d94120062a57c4715cea6f16f10d7d5ab3ed15a5ca"
+    },
+    {
+      "id": "exp-20261014-ibram",
+      "name": "Instituto Brasileiro de Mineração · 官方动态",
+      "website": "ibram.org.br",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://ibram.org.br/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-06-26",
+      "samples": [
+        {
+          "title": "Mosaic inaugura viveiro de mudas em Cajati (SP) e fortalece gestão de áreas verdes e segurança alimentar na região",
+          "url": "https://ibram.org.br/mosaic-inaugura-viveiro-de-mudas-em-cajati-sp/",
+          "published_at": "2026-06-26T13:48:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "IBRAM participa de reunião internacional do WMC no Peru e reforça histórico de protagonismo do Brasil",
+          "url": "https://ibram.org.br/ibram-participa-de-reuniao-internacional-do-wmc-no-peru-e-reforca-historico-de-protagonismo-do-brasil/",
+          "published_at": "2026-06-24T19:09:04.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Relatório publicado pela ANA celebra os 15 anos da Política Nacional de Segurança de Barragens",
+          "url": "https://ibram.org.br/relatorio-publicado-pela-ana-celebra-os-15-anos-da-politica-nacional-de-seguranca-de-barragens/",
+          "published_at": "2025-12-15T17:48:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "6d7ae340a1778be34103bad1ab699198518063e46b830721b7950056f55915c3"
+    },
+    {
+      "id": "exp-20261014-acm-colombia",
+      "name": "Asociación Colombiana de Minería · 官方动态",
+      "website": "acmineria.com.co",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://acmineria.com.co/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Blog ACM: El legado de las oportunidades",
+          "url": "https://acmineria.com.co/blog/legado-oportunidades/",
+          "published_at": "2026-10-01T13:16:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Blog ACM: 4 años de rentas extraordinarias mineras",
+          "url": "https://acmineria.com.co/blog/blog-acm-rentas-extraordinarias-mineras/",
+          "published_at": "2026-09-28T21:37:31.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Minería en cifras",
+          "url": "https://acmineria.com.co/blog/mineria-cifras/",
+          "published_at": "2026-09-21T20:45:18.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "bff8690547f9a9c10fcf01baba7b29ae012698195e40520125e06a444729b07d"
+    },
+    {
+      "id": "exp-20261014-silver-institute",
+      "name": "The Silver Institute · 官方动态",
+      "website": "silverinstitute.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://silverinstitute.org/category/press-releases/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-07-21",
+      "samples": [
+        {
+          "title": "Gold:Silver Ratio Continues to be Relevant in the Modern Era",
+          "url": "https://silverinstitute.org/goldsilver-ratio-continues-to-be-relevant-in-the-modern-era/",
+          "published_at": "2026-07-21T23:57:05.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Elevated Lease Rates, Regional Liquidity Tightness, and Robust Investor Interest Resulted in Record Silver Prices in 2025",
+          "url": "https://silverinstitute.org/elevated-lease-rates-regional-liquidity-tightness-and-robust-investor-interest-resulted-in-record-silver-prices-in-2025/",
+          "published_at": "2026-04-15T12:14:13.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Global Silver Investment to Remain Strong in 2026 Against the Backdrop of a Sixth Consecutive Annual Market Deficit",
+          "url": "https://silverinstitute.org/global-silver-investment-to-remain-strong-in-2026-against-the-backdrop-of-a-sixth-consecutive-annual-market-deficit/",
+          "published_at": "2026-02-10T11:14:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "689ec8e86349efa4d5ce4fb83cc832e0b400c33b8efbce540ad66dfb3c87b600"
+    },
+    {
+      "id": "exp-20261014-ilia",
+      "name": "International Lithium Association · 官方动态",
+      "website": "lithium.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://lithium.org/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-21",
+      "samples": [
+        {
+          "title": "DFCRC and ILiA formalise collaboration to advance industry consultation on lithium market transparency",
+          "url": "https://lithium.org/dfcrc-and-ilia-formalise-collaboration-to-advance-industry-consultation-on-lithium-market-transparency/",
+          "published_at": "2026-09-21T10:11:31.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Episode 243 of Joe Lowry’s Global Lithium Podcast",
+          "url": "https://lithium.org/episode-243-of-joe-lowrys-global-lithium-podcast/",
+          "published_at": "2026-09-10T06:49:39.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "The Lithium Voice, Volume 15",
+          "url": "https://lithium.org/the-lithium-voice-volume-15/",
+          "published_at": "2026-09-08T12:03:06.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "bdbf58edfd2e13aec1d517c08e64cb6d3ffbbf549201ce042ea9fb73ea47c518"
+    },
+    {
+      "id": "exp-20261014-icmm",
+      "name": "国际采矿与金属理事会 ICMM · 官方动态",
+      "website": "icmm.com",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.icmm.com/news",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Froydis Cameron-Johansson to succeed Rohitesh Dhawan as ICMM CEO",
+          "url": "https://www.icmm.com/en-gb/news/2026/froydis-cameron-johansson-to-succeed-rohitesh-dhawan-as-icmm-ceo",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "ICMM reports 2025 safety performance of members",
+          "url": "https://www.icmm.com/en-gb/news/2026/2025-safety-performance",
+          "published_at": "2026-07-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Competition for water poses risks to the energy transition",
+          "url": "https://www.icmm.com/en-gb/news/2026/competition-for-water-risks-energy-transition",
+          "published_at": "2026-07-21T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "dbb832552ddd234687b4a086ec8cf7ff7ed3f3810d218b6b60ba4824acf2506b"
+    },
+    {
+      "id": "exp-20261014-caem",
+      "name": "阿根廷矿业企业商会 CAEM · 官方动态",
+      "website": "caem.com.ar",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://caem.com.ar/category/noticias/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-08",
+      "samples": [
+        {
+          "title": "CAEM destacó el desarrollo de proveedores como eje para ampliar el impacto de la minería en todo el país",
+          "url": "https://caem.com.ar/caem-destaco-el-desarrollo-de-proveedores-como-eje-para-ampliar-el-impacto-de-la-mineria-en-todo-el-pais/",
+          "published_at": "2026-10-08T01:06:53.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Transparencia: EITI Argentina amplía su reporte para reflejar la contribución de los proyectos mineros antes de producir",
+          "url": "https://caem.com.ar/transparencia-eiti-argentina-amplia-su-reporte-para-reflejar-la-contribucion-de-los-proyectos-mineros-antes-de-producir/",
+          "published_at": "2026-09-30T19:32:22.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Récord exportador y máximos históricos de inversión: la minería argentina consolida su nuevo ciclo",
+          "url": "https://caem.com.ar/record-exportador-y-maximos-historicos-de-inversion-la-mineria-argentina-consolida-su-nuevo-ciclo/",
+          "published_at": "2026-09-14T19:03:41.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "81f7ddf8412e9343da6d8a8c6f077cf4e245c6d79c27408202e6caaed93792fd"
+    },
+    {
+      "id": "exp-20261014-icsg",
+      "name": "国际铜研究组 ICSG · 官方动态",
+      "website": "icsg.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://icsg.org/wp-json/wpdm/search",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": null,
+      "samples": [
+        {
+          "title": "2026-10-14 Press Release | ICSG Copper Market Forecast 2026-2027",
+          "url": "https://icsg.org/download/2026-10-14-press-release-icsg-copper-market-forecast-2026-2027/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "ICSG - A Strategic Analysis of the Mining Industry",
+          "url": "https://icsg.org/download/icsg-a-strategic-analysis-of-the-mining-industry/",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "2026-09-24 Monthly Press Release",
+          "url": "https://icsg.org/download/2026-09-24-monthly-press-release/",
+          "published_at": "2026-09-23T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "29185b948c6f5b268c9154469aedb752a653799d396e3a204d7fcc116035ee6b"
+    },
+    {
+      "id": "exp-20261014-euromines",
+      "name": "Euromines · 官方动态",
+      "website": "euromines.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://euromines.org/category/news/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Joint Letter – Energy-Intensive Industries – ETS Letter to EU Leaders",
+          "url": "https://euromines.org/joint-letter-energy-intensive-industries-ets-letter-to-eu-leaders/",
+          "published_at": "2026-10-14T14:50:47.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "PRESS RELEASE: Strengthening the backbone of Europe: Second wave of strategic projects announced under the CRMA",
+          "url": "https://euromines.org/press-release-strengthening-the-backbone-of-europe-second-wave-of-strategic-projects-announced-under-the-crma/",
+          "published_at": "2026-10-09T08:34:30.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Euromines appoints Peter Richardson to its Executive Committee",
+          "url": "https://euromines.org/euromines-appoints-peter-richardson-to-its-executive-committee/",
+          "published_at": "2026-10-07T12:42:11.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "dce585d56cafeb43b6585995146cbbbaa65a0032f64ea9db8c2961afef48099d"
+    },
+    {
+      "id": "exp-20261014-chinamining",
+      "name": "中国矿业联合会·中国矿业网 · 官方动态",
+      "website": "chinamining.org.cn",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://chinamining.org.cn/index.php/news/4",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "2026年1月至9月我国牵头制定国际标准220项",
+          "url": "https://chinamining.org.cn/index.php/news/4/15832",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "夯实矿产资源精细化管理根基——自然资源部矿产资源保护监督司负责人解读《矿产资源目...",
+          "url": "https://chinamining.org.cn/index.php/news/4/15830",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "“找矿大会战”重启，智能找矿筑牢能源转型安全底座",
+          "url": "https://chinamining.org.cn/index.php/news/4/15828",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "72bec013626624d046cab9e2701fd5bb7106f9a45d36a414367d01130b872dd1"
+    },
+    {
+      "id": "exp-20261014-zambia-chamber",
+      "name": "Zambia Chamber of Mines · 官方动态",
+      "website": "mines.org.zm",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://mines.org.zm/category/press-statement/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-05-15",
+      "samples": [
+        {
+          "title": "ZAMBIA CHAMBER OF MINES CONGRATULATES MCM AND KCM FOR SCOOPING 4 IMRC 2026 AWARDS",
+          "url": "https://mines.org.zm/zambia-chamber-of-mines-congratulates-mcm-and-kcm-for-scooping-4-imrc-2026-awards/",
+          "published_at": "2026-05-15T07:00:19.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "MOPANI RESCUE TEAM SECURES HISTORIC SECOND PLACE AT 2026 INTERNATIONAL MINES RESCUE COMPETITION",
+          "url": "https://mines.org.zm/mopani-rescue-team-secures-historic-second-place-at-2026-international-mines-rescue-competition/",
+          "published_at": "2026-05-06T06:21:38.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "President Hichilema Calls for Strategic Partnerships to Unlock Africa’s Mining Potential at Indaba 2026",
+          "url": "https://mines.org.zm/president-hichilema-calls-for-strategic-partnerships-to-unlock-africas-mining-potential-at-indaba-2026/",
+          "published_at": "2026-02-12T09:56:40.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "0a870a14025d411b2b780674ef20fde98f15c69ff4e29ba71b18e37df07ab9df"
+    },
+    {
+      "id": "exp-20261014-metso",
+      "name": "Metso 美卓 · 官方动态",
+      "website": "metso.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.metso.com/corporate/media/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 4,
+      "newest": "2026-10-07",
+      "samples": [
+        {
+          "title": "Metso expands distributor partnership with KrossKonsult in Norway",
+          "url": "https://www.metso.com/corporate/media/news/2026/10/metso-expands-distributor-partnership-with-krosskonsult-in-norway/",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Metso is awarded with a thickener modernization order in Chile",
+          "url": "https://www.metso.com/corporate/media/news/2026/10/metso-is-awarded-with-a-thickener-modernization-order-in-chile/",
+          "published_at": "2026-10-04T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Metso strengthens its world-leading slurry pump capabilities with new 4-MW extra-large test rig",
+          "url": "https://www.metso.com/corporate/media/news/2026/9/metso-strengthens-its-world-leading-slurry-pump-capabilities-with-new-4-mw-extra-large-test-rig/",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "4b5e26b69f18731ede1541f0049ffedcc5cef2c25d73534c00133db5ff470168"
+    },
+    {
+      "id": "exp-20261014-sandvik",
+      "name": "Sandvik 山特维克 · 官方动态",
+      "website": "home.sandvik",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.home.sandvik/en/news.xml",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 15,
+      "newest": "2026-10-05",
+      "samples": [
+        {
+          "title": "Invitation: Presentation of Sandvik’s report of the third quarter 2026",
+          "url": "https://www.home.sandvik/en/news-and-media/news/2026/10/invitation-presentation-of-sandviks-report-of-the-third-quarter-2026/",
+          "published_at": "2026-10-05T11:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Invitation: Sandvik Capital Markets Day November 24-25, 2026",
+          "url": "https://www.home.sandvik/en/news-and-media/news/2026/10/invitation-sandvik-capital-markets-day-november-24-25-2026/",
+          "published_at": "2026-10-01T08:31:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Sandvik AB – Nomination Committee for the 2027 Annual General Meeting",
+          "url": "https://www.home.sandvik/en/news-and-media/news/2026/09/sandvik-ab--nomination-committee-for-the-2027-annual-general-meeting/",
+          "published_at": "2026-09-21T11:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "81135798de76a9ea9514607c9caa4063d6a3596850602942735b163b95934b29"
+    },
+    {
+      "id": "exp-20261014-komatsu",
+      "name": "Komatsu 小松 · 官方动态",
+      "website": "komatsu.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://www.komatsu.com/content/api/getarticleGridData?pagePath=/content/komatsu/websites/na/en-us/newsroom&filterGroupOne=komatsu:industry/surface-mining&filterGroupTwo=&limit=12&startLimit=0",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-06-10",
+      "samples": [
+        {
+          "title": "Komatsu celebrates grand opening of new Peoria facility",
+          "url": "https://www.komatsu.com/en-us/newsroom/2026/komatsu-celebrates-grand-opening-of-new-peoria-facility",
+          "published_at": "2026-06-10T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Komatsu to enhance parts availability and support for the Western U.S. with new Arizona parts distribution center",
+          "url": "https://www.komatsu.com/en-us/newsroom/2026/komatsu-invests-in-mesa-distribution-facility",
+          "published_at": "2026-06-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Komatsu becomes first OEM to commission 1,000 ultra-class autonomous haul trucks",
+          "url": "https://www.komatsu.com/en-us/newsroom/2026/komatsu-becomes-first-oem-to-commission-1000-ultra-class-autonomous-haul-trucks",
+          "published_at": "2026-04-20T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "89a6967e72485f1ead443eead886c3bc0457d64b51d02db50a03f3cf299f44bd"
+    },
+    {
+      "id": "exp-20261014-maptek",
+      "name": "Maptek · 官方动态",
+      "website": "maptek.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.maptek.com/news/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 6,
+      "newest": "2026-05-20",
+      "samples": [
+        {
+          "title": "Streamlined mining software: PETRA-Maptek integration eliminates manual data headaches",
+          "url": "https://www.maptek.com/news/streamlined-mining-software-petra-maptek-integration-eliminates-manual-data-headaches/",
+          "published_at": "2026-05-20T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Celebrating student success",
+          "url": "https://www.maptek.com/news/celebrating-student-success/",
+          "published_at": "2026-04-15T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "2025 Geology Challenge winner tests machine learning with complex datasets",
+          "url": "https://www.maptek.com/news/2025-geology-challenge-winner-tests-machine-learning-with-complex-datasets/",
+          "published_at": "2026-03-08T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f2d08050b1c28e3675be4cefe124fe2525795747aa0d971f0961c78b2acd24e9"
+    },
+    {
+      "id": "exp-20261014-ausenco",
+      "name": "Ausenco · 官方动态",
+      "website": "ausenco.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://ausenco.com/insights/?cat=news",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 6,
+      "newest": null,
+      "samples": [
+        {
+          "title": "Ausenco: Integrated Engineering for the Next Phase of Mining Investment",
+          "url": "https://ausenco.com/insights/ausenco-integrated-engineering-for-the-next-phase-of-mining-investment/",
+          "published_at": "2026-08-07T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "AI is gaining ground in the development of mining projects in Peru",
+          "url": "https://ausenco.com/insights/ai-is-gaining-ground-in-the-development-of-mining-projects-in-peru/",
+          "published_at": "2026-07-06T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "How is Peru progressing in mine closure?",
+          "url": "https://ausenco.com/insights/how-is-peru-progressing-in-mine-closure/",
+          "published_at": "2026-04-07T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "bd1b3476b50a044630aded27f4899406c07e7065f761934757bb515b2fe133d5"
+    },
+    {
+      "id": "exp-20261014-ilzsg",
+      "name": "国际铅锌研究组 ILZSG · 官方动态",
+      "website": "ilzsg.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.ilzsg.org/press-releases/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 1,
+      "newest": "2026-08-26",
+      "samples": [
+        {
+          "title": "Press Release | ILZSG August 2026",
+          "url": "https://www.ilzsg.org/wp-content/uploads/3.PRESS%20RELEASES/ILZSG%20Press%20Release%20August%202026.pdf",
+          "published_at": "2026-08-26T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": "页面只公开展示最新一期月度新闻稿，WP feed 为空，近期可见真实公告仅 1 条。",
+      "manual_decision": null,
+      "config_sha256": "5192cc59fca6f6605ced6c9df46c75bd0bfa6abee02385a1b9cf0df6b1a077f7"
+    },
+    {
+      "id": "exp-20261014-irma",
+      "name": "IRMA 负责任采矿保证倡议 · 官方动态",
+      "website": "responsiblemining.net",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://responsiblemining.net/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-09",
+      "samples": [
+        {
+          "title": "ACTUALIZACIÓN: Auditoría en terreno de la planta Salar de Atacama de Albemarle, octubre-noviembre de 2026.",
+          "url": "https://responsiblemining.net/2026/10/09/auditoria-irma-en-sitio-de-planta-salar-de-atacama/",
+          "published_at": "2026-10-09T06:00:44.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "UPDATE: On-site Audit of Albemarle Planta Salar de Atacama, Oct-Nov 2026",
+          "url": "https://responsiblemining.net/2026/10/09/on-site-irma-audit-of-planta-salar-de-atacama-october-2026/",
+          "published_at": "2026-10-09T05:26:27.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Two standards, one goal: How IRMA and EITI strengthen resource governance",
+          "url": "https://responsiblemining.net/2026/10/01/two-standards-one-goal-how-irma-and-eiti-strengthen-resource-governance/",
+          "published_at": "2026-10-01T08:00:05.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "89fbe7d461e76d6d3b18e23b471165d71eca76afa0c6f1745088aa6dc6d4730d"
+    },
+    {
+      "id": "exp-20261014-rmi",
+      "name": "Responsible Minerals Initiative · 官方动态",
+      "website": "responsiblemineralsinitiative.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.responsiblemineralsinitiative.org/news/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-08-16",
+      "samples": [
+        {
+          "title": "RBA Statement on China Ministry of Commerce Decision",
+          "url": "https://www.responsiblemineralsinitiative.org/news/rba-statement-on-china-ministry-of-commerce-decision/",
+          "published_at": "2026-08-16T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "RMI Statement Regarding Global Witness Report on Coltan",
+          "url": "https://www.responsiblemineralsinitiative.org/news/rmi-coltan-statement/",
+          "published_at": "2026-06-09T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "RMI All Minerals Standard Achieves Full LME Recognition for the World’s Largest Industrial Metal Exchange",
+          "url": "https://www.responsiblemineralsinitiative.org/news/lme-full-recognition/",
+          "published_at": "2026-06-08T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "fbcfb8a1170b752f576a6e6462f8223c1efd273ca7f17514bdbd2b88a55cde0f"
+    },
+    {
+      "id": "exp-20261014-crirsco",
+      "name": "CRIRSCO 矿产储量报告标准委员会 · 官方动态",
+      "website": "crirsco.com",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://crirsco.com/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-09",
+      "samples": [
+        {
+          "title": "Change in CRIRSCO Membership – removal of MPIGM (Mongolia)",
+          "url": "https://crirsco.com/change-in-crirsco-membership-removal-of-mpigm-mongolia/",
+          "published_at": "2026-09-09T08:33:20.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CRIRSCO Special General Meeting 2026 Opens in Istanbul",
+          "url": "https://crirsco.com/crirsco-special-general-meeting-2026-opens-in-istanbul/",
+          "published_at": "2026-09-07T15:08:38.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CRIRSCO award presented to Mr Zhu Yangyang in recognition of his contributions to CRIRSCO",
+          "url": "https://crirsco.com/crirsco-award-presented-to-mr-zhu-yangyang-in-recognition-of-his-contributions-to-crirsco/",
+          "published_at": "2026-07-06T08:51:42.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "989e8a1639990106558e5b956b33997de004d1b0e259ac6f5e0f6ccc0ad09ed8"
+    },
+    {
+      "id": "exp-20261014-mining3",
+      "name": "Mining3 · 官方动态",
+      "website": "mining3.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.mining3.com/blog-feed.xml",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-06-11",
+      "samples": [
+        {
+          "title": "Mining3 Strengthens Delivery of Global Innovation Program with InEight’s Integrated Solutions",
+          "url": "https://www.mining3.com/post/mining3-strengthens-delivery-of-global-innovation-program-with-ineight-s-integrated-solutions",
+          "published_at": "2026-06-11T10:12:23.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Zero-Entry Mining",
+          "url": "https://www.mining3.com/post/zero-entry-mining",
+          "published_at": "2026-05-31T14:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Mining3 and LETA Advance CATCH4 Program to Deliver World-First Methane Abatement Technology",
+          "url": "https://www.mining3.com/post/mining3-and-leta-advance-catch4-program-to-deliver-world-first-methane-abatement-technology",
+          "published_at": "2026-01-19T14:56:38.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "94dd40233041a8cd09b15c6ce01e6c99fca2a39af426a1fc1fa2904572e1959a"
+    },
+    {
+      "id": "exp-20261014-ceec",
+      "name": "CEEC 矿业能效协作机构 · 官方动态",
+      "website": "ceecthefuture.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.ceecthefuture.org/news",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 22,
+      "newest": "2026-04-08",
+      "samples": [
+        {
+          "title": "CEEC International convenes Tailings Workshop in Adelaide ahead of MetPlant 2026",
+          "url": "https://www.ceecthefuture.org/news/ceec-international-convenes-tailings-workshop-in-adelaide-ahead-of-metplant-2026",
+          "published_at": "2026-04-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CEEC International presents the 2024 CEEC Medal at industry events in Toronto and Adelaide",
+          "url": "https://www.ceecthefuture.org/news/ceec-international-presents-the-2024-ceec-medal-at-industry-events-in-toronto-and-adelaide",
+          "published_at": "2026-04-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CEEC International recognises Joe Pease for his years of service",
+          "url": "https://www.ceecthefuture.org/news/ceec-international-recognises-joe-pease-for-his-years-of-service",
+          "published_at": "2026-04-08T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "53a37d1067f0863904d0b34334a856cd216cc00bb27f20cacff9068894f60baf"
+    },
+    {
+      "id": "rpl-ac-rei",
+      "name": "中国稀土行业协会 · 官方动态",
+      "website": "ac-rei.org.cn",
+      "category": "协会/研究/标准机构",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://www.ac-rei.org.cn/module/list.json?moduleId=2756d2c3-0db3-4eeb-a699-6fd4c9b82177&start=1&limit=10",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": null,
+      "samples": [
+        {
+          "title": "中国稀土行业协会赴江西赣州走访会员企业",
+          "url": "https://www.ac-rei.org.cn/article/f24e302b-ffbc-41dc-ab5d-4cd882a9f7f5",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "2026中国稀土永磁论坛成功召开",
+          "url": "https://www.ac-rei.org.cn/article/6c2d8539-23da-4e46-affd-88aff3fcd99a",
+          "published_at": "2026-09-13T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "中国稀土行业协会磁性材料分会三届四次会员大会成功召开",
+          "url": "https://www.ac-rei.org.cn/article/1ea47782-86a0-4fa5-8e6e-4119828565e7",
+          "published_at": "2026-09-11T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "8500937a4066fc44279dd7cb0361e00b03c770d1423ae8253f7e87423efd890f"
+    },
+    {
+      "id": "rpl-cngold",
+      "name": "中国黄金协会 · 官方动态",
+      "website": "cngold.org.cn",
+      "category": "协会/研究/标准机构",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.cngold.org.cn/news-325.html",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-09",
+      "samples": [
+        {
+          "title": "中国黄金协会严正声明",
+          "url": "https://www.cngold.org.cn/news/show-9509.html",
+          "published_at": "2026-08-18T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "关于商请全国推广扫码购金微信小程序的函",
+          "url": "https://www.cngold.org.cn/news/show-9576.html",
+          "published_at": "2026-10-09T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "山东省召开黄金产业高质量发展专题会议",
+          "url": "https://www.cngold.org.cn/news/show-9572.html",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "“中国黄金协会严正声明”为协会真实声明标题。",
+      "config_sha256": "50567962f8570f13de020332183014da990e999d88410c6e7bbb42a9579a928e"
+    },
+    {
+      "id": "rpl-dynonobel",
+      "name": "Dyno Nobel · 官方动态",
+      "website": "dynonobel.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.dynonobel.com/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 4,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Dyno Nobel announces Autonomous Bench",
+          "url": "https://www.dynonobel.com/news-and-media/news/dyno-nobel-setting-a-new-standard-for-safer-smarter-blasting2/",
+          "published_at": "2026-10-01T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Dyno Nobel moves global HQ to Queensland",
+          "url": "https://www.dynonobel.com/news-and-media/news/global-hq-moves-to-queensland2/",
+          "published_at": "2026-08-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Dyno Nobel: setting a new standard for safer, smarter blasting",
+          "url": "https://www.dynonobel.com/news-and-media/news/dyno-nobel-setting-a-new-standard-for-safer-smarter-blasting/",
+          "published_at": "2025-11-20T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "24c376200eac2d64431f753796216f0ef73c783ef20bacde47d06c098cc7f1fa"
+    },
+    {
+      "id": "rpl-liebherr",
+      "name": "Liebherr 利勃海尔 · 官方动态",
+      "website": "liebherr.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.liebherr.com/en-ar/mining-equipment/news/news-and-press-releases/news-and-press-releases-6336737",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 18,
+      "newest": "2026-09-29",
+      "samples": [
+        {
+          "title": "Liebherr-Canada delivers new R 9150 excavator to Hammerstone Quarry",
+          "url": "https://www.liebherr.com/en-ar/n/liebherr-canada-delivers-new-r-9150-excavator-to-hammerstone-quarry-288896-6336738",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Building a global career, one opportunity at a time",
+          "url": "https://www.liebherr.com/en-ar/n/building-a-global-career-one-opportunity-at-a-time-288384-6336738",
+          "published_at": "2026-09-27T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Liebherr-Australia commemorates the opening of its new training centre in Western Australia",
+          "url": "https://www.liebherr.com/en-ar/n/liebherr-australia-commemorates-the-opening-of-its-new-training-centre-in-western-australia-287616-6336738",
+          "published_at": "2026-09-20T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f1b4005b2a9ea872e9815e1ff2cbf185ae7baa85b7e0053aec8a3702112a0b97"
+    },
+    {
+      "id": "rpl-micromine",
+      "name": "Micromine · 官方动态",
+      "website": "micromine.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.micromine.com/category/press-release/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Micromine Pitram Celebrates Double Gold at Industry Awards",
+          "url": "https://www.micromine.com/pitram-celebrates-double-gold-at-industry-awards",
+          "published_at": "2026-10-13T01:52:43.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "El Half-Year Release 2026 de Micromine impulsa equipos y flujos de trabajo más conectados a lo largo del ciclo de vida de la minería",
+          "url": "https://www.micromine.com/el-half-year-release-2026-de-micromine-impulsa-equipos-y-flujos-de-trabajo-mas-conectados-a-lo-largo-del-ciclo-de-vida-de-la-mineria",
+          "published_at": "2026-06-11T00:01:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Micromine’s 2026 Half-Year Release drives more connected teams and workflows across the mining lifecycle",
+          "url": "https://www.micromine.com/micromines-2026-half-year-release-drives-more-connected-teams-and-workflows-across-the-mining-lifecycle",
+          "published_at": "2026-06-11T00:00:02.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1eacc4cd36fa8638ea4e772dc2947351f257e07710fddf0653ec64432604d124"
+    },
+    {
+      "id": "rpl-normet",
+      "name": "Normet · 官方动态",
+      "website": "normet.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.normet.com/en/news",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 69,
+      "newest": "2026-09-29",
+      "samples": [
+        {
+          "title": "Normet upgrades its entire ECM emulsion charging system range and introduces new 4- and 6-tonne versions",
+          "url": "https://www.normet.com/en/news/normet-upgrades-its-entire-ecm-emulsion-charging-system-range-and-introduces-new-4-and-6-tonne-versions",
+          "published_at": "2026-09-29T06:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Normet Opens Technology Center in Pirkkala, Finland to Accelerate the Future of Underground Mining",
+          "url": "https://www.normet.com/en/news/normet-opens-technology-center-pirkkala-finland",
+          "published_at": "2026-09-04T07:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Normet Group Half-year Financial Report 1 January-30 June 2026",
+          "url": "https://www.normet.com/en/news/normet-group-half-year-financial-report-1-january-30-june-2026",
+          "published_at": "2026-08-26T05:55:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "95c6278003c5f5947ffe84f3ee5f661de55a5ccc137ca825c891cc2bf65f73e8"
+    },
+    {
+      "id": "rpl-seequent",
+      "name": "Seequent · 官方动态",
+      "website": "seequent.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.seequent.com/category/mining/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Responding to a crisis: How 3D geological modelling guided the Maceió disaster response",
+          "url": "https://www.seequent.com/maceio-disaster-response-3d-geological-modelling/",
+          "published_at": "2026-10-01T23:22:41.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Why rare earth elements are hiding in plain sight",
+          "url": "https://www.seequent.com/why-rare-earth-elements-are-hiding-in-plain-sight/",
+          "published_at": "2026-09-29T17:55:21.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "FrogBlog: What does a geoscientist do? Inside a career in earth science",
+          "url": "https://www.seequent.com/what-does-a-geoscientist-do-career-guide/",
+          "published_at": "2026-09-16T18:20:43.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "6eaf496cfbe8efae1596945172cf39b02af853a00c648b5a9fbcd1f510a0cc84"
+    },
+    {
+      "id": "rpl-weir",
+      "name": "Weir Group 伟尔集团 · 官方动态",
+      "website": "global.weir",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://www.global.weir/api/news/search?sid=8362&language=en&q=&p=1&ps=12&old=false",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-12",
+      "samples": [
+        {
+          "title": "Expert Q&A Screen Media Series | Part 4: Weir's approach",
+          "url": "https://www.global.weir/newsroom/global-news/2026/expert-qa-screen-media-series--part-4-weirs-approach/",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Expert Q&A Screen Media Series | Part 3: Industry trends",
+          "url": "https://www.global.weir/newsroom/global-news/2026/expert-qa-screen-media-series--part-3-industry-trends/",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Maximising HPGR performance in pebble crushing",
+          "url": "https://www.global.weir/newsroom/global-news/2026/maximising-hpgr-performance-in-pebble-crushing/",
+          "published_at": "2026-09-28T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "0c9f0d4b9e20f7af4f29f0e657a5a937777a800a569f4212d45367ebf0bfcdd4"
+    },
+    {
+      "id": "rpl-wencomine",
+      "name": "Wenco International Mining Systems · 官方动态",
+      "website": "wencomine.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.wencomine.com/resources/news",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 93,
+      "newest": "2026-09-21",
+      "samples": [
+        {
+          "title": "Wenco International Mining Systems Announces Successful Integration of Orica Digital Solutions FRAGTrack™ Technology",
+          "url": "https://www.wencomine.com/news/wenco-benchmanager-orica-fragtrack-integration",
+          "published_at": "2026-09-21T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Wenco opens branch office in Almaty, Kazakhstan",
+          "url": "https://www.wencomine.com/news/wenco-opens-branch-office-in-almaty-kazakhstan",
+          "published_at": "2026-09-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Wenco Appoints Hal Bradwell as President and Chief Executive Officer",
+          "url": "https://www.wencomine.com/news/wenco-appoints-hal-bradwell-as-president-and-chief-executive-officer",
+          "published_at": "2026-07-11T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "05cd675d5073dabd4fd2a5cca33282927c3b7587a0e0df7d1e6aff8bee1484b3"
+    },
+    {
+      "id": "rpl-amq-inc",
+      "name": "Association minière du Québec 魁北克矿业协会 · 官方动态",
+      "website": "amq-inc.com",
+      "category": "协会/研究/标准机构",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://amq-inc.com/category/communiques-de-presse/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 9,
+      "newest": "2026-10-06",
+      "samples": [
+        {
+          "title": "Trophées Reconnaissance SST | 160 gestionnaires du secteur minier honoré(e)s pour faire progresser la santé et la sécurité au travail",
+          "url": "https://amq-inc.com/trophees-reconnaissance-sst-165-gestionnaires-du-secteur-minier-honorees-pour-faire-progresser-la-sante-et-la-securite-au-travail/",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Élections 2026 : le secteur minier, un incontournable pour le nouveau gouvernement",
+          "url": "https://amq-inc.com/elections-2026-le-secteur-minier-un-incontournable-pour-le-nouveau-gouvernement/",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "62e édition de la Compétition provinciale de sauvetage minier",
+          "url": "https://amq-inc.com/62e-edition-de-la-competition-provinciale-de-sauvetage-minier/",
+          "published_at": "2026-09-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "bc42846a55fbee63937b0632916e1a854c40ba7d2b6fa1e83cfa090b003e8215"
+    },
+    {
+      "id": "rpl-chamberofmines",
+      "name": "Chamber of Mines of Namibia 纳米比亚矿业商会 · 官方动态",
+      "website": "chamberofmines.org.na",
+      "category": "协会/研究/标准机构",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://chamberofmines.org.na/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-05-06",
+      "samples": [
+        {
+          "title": "Chamber of Mines of Namibia Appoints Mr Fabian Shaanika as Chief Executive Officer",
+          "url": "https://chamberofmines.org.na/chamber-of-mines-of-namibia-appoints-mr-fabian-shaanika-as-chief-executive-officer/?utm_source=rss&utm_medium=rss&utm_campaign=chamber-of-mines-of-namibia-appoints-mr-fabian-shaanika-as-chief-executive-officer",
+          "published_at": "2026-05-06T08:10:28.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Chamber Addresses ILO Statements on Mining",
+          "url": "https://chamberofmines.org.na/chamber-addresses-ilo-statements-on-mining/?utm_source=rss&utm_medium=rss&utm_campaign=chamber-addresses-ilo-statements-on-mining",
+          "published_at": "2026-02-19T11:05:29.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Vacancy Announcement: Chief Executive Officer (CEO) at the Chamber of Mines of Namibia",
+          "url": "https://chamberofmines.org.na/vacancy-announcement-chief-executive-officer-ceo-at-the-chamber-of-mines-of-namibia/?utm_source=rss&utm_medium=rss&utm_campaign=vacancy-announcement-chief-executive-officer-ceo-at-the-chamber-of-mines-of-namibia",
+          "published_at": "2025-12-11T11:28:52.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "bb9ca35343fe4a8e2c52d93bce41d5f3033bcf5b7e6b7f8bdf940c3ec20e5e4a"
+    },
+    {
+      "id": "rpl-consejominero",
+      "name": "Consejo Minero 智利矿业理事会 · 官方动态",
+      "website": "consejominero.cl",
+      "category": "协会/研究/标准机构",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://consejominero.cl/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-06",
+      "samples": [
+        {
+          "title": "Joaquín Villarino aborda los desafíos para recuperar el crecimiento de la producción minera",
+          "url": "https://consejominero.cl/prensa/joaquin-villarino-aborda-los-desafios-para-recuperar-el-crecimiento-de-la-produccion-minera/",
+          "published_at": "2026-10-06T14:58:21.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Presidente ejecutivo del Consejo Minero se refiere al escenario actual de la minería chilena",
+          "url": "https://consejominero.cl/prensa/presidente-ejecutivo-del-consejo-minero-se-refiere-al-escenario-actual-de-la-mineria-chilena/",
+          "published_at": "2026-10-05T17:22:17.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "¿Es viable compartir más infraestructura hídrica en la industria?",
+          "url": "https://consejominero.cl/prensa/es-viable-compartir-mas-infraestructura-hidrica-en-la-industria/",
+          "published_at": "2026-09-25T18:50:09.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "25f22ed5c7f37ec3c28f7417c11b7f3f7f6c84dd04915cc43bda5510a28ff642"
+    },
+    {
+      "id": "rpl-copperalliance",
+      "name": "International Copper Association 国际铜业协会 · 官方动态",
+      "website": "internationalcopper.org",
+      "category": "协会/研究/标准机构",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://internationalcopper.org/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": "2026-09-28",
+      "samples": [
+        {
+          "title": "The International Copper Association incorporates Siemens Energy as a new member, Strengthening Collaboration Across Copper and Energy Sectors",
+          "url": "https://internationalcopper.org/resource/the-international-copper-association-incorporates-siemens-energy-as-a-new-member-strengthening-collaboration-across-copper-and-energy-sectors/",
+          "published_at": "2026-09-28T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Marcobre Joins ICA’s Global Network Advancing Copper’s Future",
+          "url": "https://internationalcopper.org/resource/marcobre-joins-icas-global-network-advancing-coppers-future/",
+          "published_at": "2026-07-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "ICA Industry Leaders Awards",
+          "url": "https://internationalcopper.org/resource/ica-industry-leaders-awards/",
+          "published_at": "2026-06-30T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f474a122d5097c86ee4b8b928df264cbb6a3b86699caca0387eb2bfa494f8aa3"
+    },
+    {
+      "id": "rpl-dataminesoftware",
+      "name": "Datamine · 官方动态",
+      "website": "dataminesoftware.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://dataminesoftware.com/category/news/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-08",
+      "samples": [
+        {
+          "title": "Turn new drilling and geological mapping into geological models ready for advanced estimation, ore control and reconciliation with Studio Geo",
+          "url": "https://dataminesoftware.com/studio-geo-repeatable-geological-modelling/",
+          "published_at": "2026-10-08T09:33:16.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Expenditure Watch 2.0 launch: improved expenditure compliance across tenement portfolios",
+          "url": "https://dataminesoftware.com/expenditure-compliance-reporting-software/",
+          "published_at": "2026-09-30T01:11:11.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Combine implicit modelling speed with explicit control for structurally complex deposits using Datamine",
+          "url": "https://dataminesoftware.com/implicit-modelling-structurally-complex-deposits/",
+          "published_at": "2026-09-29T04:38:54.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "55d4090545944362756fb54700b746c298ed0aef28534c6c7ebb7e95e2bc3059"
+    },
+    {
+      "id": "rpl-ila-lead",
+      "name": "International Lead Association 国际铅协会 · 官方动态",
+      "website": "ila-lead.org",
+      "category": "协会/研究/标准机构",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://ila-lead.org/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Battery Consortium set to become multi-technology research group",
+          "url": "https://ila-lead.org/battery-consortium-set-to-become-multi-technology-research-group/",
+          "published_at": "2026-10-01T08:30:17.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "International Lead Award goes to Nyrstar’s Florian von Steinkeller",
+          "url": "https://ila-lead.org/international-lead-award-goes-to-nyrstars-florian-von-steinkeller/",
+          "published_at": "2026-09-16T12:35:13.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Ambitious plan sparks European drive for energy storage",
+          "url": "https://ila-lead.org/ambitious-plan-sparks-european-drive-for-energy-storage/",
+          "published_at": "2026-07-21T13:04:52.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "c241547723b8a7d5c82873b4f0e882210b7477e5d82eef72d7a67236627d67b6"
+    },
+    {
+      "id": "rpl-rpmglobal",
+      "name": "RPMGlobal · 官方动态",
+      "website": "rpmglobal.com",
+      "category": "技术与装备",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://rpmglobal.com/post-type/press-release/feed/",
+      "interval_minutes": 360,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-07-07",
+      "samples": [
+        {
+          "title": "Caterpillar expands mining technology capabilities with Skycatch acquisition",
+          "url": "https://rpmglobal.com/caterpillar-expands-mining-technology-capabilities-with-skycatch-acquisition/",
+          "published_at": "2026-07-07T20:54:02.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "RPMGlobal Releases Major Update to AMT With New AI Insights to Drive Maintenance Performance",
+          "url": "https://rpmglobal.com/rpmglobal-releases-amt-9/",
+          "published_at": "2025-08-19T01:30:37.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "RPMGlobal Launches Latest Evolution with XERAS Cloud",
+          "url": "https://rpmglobal.com/rpmglobal-launches-latest-evolution-with-xeras-cloud/",
+          "published_at": "2025-05-08T21:50:30.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "ffbd66c5cd3cdba9acc60bfbe12cc1985292c76e86780d92b4aced6ccaff99b1"
+    }
+  ]
+}
