@@ -21,7 +21,7 @@ import { config, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
 import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
-import { collapseWhitespace, normalizedUppercase } from "../lib/text.ts";
+import { collapseWhitespace, normalizedUppercase, usableSourceText } from "../lib/text.ts";
 import { modelFor } from "./models.ts";
 import { buildMaterial, firstImagePart, loadAnalyzeInput, type AnalyzeInputArticle } from "./input.ts";
 import { pageFetchable } from "../content/extract.ts";
@@ -145,7 +145,7 @@ export function scoreInputTime(at: Date): string {
  * original title (items are scored before any Chinese copy exists) and the whole body.
  */
 export function buildScoreInput(a: AnalyzeInputArticle): string {
-  let body = (a.bodyText ?? a.excerpt ?? "").trim();
+  let body = usableSourceText(a.bodyText, a.excerpt).trim();
   if (!body) body = a.title;
   const at = a.publishedAt ?? a.discoveredAt ?? null;
   return [

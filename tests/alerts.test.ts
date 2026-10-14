@@ -700,8 +700,8 @@ test("a missing, empty or unreadable report is alerted, and a real issue is not"
       bodyStatus: "none",
       via: "fetch",
     } as never);
-    await sql`INSERT INTO publications (article_id, title, summary, source_id, channel, url, discovered_at, timeline_at, sort_at, visible_after, selected, visibility)
-      VALUES (${articleId}, '够格的新精选', '只用于告警测试', ${SOURCE}, 'news', ${`https://example.com/${T}-qualified`}, ${at}, ${at}, ${at}, ${at}, true, 'public')`;
+    await sql`INSERT INTO publications (article_id, title, summary, source_id, channel, url, discovered_at, timeline_at, sort_at, visible_after, selected, eligible, visibility)
+      VALUES (${articleId}, '够格的新精选', '只用于告警测试', ${SOURCE}, 'news', ${`https://example.com/${T}-qualified`}, ${at}, ${at}, ${at}, ${at}, true, true, 'public')`;
     const [wrote] = await sql<{ id: number }[]>`
       INSERT INTO job_runs (job, started_at, finished_at, status)
       VALUES ('reports.catch-up', ${new Date(PRODUCT_AT - 60_000)}, ${new Date(PRODUCT_AT - 60_000)}, 'ok')

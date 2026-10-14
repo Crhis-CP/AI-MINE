@@ -4,10 +4,31 @@ import { execFileSync } from "node:child_process";
 import { after, test } from "node:test";
 import { REPO_ROOT } from "@amp/backend/config";
 import { closeDb } from "@amp/backend/db";
-import { draftTierThreshold, PROMPT_VERSIONS, scoringConfirmed } from "@amp/backend/editorial/analyze";
+import { buildScoreInput, draftTierThreshold, PROMPT_VERSIONS, scoringConfirmed, type AnalyzeInputArticle } from "@amp/backend/editorial/analyze";
 
 after(async () => {
   await closeDb();
+});
+
+test("scoring keeps the usable feed summary when the source body has no material", () => {
+  const article: AnalyzeInputArticle = {
+    id: "score-input",
+    revision: 1,
+    title: "Copper mine expansion approved",
+    url: "https://example.invalid/score-input",
+    author: null,
+    publishedAt: new Date("2026-10-13T00:00:00Z"),
+    bodyText: null,
+    excerpt: "The operator approved a $2 billion expansion adding 200000 tonnes annually.",
+    bodyStatus: "unconfirmed",
+    media: [],
+    source: { name: "Fixture", kind: "rss", tier: "T2", firstParty: false },
+  };
+  const body = (input: AnalyzeInputArticle) => buildScoreInput(input).split("【完整正文】\n")[1];
+  for (const bodyText of [null, "", " \n\t ", "… — !!!"])
+    assert.equal(body({ ...article, bodyText }), article.excerpt, `summary survives unusable body ${JSON.stringify(bodyText)}`);
+  assert.equal(body({ ...article, bodyText: "Verified full article details." }), "Verified full article details.");
+  assert.equal(body({ ...article, bodyText: " ", excerpt: "…" }), article.title, "title remains the last available material");
 });
 
 test("production scores only with the scoring prompt version the Owner confirmed", () => {

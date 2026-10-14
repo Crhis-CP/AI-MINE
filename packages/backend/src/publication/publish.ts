@@ -31,6 +31,8 @@ import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
 import { projectNewsGeography } from "./news-geography.ts";
+import { recomputeSelection } from "./selection-recompute.ts";
+import { audit } from "../admin/auth.ts";
 
 const sql = dbOf("publication");
 
@@ -55,6 +57,7 @@ interface ArticleRow {
 
 interface AnalysisRow {
   id: number;
+  prompt_version: string | null;
   input_revision: number;
   relevance: string | null;
   output: unknown;
@@ -75,6 +78,7 @@ interface OverrideRow {
 
 interface PublicationRow {
   article_id: string;
+  analysis_id: number | null;
   first_public_at: Date | null;
   first_publication_observed: boolean;
   company_context?: ReturnType<typeof verifiedCompanyContext>;
@@ -215,7 +219,7 @@ export async function publishArticleTx(
     SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
   const [storedAnalysis] = await tx<AnalysisRow[]>`
-    SELECT id, input_revision, relevance, output, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
+    SELECT id, input_revision, prompt_version, relevance, output, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
   const [override] = await tx<OverrideRow[]>`SELECT fields, visibility FROM editorial_overrides WHERE article_id = ${articleId}`;
   const [membership] = await tx<{ fact_id: number; story_id: number | null; fact_public_id: string; story_public_id: string | null }[]>`
@@ -271,7 +275,8 @@ export async function publishArticleTx(
     .parse(Array.isArray(f.tags) ? f.tags : renameCategoryTags([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)]));
   const score = typeof f.score === "number" ? f.score : (analysis?.score ?? null);
   const relevance = admitted ? "pass" : "unknown";
-  const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (analysis?.selected ?? null);
+  const recomputed = analysis && typeof f.selected !== "boolean" ? recomputeSelection(analysis, source.tier, article.timeline_at, now, previous) : null;
+  const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : (recomputed?.selected ?? analysis?.selected ?? null);
   const chineseCopy = !!title && !!displaySummary && looksZh(title) && looksZh(displaySummary);
   const translation = !nativeChinese && article.body_html ? await readStoredTranslation(articleId, tx) : null;
   const wholeChinese =
@@ -313,10 +318,10 @@ export async function publishArticleTx(
   const syndicate = mayRedistribute(source, bodyMode);
   const originalTitle = isChineseTitle && title === collapseWhitespace(article.title) ? null : collapseWhitespace(article.title);
 
-  // Release gate: first time the item met the selected conditions, released after grouping or 180 s.
+  // Each entry into selection gets its own release time; the first public time stays unchanged.
   let selectedReadyAt = previous?.selected_ready_at ?? null;
   let visibleAfter = previous?.visible_after ?? null;
-  if (selected && !selectedReadyAt) {
+  if (selected && (!selectedReadyAt || previous?.selected === false)) {
     selectedReadyAt = options.releasedAt ?? now;
     visibleAfter = options.releasedAt
       ? options.releasedAt
@@ -393,6 +398,18 @@ export async function publishArticleTx(
         indexable: previous.indexable,
       });
   const wasPublic = !!previous && previous.visibility !== "withdrawn" && previous.eligible;
+  if (recomputed?.evidence && previous?.selected !== selected) {
+    await audit(
+      "worker",
+      "selection.recompute",
+      `article:${articleId}`,
+      "来源分级门槛变更，复用原两次评分",
+      { selected: previous?.selected ?? null },
+      { ...recomputed.evidence, selected, promptVersion: analysis!.prompt_version },
+      undefined,
+      tx,
+    );
+  }
   const reduced =
     wasPublic &&
     (visibility === "withdrawn" ||
