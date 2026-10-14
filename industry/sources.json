@@ -3737,6 +3737,2253 @@
       "participation_mode": "editorial",
       "site_fulltext": false,
       "syndicate_fulltext": false
+    },
+    {
+      "id": "exp-20261014-zijin",
+      "name": "紫金矿业 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.zijinmining.com/news/news_list.jsp",
+        "language": "en",
+        "itemSelector": ".news_list01 .content > ul > li",
+        "linkSelector": "a",
+        "titleSelector": ".tit",
+        "publishedAtSelector": ".date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY/MM/DD",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.zijinmining.com/news/news-detail-"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "zijin",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-cmoc",
+      "name": "洛阳钼业 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cmoc.com/html/Media/News/",
+        "language": "zh-CN",
+        "itemSelector": ".rBoxInfo .newsBox .subBox",
+        "linkSelector": "a",
+        "titleSelector": ".txt",
+        "publishedAtRegex": "class=\"link\">\\s*(\\d{4}-\\d{2}-\\d{2})",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.cmoc.com/html/20"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "cmoc",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-jiangxi-copper",
+      "name": "江西铜业 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.jxcc.com/news.html",
+        "language": "zh-CN",
+        "itemSelector": ".page2 .list",
+        "linkSelector": "a",
+        "titleSelector": ".tit",
+        "publishedAtRegex": "class=\"time\">[^<]*?(\\d{4}/\\d{2}/\\d{2})",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY/MM/DD",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.jxcc.com/news/details_"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "jiangxi-copper",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-minmetals",
+      "name": "中国五矿 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.minmetals.com.cn/",
+        "language": "zh-CN",
+        "itemSelector": ".tabCtx > .tab1 h2, .tabCtx > .tab1 li",
+        "linkSelector": "a",
+        "titleSelector": "a",
+        "allowUrlPrefixes": ["https://www.minmetals.com.cn/xwzx/wkxw/"],
+        "detail": {
+          "maxFetches": 10,
+          "publishedAtRegex": "发布日期：(\\d{4}-\\d{2}-\\d{2})"
+        },
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "minmetals",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mmg",
+      "name": "五矿资源 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mmg.com/investors/news-centre/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.mmg.com/investors/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["proxy form", "notification letter and reply form", "monthly return", "closure of register", "documents on display"]
+        },
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "mmg",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-ganfeng",
+      "name": "赣锋锂业 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ganfenglithium.com/news.html",
+        "language": "zh-CN",
+        "itemSelector": ".newhui .newsec",
+        "linkSelector": ".newtit a",
+        "titleSelector": ".newtit a",
+        "publishedAtSelector": ".newtime",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.ganfenglithium.com/new_detail/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "ganfeng",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-huayou",
+      "name": "华友钴业 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.huayou.com/news/corporate-news",
+        "language": "zh-CN",
+        "itemSelector": ".news_cont_list, li.news_list_ul_li",
+        "linkSelector": "a",
+        "titleSelector": ".std_tit6, .std_tit7",
+        "publishedAtSelector": ".nclt_date",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.huayou.com/news/corporate-news/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "huayou",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-rio-tinto",
+      "name": "力拓 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.riotinto.com/en/news",
+        "language": "en",
+        "itemSelector": "a.rt-card--tagged-promo",
+        "linkSelector": "a",
+        "titleSelector": ".rt-card__title",
+        "publishedAtSelector": ".rt-card__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.riotinto.com/en/news/releases/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "rio-tinto",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-vale",
+      "name": "淡水河谷 · 官方动态",
+      "kind": "json_list",
+      "config": {
+        "url": "https://vale.com/o/headless-delivery/v1.0/content-structures/62668/structured-contents?fields=title%2CcontentFields%2CfriendlyUrlPath%2CtaxonomyCategoryBriefs&restrictFields=actions%2CavailableLanguages%2Ccreator&page=1&pageSize=12&sort=contentFields%2Fdata%3Adesc&filter=taxonomyCategoryIds/any(t:t%20eq%2064940)%20and%20taxonomyCategoryIds/any(t:t%20eq%205296624)",
+        "language": "en",
+        "headers": {
+          "Accept-Language": "en-US"
+        },
+        "itemsPath": "items",
+        "titlePaths": ["title"],
+        "publishedAtPath": "contentFields.1.contentFieldValue.data",
+        "urlTemplate": "https://vale.com/w/{friendlyUrlPath}",
+        "allowUrlPrefixes": ["https://vale.com/w/"],
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "vale",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-freeport",
+      "name": "自由港麦克莫兰 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.fcx.com/freeport-features",
+        "language": "en",
+        "itemSelector": "ul.features-posts li.features-post",
+        "linkSelector": "h3 a",
+        "titleSelector": "h3 a",
+        "publishedAtSelector": "time",
+        "allowUrlPrefixes": ["https://www.fcx.com/freeport-features/"],
+        "sortByPublishedAt": true,
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        },
+        "_amp": {
+          "initialBackfillLimit": 30
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "freeport",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-codelco",
+      "name": "智利国家铜业公司 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.codelco.com/prensa",
+        "language": "es",
+        "itemSelector": ".four-item-slider-card .news-block",
+        "linkSelector": "a.news-main-content-link",
+        "titleSelector": "a.news-main-content-link",
+        "publishedAtRegex": "news-smalll-content\">\\s*\\S+\\s+(\\d{1,2} de [a-z]+ de \\d{4})",
+        "allowUrlPrefixes": ["https://www.codelco.com/"],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "codelco",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-first-quantum",
+      "name": "第一量子 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.first-quantum.com/latest-news/",
+        "language": "en",
+        "itemSelector": "#post-feed article.card--post",
+        "linkSelector": "a.card__link",
+        "titleSelector": "h3.card__title",
+        "publishedAtSelector": "time",
+        "allowUrlPrefixes": ["https://www.first-quantum.com/news/"],
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "first-quantum",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-albemarle",
+      "name": "雅宝 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.albemarle.com/global/en/newsroom",
+        "language": "en",
+        "itemSelector": "li.alb-grid-card:has(.text-eyebrow-large:contains(\"Press Releases\"))",
+        "linkSelector": "a",
+        "titleSelector": ".text-jumbo",
+        "publishedAtSelector": ".alb-grid-card__text",
+        "allowUrlPrefixes": ["https://www.albemarle.com/global/en/news/"],
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": "albemarle",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-equinox-gold",
+      "name": "Equinox Gold · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.equinoxgold.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.equinoxgold.com/news/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-harmony",
+      "name": "Harmony Gold · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.harmony.co.za/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.harmony.co.za/media/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-implats",
+      "name": "Impala Platinum Holdings · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.implats.co.za/media-releases.php",
+        "language": "en",
+        "itemSelector": "section.media-releases div.release",
+        "linkSelector": "a.release-link",
+        "titleSelector": "h4.release-title",
+        "publishedAtSelector": "p.release-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.implats.co.za/pdf/press-releases/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-african-rainbow-minerals",
+      "name": "African Rainbow Minerals · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://arm.co.za/press-release/",
+        "language": "en",
+        "itemSelector": "div.news-boxed",
+        "linkSelector": ".news-read-more a",
+        "titleSelector": ".news-head",
+        "publishedAtSelector": ".news-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://arm.co.za/news_press/", "https://arm.co.za/wp-content/uploads/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-northam",
+      "name": "Northam Platinum · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://northam.co.za/investors-and-media/announcements/choose-a-year?format=feed&type=rss",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://northam.co.za/investors-and-media/announcements/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-drdgold",
+      "name": "DRDGOLD · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.drdgold.com/media-insights/media-releases/2026?format=feed&type=rss",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.drdgold.com/media-insights/media-releases/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-teck",
+      "name": "Teck Resources · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.teck.com/news/news-releases/",
+        "language": "en",
+        "itemSelector": "article.news-result",
+        "linkSelector": "a.text-decoration-none",
+        "titleSelector": "a.text-decoration-none",
+        "publishedAtSelector": "p.p",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.teck.com/news/news-releases/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-lundin-mining",
+      "name": "Lundin Mining · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lundinmining.com/news/",
+        "language": "en",
+        "itemSelector": "div.latest-news-releases a.news-item",
+        "titleSelector": "span.title",
+        "publishedAtSelector": "span.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://lundinmining.com/news/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-aurubis",
+      "name": "Aurubis · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.aurubis.com/en/media/press-releases/press-releases-2026",
+        "language": "en",
+        "itemSelector": "div.teaser-list-component a.block",
+        "titleSelector": "h5",
+        "publishedAtSelector": "p.overline",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.aurubis.com/en/media/press-releases/press-releases-2026/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-trekor-metals",
+      "name": "Trekor Metals（Taseko原入口跳转） · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.trekormetals.com/investors/news/",
+        "language": "en",
+        "itemSelector": "a.news-item",
+        "titleSelector": "span.title",
+        "publishedAtSelector": "span.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.trekormetals.com/investors/news/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-capstone-copper",
+      "name": "Capstone Copper · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://capstonecopper.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://capstonecopper.com/news/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-kazakhmys",
+      "name": "Kazakhmys · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.kazakhmys.kz/ru/news",
+        "language": "ru",
+        "itemSelector": "a.news-card[href^=\"/ru/news/\"]",
+        "titleSelector": ".news-card__title",
+        "publishedAtSelector": ".news-card__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD.MM.YYYY",
+          "language": "ru"
+        },
+        "allowUrlPrefixes": ["https://www.kazakhmys.kz/ru/news/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-polyus",
+      "name": "Polyus · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://polyus.com/en/media/press-releases/",
+        "language": "en",
+        "itemSelector": "article.news-item",
+        "linkSelector": "h3.news-item__title a",
+        "titleSelector": "h3.news-item__title",
+        "publishedAtSelector": "time.news-item__time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://polyus.com/en/media/press-releases/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-kghm",
+      "name": "KGHM Polska Miedź · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://media.kghm.com/en/news-and-press-releases/",
+        "language": "en",
+        "itemSelector": "a.publication-list__link",
+        "titleSelector": "p.publication-list__title",
+        "publishedAtSelector": "p.publication-list__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD-MM-YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://media.kghm.com/en/news-and-press-releases/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-kaz-minerals",
+      "name": "KAZ Minerals · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.kazminerals.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.kazminerals.com/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-pan-american-silver",
+      "name": "Pan American Silver · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://panamericansilver.com/news/",
+        "language": "en",
+        "itemSelector": "article.news-release",
+        "linkSelector": "h3.news-release-title a",
+        "titleSelector": "h3.news-release-title",
+        "publishedAtSelector": "p.news-release-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://panamericansilver.com/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-first-majestic",
+      "name": "First Majestic Silver · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.firstmajestic.com/investors/news-releases/",
+        "language": "en",
+        "itemSelector": "div.tab-content div.news-item",
+        "linkSelector": "a",
+        "titleSelector": "div.title",
+        "publishedAtSelector": "div.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.firstmajestic.com/investors/news-releases/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-silvercorp",
+      "name": "Silvercorp Metals · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://silvercorpmetals.com/news/",
+        "language": "en",
+        "itemSelector": "div.uabb-post-wrapper",
+        "linkSelector": "h3.uabb-post-heading a",
+        "titleSelector": "h3.uabb-post-heading",
+        "publishedAtSelector": "span.uabb-meta-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://silvercorpmetals.com/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-abrasilver",
+      "name": "AbraSilver Resource · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.abrasilver.com/news-releases/",
+        "language": "en",
+        "itemSelector": "div.tab-content div.news-item",
+        "linkSelector": "a.title",
+        "titleSelector": "a.title",
+        "publishedAtSelector": "span.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.abrasilver.com/news-releases/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-new-pacific",
+      "name": "New Pacific Metals · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.newpacificmetals.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.newpacificmetals.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-fortescue",
+      "name": "Fortescue · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.fortescue.com/en/articles",
+        "language": "en",
+        "itemSelector": "article.article-collection-item",
+        "linkSelector": "a[href^=\"/en/articles/\"]",
+        "titleSelector": "h3",
+        "publishedAtSelector": "p.text-sm",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.fortescue.com/en/articles/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["Formula E", "Fortescue Zero Racing"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mineral-resources",
+      "name": "Mineral Resources · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mineralresources.com.au/news/company-updates/",
+        "language": "en",
+        "itemSelector": "div[class*=\"__tile\"]",
+        "linkSelector": "div[class*=\"__info\"] a[href^=\"/news/company-updates/\"]",
+        "titleSelector": "div[class*=\"__info\"] a[href^=\"/news/company-updates/\"]",
+        "publishedAtSelector": "p[class*=\"__publishDate\"]",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.mineralresources.com.au/news/company-updates/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-cleveland-cliffs",
+      "name": "Cleveland-Cliffs · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.clevelandcliffs.com/news/news-releases",
+        "language": "en",
+        "itemSelector": "article.media",
+        "linkSelector": "h2.media-heading a",
+        "titleSelector": "h2.media-heading",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.clevelandcliffs.com/news/news-releases/detail/"],
+        "publishedAtRegex": "<time datetime=\"(\\d{4}-\\d{2}-\\d{2})T",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-aya-gold-silver",
+      "name": "Aya Gold & Silver · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ayagoldsilver.com/news/news-releases/",
+        "language": "en",
+        "itemSelector": "div.tab-content div.news-listing div.item",
+        "linkSelector": "a.link",
+        "titleSelector": "h4.title",
+        "publishedAtSelector": "div.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.ayagoldsilver.com/news/news-releases/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-liontown",
+      "name": "Liontown · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.liontown.com/news-media/news/",
+        "language": "en",
+        "itemSelector": "li.latest-asx-item",
+        "linkSelector": "a.asx-link",
+        "titleSelector": "span.asx-title",
+        "publishedAtSelector": "span.asx-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.liontown.com/latest-news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-century-lithium",
+      "name": "Century Lithium · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://centurylithium.com/news/",
+        "language": "en",
+        "itemSelector": "div.tab-content div.news-item",
+        "linkSelector": "a.news-item__title",
+        "titleSelector": "a.news-item__title",
+        "publishedAtSelector": "span.news-item__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://centurylithium.com/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-lundin-gold",
+      "name": "Lundin Gold · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://lundingold.com/news/",
+        "language": "en",
+        "itemSelector": "div.year",
+        "linkSelector": "a[href^=\"/news/\"]",
+        "titleSelector": "a[href^=\"/news/\"]",
+        "publishedAtSelector": "div.button-primary",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://lundingold.com/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-artemis-gold",
+      "name": "Artemis Gold · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.artemisgoldinc.com/news/",
+        "language": "en",
+        "itemSelector": "div.news-wrapper div.news-item",
+        "linkSelector": "div.news-title a",
+        "titleSelector": "div.news-title a",
+        "allowUrlPrefixes": ["https://www.artemisgoldinc.com/news/"],
+        "detail": {
+          "maxFetches": 20,
+          "publishedAtRegex": "<span class=\"legendSpanClass\">((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.? \\d{1,2}, \\d{4})</span>",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMMM D, YYYY",
+            "language": "en"
+          }
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-northern-star",
+      "name": "Northern Star Resources · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.nsrltd.com/",
+        "language": "en",
+        "itemSelector": "div.link-list li",
+        "linkSelector": "a.link-list__title",
+        "titleSelector": "a.link-list__title",
+        "publishedAtSelector": "span.link-list__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.nsrltd.com/media/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-evolution-mining",
+      "name": "Evolution Mining · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://evolutionmining.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://evolutionmining.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-resolute-mining",
+      "name": "Resolute Mining · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.rml.com.au/wp-json/alyka/v2/asx/",
+        "language": "en",
+        "itemSelector": "table.investor-asx-results-table tr",
+        "linkSelector": "td.title a",
+        "titleSelector": "span.title",
+        "publishedAtSelector": "span.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.rml.com.au/wp-content/uploads/"],
+        "htmlJsonPath": "htmlResults",
+        "baseUrl": "https://www.rml.com.au/",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-dpm-metals",
+      "name": "DPM Metals（Dundee Precious Metals原官网） · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://dpmmetals.com/news-media/news-releases/",
+        "language": "en",
+        "itemSelector": "section#news-releases li",
+        "linkSelector": "a[data-tooltip=\"View NR\"]",
+        "titleSelector": "a[data-tooltip=\"View NR\"]",
+        "allowUrlPrefixes": ["https://dpmmetals.com/news-media/news-releases/"],
+        "detail": {
+          "maxFetches": 20,
+          "publishedAtSelector": "section#news-release h4",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMMM D, YYYY",
+            "language": "en"
+          }
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-trilogy-metals",
+      "name": "Trilogy Metals · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://trilogymetals.com/news-and-media/news/",
+        "language": "en",
+        "itemSelector": "li.wp-block-post",
+        "linkSelector": "h3.wp-block-post-title a",
+        "titleSelector": "h3.wp-block-post-title",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://trilogymetals.com/news-and-media/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-solaris-resources",
+      "name": "Solaris Resources · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.solarisresources.com/news",
+        "language": "en",
+        "itemSelector": "div[data-framer-name=\"News Item\"]",
+        "linkSelector": "a[href*=\"blog/\"]",
+        "titleSelector": "a.framer-text[href*=\"blog/\"]",
+        "publishedAtSelector": "div[data-framer-name=\"Date\"] p",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.solarisresources.com/blog/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-alkane",
+      "name": "Alkane Resources · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://alkres.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://alkres.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-silver-tiger",
+      "name": "Silver Tiger Metals · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://silvertigermetals.com/",
+        "language": "en",
+        "itemSelector": "div.col.span_10.right div.item",
+        "linkSelector": "a.btn",
+        "titleSelector": "p:not(:has(a))",
+        "publishedAtSelector": "span",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://silvertigermetals.com/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-endeavour-mining",
+      "name": "Endeavour Mining · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.endeavourmining.com/news-and-media/news/",
+        "language": "en",
+        "itemSelector": "div.press-releases__section--items a.box-card",
+        "linkSelector": "a.box-card",
+        "titleSelector": ".box-card__title",
+        "publishedAtSelector": ".box-card__date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.endeavourmining.com/news-and-media/news/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-jinchuan",
+      "name": "金川集团 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "http://en.jnmc.com/news.html",
+        "language": "en",
+        "itemSelector": "ul.list_lst > li",
+        "linkSelector": "h3 a",
+        "titleSelector": "h3 a",
+        "publishedAtSelector": "span.font_desc",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["http://en.jnmc.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-cnmc",
+      "name": "中国有色矿业集团 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cnmc.com.cn/cnmc/xwzx/jtxw/A002003002Gone1.html",
+        "language": "zh-CN",
+        "itemSelector": "div.jtxwtitle_789",
+        "linkSelector": "h2 a",
+        "titleSelector": "h2 a",
+        "publishedAtSelector": "span",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh"
+        },
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.cnmc.com.cn/cnmc/xwzx/jtxw/"],
+        "detail": {
+          "maxFetches": 10,
+          "titleSelector": "h1#Title",
+          "titleAuthoritative": true
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-gold-royalty",
+      "name": "Gold Royalty · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.goldroyalty.com/news/news-releases/",
+        "language": "en",
+        "itemSelector": "div.news-listing div.news-item",
+        "linkSelector": "a",
+        "titleSelector": "div.title",
+        "publishedAtSelector": "div.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.goldroyalty.com/news/news-releases/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-zhaojin",
+      "name": "招金矿业 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.zhaojin.com.cn/news/index.html",
+        "language": "zh-CN",
+        "itemSelector": "div.health_list > ul > li",
+        "linkSelector": "a",
+        "titleSelector": "h3",
+        "publishedAtSelector": "dd > span",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.zhaojin.com.cn/news/details"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-nonfemet",
+      "name": "中金岭南 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.nonfemet.com/channel/21",
+        "language": "zh-CN",
+        "itemSelector": "div.news-box ul > li",
+        "linkSelector": "h4 a",
+        "titleSelector": "h4 a",
+        "publishedAtSelector": "div.pub-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.nonfemet.com/info/"],
+        "detail": {
+          "maxFetches": 10,
+          "titleSelector": "div.jianjie-title",
+          "titleAuthoritative": true
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-yunnan-tin",
+      "name": "云锡集团 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.ytc.cn/xwdt1/gsxw.htm",
+        "language": "zh-CN",
+        "itemSelector": "ul.nylists1 > li",
+        "linkSelector": "a",
+        "titleSelector": "h4",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://www.ytc.cn/info/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-eramet",
+      "name": "Eramet 埃赫曼 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.eramet.com/en/media/press-releases/",
+        "language": "en",
+        "itemSelector": "div.fusion-post-cards li.fusion-layout-column",
+        "linkSelector": "h2 a",
+        "titleSelector": "h2",
+        "allowUrlPrefixes": ["https://www.eramet.com/en/news/"],
+        "publishedAtRegex": "<p>(\\d{1,2} (?:January|February|March|April|May|June|July|August|September|October|November|December) \\d{4})</p>",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-nornickel",
+      "name": "Nornickel 诺镍 · 官方动态",
+      "kind": "json_list",
+      "config": {
+        "url": "https://nornickel.com/news-and-media/press-releases-and-news/",
+        "mode": "html_window_var",
+        "windowVar": "App",
+        "language": "en",
+        "itemsPath": "components.news.items",
+        "titlePaths": ["name"],
+        "urlTemplate": "https://nornickel.com{raw:detailPageUrl}",
+        "publishedAtPath": "activeFrom",
+        "publishedAtUnit": "epoch_s",
+        "externalIdPath": "code",
+        "allowUrlPrefixes": ["https://nornickel.com/news-and-media/press-releases-and-news/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["gas field"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-merdeka",
+      "name": "Merdeka Copper Gold · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://merdekacoppergold.com/en/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://merdekacoppergold.com/en/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["recruitment scam"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-arafura",
+      "name": "Arafura Rare Earths · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.arultd.com/wp-admin/admin-ajax.php?year=2026&paginated=false&action=weblink_feed",
+        "baseUrl": "https://www.arultd.com/investor/asx-announcements/asx-announcements-2026/",
+        "language": "en",
+        "itemSelector": "table.announcement-table tbody tr",
+        "linkSelector": "td.announcement-document a",
+        "titleSelector": "td.announcement-document a",
+        "publishedAtSelector": "td.announcement-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://wcsecure.weblink.com.au/clients/arafura/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-energy-fuels",
+      "name": "Energy Fuels · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://investors.energyfuels.com/news-releases?pagetemplate=rss",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://investors.energyfuels.com/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["uranium"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-championiron",
+      "name": "Champion Iron 冠军铁矿 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://newsroom.championiron.com/index.php?s=2429&pagetemplate=rss",
+        "language": "en",
+        "allowUrlPrefixes": ["https://newsroom.championiron.com/"],
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-chinagoldgroup",
+      "name": "中国黄金集团 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.chinagoldgroup.com/zghj/xwzx/jtyw/A080003002Gone1.html",
+        "parseMode": "html",
+        "language": "zh",
+        "allowUrlPrefixes": ["https://www.chinagoldgroup.com/zghj/xwzx/jtyw/"],
+        "itemSelector": "div.second-news-item",
+        "linkSelector": "a.news-title",
+        "titleSelector": "a.news-title",
+        "publishedAtSelector": "div.second-news-item-date",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh"
+        },
+        "detail": {
+          "maxFetches": 20,
+          "titleSelector": "h1#Title",
+          "titleAuthoritative": true
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-cxtc",
+      "name": "厦门钨业 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cxtc.com/News.aspx",
+        "parseMode": "html",
+        "language": "zh",
+        "allowUrlPrefixes": ["https://www.cxtc.com/News_info.aspx"],
+        "itemSelector": "div.boldtitle",
+        "linkSelector": "a[href*='News_info.aspx']",
+        "titleSelector": "a[href*='News_info.aspx']",
+        "detail": {
+          "maxFetches": 20
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-gem",
+      "name": "格林美 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://en.gem.com.cn/CompanyNews/list.html",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://en.gem.com.cn/CompanyNews/info_itemid_"],
+        "itemSelector": "div.newsList li",
+        "linkSelector": "h5 a",
+        "titleSelector": "h5 a",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY.MM.DD",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-hydro",
+      "name": "Norsk Hydro 海德鲁 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.hydro.com/en/global/media/news/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.hydro.com/en/global/media/news/20"],
+        "itemSelector": "li.news-article__list-item",
+        "linkSelector": "a",
+        "titleSelector": "h2.news-article__list-item-title",
+        "publishedAtSelector": "p.news-article__list-item-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-igo",
+      "name": "IGO Limited · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.igo.com.au/site/investor-center/ASX-Announcements",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.igo.com.au/site/pdf/"],
+        "itemSelector": "div.list-item.year-filter-list",
+        "linkSelector": "a.list-url",
+        "titleSelector": "span.list-title",
+        "publishedAtSelector": "span.list-date",
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": [
+            "director's interest notice",
+            "substantial holder",
+            "unquoted securities",
+            "cessation of securities",
+            "appendix 4g",
+            "appendix 3",
+            "listing rule 3.13.1",
+            "application for quotation",
+            "proposed issue of securities"
+          ]
+        },
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-k92mining",
+      "name": "K92 Mining · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.k92mining.com/news/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.k92mining.com/news/"],
+        "itemSelector": "a.list-entry",
+        "titleSelector": "div.title",
+        "publishedAtSelector": "div.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-qhyhgf",
+      "name": "盐湖股份 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.qhyhgf.com/NewsInfoCategory?categoryId=326234&PageInfoId=0",
+        "parseMode": "html",
+        "language": "zh",
+        "allowUrlPrefixes": ["https://www.qhyhgf.com/newsinfo/"],
+        "itemSelector": "li.w-list-item",
+        "linkSelector": "a.w-list-link",
+        "titleSelector": "a.w-list-link",
+        "publishedAtSelector": "span.w-list-date",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "zh"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-tronox",
+      "name": "Tronox 特诺 · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.tronox.com/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.tronox.com/"],
+        "publishedAtField": "pubDate",
+        "allowCategories": ["Press Releases"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-sigmalithiumresources",
+      "name": "Sigma Lithium · 官方动态",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://sigmalithiumcorp.com/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://sigmalithiumcorp.com/"],
+        "publishedAtField": "pubDate",
+        "allowCategories": ["News"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-torexgold",
+      "name": "Torex Gold · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://torexgold.com/news-and-media/news/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://torexgold.com/news-and-media/news/"],
+        "itemSelector": "section#news-releases li",
+        "denyUrlPrefixes": ["https://torexgold.com/news-and-media/news/page"],
+        "linkSelector": "a[href*='/news-and-media/news/']",
+        "titleSelector": "a[href*='/news-and-media/news/']",
+        "publishedAtSelector": "div.text-brand-gold-500",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
     }
   ]
 }
