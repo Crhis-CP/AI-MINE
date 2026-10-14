@@ -6120,6 +6120,1258 @@
       "site_fulltext": false,
       "syndicate_fulltext": false,
       "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining-technology",
+      "name": "Mining Technology · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mining-technology.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.mining-technology.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-international-mining",
+      "name": "International Mining · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://im-mining.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://im-mining.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-northern-miner",
+      "name": "The Northern Miner · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.northernminer.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.northernminer.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "denyCategories": ["Promoted Content"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["sponsored video"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-canadian-mining-journal",
+      "name": "Canadian Mining Journal · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.canadianminingjournal.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.canadianminingjournal.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["sponsored video"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-australian-mining",
+      "name": "Australian Mining · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.australianmining.com.au/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.australianmining.com.au/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-global-mining-review",
+      "name": "Global Mining Review · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.globalminingreview.com/news/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.globalminingreview.com/"],
+        "itemSelector": "article",
+        "linkSelector": "a[href]",
+        "titleSelector": "h2, h3",
+        "publishedAtRegex": ">(\\d{1,2} [A-Z][a-z]{2} \\d{4})<",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-australian-mining-review",
+      "name": "The Australian Mining Review · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://australianminingreview.com.au/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://australianminingreview.com.au/news/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining-zimbabwe",
+      "name": "Mining Zimbabwe · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://miningzimbabwe.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://miningzimbabwe.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "denyCategories": ["Fidelity Gold prices"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["gold buying prices"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-miningmx",
+      "name": "Miningmx · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://miningmx.com/rss/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://miningmx.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-african-mining-market",
+      "name": "African Mining Market · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://africanminingmarket.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://africanminingmarket.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "denyCategories": ["Oil & Gas", "Partner Content"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining-connection",
+      "name": "Mining Connection · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.miningconnection.com/surface/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://miningconnection.com/surface/news/article/"],
+        "itemSelector": "div.newsitem",
+        "linkSelector": "h4 a",
+        "titleSelector": "h4 a",
+        "publishedAtSelector": "p.newsitemdate",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["coal", "uranium"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-energiminas",
+      "name": "Energiminas · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://energiminas.com/category/mineria/feed/",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://energiminas.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mineria-chilena",
+      "name": "Minería Chilena · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mch.cl/feed/",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.mch.cl/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mineria-desarrollo",
+      "name": "Minería y Desarrollo · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.mineriaydesarrollo.com/rss/noticias",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.mineriaydesarrollo.com/noticias/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining-press",
+      "name": "Mining Press · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "url": "https://miningpress.com/",
+        "language": "es",
+        "allowUrlPrefixes": ["https://miningpress.com/nota/"],
+        "itemSelector": ".pieza",
+        "linkSelector": "a[href^=\"/nota/\"]",
+        "titleSelector": ".titulo",
+        "detail": {
+          "maxFetches": 30,
+          "publishedAtSelector": ".infoNota .fecha",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "DD/MM/YYYY",
+            "language": "es"
+          }
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mineria-en-linea",
+      "name": "Minería en Línea · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://mineriaenlinea.com/feed/",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://mineriaenlinea.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-reporte-minero",
+      "name": "Reporte Minero · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.reporteminero.cl/noticias/noticias",
+        "language": "es",
+        "allowUrlPrefixes": ["https://www.reporteminero.cl/noticia/noticias/"],
+        "itemSelector": "#printableArea div.row.align-items-center",
+        "linkSelector": "a.text-dark",
+        "titleSelector": "a.text-dark",
+        "publishedAtSelector": "span.text-muted",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMMM YYYY",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-portal-minero",
+      "name": "Portal Minero · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.portalminero.com/feed",
+        "language": "es",
+        "publishedAtField": "pubDate",
+        "sortByPublishedAt": true,
+        "allowUrlPrefixes": ["https://www.portalminero.com/"],
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "es"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-panorama-minero",
+      "name": "Panorama Minero · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.panorama-minero.com/en/news",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.panorama-minero.com/en/news/"],
+        "itemSelector": "article[itemtype]",
+        "linkSelector": "h3 a",
+        "titleSelector": "h3 a",
+        "publishedAtSelector": "time",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mineria-panamericana",
+      "name": "Minería Pan-Americana · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "es",
+        "feedUrl": "https://mineria-pa.com/category/noticias/feed/",
+        "allowUrlPrefixes": ["https://mineria-pa.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-dipromin",
+      "name": "Dipromin · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "es",
+        "feedUrl": "https://www.dipromin.com/feed/",
+        "allowUrlPrefixes": ["https://www.dipromin.com/noticias/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-minerandina",
+      "name": "Minerandina · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "es",
+        "feedUrl": "https://minerandina.com/es/feed/",
+        "allowUrlPrefixes": ["https://minerandina.com/es/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-antaike",
+      "name": "安泰科 · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://www.antaike.com/list.php?id=4",
+        "itemSelector": "#freetopic ul.list li",
+        "linkSelector": "a[href*='content.php']",
+        "publishedAtSelector": "span.rt",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "D MMM YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.antaike.com/content.php"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["spot index"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-fastmarkets",
+      "name": "Fastmarkets · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://www.fastmarkets.com/metals-and-mining/",
+        "itemSelector": "div.PageListD-items-item",
+        "linkSelector": "div.PagePromo-title a",
+        "titleSelector": "div.PagePromo-title",
+        "publishedAtSelector": "div.PagePromo-date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.fastmarkets.com/insights/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-cru",
+      "name": "CRU Group · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://www.crugroup.com/en/communities/thought-leadership/",
+        "itemSelector": "div.search-results-items-component__items a.article-card",
+        "titleSelector": ".search-results-items-component__item__title",
+        "detail": {
+          "maxFetches": 20
+        },
+        "allowUrlPrefixes": ["https://www.crugroup.com/en/communities/thought-leadership/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["hydrogen", "ammonia", "wind ", "thermal coal", "construction", "fertiliser", "fertilizer", "polymer", "methanol"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-benchmark-minerals",
+      "name": "Benchmark Mineral Intelligence · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://source.benchmarkminerals.com/",
+        "itemSelector": "a[href^=\"/article/\"]",
+        "titleSelector": "h3, h4, h6",
+        "publishedAtRegex": ">Article \\| ([A-Z][a-z]{2} \\d{1,2}, \\d{4}) \\|",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://source.benchmarkminerals.com/article/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-kitco-news",
+      "name": "Kitco News · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://www.kitco.com/news/category/mining",
+        "itemSelector": "a[href*=\"/news/article/\"]:has(h3, h4), a[href*=\"/news/off-the-wire/\"]:has(h3, h4)",
+        "publishedAtRegex": "/news/(?:article|off-the-wire)/(\\d{4}-\\d{2}-\\d{2})/",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.kitco.com/news/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["crude oil", "natural gas", "thermal coal", "coal power", "bitcoin", "crypto"]
+        },
+        "titleSelector": "h3, h4",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-smm",
+      "name": "上海有色网 SMM · 行业资讯",
+      "kind": "json_list",
+      "config": {
+        "language": "zh-CN",
+        "url": "https://news.smm.cn/l/22",
+        "mode": "html_json_key",
+        "jsonKey": "listList",
+        "titlePaths": ["title"],
+        "urlTemplate": "https://news.smm.cn/news/{newsId}",
+        "externalIdPath": "newsId",
+        "publishedAtPath": "pubDate",
+        "publishedAtUnit": "epoch_s",
+        "allowUrlPrefixes": ["https://news.smm.cn/news/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": [
+            "招标",
+            "中标",
+            "展商推介",
+            "璀璨亮相",
+            "助力smm",
+            "库存日报",
+            "注销仓单",
+            "smm日评",
+            "smm午评",
+            "原油",
+            "opec",
+            "光伏组件",
+            "集成电路",
+            "汽车产销"
+          ]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mysteel",
+      "name": "我的钢铁网 Mysteel · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "zh-CN",
+        "url": "https://news.mysteel.com/article/p-3822-------------1.html",
+        "itemSelector": "ul#news > li",
+        "linkSelector": "h3 a",
+        "publishedAtSelector": "p.rTime",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY-MM-DD HH:mm",
+          "language": "zh"
+        },
+        "allowUrlPrefixes": ["https://news.mysteel.com/a/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["煤", "焦化", "焦炭"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-at-minerals",
+      "name": "AT Mineral Processing · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "en",
+        "feedUrl": "https://www.at-minerals.com/en/rss.xml",
+        "allowUrlPrefixes": ["https://www.at-minerals.com/en/news/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["powtech", "asphaltica", "hillhead", "aggregates", "gravel", "quarry", "sand ", "save the date"],
+          "keepIfMatches": ["mine", "mining", "copper", "gold", "silver", "tungsten", "nickel", "lithium", "iron ore", "minerals processing"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-resource-world",
+      "name": "Resource World Magazine · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "en",
+        "feedUrl": "https://resourceworld.com/feed/",
+        "allowUrlPrefixes": ["https://resourceworld.com/"],
+        "denyCategories": ["Hydrogen"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-australian-resources-investment",
+      "name": "Australian Resources & Investment · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "en",
+        "feedUrl": "https://www.australianresourcesandinvestment.com.au/feed/",
+        "allowUrlPrefixes": ["https://www.australianresourcesandinvestment.com.au/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining-life",
+      "name": "Mining Life Online · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://mininglifeonline.net/news_list_news.html",
+        "baseUrl": "https://mininglifeonline.net/",
+        "itemSelector": "div.l-news",
+        "linkSelector": "a",
+        "publishedAtSelector": "span",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://mininglifeonline.net/news/article/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-proactivo",
+      "name": "Revista ProActivo · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "es",
+        "feedUrl": "https://proactivo.com.pe/category/mineria/feed/",
+        "allowUrlPrefixes": ["https://proactivo.com.pe/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mundo-minero",
+      "name": "Mundo Minero · 行业资讯",
+      "kind": "json_list",
+      "config": {
+        "language": "es",
+        "url": "https://mundominero.mx/api/posts?page=1",
+        "itemsPath": "posts",
+        "titlePaths": ["post_title"],
+        "summaryPaths": ["post_content"],
+        "urlTemplate": "https://mundominero.mx/noticias/{slug}",
+        "externalIdPath": "ID",
+        "publishedAtPath": "created_at",
+        "allowUrlPrefixes": ["https://mundominero.mx/noticias/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-outlet-minero",
+      "name": "Outletminero · 行业资讯",
+      "kind": "rss",
+      "config": {
+        "language": "es",
+        "feedUrl": "https://outletminero.org/rss/",
+        "allowUrlPrefixes": ["https://outletminero.org/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mining-metal-news",
+      "name": "MININGMETALnews · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://www.miningmetalnews.com/",
+        "itemSelector": "div.view-frontpage-main-articles div.views-row, div.view-conventus-frontpage-articles-list div.views-row",
+        "linkSelector": "a[href^=\"/20\"]",
+        "publishedAtRegex": "href=\"/(\\d{8})/\\d+/",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYYMMDD",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.miningmetalnews.com/20"],
+        "titleSelector": "h2",
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["uranium", "store", "naval order"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-mineria-sustentable",
+      "name": "Minería Sustentable Argentina · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "es",
+        "url": "https://mineriasustentable.com.ar/",
+        "itemSelector": "section[class*=\"noticias-\"] article.post__noticia",
+        "linkSelector": "h2.post__titulo a",
+        "publishedAtSelector": ".post__fecha",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "es"
+        },
+        "allowUrlPrefixes": ["https://mineriasustentable.com.ar/contenido/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["búsquedas laborales", "bolsa de trabajo"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "exp-20261014-petromindo",
+      "name": "Petromindo·Minerals · 行业资讯",
+      "kind": "web_list",
+      "config": {
+        "language": "en",
+        "url": "https://www.petromindo.com/news/category/minerals",
+        "itemSelector": "main a[href*=\"/news/article/\"]:has(h4)",
+        "titleSelector": "h4",
+        "publishedAtSelector": "p",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.petromindo.com/news/article/"],
+        "ingestNoiseFilter": {
+          "dropMarkersTitleOnly": ["photo news:"]
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-mongolianminingjournal",
+      "name": "Mongolian Mining Journal 蒙古矿业杂志",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.mongolianminingjournal.com/as/mining",
+        "language": "mn",
+        "itemSelector": "div.articles-item",
+        "linkSelector": "a.articles__title",
+        "titleSelector": "a.articles__title",
+        "allowUrlPrefixes": ["https://www.mongolianminingjournal.com/a/"],
+        "detail": {
+          "maxFetches": 20,
+          "publishedAtSelector": "meta[property='og:article:published_time']"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-nuevamineria",
+      "name": "Nueva Minería y Energía",
+      "kind": "json_list",
+      "config": {
+        "url": "https://www.nuevamineria.com/revista/wp-json/wp/v2/posts?categories=4635&per_page=12&_fields=id,date_gmt,link,title,excerpt",
+        "language": "es",
+        "titlePaths": ["title.rendered"],
+        "summaryPaths": ["excerpt.rendered"],
+        "publishedAtPath": "date_gmt",
+        "externalIdPath": "id",
+        "urlTemplate": "{raw:link}",
+        "sourceDate": {
+          "timezone": "UTC",
+          "timezoneEvidence": "WordPress REST API 的 date_gmt 字段按 WordPress 定义为 GMT/UTC 时间"
+        },
+        "allowUrlPrefixes": ["https://www.nuevamineria.com/revista/"],
+        "denyUrlPrefixes": ["https://www.nuevamineria.com/revista/category/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-theassay",
+      "name": "The Assay",
+      "kind": "rss",
+      "config": {
+        "feedUrl": "https://www.theassay.com/feed/",
+        "language": "en",
+        "allowUrlPrefixes": ["https://www.theassay.com/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "rpl-investingnews",
+      "name": "Investing News Network · 资源板块",
+      "kind": "web_list",
+      "config": {
+        "url": "https://investingnews.com/category/daily/resource-investing/",
+        "language": "en",
+        "itemSelector": "article:has(.social-date__text):has(a.widget__section[href*='/resource-investing/']):not(:has(a.widget__section[href*='uranium'])):not(:has(a.widget__section[href*='energy-investing']))",
+        "linkSelector": "h2 a",
+        "titleSelector": "h2 a",
+        "publishedAtRegex": "social-date__text\">([A-Z][a-z]{2} \\d{1,2}, \\d{4})",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://investingnews.com/"],
+        "denyUrlPrefixes": ["https://investingnews.com/stocks/", "https://investingnews.com/author/"],
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T2",
+      "first_party": false,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
     }
   ]
 }
