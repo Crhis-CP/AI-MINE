@@ -372,8 +372,16 @@ export function ReportPaper({ report, index }: { report: ReportDetail; index: Re
       <Masthead report={report} index={index} quiet={quiet} />
       <div className="my-4 space-y-1 text-[12px] text-ink-3">
         <p>
-          覆盖时间：{fullDateTime(report.windowStart)} 至 {fullDateTime(report.windowEnd)}（北京时间，结束时刻不含）
+          覆盖时间：{fullDateTime(report.windowStart)} 至 {fullDateTime(report.windowEnd)}（北京时间{daily ? "" : "，结束时刻不含"}）
         </p>
+        {daily && (
+          <p className="pt-1 text-[13px] text-ink-2">
+            本期收录截至 {fullDateTime(report.windowEnd)} 的精选。之后入选的内容，请看后续日报。
+            <Link to="/" className="ml-1 underline underline-offset-2">
+              查看最新精选
+            </Link>
+          </p>
+        )}
         <p>
           生成于 {fullDateTime(report.generatedAt)} ·{" "}
           {quiet
