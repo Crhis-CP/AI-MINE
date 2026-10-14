@@ -37,6 +37,120 @@ test("event relationship requires confidence and current bilateral raw evidence"
   assert.equal(validatedRelation(a, { ...b, frame: { object: "Beta project" } }, v), "UNRELATED");
   assert.equal(validatedRelation(a, b, { ...v, relation: "SAME_STORY" }), "UNRELATED");
 });
+function reprint(over: Partial<ReportView> & { originalText: string }): ReportView {
+  return {
+    title: over.title ?? "转述",
+    source: over.source ?? "转述来源",
+    firstParty: over.firstParty ?? false,
+    at: over.at ?? new Date("2026-10-14T03:25:00Z"),
+    summary: null,
+    originalText: over.originalText,
+    jurisdiction: over.jurisdiction ?? "CN",
+    frame: over.frame ?? null,
+  };
+}
+
+test("one policy or one speech stays one occurrence when outlets word it differently", () => {
+  const catalogA = "自然资源部公布优化调整后的矿产资源目录";
+  const catalogB = "自然资源部发布矿产资源目录共174个矿种";
+  const catalog = {
+    relation: "SAME_OCCURRENCE" as const,
+    confidence: 0.95,
+    evidence: {
+      queryQuote: catalogA,
+      candidateQuote: catalogB,
+      anchor: "矿产资源目录",
+      queryAction: "公布",
+      candidateAction: "发布",
+      queryStage: "other" as const,
+      candidateStage: "other" as const,
+      change: "",
+    },
+  };
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: catalogA, frame: { subject: "自然资源部", action: "公布", object: "矿产资源目录" } }),
+      reprint({
+        originalText: catalogB,
+        source: "中国地质调查局",
+        frame: { subject: "自然资源部会同国家发展改革委", action: "发布", object: "《矿产资源目录》" },
+      }),
+      catalog,
+    ),
+    "SAME_OCCURRENCE",
+  );
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: catalogA, source: "安徽省自然资源厅", frame: { subject: "安徽省自然资源厅", object: "矿产资源目录" } }),
+      reprint({ originalText: catalogB, source: "中国地质调查局", frame: { subject: "中国地质调查局", object: "《矿产资源目录》" } }),
+      catalog,
+    ),
+    "SAME_OCCURRENCE",
+    "outlet names differ, the document does not",
+  );
+  const speechA = "习近平就推动中非矿业合作提出4点主张";
+  const speechB = "习近平主席同博茨瓦纳总统会谈并就中非矿业合作提出4点主张";
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: speechA, frame: { subject: "习近平", action: "提出", object: "4点主张" } }),
+      reprint({ originalText: speechB, frame: { subject: "习近平主席", action: "提出", object: "中非矿业合作4点主张" } }),
+      {
+        relation: "SAME_OCCURRENCE",
+        confidence: 0.95,
+        evidence: {
+          queryQuote: speechA,
+          candidateQuote: speechB,
+          anchor: "中非矿业合作",
+          queryAction: "提出",
+          candidateAction: "提出",
+          queryStage: "other",
+          candidateStage: "other",
+          change: "",
+        },
+      },
+    ),
+    "SAME_OCCURRENCE",
+  );
+  const mine = "自然资源部公布加达锂矿新增氧化锂资源量";
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: catalogA, frame: { subject: "自然资源部", object: "矿产资源目录" } }),
+      reprint({ originalText: mine, frame: { subject: "自然资源部", object: "加达锂矿" } }),
+      {
+        relation: "SAME_OCCURRENCE",
+        confidence: 0.95,
+        evidence: {
+          queryQuote: catalogA,
+          candidateQuote: mine,
+          anchor: "自然资源部",
+          queryAction: "公布",
+          candidateAction: "公布",
+          queryStage: "other",
+          candidateStage: "other",
+          change: "",
+        },
+      },
+    ),
+    "UNRELATED",
+    "a different project does not join the policy",
+  );
+  assert.equal(validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB, jurisdiction: "CL" }), catalog), "UNRELATED");
+  assert.equal(
+    validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB }), {
+      ...catalog,
+      evidence: { ...catalog.evidence, queryStage: "approved", candidateStage: "proposed" },
+    }),
+    "UNRELATED",
+  );
+  assert.equal(
+    validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB }), {
+      ...catalog,
+      evidence: { ...catalog.evidence, queryQuote: "这是一句不在原文里的编造引文" },
+    }),
+    "UNRELATED",
+  );
+});
+
 test("low confidence cannot enter occurrence or development through a secondary path", () => {
   const c = { factId: 1, storyId: 1, factTitle: "A", members: 2, storyRoot: true, score: 1, report: b };
   assert.deepEqual(sameOccurrence([c], new Map([[1, { relation: "SAME_OCCURRENCE", confidence: 0, note: "" }]])), []);

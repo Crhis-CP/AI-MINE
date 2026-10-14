@@ -78,6 +78,18 @@ function statedStage(quote: string): string | null {
   return null;
 }
 
+function compactName(value: string | null | undefined): string {
+  return (value ?? "").replace(/[\s《》「」“”"'‘’（）()、，。]/g, "");
+}
+
+/** Missing side, equal text, or one name inside the other. Spaces and book-title marks are not a second entity. */
+function sameName(left: string | null | undefined, right: string | null | undefined): boolean {
+  const a = compactName(left),
+    b = compactName(right);
+  if (!a || !b || a === b) return true;
+  return a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a));
+}
+
 /** Raw quotations and material identity outrank confidence and lexical recall. */
 export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
   if (verdict.relation !== "SAME_OCCURRENCE" && verdict.relation !== "SAME_STORY") return verdict.relation;
@@ -93,9 +105,13 @@ export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Ve
   const aStage = statedStage(e.queryQuote),
     bStage = statedStage(e.candidateQuote);
   if ((aStage && aStage !== e.queryStage) || (bStage && bStage !== e.candidateStage)) return "UNRELATED";
-  if (a.frame?.object && b.frame?.object && a.frame.object !== b.frame.object) return "UNRELATED";
-  if (a.frame?.subject && b.frame?.subject && a.frame.subject !== b.frame.subject) return "UNRELATED";
-  if (verdict.relation === "SAME_OCCURRENCE" && (e.queryStage !== e.candidateStage || e.queryAction !== e.candidateAction)) return "UNRELATED";
+  if (!sameName(a.frame?.object, b.frame?.object)) return "UNRELATED";
+  if (!sameName(a.frame?.subject, b.frame?.subject)) {
+    const mark = compactName(e.anchor);
+    const objectsShareDocument = mark.length >= 4 && compactName(a.frame?.object).includes(mark) && compactName(b.frame?.object).includes(mark);
+    if (!objectsShareDocument) return "UNRELATED";
+  }
+  if (verdict.relation === "SAME_OCCURRENCE" && e.queryStage !== e.candidateStage) return "UNRELATED";
   if (
     verdict.relation === "SAME_STORY" &&
     (!a.at ||

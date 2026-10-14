@@ -143,6 +143,7 @@ export const GROUP_PROMPT_VERSION = RELATE_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */
 const RECALL_DAYS = 14;
 const RECALL_MIN_COSINE = 0.6;
+const LEXICAL_RECALL_MIN = 0.25;
 const RECALL_TOP_FACTS = 3;
 /** A merge with a candidate less similar than this is confirmed by the review model before it is written. */
 const CONFIRM_BELOW_COSINE = 0.85;
@@ -333,28 +334,44 @@ async function recallFacts(queryId: string, queryText: string, minScore: number,
     const prev = best.get(r.fact_id);
     if (!prev || score > prev.score) best.set(r.fact_id, { factId: r.fact_id, storyId: r.story_id, factTitle: r.fact_title, score });
   };
+  const considerLexical = async (only?: Set<string>) => {
+    const ids = [...new Set(pool.map((r) => r.article_id))].filter((id) => !only || only.has(id));
+    if (!ids.length) return;
+    const texts = await reportTexts(ids);
+    const wanted = new Set(ids);
+    for (const r of pool) {
+      if (!wanted.has(r.article_id)) continue;
+      const s = lexicalSimilarity(queryText, texts.get(r.article_id) ?? "");
+      if (s >= LEXICAL_RECALL_MIN) consider(r, s);
+    }
+  };
   if (pool.length) {
     if (!embeddingsAvailable()) {
-      const texts = await reportTexts([...new Set(pool.map((r) => r.article_id))]);
-      for (const r of pool) {
-        const s = lexicalSimilarity(queryText, texts.get(r.article_id) ?? "");
-        if (s >= 0.25) consider(r, s);
-      }
+      await considerLexical();
     } else {
       // Window members already in the cache keep their vector (a later revision of their text is
       // picked up when the cache turns over); only new members and the query are embedded now.
+      // A missing or mismatched vector falls back to lexical overlap. A vector that exists and scores
+      // under the cosine bar does not: a low cosine is a reject, not a missing measurement.
       const ids = [...new Set(pool.map((r) => r.article_id))];
       const uncached = ids.filter((id) => !vectorCache.has(id));
       const texts = await reportTexts(uncached);
       const fresh = await vectorsFor([{ id: queryId, text: queryText }, ...uncached.map((id) => ({ id, text: texts.get(id) ?? "" })).filter((x) => x.text)]);
       const mine = fresh.get(queryId);
-      if (mine) {
+      if (!mine) {
+        await considerLexical();
+      } else {
+        const missing = new Set<string>();
         for (const r of pool) {
           const v = fresh.get(r.article_id) ?? vectorCache.get(r.article_id)?.vector;
-          if (!v) continue;
+          if (!v || v.length !== mine.length) {
+            missing.add(r.article_id);
+            continue;
+          }
           const s = cosine32(mine, v);
           if (s >= minScore) consider(r, s);
         }
+        if (missing.size) await considerLexical(missing);
       }
     }
   }
@@ -1065,6 +1082,11 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     const fact = factId ?? (await createFact(tx, story, newTitle, frame, observedAt));
     const [hasPrimary] = await tx<{ n: number }[]>`SELECT count(*) AS n FROM fact_articles WHERE fact_id = ${fact} AND role = 'primary'`;
     const role = a.first_party && Number(hasPrimary?.n ?? 0) === 0 ? "primary" : "report";
+    // The public event title follows the first official report (BR-EVT-06), not whichever reprint arrived first.
+    if (role === "primary" && factId) {
+      await tx`UPDATE stories SET title = ${newTitle}, updated_at = now() WHERE id = ${story} AND origin <> 'manual'`;
+      await tx`UPDATE facts SET title = ${newTitle} WHERE id = ${fact}`;
+    }
     await tx`INSERT INTO fact_articles (fact_id, article_id, role, created_at, input_revision) VALUES (${fact}, ${articleId}, ${role}, ${observedAt}, ${a.revision}) ON CONFLICT (fact_id, article_id) DO NOTHING`;
     await recordSignal(tx, story, articleId, source, "editorial", observedAt);
     await recordDecision(tx, articleId, fact, story, verdict, decisionCandidates, receipts[0] ?? null);
