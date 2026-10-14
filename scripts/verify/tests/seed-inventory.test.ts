@@ -46,9 +46,9 @@ test("seed evidence requires exact IDs, including equal-count substitutions and 
   assert.equal(seedSourceMismatch([], "[]"), null);
 });
 
-test("current catalogues require 219 news plus 81 eligible policy identities", () => {
+test("current catalogues require 223 news plus 81 eligible policy identities", () => {
   const ids = industrySourceIds(ROOT);
-  assert.equal(ids.length, 300);
+  assert.equal(ids.length, 304);
   assert.equal(ids.filter((id) => id.startsWith("policy-")).length, 81);
   assert.equal(new Set(ids).size, ids.length);
 });

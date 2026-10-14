@@ -5984,6 +5984,142 @@
       "site_fulltext": false,
       "syndicate_fulltext": false,
       "enabled": false
+    },
+    {
+      "id": "sup-20261014-oceanagold",
+      "name": "OceanaGold · 新闻稿",
+      "kind": "web_list",
+      "config": {
+        "url": "https://oceanagold.com/investors/news-releases",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://oceanagold.com/news/"],
+        "itemSelector": "a.news-listing__item",
+        "titleSelector": "h3.news-listing__item__title",
+        "publishedAtSelector": "div.news-listing__item__date span",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sup-20261014-ivanhoe-electric",
+      "name": "Ivanhoe Electric · 新闻稿",
+      "kind": "web_list",
+      "config": {
+        "url": "https://ivanhoeelectric.com/news/2026/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://ivanhoeelectric.com/news/"],
+        "denyUrlPrefixes": [
+          "https://ivanhoeelectric.com/news/2026/",
+          "https://ivanhoeelectric.com/news/2025/",
+          "https://ivanhoeelectric.com/news/2024/",
+          "https://ivanhoeelectric.com/news/2023/"
+        ],
+        "itemSelector": "section#news-releases li.mb-4",
+        "linkSelector": "a[href^='/news/']",
+        "titleSelector": "a[href^='/news/']",
+        "publishedAtSelector": "div.flex.items-center",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sup-20261014-cfgold",
+      "name": "赤峰黄金 · 官方动态",
+      "kind": "web_list",
+      "config": {
+        "url": "https://www.cfgold.com/col36/list",
+        "parseMode": "html",
+        "language": "zh",
+        "allowUrlPrefixes": ["https://www.cfgold.com/col36/"],
+        "denyUrlPrefixes": ["https://www.cfgold.com/col36/list"],
+        "itemSelector": "div.news_list a.item",
+        "titleSelector": "h3.tit",
+        "publishedAtSelector": "div.time",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "YYYY.MM.DD",
+          "language": "zh"
+        },
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
+    },
+    {
+      "id": "sup-20261014-ngex",
+      "name": "NGEx Minerals · 新闻稿",
+      "kind": "web_list",
+      "config": {
+        "url": "https://ngexminerals.com/news/",
+        "parseMode": "html",
+        "language": "en",
+        "allowUrlPrefixes": ["https://ngexminerals.com/news/"],
+        "itemSelector": "li.wp-block-post",
+        "linkSelector": "h3.wp-block-post-title a, a.wp-block-read-more",
+        "titleSelector": ".wp-block-post-title",
+        "publishedAtSelector": "time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "owner_entity_id": null,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": [],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false
     }
   ]
 }
