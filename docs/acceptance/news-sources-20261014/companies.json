@@ -1,0 +1,2672 @@
+{
+  "$comment": "逐源核验摘要：真实预览（仓库采集代码，开发机网络，2026-10-14）。每源 3 条样例；config_sha256 绑定 industry/sources.json 中该源的完整条目。复核人为 AI 开发 Agent，非人工金标。",
+  "group": "companies",
+  "sources": [
+    {
+      "id": "exp-20261014-zijin",
+      "name": "紫金矿业 · 官方动态",
+      "website": "zijinmining.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": false,
+      "not_counted_reason": "仓库 docs/data/source-targets-320.json 已有规划条目（原目标重复项不计）",
+      "kind": "web_list",
+      "entry": "https://www.zijinmining.com/news/news_list.jsp",
+      "interval_minutes": 180,
+      "owner_entity_id": "zijin",
+      "preview_items": 6,
+      "newest": "2026-10-12",
+      "samples": [
+        {
+          "title": "Zijin Receives Highest ESG Rating from CSI Indexes",
+          "url": "https://www.zijinmining.com/news/news-detail-122981.htm",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Zijin Mining and Co‑Signatories Unveil the Global Mining Sustainability Alliance Initiative",
+          "url": "https://www.zijinmining.com/news/news-detail-122968.htm",
+          "published_at": "2026-09-27T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Zijin Wins 2026 Sedex Environment Award for Full Lifecycle Green Mining Practices",
+          "url": "https://www.zijinmining.com/news/news-detail-122929.htm",
+          "published_at": "2026-08-27T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f83a5a4759b0251c2dbdcd6db1952d9796ba5591b27314b2fdee15ebb33964de"
+    },
+    {
+      "id": "exp-20261014-cmoc",
+      "name": "洛阳钼业 · 官方动态",
+      "website": "cmoc.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.cmoc.com/html/Media/News/",
+      "interval_minutes": 180,
+      "owner_entity_id": "cmoc",
+      "preview_items": 10,
+      "newest": "2026-09-18",
+      "samples": [
+        {
+          "title": "洛阳钼业完成15亿元科创债发行 获市场2.73倍认购",
+          "url": "https://www.cmoc.com/html/2026/News_0919/420.html",
+          "published_at": "2026-09-18T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "再攀高峰 洛阳钼业上半年盈利161.52亿元 同比大增86.27%",
+          "url": "https://www.cmoc.com/html/2026/News_0819/415.html",
+          "published_at": "2026-08-18T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "排名再度攀升 洛阳钼业位列2026《财富》中国500强第135位",
+          "url": "https://www.cmoc.com/html/2026/News_0723/413.html",
+          "published_at": "2026-07-22T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "61926ec3d0cb3fcf6be3631ece247733da9561f6212e974eff1ec9ed359824b9"
+    },
+    {
+      "id": "exp-20261014-jiangxi-copper",
+      "name": "江西铜业 · 官方动态",
+      "website": "jxcc.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.jxcc.com/news.html",
+      "interval_minutes": 180,
+      "owner_entity_id": "jiangxi-copper",
+      "preview_items": 6,
+      "newest": "2026-09-29",
+      "samples": [
+        {
+          "title": "《江西新闻联播》聚焦江铜 科技赋能先进制造业向新而行",
+          "url": "https://www.jxcc.com/news/details_474_7150.html",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "红色动能・链上江西丨一路“铜”行",
+          "url": "https://www.jxcc.com/news/details_474_7068.html",
+          "published_at": "2026-08-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "江铜入选！2026年度全省思政工作“十佳”创新案例！",
+          "url": "https://www.jxcc.com/news/details_474_7054.html",
+          "published_at": "2026-08-25T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "1 篇文章页 transport_unavailable 为本机网络瞬时失败；其余样例文章页可取，列表自带 YYYY/MM/DD 发布日期。",
+      "config_sha256": "73622f1896ad7621d47bb29d9693ab7db6b4ebfa1711bf61c6a90e114dfdce8e"
+    },
+    {
+      "id": "exp-20261014-minmetals",
+      "name": "中国五矿 · 官方动态",
+      "website": "minmetals.com.cn",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.minmetals.com.cn/",
+      "interval_minutes": 180,
+      "owner_entity_id": "minmetals",
+      "preview_items": 6,
+      "newest": null,
+      "samples": [
+        {
+          "title": "中国五矿召开2026年三季度对标对表分析会暨10月份经营分析调度会",
+          "url": "https://www.minmetals.com.cn/xwzx/wkxw/202610/t20261014_318206.html",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "中国五矿召开安全生产委员会会议",
+          "url": "https://www.minmetals.com.cn/xwzx/wkxw/202610/t20261012_318196.html",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "陈得信到总部值班室检查调度并看望慰问节日值班值守人员",
+          "url": "https://www.minmetals.com.cn/xwzx/wkxw/202610/t20261007_318106.html",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "a31487fbdeb02665edfdc38671eddb0660428ed149b234fa70fdd6133ee0eb94"
+    },
+    {
+      "id": "exp-20261014-mmg",
+      "name": "五矿资源 · 官方动态",
+      "website": "mmg.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.mmg.com/investors/news-centre/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": "mmg",
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Stable production in third quarter",
+          "url": "https://www.mmg.com/investors/reports-and-presentations/stable-production-in-third-quarter/",
+          "published_at": "2026-10-14T08:53:37.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Documents on Display – Revision of Annual Caps for Continuing Connected Transactions in Relation to the CMN Framework Offtake Agreement",
+          "url": "https://www.mmg.com/investors/news-centre/documents-on-display-revision-of-annual-caps-for-continuing-connected-transactions-in-relation-to-the-cmn-framework-offtake-agreement/",
+          "published_at": "2026-10-14T08:51:47.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Circular – Notification Letter and Reply Form to Non-Registered Shareholders",
+          "url": "https://www.mmg.com/investors/news-centre/circular-notification-letter-and-reply-form-to-non-registered-shareholders-6/",
+          "published_at": "2026-10-14T08:49:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "3863758eb4ec2cb3e4882511683706980b9c0d9b0d27778886112ef8e80cc7e1"
+    },
+    {
+      "id": "exp-20261014-ganfeng",
+      "name": "赣锋锂业 · 官方动态",
+      "website": "ganfenglithium.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.ganfenglithium.com/news.html",
+      "interval_minutes": 180,
+      "owner_entity_id": "ganfeng",
+      "preview_items": 12,
+      "newest": "2026-03-16",
+      "samples": [
+        {
+          "title": "投资者保护教育宣传",
+          "url": "https://www.ganfenglithium.com/new_detail/id/197.html",
+          "published_at": "2026-03-16T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "新余赣锋锂业有限公司 2024年度社会责任报告",
+          "url": "https://www.ganfenglithium.com/new_detail/id/190.html",
+          "published_at": "2025-08-04T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "新余赣锋锂业有限公司利益相关方承诺书",
+          "url": "https://www.ganfenglithium.com/new_detail/id/189.html",
+          "published_at": "2025-08-04T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "1 篇文章页 transport_unavailable 为瞬时失败，另 2 篇文章页“发布日期”与列表一致；“投资者保护教育宣传”是公司发布的真实文章标题，不是导航。",
+      "config_sha256": "ea90d25cc15e08c52bbb18f123d70e1527a8c124f98127363c10bedbcb461137"
+    },
+    {
+      "id": "exp-20261014-huayou",
+      "name": "华友钴业 · 官方动态",
+      "website": "huayou.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.huayou.com/news/corporate-news",
+      "interval_minutes": 180,
+      "owner_entity_id": "huayou",
+      "preview_items": 7,
+      "newest": "2026-10-09",
+      "samples": [
+        {
+          "title": "印尼总统普拉博沃主持中资矿业下游化项目启动仪式，陈雪华董事长出席活动",
+          "url": "https://www.huayou.com/news/corporate-news/768",
+          "published_at": "2026-10-09T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "从精细核算到低碳决策｜华友钴业联合发布动力电池产业链碳足迹实践白皮书",
+          "url": "https://www.huayou.com/news/corporate-news/764",
+          "published_at": "2026-09-27T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "填补空白！华友钴业牵头起草四项行业标准发布",
+          "url": "https://www.huayou.com/news/corporate-news/760",
+          "published_at": "2026-09-23T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "86d515ea97b4f329149b4543d741d931814339e5a84157803327474ca9abd14c"
+    },
+    {
+      "id": "exp-20261014-rio-tinto",
+      "name": "力拓 · 官方动态",
+      "website": "riotinto.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.riotinto.com/en/news",
+      "interval_minutes": 180,
+      "owner_entity_id": "rio-tinto",
+      "preview_items": 3,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Rio Tinto releases third quarter 2026 production results",
+          "url": "https://www.riotinto.com/en/news/releases/2026/rio-tinto-releases-third-quarter-2026-production-results",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Argyle Pink Diamonds brand transitions to Boodles",
+          "url": "https://www.riotinto.com/en/news/releases/2026/argyle-pink-diamonds-brand-transitions-to-boodles",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Rio Tinto, Tasmanian Government and Commonwealth Government secure the future of Bell Bay Aluminium until 2031",
+          "url": "https://www.riotinto.com/en/news/releases/2026/rio-tinto-tasmanian-government-and-commonwealth-government-secure-the-future-of-bell-bay-aluminium-until-2031",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "cb8347a221934f9d2d1a8366483729f333b1108c411f54bb72f08c3b37b966aa"
+    },
+    {
+      "id": "exp-20261014-vale",
+      "name": "淡水河谷 · 官方动态",
+      "website": "vale.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://vale.com/o/headless-delivery/v1.0/content-structures/62668/structured-contents?fields=title%2CcontentFields%2CfriendlyUrlPath%2CtaxonomyCategoryBriefs&restrictFields=actions%2CavailableLanguages%2Ccreator&page=1&pageSize=12&sort=contentFields%2Fdata%3Adesc&filter=taxonomyCategoryIds/any(t:t%20eq%2064940)%20and%20taxonomyCategoryIds/any(t:t%20eq%205296624)",
+      "interval_minutes": 180,
+      "owner_entity_id": "vale",
+      "preview_items": 12,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Q3 2026 Performance Release Dates",
+          "url": "https://vale.com/w/vale-3q26-results-release-october-29-1",
+          "published_at": "2026-10-01T00:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Emergency Level of Forquilha I Dam Lowered from Level 2 to Level 1",
+          "url": "https://vale.com/w/forquilha-i-dam-emergency-level-reduced-1",
+          "published_at": "2026-08-26T00:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Vale's Production and Sales report for 2Q26 is now available",
+          "url": "https://vale.com/w/vale-s-production-and-sales-report-for-2q26-is-now-available",
+          "published_at": "2026-07-21T00:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "84f8555ab0844ddbd81a82110cfa8f329d77e8a700fcc4d393b3ea345bac81ed"
+    },
+    {
+      "id": "exp-20261014-freeport",
+      "name": "自由港麦克莫兰 · 官方动态",
+      "website": "fcx.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.fcx.com/freeport-features",
+      "interval_minutes": 180,
+      "owner_entity_id": "freeport",
+      "preview_items": 325,
+      "newest": "2026-09-24",
+      "samples": [
+        {
+          "title": "AIM Fellows Complete Summer Experience",
+          "url": "https://www.fcx.com/freeport-features/092426",
+          "published_at": "2026-09-24T19:09:26.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Boris Medina’s Leadership Recognized with Regional Award",
+          "url": "https://www.fcx.com/freeport-features/092126",
+          "published_at": "2026-09-21T19:04:29.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Henderson Marks 50 Years of Molybdenum Mining",
+          "url": "https://www.fcx.com/freeport-features/091626",
+          "published_at": "2026-09-16T18:59:14.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "45c6da8589bd3c2daeddf12a4fc100df5cdfaaf052688d7ff099ffee867638fe"
+    },
+    {
+      "id": "exp-20261014-codelco",
+      "name": "智利国家铜业公司 · 官方动态",
+      "website": "codelco.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": false,
+      "not_counted_reason": "仓库 docs/data/source-targets-320.json 已有规划条目（原目标重复项不计）",
+      "kind": "web_list",
+      "entry": "https://www.codelco.com/prensa",
+      "interval_minutes": 180,
+      "owner_entity_id": "codelco",
+      "preview_items": 12,
+      "newest": "2026-10-10",
+      "samples": [
+        {
+          "title": "Codelco informa fallecimiento de dos trabajadores de empresa subcontratista de El Teniente tras alud",
+          "url": "https://www.codelco.com/prensa/2026/codelco-informa-fallecimiento-de-dos-trabajadores-de-empresa",
+          "published_at": "2026-10-10T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Jorge Gómez destaca el rol estratégico del abastecimiento como uno de los principales motores para agregar valor a la minería",
+          "url": "https://www.codelco.com/jorge-gomez-destaca-el-rol-estrategico-del-abastecimiento-como-uno-de",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Bernardo Fontaine ante Comisión Investigadora de la Cámara: “Enfrentamos estos hechos con determinación y transparencia, sin dilaciones, sin defensas corporativas, sin intentar proteger personas”",
+          "url": "https://www.codelco.com/prensa/2026/bernardo-fontaine-ante-comision-investigadora-de-la-camara",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "“Comunicado”是 Codelco 真实公告的标题（文章页可打开），不是导航。",
+      "config_sha256": "ef73bec85bcb47c275d54e0d2d8ef7d410fccce042e81f62469eed86859998f5"
+    },
+    {
+      "id": "exp-20261014-first-quantum",
+      "name": "第一量子 · 官方动态",
+      "website": "first-quantum.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.first-quantum.com/latest-news/",
+      "interval_minutes": 180,
+      "owner_entity_id": "first-quantum",
+      "preview_items": 9,
+      "newest": "2026-09-30",
+      "samples": [
+        {
+          "title": "First Quantum Provides Update on Cobre Panamá",
+          "url": "https://www.first-quantum.com/news/first-quantum-provides-update-on-cobre-panama-3/",
+          "published_at": "2026-09-30T18:06:49.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "First Quantum Provides Notice of Third Quarter 2026 Results",
+          "url": "https://www.first-quantum.com/news/first-quantum-provides-notice-of-third-quarter-2026-results/",
+          "published_at": "2026-09-29T11:03:12.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "First Quantum Minerals Reports Second Quarter 2026 Results",
+          "url": "https://www.first-quantum.com/news/first-quantum-minerals-reports-second-quarter-2026-results/",
+          "published_at": "2026-07-28T21:03:54.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1b299b79b93d21806498525d115e72ebacfa9eb204c83b858be342c55cacbfe8"
+    },
+    {
+      "id": "exp-20261014-albemarle",
+      "name": "雅宝 · 官方动态",
+      "website": "albemarle.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.albemarle.com/global/en/newsroom",
+      "interval_minutes": 180,
+      "owner_entity_id": "albemarle",
+      "preview_items": 4,
+      "newest": "2026-09-30",
+      "samples": [
+        {
+          "title": "Albemarle Corporation to Release Third Quarter 2026 Earnings Results on Wednesday, November 4, 2026",
+          "url": "https://www.albemarle.com/global/en/news/albemarle-corporation-release-third-quarter-2026-earnings-results-wednesday-november-4-2026",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Albemarle Announces CEO Succession Plan",
+          "url": "https://www.albemarle.com/global/en/news/albemarle-announces-ceo-succession-plan",
+          "published_at": "2026-09-02T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Albemarle Reports Second Quarter 2026 Results",
+          "url": "https://www.albemarle.com/global/en/news/albemarle-reports-second-quarter-2026-results",
+          "published_at": "2026-08-04T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "2b8de0e6604278a45efe41a1ac31b58e7127eb930abec11bd65e6709ac423e16"
+    },
+    {
+      "id": "exp-20261014-equinox-gold",
+      "name": "Equinox Gold · 官方动态",
+      "website": "equinoxgold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.equinoxgold.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Equinox Gold Reports Q3 Production Results Following Transformational Combination with Orla; Expanded Canadian Production Platform Positioned for Strong Finish to 2026",
+          "url": "https://www.equinoxgold.com/news/equinox-gold-reports-q3-production-results-following-transformational-combination-with-orla-expanded-canadian-production-platform-positioned-for-strong-finish-to-2026/",
+          "published_at": "2026-10-13T10:35:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Equinox Gold Reports Continued Exploration Success Along the Musselwhite Mine Trend and Advances New Minotaur Discovery at Valentine",
+          "url": "https://www.equinoxgold.com/news/equinox-gold-reports-continued-exploration-success-along-the-musselwhite-mine-trend-and-advances-new-minotaur-discovery-at-valentine/",
+          "published_at": "2026-09-29T10:35:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Equinox Gold Announces Redemption of its Outstanding 4.75% Convertible Senior Notes Due October 2028",
+          "url": "https://www.equinoxgold.com/news/equinox-gold-announces-redemption-of-its-outstanding-4-75-convertible-senior-notes-due-october-2028/",
+          "published_at": "2026-09-21T10:30:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "dc59f6d1c93bdbf28fde8cd826a9f3ca3b43f3ec1f86fbf35be60034e987c910"
+    },
+    {
+      "id": "exp-20261014-harmony",
+      "name": "Harmony Gold · 官方动态",
+      "website": "harmony.co.za",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.harmony.co.za/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-09",
+      "samples": [
+        {
+          "title": "Dealing in securities by executive directors, prescribed officers and company secretary",
+          "url": "https://www.harmony.co.za/media/announcements/2026/dealing-in-securities-20261009/",
+          "published_at": "2026-10-09T14:27:44.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Dealing in securities by directors and prescribed officers: vesting of shares and settlement by on market sales and equity settlement",
+          "url": "https://www.harmony.co.za/media/announcements/2026/dealing-in-securities-2026-10-07/",
+          "published_at": "2026-10-07T15:16:44.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Harmony prices US$500 million guaranteed senior unsecured convertible bonds",
+          "url": "https://www.harmony.co.za/media/announcements/2026/us500-million-guaranteed-senior-unsecured-convertible-bond-price-20260922/",
+          "published_at": "2026-09-22T05:09:27.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "e68e9965191ebe6a501644c245a481c6ba119d43fb4f5f740dce5fc662255c96"
+    },
+    {
+      "id": "exp-20261014-implats",
+      "name": "Impala Platinum Holdings · 官方动态",
+      "website": "implats.co.za",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.implats.co.za/media-releases.php",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 53,
+      "newest": "2026-09-02",
+      "samples": [
+        {
+          "title": "Implats delivers a strong FY2026 performance, returns R17.1 billion to shareholders",
+          "url": "https://www.implats.co.za/pdf/press-releases/2026/news-release-03092026.pdf",
+          "published_at": "2026-09-02T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Implats implements proactive safety reset at Impala Rustenburg",
+          "url": "https://www.implats.co.za/pdf/press-releases/2026/news-release-27072026.pdf",
+          "published_at": "2026-07-26T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Implats delivers robust interim performance, returns 60% adjusted free cash flow to shareholders",
+          "url": "https://www.implats.co.za/pdf/press-releases/2026/news-release-05032026.pdf",
+          "published_at": "2026-03-04T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "e9024b6f54a2edceb6e4e51028031f402ff6a9cfc788b7a2faff3170e8a34692"
+    },
+    {
+      "id": "exp-20261014-african-rainbow-minerals",
+      "name": "African Rainbow Minerals · 官方动态",
+      "website": "arm.co.za",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://arm.co.za/press-release/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 279,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "African Rainbow Minerals Limited (“ARM”) Welcomes Judgement of Tanzania High Court on Pula Group Litigation",
+          "url": "https://arm.co.za/wp-content/uploads/2026/10/Press-Release-African-Rainbow-Minerals-Limited-ARM-Welcomes-Judgement-of-Tanzania-High-Court-on-Pula-Group-Litigation-14-October-2026.pdf",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Assmang Confirms Closure of Cato Ridge Works Ferromanganese Smelter",
+          "url": "https://arm.co.za/wp-content/uploads/2025/07/Assmang-Cato-Ridge-Works-Closure-Media-Statement-01-July-2025.pdf",
+          "published_at": "2025-06-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Media release_Launch of ARM Geometallurgy research chair at SU Final",
+          "url": "https://arm.co.za/wp-content/uploads/2023/12/Media-release_Launch-of-ARM-Geometallurgy-research-chair-at-SU-Final.pdf",
+          "published_at": "2023-10-16T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "176273f9e3517b46ac0e8ba54aa660535bf3129c13113147206e7ca666a3a36d"
+    },
+    {
+      "id": "exp-20261014-northam",
+      "name": "Northam Platinum · 官方动态",
+      "website": "northam.co.za",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://northam.co.za/investors-and-media/announcements/choose-a-year?format=feed&type=rss",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 31,
+      "newest": "2026-10-07",
+      "samples": [
+        {
+          "title": "Availability of the Broad-Based Black Economic Empowerment annual compliance verification certificate",
+          "url": "https://northam.co.za/investors-and-media/announcements/choose-a-year/1727-availability-of-the-broad-based-black-economic-empowerment-annual-compliance-verification-certificate",
+          "published_at": "2026-10-07T10:00:18.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Interest payment notification – NHM022",
+          "url": "https://northam.co.za/investors-and-media/announcements/choose-a-year/1726-interest-payment-notification-nhm022-2026-09-18",
+          "published_at": "2026-09-17T11:46:13.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Update regarding the process and further cautionary announcement",
+          "url": "https://northam.co.za/investors-and-media/announcements/choose-a-year/1725-update-regarding-the-process-and-further-cautionary-announcement",
+          "published_at": "2026-09-16T11:54:03.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "587aa319139cd87bb27cab646a3942a35ba20e3b0ef73d00b08b92da7a651fa1"
+    },
+    {
+      "id": "exp-20261014-drdgold",
+      "name": "DRDGOLD · 官方动态",
+      "website": "drdgold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.drdgold.com/media-insights/media-releases/2026?format=feed&type=rss",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": "2026-09-30",
+      "samples": [
+        {
+          "title": "DRDGOLD PUBLISHES 2026 REPORTING SUITE",
+          "url": "https://www.drdgold.com/media-insights/media-releases/2026/1856-drdgold-publishes-2026-reporting-suite",
+          "published_at": "2026-09-30T13:12:46.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "DRDGOLD delivers strong FY2026 results as Vision 2028 takes shape while projects come online",
+          "url": "https://www.drdgold.com/media-insights/media-releases/2026/1850-drdgold-delivers-strong-fy2026-results-as-vision-2028-takes-shape-while-projects-come-online",
+          "published_at": "2026-08-19T03:57:32.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "DRDGOLD EXPECTS EARNINGS PER SHARE TO RISE UP TO BETWEEN 85% AND 95% AS PRODUCTION BEATS GUIDANCE",
+          "url": "https://www.drdgold.com/media-insights/media-releases/2026/1848-drdgold-expects-earnings-per-share-to-rise-up-to-between-85-and-95-as-production-beats-guidance",
+          "published_at": "2026-08-13T08:24:15.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "305165eb3fd033d98a3890a0de9077381e11626fc5d5d24c1a3d5a4f150fc1d3"
+    },
+    {
+      "id": "exp-20261014-teck",
+      "name": "Teck Resources · 官方动态",
+      "website": "teck.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.teck.com/news/news-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 50,
+      "newest": "2026-10-06",
+      "samples": [
+        {
+          "title": "Teck Named to Forbes World’s Top Companies for Women 2026 List",
+          "url": "https://www.teck.com/news/news-releases/2026/teck-named-to-forbes-world%E2%80%99s-top-companies-for-women-2026-list",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Teck to Release Third Quarter 2026 Results on October 29, 2026",
+          "url": "https://www.teck.com/news/news-releases/2026/teck-to-release-third-quarter-2026-results-on-october-29,-2026",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Teck Provides Information Related to the Anglo Special Dividend and the Merger",
+          "url": "https://www.teck.com/news/news-releases/2026/teck-provides-information-related-to-the-anglo-special-dividend-and-the-merger",
+          "published_at": "2026-08-31T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f1dfddc17f2dffba3be6cedaaf31992be27b2aca8b2b0d59c5014159ebbc7c4a"
+    },
+    {
+      "id": "exp-20261014-lundin-mining",
+      "name": "Lundin Mining · 官方动态",
+      "website": "lundinmining.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://lundinmining.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 355,
+      "newest": "2026-09-29",
+      "samples": [
+        {
+          "title": "Lundin Mining Announces Updated Share Capital and Provides Update on Share Buybacks",
+          "url": "https://lundinmining.com/news/lundin-mining-announces-updated-share-capital-and-provides-update-on-share-buybacks-20260930",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Lundin Mining Announces Updated Share Capital and Provides Update on Share Buybacks",
+          "url": "https://lundinmining.com/news/lundin-mining-announces-updated-share-capital-and-provides-update-on-share-buybacks-20260831",
+          "published_at": "2026-08-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Lundin Mining's Chile Operations Impacted by Second Severe Winter Storm",
+          "url": "https://lundinmining.com/news/lundin-minings-chile-operations-impacted-by-second-severe-winter-storm",
+          "published_at": "2026-08-17T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "a7fca16b1ff80fb621358c49c7e115fede7d13acabc6167f675b03f91fef76ae"
+    },
+    {
+      "id": "exp-20261014-aurubis",
+      "name": "Aurubis · 官方动态",
+      "website": "aurubis.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.aurubis.com/en/media/press-releases/press-releases-2026",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 15,
+      "newest": "2026-10-06",
+      "samples": [
+        {
+          "title": "Aurubis continues expanding Hamburg multimetal hub: Investment in safer, highly efficient processing of valuable intermediates",
+          "url": "https://www.aurubis.com/en/media/press-releases/press-releases-2026/aurubis-continues-expanding-hamburg-multimetal-hub",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Contract extensions in the Aurubis Executive Board and change in Supervisory Board chairmanship",
+          "url": "https://www.aurubis.com/en/media/press-releases/press-releases-2026/contract-extensions-in-the-aurubis-executive-board-change-in-supervisory-board-chairmanship",
+          "published_at": "2026-09-28T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Prysmian and Aurubis deepen strategic partnership with landmark long-term copper agreement",
+          "url": "https://www.aurubis.com/en/media/press-releases/press-releases-2026/prysmian-and-aurubis-deepen-strategic-partnership-with-landmark-long-term-copper-agreement",
+          "published_at": "2026-09-22T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "76707436baffb1b38115791531efd6b6abd2bc3ba61fa0fa89869e8c3913f85d"
+    },
+    {
+      "id": "exp-20261014-trekor-metals",
+      "name": "Trekor Metals（Taseko原入口跳转） · 官方动态",
+      "website": "trekormetals.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.trekormetals.com/investors/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 311,
+      "newest": "2026-10-07",
+      "samples": [
+        {
+          "title": "Trekor Announces 41 Million Pounds of Copper Production from Gibraltar and Florence Copper in the Third Quarter",
+          "url": "https://www.trekormetals.com/investors/news/trekor-announces-41-million-pounds-of-copper-production-from-gibraltar-and-florence-copper-in-the-third-quarter/",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Trekor Updates Status of Aley Niobium and Strengthens Project Team",
+          "url": "https://www.trekormetals.com/investors/news/trekor-updates-status-of-aley-niobium-and-strengthens-project-team/",
+          "published_at": "2026-08-18T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Trekor Announces $125 Million of Adjusted EBITDA in Second Quarter",
+          "url": "https://www.trekormetals.com/investors/news/trekor-announces-125-million-of-adjusted-ebitda-in-second-quarter/",
+          "published_at": "2026-08-04T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "35275f0c3f593524f1b73e3dd307999145ccba24ad16dfc384db1c6b073b54bf"
+    },
+    {
+      "id": "exp-20261014-capstone-copper",
+      "name": "Capstone Copper · 官方动态",
+      "website": "capstonecopper.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://capstonecopper.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-05",
+      "samples": [
+        {
+          "title": "Capstone Copper to Release Third Quarter Results on October 29, 2026",
+          "url": "https://capstonecopper.com/news/capstone-copper-to-release-third-quarter-results-on-october-29-2026/",
+          "published_at": "2026-10-05T21:40:25.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Capstone Copper Announces Sale of Cozamin for Total Consideration of up to $385 Million",
+          "url": "https://capstonecopper.com/news/capstone-copper-announces-sale-of-cozamin-for-total-consideration-of-up-to-385-million/",
+          "published_at": "2026-09-21T10:00:31.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Capstone Copper Completes Acquisition of San Pietro Copper Concessions, Consolidating the Mantoverde-Santo Domingo Copper District",
+          "url": "https://capstonecopper.com/news/capstone-copper-completes-acquisition-of-san-pietro-copper-concessions-consolidating-the-mantoverde-santo-domingo-copper-district/",
+          "published_at": "2026-08-31T10:00:29.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "32cfc61d49f6380633d0b860ed33fdd65faebf360534fc98b2ee3840d374fd7d"
+    },
+    {
+      "id": "exp-20261014-kazakhmys",
+      "name": "Kazakhmys · 官方动态",
+      "website": "kazakhmys.kz",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.kazakhmys.kz/ru/news",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "«Казахмыс» представил планы геологоразведки в Жезказгане до 2028 года",
+          "url": "https://www.kazakhmys.kz/ru/news/kazaxmys-predstavil-plany-geologorazvedki-v-zezkazgane-do-2028-goda",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "«Жасыл ойындары»: около тысячи школьников Шуского района собрали почти три тонны мусора",
+          "url": "https://www.kazakhmys.kz/ru/news/zasyl-oiyndary-okolo-tysiaci-skolnikov-suskogo-raiona-sobrali-pocti-tri-tonny-musora",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "«Казахмыс» усиливает геологоразведку для развития Жезказганских рудников",
+          "url": "https://www.kazakhmys.kz/ru/news/kazaxmys-usilivaet-geologorazvedku-dlia-razvitiia-zezkazganskix-rudnikov",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f9e284f5709a7329030ea51e44627414e6a868a8389843d6be9d0f9f67c32b8e"
+    },
+    {
+      "id": "exp-20261014-polyus",
+      "name": "Polyus · 官方动态",
+      "website": "polyus.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://polyus.com/en/media/press-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 7,
+      "newest": "2026-07-07",
+      "samples": [
+        {
+          "title": "Dividend Payments Update",
+          "url": "https://polyus.com/en/media/press-releases/dividend-payments-update/",
+          "published_at": "2026-07-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Update on Coupon payment in respect of 2028 Eurobonds",
+          "url": "https://polyus.com/en/media/press-releases/wyplata-kuponnogo-dokhoda-po-evroobligatsiyam-s-pogasheniem-v-2028-godu/",
+          "published_at": "2026-06-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Recommendation of the Board of Directors on the amount of dividends for Q4 2025",
+          "url": "https://polyus.com/en/media/press-releases/recommendation-of-the-board-of-directors-on-the-amount-of-dividends-for-q4-2025/",
+          "published_at": "2026-04-09T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "3c2b249f24d3553d4bab14f9c71f7bc5203287af37d0d478fba5c635756da014"
+    },
+    {
+      "id": "exp-20261014-kghm",
+      "name": "KGHM Polska Miedź · 官方动态",
+      "website": "kghm.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://media.kghm.com/en/news-and-press-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 5,
+      "newest": "2026-10-08",
+      "samples": [
+        {
+          "title": "Two investments by KGHM Polska Miedź S.A. receive European Union strategic projects status",
+          "url": "https://media.kghm.com/en/news-and-press-releases/two-investments-by-kghm-polska-miedz-s-a-are-european-union-s-strategic-projects",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "KGHM Polska Miedź S.A. is launching an expansion of the Sierra Gorda mine worth USD 725 million",
+          "url": "https://media.kghm.com/en/news-and-press-releases/kghm-polska-miedz-s-a-is-launching-an-expansion-of-the-sierra-gorda-mine-worth-usd-725-million",
+          "published_at": "2026-10-01T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "KGHM is strengthening its cyber defence capabilities as part of Cyber Challenge 2026",
+          "url": "https://media.kghm.com/en/news-and-press-releases/kghm-is-strengthening-its-cyber-defence-capabilities-as-part-of-cyber-challenge-2026",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "24d6d603f98c4f45b434160b11b6e5af867f9688fbc4bc1a4636080887c73d30"
+    },
+    {
+      "id": "exp-20261014-kaz-minerals",
+      "name": "KAZ Minerals · 官方动态",
+      "website": "kazminerals.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.kazminerals.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-08-11",
+      "samples": [
+        {
+          "title": "Q2 2026 Production Report",
+          "url": "https://www.kazminerals.com/q2-2026-production-report/",
+          "published_at": "2026-08-11T07:28:20.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Q1 2026 Production Report",
+          "url": "https://www.kazminerals.com/q1-2026-production-report/",
+          "published_at": "2026-05-14T12:00:57.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Q4 2025 Production Report",
+          "url": "https://www.kazminerals.com/q4-2025-production-report/",
+          "published_at": "2026-02-24T11:29:16.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "6b0ef5062e6ab6b787d3acec1107b9079576839326c11cccedbbf9fecd302368"
+    },
+    {
+      "id": "exp-20261014-pan-american-silver",
+      "name": "Pan American Silver · 官方动态",
+      "website": "panamericansilver.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://panamericansilver.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-06",
+      "samples": [
+        {
+          "title": "Pan American Silver Announces Director Retirement",
+          "url": "https://panamericansilver.com/news/pan-american-silver-announces-director-retirement/",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Pan American Silver to Announce Third Quarter 2026 Unaudited Financial Results",
+          "url": "https://panamericansilver.com/news/pan-american-silver-to-announce-third-quarter-2026-unaudited-financial-results/",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Pan American Silver Reports Mineral Reserves and Mineral Resources as at June 30, 2026",
+          "url": "https://panamericansilver.com/news/pan-american-silver-reports-mineral-reserves-and-mineral-resources-as-at-june-30-2026/",
+          "published_at": "2026-09-15T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "74fb0a3a1278781c9e778968b26f512ad68c977ed9e9d9a23a18fae58ac05a9b"
+    },
+    {
+      "id": "exp-20261014-first-majestic",
+      "name": "First Majestic Silver · 官方动态",
+      "website": "firstmajestic.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.firstmajestic.com/investors/news-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 423,
+      "newest": "2026-10-12",
+      "samples": [
+        {
+          "title": "First Majestic Announces Temporary Suspension of NAFTA Arbitration Proceedings as Settlement Framework Agreed to with Mexico",
+          "url": "https://www.firstmajestic.com/investors/news-releases/first-majestic-announces-temporary-suspension-of-nafta-arbitration-proceedings-as-settlement-framework-agreed-to-with-mexico",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "First Majestic Reports Q3 2026 Production Results, Announces Q3 Conference Call Details and Renewal of Share Repurchase Program",
+          "url": "https://www.firstmajestic.com/investors/news-releases/first-majestic-reports-q3-2026-production-results-announces-q3-conference-call-details-and-renewal-of-share-repurchase-program",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "First Majestic Reports High-Grade Drill Results and Expands Exploration Footprint at San Dimas",
+          "url": "https://www.firstmajestic.com/investors/news-releases/first-majestic-reports-high-grade-drill-results-and-expands-exploration-footprint-at-san-dimas",
+          "published_at": "2026-09-08T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "054be12b6f492390300c95802cdfff34b420caf7fd10d1a1e501f8ac7ffa05c2"
+    },
+    {
+      "id": "exp-20261014-silvercorp",
+      "name": "Silvercorp Metals · 官方动态",
+      "website": "silvercorpmetals.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://silvercorpmetals.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 283,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Silvercorp Reports 2026 Annual General and Special Meeting Results",
+          "url": "https://silvercorpmetals.com/silvercorp-reports-2026-annual-general-and-special-meeting-results/",
+          "published_at": "2026-10-01T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Silvercorp Announces Further Amendments to Meeting Proposal",
+          "url": "https://silvercorpmetals.com/silvercorp-announces-further-amendments-to-meeting-proposal/",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Silvercorp Announces Amendments to Meeting Proposal and Postponement of Annual General and Special Meeting",
+          "url": "https://silvercorpmetals.com/silvercorp-announces-amendments-to-meeting-proposal-and-postponement-of-annual-general-and-special-meeting/",
+          "published_at": "2026-09-22T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "42ca44a95a07c24587921c1259d9c9a7b329b8645a97d915a2309fd9b9f18b56"
+    },
+    {
+      "id": "exp-20261014-abrasilver",
+      "name": "AbraSilver Resource · 官方动态",
+      "website": "abrasilver.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.abrasilver.com/news-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 202,
+      "newest": "2026-09-08",
+      "samples": [
+        {
+          "title": "AbraSilver Achieves TSX30 Ranking as a Top Performer on the Toronto Stock Exchange",
+          "url": "https://www.abrasilver.com/news-releases/abrasilver-achieves-tsx30-ranking-as-a-top-performer-on-the-toronto-stock-exchange",
+          "published_at": "2026-09-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "AbraSilver Intersects Broad Zones of Near-Surface Gold Mineralization at Cerro Viejo Target on Diablillos Property",
+          "url": "https://www.abrasilver.com/news-releases/abrasilver-intersects-broad-zones-of-near-surface-gold-mineralization-at-cerro-viejo-target-on-diablillos-property",
+          "published_at": "2026-09-01T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "AbraSilver Awards Bridging Engineering Contract to Worley, Advancing Diablillos Toward a Construction Decision",
+          "url": "https://www.abrasilver.com/news-releases/abrasilver-awards-bridging-engineering-contract-to-worley-advancing-diablillos-toward-a-construction-decision",
+          "published_at": "2026-08-26T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "dd5e11f137490651a9bbdd4f7297657fa5ab4b1feedbd4b818e0a8cff7f46481"
+    },
+    {
+      "id": "exp-20261014-new-pacific",
+      "name": "New Pacific Metals · 官方动态",
+      "website": "newpacificmetals.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.newpacificmetals.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-23",
+      "samples": [
+        {
+          "title": "New Pacific Files Form 40-F Annual Report",
+          "url": "https://www.newpacificmetals.com/new-pacific-files-form-40-f-annual-report-4/",
+          "published_at": "2026-09-23T22:00:24.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "New Pacific Reports Financial Results for the Three Months and Year Ended June 30, 2026",
+          "url": "https://www.newpacificmetals.com/new-pacific-reports-financial-results-for-the-three-months-and-year-ended-june-30-2026/",
+          "published_at": "2026-09-03T23:00:38.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "New Pacific Metals Reports Signing of Administrative Mining Contracts and Commencement of the 2026 Drill Program at the Carangas Project",
+          "url": "https://www.newpacificmetals.com/new-pacific-metals-reports-signing-of-administrative-mining-contracts-and-commencement-of-the-2026-drill-program-at-the-carangas-project/",
+          "published_at": "2026-08-25T15:00:06.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "94cb725d6d78d098cca9cf29d123a6561d835d8cdac4895f2f557f7c297d70f9"
+    },
+    {
+      "id": "exp-20261014-fortescue",
+      "name": "Fortescue · 官方动态",
+      "website": "fortescue.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.fortescue.com/en/articles",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": "2026-10-11",
+      "samples": [
+        {
+          "title": "Formula E’s youngest winner Taylor Barnard joins Fortescue Zero Racing",
+          "url": "https://www.fortescue.com/en/articles/taylor-barnard-joins-fortescue-zero-racing",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Fortescue Zero Racing appoints Jim Wright as Team Principal",
+          "url": "https://www.fortescue.com/en/articles/fortescue-zero-racing-appoints-jim-wright-as-team-principal",
+          "published_at": "2026-09-22T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Fortescue Zero launches racing and innovation team to compete in ABB FIA Formula E World Championship.",
+          "url": "https://www.fortescue.com/en/articles/fortescue-zero-launches-racing-and-innovation-team",
+          "published_at": "2026-09-17T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "8c12394603be0b1b92ace0364ebe9940b636642c171adc57aec0a023dee79680"
+    },
+    {
+      "id": "exp-20261014-mineral-resources",
+      "name": "Mineral Resources · 官方动态",
+      "website": "mineralresources.com.au",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.mineralresources.com.au/news/company-updates/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 16,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Leadership of Lithium division",
+          "url": "https://www.mineralresources.com.au/news/company-updates/leadership-of-lithium-division/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Lamb Creek ramps-up operations",
+          "url": "https://www.mineralresources.com.au/news/company-updates/lamb-creek-ramps-up-operations/",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "MinRes leadership update",
+          "url": "https://www.mineralresources.com.au/news/company-updates/minres-leadership-update/",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "a7c4a732d0f342873ecc7871f90ad6037fd369a9faacc9f555cf77f0408590fc"
+    },
+    {
+      "id": "exp-20261014-cleveland-cliffs",
+      "name": "Cleveland-Cliffs · 官方动态",
+      "website": "clevelandcliffs.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.clevelandcliffs.com/news/news-releases",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-04",
+      "samples": [
+        {
+          "title": "Cleveland-Cliffs to Host U.S. Secretary of Energy Chris Wright and Other Government Officials at Butler Works to Showcase GOES Expansion Project",
+          "url": "https://www.clevelandcliffs.com/news/news-releases/detail/704/cleveland-cliffs-to-host-u-s-secretary-of-energy-chris",
+          "published_at": "2026-10-04T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Cleveland-Cliffs to Announce Third-Quarter 2026 Earnings Results and Host Conference Call on October 19",
+          "url": "https://www.clevelandcliffs.com/news/news-releases/detail/703/cleveland-cliffs-to-announce-third-quarter-2026-earnings",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Cleveland-Cliffs Announces $1 Billion Middletown Works Investment to be Supported by $500 Million U.S. Department of Energy Award",
+          "url": "https://www.clevelandcliffs.com/news/news-releases/detail/702/cleveland-cliffs-announces-1-billion-middletown-works",
+          "published_at": "2026-08-20T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "174e917d79d8cc996d294ab50ddab17b37656b20e6706bee99f875eff1474248"
+    },
+    {
+      "id": "exp-20261014-aya-gold-silver",
+      "name": "Aya Gold & Silver · 官方动态",
+      "website": "ayagoldsilver.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.ayagoldsilver.com/news/news-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 384,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Aya Gold & Silver Reports Record Q3-2026 Production of 2.03 Million AgEq Ounces",
+          "url": "https://www.ayagoldsilver.com/news/news-releases/aya-gold--silver-reports-record-q3-2026-production-of-203-million-ageq-ounces",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Aya Gold & Silver Reports High-Grade Drill Exploration Results at Boumadine",
+          "url": "https://www.ayagoldsilver.com/news/news-releases/aya-gold--silver-reports-high-grade-drill-exploration-results-at-boumadine-20260922",
+          "published_at": "2026-09-21T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Aya Gold & Silver Reports High-Grade Silver Exploration Results Near Pit and at Depth at Zgounder",
+          "url": "https://www.ayagoldsilver.com/news/news-releases/aya-gold--silver-reports-high-grade-silver-exploration-results-near-pit-and-at-depth-at-zgounder",
+          "published_at": "2026-09-15T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "cd40fee188708dde3e284f2885299e6d3918fedc8c56746fc79eac19d5517639"
+    },
+    {
+      "id": "exp-20261014-liontown",
+      "name": "Liontown · 官方动态",
+      "website": "liontown.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.liontown.com/news-media/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 21,
+      "newest": "2026-10-12",
+      "samples": [
+        {
+          "title": "Tony talks Kathleen Valley and more on the Rock Stock podcast",
+          "url": "https://www.liontown.com/latest-news/tony-talks-kathleen-valley-and-more-on-the-rock-stock-podcast/",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Board approves Kathleen Valley Expansion",
+          "url": "https://www.liontown.com/latest-news/board-approves-kathleen-valley-expansion/",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Liontown to earn up to 100% of the Centenario lithium brine project in Argentina",
+          "url": "https://www.liontown.com/latest-news/liontown-to-earn-up-to-100-of-the-centenario-lithium-brine-project-in-argentina/",
+          "published_at": "2026-08-31T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "443a8cdd42cc249b21544b4184dabeea0ed591b0ec368e32e4b31f1b4c25ffe8"
+    },
+    {
+      "id": "exp-20261014-century-lithium",
+      "name": "Century Lithium · 官方动态",
+      "website": "centurylithium.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://centurylithium.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 238,
+      "newest": "2026-09-21",
+      "samples": [
+        {
+          "title": "Century Lithium Advances Plans for Chlor-Alkali Plant",
+          "url": "https://centurylithium.com/news/century-lithium-advances-plans-for-chlor-alkali-plant",
+          "published_at": "2026-09-21T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Century Lithium Files Mine Plan of Operations for Angel Island Lithium Project in Nevada",
+          "url": "https://centurylithium.com/news/century-lithium-files-mine-plan-of-operations-for-angel-island-lithium-project-in-nevada",
+          "published_at": "2026-09-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Century Lithium Reports Lithium Metal From Angel Island Demonstrated in Battery Cells Under U.S. Army SBIR Program",
+          "url": "https://centurylithium.com/news/century-lithium-reports-lithium-metal-from-angel-island-demonstrated-in-battery-cells-under-us-army-sbir-program",
+          "published_at": "2026-07-14T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1ce313788dabb2041ef4ae4515f52fef08fba5cf1819bbfd9aed83799941b5d6"
+    },
+    {
+      "id": "exp-20261014-lundin-gold",
+      "name": "Lundin Gold · 官方动态",
+      "website": "lundingold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://lundingold.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-07",
+      "samples": [
+        {
+          "title": "Lundin Gold Reports Q3 2026 Production of 153,736 Ounces of Gold",
+          "url": "https://lundingold.com/news/lundin-gold-reports-q3-2026-production-of-153-736-122861/",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Lundin Gold Share Capital and Voting Rights Update",
+          "url": "https://lundingold.com/news/lundin-gold-share-capital-and-voting-rights-update-122860/",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Lundin Gold Reports 204.26 g/t Au over 3.05 Metres at Bonza Sur; Quebrada Dorada Discovery Extends Gold Epithermal Trend to 8 km",
+          "url": "https://lundingold.com/news/lundin-gold-reports-204-26-g-t-au-over-3-05-metres-122859/",
+          "published_at": "2026-09-23T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1fcff26aa2412d4e687377d183cf93cd6f22138741740237e5c0cf1a7fd6064e"
+    },
+    {
+      "id": "exp-20261014-artemis-gold",
+      "name": "Artemis Gold · 官方动态",
+      "website": "artemisgoldinc.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.artemisgoldinc.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 153,
+      "newest": null,
+      "samples": [
+        {
+          "title": "Artemis Gold Reports Q3 2026 Production Results in Line with Guidance",
+          "url": "https://www.artemisgoldinc.com/news/artemis-gold-reports-q3-2026-production-results-in-line-with-guidance",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Artemis Gold Agrees to Acquire Vista Gold, Adding an Advanced Stage Gold Development Asset in Australia",
+          "url": "https://www.artemisgoldinc.com/news/artemis-gold-agrees-to-acquire-vista-gold-adding-an-advanced-stage-gold-development-asset-in-australia",
+          "published_at": "2026-09-20T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Artemis Gold Announces Issuance of Share Units in Connection with Payment of Cash Dividend",
+          "url": "https://www.artemisgoldinc.com/news/artemis-gold-announces-issuance-of-share-units-in-connection-with-payment-of-cash-dividend",
+          "published_at": "2026-09-08T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "e8f051fcdf09a7dddfbd1e1756dc668ccad6372829daa2e67e9c5eedb88ebc11"
+    },
+    {
+      "id": "exp-20261014-northern-star",
+      "name": "Northern Star Resources · 官方动态",
+      "website": "nsrltd.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.nsrltd.com/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 4,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Dispatch of Access Letter to Shareholders",
+          "url": "https://www.nsrltd.com/media/isplargr/dispatch-of-access-letter-to-shareholders-14-10-2026.pdf",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Initial Director's Interest Notice",
+          "url": "https://www.nsrltd.com/media/dzxjg4u1/appendix-3x-sv-07-10-2026.pdf",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Notification regarding unquoted securities - NST",
+          "url": "https://www.nsrltd.com/media/pbqllk2x/notification-regarding-unquoted-securities-nst-07-10-2026.pdf",
+          "published_at": "2026-10-06T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "4d312a633fc8617ce7fe00a3c6efce96436fee6a771850cea6dfe3eacaafa327"
+    },
+    {
+      "id": "exp-20261014-evolution-mining",
+      "name": "Evolution Mining · 官方动态",
+      "website": "evolutionmining.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://evolutionmining.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-02",
+      "samples": [
+        {
+          "title": "Bringing our Australian Graduates together at GradCon 2026",
+          "url": "https://evolutionmining.com/bringing-our-australian-graduates-together-at-gradcon-2026/",
+          "published_at": "2026-10-02T02:11:35.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Evolution team members recognised at 2026 Women in Resources National Awards",
+          "url": "https://evolutionmining.com/evolution-team-members-recognised-at-2026-women-in-resources-national-awards/",
+          "published_at": "2026-09-23T03:43:44.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Evolution celebrates Women in Resources National Awards finalists",
+          "url": "https://evolutionmining.com/evolution-celebrates-women-in-resources-national-awards-finalists/",
+          "published_at": "2026-09-21T00:13:42.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "4131316620dbbba4e7d0e3e8ad7f0a42c3dec5a1156c5a8b56b3df8886dff920"
+    },
+    {
+      "id": "exp-20261014-resolute-mining",
+      "name": "Resolute Mining · 官方动态",
+      "website": "rml.com.au",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.rml.com.au/wp-json/alyka/v2/asx/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 24,
+      "newest": "2026-09-27",
+      "samples": [
+        {
+          "title": "Mining Forum Americas Presentation",
+          "url": "https://www.rml.com.au/wp-content/uploads/2026/09/20260928-RSG-Denver-Presentation.pdf",
+          "published_at": "2026-09-27T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Syama Operational Update",
+          "url": "https://www.rml.com.au/wp-content/uploads/2026/09/RSG-ASX-Syama-Operational-Update.pdf",
+          "published_at": "2026-09-20T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Corporate Presentation – 01 September 2026",
+          "url": "https://www.rml.com.au/wp-content/uploads/2026/09/20260901-RSG-Corporate-Presentation-vF.pdf",
+          "published_at": "2026-08-31T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "“Mali Update”是 ASX 公告真实标题。",
+      "config_sha256": "f63cfa3e503fbdb1c765cabd5a14bf3b3536ea9b4556b0687f18a558b99e80f1"
+    },
+    {
+      "id": "exp-20261014-dpm-metals",
+      "name": "DPM Metals（Dundee Precious Metals原官网） · 官方动态",
+      "website": "dundeeprecious.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://dpmmetals.com/news-media/news-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": null,
+      "samples": [
+        {
+          "title": "DPM Metals Reports Third Quarter Gold Equivalent Production Results; On Track to Achieve High-End of 2026 Guidance",
+          "url": "https://dpmmetals.com/news-media/news-releases/dpm-metals-reports-third-quarter-gold-equivalent-p-15496/",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "DPM Metals Announces Constitutional Court of Bosnia and Herzegovina Decision",
+          "url": "https://dpmmetals.com/news-media/news-releases/dpm-metals-announces-constitutional-court-of-bosni-15488/",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "DPM Metals Appoints Peter Brady as Executive Vice President, General Counsel and Corporate Affairs",
+          "url": "https://dpmmetals.com/news-media/news-releases/dpm-metals-appoints-peter-brady-as-executive-vice-president-general-counsel-and-corporate-affairs/",
+          "published_at": "2026-09-22T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "60403bf2fcbb05f75f5a3cad389e2df2d82355a3f8531dc8b35a2b08e533fd3c"
+    },
+    {
+      "id": "exp-20261014-trilogy-metals",
+      "name": "Trilogy Metals · 官方动态",
+      "website": "trilogymetals.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://trilogymetals.com/news-and-media/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-02",
+      "samples": [
+        {
+          "title": "Trilogy Metals Reports Third Quarter Fiscal 2026 Financial Results",
+          "url": "https://trilogymetals.com/news-and-media/news/trilogy-metals-reports-third-quarter-fiscal-2026-financial-results/",
+          "published_at": "2026-10-02T10:45:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Trilogy Metals Announces Publication of Notice of Intent by U.S. Army Corps of Engineers for Alaska’s High-Grade Arctic Copper-Zinc-Lead-Gold-Silver Project",
+          "url": "https://trilogymetals.com/news-and-media/news/trilogy-metals-announces-publication-of-notice-of-intent-by-u-s-army-corps-of-engineers-for-alaskas-high-grade-arctic-copper-zinc-lead-gold-silver-project/",
+          "published_at": "2026-09-21T10:45:10.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Trilogy Metals Closes US$35.6 Million Strategic Equity Investment by the U.S. Department of War",
+          "url": "https://trilogymetals.com/news-and-media/news/trilogy-metals-closes-us35-6-million-strategic-equity-investment-by-the-u-s-department-of-war/",
+          "published_at": "2026-09-11T22:12:27.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "c8ad7b431f90b42e6a4a1921979a7f8a12888f0b6e04c47bee2e74b1ea240e9b"
+    },
+    {
+      "id": "exp-20261014-solaris-resources",
+      "name": "Solaris Resources · 官方动态",
+      "website": "solarisresources.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.solarisresources.com/news",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-09",
+      "samples": [
+        {
+          "title": "Communities Finalise Life Plans Alongside Renewed Shuar Agreements as Warintza Continues to Advance De-Risking Activities",
+          "url": "https://www.solarisresources.com/blog/communities-finalise-life-plans-alongside-renewed-shuar-agreements-as-warintza-continues-to-advance-de-risking-activities",
+          "published_at": "2026-09-09T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Solaris Announces Results of 2026 Annual General Meeting of Shareholders",
+          "url": "https://www.solarisresources.com/blog/solaris-announces-results-of-2026-annual-general-meeting-of-shareholders",
+          "published_at": "2026-06-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Solaris Secures EIA Technical Approval And Further Strengthens The Balance Sheet",
+          "url": "https://www.solarisresources.com/blog/solaris-secures-eia-technical-approval-and-further-strengthens-the-balance-sheet",
+          "published_at": "2026-04-08T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "5892781f7602c7422dee26bd4853cc2d1c24d014b234a98fbecc45da729a9882"
+    },
+    {
+      "id": "exp-20261014-alkane",
+      "name": "Alkane Resources · 官方动态",
+      "website": "alkres.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://alkres.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-08",
+      "samples": [
+        {
+          "title": "September 2026 Quarter Production Update – Closing cash & bullion of $440 million",
+          "url": "https://alkres.com/september-2026-quarter-production-update-closing-cash-bullion-of-440-million/",
+          "published_at": "2026-10-08T22:52:24.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "2026 Annual General Meeting (AGM)",
+          "url": "https://alkres.com/2026-agm/",
+          "published_at": "2026-10-02T06:58:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Group Resources and Reserves Statements FY26",
+          "url": "https://alkres.com/group-resources-and-reserves-statements-fy26/",
+          "published_at": "2026-09-11T00:26:29.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "d5c83791b928b433bc531455c97a8a523e5baa845f31b74cc296d7d1357cd13c"
+    },
+    {
+      "id": "exp-20261014-silver-tiger",
+      "name": "Silver Tiger Metals · 官方动态",
+      "website": "silvertigermetals.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://silvertigermetals.com/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 6,
+      "newest": "2026-09-20",
+      "samples": [
+        {
+          "title": "Silver Tiger Metals Inc. Announces $87 Million Bought Deal Financing and El Tigre Project Capital Cost Update",
+          "url": "https://silvertigermetals.com/news/2026/silver-tiger-metals-inc-announces-87-million-bought-deal-financing-and-el-tigre-project-capital-cost-update/",
+          "published_at": "2026-09-20T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Silver Tiger Announces Results of Annual and Special Meeting",
+          "url": "https://silvertigermetals.com/news/2026/silver-tiger-announces-results-of-annual-and-special-meeting/",
+          "published_at": "2026-09-17T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Silver Tiger Added To GDXJ Junior Gold Miners ETF And Provides Construction Update",
+          "url": "https://silvertigermetals.com/news/2026/silver-tiger-added-to-gdxj-junior-gold-miners-etf-and-provides-construction-update/",
+          "published_at": "2026-09-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "2bb58336a37f0b10972c7cd8b7ffc9d0cfb1af4ced080b863f82a127a5309de1"
+    },
+    {
+      "id": "exp-20261014-endeavour-mining",
+      "name": "Endeavour Mining · 官方动态",
+      "website": "endeavourmining.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.endeavourmining.com/news-and-media/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 248,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Endeavour to announce its Q3-2026 results on 12 November 2026",
+          "url": "https://www.endeavourmining.com/news-and-media/news/endeavour-announce-its-q3-2026-results-12-november-2026/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Endeavour reports tragic loss of life at Ity mine",
+          "url": "https://www.endeavourmining.com/news-and-media/news/endeavour-reports-tragic-loss-life-ity-mine/",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Endeavour reports strong H1-2026 results",
+          "url": "https://www.endeavourmining.com/news-and-media/news/endeavour-reports-strong-h1-2026-results/",
+          "published_at": "2026-07-29T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "d323c7854b294a80baa28ebabad886849516cdf0f0a24b91d29d4064537a7993"
+    },
+    {
+      "id": "exp-20261014-jinchuan",
+      "name": "金川集团 · 官方动态",
+      "website": "jnmc.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "http://en.jnmc.com/news.html",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": "2026-10-12",
+      "samples": [
+        {
+          "title": "Jinchuan Group shifts to high-end materials",
+          "url": "http://en.jnmc.com/2026-10/13/c_1218682.htm",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Jinchuan Group's Guangxi project named national smart PV model",
+          "url": "http://en.jnmc.com/2026-10/12/c_1218302.htm",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Jinchuan Group enhances rural school facilities",
+          "url": "http://en.jnmc.com/2026-09/21/c_1214718.htm",
+          "published_at": "2026-09-20T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b39e7789522bdfbed117d1238f3cfcf12ac9d7510d05fd11fbd20c629feb2ada"
+    },
+    {
+      "id": "exp-20261014-cnmc",
+      "name": "中国有色矿业集团 · 官方动态",
+      "website": "cnmc.com.cn",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.cnmc.com.cn/cnmc/xwzx/jtxw/A002003002Gone1.html",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "中国有色集团召开2026年年中工作会暨安全环保工作会 坚定信心乘势而上 奋力谱写世界一...",
+          "url": "https://www.cnmc.com.cn/cnmc/xwzx/jtxw/2026/7/I1531945272706334720.html",
+          "published_at": "2026-07-28T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "张晋军到中色沈矿开展工作调研",
+          "url": "https://www.cnmc.com.cn/cnmc/xwzx/jtxw/2026/10/I1559971444488667136.html",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "中国有色集团举办2026年度出资企业总法律顾问及法律部门负责人培训班",
+          "url": "https://www.cnmc.com.cn/cnmc/xwzx/jtxw/2026/9/I1552729983837798400.html",
+          "published_at": "2026-09-23T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "24445b43e2d6bebd22d068958ed942255b30c7ad7b4071fd019b3c31086269cb"
+    },
+    {
+      "id": "exp-20261014-gold-royalty",
+      "name": "Gold Royalty · 官方动态",
+      "website": "goldroyalty.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.goldroyalty.com/news/news-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 122,
+      "newest": "2026-10-07",
+      "samples": [
+        {
+          "title": "Gold Royalty to Release Third Quarter 2026 Results on November 4, 2026",
+          "url": "https://www.goldroyalty.com/news/news-releases/gold-royalty-to-release-third-quarter-2026-results-on-november-4-2026",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Gold Royalty Reports Record Six-Month Results with Continued Strong Cash Flow and Earnings Growth",
+          "url": "https://www.goldroyalty.com/news/news-releases/gold-royalty-reports-record-six-month-results-with-continued-strong-cash-flow-and-earnings-growth",
+          "published_at": "2026-08-04T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Gold Royalty to Release Second Quarter 2026 Results on August 5, 2026 and Announces Acquisition of Additional Royalties",
+          "url": "https://www.goldroyalty.com/news/news-releases/gold-royalty-to-release-second-quarter-2026-results-on-august-5-2026-and-announces-acquisition-of-additional-royalties",
+          "published_at": "2026-07-12T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b74dc1bed08778df8f65b32eef89652a1e31bc99ce963ab8ba7560cc16a66e4e"
+    },
+    {
+      "id": "exp-20261014-zhaojin",
+      "name": "招金矿业 · 官方动态",
+      "website": "zhaojin.com.cn",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.zhaojin.com.cn/news/index.html",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 6,
+      "newest": "2026-04-19",
+      "samples": [
+        {
+          "title": "统筹安全发展 扎实夯基固本--招金矿业召开一季度经济分析暨安全环保工作会议",
+          "url": "https://www.zhaojin.com.cn/news/details145_21536.html",
+          "published_at": "2026-04-19T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "招金矿业斩获多项资本市场奖项，综合实力获权威认可",
+          "url": "https://www.zhaojin.com.cn/news/details145_21463.html",
+          "published_at": "2026-02-03T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "招金矿业安全生产专题培训成功举行",
+          "url": "https://www.zhaojin.com.cn/news/details145_21462.html",
+          "published_at": "2026-02-03T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "93465a3b21f04e86ab2a6a9f6069e89e22d4d6b0f7b5b3532ef97ab2dda2ce33"
+    },
+    {
+      "id": "exp-20261014-nonfemet",
+      "name": "中金岭南 · 官方动态",
+      "website": "nonfemet.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.nonfemet.com/channel/21",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-09",
+      "samples": [
+        {
+          "title": "中金岭南召开9月份生产经营分析会暨“攀高计划3.0”推进...",
+          "url": "https://www.nonfemet.com/info/5230",
+          "published_at": "2026-10-09T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "中金岭南召开2026年第三季度党委理论学习中心组学习（扩...",
+          "url": "https://www.nonfemet.com/info/5228",
+          "published_at": "2026-09-29T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "安全打头阵 精益淬尖兵——中金岭南开展“小将计划”班组...",
+          "url": "https://www.nonfemet.com/info/5227",
+          "published_at": "2026-09-28T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "0b6d63072a7325603cc16d4dc193a98d906acc35be37ee06877f458328fd1aa5"
+    },
+    {
+      "id": "exp-20261014-yunnan-tin",
+      "name": "云锡集团 · 官方动态",
+      "website": "ytc.cn",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.ytc.cn/xwdt1/gsxw.htm",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-09-15",
+      "samples": [
+        {
+          "title": "喜报！云锡2项成果获云南省2025年度科学技术奖励",
+          "url": "https://www.ytc.cn/info/1024/16311.htm",
+          "published_at": "2026-09-15T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "云锡与国开行云南分行签署战略合作协议",
+          "url": "https://www.ytc.cn/info/1024/16299.htm",
+          "published_at": "2026-09-01T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "大井子锡业公司首批“YT”牌锡锭顺利下线",
+          "url": "https://www.ytc.cn/info/1024/16296.htm",
+          "published_at": "2026-09-01T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "2fc2cef173928ffcf20c4f5de06af94a22e40861558ca318040d8264c2df23e9"
+    },
+    {
+      "id": "exp-20261014-eramet",
+      "name": "Eramet 埃赫曼 · 官方动态",
+      "website": "eramet.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.eramet.com/en/media/press-releases/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 9,
+      "newest": "2026-10-11",
+      "samples": [
+        {
+          "title": "Eramet confirms its 2026 capital increase project, backed by the support of its reference shareholders and a strategic investment by the French State",
+          "url": "https://www.eramet.com/en/news/eramet-confirms-its-2026-capital-increase-project-backed-by-the-support-of-its-reference-shareholders-and-a-strategic-investment-by-the-french-state/",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Eramet plans to apply under Argentina’s Large Investment Incentive Regime (RIGI) for a first expansion of Centenario-Ratones",
+          "url": "https://www.eramet.com/en/news/eramet-plans-to-apply-under-argentinas-large-investment-incentive-regime-rigi-for-a-first-expansion-of-centenario-ratones/",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Appointment of Stéphanie Constand as Group Treasurer and Head of Financing at Eramet",
+          "url": "https://www.eramet.com/en/news/appointment-of-stephanie-constand-as-group-treasurer-and-head-of-financing-at-eramet/",
+          "published_at": "2026-09-21T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "c93aacf2c917d47860a38acf4b0d135039045072bf07fd597f21306286bf7ff8"
+    },
+    {
+      "id": "exp-20261014-nornickel",
+      "name": "Nornickel 诺镍 · 官方动态",
+      "website": "nornickel.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://nornickel.com/news-and-media/press-releases-and-news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-01",
+      "samples": [
+        {
+          "title": "Shareholders of Nornickel approved interim dividend for 6m2026",
+          "url": "https://nornickel.com/news-and-media/press-releases-and-news/shareholders-of-nornickel-approved-interim-dividend-for-6m2026/",
+          "published_at": "2026-10-01T14:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Size matters: Nornickel releases large sturgeon juveniles in Dudinka",
+          "url": "https://nornickel.com/news-and-media/press-releases-and-news/size-matters-nornickel-releases-large-sturgeon-juveniles-in-dudinka/",
+          "published_at": "2026-09-22T21:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Nornickel launches five unique wells at the Pelyatka gas field",
+          "url": "https://nornickel.com/news-and-media/press-releases-and-news/nornickel-launches-five-unique-wells-at-the-pelyatka-gas-field/",
+          "published_at": "2026-09-09T21:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b73c0b3d63cf269bcde07fd74f25056c1fd37ac3f81423907b46ff394a1e3ffe"
+    },
+    {
+      "id": "exp-20261014-merdeka",
+      "name": "Merdeka Copper Gold · 官方动态",
+      "website": "merdekacoppergold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://merdekacoppergold.com/en/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-05",
+      "samples": [
+        {
+          "title": "BUMILOKA Driver in Makarti Jaya Wins 2026 CSR & PDB Award",
+          "url": "https://merdekacoppergold.com/en/bumiloka-driver-in-makarti-jaya-wins-2026-csr-pdb-award/",
+          "published_at": "2026-10-05T09:02:08.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "SLNC FPP Begins Operations, Strengthening the SCM Mine Limonite Supply Chain",
+          "url": "https://merdekacoppergold.com/en/slnc-fpp-begins-operations-strengthening-the-scm-mine-limonite-supply-chain/",
+          "published_at": "2026-10-05T08:39:35.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Merdeka Group Celebrates Indonesia’s 81st Independence Day with Togetherness Across Its Operations",
+          "url": "https://merdekacoppergold.com/en/merdeka-group-celebrates-indonesias-81st-independence-day-with-togetherness-across-its-operations/",
+          "published_at": "2026-08-28T09:31:43.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "6a25cdf8dd09a9800c8f00e86c99b0d7b4faf7e2dfef7f74d26b710843b1ff64"
+    },
+    {
+      "id": "exp-20261014-arafura",
+      "name": "Arafura Rare Earths · 官方动态",
+      "website": "arultd.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.arultd.com/wp-admin/admin-ajax.php?year=2026&paginated=false&action=weblink_feed",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 72,
+      "newest": "2026-10-11",
+      "samples": [
+        {
+          "title": "Arafura enters binding offtake agreement",
+          "url": "https://wcsecure.weblink.com.au/clients/arafura/v2/headline.aspx?headlineid=61348661",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Nolans Groundbreaking Ceremony",
+          "url": "https://wcsecure.weblink.com.au/clients/arafura/v2/headline.aspx?headlineid=61348432",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Application for quotation of securities - ARU",
+          "url": "https://wcsecure.weblink.com.au/clients/arafura/v2/headline.aspx?headlineid=61344987",
+          "published_at": "2026-09-21T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "424ff2721935943b0a079db747653817ca300b5d65460d4c99a1127ce12257a5"
+    },
+    {
+      "id": "exp-20261014-energy-fuels",
+      "name": "Energy Fuels · 官方动态",
+      "website": "energyfuels.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://investors.energyfuels.com/news-releases?pagetemplate=rss",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 5,
+      "newest": "2026-08-28",
+      "samples": [
+        {
+          "title": "Energy Fuels Completes Acquisition of Australian Strategic Materials",
+          "url": "https://investors.energyfuels.com/2026-08-28-Energy-Fuels-Completes-Acquisition-of-Australian-Strategic-Materials",
+          "published_at": "2026-08-28T20:15:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "\"Heavy\" Rare Earths Produced by Energy Fuels Qualified for Use by Largest Permanent Magnet Manufacturer in Japan",
+          "url": "https://investors.energyfuels.com/2026-08-19-Heavy-Rare-Earths-Produced-by-Energy-Fuels-Qualified-for-Use-by-Largest-Permanent-Magnet-Manufacturer-in-Japan",
+          "published_at": "2026-08-19T10:15:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Energy Fuels' Acquisition of Australian Strategic Materials Wins Shareholder Approval",
+          "url": "https://investors.energyfuels.com/2026-08-12-Energy-Fuels-Acquisition-of-Australian-Strategic-Materials-Wins-Shareholder-Approval",
+          "published_at": "2026-08-12T12:35:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "00b35e3d6f65102245006a542edbf25e7b3fbdac77e273c508d6094b817f3625"
+    },
+    {
+      "id": "rpl-championiron",
+      "name": "Champion Iron 冠军铁矿 · 官方动态",
+      "website": "championiron.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://newsroom.championiron.com/index.php?s=2429&pagetemplate=rss",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-08-27",
+      "samples": [
+        {
+          "title": "CHAMPION IRON ANNOUNCES FY2026 ANNUAL GENERAL MEETING VOTING RESULTS",
+          "url": "https://newsroom.championiron.com/2026-08-26-CHAMPION-IRON-ANNOUNCES-FY2026-ANNUAL-GENERAL-MEETING-VOTING-RESULTS",
+          "published_at": "2026-08-27T00:32:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CHAMPION IRON TO HOLD ITS ANNUAL GENERAL MEETING OF SHAREHOLDERS ON AUGUST 26, 2026 (MONTRÉAL) / AUGUST 27, 2026 (SYDNEY)",
+          "url": "https://newsroom.championiron.com/2026-08-12-CHAMPION-IRON-TO-HOLD-ITS-ANNUAL-GENERAL-MEETING-OF-SHAREHOLDERS-ON-AUGUST-26,-2026-MONTREAL-AUGUST-27,-2026-SYDNEY",
+          "published_at": "2026-08-12T22:39:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CHAMPION IRON REPORTS ITS FY2027 FIRST QUARTER RESULTS",
+          "url": "https://newsroom.championiron.com/2026-07-29-CHAMPION-IRON-REPORTS-ITS-FY2027-FIRST-QUARTER-RESULTS",
+          "published_at": "2026-07-29T22:33:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "486e9f0464b4cd58ce3acf9c7cb124bf4d7316edc6a6be84c09369c7933d6d53"
+    },
+    {
+      "id": "rpl-chinagoldgroup",
+      "name": "中国黄金集团 · 官方动态",
+      "website": "chinagoldgroup.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.chinagoldgroup.com/zghj/xwzx/jtyw/A080003002Gone1.html",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-11",
+      "samples": [
+        {
+          "title": "中国黄金集团党委再学习再领会习近平总书记在全国国有企业党的建设工作会议...",
+          "url": "https://www.chinagoldgroup.com/zghj/xwzx/jtyw/2026/10/I1559277194167975936.html",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "集团公司党委传达学习习近平总书记近期重要讲话和重要指示精神",
+          "url": "https://www.chinagoldgroup.com/zghj/xwzx/jtyw/2026/10/I1559276446491344896.html",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "周洲会见湖南省地质院党委书记谈文胜一行",
+          "url": "https://www.chinagoldgroup.com/zghj/xwzx/jtyw/2026/9/I1553470298605486080.html",
+          "published_at": "2026-09-25T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "“黄金博物馆正式开放”为集团真实新闻标题。",
+      "config_sha256": "b7f2b3ac5f7bbd37b5e0e1a3d16510a578bb49f9fdad38d83dd0ecdb905b44bd"
+    },
+    {
+      "id": "rpl-cxtc",
+      "name": "厦门钨业 · 官方动态",
+      "website": "cxtc.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.cxtc.com/News.aspx",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": null,
+      "samples": [
+        {
+          "title": "厦门钨业高强钨丝专利产业化案例入选国家级典型案例",
+          "url": "https://www.cxtc.com/News_info.aspx?Id=4878",
+          "published_at": "2026-09-01T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "福建工控集团党委书记、董事长杨方到厦门钨业开展理论学习中心组列席旁听",
+          "url": "https://www.cxtc.com/News_info.aspx?Id=4877",
+          "published_at": "2026-08-20T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "腾远钴业董事长罗洁一行到厦门钨业访问交流",
+          "url": "https://www.cxtc.com/News_info.aspx?Id=4876",
+          "published_at": "2026-08-04T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "891ba696490ce0f6bff1b76647c128b4b98a5e26673b5ba65267e92495ec6ff7"
+    },
+    {
+      "id": "rpl-gem",
+      "name": "格林美 · 官方动态",
+      "website": "gem.com.cn",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://en.gem.com.cn/CompanyNews/list.html",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Young Representatives from SAMBALAGI and WEREA Villages, Indonesia, Visit GEM's Jingmen Industrial Park",
+          "url": "https://en.gem.com.cn/CompanyNews/info_itemid_8190.html",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Eleven Years of Partnership, Setting Sail on a New Journey Zhong Kexiang, Chairman of XTC, and His Delegation Visit GEM's Jingmen Park for Exchange",
+          "url": "https://en.gem.com.cn/CompanyNews/info_itemid_8189.html",
+          "published_at": "2026-09-27T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "GEM Rises in Both Rankings: Major Leap in China's Top 500 Private Enterprises",
+          "url": "https://en.gem.com.cn/CompanyNews/info_itemid_8186.html",
+          "published_at": "2026-09-23T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "37940f0bb3a05801c4abe4a4466ce69f00b326238b040e56b640a2ad8b6a1cd5"
+    },
+    {
+      "id": "rpl-hydro",
+      "name": "Norsk Hydro 海德鲁 · 官方动态",
+      "website": "hydro.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.hydro.com/en/global/media/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-05",
+      "samples": [
+        {
+          "title": "ALUMINIUM 2026: Hydro invests to strengthen resilience across the aluminium value chain",
+          "url": "https://www.hydro.com/en/global/media/news/2026/aluminium-2026-hydro-invests-to-strengthen-resilience-across-the-aluminium-value-chain/",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Update on Alunorte gas supply situation",
+          "url": "https://www.hydro.com/en/global/media/news/2026/update-on-alunorte-gas-supply-situation/",
+          "published_at": "2026-10-04T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Hanne Simensen new EVP Bauxite & Alumina",
+          "url": "https://www.hydro.com/en/global/media/news/2026/hanne-simensen-new-evp-bauxite--alumina/",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "f5aea6a943f8b52ef4c2588740d542c46f16d85035907c3902038f707ed71acd"
+    },
+    {
+      "id": "rpl-igo",
+      "name": "IGO Limited · 官方动态",
+      "website": "igo.com.au",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.igo.com.au/site/investor-center/ASX-Announcements",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-04",
+      "samples": [
+        {
+          "title": "September 2026 Quarterly Results Webcast Details",
+          "url": "https://www.igo.com.au/site/pdf/d0bb8ded-3132-4519-b720-3f4d510e91df/Platform/ListPage/September-2026-Quarterly-Results-Webcast-Details.pdf",
+          "published_at": "2026-10-04T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Final Director's Interest Notice",
+          "url": "https://www.igo.com.au/site/pdf/b2aa42e8-f7ba-43cf-b8c3-a8d608dcb176/Platform/ListPage/Final-Directors-Interest-Notice.pdf",
+          "published_at": "2026-09-30T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Ceasing to be a substantial holder",
+          "url": "https://www.igo.com.au/site/pdf/ecdf2166-5797-4c3a-9e7e-4b0943e32894/Platform/ListPage/Ceasing-to-be-a-substantial-holder.pdf",
+          "published_at": "2026-09-28T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "“Appendix 4G”为 ASX 真实公告标题（公司治理披露）。",
+      "config_sha256": "69ae9f37cba96a57a2aa7b9ddd85108b3324ac46a39e780f1f3e767db7c83e12"
+    },
+    {
+      "id": "rpl-k92mining",
+      "name": "K92 Mining · 官方动态",
+      "website": "k92mining.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.k92mining.com/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 352,
+      "newest": "2026-10-08",
+      "samples": [
+        {
+          "title": "K92 Mining Announces 2026 Third Quarter Financial Results Conference Call Details",
+          "url": "https://www.k92mining.com/news/k92-mining-announces-2026-third-quarter-financial-15498/",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "K92 Mining Announces Strong Q3 Production of 49,776 oz AuEq, Multiple Operational Records and 1 moz AuEq Production Milestone",
+          "url": "https://www.k92mining.com/news/k92-mining-announces-strong-q3-production-of-49-77-15493/",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "K92 Mining Announces Leadership Succession - John Lewins Appointed Non-Executive Chair, David Medilek Appointed Chief Executive Officer and Director",
+          "url": "https://www.k92mining.com/news/k92-mining-announces-leadership-succession-john-15410/",
+          "published_at": "2026-08-16T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b3c5be920f97cae89ae605af1d8beb12f96a5141093d88b090ca92c25ac6d988"
+    },
+    {
+      "id": "rpl-qhyhgf",
+      "name": "盐湖股份 · 官方动态",
+      "website": "qhyhgf.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.qhyhgf.com/NewsInfoCategory?categoryId=326234&PageInfoId=0",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-08-03",
+      "samples": [
+        {
+          "title": "2026年中国（格尔木）锂业大会暨第四届锂电新能源发展大会在格尔木隆重召开",
+          "url": "https://www.qhyhgf.com/newsinfo/11304576.html",
+          "published_at": "2026-08-03T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "3万＋，察尔汗盐湖景区单日游客接待量再获新高！",
+          "url": "https://www.qhyhgf.com/newsinfo/11301394.html",
+          "published_at": "2026-08-02T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "地企协同拓新局 共筑盐湖产业高地——青海盐湖工业股份有限公司与青海省核工业地质局签署战略合作框架协议",
+          "url": "https://www.qhyhgf.com/newsinfo/11271744.html",
+          "published_at": "2026-07-21T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "c7a6281cbeb37c6f918056d5c544e95bc61e305d6b048866f6ce66533190fd32"
+    },
+    {
+      "id": "rpl-tronox",
+      "name": "Tronox 特诺 · 官方动态",
+      "website": "tronox.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.tronox.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-05",
+      "samples": [
+        {
+          "title": "Tronox Announces Dates for Third Quarter 2026 Earnings Release & Webcast Conference Call",
+          "url": "https://www.tronox.com/tronox-announces-dates-for-third-quarter-2026-earnings-release-webcast-conference-call/",
+          "published_at": "2026-10-05T16:15:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Tronox Announces Signing of a Cooperation and Investment Agreement with JX Advanced Metals to Advance Rare Earth Strategy",
+          "url": "https://www.tronox.com/tronox-announces-signing-of-a-cooperation-and-investment-agreement-with-jx-advanced-metals-to-advance-rare-earth-strategy/",
+          "published_at": "2026-09-29T06:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Tronox Reports Second Quarter 2026 Financial Results",
+          "url": "https://www.tronox.com/tronox-reports-second-quarter-2026-financial-results/",
+          "published_at": "2026-08-05T16:15:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "2609ad05ff234720c99c64026dcf72874a6cb846be36234d605331331f08f386"
+    },
+    {
+      "id": "rpl-sigmalithiumresources",
+      "name": "Sigma Lithium · 官方动态",
+      "website": "sigmalithiumcorp.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://sigmalithiumcorp.com/feed/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-06",
+      "samples": [
+        {
+          "title": "Sigma Lithium Resumes Mining-Industrial Operations; Wins Benchmark Legal Decision; 2027 Guidance of 330,000t",
+          "url": "https://sigmalithiumcorp.com/sigma-lithium-resumes-mining-industrial-operations-wins-benchmark-legal-decision-2027-guidance-of-330000t/",
+          "published_at": "2026-10-06T20:51:17.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Sigma Lithium Announces Its Operations Temporarily Paused Awaiting Ruling by Federal Court of Appeals; Maintains 2027 Guidance of 330,000t",
+          "url": "https://sigmalithiumcorp.com/sigma-lithium-announces-its-operations-temporarily-paused-awaiting-ruling-by-federal-court-of-appeals-maintains-2027-guidance-of-330000t/",
+          "published_at": "2026-10-01T14:27:02.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Sigma Lithium Recognized as Sustainability and Cleantech Pioneer at UN-Climate Week in NY Featuring Lithium Oxide Industrialization; Continues to Operate Following Brazil’s Democratic Rule of Law",
+          "url": "https://sigmalithiumcorp.com/sigma-lithium-recognized-as-sustainability-and-cleantech-pioneer-at-un-climate-week-in-ny-featuring-lithium-oxide-industrialization-continues-to-operate-following-brazils-democratic-rule-of-law/",
+          "published_at": "2026-09-28T13:15:59.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "4e7baabcce258dbb678191907149ed61f9c7769eda3b19bd960b427a14761fef"
+    },
+    {
+      "id": "rpl-torexgold",
+      "name": "Torex Gold · 官方动态",
+      "website": "torexgold.com",
+      "category": "矿企官网",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://torexgold.com/news-and-media/news/",
+      "interval_minutes": 180,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-05",
+      "samples": [
+        {
+          "title": "Torex Gold Reports Q3 2026 Production Results",
+          "url": "https://torexgold.com/news-and-media/news/torex-gold-reports-q3-2026-production-results-15490/",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Torex Gold Provides Q3 2026 Morelos Drilling & Exploration Update",
+          "url": "https://torexgold.com/news-and-media/news/torex-gold-provides-q3-2026-morelos-drilling-exp-15475/",
+          "published_at": "2026-09-23T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Torex Gold Reports Q2 2026 Results",
+          "url": "https://torexgold.com/news-and-media/news/torex-gold-reports-q2-2026-results-15384/",
+          "published_at": "2026-08-05T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "0a909d18e88e077d823d06996d01754e21688f3e316afa036eff3e7db1a58c6f"
+    }
+  ]
+}
