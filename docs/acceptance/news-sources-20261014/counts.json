@@ -14,9 +14,9 @@
   "package/media": {
     "total": 59,
     "blocked": 17,
-    "verified": 37,
+    "verified": 36,
     "planned_verified": 2,
-    "pending": 3
+    "pending": 4
   },
   "package/technology": {
     "total": 9,
