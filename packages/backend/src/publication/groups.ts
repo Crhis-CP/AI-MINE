@@ -221,7 +221,8 @@ export async function reportCandidateRows(start: Date, end: Date) {
       FROM publications p JOIN sources s ON s.id = p.source_id
       LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
       -- Attribute each item by the later of arrival and release; either range can use its index.
-      WHERE p.visibility = 'public' AND p.selected AND NOT p.backfill
+      WHERE p.visibility = 'public' AND p.selected AND p.eligible AND NOT p.backfill
+        AND p.channel='news' AND s.lane='news' AND s.participation_mode='editorial'
         AND (
           (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
           OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})

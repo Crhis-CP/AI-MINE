@@ -91,7 +91,10 @@ test("daily report and story digest keep paid receipts but reject stale control 
   };
   await assert.rejects(composeDaily("2020-02-02"), RuntimeControlStale);
   duringResponse = null;
-  assert.equal((await sql`SELECT id FROM reports WHERE key='2020-02-02'`).length, 0);
+  const [saved] = await sql`SELECT content FROM reports WHERE key='2020-02-02'`;
+  assert.equal(saved!.content.generationStatus, "failed");
+  assert.equal(saved!.content.lead, null);
+  assert.equal(saved!.content.sections[0].items[0].itemId, articleId);
   assert.equal(provider.hits(), 1);
   await composeDaily("2020-02-02");
   assert.equal(provider.hits(), 1);

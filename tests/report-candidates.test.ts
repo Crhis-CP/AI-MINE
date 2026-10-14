@@ -202,3 +202,33 @@ test("unknown category keeps a selected report item without assigning a thematic
   assert.deepEqual(report!.content.sections, []);
   assert.equal(report!.content.flashes[0].itemId, id);
 });
+
+test("report candidates reject lost eligibility, policy content and non-editorial sources", async () => {
+  const start = new Date("2020-03-01Z"),
+    end = new Date("2020-03-02Z");
+  for (const flag of ["eligible", "lane", "source"] as const) {
+    const id = await selected(`unsafe-${flag}`, "2020-03-01T12:00:00Z", "2020-03-01T12:00:00Z");
+    if (flag === "eligible") await sql`UPDATE publications SET eligible=false WHERE article_id=${id}`;
+    if (flag === "lane") await sql`UPDATE sources SET lane='policy' WHERE id=${SOURCE}`;
+    if (flag === "source") await sql`UPDATE sources SET participation_mode='hot_signal' WHERE id=${SOURCE}`;
+    assert.equal(
+      (await candidates(start, end)).some((entry) => entry.itemId === id),
+      false,
+      flag,
+    );
+    await sql`UPDATE sources SET lane='news',participation_mode='editorial' WHERE id=${SOURCE}`;
+  }
+});
+test("recent daily flashes suppress later reports of the same fact", async () => {
+  const first = await selected("first-flash", "2020-04-01T12:00:00Z", "2020-04-01T12:00:00Z");
+  const [fact] = await sql`INSERT INTO facts(public_id,title) VALUES(gen_random_uuid(),'合成共同事实') RETURNING id,public_id`;
+  await sql`UPDATE publications SET category=NULL,fact_id=${fact.id} WHERE article_id=${first}`;
+  await composeDaily("2020-04-02");
+  const next = await selected("duplicate-flash-fact", "2020-04-02T12:00:00Z", "2020-04-02T12:00:00Z");
+  await sql`UPDATE publications SET fact_id=${fact.id} WHERE article_id=${next}`;
+  await composeDaily("2020-04-03");
+  const [report] = await sql`SELECT content FROM reports WHERE kind='daily' AND key='2020-04-03'`;
+  assert.deepEqual(report!.content.sections, []);
+  assert.deepEqual(report!.content.flashes, []);
+  assert.equal(report!.content.generator.repeatsSuppressed, 1);
+});

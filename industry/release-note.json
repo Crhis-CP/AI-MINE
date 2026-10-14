@@ -1,11 +1,17 @@
 {
   "note": {
     "kind": "优化",
-    "title": "反馈字数要求更清楚",
+    "title": "日报截稿与精选衔接更清楚",
     "body": [
-      "反馈仍需填写10至5000字，输入框下方明确提示至少填写10字。",
-      "字数不足时实时显示还差几字可发送，达到最低字数后自动隐藏剩余提示；首尾空白不计入最低字数。"
+      "日报明确说明截稿时间，截稿后公开的精选归入后续刊期；可直接查看最新精选。",
+      "日报先提供已选内容，AI导语暂未完成时仍能阅读，并在恢复后补齐。",
+      "修复评分漏读有效摘要、来源分级变更后精选状态未同步，以及日报候选和快讯去重问题。"
     ]
   },
-  "fragments": ["changes/TASK-0347-feedback-length-hint.md"]
+  "fragments": [
+    "changes/TASK-0348-daily-cutoff.md",
+    "changes/TASK-0349-score-input.md",
+    "changes/TASK-0350-daily-recovery.md",
+    "changes/TASK-0351-source-tier-selection.md"
+  ]
 }
