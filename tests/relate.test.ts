@@ -45,7 +45,7 @@ function reprint(over: Partial<ReportView> & { originalText: string }): ReportVi
     at: over.at ?? new Date("2026-10-14T03:25:00Z"),
     summary: null,
     originalText: over.originalText,
-    jurisdiction: over.jurisdiction ?? "CN",
+    jurisdiction: "jurisdiction" in over ? (over.jurisdiction ?? null) : "CN",
     frame: over.frame ?? null,
   };
 }
@@ -133,6 +133,59 @@ test("one policy or one speech stays one occurrence when outlets word it differe
     ),
     "UNRELATED",
     "a different project does not join the policy",
+  );
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: catalogA, jurisdiction: null, frame: { subject: "安徽省自然资源厅", object: "矿产资源目录" } }),
+      reprint({ originalText: catalogB, jurisdiction: null, frame: { subject: "中国地质调查局", object: "《矿产资源目录》" } }),
+      catalog,
+    ),
+    "SAME_OCCURRENCE",
+    "reprints of one policy with no jurisdiction stay one occurrence",
+  );
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: speechA, jurisdiction: "CN", frame: { subject: "习近平", object: "中非矿业合作4点主张" } }),
+      reprint({ originalText: speechB, jurisdiction: null, frame: { subject: "省自然资源厅", object: "中非矿业合作4点主张" } }),
+      {
+        relation: "SAME_OCCURRENCE",
+        confidence: 0.95,
+        evidence: {
+          queryQuote: speechA,
+          candidateQuote: speechB,
+          anchor: "中非矿业合作",
+          queryAction: "提出",
+          candidateAction: "提出",
+          queryStage: "other",
+          candidateStage: "other",
+          change: "",
+        },
+      },
+    ),
+    "SAME_OCCURRENCE",
+    "a speech reprint without a jurisdiction joins the official report",
+  );
+  assert.equal(
+    validatedRelation(
+      reprint({ originalText: catalogA, jurisdiction: null, frame: { subject: "自然资源部", object: "矿产资源目录" } }),
+      reprint({ originalText: mine, jurisdiction: null, frame: { subject: "自然资源部", object: "加达锂矿" } }),
+      {
+        relation: "SAME_OCCURRENCE",
+        confidence: 0.95,
+        evidence: {
+          queryQuote: catalogA,
+          candidateQuote: mine,
+          anchor: "自然资源部",
+          queryAction: "公布",
+          candidateAction: "公布",
+          queryStage: "other",
+          candidateStage: "other",
+          change: "",
+        },
+      },
+    ),
+    "UNRELATED",
+    "a different project stays apart even when neither report has a jurisdiction",
   );
   assert.equal(validatedRelation(reprint({ originalText: catalogA }), reprint({ originalText: catalogB, jurisdiction: "CL" }), catalog), "UNRELATED");
   assert.equal(

@@ -94,7 +94,9 @@ function sameName(left: string | null | undefined, right: string | null | undefi
 export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
   if (verdict.relation !== "SAME_OCCURRENCE" && verdict.relation !== "SAME_STORY") return verdict.relation;
   const e = verdict.evidence;
-  if (verdict.confidence < 0.8 || !e || !a.originalText || !b.originalText || !a.jurisdiction || a.jurisdiction !== b.jurisdiction) return "UNRELATED";
+  // A missing jurisdiction is not a conflict: reprints often have none. Two stated countries that differ still split.
+  if (verdict.confidence < 0.8 || !e || !a.originalText || !b.originalText) return "UNRELATED";
+  if (a.jurisdiction && b.jurisdiction && a.jurisdiction !== b.jurisdiction) return "UNRELATED";
   if (!a.originalText.includes(e.queryQuote) || !b.originalText.includes(e.candidateQuote)) return "UNRELATED";
   if (
     ![e.queryQuote, e.candidateQuote].every((q) => q.includes(e.anchor)) ||

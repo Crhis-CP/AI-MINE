@@ -69,6 +69,7 @@ test("reprints of one policy and one speech fold into one featured item with sta
     key: "catalog-reprint",
     name: "中国地质调查局",
     firstParty: false,
+    country: false,
     score: 90,
     title: "自然资源部会同国家发展改革委发布《矿产资源目录》，共174个矿种、119个亚矿种",
     summary: "该目录在原分类细目基础上优化调整形成，包括174个矿种。",
@@ -80,6 +81,7 @@ test("reprints of one policy and one speech fold into one featured item with sta
     key: "catalog-official",
     name: "自然资源部",
     firstParty: true,
+    country: false,
     score: 72,
     title: "自然资源部会同国家发展改革委公布优化调整后的《矿产资源目录》",
     summary: "新目录沿用能源矿产、金属矿产、非金属矿产和水气矿产四类框架，亚矿种增至119个。",
@@ -91,7 +93,9 @@ test("reprints of one policy and one speech fold into one featured item with sta
     key: "speech-reprint",
     name: "省自然资源厅",
     firstParty: false,
-    score: 80,
+    country: false,
+    selected: false,
+    score: 40,
     title: "习近平同博茨瓦纳总统博科会谈，就中非矿业合作提出4点主张",
     summary: "双方会谈中，习近平就推动中非矿业合作提出4点主张。",
     body: "中国习近平主席同博茨瓦纳总统会谈并就中非矿业合作提出4点主张",
@@ -102,6 +106,7 @@ test("reprints of one policy and one speech fold into one featured item with sta
     key: "speech-official",
     name: "自然资源部地矿",
     firstParty: true,
+    country: true,
     score: 62,
     title: "习近平就推动中非矿业合作提出4点主张",
     summary: "习近平会见博茨瓦纳总统，就中非矿业合作提出4点主张。",
@@ -113,6 +118,7 @@ test("reprints of one policy and one speech fold into one featured item with sta
     key: "lone-mine",
     name: "四川地勘单位",
     firstParty: true,
+    country: false,
     score: 70,
     title: "四川加达锂矿新增氧化锂资源量42.37万吨",
     summary: "四川加达锂矿新增氧化锂资源量，圈定找矿靶区。",
@@ -120,6 +126,15 @@ test("reprints of one policy and one speech fold into one featured item with sta
     frame: { subject: "四川地勘单位", action: "新增", object: "加达锂矿" },
     publishedAt: new Date(now - 10 * 60_000),
   });
+  const places = await sql<{ article_id: string; primary_jurisdiction: string | null }[]>`
+    SELECT article_id, primary_jurisdiction FROM publication.news_geography
+    WHERE article_id IN ${sql([catalogReprint, catalogOfficial, speechReprint, speechOfficial, lone])}`;
+  const place = (id: string) => places.find((row) => row.article_id === id)?.primary_jurisdiction ?? null;
+  assert.equal(place(catalogReprint), null);
+  assert.equal(place(catalogOfficial), null);
+  assert.equal(place(speechReprint), null);
+  assert.equal(place(speechOfficial), "CN");
+  assert.equal(place(lone), null);
 
   assert.equal((await groupArticle(catalogReprint)).verdict, "new-story");
   assert.equal((await groupArticle(catalogOfficial)).verdict, "same-fact");
@@ -167,6 +182,8 @@ async function article(input: {
   key: string;
   name: string;
   firstParty: boolean;
+  country?: boolean;
+  selected?: boolean;
   score: number;
   title: string;
   summary: string;
@@ -190,18 +207,21 @@ async function article(input: {
     via: "fetch",
     publishedAt: input.publishedAt,
   });
-  const geography = validateGeography(
-    {
-      status: "identified",
-      primary: "CN",
-      assignments: [{ code: "CN", role: "event_location", mention: "中国", segment: "body_head", quote: input.body }],
-      reason: "合成地理证据",
-    },
-    { title: input.title, bodyText: input.body, excerpt: null, bodyStatus: "ok" },
-  );
+  const geography =
+    input.country === true
+      ? validateGeography(
+          {
+            status: "identified",
+            primary: "CN",
+            assignments: [{ code: "CN", role: "event_location", mention: "中国", segment: "body_head", quote: input.body }],
+            reason: "合成地理证据",
+          },
+          { title: input.title, bodyText: input.body, excerpt: null, bodyStatus: "ok" },
+        )
+      : null;
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
-    VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${input.title}, ${input.summary}, ${input.score}, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]},
-      ${sql.json({ ...scopeOutput, fact: { title: input.title, ...input.frame }, geography })})`;
+    VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${input.title}, ${input.summary}, ${input.score}, ${input.selected !== false}, ${scopeVersion}, ${[await scopeReceipt(articleId)]},
+      ${sql.json({ ...scopeOutput, fact: { title: input.title, ...input.frame }, ...(geography ? { geography } : {}) })})`;
   await publishArticle(articleId);
   return articleId;
 }

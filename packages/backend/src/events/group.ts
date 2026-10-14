@@ -144,7 +144,7 @@ export const GROUP_PROMPT_VERSION = RELATE_PROMPT_VERSION;
 const RECALL_DAYS = 14;
 const RECALL_MIN_COSINE = 0.6;
 const LEXICAL_RECALL_MIN = 0.25;
-const RECALL_TOP_FACTS = 3;
+const RECALL_TOP_FACTS = 10;
 /** A merge with a candidate less similar than this is confirmed by the review model before it is written. */
 const CONFIRM_BELOW_COSINE = 0.85;
 /** Discussion posts are judged only against clear candidates, and attach without a call when nearly identical. */
