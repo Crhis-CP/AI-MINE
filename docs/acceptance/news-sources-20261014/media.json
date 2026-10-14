@@ -1263,43 +1263,6 @@
       "config_sha256": "8513ac492ec6a8fe8cf2bc98bcbc6e6f90c40410b86d9be7e7839cf900ab346c"
     },
     {
-      "id": "exp-20261014-mundo-minero",
-      "name": "Mundo Minero · 行业资讯",
-      "website": "mundominero.mx",
-      "category": "矿业媒体",
-      "origin": "任务包",
-      "counted_as_new": true,
-      "kind": "json_list",
-      "entry": "https://mundominero.mx/api/posts?page=1",
-      "interval_minutes": 60,
-      "owner_entity_id": null,
-      "preview_items": 12,
-      "newest": "2026-10-13",
-      "samples": [
-        {
-          "title": "IMPACT reactivará Capire mientras Plomosas sigue suspendida",
-          "url": "https://mundominero.mx/noticias/IMPACT-reactivara-Capire-Plomosas-sigue-suspendida",
-          "published_at": "2026-10-13T17:46:25.000Z",
-          "date_from": "列表"
-        },
-        {
-          "title": "Fresnillo plc recibe distintivo Hecho en México y reafirma sus raíces mexicanas",
-          "url": "https://mundominero.mx/noticias/Fresnillo-recibe-distintivo-Hecho-en-Mexico",
-          "published_at": "2026-10-13T16:56:23.000Z",
-          "date_from": "列表"
-        },
-        {
-          "title": "Continúa huelga en San Dimas",
-          "url": "https://mundominero.mx/noticias/Continua-huelga-San-Dimas",
-          "published_at": "2026-10-13T16:53:44.000Z",
-          "date_from": "列表"
-        }
-      ],
-      "low_frequency_exception": null,
-      "manual_decision": null,
-      "config_sha256": "8f84d2228aa18d6e7cf87ce330e6d3a506199e7720b0584ca2d24afa4f981513"
-    },
-    {
       "id": "exp-20261014-outlet-minero",
       "name": "Outletminero · 行业资讯",
       "website": "outletminero.org",
