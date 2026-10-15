@@ -164,7 +164,9 @@ async function extractArticleBody(articleId: string, allowJina = process.env.JIN
     const [r] = await tx<{ revision: number }[]>`
       UPDATE articles SET body_html = ${body.html}, body_text = ${body.text}, body_status = 'ok',
         media = CASE WHEN jsonb_array_length(media) = 0 THEN ${tx.json(got.images as never)}::jsonb ELSE media END,
-        revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
+        grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
+      selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
+      revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
       WHERE id = ${articleId} RETURNING revision`;
     await tx`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
              VALUES (${articleId}, ${r!.revision}, ${hash}, ${row.title}, ${body.text})`;

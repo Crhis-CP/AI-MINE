@@ -229,6 +229,8 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
       body_text = coalesce(${m.bodyText ?? null}, body_text), body_html = coalesce(${m.bodyHtml ?? null}, body_html),
       body_status = CASE WHEN ${m.bodyText ?? null}::text IS NULL THEN body_status ELSE ${m.bodyStatus ?? "ok"} END,
       media = CASE WHEN ${m.media ? db.json(m.media as never) : null}::jsonb IS NULL THEN media ELSE ${m.media ? db.json(m.media as never) : null}::jsonb END,
+      grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
+      selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
       revision = revision + 1, content_hash = ${next}, processing_state = 'new', updated_at = now()
     WHERE id = ${existing!.id}
     RETURNING revision`;

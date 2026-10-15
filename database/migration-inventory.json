@@ -387,6 +387,18 @@
     {
       "name": "publication/202610131500_metal_prices_cochilco.sql",
       "dependsOn": ["publication/202610090010_metal_prices_weekly.sql"]
+    },
+    {
+      "name": "content/202610151730_grouping_confirmation.sql",
+      "dependsOn": ["content/202610042020_source_date_evidence.sql"]
+    },
+    {
+      "name": "events/202610151731_grouping_evidence.sql",
+      "dependsOn": ["events/202610120010_membership_revision.sql"]
+    },
+    {
+      "name": "publication/202610151732_selection_seats.sql",
+      "dependsOn": ["content/202610151730_grouping_confirmation.sql"]
     }
   ]
 }
