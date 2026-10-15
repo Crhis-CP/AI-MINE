@@ -1,12 +1,14 @@
 {
   "note": {
     "kind": "优化",
-    "title": "后台操作更顺畅，备案信息更完整",
+    "title": "后台、处理恢复与正文阅读更新",
     "body": [
       "后台可分别查看运行状态、模型设置与审计记录，原有地址继续可用。",
       "填写操作原因时保留已输入内容，确认窗口支持键盘操作。",
-      "页脚补充公安联网备案号及查询链接。"
+      "页脚补充公安联网备案号及查询链接。",
+      "外文精选可先阅读中文标题和导读，正文译文随后补充。",
+      "译文尚不完整时保留未译原文，并明确标示当前状态。"
     ]
   },
-  "fragments": ["changes/TASK-0367-admin-navigation.md"]
+  "fragments": ["changes/TASK-0367-admin-navigation.md", "changes/TASK-0361-selected-translation.md"]
 }

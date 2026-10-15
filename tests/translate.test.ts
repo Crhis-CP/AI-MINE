@@ -147,7 +147,7 @@ test("a text corrected while its translation was running is translated again, an
   assert.ok(current.body.zh?.includes("二十美元") && current.body.complete, "the page shows the translation of the corrected text");
 });
 
-test("links and images survive in checkpoints, while a bad paragraph prevents whole-body assembly and the same bad answer is not bought a third time", async () => {
+test("links and images survive partial translation while failed blocks keep their original text", async () => {
   // Google's fly-brain post lost its link to the Neuroglancer docs; a GPU price post lost two charts.
   const html =
     `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> in text ${T} <img src="https://example.com/chart-${T}.png" alt="B200 prices"></p>` +
@@ -173,7 +173,8 @@ test("links and images survive in checkpoints, while a bad paragraph prevents wh
     await translateOne(id);
   }
   const [tr] = await sql<{ body_html: string | null; complete: boolean }[]>`SELECT body_html, complete FROM translations WHERE article_id = ${id}`;
-  assert.equal(tr!.body_html, null, "bad segments and original English are never assembled into a partial translation");
+  assert.match(tr!.body_html!, /解释/);
+  assert.match(tr!.body_html!, /never keeps/, "untranslated blocks keep their original text");
   assert.equal(tr!.complete, false);
   const parts = await sql`SELECT state,restored_html,failed_attempts FROM enrichment.translation_segments WHERE article_id=${id} ORDER BY segment_index`;
   assert.equal(parts[0]!.state, "complete");
@@ -187,11 +188,22 @@ test("links and images survive in checkpoints, while a bad paragraph prevents wh
   assert.equal(incomplete.statusCode, 200, "a Chinese title and guide stay public while the body is incomplete");
   const shown = incomplete.json();
   assert.equal(shown.summary, "摘要");
-  assert.equal(shown.body?.zh ?? null, null, "a failed segment is not assembled into a Chinese body");
+  assert.match(shown.body.zh, /解释/);
+  assert.match(shown.body.zh, /never keeps/);
   assert.equal(shown.body?.complete ?? false, false);
+  await sql`UPDATE sources SET syndicate_fulltext=true WHERE id=${SOURCE}`;
+  await publishArticle(id);
+  try {
+    const rss = await app.inject("/feed/full.xml");
+    assert.equal(rss.statusCode, 200);
+    assert.match(rss.body, /中文译文尚不完整/);
+    assert.match(rss.body, /never keeps/);
+  } finally {
+    await sql`UPDATE sources SET syndicate_fulltext=false WHERE id=${SOURCE}`;
+  }
 });
 
-test("the active adapter covers a body beyond the old cap and then makes no repeat model request", async () => {
+test("translation stops at the 60000 character boundary and preserves the untranslated tail", async () => {
   const html = Array.from({ length: 30 }, (_, i) => `<p>${i === 29 ? "FINAL_PARAGRAPH" : i} ${T} ${"Copper production update. ".repeat(95)}</p>`).join("");
   assert.ok(html.length > 60_000);
   const { articleId: id } = await upsertMaterial({
@@ -211,15 +223,18 @@ test("the active adapter covers a body beyond the old cap and then makes no repe
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   const start = provider.hits();
   const result = await translateOne(id);
-  assert.equal(result.status, "translated");
-  assert.equal(provider.hits() - start, 30);
+  assert.equal(result.status, "partial");
+  const calls = provider.hits() - start;
+  assert.ok(calls > 0 && calls < 30);
   const [tr] = await sql`SELECT complete,body_html,manifest FROM translations WHERE article_id=${id}`;
-  assert.equal(tr!.complete, true);
-  assert.equal(tr!.manifest.segments.length, 30);
-  assert.ok(tr!.body_html.endsWith("最后一段完整译文。</p>"), "the final source paragraph is included");
-  assert.equal((await sql`SELECT count(*)::int AS n FROM enrichment.translation_segments WHERE article_id=${id} AND state='complete'`)[0]!.n, 30);
+  assert.equal(tr!.complete, false);
+  assert.ok(tr!.body_html.includes("FINAL_PARAGRAPH"), "the tail remains original text");
+  assert.equal(tr!.manifest.translatedSegments, calls);
+  const incomplete = await detail(id);
+  assert.equal(incomplete.body.complete, false);
+  assert.match(incomplete.body.zh!, /FINAL_PARAGRAPH/);
   await translateOne(id);
-  assert.equal(provider.hits() - start, 30, "a complete current result and older exhausted bad segments cause no new request");
+  assert.equal(provider.hits() - start, calls, "a partial current result reuses its paid prefix");
 });
 
 test("repair rotates past a full blocked batch, includes old material and resumes from successful runs across processes", async () => {
@@ -312,4 +327,26 @@ test("a body translation that already failed three times is not bought again", a
   const result = await translateArticle(id, revision);
   assert.deepEqual({ status: result.status, reason: result.reason }, { status: "skipped", reason: "attempts_exhausted" });
   assert.equal(provider.hits(), before, "the spent body is not bought again");
+});
+
+test("unselected foreign articles are public without entering the translation queue", async () => {
+  const { articleId } = await upsertMaterial({
+    sourceId: SOURCE,
+    url: `${URL_}-unselected`,
+    title: `Copper note ${T}`,
+    language: "en",
+    bodyHtml: `<p>Copper note ${T}.</p>`,
+    bodyText: `Copper note ${T}.`,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+  });
+  await currentJudgement(articleId);
+  await sql`UPDATE analyses SET selected=false,score=40 WHERE article_id=${articleId}`;
+  const published = await publishArticle(articleId);
+  assert.equal(published?.visibility, "public");
+  assert.equal(published?.selected, false);
+  assert.equal(await prepareTranslation(articleId), null);
+  await translatePending();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`)[0].n, 0);
 });

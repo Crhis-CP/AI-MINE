@@ -45,7 +45,6 @@ const scoreHolds = new Map<string, { asked: () => void; release: Promise<void> }
 // A test can make the prefilter answer a marker differently on a later judgement.
 const prefilterLabels = new Map<string, string>();
 // A test can make a marker's score requests fail like an outage.
-const scoreOutages = new Set<string>();
 // Prescribed fake labels test the admission plumbing, not the model's mining judgement quality.
 const mining = [
   ["COPPER", "铜矿产量公告", "PASS"],
@@ -135,7 +134,7 @@ const provider = await stub(async (_hit, req) => {
       hold.asked();
       await hold.release;
     }
-    if (marker === "SCFAIL" || scoreOutages.has(marker)) return new Reply(503, { error: { message: "synthetic score outage" } });
+    if (marker === "SCFAIL") return new Reply(503, { error: { message: "synthetic score outage" } });
     if (marker === "SCREFUSED") return { ...answer(""), choices: [{ message: { content: "" }, finish_reason: "content_filter" }] };
     return answer({ attentionScore: marker === "EMPTYCASE" ? 80 : (scoreAnswers[marker]?.shift() ?? 10) });
   }
@@ -619,11 +618,13 @@ test("BR-PUB-08: judging a selected Chinese original again keeps its last comple
   const done = await projection(id);
   assert.deepEqual([done.visibility, done.selected], ["public", true]);
   assert.ok(!(await ledger()).includes("remove"), "the selected set never lost it");
-  scoreOutages.add("REJUDGE");
+  // Exercise the actual service request gate; cumulative amount no longer stops a rejudgement.
+  const savedBudgets = await sql<{ service: string; per_minute: number }[]>`SELECT service,per_minute FROM budgets`;
+  await sql`UPDATE budgets SET per_minute=0`;
   try {
     await assert.rejects(processArticle(id, { attemptTag: `outage-${T}` }), BudgetExceededError);
   } finally {
-    scoreOutages.delete("REJUDGE");
+    for (const budget of savedBudgets) await sql`UPDATE budgets SET per_minute=${budget.per_minute} WHERE service=${budget.service}`;
   }
   const failed = await projection(id);
   assert.deepEqual(

@@ -112,7 +112,7 @@ export async function v3Item(id: string, detail = false, now = new Date()) {
           ? item.body.zhKind === "translation"
             ? "full_translation"
             : "source_original"
-          : item.readingState === "pending"
+          : item.body?.zh || item.readingState === "pending"
             ? "translating"
             : "guide_only",
     event_ids: item.story ? [item.story.publicId] : [],
