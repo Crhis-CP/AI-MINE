@@ -230,3 +230,9 @@ export { currentCapability, requireCapability, requireOwner, AccountPermissionDe
 
 export { listAccounts, currentAccount, createAdministrator, changeAdministrator, changeOwnPassword, passwordLoginAvailable } from "./accounts.ts";
 export { issueLoginNonce, consumeLoginNonce, AccountRateLimited, AccountLoginVerification } from "./account-login.ts";
+
+/** A bounded existence check for a trusted, named owner decision; never returns audit payloads. */
+export async function auditActionExists(actor: string, action: string, db: Db = sql) {
+  const [row] = await db`SELECT 1 FROM audit_log WHERE actor=${actor} AND action=${action} LIMIT 1`;
+  return !!row;
+}

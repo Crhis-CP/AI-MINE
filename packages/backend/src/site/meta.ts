@@ -83,22 +83,27 @@ export function loadChangelog(): Changelog {
     changelogCache = validateChangelog(JSON.parse(readFileSync(file, "utf8")));
   }
   const runtime = environmentValue("AMP_RELEASE_CHANGELOG_FILE") || path.join(config.dataDir, "site", "release-notes.json");
-  return mergeReleaseRecords(changelogCache, readReleaseRecords(runtime));
+  return mergeReleaseRecords(changelogCache, [...readReleaseRecords(runtime), ...readReleaseRecords(releaseAnnouncementFile(runtime))]);
 }
 
 export function siteMeta() {
   return { changelogVersion: loadChangelog().latestVersion };
 }
 
-export type ReleaseNote = Pick<ChangelogRelease, "kind" | "title" | "body">;
+/** Kept separately so older releases can still read their original release records after rollback. */
+export function releaseAnnouncementFile(filename: string): string {
+  return `${filename}.announcements.json`;
+}
+
+export type ReleaseNote = Pick<ChangelogRelease, "kind" | "title" | "body" | "version">;
 export type ReleaseRecord = { sha: string; publishedAt: string; noteHash: string; release: ChangelogRelease };
 export const maintenanceNote: ReleaseNote = { kind: "优化", title: "例行维护", body: ["对网站运行进行了例行维护。"] };
 
 export function validateReleaseNote(value: unknown): ReleaseNote {
-  if (!value || typeof value !== "object" || Object.keys(value).some((k) => !["kind", "title", "body"].includes(k))) throw new Error("产品更新说明字段无效");
+  if (!value || typeof value !== "object" || Object.keys(value).some((k) => !["kind", "title", "body", "version"].includes(k)))
+    throw new Error("产品更新说明字段无效");
   const note = value as ReleaseNote;
-  if (!["公告", "更新", "优化", "下线"].includes(note.kind) || typeof note.title !== "string" || [...note.title].length > 24)
-    throw new Error("产品更新类型或标题无效");
+  if (!CHANGELOG_KINDS.includes(note.kind) || typeof note.title !== "string" || [...note.title].length > 24) throw new Error("产品更新类型或标题无效");
   validateChangelog({ latestVersion: "2026-01-01", releases: [{ ...note, date: "2026-01-01" }] });
   if (/[a-f0-9]{40}|TASK-\d{4}|\b(?:pnpm|docker|git commit|make verify)\b/i.test(JSON.stringify(note)))
     throw new Error("产品更新说明不能包含提交号、任务号或部署命令");
@@ -140,14 +145,15 @@ export function mergeReleaseRecords(base: Changelog, records: ReleaseRecord[]): 
 }
 
 /** Called only by the deployment/maintenance command while the shared host release lock is held. */
-export function recordSuccessfulRelease(input: {
+type ReleaseRegistrationInput = {
   filename: string;
   sha: string;
   health: { ok: boolean; db: string; release: string };
   publishedAt: string;
   note: unknown;
   lockHeld: boolean;
-}) {
+};
+function assertReleaseIdentity(input: ReleaseRegistrationInput) {
   if (
     !input.lockHeld ||
     !/^[a-f0-9]{40}$/.test(input.sha) ||
@@ -157,6 +163,9 @@ export function recordSuccessfulRelease(input: {
     input.health.db !== "ok"
   )
     throw new Error("仅能登记已核对健康且持发布锁的准确版本");
+}
+export function recordSuccessfulRelease(input: ReleaseRegistrationInput) {
+  assertReleaseIdentity(input);
   const note = validateReleaseNote(input.note),
     records = readReleaseRecords(input.filename);
   const noteHash = createHash("sha256").update(JSON.stringify(note)).digest("hex");
@@ -175,4 +184,16 @@ export function recordSuccessfulRelease(input: {
   writeFileSync(next, `${JSON.stringify([...records, { sha: input.sha, publishedAt: at.toISOString(), noteHash, release }], null, 2)}\n`, { mode: 0o600 });
   renameSync(next, input.filename);
   return { status: "recorded", release };
+}
+
+/** A separate announcement appears once, even when a later maintenance release retains its manifest. */
+export function recordReleaseAnnouncement(input: ReleaseRegistrationInput) {
+  assertReleaseIdentity(input);
+  const note = validateReleaseNote(input.note);
+  if (note.kind !== "公告" || !Number.isFinite(Date.parse(input.publishedAt))) throw new Error("独立公告类型或发布时间无效");
+  const records = readReleaseRecords(input.filename);
+  if (records.some((r) => r.sha === input.sha)) return recordSuccessfulRelease(input);
+  const noteHash = createHash("sha256").update(JSON.stringify(note)).digest("hex");
+  const previous = records.find((r) => r.noteHash === noteHash);
+  return previous ? { status: "already_announced", release: previous.release } : recordSuccessfulRelease(input);
 }

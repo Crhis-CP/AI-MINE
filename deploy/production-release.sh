@@ -148,6 +148,8 @@ export APP_IMAGE=$RELEASE_IMAGE AMP_RELEASE=$RELEASE_ID
 phase migrate
 # Existing source settings and permissions are retained; this run never executes seed or source repair.
 dc run --rm --no-deps setup node scripts/migrate.ts
+# Apply the named Owner decision before any new worker can collect or call a model.
+dc run --rm --no-deps -e AMP_RELEASE_LOCK_HELD=1 setup node scripts/apply-release-controls.ts
 phase activate
 dc up -d --no-deps --no-build --pull never --force-recreate public-api private-api web
 health "$RELEASE_ID"

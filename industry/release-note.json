@@ -20,6 +20,12 @@
     "changes/TASK-0361-selected-translation.md",
     "changes/TASK-0356-event-fold.md",
     "changes/TASK-0362-source-lists.md",
-    "changes/TASK-0367-metal-timeliness.md"
-  ]
+    "changes/TASK-0367-metal-timeliness.md",
+    "changes/TASK-0367-policy-pause.md"
+  ],
+  "announcement": {
+    "kind": "公告",
+    "title": "法规政策动态暂时停止更新",
+    "body": ["鉴于成本和技术问题，法规政策动态暂时停止更新。", "栏目入口与已发布内容保留，仍可查阅。", "后续将重新建设并上线，恢复时间另行公告。"]
+  }
 }
