@@ -148,6 +148,12 @@ export APP_IMAGE=$RELEASE_IMAGE AMP_RELEASE=$RELEASE_ID
 phase migrate
 # Existing source settings and permissions are retained; this run never executes seed or source repair.
 dc run --rm --no-deps setup node scripts/migrate.ts
+phase model_storage
+# Stop the only remaining credential writer before checking for existing encrypted connections.
+dc stop -t 15 private-api
+RELEASE_MODEL_CONNECTIONS=$(docker exec amp-db-1 psql -X -q -A -t -v ON_ERROR_STOP=1 -U amp -d amp -c 'SELECT count(*) FROM ai.model_connections')
+cp -p "$RELEASE_BACKUP/environment" "$RELEASE_BACKUP/environment-before-model-vault"
+AMP_RELEASE_LOCK_HELD=1 python3 deploy/ensure_model_vault.py "$RELEASE_ROOT/.env" "$RELEASE_BACKUP/environment" "$RELEASE_MODEL_CONNECTIONS"
 # Apply the named Owner decision before any new worker can collect or call a model.
 dc run --rm --no-deps -e AMP_RELEASE_LOCK_HELD=1 setup node scripts/apply-release-controls.ts
 phase activate
