@@ -112,7 +112,7 @@ test("a detail page with no configured date keeps the labeled publication date, 
     summary: false,
   });
   assert.equal(missed.sourceDateObservation?.raw, "2026-06-29 18:29");
-  assert.equal(missed.publishedAt?.toISOString(), "2026-06-29T10:29:00.000Z");
+  assert.equal(missed.publishedAt?.toISOString(), "2026-06-28T16:00:00.000Z", "a labeled date does not establish its missing timezone");
   const none = await fetchDetail(`${base}/effective-only`, source({ url: `${base}/list`, detail: { publishedAtSelector: ".missing" } }), {
     date: true,
     title: false,

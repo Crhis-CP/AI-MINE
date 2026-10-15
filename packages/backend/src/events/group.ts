@@ -123,7 +123,6 @@ import {
   batchUser,
   firmlyTied,
   lexicalSimilarity,
-  looksLikeRoundup,
   pairUser,
   reportText,
   sameOccurrence,
@@ -1080,8 +1079,9 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
 
   const [an] = await sql<{ relevance: string | null; title_zh: string | null; summary_zh: string | null; output: unknown }[]>`
     SELECT relevance, title_zh, summary_zh, output FROM analyses WHERE article_id = ${articleId} AND input_revision=${a.revision} ORDER BY id DESC LIMIT 1`;
-  const parsedOutput = z.object({ fact: FactFrame.optional() }).safeParse(an?.output);
-  const frame = parsedOutput.success ? (parsedOutput.data.fact ?? null) : null;
+  const parsedOutput = z.object({ scope: z.enum(["single", "composite", "unknown"]).catch("unknown"), fact: FactFrame.optional() }).safeParse(an?.output);
+  const composite = parsedOutput.success && parsedOutput.data.scope === "composite";
+  const frame = parsedOutput.success && !composite ? (parsedOutput.data.fact ?? null) : null;
   if (an?.relevance !== "pass") {
     await markGrouped(articleId);
     await publishArticle(articleId);
@@ -1100,7 +1100,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   };
   const newTitle = String(frame?.title || title).slice(0, 60);
 
-  const sameUrl = await sameUrlFact(a);
+  const sameUrl = composite ? null : await sameUrlFact(a);
   let verdict: GroupResult["verdict"] = "new-story";
   let factId: number | null = null;
   let storyId: number | null = null;
@@ -1145,7 +1145,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
           if (dev) {
             verdict = "new-fact-in-story";
             storyId = dev.storyId;
-          } else if (looksLikeRoundup(cands, verdicts)) verdict = "roundup";
+          }
         }
       }
     } catch (error) {
@@ -1154,6 +1154,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     }
   }
 
+  if (composite) verdict = "roundup";
   const decisionCandidates: DecisionCandidate[] = cands.map((c) => ({
     id: c.factId,
     score: Math.round(c.score * 1000) / 1000,
@@ -1182,6 +1183,25 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
       await markMaterialGrouped(tx, articleId, true);
       return { manual: late, factId: null, storyId: null };
     }
+    if (composite) {
+      for (const candidate of cands) {
+        const relation = verdicts.get(candidate.factId);
+        if (!relation || relation.relation === "UNRELATED" || relation.confidence < TIE_MIN_CONFIDENCE) continue;
+        await tx`INSERT INTO fact_articles(fact_id,article_id,role,created_at,input_revision)
+          VALUES(${candidate.factId},${articleId},'mention',${observedAt},${a.revision}) ON CONFLICT(fact_id,article_id) DO NOTHING`;
+      }
+      await captureEventWithdrawal(tx, articleId);
+      // A roundup leaving its former event must not leave the old derived summary in circulation.
+      for (const oldStory of left) {
+        await tx`UPDATE stories SET digest=NULL,latest=NULL,digest_updated_at=NULL,version=version+1,updated_at=now()
+          WHERE id=${oldStory} AND NOT EXISTS(SELECT 1 FROM facts f JOIN fact_articles fa ON fa.fact_id=f.id
+            WHERE f.story_id=${oldStory} AND fa.role IN ('primary','report'))`;
+        await enqueue(QUEUES.digest, { storyId: oldStory, afterCorrection: true }, { singletonKey: `story:${oldStory}:correction` }, tx);
+      }
+      await recordDecision(tx, articleId, null, null, "roundup", decisionCandidates, receipts[0] ?? null);
+      await markMaterialGrouped(tx, articleId, true);
+      return { manual: null, factId: null, storyId: null };
+    }
     const story = storyId ?? (await createStory(tx, newTitle, observedAt));
     const fact = factId ?? (await createFact(tx, story, newTitle, frame, observedAt));
     const [hasPrimary] = await tx<{ n: number }[]>`SELECT count(*) AS n FROM fact_articles WHERE fact_id = ${fact} AND role = 'primary'`;
@@ -1200,6 +1220,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
   for (const id of receipts) await completeReceipt(sql, id);
   await publishArticle(articleId);
   if (written.manual) return { verdict: "manual", factId: written.manual.factId };
+  if (composite) return { verdict: "roundup" };
   const result: GroupResult = { verdict, factId: written.factId!, storyId: written.storyId! };
 
   // Other stories this report is firmly tied to: one story may have grown two roots. Best effort:

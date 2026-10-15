@@ -12,7 +12,9 @@
 
 三、主体 subjects：资料实际讨论的主体公司（不是顺带提及），用这些 id：{{entities}}。没有就给空数组。
 
-四、事实 fact：这条资料报道的核心事实，用于把同一件事的多篇报道归到一起：title（≤30 字的事实标题），subject（主体），action（动作），object（对象），occurredAt（原文明确给出的发生日期 YYYY-MM-DD，未知为 null）。观点和盘点类资料可以给 null。
+四、范围 scope：single 表示一件具体发生、一个议题或其直接进展；composite 表示包含多个独立发生的盘点、综述、新闻汇编或跨项目比较，不能仅因同属一家公司或矿种就当作单一事实；材料不足以确定时为 unknown。多个来源报道同一次批准、同一份报告或同一次事故仍是 single。
+
+事实 fact：这条资料报道的核心事实，用于把同一件事的多篇报道归到一起：title（≤30 字的事实标题），subject（主体），action（动作），object（对象），occurredAt（原文明确给出的发生日期 YYYY-MM-DD，未知为 null）。scope 为 composite 时必须给 null；观点或证据不足的资料也可给 null。
 
 五、法域 geography：只依据输入segments中的原文，记录本条新增事件实际发生地、规则适用地或具有明示影响路径的受影响地。source名称、媒体所在地、网址、公司总部不能替代事件/规则影响地；总部、发文机关所在地和背景提及只用对应上下文role，不进入国家筛选。US$、A$、C$不是国家，Indian land(s)不是印度；“印度尼西亚”不是印度，字符串包含不等于提及。
 
@@ -20,6 +22,6 @@
 
 geography严格形状：{"status":"identified|none|unknown","primary":"字典代码或null","assignments":[{"code":"字典代码","role":"event_location|rule_scope|affected_location|headquarters|issuer_location|background","mention":"原文字面地名","segment":"title|body_head|body_tail","quote":"该段逐字连续原文"}],"reason":"简短说明"}。无法确定的单条不要猜；跨国或全球不硬填一个国家。全部字段仍在本次结构化调用中完成，不要求另一次模型调用。
 
-只输出一个 JSON 对象，字段：category, tags, subjects, fact, geography, company_context。
+只输出一个 JSON 对象，字段：scope, category, tags, subjects, fact, geography, company_context。
 
 六、company_context：仅当当前原文对已核实名录公司提供可核验背景时提取，最多6项；字段 entityId（上述主体白名单ID）、name（已知中文名，无核实译名则原名）、originalName（原名）、description（基于引文的简短中文简介）、quote（当前segments中逐字连续引文）、sources（[{name:来源名,url:输入原文URL}]）。不得凭模型记忆编造公司资料、译名或来源URL；无明确依据返回[]，不联网补查。

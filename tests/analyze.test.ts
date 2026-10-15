@@ -12,7 +12,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { after, before, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { analyzeArticle, SCORE_SYSTEM, tierThreshold } from "@amp/backend/editorial/analyze";
+import { analyzeArticle, SCORE_SYSTEM, tierThreshold, StructureSchema, normalizeAnalysis } from "@amp/backend/editorial/analyze";
 import { afterFailure, processArticle, queueProcessing } from "@amp/backend/jobs/content";
 import { QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { compactAnswerFirstSummary, enforceIdentity, parseTranslateOutput, PREFILTER_SYSTEM } from "@amp/backend/editorial/writing";
@@ -717,4 +717,29 @@ test("current input metadata keeps its new scope receipt after score failure", a
   } finally {
     await sql`UPDATE sources SET name = 'Test analyze source' WHERE id = ${SOURCE}`;
   }
+});
+
+test("structure distinguishes composite scope and legacy missing scope stays unknown", () => {
+  assert.equal(StructureSchema.parse({}).scope, "unknown");
+  assert.equal(StructureSchema.parse({ scope: "single" }).scope, "single");
+  const run = {
+    prefilter: { label: "PASS" as const, reason: "", model: "fixture", receiptId: 1, reused: false },
+    scores: null,
+    writing: null,
+    structure: {
+      model: "fixture",
+      scope: "composite" as const,
+      category: null,
+      tags: [],
+      subjects: [],
+      fact: { title: "不可当作单一事件" },
+      geography: null as never,
+      company_context: [],
+      receiptId: 1,
+      reused: false,
+    },
+  };
+  const normalized = normalizeAnalysis(run);
+  assert.equal(normalized.scope, "composite");
+  assert.equal(normalized.fact, null);
 });

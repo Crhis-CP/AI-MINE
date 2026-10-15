@@ -467,3 +467,40 @@ test("an incomplete identity response does not confirm grouping or create a sepa
     omitCandidates = false;
   }
 });
+
+test("an explicitly composite report mentions known events without founding one or adding heat", async () => {
+  hold = gate();
+  hold.open();
+  relation = "SAME_OCCURRENCE";
+  responseHook = null;
+  const id = await report("composite-report");
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{scope}','"composite"'::jsonb) WHERE article_id=${id}`;
+  const before = await sql`SELECT count(*)::int AS n FROM facts`;
+  const result = await groupArticle(id);
+  assert.equal(result.verdict, "roundup");
+  assert.equal(result.factId, undefined);
+  assert.equal(result.storyId, undefined);
+  assert.deepEqual(await sql`SELECT count(*)::int AS n FROM facts`, before);
+  const memberships = await sql`SELECT role FROM fact_articles WHERE article_id=${id}`;
+  assert.ok(memberships.length > 0);
+  assert.ok(memberships.every((m) => m.role === "mention"));
+  assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${id}`).length, 0);
+  const [decision] = await sql`SELECT fact_id,story_id,verdict FROM grouping_decisions WHERE article_id=${id}`;
+  assert.deepEqual({ ...decision }, { fact_id: null, story_id: null, verdict: "roundup" });
+});
+
+test("a report corrected into a roundup clears an empty old event summary without redirecting its address", async () => {
+  hold = gate();
+  hold.open();
+  responseHook = null;
+  const id = await report("former-single", randomText(), randomText());
+  const first = await groupArticle(id);
+  assert.ok(first.storyId);
+  await sql`UPDATE stories SET digest='原自动综述',latest='原最新进展',origin='manual',title='人工保留标题' WHERE id=${first.storyId!}`;
+  await sql`UPDATE analyses SET output=jsonb_set(output,'{scope}','"composite"'::jsonb) WHERE article_id=${id}`;
+  const result = await groupArticle(id, { force: true });
+  assert.equal(result.verdict, "roundup");
+  const [old] = await sql`SELECT title,digest,latest,merged_into FROM stories WHERE id=${first.storyId!}`;
+  assert.deepEqual({ ...old }, { title: "人工保留标题", digest: null, latest: null, merged_into: null });
+  assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${id}`).length, 0);
+});

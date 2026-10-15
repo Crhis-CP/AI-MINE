@@ -174,7 +174,8 @@ const FactSchema = z
   .nullable()
   .catch(null);
 
-const StructureSchema = z.object({
+export const StructureSchema = z.object({
+  scope: z.enum(["single", "composite", "unknown"]).catch("unknown"),
   category: z.enum(CATEGORY_KEYS).nullable().catch(null),
   tags: z.array(z.string()).max(12).catch([]),
   subjects: z.array(z.string()).max(6).catch([]),
@@ -228,6 +229,7 @@ export interface AnalysisRun {
     reused: boolean;
   } | null;
   structure: {
+    scope?: "single" | "composite" | "unknown";
     model: string;
     category: string | null;
     tags: string[];
@@ -410,7 +412,8 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     category: res.data.category,
     tags: normalizeTags(res.data.tags),
     subjects,
-    fact: res.data.fact,
+    scope: res.data.scope,
+    fact: res.data.scope === "composite" ? null : res.data.fact,
     geography: validateGeography(res.data.geography, a, material.bodyBudget),
     company_context: res.data.company_context,
     receiptId: res.receiptId,
@@ -608,7 +611,8 @@ export function normalizeAnalysis(run: AnalysisRun) {
     titleZh,
     summaryZh,
     reasonZh: run.writing?.reasonZh ?? null,
-    fact: run.structure?.fact ?? null,
+    scope: run.structure?.scope ?? "unknown",
+    fact: run.structure?.scope === "composite" ? null : (run.structure?.fact ?? null),
     geography: run.structure?.geography ?? null,
     company_context: run.structure?.company_context ?? [],
   };
@@ -687,6 +691,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       ...(out.scoreRefused ? { scoreRefused: true } : {}),
       ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
       ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
+      scope: out.scope,
       fact: out.fact,
       geography: out.geography,
       company_context: out.company_context,
