@@ -33,7 +33,6 @@ export async function saveInterpretationStage(run: InterpretationRun, stage: Omi
   return withCurrentPolicyRun(run.fulltext, async (tx) => {
     const settled = await settlePolicyResponse(tx, { receiptId: stage.receipt_id, attemptId: stage.attempt_id }, accepted);
     if (!settled) throw new Error("stage_receipt_not_current");
-    if (!settled.knownUsage) return false;
     await tx`INSERT INTO policy.interpretation_stages(run_id,stage_id,input_hash,purpose,status,result,receipt_id,attempt_id)
       VALUES(${run.id},${stage.stage_id},${stage.input_hash},${stage.purpose},${accepted ? "accepted" : "rejected"},${tx.json(stage.result as never)},${stage.receipt_id},${stage.attempt_id})
       ON CONFLICT DO NOTHING`;

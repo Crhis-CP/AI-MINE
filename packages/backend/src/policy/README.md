@@ -26,7 +26,7 @@ TASK-0101 的 内部文件 `policy/interpretation-runtime.ts` 提供 `runPolicyI
 
 `setPolicyProcessingPaused` 使用控制版本、原因及操作人，并写既有审计。当前原件、来源权限或处理控制变化会阻止候选写回；响应和费用回执仍保留。该内部端口尚未接管理页面/自动生产调度。
 
-后续阶段可用`readPolicyFulltextRun(runId)`取得当前program_validated运行及待重新核对的output；`withCurrentPolicyRun(run, callback(tx))`提供同一原件/许可/控制CAS事务。`readPolicyResponse({receiptId,attemptId})`从既有回执端口读取精确物理响应、请求manifest与knownUsage；`settlePolicyResponse(tx,receipt,accepted)`支持法规各阶段用途（含policy_vision），accepted=null只核对不改变旧结算。后续阶段另用自己的派生检查点表，不混入fulltext_parts。
+后续阶段可用`readPolicyFulltextRun(runId)`取得当前program_validated运行及待重新核对的output；`withCurrentPolicyRun(run, callback(tx))`提供同一原件/许可/控制CAS事务。`readPolicyResponse({receiptId,attemptId})`从既有回执端口读取精确物理响应、请求manifest与knownUsage（仅反映用量是否齐全，不决定内容完整性）；`settlePolicyResponse(tx,receipt,accepted)`支持法规各阶段用途（含policy_vision），accepted=null只核对不改变旧结算。后续阶段另用自己的派生检查点表，不混入fulltext_parts。
 
 ## 自动取得与发现依据（TASK-0123）
 
@@ -105,3 +105,6 @@ TASK-0196至0198补齐整库联调：主模型已返回后发生许可/输入变
 原件解码统一按响应头、BOM、页面/XML声明、可核验探测选择编码，任何互相冲突、不支持或非法字节均保留明确缺口。支持原生TextDecoder登记的GBK/GB18030等编码；无声明时仅接受可完整回编码的UTF-8或具有明确字节签名的UTF-16，不统计猜测未声明的旧编码。该规则进入提取配方，不能用旧提取缓存绕过。解码成功仍不等于提取、语义或Owner质量资格通过。
 
 法规报告读取接入publication的独立报告撤回目标；详情及显式历史在撤回期间返回410，报告目录和站点地图跳过。撤回报告不撤回成员法规及其RSS条目；恢复只撤销指定人工记录，成员仍按当前资格读取。存储异常继续报错，不按“没有撤回”放行。
+
+
+已收到且绑定真实尝试的响应，即使用量字段缺失，也可继续依照原件、模型身份及语义规则验证；费用保持待核对。全文每部分的尝试上限按真实尝试计数，缺用量的已返回响应也计入。结果真正未知仍须等待获准恢复；许可、人工状态和原件修订检查不因费用规则改变而放宽。

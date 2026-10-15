@@ -75,7 +75,7 @@ export async function visionCheckpoints(run: VisionRun) {
 export async function saveVisionStage(run: VisionRun, point: Omit<VisionCheckpoint, "status">, accepted: boolean) {
   return withCurrentPolicyOriginal(run, async (tx) => {
     const settled = await settlePolicyResponse(tx, { receiptId: point.receipt_id, attemptId: point.attempt_id }, accepted);
-    if (!settled?.knownUsage) return false;
+    if (!settled) return false;
     await tx`INSERT INTO policy.vision_stages(run_id,stage_id,input_hash,status,result,receipt_id,attempt_id)
       VALUES(${run.id},${point.stage_id},${point.input_hash},${accepted ? "accepted" : "rejected"},${tx.json(point.result as never)},${point.receipt_id},${point.attempt_id}) ON CONFLICT DO NOTHING`;
     return true;

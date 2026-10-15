@@ -182,7 +182,7 @@ test("known truncation makes exactly one durable replacement; all raw attempts a
 });
 
 test("replacement failure never derives another branch or stacks bad-output retries", async () => {
-  for (const selected of ["length-child", "length-bad-child", "no-usage-length"]) {
+  for (const selected of ["length-child", "length-bad-child"]) {
     mode = selected;
     const { articleId } = await material(selected, halves(selected)),
       start = requests.length;
@@ -191,10 +191,10 @@ test("replacement failure never derives another branch or stacks bad-output retr
     await ageRejected(articleId);
     assert.equal((await runBodyTranslation(articleId, recipe)).status, "partial");
     assert.equal(requests.length, first);
-    assert.equal(first - start, selected === "length-bad-child" ? 3 : selected === "length-child" ? 2 : 1);
+    assert.equal(first - start, selected === "length-bad-child" ? 3 : 2);
     assert.equal((await stored(articleId)).complete, false);
     const parents = await sql`SELECT count(*) AS n FROM enrichment.translation_segments WHERE article_id=${articleId} AND replacement_plan IS NOT NULL`;
-    assert.equal(parents[0]!.n, selected === "no-usage-length" ? 0 : 1);
+    assert.equal(parents[0]!.n, 1);
   }
 });
 
@@ -246,7 +246,7 @@ test("replacement transaction failure and a late revision keep the received pare
 });
 
 test("unknown prior recipe blocks a new paid key for the same material revision and stage", async () => {
-  for (const initial of ["reset", "no-usage-length"]) {
+  for (const initial of ["reset"]) {
     mode = initial;
     const { articleId } = await material(`unknown-recipe-${initial}`, halves(`unknown-recipe-${initial}`)),
       start = requests.length;
@@ -429,8 +429,8 @@ test("upgrade recovers an own paid attempt before any segment or observation exi
       await stopped;
     }
     console.log("LEGACY_NO_OBSERVATION=" + JSON.stringify({ initial, old, calls: requests.length - start, outcome, error: String(error) }));
-    assert.equal(requests.length - start, initial === "normal" ? 2 : 1);
-    if (initial === "normal") assert.equal((outcome as { status: string }).status, "translated");
+    assert.equal(requests.length - start, initial === "normal" || initial === "no-usage-length" ? 2 : 1);
+    if (initial === "normal" || initial === "no-usage-length") assert.equal((outcome as { status: string }).status, "translated");
     else assert.match(String(error), initial === "pending" ? /in flight/ : /unknown outcome/);
     const [observed] = await sql`SELECT receipt_version,attempt_id FROM ai.translation_receipt_observations
       WHERE scope=${stage} AND receipt_id=${old!.id}`;
@@ -460,4 +460,18 @@ test("upgrade must retain an own-material unknown when old worker persisted no c
   console.log("ROOT_LEGACY_NO_OBSERVATION=" + JSON.stringify({ articleId, old, calls: requests.length - start, outcome, error: String(error) }));
   assert.equal(requests.length, start + 1, "unresolved old physical request must block a new paid key even before new observation storage was introduced");
   assert.match(String(error), /unknown outcome/);
+});
+
+test("a known truncated response without usage can use one bounded replacement without inventing a bill", async () => {
+  mode = "no-usage-length";
+  const { articleId } = await material("unpriced-truncation", halves("unpriced-truncation")),
+    start = requests.length;
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  assert.equal(requests.length - start, 3);
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  assert.equal(requests.length - start, 3);
+  const costs = await sql`SELECT u.state,a.status FROM ai.usage_attempts u JOIN receipt_attempts a ON a.id=u.attempt_id
+    JOIN receipts r ON r.id=a.receipt_id WHERE r.subject LIKE ${`article:${articleId}@1#%`}`;
+  assert.equal(costs.length, 3);
+  assert.ok(costs.every((row) => row.state === "unknown" && row.status === "received"));
 });

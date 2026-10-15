@@ -264,6 +264,10 @@ export async function registerContentJobs(boss: PgBoss, concurrency = Number(pro
       if (revision === null) return { state: "not-needed-or-not-permitted" };
       const result = await translateArticle(job.data.articleId, revision);
       if (result.reason === "attempts_exhausted") return result;
+      if (result.status !== "translated" && ["text_limit", "pending_capacity"].includes(result.reason ?? "")) {
+        await publishArticle(job.data.articleId);
+        return result;
+      }
       if (result.status !== "translated") throw new Error(result.reason ?? "translation remains incomplete");
       const publication = await publishArticle(job.data.articleId);
       const r = await route(job.data.articleId, sql);

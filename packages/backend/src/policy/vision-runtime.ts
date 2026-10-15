@@ -210,7 +210,7 @@ export async function runPolicyVision(
       let proof: Proof | null = null;
       if (point) {
         proof = await readPolicyResponse({ receiptId: point.receipt_id, attemptId: point.attempt_id });
-        if (!proof?.knownUsage) throw new Blocked("blocked_unknown");
+        if (!proof) throw new Blocked("blocked_unknown");
         if (point.input_hash !== s.inputHash || !matches(proof, input)) throw new Blocked("stale", ["visual_checkpoint_receipt_mismatch"]);
         if (point.status === "rejected") throw new Blocked("invalid_output", ["visual_candidate_rejected"]);
       } else {
@@ -229,7 +229,6 @@ export async function runPolicyVision(
           }
         }
         if (!proof || !matches(proof, input)) throw new Blocked("stale", ["visual_receipt_input_mismatch"]);
-        if (!proof.knownUsage) throw new Blocked("blocked_unknown");
       }
       let result: unknown = null,
         accepted = false;

@@ -179,16 +179,16 @@ test("open extraction gaps never reach the paid gateway", async () => {
   assert.equal(requests.length, before);
 });
 
-test("an unknown usage receipt blocks the next part request without repeating the completed parts", async () => {
+test("received parts without usage remain reusable and their cost stays unknown", async () => {
   const f = await original(13),
     before = requests.length;
   usage = null;
   try {
     const blocked = await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 2 });
-    assert.equal(blocked.status, "blocked_unknown");
-    assert.equal(requests.length - before, 1);
-    assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root })).status, "blocked_unknown");
-    assert.equal(requests.length - before, 1);
+    assert.equal(blocked.status, "program_validated");
+    assert.equal(requests.length - before, 2);
+    assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root })).status, "program_validated");
+    assert.equal(requests.length - before, 2);
   } finally {
     usage = { prompt_tokens: 50, completion_tokens: 20 };
   }
@@ -242,4 +242,21 @@ test("a model cannot smuggle an unrequested part of the same plan into a paid ch
   assert.equal(complete.status, "program_validated");
   assert.equal(requests.length - before, 2);
   assert.equal(requests[before + 1]!.parts.length, 1);
+});
+
+test("two returned bad responses without token usage still exhaust the per-part request limit", async () => {
+  const f = await original(),
+    before = requests.length,
+    normal = transform;
+  usage = null;
+  transform = (p) => ({ ...normal(p), sourceHash: "0".repeat(64) });
+  try {
+    await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 2 });
+    assert.equal(requests.length - before, 2);
+    assert.equal((await runPolicyFulltext(f.record.expressionId, profile, { root, maxRequests: 2 })).status, "blocked_retry_limit");
+    assert.equal(requests.length - before, 2);
+  } finally {
+    transform = normal;
+    usage = { prompt_tokens: 50, completion_tokens: 20 };
+  }
 });

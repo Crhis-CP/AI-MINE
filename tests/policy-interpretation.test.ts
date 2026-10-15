@@ -266,12 +266,12 @@ test("actual group/child/root inputs bound citations; missing judgments and malf
   }
 });
 
-test("unknown usage stops the source and missing provider model identity remains missing evidence", async () => {
+test("missing usage does not erase valid semantic proof; missing provider identity remains missing evidence", async () => {
   const f = await fixture();
   usage = null;
-  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "blocked_unknown");
+  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "semantic_verified");
   const at = requests.length;
-  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "blocked_unknown");
+  assert.equal((await runPolicyInterpretation(f.runId, { root, maxRequests: 100 })).status, "semantic_verified");
   assert.equal(requests.length, at);
   usage = { prompt_tokens: 50, completion_tokens: 20 };
   const next = await fixture();

@@ -178,21 +178,28 @@ async function translationBlocker(db: Db, stage: string | null, logicalKey: stri
       known_unbilled: boolean;
       has_response: boolean;
       receipt_version: number;
+      attempt_error: string | null;
+      recovery_bound: boolean;
     }[]
   >`
     SELECT r.id,r.id::text AS id_text,CASE WHEN a.id IS NULL AND r.attempts<>o.receipt_version THEN 'unknown' ELSE coalesce(a.status,r.status) END AS status,
-      a.usage,o.attempt_id,o.known_unbilled,r.response IS NOT NULL AS has_response,o.receipt_version
+      a.usage,o.attempt_id,o.known_unbilled,r.response IS NOT NULL AS has_response,o.receipt_version,a.error AS attempt_error,
+      (r.status='completed' AND recovered.response IS NOT NULL AND recovered.response=r.response) AS recovery_bound
     FROM ai.translation_receipt_observations o JOIN receipts r ON r.id=o.receipt_id
       LEFT JOIN receipt_attempts a ON a.id::text=o.attempt_id AND a.receipt_id=r.id AND a.attempt=o.receipt_version
+      LEFT JOIN receipt_attempts recovered ON recovered.id=r.response_attempt_id AND recovered.receipt_id=r.id
+        AND recovered.attempt=r.attempts AND recovered.attempt>o.receipt_version AND recovered.status='received' AND recovered.output_rejected_at IS NULL
     WHERE o.scope=${stage} AND r.logical_key<>${logicalKey} ORDER BY r.id`;
   for (const row of rows) {
     if (row.known_unbilled) continue;
+    // Automatic release is recorded atomically with its audit. A later accepted response restores progress, not the old bill.
+    if (row.attempt_id !== null && row.status === "unknown" && row.attempt_error === UNKNOWN_AUTO_RELEASE_NOTE && row.recovery_bound) continue;
     if (row.status === "failed" && row.attempt_id === null && !row.has_response) {
       await db`UPDATE ai.translation_receipt_observations SET known_unbilled=true
         WHERE scope=${stage} AND receipt_id=${row.id_text} AND receipt_version=${row.receipt_version} AND attempt_id IS NULL`;
       continue;
     }
-    if (row.attempt_id !== null && (row.status === "failed" || (row.status === "received" && knownTranslationUsage(row.usage)))) continue;
+    if (row.attempt_id !== null && (row.status === "failed" || row.status === "received")) continue;
     if (row.attempt_id !== null && row.status === "pending") return { kind: "busy" as const, row };
     return { kind: "unknown" as const, row };
   }
@@ -208,9 +215,7 @@ async function newsReceiptBlocker(db: Db, scope: string | null, req: ReceiptRequ
     WHERE r.logical_key<>${logicalKey} AND r.purpose=${req.purpose}
       AND CASE WHEN ${scope.startsWith("report:")} THEN r.subject ELSE substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') END=${scope}
       AND coalesce(r.request->>'lane','news')='news'
-      AND (r.status IN ('pending','unknown') OR
-        (r.response IS NOT NULL AND NOT coalesce(a.usage->>'prompt_tokens' ~ '^[0-9]+$'
-          AND a.usage->>'completion_tokens' ~ '^[0-9]+$',false)))
+      AND r.status IN ('pending','unknown')
     ORDER BY r.id LIMIT 1`;
   if (!row) return null;
   if (row.status === "pending") return { kind: "busy" as const, row };
@@ -278,17 +283,18 @@ interface ReceiptRow {
 export class PolicyPartLimitError extends Error {
   readonly partIds: string[];
   constructor(partIds: string[]) {
-    super("Policy parts already have two confirmed paid attempts");
+    super("Policy parts already have two provider attempts");
     this.partIds = partIds;
   }
 }
 async function checkPolicyPartLimit(tx: Db, req: ReceiptRequest) {
   const ids = req.purpose === "policy_fulltext" ? req.policy?.partIds : null;
   if (!ids?.length) return;
-  const rows = await tx<{ parts: string[]; usage: Record<string, unknown> | null }[]>`SELECT r.request->'partIds' AS parts,a.usage
+  const rows = await tx<{ parts: string[] }[]>`SELECT r.request->'partIds' AS parts
     FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.purpose='policy_fulltext'
-      AND r.request->'partIds' ?| ${ids}::text[] AND a.status='received'`;
-  const blocked = ids.filter((id) => rows.filter((row) => row.parts.includes(id) && knownTranslationUsage(row.usage)).length >= 2);
+      AND r.request->'partIds' ?| ${ids}::text[] AND a.origin='live'
+      AND (a.failure_kind IS NULL OR a.failure_kind NOT IN ('usage_blocked','input_changed','configuration_changed','connect_before_send'))`;
+  const blocked = ids.filter((id) => rows.filter((row) => row.parts.includes(id)).length >= 2);
   if (blocked.length) throw new PolicyPartLimitError(blocked);
 }
 
@@ -364,8 +370,7 @@ export async function settlePolicyResponse(db: Db, receipt: { receiptId: number;
       AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify','policy_vision') AND a.status='received' AND a.response=r.response FOR UPDATE OF r,a`;
   if (!row) return null;
   if (accepted) await completeReceipt(db, receipt.receiptId);
-  else if (accepted === false && knownTranslationUsage(row.usage))
-    await db`UPDATE receipts SET status='failed',error='policy candidate rejected',updated_at=now() WHERE id=${receipt.receiptId}`;
+  else if (accepted === false) await db`UPDATE receipts SET status='failed',error='policy candidate rejected',updated_at=now() WHERE id=${receipt.receiptId}`;
   return { knownUsage: knownTranslationUsage(row.usage) };
 }
 
@@ -396,8 +401,8 @@ async function checkPolicyReceipts(tx: Db, context?: PolicyReceiptContext) {
     )
       continue;
     if (row.status === "pending" || row.attempt_status === "pending") throw new ReceiptBusyError(`Policy source receipt ${row.id} is in flight`);
-    if (row.status === "unknown" || row.attempt_status === "unknown" || (row.attempt_status === "received" && !knownTranslationUsage(row.usage)))
-      throw new ReceiptUnknownError(row.id, "Policy source has unresolved request or usage; regrouping cannot permit another payment", row.attempt_id);
+    if (row.status === "unknown" || row.attempt_status === "unknown")
+      throw new ReceiptUnknownError(row.id, "Policy source has an unresolved request outcome; regrouping cannot permit another payment", row.attempt_id);
   }
 }
 
@@ -589,18 +594,11 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
         return { kind: "reuse" as const, row: existing };
       }
-      // BR-COST-04: invalid output with proven usage may be bought again at most twice (three billed
-      // answers). A stored answer without usage proof is not bought again either. Translation keeps its own limit above.
+      // Count real returned attempts, including missing usage, before another bounded output retry.
       if (req.maxRejectedOutputs === undefined && existing.has_response) {
-        const [counts] = await tx<{ proven: number; stored: number }[]>`
-          SELECT count(*) FILTER (
-                   WHERE status='received' AND response IS NOT NULL
-                     AND usage->>'prompt_tokens' ~ '^[0-9]+$'
-                     AND usage->>'completion_tokens' ~ '^[0-9]+$'
-                 )::int AS proven,
-                 count(*) FILTER (WHERE status='received' AND response IS NOT NULL)::int AS stored
-          FROM receipt_attempts WHERE receipt_id=${existing.id}`;
-        if (counts && counts.stored > 0 && (counts.proven !== counts.stored || counts.proven >= 3)) {
+        const [counts] = await tx<{ stored: number }[]>`SELECT count(*)::int AS stored FROM receipt_attempts
+          WHERE receipt_id=${existing.id} AND status='received' AND response IS NOT NULL`;
+        if (counts && counts.stored >= 3) {
           await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
           return { kind: "reuse" as const, row: existing };
         }
@@ -679,7 +677,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   if (claimed.kind === "unknown") {
     throw new ReceiptUnknownError(
       claimed.row.id,
-      `Receipt ${claimed.row.id} has an unknown outcome; confirmation that it was not billed is required before retry`,
+      `Receipt ${claimed.row.id} has an unknown outcome; authorized recovery is required before retry`,
       claimed.row.attempt_id,
     );
   }
@@ -809,9 +807,8 @@ export async function settleTranslationResponse(
     if (row.status !== "completed") await completeReceipt(db, receipt.receiptId);
   } else {
     await db`UPDATE receipt_attempts SET output_rejected_at=coalesce(output_rejected_at,now()) WHERE id=${receipt.attemptId}`;
-    const knownUsage = knownTranslationUsage(row.usage);
-    // Missing usage preserves received/completed: validation cannot silently authorize another payment.
-    if (knownUsage && row.status !== "failed")
+    // A returned bad answer may consume a bounded retry; missing usage remains a cost-reconciliation issue.
+    if (row.status !== "failed")
       await db`UPDATE receipts SET status='failed',error=${verdict.reason.slice(0, 2000)},updated_at=now() WHERE id=${receipt.receiptId}`;
   }
   const [count] = await db<
@@ -829,7 +826,7 @@ export async function canReplaceTranslationResponse(db: Db, receipt: Pick<Receip
       AND r.purpose='translate_body' AND r.status='received' AND a.status='received' AND a.response=r.response
       AND NOT EXISTS (SELECT 1 FROM receipt_attempts old WHERE old.receipt_id=r.id AND old.output_rejected_at IS NOT NULL)
     FOR UPDATE OF r,a`;
-  return row?.finish === "length" && knownTranslationUsage(row.usage);
+  return row?.finish === "length";
 }
 
 /** Called only after an operator's documented non-billing confirmation; CAS and settlement share its transaction. */
@@ -841,4 +838,26 @@ export async function releaseUnknownReceiptUnbilled(db: Db, receiptId: number, e
     WHERE receipt_id=${receiptId} AND attempt=${observed.attempts} AND status='unknown' RETURNING id::text`;
   for (const attempt of attempts) await settleUsageAttempt(db, attempt.id, "failed");
   return before;
+}
+
+/** Current-revision recovery permissions; retained unknown bills are never rewritten as unbilled. */
+export async function releasedTranslationScopes(scopes: string[]): Promise<Set<string>> {
+  if (!scopes.length) return new Set();
+  const rows = await sql<{ scope: string; status: string; error: string | null; attempts: number; released_attempt: number; response_bound: boolean }[]>`
+    SELECT substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') AS scope,
+      r.status,r.error,r.attempts,old.attempt AS released_attempt,
+      (current.response IS NOT NULL AND current.response=r.response) AS response_bound
+    FROM receipts r JOIN receipt_attempts old ON old.receipt_id=r.id AND old.status='unknown' AND old.error=${UNKNOWN_AUTO_RELEASE_NOTE}
+    LEFT JOIN receipt_attempts current ON current.id=r.response_attempt_id AND current.receipt_id=r.id
+      AND current.attempt=r.attempts AND current.attempt>old.attempt AND current.status='received' AND current.output_rejected_at IS NULL
+    WHERE r.purpose='translate_body' AND substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)')=ANY(${scopes}::text[])`;
+  return new Set(
+    rows
+      .filter(
+        (row) =>
+          (row.status === "failed" && row.error === UNKNOWN_AUTO_RELEASE_NOTE && row.attempts === row.released_attempt) ||
+          (["received", "completed"].includes(row.status) && row.response_bound),
+      )
+      .map((row) => row.scope),
+  );
 }

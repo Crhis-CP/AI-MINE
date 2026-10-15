@@ -231,7 +231,7 @@ test("unknown outcome remains tied to original test across configuration changes
   const [receipt] = await sql`SELECT error FROM receipts WHERE id=${unknown.receipt_id!}`;
   assert.ok(!receipt!.error.includes(secret));
 });
-test("missing usage does not pass; processing pause and circuit block test payment", async () => {
+test("missing usage preserves a successful connection; processing pause and service quota still block sends", async () => {
   const row = await create(),
     probe = await requestModelConnectionProbe(row.id, { expected_revision: 1, lane: "news" }, owner, guards);
   const unknown = await runModelConnectionProbe(probe.id, {
@@ -241,7 +241,14 @@ test("missing usage does not pass; processing pause and circuit block test payme
       text: () => JSON.stringify({ choices: [{ message: { content: '{"ok":true}' }, finish_reason: "stop" }] }),
     }),
   });
-  assert.equal(unknown.status, "unknown");
+  assert.equal(unknown.status, "passed");
+  assert.match(unknown.detail!, /费用待核对/);
+  assert.ok(await resolveRegisteredModel(row.key));
+  const [recorded] = await sql`SELECT status,usage,cost FROM receipts WHERE id=${unknown.receipt_id!}`;
+  assert.equal(recorded!.status, "completed");
+  assert.equal(recorded!.usage, null);
+  assert.equal(recorded!.cost, null);
+  assert.equal((await runModelConnectionProbe(probe.id, { transport })).status, "passed");
   const other = await create(),
     p2 = await requestModelConnectionProbe(other.id, { expected_revision: 1, lane: "news" }, owner, guards);
   const pausedBefore = calls,

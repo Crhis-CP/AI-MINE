@@ -2,7 +2,7 @@ import "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { paidRequest, ReceiptUnknownError, ReceiptBusyError } from "@amp/backend/providers/receipts";
+import { paidRequest, rejectReceivedResponse, ReceiptUnknownError, ReceiptBusyError } from "@amp/backend/providers/receipts";
 const sql = dbOf("ai-gateway");
 after(closeDb);
 test("model and attempt tag changes cannot bypass unresolved news material cost", async () => {
@@ -38,4 +38,34 @@ test("model and attempt tag changes cannot bypass unresolved news material cost"
       })),
     ReceiptBusyError,
   );
+});
+
+test("missing usage does not block known responses, and bad outputs still stop after three physical attempts", async () => {
+  const req = {
+    lane: "news" as const,
+    service: "fixture-no-usage",
+    model: "synthetic-model",
+    purpose: "summarize_article",
+    subject: "article:known-response@1",
+    identity: { version: 1 },
+  };
+  let calls = 0;
+  const send = async () => {
+    calls++;
+    return { response: { invalid: true } };
+  };
+  for (let n = 0; n < 3; n++) {
+    const result = await paidRequest(req, send);
+    assert.equal(result.reused, false);
+    await rejectReceivedResponse(result.receiptId, "synthetic invalid output", result.attemptId);
+  }
+  assert.equal((await paidRequest(req, send)).reused, true);
+  assert.equal(calls, 3);
+  const known = await paidRequest({ ...req, identity: { version: 2 } }, send);
+  assert.equal(known.reused, false, "known response and unknown bill are distinct from an unknown result");
+  assert.equal(calls, 4);
+  const rows = await sql`SELECT a.status,a.usage,u.state FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id
+    JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.subject=${req.subject}`;
+  assert.equal(rows.length, 4);
+  assert.ok(rows.every((row) => row.status === "received" && row.usage === null && row.state === "unknown"));
 });

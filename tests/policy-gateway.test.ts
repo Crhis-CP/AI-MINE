@@ -238,14 +238,15 @@ test("unknown outcome cannot be repurchased by changing version, input or model"
   }
 });
 
-test("missing usage blocks new payments but still allows free reuse of the received response", async () => {
+test("missing usage stays a cost gap while received responses are reused and later work can proceed", async () => {
   respond = async () => ({ usage: null });
   const f = await fixture(),
     before = seen.length;
   const first = await f.run();
   assert.equal((await f.run()).receiptId, first.receiptId);
-  await assert.rejects(f.run("policy_group"), ReceiptUnknownError);
-  assert.equal(seen.length - before, 1);
+  assert.equal((await f.run("policy_group")).data.ok, true);
+  assert.equal(seen.length - before, 2);
+  assert.equal((await sql`SELECT state FROM ai.usage_attempts WHERE receipt_id=${first.receiptId}`)[0].state, "unknown");
 });
 
 test("one aged policy timeout can retry while the first attempt and its uncertain charge remain", async () => {

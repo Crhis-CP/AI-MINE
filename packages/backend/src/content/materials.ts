@@ -269,8 +269,8 @@ export interface CurrentBody {
 }
 
 /** Snapshot for derived body work; the network operation must happen after this read returns. */
-export async function readCurrentBody(articleId: string): Promise<CurrentBody | null> {
-  const [row] = await sql<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
+export async function readCurrentBody(articleId: string, db: Db = sql): Promise<CurrentBody | null> {
+  const [row] = await db<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
   return row ?? null;
 }
 

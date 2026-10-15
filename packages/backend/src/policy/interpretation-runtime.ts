@@ -84,7 +84,7 @@ async function currentFulltext(runId: string) {
   const proofs = new Map<number, Proof>();
   for (const point of checkpoints) {
     const proof = proofs.get(point.receiptId) ?? (await readPolicyResponse({ receiptId: point.receiptId, attemptId: point.attemptId }));
-    if (!proof || proof.attemptId !== point.attemptId || proof.purpose !== "policy_fulltext" || !proof.knownUsage) throw new StageBlocked("blocked_unknown");
+    if (!proof || proof.attemptId !== point.attemptId || proof.purpose !== "policy_fulltext") throw new StageBlocked("blocked_unknown");
     proofs.set(point.receiptId, proof);
     const artifacts = (proof.request.manifest as { upstream_artifacts?: { kind: string; id: string; version: string; content_hash: string }[] })
       ?.upstream_artifacts;
@@ -218,12 +218,11 @@ async function runInterpretation(
     let proof: Proof | null = null;
     if (checkpoint) {
       proof = await readPolicyResponse({ receiptId: checkpoint.receipt_id, attemptId: checkpoint.attempt_id });
-      if (!proof?.knownUsage) throw new StageBlocked("blocked_unknown");
+      if (!proof) throw new StageBlocked("blocked_unknown");
       if (checkpoint.input_hash !== stage.inputHash || !proofMatches(proof, stage, input)) throw new StageBlocked("invalid_checkpoint");
       if (checkpoint.status !== "accepted") throw new StageBlocked("invalid_output");
     } else {
       proof = (await readPolicyStageResponses(stage.id)).find((response) => proofMatches(response, stage, input)) ?? null;
-      if (proof && !proof.knownUsage) throw new StageBlocked("blocked_unknown");
       if (!proof) {
         if (options.readOnly || requestsAttempted >= max) throw new StageBlocked("partial");
         inflight.set(stage.id, stage);

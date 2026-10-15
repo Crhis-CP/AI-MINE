@@ -57,7 +57,7 @@ const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 config.allowPrivateNetworkFetch = true;
 
 before(async () => {
-  const cursor = sql.json({ initializedAt: new Date().toISOString() });
+  const cursor = sql.json({ initializedAt: new Date(Date.now() - 7 * DAY).toISOString() });
   await sql`INSERT INTO sources (id, name, kind, config, tier, participation_mode, cursor, next_fetch_at) VALUES
     (${DUP_SOURCE}, 'Test feed', 'rss', ${sql.json({ feedUrl: `${base}/dup.xml` })}, 'T1', 'editorial', ${cursor}, '2100-01-01'),
     (${NOTES_SOURCE}, 'Test release notes', 'rss', ${sql.json({ feedUrl: `${base}/notes.xml`, preserveUrlFragment: true })}, 'T1', 'editorial', ${cursor}, '2100-01-01'),

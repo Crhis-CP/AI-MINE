@@ -339,7 +339,7 @@ test("missing cells, altered digits, missing checks/page IDs and malformed JSON 
     assert.equal((await extractPolicyOriginal(f.expressionId, profile)).state, "incomplete");
   }
 });
-test("unproven numbers and missing attachment stay explicit gaps; no usage blocks further payment", async () => {
+test("unproven numbers and missing attachments remain gaps; missing usage alone does not reject extraction", async () => {
   for (const fault of ["uncertain_digits", "missing_attachment"]) {
     mode = fault;
     const f = await fixture(),
@@ -352,10 +352,10 @@ test("unproven numbers and missing attachment stay explicit gaps; no usage block
   usage = null;
   const f = await fixture(),
     before = sent.length;
-  assert.equal((await runPolicyVision(f.expressionId, profile, { root, maxRequests: 10 })).status, "blocked_unknown");
-  assert.equal(sent.length, before + 1);
-  assert.equal((await runPolicyVision(f.expressionId, profile, { root, maxRequests: 10 })).status, "blocked_unknown");
-  assert.equal(sent.length, before + 1);
+  assert.equal((await runPolicyVision(f.expressionId, profile, { root, maxRequests: 10 })).status, "extracted");
+  assert.equal(sent.length, before + 4);
+  assert.equal((await runPolicyVision(f.expressionId, profile, { root, maxRequests: 10 })).status, "extracted");
+  assert.equal(sent.length, before + 4);
 });
 test("pause during paid response retains actual receipt; explicit resume reuses it and original CAS stays current", async () => {
   const f = await fixture(),

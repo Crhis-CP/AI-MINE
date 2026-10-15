@@ -123,7 +123,7 @@ export async function saveFulltextResponse(
       for (const part of parts)
         await tx`INSERT INTO policy.fulltext_parts(part_id,recipe_hash,source_hash,candidate,receipt_id,attempt_id)
         VALUES(${part.partId},${run.recipeHash},${part.sourceHash},${tx.json(part.candidate as never)},${receipt.receiptId},${receipt.attemptId}) ON CONFLICT DO NOTHING`;
-    return settled.knownUsage;
+    return true;
   });
 }
 export async function finishPolicyFulltext(run: FulltextRun, output: unknown, complete: boolean) {

@@ -1,5 +1,6 @@
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
+import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -139,7 +140,7 @@ test("model wait holds no material lock and neither late revision nor superseded
   }
 });
 
-test("unknown, explicit truncation and invalid text without usage never purchase an automatic retry", async () => {
+test("unknown outcomes stay blocked and received invalid output respects its retry window", async () => {
   for (const selected of ["reset", "length", "no-usage-bad"]) {
     mode = selected;
     const { articleId } = await material(selected);
@@ -159,7 +160,7 @@ test("unknown, explicit truncation and invalid text without usage never purchase
     assert.equal((await translation(articleId)).body_html, null);
     assert.equal(
       (await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0].status,
-      selected === "reset" ? "unknown" : "received",
+      selected === "reset" ? "unknown" : selected === "no-usage-bad" ? "failed" : "received",
     );
   }
 });
@@ -271,4 +272,25 @@ test("actual process stop retains the received answer and a new process resumes 
   assert.equal((await translation(articleId)).complete, false);
   assert.equal(((await launch().done) as { status: string }).status, "translated");
   assert.equal(hits - start, 2);
+});
+
+test("one released unknown segment can recover and continue to the next segment without clearing its old charge", async () => {
+  const { articleId } = await material("released-segments", `<p>First copper note ${T}.</p><p>Second copper note ${T}.</p>`);
+  const start = hits;
+  mode = "reset";
+  await assert.rejects(runBodyTranslation(articleId, recipe));
+  await assert.rejects(runBodyTranslation(articleId, recipe));
+  assert.equal(hits - start, 1);
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject LIKE ${`article:${articleId}@1#%`}`;
+  await autoReleaseUnknownReceipts();
+  mode = "stop";
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  assert.equal(hits - start, 3, "one initial unknown, one exact retry, then the second segment");
+  const [original] = await sql`SELECT a.status,u.state,o.known_unbilled FROM receipt_attempts a
+    JOIN receipts r ON r.id=a.receipt_id JOIN ai.usage_attempts u ON u.attempt_id=a.id
+    JOIN ai.translation_receipt_observations o ON o.attempt_id=a.id::text
+    WHERE r.subject LIKE ${`article:${articleId}@1#%`} AND a.status='unknown'`;
+  assert.deepEqual({ ...original }, { status: "unknown", state: "unknown", known_unbilled: false });
+  assert.equal((await runBodyTranslation(articleId, recipe)).status, "translated");
+  assert.equal(hits - start, 3);
 });

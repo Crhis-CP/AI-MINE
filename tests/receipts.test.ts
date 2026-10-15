@@ -12,7 +12,14 @@ import { closeDb, dbOf } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { installUsageFixtureForModel, installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
-import { BudgetExceededError, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
+import {
+  BudgetExceededError,
+  markStalePendingReceipts,
+  paidRequest,
+  ReceiptUnknownError,
+  ProviderRejectedError,
+  PolicyPartLimitError,
+} from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -378,4 +385,51 @@ test("stale recovery keeps unresolved attempts but never overwrites a concurrent
     await writer;
     await access.close();
   }
+});
+
+test("policy part cap includes sent rejections but excludes proven pre-send failures", async () => {
+  const id = `part-cap-${tag()}`;
+  const request = (n: number) => ({
+    lane: "policy" as const,
+    service: "invariant-unbudgeted",
+    purpose: "policy_fulltext",
+    subject: id,
+    identity: { id, n },
+    policy: {
+      lane: "policy" as const,
+      category: "policy_fulltext" as const,
+      sourceIds: [id],
+      partIds: [id, id],
+      manifestHash: id,
+      inputFingerprint: id,
+      permissionVersions: {},
+      manifest: {},
+    },
+  });
+  let sent = 0;
+  for (const kind of ["input_changed", "configuration_changed", "connect_before_send"] as const) {
+    await assert.rejects(
+      paidRequest(request(-1), async () => {
+        throw new ProviderRejectedError("stopped before send", null, true, kind);
+      }),
+      ProviderRejectedError,
+    );
+  }
+  for (let n = 0; n < 2; n++) {
+    await assert.rejects(
+      paidRequest(request(n), async () => {
+        sent++;
+        throw new ProviderRejectedError("explicit provider rejection", 400, false, "provider_unbilled");
+      }),
+      ProviderRejectedError,
+    );
+  }
+  await assert.rejects(
+    paidRequest(request(2), async () => {
+      sent++;
+      return { response: { ok: true } };
+    }),
+    PolicyPartLimitError,
+  );
+  assert.equal(sent, 2);
 });

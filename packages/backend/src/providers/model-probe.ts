@@ -50,12 +50,12 @@ export async function runModelConnectionProbe(id: string, options: { transport?:
         });
       },
     });
-    const passed = knownUsage(result.usage) && result.finishReason === "stop";
+    const passed = result.finishReason === "stop";
     await sql.begin(async (tx) => {
       await modelRegistryLock(tx);
       const row = await connectionRow(test.connection_id, tx),
         current = row.revision === test.revision && row.enabled;
-      await tx`UPDATE ai.model_connection_tests SET status=${!knownUsage(result.usage) ? "unknown" : passed && current ? "passed" : "failed"},detail=${!knownUsage(result.usage) ? "已收到结果，但计费用量缺失，须核对回执" : !current ? "配置已变化，当前版本须重新测试" : passed ? null : "结果不完整"},receipt_id=${result.receiptId},attempt_id=${result.attemptId},finished_at=now() WHERE id=${id}`;
+      await tx`UPDATE ai.model_connection_tests SET status=${passed && current ? "passed" : "failed"},detail=${!current ? "配置已变化，当前版本须重新测试" : !passed ? "结果不完整" : !knownUsage(result.usage) ? "连接成功；服务未返回用量，费用待核对" : null},receipt_id=${result.receiptId},attempt_id=${result.attemptId},finished_at=now() WHERE id=${id}`;
       if (passed && current) {
         await assertRuntimeControl(tx, snapshot);
         await tx`UPDATE ai.model_connections SET passed_revision=${test.revision},tested_at=now() WHERE id=${test.connection_id} AND revision=${test.revision}`;
@@ -77,12 +77,11 @@ export async function runModelConnectionProbe(id: string, options: { transport?:
     const [receipt] = await sql<
       { id: string; status: string; attempt_id: string | null; usage: Record<string, unknown> | null }[]
     >`SELECT r.id::text,r.status,coalesce(r.response_attempt_id,(SELECT a.id FROM receipt_attempts a WHERE a.receipt_id=r.id AND a.attempt=r.attempts))::text AS attempt_id,r.usage FROM receipts r WHERE r.purpose='model_connection_test' AND r.subject=${`model-test:${id}`} ORDER BY r.id DESC LIMIT 1`;
-    const unknown =
-      receipt && (["unknown", "pending"].includes(receipt.status) || (["received", "completed"].includes(receipt.status) && !knownUsage(receipt.usage)));
+    const unknown = receipt && ["unknown", "pending"].includes(receipt.status);
     const paused = !unknown && (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale || error instanceof BudgetExceededError);
     const status = unknown ? "unknown" : paused ? "paused" : "failed";
     const detail = unknown
-      ? "调用结果或计费用量未知，须核对原回执，不能重发"
+      ? "调用结果未知，须核对原回执"
       : paused
         ? "模型处理或付费请求已暂停"
         : error instanceof ProviderRejectedError && error.status === 401

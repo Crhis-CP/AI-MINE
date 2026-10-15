@@ -1,13 +1,14 @@
 import { resumePolicyAfterReceipt } from "../policy/receipt-recovery.ts";
 import { recoverUnknownOnce } from "../providers/unknown-recovery.ts";
 import { releaseUnknownReceiptUnbilled } from "@amp/backend/providers/receipts";
-import { resetFailedMaterialForRetry } from "@amp/backend/content/materials";
+import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
 import { dbOf, type Db } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
+import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -158,6 +159,12 @@ export async function releaseReceipt(id: number, input: unknown, actor: string) 
 export async function autoReleaseUnknownReceipts(now = Date.now()) {
   return recoverUnknownOnce(now, async (row, db) => {
     if (await resumePolicyAfterReceipt(row.request, db)) return true;
+    if (row.purpose === "translate_body") {
+      const subject = /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)#[0-9]+$/.exec(row.subject ?? "");
+      const current = subject ? await readCurrentBody(subject[1]!, db) : null;
+      if (!current || current.revision !== Number(subject![2])) return false;
+      return !!(await enqueue(QUEUES.translate, { articleId: current.id }, { singletonKey: current.id }, db));
+    }
     const article = ARTICLE_STEPS.has(row.purpose) ? /^article:([^@:#]+)/.exec(row.subject ?? "")?.[1] : undefined;
     return !!article && (await resetFailedMaterialForRetry(db, article)) && !!(await queueProcessing(article, { db }));
   });
