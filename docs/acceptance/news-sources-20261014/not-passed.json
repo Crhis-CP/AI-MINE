@@ -1,0 +1,869 @@
+{
+  "$comment": "未通过的网站：实际响应与下一步。被人机验证、403、robots 挡住的一律未绕过。",
+  "sources": [
+    {
+      "id": "exp-20261014-chalco",
+      "name": "中国铝业",
+      "website": "chalco.com.cn",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.chalco.com.cn 的 robots.txt 返回阿里云 WAF 人机验证页（acw_sc__v2 脚本挑战），爬虫判 robots_unavailable；en.chalco.com.cn、chalco.com.cn 同样 robots_unavailable。按规则不绕过。下一步建议：由 Owner/运维联系中铝股份或在部署网络复测；或经 Owner 决定后改用港交所/上交所公告等官方披露渠道（需新开信源，不以中铝集团网站替代）。"
+    },
+    {
+      "id": "exp-20261014-shandong-gold",
+      "name": "山东黄金",
+      "website": "sd-gold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "公司要闻列表 /column/132/ 可读（9 条、链接与标题正确），但日期被拆成两个元素 <b>12</b><span>2026.10</span>（日 + 年.月），没有单一捕获组能得到受支持的整串日期格式；企业公告栏目同样拆成 <h2>08-31</h2><h3>2026</h3>；文章页（cmscontent/5817 等）没有发布日期、没有 meta/JSON-LD，detail 取不到。没有可靠发布日期，不能通过。另：新闻中心 /column/81/ 混有转载外部媒体和时政外链。下一步建议：解析器增加“多捕获组拼接日期”能力后可用 publishedAtRegex `<b>(\\d{2})</b><span>(\\d{4})\\.(\\d{2})`；或经 Owner 确认把上市公司官网（山东黄金矿业股份）加入 domain_aliases 后另行适配。"
+    },
+    {
+      "id": "exp-20261014-tianqi",
+      "name": "天齐锂业",
+      "website": "tianqilithium.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.tianqilithium.com 的 robots.txt 为 “User-agent: * / Disallow: /”，全站禁止抓取（robots_disallowed）；en.tianqilithium.com 同样 robots_disallowed，tianqilithium.com 裸域 robots_unavailable。按规则不绕过 robots。下一步建议：联系天齐锂业放开 robots，或经 Owner 决定改用交易所公告等官方披露渠道（需新开信源）。"
+    },
+    {
+      "id": "exp-20261014-bhp",
+      "name": "必和必拓",
+      "website": "bhp.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.bhp.com 的 robots.txt 返回 HTTP 403（robots_unavailable），三次请求（分诊、/news/articles、首页）均如此，整个主机被拦；BHP 没有已知的其他自有新闻子域。按规则不绕过。下一步建议：在部署网络复测 robots；如仍 403，经 Owner 决定后改用 ASX/LSE 公告等官方披露渠道（需新开信源，不得用第三方通稿平台代替）。"
+    },
+    {
+      "id": "exp-20261014-glencore",
+      "name": "嘉能可",
+      "website": "glencore.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "官网新闻列表的数据只在 Vue 组件的 :articles 属性（单引号 JS 对象数组）里，web_list 选择器只能选元素、读不到属性里的数组；json_list 需要纯 JSON 或 script/window 变量，htmlJsonPath 需要 JSON 响应，均不适用；监管公告是第三方 Investis iframe。下一步：需集成人评估是否给 web_list/json_list 增加“读取元素属性内 JSON”的能力（契约改动，须开契约卡），或由 Owner 决定是否接受 Investis 托管页。"
+    },
+    {
+      "id": "exp-20261014-anglo-american",
+      "name": "英美资源",
+      "website": "angloamerican.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "英美资源官网 www、裸域与地区子站的 robots.txt 均不可取得（403/跳转），爬虫按规则不访问；未绕过。下一步：等站点 robots 恢复后复测，或由 Owner 决定是否联系对方/改用其他授权渠道。"
+    },
+    {
+      "id": "exp-20261014-newmont",
+      "name": "纽蒙特",
+      "website": "newmont.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "纽蒙特官网 www 与裸域均返回人机验证页，未绕过；未发现该公司其他自有子域入口。下一步：由 Owner 决定是否接受第三方通稿渠道或等待站点放开。"
+    },
+    {
+      "id": "exp-20261014-barrick",
+      "name": "巴里克",
+      "website": "barrick.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "巴里克官网 www 与裸域均返回人机验证页，未绕过。下一步同纽蒙特。"
+    },
+    {
+      "id": "exp-20261014-sqm",
+      "name": "智利化工矿业",
+      "website": "sqm.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "SQM 投资者关系站 ir.sqm.com 的 robots.txt 不可取得（未绕过）；主站 sqm.com 新闻中心最后更新于 2025-02-07，且多为社区活动（音乐节、披萨课），列表日期格式 DD/MMM/YYYY 不受支持、文章页无发布元数据，WordPress feed 为空。最佳尝试的预览 9 条但 0 条有日期，不满足日期与时效要求。下一步：等 ir.sqm.com robots 恢复后复测。"
+    },
+    {
+      "id": "exp-20261014-southern-copper",
+      "name": "南方铜业",
+      "website": "southerncoppercorp.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "南方铜业官网裸域与 www 主机的 robots.txt 均不可取得，爬虫按规则不访问；未发现其他自有子域。下一步：等站点 robots 恢复后复测。"
+    },
+    {
+      "id": "exp-20261014-mining-weekly",
+      "name": "Mining Weekly",
+      "website": "miningweekly.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_challenge：整站返回人机验证页，RSS 路径同样被拦；不绕过。建议：由 Owner 联系 Creamer Media 获取授权 feed，或在部署网络复测"
+    },
+    {
+      "id": "exp-20261014-mining-journal",
+      "name": "Mining Journal",
+      "website": "mining-journal.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_http_403：Aspermont 站点整站 403；不绕过。建议部署网络复测或洽谈授权"
+    },
+    {
+      "id": "exp-20261014-mining-magazine",
+      "name": "Mining Magazine",
+      "website": "miningmagazine.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_http_403：Aspermont 站点整站 403；不绕过"
+    },
+    {
+      "id": "exp-20261014-miningnews-net",
+      "name": "MiningNews.net",
+      "website": "miningnews.net",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_http_403：Aspermont 站点整站 403；不绕过"
+    },
+    {
+      "id": "exp-20261014-mining-review-africa",
+      "name": "Mining Review Africa",
+      "website": "miningreview.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "robots_unavailable：robots.txt 不可取得，按规则不抓取；建议部署网络复测 robots"
+    },
+    {
+      "id": "exp-20261014-mining-digital",
+      "name": "Mining Digital",
+      "website": "miningdigital.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "date_unparsed：列表无日期；文章页 head meta 与 JSON-LD 给出同一日期（如 2026-09-17T15:20:40Z），但仓库解析器把重复候选视为“有备选”而不采用，detail 核对 3 条 publishedAt 均为 null，不满足日期标准；另外 /news 头部条目为 9 月中旬，更新偏慢。建议：集成人评估日期去重（相同值的备选不应判为冲突）后复测"
+    },
+    {
+      "id": "exp-20261014-mining-com-au",
+      "name": "Mining.com.au",
+      "website": "mining.com.au",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "robots_unavailable：两个主机 robots.txt 均不可取得，按规则不抓取；建议部署网络复测"
+    },
+    {
+      "id": "exp-20261014-mining-monthly",
+      "name": "Australia's Mining Monthly",
+      "website": "miningmonthly.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_http_403：Aspermont 站点整站 403；不绕过"
+    },
+    {
+      "id": "exp-20261014-agnico-eagle",
+      "name": "Agnico Eagle",
+      "website": "agnicoeagle.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.agnicoeagle.com 与裸域 agnicoeagle.com 均返回 Cloudflare 人机验证（crawl_challenge），无法读取任何页面或 RSS。下一步：请 Owner/集成人确认是否可向公司申请白名单，或由行为审计核对是否存在不受 Cloudflare 保护的官网子域。"
+    },
+    {
+      "id": "exp-20261014-kinross",
+      "name": "Kinross Gold",
+      "website": "kinross.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.kinross.com 为 Cloudflare 人机验证（crawl_challenge）；裸域 kinross.com 的 robots.txt 不可用（robots_unavailable）。下一步：同上，需白名单或其他官方入口。"
+    },
+    {
+      "id": "exp-20261014-sibanye-stillwater",
+      "name": "Sibanye-Stillwater",
+      "website": "sibanyestillwater.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.sibanyestillwater.com 与裸域 robots.txt 均不可用（robots_unavailable）；公告正文托管于第三方 thevault.exchange，按规则不可用。下一步：待其 robots.txt 恢复后重试，或集成人确认其他官方子域。"
+    },
+    {
+      "id": "exp-20261014-perseus-mining",
+      "name": "Perseus Mining",
+      "website": "perseusmining.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "官网 ASX 公告列表是嵌入第三方 wcsecure.weblink.com.au 的 iframe（第三方托管，不可用）；官网声明的 WordPress feed 只有招聘职位（Careers），无新闻栏目。草案配置预览 43 条全是导航/菜单链接、无日期。下一步：如允许 weblink 作为公司授权托管可另议；否则无官网可采入口。"
+    },
+    {
+      "id": "exp-20261014-iamgold",
+      "name": "IAMGOLD",
+      "website": "iamgold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.iamgold.com 为 Cloudflare 人机验证（crawl_challenge）；裸域 robots.txt 跳转到 http://www.iamgold.com（robots_redirect_not_approved，即同一被拦主机）。下一步：需白名单。"
+    },
+    {
+      "id": "exp-20261014-gold-fields",
+      "name": "Gold Fields",
+      "website": "goldfields.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.goldfields.com 与裸域 robots.txt 均不可用（robots_unavailable）。下一步：待 robots.txt 恢复后重试。"
+    },
+    {
+      "id": "exp-20261014-anglogold-ashanti",
+      "name": "AngloGold Ashanti",
+      "website": "anglogoldashanti.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.anglogoldashanti.com 与裸域 robots.txt 均不可用（robots_unavailable）；reports.anglogoldashanti.com 可访问但只是 2025 年报站点，不是新闻/公告栏目。下一步：待主站 robots.txt 恢复后重试。"
+    },
+    {
+      "id": "exp-20261014-valterra-platinum",
+      "name": "Valterra Platinum",
+      "website": "valterraplatinum.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "最终复跑未过门槛：publication_dates_verified。列表（WordPress REST）不取日期；由 detail.maxFetches=10 读文章页 head 的 article:published_time（如 2026-10-12T08:36:48+02:00），为发布时间"
+    },
+    {
+      "id": "exp-20261014-tharisa",
+      "name": "Tharisa",
+      "website": "tharisa.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.tharisa.com 与裸域 robots.txt 均不可用（robots_unavailable）。下一步：待 robots.txt 恢复后重试，并改找投资者公告入口（草案入口是企业故事页）。"
+    },
+    {
+      "id": "exp-20261014-insg",
+      "name": "International Nickel Study Group",
+      "website": "insg.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "insg.org 与 www.insg.org 的 robots.txt 均禁止抓取（robots_disallowed），按规则不绕过；无同域可用入口。建议：人工确认 INSG 是否愿意开放，或放弃该源。"
+    },
+    {
+      "id": "exp-20261014-nickel-institute",
+      "name": "Nickel Institute",
+      "website": "nickelinstitute.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "nickelinstitute.org 与 www.nickelinstitute.org 均返回人机验证页（crawl_challenge），按规则不绕过。建议：保持停用，日后若站点取消验证再试 /en/news/。"
+    },
+    {
+      "id": "exp-20261014-amec",
+      "name": "Association of Mining and Exploration Companies",
+      "website": "amec.org.au",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "amec.org.au 与 www.amec.org.au 的 robots.txt 无法取得（robots_unavailable：403 或连不上），爬虫按规则推迟，无法读取任何页面。建议：日后复测 robots.txt。"
+    },
+    {
+      "id": "exp-20261014-pdac",
+      "name": "Prospectors and Developers Association of Canada",
+      "website": "pdac.ca",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "pdac.ca 与 www.pdac.ca 均返回人机验证页（crawl_challenge），按规则不绕过。"
+    },
+    {
+      "id": "exp-20261014-sme",
+      "name": "Society for Mining Metallurgy and Exploration",
+      "website": "smenet.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.smenet.org 没有新闻列表栏目，只在首页轮播放了 3 条 Mining Engineering 杂志（me.smenet.org）文章，且卡片标题被截断为“...”；me.smenet.org 的 robots.txt 无法取得（robots_unavailable），首页、/feed/ 与文章页都读不了（预览里 detail 全部 crawl_deferred）；media.smenet.org 是视频平台。最好的一次尝试是首页轮播配置（3 条，有日期但标题截断），不达标。建议：日后 me.smenet.org 的 robots 恢复后改用 https://me.smenet.org/feed/。"
+    },
+    {
+      "id": "exp-20261014-camimex",
+      "name": "Cámara Minera de México",
+      "website": "camimex.org.mx",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "no_recent_first_party_releases：官网新闻稿最新为 2023-08-14，近三年无本会原创公告；剪报栏目为第三方媒体内容，不符合 first_party 要求。"
+    },
+    {
+      "id": "exp-20261014-african-mining-online",
+      "name": "African Mining Online",
+      "website": "africanmining.co.za",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "文章页对仓库爬虫返回 HTTP 403：生产无法取得正文；外文新稿公开须有完整中文正文（AGENTS 铁律 15），该源在生产中无法产出可公开稿件。列为未完成，不绕过。"
+    },
+    {
+      "id": "exp-20261014-north-of-60",
+      "name": "North of 60 Mining News",
+      "website": "miningnewsnorth.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_challenge：整站人机验证；不绕过"
+    },
+    {
+      "id": "exp-20261014-revista-mineria",
+      "name": "Revista Minería（IIMP）",
+      "website": "mineriaonline.com.pe",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "stale_site：该域名内容自 2022 年起停更，页面无 IIMP 出版方信息，疑非 IIMP《Revista Minería》现役官网；RSS 虽真实但无近期内容，不满足通过标准。建议：核对 IIMP 官方期刊网址后另开条目"
+    },
+    {
+      "id": "exp-20261014-rumbo-minero",
+      "name": "Rumbo Minero",
+      "website": "rumbominero.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "站点返回人机验证挑战（crawl_challenge）：草案栏目与上级新闻栏目都被拦，最终配置预览为 blocked/crawl_challenge。未尝试绕过。"
+    },
+    {
+      "id": "exp-20261014-cnmn",
+      "name": "中国有色网",
+      "website": "cnmn.com.cn",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "与现有源同站：仓库现有生产源 cnmn-news（中国有色网，www.cnmn.com.cn，见 TASK-0040/TASK-0055），按要求不计新增、不重复建。sources.json 中保留的是首页 ShowNews1.aspx 链接的最佳尝试，仅作记录。"
+    },
+    {
+      "id": "exp-20261014-asian-metal",
+      "name": "亚洲金属网 Asian Metal",
+      "website": "asianmetal.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "最终复跑未过门槛：publication_dates_verified。列表日期为 [10-14] 无年份，不补年份；改用详情页 div.titleDiv h5 中的 “2026-10-14 11:59:25”（detail.publishedAtRegex，声明 YYYY-MM-DD HH:mm:ss，北京时间）。detail=3 预览中 2 条真实新闻取到日期、1 条招标公告页无日期；同配置 detail=6 补充预览（/tmp/aimine-work/evidence/exp-20261014-asian-metal/preview-2026-10-14T15-43-12-597Z.json）3 条真实新闻全部取到日期，3 条招标页无日期。"
+    },
+    {
+      "id": "exp-20261014-cnal",
+      "name": "世铝网",
+      "website": "cnal.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "最终复跑两次均 transport_unavailable（本机网络连不上 news.cnal.com），未取得条目；部署网络重测。"
+    },
+    {
+      "id": "exp-20261014-ferroalloynet",
+      "name": "FerroAlloyNet",
+      "website": "ferroalloynet.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "文章详情页全部被重定向到 recaptchavalid.html 人机验证页（分类列表页同样被拦），且列表多数条目标注“for Trial and Payed members / for Golden members”（会员付费内容）。只能拿到标题和日期，拿不到公开正文，按“付费墙内容不在范围”判失败。"
+    },
+    {
+      "id": "exp-20261014-argus-media",
+      "name": "Argus Media",
+      "website": "argusmedia.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "新闻列表由前端脚本渲染：latest-market-news 与 market-opinion-and-analysis-blog 返回的 HTML 及内嵌数据中没有文章条目，页面脚本中也未找到公开的列表接口；最终配置预览为 “no items matched”。下一步需要能执行脚本的采集方式或站点提供的 RSS/接口。"
+    },
+    {
+      "id": "exp-20261014-antofagasta",
+      "name": "Antofagasta",
+      "website": "antofagasta.co.uk",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "列表页可读（103 条真实公告，标题/链接干净），但发布日期只有两位年份写法 DD.MM.YY（如 13.08.26），不在仓库支持的声明格式内；文章页同样只有“NEWS RELEASE - 13.08.26”，无 article:published_time/JSON-LD；PDF 文件名日期只覆盖约三分之一条目，不能作依据。下一步：开契约卡为 sourceDate 增加 DD.MM.YY 模式（日序有站点证据：13.08.26、24.07.26），之后本配置加 sourceDate 即可通过。"
+    },
+    {
+      "id": "exp-20261014-hudbay",
+      "name": "Hudbay Minerals",
+      "website": "hudbayminerals.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "hudbayminerals.com 与 www.hudbayminerals.com 均为 Cloudflare 人机验证（crawl_challenge）。下一步：需白名单。"
+    },
+    {
+      "id": "exp-20261014-nexa-resources",
+      "name": "Nexa Resources",
+      "website": "nexaresources.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.nexaresources.com、ri.nexaresources.com、裸域 nexaresources.com 的 robots.txt 均不可用（robots_unavailable）。下一步：待 robots.txt 恢复后重试（另注意 Boliden 正收购 Nexa 控股权，主体关系由集成人核对）。"
+    },
+    {
+      "id": "exp-20261014-rusal",
+      "name": "RUSAL",
+      "website": "rusal.ru",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "rusal.ru 与 www.rusal.ru 的 robots.txt 均不可用（robots_unavailable）。下一步：待 robots.txt 恢复后重试。"
+    },
+    {
+      "id": "exp-20261014-nordgold",
+      "name": "Nordgold",
+      "website": "nordgold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "nordgold.com 与 www.nordgold.com 的 robots.txt 均不可用（robots_unavailable）。下一步：待 robots.txt 恢复后重试并定位新闻栏目。"
+    },
+    {
+      "id": "exp-20261014-boliden",
+      "name": "Boliden",
+      "website": "boliden.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "文章全部在 investors.boliden.com，该主机 robots.txt 不可用（robots_unavailable），生产爬虫会无限推迟，取不到正文；外文稿无法满足公开条件。列为未完成。"
+    },
+    {
+      "id": "exp-20261014-ero-copper",
+      "name": "Ero Copper",
+      "website": "erocopper.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "erocopper.com 跳转到 www.ero.com（Ero Copper 官方新域名，页面写明 Ero Copper NYSE/TSX: ERO、Caraíba/Tucumã 矿山）。但 www.ero.com/news/ 的新闻列表由脚本从第三方 IR 平台 apicatalog.mziq.com 加载，HTML 内无条目；/feed/ 只有 4 条 WordPress 模板文章（Hello world!）。无可用的本站列表入口。建议：等集成人决定是否允许 mziq（IR 托管商）接口，或改用交易所/通稿平台另建源。"
+    },
+    {
+      "id": "exp-20261014-discovery-mining",
+      "name": "Discovery Mining",
+      "website": "dsvmining.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "dsvmining.com 与 www.discoverysilver.com 均返回 Cloudflare 人机验证（crawl_challenge），整站无法读取。建议：申请白名单或改用交易所公告源。"
+    },
+    {
+      "id": "exp-20261014-endeavour-silver",
+      "name": "Endeavour Silver",
+      "website": "edrsilver.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "edrsilver.com 返回人机验证（crawl_challenge）；www.edrsilver.com 的 robots.txt 跳转回 edrsilver.com（robots_redirect_not_approved）。无其他已知子域。"
+    },
+    {
+      "id": "exp-20261014-coeur-mining",
+      "name": "Coeur Mining",
+      "website": "coeur.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.coeur.com 与 coeur.com 均返回人机验证（crawl_challenge）。"
+    },
+    {
+      "id": "exp-20261014-pls",
+      "name": "PLS",
+      "website": "pls.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.pls.com 返回人机验证（crawl_challenge）；pls.com 与别名 www.pilbaraminerals.com.au 的 robots.txt 都跳转到 www.pls.com（robots_redirect_not_approved）。"
+    },
+    {
+      "id": "exp-20261014-american-lithium",
+      "name": "American Lithium",
+      "website": "americanlithiumcorp.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "americanlithiumcorp.com 与 www.americanlithiumcorp.com 的 robots.txt 均不可用（robots_unavailable：返回 403 或连接失败），按生产规则整站延后，无法读取任何页面。"
+    },
+    {
+      "id": "exp-20261014-lynas",
+      "name": "Lynas Rare Earths",
+      "website": "lynasrareearths.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "lynasrareearths.com 与 www.lynasrareearths.com 的 robots.txt 均不可用（robots_unavailable），整站无法读取。"
+    },
+    {
+      "id": "exp-20261014-china-gold-news",
+      "name": "中国黄金网",
+      "website": "gold.org.cn",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "主机不可达：https://www.gold.org.cn/、http://www.gold.org.cn/、https://gold.org.cn/ 三次请求均在取 robots.txt 时失败（status 0，robots_unavailable），最终配置预览为 deferred/robots_unavailable。建议在部署网络再测；不改用 cngold.org.cn 等其他域名。"
+    },
+    {
+      "id": "exp-20261014-steelhome",
+      "name": "钢之家·有色频道",
+      "website": "steelhome.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "草案栏目 /ys/col-064/var-210/ 最新只到 2026 年 7 月；改用 /ys/col-106/ 后列表可读，但标题被截断（完整标题仅在 title 属性），列表日期 “10月14日” 无年份；更关键的是文章页 news.steelhome.com/2026/10/14/n*.html 是脚本跳转页，正文在 www.steelhome.com/detailspage.php，该路径被 robots.txt 禁止（robots_disallowed），拿不到正文与完整标题。"
+    },
+    {
+      "id": "exp-20261014-cmewa",
+      "name": "Chamber of Minerals and Energy of Western Australia",
+      "website": "cmewa.com.au",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_challenge：两个主机均返回人机验证页（预览同样为 blocked crawl_challenge），无法合规取得列表。"
+    },
+    {
+      "id": "exp-20261014-ssr-mining",
+      "name": "SSR Mining",
+      "website": "ssrmining.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "原文是 ir.ssrmining.com 的 PDF，跳转到第三方 q4cdn（crawl_redirect_host_changed），生产取不到正文；外文稿无法满足公开条件。列为未完成。"
+    },
+    {
+      "id": "exp-20261014-westgold",
+      "name": "Westgold Resources",
+      "website": "westgold.com.au",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.westgold.com.au 的 robots.txt 不可用（robots_unavailable）；westgold.com.au 的 robots.txt 跳转到 www（robots_redirect_not_approved）。"
+    },
+    {
+      "id": "exp-20261014-ramelius",
+      "name": "Ramelius Resources",
+      "website": "rameliusresources.com.au",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "站点可读，但 ASX 公告页（/investors/asx-announcements/）的列表由 Proactive 插件从第三方 rms.irmau.com/feed/1.0/ListPageItems.aspx 加载，HTML 内无条目；WordPress /feed/ 为 0 条；首页没有带日期的新闻区块，也没有新闻栏目。草案配置（首页、无选择器）预览得到 61 条导航链接，不可用。建议：集成人决定是否允许 irmau（IR 托管商）接口。"
+    },
+    {
+      "id": "exp-20261014-bellevue-gold",
+      "name": "Bellevue Gold",
+      "website": "bellevuegold.com.au",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "bellevuegold.com.au 与 www.bellevuegold.com.au 的 robots.txt 均不可用（robots_unavailable）。"
+    },
+    {
+      "id": "exp-20261014-b2gold",
+      "name": "B2Gold",
+      "website": "b2gold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.b2gold.com 与 b2gold.com 均返回人机验证（crawl_challenge）。"
+    },
+    {
+      "id": "exp-20261014-eldorado-gold",
+      "name": "Eldorado Gold",
+      "website": "eldoradogold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www.eldoradogold.com 的 robots.txt 不可用（robots_unavailable）；eldoradogold.com 的 robots.txt 跳转到 www（robots_redirect_not_approved）。"
+    },
+    {
+      "id": "exp-20261014-sandfire",
+      "name": "Sandfire Resources",
+      "website": "sandfire.com.au",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "RSS 里有 2 条直接指向 youtu.be 视频（不在允许网址范围内），另有 1 条原文是第三方 IR 托管 PDF（robots 禁止）；文章链接门槛不过，列为未完成。下一步：给 RSS 配置加允许前缀后的过滤需仓库确认 rss 是否按 allowUrlPrefixes 丢弃站外条目，或改用官网新闻列表页。"
+    },
+    {
+      "id": "exp-20261014-lithium-argentina",
+      "name": "Lithium Argentina",
+      "website": "lithium-argentina.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "IR 子域 robots.txt 无法取得（robots_unavailable），按爬虫规则不能抓取；主站没有新闻列表。下一步建议：稍后重试 robots，或联系公司确认 robots 配置。"
+    },
+    {
+      "id": "exp-20261014-epiroc",
+      "name": "Epiroc 安百拓",
+      "website": "epirocgroup.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "crawl_challenge：两个官方主机均返回人机验证页（预览同为 blocked crawl_challenge）。"
+    },
+    {
+      "id": "exp-20261014-caterpillar",
+      "name": "Caterpillar 卡特彼勒",
+      "website": "caterpillar.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "robots_unavailable（www.caterpillar.com，复测仍失败）+ crawl_challenge（investors.caterpillar.com）。"
+    },
+    {
+      "id": "exp-20261014-hatch",
+      "name": "Hatch",
+      "website": "hatch.com",
+      "category": "技术与装备",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "client_rendered_third_party_api：新闻列表由浏览器端调用 Sitecore Edge GraphQL（edge-platform.sitecorecloud.io，需 API key）取得，非官方域且需密钥；hatch.com 上未找到可用列表或 feed。"
+    },
+    {
+      "id": "exp-20261014-allied-gold",
+      "name": "Allied Gold",
+      "website": "alliedgold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "整个站点 Cloudflare 人机验证。下一步建议：需要人工在浏览器确认是否对普通访问也弹验证；若只针对爬虫，可联系公司 IR 申请白名单或由集成人决定暂缓。"
+    },
+    {
+      "id": "exp-20261014-mundo-minero",
+      "name": "Mundo Minero",
+      "website": "mundominero.mx",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "文章页正文由脚本加载（HTML 里只有“Loading...”），站点接口的 post_content 也只是约 380 字的截断摘要；生产取不到完整正文，外文新稿无法满足“完整中文正文”公开条件（AGENTS 铁律 15）。列为未完成。下一步：联系站点确认是否有含全文的接口或 RSS。"
+    },
+    {
+      "id": "exp-20261014-argentina-mining",
+      "name": "Argentina Mining",
+      "website": "argentinamining.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "没有持续更新的新闻栏目：首页最新条目是 2024-07 的展会赞助商公告（“será Sponsor …”），News Room 页最新为 2022 年，站点链接的 /2013/es/rss/noticias 为旧版。内容是展会营销，不是矿业新闻。"
+    },
+    {
+      "id": "exp-20261014-ghana-chamber",
+      "name": "Ghana Chamber of Mines",
+      "website": "ghanachamberofmines.org",
+      "category": "协会/研究/标准机构",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "robots_unavailable：robots.txt 多次无法取得（预览同为 deferred robots_unavailable），按规则不抓取。"
+    },
+    {
+      "id": "exp-20261014-hecla",
+      "name": "Hecla Mining",
+      "website": "hecla.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "pending",
+      "actual_response_and_next_step": "文章页多次 transport_unavailable/超时（含 1 次预览进程超时），本机网络下无法确认生产可取正文；部署网络重测后再判。"
+    },
+    {
+      "id": "exp-20261014-fresnillo",
+      "name": "Fresnillo",
+      "website": "fresnilloplc.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "官网页面均为 JS 空壳，公告只在第三方 Investis 托管 iframe 中，按规则不能用第三方托管作入口；官网 HTML 中也没有可用的公开 JSON 请求地址。草案配置预览 failed：no items matched。下一步建议：由集成人决定是否允许 Investis 托管页，或寻找 LSE RNS 官方渠道。"
+    },
+    {
+      "id": "exp-20261014-wheaton",
+      "name": "Wheaton Precious Metals",
+      "website": "wheatonpm.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "整个站点 Cloudflare 人机验证。下一步建议：需要人工在浏览器确认是否对普通访问也弹验证；若只针对爬虫，可联系公司 IR 申请白名单或由集成人决定暂缓。"
+    },
+    {
+      "id": "exp-20261014-triple-flag",
+      "name": "Triple Flag Precious Metals",
+      "website": "tripleflagpm.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "整个站点 Cloudflare 人机验证。下一步建议：需要人工在浏览器确认是否对普通访问也弹验证；若只针对爬虫，可联系公司 IR 申请白名单或由集成人决定暂缓。"
+    },
+    {
+      "id": "exp-20261014-south32",
+      "name": "South32",
+      "website": "south32.net",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "整个站点对爬虫返回 HTTP 403。下一步建议：联系公司 IR 或由集成人决定暂缓。"
+    },
+    {
+      "id": "exp-20261014-mp-materials",
+      "name": "MP Materials",
+      "website": "mpmaterials.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "入口与条目都正确，但没有任何条目能得到发布日期：接口日期带时分无时区，仓库规则不采用；文章页被人机验证拦截。站点未声明 RSS。下一步建议：由集成人决定是否让 json_list 在无时区时只保留日期精度（仓库能力改动，需另开任务），或确认站点时区证据后再声明。"
+    },
+    {
+      "id": "exp-20261014-iluka",
+      "name": "Iluka Resources",
+      "website": "iluka.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www 主机 Cloudflare 人机验证，裸域 robots 跳回 www。下一步建议：需要人工在浏览器确认是否对普通访问也弹验证；若只针对爬虫，可联系公司 IR 申请白名单或由集成人决定暂缓。"
+    },
+    {
+      "id": "exp-20261014-franco-nevada",
+      "name": "Franco-Nevada",
+      "website": "franco-nevada.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "www 主机 Cloudflare 人机验证，裸域跳转回同一被拦主机。下一步建议：需要人工在浏览器确认是否对普通访问也弹验证；若只针对爬虫，可联系公司 IR 申请白名单或由集成人决定暂缓。"
+    },
+    {
+      "id": "exp-20261014-royal-gold",
+      "name": "Royal Gold",
+      "website": "royalgold.com",
+      "category": "矿企官网",
+      "origin": "任务包",
+      "status": "blocked",
+      "actual_response_and_next_step": "整个站点 Cloudflare 人机验证。下一步建议：需要人工在浏览器确认是否对普通访问也弹验证；若只针对爬虫，可联系公司 IR 申请白名单或由集成人决定暂缓。"
+    },
+    {
+      "id": "rpl-alcoa",
+      "name": "Alcoa 美国铝业",
+      "website": "alcoa.com",
+      "category": "矿企官网",
+      "origin": "替补",
+      "status": "pending",
+      "actual_response_and_next_step": "新闻稿在 news.alcoa.com，文章页返回人机验证（crawl_challenge），生产取不到正文，外文稿无法满足公开条件；不绕过。"
+    },
+    {
+      "id": "rpl-boartlongyear",
+      "name": "Boart Longyear 宝长年",
+      "website": "boartlongyear.com",
+      "category": "技术与装备",
+      "origin": "替补",
+      "status": "pending",
+      "actual_response_and_next_step": "最新新闻稿为 2025-01-27，超过一年未更新，不作为活跃信源。"
+    },
+    {
+      "id": "rpl-hitachicm",
+      "name": "Hitachi Construction Machinery 日立建机",
+      "website": "hitachicm.com",
+      "category": "技术与装备",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "范围与日期双重不合格：①没有矿业新闻栏目，集团新闻以工程机械/公司治理为主，无法用 URL 前缀或路径收窄到矿业；②列表日期为序数写法、文章页无日期元数据，取不到可用发布日期。建议：如 Owner 仍需要日立建机，另找其矿业子品牌（如 Bradken、Hitachi Construction Machinery Mining）自有新闻页。"
+    },
+    {
+      "id": "rpl-hochschildmining",
+      "name": "Hochschild Mining",
+      "website": "hochschildmining.com",
+      "category": "矿企官网",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "监管新闻只以第三方 Euroland iframe 提供，自有域名下没有新闻文章页或 RSS；按规则不能用第三方托管平台。建议放弃或人工确认是否接受 Euroland。"
+    },
+    {
+      "id": "rpl-ipa-news",
+      "name": "International Platinum Group Metals Association 国际铂族金属协会",
+      "website": "ipa-news.com",
+      "category": "协会/研究/标准机构",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "取不到每条的发布日期：列表结构是平铺的 h3/p 兄弟元素，选择器无法配对；文章页无日期。建议：由集成人评估是否给 web_list 增加“相邻兄弟日期”能力，或请 Owner 改用 IPA 的其他有日期的出版物页。"
+    },
+    {
+      "id": "rpl-kenmareresources",
+      "name": "Kenmare Resources",
+      "website": "kenmareresources.com",
+      "category": "矿企官网",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "要约期内披露表刷屏，实质公告被挤出服务端仅有的 10 条；更多条目只能经带 nonce 的 admin-ajax 读取。已在配置里加 ingestNoiseFilter 丢弃 Form 38.5/Form 8，建议要约期结束后用同一配置复跑，届时可能通过。"
+    },
+    {
+      "id": "rpl-masterdrilling",
+      "name": "Master Drilling",
+      "website": "masterdrilling.com",
+      "category": "技术与装备",
+      "origin": "替补",
+      "status": "pending",
+      "actual_response_and_next_step": "最新新闻为 2025-06-18，超过一年未更新，不作为活跃信源。"
+    },
+    {
+      "id": "rpl-panafricanresources",
+      "name": "Pan African Resources",
+      "website": "panafricanresources.com",
+      "category": "矿企官网",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "SENS/RNS 公告原文托管在第三方 thevault.exchange；自有域只有营销博客和 2 个专题页，达不到通过标准。"
+    },
+    {
+      "id": "rpl-regisresources",
+      "name": "Regis Resources",
+      "website": "regisresources.com.au",
+      "category": "矿企官网",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "ASX 公告原文托管在第三方 Sharelink（与 q4cdn 同类托管平台）；站内自有条目只有会议纪要、音频和未来日程，不是资讯。"
+    },
+    {
+      "id": "rpl-sinomine",
+      "name": "中矿资源",
+      "website": "sinomine.cn",
+      "category": "矿企官网",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "服务器对仓库请求头（Accept 含 application/json）返回“JSON 字符串包整页 HTML”，仓库 htmlJsonPath 只能取对象内路径、不能取根字符串，web_list 无法解析；列表日期也拆成“月-日 / 年”两段。需仓库支持根字符串 htmlJsonPath（契约/代码改动）后再试。"
+    },
+    {
+      "id": "rpl-zinc",
+      "name": "International Zinc Association 国际锌协会",
+      "website": "zinc.org",
+      "category": "协会/研究/标准机构",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "没有可用的自有新闻列表：全站 feed 主要是外部媒体转链（8/10 在 canonical_domain 之外）与会议活动；/news/ 返回 404；出版物页无日期。建议：Owner 如需锌协会，可改为人工关注其会议/报告，或换其他锌行业来源。"
+    },
+    {
+      "id": "rpl-brasilmineral",
+      "name": "Brasil Mineral",
+      "website": "brasilmineral.com.br",
+      "category": "矿业媒体",
+      "origin": "替补",
+      "status": "pending",
+      "actual_response_and_next_step": "最终复跑未过门槛：publication_dates_verified。列表无日期，靠 detail（maxFetches=20）取文章页 head 发布时间（如“2026-10-13T20:32:06.802Z”）。文章页可见的 <time dateTime=…>“13 de outubro de 2026”与之同一时刻，确认是发布时间（前 3 条间隔几秒，是编辑同一晚集中发稿，相关文章卡片另有 25/09、23/09 等不同日期）。详情核对 3/3 取到原值，但页面同时有 meta 与 JSON-LD 两个一致的候选，预览的日期提示因此显示为空；正式入库按证据存储，一致的候选不算冲突，可得到发布时间。请集成人确认这一点（与 B2 批 CRU 情况相同）。"
+    },
+    {
+      "id": "rpl-flsmidth",
+      "name": "FLSmidth 史密斯",
+      "website": "fls.com",
+      "category": "技术与装备",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "没有可读的新闻列表：company-announcements 页面“Response too large”（生产抓取同样受限）；www 子域 robots 跳转未获批准；insights 只有博客/案例且无日期。建议：请集成人确认是否有其他官方新闻页，或评估是否放宽单页大小上限（需另行决定，不在本批范围）。"
+    },
+    {
+      "id": "rpl-nswmining",
+      "name": "NSW Minerals Council 新南威尔士矿产理事会",
+      "website": "nswmining.com.au",
+      "category": "协会/研究/标准机构",
+      "origin": "替补",
+      "status": "blocked",
+      "actual_response_and_next_step": "范围不合格：内容以煤炭为主，金属矿业条目占比很低，URL 与分类无法区分矿种。如 Owner 坚持保留，只能用 ingestNoiseFilter 按“coal/HVO”等词剔除，覆盖不可靠，不推荐。"
+    }
+  ]
+}

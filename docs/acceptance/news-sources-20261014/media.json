@@ -1,0 +1,1562 @@
+{
+  "$comment": "逐源核验摘要：真实预览（仓库采集代码，开发机网络，2026-10-14）。每源 3 条样例；config_sha256 绑定 industry/sources.json 中该源的完整条目。复核人为 AI 开发 Agent，非人工金标。",
+  "group": "media",
+  "sources": [
+    {
+      "id": "exp-20261014-mining-technology",
+      "name": "Mining Technology · 行业资讯",
+      "website": "mining-technology.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.mining-technology.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Can resource-rich Australia build a battery-grade manganese industry?",
+          "url": "https://www.mining-technology.com/features/australia-battery-grade-manganese-industry-hpms/",
+          "published_at": "2026-10-14T15:35:07.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Ionic Rare Earths submits Belfast recycling plant application",
+          "url": "https://www.mining-technology.com/news/ionic-rare-earths-belfast-recycling-plant-application/",
+          "published_at": "2026-10-14T13:21:15.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Krakatoa deploys second drill rig at Georgia’s Zopkhito project",
+          "url": "https://www.mining-technology.com/news/krakatoa-second-drill-rig-zopkhito-project/",
+          "published_at": "2026-10-14T13:09:23.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "92646cba8df762d7dd2e6e8c75ac3d9ccfcb0a0a69b2d826d49d79148ed21e6f"
+    },
+    {
+      "id": "exp-20261014-international-mining",
+      "name": "International Mining · 行业资讯",
+      "website": "im-mining.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": false,
+      "not_counted_reason": "仓库 docs/data/source-targets-320.json 已有规划条目（原目标重复项不计）",
+      "kind": "rss",
+      "entry": "https://im-mining.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Siemens Gamesa and TKF trace aluminium upstream with Digital Product Passports",
+          "url": "https://im-mining.com/2026/10/14/siemens-gamesa-and-tkf-trace-aluminium-upstream-with-digital-product-passports/",
+          "published_at": "2026-10-14T13:21:59.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Weir advocates early-stage water management to reduce mining risk",
+          "url": "https://im-mining.com/2026/10/14/weir-advocates-early-stage-water-management-to-reduce-mining-risk/",
+          "published_at": "2026-10-14T11:43:46.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "ICMM names Froydis Cameron-Johansson as next President and CEO",
+          "url": "https://im-mining.com/2026/10/14/icmm-names-froydis-cameron-johansson-as-next-president-and-ceo/",
+          "published_at": "2026-10-14T11:40:23.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1b1bf489c6924415a806c5aacf680b4d0ef6fc0b23bc2aae45805e39bbd36d0b"
+    },
+    {
+      "id": "exp-20261014-northern-miner",
+      "name": "The Northern Miner · 行业资讯",
+      "website": "northernminer.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.northernminer.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Idaho Copper update boosts CuMo’s value, lowers costs",
+          "url": "https://www.northernminer.com/news/idaho-copper-update-boosts-cumos-value-lowers-costs/1003895716/",
+          "published_at": "2026-10-14T15:12:16.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Nickel shortage forecast flips to surplus",
+          "url": "https://www.northernminer.com/news/nickel-shortage-forecast-flips-to-surplus/1003895713/",
+          "published_at": "2026-10-14T15:07:05.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Gold miners’ earnings surge but valuations lag: Sprott",
+          "url": "https://www.northernminer.com/news/gold-miners-earnings-surge-but-valuations-lag-sprott/1003895710/",
+          "published_at": "2026-10-14T14:42:18.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "e9c3254a22b84c909ef2f3c48461c5ee7b461a46befbd99e80b255a51c8b731c"
+    },
+    {
+      "id": "exp-20261014-canadian-mining-journal",
+      "name": "Canadian Mining Journal · 行业资讯",
+      "website": "canadianminingjournal.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.canadianminingjournal.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Froydis Cameron-Johansson named ICMM CEO",
+          "url": "https://www.canadianminingjournal.com/news/froydis-cameron-johansson-named-icmm-ceo/",
+          "published_at": "2026-10-14T15:26:05.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Seequent unveils AI-solution for drill core analysis",
+          "url": "https://www.canadianminingjournal.com/news/seequent-unveils-ai-solution-for-drill-core-analysis/",
+          "published_at": "2026-10-14T14:33:06.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Major adds polyurethane dams to FLEX-MAT portfolio",
+          "url": "https://www.canadianminingjournal.com/news/major-adds-polyurethane-dams-to-flex-mat-portfolio/",
+          "published_at": "2026-10-14T13:48:03.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "65221d495eeb312ac37ea68e7e6c9c39b26d074a4d252a60784bf1040b4a3e54"
+    },
+    {
+      "id": "exp-20261014-australian-mining",
+      "name": "Australian Mining · 行业资讯",
+      "website": "australianmining.com.au",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.australianmining.com.au/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 5,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Glencore begins trading on Australian Securities Exchange",
+          "url": "https://www.australianmining.com.au/glencore-begins-trading-asx/",
+          "published_at": "2026-10-14T02:02:45.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Bulk Handling Technologies tackles lime processing from end to end",
+          "url": "https://www.australianmining.com.au/bulk-handling-technologies-tackles-lime-processing-from-end-to-end/",
+          "published_at": "2026-10-14T00:39:14.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Beyond the pull cord with Conveyor Components’ safety system",
+          "url": "https://www.australianmining.com.au/beyond-the-pull-cord-with-conveyor-components-safety-system/",
+          "published_at": "2026-10-14T00:36:01.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b69cffdbb08139896c90e67985f00429de942ee14b6b95594ff771d141d6fdd5"
+    },
+    {
+      "id": "exp-20261014-global-mining-review",
+      "name": "Global Mining Review · 行业资讯",
+      "website": "globalminingreview.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.globalminingreview.com/news/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Over two-thirds of APAC energy and mining employers require extra training or checks for cross-sector workers, OPITO finds",
+          "url": "https://www.globalminingreview.com/mining/14102026/over-two-thirds-of-apac-energy-and-mining-employers-require-extra-training-or-checks-for-cross-sector-workers-opito-finds/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "SPH Engineering announces winners of the 2026 Global Drone Operations Awards",
+          "url": "https://www.globalminingreview.com/mining/14102026/sph-engineering-announces-winners-of-the-2026-global-drone-operations-awards/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Seequent launches AI-powered Imago image analysis to accelerate geological core logging",
+          "url": "https://www.globalminingreview.com/mining/14102026/seequent-launches-ai-powered-imago-image-analysis-to-accelerate-geological-core-logging/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "9284f0aacd5ef007a3d480601c2b4e79fc8e344c79a5a8b4db34a94852c2bd51"
+    },
+    {
+      "id": "exp-20261014-australian-mining-review",
+      "name": "The Australian Mining Review · 行业资讯",
+      "website": "australianminingreview.com.au",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://australianminingreview.com.au/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 11,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Tasmania’s $75m tungsten windfall to fund regional recovery",
+          "url": "https://australianminingreview.com.au/news/tasmanias-75m-tungsten-windfall-to-fund-regional-recovery/",
+          "published_at": "2026-10-14T06:26:13.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Glencore launches ASX listing",
+          "url": "https://australianminingreview.com.au/news/glencore-launches-asx-listing/",
+          "published_at": "2026-10-14T06:08:08.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Federal Court sides with Regis on McPhillamys",
+          "url": "https://australianminingreview.com.au/news/federal-court-sides-with-regis-on-mcphillamys/",
+          "published_at": "2026-10-14T04:35:10.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "57baac6c521f703fbf7c6286c3ff57073c075e21580dc108fd159cf8bc44b98d"
+    },
+    {
+      "id": "exp-20261014-mining-zimbabwe",
+      "name": "Mining Zimbabwe · 行业资讯",
+      "website": "miningzimbabwe.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://miningzimbabwe.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "KMC Donates US$15,000 in Food Hampers, Medical Supplies",
+          "url": "https://miningzimbabwe.com/kmc-donates-food-hampers-us10000-in-medical-supplies/",
+          "published_at": "2026-10-14T11:00:34.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Coal Exports Earn US$194.3m as Zimbabwe Pursues Value Addition",
+          "url": "https://miningzimbabwe.com/coal-exports-earn-us194-3m-as-zimbabwe-pursues-value-addition/",
+          "published_at": "2026-10-14T08:22:30.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Mimosa CSI Support Backs Mberengwa Hospital Upgrade",
+          "url": "https://miningzimbabwe.com/mimosa-csi-support-backs-mberengwa-hospital-upgrade/",
+          "published_at": "2026-10-14T08:09:49.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "0e2811e6c2caa1d1d5321f1b01a9d659996f27695fcb476e62bc9e1f4c1da6d6"
+    },
+    {
+      "id": "exp-20261014-miningmx",
+      "name": "Miningmx · 行业资讯",
+      "website": "miningmx.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://miningmx.com/rss/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 50,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Sibanye-Stillwater eyes robotics for ultra-deep gold",
+          "url": "https://miningmx.com/news/2026-10-07-sibanye-eyes-robotics-for-ultra-deep-gold",
+          "published_at": "2026-10-08T09:23:41.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Thakadu eyes Europe’s EVs as it launches ultra-pure nickel",
+          "url": "https://miningmx.com/news/2026-10-06-thakadu-eyes-europe-s-evs-as-launches-ultra-pure-nickel",
+          "published_at": "2026-10-06T15:18:48.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "ARM wins Tanzania court ruling in $195m Pula case",
+          "url": "https://miningmx.com/2026-10-14-arm-wins-tanzania-court-ruling-in-195m-pula-case",
+          "published_at": "2026-10-14T14:22:14.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "4f9402b9785e601a5866708623999c1b45ae8cb38e5f37f892ca8632222ac883"
+    },
+    {
+      "id": "exp-20261014-african-mining-market",
+      "name": "African Mining Market · 行业资讯",
+      "website": "africanminingmarket.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": false,
+      "not_counted_reason": "仓库 docs/data/source-targets-320.json 已有规划条目（原目标重复项不计）",
+      "kind": "rss",
+      "entry": "https://africanminingmarket.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 6,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Cabinet approval allows non-Tanzanian jurisdiction in resource agreements",
+          "url": "https://africanminingmarket.com/cabinet-approval-allows-non-tanzanian-jurisdiction-in-resource-agreements/27273/",
+          "published_at": "2026-10-14T13:54:37.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Eastport advances Semarule with positive assay findings",
+          "url": "https://africanminingmarket.com/eastport-advances-semarule-with-positive-assay-findings/27270/",
+          "published_at": "2026-10-14T13:26:36.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "CPMZ brings Beira Corridor Forum to Zambia as regional fuel infrastructure expansion gathers momentum",
+          "url": "https://africanminingmarket.com/cpmz-brings-beira-corridor-forum-to-zambia-as-regional-fuel-infrastructure-expansion-gathers-momentum/27266/",
+          "published_at": "2026-10-14T08:22:35.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "5f7d4a1dc18a3725988cf97bb792fd32882d886cb0f42626f609c81faa0965be"
+    },
+    {
+      "id": "exp-20261014-mining-connection",
+      "name": "Mining Connection · 行业资讯",
+      "website": "miningconnection.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.miningconnection.com/surface/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Teck’s Red Dog Mine Life Extension Project Gains FAST-41 Coverage, Alaska",
+          "url": "https://miningconnection.com/surface/news/article/tecks_red_dog_mine_life_extension_project_gains_fast_41_coverage_alaska/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "BLM Approves Black Hills Bentonite Mine in Natrona County, Wyoming",
+          "url": "https://miningconnection.com/surface/news/article/blm_approves_black_hills_bentonite_mine_in_natrona_county_wyoming/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Generation Mining Commences Construction at Marathon Copper-Palladium Mine, Canada",
+          "url": "https://miningconnection.com/surface/news/article/generation_mining_commences_construction_at_marathon_copper_palladium_mine/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "873ec2712242d96c2f84b6584f768a31d714e5f2e132b4e3898698aebcc65695"
+    },
+    {
+      "id": "exp-20261014-energiminas",
+      "name": "Energiminas · 行业资讯",
+      "website": "energiminas.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://energiminas.com/category/mineria/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Adecco: Talento local gana espacio en las operaciones mineras",
+          "url": "https://energiminas.com/2026/10/14/adecco-talento-local-gana-espacio-en-las-operaciones-mineras/?utm_source=rss&utm_medium=rss&utm_campaign=adecco-talento-local-gana-espacio-en-las-operaciones-mineras",
+          "published_at": "2026-10-14T14:26:38.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Paradas operativas en minería e industria pueden costar hasta US$ 5 millones por hora",
+          "url": "https://energiminas.com/2026/10/14/paradas-operativas-en-mineria-e-industria-pueden-costar-hasta-us-5-millones-por-hora/?utm_source=rss&utm_medium=rss&utm_campaign=paradas-operativas-en-mineria-e-industria-pueden-costar-hasta-us-5-millones-por-hora",
+          "published_at": "2026-10-14T13:38:35.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Miguel Incháustegui: Formalización minera podría aportar 1,5% adicional al PBI y generar hasta 400.000 empleos",
+          "url": "https://energiminas.com/2026/10/13/miguel-inchaustegui-formalizacion-minera-podria-aportar-15-adicional-al-pbi-y-generar-hasta-400-000-empleos/?utm_source=rss&utm_medium=rss&utm_campaign=miguel-inchaustegui-formalizacion-minera-podria-aportar-15-adicional-al-pbi-y-generar-hasta-400-000-empleos",
+          "published_at": "2026-10-13T15:26:17.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "c3e22de8f5a8f523572dbd6e755cffb0772ebdc328fe4d32c300f98d553cbbbe"
+    },
+    {
+      "id": "exp-20261014-mineria-chilena",
+      "name": "Minería Chilena · 行业资讯",
+      "website": "mch.cl",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.mch.cl/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Antofagasta Minerals abre nuevas oportunidades laborales para técnicos y profesionales",
+          "url": "https://www.mch.cl/antofagasta-minerals-abre-nuevas-oportunidades-laborales-para-tecnicos-y-profesionales/",
+          "published_at": "2026-10-14T15:08:57.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Negociación colectiva: Minera Centinela realiza llamado a continuar buscando acuerdos",
+          "url": "https://www.mch.cl/negociacion-colectiva-minera-centinela-realiza-llamado-a-continuar-buscando-acuerdos/",
+          "published_at": "2026-10-14T15:05:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Sernageomin reporta accidente fatal en faena de la Región de Antofagasta",
+          "url": "https://www.mch.cl/sernageomin-reporta-accidente-fatal-en-faena-de-la-region-de-antofagasta/",
+          "published_at": "2026-10-14T14:02:57.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "e1755b150a136920853a6995ee11e6728fd8f2ad2be79ee178df06e124785fd4"
+    },
+    {
+      "id": "exp-20261014-mineria-desarrollo",
+      "name": "Minería y Desarrollo · 行业资讯",
+      "website": "mineriaydesarrollo.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.mineriaydesarrollo.com/rss/noticias",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 200,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "En Catamarca denuncian que cámaras de proveedores mineros filtrarían el acceso a contratos de empresas",
+          "url": "https://www.mineriaydesarrollo.com/noticias/2026/10/14/27168-en-catamarca-denuncian-que-camaras-de-proveedores-mineros-filtrarian-el-acceso-a-contratos-de-empresas",
+          "published_at": "2026-10-14T13:11:06.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Seis muertes en la minería chilena en 21 días exponen fallas de seguridad que Argentina debe prevenir",
+          "url": "https://www.mineriaydesarrollo.com/noticias/2026/10/14/27165-seis-muertes-en-la-mineria-chilena-en-21-dias-exponen-fallas-de-seguridad-que-argentina-debe-prevenir",
+          "published_at": "2026-10-14T12:09:28.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "El ICMM eligió a Froydis Cameron-Johansson como nueva CEO para liderar la agenda mundial de minería responsable",
+          "url": "https://www.mineriaydesarrollo.com/noticias/2026/10/14/27162-el-icmm-eligio-a-froydis-cameron-johansson-como-nueva-ceo-para-liderar-la-agenda-mundial-de-mineria-responsable",
+          "published_at": "2026-10-14T11:40:54.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "9007ace94dc5bec2c87252ee322a106ad76d42c00533459167f89ae815fa5134"
+    },
+    {
+      "id": "exp-20261014-mining-press",
+      "name": "Mining Press · 行业资讯",
+      "website": "miningpress.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://miningpress.com/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 49,
+      "newest": null,
+      "samples": [
+        {
+          "title": "Rio Tinto produjo 13.000 toneladas de LCE y ajusta su meta por Sal de Vida",
+          "url": "https://miningpress.com/nota/373538/rio-tinto-produjo-13000-toneladas-de-lce-y-ajusta-su-meta-por-sal-de-vida",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Patagonia Gold confirmó concentraciones de alta ley en Calcatreu",
+          "url": "https://miningpress.com/nota/373536/patagonia-gold-confirmo-concentraciones-de-alta-ley-en-calcatreu",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Cauchari-Olaroz alcanzó su mejor marca de eficiencia hídrica por tonelada de carbonato de litio",
+          "url": "https://miningpress.com/nota/373537/cauchari-olaroz-alcanzo-su-mejor-marca-de-eficiencia-hidrica-por-tonelada-de-carbonato-de-litio",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "cdc58cbf55b7bb7a5dec3fbf8eaebfe64ffc8c5f5eadd9d2f99e638854cec07b"
+    },
+    {
+      "id": "exp-20261014-mineria-en-linea",
+      "name": "Minería en Línea · 行业资讯",
+      "website": "mineriaenlinea.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://mineriaenlinea.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 16,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Perú presenta Ley MAPE: reforma regulatoria para formalizar 30,000 mineros artesanales",
+          "url": "https://mineriaenlinea.com/2026/10/peru-presenta-ley-mape-reforma-regulatoria-para-formalizar-30000-mineros-artesanales/",
+          "published_at": "2026-10-13T23:49:15.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Trafigura apuesta US$2,000 millones en litio con tecnología DLE de EnergyX",
+          "url": "https://mineriaenlinea.com/2026/10/trafigura-apuesta-us2000-millones-en-litio-con-tecnologia-dle-de-energyx/",
+          "published_at": "2026-10-13T23:48:37.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "First Majestic suspende arbitraje tributario contra México: un giro en relaciones",
+          "url": "https://mineriaenlinea.com/2026/10/first-majestic-suspende-arbitraje-tributario-contra-mexico-un-giro-en-relaciones/",
+          "published_at": "2026-10-13T23:47:30.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "4f8a49d092cf37a3095be28835d6925b3a19c30e829168663a30e6b498ee3081"
+    },
+    {
+      "id": "exp-20261014-reporte-minero",
+      "name": "Reporte Minero · 行业资讯",
+      "website": "reporteminero.cl",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.reporteminero.cl/noticias/noticias",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 27,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Huelga en Minera Centinela: Compañía rechaza medidas de presión tras oferta de $26 millones líquidos",
+          "url": "https://www.reporteminero.cl/noticia/noticias/2026/10/huelga-minera-centinela-rechaza-huelga-hambre-oferta-bono-negociacion-26-millones",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Precio del cobre consolida alza anual del 40% y cotiza en 669 cUS$/lb en la Bolsa de Metales de Londres",
+          "url": "https://www.reporteminero.cl/noticia/noticias/2026/10/precio-cobre-alza-anual-40-porciento-cotizacion-bolsa-londres-inventarios",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "EnorChile invertirá US$ 30 millones en interconexión eléctrica Los Héroes-Parinacota entre Chile y Perú",
+          "url": "https://www.reporteminero.cl/noticia/noticias/2026/10/enorchile-ingresa-evaluacion-proyecto-interconexion-electrica-chile-peru-los-heroes-parinacota",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "05e5de82967efebc55845d60aad3bc6223c7b7959de220b13a40780d6fbb0872"
+    },
+    {
+      "id": "exp-20261014-portal-minero",
+      "name": "Portal Minero · 行业资讯",
+      "website": "portalminero.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.portalminero.com/feed",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Sernageomin restringe operaciones en áreas de riesgo de El Teniente tras accidente fatal",
+          "url": "https://www.portalminero.com/sernageomin-restringe-operaciones-en-areas-de-riesgo-de-el-teniente-tras-accidente-fatal",
+          "published_at": "2026-10-14T00:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Acera aborda los desafíos de la transición energética en la XI Semana de la Energía de OLACDE",
+          "url": "https://www.portalminero.com/acera-aborda-los-desafios-de-la-transicion-energetica-en-la-xi-semana-de-la-energia-de-olacde",
+          "published_at": "2026-10-14T00:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Sernageomin anuncia nuevas medidas para fortalecer la seguridad en faenas mineras",
+          "url": "https://www.portalminero.com/sernageomin-registra-12-fallecidos-en-faenas-mineras-durante-2026-y-anuncia-refuerzo-de-fiscalizaciones",
+          "published_at": "2026-10-14T00:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "28b51ad1884f766474a33d02a70a6b2445b9894db986ffd8ac0a3946e60297a1"
+    },
+    {
+      "id": "exp-20261014-panorama-minero",
+      "name": "Panorama Minero · 行业资讯",
+      "website": "panorama-minero.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.panorama-minero.com/en/news",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Epiroc Introduces the First SmartROC D65 Drilling Rigs in Argentina",
+          "url": "https://www.panorama-minero.com/en/news/epiroc-introduces-the-first-smart-roc-d65-drilling-rigs-in-argentina",
+          "published_at": "2026-10-14T14:27:57.118Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Governors Close International Lithium Seminar with Strong Messages for the New Stage of Mining",
+          "url": "https://www.panorama-minero.com/en/news/governors-close-international-lithium-seminar-with-strong-messages-for-the-new-stage-of-mining",
+          "published_at": "2026-10-09T15:11:53.507Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "For Eramet, DLE Has Arrived to Mark a “Milestone” in Lithium Production",
+          "url": "https://www.panorama-minero.com/en/news/for-eramet-dle-has-arrived-to-mark-a-milestone-in-lithium-production",
+          "published_at": "2026-10-09T01:15:44.764Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "2ff9040bd3ca66627005ab8260035ec2460e981d3c1ff1df2c138bbe76f163b6"
+    },
+    {
+      "id": "exp-20261014-mineria-panamericana",
+      "name": "Minería Pan-Americana · 行业资讯",
+      "website": "mineria-pa.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://mineria-pa.com/category/noticias/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Argentina: BYD analiza invertir en una fábrica de baterías de litio",
+          "url": "https://mineria-pa.com/2026/10/13/argentina-byd-analiza-invertir-en-una-fabrica-de-baterias-de-litio/",
+          "published_at": "2026-10-13T13:30:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Brasil: MME destaca la conexión entre la minería y la producción de fertilizantes",
+          "url": "https://mineria-pa.com/2026/10/13/brasil-mme-destaca-la-conexion-entre-la-mineria-y-la-produccion-de-fertilizantes/",
+          "published_at": "2026-10-13T12:11:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Chile: Sernageomin paraliza sectores de División El Teniente tras accidente fatal",
+          "url": "https://mineria-pa.com/2026/10/13/chile-sernageomin-paraliza-sectores-de-division-el-teniente-tras-accidente-fatal/",
+          "published_at": "2026-10-13T10:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "52ce133052765b9a2c11e6f5c8e7d2dada6bf69d2ebcf3666f2f0e1e8c8aee01"
+    },
+    {
+      "id": "exp-20261014-dipromin",
+      "name": "Dipromin · 行业资讯",
+      "website": "dipromin.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.dipromin.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 9,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Toquepala: los planes de inversión de Southern Perú por casi US$ 500 millones",
+          "url": "https://www.dipromin.com/noticias/mineria/toquepala-los-planes-de-inversion-de-southern-peru-por-casi-us-500-millones/",
+          "published_at": "2026-10-13T23:12:14.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Sector minero: Gobierno reducirá la tramitología en 40% para favorecer inversiones",
+          "url": "https://www.dipromin.com/noticias/mineria/sector-minero-gobierno-reducira-la-tramitologia-en-40-para-favorecer-inversiones/",
+          "published_at": "2026-10-13T23:09:33.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Element 29 refuerza la exploración de su proyecto cuprífero en Perú con una tercera perforadora",
+          "url": "https://www.dipromin.com/noticias/mineria/element-29-suma-una-tercera-perforadora-a-su-proyecto-de-cobre-en-peru/",
+          "published_at": "2026-10-13T23:04:02.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "3eb2d9834dc457d2ab77b0c830c3056e880de0b5fcac7429e1523a8ef58093ee"
+    },
+    {
+      "id": "exp-20261014-minerandina",
+      "name": "Minerandina · 行业资讯",
+      "website": "minerandina.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://minerandina.com/es/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-09-30",
+      "samples": [
+        {
+          "title": "Minería 5.0 y Excelencia Operacional reunirán en Lima a más de 15 líderes de importantes compañías mineras",
+          "url": "https://minerandina.com/es/mineria-5-0-y-excelencia-operacional-reuniran-en-lima/",
+          "published_at": "2026-09-30T01:04:28.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "El cobre, una oportunidad histórica para américa latina EL FUTURO DE LA MINERIA LATINOAMERICANA: Visión y estrategias de BHP",
+          "url": "https://minerandina.com/es/el-futuro-de-la-mineria-latinoamericana-vision-y-estrategias-de-bhp/",
+          "published_at": "2026-09-08T16:50:17.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Karim Batallanos: “La mejora continua [en Antapaccay] forma parte de nuestra manera de trabajar”",
+          "url": "https://minerandina.com/es/la-mejora-continua-en-antapaccay/",
+          "published_at": "2026-08-05T00:26:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "b67951d1b3dc4381589aef9591dc9c4093a65fe3ddcf5962145100422da16df0"
+    },
+    {
+      "id": "exp-20261014-antaike",
+      "name": "安泰科 · 行业资讯",
+      "website": "antaike.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.antaike.com/list.php?id=4",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 30,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Antaike Alumina Spot Index (ATKASI) (October 14, 2026)",
+          "url": "https://www.antaike.com/content.php?id=117132",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "ntaike Aluminum Ingot Spot Index (October 13,2026)",
+          "url": "https://www.antaike.com/content.php?id=117131",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Antaike Alumina Spot Index (ATKASI) (October 13, 2026)",
+          "url": "https://www.antaike.com/content.php?id=117130",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "41c9d08b112a6deaf5fd66df840827878c7d72314b93c85ae77dd1e17b5693a7"
+    },
+    {
+      "id": "exp-20261014-fastmarkets",
+      "name": "Fastmarkets · 行业资讯",
+      "website": "fastmarkets.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.fastmarkets.com/metals-and-mining/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 6,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Aurubis raises copper premium for European clients up to $347/t for 2027 supplies: sources",
+          "url": "https://www.fastmarkets.com/insights/aurubis-raises-copper-premium-for-european-clients-up-to-347-t-for-2027-supplies-sources/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Base metals head to LME Week 2026 with record-low TCs, war-hit supply chains",
+          "url": "https://www.fastmarkets.com/insights/base-metals-head-to-lme-week-2026-with-record-low-tcs-war-hit-supply-chains/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "FAQ: Fastmarkets copper concentrates treatment and refining charges index methodology",
+          "url": "https://www.fastmarkets.com/insights/faq-fastmarkets-copper-concentrates-treatment-and-refining-charges-index-methodology/",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "d664c5808d7de27bf345ba3d22378ff77784f0f47002743ab3b6aaa6b436372f"
+    },
+    {
+      "id": "exp-20261014-cru",
+      "name": "CRU Group · 行业资讯",
+      "website": "crugroup.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.crugroup.com/en/communities/thought-leadership/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": null,
+      "samples": [
+        {
+          "title": "Intercontinental blue ammonia-to-hydrogen conversion can emit more than coal",
+          "url": "https://www.crugroup.com/en/communities/thought-leadership/2026/Intercontinental-blue-ammonia-to-hydrogen-conversion-can-emit-more-than-coal/",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Powering a faster energy transition: How energy economics reshape commodity cost floors",
+          "url": "https://www.crugroup.com/en/communities/thought-leadership/2026/powering-a-faster-energy-transition-how-energy-economics-reshape-commodity-cost-floors/",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Mining boom, refining bust: Lithium’s diverging fortune",
+          "url": "https://www.crugroup.com/en/communities/thought-leadership/2026/Mining-boom-refining-bust-Lithiums-diverging-fortune/",
+          "published_at": "2026-10-05T16:00:00.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1e740c63ee9761cd87425690361253f7a355a1ac0d72c8aeb10f07aef7186e99"
+    },
+    {
+      "id": "exp-20261014-benchmark-minerals",
+      "name": "Benchmark Mineral Intelligence · 行业资讯",
+      "website": "benchmarkminerals.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://source.benchmarkminerals.com/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 8,
+      "newest": "2026-10-11",
+      "samples": [
+        {
+          "title": "Upstream and downstream policy push: Europe Regional Spotlight",
+          "url": "https://source.benchmarkminerals.com/article/upstream-and-downstream-policy-push-europe-regional-spotlight",
+          "published_at": "2026-10-11T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Lithium cost pass-through drives volatile quarter for energy storage cells: Cell Price Review Q3 2026",
+          "url": "https://source.benchmarkminerals.com/article/lithium-cost-pass-through-drives-volatile-quarter-for-energy-storage-cells-cell-price-review-q3-2026",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "UK considering alignment with EU over tariff on Chinese EVs",
+          "url": "https://source.benchmarkminerals.com/article/uk-considering-alignment-with-eu-over-tariff-on-chinese-evs",
+          "published_at": "2026-10-08T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "259940986fcf30b05737382fb748fbc1073396869421094b176913b9a0665b26"
+    },
+    {
+      "id": "exp-20261014-kitco-news",
+      "name": "Kitco News · 行业资讯",
+      "website": "kitco.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.kitco.com/news/category/mining",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 19,
+      "newest": "2026-10-12",
+      "samples": [
+        {
+          "title": "Peter Schiff says rising yields are 'the most bullish thing' for gold, warns Washington could pay 50 cents on the dollar",
+          "url": "https://www.kitco.com/news/article/2026-10-08/peter-schiff-says-rising-yields-are-most-bullish-thing-gold-warns",
+          "published_at": "2026-10-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "India may need to raise coal power capacity as demand surges, official says",
+          "url": "https://www.kitco.com/news/off-the-wire/2026-10-13/india-may-need-raise-coal-power-capacity-demand-surges-official-says",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Striking unions and Centinela copper mine restart negotiations",
+          "url": "https://www.kitco.com/news/off-the-wire/2026-10-13/striking-unions-and-centinela-copper-mine-restart-negotiations",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "5f9d292835aa96baea6af7255493e1bca4c6041809646bc0e2a1738d49fba5c6"
+    },
+    {
+      "id": "exp-20261014-smm",
+      "name": "上海有色网 SMM · 行业资讯",
+      "website": "smm.cn",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://news.smm.cn/l/22",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 60,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "前三季度机电进出口双双高增 集成电路出口近乎翻倍【SMM专题】",
+          "url": "https://news.smm.cn/news/104157449",
+          "published_at": "2026-10-14T11:16:50.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "欧洲最大铜冶炼厂Aurubis将2027年欧洲铜溢价上调至创纪录的每吨347美元",
+          "url": "https://news.smm.cn/news/104157605",
+          "published_at": "2026-10-14T11:16:05.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "必和必拓Escondida矿工会与公司举行谈判，力求避免罢工",
+          "url": "https://news.smm.cn/news/104157600",
+          "published_at": "2026-10-14T11:06:37.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": "“铜板等项目招标公告”是 SMM 发布的真实资讯标题，不是导航。",
+      "config_sha256": "71c796e3c1b7a12396e8bee7ec11d5317d63c9676f0b361536d6e37626721751"
+    },
+    {
+      "id": "exp-20261014-mysteel",
+      "name": "我的钢铁网 Mysteel · 行业资讯",
+      "website": "mysteel.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://news.mysteel.com/article/p-3822-------------1.html",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 27,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "蒂森克虏伯汽车技术与联合动力就线控转向达成战略合作",
+          "url": "https://news.mysteel.com/a/26101417/9F8910A1760B20F8.html",
+          "published_at": "2026-10-14T09:12:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "伊犁钢铁系列除尘升级改造项目全部顺利投运",
+          "url": "https://news.mysteel.com/a/26101417/89ADF795A275E3B0.html",
+          "published_at": "2026-10-14T09:11:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "巴基斯坦对华冷轧钢板作出反倾销日落复审终裁",
+          "url": "https://news.mysteel.com/a/26101416/BEB061C899ED86A3.html",
+          "published_at": "2026-10-14T08:17:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "1d6451bb1503999b609465711ce48052bb367558ce2b3bd9a4581e4ac10a9f53"
+    },
+    {
+      "id": "exp-20261014-at-minerals",
+      "name": "AT Mineral Processing · 行业资讯",
+      "website": "at-minerals.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.at-minerals.com/en/rss.xml",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 36,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "FLS signs order to supply its market-leading crushing and grinding technologies to a copper mine expansion project in Chile",
+          "url": "https://www.at-minerals.com/en/news/fls-signs-order-to-supply-its-market-leading-crushing-and-grinding-technologies-to-a-copper-mine-expansion-project-in-chile-4435724.html",
+          "published_at": "2026-10-14T09:04:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Electric E-Air compressors boost productivity in Mexican silver and gold mines",
+          "url": "https://www.at-minerals.com/en/news/electric-e-air-compressors-boost-productivity-in-mexican-silver-and-gold-mines-4434687.html",
+          "published_at": "2026-10-12T14:00:54.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "POWTECH TECHNOPHARM 2026",
+          "url": "https://www.at-minerals.com/en/news/powtech-technopharm-2026-4434678.html",
+          "published_at": "2026-10-12T13:45:50.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "43476a536a163758d5ba51e9b4f94c34f31603743b7c851b5b54fb2922e4113c"
+    },
+    {
+      "id": "exp-20261014-resource-world",
+      "name": "Resource World Magazine · 行业资讯",
+      "website": "resourceworld.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://resourceworld.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Canuc Closes $5.99 Million Private Placement to Accelerate East Sudbury Development and Exploration",
+          "url": "https://resourceworld.com/canuc-closes-5-99-million-private-placement-to-accelerate-east-sudbury-development-and-exploration/?utm_source=rss&utm_medium=rss&utm_campaign=canuc-closes-5-99-million-private-placement-to-accelerate-east-sudbury-development-and-exploration",
+          "published_at": "2026-10-14T15:39:16.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "QIMC Completes Expanded 63.7 km Seismic Program Targeting Hydrogen, Helium and Natural Gas Hot Zones in Nova Scotia",
+          "url": "https://resourceworld.com/qimc-completes-expanded-63-7-km-seismic-program-targeting-hydrogen-helium-and-natural-gas-hot-zones-in-nova-scotia/?utm_source=rss&utm_medium=rss&utm_campaign=qimc-completes-expanded-63-7-km-seismic-program-targeting-hydrogen-helium-and-natural-gas-hot-zones-in-nova-scotia",
+          "published_at": "2026-10-14T14:28:43.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Sitka Drills 236.0 Metres of 1.15 g/t Gold, Including 71.0 Metres of 2.79 g/t Gold and 36.3 Metres of 3.31 g/t Gold, at the Saddle Zone and Continues to Expand the Eiger Deposit at Its RC Gold Project, Yukon",
+          "url": "https://resourceworld.com/sitka-drills-236-0-metres-of-1-15-g-t-gold-including-71-0-metres-of-2-79-g-t-gold-and-36-3-metres-of-3-31-g-t-gold-at-the-saddle-zone-and-continues-to-expand-the-eiger-deposit-at-its-rc-gold-project/?utm_source=rss&utm_medium=rss&utm_campaign=sitka-drills-236-0-metres-of-1-15-g-t-gold-including-71-0-metres-of-2-79-g-t-gold-and-36-3-metres-of-3-31-g-t-gold-at-the-saddle-zone-and-continues-to-expand-the-eiger-deposit-at-its-rc-gold-project",
+          "published_at": "2026-10-14T14:22:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "abc4c85e9b9b6ae71fd90075cd622a0ed63cf54cf719f93a8f876c2b2b27c407"
+    },
+    {
+      "id": "exp-20261014-australian-resources-investment",
+      "name": "Australian Resources & Investment · 行业资讯",
+      "website": "australianresourcesandinvestment.com.au",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.australianresourcesandinvestment.com.au/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Alice Queen hits mineralisation in every Horn Island hole",
+          "url": "https://www.australianresourcesandinvestment.com.au/2026/10/14/alice-queen-hits-mineralisation-in-every-horn-island-hole/",
+          "published_at": "2026-10-14T04:14:17.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Copper, coal and trading: What Glencore offers ASX investors",
+          "url": "https://www.australianresourcesandinvestment.com.au/2026/10/14/copper-coal-and-trading-what-glencore-offers-asx-investors/",
+          "published_at": "2026-10-14T02:36:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Aureka’s Irvine emerging as one of Victoria’s ‘most significant gold projects’",
+          "url": "https://www.australianresourcesandinvestment.com.au/2026/10/14/aurekas-irvine-emerging-as-one-of-victorias-most-significant-gold-projects/",
+          "published_at": "2026-10-13T23:42:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "5fba1b8331c94ece6a4e5fde23ad0930f66bde7c950deb4d238e13d96ef33d5d"
+    },
+    {
+      "id": "exp-20261014-mining-life",
+      "name": "Mining Life Online · 行业资讯",
+      "website": "mininglifeonline.net",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://mininglifeonline.net/news_list_news.html",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-06-07",
+      "samples": [
+        {
+          "title": "ONGold grants 200,000 stock options to CEO",
+          "url": "https://mininglifeonline.net/news/article/ongold-grants-200-000-stock-options-to-ceo",
+          "published_at": "2026-06-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Volta hits 688 m of REE-gallium mineralization at Springer near Sturgeon Falls",
+          "url": "https://mininglifeonline.net/news/article/volta-hits-688-m-of-ree-gallium-mineralization-at-springer-near-sturgeon-falls",
+          "published_at": "2026-06-07T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Metals Creek hits visible gold in first two Ogden holes south of Timmins",
+          "url": "https://mininglifeonline.net/news/article/metals-creek-hits-visible-gold-in-first-two-ogden-holes-south-of-timmins",
+          "published_at": "2026-06-04T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "e09e55eacaaf7930afb8cc581754567e392d18f44a24eb0990d109d3252560c1"
+    },
+    {
+      "id": "exp-20261014-proactivo",
+      "name": "Revista ProActivo · 行业资讯",
+      "website": "proactivo.com.pe",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://proactivo.com.pe/category/mineria/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Paradas operativas en minería e industria pueden costar hasta US$ 5 millones por hora",
+          "url": "https://proactivo.com.pe/siemens-la-inteligencia-artificial-puede-reducir-hasta-50-las-paradas-operativas/",
+          "published_at": "2026-10-14T14:27:42.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "IIMP dictará curso de modelación numérica para la geomecánica de minas subterráneas",
+          "url": "https://proactivo.com.pe/iimp-dictara-curso-de-modelacion-numerica-para-la-geomecanica-de-minas-subterraneas/",
+          "published_at": "2026-10-13T21:29:08.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Lentes de realidad virtual y robots autónomos: las nuevas innovaciones de Sodexo en operaciones mineras",
+          "url": "https://proactivo.com.pe/sodexo-incorpora-realidad-virtual-y-robots-autonomos-en-mineras/",
+          "published_at": "2026-10-13T21:15:20.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "8513ac492ec6a8fe8cf2bc98bcbc6e6f90c40410b86d9be7e7839cf900ab346c"
+    },
+    {
+      "id": "exp-20261014-outlet-minero",
+      "name": "Outletminero · 行业资讯",
+      "website": "outletminero.org",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://outletminero.org/rss/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 15,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "CCE cumple 50 años y plantea una agenda de inversión y estabilidad económica",
+          "url": "https://outletminero.org/cce-cumple-50-anos-y-plantea-una-agenda-de-inversion-y-estabilidad-economica/",
+          "published_at": "2026-10-14T14:38:19.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Capstone Copper Cozamín fortalece el valor de la minería mexicana con distintivo Hecho en México",
+          "url": "https://outletminero.org/capstone-copper-cozamin-fortalece-el-valor-de-la-mineria-mexicana-con-distintivo-hecho-en-mexico/",
+          "published_at": "2026-10-14T02:38:53.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Nuevos estudios geofísicos fortalecen la exploración minera en Querétaro",
+          "url": "https://outletminero.org/nuevos-estudios-geofisicos-fortalecen-la-exploracion-minera-en-queretaro/",
+          "published_at": "2026-10-14T01:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "50943e51fcdaecfc40f0bc903b3020469ea204c7d0693955f5ad88fbc67a0647"
+    },
+    {
+      "id": "exp-20261014-mining-metal-news",
+      "name": "MININGMETALnews · 行业资讯",
+      "website": "miningmetalnews.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.miningmetalnews.com/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 26,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Paladin Energy Faces Rising Uranium Mining Costs",
+          "url": "https://www.miningmetalnews.com/20261014/3599/paladin-energy-faces-rising-uranium-mining-costs",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "SSAB starts construction of new quenching line in Oxelösund",
+          "url": "https://www.miningmetalnews.com/20261014/3598/ssab-starts-construction-new-quenching-line-oxelosund",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Thyssenkrupp Wins Major Naval Order Amid Steel Industry Crisis",
+          "url": "https://www.miningmetalnews.com/20261013/3597/thyssenkrupp-wins-major-naval-order-amid-steel-industry-crisis",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "3e987115fff340998490abbc7185ab85f645fe7a625bc2516065b35c8c53fcb6"
+    },
+    {
+      "id": "exp-20261014-mineria-sustentable",
+      "name": "Minería Sustentable Argentina · 行业资讯",
+      "website": "mineriasustentable.com.ar",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://mineriasustentable.com.ar/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 25,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Ruta Provincial 27: el consorcio minero que sostiene la conexión del camino de la Puna salteña",
+          "url": "https://mineriasustentable.com.ar/contenido/20920/ruta-provincial-27-el-consorcio-minero-que-sostiene-la-conexion-del-camino-de-la",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "El reclamo de Salta para que los ramales C-14 y C-15 se incluyan en la licitación del Belgrano Cargas",
+          "url": "https://mineriasustentable.com.ar/contenido/20921/el-reclamo-de-salta-para-que-los-ramales-c-14-y-c-15-se-incluyan-en-la-licitacio",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Proveedores mineros, peajes y municipios: las definiciones que marcaron la agenda jujeña",
+          "url": "https://mineriasustentable.com.ar/contenido/20922/proveedores-mineros-peajes-y-municipios-las-definiciones-que-marcaron-la-agenda-",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "30e940437c939c38bea66dd95c51f49cc4fe81b989ca18f4002ed8153435948a"
+    },
+    {
+      "id": "exp-20261014-petromindo",
+      "name": "Petromindo·Minerals · 行业资讯",
+      "website": "petromindo.com",
+      "category": "矿业媒体",
+      "origin": "任务包",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.petromindo.com/news/category/minerals",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "DEWA's Gayo gold project remains stalled by pending mining permit",
+          "url": "https://www.petromindo.com/news/article/dewa-s-gayo-gold-project-remains-stalled-by-pending-mining-permit",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Global nickel surplus seen widening to 70,000 tons in 2027: INSG",
+          "url": "https://www.petromindo.com/news/article/global-nickel-surplus-seen-widening-to-70-000-tons-in-2027-insg",
+          "published_at": "2026-10-13T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Indodrill deploys four rigs across Malaysia, Timor-Leste and Sulawesi",
+          "url": "https://www.petromindo.com/news/article/indodrill-deploys-four-rigs-across-malaysia-timor-leste-and-sulawesi",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "143fa942cac410bc0d42fcb68dd99a8b91b4faec2acee3a6b77dbb1dfe599978"
+    },
+    {
+      "id": "rpl-mongolianminingjournal",
+      "name": "Mongolian Mining Journal 蒙古矿业杂志",
+      "website": "mongolianminingjournal.com",
+      "category": "矿业媒体",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://www.mongolianminingjournal.com/as/mining",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 20,
+      "newest": null,
+      "samples": [
+        {
+          "title": "“Luda Technology” Монголын “Жоншт Толгойн” төслийг 14 сая ам.доллароор авах боломжийг судалж эхэлжээ",
+          "url": "https://www.mongolianminingjournal.com/a/75415",
+          "published_at": "2026-10-14T03:03:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Ураны шахцалдаан: Монгол Улс Орос, Франц, Хятад, Чехийн эрх ашгийн уулзвар дээр",
+          "url": "https://www.mongolianminingjournal.com/a/75406",
+          "published_at": "2026-10-09T07:07:00.000Z",
+          "date_from": "文章页"
+        },
+        {
+          "title": "Монголын уурхайн усны хэрэгцээ 2035 он гэхэд гурав дахин өсөх төлөвтэй байна",
+          "url": "https://www.mongolianminingjournal.com/a/75372",
+          "published_at": "2026-09-28T03:47:16.000Z",
+          "date_from": "文章页"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "d2e8362a47668742e091609329141ce7767eb51ec55c6349ff95a297ae7c62b0"
+    },
+    {
+      "id": "rpl-nuevamineria",
+      "name": "Nueva Minería y Energía",
+      "website": "nuevamineria.com",
+      "category": "矿业媒体",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "json_list",
+      "entry": "https://www.nuevamineria.com/revista/wp-json/wp/v2/posts?categories=4635&per_page=12&_fields=id,date_gmt,link,title,excerpt",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 12,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Escondida y sindicato de supervisores alcanzan preacuerdo y postergan inicio de huelga",
+          "url": "https://www.nuevamineria.com/revista/escondida-y-sindicato-de-supervisores-alcanzan-preacuerdo-y-postergan-inicio-de-huelga/",
+          "published_at": "2026-10-14T11:37:54.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Despliegue proyectos BESS en Chile: Desafíos operacionales, regulatorios y de mercado",
+          "url": "https://www.nuevamineria.com/revista/despliegue-proyectos-bess-en-chile-desafios-operacionales-regulatorios-y-de-mercado/",
+          "published_at": "2026-10-13T10:15:42.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Codelco confirma dos trabajadores fallecidos tras alud en El Teniente",
+          "url": "https://www.nuevamineria.com/revista/codelco-confirma-dos-trabajadores-fallecidos-tras-alud-en-el-teniente/",
+          "published_at": "2026-10-12T00:00:37.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "3c1f40d01ac71c7ca7683660f2b5e1413566d5766ce5a485b301ecb13ee3a150"
+    },
+    {
+      "id": "rpl-theassay",
+      "name": "The Assay",
+      "website": "theassay.com",
+      "category": "矿业媒体",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "rss",
+      "entry": "https://www.theassay.com/feed/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 10,
+      "newest": "2026-10-14",
+      "samples": [
+        {
+          "title": "Azzuro Resources Secures Strategic A$3.06M Investment to Advance Mongolian Projects",
+          "url": "https://www.theassay.com/news/financing/azzuro-resources-secures-strategic-a3-06m-investment-to-advance-mongolian-projects/",
+          "published_at": "2026-10-14T02:23:56.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Mining’s Next Race Isn’t for Resources. It’s for Supply Chains.",
+          "url": "https://www.theassay.com/articles/minings-next-race-isnt-for-resources-its-for-supply-chains/",
+          "published_at": "2026-10-13T01:18:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "Titan Mining and US Army Advance Plans for Domestic Graphite Processing Hub",
+          "url": "https://www.theassay.com/articles/titan-mining-and-us-army-advance-plans-for-domestic-graphite-processing-hub/",
+          "published_at": "2026-10-09T04:35:26.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "6b9fabd370d89cc30ddc43de27c070f7aa47a53fc7b0d344d1edeac10e8ebc54"
+    },
+    {
+      "id": "rpl-investingnews",
+      "name": "Investing News Network · 资源板块",
+      "website": "investingnews.com",
+      "category": "矿业媒体",
+      "origin": "替补（包外，待 Owner 确认是否纳入）",
+      "counted_as_new": true,
+      "kind": "web_list",
+      "entry": "https://investingnews.com/category/daily/resource-investing/",
+      "interval_minutes": 60,
+      "owner_entity_id": null,
+      "preview_items": 23,
+      "newest": "2026-10-13",
+      "samples": [
+        {
+          "title": "Patrick Morris: Invest in Canada, Give More, Pay Less Tax",
+          "url": "https://investingnews.com/cfx-canada-charitable-flow-through/",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "EnergyX Inks 10 Year, US$2 Billion Lithium Deal with Trafigura",
+          "url": "https://investingnews.com/energyx-inks-lithium-offtake-trafigura/",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        },
+        {
+          "title": "EU Hybrid EV Cap Sinks Chinese Lithium to 10 Month Low",
+          "url": "https://investingnews.com/eu-ev-cap-chinese-lithium/",
+          "published_at": "2026-10-12T16:00:00.000Z",
+          "date_from": "列表"
+        }
+      ],
+      "low_frequency_exception": null,
+      "manual_decision": null,
+      "config_sha256": "2a26f94911939b2217e17b712a56c5e2055590a1a519fff2c6a14e33f60777ab"
+    }
+  ]
+}

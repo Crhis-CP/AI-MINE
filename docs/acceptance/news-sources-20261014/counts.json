@@ -1,0 +1,53 @@
+{
+  "package/association": {
+    "total": 40,
+    "verified": 32,
+    "blocked": 8
+  },
+  "package/company": {
+    "total": 111,
+    "planned_verified": 2,
+    "verified": 59,
+    "blocked": 45,
+    "pending": 5
+  },
+  "package/media": {
+    "total": 59,
+    "blocked": 17,
+    "verified": 36,
+    "planned_verified": 2,
+    "pending": 4
+  },
+  "package/technology": {
+    "total": 9,
+    "verified": 6,
+    "blocked": 3
+  },
+  "replacement/association": {
+    "total": 10,
+    "verified": 7,
+    "blocked": 3
+  },
+  "replacement/company": {
+    "total": 17,
+    "pending": 1,
+    "verified": 11,
+    "blocked": 5
+  },
+  "replacement/media": {
+    "total": 5,
+    "verified": 4,
+    "pending": 1
+  },
+  "replacement/technology": {
+    "total": 13,
+    "pending": 2,
+    "verified": 9,
+    "blocked": 2
+  },
+  "continuation/company": {
+    "total": 4,
+    "verified": 4,
+    "note": "2026-10-14 续作，在原先 45 个替补之外另找并通过预览；仍待 Q-70 确认"
+  }
+}
