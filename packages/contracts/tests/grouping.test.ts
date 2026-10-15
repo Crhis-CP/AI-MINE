@@ -37,6 +37,7 @@ test("grouping overview distinguishes receipt waiting from manual handling and b
   };
   assert.equal(GroupingOverview.parse({ waiting: 1, needsAttention: 1, items: [item] }).items[0].recovery, "receipt");
   for (const value of [
+    { waiting: 1, needsAttention: 1, items: [{ ...item, receiptId: null }] },
     { waiting: 0, needsAttention: 1, items: [] },
     { waiting: 0, needsAttention: 0, items: [item] },
     { waiting: 1, needsAttention: 0, items: [{ ...item, recovery: "confirmed" }] },
