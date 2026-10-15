@@ -1,7 +1,7 @@
 // One automatic retry after an unknown outcome; uncertainty remains in the cost ledger.
 import { dbOf, type Db } from "../db.ts";
 import { audit } from "../admin/auth.ts";
-import { runtimeControlSnapshot } from "../operations/lane-controls.ts";
+import { requireRuntimeRunning, RuntimeControlPaused } from "../operations/lane-controls.ts";
 
 const sql = dbOf("ai-gateway");
 export const UNKNOWN_AUTO_RELEASE_NOTE = "自动放行：结果未知超过 30 分钟，未核对是否计费";
@@ -23,7 +23,14 @@ export async function recoverUnknownOnce(now: number, resume: (row: Released, db
       if (!row) return null;
       const lane = row.request && typeof row.request === "object" && "lane" in row.request ? row.request.lane : null;
       // An intentional pause must retain the one recovery opportunity until that lane can actually continue.
-      if ((lane === "news" || lane === "policy") && (await runtimeControlSnapshot(lane, ["processing"], tx)).paused) return null;
+      if (lane === "news" || lane === "policy") {
+        try {
+          await requireRuntimeRunning(lane, ["processing"], tx);
+        } catch (error) {
+          if (error instanceof RuntimeControlPaused) return null;
+          throw error;
+        }
+      }
       const [prior] = await tx`SELECT 1 FROM receipt_attempts WHERE receipt_id=${row.id} AND error LIKE ${`${UNKNOWN_AUTO_RELEASE_NOTE}%`} LIMIT 1`;
       if (prior) return null;
       // Mark the original attempt, retaining unknown status, unknown cost and its reserved exposure.

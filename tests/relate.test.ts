@@ -323,3 +323,33 @@ test("reading context is separate from identity candidates and missing value is 
   assert.equal(ValueBatchSchema.safeParse({ decisions: [], selection: { addsValue: "false", reason: "已覆盖" } }).success, false);
   assert.equal(ValueBatchSchema.parse({ decisions: [], selection: { addsValue: false, reason: "已覆盖" } }).selection.addsValue, false);
 });
+
+test("later project stages remain developments even when publication clocks are unknown", () => {
+  const earlier = { ...b, at: null, originalText: "Argentina Alpha project proposed a lithium plant, awaiting approval." };
+  const later = { ...a, at: null, originalText: "Argentina Alpha project approved its lithium plant construction." };
+  const verdict = {
+    relation: "SAME_STORY" as const,
+    confidence: 0.95,
+    evidence: {
+      ...evidence,
+      queryQuote: later.originalText,
+      candidateQuote: earlier.originalText,
+      queryStage: "approved" as const,
+      candidateStage: "proposed" as const,
+      change: "项目已经获得批准",
+    },
+  };
+  assert.equal(validatedRelation(later, earlier, verdict), "SAME_STORY");
+  assert.equal(validatedRelation(later, earlier, { ...verdict, evidence: null }), "SAME_STORY", "missing evidence cannot silently merge two occurrences");
+  assert.equal(validatedRelation(later, earlier, { ...verdict, relation: "SAME_OCCURRENCE" }), "UNRELATED", "different stages cannot be one occurrence");
+  const background = { ...evidence, change: "" };
+  assert.equal(
+    validatedRelation(
+      { ...later, originalText: `${text} Later, new production began.` },
+      { ...earlier, originalText: text },
+      { ...verdict, evidence: background },
+    ),
+    "SAME_STORY",
+    "one shared background quote is not the whole report",
+  );
+});

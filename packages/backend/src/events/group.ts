@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { isValidDate } from "@amp/contracts/time";
-import { newsRelationJurisdictions, readEventPublicationTimes } from "@amp/backend/publication/publish";
+import {
+  newsRelationJurisdictions,
+  readEventPublicationTimes,
+  readGroupingSelectionSnapshot,
+  readConfirmedGroupingItems,
+  type GroupingSelectionSnapshot,
+} from "@amp/backend/publication/publish";
 import {
   newsRelationMaterials,
   lockNewsModelMaterials,
@@ -36,6 +42,7 @@ import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
 import { enqueue, ensureQueue, QUEUES } from "../jobs/queue.ts";
 import { publishArticle, publishArticleTx, articleWithdrawalHeld } from "../publication/publish.ts";
 import { mergeStoryInto } from "./merge.ts";
+import { pickRepresentative } from "../publication/representative.ts";
 
 /** Called under the membership lock, before a regroup can erase an active target association. */
 export async function captureEventWithdrawal(db: Db, articleId: string) {
@@ -426,9 +433,16 @@ async function candidateViews(recalled: Recalled[], db?: Db): Promise<CandidateV
   const byFact = new Map(
     rows.filter((r) => r.manual || materials.some((m) => m.id === r.article_id && m.revision === r.input_revision)).map((r) => [Number(r.fact_id), r]),
   );
+  const selected = await readGroupingSelectionSnapshot(
+    "",
+    recalled.map((r) => r.factId),
+    db,
+  );
   return recalled.flatMap((r) => {
     const row = byFact.get(r.factId);
     if (!row) return [];
+    const visible = selected.filter((item) => item.fact_id === r.factId);
+    const selectedReport = visible.length ? selectionReport(pickRepresentative(visible)) : null;
     return [
       {
         factId: r.factId,
@@ -437,8 +451,11 @@ async function candidateViews(recalled: Recalled[], db?: Db): Promise<CandidateV
         members: Number(row.members),
         storyRoot: roots.get(Number(row.story_id)) === r.factId,
         score: r.score,
+        selected: selectedReport !== null,
+        selectedReport,
         report: {
           articleId: row.article_id,
+          revision: materials.find((m) => m.id === row.article_id)!.revision,
           title: row.title,
           source: row.source,
           firstParty: row.first_party,
@@ -456,22 +473,47 @@ async function candidateViews(recalled: Recalled[], db?: Db): Promise<CandidateV
   });
 }
 
+function selectionReport(row: GroupingSelectionSnapshot): ReportView {
+  return {
+    articleId: row.article_id,
+    revision: row.material_revision,
+    publicationRevision: row.publication_revision,
+    title: row.title,
+    summary: row.summary,
+    source: row.source_name,
+    firstParty: row.first_party,
+    at: row.published_at,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Judgement
 // ---------------------------------------------------------------------------
 
 async function relationInput(reports: ReportView[], system: string, render: () => string) {
   const ids = [...new Set(reports.map((r) => r.articleId).filter((id): id is string => !!id))];
-  if (ids.length !== reports.length) throw new Error("事件裁决缺少双方原材料身份");
+  if (reports.some((report) => !report.articleId)) throw new Error("事件裁决缺少双方原材料身份");
   const read = async () => {
     const originals = await newsRelationMaterials(ids);
     const jurisdictions = await newsRelationJurisdictions(originals);
-    return originals.map((m) => ({ ...m, jurisdiction: jurisdictions.find((j) => j.id === m.id)?.jurisdiction ?? null }));
+    const reading = reports.filter((r) => r.publicationRevision !== undefined);
+    const selected = reading.length ? await readConfirmedGroupingItems(reading.map((r) => r.articleId!)) : [];
+    for (const r of reading) {
+      const current = selected.find((p) => p.article_id === r.articleId);
+      if (!current || current.publication_revision !== r.publicationRevision || current.material_revision !== r.revision)
+        throw new Error("已公开精选背景已变化，须重新判断");
+    }
+    return originals.map((m) => ({
+      ...m,
+      jurisdiction: jurisdictions.find((j) => j.id === m.id)?.jurisdiction ?? null,
+      ...(selected.some((p) => p.article_id === m.id) ? { publication: selected.find((p) => p.article_id === m.id) } : {}),
+    }));
   };
   const initial = await read();
   for (const report of reports) {
     const material = initial.find((m) => m.id === report.articleId);
     if (!material) throw new Error("事件原材料已缺失");
+    if (report.revision !== undefined && report.revision !== material.revision) throw new Error("事件原材料已修订，须重新读取候选");
     report.revision = material.revision;
     report.at = material.published_at;
     report.originalText = material.original_text.slice(0, 12000);
@@ -485,7 +527,9 @@ async function relationInput(reports: ReportView[], system: string, render: () =
 
 async function judgeBatch(articleId: string, query: ReportView, cands: CandidateView[]): Promise<{ verdicts: Map<number, Verdict>; receiptId: number }> {
   query.articleId = articleId;
-  const prepared = await relationInput([query, ...cands.map((c) => c.report)], BATCH_SYSTEM, () => batchUser(query, cands));
+  const prepared = await relationInput([query, ...cands.flatMap((c) => [c.report, ...(c.selectedReport ? [c.selectedReport] : [])])], BATCH_SYSTEM, () =>
+    batchUser(query, cands),
+  );
   const res = await chatJson({
     model: await modelFor("group"),
     purpose: "group_article",

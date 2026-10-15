@@ -22,6 +22,7 @@ export interface ReportView {
   scope?: "single" | "composite" | "unknown";
   articleId?: string;
   revision?: number;
+  publicationRevision?: number;
   originalText?: string;
   jurisdiction?: string | null;
   title: string;
@@ -150,7 +151,7 @@ function oppositeStage(left: string | null | undefined, right: string | null | u
 
 /**
  * The model decides whether two reports are one real event. The program only rejects that answer
- * when the two sides are different projects, opposite stages, or different countries. A low
+ * when the two sides are different projects/countries, or an asserted single occurrence has opposite stages. A low
  * confidence, a missing country, a province of that country, a paraphrase, or 公布/发布/印发 does not split them.
  */
 export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
@@ -158,24 +159,22 @@ export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Ve
   if (jurisdictionsConflict(a.jurisdiction, b.jurisdiction)) return "UNRELATED";
   if (!sameName(a.frame?.object, b.frame?.object)) return "UNRELATED";
   const e = verdict.evidence;
-  if (e && oppositeStage(e.queryStage, e.candidateStage)) return "UNRELATED";
+  if (verdict.relation === "SAME_OCCURRENCE" && e && oppositeStage(e.queryStage, e.candidateStage)) return "UNRELATED";
   if (e?.queryQuote && e.candidateQuote && a.originalText?.includes(e.queryQuote) && b.originalText?.includes(e.candidateQuote)) {
-    if (oppositeStage(statedStage(e.queryQuote), statedStage(e.candidateQuote))) return "UNRELATED";
+    if (verdict.relation === "SAME_OCCURRENCE" && oppositeStage(statedStage(e.queryQuote), statedStage(e.candidateQuote))) return "UNRELATED";
   }
+  // A missing clock or quote is not proof of one occurrence. Explicit developments keep their
+  // distinct identity; only the same complete saved evidence with the same concrete object can fold.
   if (
     verdict.relation === "SAME_STORY" &&
-    !(
-      e &&
-      a.at &&
-      b.at &&
-      a.at > b.at &&
-      e.change.trim() &&
-      !(
-        e.queryStage === e.candidateStage &&
-        e.queryAction === e.candidateAction &&
-        JSON.stringify(e.queryQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? []) === JSON.stringify(e.candidateQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? [])
-      )
-    )
+    a.originalText?.trim() &&
+    b.originalText?.trim() &&
+    a.originalText.trim() === b.originalText.trim() &&
+    a.frame?.object &&
+    b.frame?.object &&
+    sameName(a.frame.object, b.frame.object) &&
+    e?.anchor &&
+    a.originalText.includes(e.anchor)
   )
     return "SAME_OCCURRENCE";
   return verdict.relation;

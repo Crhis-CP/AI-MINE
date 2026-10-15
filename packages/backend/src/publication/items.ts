@@ -358,12 +358,17 @@ export interface GroupingSelectionSnapshot {
 }
 
 /** Only already visible, current confirmed picks can be evidence of what readers have seen. */
-export async function readGroupingSelectionSnapshot(excludeArticleId: string, factIds: number[], db: Db = sql) {
+export async function readGroupingSelectionSnapshot(excludeArticleId: string, factIds: number[], db: Db = sql, selectedIds?: string[]) {
   return db<GroupingSelectionSnapshot[]>`SELECT p.article_id,a.revision AS material_revision,p.revision AS publication_revision,
     p.fact_id,p.title,p.summary,s.name AS source_name,p.first_party,p.published_at,p.discovered_at,p.timeline_at,p.body_mode,p.score
     FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
     WHERE p.article_id<>${excludeArticleId} AND p.visibility='public' AND p.eligible AND p.selected AND p.visible_after<=now()
       AND a.grouping_status='complete' AND a.grouping_input_revision=a.revision
-      AND (p.fact_id=ANY(${factIds}::bigint[]) OR (p.fact_id IS NULL AND p.discovered_at>now()-interval '14 days'))
+      AND (${selectedIds ?? null}::text[] IS NULL OR p.article_id=ANY(${selectedIds ?? []}::text[]))
+      AND (${selectedIds !== undefined} OR p.fact_id=ANY(${factIds}::bigint[]) OR (p.fact_id IS NULL AND p.discovered_at>now()-interval '14 days'))
     ORDER BY p.timeline_at DESC,p.article_id`;
+}
+
+export function readConfirmedGroupingItems(ids: string[], db: Db = sql) {
+  return readGroupingSelectionSnapshot("", [], db, ids);
 }
