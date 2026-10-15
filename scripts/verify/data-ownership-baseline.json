@@ -97,7 +97,6 @@
     "[\"packages/backend/src/operations/reports.ts\",\"sourceHealthWeekly/[[counts], [items], failing, silent]\",\"reports\",\"public.articles\",\"read\",\"cross-debt\"]": 2,
     "[\"packages/backend/src/operations/retention.ts\",\"dailyRetention/files\",\"platform/ops\",\"public.stored_files\",\"write\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/providers/embeddings.ts\",\"ensureEmbeddings/rows\",\"ai-gateway\",\"public.embeddings\",\"read\",\"split-debt\"]": 1,
-    "[\"packages/backend/src/sources/collect.ts\",\"storedTitles/rows\",\"acquisition\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/sources/collect.ts\",\"collectSource\",\"acquisition\",\"public.sources\",\"write\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/sources/collect.ts\",\"scheduleDueSources/rows\",\"acquisition\",\"public.sources\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/sources/collect.ts\",\"scheduleDueSources\",\"acquisition\",\"public.sources\",\"write\",\"cross-debt\"]": 1,

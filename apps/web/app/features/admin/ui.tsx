@@ -38,7 +38,7 @@ export function Card({
   scrollable?: boolean;
 }) {
   return (
-    <section className={`rounded-panel bg-surface ring-1 ring-line ${scrollable ? "min-w-0 overflow-hidden" : ""} ${className}`}>
+    <section className={`min-w-0 rounded-panel bg-surface ring-1 ring-line ${scrollable ? "overflow-hidden" : ""} ${className}`}>
       {(title || right) && (
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
@@ -189,7 +189,7 @@ export function ButtonLink({ to, children, tone = "secondary", size = "md" }: { 
 }
 
 const INPUT =
-  "w-full rounded-control bg-surface px-3 py-2 text-[13.5px] text-ink ring-1 ring-line-strong outline-none transition-shadow placeholder:text-ink-4 focus:ring-2 focus:ring-accent";
+  "w-full rounded-control bg-surface px-3 py-2 text-[16px] text-ink ring-1 ring-line-strong outline-none transition-shadow placeholder:text-ink-4 focus:ring-2 focus:ring-accent sm:text-[13.5px]";
 
 export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
   return (

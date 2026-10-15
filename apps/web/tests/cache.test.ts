@@ -1520,3 +1520,63 @@ test("site information page loads its real contract and keeps protected fields o
     privatePageFixtures = false;
   }
 });
+
+test("model dialog keeps the reason across edits, traps keyboard focus and restores its trigger on desktop and mobile", async () => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((file) => file && existsSync(file));
+  assert.ok(executablePath);
+  const browser = await chromium.launch({
+    executablePath,
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+  privatePageFixtures = true;
+  try {
+    for (const viewport of [
+      { width: 1440, height: 1000 },
+      { width: 390, height: 844 },
+    ]) {
+      const context = await browser.newContext({ viewport, serviceWorkers: "block", reducedMotion: "reduce" });
+      await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+      const page = await context.newPage();
+      await page.goto(`${privateOrigin}/admin/models`, { waitUntil: "networkidle" });
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "admin page must not overflow the viewport");
+      const trigger = page.getByRole("button", { name: "添加接入", exact: true });
+      await trigger.click();
+      const dialog = page.getByRole("dialog", { name: "添加模型接入" });
+      const first = dialog.getByRole("textbox", { name: "接入名称", exact: true });
+      await expect(first).toBeFocused();
+      const reason = dialog.getByRole("textbox", { name: "原因（写进审计记录）", exact: true });
+      await reason.fill("合成界面测试，不保存配置");
+      await first.fill("备用模型");
+      await dialog.getByRole("textbox", { name: "供应商模型标识", exact: true }).fill("synthetic-model");
+      await expect(reason).toHaveValue("合成界面测试，不保存配置");
+      await first.focus();
+      await page.keyboard.press("Shift+Tab");
+      const last = dialog.getByRole("button", { name: "保存接入", exact: true });
+      await expect(last).toBeFocused();
+      await page.keyboard.press("Tab");
+      await expect(first).toBeFocused();
+      await dialog
+        .locator("label")
+        .filter({ hasText: "原因（写进审计记录）" })
+        .click({ position: { x: 10, y: 5 } });
+      await expect(reason).toBeFocused();
+      await expect(dialog).toHaveCSS("opacity", "1");
+      await page.screenshot({ path: `.verify/admin-model-${viewport.width}.png` });
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      await expect(trigger).toBeFocused();
+      await context.close();
+    }
+  } finally {
+    privatePageFixtures = false;
+    await browser.close();
+  }
+});

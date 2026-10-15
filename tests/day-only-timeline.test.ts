@@ -101,6 +101,8 @@ test("a date alone is kept as the start of that day; old ones go on their day, n
   let listed = await pool();
   assert.equal(listed.items.find((i) => i.title === `存量两个月前 ${T}`)?.publishedAt, beijingMidnight(daysAgo(60)), "the public list shows that day");
 
+  // This source has been running a week: recent-onboarding archive filtering still admits both examples.
+  await sql`UPDATE sources SET cursor=jsonb_set(cursor,'{initializedAt}',${sql.json(new Date(Date.now() - 7 * 86400000).toISOString())}) WHERE id=${LIST}`;
   // Later runs: found within 48 hours of its date it is news; found later it goes on its own day.
   entries.push({ slug: "new-yesterday", title: `新稿昨天 ${T}`, day: daysAgo(1) }, { slug: "new-old", title: `新稿三天前 ${T}`, day: daysAgo(3) });
   await collect(LIST);

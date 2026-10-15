@@ -386,8 +386,9 @@ export async function fetchDetail(
       : null;
   let html: string | null = null;
   let body: ExtractedBody | null = null;
-  if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary) {
+  if ((need.date && !dateInJina) || (need.title && !titleInJina) || need.summary || need.body) {
     const res = await guardedFetch(url, { timeoutMs: 20_000 });
+    if (res.status !== 200) throw new FetchError(`Detail HTTP ${res.status}`, res.status);
     if (res.status === 200) {
       observedAt = res.fetchedAt ?? observedAt;
       html = res.text();

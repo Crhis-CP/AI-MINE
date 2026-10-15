@@ -36,6 +36,7 @@ export interface MaterialInput extends MaterialSourceDateInput {
   bodyStatus?: "pending" | "ok" | "unconfirmed" | "none";
   media?: MediaItem[];
   raw?: unknown;
+  collectionDetail?: { rules: string; checkedAt: string };
   via: "fetch" | "ingest" | "import";
   discoveredAt?: Date;
   /** Explicit backfill: first import of a new source, or a report flagged as backfill. */
@@ -134,6 +135,10 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
     await prepareDateMutation(tx, m.sourceId, date);
     if (!collectionControl) await lockSourceNotArchived(tx, m.sourceId);
     const result = await upsertIn(tx, m);
+    if (m.collectionDetail)
+      await tx`UPDATE articles SET raw=jsonb_set(
+      CASE WHEN raw IS NULL THEN '{}'::jsonb WHEN jsonb_typeof(raw)='object' THEN raw ELSE jsonb_build_object('original',raw) END,
+      '{collectionDetail}',${tx.json(m.collectionDetail)}) WHERE id=${result.articleId} AND source_id=${m.sourceId}`;
     // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
     const listed = decideTimeline(m.publishedAt, m.discoveredAt ?? new Date()).publishedAt;
     return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now(), undefined, listed)) });
@@ -407,4 +412,23 @@ export async function prefilterAuditMaterialCopies(articleIds: string[], db: Db)
   if (!articleIds.length) return [];
   return db<{ id: string; title: string; excerpt: string | null; body_text: string | null; discovered_at: Date | null }[]>`
     SELECT id,title,excerpt,body_text,discovered_at FROM articles WHERE id=ANY(${articleIds}::text[])`;
+}
+
+export interface CollectionDetail {
+  identity_key: string;
+  title: string;
+  published_at: Date | null;
+  excerpt: string | null;
+  body_status: string;
+  rules: string | null;
+  checked_at: string | null;
+}
+
+/** The owning source's stored fields and successful detail checkpoint, never another source's rendering. */
+export async function collectionDetails(sourceId: string, identities: string[]): Promise<Map<string, CollectionDetail>> {
+  if (!identities.length) return new Map();
+  const rows = await sql<CollectionDetail[]>`SELECT identity_key,title,published_at,excerpt,body_status,
+    raw->'collectionDetail'->>'rules' AS rules,raw->'collectionDetail'->>'checkedAt' AS checked_at
+    FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
+  return new Map(rows.map((row) => [row.identity_key, row]));
 }
