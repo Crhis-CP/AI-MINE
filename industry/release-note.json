@@ -1,8 +1,8 @@
 {
   "note": {
     "kind": "优化",
-    "title": "用量提醒与失败恢复更清楚",
-    "body": ["累计费用只作提醒，付费请求按各服务的调用次数控制。", "结果暂时未知的处理会等待后自动恢复一次，费用记录继续保留。"]
+    "title": "外文精选与译文状态更清楚",
+    "body": ["外文精选可先阅读中文标题和导读，正文译文随后补充。", "译文尚不完整时保留未译原文，并明确标示当前状态。"]
   },
-  "fragments": ["changes/TASK-0359-usage-recovery.md"]
+  "fragments": ["changes/TASK-0361-selected-translation.md"]
 }

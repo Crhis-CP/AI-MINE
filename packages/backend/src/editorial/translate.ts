@@ -66,7 +66,7 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
   const rows = await sql<{ article_id: string }[]>`
     SELECT p.article_id FROM publications p JOIN articles a ON a.id = p.article_id
     LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh'
-    WHERE p.body_mode = 'full' AND a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh'
+    WHERE p.selected AND p.visibility='public' AND p.body_mode = 'full' AND a.language IS NOT NULL AND split_part(a.language, '-', 1) <> 'zh'
       AND p.article_id > ${afterId ?? ""}
       AND (tr.article_id IS NULL OR (tr.origin <> 'source' AND
            (tr.revision < a.revision OR NOT tr.complete OR tr.recipe IS DISTINCT FROM ${RECIPE})))

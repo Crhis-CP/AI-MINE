@@ -9,7 +9,13 @@ import { dbOf } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { pickRepresentative } from "./timeline.ts";
 import { hasItemPage } from "./rules.ts";
-import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT, type StoredTranslation } from "../editorial/translation-readiness.ts";
+import {
+  isChineseOriginal,
+  readableTranslation,
+  readablePartialTranslation,
+  TRANSLATION_MANIFEST_FORMAT,
+  type StoredTranslation,
+} from "../editorial/translation-readiness.ts";
 import { promptVersion } from "../editorial/prompts.ts";
 
 const sql = dbOf("publication");
@@ -104,12 +110,16 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     const isZh = isChineseOriginal(row.language, row.body_text ?? "");
     const original = linkBodyImages(row.body_html ?? "");
     const verified = isZh || !row.body_html ? null : readableTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
+    const partial =
+      isZh || !row.body_html || verified
+        ? null
+        : readablePartialTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
     const zh = row.manual_body_html
       ? `<p>AI 辅助整理，经人工修订</p>${linkBodyImages(row.manual_body_html)}`
       : isZh
         ? original
-        : verified
-          ? linkBodyImages(verified)
+        : verified || partial
+          ? linkBodyImages((verified ?? partial)!)
           : null;
     const primary = withOutline(zh ?? original);
     outline = primary.outline;
