@@ -3,7 +3,7 @@ import { isModelRouteWaiting } from "../providers/model-fallback.ts";
 import { ReceiptBusyError, ReceiptUnknownError, BudgetExceededError } from "../providers/receipts.ts";
 // Event jobs: serial grouping, debounced digests.
 import type { PgBoss } from "pg-boss";
-import { groupArticle, consolidate, resumeSignalRematch, EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/group.ts";
+import { groupArticle, consolidate, resumeSignalRematch, replayStoredRelations, EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/group.ts";
 import { composeStoryDigest } from "../events/digest.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { settleNonEditorial } from "./content.ts";
@@ -18,7 +18,18 @@ const isWaiting = (error: unknown) =>
   error instanceof BudgetExceededError;
 export async function registerEventJobs(boss: PgBoss) {
   await ensureQueue("events.hot-refresh");
-  await boss.work("events.hot-refresh", { localConcurrency: 1, pollingIntervalSeconds: 2 }, async () => computeHotRanking());
+  let storedRelationsReplayed = false;
+  await boss.work("events.hot-refresh", { localConcurrency: 1, pollingIntervalSeconds: 2 }, async () => {
+    if (!storedRelationsReplayed) {
+      try {
+        await replayStoredRelations(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
+        storedRelationsReplayed = true;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    return computeHotRanking();
+  });
   await ensureQueue(QUEUES.group);
   // Serial on purpose: two reports of the same new fact must not both create it.
   await boss.work<{ articleId: string; signalOnly?: boolean; force?: boolean }>(

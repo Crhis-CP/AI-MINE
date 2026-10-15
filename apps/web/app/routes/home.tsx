@@ -115,11 +115,12 @@ export default function Home() {
   const allTo = waiting ? "/" : undefined;
   return (
     <div className="pb-6">
-      {/* Phones: brand bar, today's hot topics, then the feed under "最新精选". */}
+      {/* Phones: brand bar, then the hotspot board, then the featured list. */}
       <div className="flex h-14 items-center justify-between lg:hidden">
         <Wordmark size={20} className="text-ink" />
         <TodayLabel />
       </div>
+      {data.hot && <HotTopics entries={data.hot} cards={data.cards} />}
       <div className="hidden lg:block">
         <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
@@ -129,7 +130,6 @@ export default function Home() {
       </div>
 
       <JurisdictionFilter base={tabsBase} value={filters.jurisdiction} />
-      {data.hot && <HotTopics entries={data.hot} />}
 
       <h2 className="mt-6 text-[20px] font-bold text-ink lg:hidden">{filters.tag || latest ? title : "最新精选"}</h2>
       <div className="-mx-4 mt-3 flex items-center gap-2 pl-4 pr-2 lg:hidden">

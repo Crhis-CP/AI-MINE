@@ -134,10 +134,10 @@ export async function rankingExtras(ranking: HotRanking) {
   };
 }
 
-/** Home "current hot" strip: 3–5 entries from the same ranking, hidden when there are fewer than 3. */
-export async function loadHotStrip(): Promise<HotStripEntry[] | null> {
+/** Home hotspot board: the same ranking as /hot, up to 5. An empty list is an honest empty board, not a hidden one. */
+export async function loadHotStrip(): Promise<HotStripEntry[]> {
   const ranking = await latestHotRanking();
-  if (!ranking || ranking.entries.length < 3) return null;
+  if (!ranking) return [];
   return ranking.entries.slice(0, 5).map((e) => ({
     rank: e.rank,
     title: e.title,
