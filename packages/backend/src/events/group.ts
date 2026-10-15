@@ -701,10 +701,10 @@ async function markGrouped(articleId: string) {
 /** The live fact another report of the same page belongs to. */
 async function sameUrlFact(a: ArticleRow): Promise<PoolRow | null> {
   const [sameUrl] = await sql<(PoolRow & { input_revision: number | null; manual: boolean })[]>`
-    SELECT fa.article_id, fa.fact_id, f.story_id, f.title AS fact_title
+    SELECT fa.article_id, fa.fact_id, fa.input_revision, fa.manual, f.story_id, f.title AS fact_title
     FROM articles b JOIN fact_articles fa ON fa.article_id = b.id AND fa.role IN ('primary', 'report')
     JOIN facts f ON f.id = fa.fact_id JOIN stories st ON st.id = f.story_id AND st.merged_into IS NULL
-    WHERE b.url = ${a.url} AND b.id <> ${a.id} AND ${trusted("fa")} ORDER BY fa.created_at LIMIT 1`;
+    WHERE b.url = ${a.url} AND b.id <> ${a.id} AND (fa.manual OR fa.input_revision=b.revision) AND ${trusted("fa")} ORDER BY fa.created_at LIMIT 1`;
   if (!sameUrl || sameUrl.manual) return sameUrl ?? null;
   return (await newsRelationMaterials([sameUrl.article_id]))[0]?.revision === sameUrl.input_revision ? sameUrl : null;
 }
