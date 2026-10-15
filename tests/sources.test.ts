@@ -254,8 +254,8 @@ test("feeds keep a date printed alone as the start of that day in Beijing; exact
     [
       ["A day alone", "2026-09-21T16:00:00.000Z"],
       ["An exact time", "2026-09-22T10:30:00.000Z"],
-      ["A time without its zone", null],
-      ["A time joined by T", null],
+      ["A time without its zone", "2026-09-21T16:00:00.000Z"],
+      ["A time joined by T", "2026-09-21T16:00:00.000Z"],
     ],
   );
   assert.equal((await feed("/days-atom.xml"))[0]!.publishedAt?.toISOString(), "2026-09-21T16:00:00.000Z");

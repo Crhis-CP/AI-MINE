@@ -1,6 +1,6 @@
 import { resumePolicyAfterReceipt } from "../policy/receipt-recovery.ts";
 import { recoverUnknownOnce } from "../providers/unknown-recovery.ts";
-import { releaseUnknownReceiptUnbilled } from "@amp/backend/providers/receipts";
+import { releaseUnknownReceiptUnbilled, MANUAL_UNBILLED_NOTE_PREFIX } from "@amp/backend/providers/receipts";
 import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
@@ -9,6 +9,7 @@ import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { EVENT_CONTINUATIONS } from "../events/queues.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -119,11 +120,7 @@ type ReceiptVersion = { attempts: number; version: string };
 async function release(id: number, error: string, actor: string, note: string, billed: false, db: Db, observed: ReceiptVersion) {
   const before = await releaseUnknownReceiptUnbilled(db, id, error, observed);
   if (!before) throw new Conflict("这条回执已被其他操作处理，请刷新后重试");
-  const article = ARTICLE_STEPS.has(before.purpose) ? /^article:([^@:#]+)/.exec(before.subject ?? "")?.[1] : undefined;
-  let requeued = false;
-  if (article) {
-    if (await resetFailedMaterialForRetry(db, article)) requeued = !!(await queueProcessing(article, { db }));
-  }
+  const requeued = await resumeReceiptWork(before, db);
   await audit(
     actor,
     "receipt.release",
@@ -151,23 +148,47 @@ export async function releaseReceipt(id: number, input: unknown, actor: string) 
     throw new Conflict("回执已变化，请重新读取并核对本次尝试的计费依据");
   if (data.billed) throw new Conflict("已计费但结果未取回：须完成金额核销，当前不能放行或重新发起付费调用");
   const note = data.note;
-  const error = `人工核对：供应商未计费。${note}`;
+  const error = `${MANUAL_UNBILLED_NOTE_PREFIX}${note}`;
   return sql.begin((tx) => release(id, error, actor, note, false, tx, row));
+}
+
+/** Restore the original stage; grouping and translation never buy scoring again. */
+async function resumeReceiptWork(row: { purpose: string; subject: string | null; request: unknown }, db: Db) {
+  if (await resumePolicyAfterReceipt(row.request, db)) return true;
+  if (["translate_body", "group_article", "group_review", "group_signal"].includes(row.purpose)) {
+    const pattern =
+      row.purpose === "translate_body" ? /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)#[0-9]+$/ : /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)(?::fact:[1-9][0-9]*)?$/;
+    const subject = pattern.exec(row.subject ?? "");
+    const current = subject ? await readCurrentBody(subject[1]!, db) : null;
+    if (!current || current.revision !== Number(subject![2])) return false;
+    const translation = row.purpose === "translate_body";
+    return !!(await enqueue(
+      translation ? QUEUES.translate : QUEUES.group,
+      { articleId: current.id, ...(row.purpose === "group_signal" ? { signalOnly: true } : {}) },
+      { singletonKey: current.id },
+      db,
+    ));
+  }
+  if (["group_story", "group_story_review"].includes(row.purpose)) {
+    const match = /^story:([1-9][0-9]*):([1-9][0-9]*)$/.exec(row.subject ?? "");
+    const ids = match?.slice(1).map(Number);
+    if (!ids?.every(Number.isSafeInteger)) return false;
+    const storyIds = [...new Set(ids)].sort((a, b) => a - b);
+    return !!(await enqueue(EVENT_CONTINUATIONS.consolidate, { storyIds }, { singletonKey: storyIds.join(":") }, db));
+  }
+  if (row.purpose === "story_digest") {
+    const match = /^story:([1-9][0-9]*)@[0-9]+$/.exec(row.subject ?? "");
+    const storyId = Number(match?.[1]);
+    if (!Number.isSafeInteger(storyId)) return false;
+    return !!(await enqueue(QUEUES.digest, { storyId }, { singletonKey: `story:${storyId}` }, db));
+  }
+  const article = ARTICLE_STEPS.has(row.purpose) ? /^article:([^@:#]+)/.exec(row.subject ?? "")?.[1] : undefined;
+  return !!article && (await resetFailedMaterialForRetry(db, article)) && !!(await queueProcessing(article, { db }));
 }
 
 /** One automatic release; the original uncertain charge remains available for reconciliation. */
 export async function autoReleaseUnknownReceipts(now = Date.now()) {
-  return recoverUnknownOnce(now, async (row, db) => {
-    if (await resumePolicyAfterReceipt(row.request, db)) return true;
-    if (row.purpose === "translate_body") {
-      const subject = /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)#[0-9]+$/.exec(row.subject ?? "");
-      const current = subject ? await readCurrentBody(subject[1]!, db) : null;
-      if (!current || current.revision !== Number(subject![2])) return false;
-      return !!(await enqueue(QUEUES.translate, { articleId: current.id }, { singletonKey: current.id }, db));
-    }
-    const article = ARTICLE_STEPS.has(row.purpose) ? /^article:([^@:#]+)/.exec(row.subject ?? "")?.[1] : undefined;
-    return !!article && (await resetFailedMaterialForRetry(db, article)) && !!(await queueProcessing(article, { db }));
-  });
+  return recoverUnknownOnce(now, resumeReceiptWork);
 }
 
 /** Failed articles (one failure group, or all of the last 30 days) back into processing. */

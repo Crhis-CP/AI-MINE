@@ -830,9 +830,11 @@ export async function canReplaceTranslationResponse(db: Db, receipt: Pick<Receip
 }
 
 /** Called only after an operator's documented non-billing confirmation; CAS and settlement share its transaction. */
+export const MANUAL_UNBILLED_NOTE_PREFIX = "人工核对：供应商未计费。";
+
 export async function releaseUnknownReceiptUnbilled(db: Db, receiptId: number, error: string, observed: { attempts: number; version: string }) {
-  const [before] = await db<{ subject: string | null; purpose: string }[]>`UPDATE receipts SET status='failed',error=${error},updated_at=now()
-    WHERE id=${receiptId} AND status='unknown' AND attempts=${observed.attempts} AND updated_at::text=${observed.version} RETURNING subject,purpose`;
+  const [before] = await db<{ subject: string | null; purpose: string; request: unknown }[]>`UPDATE receipts SET status='failed',error=${error},updated_at=now()
+    WHERE id=${receiptId} AND status='unknown' AND attempts=${observed.attempts} AND updated_at::text=${observed.version} RETURNING subject,purpose,request`;
   if (!before) return null;
   const attempts = await db<{ id: string }[]>`UPDATE receipt_attempts SET status='failed',error=${error}
     WHERE receipt_id=${receiptId} AND attempt=${observed.attempts} AND status='unknown' RETURNING id::text`;
@@ -847,7 +849,8 @@ export async function releasedTranslationScopes(scopes: string[]): Promise<Set<s
     SELECT substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') AS scope,
       r.status,r.error,r.attempts,old.attempt AS released_attempt,
       (current.response IS NOT NULL AND current.response=r.response) AS response_bound
-    FROM receipts r JOIN receipt_attempts old ON old.receipt_id=r.id AND old.status='unknown' AND old.error=${UNKNOWN_AUTO_RELEASE_NOTE}
+    FROM receipts r JOIN receipt_attempts old ON old.receipt_id=r.id AND ((old.status='unknown' AND old.error=${UNKNOWN_AUTO_RELEASE_NOTE})
+      OR (old.status='failed' AND old.error LIKE ${MANUAL_UNBILLED_NOTE_PREFIX + "%"}))
     LEFT JOIN receipt_attempts current ON current.id=r.response_attempt_id AND current.receipt_id=r.id
       AND current.attempt=r.attempts AND current.attempt>old.attempt AND current.status='received' AND current.output_rejected_at IS NULL
     WHERE r.purpose='translate_body' AND substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)')=ANY(${scopes}::text[])`;
@@ -855,7 +858,9 @@ export async function releasedTranslationScopes(scopes: string[]): Promise<Set<s
     rows
       .filter(
         (row) =>
-          (row.status === "failed" && row.error === UNKNOWN_AUTO_RELEASE_NOTE && row.attempts === row.released_attempt) ||
+          (row.status === "failed" &&
+            (row.error === UNKNOWN_AUTO_RELEASE_NOTE || row.error?.startsWith(MANUAL_UNBILLED_NOTE_PREFIX)) &&
+            row.attempts === row.released_attempt) ||
           (["received", "completed"].includes(row.status) && row.response_bound),
       )
       .map((row) => row.scope),

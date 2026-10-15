@@ -138,8 +138,8 @@ import {
 } from "./relate.ts";
 
 const sql = dbOf("events");
-export const EVENT_CONTINUATIONS = { consolidate: "news.events.consolidate", rematch: "news.events.rematch" } as const;
-export const EVENT_CONTINUATION_OPTIONS = { policy: "short" as const, retryLimit: 4, retryDelay: 60, expireInSeconds: 600 };
+import { EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "./queues.ts";
+export { EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "./queues.ts";
 
 export const GROUP_PROMPT_VERSION = RELATE_PROMPT_VERSION;
 /** Reports discovered this recently are candidates (keyed on discovery, so an old page found today still meets its peers). */

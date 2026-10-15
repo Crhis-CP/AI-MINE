@@ -433,3 +433,30 @@ test("policy part cap includes sent rejections but excludes proven pre-send fail
   );
   assert.equal(sent, 2);
 });
+
+test("unknown grouping recovery resumes only its current grouping stage, preserving prior analysis", async () => {
+  for (const purpose of ["group_article", "group_review", "group_signal"]) {
+    const { articleId, receiptId } = await stoppedArticle(purpose);
+    await sql`UPDATE articles SET processing_state='analyzed' WHERE id=${articleId}`;
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${receiptId}`;
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
+    const jobs = await sql`SELECT name,data FROM pgboss.job WHERE data->>'articleId'=${articleId}`;
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].name, "events.group");
+    assert.equal(jobs[0].data.signalOnly, purpose === "group_signal" ? true : undefined);
+    const [article] = await sql`SELECT processing_state,processing_attempts FROM articles WHERE id=${articleId}`;
+    assert.equal(article.processing_state, "analyzed");
+    assert.equal(article.processing_attempts, 3);
+  }
+  const old = await stoppedArticle("group_article");
+  await sql`UPDATE articles SET revision=2 WHERE id=${old.articleId}`;
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${old.receiptId}`;
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 0 });
+  assert.equal((await sql`SELECT 1 FROM pgboss.job WHERE data->>'articleId'=${old.articleId}`).length, 0);
+  const manual = await stoppedArticle("group_review");
+  assert.equal(
+    (await releaseReceipt(manual.receiptId, { billed: false, note: "provider confirmed", version: await versionFor(manual.receiptId) }, "test"))?.requeued,
+    true,
+  );
+  assert.equal((await sql`SELECT name FROM pgboss.job WHERE data->>'articleId'=${manual.articleId}`)[0].name, "events.group");
+});

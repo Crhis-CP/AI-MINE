@@ -261,17 +261,22 @@ test("actual process stop retains the received answer and a new process resumes 
   hold = { asked: gate(), release: gate() };
   const start = hits,
     first = launch();
-  await Promise.race([hold.asked.promise, first.done.then(() => assert.fail("child never called provider"))]);
-  first.child.kill("SIGTERM");
-  await first.stopped;
-  hold.release.open();
-  hold = null;
-  assert.equal(await first.done, "interrupted");
-  assert.equal(hits - start, 1);
-  assert.equal((await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0].status, "received");
-  assert.equal((await translation(articleId)).complete, false);
-  assert.equal(((await launch().done) as { status: string }).status, "translated");
-  assert.equal(hits - start, 2);
+  try {
+    await Promise.race([hold.asked.promise, first.done.then(() => assert.fail("child never called provider"))]);
+    first.child.kill("SIGTERM");
+    await first.stopped;
+    hold.release.open();
+    hold = null;
+    assert.equal(await first.done, "interrupted");
+    assert.equal(hits - start, 1);
+    assert.equal((await sql`SELECT status FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`}`)[0].status, "received");
+    assert.equal((await translation(articleId)).complete, false);
+    assert.equal(((await launch().done) as { status: string }).status, "translated");
+    assert.equal(hits - start, 2);
+  } finally {
+    hold?.release.open();
+    hold = null;
+  }
 });
 
 test("one released unknown segment can recover and continue to the next segment without clearing its old charge", async () => {

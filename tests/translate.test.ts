@@ -13,7 +13,7 @@ import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { promptText } from "@amp/backend/editorial/prompts";
 import { TRANSLATE_PROMPT_VERSION, translateArticle, translatePending } from "@amp/backend/editorial/translate";
-import { latestSuccessfulRunResult, autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
+import { latestSuccessfulRunResult, autoReleaseUnknownReceipts, releaseReceipt, receiptObservedVersion } from "@amp/backend/admin/runs";
 import { getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
 import { buildApp } from "../apps/api/src/app.ts";
@@ -353,38 +353,49 @@ test("unselected foreign articles are public without entering the translation qu
   assert.equal((await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`)[0].n, 0);
 });
 
-test("an authorized translation recovery passes both repair and worker gates without resetting prior attempts", async () => {
-  const { articleId } = await upsertMaterial({
-    sourceId: SOURCE,
-    url: `${URL_}-recovery`,
-    title: `Recovery ${T}`,
-    language: "en",
-    bodyHtml: `<p>Recover first copper note ${T}.</p><p>Recover second copper note ${T}.</p>`,
-    bodyText: `Recovery copper text ${T}`,
-    bodyStatus: "ok",
-    via: "fetch",
-    publishedAt: new Date(),
+for (const recovery of ["automatic", "manual"] as const)
+  test(`${recovery} translation recovery passes both repair and worker gates without resetting prior attempts`, async () => {
+    const { articleId } = await upsertMaterial({
+      sourceId: SOURCE,
+      url: `${URL_}-recovery-${recovery}`,
+      title: `Recovery ${recovery} ${T}`,
+      language: "en",
+      bodyHtml: `<p>Recover ${recovery} first copper note ${T}.</p><p>Recover ${recovery} second copper note ${T}.</p>`,
+      bodyText: `Recovery ${recovery} copper text ${T}`,
+      bodyStatus: "ok",
+      via: "fetch",
+      publishedAt: new Date(),
+    });
+    await currentJudgement(articleId);
+    await publishArticle(articleId);
+    const before = provider.hits();
+    unknownReply = true;
+    try {
+      await assert.rejects(translateArticle(articleId, 1), /尚未确认|unknown/);
+    } finally {
+      unknownReply = false;
+    }
+    await sql`INSERT INTO translation_attempts(article_id,revision,attempts,outcome,reason) VALUES(${articleId},1,3,'failed','previous attempts retained')`;
+    assert.equal((await translateArticle(articleId, 1)).reason, "attempts_exhausted");
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject LIKE ${`article:${articleId}@1#%`}`;
+    if (recovery === "automatic") await autoReleaseUnknownReceipts();
+    else {
+      const [row] = await sql<{ receiptId: string; attempts: number; updatedAtUtc: string }[]>`SELECT id::text AS "receiptId",attempts,
+      pg_catalog.to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAtUtc"
+      FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`} ORDER BY id DESC LIMIT 1`;
+      await releaseReceipt(
+        Number(row.receiptId),
+        { billed: false, note: "fixture provider confirmed not charged", version: receiptObservedVersion(row) },
+        "test",
+      );
+    }
+    assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
+    // Simulate a lost dispatcher job; the repair scan must recognize the same durable recovery permission.
+    await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
+    for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
+    assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
+    assert.equal((await translateArticle(articleId, 1)).status, "translated");
+    assert.equal(provider.hits() - before, 3);
+    const [history] = await sql`SELECT attempts,outcome FROM translation_attempts WHERE article_id=${articleId}`;
+    assert.deepEqual({ ...history }, { attempts: 4, outcome: "translated" });
   });
-  await currentJudgement(articleId);
-  await publishArticle(articleId);
-  const before = provider.hits();
-  unknownReply = true;
-  try {
-    await assert.rejects(translateArticle(articleId, 1), /尚未确认|unknown/);
-  } finally {
-    unknownReply = false;
-  }
-  await sql`INSERT INTO translation_attempts(article_id,revision,attempts,outcome,reason) VALUES(${articleId},1,3,'failed','previous attempts retained')`;
-  assert.equal((await translateArticle(articleId, 1)).reason, "attempts_exhausted");
-  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject LIKE ${`article:${articleId}@1#%`}`;
-  await autoReleaseUnknownReceipts();
-  assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
-  // Simulate a lost dispatcher job; the repair scan must recognize the same durable recovery permission.
-  await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
-  for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
-  assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
-  assert.equal((await translateArticle(articleId, 1)).status, "translated");
-  assert.equal(provider.hits() - before, 3);
-  const [history] = await sql`SELECT attempts,outcome FROM translation_attempts WHERE article_id=${articleId}`;
-  assert.deepEqual({ ...history }, { attempts: 4, outcome: "translated" });
-});
