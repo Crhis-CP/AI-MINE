@@ -84,7 +84,14 @@ export async function updateModelConnection(id: string, input: unknown, principa
     }
     const secretId = value.secret ? randomUUID() : before.secret_id;
     const sealed = value.secret ? sealModelSecret(value.secret, `${id}:${secretId}`) : before.sealed_secret;
-    await tx`UPDATE ai.model_connections SET revision=revision+1,enabled=${value.enabled ?? before.enabled},config=${tx.json(config)},secret_id=${secretId},sealed_secret=${tx.json(sealed)},fingerprint=${sealed.fingerprint},passed_revision=NULL,tested_at=NULL,updated_at=now() WHERE id=${id} AND revision=${before.revision}`;
+    const keepTest =
+      !value.secret &&
+      value.enabled !== false &&
+      before.enabled &&
+      before.passed_revision === before.revision &&
+      modelConfigurationHash(config) === modelConfigurationHash(before.config);
+    await tx`UPDATE ai.model_connections SET revision=revision+1,enabled=${value.enabled ?? before.enabled},config=${tx.json(config)},secret_id=${secretId},sealed_secret=${tx.json(sealed)},fingerprint=${sealed.fingerprint},
+      passed_revision=${keepTest ? before.revision + 1 : null},tested_at=${keepTest ? before.tested_at : null},updated_at=now() WHERE id=${id} AND revision=${before.revision}`;
     const record = await connectionRecord(await connectionRow(id, tx), tx);
     await audit(
       actorOf(principal),
@@ -209,10 +216,9 @@ export async function assignRegisteredModel(capability: string, input: unknown, 
         if (!run.models.includes(previous) || oldCases.length !== run.sample_size || JSON.stringify(oldCases) !== JSON.stringify(newCases))
           throw new ModelConnectionUnavailable("精选评分切换须先完成同一批校准样本的比较");
       }
-    } else {
-      if (!value.emergency_confirmed || capability === "score") throw new ModelConnectionUnavailable("缺少评测依据；评分不得紧急跳过校准比较");
-      await guards.owner(principal, tx);
     }
+    // Quality comparisons remain available, but a tested connection can be selected directly.
+    // Choosing a model does not change the separately approved mining scoring standard.
     const revision = (route?.revision ?? 0) + 1;
     await tx`INSERT INTO ai.model_routes(capability,revision,model_key,connection_revision,evaluation_id,unevaluated) VALUES(${capability},${revision},${value.model},${row.revision},${value.evaluation_id},${!value.evaluation_id}) ON CONFLICT(capability) DO UPDATE SET revision=EXCLUDED.revision,model_key=EXCLUDED.model_key,connection_revision=EXCLUDED.connection_revision,evaluation_id=EXCLUDED.evaluation_id,unevaluated=EXCLUDED.unevaluated,updated_at=now()`;
     await tx`INSERT INTO settings(key,value,updated_by) VALUES(${`models.${capability}`},${tx.json({ model: value.model })},${actorOf(principal)}) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()`;

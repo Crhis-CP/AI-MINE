@@ -331,6 +331,8 @@ export function ReasonDialog({
     const previous = document.activeElement as HTMLElement | null;
     setReason("");
     const t = setTimeout(() => {
+      // A reader may already have clicked or autofilled a field before the opening animation settles.
+      if (dialog.current?.contains(document.activeElement)) return;
       if (focusReason) ref.current?.focus();
       else dialog.current?.querySelector<HTMLElement>("input,select,textarea,button")?.focus();
     }, 60);

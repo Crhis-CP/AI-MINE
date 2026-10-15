@@ -14,7 +14,8 @@
       "部分企业网站的新闻列表和监管披露列表现在能正确读取。",
       "金属价格更及时地检查官方更新，并显示报价日期、比较基期与适用日期。",
       "阅读页在后台检查最新内容时保留正在操作的链接，减少页面跳动；已撤回内容仍会及时移除。",
-      "修复返回列表时标题出现黑框的问题，保留键盘操作的焦点提示。"
+      "修复返回列表时标题出现黑框的问题，保留键盘操作的焦点提示。",
+      "后台可自行添加模型接口和版本、填写密钥、测试连接并按处理环节选择；修改名称和价格不再要求重复测试。"
     ]
   },
   "fragments": [
@@ -24,7 +25,8 @@
     "changes/TASK-0362-source-lists.md",
     "changes/TASK-0367-metal-timeliness.md",
     "changes/TASK-0367-policy-pause.md",
-    "changes/TASK-0367-reader-refresh.md"
+    "changes/TASK-0367-reader-refresh.md",
+    "changes/TASK-0367-model-self-service.md"
   ],
   "announcement": {
     "kind": "公告",

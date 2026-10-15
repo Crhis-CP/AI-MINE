@@ -1,19 +1,24 @@
+import "./setup.ts";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { after, test } from "node:test";
+import { closeDb, dbOf } from "@amp/backend/db";
 import { switchModel } from "@amp/backend/admin/models";
+import { modelFor } from "@amp/backend/editorial/models";
 import { modelPresetReady } from "@amp/backend/providers/llm";
+const sql = dbOf("ai-gateway");
+after(closeDb);
 
-test("model switch rejects an unknown step and a vision mismatch before saving", async () => {
-  await assert.rejects(switchModel("not-a-step", "default", "更换处理模型", "admin:1"), (error: { statusCode?: number }) => error.statusCode === 400);
-  await assert.rejects(switchModel("prefilter", "default", "  ", "admin:1"), (error: { statusCode?: number }) => error.statusCode === 400);
-  await assert.rejects(
-    switchModel("prefilter", "qwen3-vl-flash", "这个环节不看图", "admin:1"),
-    (error: { statusCode?: number; message?: string }) => error.statusCode === 400 && error.message === "只看图的模型不能用于这个环节",
-  );
-  if (!modelPresetReady("mimo-v2.6-flash")) {
-    await assert.rejects(
-      switchModel("summarize", "mimo-v2.6-flash", "切到尚未接入的内置模型", "admin:1"),
-      (error: { statusCode?: number; message?: string }) => error.statusCode === 400 && error.message === "这个模型已内置，当前还没有可用的接口，不能切换过去",
-    );
-  }
+test("model switching validates capability and keeps one route revision clock", async () => {
+  await assert.rejects(switchModel("not-a-step", "default", "更换模型", "admin:1"), (e: { statusCode?: number }) => e.statusCode === 400);
+  await assert.rejects(switchModel("prefilter", "default", " ", "admin:1"));
+  await assert.rejects(switchModel("policy_vision", "deepseek-flash", "视觉环节", "admin:1"), /需要能看图/);
+  if (!modelPresetReady("mimo-v2.6-flash")) await assert.rejects(switchModel("summarize", "mimo-v2.6-flash", "尚未配置", "admin:1"), /没有可用的接口/);
+  process.env.DASHSCOPE_API_KEY = "synthetic-only";
+  process.env.DASHSCOPE_BASE_URL = "https://fixture.invalid/v1";
+  await switchModel("prefilter", "qwen3-vl-flash", "支持文字的多模态模型", "admin:1");
+  assert.equal(await modelFor("prefilter"), "qwen3-vl-flash");
+  const [first] = await sql`SELECT revision FROM ai.model_routes WHERE capability='prefilter'`;
+  await switchModel("prefilter", null, "恢复部署配置", "admin:1");
+  const [second] = await sql`SELECT revision FROM ai.model_routes WHERE capability='prefilter'`;
+  assert.equal(second!.revision, first!.revision + 1);
 });

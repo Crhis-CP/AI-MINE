@@ -9,6 +9,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { privateSchemas } from "@amp/api-client/private";
 import { publicSchemas } from "@amp/api-client/public";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { releaseBoundCache } from "../app/lib/api.server.ts";
@@ -25,6 +26,12 @@ let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
 let privatePageFixtures = false;
+let modelJourney: {
+  connection: ReturnType<typeof privateSchemas.ModelConnectionRecord.parse> | null;
+  route: string;
+  revision: number;
+  commands: Array<{ path: string; body: Record<string, unknown> }>;
+} | null = null;
 let reconciliationUnavailable = false;
 let poolMode: "ok" | "busy" | "bad" | "missing" | "empty" = "ok";
 let timelineMode: "empty" | "ok" | "bad" | "busy" | "missing" | "invalid" = "empty";
@@ -162,14 +169,76 @@ const protectedSiteFixture = {
 const apiCookies: Array<string | undefined> = [];
 const privateCookies: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
-const privateApi = createServer((req, res) => {
+const privateApi = createServer(async (req, res) => {
   privateCookies.push(req.headers.cookie);
   privateCalls.push({ path: req.url!, forwarded: req.headers["x-forwarded-host"] as string | undefined });
   res.setHeader("Content-Type", "application/json");
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
   if (req.url!.startsWith("/api/admin/echo")) return res.end(JSON.stringify({ target: "private", path: req.url, forwarded: req.headers["x-forwarded-host"] }));
   if (privatePageFixtures) {
-    if (req.url === "/api/admin/model-connections") return res.end(JSON.stringify({ storage: "ready", connections: [] }));
+    if (modelJourney && req.method === "POST" && req.url?.startsWith("/api/admin/model-")) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+      const body = JSON.parse(Buffer.concat(chunks).toString());
+      modelJourney.commands.push({ path: req.url, body });
+      if (req.url === "/api/admin/model-connections") {
+        const { secret, reason, owner_confirmed, supplier_basis, ...config } = privateSchemas.ModelConnectionCreate.parse(body);
+        assert.ok(secret && reason && owner_confirmed && supplier_basis);
+        modelJourney.connection = privateSchemas.ModelConnectionRecord.parse({
+          ...config,
+          id: "90f32e1b-398d-4e10-8ab4-748d770e9a07",
+          key: "registered:90f32e1b-398d-4e10-8ab4-748d770e9a07",
+          revision: 1,
+          enabled: true,
+          fingerprint: "synthetic-fingerprint",
+          configuration_hash: "a".repeat(64),
+          test_status: "untested",
+          tested_at: null,
+          updated_at: new Date().toISOString(),
+        });
+        return res.end(JSON.stringify(modelJourney.connection));
+      }
+      if (req.url.endsWith("/test"))
+        return res.end(
+          JSON.stringify({
+            id: "86c944d5-34d3-4164-9943-fcedf7b20785",
+            connection_id: modelJourney.connection!.id,
+            revision: 1,
+            lane: "news",
+            status: "queued",
+            detail: null,
+            receipt_id: null,
+            created_at: new Date().toISOString(),
+            finished_at: null,
+          }),
+        );
+      if (req.url === "/api/admin/model-routes/structure") {
+        const choice = privateSchemas.ModelRouteChange.parse(body);
+        assert.equal(choice.expected_revision, modelJourney.revision);
+        modelJourney.route = choice.model;
+        modelJourney.revision++;
+        return res.end(JSON.stringify({ capability: "structure", model: choice.model, revision: modelJourney.revision, unevaluated: true }));
+      }
+    }
+    if (modelJourney && req.url?.startsWith("/api/admin/model-connection-tests/")) {
+      modelJourney.connection!.test_status = "passed";
+      modelJourney.connection!.tested_at = new Date().toISOString();
+      return res.end(
+        JSON.stringify({
+          id: "86c944d5-34d3-4164-9943-fcedf7b20785",
+          connection_id: modelJourney.connection!.id,
+          revision: 1,
+          lane: "news",
+          status: "passed",
+          detail: "连接通过",
+          receipt_id: "42",
+          created_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+        }),
+      );
+    }
+    if (req.url === "/api/admin/model-connections")
+      return res.end(JSON.stringify({ storage: "ready", connections: modelJourney?.connection ? [modelJourney.connection] : [] }));
     if (req.url === "/api/admin/model-fallbacks") return res.end(JSON.stringify({ routes: [], sources: [] }));
     if (req.url === "/api/admin/selectbench/control") return res.end(JSON.stringify({ enabled: false, expiresAt: null, revision: 0 }));
     if (req.url === "/api/admin/selectbench/prefilter-audit")
@@ -235,7 +304,21 @@ const privateApi = createServer((req, res) => {
       return res.end(
         JSON.stringify({
           days: Number(new URL(req.url, "http://fixture").searchParams.get("days") || 7),
-          capabilities: [],
+          capabilities: modelJourney
+            ? [
+                {
+                  key: "structure",
+                  label: "整理文章结构",
+                  env: "STRUCTURE_MODEL",
+                  defaultModel: "default",
+                  vision: false,
+                  routeRevision: modelJourney.revision,
+                  unevaluated: modelJourney.route !== "default",
+                  current: { model: modelJourney.route, source: modelJourney.route === "default" ? "default" : "admin" },
+                  usage: [],
+                },
+              ]
+            : [],
           choices: [],
           history: [],
           benches: [{ id: "old-bench", label: "旧对比记录" }],
@@ -1578,5 +1661,65 @@ test("model dialog keeps the reason across edits, traps keyboard focus and resto
   } finally {
     privatePageFixtures = false;
     await browser.close();
+  }
+});
+
+test("owner can add an arbitrary model, test it and choose it for a text step without a code change", { timeout: 45000 }, async (t) => {
+  const executablePath = [
+    process.env.E2E_BROWSER_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/opt/google/chrome/chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+    chromium.executablePath(),
+  ].find((file) => file && existsSync(file));
+  assert.ok(executablePath);
+  const browser = await chromium.launch({
+    executablePath,
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  t.after(() => browser.close());
+  privatePageFixtures = true;
+  modelJourney = { connection: null, route: "default", revision: 0, commands: [] };
+  try {
+    const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", reducedMotion: "reduce" });
+    await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+    const page = await context.newPage();
+    await page.goto(`${privateOrigin}/admin/models`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "添加接入", exact: true }).click();
+    const form = page.getByRole("dialog", { name: "添加模型接入" });
+    await form.getByRole("textbox", { name: "接入名称", exact: true }).fill("我的模型");
+    await form.getByRole("textbox", { name: "HTTPS 接口地址", exact: true }).fill("https://provider.invalid/v1");
+    await form.getByRole("textbox", { name: "供应商模型标识", exact: true }).fill("custom-version-2026");
+    await form.getByLabel("API 密钥", { exact: true }).fill("synthetic-browser-only");
+    await form.getByRole("textbox", { name: "输入价格", exact: true }).fill("1.2");
+    await form.getByRole("textbox", { name: "输出价格", exact: true }).fill("3.4");
+    await form.getByRole("textbox", { name: "官方计费依据网址", exact: true }).fill("https://provider.invalid/pricing");
+    await form.getByRole("checkbox", { name: "支持图片输入" }).check();
+    await form.getByRole("textbox", { name: "原因（写进审计记录）", exact: true }).fill("新增自选模型");
+    await form.getByRole("button", { name: "保存接入", exact: true }).click();
+    await expect(form).toBeHidden();
+    await page.getByRole("button", { name: "测试连接", exact: true }).click();
+    await page.getByRole("dialog", { name: "测试模型连接" }).getByRole("button", { name: "发起测试", exact: true }).click();
+    await expect(page.getByText("最近连接测试：连接通过", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "切换", exact: true }).click();
+    const switcher = page.getByRole("dialog", { name: "切换模型：整理文章结构" });
+    await switcher.getByRole("combobox").selectOption(modelJourney.connection!.key);
+    await switcher.getByRole("textbox", { name: "原因（写进审计记录）", exact: true }).fill("使用已测试的新版本");
+    await switcher.getByRole("button", { name: "切换", exact: true }).click();
+    await expect(switcher).toBeHidden();
+    await expect(page.getByText("我的模型 · custom-version-2026", { exact: true })).toBeVisible();
+    const assigned = modelJourney.commands.find((command) => command.path === "/api/admin/model-routes/structure");
+    assert.equal(assigned?.body.emergency_confirmed, false);
+    assert.equal(assigned?.body.evaluation_id, null);
+    assert.equal(modelJourney.route, modelJourney.connection!.key);
+    await page.getByRole("button", { name: "复制配置", exact: true }).click();
+    const copy = page.getByRole("dialog", { name: "添加模型接入" });
+    await expect(copy.getByLabel("API 密钥", { exact: true })).toHaveValue("");
+    await expect(copy.getByRole("textbox", { name: "供应商模型标识", exact: true })).toHaveValue("custom-version-2026");
+  } finally {
+    modelJourney = null;
+    privatePageFixtures = false;
   }
 });

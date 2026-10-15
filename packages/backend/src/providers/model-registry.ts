@@ -95,7 +95,8 @@ export async function resolveRegisteredModel(key: string, probe?: RegisteredAcce
       const current = await connectionRow(id, db);
       if (
         !current.enabled ||
-        current.revision !== row.revision ||
+        (probe && current.revision !== row.revision) ||
+        modelConfigurationHash(current.config) !== modelConfigurationHash(row.config) ||
         current.secret_id !== row.secret_id ||
         (!probe && current.passed_revision !== current.revision)
       )

@@ -102,28 +102,39 @@ export async function modelsOverview(days = 7) {
   return { days, capabilities, choices, families, deploymentReady: modelPresetReady("default"), history, benches };
 }
 
-/** 上游基础方案 switch: pick a configured model, or a registered connection that already passed its test. Applies to new work only. */
+/** Select a configured model; switches apply to subsequent work and preserve existing results. */
 export async function switchModel(capability: string, model: string | null, reason: string, actor: string) {
   const c = (CAPABILITIES as Record<string, Capability>)[capability];
   if (!c) throw Object.assign(new Error("没有这个处理环节"), { statusCode: 400 });
   if (!reason.trim()) throw Object.assign(new Error("请填写切换原因"), { statusCode: 400 });
-  if (model !== null) {
-    const spec = registeredModelId(model) ? await registeredModelSpec(model) : MODELS[model];
-    if (!spec) throw Object.assign(new Error("请选择已经配置的模型"), { statusCode: 400 });
-    if (!!c.vision !== !!spec.vision)
-      throw Object.assign(new Error(c.vision ? "这个环节需要能看图的模型" : "只看图的模型不能用于这个环节"), { statusCode: 400 });
-    if (!registeredModelId(model) && !modelPresetReady(model))
-      throw Object.assign(new Error("这个模型已内置，当前还没有可用的接口，不能切换过去"), { statusCode: 400 });
-  }
-  const before = (await modelSources())[capability];
-  if (model === null) await sql`DELETE FROM settings WHERE key = ${`models.${capability}`}`;
-  else
-    await sql`INSERT INTO settings (key, value, updated_by) VALUES (${`models.${capability}`}, ${sql.json({ model })}, ${actor})
-              ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`;
+  const result = await sql.begin(async (tx) => {
+    await modelRegistryLock(tx, true);
+    if (model !== null) {
+      const spec = registeredModelId(model) ? await registeredModelSpec(model) : MODELS[model];
+      if (!spec) throw Object.assign(new Error("请选择已经配置的模型"), { statusCode: 400 });
+      if (c.vision && !spec.vision) throw Object.assign(new Error("这个环节需要能看图的模型"), { statusCode: 400 });
+      if (!registeredModelId(model) && !modelPresetReady(model))
+        throw Object.assign(new Error("这个模型当前还没有可用的接口，不能切换过去"), { statusCode: 400 });
+    }
+    const before = (await modelSources(tx))[capability];
+    if (model === null) await tx`DELETE FROM settings WHERE key = ${`models.${capability}`}`;
+    else
+      await tx`INSERT INTO settings (key,value,updated_by) VALUES(${`models.${capability}`},${tx.json({ model })},${actor})
+      ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_by=EXCLUDED.updated_by,updated_at=now()`;
+    const after = (await modelSources(tx))[capability]!;
+    const chosenModel = String(after.model);
+    const connectionId = registeredModelId(chosenModel);
+    const connectionRevision = connectionId ? (await connectionRow(connectionId, tx)).revision : 0;
+    // Legacy switches advance the shared revision, so a stale registered-model form cannot undo them.
+    await tx`INSERT INTO ai.model_routes(capability,revision,model_key,connection_revision,evaluation_id,unevaluated)
+      VALUES(${capability},1,${chosenModel},${connectionRevision},NULL,${!!connectionId})
+      ON CONFLICT(capability) DO UPDATE SET revision=ai.model_routes.revision+1,model_key=EXCLUDED.model_key,
+      connection_revision=EXCLUDED.connection_revision,evaluation_id=NULL,unevaluated=EXCLUDED.unevaluated,updated_at=now()`;
+    await audit(actor, "models.switch", `capability:${capability}`, reason, before ?? null, after, undefined, tx);
+    return { capability, before, after };
+  });
   invalidateModelCache();
-  const after = (await modelSources())[capability];
-  await audit(actor, "models.switch", `capability:${capability}`, reason, before ?? null, after ?? null);
-  return { capability, before, after };
+  return result;
 }
 
 export {

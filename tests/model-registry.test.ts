@@ -160,16 +160,17 @@ test("one tiny gateway trial accounts physical estimate and reuses its receipt w
   assert.ok(!JSON.stringify(audits).includes(secret));
   assert.ok(!JSON.stringify(await listModelConnections(owner, guards)).includes("ciphertext"));
 });
-test("CAS routing requires test, explicit emergency/evaluation and score calibration; active connection cannot disable", async () => {
+test("tested models can be freely assigned with CAS; active connection cannot disable", async () => {
   const row = await create();
   const input = { model: row.key, expected_revision: 0, reason: "test", evaluation_id: null, emergency_confirmed: true };
   await assert.rejects(assignRegisteredModel("translate", input, manager, guards));
   const probe = await requestModelConnectionProbe(row.id, { expected_revision: 1, lane: "news" }, manager, guards);
   await runModelConnectionProbe(probe.id, { transport });
-  await assert.rejects(assignRegisteredModel("translate", { ...input, emergency_confirmed: false }, manager, guards));
-  await assert.rejects(assignRegisteredModel("score", input, manager, guards));
-  await assert.rejects(assignRegisteredModel("translate", input, manager, guards));
-  const assigned = await assignRegisteredModel("translate", input, owner, guards);
+  const scored = await assignRegisteredModel("score", { ...input, emergency_confirmed: false }, manager, guards);
+  assert.equal(scored.unevaluated, true, "choosing a model is independent of mining-standard approval");
+  await sql`DELETE FROM settings WHERE key='models.score'`;
+  await sql`DELETE FROM ai.model_routes WHERE capability='score'`;
+  const assigned = await assignRegisteredModel("translate", { ...input, emergency_confirmed: false }, manager, guards);
   assert.equal(assigned.unevaluated, true);
   assert.equal(await modelFor("translate"), row.key);
   await assert.rejects(
@@ -316,9 +317,8 @@ test("configuration hash binds evaluation and output identity; price edits do no
     guards,
   );
   assert.equal(changed.configuration_hash, row.configuration_hash);
+  assert.equal(changed.test_status, "passed", "price-only editing preserves the actual connection test");
   await installUsageFixtureForModel(row.key, sql);
-  const probe = await requestModelConnectionProbe(row.id, { expected_revision: 2, lane: "news" }, manager, guards);
-  await runModelConnectionProbe(probe.id, { transport });
   const before = calls,
     reused = await chatJson(opts);
   assert.equal(reused.receiptId, first.receiptId);
@@ -411,4 +411,27 @@ test("each physical retry binds its own revision, fingerprint and prices; policy
   assert.equal(actual!.configuration_hash, changed.configuration_hash);
   assert.equal(actual!.connection_revision, 2);
   assert.equal(actual!.connection_id, row.id);
+});
+
+test("name and price edits preserve an assigned connection and already prepared calls", async () => {
+  const row = await passing();
+  const resolved = await resolveRegisteredModel(row.key);
+  await assignRegisteredModel(
+    "structure",
+    { model: row.key, expected_revision: 0, reason: "选择模型", evaluation_id: null, emergency_confirmed: false },
+    manager,
+    guards,
+  );
+  const before = calls;
+  const changed = await updateModelConnection(
+    row.id,
+    { ...connection, name: "新名称", input_cny_per_million: "3", expected_revision: row.revision, reason: "更新计费资料" },
+    manager,
+    guards,
+  );
+  assert.equal(changed.test_status, "passed");
+  assert.equal(changed.revision, row.revision + 1);
+  assert.equal(await modelFor("structure"), row.key);
+  await sql.begin((tx) => resolved!.assertCurrent(tx));
+  assert.equal(calls, before, "metadata editing does not buy a new connection test");
 });
