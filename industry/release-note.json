@@ -2,7 +2,11 @@
   "note": {
     "kind": "优化",
     "title": "日报收录时间更清楚",
-    "body": ["日报更清楚地标明本期收录精选的截止时间。", "截稿后入选的内容可查看后续日报，也可直接前往最新精选。"]
+    "body": [
+      "日报更清楚地标明本期收录精选的截止时间。",
+      "截稿后入选的内容可查看后续日报，也可直接前往最新精选。",
+      "阅读页在后台检查最新内容时保留正在操作的链接，减少页面跳动；已撤回内容仍会及时移除。"
+    ]
   },
-  "fragments": ["changes/TASK-0348-daily-cutoff.md"]
+  "fragments": ["changes/TASK-0348-daily-cutoff.md", "changes/TASK-0367-reader-refresh.md"]
 }

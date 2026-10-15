@@ -281,7 +281,7 @@ test("followups distinguish errors, retry, empty results and one-sentence summar
       await page.bringToFront();
       await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
       phase = "initial checking";
-      await expect(page.getByText("正在确认最新内容", { exact: true })).toBeVisible();
+      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
       release();
       phase = "version response";
       const baseline = await version;
@@ -291,7 +291,7 @@ test("followups distinguish errors, retry, empty results and one-sentence summar
       assert.equal((await data).status(), 200);
       // Stream EOF is not the route commit; the guard clears checking after revalidate() resolves.
       phase = "DOM qualified";
-      await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
       await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
       await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
       await expect(page.getByRole("heading", { name: "矿业历史报道", exact: true })).toBeVisible();
