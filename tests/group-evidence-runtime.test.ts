@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { dbOf, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
+import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { groupArticle } from "@amp/backend/events/group";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -12,36 +13,40 @@ import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 const sql = dbOf("events"),
   quote = "甲矿业项目获得批准，将启动锂矿建设。正式来源发布明确建设范围。";
-const provider = await stub(() => ({
-  choices: [
-    {
-      message: {
-        content: JSON.stringify({
-          query: "同一项目批准",
-          decisions: [
-            {
-              id: "C1",
-              relation: "SAME_OCCURRENCE",
-              confidence: 0.95,
-              note: "有双方原文依据",
-              evidence: {
-                queryQuote: quote,
-                candidateQuote: quote,
-                anchor: "甲矿业项目",
-                queryAction: "批准",
-                candidateAction: "批准",
-                queryStage: "approved",
-                candidateStage: "approved",
-                change: "",
+let beforeAnswer: (() => Promise<void>) | null = null;
+const provider = await stub(async () => {
+  await beforeAnswer?.();
+  return {
+    choices: [
+      {
+        message: {
+          content: JSON.stringify({
+            query: "同一项目批准",
+            decisions: [
+              {
+                id: "C1",
+                relation: "SAME_OCCURRENCE",
+                confidence: 0.95,
+                note: "有双方原文依据",
+                evidence: {
+                  queryQuote: quote,
+                  candidateQuote: quote,
+                  anchor: "甲矿业项目",
+                  queryAction: "批准",
+                  candidateAction: "批准",
+                  queryStage: "approved",
+                  candidateStage: "approved",
+                  change: "",
+                },
               },
-            },
-          ],
-        }),
+            ],
+          }),
+        },
       },
-    },
-  ],
-  usage: { prompt_tokens: 100, completion_tokens: 100 },
-}));
+    ],
+    usage: { prompt_tokens: 100, completion_tokens: 100 },
+  };
+});
 process.env.DEEPSEEK_BASE_URL = provider.url;
 process.env.DEEPSEEK_API_KEY = "synthetic-test";
 process.env.GROUP_REVIEW_MODEL = "deepseek-flash";
@@ -82,6 +87,18 @@ test("current source evidence permits a genuine same-occurrence runtime join", a
   assert.equal(result.verdict, "same-fact");
   assert.equal(result.factId, Number(fact!.id));
   assert.equal(provider.hits(), 1);
+  // A selected background can be withdrawn or revised while the provider is answering.
+  // Its old public projection must never be accepted as evidence of what readers have seen.
+  await completeMaterialGrouping(first, 1, { addsValue: true, reason: "合成已公开精选" }, null);
+  await sql`UPDATE publications SET fact_id=${fact!.id},selected=true,eligible=true,visible_after=now()-interval '1 minute' WHERE article_id=${first}`;
+  const racing = await report("changed-reading-background");
+  beforeAnswer = async () => {
+    await sql`UPDATE publications SET revision=revision+1,visibility='withdrawn' WHERE article_id=${first}`;
+  };
+  await assert.rejects(groupArticle(racing), /精选背景|输入|input|fallback/i);
+  beforeAnswer = null;
+  assert.equal((await sql`SELECT 1 FROM fact_articles WHERE article_id=${racing}`).length, 0, "stale reading context does not write a membership");
+
   // Isolate the new-fact insertion path after proving the valid same-occurrence join.
   await sql`DELETE FROM fact_articles WHERE article_id IN (${first},${second})`;
   const malformed = await report("malformed-frame");

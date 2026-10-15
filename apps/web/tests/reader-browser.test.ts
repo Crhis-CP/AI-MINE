@@ -337,8 +337,8 @@ for (const width of [390, 1440]) {
     for (let i = 0; i < 60 && !(await title.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press("Tab");
     await expect(title).toBeFocused();
     assert.equal(await title.evaluate((el) => el.matches(":focus-visible")), true);
-    assert.equal(await title.evaluate((el) => getComputedStyle(el).outlineStyle), "none", "keyboard ring belongs to the card, not tight around text");
-    assert.equal(await title.evaluate((el) => getComputedStyle(el, "::after").outlineStyle), "solid");
+    assert.equal(await title.evaluate((el) => getComputedStyle(el).outlineStyle), "none", "keyboard focus does not draw a box around text");
+    assert.equal(await title.evaluate((el) => getComputedStyle(el).textDecorationLine), "underline");
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(`${origin}/items/fixture-a`);
     await page.goBack();

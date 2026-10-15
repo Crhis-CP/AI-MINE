@@ -431,7 +431,7 @@ async function candidateViews(recalled: Recalled[], db?: Db): Promise<CandidateV
     db,
   );
   const byFact = new Map(
-    rows.filter((r) => r.manual || materials.some((m) => m.id === r.article_id && m.revision === r.input_revision)).map((r) => [Number(r.fact_id), r]),
+    rows.filter((r) => materials.some((m) => m.id === r.article_id && (r.manual || m.revision === r.input_revision))).map((r) => [Number(r.fact_id), r]),
   );
   const selected = await readGroupingSelectionSnapshot(
     "",
@@ -1214,11 +1214,27 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
     await assertRuntimeControl(tx, publication);
     if (receipts.length) {
       await assertRuntimeControl(tx, processing);
-      const evidenceReports = [query, ...cands.map((c) => c.report)];
-      await lockNewsProcessingPermissions(evidenceReports.map((r) => r.articleId!).filter(Boolean), tx);
-      const current = await lockNewsModelMaterials(evidenceReports.map((r) => r.articleId!).filter(Boolean), tx);
+      const evidenceReports = [query, ...cands.flatMap((c) => [c.report, ...(c.selectedReport ? [c.selectedReport] : [])])];
+      const evidenceIds = [...new Set(evidenceReports.map((r) => r.articleId!).filter(Boolean))];
+      await lockNewsProcessingPermissions(evidenceIds, tx);
+      const current = await lockNewsModelMaterials(evidenceIds, tx);
       if (evidenceReports.some((r) => r.articleId && current.find((m) => m.id === r.articleId)?.revision !== r.revision))
         throw new Error("事件证据材料已修订，保持分开并重判");
+      const reading = evidenceReports.filter((report) => report.publicationRevision !== undefined);
+      const currentReading = await readConfirmedGroupingItems(
+        reading.map((report) => report.articleId!),
+        tx,
+      );
+      if (
+        reading.some(
+          (report) =>
+            !currentReading.some(
+              (item) =>
+                item.article_id === report.articleId && item.publication_revision === report.publicationRevision && item.material_revision === report.revision,
+            ),
+        )
+      )
+        throw new Error("已公开精选背景在裁决期间变化，须重新判断");
     }
     const currentRevision = await manualMaterialSnapshot(articleId, tx);
     if (currentRevision?.revision !== a.revision) throw new Error("事件材料在裁决期间已修订");

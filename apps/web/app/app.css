@@ -210,11 +210,9 @@
 @layer components {
   .feed-title:focus-visible {
     outline: none;
-  }
-  .feed-title:focus-visible::after {
-    outline: 2px solid var(--accent);
-    outline-offset: 3px;
-    border-radius: 12px;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
   }
 
   .num {
