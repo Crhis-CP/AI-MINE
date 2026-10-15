@@ -126,13 +126,13 @@ test("a date found only on the detail page is read the same way, in Beijing time
   assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [beijingMidnight(daysAgo(3)), "first-import"]);
 });
 
-test("a time of day without a declared zone keeps that time, read in Beijing, through collection and the date commit", async () => {
+test("a time of day without a declared zone retains only its calendar day through collection", async () => {
   entries = [{ slug: "timed-old", title: `有时分五天前 ${T}`, day: daysAgo(5) }];
   await collect(TIMED);
   const r = await row(`有时分五天前 ${T}`);
-  const tenThirty = new Date(`${daysAgo(5)}T10:30:00+08:00`).toISOString();
-  assert.equal(r.published_at?.toISOString(), tenThirty, "10:30 in Beijing, not the day's start");
-  assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [tenThirty, "first-import"]);
+  const dayAnchor = beijingMidnight(daysAgo(5));
+  assert.equal(r.published_at?.toISOString(), dayAnchor);
+  assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [dayAnchor, "first-import"]);
 });
 
 test("a list that writes 2026/8/5, without leading zeros or a declared format, is read the same way (TASK-0055)", async () => {

@@ -1,6 +1,7 @@
 // Offline regressions for the three generic collectors: split dates, HTML-attribute JSON lists, form pages.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { previewSourceDate } from "../packages/backend/src/sources/date-extraction.ts";
 import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
 import { jsonListDocument } from "@amp/backend/sources/json-list";
 import { formPageRequest, htmlListDocument, listingFormPages } from "@amp/backend/sources/web-list";
@@ -133,11 +134,28 @@ test("configured source timezone resolves a list timestamp without assuming a ti
   const config = { url: "https://exchange.example/news", titlePaths: ["title"], urlTemplate: "https://exchange.example/{id}", publishedAtPath: "published" };
   const body = JSON.stringify([{ id: "1", title: "公告", published: "2026-10-08 09:30:00" }]);
   const without = jsonListDocument(body, source("json_list", config), "2026-10-14T00:00:00Z").candidates[0];
-  assert.equal(without.publishedAt, null);
+  assert.equal(without.publishedAt?.toISOString(), "2026-10-07T16:00:00.000Z");
+  assert.equal(previewSourceDate(without.sourceDateObservation!)?.utc, null);
   const declared = source("json_list", {
     ...config,
     sourceDate: { format: "iso8601", timezone: "Asia/Shanghai", timezoneEvidence: "Fixture official exchange timezone declaration" },
   });
   const withZone = jsonListDocument(body, declared, "2026-10-14T00:00:00Z").candidates[0];
   assert.equal(withZone.publishedAt?.toISOString(), "2026-10-08T01:30:00.000Z");
+});
+
+test("an unzoned JSON timestamp retains its calendar date without inventing an instant", () => {
+  const row = source("json_list", {
+    url: "https://company.example/news",
+    titlePaths: ["title"],
+    urlTemplate: "https://company.example/{id}",
+    publishedAtPath: "date",
+  });
+  const [item] = jsonListDocument(JSON.stringify([{ title: "矿企公告", id: 1, date: "2026-10-08 10:30:00" }]), row, "2026-10-14T00:00:00Z").candidates;
+  assert.equal(item.publishedAt?.toISOString(), "2026-10-07T16:00:00.000Z");
+  const time = previewSourceDate(item.sourceDateObservation!);
+  assert.equal(time?.local_date, "2026-10-08");
+  assert.equal(time?.precision, "date");
+  assert.equal(time?.utc, null);
+  assert.equal(time?.local_time, null);
 });
