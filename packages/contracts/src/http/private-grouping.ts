@@ -17,15 +17,17 @@ export const NewsGroupingDiagnostic = z
     "A completed grouping decision requires current material identity and an explicit value judgement",
   );
 
-export const GroupingQueueItem = z.strictObject({
-  articleId: z.string().min(1),
-  title: z.string(),
-  since: z.iso.datetime({ offset: true }),
-  failed: z.boolean(),
-  recovery: z.enum(["automatic", "receipt", "manual"]),
-  receiptId: z.number().int().positive().nullable(),
-  error: z.string().nullable(),
-});
+export const GroupingQueueItem = z
+  .strictObject({
+    articleId: z.string().min(1),
+    title: z.string(),
+    since: z.iso.datetime({ offset: true }),
+    failed: z.boolean(),
+    recovery: z.enum(["automatic", "receipt", "manual"]),
+    receiptId: z.number().int().positive().nullable(),
+    error: z.string().nullable(),
+  })
+  .refine((value) => value.recovery !== "receipt" || value.receiptId !== null, "Receipt recovery requires a receipt identifier");
 export const GroupingOverview = z
   .strictObject({
     waiting: z.number().int().nonnegative(),
