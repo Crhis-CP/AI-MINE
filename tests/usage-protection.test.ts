@@ -764,3 +764,31 @@ test("two registered prices for one model do not invent a charge for a token-onl
   assert.equal(attempt!.cost, null);
   assert.equal(attempt!.currency, null);
 });
+
+test("a received unpriced attempt is visible as a gap and reconciles once when its matching price arrives", async () => {
+  await install();
+  const req = { ...request("late-price", { capability: "score_article" }), model: "fixture-model" };
+  const received = await paidRequest(req, async () => {
+    calls++;
+    return { response: { ok: true }, usage: { prompt_tokens: 1000, completion_tokens: 10 } };
+  });
+  const [original] = await sql`SELECT state,quote,occurred_at FROM ai.usage_attempts WHERE receipt_id=${received.receiptId}`;
+  assert.equal(original.state, "unknown");
+  assert.equal(original.quote.price, null);
+  assert.equal((await evaluateUsageProtection()).missing.length, 1);
+  await price("0", "usage-fixture", "other-model");
+  assert.equal((await evaluateUsageProtection()).missing.length, 1);
+  await price("0", "usage-fixture", "fixture-model");
+  const reconciled = await evaluateUsageProtection();
+  assert.deepEqual(reconciled.missing, []);
+  const [settled] = await sql`SELECT state,settled_micros::text,quote,occurred_at FROM ai.usage_attempts WHERE receipt_id=${received.receiptId}`;
+  assert.equal(settled.state, "settled");
+  assert.equal(settled.settled_micros, "2040");
+  assert.deepEqual(settled.quote, original.quote);
+  assert.deepEqual(settled.occurred_at, original.occurred_at);
+  const sums = await sql`SELECT kind,key,settled_micros::text,unknown_micros::text,reserved_micros::text FROM ai.usage_sums ORDER BY kind,key`;
+  await evaluateUsageProtection();
+  assert.deepEqual(await sql`SELECT kind,key,settled_micros::text,unknown_micros::text,reserved_micros::text FROM ai.usage_sums ORDER BY kind,key`, sums);
+  assert.equal((await paidRequest(req, send)).receiptId, received.receiptId);
+  assert.equal(calls, 1);
+});

@@ -1,3 +1,4 @@
+import { resumePolicyAfterReceipt } from "../policy/receipt-recovery.ts";
 import { recoverUnknownOnce } from "../providers/unknown-recovery.ts";
 import { releaseUnknownReceiptUnbilled } from "@amp/backend/providers/receipts";
 import { resetFailedMaterialForRetry } from "@amp/backend/content/materials";
@@ -156,6 +157,7 @@ export async function releaseReceipt(id: number, input: unknown, actor: string) 
 /** One automatic release; the original uncertain charge remains available for reconciliation. */
 export async function autoReleaseUnknownReceipts(now = Date.now()) {
   return recoverUnknownOnce(now, async (row, db) => {
+    if (await resumePolicyAfterReceipt(row.request, db)) return true;
     const article = ARTICLE_STEPS.has(row.purpose) ? /^article:([^@:#]+)/.exec(row.subject ?? "")?.[1] : undefined;
     return !!article && (await resetFailedMaterialForRetry(db, article)) && !!(await queueProcessing(article, { db }));
   });

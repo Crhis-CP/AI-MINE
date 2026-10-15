@@ -7,6 +7,7 @@ import {
   type UsageReservation,
   type TaskBudget,
 } from "./usage-protection.ts";
+import { UNKNOWN_AUTO_RELEASE_NOTE } from "./unknown-recovery.ts";
 import { rateYuan, type UsageBounds } from "./usage-pricing.ts";
 
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
@@ -371,13 +372,29 @@ export async function settlePolicyResponse(db: Db, receipt: { receiptId: number;
 async function checkPolicyReceipts(tx: Db, context?: PolicyReceiptContext) {
   if (!context) return;
   const rows = await tx<
-    { id: number; status: string; attempt_id: string | null; attempt_status: string | null; usage: Record<string, unknown> | null; response: unknown }[]
+    {
+      id: number;
+      status: string;
+      error: string | null;
+      attempt_error: string | null;
+      attempt_id: string | null;
+      attempt_status: string | null;
+      usage: Record<string, unknown> | null;
+      response: unknown;
+    }[]
   >`
-    SELECT r.id,r.status,a.id::text AS attempt_id,a.status AS attempt_status,a.usage,a.response
+    SELECT r.id,r.status,r.error,a.error AS attempt_error,a.id::text AS attempt_id,a.status AS attempt_status,a.usage,a.response
     FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
     WHERE r.request->>'lane'='policy' AND r.request->'sourceIds' ?| ${context.sourceIds}::text[]
       AND (r.status IN ('pending','unknown') OR a.status IN ('pending','unknown','received')) ORDER BY r.id`;
   for (const row of rows) {
+    if (
+      row.status === "failed" &&
+      row.attempt_status === "unknown" &&
+      row.error === UNKNOWN_AUTO_RELEASE_NOTE &&
+      row.attempt_error === UNKNOWN_AUTO_RELEASE_NOTE
+    )
+      continue;
     if (row.status === "pending" || row.attempt_status === "pending") throw new ReceiptBusyError(`Policy source receipt ${row.id} is in flight`);
     if (row.status === "unknown" || row.attempt_status === "unknown" || (row.attempt_status === "received" && !knownTranslationUsage(row.usage)))
       throw new ReceiptUnknownError(row.id, "Policy source has unresolved request or usage; regrouping cannot permit another payment", row.attempt_id);

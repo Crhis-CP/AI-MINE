@@ -450,6 +450,20 @@ async function adoptOne(db: Db, row: RecordedAttempt): Promise<boolean> {
     sourceIds: Array.isArray(row.request?.sourceIds) ? row.request.sourceIds.filter((v): v is string => typeof v === "string") : [],
     object,
   };
+  const [unpriced] = await db<AttemptUsage[]>`SELECT lane,capability,source_ids,object_kind,object_id,logical_key,
+    reserved_micros::text,settled_micros::text,state,quote,occurred_at FROM ai.usage_attempts
+    WHERE attempt_id=${row.attempt_id} AND state='unknown' AND quote->'price'='null'::jsonb FOR UPDATE`;
+  if (unpriced) {
+    // Retain the original quote and attribution; reconciliation adds the proven cost exactly once.
+    await db`UPDATE ai.usage_attempts SET state=${row.status === "failed" ? "failed" : "settled"},
+      settled_micros=${cost.toString()},updated_at=now() WHERE attempt_id=${row.attempt_id}`;
+    await applySums(db, contextOf(unpriced), beijingDate(unpriced.occurred_at), {
+      settled: cost,
+      unknown: -BigInt(unpriced.reserved_micros),
+      reserved: 0n,
+    });
+    return true;
+  }
   const inserted = await db<
     { attempt_id: string }[]
   >`INSERT INTO ai.usage_attempts(attempt_id,receipt_id,logical_key,lane,capability,source_ids,object_kind,object_id,reserved_micros,settled_micros,state,quote,occurred_at,submitted) VALUES(${row.attempt_id},${row.receipt_id},${row.logical_key},${lane},${row.purpose},${context.sourceIds},${object?.kind ?? null},${object?.id ?? null},'0',${cost.toString()},${row.status === "failed" ? "failed" : "settled"},${db.json({ recorded_attempt: true })},${row.started_at},true) ON CONFLICT(attempt_id) DO NOTHING RETURNING attempt_id`;
@@ -462,7 +476,7 @@ async function adoptRecordedUsage(db: Db, since: Date) {
   for (let pass = 0; pass < 40; pass++) {
     const rows = await db<
       RecordedAttempt[]
-    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND u.attempt_id IS NULL AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
+    >`SELECT a.id::text AS attempt_id,r.id::text AS receipt_id,r.logical_key,r.purpose,r.subject,a.status,a.cost::text,a.currency,a.cost_basis,r.request,a.started_at,a.usage,a.service,a.model,s.configuration_hash FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id LEFT JOIN ai.model_attempt_snapshots s ON s.attempt_id=a.id WHERE a.origin='live' AND a.started_at>=${since} AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb)) AND a.status IN ('received','failed') AND (pg_catalog.cardinality(${skipped}::bigint[])=0 OR a.id <> ALL(${skipped}::bigint[])) AND (r.request->>'lane' IN ('news','policy') OR r.purpose = ANY(${ATTRIBUTABLE_PURPOSES}::text[])) AND (a.currency IS NULL OR a.currency='CNY') AND (a.status='failed' OR (a.currency='CNY' AND a.cost IS NOT NULL AND a.cost_basis IN ('actual','estimated')) OR (a.status='received' AND a.cost IS NULL AND a.currency IS NULL AND coalesce(a.usage->>'prompt_tokens',a.usage->>'input_tokens',a.usage->>'tokens',a.usage->>'total_tokens') ~ '^[0-9]+$' AND a.usage->>'completion_tokens' ~ '^[0-9]+$')) ORDER BY a.id LIMIT 500`;
     if (!rows.length) return;
     for (const row of rows) if (!(await adoptOne(db, row))) skipped.push(row.attempt_id);
   }
@@ -479,7 +493,7 @@ async function usageCoverageGap(db: Db, configuration: Configuration, now: Date,
   const [missing] = await db<
     { n: number }[]
   >`SELECT count(*)::int AS n FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id LEFT JOIN ai.usage_attempts u ON u.attempt_id=a.id
- WHERE a.origin='live' AND a.started_at>=${since} AND a.status<>'failed' AND u.attempt_id IS NULL
+ WHERE a.origin='live' AND a.started_at>=${since} AND a.status<>'failed' AND (u.attempt_id IS NULL OR (u.state='unknown' AND u.quote->'price'='null'::jsonb))
  AND (${context === undefined} OR (r.request->>'lane'=${context?.lane ?? null} AND (
    (${context?.object?.id ?? null}::text IS NOT NULL AND ((r.request->'usage_object'->>'kind'=${context?.object?.kind ?? null} AND r.request->'usage_object'->>'id'=${context?.object?.id ?? null}) OR (${context?.object?.kind ?? null}='article' AND (r.subject=${context?.object ? `article:${context.object.id}` : null} OR r.subject LIKE ${context?.object ? `article:${context.object.id}#%` : null}))))
    OR (${(context?.sourceIds.length ?? 0) > 0} AND r.purpose=${context?.capability ?? null} AND r.request->'sourceIds' ?| ${context?.sourceIds ?? []}::text[])
