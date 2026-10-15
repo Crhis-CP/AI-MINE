@@ -1,6 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validatedRelation, sameOccurrence, storyForDevelopment, type ReportView, type RelationEvidence } from "../packages/backend/src/events/relate.ts";
+import {
+  BatchSchema,
+  PairSchema,
+  SignalSchema,
+  LegacyIdentityAnswerSchema,
+  completeDecisions,
+  verdictsByFact,
+  validatedRelation,
+  sameOccurrence,
+  storyForDevelopment,
+  type ReportView,
+  type RelationEvidence,
+} from "../packages/backend/src/events/relate.ts";
 const text = "Argentina Alpha project approved its lithium plant construction on Monday.";
 const a: ReportView = {
   title: "A",
@@ -268,4 +280,28 @@ test("a same-event answer joins even when confidence is below the old 0.8 bar", 
   );
   assert.equal(storyForDevelopment([c], new Map([[1, { relation: "SAME_STORY", confidence: 0.7, note: "" }]]))?.factId, 1);
   assert.deepEqual(sameOccurrence([c], new Map([[1, { relation: "UNRELATED", confidence: 0.99, note: "" }]])), []);
+});
+
+test("identity answers must cover each candidate exactly once without coercing broken output", () => {
+  const candidates = [1, 2].map((n) => ({ factId: n, storyId: n, factTitle: "项目批准", members: 1, storyRoot: true, score: 1, report: b }));
+  const decision = (id: string) => ({ id, relation: "UNRELATED" as const, confidence: 0.9 });
+  assert.equal(completeDecisions([decision("C2"), decision("C1")], 2), true);
+  assert.equal(verdictsByFact([decision("C2"), decision("C1")], candidates).size, 2);
+  for (const ids of [[], ["C1"], ["C1", "C1"], ["C0", "C2"], ["C1", "C3"], ["1", "C2"], ["C1", "C2", "C3"]]) {
+    assert.equal(completeDecisions(ids.map(decision), 2), false);
+    assert.throws(() => verdictsByFact(ids.map(decision), candidates), /every candidate/);
+  }
+  for (const malformed of [
+    {},
+    { decisions: null },
+    { decisions: [{ ...decision("C1"), relation: "MAYBE" }] },
+    { decisions: [{ ...decision("C1"), confidence: "0.9" }] },
+    { decisions: [decision("C0")] },
+  ]) {
+    assert.equal(BatchSchema.safeParse(malformed).success, false);
+    assert.equal(SignalSchema.safeParse(malformed).success, false);
+  }
+  assert.equal(PairSchema.safeParse({ relation: "MAYBE", confidence: 0.9 }).success, false);
+  const legacy = LegacyIdentityAnswerSchema.parse({ decisions: [{ ...decision("1"), confidence: "0.9" }] });
+  assert.equal("selection" in legacy, false, "legacy identity evidence never implies selection value");
 });

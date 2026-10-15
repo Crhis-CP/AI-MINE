@@ -56,7 +56,7 @@ export const BATCH_SYSTEM = promptText("group-batch");
 export const PAIR_SYSTEM = promptText("group-pair");
 export const SIGNAL_SYSTEM = promptText("group-signal");
 
-const RelationSchema = z.enum(RELATIONS).catch("UNRELATED");
+const RelationSchema = z.enum(RELATIONS);
 
 const RelationEvidenceSchema = z.object({
   queryQuote: z.string().min(12).max(600),
@@ -171,19 +171,30 @@ export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Ve
   return verdict.relation;
 }
 
+/** Stored identity-only answers remain readable without inventing a later value judgement. */
+export const LegacyIdentityAnswerSchema = z.object({
+  decisions: z.array(
+    z.object({
+      id: z.string(),
+      relation: RelationSchema,
+      confidence: z.coerce.number().min(0).max(1),
+      note: z.string().max(400).catch(""),
+      evidence,
+    }),
+  ),
+});
+
 export const BatchSchema = z.object({
   query: z.string().max(400).catch(""),
-  decisions: z
-    .array(
-      z.object({
-        id: z.string(),
-        relation: RelationSchema,
-        confidence: z.coerce.number().min(0).max(1).catch(0.5),
-        note: z.string().max(400).catch(""),
-        evidence,
-      }),
-    )
-    .catch([]),
+  decisions: z.array(
+    z.object({
+      id: z.string().regex(/^C[1-9]\d*$/),
+      relation: RelationSchema,
+      confidence: z.number().min(0).max(1),
+      note: z.string().max(400).catch(""),
+      evidence,
+    }),
+  ),
 });
 
 export const PairSchema = z.object({
@@ -192,11 +203,11 @@ export const PairSchema = z.object({
   relation: RelationSchema,
   difference: z.string().max(400).catch(""),
   evidence,
-  confidence: z.coerce.number().min(0).max(1).catch(0.5),
+  confidence: z.number().min(0).max(1),
 });
 
 export const SignalSchema = z.object({
-  decisions: z.array(z.object({ id: z.string(), relation: RelationSchema, confidence: z.coerce.number().min(0).max(1).catch(0.5), evidence })).catch([]),
+  decisions: z.array(z.object({ id: z.string().regex(/^C[1-9]\d*$/), relation: RelationSchema, confidence: z.number().min(0).max(1), evidence })),
 });
 
 function when(at: Date | null): string {
@@ -233,12 +244,19 @@ export function pairUser(a: ReportView, b: ReportView): string {
   return `${describeReport(a, "报道 A")}\n\n${describeReport(b, "报道 B")}\n\n这两篇报道是什么关系？`;
 }
 
-/** Verdicts by fact id; a candidate the model skipped counts as UNRELATED. */
+/** Missing, duplicate and unknown candidate IDs are incomplete answers, never unrelatedness. */
+export function completeDecisions(decisions: Array<{ id: string }>, count: number): boolean {
+  const ids = new Set(decisions.map((d) => d.id));
+  return decisions.length === count && ids.size === count && Array.from({ length: count }, (_, i) => `C${i + 1}`).every((id) => ids.has(id));
+}
+
+/** Only complete identity decisions become event relationships. */
 export function verdictsByFact(
   decisions: Array<{ id: string; relation: Relation; confidence: number; note?: string; evidence?: RelationEvidence | null }>,
   cands: CandidateView[],
   query?: ReportView,
 ): Map<number, Verdict> {
+  if (!completeDecisions(decisions, cands.length)) throw new Error("Identity answer must cover every candidate exactly once");
   const out = new Map<number, Verdict>();
   for (const d of decisions) {
     const n = Number(String(d.id).trim().replace(/^C/i, ""));
@@ -251,7 +269,6 @@ export function verdictsByFact(
         evidence: d.evidence,
       });
   }
-  for (const c of cands) if (!out.has(c.factId)) out.set(c.factId, { relation: "UNRELATED", confidence: 0, note: "" });
   return out;
 }
 

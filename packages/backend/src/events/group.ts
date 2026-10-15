@@ -111,6 +111,8 @@ import {
 import {
   BATCH_SYSTEM,
   BatchSchema,
+  LegacyIdentityAnswerSchema,
+  completeDecisions,
   PAIR_SYSTEM,
   PairSchema,
   RELATE_PROMPT_VERSION,
@@ -492,7 +494,7 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
     promptVersion: RELATE_PROMPT_VERSION,
     system: BATCH_SYSTEM,
     ...prepared,
-    schema: BatchSchema,
+    schema: BatchSchema.refine((answer) => completeDecisions(answer.decisions, cands.length), "Each candidate requires exactly one answer"),
     temperature: 0,
     // Each verdict now carries two source quotations and the shared action/stage evidence.
     maxTokens: 512 + 2048 * cands.length,
@@ -528,7 +530,7 @@ async function judgeSignal(articleId: string, query: ReportView, cands: Candidat
     promptVersion: RELATE_PROMPT_VERSION,
     system: SIGNAL_SYSTEM,
     ...prepared,
-    schema: SignalSchema,
+    schema: SignalSchema.refine((answer) => completeDecisions(answer.decisions, cands.length), "Each candidate requires exactly one answer"),
     temperature: 0,
     maxTokens: 512 + 2048 * cands.length,
   });
@@ -927,7 +929,7 @@ function storedModelDecisions(response: unknown) {
   const content = (response as { choices?: Array<{ message?: { content?: unknown } }> } | null)?.choices?.[0]?.message?.content;
   if (typeof content !== "string" || !content.trim()) return null;
   try {
-    return BatchSchema.parse(JSON.parse(content)).decisions;
+    return LegacyIdentityAnswerSchema.parse(JSON.parse(content)).decisions;
   } catch {
     return null;
   }
@@ -1147,9 +1149,7 @@ async function decide(articleId: string, opts: GroupOptions): Promise<GroupResul
         }
       }
     } catch (error) {
-      // A failed identity call must not block publication: the report stays standalone for now.
-      await markGrouped(articleId);
-      await publishArticle(articleId);
+      // Ordinary reading can continue, but failure never supplies a grouping confirmation.
       throw error;
     }
   }

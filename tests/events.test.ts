@@ -37,6 +37,7 @@ let pairRelation: Rel | null = null;
 /** Answer every candidate of a batch prompt, not only the first. */
 let answerAll = false;
 let responseHook: (() => Promise<void>) | null = null;
+let omitCandidates = false;
 const provider = await stub(async (_hit, req) => {
   asked.open();
   await hold.promise;
@@ -44,7 +45,7 @@ const provider = await stub(async (_hit, req) => {
   const body = JSON.parse(req.body) as { messages: Array<{ content: string }> };
   const user = body.messages[1]!.content;
   const pair = user.includes("报道 A");
-  const ids = answerAll ? [...user.matchAll(/【候选 (C\d+)】/g)].map((m) => m[1]!) : ["C1"];
+  const ids = [...user.matchAll(/【候选 (C\d+)】/g)].map((m) => m[1]!);
   const quotes = [...user.matchAll(/原文证据：([\s\S]*?)\n法域：/g)].map((m) => m[1]!.split("\n").at(-1)!);
   const evidence = (index: number) => ({
     queryQuote: quotes[0] ?? "",
@@ -58,8 +59,21 @@ const provider = await stub(async (_hit, req) => {
   });
   const answer = pair
     ? { a: "发布", b: "发布", relation: pairRelation ?? relation, difference: "", confidence: 0.95, evidence: evidence(1) }
-    : { query: "发布新模型", decisions: ids.map((id) => ({ id, relation, confidence: 0.95, note: "", evidence: evidence(Number(id.slice(1))) })) };
-  return { id: "stub", choices: [{ message: { content: JSON.stringify(answer) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
+    : {
+        query: "发布新模型",
+        decisions: ids.map((id) => ({
+          id,
+          relation: answerAll || id === "C1" ? relation : "UNRELATED",
+          confidence: 0.95,
+          note: "",
+          evidence: evidence(Number(id.slice(1))),
+        })),
+      };
+  return {
+    id: "stub",
+    choices: [{ message: { content: JSON.stringify(omitCandidates && !pair ? { query: "不完整答案", decisions: [] } : answer) } }],
+    usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+  };
 });
 process.env.DEEPSEEK_BASE_URL = `${provider.url}/v1`;
 process.env.DEEPSEEK_API_KEY = "test-key";
@@ -435,4 +449,21 @@ test("a pause followed by resume still fences an in-flight grouping result and r
   const retried = await groupArticle(id);
   assert.equal(retried.verdict, "same-fact");
   assert.equal(provider.hits(), hits + 1, "the recorded physical response is reused without another paid call");
+});
+
+test("an incomplete identity response does not confirm grouping or create a separate event", async () => {
+  hold = gate();
+  hold.open();
+  responseHook = null;
+  omitCandidates = true;
+  try {
+    const id = await report("incomplete-identity");
+    await assert.rejects(groupArticle(id));
+    const [article] = await sql`SELECT grouped_at FROM articles WHERE id=${id}`;
+    assert.equal(article!.grouped_at, null);
+    assert.equal((await sql`SELECT 1 FROM fact_articles WHERE article_id=${id}`).length, 0);
+    assert.equal((await sql`SELECT 1 FROM grouping_decisions WHERE article_id=${id}`).length, 0);
+  } finally {
+    omitCandidates = false;
+  }
 });
