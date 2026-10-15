@@ -19,6 +19,7 @@ export const RELATIONS = ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP
 export type Relation = (typeof RELATIONS)[number];
 
 export interface ReportView {
+  scope?: "single" | "composite" | "unknown";
   articleId?: string;
   revision?: number;
   originalText?: string;
@@ -42,7 +43,16 @@ export interface CandidateView {
   /** Recall similarity with the query (cosine, or the lexical fallback's overlap). */
   score: number;
   report: ReportView;
+  selected?: boolean;
+  selectedReport?: ReportView | null;
 }
+
+export interface ReadingContext {
+  report: ReportView;
+}
+export const SelectionValueSchema = z.object({ addsValue: z.boolean(), reason: z.string().trim().min(1).max(400) });
+export type SelectionValue = z.infer<typeof SelectionValueSchema>;
+export const NO_SELECTED_COVERAGE: SelectionValue = { addsValue: true, reason: "没有已公开精选的相关报道" };
 
 export interface Verdict {
   relation: Relation;
@@ -197,6 +207,8 @@ export const BatchSchema = z.object({
   ),
 });
 
+export const ValueBatchSchema = BatchSchema.extend({ selection: SelectionValueSchema });
+
 export const PairSchema = z.object({
   a: z.string().max(400).catch(""),
   b: z.string().max(400).catch(""),
@@ -233,11 +245,25 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
 
 export const candidateKey = (index: number) => `C${index + 1}`;
 
-export function batchUser(query: ReportView, cands: CandidateView[], queryLabel = "新报道"): string {
+export function batchUser(query: ReportView, cands: CandidateView[], queryLabel = "新报道", reading: ReadingContext[] = []): string {
   const list = cands
-    .map((c, i) => describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`))
+    .map((c, i) =>
+      [
+        describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`),
+        queryLabel !== "新报道"
+          ? null
+          : c.selected && c.selectedReport
+            ? c.selectedReport.articleId && c.selectedReport.articleId === c.report.articleId
+              ? "【已公开精选】以上代表报道已向读者展示，增量与该报道比较。"
+              : describeReport(c.selectedReport, "已公开精选", "（增量只与这篇已展示的内容比较）")
+            : "【尚无公开精选】此候选仅用于身份判断，不代表读者已经看过。",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
     .join("\n\n");
-  return `${describeReport(query, queryLabel)}\n\n${list}\n\n${queryLabel}与每个候选的关系是什么？`;
+  const background = reading.map(({ report }, i) => describeReport(report, `已公开精选阅读背景 R${i + 1}`, "（只比较信息覆盖，不是事实候选）")).join("\n\n");
+  return `${describeReport(query, queryLabel)}\n\n${list}${background ? `\n\n${background}` : ""}\n\n${queryLabel}与每个候选的关系是什么？${reading.length ? "同时比较已公开精选的覆盖；无事实候选时 decisions=[]。" : ""}`;
 }
 
 export function pairUser(a: ReportView, b: ReportView): string {

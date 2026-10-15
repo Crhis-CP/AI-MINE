@@ -340,3 +340,30 @@ export async function readEventPublicationTimes(articleIds: string[], db: Db) {
     (extract(epoch from coalesce(published_at,discovered_at))*1000000)::bigint::text AS order_time
     FROM publications WHERE article_id=ANY(${articleIds}::text[])`;
 }
+
+export interface GroupingSelectionSnapshot {
+  article_id: string;
+  material_revision: number;
+  publication_revision: number;
+  fact_id: number | null;
+  title: string;
+  summary: string | null;
+  source_name: string;
+  first_party: boolean;
+  published_at: Date | null;
+  discovered_at: Date;
+  timeline_at: Date;
+  body_mode: string;
+  score: number | null;
+}
+
+/** Only already visible, current confirmed picks can be evidence of what readers have seen. */
+export async function readGroupingSelectionSnapshot(excludeArticleId: string, factIds: number[], db: Db = sql) {
+  return db<GroupingSelectionSnapshot[]>`SELECT p.article_id,a.revision AS material_revision,p.revision AS publication_revision,
+    p.fact_id,p.title,p.summary,s.name AS source_name,p.first_party,p.published_at,p.discovered_at,p.timeline_at,p.body_mode,p.score
+    FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
+    WHERE p.article_id<>${excludeArticleId} AND p.visibility='public' AND p.eligible AND p.selected AND p.visible_after<=now()
+      AND a.grouping_status='complete' AND a.grouping_input_revision=a.revision
+      AND (p.fact_id=ANY(${factIds}::bigint[]) OR (p.fact_id IS NULL AND p.discovered_at>now()-interval '14 days'))
+    ORDER BY p.timeline_at DESC,p.article_id`;
+}

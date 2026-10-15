@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   BatchSchema,
+  ValueBatchSchema,
+  batchUser,
   PairSchema,
   SignalSchema,
   LegacyIdentityAnswerSchema,
@@ -304,4 +306,20 @@ test("identity answers must cover each candidate exactly once without coercing b
   assert.equal(PairSchema.safeParse({ relation: "MAYBE", confidence: 0.9 }).success, false);
   const legacy = LegacyIdentityAnswerSchema.parse({ decisions: [{ ...decision("1"), confidence: "0.9" }] });
   assert.equal("selection" in legacy, false, "legacy identity evidence never implies selection value");
+});
+
+test("reading context is separate from identity candidates and missing value is never affirmative", () => {
+  const candidate = { factId: 1, storyId: 1, factTitle: "铜矿建设", members: 1, storyRoot: true, score: 1, report: b };
+  const unseen = batchUser(a, [candidate]);
+  assert.match(unseen, /尚无公开精选/);
+  assert.doesNotMatch(unseen, /【已公开精选】/);
+  const selected = batchUser(a, [{ ...candidate, selected: true, selectedReport: { ...b, summary: "已公开建设计划" } }], "新报道", [
+    { report: { ...b, summary: "已公开综合稿" } },
+  ]);
+  assert.match(selected, /【候选 C1】/);
+  assert.match(selected, /【已公开精选】/);
+  assert.match(selected, /阅读背景 R1/);
+  assert.equal(ValueBatchSchema.safeParse({ decisions: [] }).success, false);
+  assert.equal(ValueBatchSchema.safeParse({ decisions: [], selection: { addsValue: "false", reason: "已覆盖" } }).success, false);
+  assert.equal(ValueBatchSchema.parse({ decisions: [], selection: { addsValue: false, reason: "已覆盖" } }).selection.addsValue, false);
 });

@@ -600,7 +600,8 @@ export async function lockReportPublications(ids: string[], db: Db) {
   if (ids.length) await db`SELECT article_id FROM publications WHERE article_id=ANY(${ids}::text[]) ORDER BY article_id FOR SHARE`;
 }
 
-export { newsRelationJurisdictions, publicNewsDigestInput } from "./items.ts";
+export { newsRelationJurisdictions, publicNewsDigestInput, readGroupingSelectionSnapshot } from "./items.ts";
+export type { GroupingSelectionSnapshot } from "./items.ts";
 
 export async function publishedStoryId(articleId: string, tx: Tx): Promise<number | null> {
   const [row] = await tx<{ story_id: number | null }[]>`SELECT story_id FROM publications WHERE article_id=${articleId}`;

@@ -107,6 +107,9 @@ for (const width of [390, 1440])
     t.after(() => context.close());
     const blocked = await isolateBrowser(context, [origin]);
     const page = await context.newPage();
+    const navigationErrors: string[] = [];
+    page.on("pageerror", (error) => navigationErrors.push(error.message));
+    page.on("requestfailed", (request) => navigationErrors.push(`${request.url()}: ${request.failure()?.errorText}`));
     for (const path of ["/daily", `/daily/${key}`]) {
       const response = await page.goto(origin + path);
       assert.equal(response!.status(), 200);
@@ -125,7 +128,12 @@ for (const width of [390, 1440])
     const issue = page.getByRole("link").filter({ hasText: title }).last();
     await expect(issue).toHaveAttribute("href", `/daily/${key}`);
     await issue.click();
-    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    try {
+      await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    } catch (error) {
+      t.diagnostic(JSON.stringify({ url: page.url(), navigationErrors, body: (await page.locator("main").innerText()).slice(0, 2000) }));
+      throw error;
+    }
     pending = true;
     await page.goto(origin + "/daily");
     await expect(page.getByText("第一期发布后会出现在这里。", { exact: true })).toBeVisible();

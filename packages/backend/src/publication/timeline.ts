@@ -56,18 +56,8 @@ function binding(q: TimelineQuery): string {
   });
 }
 
-/** Representative preference: first-party, full text, higher score, earliest. */
-type RepresentativeRow = Pick<ItemRow, "first_party" | "body_mode" | "score" | "timeline_at">;
-export function pickRepresentative<T extends RepresentativeRow>(rows: T[]): T {
-  return [...rows].sort((a, b) => {
-    if (a.first_party !== b.first_party) return a.first_party ? -1 : 1;
-    if (a.body_mode !== b.body_mode) return a.body_mode === "full" ? -1 : 1;
-    const sa = a.score ?? 0;
-    const sb = b.score ?? 0;
-    if (sa !== sb) return sb - sa;
-    return a.timeline_at.getTime() - b.timeline_at.getTime();
-  })[0]!;
-}
+import { pickRepresentative, type RepresentativeRow } from "./representative.ts";
+export { pickRepresentative } from "./representative.ts";
 
 /**
  * Public pool reports linked to the facts of the given stories and standalone facts, under the same
