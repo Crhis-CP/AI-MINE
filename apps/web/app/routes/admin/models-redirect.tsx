@@ -1,7 +1,5 @@
-import { redirect, type LoaderFunctionArgs } from "react-router";
-
-export function loader({ request }: LoaderFunctionArgs) {
+import { redirect } from "react-router";
+export function loader({ request }: { request: Request }) {
   const days = new URL(request.url).searchParams.get("days");
-  const query = days === null ? "" : `?${new URLSearchParams({ days })}`;
-  return redirect(`/admin/usage-models${query}`, 302);
+  return redirect(`/admin/models${days ? `?days=${encodeURIComponent(days)}` : ""}`, 302);
 }

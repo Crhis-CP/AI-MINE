@@ -242,6 +242,7 @@ const privateApi = createServer((req, res) => {
         }),
       );
     if (req.url === "/api/admin/settings") return res.end(JSON.stringify({ targets: [], budgets: [] }));
+    if (req.url?.startsWith("/api/admin/audit")) return res.end(JSON.stringify({ page: 1, rows: [] }));
     if (req.url === "/api/admin/runs") {
       if (reconciliationUnavailable) {
         res.statusCode = 503;
@@ -249,9 +250,27 @@ const privateApi = createServer((req, res) => {
       }
       return res.end(
         JSON.stringify({
-          processes: [{ host: "NEVER_SERIALIZE_PROCESS" }],
-          queues: [{ name: "NEVER_SERIALIZE_QUEUE" }],
-          timeline: ["NEVER_SERIALIZE_TIMELINE"],
+          checkedAt: "2026-10-15T00:00:00Z",
+          processes: [
+            {
+              role: "worker",
+              pid: 1,
+              host: "fixture-host",
+              release: "fixture",
+              startedAt: "2026-10-15T00:00:00Z",
+              at: "2026-10-15T00:00:00Z",
+              alive: true,
+              private: "NEVER_SERIALIZE_PROCESS",
+            },
+          ],
+          queues: [{ name: "content.analyze", state: "created", n: 2, oldest: "2026-10-15T00:00:00Z", private: "NEVER_SERIALIZE_QUEUE" }],
+          timeline: [],
+          jobs: [],
+          failedJobs: [],
+          lagging: [],
+          errors: [],
+          ingest: [],
+          retrying: { count: 0, next: null },
           receipts: {
             counts: { unknown: 1 },
             issues: [
@@ -278,7 +297,10 @@ const privateApi = createServer((req, res) => {
               subject_kind: "selected",
               subject_id: "test-material",
               updated_at: "2026-10-04T00:00:00Z",
-              response: "NEVER_SERIALIZE_DELIVERY",
+              response: "合成投递结果未知",
+              attempts: 1,
+              created_at: "2026-10-04T00:00:00Z",
+              private: "NEVER_SERIALIZE_DELIVERY",
             },
           ],
         }),
@@ -1312,11 +1334,11 @@ test("existing private preview links redirect only to the configured public orig
   assert.equal(unknown.headers.get("Location"), null);
 });
 
-test("retired daily pages are absent and private navigation no longer requests counts or links construction tools", async () => {
+test("retired search pages stay absent while canonical admin navigation includes runtime and audit", async () => {
   const before = privateCalls.length;
   privatePageFixtures = true;
   try {
-    for (const path of ["/search-busy", "/all/search-busy", "/admin/audit", "/admin/runs"]) {
+    for (const path of ["/search-busy", "/all/search-busy"]) {
       for (const suffix of ["", ".data?_routes=root"]) {
         for (const method of ["GET", "HEAD"]) {
           const response = path.startsWith("/admin")
@@ -1330,30 +1352,32 @@ test("retired daily pages are absent and private navigation no longer requests c
         }
       }
     }
-    const response = await fetchWithHost(origin + "/admin/usage-models", PRIVATE_HOST);
+    const response = await fetchWithHost(origin + "/admin/models", PRIVATE_HOST);
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.match(html, /合成管理员/);
     assert.match(html, /模型与评测/);
     assert.match(html, /内容诊断/);
     assert.match(html, /精选校准/);
-    assert.match(html, /费用核对/);
+    assert.match(html, /审计记录/);
+    assert.match(html, /运行/);
     for (const path of [
       "content",
       "sources",
       "sources/targets",
-      "usage-models",
+      "models",
       "site",
       "feedback",
       "account",
       "accounts",
       "selectbench",
-      "usage-models/reconciliation",
-      "usage-models/settings",
+      "runs",
+      "audit",
+      "settings",
     ]) {
       assert.ok(html.includes(`href="/admin/${path}"`), `existing private entry ${path} remains`);
     }
-    assert.doesNotMatch(html, /\/admin\/(?:audit|runs)|同批样本对比|Codex|888/);
+    assert.doesNotMatch(html, /同批样本对比|Codex|888/);
     assert.ok(
       privateCalls
         .slice(before)
@@ -1384,7 +1408,9 @@ test("retired daily pages are absent and private navigation no longer requests c
     await runPage.text();
     for (const group of ["public", "private"]) {
       const modules = readFileSync(new URL(`../build/${group}/modules.json`, import.meta.url), "utf8");
-      assert.doesNotMatch(modules, /routes\/(?:search-busy|admin\/(?:audit|runs))/);
+      assert.doesNotMatch(modules, /routes\/search-busy/);
+      if (group === "public") assert.doesNotMatch(modules, /routes\/admin\/(?:audit|runs)/);
+      else assert.match(modules, /routes\/admin\/runs/);
       if (group === "public") assert.doesNotMatch(modules, /routes\/admin\/selectbench/);
       else assert.match(modules, /routes\/admin\/selectbench/);
     }
@@ -1393,11 +1419,11 @@ test("retired daily pages are absent and private navigation no longer requests c
   }
 });
 
-test("usage reconciliation renders existing controls and serializes only needed fees and delivery fields", async () => {
+test("runtime dashboard exposes operational fields but never serializes unused request data", async () => {
   privatePageFixtures = true;
   try {
     for (const suffix of ["", ".data"]) {
-      const path = "/admin/usage-models/reconciliation" + suffix;
+      const path = "/admin/runs" + suffix;
       const before = privateCalls.length;
       const denied = await fetch(origin + path);
       assert.equal(denied.status, 404);
@@ -1410,11 +1436,12 @@ test("usage reconciliation renders existing controls and serializes only needed 
       const body = await response.text();
       assert.match(body, /合成通知目的地/);
       assert.match(body, /结果待核实/);
-      assert.doesNotMatch(body, /NEVER_SERIALIZE|worker|队列积压|任务时间线|每 20 秒/);
+      assert.doesNotMatch(body, /NEVER_SERIALIZE/);
+      assert.match(body, /队列积压|content.analyze/);
       assert.ok(privateCalls.slice(before).some(({ path }) => path === "/api/admin/runs"));
     }
     reconciliationUnavailable = true;
-    const failed = await fetchWithHost(origin + "/admin/usage-models/reconciliation", PRIVATE_HOST);
+    const failed = await fetchWithHost(origin + "/admin/runs", PRIVATE_HOST);
     assert.equal(failed.status, 503);
     assert.equal(failed.headers.get("Cache-Control"), "private, no-store");
     await failed.text();
@@ -1429,8 +1456,9 @@ test("six private groups reuse existing capabilities and old bookmarks have only
   try {
     for (const method of ["GET", "HEAD"]) {
       for (const [oldPath, expected] of [
-        ["/admin/models?days=30&days=7&redirect=https://attacker.invalid", "/admin/usage-models?days=30"],
-        ["/admin/settings?next=//attacker.invalid", "/admin/usage-models/settings"],
+        ["/admin/usage-models?days=30&days=7&redirect=https://attacker.invalid", "/admin/models?days=30"],
+        ["/admin/usage-models/settings?next=//attacker.invalid", "/admin/settings"],
+        ["/admin/usage-models/reconciliation?next=//attacker.invalid", "/admin/runs"],
       ]) {
         const response = await fetchWithHost(origin + oldPath, PRIVATE_HOST, { method });
         assert.equal(response.status, 302);
@@ -1439,7 +1467,7 @@ test("six private groups reuse existing capabilities and old bookmarks have only
         await response.text();
       }
     }
-    for (const path of ["/admin/accounts", "/admin/site", "/admin/usage-models/settings"]) {
+    for (const path of ["/admin/accounts", "/admin/site", "/admin/settings"]) {
       const before = privateCalls.length;
       const denied = await fetch(origin + path);
       assert.equal(denied.status, 404);
