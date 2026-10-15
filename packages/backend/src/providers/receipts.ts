@@ -336,6 +336,13 @@ export async function readPolicyResponse(receipt: { receiptId: number; attemptId
   return row ? { ...row, knownUsage: knownTranslationUsage(row.usage) } : null;
 }
 
+/** Saved model JSON for a receipt that already finished. Reads only; does not send or bill again. */
+export async function readStoredModelResponse(receiptId: number): Promise<unknown | null> {
+  const [row] = await sql<{ response: unknown }[]>`
+    SELECT response FROM receipts WHERE id = ${receiptId} AND response IS NOT NULL AND status IN ('received', 'completed')`;
+  return row?.response ?? null;
+}
+
 /** Recover a just-failed JSON parse from the real response pointer; callers still verify the exact input hashes. */
 export async function readPolicyResponseForReceipt(receiptId: number) {
   const [row] = await sql<{ attemptId: string | null }[]>`SELECT response_attempt_id::text AS "attemptId" FROM receipts WHERE id=${receiptId}`;

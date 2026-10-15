@@ -10,6 +10,7 @@
 // "prefer no" refused half of the true merges (measured 2026-09-28 on 370 labelled pairs).
 import { z } from "zod";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
+import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 
 export const RELATE_PROMPT_VERSION = promptVersion("group-batch", "group-pair", "group-signal");
@@ -78,35 +79,95 @@ function statedStage(quote: string): string | null {
   return null;
 }
 
-/** Raw quotations and material identity outrank confidence and lexical recall. */
+function compactName(value: string | null | undefined): string {
+  return (value ?? "").replace(/[\s《》「」“”"'‘’（）()、，。]/g, "");
+}
+
+/** Missing side, equal text, or one name inside the other. Spaces and book-title marks are not a second entity. */
+function sameName(left: string | null | undefined, right: string | null | undefined): boolean {
+  const a = compactName(left),
+    b = compactName(right);
+  if (!a || !b || a === b) return true;
+  return a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a));
+}
+
+const jurisdictionById = new Map(JURISDICTIONS.map((row) => [row.id, row]));
+
+function countryOf(row: (typeof JURISDICTIONS)[number]): string {
+  let current = row;
+  const seen = new Set<string>();
+  while (current.parent && !seen.has(current.id)) {
+    seen.add(current.id);
+    const parent = jurisdictionById.get(current.parent);
+    if (!parent) break;
+    current = parent;
+    if (current.kind === "country") return current.id;
+  }
+  return current.kind === "country" ? current.id : current.id;
+}
+
+const countryByName = new Map<string, string>();
+for (const row of JURISDICTIONS) {
+  const country = countryOf(row);
+  for (const name of [row.id, row.name_zh, row.name_en]) countryByName.set(name.toLocaleLowerCase(), country);
+}
+for (const [name, country] of [
+  ["中国", "CN"],
+  ["中华人民共和国", "CN"],
+  ["china", "CN"],
+] as const)
+  countryByName.set(name.toLocaleLowerCase(), country);
+
+/** Country of a stored code or a plain name. A province and its country are the same country. */
+export function countryKey(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  return countryByName.get(raw.toLocaleLowerCase()) ?? countryByName.get(raw.toUpperCase().toLocaleLowerCase()) ?? raw.toUpperCase();
+}
+
+/** Both sides name a country, and those countries differ. A blank side is not a conflict. */
+export function jurisdictionsConflict(left: string | null | undefined, right: string | null | undefined): boolean {
+  const a = countryKey(left),
+    b = countryKey(right);
+  return !!a && !!b && a !== b;
+}
+
+const OPPOSITE_STAGE: Record<string, string> = { proposed: "approved", approved: "proposed", stopped: "resumed", resumed: "stopped" };
+
+function oppositeStage(left: string | null | undefined, right: string | null | undefined): boolean {
+  return !!left && !!right && OPPOSITE_STAGE[left] === right;
+}
+
+/**
+ * The model decides whether two reports are one real event. The program only rejects that answer
+ * when the two sides are different projects, opposite stages, or different countries. A low
+ * confidence, a missing country, a province of that country, a paraphrase, or 公布/发布/印发 does not split them.
+ */
 export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
   if (verdict.relation !== "SAME_OCCURRENCE" && verdict.relation !== "SAME_STORY") return verdict.relation;
+  if (jurisdictionsConflict(a.jurisdiction, b.jurisdiction)) return "UNRELATED";
+  if (!sameName(a.frame?.object, b.frame?.object)) return "UNRELATED";
   const e = verdict.evidence;
-  if (verdict.confidence < 0.8 || !e || !a.originalText || !b.originalText || !a.jurisdiction || a.jurisdiction !== b.jurisdiction) return "UNRELATED";
-  if (!a.originalText.includes(e.queryQuote) || !b.originalText.includes(e.candidateQuote)) return "UNRELATED";
-  if (
-    ![e.queryQuote, e.candidateQuote].every((q) => q.includes(e.anchor)) ||
-    !e.queryQuote.includes(e.queryAction) ||
-    !e.candidateQuote.includes(e.candidateAction)
-  )
-    return "UNRELATED";
-  const aStage = statedStage(e.queryQuote),
-    bStage = statedStage(e.candidateQuote);
-  if ((aStage && aStage !== e.queryStage) || (bStage && bStage !== e.candidateStage)) return "UNRELATED";
-  if (a.frame?.object && b.frame?.object && a.frame.object !== b.frame.object) return "UNRELATED";
-  if (a.frame?.subject && b.frame?.subject && a.frame.subject !== b.frame.subject) return "UNRELATED";
-  if (verdict.relation === "SAME_OCCURRENCE" && (e.queryStage !== e.candidateStage || e.queryAction !== e.candidateAction)) return "UNRELATED";
+  if (e && oppositeStage(e.queryStage, e.candidateStage)) return "UNRELATED";
+  if (e?.queryQuote && e.candidateQuote && a.originalText?.includes(e.queryQuote) && b.originalText?.includes(e.candidateQuote)) {
+    if (oppositeStage(statedStage(e.queryQuote), statedStage(e.candidateQuote))) return "UNRELATED";
+  }
   if (
     verdict.relation === "SAME_STORY" &&
-    (!a.at ||
-      !b.at ||
-      a.at <= b.at ||
-      !e.change.trim() ||
-      (e.queryStage === e.candidateStage &&
+    !(
+      e &&
+      a.at &&
+      b.at &&
+      a.at > b.at &&
+      e.change.trim() &&
+      !(
+        e.queryStage === e.candidateStage &&
         e.queryAction === e.candidateAction &&
-        JSON.stringify(e.queryQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? []) === JSON.stringify(e.candidateQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? [])))
+        JSON.stringify(e.queryQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? []) === JSON.stringify(e.candidateQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? [])
+      )
+    )
   )
-    return "UNRELATED";
+    return "SAME_OCCURRENCE";
   return verdict.relation;
 }
 
@@ -197,17 +258,13 @@ export function verdictsByFact(
 /** Candidates the model calls the same occurrence, most confident first (recall similarity breaks ties). */
 export function sameOccurrence(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView[] {
   return cands
-    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE" && verdicts.get(c.factId)!.confidence >= 0.8)
+    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE")
     .sort((a, b) => verdicts.get(b.factId)!.confidence - verdicts.get(a.factId)!.confidence || b.score - a.score);
 }
 
 /** The story a development joins: the most similar candidate that is its story's root occurrence. */
 export function storyForDevelopment(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView | null {
-  return (
-    cands
-      .filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY" && verdicts.get(c.factId)!.confidence >= 0.8)
-      .sort((a, b) => b.score - a.score)[0] ?? null
-  );
+  return cands.filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY").sort((a, b) => b.score - a.score)[0] ?? null;
 }
 
 export function looksLikeRoundup(cands: CandidateView[], verdicts: Map<number, Verdict>): boolean {
