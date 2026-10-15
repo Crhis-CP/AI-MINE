@@ -1,5 +1,5 @@
 ---
-type: 修复
+type: 优化
 audience: 读者和运营
 title: 综合新闻与单一事件分别归类
 highlights:

@@ -202,7 +202,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       const snap = readSnapshot<ListState>(historyKey);
       if (snap) {
         setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
-        restoreAnchor(snap.anchor, snap.scrollY);
+        restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
       } else {
         setState(fromResponse(initial));
       }
@@ -219,11 +219,11 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       // that reloaded the document, it restores the saved list and position.
       if (snap && !isReload()) {
         setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
-        requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY));
+        requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus));
       }
       return;
     }
-    if (snap) restoreAnchor(snap.anchor, snap.scrollY);
+    if (snap) restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
   }, [historyKey, initial]);
 
   // Save the snapshot whenever we leave this history entry.

@@ -46,7 +46,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
       </header>
 
       <h3 className="mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] text-ink">
-        <IntentLink to={`/items/${item.id}`} className="after:absolute after:inset-0 after:content-['']">
+        <IntentLink to={`/items/${item.id}`} className="feed-title after:absolute after:inset-0 after:content-['']">
           {item.title}
         </IntentLink>
       </h3>

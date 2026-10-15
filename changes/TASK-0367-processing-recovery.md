@@ -1,5 +1,5 @@
 ---
-type: 修复
+type: 优化
 audience: 读者和运营
 title: 已有结果继续使用，翻译恢复更可靠
 highlights:

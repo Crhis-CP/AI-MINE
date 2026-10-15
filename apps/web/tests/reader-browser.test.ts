@@ -77,6 +77,16 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/meta") return answer({ changelogVersion: null });
   if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : "1" });
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
+  if (url.pathname === "/api/site/timeline")
+    return answer({
+      filters: { channel: "all", category: null, tag: null, topic: null, jurisdiction: null },
+      cards: [{ key: "fixture-a", anchorAt: now, item: card(), group: null }],
+      nextCursor: null,
+      refreshAt: null,
+      hot: null,
+      dayCounts: {},
+      generatedAt: now,
+    });
   if (url.pathname === "/api/site/items/saved") return answer({ items: withdrawn ? [] : [card()], unavailableIds: withdrawn ? ["fixture-a"] : [] });
   if (url.pathname === "/api/site/items/fixture-a") {
     if (withdrawn) {
@@ -153,7 +163,7 @@ after(async () => {
 });
 
 /** SSR starts without a status banner. Its absence alone cannot prove hydration/baseline readiness. */
-async function openQualifiedReader(page: Page, path: "/all" | "/starred" = "/all", expectedVersion = "1") {
+async function openQualifiedReader(page: Page, path: "/" | "/all" | "/starred" = "/all", expectedVersion = "1") {
   phase = `baseline ${path}: setup`;
   const versionUrl = `${origin}/api/site/content-version`;
   let release!: () => void;
@@ -178,7 +188,7 @@ async function openQualifiedReader(page: Page, path: "/all" | "/starred" = "/all
     await page.bringToFront();
     await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
     phase = `baseline ${path}: checking`;
-    await expect(page.getByText("正在确认最新内容", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
     release();
     phase = `baseline ${path}: version`;
     const baseline = await version;
@@ -192,7 +202,7 @@ async function openQualifiedReader(page: Page, path: "/all" | "/starred" = "/all
       // the readiness condition: the guard sets idle only after revalidate() and baseline assignment.
     }
     phase = `baseline ${path}: DOM qualified`;
-    await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
@@ -229,7 +239,7 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   page.on("pageerror", (error) => errors.push(error.message));
   const opened = await openQualifiedReader(page);
   assert.match(opened!.headers()["cache-control"]!, /(?:^|, )no-store(?:,|$)/);
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link")).toHaveCount(5);
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link", { name: "热点榜" })).toBeVisible();
   await page.getByRole("button", { name: "收藏", exact: true }).click();
@@ -304,3 +314,36 @@ test("a combined withdrawal and arrival removes the old card while the new card 
   await page.getByRole("button", { name: "加载最新" }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
 });
+
+for (const width of [390, 1440]) {
+  test(`return to feed keeps pointer titles quiet and keyboard focus visible at ${width}px`, { timeout: 30000 }, async (t) => {
+    withdrawn = false;
+    added = false;
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    t.after(() => context.close());
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await openQualifiedReader(page, "/");
+    const title = page.locator("h3 a").filter({ hasText: "可核对的矿业动态" });
+    await title.click();
+    await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    await page.goBack();
+    await expect(title).toBeVisible();
+    // Wait for the existing second layout-settle pass, which used to steal focus again.
+    await page.waitForTimeout(200);
+    assert.equal(await title.evaluate((el) => el.matches(":focus-visible")), false, "mouse return must not add a title outline");
+    assert.equal(await title.evaluate((el) => el === document.activeElement), false, "position restore must not invent pointer focus");
+    await page.locator("body").click({ position: { x: 1, y: 1 } });
+    for (let i = 0; i < 60 && !(await title.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press("Tab");
+    await expect(title).toBeFocused();
+    assert.equal(await title.evaluate((el) => el.matches(":focus-visible")), true);
+    assert.equal(await title.evaluate((el) => getComputedStyle(el).outlineStyle), "none", "keyboard ring belongs to the card, not tight around text");
+    assert.equal(await title.evaluate((el) => getComputedStyle(el, "::after").outlineStyle), "solid");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(`${origin}/items/fixture-a`);
+    await page.goBack();
+    await expect(title).toBeFocused();
+    await page.keyboard.press("Tab");
+    assert.equal(await title.evaluate((el) => el === document.activeElement), false, "reader can continue keyboard navigation");
+  });
+}

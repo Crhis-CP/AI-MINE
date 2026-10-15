@@ -221,7 +221,7 @@ async function openReaderPage(page: Page, path: string) {
     await page.goto(origin + path);
     await page.bringToFront();
     await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
-    await expect(page.getByText("正在确认最新内容", { exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
     release();
     assert.deepEqual(await (await version).json(), { version: "1", withdrawalVersion: "1" });
     if (revalidation) {
@@ -229,7 +229,7 @@ async function openReaderPage(page: Page, path: string) {
       assert.equal(loaded.status(), 200);
       // The current DOM/status below proves route commit without awaiting stream EOF.
     }
-    await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     if (path.startsWith("/story/")) await expect(page.getByRole("heading", { name: story.title, exact: true })).toBeVisible();
@@ -261,7 +261,7 @@ test("story references resolve current merged identities, clear text on failure/
   await openReaderPage(page, "/starred");
   const list = page.getByRole("region", { name: "事件收藏" });
   await expect(list.getByRole("link", { name: "事件收藏当前标题" })).toBeVisible();
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   mode = "merged";
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(list.getByRole("link", { name: "合并后的当前事件" })).toHaveAttribute("href", `/story/${canonical}`);
@@ -305,7 +305,7 @@ test("saved event revalidation is periodic and has at most three concurrent requ
   await openReaderPage(page, "/starred");
   const list = page.getByRole("region", { name: "事件收藏" });
   await expect(list.getByRole("link")).toHaveCount(7);
-  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
   hold = true;
   held = [];
   peak = 0;
