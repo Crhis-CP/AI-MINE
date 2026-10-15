@@ -805,6 +805,38 @@ export interface components {
     } & {
       [key: string]: unknown;
     };
+    GroupingOverview: {
+      items: components["schemas"]["GroupingQueueItem"][];
+      needsAttention: number;
+      waiting: number;
+    };
+    GroupingOverviewInput: {
+      items: components["schemas"]["GroupingQueueItemInput"][];
+      needsAttention: number;
+      waiting: number;
+    };
+    GroupingQueueItem: {
+      articleId: string;
+      error: string | null;
+      failed: boolean;
+      receiptId: number | null;
+      /** @enum {string} */
+      recovery: "automatic" | "receipt" | "manual";
+      /** Format: date-time */
+      since: string;
+      title: string;
+    };
+    GroupingQueueItemInput: {
+      articleId: string;
+      error: string | null;
+      failed: boolean;
+      receiptId: number | null;
+      /** @enum {string} */
+      recovery: "automatic" | "receipt" | "manual";
+      /** Format: date-time */
+      since: string;
+      title: string;
+    };
     LaneControl: {
       actor: string;
       /** Format: date-time */
@@ -1723,6 +1755,28 @@ export interface components {
         unpriced_calls: number;
       };
     };
+    NewsGroupingDiagnostic: {
+      addsValue: boolean | null;
+      error: string | null;
+      inputRevision: number | null;
+      materialRevision: number;
+      reason: string | null;
+      receiptId: number | null;
+      selectionCandidate: boolean | null;
+      /** @enum {string} */
+      status: "pending" | "complete" | "failed";
+    };
+    NewsGroupingDiagnosticInput: {
+      addsValue: boolean | null;
+      error: string | null;
+      inputRevision: number | null;
+      materialRevision: number;
+      reason: string | null;
+      receiptId: number | null;
+      selectionCandidate: boolean | null;
+      /** @enum {string} */
+      status: "pending" | "complete" | "failed";
+    };
     OfficialMetalLink: {
       name: string;
       note: string;
@@ -1959,6 +2013,7 @@ export interface components {
     ReceiptObservedVersionInput: string;
     ReceiptReconciliationResponse: {
       deliveries: components["schemas"]["DeliveryIssue"][];
+      grouping?: components["schemas"]["GroupingOverview"];
       receipts: {
         counts: {
           [key: string]: number;
@@ -1970,6 +2025,7 @@ export interface components {
     };
     ReceiptReconciliationResponseInput: {
       deliveries: components["schemas"]["DeliveryIssueInput"][];
+      grouping?: components["schemas"]["GroupingOverviewInput"];
       receipts: {
         counts: {
           [key: string]: number;
