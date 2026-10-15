@@ -8,6 +8,8 @@ import {
   readableTranslation,
   isChineseOriginal,
   assembleTranslation,
+  assemblePartialTranslation,
+  readablePartialTranslation,
   restoreTranslationText,
   shield,
   unshield,
@@ -369,4 +371,23 @@ test("public validation checks each unassembled answer, not the larger combined 
     }),
     assembled.html,
   );
+});
+
+test("partial renditions retain original blocks and cannot satisfy the complete or stale read gates", () => {
+  const source = "<p>First sentence.</p><p>Second sentence.</p>";
+  const identity = { revision: 1, recipe: "partial-fixture" };
+  const plan = translationSourceManifest(source);
+  const partial = assemblePartialTranslation(source, identity, [
+    { ...identity, index: 0, sourceHash: plan.segments[0]!.sourceHash, state: "complete", text: "第一句译文。" },
+  ])!;
+  assert.match(partial.html, /第一句译文/);
+  assert.match(partial.html, /Second sentence/);
+  const stored = { ...identity, origin: "model", complete: false, body_html: partial.html, source_hash: plan.sourceHash, manifest: partial.manifest };
+  assert.equal(readableTranslation(source, identity, stored), null);
+  assert.equal(readablePartialTranslation(source, identity, stored), partial.html);
+  assert.equal(readablePartialTranslation(source, { ...identity, revision: 2 }, stored), null);
+  assert.equal(readablePartialTranslation(source, { ...identity, recipe: "other" }, stored), null);
+  assert.equal(readablePartialTranslation(source + "<p>Changed.</p>", identity, stored), null);
+  assert.equal(readablePartialTranslation(source, identity, { ...stored, body_html: "<p>替换内容。</p>" }), null);
+  assert.equal(readablePartialTranslation(source, identity, { ...stored, complete: true }), null);
 });

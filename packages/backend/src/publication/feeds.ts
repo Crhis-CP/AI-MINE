@@ -1,4 +1,10 @@
-import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT, type StoredTranslation } from "../editorial/translation-readiness.ts";
+import {
+  isChineseOriginal,
+  readableTranslation,
+  readablePartialTranslation,
+  TRANSLATION_MANIFEST_FORMAT,
+  type StoredTranslation,
+} from "../editorial/translation-readiness.ts";
 import { promptVersion } from "../editorial/prompts.ts";
 // RSS feeds. GUID = article id (isPermaLink=false), <link> = the site's page, pubDate = source
 // publication time. Summary feeds never carry content:encoded; full feeds inline bodies only for
@@ -102,8 +108,8 @@ type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "
   >;
 
 /**
- * The body a full feed carries, in Chinese when the page has it: a complete Chinese translation of the
- * article, or a Chinese original. Unproved/unfinished foreign bodies stay out of the feed.
+ * The permitted full feed prefers verified Chinese; partial renditions or original text explicitly
+ * state that the Chinese translation is unfinished.
  * It ends with an attribution line (also a mark on copies taken from the feed).
  */
 function aiLabel(r: FeedRow) {
@@ -123,7 +129,8 @@ function fullContent(r: FeedRow, pageUrl: string): string | null {
     : r.body_html
       ? isChineseOriginal(r.language ?? null, r.body_html)
         ? r.body_html
-        : readableTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null)
+        : (readableTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null) ??
+          `<p>中文译文尚不完整，未译部分保留原文。</p>${readablePartialTranslation(r.body_html, { revision: r.content_revision ?? 0, recipe: RECIPE }, r.translation ?? null) ?? r.body_html}`)
       : null;
   if (!html) return null;
   return `<p>${attributionHtml(r)}</p>${linkBodyImages(html)}<p>${aiNotice(r)}</p><p>—— 本文由 ${escapeXml(SITE.name)} 聚合整理，完整版与更多动态见 <a href="${pageUrl}">${pageUrl}</a></p>`;

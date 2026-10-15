@@ -294,7 +294,11 @@ export async function publishArticleTx(
     withdrawnByGroup || source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady
       ? "withdrawn"
       : (override?.visibility ?? "public");
+  const eligible = readingReady && hasMaterial && isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary });
+  const selected = isSelectable(eligible, judgedSelected, source.tier);
   const needsTranslation =
+    selected &&
+    visibility === "public" &&
     !!language &&
     !nativeChinese &&
     admitted &&
@@ -307,8 +311,6 @@ export async function publishArticleTx(
     if (forTranslation) forTranslation(article.revision);
     else await enqueue(QUEUES.translate, { articleId }, { singletonKey: articleId }, tx);
   }
-  const eligible = readingReady && hasMaterial && isPoolEligible({ participationMode: source.participation_mode, relevance, title, summary: displaySummary });
-  const selected = isSelectable(eligible, judgedSelected, source.tier);
   const reason = selected ? pickString(f.reason, analysis?.reason_zh ?? null) : null;
   const syndicate = mayRedistribute(source, bodyMode);
   const originalTitle = isChineseTitle && title === collapseWhitespace(article.title) ? null : collapseWhitespace(article.title);
