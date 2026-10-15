@@ -110,6 +110,7 @@ export async function setVisibility(
 ) {
   if (!input.reason?.trim()) throw new Error("reason is required");
   const published = await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await manualMaterialSnapshot(id, tx);
     const before = await overrideRow(id, tx);
     if (before.version !== input.version) throw new Conflict(STALE);
@@ -191,6 +192,7 @@ export async function overrideFields(
   if (!input.reason?.trim()) throw new Error("reason is required");
   const fields = FieldsSchema.parse(input.fields ?? {});
   return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     const material = await manualMaterialSnapshot(id, tx);
     if (!material) return null;
     const before = await overrideRow(id, tx);

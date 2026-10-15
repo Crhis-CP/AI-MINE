@@ -18,7 +18,7 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
-import { attachRepresentativeIdentity, pickRepresentative } from "./representative.ts";
+import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 
 const sql = dbOf("publication");
 
@@ -135,7 +135,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       GROUP BY fa.fact_id`
     ).map((c) => [c.fact_id, c.n]),
   );
-  await attachRepresentativeIdentity(selected);
+  await attachRepresentativePriority(selected);
   const byFact = new Map<number, Member[]>();
   for (const r of selected) if (r.fact_id !== null) byFact.set(r.fact_id, [...(byFact.get(r.fact_id) ?? []), r]);
   if (byFact.size === 0) return { kind: "not_found" };
@@ -230,7 +230,7 @@ export async function reportCandidateRows(start: Date, end: Date) {
           (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
           OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})
         )`;
-    const identified = await attachRepresentativeIdentity(rows, tx);
+    const identified = await attachRepresentativePriority(rows, tx);
     const facts = new Map<string, typeof identified>();
     for (const row of identified) {
       const key = row.fact_public_id ?? `article:${row.id}`;

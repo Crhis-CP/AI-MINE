@@ -21,6 +21,7 @@ export type PushOutcome =
 interface Row {
   article_id: string;
   selected: boolean;
+  seat: boolean;
   visibility: string;
   title: string;
   summary: string | null;
@@ -61,12 +62,12 @@ function card(r: Row) {
 
 export async function pushSelected(articleId: string, now = new Date()): Promise<PushOutcome> {
   const [r] = await sql<Row[]>`
-    SELECT p.article_id, p.selected, p.visibility, p.title, p.summary, p.reason, p.category, s.name AS source_name, p.url,
+    SELECT p.article_id, p.selected, p.seat, p.visibility, p.title, p.summary, p.reason, p.category, s.name AS source_name, p.url,
            p.timeline_at, p.discovered_at, p.visible_after, p.backfill, p.fact_id,
            coalesce((o.fields->>'silent')::boolean, false) AS silent
     FROM publications p JOIN sources s ON s.id = p.source_id LEFT JOIN editorial_overrides o ON o.article_id = p.article_id
     WHERE p.article_id = ${articleId}`;
-  if (!r || !r.selected || r.visibility !== "public") return { status: "skipped", reason: "not public selected" };
+  if (!r || !r.selected || !r.seat || r.visibility !== "public") return { status: "skipped", reason: "not public selected" };
   if (r.silent) return { status: "skipped", reason: "silenced" };
   if (r.backfill || now.getTime() - r.timeline_at.getTime() > MAX_AGE_MS) return { status: "skipped", reason: "not live" };
   if (r.visible_after && r.visible_after > now) return { status: "retry", after: new Date(r.visible_after.getTime() + 5_000), reason: "release gate" };

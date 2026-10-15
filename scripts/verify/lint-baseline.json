@@ -185,9 +185,6 @@
   "packages/backend/src/publication/pool.ts": {
     "lint/style/noProcessEnv": 2
   },
-  "packages/backend/src/publication/publish.ts": {
-    "lint/complexity/useOptionalChain": 1
-  },
   "packages/backend/src/publication/reports.ts": {
     "lint/suspicious/noExplicitAny": 21
   },

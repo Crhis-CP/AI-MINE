@@ -56,7 +56,7 @@ function binding(q: TimelineQuery): string {
   });
 }
 
-import { attachRepresentativeIdentity, pickRepresentative, type RepresentativeRow } from "./representative.ts";
+import { attachRepresentativePriority, pickRepresentative, type RepresentativeRow } from "./representative.ts";
 export { pickRepresentative } from "./representative.ts";
 
 /**
@@ -151,7 +151,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
       : Promise.resolve([] as Member[]),
     groupPool(q, now, storyIds, factIds),
   ]);
-  await attachRepresentativeIdentity(members);
+  await attachRepresentativePriority(members);
   const groupFactIds = [...new Set([...members.map((m) => m.fact_id), ...pool.map((r) => r.fact_id)])];
   const factInfo = new Map(
     groupFactIds.length

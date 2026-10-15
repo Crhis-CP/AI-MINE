@@ -14,8 +14,8 @@ const firstPublic = new Date("2026-10-12T04:00:00Z");
 async function seed(id: string, status: string, body: string | null, firstParty = false, publicTime: Date | null = null) {
   await sql`INSERT INTO articles(id,source_id,identity_key,url,title,language,body_status,body_html,body_text,discovered_at,timeline_at,raw)
     VALUES(${id},${source},${id},${`https://example.invalid/${id}`},${id},'zh',${status},${body},${body},${published},${published},'{}')`;
-  await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,body_mode,first_party,first_public_at,first_publication_observed)
-    VALUES(${id},${id},'真实当前导读',${source},'news',${`https://example.invalid/${id}`},${published},${published},${published},${published},'public',true,${body ? "full" : "summary"},${firstParty},${publicTime},${publicTime !== null})`;
+  await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,body_mode,first_party,representative_priority,first_public_at,first_publication_observed)
+    VALUES(${id},${id},'真实当前导读',${source},'news',${`https://example.invalid/${id}`},${published},${published},${published},${published},'public',true,${body ? "full" : "summary"},${firstParty},${firstParty ? 0 : 3},${publicTime},${publicTime !== null})`;
 }
 async function detail(id: string) {
   const value = await loadItemDetail(id, now);

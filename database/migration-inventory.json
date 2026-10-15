@@ -407,6 +407,10 @@
     {
       "name": "content/202610152200_grouping_recovery.sql",
       "dependsOn": ["content/202610151730_grouping_confirmation.sql"]
+    },
+    {
+      "name": "publication/202610152230_representative_priority.sql",
+      "dependsOn": ["publication/202610151732_selection_seats.sql"]
     }
   ]
 }

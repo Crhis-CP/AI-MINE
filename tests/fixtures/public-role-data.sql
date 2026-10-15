@@ -49,7 +49,8 @@ SELECT id,'PR9 已发布 '||id,'PR9 原稿 '||id,'PR9 synthetic summary '||id,'P
        visibility,eligible,selected,CASE WHEN id='pr9-future' THEN now()+interval '1 hour' ELSE now()-interval '1 hour' END,
        body,body='full',visibility='public' AND mode='editorial' AND eligible,source_id='pr9-editorial'
 FROM pr9_cases;
-UPDATE publications SET search_text=lower(title||' '||summary);
+-- Explicit published seats for permission/visibility fixtures; settlement is covered separately.
+UPDATE publications SET seat=selected,representative_priority=CASE WHEN first_party THEN 0 ELSE 3 END,search_text=lower(title||' '||summary);
 INSERT INTO pool_search (article_id,direct,body)
 SELECT id,'pr9 direct '||id,CASE WHEN id='pr9-editorial-public-full' THEN 'uniquebodyneedle pr9 body-only match' ELSE '' END
 FROM pr9_cases WHERE eligible;

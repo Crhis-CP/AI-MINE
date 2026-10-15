@@ -1,4 +1,4 @@
-import { attachRepresentativeIdentity, type RepresentativeIdentity } from "./representative.ts";
+import { attachRepresentativePriority, type RepresentativeIdentity } from "./representative.ts";
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
 import { geographyRecipe } from "../editorial/geography.ts";
@@ -285,7 +285,7 @@ export async function readPublicApiItems(db: Db, query: PublicApiReadScope, matc
   const sort = sql`CASE WHEN ${query.by}='published' THEN coalesce(p.published_at,p.discovered_at) WHEN ${query.selected} THEN p.sort_at ELSE p.timeline_at END`;
   return db<(ApiItemRow & { sort_at: Date })[]>`SELECT ${API_ITEM_COLUMNS},${sort} AS sort_at ${API_ITEM_FROM}
     WHERE p.visibility='public' AND (NOT p.selected OR p.visible_after<=${query.now})
-      AND (${!query.selected} OR p.selected) AND (${query.selected} OR p.eligible)
+      AND (${!query.selected} OR (p.selected AND p.seat)) AND (${query.selected} OR p.eligible)
 
     AND (${query.category}::text IS NULL OR p.category=${query.category})
     AND (${query.source}::text IS NULL OR p.source_id=${query.source})
@@ -369,7 +369,7 @@ export async function readGroupingSelectionSnapshot(excludeArticleId: string, fa
       AND (${selectedIds ?? null}::text[] IS NULL OR p.article_id=ANY(${selectedIds ?? []}::text[]))
       AND (${selectedIds !== undefined} OR p.fact_id=ANY(${factIds}::bigint[]) OR (p.fact_id IS NULL AND p.discovered_at>now()-interval '14 days'))
     ORDER BY p.timeline_at DESC,p.article_id`;
-  return attachRepresentativeIdentity(rows, db);
+  return attachRepresentativePriority(rows, db);
 }
 
 export function readConfirmedGroupingItems(ids: string[], db: Db = sql) {

@@ -1,4 +1,4 @@
-import { attachRepresentativeIdentity, pickRepresentative } from "./representative.ts";
+import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import type { z } from "zod";
 import type { V3EventsQuery } from "@amp/contracts/http/v3";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
@@ -81,7 +81,7 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.article_id, (fa.role = 'primary') DESC`;
-  return attachRepresentativeIdentity(rows);
+  return attachRepresentativePriority(rows);
 }
 
 function reportView(r: ReportRow): StoryReportView {

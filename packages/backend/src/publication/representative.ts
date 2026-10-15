@@ -1,6 +1,4 @@
 import { entityIdentity } from "../editorial/vocabulary.ts";
-import { representativeSourceIdentities } from "../sources/representative-input.ts";
-import { representativeFactSubjects } from "../events/representative-input.ts";
 import { dbOf, type Db } from "../db.ts";
 const sql = dbOf("publication");
 
@@ -11,24 +9,20 @@ export interface RepresentativeIdentity {
   fact_subject: string | null;
 }
 
-/** One batched identity read for all candidates; the caller still defines which reports qualify. */
-export async function attachRepresentativeIdentity<T extends { source_id: string; fact_id: number | null }>(rows: T[], db: Db = sql) {
-  if (!rows.length) return rows as (T & Partial<RepresentativeIdentity>)[];
-  const sources = new Map((await representativeSourceIdentities([...new Set(rows.map((r) => r.source_id))], db)).map((s) => [s.id, s]));
-  const facts = new Map(
-    (await representativeFactSubjects([...new Set(rows.flatMap((r) => (r.fact_id === null ? [] : [r.fact_id])))], db)).map((f) => [Number(f.id), f.subject]),
-  );
-  return rows.map((row) =>
-    Object.assign(row, {
-      source_tier: sources.get(row.source_id)?.source_tier ?? "",
-      publisher_role: sources.get(row.source_id)?.publisher_role ?? null,
-      owner_entity_id: sources.get(row.source_id)?.owner_entity_id ?? null,
-      fact_subject: row.fact_id === null ? null : (facts.get(Number(row.fact_id)) ?? null),
-    }),
-  );
+/** Reader processes use the published priority, never private source configuration. */
+export async function attachRepresentativePriority<T extends { id?: string; article_id?: string }>(rows: T[], db: Db = sql) {
+  const ids = rows.map((r) => r.article_id ?? r.id ?? "").filter(Boolean);
+  const values = ids.length
+    ? await db<
+        { article_id: string; representative_priority: number }[]
+      >`SELECT article_id,representative_priority FROM publications WHERE article_id=ANY(${ids}::text[])`
+    : [];
+  const priorities = new Map(values.map((r) => [r.article_id, r.representative_priority]));
+  return rows.map((r) => Object.assign(r, { representative_priority: priorities.get(r.article_id ?? r.id ?? "") ?? 3 }));
 }
 
-export function representativePriority(row: Partial<RepresentativeIdentity>): number {
+export function representativePriority(row: Partial<RepresentativeIdentity> & { representative_priority?: number }): number {
+  if (row.representative_priority !== undefined) return row.representative_priority;
   if (row.source_tier === "T1") return 0;
   const owner = entityIdentity(row.owner_entity_id);
   const subjects = row.fact_subject?.split(/[,，、;；+＋&＆/]/u).map((subject) => entityIdentity(subject)) ?? [];
@@ -39,6 +33,7 @@ export function representativePriority(row: Partial<RepresentativeIdentity>): nu
 }
 
 export type RepresentativeRow = Partial<RepresentativeIdentity> & {
+  representative_priority?: number;
   id?: string;
   article_id?: string;
   first_party?: boolean;

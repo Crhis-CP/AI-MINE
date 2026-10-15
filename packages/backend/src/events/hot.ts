@@ -1,4 +1,4 @@
-import { attachRepresentativeIdentity, pickRepresentative } from "../publication/representative.ts";
+import { attachRepresentativePriority, pickRepresentative } from "../publication/representative.ts";
 // Hot ranking: attention over the last 48 hours from independent participants.
 // Each participant counts once per window (repeat collection does not add heat), decays with a
 // 24-hour half-life, and the source time (not collection time) places evidence in the window.
@@ -122,7 +122,7 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       WHERE f.story_id = ${r.story_id} AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${at})
       ORDER BY p.article_id`;
     if (reports.length === 0) continue;
-    await attachRepresentativeIdentity(reports);
+    await attachRepresentativePriority(reports);
     const rep = pickRepresentative(reports);
     const participants = await sql<{ name: string; kind: "editorial" | "signal"; tier: string; at: Date }[]>`
       SELECT DISTINCT ON (ss.participant_key) s.name, ss.kind, s.tier, ss.observed_at AS at

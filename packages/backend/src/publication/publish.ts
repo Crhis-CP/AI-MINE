@@ -1,3 +1,6 @@
+import { representativeFactSubjects } from "../events/representative-input.ts";
+import { representativePriority, pickRepresentative } from "./representative.ts";
+import { representativeSourceIdentities } from "../sources/representative-input.ts";
 import { z } from "zod";
 import { verifiedCompanyContext } from "./reader-context.ts";
 import { articleWithdrawalHeld } from "./withdrawals.ts";
@@ -98,6 +101,7 @@ interface PublicationRow {
   selected_ready_at: Date | null;
   first_selected_at: Date | null;
   selection_candidate: boolean;
+  representative_priority: number;
   visible_after: Date | null;
   indexable: boolean;
   seo_indexed_at: Date | null;
@@ -206,6 +210,9 @@ export async function publishArticleTx(
   options: PublishOptions = {},
   forTranslation?: (revision: number) => void,
 ): Promise<PublishResult | null> {
+  // All publication and membership changes use the same short transaction fence, before material locks.
+  // Settling a representative may update a peer publication, but never locks the peer's material.
+  await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
   const [article] = await tx<ArticleRow[]>`
     SELECT id, revision, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
            body_text, body_html, excerpt, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state
@@ -227,6 +234,9 @@ export async function publishArticleTx(
     LEFT JOIN stories s ON s.id = f.story_id
     WHERE fa.article_id = ${articleId} AND (fa.manual OR fa.input_revision=${article.revision}) AND fa.role IN ('primary', 'report') AND (s.id IS NULL OR s.merged_into IS NULL)
     ORDER BY (fa.role = 'primary') DESC, fa.created_at LIMIT 1`;
+  const [identity] = await representativeSourceIdentities([article.source_id], tx);
+  const [factIdentity] = await representativeFactSubjects(membership?.fact_id ? [membership.fact_id] : [], tx);
+  const priority = representativePriority({ ...identity, fact_subject: factIdentity?.subject ?? null });
   const [previous] = await tx<PublicationRow[]>`SELECT * FROM publications WHERE article_id = ${articleId}`;
 
   const analysis = storedAnalysis?.input_revision === article.revision ? storedAnalysis : undefined;
@@ -375,6 +385,7 @@ export async function publishArticleTx(
     eligible,
     selected,
     selection_candidate: selectionCandidate,
+    representative_priority: priority,
     title: title ?? collapseWhitespace(article.title),
     original_title: originalTitle,
     summary,
@@ -398,6 +409,7 @@ export async function publishArticleTx(
         eligible: previous.eligible,
         selected: previous.selected,
         selection_candidate: previous.selection_candidate,
+        representative_priority: previous.representative_priority,
         title: previous.title,
         original_title: previous.original_title,
         summary: previous.summary,
@@ -425,16 +437,16 @@ export async function publishArticleTx(
   const firstPublicAt = previous?.first_public_at ?? (firstPublicationObserved && visibility === "public" && eligible ? now : null);
 
   await tx`
-    INSERT INTO publications (article_id, analysis_id, revision, visibility, eligible, selected, selection_candidate, title, original_title, summary, source_excerpt,
+    INSERT INTO publications (article_id, analysis_id, revision, visibility, eligible, selected, selection_candidate, representative_priority, title, original_title, summary, source_excerpt,
       reason, category, tags, score, source_id, channel, first_party, url, published_at, discovered_at, timeline_at, backfill,
       selected_ready_at, first_selected_at, visible_after, body_mode, syndicate, indexable, story_id, fact_id, search_text, sort_at, updated_at,first_public_at,first_publication_observed)
-    VALUES (${articleId}, ${analysis?.id ?? null}, ${revision}, ${visibility}, ${eligible}, ${selected}, ${selectionCandidate}, ${next.title},
+    VALUES (${articleId}, ${analysis?.id ?? null}, ${revision}, ${visibility}, ${eligible}, ${selected}, ${selectionCandidate}, ${priority}, ${next.title},
       ${originalTitle}, ${summary}, ${sourceExcerpt}, ${reason}, ${category}, ${tags}, ${next.score}, ${source.id}, 'news', ${source.first_party},
       ${article.url}, ${article.published_at}, ${article.discovered_at}, ${article.timeline_at}, ${article.backfill},
       ${selectedReadyAt}, ${firstSelectedAt}, ${visibleAfter}, ${bodyMode}, ${syndicate}, ${indexable}, ${next.story_id}, ${next.fact_id}, ${searchText}, ${sortAt}, now(),${firstPublicAt},${firstPublicationObserved})
     ON CONFLICT (article_id) DO UPDATE SET
       analysis_id = EXCLUDED.analysis_id, revision = EXCLUDED.revision, visibility = EXCLUDED.visibility,
-      eligible = EXCLUDED.eligible, selected = EXCLUDED.selected, selection_candidate = EXCLUDED.selection_candidate, title = EXCLUDED.title, original_title = EXCLUDED.original_title,
+      eligible = EXCLUDED.eligible, selected = EXCLUDED.selected, selection_candidate = EXCLUDED.selection_candidate, representative_priority=EXCLUDED.representative_priority, title = EXCLUDED.title, original_title = EXCLUDED.original_title,
       summary = EXCLUDED.summary, source_excerpt = EXCLUDED.source_excerpt, reason = EXCLUDED.reason, category = EXCLUDED.category, tags = EXCLUDED.tags,
       score = EXCLUDED.score, source_id = EXCLUDED.source_id, channel = EXCLUDED.channel, first_party = EXCLUDED.first_party,
       url = EXCLUDED.url, published_at = EXCLUDED.published_at, discovered_at = EXCLUDED.discovered_at,
@@ -443,7 +455,7 @@ export async function publishArticleTx(
       indexable = EXCLUDED.indexable, story_id = EXCLUDED.story_id, fact_id = EXCLUDED.fact_id,
       search_text = EXCLUDED.search_text, sort_at = EXCLUDED.sort_at, updated_at = now(),first_public_at=coalesce(publications.first_public_at,EXCLUDED.first_public_at)
     WHERE (publications.analysis_id, publications.revision, publications.visibility, publications.eligible,
-        publications.selected, publications.selection_candidate, publications.title, publications.original_title, publications.summary, publications.source_excerpt,
+        publications.selected, publications.selection_candidate, publications.representative_priority, publications.title, publications.original_title, publications.summary, publications.source_excerpt,
         publications.reason, publications.category, publications.tags, publications.score,
         publications.source_id, publications.channel, publications.first_party, publications.url,
         publications.published_at, publications.discovered_at, publications.timeline_at, publications.backfill,
@@ -451,7 +463,7 @@ export async function publishArticleTx(
         publications.indexable, publications.story_id, publications.fact_id, publications.search_text,
         publications.sort_at,publications.first_public_at)
       IS DISTINCT FROM (EXCLUDED.analysis_id, EXCLUDED.revision, EXCLUDED.visibility, EXCLUDED.eligible,
-        EXCLUDED.selected, EXCLUDED.selection_candidate, EXCLUDED.title, EXCLUDED.original_title, EXCLUDED.summary, EXCLUDED.source_excerpt,
+        EXCLUDED.selected, EXCLUDED.selection_candidate, EXCLUDED.representative_priority, EXCLUDED.title, EXCLUDED.original_title, EXCLUDED.summary, EXCLUDED.source_excerpt,
         EXCLUDED.reason, EXCLUDED.category, EXCLUDED.tags, EXCLUDED.score,
         EXCLUDED.source_id, EXCLUDED.channel, EXCLUDED.first_party, EXCLUDED.url,
         EXCLUDED.published_at, EXCLUDED.discovered_at, EXCLUDED.timeline_at, EXCLUDED.backfill,
@@ -478,40 +490,108 @@ export async function publishArticleTx(
     await enqueue(QUEUES.notifySelected, { articleId }, { singletonKey: `selected:${articleId}`, startAfter: new Date(at.getTime() + 5_000) }, tx);
   }
 
-  // Selected sync ledger: the public selected set is (selected AND visibility = public).
-  const inSet = selected && visibility === "public";
-  const [state] = await tx<{ in_set: boolean; payload_hash: string | null }[]>`SELECT in_set, payload_hash FROM selected_state WHERE article_id = ${articleId}`;
-  let ledger: "upsert" | "remove" | null = null;
+  const seatChanges = await settleSelectedSeats(tx, articleId, previous?.fact_id ?? null, now);
+  const ledger = seatChanges.ledger;
+
+  return { articleId, changed: changed || seatChanges.changed, selected, visibility, ledger, reduced };
+}
+
+interface SeatRow {
+  article_id: string;
+  source_id: string;
+  fact_id: number | null;
+  selected: boolean;
+  seat: boolean;
+  representative_priority: number;
+  eligible: boolean;
+  visibility: string;
+  body_mode: string;
+  score: number | null;
+  timeline_at: Date;
+  visible_after: Date | null;
+  title: string;
+  original_title: string | null;
+  summary: string | null;
+  url: string;
+  published_at: Date | null;
+  discovered_at: Date;
+  category: string | null;
+  reason: string | null;
+}
+
+async function syncSelectedLedger(tx: Tx, row: SeatRow, sourceName: string, now: Date): Promise<"upsert" | "remove" | null> {
+  const articleId = row.article_id;
+  const inSet = row.selected && row.seat && row.eligible && row.visibility === "public";
+  const [state] = await tx<{ in_set: boolean; payload_hash: string | null }[]>`SELECT in_set,payload_hash FROM selected_state WHERE article_id=${articleId}`;
   if (inSet) {
     const payload = v1Payload({
       articleId,
-      title: next.title,
-      originalTitle,
-      summary,
-      sourceName: source.name,
-      url: article.url,
-      publishedAt: article.published_at,
-      discoveredAt: article.discovered_at,
-      category,
-      score: next.score,
+      title: row.title,
+      originalTitle: row.original_title,
+      summary: row.summary,
+      sourceName,
+      url: row.url,
+      publishedAt: row.published_at,
+      discoveredAt: row.discovered_at,
+      category: row.category,
+      score: row.score,
       selected: true,
-      reason,
+      reason: row.reason,
     });
-    const payloadHash = sha256(stableJson(payload));
-    if (!state || !state.in_set || state.payload_hash !== payloadHash) {
-      const visibleAt = visibleAfter && visibleAfter > now ? visibleAfter : now;
+    const hash = sha256(stableJson(payload));
+    if (!state?.in_set || state.payload_hash !== hash) {
+      const visibleAt = row.visible_after && row.visible_after > now ? row.visible_after : now;
       const seq = await appendLedger(tx, articleId, "upsert", payload, visibleAt, now);
-      await tx`INSERT INTO selected_state (article_id, in_set, payload_hash, last_seq) VALUES (${articleId}, true, ${payloadHash}, ${seq})
-               ON CONFLICT (article_id) DO UPDATE SET in_set = true, payload_hash = EXCLUDED.payload_hash, last_seq = EXCLUDED.last_seq`;
-      ledger = "upsert";
+      await tx`INSERT INTO selected_state(article_id,in_set,payload_hash,last_seq) VALUES(${articleId},true,${hash},${seq})
+        ON CONFLICT(article_id) DO UPDATE SET in_set=true,payload_hash=EXCLUDED.payload_hash,last_seq=EXCLUDED.last_seq`;
+      return "upsert";
     }
   } else if (state?.in_set) {
     const seq = await appendLedger(tx, articleId, "remove", null, now, now);
-    await tx`UPDATE selected_state SET in_set = false, payload_hash = NULL, last_seq = ${seq} WHERE article_id = ${articleId}`;
-    ledger = "remove";
+    await tx`UPDATE selected_state SET in_set=false,payload_hash=NULL,last_seq=${seq} WHERE article_id=${articleId}`;
+    return "remove";
   }
+  return null;
+}
 
-  return { articleId, changed, selected, visibility, ledger, reduced };
+/** One machine-facing selected seat per fact, settled with the publication and its sync ledger. */
+async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: number | null, now: Date) {
+  const [self] = await tx<{ fact_id: number | null }[]>`SELECT fact_id FROM publications WHERE article_id=${articleId}`;
+  const facts = [...new Set([previousFact, self?.fact_id].filter((id): id is number => id !== null && id !== undefined))];
+  const rows = await tx<SeatRow[]>`SELECT article_id,source_id,fact_id,selected,seat,representative_priority,eligible,visibility,body_mode,score,
+    timeline_at,visible_after,title,original_title,summary,url,published_at,discovered_at,category,reason
+    FROM publications WHERE article_id=${articleId} OR fact_id=ANY(${facts}::bigint[]) ORDER BY article_id`;
+  const sources = new Map((await representativeSourceIdentities([...new Set(rows.map((r) => r.source_id))], tx)).map((s) => [s.id, s.name]));
+  const chosen = new Set<string>();
+  const groups = new Map<string, SeatRow[]>();
+  for (const row of rows)
+    if (row.selected && row.eligible && row.visibility === "public") {
+      const key = row.fact_id === null ? `article:${row.article_id}` : `fact:${row.fact_id}`;
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    }
+  for (const members of groups.values()) chosen.add(pickRepresentative(members).article_id);
+  let changed = false,
+    ledger: "upsert" | "remove" | null = null;
+  // Remove old seats first; all changes become visible at this transaction's commit.
+  rows.sort((a, b) => Number(chosen.has(a.article_id)) - Number(chosen.has(b.article_id)) || a.article_id.localeCompare(b.article_id));
+  for (const row of rows) {
+    const seat = chosen.has(row.article_id);
+    if (seat !== row.seat) {
+      changed = true;
+      await tx`UPDATE publications SET seat=${seat},revision=revision+1,updated_at=${now} WHERE article_id=${row.article_id}`;
+      if (seat)
+        await enqueue(
+          QUEUES.notifySelected,
+          { articleId: row.article_id },
+          { singletonKey: `selected:${row.article_id}`, startAfter: new Date(now.getTime() + 5000) },
+          tx,
+        );
+      row.seat = seat;
+    }
+    const result = await syncSelectedLedger(tx, row, sources.get(row.source_id) ?? "", now);
+    if (row.article_id === articleId) ledger = result;
+  }
+  return { changed, ledger };
 }
 
 /**

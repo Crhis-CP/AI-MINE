@@ -171,7 +171,7 @@ function feedScope(kind: ItemFeedKind, category: PublicApiCategoryKey | null, no
   return sql`p.visibility = 'public' AND (NOT p.selected OR p.visible_after <= ${now}) AND (
     (${kind} = 'all' AND p.eligible AND coalesce(p.published_at, p.discovered_at) > ${now}::timestamptz - interval '7 days'
       AND coalesce(p.published_at, p.discovered_at) <= ${now}) OR
-    (${kind} <> 'all' AND p.selected AND p.visible_after <= ${now} AND (${category}::text IS NULL OR p.category = ${category})
+    (${kind} <> 'all' AND p.selected AND p.seat AND p.visible_after <= ${now} AND (${category}::text IS NULL OR p.category = ${category})
       AND (${category}::text IS NULL OR coalesce(p.published_at, p.discovered_at) >= ${new Date(now.getTime() - 7 * 86400_000)})))`;
 }
 
