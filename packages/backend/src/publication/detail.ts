@@ -7,7 +7,7 @@ import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/co
 import { linkBodyImages } from "../content/sanitize.ts";
 import { dbOf } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
-import { pickRepresentative } from "./timeline.ts";
+import { attachRepresentativeIdentity, pickRepresentative } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
 import {
   isChineseOriginal,
@@ -188,6 +188,7 @@ async function eventCoverage(storyId: number, now: Date, machine: boolean): Prom
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.timeline_at ASC,p.article_id ASC`;
   if (rows.length < 2) return null;
+  await attachRepresentativeIdentity(rows);
   const facts = new Map<string, (typeof rows)[number][]>();
   for (const row of rows) {
     const key = row.fact_id === null ? row.id : String(row.fact_id);

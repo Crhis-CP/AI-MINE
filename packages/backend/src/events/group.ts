@@ -1088,14 +1088,19 @@ async function finishGroupingTx(tx: Tx, articleId: string, input: GroupRunInput,
     await tx`DELETE FROM regroup_pending WHERE article_id=${articleId} AND extract(epoch from requested_at)::text=${input.requestStamp}`;
 }
 async function finishGrouping(articleId: string, input: GroupRunInput, selection: SelectionValue, result: GroupResult, analysisHash?: string) {
-  await sql.begin(async (tx) => {
+  return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await assertGroupingInput(articleId, input, tx, analysisHash);
     const manual = await manualDecision(tx, articleId);
+    if (!manual)
+      await recordDecision(tx, articleId, result.factId ?? null, result.storyId ?? null, result.verdict, [], null, {
+        revision: input.revision,
+        manifest: { version: 1, materialRevision: input.revision, analysisHash: analysisHash ?? null, selection },
+      });
     await finishGroupingTx(tx, articleId, input, manual ? { addsValue: true, reason: "人工确认的归属" } : selection, null);
     await publishArticleTx(tx, articleId);
+    return manual ? ({ verdict: "manual", factId: manual.factId } as GroupResult) : result;
   });
-  return result;
 }
 
 export async function groupArticle(articleId: string, opts: GroupOptions = {}): Promise<GroupResult> {
@@ -1112,7 +1117,13 @@ export async function groupArticle(articleId: string, opts: GroupOptions = {}): 
       await publishArticleTx(tx, articleId);
       return { input, reuse: { verdict: "manual", factId: manual.factId } as GroupResult };
     }
-    if (!opts.force && input.requestStamp === null && current.grouping_status === "complete" && current.grouping_input_revision === current.revision) {
+    if (
+      !opts.force &&
+      !opts.signalOnly &&
+      input.requestStamp === null &&
+      current.grouping_status === "complete" &&
+      current.grouping_input_revision === current.revision
+    ) {
       const membership = await currentMembership(articleId, current.revision, tx);
       await publishArticleTx(tx, articleId);
       return { input, reuse: { verdict: "kept", ...membership } as GroupResult };
@@ -1474,17 +1485,31 @@ async function groupSignal(a: ArticleRow, source: { id: string }, observedAt: Da
   const query: ReportView = { title: a.title, source: a.source_name, firstParty: false, at: observedAt, summary: a.body_text?.slice(0, 300) ?? null };
   const { verdicts, receiptId } = await judgeSignal(a.id, query, cands);
   const target = signalTarget(cands, verdicts);
-  await sql.begin(async (tx) => {
+  return sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await assertRuntimeControl(tx, publication);
     await assertRuntimeControl(tx, processing);
     await assertReportInputs([query, ...cands.map((c) => c.report)], tx);
     await assertGroupingInput(a.id, input, tx);
+    const manual = await manualDecision(tx, a.id);
+    if (manual) {
+      await finishGroupingTx(tx, a.id, input, { addsValue: true, reason: "人工确认的归属" }, null);
+      await completeReceipt(tx, receiptId);
+      await publishArticleTx(tx, a.id);
+      return { verdict: "manual", factId: manual.factId } as GroupResult;
+    }
+    if (target) {
+      const candidate = cands.find((c) => c.factId === target.factId)!;
+      const [current] = await tx`SELECT 1 FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id JOIN stories st ON st.id=f.story_id
+        WHERE fa.fact_id=${target.factId} AND fa.article_id=${candidate.report.articleId!} AND f.story_id=${target.storyId}
+          AND fa.role IN ('primary','report') AND (fa.manual OR fa.input_revision=${candidate.report.revision!}) AND st.merged_into IS NULL AND ${trusted("fa")}`;
+      if (!current) throw new GroupingSupersededError("讨论线索对应的事件已变化");
+    }
     if (target) await recordSignal(tx, target.storyId, a.id, source, "signal", observedAt);
     await recordDecision(tx, a.id, target?.factId ?? null, target?.storyId ?? null, target ? "signal" : "signal-unmatched", asCandidates(verdicts), receiptId);
     await completeReceipt(tx, receiptId);
     await finishGroupingTx(tx, a.id, input, { addsValue: false, reason: "讨论线索不进入精选" }, receiptId);
     await publishArticleTx(tx, a.id);
+    return (target ? { verdict: "signal", storyId: target.storyId } : { verdict: "signal-unmatched" }) as GroupResult;
   });
-  return target ? { verdict: "signal", storyId: target.storyId } : { verdict: "signal-unmatched" };
 }

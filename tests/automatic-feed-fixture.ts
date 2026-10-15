@@ -73,9 +73,11 @@ export async function automaticFeedFixture(
               ? "structure"
               : system.includes("内容理解编辑")
                 ? "understand"
-                : !system
-                  ? "summarize"
-                  : "unexpected";
+                : system.includes("新闻事件编辑")
+                  ? "group"
+                  : !system
+                    ? "summarize"
+                    : "unexpected";
       calls.push({ marker: sample?.marker ?? "missing", step, user });
       if (!sample || step === "unexpected" || req.url !== "/v1/chat/completions") return new Reply(400, { error: "unexpected fixture request" });
       const result =
@@ -86,17 +88,29 @@ export async function automaticFeedFixture(
             : step === "score"
               ? { attentionScore: sample.score ?? 10 }
               : step === "structure"
-                ? { category: null, tags: [], subjects: [], fact: null }
-                : step === "understand"
+                ? { category: null, tags: [], subjects: [], scope: "single", fact: null }
+                : step === "group"
                   ? {
-                      itemType: "policy_regulation",
-                      authorRole: "principal",
-                      tags: [],
-                      editorialJudgment: "合成判断",
-                      titleZh: authoredTitle(sample.marker),
-                      summaryZh: authoredSummary(sample.marker),
+                      query: "合成独立项目消息",
+                      queryScope: "single",
+                      selection: { addsValue: true, reason: "不同合成项目的独立消息" },
+                      decisions: [...user.matchAll(/【候选 (C\d+)】/g)].map((match) => ({
+                        id: match[1],
+                        relation: "UNRELATED",
+                        confidence: 1,
+                        note: "合成材料来自不同项目",
+                      })),
                     }
-                  : `title_zh: ${authoredTitle(sample.marker)}\nsummary_zh: ${authoredSummary(sample.marker)}`;
+                  : step === "understand"
+                    ? {
+                        itemType: "policy_regulation",
+                        authorRole: "principal",
+                        tags: [],
+                        editorialJudgment: "合成判断",
+                        titleZh: authoredTitle(sample.marker),
+                        summaryZh: authoredSummary(sample.marker),
+                      }
+                    : `title_zh: ${authoredTitle(sample.marker)}\nsummary_zh: ${authoredSummary(sample.marker)}`;
       return {
         id: `fixture-${calls.length}`,
         choices: [{ message: { content: typeof result === "string" ? result : JSON.stringify(result) } }],

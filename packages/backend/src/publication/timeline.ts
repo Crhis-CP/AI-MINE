@@ -56,7 +56,7 @@ function binding(q: TimelineQuery): string {
   });
 }
 
-import { pickRepresentative, type RepresentativeRow } from "./representative.ts";
+import { attachRepresentativeIdentity, pickRepresentative, type RepresentativeRow } from "./representative.ts";
 export { pickRepresentative } from "./representative.ts";
 
 /**
@@ -141,16 +141,17 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const factIds = page.filter((g) => g.gk.startsWith("f")).map((g) => Number(g.gk.slice(1)));
 
   // Read only ranking fields for the whole group; bodies, media and translations are hydrated for this page's representatives.
-  type Member = RepresentativeRow & Pick<ItemRow, "id" | "sort_at"> & { story_id: number | null; fact_id: number };
+  type Member = RepresentativeRow & Pick<ItemRow, "id" | "sort_at" | "source_id"> & { story_id: number | null; fact_id: number };
   const [members, pool] = await Promise.all([
     storyIds.length || factIds.length
       ? sql<Member[]>`
-        SELECT p.story_id, p.fact_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
+        SELECT p.story_id, p.fact_id, p.source_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
         WHERE (p.story_id IN ${sql(storyIds.length ? storyIds : [0])} OR (p.story_id IS NULL AND p.fact_id IN ${sql(factIds.length ? factIds : [0])}))
           AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
       : Promise.resolve([] as Member[]),
     groupPool(q, now, storyIds, factIds),
   ]);
+  await attachRepresentativeIdentity(members);
   const groupFactIds = [...new Set([...members.map((m) => m.fact_id), ...pool.map((r) => r.fact_id)])];
   const factInfo = new Map(
     groupFactIds.length

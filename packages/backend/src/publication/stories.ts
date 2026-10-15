@@ -1,3 +1,4 @@
+import { attachRepresentativeIdentity, pickRepresentative } from "./representative.ts";
 import type { z } from "zod";
 import type { V3EventsQuery } from "@amp/contracts/http/v3";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
@@ -51,6 +52,9 @@ interface ReportRow {
   source_excerpt: string | null;
   url: string;
   selected: boolean;
+  score: number | null;
+  body_mode: string;
+  timeline_at: Date;
   at: Date;
   source_id: string;
   source_name: string;
@@ -67,9 +71,9 @@ interface ReportRow {
  * pages showed. hot_signal material only adds heat and is not listed, as on the live pages.
  */
 async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
-  return sql<ReportRow[]>`
+  const rows = await sql<ReportRow[]>`
     SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.title, p.summary,
-      CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, p.selected,
+      CASE WHEN s.site_fulltext THEN p.source_excerpt END AS source_excerpt, p.url, p.selected, p.score, p.body_mode, p.timeline_at,
       coalesce(p.published_at, p.discovered_at) AS at, s.id AS source_id, s.name AS source_name, s.kind AS source_kind,
       p.first_party, f.public_id AS fact_public_id, f.id AS fact_id
     FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
@@ -77,6 +81,7 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.article_id, (fa.role = 'primary') DESC`;
+  return attachRepresentativeIdentity(rows);
 }
 
 function reportView(r: ReportRow): StoryReportView {
@@ -135,9 +140,7 @@ async function storyContent(storyId: number, now: Date) {
     .filter((f) => byFact.has(f.id))
     .map((f) => {
       const members = byFact.get(f.id)!;
-      const rep = [...members].sort(
-        (a, b) => Number(b.first_party) - Number(a.first_party) || Number(b.selected) - Number(a.selected) || a.at.getTime() - b.at.getTime(),
-      )[0]!;
+      const rep = pickRepresentative(members);
       const first = members.reduce((m, r) => (r.at < m ? r.at : m), members[0]!.at);
       return {
         factId: f.public_id,

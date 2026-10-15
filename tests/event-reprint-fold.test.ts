@@ -311,7 +311,7 @@ async function article(input: {
 }) {
   const sourceId = `fold-${T}-${input.key}`;
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, first_party, next_fetch_at)
-    VALUES (${sourceId}, ${input.name}, 'rss', 'T1', 'editorial', ${input.firstParty}, '2100-01-01')`;
+    VALUES (${sourceId}, ${input.name}, 'rss', ${input.firstParty ? "T1" : "T2"}, 'editorial', ${input.firstParty}, '2100-01-01')`;
   const url = `https://example.com/fold-${T}-${input.key}`;
   await ensureModelSourceFixture(sourceId, [url]);
   await installUsageFixtureForModel("deepseek-flash");

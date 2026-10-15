@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -90,6 +91,7 @@ async function currentJudgement(id: string) {
   const [{ revision }] = await sql`SELECT revision FROM articles WHERE id=${id}`;
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
     VALUES(${id},${revision},'rule','pass','company_project',${`价格更新-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
+  await confirmGroupingFixture(id);
 }
 
 before(async () => {
@@ -119,6 +121,7 @@ test("the translation prompt gives a closed list of Chinese names, and its versi
 test("a text corrected while its translation was running is translated again, and the old translation is not shown", async () => {
   const { articleId: id } = await material("five");
   await currentJudgement(id);
+  await confirmGroupingFixture(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   assert.equal((await translateOne(id)).status, "translated", "this item was genuinely complete and publicly readable before reprocessing");
   await material("ten");
@@ -168,6 +171,7 @@ test("links and images survive partial translation while failed blocks keep thei
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
             VALUES (${id}, 1, 'rule', 'pass', 'ai-models', ${`链接-${T}`}, '摘要', '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(id)]}, ${sql.json(scopeOutput)})`;
+  await confirmGroupingFixture(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   for (let n = 0; n < 4; n++) {
     await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
@@ -222,6 +226,7 @@ test("translation stops at the 60000 character boundary and preserves the untran
   });
   await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
     VALUES (${id},1,'rule','pass','ai-models',${`完整长文-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
+  await confirmGroupingFixture(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   const start = provider.hits();
   const result = await translateOne(id);

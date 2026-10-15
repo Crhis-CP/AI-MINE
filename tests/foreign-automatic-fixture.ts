@@ -9,6 +9,7 @@ import { config } from "@amp/backend/config";
 import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
+import { registerEventJobs } from "@amp/backend/jobs/events";
 import { registerContentJobs } from "@amp/backend/jobs/content";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { automaticFeedFixture, type FeedCase } from "./automatic-feed-fixture.ts";
@@ -34,7 +35,7 @@ export async function foreignFixture(
   for (const url of [fixture.feedUrl, fixture.providerUrl]) offline.enableNetConnect(new URL(url).host);
   setGlobalDispatcher(offline);
   const keys = ["DASHSCOPE_BASE_URL", "ZHIPU_BASE_URL", "DEEPSEEK_BASE_URL", "DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "DEEPSEEK_API_KEY"];
-  const previous = keys.map((key) => [key, process.env[key]] as const),
+  const previous = [...keys, "EMBEDDINGS_ENABLED"].map((key) => [key, process.env[key]] as const),
     apps: Awaited<ReturnType<typeof buildApp>>[] = [];
   let surfacesClosed = false;
   const closeSurfaces = async () => {
@@ -56,6 +57,7 @@ export async function foreignFixture(
     await closeDb();
   });
   for (const key of keys) process.env[key] = key.endsWith("BASE_URL") ? `${fixture.providerUrl}/v1` : "synthetic-key";
+  process.env.EMBEDDINGS_ENABLED = "false";
   for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"])
     await installUsageFixtureForModel(model);
   Object.assign(config, {
@@ -99,6 +101,7 @@ export async function foreignFixture(
   if (!options.reuseWorker) {
     await registerSourceJobs(boss);
     await registerContentJobs(boss, 1);
+    await registerEventJobs(boss);
   }
   assert.equal((await scheduleDueSources()).enqueued, 1);
   const sql = dbOf("ops");

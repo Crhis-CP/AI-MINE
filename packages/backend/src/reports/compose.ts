@@ -55,7 +55,7 @@ function roleOf(kind: string, firstParty: boolean): string {
 
 export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
   const rows = await reportCandidateRows(start, end);
-  // One entry per fact: first-party first, then score.
+  // The publication owner supplies one representative per fact for this report window.
   const byFact = new Map<string, Candidate>();
   for (const r of rows) {
     const key = r.fact_public_id ?? `a:${r.id}`;
@@ -76,9 +76,7 @@ export async function candidates(start: Date, end: Date): Promise<Candidate[]> {
       category: r.category,
       factKey: key,
     };
-    const prev = byFact.get(key);
-    if (!prev || Number(c.firstParty) - Number(prev.firstParty) > 0 || (c.firstParty === prev.firstParty && (c.score ?? 0) > (prev.score ?? 0)))
-      byFact.set(key, c);
+    byFact.set(key, c);
   }
   return [...byFact.values()].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 }

@@ -18,7 +18,7 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
-import { pickRepresentative } from "./timeline.ts";
+import { attachRepresentativeIdentity, pickRepresentative } from "./representative.ts";
 
 const sql = dbOf("publication");
 
@@ -120,10 +120,10 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
   if (!story) return { kind: "not_found" };
   const matchers = readMatcherValues(q.tag, q.topicTags, [], []);
   const filters = sql`${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)}`;
-  type Member = Pick<ItemRow, "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
+  type Member = Pick<ItemRow, "source_id" | "id" | "fact_id" | "first_party" | "body_mode" | "score" | "timeline_at" | "sort_at">;
   const scope = q.scope === "all" ? sql`${listedCondition(now)} AND p.eligible` : selectedCondition(now);
   const selected = await sql<Member[]>`
-    SELECT p.article_id AS id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
+    SELECT p.article_id AS id, p.source_id, p.fact_id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at
     FROM publications p WHERE p.story_id = ${story.id} AND ${scope} ${filters}`;
   if (selected.length === 0) return { kind: "not_found" };
   const counts = new Map(
@@ -135,6 +135,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
       GROUP BY fa.fact_id`
     ).map((c) => [c.fact_id, c.n]),
   );
+  await attachRepresentativeIdentity(selected);
   const byFact = new Map<number, Member[]>();
   for (const r of selected) if (r.fact_id !== null) byFact.set(r.fact_id, [...(byFact.get(r.fact_id) ?? []), r]);
   if (byFact.size === 0) return { kind: "not_found" };
@@ -197,10 +198,13 @@ export async function reportCandidateRows(start: Date, end: Date) {
     // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
     // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
     await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    return tx<
+    const rows = await tx<
       {
         id: string;
         revision: number;
+        fact_id: number | null;
+        timeline_at: Date;
+        body_mode: string;
         title: string;
         summary: string | null;
         url: string;
@@ -216,7 +220,7 @@ export async function reportCandidateRows(start: Date, end: Date) {
         backfill: boolean;
       }[]
     >`
-      SELECT p.article_id AS id,p.revision, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
+      SELECT p.article_id AS id,p.revision,p.fact_id,p.timeline_at,p.body_mode, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
              s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
       FROM publications p JOIN sources s ON s.id = p.source_id
       LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
@@ -226,6 +230,13 @@ export async function reportCandidateRows(start: Date, end: Date) {
           (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
           OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})
         )`;
+    const identified = await attachRepresentativeIdentity(rows, tx);
+    const facts = new Map<string, typeof identified>();
+    for (const row of identified) {
+      const key = row.fact_public_id ?? `article:${row.id}`;
+      facts.set(key, [...(facts.get(key) ?? []), row]);
+    }
+    return [...facts.values()].map((members) => pickRepresentative(members));
   });
 }
 

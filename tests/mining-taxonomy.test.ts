@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
@@ -110,6 +111,7 @@ test("actual classification, publication and public exits agree on nine keys and
     const analysed = await analyzeArticle(id);
     assert.equal(analysed!.output!.category, category);
     assert.deepEqual(analysed!.output!.tags, category ? [CATEGORY_LABELS[category]] : [], "writing tags cannot overwrite structure");
+    await confirmGroupingFixture(id);
     await publishArticle(id, { releasedAt: new Date(Date.now() - 1000) });
     assert.equal((await get(`/api/site/items/${id}`)).json().category, category);
     assert.equal((await get("/api/v1/items?mode=all&limit=100")).json().items.find((item: { id: string }) => item.id === id).category, category);
