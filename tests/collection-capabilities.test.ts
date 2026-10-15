@@ -70,3 +70,74 @@ test("form pages keep named fields, skip unchecked boxes, and never ask for more
   assert.throws(() => formPageRequest("<div></div>", "https://company.example/news", "#pager", "page", 2), /翻页表单不存在/);
   assert.throws(() => assertSupportedConfig("web_list", { url: "https://company.example/news", pageForm: { selector: "form", page: 1 } }), /pageForm\.page/);
 });
+
+test("single-quoted static data is parsed as data and executable expressions are rejected", () => {
+  const row = source("json_list", {
+    url: "https://company.example/news",
+    mode: "html_attribute",
+    attributeSelector: "#news",
+    attributeName: ":articles",
+    literalFormat: "static",
+    titlePaths: ["title"],
+    urlTemplate: "https://company.example/{slug}",
+    publishedAtPath: "date",
+    sourceDate: { format: "declared", formatPattern: "DD/MM/YYYY", language: "en" },
+  });
+  assert.doesNotThrow(() => assertSupportedConfig("json_list", row.config));
+  const document = (data: string) => `<div id="news" :articles="${data.replaceAll("&", "&amp;").replaceAll('"', "&quot;")}"></div>`;
+  const [item] = jsonListDocument(document("[{title:'Mine\\'s production',slug:'quarter',date:'08/10/2026',},]"), row, "2026-10-14T00:00:00Z").candidates;
+  assert.equal(item.title, "Mine's production");
+  assert.equal(item.sourceDateObservation?.raw, "08/10/2026");
+  assert.equal(item.publishedAt?.toISOString(), "2026-10-07T16:00:00.000Z");
+  for (const invalid of [
+    "[{title:process.exit(),slug:'x'}]",
+    "(()=>[])()",
+    "[...items]",
+    "[{get title(){return 'x'}}]",
+    "[{title:`template`}]",
+    "[{title:NaN}]",
+    "[{title:undefined}]",
+    "[1,,2]",
+  ])
+    assert.throws(() => jsonListDocument(document(invalid), row, "2026-10-14T00:00:00Z"));
+});
+
+test("column arrays retain row alignment and verified filing URL components", () => {
+  const row = source("json_list", {
+    url: "https://data.sec.gov/submissions/CIK0000000001.json",
+    itemsPath: "filings.recent",
+    itemsShape: "columns",
+    titleTemplate: "Company · {raw:form} · {raw:filingDate}",
+    urlTemplate: "https://www.sec.gov/Archives/edgar/data/1/{compact:accessionNumber}/{primaryDocument}",
+    publishedAtPath: "filingDate",
+    includeValues: { path: "form", values: ["8-K", "6-K"] },
+  });
+  assert.doesNotThrow(() => assertSupportedConfig("json_list", row.config));
+  const columns = {
+    form: ["8-K", "4"],
+    filingDate: ["2026-10-08", "2026-10-09"],
+    accessionNumber: ["0000000001-26-000001", "0000000001-26-000002"],
+    primaryDocument: ["notice.htm", "ownership.xml"],
+  };
+  const parse = (value: unknown) => jsonListDocument(JSON.stringify({ filings: { recent: value } }), row, "2026-10-14T00:00:00Z");
+  const results = parse(columns);
+  assert.equal(results.items.length, 2);
+  assert.equal(results.candidates.length, 1);
+  assert.equal(results.candidates[0].title, "Company · 8-K · 2026-10-08");
+  assert.equal(results.candidates[0].url, "https://www.sec.gov/Archives/edgar/data/1/000000000126000001/notice.htm");
+  assert.throws(() => parse({ ...columns, filingDate: ["2026-10-08"] }), /column/);
+  assert.throws(() => parse({ ...columns, form: "8-K" }), /column/);
+});
+
+test("configured source timezone resolves a list timestamp without assuming a timezone for other sources", () => {
+  const config = { url: "https://exchange.example/news", titlePaths: ["title"], urlTemplate: "https://exchange.example/{id}", publishedAtPath: "published" };
+  const body = JSON.stringify([{ id: "1", title: "公告", published: "2026-10-08 09:30:00" }]);
+  const without = jsonListDocument(body, source("json_list", config), "2026-10-14T00:00:00Z").candidates[0];
+  assert.equal(without.publishedAt, null);
+  const declared = source("json_list", {
+    ...config,
+    sourceDate: { format: "iso8601", timezone: "Asia/Shanghai", timezoneEvidence: "Fixture official exchange timezone declaration" },
+  });
+  const withZone = jsonListDocument(body, declared, "2026-10-14T00:00:00Z").candidates[0];
+  assert.equal(withZone.publishedAt?.toISOString(), "2026-10-08T01:30:00.000Z");
+});

@@ -939,7 +939,9 @@ test("金属价格 renders registry-driven quotes, exact decimal text, footnotes
   assert.match(table, /text-hot[^>]*>\+1.0%/);
   assert.match(table, /text-ok[^>]*>−1.6%/);
   assert.match(table, /text-ink-3[^>]*>0.0%/);
-  assert.doesNotMatch(table, /2026-|合成报价期/);
+  assert.match(table, /合成报价期/);
+  assert.match(table, /对比/);
+  assert.doesNotMatch(table, /2026-/);
   assert.match(html, /href="#n1"[^>]*aria-label="见说明第 1 条"/);
   assert.match(html, /id="n1"/);
   assert.match(html, /href="https:\/\/source.invalid\/license"[^>]*target="_blank"/);

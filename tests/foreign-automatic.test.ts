@@ -87,31 +87,30 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   await f.reader.inject("/feed.xml");
   assert.equal(f.calls.length, before, "reader requests never progress the held worker");
   release.open();
-  await f.until("both complete translations shown", async () => {
-    const open = (await f.rows()).filter((row) => row.id !== withdrawn.id);
-    if (open.length !== 2) return false;
-    for (const row of open) {
-      const res = await f.reader.inject(`/api/site/items/${row.id}`);
-      if (res.statusCode !== 200 || res.json().body?.complete !== true) return false;
-    }
-    return true;
+  await f.until("selected translation complete", async () => {
+    const selected = (await f.rows()).find((row) => row.selected);
+    if (!selected) return false;
+    const res = await f.reader.inject(`/api/site/items/${selected.id}`);
+    return res.statusCode === 200 && res.json().body?.complete === true;
   });
   for (const row of (await f.rows()).filter((row) => row.id !== withdrawn.id)) {
     const res = await f.reader.inject(`/api/site/items/${row.id}`);
     assert.equal(res.statusCode, 200, res.body);
     const body = res.json().body;
-    assert.equal(body.complete, true);
-    assert.match(body.zh, /末段条件与例外/);
+    assert.equal(body.complete, row.selected);
+    if (row.selected) assert.match(body.zh, /末段条件与例外/);
+    else assert.equal(body.zh, null);
     assert.equal(body.original, null);
     assert.equal(row.selected, row.title.includes("FOREIGN_SELECTED"));
   }
+  assert.ok(!f.calls.some((call) => call.marker === "FOREIGN_LOW" && call.step === "translate"));
   assert.equal((await f.reader.inject(`/api/site/items/${withdrawn.id}`)).statusCode, 404);
   assert.ok(!f.calls.some((call) => call.marker === "FOREIGN_WITHDRAWN" && call.step === "translate"));
   const calls = f.calls.filter((call) => call.step === "translate");
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 2);
   const [receipts] =
     await f.sql`SELECT count(*)::int AS n FROM receipts WHERE purpose='translate_body' AND status='completed' AND response_attempt_id IS NOT NULL`;
-  assert.equal(receipts.n, 4);
+  assert.equal(receipts.n, 2);
   const snapshot = f.calls.length;
   for (const row of rows) await f.reader.inject(`/api/site/items/${row.id}`);
   assert.equal(f.calls.length, snapshot);
@@ -123,18 +122,20 @@ test("foreign material is public once it has a Chinese title and guide; a full t
     samples: [
       {
         marker: "BAD_TRANSLATION",
+        score: 80,
         title: "Ensayo de cobre",
         label: "PASS",
         body: "BAD_TRANSLATION: El proyecto de cobre tiene condiciones pendientes. ".repeat(8),
       },
       {
         marker: "SCOPE_UNKNOWN",
+        score: 80,
         title: "Datos pendientes",
         label: "UNKNOWN",
         body: "SCOPE_UNKNOWN: Los datos del proyecto requieren comprobación. ".repeat(8),
       },
     ],
-    // UNKNOWN goes on like PASS: it is translated and published once its Chinese is complete.
+    // A selected UNKNOWN case follows the same publication and permitted background translation flow.
     translate: async (marker) => (marker === "SCOPE_UNKNOWN" ? { text: `合成中文全文 ${marker}，只用于工程验证。` } : { text: "Only untranslated English" }),
   });
   await bad.until(

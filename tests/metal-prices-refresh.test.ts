@@ -227,9 +227,9 @@ test("two runs at the same moment: the second adds no rows and changes no values
   const once = await table();
   assert.deepEqual(await run(), record(true, [period(SEP2, { touched: 11 })]));
   assert.deepEqual(await table(), once);
-  // Three times a day after the bureau's 09:30 release, a missed slot run once; with the collectors (no lane).
+  // Poll official sources every half hour, recovering one missed slot without duplicate rows.
   const schedule = SCHEDULES.find((candidate) => candidate.name === "metals.prices");
-  assert.deepEqual([schedule?.cron, schedule?.missed], ["45 9,15,21 * * *", "once"]);
+  assert.deepEqual([schedule?.cron, schedule?.missed], ["*/30 * * * *", "once"]);
 });
 
 test("with collection off the price schedule is not registered, like source collection", async () => {

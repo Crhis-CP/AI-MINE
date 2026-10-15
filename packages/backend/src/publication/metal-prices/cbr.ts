@@ -46,12 +46,14 @@ export function cbrFetcher(registry: MetalPriceRegistry, get: PageGetter = guard
         return doc[root];
       };
       const today = beijingDate(context?.now ?? new Date());
-      const from = offsetDay(today, -31);
-      const metal = await request(metalUrl(from, today), "Metall");
+      const from = offsetDay(today, -31),
+        through = offsetDay(today, 1);
+      // The bank publishes a fixing before its next-day effective date. Read that date too.
+      const metal = await request(metalUrl(from, through), "Metall");
       const days = new Map<string, Metal[]>();
       for (const row of (metal?.Record ?? []) as Metal[]) {
         const day = effectiveDay(row["@_Date"]);
-        if (day < from || day > today) continue;
+        if (day < from || day > through) continue;
         days.set(day, [...(days.get(day) ?? []), row]);
       }
       if (!days.size) throw new Error("俄罗斯银行窗口里没有记录");

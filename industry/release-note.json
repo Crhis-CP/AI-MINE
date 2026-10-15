@@ -10,8 +10,16 @@
       "译文尚不完整时保留未译原文，并明确标示当前状态。",
       "同一政策、同一讲话或同一次项目进展，精选里显示为一条。官方稿的标题和分数在前，其他来源在下面。写法不同或没标国家，也会并进这一条。",
       "首页精选上方有热点榜。一条热点是一件已经收好的事，显示标题和热度；代表来源和其他来源家数挂在标题下面。",
-      "只有一家来源的事不会单独上热点榜。还没有足够热点时，榜是空的，不显示 0。另一个项目、阶段相反或国家不同的，仍然分开。"
+      "只有一家来源的事不会单独上热点榜。还没有足够热点时，榜是空的，不显示 0。另一个项目、阶段相反或国家不同的，仍然分开。",
+      "部分企业网站的新闻列表和监管披露列表现在能正确读取。",
+      "金属价格更及时地检查官方更新，并显示报价日期、比较基期与适用日期。"
     ]
   },
-  "fragments": ["changes/TASK-0367-admin-navigation.md", "changes/TASK-0361-selected-translation.md", "changes/TASK-0356-event-fold.md"]
+  "fragments": [
+    "changes/TASK-0367-admin-navigation.md",
+    "changes/TASK-0361-selected-translation.md",
+    "changes/TASK-0356-event-fold.md",
+    "changes/TASK-0362-source-lists.md",
+    "changes/TASK-0367-metal-timeliness.md"
+  ]
 }

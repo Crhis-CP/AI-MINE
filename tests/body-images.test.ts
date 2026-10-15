@@ -100,7 +100,10 @@ test("real public_read detail and full RSS reject unproved translations and tigh
   assert.equal(pending.body!.original, null, "the default Chinese page does not substitute English");
   assert.equal(pending.body!.complete, false);
   assert.ok((await detail(true)).body!.original!.includes(`ORIGINAL_BODY_${id}`));
-  assert.doesNotMatch(await feedItem(), /<content:encoded>/, "the full feed cannot substitute untranslated English");
+  const pendingFeed = await feedItem();
+  assert.match(pendingFeed, /<content:encoded>/, "an authorized original remains readable while translation is pending");
+  assert.match(pendingFeed, /中文译文尚不完整/);
+  assert.ok(pendingFeed.includes(`ORIGINAL_BODY_${id}`));
   const provider = await stub((_hit, request) => {
     const input = JSON.parse(JSON.parse(request.body).messages[1].content) as { text: string };
     return {

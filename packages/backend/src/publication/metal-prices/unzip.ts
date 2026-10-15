@@ -1,9 +1,5 @@
-// Minimal ZIP reader (central directory + stored/deflate entries) for the published price workbooks: an xlsx is a zip.
-// Ported from the upstream file packages/backend/src/leaderboard/fetch/unzip.ts at upstream commit 885b736 (imported
-// here as f4392e1; MIT, LICENSES/AIHOT-MIT.txt; upstream/aihot.lock.json, TASK-0046). Changed: limits on the entry
-// count, on each entry's declared and actual uncompressed size and on the declared total (INV-33: bounded by the
-// uncompressed bytes); every record and every entry's data must lie inside the file; anything off throws instead of
-// reading what it can. Entries are still inflated only when read.
+// Bounded ZIP reader for price workbooks: entries are inflated only when read.
+// Enforce entry count, declared and actual size, total size and archive boundaries.
 import { inflateRawSync } from "node:zlib";
 
 /** A workbook has tens of parts, a few MB uncompressed (the World Bank's: 31, 3.55 MB in all); these leave a wide margin. */

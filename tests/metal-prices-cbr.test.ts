@@ -198,7 +198,7 @@ const metalXml = decode(xmlBytes("metal"));
 const usdXml = (date: string) => decode(xmlBytes(`usd-${date}`));
 const NOW = new Date("2026-10-06T02:00:00Z"),
   EARLIER = new Date("2026-10-03T02:00:00Z");
-const LIST = "https://www.cbr.ru/scripts/xml_metall.asp?date_req1=05/09/2026&date_req2=06/10/2026";
+const LIST = "https://www.cbr.ru/scripts/xml_metall.asp?date_req1=05/09/2026&date_req2=07/10/2026";
 function recorded(opts: { metal?: string; usd?: Record<string, string>; status?: number; url?: string; utf8?: boolean } = {}) {
   const calls: string[] = [];
   const get: PageGetter = async (url, options) => {
@@ -257,7 +257,7 @@ test("incremental daily refresh rereads the stored newest day and respects midni
   assert.deepEqual([next.inserted, next.touched], [5, 5]);
   assert.deepEqual([(await capture()).inserted, (await rows()).length], [0, 15]);
   for (const [time, expected] of [
-    ["2026-10-05T15:59:59Z", "2026-10-02"],
+    ["2026-10-05T15:59:59Z", "2026-10-05"],
     ["2026-10-05T16:00:00Z", "2026-10-05"],
   ]) {
     const fetched = await cbrFetcher(parseMetalPriceRegistry(only()), recorded().get).fetch(async () => null, {
@@ -397,7 +397,7 @@ test("comparison within 5% stores raw CBR figures, requests fixing dates once, a
 
 test("one divergent metal holds the day, later days proceed, and the skipped day is never requested again", async () => {
   const initial = compared();
-  assert.equal((await capture(initial.get, new Date("2026-10-02T02:00:00Z"))).inserted, 10);
+  assert.equal((await capture(initial.get, new Date("2026-10-01T13:00:00Z"))).inserted, 10);
   const get = compared((date) => invented(date, date === "2026-10-02" ? 1.06 : 1, true));
   const result = await capture(get.get);
   assert.equal(result.ok, false);
@@ -486,4 +486,18 @@ test("an exact 5% rational boundary is accepted, a strict excess is held, and ex
     observed.nbuCalls.some((url) => url.includes("date=20261002")),
     false,
   );
+});
+
+test("a published next-day-effective price is collected on its fixing day without relabeling it", async () => {
+  const get = recorded();
+  const fetched = await cbrFetcher(parseMetalPriceRegistry(only()), get.get).fetch(async () => null, {
+    now: new Date("2026-10-05T13:00:00Z"),
+    fetchedAt: async () => null,
+  });
+  assert.equal(new URL(get.calls[0]).searchParams.get("date_req2"), "06/10/2026");
+  assert.equal(fetched.at(-1)?.period.start, "2026-10-05");
+  assert.equal(fetched.at(-1)?.release.label, "俄罗斯银行 2026年10月6日起适用");
+  const stored = await capture(recorded().get, new Date("2026-10-05T13:00:00Z"));
+  assert.equal(stored.ok, true);
+  assert.equal((await rows()).at(-1)?.period_start, "2026-10-05");
 });

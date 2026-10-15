@@ -76,6 +76,10 @@ const KEYS: Record<SourceRow["kind"], string[]> = {
     "attributeName",
     "itemsPath",
     "itemsObjectValues",
+    "itemsShape",
+    "literalFormat",
+    "titleTemplate",
+    "includeValues",
     "titlePaths",
     "summaryPaths",
     "summaryIsBody",
@@ -101,6 +105,7 @@ const NESTED: Record<string, string[]> = {
   itemUrlPrefixRewrite: ["from", "to"],
   pageForm: ["selector", "pageField", "firstPage", "maxPages"],
   requireBoolean: ["path", "equals"],
+  includeValues: ["path", "values"],
   minNumeric: ["path", "min"],
   detail: [
     "sourceDate",
@@ -120,6 +125,8 @@ const NESTED: Record<string, string[]> = {
 const VALUES: Record<string, string[]> = {
   publishedAtField: ["pubDate", "published", "dc:date", "updated"],
   parseMode: ["html", "markdown"],
+  literalFormat: ["json", "static"],
+  itemsShape: ["rows", "columns"],
 };
 
 const DATE_PROFILE = z.strictObject({
@@ -172,6 +179,10 @@ export function sourceDateConfigHash(kind: SourceRow["kind"], config: Record<str
               "attributeName",
               "itemsPath",
               "itemsObjectValues",
+              "itemsShape",
+              "literalFormat",
+              "titleTemplate",
+              "includeValues",
               "urlTemplate",
               "urlTemplateFallback",
               "publishedAtPath",
@@ -211,6 +222,15 @@ export function unsupportedConfig(kind: SourceRow["kind"], config: Record<string
       for (const sub of Object.keys(value)) if (!NESTED[key]!.includes(sub)) out.push(`${key}.${sub}`);
     }
   }
+  if (
+    config.includeValues !== undefined &&
+    !z.strictObject({ path: z.string().min(1), values: z.array(z.string()).min(1).max(100) }).safeParse(config.includeValues).success
+  )
+    out.push("includeValues");
+  if (config.literalFormat === "static" && !["html_attribute", "html_window_var"].includes(String(config.mode)))
+    out.push("literalFormat without embedded data mode");
+  if (config.itemsShape === "columns" && config.itemsObjectValues) out.push("itemsShape+itemsObjectValues");
+  if (config.titleTemplate !== undefined && (typeof config.titleTemplate !== "string" || !config.titleTemplate.trim())) out.push("titleTemplate");
   // htmlJsonPath reads list HTML out of a direct JSON response: through Jina or as Markdown it would be
   // ignored or misread, so those combinations are refused like an unknown key. The endpoint is not the page
   // the links belong to, so that page is named explicitly (baseUrl) instead of resolving against the endpoint.

@@ -94,8 +94,8 @@ export const SCHEDULES: Scheduled[] = [
         { name: "sources.adapt-intervals", cron: "20 4 * * *", run: adaptIntervals },
         // WeChat official accounts (paid), each once per its interval.
         { name: "sources.mp-reconcile", cron: "*/15 * * * *", run: () => scheduleMpReconcile() },
-        // Official metal prices, stored only (the bureau publishes at 09:30). No lane: prices belong to neither line (DEC-66).
-        { name: "metals.prices", cron: "45 9,15,21 * * *", missed: "once" as const, run: () => refreshMetalPrices() },
+        // Source publication times differ; poll every half hour and retain their own dates.
+        { name: "metals.prices", cron: "*/30 * * * *", missed: "once" as const, run: () => refreshMetalPrices() },
       ]
     : []),
 ];

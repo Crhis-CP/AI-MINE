@@ -113,7 +113,7 @@ export default function MetalsPage() {
         <>
           <p className="text-[14px] leading-relaxed text-ink-3">{prices.intro}</p>
           <p className={`mt-2 text-[12px] ${refreshFailed ? "text-amber-ink" : "text-ink-4"}`} role="status">
-            {refreshFailed ? "更新暂时失败，仍显示上次读取的结果。" : "页面可见时每 5 分钟检查更新，报价以官方发布期次为准。"}
+            {refreshFailed ? "更新暂时失败，仍显示上次读取的结果。" : "按官方最新公布的期次展示；尚未发布新报价时保留上一期。"}
           </p>
           {!hasData ? (
             <p className="mt-5 text-[14px] text-ink-3">暂无已授权价格数据</p>
@@ -197,6 +197,7 @@ export default function MetalsPage() {
                                   </span>
                                 ))}
                               </div>
+                              {quote.period && <div className="mt-1 text-[11px] leading-4 text-ink-3">{quote.period.label}</div>}
                               {quote.spec && <div className="mt-1 text-[10px] leading-4 text-ink-4 sm:hidden">{quote.spec}</div>}
                             </td>
                             <td className="px-2 py-3 text-right align-top sm:px-4">
@@ -213,6 +214,7 @@ export default function MetalsPage() {
                                   {shown}
                                 </span>
                               )}
+                              {quote.change && <span className="mt-1 block text-[10px] leading-4 text-ink-4">对比 {quote.change.previous.period.label}</span>}
                               {phrase && (
                                 <span
                                   className="mt-0.5 block whitespace-nowrap text-[10px] font-normal leading-tight text-ink-4 sm:text-[11px]"
@@ -230,6 +232,21 @@ export default function MetalsPage() {
                   ))}
                 </table>
               </section>
+              <details className="mt-4 text-[12px] leading-6 text-ink-3">
+                <summary className="cursor-pointer">查看来源与报价日期</summary>
+                <ul className="mt-2 space-y-1">
+                  {prices.sources
+                    .filter((source) => source.latest)
+                    .map((source) => (
+                      <li key={source.key}>
+                        <a href={source.latest!.release.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          {source.name} · {source.latest!.label} · {source.latest!.release.label}
+                          <NewWindow />
+                        </a>
+                      </li>
+                    ))}
+                </ul>
+              </details>
               <section className="mt-7" aria-labelledby="metals-notes">
                 <h2 id="metals-notes" className="text-[15px] font-semibold text-ink">
                   说明
