@@ -8966,6 +8966,66 @@
       "site_fulltext": false,
       "syndicate_fulltext": false,
       "enabled": true
+    },
+    {
+      "id": "xfil-20261014-chalco-sse",
+      "name": "中国铝业 · 上交所公告",
+      "kind": "json_list",
+      "config": {
+        "url": "https://query.sse.com.cn/security/stock/queryCompanyBulletin.do?isPagination=true&productId=601600&securityType=0101&reportType2=LSGG&reportType=ALL&pageHelp.pageSize=10&pageHelp.pageNo=1&pageHelp.beginPage=1&pageHelp.cacheSize=1&pageHelp.endPage=1",
+        "headers": {
+          "referer": "https://www.sse.com.cn/"
+        },
+        "language": "zh-CN",
+        "itemsPath": "result",
+        "titlePaths": ["TITLE"],
+        "publishedAtPath": "SSEDATE",
+        "urlTemplate": "https://www.sse.com.cn{raw:URL}",
+        "allowUrlPrefixes": ["https://www.sse.com.cn/disclosure/listedinfo/announcement/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": false,
+      "owner_entity_id": "chalco",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": ["CN"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
+    },
+    {
+      "id": "xfil-20261014-shandong-gold-sse",
+      "name": "山东黄金 · 上交所公告",
+      "kind": "json_list",
+      "config": {
+        "url": "https://query.sse.com.cn/security/stock/queryCompanyBulletin.do?isPagination=true&productId=600547&securityType=0101&reportType2=LSGG&reportType=ALL&pageHelp.pageSize=10&pageHelp.pageNo=1&pageHelp.beginPage=1&pageHelp.cacheSize=1&pageHelp.endPage=1",
+        "headers": {
+          "referer": "https://www.sse.com.cn/"
+        },
+        "language": "zh-CN",
+        "itemsPath": "result",
+        "titlePaths": ["TITLE"],
+        "publishedAtPath": "SSEDATE",
+        "urlTemplate": "https://www.sse.com.cn{raw:URL}",
+        "allowUrlPrefixes": ["https://www.sse.com.cn/disclosure/listedinfo/announcement/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": false,
+      "owner_entity_id": "shandong-gold",
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "tags": ["CN"],
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": true
     }
   ]
 }
