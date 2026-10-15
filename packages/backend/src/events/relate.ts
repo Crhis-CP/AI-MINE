@@ -13,6 +13,8 @@ import { beijingDate, beijingTime } from "@amp/contracts/time";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 
+export const GROUP_BODY_CHARS = 10_000;
+export const BATCH_PROMPT_VERSION = promptVersion("group-batch", "group-value");
 export const RELATE_PROMPT_VERSION = promptVersion("group-batch", "group-pair", "group-signal");
 
 export const RELATIONS = ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP"] as const;
@@ -23,6 +25,7 @@ export interface ReportView {
   articleId?: string;
   revision?: number;
   publicationRevision?: number;
+  dateVersion?: number;
   originalText?: string;
   jurisdiction?: string | null;
   title: string;
@@ -63,7 +66,7 @@ export interface Verdict {
 }
 
 /** The relation prompts (industry/prompts/group-*.md): a new report against candidate facts, a pair, a signal post. */
-export const BATCH_SYSTEM = promptText("group-batch");
+export const BATCH_SYSTEM = `${promptText("group-batch")}\n\n${promptText("group-value")}`;
 export const PAIR_SYSTEM = promptText("group-pair");
 export const SIGNAL_SYSTEM = promptText("group-signal");
 
@@ -81,26 +84,6 @@ const RelationEvidenceSchema = z.object({
 });
 export type RelationEvidence = z.infer<typeof RelationEvidenceSchema>;
 const evidence = RelationEvidenceSchema.nullable().catch(null);
-
-function statedStage(quote: string): string | null {
-  if (/(?:尚未|未获|拟议|计划|propos|planned|not approved|previst|proyectad)/i.test(quote)) return "proposed";
-  if (/(?:批准|获批|approved|autorizad|aprob[óoa])/i.test(quote)) return "approved";
-  if (/(?:停产|停工|suspend|halted|stopped)/i.test(quote)) return "stopped";
-  if (/(?:复产|复工|resum|restart)/i.test(quote)) return "resumed";
-  return null;
-}
-
-function compactName(value: string | null | undefined): string {
-  return (value ?? "").replace(/[\s《》「」“”"'‘’（）()、，。]/g, "");
-}
-
-/** Missing side, equal text, or one name inside the other. Spaces and book-title marks are not a second entity. */
-function sameName(left: string | null | undefined, right: string | null | undefined): boolean {
-  const a = compactName(left),
-    b = compactName(right);
-  if (!a || !b || a === b) return true;
-  return a.length >= 2 && b.length >= 2 && (a.includes(b) || b.includes(a));
-}
 
 const jurisdictionById = new Map(JURISDICTIONS.map((row) => [row.id, row]));
 
@@ -143,40 +126,8 @@ export function jurisdictionsConflict(left: string | null | undefined, right: st
   return !!a && !!b && a !== b;
 }
 
-const OPPOSITE_STAGE: Record<string, string> = { proposed: "approved", approved: "proposed", stopped: "resumed", resumed: "stopped" };
-
-function oppositeStage(left: string | null | undefined, right: string | null | undefined): boolean {
-  return !!left && !!right && OPPOSITE_STAGE[left] === right;
-}
-
-/**
- * The model decides whether two reports are one real event. The program only rejects that answer
- * when the two sides are different projects/countries, or an asserted single occurrence has opposite stages. A low
- * confidence, a missing country, a province of that country, a paraphrase, or 公布/发布/印发 does not split them.
- */
-export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
-  if (verdict.relation !== "SAME_OCCURRENCE" && verdict.relation !== "SAME_STORY") return verdict.relation;
-  if (jurisdictionsConflict(a.jurisdiction, b.jurisdiction)) return "UNRELATED";
-  if (!sameName(a.frame?.object, b.frame?.object)) return "UNRELATED";
-  const e = verdict.evidence;
-  if (verdict.relation === "SAME_OCCURRENCE" && e && oppositeStage(e.queryStage, e.candidateStage)) return "UNRELATED";
-  if (e?.queryQuote && e.candidateQuote && a.originalText?.includes(e.queryQuote) && b.originalText?.includes(e.candidateQuote)) {
-    if (verdict.relation === "SAME_OCCURRENCE" && oppositeStage(statedStage(e.queryQuote), statedStage(e.candidateQuote))) return "UNRELATED";
-  }
-  // A missing clock or quote is not proof of one occurrence. Explicit developments keep their
-  // distinct identity; only the same complete saved evidence with the same concrete object can fold.
-  if (
-    verdict.relation === "SAME_STORY" &&
-    a.originalText?.trim() &&
-    b.originalText?.trim() &&
-    a.originalText.trim() === b.originalText.trim() &&
-    a.frame?.object &&
-    b.frame?.object &&
-    sameName(a.frame.object, b.frame.object) &&
-    e?.anchor &&
-    a.originalText.includes(e.anchor)
-  )
-    return "SAME_OCCURRENCE";
+/** Descriptive tags do not overrule a whole-report identity decision or invent a different relation. */
+export function validatedRelation(_a: ReportView, _b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
   return verdict.relation;
 }
 
@@ -206,7 +157,7 @@ export const BatchSchema = z.object({
   ),
 });
 
-export const ValueBatchSchema = BatchSchema.extend({ selection: SelectionValueSchema });
+export const ValueBatchSchema = BatchSchema.extend({ selection: SelectionValueSchema, queryScope: z.enum(["single", "composite", "unknown"]).optional() });
 
 export const PairSchema = z.object({
   a: z.string().max(400).catch(""),
@@ -222,7 +173,8 @@ export const SignalSchema = z.object({
 });
 
 function when(at: Date | null): string {
-  return at ? `${beijingDate(at)} ${beijingTime(at)}` : "未知";
+  if (!at) return "未知";
+  return (at.getTime() + 8 * 3600_000) % 86400_000 === 0 ? beijingDate(at) : `${beijingDate(at)} ${beijingTime(at)}`;
 }
 
 export function describeReport(r: ReportView, label: string, extra = ""): string {
@@ -230,6 +182,7 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
   return [
     `【${label}】${extra}`,
     `标题：${r.title}`,
+    r.scope ? `稿件范围：${r.scope === "single" ? "单一报道" : r.scope === "composite" ? "综合稿" : "未确认"}` : null,
     `来源：${r.source}${r.firstParty ? "（当事方/官方）" : ""}｜发布时间：${when(r.at)}`,
     `原文证据：${r.originalText ?? "（无）"}`,
     `法域：${r.jurisdiction ?? "未知"}`,

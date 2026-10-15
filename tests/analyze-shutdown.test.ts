@@ -201,8 +201,8 @@ test("SIGTERM during the final paid writing call still commits the complete anal
   const [projection] = await sql`SELECT visibility,selected FROM publications WHERE article_id=${articleId}`;
   assert.deepEqual(
     { ...projection },
-    { visibility: "public", selected: true },
-    "Owner guide-first mode retains the completed Chinese introduction while full translation remains pending",
+    { visibility: "public", selected: false },
+    "completed Chinese copy is public while selection waits for its separate grouping job",
   );
   assert.equal((await sql`SELECT 1 FROM receipts WHERE subject=${`article:${articleId}@1`} AND status='completed'`).length, 5);
 });

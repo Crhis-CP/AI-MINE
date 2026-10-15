@@ -37,7 +37,7 @@ test("two source entrances to the same current document reuse its fact without a
     });
     ids.push(material.articleId);
     await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,prompt_version,receipt_ids,output)
-      VALUES(${material.articleId},1,'rule','pass','company_project','甲矿业铜矿建设取得批准','正式公告列明了建设范围与要求。',${scopeVersion},${[await scopeReceipt(material.articleId)]},${sql.json(scopeOutput)})`;
+      VALUES(${material.articleId},1,'rule','pass','company_project','甲矿业铜矿建设取得批准','正式公告列明了建设范围与要求。',${scopeVersion},${[await scopeReceipt(material.articleId)]},${sql.json({ ...scopeOutput, scope: "single" })})`;
     await publishArticle(material.articleId);
   }
   assert.notEqual(ids[0], ids[1]);

@@ -1,15 +1,18 @@
+import { ModelPostReceiptGuardError } from "../providers/llm.ts";
 import { computeHotRanking } from "../events/hot.ts";
 import { isModelRouteWaiting } from "../providers/model-fallback.ts";
 import { ReceiptBusyError, ReceiptUnknownError, BudgetExceededError } from "../providers/receipts.ts";
 // Event jobs: serial grouping, debounced digests.
 import type { PgBoss } from "pg-boss";
-import { groupArticle, consolidate, resumeSignalRematch, replayStoredRelations, EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/group.ts";
+import { groupArticle, GroupingSupersededError, consolidate, resumeSignalRematch, EVENT_CONTINUATIONS, EVENT_CONTINUATION_OPTIONS } from "../events/group.ts";
 import { composeStoryDigest } from "../events/digest.ts";
 import { RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 import { settleNonEditorial } from "./content.ts";
 import { ensureQueue, enqueue, QUEUES } from "./queue.ts";
 
 const isWaiting = (error: unknown) =>
+  error instanceof GroupingSupersededError ||
+  error instanceof ModelPostReceiptGuardError ||
   error instanceof RuntimeControlPaused ||
   error instanceof RuntimeControlStale ||
   isModelRouteWaiting(error) ||
@@ -18,16 +21,7 @@ const isWaiting = (error: unknown) =>
   error instanceof BudgetExceededError;
 export async function registerEventJobs(boss: PgBoss) {
   await ensureQueue("events.hot-refresh");
-  let storedRelationsReplayed = false;
   await boss.work("events.hot-refresh", { localConcurrency: 1, pollingIntervalSeconds: 2 }, async () => {
-    if (!storedRelationsReplayed) {
-      try {
-        await replayStoredRelations(new Date(Date.now() - 14 * 24 * 60 * 60 * 1000));
-        storedRelationsReplayed = true;
-      } catch (error) {
-        console.error(error);
-      }
-    }
     return computeHotRanking();
   });
   await ensureQueue(QUEUES.group);
@@ -46,6 +40,7 @@ export async function registerEventJobs(boss: PgBoss) {
         }
         return result;
       } catch (error) {
+        if (error instanceof ReceiptUnknownError) return { state: "waiting", reason: "receipt", receiptId: error.receiptId };
         if (isWaiting(error)) {
           await enqueue(QUEUES.group, job.data, {
             singletonKey: `control:${job.data.articleId}:${!!job.data.signalOnly}:${!!job.data.force}`,

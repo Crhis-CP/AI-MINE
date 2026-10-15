@@ -380,9 +380,10 @@ export async function manualMaterialSnapshot(articleId: string, db: Db = sql) {
   return row ?? null;
 }
 export async function newsRelationMaterials(ids: string[], db: Db = sql) {
-  return db<
-    { id: string; revision: number; original_text: string; published_at: Date | null }[]
-  >`SELECT id,revision,published_at,title || E'\n' || coalesce(body_text,excerpt,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+  const rows = await db<
+    { id: string; revision: number; source_date_version: number; original_text: string; published_at: Date | null }[]
+  >`SELECT id,revision,source_date_version,published_at,title || E'\n' || coalesce(CASE WHEN body_text<>'' THEN body_text ELSE excerpt END,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+  return rows.map((row) => ({ ...row, source_date_version: Number(row.source_date_version) }));
 }
 export async function lockNewsModelMaterials(ids: string[], db: Db) {
   return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id FOR SHARE`;

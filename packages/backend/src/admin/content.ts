@@ -1,5 +1,5 @@
 import { manualMaterialSnapshot } from "@amp/backend/content/materials";
-import { detachArticleFromFactTx, factArticleIds } from "@amp/backend/events/group";
+import { detachArticleFromFactTx, factArticleIds, requestArticleRegroup } from "@amp/backend/events/group";
 import { invalidateReportCorrections } from "@amp/backend/reports/compose";
 export { previewWithdrawal, actWithdrawal } from "../editorial/withdrawals.ts";
 import { manualRevisionHistory } from "../editorial/manual-revisions.ts";
@@ -19,7 +19,7 @@ import { publishArticle, publishArticleTx, publishedStoryId } from "../publicati
 import { computeHotRanking } from "../events/hot.ts";
 import { mergeStoryInto } from "../events/merge.ts";
 import { latestHotRanking } from "../events/hot-read.ts";
-import { audit } from "./auth.ts";
+import { audit, previousAuditedCommand } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 
 const sql = dbOf("editorial");
@@ -262,11 +262,18 @@ export async function rerun(id: string, step: "extract" | "analyze" | "group", r
   const [a] = await sql`SELECT id FROM articles WHERE id = ${id}`;
   if (!a) return null;
   let jobId: string | null;
-  if (step === "group") {
-    // An explicit regroup replaces an earlier manual "keep standalone" decision and the automatic membership.
-    await sql`DELETE FROM grouping_overrides WHERE article_id = ${id}`;
-    jobId = await enqueue(QUEUES.group, { articleId: id, force: true }, { singletonKey: `manual:group:${id}:${requestId}` });
-  } else {
+  if (step === "group")
+    return sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(hashtext(${`regroup-command:${id}`}))`;
+      const previous = await previousAuditedCommand(actor, "content.rerun.group", `content:${id}`, requestId, tx);
+      if (previous) return z.object({ jobId: z.string().nullable() }).parse(previous.result);
+      if (!(await requestArticleRegroup(id, tx))) return null;
+      const queued = await enqueue(QUEUES.group, { articleId: id, force: true }, { singletonKey: `manual:group:${actor}:${id}:${requestId}` }, tx);
+      const result = { jobId: queued };
+      await audit(actor, "content.rerun.group", `content:${id}`, null, null, { ...result, requestId }, requestId, tx);
+      return result;
+    });
+  else {
     await sql`UPDATE articles SET processing_state = 'new', processing_error = NULL, processing_attempts = 0, processing_retry_at = NULL,
                 body_status = CASE WHEN ${step === "extract"} THEN 'pending' ELSE body_status END WHERE id = ${id}`;
     jobId =

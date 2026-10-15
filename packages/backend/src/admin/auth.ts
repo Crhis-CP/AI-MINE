@@ -236,3 +236,10 @@ export async function auditActionExists(actor: string, action: string, db: Db = 
   const [row] = await db`SELECT 1 FROM audit_log WHERE actor=${actor} AND action=${action} LIMIT 1`;
   return !!row;
 }
+
+/** Read only this actor's matching command result; used inside the caller's serialized mutation. */
+export async function previousAuditedCommand(actor: string, action: string, subject: string, requestId: string, db: Db = sql) {
+  const [row] = await db<{ after: unknown }[]>`SELECT after FROM audit_log
+    WHERE actor=${actor} AND action=${action} AND subject=${subject} AND request_id=${requestId} ORDER BY id DESC LIMIT 1`;
+  return row ? { result: row.after } : null;
+}

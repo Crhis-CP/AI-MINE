@@ -1,5 +1,5 @@
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
-import "./setup.ts";
+import { gate } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
@@ -434,4 +434,65 @@ test("name and price edits preserve an assigned connection and already prepared 
   assert.equal(await modelFor("structure"), row.key);
   await sql.begin((tx) => resolved!.assertCurrent(tx));
   assert.equal(calls, before, "metadata editing does not buy a new connection test");
+});
+
+test("changing settings does not wait for an in-flight model response, which keeps its original snapshot", async () => {
+  const row = await passing();
+  const started = gate(),
+    release = gate();
+  const pending = chatJson({
+    model: row.key,
+    purpose: "synthetic_registry",
+    lane: "news",
+    subject: `in-flight:${row.id}`,
+    promptVersion: "test",
+    system: "",
+    user: row.id,
+    schema: z.strictObject({ ok: z.literal(true) }),
+    registeredTransport: async (...args) => {
+      started.open();
+      await release.promise;
+      return transport(...args);
+    },
+  });
+  await started.promise;
+  const edit = updateModelConnection(row.id, { ...connection, name: "无需等待网络的名称", expected_revision: 1, reason: "metadata only" }, manager, guards);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const completed = await Promise.race([
+      edit.then(() => true),
+      new Promise<boolean>((resolve) => {
+        timeout = setTimeout(() => resolve(false), 1500);
+      }),
+    ]);
+    assert.equal(completed, true, "admin edits must not be held behind the provider's response");
+  } finally {
+    clearTimeout(timeout);
+    release.open();
+    await pending;
+    await edit;
+  }
+  const [received] = await sql`SELECT request FROM receipts WHERE subject=${`in-flight:${row.id}`}`;
+  assert.equal(received!.request.connection_revision, 1, "the running call keeps its actual original configuration revision");
+});
+
+test("changing a provider origin cannot silently forward the old secret", async () => {
+  const row = await passing();
+  await assert.rejects(
+    updateModelConnection(
+      row.id,
+      {
+        ...connection,
+        endpoint: "https://another-provider.invalid/v1",
+        expected_revision: 1,
+        owner_confirmed: true,
+        supplier_basis: "https://another-provider.invalid/pricing",
+        reason: "new provider",
+      },
+      owner,
+      guards,
+    ),
+    /新服务的密钥/,
+  );
+  assert.equal((await listModelConnections(owner, guards)).connections.find((item) => item.id === row.id)?.revision, 1);
 });

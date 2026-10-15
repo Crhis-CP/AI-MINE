@@ -1,3 +1,4 @@
+import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { decodeCursor, encodeCursor } from "../packages/backend/src/lib/cursor.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
@@ -80,7 +81,7 @@ after(async () => {
 
 let n = 0;
 /** A selected article with full text and a summary. */
-async function article(body = BODY, language?: string, sourceId = SOURCE): Promise<string> {
+async function article(body = BODY, language?: string, sourceId = SOURCE, confirmed = true): Promise<string> {
   await ensureModelSourceFixture(sourceId, ["https://example.com/source"]);
   n += 1;
   const { articleId } = await upsertMaterial({
@@ -96,6 +97,7 @@ async function article(body = BODY, language?: string, sourceId = SOURCE): Promi
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
             VALUES (${articleId}, 1, 'rule', 'pass', 'company_project', ${`标题${n}-${T}`}, ${`合成摘要 SUMMARY-${n}-${T}`}, '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json(scopeOutput)})`;
+  if (confirmed) await completeMaterialGrouping(articleId, 1, { addsValue: true, reason: "合成已确认精选" }, null);
   const [source] = await sql`SELECT site_fulltext FROM sources WHERE id=${sourceId}`;
   if (source?.site_fulltext && body && !isChineseOriginal(language ?? null, body)) await translateFixture(articleId);
   return articleId;
@@ -347,13 +349,13 @@ test("one item's failure does not stop a source republish; a passing failure is 
   }
 });
 
-test("an early release keeps the selected ledger in order", async () => {
+test("confirmation appends selection without a waiting-candidate ledger barrier", async () => {
   const x = await article();
   await publishArticle(x, released());
-  const y = await article();
+  const y = await article(BODY, undefined, SOURCE, false);
   await publishArticle(y); // still behind the release gate
   await setVisibility(x, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
-  await sql`UPDATE articles SET grouped_at = now() WHERE id = ${y}`;
+  await completeMaterialGrouping(y, 1, { addsValue: true, reason: "合成归组确认" }, null);
   await publishArticle(y); // grouped: released now
 
   const [entry] = await sql<{ seq: number }[]>`SELECT max(seq)::int AS seq FROM selected_ledger WHERE article_id = ${y}`;
@@ -363,10 +365,10 @@ test("an early release keeps the selected ledger in order", async () => {
   assert.ok(!snapshot.body.includes(x), "withdrawn item is not");
 });
 
-test("a withdrawal waiting behind an unreleased item leaves new snapshots at once, and changes still carry both", async () => {
+test("pending candidates do not block withdrawals or appear in the selected sync", async () => {
   const x = await article();
   await publishArticle(x, released());
-  const y = await article();
+  const y = await article(BODY, undefined, SOURCE, false);
   await publishArticle(y); // behind the release gate: the watermark stays before it
   await setVisibility(x, { visibility: "withdrawn", reason: "test", version: 0 }, "test");
 
@@ -375,15 +377,15 @@ test("a withdrawal waiting behind an unreleased item leaves new snapshots at onc
     assert.ok(!body.includes(x), `${url} still lists the withdrawn item`);
     assert.ok(!body.includes(y), `${url} lists an item before its release`);
   }
-  // A client that saved this snapshot's watermark receives y and x's removal once y is released.
+  // Removal has already crossed the watermark. A later confirmation only adds y.
   const snapshot = JSON.parse((await get("/api/v1/selected/snapshot?fields=minimal&limit=1000")).body) as { cursor: string };
-  await sql`UPDATE articles SET grouped_at = now() WHERE id = ${y}`;
+  await completeMaterialGrouping(y, 1, { addsValue: true, reason: "合成归组确认" }, null);
   await publishArticle(y);
   const changes = JSON.parse((await get(`/api/v1/selected/changes?cursor=${encodeURIComponent(snapshot.cursor)}&limit=100`)).body) as {
     changes: Array<{ op: string; id?: string; item?: { id: string } }>;
   };
   const ours = changes.changes.map((c) => `${c.op}:${c.id ?? c.item?.id}`).filter((c) => c.endsWith(x) || c.endsWith(y));
-  assert.deepEqual(ours, [`upsert:${y}`, `remove:${x}`]);
+  assert.deepEqual(ours, [`upsert:${y}`]);
 });
 
 test("snapshots answer 304 to their own ETag", async () => {

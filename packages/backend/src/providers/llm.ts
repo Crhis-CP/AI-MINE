@@ -535,14 +535,16 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         };
       };
       if (!registered) return send();
-      return sql.begin(async (tx) => {
+      // Claim the current configuration before sending; do not hold the registry/database lock
+      // across a provider's network response. Already-started work retains its frozen request.
+      await sql.begin(async (tx) => {
         try {
           await registered.assertCurrent(tx);
         } catch {
           throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false, "configuration_changed");
         }
-        return send();
       });
+      return send();
     });
 
     const response = receipt.response as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: Record<string, unknown> };

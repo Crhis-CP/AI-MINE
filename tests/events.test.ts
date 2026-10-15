@@ -61,6 +61,8 @@ const provider = await stub(async (_hit, req) => {
     ? { a: "发布", b: "发布", relation: pairRelation ?? relation, difference: "", confidence: 0.95, evidence: evidence(1) }
     : {
         query: "发布新模型",
+        selection: { addsValue: true, reason: "合成新增信息判断" },
+        queryScope: "single",
         decisions: ids.map((id) => ({
           id,
           relation: answerAll || id === "C1" ? relation : "UNRELATED",
@@ -102,7 +104,7 @@ async function report(suffix: string, title = FACT_TITLE, summary = "摘要", pu
     publishedAt,
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, score, selected, prompt_version, receipt_ids, output)
-            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${title}, ${summary}, 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, fact: { title, subject: "Alpha", action: "announced", object: "Alpha project" }, geography: validateGeography({ status: "identified", primary: "AR", assignments: [{ code: "AR", role: "event_location", mention: "Argentina", segment: "body_head", quote: body }], reason: "synthetic evidence" }, { title: sourceTitle, bodyText: body, excerpt: null, bodyStatus: "ok" }) })})`;
+            VALUES (${articleId}, 1, 'rule', 'pass', 'ai-models', ${title}, ${summary}, 80, false, ${scopeVersion}, ${[await scopeReceipt(articleId)]}, ${sql.json({ ...scopeOutput, scope: "single", fact: { title, subject: "Alpha", action: "announced", object: "Alpha project" }, geography: validateGeography({ status: "identified", primary: "AR", assignments: [{ code: "AR", role: "event_location", mention: "Argentina", segment: "body_head", quote: body }], reason: "synthetic evidence" }, { title: sourceTitle, bodyText: body, excerpt: null, bodyStatus: "ok" }) })})`;
   await publishArticle(articleId);
   return articleId;
 }

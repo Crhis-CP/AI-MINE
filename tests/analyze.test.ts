@@ -1,3 +1,4 @@
+import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
@@ -397,10 +398,16 @@ test("analysing the same revision again reuses every paid answer", async () => {
   const id = await article("CLEAR", { url: `https://example.com/CLEAR-again-${T}`, title: `CLEAR model release again ${T}` });
   const first = await analyzeArticle(id);
   assert.equal(first!.reused, false);
+  await completeMaterialGrouping(id, 1, { addsValue: true, reason: "合成归组已完成" }, null);
   const hits = provider.hits();
   const again = await analyzeArticle(id);
   assert.equal(provider.hits(), hits, "no new requests");
   assert.deepEqual([again!.reused, again!.receiptIds], [true, first!.receiptIds]);
+  assert.equal(
+    (await sql`SELECT grouping_status FROM articles WHERE id=${id}`)[0]!.grouping_status,
+    "complete",
+    "reusing the same analysis preserves grouping",
+  );
   const complete = await row(id);
   await sql`UPDATE receipts SET status = 'unknown' WHERE id = ${again!.receiptIds[1]!}`;
   await assert.rejects(analyzeArticle(id), /unknown outcome/);
@@ -587,6 +594,8 @@ test("BR-PUB-08: judging a selected Chinese original again keeps its last comple
   const body = "铜矿扩建项目的原始公告，列明产能、地点与建设条件，供读者核对。".repeat(6);
   const id = await article("REJUDGE", { title: "铜矿扩建公告", language: "zh", bodyText: `REJUDGE：${body} (${T})` });
   assert.equal((await processArticle(id)).state, "pass");
+  await completeMaterialGrouping(id, 1, { addsValue: true, reason: "合成已完成归组" }, null);
+  await publishArticle(id);
   const first = await projection(id);
   assert.deepEqual([first.visibility, first.selected], ["public", true]);
   assert.match(first.summary, /理解摘要 REJUDGE/);

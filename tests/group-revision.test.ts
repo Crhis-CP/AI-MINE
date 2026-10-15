@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { dbOf, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { groupArticle } from "@amp/backend/events/group";
+import { groupArticle, GroupingSupersededError } from "@amp/backend/events/group";
 import { stopBoss } from "@amp/backend/jobs/queue";
 const sql = dbOf("events");
 after(async () => {
@@ -20,8 +20,9 @@ test("source revision invalidates automatic membership while preserving manual m
   const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${tag()},${story!.id},'旧事实') RETURNING id`;
   await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${m.articleId},'report',1)`;
   await upsertMaterial({ sourceId, url, title: "乙项目更正", bodyText: "更正为乙项目申请阶段，尚未批准建设。", language: "zh", via: "fetch" });
-  const result = await groupArticle(m.articleId);
-  assert.equal(result.verdict, "standalone");
+  await assert.rejects(groupArticle(m.articleId), GroupingSupersededError);
+  const [waiting] = await sql`SELECT grouping_status FROM articles WHERE id=${m.articleId}`;
+  assert.equal(waiting!.grouping_status, "pending", "a revised material cannot confirm grouping before its new analysis");
   assert.equal((await sql`SELECT * FROM fact_articles WHERE article_id=${m.articleId}`).length, 0);
   await sql`INSERT INTO fact_articles(fact_id,article_id,role,manual,input_revision) VALUES(${fact!.id},${m.articleId},'report',true,1)`;
   assert.equal((await groupArticle(m.articleId)).verdict, "manual");

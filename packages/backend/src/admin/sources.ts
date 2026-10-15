@@ -305,6 +305,11 @@ export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]
   return (await sql<{ id: string }[]>`SELECT id FROM sources WHERE lane = ${lane}`).map((r) => r.id);
 }
 
+/** Scheduled processing recovery respects sources explicitly paused or archived by an editor. */
+export async function activeNewsSourceIds(db: Db = sql): Promise<string[]> {
+  return (await db<{ id: string }[]>`SELECT id FROM sources WHERE lane='news' AND enabled AND archived_at IS NULL`).map((r) => r.id);
+}
+
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
 export async function readSourceDateContext(sourceId: string, db: Db = sql): Promise<SourceRow | null> {
   const [source] = await db<SourceRow[]>`SELECT id, name, kind, config, tier, participation_mode, lane, first_party,

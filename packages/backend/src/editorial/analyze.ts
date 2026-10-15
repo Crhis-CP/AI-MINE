@@ -1,3 +1,5 @@
+import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
+import { beginMaterialGrouping } from "../content/grouping.ts";
 export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "../enrichment/records.ts";
 import { ModelContentFiltered } from "../providers/model-fallback.ts";
 import { evaluateSourcePolicy } from "../admin/sources.ts";
@@ -702,6 +704,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       out.relevance === "block" ? "blocked" : "analyzed",
       async (tx) => {
         await assertRuntimeControl(tx, runtimeControl);
+        const previousGroupingInput = await readGroupingAnalysis(articleId, input.revision, tx);
         // Enrichment owns the statement; content owns the locked transaction executing it.
         const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,
@@ -711,6 +714,11 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
         ${out.score}, ${out.selected}, ${sql.json(detail as never)})
       RETURNING id`;
         const [row] = await tx<{ id: number }[]>`${insert}`;
+        if (
+          groupingAnalysisHash(previousGroupingInput) !==
+          groupingAnalysisHash({ selected: out.selected, relevance: out.relevance, title_zh: out.titleZh, summary_zh: out.summaryZh, output: detail })
+        )
+          await beginMaterialGrouping(articleId, input.revision, true, tx);
         for (const id of receiptIds) await completeReceipt(tx, id);
         return row!.id;
       },

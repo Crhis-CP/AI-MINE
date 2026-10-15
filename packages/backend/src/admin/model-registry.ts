@@ -71,6 +71,8 @@ export async function updateModelConnection(id: string, input: unknown, principa
     if (protectedChange) {
       await guards.owner(principal, tx);
       if (!value.owner_confirmed || !value.supplier_basis) throw new ModelConnectionUnavailable("密钥或供应商变更须负责人确认并提供依据");
+      if (new URL(value.endpoint).origin !== new URL(before.config.endpoint).origin && !value.secret)
+        throw new ModelConnectionUnavailable("更换服务域名时，请填写新服务的密钥，不能自动沿用原密钥");
     }
     const config = ModelConnectionConfig.strip().parse(value);
     if (modelConfigurationHash(config) !== modelConfigurationHash(before.config) || value.enabled === false) {

@@ -10,7 +10,7 @@ import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
-import { linkRelatedStories, repairUnboundEventMemberships } from "@amp/backend/events/group";
+import { linkRelatedStories, recoverPendingGroupings } from "@amp/backend/events/group";
 import {
   enqueuePendingReportCorrections,
   catchUpReports,
@@ -49,7 +49,7 @@ export const SCHEDULES: Scheduled[] = [
   { name: "hot.rank", cron: "*/5 * * * *", run: () => computeHotRanking() },
   { name: "hot.snapshot", cron: "2 * * * *", run: () => snapshotHeat() },
   { name: "stories.status", cron: "7 * * * *", run: refreshStoryStatuses },
-  { name: "events.membership-repair", cron: "*/5 * * * *", run: () => repairUnboundEventMemberships(100) },
+  { name: "events.membership-repair", cron: "*/2 * * * *", run: () => recoverPendingGroupings() },
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
   { name: "reports.daily", cron: "0 8 * * *", missed: "once", run: () => composeDaily(beijingDate(Date.now())) },
   { name: "reports.weekly", cron: "0 10 * * 1", missed: "once", run: () => composeWeekly(isoWeekLabel(addDays(beijingDate(Date.now()), -7))) },
