@@ -37,7 +37,8 @@ export async function usageConfiguration(db: Db = sql) {
     { version: number; config: unknown; effective_at: Date; actor: string; reason: string }[]
   >`SELECT version,config,effective_at,actor,reason FROM ai.usage_control_versions ORDER BY version DESC LIMIT 1`;
   if (!row) return null;
-  return UsageConfigRecord.parse({ ...row, effective_at: row.effective_at.toISOString() });
+  const parsed = UsageConfigRecord.safeParse({ ...row, effective_at: row.effective_at.toISOString() });
+  return parsed.success ? parsed.data : null;
 }
 /**
  * Writes the controlled initial version once when the table is empty.
@@ -89,7 +90,7 @@ async function raise(
   db: Db,
   scope: Scope,
   trigger: "repeated_input" | "object_cost" | "daily_total",
-  level: "warning" | "open",
+  _level: "warning" | "open",
   window: string,
   configVersion: number,
   current: Record<string, string>,
@@ -98,21 +99,20 @@ async function raise(
   now: Date,
 ) {
   const key = sha256(stableJson(scope));
-  const [open] = await db<{ id: string }[]>`SELECT id FROM ai.usage_breakers WHERE scope_key=${key} AND trigger=${trigger} AND state='open'`;
-  if (open) return;
-  const [warning] = await db<
-    { id: string }[]
-  >`SELECT id FROM ai.usage_breakers WHERE scope_key=${key} AND trigger=${trigger} AND window_key=${window} AND state='warning' ORDER BY created_at DESC LIMIT 1`;
-  if (warning && level === "warning") return;
-  const id = warning?.id ?? `brk_${newUuid()}`;
-  if (warning)
-    await db`UPDATE ai.usage_breakers SET state='open',revision=revision+1,current=${db.json(current)},threshold=${db.json(threshold)},config_version=${configVersion},opened_at=${now},receipt_ids=${receipts} WHERE id=${id}`;
-  else
-    await db`INSERT INTO ai.usage_breakers(id,scope_key,scope,trigger,state,window_key,config_version,current,threshold,warning_at,opened_at,created_at,receipt_ids) VALUES(${id},${key},${db.json(scope)},${trigger},${level},${window},${configVersion},${db.json(current)},${db.json(threshold)},${level === "warning" ? now : null},${level === "open" ? now : null},${now},${receipts})`;
+  const [warning] = await db<{ id: string }[]>`SELECT id FROM ai.usage_breakers
+    WHERE scope_key=${key} AND trigger=${trigger} AND window_key=${window} AND state='warning'
+    ORDER BY created_at DESC LIMIT 1`;
+  if (warning) {
+    await db`UPDATE ai.usage_breakers SET current=${db.json(current)},threshold=${db.json(threshold)},receipt_ids=${receipts} WHERE id=${warning.id}`;
+    return;
+  }
+  const id = `brk_${newUuid()}`;
+  await db`INSERT INTO ai.usage_breakers(id,scope_key,scope,trigger,state,window_key,config_version,current,threshold,warning_at,created_at,receipt_ids)
+    VALUES(${id},${key},${db.json(scope)},${trigger},'warning',${window},${configVersion},${db.json(current)},${db.json(threshold)},${now},${now},${receipts})`;
   const record = await usageBreakerRecord(db, id);
-  await usageEvent(db, `${id}:${level}`, level === "open" ? "opened" : "warning", record, scope.lane, scope.capability);
-  if (level === "open") await audit("system:usage", "usage.breaker.open", id, trigger, null, record, undefined, db);
+  await usageEvent(db, `${id}:warning`, "warning", record, scope.lane, scope.capability);
 }
+
 const capabilityScope = (lane: "news" | "policy", capability: string, source: string | null = null): Scope => ({
   lane,
   kind: source ? "capability_source" : "capability",
@@ -121,14 +121,18 @@ const capabilityScope = (lane: "news" | "policy", capability: string, source: st
   object_kind: null,
   object_id: null,
 });
-const scopeApplies = (s: Scope, c: UsageContext) =>
-  s.lane === c.lane &&
-  (s.kind === "object"
-    ? s.object_kind === c.object?.kind && s.object_id === c.object.id
-    : s.capability === c.capability && (s.kind !== "capability_source" || c.sourceIds.includes(s.source_id!)));
-export async function activeUsageBlocker(db: Db, context: UsageContext) {
-  const rows = await db<{ id: string; scope: Scope }[]>`SELECT id,scope FROM ai.usage_breakers WHERE state='open'`;
-  return rows.find((r) => scopeApplies(r.scope, context))?.id ?? null;
+/** Retire the replaced automatic rules, retaining their history and independent manual pauses. */
+export async function activeUsageBlocker(db: Db, _context: UsageContext): Promise<string | null> {
+  const reason = "Owner 2026-10-15：按上游请求次数控制；费用与重复次数仅提醒";
+  const rows = await db<{ id: string }[]>`UPDATE ai.usage_breakers SET state='recovered',revision=revision+1,
+    recovered_at=now(),recovered_by='system:usage-alignment',recovery_reason=${reason}
+    WHERE state='open' AND trigger IN ('daily_total','object_cost','repeated_input') RETURNING id`;
+  for (const row of rows) {
+    const record = await usageBreakerRecord(db, row.id);
+    await audit("system:usage-alignment", "usage.breaker.recover", row.id, reason, { state: "open" }, record, undefined, db);
+    await usageEvent(db, `${row.id}:recovered`, "recovered", record, record.scope.lane, record.scope.capability);
+  }
+  return null;
 }
 
 function sumKeys(c: UsageContext, day: string) {
@@ -503,11 +507,10 @@ export async function admitUsage(
   try {
     configuration = await usageConfiguration(db);
   } catch {
-    /* invalid configuration is a closed gate */
+    /* Reporting configuration does not impose a payment quota. */
   }
-  let missing = !configuration ? "费用保护配置缺失或不可读取" : !input.context ? "缺少真实业务线及费用归属" : null;
-  if (configuration && !missing) missing = await usageCoverageGap(db, configuration, now, true, input.context!, input.subject);
-  if (missing) {
+  const missing = !configuration ? "用量提醒配置缺失或不可读取" : null;
+  if (missing)
     await usageEvent(
       db,
       `usage-missing:${beijingDate(now)}:${sha256(missing)}`,
@@ -516,15 +519,13 @@ export async function admitUsage(
       input.context?.lane ?? null,
       input.context?.capability ?? null,
     );
-    return { reservation: null, blocked: missing };
+  if (!input.context) return { reservation: null, blocked: "缺少真实业务线及费用归属" };
+  const c = input.context;
+  await activeUsageBlocker(db, c);
+  if (configuration) {
+    await evaluateInput(db, configuration, c, input.logicalKey, now);
+    if (!(await usageCoverageGap(db, configuration, now, true))) await evaluateDaily(db, configuration, now);
   }
-  const c = input.context!,
-    active = await activeUsageBlocker(db, c);
-  if (active) return { reservation: null, blocked: `费用熔断等待负责人恢复：${active}` };
-  await evaluateInput(db, configuration!, c, input.logicalKey, now);
-  if (!(await usageCoverageGap(db, configuration!, now))) await evaluateDaily(db, configuration!, now);
-  const blocked = await activeUsageBlocker(db, c);
-  if (blocked) return { reservation: null, blocked: `费用熔断等待负责人恢复：${blocked}` };
   const priced = await priceQuote(db, input, now);
   if (!priced.quote) {
     await usageEvent(
@@ -535,10 +536,11 @@ export async function admitUsage(
       c.lane,
       c.capability,
     );
-    return { reservation: null, blocked: priced.missing };
   }
+  const quote: UsageQuote = priced.quote ?? { price_id: null, price_version: 0, price: null, reserved_micros: "0", bounds: input.bounds ?? null };
   if (input.taskBudget) {
     const task = input.taskBudget;
+    if (!priced.quote) return { reservation: null, blocked: "有限额的研究任务需要可核对的费用估算", code: "task_budget_unpriced" };
     if (!task.key.trim() || task.key.length > 200 || !/^([1-9]\d{0,17})$/.test(task.limit_micros))
       return { reservation: null, blocked: "研究任务费用上界无效", code: "task_budget_invalid" };
     const [current] = await db<
@@ -553,8 +555,8 @@ export async function admitUsage(
     reservation: {
       context: c,
       logicalKey: input.logicalKey,
-      quote: priced.quote,
-      configVersion: configuration!.version,
+      quote,
+      configVersion: configuration?.version ?? 0,
       ...(input.taskBudget ? { taskBudget: input.taskBudget } : {}),
     },
     blocked: null,
@@ -569,9 +571,10 @@ export async function authorizeUsageSend(db: Db, attemptId: string, now = new Da
   if (!row) return "缺少费用预留证据";
   const c = contextOf(row),
     configuration = await usageConfiguration(db);
-  if (!configuration) return "费用保护配置缺失";
-  await evaluateInput(db, configuration, c, row.logical_key, now);
-  if (!(await usageCoverageGap(db, configuration, now))) await evaluateDaily(db, configuration, now);
+  if (configuration) {
+    await evaluateInput(db, configuration, c, row.logical_key, now);
+    if (!(await usageCoverageGap(db, configuration, now))) await evaluateDaily(db, configuration, now);
+  }
   const open = await activeUsageBlocker(db, c);
   if (open) return `费用熔断等待恢复：${open}`;
   await db`UPDATE ai.usage_attempts SET submitted=true WHERE attempt_id=${attemptId}`;
@@ -581,6 +584,7 @@ export async function authorizeUsageSend(db: Db, attemptId: string, now = new Da
 export async function evaluateUsageProtection(now = new Date()) {
   return sql.begin(async (db) => {
     await usageLock(db);
+    await activeUsageBlocker(db, { lane: "news", capability: "usage-observation", sourceIds: [], object: null });
     const config = await usageConfiguration(db);
     if (!config) {
       await usageEvent(db, `usage-missing:${beijingDate(now)}`, "configuration_missing", { reason: "费用保护配置尚未安装" });

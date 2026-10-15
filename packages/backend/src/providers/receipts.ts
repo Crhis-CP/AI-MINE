@@ -16,7 +16,7 @@ import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapsho
 // 2. Before calling, a placeholder row and an attempt row are persisted; budgets count attempts.
 // 3. The raw response is saved before any business write; recovery reuses a received response.
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
-//    caller or a timer. Only evidence that it was not billed can permit another paid attempt.
+//    caller. Recovery may release it once after 30 minutes, preserving the unknown charge.
 //    A billed answer that failed validation may be bought again at most twice; the saved response is reused after that.
 import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -721,12 +721,17 @@ async function startAttempt(tx: Db, receiptId: number, attempt: number, req: Rec
     RETURNING id::text AS id`;
   if (req.modelSnapshot) {
     const snapshot = req.modelSnapshot;
-    const pricing = snapshot.pricing ?? {
-      input: rateYuan(usage.quote.price.input_per_million_micros!),
-      output: rateYuan(usage.quote.price.output_per_million_micros!),
-      currency: "CNY",
-      basis: usage.quote.price.basis_url,
-    };
+    const price = usage.quote.price;
+    const pricing =
+      snapshot.pricing ??
+      (price && price.input_per_million_micros !== null && price.output_per_million_micros !== null
+        ? {
+            input: rateYuan(price.input_per_million_micros),
+            output: rateYuan(price.output_per_million_micros),
+            currency: "CNY",
+            basis: price.basis_url,
+          }
+        : { unknown: true });
     await tx`INSERT INTO ai.model_attempt_snapshots(attempt_id,connection_id,connection_revision,configuration_hash,key_fingerprint,pricing)
       VALUES(${row!.id},${snapshot.connection_id},${snapshot.connection_revision},${snapshot.configuration_hash},${snapshot.key_fingerprint},${tx.json(pricing)})`;
   }
@@ -741,7 +746,7 @@ async function markUnknown(tx: Db, receiptId: number, reason: string) {
 
 /**
  * Placeholders left behind by a process that stopped mid-request (crash, kill) become "unknown", so
- * the unresolved attempt stays visible even when no caller retries it; elapsed time never releases it.
+ * the unresolved attempt stays visible; a separate recovery pass may release it once after its grace period.
  */
 export async function markStalePendingReceipts(): Promise<number> {
   return sql.begin(async (tx) => {
@@ -809,7 +814,7 @@ export async function releaseUnknownReceiptUnbilled(db: Db, receiptId: number, e
     WHERE id=${receiptId} AND status='unknown' AND attempts=${observed.attempts} AND updated_at::text=${observed.version} RETURNING subject,purpose`;
   if (!before) return null;
   const attempts = await db<{ id: string }[]>`UPDATE receipt_attempts SET status='failed',error=${error}
-    WHERE receipt_id=${receiptId} AND status='unknown' RETURNING id::text`;
+    WHERE receipt_id=${receiptId} AND attempt=${observed.attempts} AND status='unknown' RETURNING id::text`;
   for (const attempt of attempts) await settleUsageAttempt(db, attempt.id, "failed");
   return before;
 }

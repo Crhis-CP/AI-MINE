@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { z } from "zod";
 import { createDatabaseAccess } from "@amp/config";
-import { SCHEDULES } from "../apps/worker/src/schedules.ts";
 import { buildApp } from "../apps/api/src/app.ts";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
@@ -175,40 +174,42 @@ test("with the valve off nothing is sent", async () => {
   }
 });
 
-test("a sent request timing out stays unknown beyond 30 minutes and cannot be bought again", async () => {
+test("unknown paid requests wait 30 minutes, release once, and preserve uncertain charges", async () => {
   const req = { lane: "news" as const, service: "invariant-unbudgeted", purpose: "invariant_test", subject: `lost-${tag()}`, identity: { lost: tag() } };
-  const started = gate(),
-    finish = gate(),
-    abort = new AbortController();
-  const remote = await stub(async () => {
-    started.open();
-    await finish.promise;
-    return { ok: true };
-  });
-  const lost = async () => ({ response: await (await fetch(remote.url, { signal: abort.signal })).json() });
-  try {
-    const first = assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
-    await started.promise;
-    abort.abort(new Error("fixture timeout after sending"));
-    await first;
-    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${req.subject}`;
-    for (const now of [Date.now(), Date.now() + 32 * 86400_000]) {
-      assert.deepEqual(await autoReleaseUnknownReceipts(now), { released: 0, requeued: 0 });
-      await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
-    }
-    const recovery = (await SCHEDULES.find((schedule) => schedule.name === "ops.recover")!.run()) as { released: { released: number; requeued: number } };
-    assert.deepEqual(recovery.released, { released: 0, requeued: 0 });
-    const rows =
-      await sql`SELECT r.status, a.status AS attempt, a.cost FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.subject=${req.subject}`;
-    assert.deepEqual(
-      rows.map((row) => ({ ...row })),
-      [{ status: "unknown", attempt: "unknown", cost: null }],
-    );
-    assert.equal(remote.hits(), 1);
-  } finally {
-    finish.open();
-    await remote.close();
-  }
+  let sent = 0;
+  const lost = async () => {
+    sent++;
+    throw new Error("fixture timeout after sending");
+  };
+  await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${req.subject}`;
+  const released = await Promise.all([autoReleaseUnknownReceipts(), autoReleaseUnknownReceipts()]);
+  assert.equal(
+    released.reduce((n, result) => n + result.released, 0),
+    1,
+    "concurrent recovery releases once",
+  );
+  const [prior] = await sql`SELECT a.status,a.cost,u.state FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id
+    JOIN ai.usage_attempts u ON u.attempt_id=a.id WHERE r.subject=${req.subject}`;
+  assert.deepEqual({ ...prior }, { status: "unknown", cost: null, state: "unknown" }, "release is not proof of non-billing");
+  await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${req.subject}`;
+  assert.deepEqual(await autoReleaseUnknownReceipts(Date.now() + 32 * 86400_000), { released: 0, requeued: 0 });
+  await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
+  assert.equal(sent, 2, "only one additional paid attempt is allowed");
+  const [receipt] = await sql`SELECT id FROM receipts WHERE subject=${req.subject}`;
+  await releaseReceipt(receipt.id, { billed: false, note: "second attempt confirmed unbilled", version: await versionFor(receipt.id) }, "test");
+  const attempts = await sql`SELECT a.status,u.state FROM receipt_attempts a JOIN ai.usage_attempts u ON u.attempt_id=a.id
+    WHERE a.receipt_id=${receipt.id} ORDER BY a.attempt`;
+  assert.deepEqual(
+    attempts.map((a) => ({ ...a })),
+    [
+      { status: "unknown", state: "unknown" },
+      { status: "failed", state: "failed" },
+    ],
+    "confirming the latest attempt cannot erase the earlier uncertain charge",
+  );
 });
 
 async function stoppedArticle(purpose: string, needsBody = false) {
@@ -233,18 +234,13 @@ async function stoppedArticle(purpose: string, needsBody = false) {
   return { articleId, receiptId: receipt!.id, request };
 }
 
-test("only documented non-billing requeues the failed articles of all five analysis steps", async () => {
+test("automatic unknown recovery requeues all five analysis steps exactly once", async () => {
   const ids: string[] = [];
   for (const purpose of ["prefilter_article", "score_article", "understand_article", "summarize_article", "structure_article"]) {
     const { articleId, receiptId } = await stoppedArticle(purpose);
     ids.push(articleId);
     await sql`UPDATE receipts SET updated_at = now() - interval '31 minutes' WHERE id = ${receiptId}`;
-    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
-    assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${articleId}`)[0].processing_state, "failed");
-    assert.equal(
-      (await releaseReceipt(receiptId, { billed: false, note: "provider console confirms no charge", version: await versionFor(receiptId) }, "test"))?.requeued,
-      true,
-    );
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
   }
   const rows = await sql<{ state: string; attempts: number; retry: Date | null; error: string | null }[]>`
     SELECT processing_state AS state, processing_attempts AS attempts, processing_retry_at AS retry, processing_error AS error
@@ -347,7 +343,7 @@ test("stale recovery keeps unresolved attempts but never overwrites a concurrent
   await sql`UPDATE receipts SET updated_at=now()-interval '11 minutes' WHERE subject=${req.subject}`;
   await markStalePendingReceipts();
   assert.equal((await sql`SELECT status FROM receipts WHERE subject=${req.subject}`)[0].status, "unknown");
-  assert.deepEqual(await autoReleaseUnknownReceipts(Date.now() + 3600_000), { released: 0, requeued: 0 });
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
   answerReady.open();
   await calling;
   assert.equal(

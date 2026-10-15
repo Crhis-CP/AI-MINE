@@ -1,3 +1,4 @@
+import { recoverUnknownOnce } from "../providers/unknown-recovery.ts";
 import { releaseUnknownReceiptUnbilled } from "@amp/backend/providers/receipts";
 import { resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
@@ -152,9 +153,12 @@ export async function releaseReceipt(id: number, input: unknown, actor: string) 
   return sql.begin((tx) => release(id, error, actor, note, false, tx, row));
 }
 
-/** Compatibility hook for ops.recover: elapsed time is not evidence of non-billing. */
-export async function autoReleaseUnknownReceipts(_now = Date.now()) {
-  return { released: 0, requeued: 0 };
+/** One automatic release; the original uncertain charge remains available for reconciliation. */
+export async function autoReleaseUnknownReceipts(now = Date.now()) {
+  return recoverUnknownOnce(now, async (row, db) => {
+    const article = ARTICLE_STEPS.has(row.purpose) ? /^article:([^@:#]+)/.exec(row.subject ?? "")?.[1] : undefined;
+    return !!article && (await resetFailedMaterialForRetry(db, article)) && !!(await queueProcessing(article, { db }));
+  });
 }
 
 /** Failed articles (one failure group, or all of the last 30 days) back into processing. */
