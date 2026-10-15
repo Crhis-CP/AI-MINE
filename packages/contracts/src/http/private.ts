@@ -1,3 +1,5 @@
+import { GroupingOverview, schemas as groupingSchemas } from "./private-grouping.ts";
+export { NewsGroupingDiagnostic, GroupingOverview, GroupingQueueItem } from "./private-grouping.ts";
 import { withdrawalSchemas, withdrawalRoutes } from "./withdrawals.ts";
 export * from "./withdrawals.ts";
 import { sourceCoverageSchemas, sourceCoverageRoutes } from "./source-coverage.ts";
@@ -87,6 +89,7 @@ export const DeliveryIssue = z.looseObject({
   updated_at: z.iso.datetime({ offset: true }),
 });
 const ReceiptReconciliationResponseCore = z.looseObject({
+  grouping: GroupingOverview.optional(),
   receipts: z.strictObject({ counts: z.record(z.string(), z.number().int().nonnegative()), issues: z.array(ReceiptIssue) }),
   deliveries: z.array(DeliveryIssue),
 });
@@ -203,6 +206,7 @@ export const SourceDatedReceiptReconciliationResponse = ReceiptReconciliationRes
 export const ReceiptReconciliationResponse = ReceiptReconciliationResponseCore;
 
 export const schemas = {
+  ...groupingSchemas,
   ...withdrawalSchemas,
   ...sourceCoverageSchemas,
   ...sourceTargetsSchemas,

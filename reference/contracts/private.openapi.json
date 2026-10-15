@@ -569,6 +569,174 @@
         ],
         "type": "object"
       },
+      "GroupingOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupingQueueItem"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "needsAttention": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "waiting": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "waiting",
+          "needsAttention",
+          "items"
+        ],
+        "type": "object"
+      },
+      "GroupingOverviewInput": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupingQueueItemInput"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "needsAttention": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "waiting": {
+            "maximum": 9007199254740991,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "waiting",
+          "needsAttention",
+          "items"
+        ],
+        "type": "object"
+      },
+      "GroupingQueueItem": {
+        "additionalProperties": false,
+        "properties": {
+          "articleId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "receiptId": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recovery": {
+            "enum": [
+              "automatic",
+              "receipt",
+              "manual"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "articleId",
+          "title",
+          "since",
+          "failed",
+          "recovery",
+          "receiptId",
+          "error"
+        ],
+        "type": "object"
+      },
+      "GroupingQueueItemInput": {
+        "additionalProperties": false,
+        "properties": {
+          "articleId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failed": {
+            "type": "boolean"
+          },
+          "receiptId": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recovery": {
+            "enum": [
+              "automatic",
+              "receipt",
+              "manual"
+            ],
+            "type": "string"
+          },
+          "since": {
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "articleId",
+          "title",
+          "since",
+          "failed",
+          "recovery",
+          "receiptId",
+          "error"
+        ],
+        "type": "object"
+      },
       "LaneControl": {
         "additionalProperties": false,
         "properties": {
@@ -5700,6 +5868,160 @@
         ],
         "type": "object"
       },
+      "NewsGroupingDiagnostic": {
+        "additionalProperties": false,
+        "properties": {
+          "addsValue": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inputRevision": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "materialRevision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receiptId": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selectionCandidate": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "complete",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "materialRevision",
+          "inputRevision",
+          "status",
+          "selectionCandidate",
+          "addsValue",
+          "reason",
+          "receiptId",
+          "error"
+        ],
+        "type": "object"
+      },
+      "NewsGroupingDiagnosticInput": {
+        "additionalProperties": false,
+        "properties": {
+          "addsValue": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inputRevision": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "materialRevision": {
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
+            "type": "integer"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receiptId": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selectionCandidate": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "complete",
+              "failed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "materialRevision",
+          "inputRevision",
+          "status",
+          "selectionCandidate",
+          "addsValue",
+          "reason",
+          "receiptId",
+          "error"
+        ],
+        "type": "object"
+      },
       "OfficialMetalLink": {
         "additionalProperties": false,
         "properties": {
@@ -6791,6 +7113,9 @@
             },
             "type": "array"
           },
+          "grouping": {
+            "$ref": "#/components/schemas/GroupingOverview"
+          },
           "receipts": {
             "additionalProperties": false,
             "properties": {
@@ -6833,6 +7158,9 @@
               "$ref": "#/components/schemas/DeliveryIssueInput"
             },
             "type": "array"
+          },
+          "grouping": {
+            "$ref": "#/components/schemas/GroupingOverviewInput"
           },
           "receipts": {
             "additionalProperties": false,
