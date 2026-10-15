@@ -10,36 +10,10 @@ import { dbOf, type Db, type Tx, type Sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { sourceDateVerdict } from "./source-time.ts";
+import { sourceDateReadingsAgree } from "../sources/date-extraction.ts";
 
 const sql = dbOf("content");
 type DateResult = Pick<MaterialUpdateResult, "revision" | "sourceTimeChanged" | "metadataChanged" | "sourceDateVersion" | "sourceDateOutcome">;
-
-function agrees(
-  primary: SourceDateParseResult,
-  alternative: SourceDateParseResult,
-  primaryInput: SourceDateParseInput,
-  alternativeInput: SourceDateParseInput,
-): boolean {
-  const a = primary.evidence,
-    b = alternative.evidence;
-  if (alternative.reason || a.origin !== b.origin || a.publicationBasis !== b.publicationBasis) return false;
-  const canonical = (utc: string) => utc.replace(/(\.\d*?[1-9])0+Z$/, "$1Z").replace(/\.0+Z$/, "Z");
-  if (a.time.utc && b.time.utc) return canonical(a.time.utc) === canonical(b.time.utc);
-  const declaration = (value: SourceDateParseInput) => [
-    value.raw.trim(),
-    value.format,
-    value.formatPattern,
-    value.language,
-    value.timezone,
-    value.timezoneEvidence,
-  ];
-  if (stableJson(declaration(primaryInput)) === stableJson(declaration(alternativeInput))) return true;
-  const literalDay = (value: typeof a) =>
-    value.format === "iso8601" ? /^\d{4}-\d{2}-\d{2}$/.test(value.time.raw.trim()) : value.format === "declared" && !value.formatPattern?.includes("HH");
-  // A literal day can agree with a precise source instant without adopting its clock. Unverified
-  // wall-clock candidates do not become agreement merely because normalization removed their time.
-  return !!(literalDay(a) || a.time.utc) && !!(literalDay(b) || b.time.utc) && a.time.local_date === b.time.local_date;
-}
 
 /** Permission → source configuration → material: the same lock order as source editing. */
 export async function prepareDateMutation(tx: Tx, sourceId: string, input: MaterialSourceDateInput): Promise<void> {
@@ -115,7 +89,7 @@ export async function commitDateObservation(
     alternatives?.some((candidate) => {
       if (candidate.meaning !== raw.meaning) return false;
       const input: SourceDateParseInput = { ...raw, ...candidate, binding };
-      return !agrees(parsed, parseSourceDate(input), primaryInput, input);
+      return !sourceDateReadingsAgree(parsed, parseSourceDate(input), primaryInput, input);
     })
   ) {
     parsed.reason = "conflicting_candidates";

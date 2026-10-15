@@ -1,4 +1,5 @@
 // JSON sources: plain JSON APIs, JSON embedded in HTML (script tags, window variables).
+import * as cheerio from "cheerio";
 import { credential } from "../config.ts";
 import { crawlFetch as guardedFetch } from "../acquisition/crawl.ts";
 import { collapseWhitespace, stripTags } from "../lib/text.ts";
@@ -80,6 +81,11 @@ function findKey(obj: unknown, key: string, depth = 0): unknown {
 
 function embeddedJson(html: string, source: SourceRow): unknown {
   const mode = source.config.mode;
+  if (mode === "html_attribute") {
+    const raw = cheerio.load(html)(String(source.config.attributeSelector)).first().attr(String(source.config.attributeName));
+    if (!raw?.trim()) throw new FetchError("attribute list not found");
+    return parseSourceJson(raw);
+  }
   if (mode === "html_window_var") {
     const name = String(source.config.windowVar);
     const re = new RegExp(`(?:window\\.)?${name.replace(/[$]/g, "\\$")}\\s*=\\s*`);
@@ -167,7 +173,7 @@ export async function fetchJsonList(source: SourceRow): Promise<Candidate[]> {
 export function jsonListDocument(text: string, source: SourceRow, observedAt: string) {
   const c = source.config;
   let data: unknown;
-  if (c.mode === "html_json_key" || c.mode === "html_window_var") data = embeddedJson(text, source);
+  if (c.mode === "html_json_key" || c.mode === "html_window_var" || c.mode === "html_attribute") data = embeddedJson(text, source);
   else {
     try {
       data = parseSourceJson(text);
