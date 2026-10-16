@@ -3,6 +3,7 @@ import type { Database } from "@amp/config";
 import { dbOf } from "./module-db.ts";
 import { closeProcessDb } from "./db-bootstrap.ts";
 
+export { sql, identitySql, feedbackSql } from "./db-connections.ts";
 export { dbOf, injectDb } from "./module-db.ts";
 export { initializeDb, DB_MODULES, operationsReadDatabase, databaseLifetimeSignal } from "./db-bootstrap.ts";
 
