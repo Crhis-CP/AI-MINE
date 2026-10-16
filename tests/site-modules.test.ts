@@ -20,3 +20,16 @@ test("installed mining extensions retain the existing price timer and respect co
   process.env.COLLECT_ENABLED = "false";
   assert.ok(!scheduledTasks([]).some((task) => task.name === "metals.prices"));
 });
+
+test("policy schedules are installed as a unit and collection-off leaves no source timer", () => {
+  installModules(SERVER_MODULES);
+  process.env.COLLECT_ENABLED = "true";
+  const schedules = scheduledTasks([]);
+  assert.equal(schedules.find((task) => task.name === "policy.pipeline.sweep")?.cron, "* * * * *");
+  assert.equal(schedules.find((task) => task.name === "policy.reports")?.missed, "once");
+  assert.ok(schedules.some((task) => task.name === "policy.sources.schedule"));
+  process.env.COLLECT_ENABLED = "false";
+  assert.ok(!scheduledTasks([]).some((task) => task.name === "policy.sources.schedule"));
+  installModules([]);
+  assert.deepEqual(scheduledTasks([]), []);
+});

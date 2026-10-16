@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { previewSourceFixture } from "./source-preview-fixture.ts";
 import type { TestContext } from "node:test";
+const registeredWorkers = new WeakSet<Awaited<ReturnType<typeof getBoss>>>();
+const fixtureCleanup = new WeakMap<TestContext, Array<() => Promise<void>>>();
 import { setTimeout as delay } from "node:timers/promises";
 import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
 import { buildApp } from "./site-app.ts";
@@ -23,7 +25,6 @@ export async function foreignFixture(
     samples: readonly FeedCase[];
     translate?: (marker: string, text: string) => Promise<unknown>;
     siteFulltext?: boolean;
-    reuseWorker?: boolean;
   },
 ) {
   await initializeDb("test");
@@ -37,10 +38,18 @@ export async function foreignFixture(
   const keys = ["DASHSCOPE_BASE_URL", "ZHIPU_BASE_URL", "DEEPSEEK_BASE_URL", "DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "DEEPSEEK_API_KEY"];
   const previous = [...keys, "EMBEDDINGS_ENABLED"].map((key) => [key, process.env[key]] as const),
     apps: Awaited<ReturnType<typeof buildApp>>[] = [];
+  let boss: Awaited<ReturnType<typeof getBoss>> | undefined;
+  const stopWorkers = async () => {
+    if (!boss || !registeredWorkers.has(boss)) return;
+    const current = boss;
+    await Promise.all((await current.getQueues()).map((queue) => current.offWork(queue.name, { wait: true })));
+    registeredWorkers.delete(current);
+  };
   let surfacesClosed = false;
   const closeSurfaces = async () => {
     if (surfacesClosed) return;
     surfacesClosed = true;
+    await stopWorkers();
     for (const app of apps) await app.close();
     await fixture.close();
     setGlobalDispatcher(dispatcher);
@@ -51,11 +60,20 @@ export async function foreignFixture(
       else process.env[key] = value;
     }
   };
-  t.after(async () => {
-    await stopBoss();
-    await closeSurfaces();
-    await closeDb();
-  });
+  let cleanup = fixtureCleanup.get(t);
+  if (!cleanup) {
+    cleanup = [];
+    fixtureCleanup.set(t, cleanup);
+    t.after(async () => {
+      try {
+        for (const close of [...fixtureCleanup.get(t)!].reverse()) await close();
+      } finally {
+        await stopBoss();
+        await closeDb();
+      }
+    });
+  }
+  cleanup.push(closeSurfaces);
   for (const key of keys) process.env[key] = key.endsWith("BASE_URL") ? `${fixture.providerUrl}/v1` : "synthetic-key";
   process.env.EMBEDDINGS_ENABLED = "false";
   for (const model of ["qwen3.7-flash", "glm-5.3-flash-selection", "glm-5.3-flash", "deepseek-flash", "qwen3.8-flash"])
@@ -97,11 +115,12 @@ export async function foreignFixture(
     payload: { patch: { enabled: true }, version: current.updated_at, reason: "enable isolated self-authored source" },
   });
   assert.equal(enabled.statusCode, 200, enabled.body);
-  const boss = await getBoss();
-  if (!options.reuseWorker) {
+  boss = await getBoss();
+  if (!registeredWorkers.has(boss)) {
     await registerSourceJobs(boss);
     await registerContentJobs(boss, 1);
     await registerEventJobs(boss);
+    registeredWorkers.add(boss);
   }
   assert.equal((await scheduleDueSources()).enqueued, 1);
   const sql = dbOf("ops");
@@ -110,9 +129,11 @@ export async function foreignFixture(
       if (await check()) return;
       await delay(50);
     }
-    assert.fail(`${label}: ${JSON.stringify({ rows: await rows(), calls: fixture.calls.map(({ marker, step }) => ({ marker, step })) })}`);
+    assert.fail(
+      `${label}: ${JSON.stringify({ rows: await rows(), calls: fixture.calls.map(({ marker, step }) => ({ marker, step })), jobs: await sql`SELECT name,state,data,left(output::text,600) AS output FROM pgboss.job WHERE state IN ('created','retry','active')` })}`,
+    );
   };
   const rows = () => sql`SELECT a.id,a.title,a.language,a.processing_state,a.processing_error,p.visibility,p.selected
     FROM articles a LEFT JOIN publications p ON p.article_id=a.id WHERE a.source_id=${options.name} ORDER BY a.title`;
-  return { ...fixture, boss, sql, reader, admin, headers, until, rows, closeSurfaces };
+  return { ...fixture, boss, sql, reader, admin, headers, until, rows, closeSurfaces, stopWorkers };
 }

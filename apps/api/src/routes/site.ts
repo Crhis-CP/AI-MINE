@@ -1,13 +1,13 @@
 import { validNewsJurisdiction } from "@amp/industry/jurisdictions";
 // First-party site API (/api/site/*). Not public, not versioned, never called /api/v2.
 // Reads through the same public read layer as v1; no cookies are read or set.
-import { routes as contracts, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
+import { routes as contracts, policyRoutes, PoolResponse, SiteStats, TimelineResponse } from "@amp/contracts/http/public";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCategoryKey, isChannelKey, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
 import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail";
 import { loadPool, SearchBusyError } from "@amp/backend/publication/pool";
-import { loadTimeline } from "@amp/backend/publication/timeline";
+import { loadTimeline, policyScope } from "@amp/backend/publication/timeline";
 import { loadStoryFollowups } from "@amp/backend/publication/followups";
 import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/groups";
 import { loadTopicTags } from "@amp/backend/publication/topics";
@@ -108,6 +108,16 @@ export async function parseFilters(q: Record<string, string>): Promise<FilterPar
 }
 
 export function registerSite(app: FastifyInstance) {
+  // The country filter is shared by news and policy reading.
+  app.get(
+    policyRoutes.siteJurisdictions.url,
+    policyRoutes.siteJurisdictions,
+    siteHandler(async (_req, reply) => {
+      const data = await policyScope(true);
+      return sendJsonWithEtag(_req, reply, data, { etagPrefix: "siteJurisdictions", cacheControl: "no-store" });
+    }),
+  );
+
   app.get(
     contracts.siteContentVersion.url,
     contracts.siteContentVersion,

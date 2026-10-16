@@ -413,12 +413,18 @@ importers:
       '@amp/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@amp/backend':
+        specifier: workspace:*
+        version: link:../../packages/backend
       '@amp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@amp/web':
         specifier: workspace:*
         version: link:../../apps/web
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       react:
         specifier: 19.3.0
         version: 19.3.0

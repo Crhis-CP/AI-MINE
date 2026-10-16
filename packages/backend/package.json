@@ -80,7 +80,8 @@
     "./modules": "./src/modules.ts",
     "./http": "./src/http.ts",
     "./admin/http": "./src/admin/http.ts",
-    "./sources/evidence": "./src/sources/evidence.ts"
+    "./sources/evidence": "./src/sources/evidence.ts",
+    "./jobs/module-queues": "./src/jobs/module-queues.ts"
   },
   "dependencies": {
     "@amp/config": "workspace:*",

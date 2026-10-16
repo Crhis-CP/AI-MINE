@@ -1,4 +1,6 @@
 import type { PgBoss } from "pg-boss";
+import { defineQueue } from "../modules.ts";
+import { workQueues } from "./module-queues.ts";
 import { z } from "zod";
 import { CrawlDeferred, CrawlObsolete } from "../acquisition/crawl.ts";
 import { publishPolicyPublication } from "../publication/policies-publish.ts";
@@ -37,30 +39,39 @@ export async function sweepPolicyMaterials() {
   }
   return { ...discovery, enqueued };
 }
-export async function registerPolicyJobs(boss: PgBoss, ports: PolicyAutomationPorts = { publish: publishPolicyPublication }) {
-  await ensurePolicyQueues();
-  for (const stage of POLICY_STAGES)
-    await boss.work<PolicyJob>(`policy.${stage}`, { localConcurrency: 2, pollingIntervalSeconds: 2 }, async ([job]) => {
-      if (!job) return;
-      const data = Job.parse(job.data);
-      return recordRun(`policy.pipeline.${stage}`, async () => {
-        try {
-          return await advancePolicyMaterial(data, stage, ports, { root: shutdownSignal.signal, collectionEnabled: sourceCollectionEnabled("policy") });
-        } catch (error) {
-          if (shutdownSignal.signal.aborted) throw error;
-          if (error instanceof CrawlObsolete) return { status: "obsolete" };
-          if (error instanceof CrawlDeferred) {
-            await deferPolicyWorkflow(data, error.retryAt);
-            await enqueue(
-              `policy.${stage}`,
-              { ...data, directoryHash: undefined, ...(error.sessionId ? { crawlSessionId: error.sessionId } : {}) },
-              { startAfter: error.retryAt, singletonKey: `${data.sourceId}:${data.materialId}:${error.reservationId}:${error.retryAt.toISOString()}` },
-            );
-            return { status: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason };
+export function policyQueues(ports: PolicyAutomationPorts = { publish: publishPolicyPublication }) {
+  return POLICY_STAGES.map((stage) =>
+    defineQueue<PolicyJob>({
+      name: `policy.${stage}`,
+      options: { policy: "exclusive", retryLimit: 0, expireInSeconds: 600 },
+      worker: { localConcurrency: 2, pollingIntervalSeconds: 2, batchSize: 1 },
+      async run([job]) {
+        if (!job) return;
+        const data = Job.parse(job);
+        return recordRun(`policy.pipeline.${stage}`, async () => {
+          try {
+            return await advancePolicyMaterial(data, stage, ports, { root: shutdownSignal.signal, collectionEnabled: sourceCollectionEnabled("policy") });
+          } catch (error) {
+            if (shutdownSignal.signal.aborted) throw error;
+            if (error instanceof CrawlObsolete) return { status: "obsolete" };
+            if (error instanceof CrawlDeferred) {
+              await deferPolicyWorkflow(data, error.retryAt);
+              await enqueue(
+                `policy.${stage}`,
+                { ...data, directoryHash: undefined, ...(error.sessionId ? { crawlSessionId: error.sessionId } : {}) },
+                { startAfter: error.retryAt, singletonKey: `${data.sourceId}:${data.materialId}:${error.reservationId}:${error.retryAt.toISOString()}` },
+              );
+              return { status: "deferred", retryAt: error.retryAt.toISOString(), reason: error.reason };
+            }
+            await policyWorkflowFailed(data, stage);
+            throw error;
           }
-          await policyWorkflowFailed(data, stage);
-          throw error;
-        }
-      });
-    });
+        });
+      },
+    }),
+  );
+}
+/** Compatibility for callers supplying isolated automation ports. */
+export function registerPolicyJobs(boss: PgBoss, ports?: PolicyAutomationPorts) {
+  return workQueues(boss, policyQueues(ports));
 }

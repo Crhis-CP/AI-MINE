@@ -392,7 +392,7 @@ export async function requeueFailed(group: string | null): Promise<{ requeued: n
 }
 
 // Policy processing shares only this frozen composition entry; its queues and state remain separate.
-export { registerPolicyJobs, sweepPolicyMaterials } from "./policy.ts";
+export { registerPolicyJobs, sweepPolicyMaterials, policyQueues } from "./policy.ts";
 
 /** Explicit low-priority preparation; dry-run is the default and no automatic paid sweep is enabled. */
 export async function prepareGeographyBackfill(options: { limit?: number; enqueue?: boolean } = {}) {

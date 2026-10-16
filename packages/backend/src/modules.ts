@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { PgBoss, WorkOptions } from "pg-boss";
 /** Extension hooks installed by process entry points; the engine does not import site extensions. */
 export interface Scheduled {
   name: string;
@@ -7,10 +8,21 @@ export interface Scheduled {
   missed?: "skip" | "once";
   when?: () => boolean;
 }
+/** A module-owned queue. The handler receives every item in the requested batch. */
+export interface ModuleQueue<T = never> {
+  name: string;
+  options: NonNullable<Parameters<PgBoss["createQueue"]>[1]>;
+  worker: WorkOptions;
+  run: (data: T[]) => Promise<unknown>;
+}
+export function defineQueue<T>(queue: ModuleQueue<T>): ModuleQueue<T> {
+  return queue;
+}
 export interface ServerModule {
   name: string;
   http?: (app: FastifyInstance) => void | Promise<void>;
   schedules?: readonly Scheduled[];
+  queues?: readonly ModuleQueue[];
   /** Protected administrative extensions; never registered on the legacy reader-only API. */
   admin?: { http?: (app: FastifyInstance) => void | Promise<void> };
 }

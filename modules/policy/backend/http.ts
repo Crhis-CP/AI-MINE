@@ -12,14 +12,13 @@ import {
 import { listPolicies, policyScope, policyDetail, policyReading, policyHistory, policyThread, PolicyReadError } from "@amp/backend/publication/timeline";
 import { listPolicyReports, policyReport } from "@amp/backend/publication/timeline";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
-import { applyPublicHeaders, sendJsonWithEtag, sendProblem } from "../http/respond.ts";
+import { applyPublicHeaders, sendJsonWithEtag, sendProblem } from "@amp/backend/http";
 
 export function registerPolicies(app: FastifyInstance) {
   const handlers: Record<string, (id: string, q: unknown) => Promise<unknown>> = {
     sitePolicies: (_id, q) => listPolicies(PolicyListQuery.parse(q)),
     publicPolicies: (_id, q) => listPolicies(PolicyCursorQuery.parse(q), true),
     sitePolicyScope: () => policyScope(),
-    siteJurisdictions: () => policyScope(true),
     sitePolicy: (id, q) => policyDetail(id, PolicyDetailQuery.parse(q)),
     publicPolicy: (id, q) => policyDetail(id, PolicyDetailQuery.parse(q), true),
     sitePolicyReading: (id, q) => policyReading(id, PolicyReadingQuery.parse(q)),
@@ -29,7 +28,7 @@ export function registerPolicies(app: FastifyInstance) {
     sitePolicyReports: (_id, q) => listPolicyReports(PolicyReportQuery.parse(q)),
     sitePolicyReport: (id, q) => policyReport(id, PolicyReportDetailQuery.parse(q)),
   };
-  for (const route of Object.values(policyRoutes))
+  for (const route of Object.values(policyRoutes).filter((entry) => entry.schema.operationId !== "siteJurisdictions"))
     app.get(route.url, { schema: { operationId: route.schema.operationId, response: route.schema.response } }, async (req, reply) => {
       if (route.url.startsWith("/api/v1/")) applyPublicHeaders(reply);
       try {

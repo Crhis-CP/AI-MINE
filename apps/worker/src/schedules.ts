@@ -5,14 +5,14 @@ import { forwardPendingFeedback } from "@amp/backend/operations/feedback";
 import { recoverSourcePreviews } from "@amp/backend/admin/sources";
 import type { PgBoss } from "pg-boss";
 import { ensureQueue, recordRun } from "@amp/backend/jobs/queue";
-import { sweepUnprocessed, sweepPolicyMaterials } from "@amp/backend/jobs/content";
+import { sweepUnprocessed } from "@amp/backend/jobs/content";
 import { translatePending } from "@amp/backend/editorial/translate";
 import { adaptIntervals, scheduleDueSources } from "@amp/backend/sources/collect";
 import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
 import { linkRelatedStories, recoverPendingGroupings } from "@amp/backend/events/group";
-import { enqueuePendingReportCorrections, catchUpReports, composePolicyReports } from "@amp/backend/reports/compose";
+import { enqueuePendingReportCorrections, catchUpReports } from "@amp/backend/reports/compose";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
 import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
@@ -30,7 +30,6 @@ export const SCHEDULES: Scheduled[] = [
   { name: "ops.read-snapshots", cron: "*/2 * * * *", run: refreshOperationalSnapshots },
   { name: "publication.source-time", cron: "* * * * *", run: () => repairPublicationTimes(100) },
   { name: "content.sweep", cron: "*/5 * * * *", run: sweepUnprocessed },
-  { name: "policy.pipeline.sweep", cron: "* * * * *", run: sweepPolicyMaterials },
   // Repair missing per-item translation dispatch; this cron never calls a model itself.
   { name: "content.translate", cron: "*/5 * * * *", run: () => translatePending() },
   { name: "hot.rank", cron: "*/5 * * * *", run: () => computeHotRanking() },
@@ -40,8 +39,6 @@ export const SCHEDULES: Scheduled[] = [
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
   { name: "reports.correction-sweep", cron: "*/5 * * * *", run: () => enqueuePendingReportCorrections(20) },
   { name: "reports.catch-up", cron: "*/30 * * * *", missed: "once", run: () => catchUpReports() },
-  // The policy composer checks natural period closure and the Beijing 08:00 first-issue time.
-  { name: "policy.reports", cron: "0 * * * *", missed: "once", run: () => composePolicyReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },
   // IndexNow for new indexable pages (off unless INDEXNOW_SUBMIT_ENABLED).
   { name: "seo.indexnow", cron: "50 5 * * *", missed: "once", run: () => submitIndexNow() },
@@ -66,7 +63,6 @@ export const SCHEDULES: Scheduled[] = [
   ...(collecting
     ? [
         { name: "sources.schedule", cron: "* * * * *", run: () => scheduleDueSources(undefined, "news") },
-        { name: "policy.sources.schedule", cron: "* * * * *", run: () => scheduleDueSources(undefined, "policy") },
         { name: "sources.adapt-intervals", cron: "20 4 * * *", run: adaptIntervals },
         // WeChat official accounts (paid), each once per its interval.
         { name: "sources.mp-reconcile", cron: "*/15 * * * *", run: () => scheduleMpReconcile() },

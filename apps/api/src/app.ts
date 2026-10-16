@@ -10,7 +10,6 @@ import { config, credential } from "@amp/backend/config";
 import { publicReadLimiter } from "./http/public-limits.ts";
 import { dbOf } from "@amp/backend/db";
 import { registerSite } from "./routes/site.ts";
-import { registerPolicies } from "./routes/policies.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
 import { registerOperationsMcp } from "./routes/mcp-ops.ts";
@@ -148,7 +147,6 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     registerSite(app);
     for (const module of serverModules()) await module.http?.(app);
     registerSiteInformation(app);
-    registerPolicies(app);
     registerStatic(app);
     registerV1(app);
     registerV3(app);

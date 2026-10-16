@@ -2,6 +2,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { gate } from "./setup.ts";
+import { shutdownSignal } from "@amp/backend/jobs/queue";
 import { foreignFixture } from "./foreign-automatic-fixture.ts";
 
 const mixed = [
@@ -37,7 +38,6 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   const markers = ["FOREIGN_LOW", "FOREIGN_SELECTED", "FOREIGN_WITHDRAWN"];
   const f = await foreignFixture(t, {
     name: "foreign-complete-fixture",
-    reuseWorker: true,
     language: "EN-us",
     samples: markers.map((marker, i) => ({
       marker,
@@ -81,11 +81,11 @@ test("foreign material is public once it has a Chinese title and guide; a full t
     payload: { visibility: "withdrawn", reason: "synthetic manual withdrawal", version: 0 },
   });
   assert.equal(withdrawal.statusCode, 200, withdrawal.body);
-  const before = f.calls.length;
+  const before = f.calls.filter((call) => call.step === "translate").length;
   await f.reader.inject("/api/site/pool");
   await f.reader.inject("/api/v1/items?mode=selected");
   await f.reader.inject("/feed.xml");
-  assert.equal(f.calls.length, before, "reader requests never progress the held worker");
+  assert.equal(f.calls.filter((call) => call.step === "translate").length, before, "reader requests never progress the held translation");
   release.open();
   await f.until("selected translation complete", async () => {
     const selected = (await f.rows()).find((row) => row.selected);
@@ -111,13 +111,27 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   const [receipts] =
     await f.sql`SELECT count(*)::int AS n FROM receipts WHERE purpose='translate_body' AND status='completed' AND response_attempt_id IS NOT NULL`;
   assert.equal(receipts.n, 2);
+  // Drain current work while leaving future jobs intact; gateway configuration and the provider stay enabled.
+  await f.stopWorkers();
+  assert.equal(shutdownSignal.signal.aborted, false, "reader observation does not disable the model gateway");
+  const readerEffects = async () =>
+    (
+      await f.sql`SELECT
+    (SELECT count(*)::int FROM receipts) AS receipts,
+    (SELECT count(*)::int FROM receipt_attempts) AS attempts,
+    (SELECT count(*)::int FROM pgboss.job) AS jobs`
+    )[0];
+  const beforeReads = await readerEffects();
   const snapshot = f.calls.length;
-  for (const row of rows) await f.reader.inject(`/api/site/items/${row.id}`);
-  assert.equal(f.calls.length, snapshot);
+  for (const row of rows) {
+    const response = await f.reader.inject(`/api/site/items/${row.id}`);
+    assert.equal(response.statusCode, row.id === withdrawn.id ? 404 : 200, response.body);
+  }
+  assert.equal(f.calls.length, snapshot, JSON.stringify(f.calls.slice(snapshot)));
+  assert.deepEqual(await readerEffects(), beforeReads, "reading neither pays directly nor enqueues later paid work");
   await f.closeSurfaces();
   const bad = await foreignFixture(t, {
     name: "foreign-bad-fixture",
-    reuseWorker: true,
     language: "es",
     samples: [
       {
@@ -172,7 +186,6 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   await bad.closeSurfaces();
   const restricted = await foreignFixture(t, {
     name: "foreign-restricted-fixture",
-    reuseWorker: true,
     language: "en",
     siteFulltext: false,
     samples: [

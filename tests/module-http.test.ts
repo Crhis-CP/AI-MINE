@@ -63,3 +63,23 @@ test("site management routes follow installation and stay absent from the legacy
     await reader.close();
   }
 });
+
+test("policy reading endpoints are provided by the installed module without requiring policy processing", async () => {
+  installModules([]);
+  const core = await buildApp("api");
+  try {
+    assert.equal((await core.inject("/api/site/policies/scope")).statusCode, 404);
+    assert.equal((await core.inject("/api/site/jurisdictions")).statusCode, 200);
+  } finally {
+    await core.close();
+  }
+  installModules(SERVER_MODULES);
+  const site = await buildApp("api");
+  try {
+    assert.equal((await site.inject("/api/site/policies/scope")).statusCode, 200);
+    assert.ok(site.hasRoute({ method: "GET", url: "/api/site/policies/:id" }));
+    assert.ok(site.hasRoute({ method: "GET", url: "/api/v1/policies/:id" }));
+  } finally {
+    await site.close();
+  }
+});

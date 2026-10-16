@@ -4,14 +4,17 @@
   "type": "module",
   "exports": {
     "./module": "./module.ts",
-    "./web": "./web.ts"
+    "./web": "./web.ts",
+    "./server": "./server.ts"
   },
   "dependencies": {
     "@amp/contracts": "workspace:*",
     "@amp/api-client": "workspace:*",
     "@amp/web": "workspace:*",
     "react": "19.3.0",
-    "react-router": "8.4.0"
+    "react-router": "8.4.0",
+    "@amp/backend": "workspace:*",
+    "fastify": "5.12.5"
   },
   "devDependencies": {
     "@types/react": "19.3.0"

@@ -30,13 +30,14 @@ const ENGINE_ENTRIES: Record<string, string> = {
   "./http": "./src/http.ts",
   "./admin/http": "./src/admin/http.ts",
   "./sources/evidence": "./src/sources/evidence.ts",
+  "./jobs/module-queues": "./src/jobs/module-queues.ts",
 };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": ["@amp/site"],
   "@amp/site": ["@amp/policy", "@amp/contracts", "@amp/metals", "@amp/site-admin", "@amp/web"],
-  "@amp/policy": [...L0, ...amp(DOMAIN_EDGES.policy!), "@amp/web", "@amp/api-client"],
+  "@amp/policy": [...L0, ...amp(DOMAIN_EDGES.policy!), "@amp/backend", "@amp/web", "@amp/api-client"],
   "@amp/site-admin": ["@amp/metals", "@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client", "@amp/industry"],
   "@amp/metals": ["@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client"],
   "@amp/contracts": [],
