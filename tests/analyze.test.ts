@@ -546,7 +546,7 @@ test("INV-13: Chinese material is public on its excerpt through score failure, m
     await assert.rejects(processArticle(coal), /disabled/i);
     assert.equal((await projection(coal)).visibility, "public", "not judged yet: public on its excerpt");
     const off = new Error("Model calls are disabled (MODEL_CALLS_ENABLED=false)");
-    for (let i = 0; i < 12; i++) assert.equal((await afterFailure(coal, off)).state, "waiting");
+    for (let i = 0; i < 12; i++) assert.equal((await afterFailure(coal, off, 1)).state, "waiting");
     const [waiting] = await sql`SELECT processing_state, processing_attempts FROM articles WHERE id = ${coal}`;
     assert.deepEqual({ ...waiting }, { processing_state: "new", processing_attempts: 0 }, "switched-off model calls wait without using up attempts");
     assert.equal(provider.hits(), before);
@@ -567,7 +567,7 @@ test("INV-13: Chinese material is public on its excerpt through score failure, m
     );
     assert.ok(error instanceof BudgetExceededError);
     assert.equal((await projection(paused)).visibility, "public", "paused paid calls (BR-COST-20) do not hold Chinese back");
-    assert.equal((await afterFailure(paused, error)).state, "waiting");
+    assert.equal((await afterFailure(paused, error, 1)).state, "waiting");
     const [held] = await sql`SELECT processing_state, processing_attempts FROM articles WHERE id = ${paused}`;
     assert.deepEqual({ ...held }, { processing_state: "new", processing_attempts: 0 }, "paused paid calls wait without using up attempts");
   } finally {

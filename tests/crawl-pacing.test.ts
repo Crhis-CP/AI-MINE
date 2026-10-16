@@ -367,15 +367,15 @@ test("a deferred extraction keeps its reason without using an attempt", async ()
     language: "en",
     bodyStatus: "pending",
   });
-  await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "transport_unavailable"));
+  await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "transport_unavailable"), 1);
   const [row] = await sql<{ processing_error: string; processing_attempts: number; processing_state: string }[]>`
     SELECT processing_error, processing_attempts, processing_state FROM articles WHERE id = ${m.articleId}`;
   assert.equal(row!.processing_error, "extract: crawl_deferred: transport_unavailable");
   assert.equal(row!.processing_attempts, 0);
   assert.equal(row!.processing_state, "new");
-  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "source_reader_pending")), "waiting");
-  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 120_000), "reservation", "source_reader_pending")), "waiting");
-  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 180_000), "reservation", "source_reader_pending")), "unconfirmed");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "source_reader_pending"), 1), "waiting");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 120_000), "reservation", "source_reader_pending"), 1), "waiting");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 180_000), "reservation", "source_reader_pending"), 1), "unconfirmed");
   const [done] = await sql<{ processing_attempts: number; body_status: string; processing_error: string }[]>`
     SELECT processing_attempts, body_status, processing_error FROM articles WHERE id = ${m.articleId}`;
   assert.equal(done!.processing_attempts, 0);

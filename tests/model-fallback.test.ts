@@ -396,7 +396,7 @@ test("filtered output remains reusable after rejection and route waits do not co
   const article = `fallback-wait-${tag()}`;
   await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at) VALUES(${article},${f.source},${article},${`https://fixture.invalid/${article}`},'synthetic',now(),now())`;
   const { afterFailure } = await import("../packages/backend/src/jobs/content.ts");
-  assert.equal((await afterFailure(article, known)).state, "waiting");
+  assert.equal((await afterFailure(article, known, 1)).state, "waiting");
   assert.equal((await sql`SELECT processing_attempts FROM articles WHERE id=${article}`)[0]!.processing_attempts, 0);
 });
 test("pause after primary failure prevents a backup claim and resumes the same one-shot decision later", async () => {

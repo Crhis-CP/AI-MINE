@@ -255,6 +255,7 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
 }
 
 type StepOpts = {
+  expectedRevision?: number;
   usagePurpose?: "production" | "evaluation";
   attemptTag?: string;
   scoreModel?: string;
@@ -705,6 +706,8 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   opts = { ...opts, runtimeControl };
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
+  if (opts.expectedRevision !== undefined && input.revision !== opts.expectedRevision)
+    return { analysisId: null, stale: true, output: null, receiptIds: [], reused: true };
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
   checkAnalysisRunning();
