@@ -178,7 +178,7 @@ async function openQualifiedReader(page: Page, path: "/all" | "/starred" = "/all
     await page.bringToFront();
     await expect.poll(() => page.evaluate(() => document.visibilityState)).toBe("visible");
     phase = `baseline ${path}: checking`;
-    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
+    await expect(page.getByText("正在确认最新内容", { exact: true })).toBeVisible();
     release();
     phase = `baseline ${path}: version`;
     const baseline = await version;
@@ -192,7 +192,7 @@ async function openQualifiedReader(page: Page, path: "/all" | "/starred" = "/all
       // the readiness condition: the guard sets idle only after revalidate() and baseline assignment.
     }
     phase = `baseline ${path}: DOM qualified`;
-    await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+    await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("status").filter({ hasText: "暂时无法确认最新内容" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "加载最新", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
@@ -229,7 +229,7 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   page.on("pageerror", (error) => errors.push(error.message));
   const opened = await openQualifiedReader(page);
   assert.match(opened!.headers()["cache-control"]!, /(?:^|, )no-store(?:,|$)/);
-  await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+  await expect(page.getByText("正在确认最新内容", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link")).toHaveCount(5);
   await expect(page.getByRole("navigation", { name: "底部导航" }).getByRole("link", { name: "热点榜" })).toBeVisible();
   await page.getByRole("button", { name: "收藏", exact: true }).click();

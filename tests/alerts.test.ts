@@ -19,6 +19,35 @@ const SOURCE = `test-alerts-${T}`;
 let saved: { key: string; value: unknown }[] = [];
 const ids: string[] = [];
 
+test("unknown receipt digest reports observed attempts without inventing retries or dismissing processing impact", async (t) => {
+  const log = t.mock.method(console, "log", () => {});
+  const previous = process.env.FEISHU_INTERNAL_ENABLED;
+  process.env.FEISHU_INTERNAL_ENABLED = "false";
+  const key = `test-unknown-digest-${T}`;
+  try {
+    await sql`INSERT INTO receipts(logical_key,service,purpose,status,attempts)
+      VALUES (${key},'llm','score_article','unknown',1)`;
+    let finding = (await collectFindings()).find((f) => f.key === "receipts.unknown");
+    assert.equal(finding?.title, "1 个付费请求结果未知，需核对");
+    assert.match(finding?.detail ?? "", /仅尝试1次：1；已尝试多次：0/);
+    assert.doesNotMatch(finding?.detail ?? "", /核对后放行/);
+    await sendDigest();
+    const line = log.mock.calls.map((call) => String(call.arguments[0])).find((text) => text.includes("系统日报"));
+    const digest = JSON.parse(line ?? "{}");
+    assert.match(digest.lines?.[0] ?? "", /可能阻塞新内容处理/);
+    assert.doesNotMatch(digest.lines?.[0] ?? "", /不影响读者|不用处理/);
+
+    await sql`UPDATE receipts SET attempts=2 WHERE logical_key=${key}`;
+    finding = (await collectFindings()).find((f) => f.key === "receipts.unknown");
+    assert.match(finding?.detail ?? "", /仅尝试1次：0；已尝试多次：1/);
+    assert.doesNotMatch(finding?.title ?? "", /自动重试/);
+  } finally {
+    await sql`DELETE FROM receipts WHERE logical_key=${key}`;
+    if (previous === undefined) delete process.env.FEISHU_INTERNAL_ENABLED;
+    else process.env.FEISHU_INTERNAL_ENABLED = previous;
+  }
+});
+
 before(async () => {
   await getBoss(); // collectFindings reads the job tables
   saved = await sql`SELECT key, value FROM settings WHERE key IN ('alerts.state', 'heartbeat.worker')`;

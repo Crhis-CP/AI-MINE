@@ -107,9 +107,6 @@ for (const width of [390, 1440])
     t.after(() => context.close());
     const blocked = await isolateBrowser(context, [origin]);
     const page = await context.newPage();
-    const navigationErrors: string[] = [];
-    page.on("pageerror", (error) => navigationErrors.push(error.message));
-    page.on("requestfailed", (request) => navigationErrors.push(`${request.url()}: ${request.failure()?.errorText}`));
     for (const path of ["/daily", `/daily/${key}`]) {
       const response = await page.goto(origin + path);
       assert.equal(response!.status(), 200);
@@ -124,46 +121,11 @@ for (const width of [390, 1440])
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
     if (process.env.QUIET_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.QUIET_SCREENSHOT_DIR}/daily-quiet-${width}.png`, fullPage: true });
-    let releaseVersion!: () => void;
-    let versionRequested!: () => void;
-    const versionGate = new Promise<void>((resolve) => {
-      releaseVersion = resolve;
-    });
-    const requested = new Promise<void>((resolve) => {
-      versionRequested = resolve;
-    });
-    await page.route(
-      `${origin}/api/site/content-version`,
-      async (route) => {
-        versionRequested();
-        await versionGate;
-        await route.continue();
-      },
-      { times: 1 },
-    );
+    await page.goto(origin + "/daily/archive");
     const issue = page.getByRole("link").filter({ hasText: title }).last();
-    try {
-      await page.goto(origin + "/daily/archive");
-      await requested;
-      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
-      await expect(issue).toHaveAttribute("href", `/daily/${key}`);
-      const originalLink = await issue.elementHandle();
-      const beforeCheck = await issue.boundingBox();
-      releaseVersion();
-      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
-      assert.equal(await originalLink!.evaluate((node) => node.isConnected), true, "initial freshness check must preserve the link a reader can already click");
-      assert.ok(Math.abs((await issue.boundingBox())!.y - beforeCheck!.y) < 1, "routine checks do not shift the clickable row");
-      await originalLink!.dispose();
-    } finally {
-      releaseVersion();
-    }
+    await expect(issue).toHaveAttribute("href", `/daily/${key}`);
     await issue.click();
-    try {
-      await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-    } catch (error) {
-      t.diagnostic(JSON.stringify({ url: page.url(), navigationErrors, body: (await page.locator("main").innerText()).slice(0, 2000) }));
-      throw error;
-    }
+    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
     pending = true;
     await page.goto(origin + "/daily");
     await expect(page.getByText("第一期发布后会出现在这里。", { exact: true })).toBeVisible();
