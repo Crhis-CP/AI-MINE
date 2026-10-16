@@ -1,13 +1,13 @@
 import { Link, data as withHeaders, useLoaderData } from "react-router";
-import type { Route } from "./+types/policy-reports";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { PolicyReportQuery } from "@amp/contracts/http/public";
-import { PolicyReportFilters } from "../features/policy/PolicyReportFilters";
-import { apiBaseFor } from "../../api-target.ts";
-import { pageMeta } from "../lib/seo.ts";
-import { EmptyState } from "../components/ui/Page";
-import { PolicyTabs, PolicyError, policyCache, usePolicyRecheck } from "../features/policy/PolicyUI";
-export async function loader({ request }: Route.LoaderArgs) {
+import { PolicyReportFilters } from "./features/PolicyReportFilters";
+import { apiBaseFor } from "@amp/web/extension.server";
+import { pageMeta } from "@amp/web/extension";
+import { EmptyState } from "@amp/web/page";
+import { PolicyTabs, PolicyError, policyCache, usePolicyRecheck } from "./features/PolicyUI";
+export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url),
     parsed = PolicyReportQuery.safeParse({
       kind: "weekly",
@@ -28,7 +28,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
-export function meta({ location }: Route.MetaArgs) {
+export function meta({ location }: MetaArgs<typeof loader>) {
   return pageMeta({ title: "法规周报与月报", path: location.pathname + location.search });
 }
 export default function PolicyReportsPage() {

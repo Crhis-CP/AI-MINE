@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
-import type { Route } from "./+types/policy-report";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { PolicyReportDetailQuery } from "@amp/contracts/http/public";
-import { PolicyReportFilters } from "../features/policy/PolicyReportFilters";
-import { apiBaseFor } from "../../api-target.ts";
-import { pageMeta } from "../lib/seo.ts";
-import { PolicyError, policyCache, PolicyTabs, Section, timeLabel, policyHref, actionClass, usePolicyRecheck } from "../features/policy/PolicyUI";
-export async function loader({ request, params }: Route.LoaderArgs) {
+import { PolicyReportFilters } from "./features/PolicyReportFilters";
+import { apiBaseFor } from "@amp/web/extension.server";
+import { pageMeta } from "@amp/web/extension";
+import { PolicyError, policyCache, PolicyTabs, Section, timeLabel, policyHref, actionClass, usePolicyRecheck } from "./features/PolicyUI";
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const parsed = PolicyReportDetailQuery.safeParse(
     Object.fromEntries([...new URL(request.url).searchParams].filter(([key, value]) => key !== "_routes" && value !== "")),
   );
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/reports/{id}", {
-    params: { path: { id: params.id }, query: parsed.data },
+    params: { path: { id: params.id! }, query: parsed.data },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
   });
   if (!result.response.ok) throw withHeaders(null, { status: [404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
@@ -21,8 +21,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
-export function meta({ loaderData, params }: Route.MetaArgs) {
-  return pageMeta({ title: loaderData?.report.title ?? "法规汇总", path: `/policies/reports/${params.id}` });
+export function meta({ loaderData, params }: MetaArgs<typeof loader>) {
+  return pageMeta({ title: loaderData?.report.title ?? "法规汇总", path: `/policies/reports/${params.id!}` });
 }
 export default function PolicyReportPage() {
   const { report, query } = useLoaderData<typeof loader>();

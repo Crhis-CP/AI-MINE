@@ -1,10 +1,13 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 export interface ModuleNavigation {
   to: string;
   label: string;
   icon: (props: { size?: number }) => ReactNode;
   end?: boolean;
+  sidebarAfter?: string;
+  moreSection?: "内容" | "偏好";
+  activePaths?: string[];
 }
 export interface AdminModuleNavigation {
   to: string;
@@ -16,6 +19,7 @@ export interface AdminModuleNavigation {
 export interface WebModule {
   name: string;
   navigation?: ModuleNavigation[];
+  starred?: () => Promise<{ default: ComponentType }>;
   admin?: {
     content?: AdminModuleNavigation[];
     groups?: Array<{ group: string; items: AdminModuleNavigation[] }>;

@@ -7,19 +7,29 @@ import { IconApps, IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHea
 export type NavItem = ModuleNavigation;
 export const MODULE_NAVIGATION = WEB_MODULES.flatMap((module) => module.navigation ?? []);
 
+function withModuleNavigation(items: NavItem[]): NavItem[] {
+  const result = [...items];
+  const tails = new Map<string, string>();
+  for (const item of MODULE_NAVIGATION) {
+    const anchor = item.sidebarAfter ? (tails.get(item.sidebarAfter) ?? item.sidebarAfter) : undefined;
+    const index = anchor ? result.findIndex((entry) => entry.to === anchor) : -1;
+    result.splice(index < 0 ? result.length : index + 1, 0, item);
+    if (item.sidebarAfter) tails.set(item.sidebarAfter, item.to);
+  }
+  return result;
+}
+
 export const SIDEBAR: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "内容",
-    items: [
+    items: withModuleNavigation([
       { to: "/", label: "精选", icon: IconBolt, end: true },
       { to: "/all", label: `全部${withSubject("动态")}`, icon: IconList },
       { to: "/hot", label: "热点榜", icon: IconFlame },
       { to: "/daily", label: withSubject("日报"), icon: IconDoc },
-      { to: "/policies", label: "法规政策动态", icon: IconDoc },
       { to: "/topics", label: "主题", icon: IconGrid },
       { to: "/starred", label: "收藏", icon: IconBookmark },
-      ...MODULE_NAVIGATION,
-    ],
+    ]),
   },
   {
     title: "更多",
@@ -43,10 +53,9 @@ export const TABBAR: NavItem[] = [
 /** Pages reached from the mobile "更多" tab keep that tab highlighted. */
 export const MORE_PATHS = [
   "/more",
-  "/policies",
   "/topics",
   "/starred",
-  ...MODULE_NAVIGATION.map((item) => item.to),
+  ...MODULE_NAVIGATION.flatMap((item) => item.activePaths ?? [item.to]),
   "/agent",
   "/about",
   "/changelog",
@@ -59,5 +68,5 @@ export function tabIsActive(item: NavItem, pathname: string): boolean {
   if (item.end) return pathname === item.to;
   if (item.to === "/more") return MORE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   if (item.to === "/daily") return /^\/(daily|weekly|monthly)(\/|$)/.test(pathname);
-  return pathname === item.to || pathname.startsWith(`${item.to}/`);
+  return (item.activePaths ?? [item.to]).some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }

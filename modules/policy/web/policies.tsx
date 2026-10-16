@@ -1,13 +1,13 @@
 import { useRef } from "react";
 import { Form, Link, data as withHeaders, useLoaderData, useSearchParams } from "react-router";
-import type { Route } from "./+types/policies";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { PolicyListQuery } from "@amp/contracts/http/public";
-import { apiBaseFor } from "../../api-target.ts";
-import { contractResult } from "../lib/api.server.ts";
-import { pageMeta } from "../lib/seo.ts";
-import { Pagination } from "../features/feed/DayList";
-import { EmptyState } from "../components/ui/Page";
+import { apiBaseFor } from "@amp/web/extension.server";
+import { contractResult } from "@amp/web/extension.server";
+import { pageMeta } from "@amp/web/extension";
+import { Pagination } from "@amp/web/pagination";
+import { EmptyState } from "@amp/web/page";
 import {
   PolicyCardView,
   PolicyTabs,
@@ -20,9 +20,9 @@ import {
   fieldClass,
   actionClass,
   policyCache,
-} from "../features/policy/PolicyUI";
+} from "./features/PolicyUI";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url),
     input = Object.fromEntries([...url.searchParams].filter(([key, v]) => key !== "_routes" && v));
   const parsed = PolicyListQuery.safeParse(input);
@@ -46,7 +46,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
-export function meta({ location }: Route.MetaArgs) {
+export function meta({ location }: MetaArgs<typeof loader>) {
   return pageMeta({
     title: "法规政策动态",
     path: location.pathname + location.search,

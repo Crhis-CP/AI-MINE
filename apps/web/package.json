@@ -38,6 +38,9 @@
     "./admin-extension.server": "./admin-extension.server.ts",
     "./admin-action": "./app/features/admin/action.ts",
     "./admin-ui": "./app/features/admin/ui.tsx",
-    "./admin-format": "./app/features/admin/format.ts"
+    "./admin-format": "./app/features/admin/format.ts",
+    "./page": "./app/components/ui/Page.tsx",
+    "./pagination": "./app/features/feed/DayList.tsx",
+    "./local-state": "./app/lib/local-state.ts"
   }
 }

@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
-import type { Route } from "./+types/policy-history";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
-import { apiBaseFor } from "../../api-target.ts";
-import { pageMeta } from "../lib/seo.ts";
-import { PolicyBack, PolicyError, policyCache, policyHref, timeLabel, actionClass, usePolicyRecheck } from "../features/policy/PolicyUI";
-export async function loader({ request, params }: Route.LoaderArgs) {
+import { apiBaseFor } from "@amp/web/extension.server";
+import { pageMeta } from "@amp/web/extension";
+import { PolicyBack, PolicyError, policyCache, policyHref, timeLabel, actionClass, usePolicyRecheck } from "./features/PolicyUI";
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/{id}/history", {
-    params: { path: { id: params.id }, query: { limit: 20 } },
+    params: { path: { id: params.id! }, query: { limit: 20 } },
     signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
   });
   if (!result.response.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
@@ -15,8 +15,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
-export function meta({ params }: Route.MetaArgs) {
-  return pageMeta({ title: "法规版本记录", path: `${policyHref(params.id)}/history`, noindex: true });
+export function meta({ params }: MetaArgs<typeof loader>) {
+  return pageMeta({ title: "法规版本记录", path: `${policyHref(params.id!)}/history`, noindex: true });
 }
 export default function PolicyHistoryPage() {
   const initial = useLoaderData<typeof loader>();

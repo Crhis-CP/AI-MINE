@@ -15,6 +15,7 @@
     "@amp/contracts": "workspace:*",
     "@amp/metals": "workspace:*",
     "@amp/web": "workspace:*",
-    "@amp/site-admin": "workspace:*"
+    "@amp/site-admin": "workspace:*",
+    "@amp/policy": "workspace:*"
   }
 }

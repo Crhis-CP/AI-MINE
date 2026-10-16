@@ -44,12 +44,6 @@ const publicRoutes = [
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
   ...modulePages,
-  route("policy-threads/:id", "routes/policy-thread.tsx"),
-  route("policies", "routes/policies.tsx"),
-  route("policies/reports", "routes/policy-reports.tsx"),
-  route("policies/reports/:id", "routes/policy-report.tsx"),
-  route("policies/:id/history", "routes/policy-history.tsx"),
-  route("policies/:id", "routes/policy.tsx"),
   route("*", "routes/not-found.tsx"),
 ] satisfies RouteConfig;
 

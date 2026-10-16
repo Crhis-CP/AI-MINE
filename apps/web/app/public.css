@@ -5,7 +5,6 @@
 @source "./features/feed";
 @source "./features/hot";
 @source "./features/item";
-@source "./features/policy";
 @source "./features/report";
 @source "./features/story";
 @source "./lib";
@@ -18,5 +17,5 @@
 @source "../../../packages/ui/src/Score.tsx";
 @source "../../../packages/ui/src/Menu.tsx";
 
-@source "../../../modules/*/web";
-@source not "../../../modules/*/web/admin";
+@source "../../../modules/*/web/**/*";
+@source not "../../../modules/*/web/admin/**/*";

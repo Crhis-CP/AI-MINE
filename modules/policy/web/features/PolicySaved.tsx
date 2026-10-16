@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import type { Policy } from "@amp/contracts/http/public";
 import { policyHref } from "./PolicyUI";
-import { toggleStar, useStarred } from "../../lib/local-state";
+import { toggleStar, useStarred } from "@amp/web/local-state";
 function useIds() {
   return useStarred()
     .filter((ref) => ref.type === "policy")

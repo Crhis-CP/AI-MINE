@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, isRouteErrorResponse, useLocation, useRevalidator, useRouteError } from "react-router";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
-import { EmptyState } from "../../components/ui/Page";
+import { EmptyState } from "@amp/web/page";
 
 export const themes = {
   investment_company: "投资与公司",

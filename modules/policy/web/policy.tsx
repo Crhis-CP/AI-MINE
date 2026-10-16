@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
-import type { Route } from "./+types/policy";
+import type { LoaderFunctionArgs, MetaArgs } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { PolicyDetailQuery } from "@amp/contracts/http/public";
-import { apiBaseFor } from "../../api-target.ts";
-import { pageMeta } from "../lib/seo.ts";
-import { ArticleLayout } from "../components/ui/Page";
-import { PolicyReading } from "../features/policy/PolicyReading";
-import { PolicySaveButton } from "../features/policy/PolicySaved";
+import { apiBaseFor } from "@amp/web/extension.server";
+import { pageMeta } from "@amp/web/extension";
+import { ArticleLayout } from "@amp/web/page";
+import { PolicyReading } from "./features/PolicyReading";
+import { PolicySaveButton } from "./features/PolicySaved";
 import {
   PolicyBack,
   PolicyError,
@@ -21,16 +21,16 @@ import {
   policyCache,
   policyHref,
   usePolicyRecheck,
-} from "../features/policy/PolicyUI";
+} from "./features/PolicyUI";
 
-export async function loader({ request, params }: Route.LoaderArgs) {
+export async function loader({ request, params }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   url.searchParams.delete("_routes"); // React Router data transport, not a public query filter.
   const parsed = PolicyDetailQuery.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) throw withHeaders(null, { status: 400 });
   try {
     const result = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/{id}", {
-      params: { path: { id: params.id }, query: parsed.data },
+      params: { path: { id: params.id! }, query: parsed.data },
       headers: { accept: "application/json", "x-amp-ssr": "1" },
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
     });
@@ -82,11 +82,11 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 export const headers = policyCache;
 export const ErrorBoundary = PolicyError;
-export function meta({ loaderData, params }: Route.MetaArgs) {
+export function meta({ loaderData, params }: MetaArgs<typeof loader>) {
   return pageMeta({
     title: loaderData?.policy.title ?? "法规文书",
     description: loaderData?.policy.summary,
-    path: policyHref(params.id),
+    path: policyHref(params.id!),
     noindex: loaderData?.history ?? true,
   });
 }

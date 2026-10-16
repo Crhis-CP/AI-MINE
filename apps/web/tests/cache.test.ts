@@ -489,6 +489,13 @@ const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://api.local");
   apiCookies.push(req.headers.cookie);
   res.setHeader("Content-Type", "application/json");
+  if (url.pathname === "/api/site/policy-threads/thread-fixture") {
+    return res.end(
+      JSON.stringify(
+        publicSchemas.PolicyThread.parse({ id: "thread-fixture", title: "合成政策脉络", summary: null, jurisdictions: [], stages: [], policies: [] }),
+      ),
+    );
+  }
   if (url.pathname.startsWith("/api/site/policies")) {
     const send = (body: unknown, status = 200) => {
       res.statusCode = status;
@@ -1205,6 +1212,21 @@ test("policy pages distinguish basic facts, complete interpretations, unknown da
     policyMode = "full";
   }
 });
+test("installed policy pages retain menu positions and mark thread pages as part of the same reader section", async () => {
+  const response = await fetch(`${origin}/policy-threads/thread-fixture`);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /合成政策脉络/);
+  const sidebar = html.slice(html.indexOf("<aside"), html.indexOf("</aside>"));
+  assert.match(sidebar, /<a(?=[^>]*href="\/policies")(?=[^>]*aria-current="page")[^>]*>/);
+  const links = [...sidebar.matchAll(/href="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(links[links.indexOf("/daily") + 1], "/policies");
+  assert.equal(links[links.indexOf("/starred") + 1], "/metals");
+  assert.equal(links.filter((path) => path === "/policies").length, 1);
+  const tabs = html.slice(html.indexOf('aria-label="底部导航"'));
+  assert.match(tabs.slice(0, tabs.indexOf("</nav>")), /<a(?=[^>]*href="\/more")(?=[^>]*aria-current="page")[^>]*>/);
+});
+
 test("policy reading retains pages on failure, aligns original nodes and removes stale interpretation on withdrawal or revision", async () => {
   const executablePath = [
     process.env.E2E_BROWSER_PATH,

@@ -8,7 +8,8 @@ import { removeStar, useStarred, exportBundle, importBundle, STARRED_LIMIT, IMPO
 import { fullDateTime } from "../lib/format";
 import { FeedItem } from "../features/feed/FeedItem";
 import { StorySavedList } from "../features/story/StorySaved";
-import { PolicySavedList } from "../features/policy/PolicySaved";
+import { loadParts } from "../../site-modules";
+const moduleLists = await loadParts((module) => module.starred);
 import { IconBookmark } from "../components/icons";
 
 export const headers = () => ({ "Cache-Control": "no-store" });
@@ -211,7 +212,9 @@ export default function StarredPage() {
         })}
       </ul>
       <StorySavedList />
-      <PolicySavedList />
+      {moduleLists.map(({ name, part: Part }) => (
+        <Part key={name} />
+      ))}
     </div>
   );
 }

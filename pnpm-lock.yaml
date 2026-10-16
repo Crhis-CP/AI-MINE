@@ -408,6 +408,28 @@ importers:
         specifier: 19.3.0
         version: 19.3.0
 
+  modules/policy:
+    dependencies:
+      '@amp/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@amp/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@amp/web':
+        specifier: workspace:*
+        version: link:../../apps/web
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-router:
+        specifier: 8.4.0
+        version: 8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+    devDependencies:
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+
   modules/site-admin:
     dependencies:
       '@amp/api-client':
@@ -547,6 +569,9 @@ importers:
       '@amp/metals':
         specifier: workspace:*
         version: link:../modules/metals
+      '@amp/policy':
+        specifier: workspace:*
+        version: link:../modules/policy
       '@amp/site-admin':
         specifier: workspace:*
         version: link:../modules/site-admin
