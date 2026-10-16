@@ -207,8 +207,27 @@ export interface StoryDetail {
 
 export type ReportKind = "daily" | "weekly" | "monthly";
 
+/** Related reports carry their own current availability; a parent's availability is not inherited. */
+export interface ReportRelatedCitation {
+  itemId: string | null;
+  title: string;
+  sourceName: string;
+  sourceUrl: string;
+  sourceId: string | null;
+  storyPublicId: string | null;
+  available: boolean;
+}
+
 export type ReportCitation = ReportCitationCore;
 interface ReportCitationCore {
+  factId?: string | null;
+  /** Number of distinct reporting sources, when established by the issue's cutoff. */
+  sources?: number;
+  /** Earlier daily issue covering this event; a fresh fact is still required. */
+  followUp?: string | null;
+  /** Included by official coverage and independent attention rather than selection score. */
+  fillIn?: boolean;
+  related?: ReportRelatedCitation[];
   itemId: string | null;
   title: string;
   summary: string | null;
@@ -235,6 +254,8 @@ export interface ReportDetail {
   generatedAt: string;
   revision: number;
   lead: { title: string; leadParagraph: string } | null;
+  /** Omitted for legacy synthesized leads; null means the issue has no leading item. */
+  leadItemId?: string | null;
   overview: string | null;
   highlights: ReportCitation[];
   /** As edited: daily categories, weekly and monthly themes. */
