@@ -468,3 +468,54 @@ test("news search runs alongside its optional policy search, and invalid dates r
     await context.close();
   }
 });
+
+test("phone search opens in the tap, contains keyboard focus, reuses local queries and closes on navigation or desktop resize", {
+  timeout: 30000,
+}, async () => {
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN", reducedMotion: "reduce" });
+  try {
+    const blocked = await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(origin);
+    const trigger = page.getByRole("link", { name: "搜索", exact: true });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "搜索", exact: true });
+    await expect(dialog).toBeVisible();
+    const input = dialog.getByRole("searchbox");
+    await expect(input).toBeFocused();
+    assert.equal(await input.evaluate((element) => getComputedStyle(element).fontSize), "16px");
+    await input.press("Enter");
+    await expect(dialog).toBeVisible();
+    for (let i = 0; i < 9; i++) {
+      await page.keyboard.press("Tab");
+      assert.equal(await dialog.evaluate((element) => element.contains(document.activeElement)), true);
+    }
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
+    await trigger.click();
+    await input.fill(" 铜矿扩建 ");
+    await input.press("Enter");
+    await expect(page).toHaveURL(/q=%E9%93%9C%E7%9F%BF%E6%89%A9%E5%BB%BA/);
+    await expect(dialog).toHaveCount(0);
+    assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("amp-recent-searches")!)), ["铜矿扩建"]);
+    await page.goto(origin);
+    await trigger.click();
+    await expect(dialog.getByRole("link", { name: "铜矿扩建", exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "清除记录" }).click();
+    await expect(dialog.getByRole("region", { name: "最近搜索" })).toHaveCount(0);
+    assert.equal(await page.evaluate(() => localStorage.getItem("amp-recent-searches")), null);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe("");
+    assert.deepEqual(errors, []);
+    assert.deepEqual(blocked, []);
+  } finally {
+    await context.close();
+  }
+});

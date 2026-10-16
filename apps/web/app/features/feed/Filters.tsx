@@ -1,3 +1,4 @@
+import { useOpenSearch } from "../search/SearchOverlay";
 import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
 import { useEffect, useRef, useState } from "react";
@@ -266,9 +267,16 @@ export function SearchField({
 /** Mobile home: the search icon at the end of the category row opens search on 全部动态. */
 export function SearchIconLink() {
   const [params] = useSearchParams();
+  const openSearch = useOpenSearch();
   return (
     <Link
       to={hrefWith("/all", params, { search: "1" })}
+      onClick={(event) => {
+        if (openSearch && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+          event.preventDefault();
+          openSearch(params.get("q") ?? "", event.currentTarget);
+        }
+      }}
       aria-label="搜索"
       className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
     >
