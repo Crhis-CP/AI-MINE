@@ -1,5 +1,5 @@
 // Sources that print a date alone, through collection, publication and the public list (TASK-0040): the
-// date is kept as the published time, the start of that day in Beijing whatever its spelling (ISO included),
+// date keeps an internal Beijing day anchor, while public time keeps date precision with no invented instant,
 // so the upstream's timeline rule works on it and pages can show the date alone: a new source's first
 // import and an item found more than 48 hours late go on their own day and stay out of "today". The
 // correction script dry-runs without writing, corrects and republishes once, and keeps a manual withdrawal.
@@ -99,7 +99,11 @@ test("a date alone is kept as the start of that day; old ones go on their day, n
   assert.deepEqual([old.timeline_at.toISOString(), old.backfill_reason], [beijingMidnight(daysAgo(60)), "first-import"]);
   assert.equal((await row(`存量昨天 ${T}`)).timeline_at.toISOString(), beijingMidnight(daysAgo(1)));
   let listed = await pool();
-  assert.equal(listed.items.find((i) => i.title === `存量两个月前 ${T}`)?.publishedAt, beijingMidnight(daysAgo(60)), "the public list shows that day");
+  const originalDay = listed.items.find((i) => i.title === `存量两个月前 ${T}`)!;
+  assert.equal(originalDay.publishedAt, null, "a source day is not a precise midnight instant");
+  assert.equal(originalDay.sourceTime!.local_date, daysAgo(60));
+  assert.equal(originalDay.sourceTime!.precision, "date");
+  assert.equal(originalDay.sourceTime!.utc, null);
 
   // This source has been running a week: recent-onboarding archive filtering still admits both examples.
   await sql`UPDATE sources SET cursor=jsonb_set(cursor,'{initializedAt}',${sql.json(new Date(Date.now() - 7 * 86400000).toISOString())}) WHERE id=${LIST}`;

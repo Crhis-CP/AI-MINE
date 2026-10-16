@@ -211,12 +211,13 @@ export async function composeMonthly(label: string, reason = "scheduled") {
   return composePeriod("monthly", label, start, addDays(next, -1), reason);
 }
 
-/** Entries a catch-up would put in daily D. Zero means the gap stays missing instead of becoming a blank issue. */
-async function freshDailyCount(date: string): Promise<number> {
+/** Current daily entries and unresolved nominations; zero qualified alone does not prove a quiet day. */
+export async function dailyReportQualification(date: string) {
   const end = editionTime(date);
   const start = new Date(end.getTime() - 86400000);
-  const edition = arrangeDaily((await dailyEdition(date, start, end)).entries);
-  return edition.main.length + edition.flashes.length;
+  const candidates = await dailyEdition(date, start, end);
+  const edition = arrangeDaily(candidates.entries);
+  return { qualified: edition.main.length + edition.flashes.length, pendingSelections: candidates.stats.pendingSelections };
 }
 
 async function periodEntryCount(startDate: string, endDateInclusive: string): Promise<number> {
@@ -229,7 +230,7 @@ async function periodEntryCount(startDate: string, endDateInclusive: string): Pr
  * calendar period. Zero may be a quiet daily; it is not a count of older selections.
  */
 export async function qualifiedReportEntries(kind: "daily" | "weekly" | "monthly", key: string): Promise<number> {
-  if (kind === "daily") return freshDailyCount(key);
+  if (kind === "daily") return (await dailyReportQualification(key)).qualified;
   if (kind === "weekly") {
     const range = isoWeekRange(key);
     if (!range) throw new Error(`bad week label ${key}`);

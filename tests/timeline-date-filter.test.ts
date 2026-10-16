@@ -53,7 +53,8 @@ test("Beijing timeline day controls lists, search, facets and API, while source 
       assert.equal(pool.todayCount, 3, "today and the selected Beijing day use the same timeline");
       assert.equal(pool.facets?.sources.find((row) => row.id === source)?.count, 3);
       assert.equal(pool.items.find((row) => row.id === `${source}-unknown`)?.publishedAt, null);
-      assert.equal(pool.items.find((row) => row.id === `${source}-date-only`)?.publishedAt, "2026-10-09T16:00:00.000Z");
+      assert.equal(pool.items.find((row) => row.id === `${source}-date-only`)?.publishedAt, null, "a legacy sorting anchor is not source date evidence");
+      assert.equal(pool.items.find((row) => row.id === `${source}-date-only`)?.sourceTime, null);
     }
     for (const by of ["timeline", "published"] as const) {
       const listing = await v1Items({ ...apiBase, ...filters, by }, now);

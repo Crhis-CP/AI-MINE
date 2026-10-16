@@ -14,7 +14,7 @@ import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAl
 import { metalPriceChangeIssues } from "../publication/metal-prices/change.ts";
 import { loadMetalPrices } from "../publication/metal-prices/read.ts";
 import { loadReport, type ReportKind } from "../publication/reports.ts";
-import { qualifiedReportEntries } from "../reports/compose.ts";
+import { qualifiedReportEntries, dailyReportQualification } from "../reports/compose.ts";
 import { loadHot } from "../publication/stories.ts";
 import { backupConfigured } from "./backup.ts";
 import { readMetalPriceRuns, type MetalPriceSourceRecord } from "./metal-price-runs.ts";
@@ -145,16 +145,30 @@ async function describeReport(issue: DueReport, rowExists: boolean | null, now: 
       },
     ];
   }
-  let qualified = 0;
+  let qualified = 0,
+    pendingSelections = 0;
   let countError: string | undefined;
   try {
-    qualified = await qualifiedReportEntries(issue.kind, issue.key);
+    if (issue.kind === "daily") ({ qualified, pendingSelections } = await dailyReportQualification(issue.key));
+    else qualified = await qualifiedReportEntries(issue.kind, issue.key);
   } catch (error) {
     countError = clip(error instanceof Error ? error.message : String(error));
   }
   const countNote = countError
     ? `数不清这段窗口里有多少够格的新精选：${countError}`
     : `这段窗口（${REPORT_WINDOW[issue.kind]}）里够格的新精选是 ${qualified} 条`;
+  if (pendingSelections > 0 && !countError)
+    return [
+      {
+        key: `report.${issue.kind}`,
+        level: "now",
+        title: "今天的日报仍在等待资讯处理",
+        impact: `这段窗口还有 ${pendingSelections} 条入选候选未确认归组，不能据此判断今天没有重要动态`,
+        heals: "后台每半小时重新检查，处理完成后继续补刊",
+        action: "转给 AI 处理",
+        detail: `${issue.label} ${issue.key}；${countNote}；${note}；${where}`,
+      },
+    ];
   const jobFailed = job.state !== "ok";
   // A succeeded job with nothing new leaves the issue missing. That is the edition rule, not an outage.
   if (loaded.state === "missing" && job.state === "ok" && qualified === 0 && !countError) return [];
@@ -177,10 +191,10 @@ async function describeReport(issue: DueReport, rowExists: boolean | null, now: 
         heals: countError
           ? "先数清这段窗口里有没有够格的新精选，数不清之前不能当成正常的不出刊"
           : job.state === "ok" && qualified > 0 && !emptyOnSite
-            ? "系统每小时补做一次，到现在还没写成"
+            ? "系统每半小时补做一次，到现在还没写成"
             : emptyOnSite
               ? "已经挂上的空期不会自己删掉，也不会自动重写"
-              : "系统每小时补做一次，到现在还没跑成",
+              : "系统每半小时补做一次，到现在还没跑成",
         action: "转给 AI 处理",
         detail: `${issue.label} ${issue.key}；${note}；${countNote}；${where}`,
       },

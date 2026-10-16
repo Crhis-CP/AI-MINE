@@ -3,6 +3,7 @@
 // close without a message. Metal prices not fetched for over a day wait for the 09:00 digest (TASK-0071).
 // The request meter's automatic stops (hourly and daily) are announced as such, not as a used-up quota, and
 // the days they happened are counted for the weekly usage report (TASK-0063).
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -707,6 +708,10 @@ test("a missing, empty or unreadable report is alerted, and a real issue is not"
       VALUES ('reports.catch-up', ${new Date(PRODUCT_AT - 60_000)}, ${new Date(PRODUCT_AT - 60_000)}, 'ok')
       RETURNING id`;
     jobs.push(wrote!.id);
+    const pending = await finding("report.daily");
+    assert.equal(pending?.title, "今天的日报仍在等待资讯处理");
+    assert.match(pending?.impact ?? "", /未确认归组/);
+    await confirmGroupingFixture(articleId);
     const dropped = await finding("report.daily");
     assert.equal(dropped?.level, "now");
     assert.equal(dropped?.title, "今天的日报该有内容，但没有这一期");
