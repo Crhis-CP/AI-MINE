@@ -1,3 +1,4 @@
+import type { NewsGroupingDiagnostic } from "@amp/contracts/http/private";
 import { SITE } from "@amp/industry/site";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
@@ -14,6 +15,7 @@ import { AdminPage, Badge, Button, Card, Empty, Field, Input, Json, KV, ReasonDi
 type Row = Record<string, any>;
 interface Chain {
   article: Row;
+  grouping?: NewsGroupingDiagnostic | null;
   discoveries: Row[];
   revisions: Row[];
   analyses: Row[];
@@ -88,6 +90,8 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
   const version = c.override?.version ?? 0;
   const base = `/api/admin/content/${encodeURIComponent(a.id)}`;
   const story = c.membership[0];
+  const grouping = c.grouping;
+  const groupingLabel = grouping?.status === "complete" ? "当前修订已确认" : grouping?.status === "failed" ? "当前归组失败" : "等待归组确认";
   const title = p?.title ?? a.title;
 
   const openOverride = () => {
@@ -217,8 +221,8 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
                     <div key={an.id} className="rounded-control bg-bg-sunk/60 p-3 ring-1 ring-line">
                       <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
                         <Badge tone={an.relevance === "pass" ? "ok" : "muted"}>{an.relevance}</Badge>
-                        {an.selected && <Badge tone="accent">入选</Badge>}
-                        <Badge tone="info">分数 {an.score}</Badge>
+                        {an.selected && <Badge tone="accent">达到评分门槛</Badge>}
+                        {an.score !== null && an.score !== undefined && <Badge tone="info">分数 {an.score}</Badge>}
                         {an.category && <Badge>{CATEGORY_LABELS[an.category as keyof typeof CATEGORY_LABELS] ?? an.category}</Badge>}
                         <span className="text-ink-4">
                           {an.model} · {an.prompt_version} · 输入 v{an.input_revision} · {an.origin} · {bj(an.created_at)}
@@ -242,6 +246,87 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
               ) : (
                 <span className="text-ink-4">{a.participation_mode === "editorial" ? "还没有判断（等待队列或失败）" : "氛围信源不做编辑判断"}</span>
               )}
+            </Step>
+            <Step
+              title="事件归组"
+              tone={grouping?.status === "failed" ? "bad" : grouping?.status === "complete" ? "accent" : "muted"}
+              meta={grouping ? groupingLabel : "当前状态尚未提供"}
+            >
+              {grouping ? (
+                <div className="mb-3 rounded-control bg-bg-sunk p-3">
+                  <KV
+                    items={[
+                      ["当前材料", `v${grouping.materialRevision}`],
+                      ["判断输入", grouping.inputRevision === null ? "尚未完成" : `v${grouping.inputRevision}`],
+                      ["评分候选", grouping.selectionCandidate === null ? "尚未确认" : grouping.selectionCandidate ? "达到评分门槛" : "未达到评分门槛"],
+                      ["新增信息", grouping.addsValue === null ? "尚未确认" : grouping.addsValue ? "有新增信息" : "没有新增信息，不重复占据精选"],
+                      ["判断说明", grouping.reason],
+                      ["当前问题", grouping.error],
+                      ["关联回执", grouping.receiptId === null ? null : `#${grouping.receiptId}`],
+                    ]}
+                  />
+                  {grouping.status !== "complete" && (
+                    <p className="mt-2 text-[12px] text-ink-3">评分达到门槛后，仍须完成当前修订的归组与新增信息判断。既有归属不代表这次处理已经完成。</p>
+                  )}
+                </div>
+              ) : (
+                <p className="mb-3 text-ink-3">尚无当前修订的归组诊断，不根据旧归组时间推定已完成。</p>
+              )}
+              {c.membership.map((m) => (
+                <div key={m.fact_id} className="mb-2">
+                  <div>
+                    事实 <span className="font-mono text-[12px]">#{m.fact_id}</span> {m.fact_title} <Badge>{m.role}</Badge>{" "}
+                    {m.manual && <Badge tone="info">人工</Badge>}
+                    {m.needs_review && <Badge tone="warn">材料已修订，人工归属待复核</Badge>}
+                  </div>
+                  {m.story_public_id && (
+                    <div className="mt-0.5">
+                      事件{" "}
+                      <a className="text-accent" href={`/story/${m.story_public_id}`} target="_blank" rel="noreferrer">
+                        {m.story_title}
+                      </a>{" "}
+                      <span className="font-mono text-[12px] text-ink-4">#{m.story_id}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {c.decisions.length > 0 && (
+                <ul className="mt-2 space-y-1 text-[12.5px]">
+                  {c.decisions.map((d, i) => (
+                    <li key={i} className="flex flex-wrap gap-2">
+                      <span className="num text-ink-4">{bj(d.created_at)}</span>
+                      <Badge>{d.verdict}</Badge>
+                      {d.fact_id && <span>事实 #{d.fact_id}</span>}
+                      {d.receipt_id && <span className="text-ink-4">回执 #{d.receipt_id}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {story?.fact_public_id && (
+                <div className="mt-3">
+                  <WithdrawalControls key={story.fact_public_id} target={{ type: "event", id: String(story.fact_public_id) }} label="该事件下架 / 恢复" />
+                </div>
+              )}
+              {story?.story_public_id && (
+                <div className="mt-3">
+                  <WithdrawalControls key={story.story_public_id} target={{ type: "story", id: String(story.story_public_id) }} label="该发展线下架 / 恢复" />
+                </div>
+              )}
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => setDialog("group")}>
+                  重新归组
+                </Button>
+                {c.membership.length > 0 && (
+                  <Button size="sm" onClick={() => setDialog("detach")}>
+                    移出事件
+                  </Button>
+                )}
+                {story?.story_id && (
+                  <Button size="sm" onClick={() => setDialog("merge")}>
+                    把这个事件并入…
+                  </Button>
+                )}
+              </div>
             </Step>
             <Step title="公开" tone={p ? (p.visibility === "withdrawn" ? "bad" : "accent") : "muted"} meta={p ? `更新于 ${bj(p.updated_at, true)}` : undefined}>
               {p ? (
@@ -296,62 +381,6 @@ export default function ContentItem({ loaderData }: Route.ComponentProps) {
               ) : (
                 <span className="text-ink-4">没有进入过精选同步流</span>
               )}
-            </Step>
-            <Step title="事件归组" tone={story ? "accent" : "muted"} meta={a.grouped_at ? `归组于 ${bj(a.grouped_at, true)}` : "未归组"}>
-              {c.membership.map((m) => (
-                <div key={m.fact_id} className="mb-2">
-                  <div>
-                    事实 <span className="font-mono text-[12px]">#{m.fact_id}</span> {m.fact_title} <Badge>{m.role}</Badge>{" "}
-                    {m.manual && <Badge tone="info">人工</Badge>}
-                  </div>
-                  {m.story_public_id && (
-                    <div className="mt-0.5">
-                      事件{" "}
-                      <a className="text-accent" href={`/story/${m.story_public_id}`} target="_blank" rel="noreferrer">
-                        {m.story_title}
-                      </a>{" "}
-                      <span className="font-mono text-[12px] text-ink-4">#{m.story_id}</span>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {c.decisions.length > 0 && (
-                <ul className="mt-2 space-y-1 text-[12.5px]">
-                  {c.decisions.map((d, i) => (
-                    <li key={i} className="flex flex-wrap gap-2">
-                      <span className="num text-ink-4">{bj(d.created_at)}</span>
-                      <Badge>{d.verdict}</Badge>
-                      {d.fact_id && <span>事实 #{d.fact_id}</span>}
-                      {d.receipt_id && <span className="text-ink-4">回执 #{d.receipt_id}</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {story?.fact_public_id && (
-                <div className="mt-3">
-                  <WithdrawalControls key={story.fact_public_id} target={{ type: "event", id: String(story.fact_public_id) }} label="该事件下架 / 恢复" />
-                </div>
-              )}
-              {story?.story_public_id && (
-                <div className="mt-3">
-                  <WithdrawalControls key={story.story_public_id} target={{ type: "story", id: String(story.story_public_id) }} label="该发展线下架 / 恢复" />
-                </div>
-              )}
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => setDialog("group")}>
-                  重新归组
-                </Button>
-                {c.membership.length > 0 && (
-                  <Button size="sm" onClick={() => setDialog("detach")}>
-                    移出事件
-                  </Button>
-                )}
-                {story?.story_id && (
-                  <Button size="sm" onClick={() => setDialog("merge")}>
-                    把这个事件并入…
-                  </Button>
-                )}
-              </div>
             </Step>
             <Step
               title="投递"

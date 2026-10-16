@@ -1,3 +1,4 @@
+import type { NewsGroupingDiagnostic } from "@amp/contracts/http/private";
 import { dbOf, type Db } from "../db.ts";
 const sql = dbOf("content");
 
@@ -79,4 +80,28 @@ export async function publicMaterialVersions(ids: string[]) {
   return sql<
     { id: string; revision: number; source_date_version: string }[]
   >`SELECT id,revision,source_date_version::text FROM articles WHERE id=ANY(${ids}::text[])`;
+}
+
+/** Private read-only diagnostics. Old timestamps or decisions for another revision are not confirmation. */
+export async function materialGroupingDiagnostic(
+  articleId: string,
+  nomination: { revision: number; candidate: boolean | null },
+  db: Db = sql,
+): Promise<NewsGroupingDiagnostic | null> {
+  const [row] = await db<(MaterialGroupingState & { grouping_receipt_id: number | null; grouping_error: string | null })[]>`
+    SELECT id,revision,source_date_version,grouping_status,grouping_input_revision,selection_adds_value,selection_value_reason,grouping_receipt_id,grouping_error
+    FROM articles WHERE id=${articleId}`;
+  if (!row) return null;
+  const current = row.grouping_input_revision === row.revision;
+  const complete = current && row.grouping_status === "complete" && row.selection_adds_value !== null && !!row.selection_value_reason?.trim();
+  return {
+    materialRevision: row.revision,
+    inputRevision: row.grouping_input_revision,
+    status: complete ? "complete" : current && row.grouping_status === "failed" ? "failed" : "pending",
+    selectionCandidate: nomination.revision === row.revision ? nomination.candidate : null,
+    addsValue: complete ? row.selection_adds_value : null,
+    reason: complete ? row.selection_value_reason : null,
+    receiptId: current && row.grouping_receipt_id ? Number(row.grouping_receipt_id) : null,
+    error: current ? row.grouping_error : null,
+  };
 }

@@ -26,6 +26,7 @@ let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
 let privatePageFixtures = false;
+let groupingView: "pending" | "complete" | "failed" | "legacy" = "pending";
 let modelJourney: {
   connection: ReturnType<typeof privateSchemas.ModelConnectionRecord.parse> | null;
   route: string;
@@ -298,6 +299,55 @@ const privateApi = createServer(async (req, res) => {
         }),
       );
     if (req.url === "/api/admin/site") return res.end(JSON.stringify({ information: siteInformationFixture, protected: protectedSiteFixture }));
+    if (req.url === "/api/admin/content/grouping-fixture") {
+      const at = "2026-10-15T08:00:00Z";
+      return res.end(
+        JSON.stringify({
+          article: {
+            id: "grouping-fixture",
+            source_id: "source",
+            source_name: "合成来源",
+            source_kind: "rss",
+            tier: "T1",
+            participation_mode: "editorial",
+            lane: "news",
+            url: "https://example.invalid/original",
+            title: "合成归组诊断",
+            revision: 2,
+            body_status: "ok",
+            body_chars: 30,
+            processing_state: "analyzed",
+            grouped_at: at,
+            discovered_at: at,
+            timeline_at: at,
+          },
+          grouping:
+            groupingView === "legacy"
+              ? undefined
+              : {
+                  materialRevision: 2,
+                  inputRevision: groupingView === "pending" ? null : 2,
+                  status: groupingView,
+                  selectionCandidate: true,
+                  addsValue: groupingView === "complete" ? false : null,
+                  reason: groupingView === "complete" ? "已报道相同事实，无新增信息" : null,
+                  receiptId: null,
+                  error: groupingView === "failed" ? "归组答案缺少一个候选，等待修复后重试" : null,
+                },
+          discoveries: [],
+          revisions: [],
+          analyses: [{ id: 1, input_revision: 2, relevance: "pass", score: 88, selected: true, receipts: [], created_at: at }],
+          publication: null,
+          override: null,
+          ledger: [],
+          membership: [{ fact_id: 1, fact_title: "已有人工归属", role: "report", manual: true, needs_review: true }],
+          decisions: [],
+          deliveries: [],
+          history: [],
+          manualRevisions: [],
+        }),
+      );
+    }
     if (req.url === "/api/admin/me") return res.end(JSON.stringify({ name: "合成管理员", csrf: "test-csrf", dev: false, owner: true, modelsManage: true }));
     if (req.url === "/api/admin/nav-counts") return res.end(JSON.stringify({ sources: 2, feedback: 1, runs: 0 }));
     if (req.url?.startsWith("/api/admin/models?"))
@@ -1721,5 +1771,50 @@ test("owner can add an arbitrary model, test it and choose it for a text step wi
   } finally {
     modelJourney = null;
     privatePageFixtures = false;
+  }
+});
+
+test("content diagnostics distinguish current grouping from nomination and keep manual review visible on mobile and desktop", { timeout: 30000 }, async () => {
+  const { browserExecutable } = await import("./browser.ts");
+  const browser = await chromium.launch({
+    executablePath: browserExecutable(),
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+  privatePageFixtures = true;
+  try {
+    for (const width of [390, 1440]) {
+      const context = await browser.newContext({ viewport: { width, height: 1000 }, serviceWorkers: "block", reducedMotion: "reduce" });
+      try {
+        await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+        const page = await context.newPage();
+        groupingView = "pending";
+        await page.goto(`${privateOrigin}/admin/content/grouping-fixture`);
+        await expect(page.getByText("等待归组确认", { exact: true })).toBeVisible();
+        await expect(page.getByText("达到评分门槛", { exact: true })).toHaveCount(2);
+        await expect(page.getByText("材料已修订，人工归属待复核", { exact: true })).toBeVisible();
+        const steps = await page.locator("h3").allTextContents();
+        assert.ok(steps.indexOf("事件归组") < steps.indexOf("公开"));
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+        groupingView = "complete";
+        await page.reload();
+        await expect(page.getByText("当前修订已确认", { exact: true })).toBeVisible();
+        await expect(page.getByText("没有新增信息，不重复占据精选", { exact: true })).toBeVisible();
+        groupingView = "failed";
+        await page.reload();
+        await expect(page.getByText("当前归组失败", { exact: true })).toBeVisible();
+        await expect(page.getByText("归组答案缺少一个候选，等待修复后重试", { exact: true })).toBeVisible();
+        groupingView = "legacy";
+        await page.reload();
+        await expect(page.getByText("尚无当前修订的归组诊断，不根据旧归组时间推定已完成。", { exact: true })).toBeVisible();
+        await expect(page.getByText("当前修订已确认", { exact: true })).toHaveCount(0);
+      } finally {
+        await context.close();
+      }
+    }
+  } finally {
+    privatePageFixtures = false;
+    groupingView = "pending";
+    await browser.close();
   }
 });

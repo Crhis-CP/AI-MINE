@@ -1,3 +1,4 @@
+import { materialGroupingDiagnostic } from "../content/grouping.ts";
 import { manualMaterialSnapshot } from "@amp/backend/content/materials";
 import { detachArticleFromFactTx, factArticleIds, requestArticleRegroup } from "@amp/backend/events/group";
 import { invalidateReportCorrections } from "@amp/backend/reports/compose";
@@ -43,7 +44,7 @@ export async function contentChain(id: string) {
   const [article] = await sql`
     SELECT a.id, a.source_id, a.url, a.identity_key, a.title, a.author, a.language, a.published_at, a.published_at_claim, a.discovered_at,
            a.timeline_at, a.backfill, a.body_status, a.revision, a.processing_state, a.processing_error, a.grouped_at, length(a.body_text) AS body_chars,
-           s.name AS source_name, s.kind AS source_kind, s.tier, s.participation_mode, s.site_fulltext, s.syndicate_fulltext
+           s.name AS source_name, s.kind AS source_kind, s.tier, s.participation_mode, s.site_fulltext, s.syndicate_fulltext, s.lane
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${id}`;
   if (!article) return null;
   const [discoveries, revisions, analyses, publication, override, ledger, membership, decisions, deliveries, history] = await Promise.all([
@@ -54,7 +55,7 @@ export async function contentChain(id: string) {
              an.created_at,
              (SELECT coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'status', r.status, 'service', r.service, 'model', r.model, 'cost', r.cost, 'at', r.created_at) ORDER BY r.id), '[]'::jsonb)
                 FROM receipts r WHERE r.id = ANY(an.receipt_ids)) AS receipts
-      FROM analyses an WHERE an.article_id = ${id} ORDER BY an.created_at DESC LIMIT 10`,
+      FROM analyses an WHERE an.article_id = ${id} ORDER BY an.created_at DESC,an.id DESC LIMIT 10`,
     sql`SELECT * FROM publications WHERE article_id = ${id}`,
     sql`SELECT fields, visibility, reason, version, updated_by, updated_at FROM editorial_overrides WHERE article_id = ${id}`,
     sql`SELECT seq, op, visible_at, changed_at FROM selected_ledger WHERE article_id = ${id} ORDER BY seq DESC LIMIT 10`,
@@ -65,8 +66,17 @@ export async function contentChain(id: string) {
     sql`SELECT target_key, dedupe_key, status, attempts, response, created_at, sent_at FROM deliveries WHERE subject_id = ${id} ORDER BY created_at DESC`,
     sql`SELECT created_at, actor, action, reason, before, after FROM audit_log WHERE subject = ${`content:${id}`} ORDER BY created_at DESC LIMIT 20`,
   ]);
+  const judged = analyses.find((analysis) => analysis.input_revision === article.revision);
+  const grouping =
+    article.lane === "news"
+      ? await materialGroupingDiagnostic(id, {
+          revision: Number(article.revision),
+          candidate: judged?.score != null && typeof judged.selected === "boolean" ? judged.selected : null,
+        })
+      : null;
   return {
     article,
+    grouping,
     discoveries,
     revisions,
     analyses,
