@@ -186,3 +186,8 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
   await attachSourcePolicies(rows);
   return { topic: { ...topic, related }, items: rows.map(toFeedItemSummary), page, pageCount };
 }
+
+/** Search navigation needs catalogue identities only, never an article-count scan. */
+export async function topicBrowseLinks() {
+  return (await listTopics()).map(({ slug, name, grp }) => ({ slug, name, group: grp }));
+}

@@ -14,6 +14,7 @@ let origin = "",
   web: ChildProcess,
   browser: Browser;
 let phase = "setup";
+let searchNavigationMode: "ready" | "error" | "empty" = "ready";
 let withdrawn = false,
   added = false;
 const now = new Date().toISOString();
@@ -91,6 +92,20 @@ const api = createServer((req, res) => {
     if (url.searchParams.get("q") === "超时测试") return;
     res.statusCode = 503;
     return answer({ code: "temporarily_unavailable" });
+  }
+  if (url.pathname === "/api/site/search/suggestions") {
+    if (searchNavigationMode === "error") {
+      res.statusCode = 503;
+      return answer({ code: "temporarily_unavailable" });
+    }
+    return answer(
+      searchNavigationMode === "empty"
+        ? { topics: [], hot: [] }
+        : {
+            topics: [{ slug: "synthetic-mine", name: "合成矿企主题", group: "company" }],
+            hot: [{ rank: 1, title: "已确认的矿业热点", to: "/story/synthetic-story" }],
+          },
+    );
   }
   if (url.pathname === "/api/site/meta") return answer({ changelogVersion: null });
   if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : "1" });
@@ -516,6 +531,39 @@ test("phone search opens in the tap, contains keyboard focus, reuses local queri
     assert.deepEqual(errors, []);
     assert.deepEqual(blocked, []);
   } finally {
+    await context.close();
+  }
+});
+
+test("phone navigation retries independently of search and removes earlier hot links on reopening", { timeout: 20000 }, async () => {
+  withdrawn = false;
+  added = false;
+  searchNavigationMode = "error";
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN", reducedMotion: "reduce" });
+  try {
+    const blocked = await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await page.goto(origin);
+    await page.getByRole("link", { name: "搜索", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "搜索", exact: true });
+    await expect(dialog.getByText("主题与热点暂时无法读取。", { exact: false })).toBeVisible();
+    await expect(dialog.getByRole("searchbox")).toBeEditable();
+    searchNavigationMode = "ready";
+    await dialog.getByRole("button", { name: "重试导航" }).click();
+    await expect(dialog.getByRole("link", { name: "合成矿企主题" })).toHaveAttribute("href", "/topics/synthetic-mine");
+    await expect(dialog.getByRole("link", { name: /已确认的矿业热点/ })).toHaveAttribute("href", "/story/synthetic-story");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    searchNavigationMode = "empty";
+    const loaded = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/site/search/suggestions");
+    await page.getByRole("link", { name: "搜索", exact: true }).click();
+    await loaded;
+    await expect(dialog.getByRole("link", { name: /已确认的矿业热点/ })).toHaveCount(0);
+    await expect(dialog.getByRole("link", { name: "合成矿企主题" })).toHaveCount(0);
+    await expect(dialog.getByRole("link", { name: "查看热点榜" })).toBeVisible();
+    assert.deepEqual(blocked, []);
+  } finally {
+    searchNavigationMode = "ready";
     await context.close();
   }
 });

@@ -189,3 +189,8 @@ export async function storyParticipation(storyId: number, now = new Date()) {
     complete: !recent.some((signal) => signal.source_behind),
   };
 }
+
+/** Search follows the same current public evidence and withdrawal checks as the hot board. */
+export async function hotSearchLinks() {
+  return (await loadHotStrip()).map(({ rank, title, storyPublicId }) => ({ rank, title, to: `/story/${storyPublicId}` }));
+}

@@ -339,6 +339,18 @@
     ]
   },
   {
+    "route": "GET /api/site/search/suggestions",
+    "fixture": "当前公开主题与合格热点的轻量导航，真实只读角色不读取正文",
+    "cases": [
+      {
+        "url": "/api/site/search/suggestions",
+        "status": 200,
+        "contains": ["PR9"],
+        "array": "hot"
+      }
+    ]
+  },
+  {
     "route": "GET /api/site/topics",
     "fixture": "topics.pr9-mining，PR9标签匹配多条公开投影，统计total/recent均有数据",
     "cases": [

@@ -11,12 +11,12 @@ import { loadTimeline } from "@amp/backend/publication/timeline";
 import { loadStoryFollowups } from "@amp/backend/publication/followups";
 import { loadDevelopments, loadGroupReports } from "@amp/backend/publication/groups";
 import { loadTopicTags } from "@amp/backend/publication/topics";
-import { loadHotStrip } from "@amp/backend/events/hot-read";
+import { loadHotStrip, hotSearchLinks } from "@amp/backend/events/hot-read";
 import { loadChangelog, siteMeta } from "@amp/backend/site/meta";
 import { loadSiteStats, loadMetalPrices } from "@amp/backend/site/stats";
 import { isValidDate } from "@amp/contracts/time";
 import { itemAvailability, savedItems, contentVersion, publicFreshness } from "@amp/backend/publication/availability";
-import { listTopicSummaries, loadTopicPage } from "@amp/backend/publication/topics";
+import { listTopicSummaries, loadTopicPage, topicBrowseLinks } from "@amp/backend/publication/topics";
 import { registerFeedback } from "./feedback.ts";
 
 import { loadHot, loadStoryDetail, resolveStory } from "@amp/backend/publication/stories";
@@ -294,6 +294,20 @@ export function registerSite(app: FastifyInstance) {
       const ids = (looseQuery(req).ids ?? "").split(",").filter(Boolean);
       reply.header("Cache-Control", "no-store");
       return reply.send(await itemAvailability(ids));
+    }),
+  );
+
+  app.get(
+    contracts.siteSearchSuggestions.url,
+    { schema: contracts.siteSearchSuggestions.schema },
+    siteHandler(async (req, reply) => {
+      const [topics, hot] = await Promise.all([topicBrowseLinks(), hotSearchLinks()]);
+      return sendJsonWithEtag(
+        req,
+        reply,
+        { topics, hot },
+        { etagPrefix: "search-suggestions", cacheControl: "public, max-age=30, s-maxage=30, must-revalidate" },
+      );
     }),
   );
 

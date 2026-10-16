@@ -90,7 +90,19 @@ if (process.argv.includes("--routes")) {
           shortCircuit: true,
         };
       if (specifier === "@amp/backend/events/hot-read")
-        return { url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot}", shortCircuit: true };
+        return {
+          url: "data:text/javascript,export async function loadHotStrip(){return globalThis.contractTimeline.hot};export async function hotSearchLinks(){return []}",
+          shortCircuit: true,
+        };
+      if (specifier === "@amp/backend/publication/topics")
+        return {
+          url:
+            "data:text/javascript," +
+            encodeURIComponent(
+              `export * from "${new URL("../../packages/backend/src/publication/topics.ts", import.meta.url).href}";export async function topicBrowseLinks(){return [{slug:"copper",name:"铜",group:"field"}]}`,
+            ),
+          shortCircuit: true,
+        };
       if (specifier === "@amp/backend/publication/timeline")
         return {
           url:
@@ -125,6 +137,9 @@ if (process.argv.includes("--routes")) {
   const app = await buildApp("public-api");
   const privateApp = await buildApp("private-api");
   try {
+    const navigation = await app.inject("/api/site/search/suggestions");
+    assert.equal(navigation.statusCode, 200);
+    assert.deepEqual(publicSchemas.SearchSuggestions.parse(navigation.json()), { topics: [{ slug: "copper", name: "铜", group: "field" }], hot: [] });
     const first = await app.inject("/api/site/stats");
     assert.equal(first.statusCode, 200);
     assert.deepEqual(first.json(), stats);
