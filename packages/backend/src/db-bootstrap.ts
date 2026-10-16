@@ -1,5 +1,6 @@
 // Transitional composition-root helper (TASK-0004 D1/D2). It does nothing until explicitly called.
 import { createDatabaseAccess, type ProcessRole, type QueryRole } from "@amp/config";
+import { installConnections } from "./db-connections.ts";
 import { injectDb } from "./module-db.ts";
 
 export const DB_MODULES = Object.freeze([
@@ -66,7 +67,22 @@ export async function initializeDb(process: DatabaseProcess, env?: Readonly<Reco
     const created = createDatabaseAccess(process, env);
     access = created;
     const bindings = Object.fromEntries(DB_MODULES.map((module) => [module, created.dbFor(roleFor(process, module))]));
-    active = { access, dispose: injectDb(bindings), lifetime, environment: env };
+    const disposeLegacy = injectDb(bindings);
+    try {
+      const disposeDirect = installConnections({ sql: bindings.publication!, identity: bindings.identity!, feedback: bindings.feedback! });
+      active = {
+        access,
+        dispose: () => {
+          disposeDirect();
+          disposeLegacy();
+        },
+        lifetime,
+        environment: env,
+      };
+    } catch (error) {
+      disposeLegacy();
+      throw error;
+    }
     return lifetime.signal;
   } catch (error) {
     lifetime.abort();
