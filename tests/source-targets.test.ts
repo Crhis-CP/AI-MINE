@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { SOURCE_TARGETS, SOURCE_RECORDS } from "@amp/industry/source-targets";
-import { sourceTargets } from "../packages/backend/src/sources/target-catalogue.ts";
+import { sourceTargets } from "../modules/site-admin/backend/target-catalogue.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { injectDb } from "@amp/backend/db";
 import { buildApp } from "./site-app.ts";

@@ -75,5 +75,6 @@
   "./sources/web-list": "./src/sources/web-list.ts",
   "./modules": "./src/modules.ts",
   "./http": "./src/http.ts",
-  "./admin/http": "./src/admin/http.ts"
+  "./admin/http": "./src/admin/http.ts",
+  "./sources/evidence": "./src/sources/evidence.ts"
 }

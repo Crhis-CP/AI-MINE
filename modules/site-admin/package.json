@@ -6,7 +6,10 @@
     "./module": "./module.ts",
     "./web": "./web.ts",
     "./server": "./server.ts",
-    "./information": "./backend/information.ts"
+    "./information": "./backend/information.ts",
+    "./targets": "./backend/target-catalogue.ts",
+    "./coverage": "./backend/coverage.ts",
+    "./export": "./backend/source-export.ts"
   },
   "dependencies": {
     "@amp/contracts": "workspace:*",

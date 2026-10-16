@@ -25,7 +25,12 @@ const DOMAIN_EDGES: Record<string, readonly string[]> = {
 };
 const DOMAINS = amp(Object.keys(DOMAIN_EDGES));
 // The extension registry is a named engine interface; arbitrary legacy export expansion remains rejected.
-const ENGINE_ENTRIES: Record<string, string> = { "./modules": "./src/modules.ts", "./http": "./src/http.ts", "./admin/http": "./src/admin/http.ts" };
+const ENGINE_ENTRIES: Record<string, string> = {
+  "./modules": "./src/modules.ts",
+  "./http": "./src/http.ts",
+  "./admin/http": "./src/admin/http.ts",
+  "./sources/evidence": "./src/sources/evidence.ts",
+};
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
@@ -189,8 +194,12 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
         )
           problems.push(`${f}: metals implementation is only reachable through the temporary compatibility entries`);
 
-        if (w.name === "@amp/backend" && pkg === "@amp/site-admin" && f !== "packages/backend/src/publication/site-information.ts")
-          problems.push(`${f}: site information is only reachable through its temporary compatibility entry`);
+        if (
+          w.name === "@amp/backend" &&
+          pkg === "@amp/site-admin" &&
+          !/^packages\/backend\/src\/(publication\/site-information|sources\/target-catalogue|sources\/coverage-matrix|admin\/source-exports)\.ts$/.test(f)
+        )
+          problems.push(`${f}: site management is only reachable through its temporary compatibility entries`);
 
         if (w.name === "@amp/backend" && pkg === "@amp/site" && ![".", "./models"].includes(entry))
           problems.push(`${f}: engine code cannot import the site's extension installation list`);

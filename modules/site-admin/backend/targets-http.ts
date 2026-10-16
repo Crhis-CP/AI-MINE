@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { routes, SourceTargetsQuery } from "@amp/contracts/http/private";
-import { sourceTargets, sourceCoverage, exportSourceTargets } from "@amp/backend/admin/sources";
+import { sourceTargets } from "./target-catalogue.ts";
+import { sourceCoverage } from "./coverage.ts";
+import { exportSourceTargets } from "./source-export.ts";
 import { adminHandler } from "@amp/backend/admin/http";
 import { sendProblem } from "@amp/backend/http";
 export function registerSourceTargets(app: FastifyInstance) {

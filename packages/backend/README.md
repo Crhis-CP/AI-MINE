@@ -287,3 +287,5 @@ worker每分钟有界补齐100条旧时间投影，只更新日期及同步记�
 金属价格的解析、校验、存储和读模型已迁入modules/metals/backend，旧publication/metal-prices下仅四个兼容转发入口。共享HTTP处理位于@amp/backend/http，apps/api/http/respond仅兼容转发；公开组合根调用已安装模块的http挂口。数据库归属扫描显式涵盖site/modules运行代码，迁移不改变表名、授权或历史数据。
 
 admin/http为扩展提供统一的登录、CSRF、强制改密和错误映射包装；接口业务仍须调用requireOwner等能力检查。ServerModule.admin.http只注册到允许管理接口的组合根，不让旧公开API加载站点管理路由。
+
+sources/evidence为站点扩展提供有界的来源运行证据，分别调用采集、材料、公开及法规原文的只读端口；不把来源启用、抓取成功、正文或公开数量合成单一完成状态。原始来源清单对账、覆盖矩阵及导出归site-admin扩展。
