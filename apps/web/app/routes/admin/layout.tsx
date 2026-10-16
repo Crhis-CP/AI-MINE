@@ -1,3 +1,4 @@
+import { ADMIN_MODULES } from "@amp/site/modules/admin";
 import { SITE } from "@amp/industry/site";
 import { Suspense } from "react";
 import { motion } from "motion/react";
@@ -37,12 +38,13 @@ type NavEntry = {
 };
 
 const NAV: Array<{ group: string; items: NavEntry[] }> = [
+  ...ADMIN_MODULES.flatMap((module) => module.admin?.groups ?? []),
   {
     group: "内容",
     items: [
       { to: "/admin/content", label: "内容诊断" },
       { to: "/admin/sources", label: "信源", count: "sources", tone: "bad" },
-      { to: "/admin/sources/targets", label: "原表对账" },
+      ...ADMIN_MODULES.flatMap((module) => module.admin?.content ?? []),
       { to: "/admin/feedback", label: "反馈", count: "feedback", tone: "accent" },
     ],
   },
@@ -54,13 +56,11 @@ const NAV: Array<{ group: string; items: NavEntry[] }> = [
       { to: "/admin/selectbench", label: "精选校准", owner: true },
       { to: "/admin/settings", label: "设置", end: true },
       { to: "/admin/audit", label: "审计记录", end: true },
-      { to: "/admin/site", label: "网站资料", owner: true },
-      { to: "/admin/accounts", label: "账号", owner: true, end: true },
     ],
   },
 ];
 
-const ACCOUNT: NavEntry = { to: "/admin/account", label: "我的账号", end: true };
+const ACCOUNTS: NavEntry[] = ADMIN_MODULES.flatMap((module) => (module.admin?.account ? [module.admin.account] : []));
 
 function navActive(pathname: string, item: { to: string; end?: boolean }) {
   if (item.to === "/admin/sources") return pathname === "/admin/sources" || /^\/admin\/sources\/(?!targets(?:\/|$))/.test(pathname);
@@ -110,7 +110,7 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
   const groups = me.mustChangePassword
     ? []
     : NAV.map((group) => ({ ...group, items: group.items.filter((item) => !item.owner || me.owner) })).filter((group) => group.items.length);
-  const flat = [...groups.flatMap((g) => g.items), ACCOUNT];
+  const flat = [...groups.flatMap((g) => g.items), ...ACCOUNTS];
   return (
     <div className="flex min-h-dvh bg-bg">
       <NavigationProgress active={navigation.state === "loading"} />
@@ -133,7 +133,9 @@ export default function AdminLayout({ loaderData }: Route.ComponentProps) {
         </nav>
         <ThemeSwitch />
         <div className="mt-3 border-t border-line px-2 pt-3 text-[12.5px] text-ink-3">
-          <NavItem item={ACCOUNT} counts={counts} countsKey={countsKey} pathname={location.pathname} />
+          {ACCOUNTS.map((item) => (
+            <NavItem key={item.to} item={item} counts={counts} countsKey={countsKey} pathname={location.pathname} />
+          ))}
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">{me.name}</span>
             {me.dev && <span className="rounded bg-amber/15 px-1.5 text-[11px] font-medium text-amber">开发</span>}

@@ -2,12 +2,12 @@ import { useRef, useState } from "react";
 import type { z } from "zod";
 import { SITE } from "@amp/industry/site";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
-import type { Route } from "./+types/site";
-import { adminGet } from "../../lib/admin.server";
-import { useAdminAction } from "../../features/admin/action";
-import { AdminPage, Card, Input, Button, Badge } from "../../features/admin/ui";
+import type { LoaderFunctionArgs } from "react-router";
+import { adminGet } from "@amp/web/admin-extension.server";
+import { useAdminAction } from "@amp/web/admin-action";
+import { AdminPage, Card, Input, Button, Badge } from "@amp/web/admin-ui";
 export const meta = () => [{ title: `网站资料 · ${SITE.name} 后台` }];
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const path = "/api/admin/site",
     client = createPrivateClient({ baseUrl: "" });
   return privateSchemas.AdminSiteInformation.parse(
@@ -21,7 +21,7 @@ const formOf = (info: Information) => ({
   page: info.contactPage ?? "",
   links: info.metalLinks.map((link, i) => ({ ...link, key: String(i) })),
 });
-export default function SiteSettings({ loaderData }: Route.ComponentProps) {
+export default function SiteSettings({ loaderData }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
   const { information, protected: protectedInfo } = loaderData,
     { run, busy } = useAdminAction(),
     [form, setForm] = useState(() => formOf(information)),

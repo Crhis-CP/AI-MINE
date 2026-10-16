@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { z } from "zod";
 import type { privateSchemas } from "@amp/api-client/private";
-import { Card, Empty, Badge } from "./ui";
-import { bj } from "./format";
+import { Card, Empty, Badge } from "@amp/web/admin-ui";
+import { bj } from "@amp/web/admin-format";
 export type CoverageData = z.infer<typeof privateSchemas.SourceCoverage>;
 export function SourceCoverage({ data }: { data: CoverageData | null }) {
   const [selected, setSelected] = useState<{ matrix: string; row: string; column: string } | null>(null);

@@ -3,11 +3,11 @@ import { Link } from "react-router";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
 import type { z } from "zod";
 import { SITE } from "@amp/industry/site";
-import type { Route } from "./+types/accounts";
-import { adminGet } from "../../lib/admin.server";
-import { useAdminAction } from "../../features/admin/action";
-import { AdminPage, Card, Input, Button, Badge } from "../../features/admin/ui";
-import { bj } from "../../features/admin/format";
+import type { LoaderFunctionArgs } from "react-router";
+import { adminGet } from "@amp/web/admin-extension.server";
+import { useAdminAction } from "@amp/web/admin-action";
+import { AdminPage, Card, Input, Button, Badge } from "@amp/web/admin-ui";
+import { bj } from "@amp/web/admin-format";
 type Account = z.infer<typeof privateSchemas.AccountRecord>;
 type Action = z.infer<typeof privateSchemas.AccountActionRequest>["action"];
 const names: Record<Action, string> = {
@@ -18,14 +18,14 @@ const names: Record<Action, string> = {
   revoke_models: "撤销模型配置",
 };
 export const meta = () => [{ title: `账号管理 · ${SITE.name} 后台` }];
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const path = "/api/admin/accounts",
     client = createPrivateClient({ baseUrl: "" });
   return privateSchemas.AccountList.parse(
     await adminGet(request, path, (_u, init) => client.GET(path, { baseUrl: new URL(_u).origin, headers: init.headers, signal: init.signal })),
   );
 }
-export default function Accounts({ loaderData }: Route.ComponentProps) {
+export default function Accounts({ loaderData }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
   const { accounts, limit } = loaderData,
     { run, busy } = useAdminAction();
   const [selected, setSelected] = useState<{ account: Account; action: Action } | null>(null),

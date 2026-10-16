@@ -2,20 +2,20 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
 import { SITE } from "@amp/industry/site";
-import type { Route } from "./+types/account";
-import { adminGet } from "../../lib/admin.server";
-import { useAdminAction, useAdminMe } from "../../features/admin/action";
-import { AdminPage, Card, Input, Button, Badge } from "../../features/admin/ui";
-import { bj } from "../../features/admin/format";
+import type { LoaderFunctionArgs } from "react-router";
+import { adminGet } from "@amp/web/admin-extension.server";
+import { useAdminAction, useAdminMe } from "@amp/web/admin-action";
+import { AdminPage, Card, Input, Button, Badge } from "@amp/web/admin-ui";
+import { bj } from "@amp/web/admin-format";
 export const meta = () => [{ title: `我的账号 · ${SITE.name} 后台` }];
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   const path = "/api/admin/account",
     client = createPrivateClient({ baseUrl: "" });
   return privateSchemas.CurrentAccount.parse(
     await adminGet(request, path, (_u, init) => client.GET(path, { baseUrl: new URL(_u).origin, headers: init.headers, signal: init.signal })),
   );
 }
-export default function Account({ loaderData }: Route.ComponentProps) {
+export default function Account({ loaderData }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
   const { account, password_login } = loaderData,
     me = useAdminMe(),
     { run, busy } = useAdminAction();

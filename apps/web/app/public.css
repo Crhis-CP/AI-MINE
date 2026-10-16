@@ -19,3 +19,4 @@
 @source "../../../packages/ui/src/Menu.tsx";
 
 @source "../../../modules/*/web";
+@source not "../../../modules/*/web/admin";

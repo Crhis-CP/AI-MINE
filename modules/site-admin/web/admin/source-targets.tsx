@@ -1,15 +1,15 @@
-import { SourceCoverage, type CoverageData } from "../../features/admin/SourceCoverage";
-import { useAdminAction, useAdminMe } from "../../features/admin/action";
+import { SourceCoverage, type CoverageData } from "./SourceCoverage";
+import { useAdminAction, useAdminMe } from "@amp/web/admin-action";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
 import { SITE } from "@amp/industry/site";
 import { Form, Link, useNavigate, useSearchParams } from "react-router";
-import type { Route } from "./+types/source-targets";
-import { adminGet } from "../../lib/admin.server";
-import { apiBaseFor } from "../../../api-target";
-import { AdminPage, Input, Pager, Select, Button } from "../../features/admin/ui";
-import { SourceTargets } from "../../features/admin/SourceTargets";
-import type { SourceTargetsData } from "../../features/admin/SourceTargets";
-export async function loader({ request }: Route.LoaderArgs) {
+import type { LoaderFunctionArgs } from "react-router";
+import { adminGet } from "@amp/web/admin-extension.server";
+import { apiBaseFor } from "@amp/web/extension.server";
+import { AdminPage, Input, Pager, Select, Button } from "@amp/web/admin-ui";
+import { SourceTargets } from "./SourceTargets";
+import type { SourceTargetsData } from "./SourceTargets";
+export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url),
     query = Object.fromEntries(["q", "country", "state", "page"].flatMap((key) => (url.searchParams.get(key) ? [[key, url.searchParams.get(key)!]] : [])));
   const path = "/api/admin/source-targets",
@@ -36,8 +36,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   }
   return { ...targets, matrixCoverage: coverage };
 }
-export const meta: Route.MetaFunction = () => [{ title: `原表对账 · ${SITE.name} 后台` }];
-export default function SourceTargetPage({ loaderData }: Route.ComponentProps) {
+export const meta = () => [{ title: `原表对账 · ${SITE.name} 后台` }];
+export default function SourceTargetPage({ loaderData }: { loaderData: Awaited<ReturnType<typeof loader>> }) {
   const me = useAdminMe(),
     { run, pending } = useAdminAction();
   const exportTargets = async () => {

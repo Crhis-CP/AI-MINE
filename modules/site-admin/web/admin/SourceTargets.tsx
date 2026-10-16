@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import type { privateSchemas } from "@amp/api-client/private";
-import { Badge, Card, Empty } from "./ui";
-import { bj, num } from "./format";
+import { Badge, Card, Empty } from "@amp/web/admin-ui";
+import { bj, num } from "@amp/web/admin-format";
 export type SourceTargetsData = z.infer<typeof privateSchemas.SourceTargetsResponse>;
 const labels = { unmatched: "尚无匹配配置", configured: "已匹配配置", observed: "已有新系统记录", needs_address: "原表地址待核" };
 /** Each evidence dimension stays separate; no manually set “connected” state exists. */
