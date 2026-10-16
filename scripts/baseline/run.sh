@@ -22,7 +22,6 @@ admin_url="$(node -e 'const u=new URL(process.env.DATABASE_URL);u.pathname="/pos
 
 export SITE_URL="${SITE_URL:-http://127.0.0.1:3000}"
 export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:3001}"
-export PRIVATE_API_BASE_URL="${PRIVATE_API_BASE_URL:-http://127.0.0.1:3002}"
 export PUBLIC_RATE_LIMIT_SECRET="${PUBLIC_RATE_LIMIT_SECRET:-baseline-public-secret-0123456789abcdef}"
 export SESSION_SECRET="${SESSION_SECRET:-baseline-session-secret-0123456789abcdef}"
 export IMG_PROXY_SIGN_SECRET="${IMG_PROXY_SIGN_SECRET:-baseline-img-secret-0123456789abcdef}"
@@ -55,15 +54,15 @@ cleanup_site() {
   fi
 }
 trap cleanup_site EXIT
-for role in public-api private-api web; do
+for role in api web; do
   node scripts/verify/site-process.ts "$role" > "$out/.$role.log" 2>&1 &
   pids+=("$!")
 done
 for _ in $(seq 1 60); do
-  curl -fsS --max-time 1 -o /dev/null "$SITE_URL/api/health" 2>/dev/null && curl -fsS --max-time 1 -o /dev/null "$PRIVATE_API_BASE_URL/api/health" 2>/dev/null && break
+  curl -fsS --max-time 1 -o /dev/null "$SITE_URL/api/health" 2>/dev/null && curl -fsS --max-time 1 -o /dev/null "$API_BASE_URL/api/health" 2>/dev/null && break
   sleep 1
 done
-node scripts/verify/api-split.ts "$SITE_URL" "$API_BASE_URL" "$PRIVATE_API_BASE_URL" > "$out/api-split.txt" 2>&1
+node scripts/verify/api-topology.ts "$SITE_URL" "$API_BASE_URL" > "$out/api-topology.txt" 2>&1
 for p in /openapi-v1.json /llms.txt /robots.txt /manifest.webmanifest; do
   curl -fsS "$SITE_URL$p" -o "$out/outputs/$(basename "$p")"
 done
@@ -76,7 +75,7 @@ echo "exit ${PIPESTATUS[0]}" >> "$out/mcp-check.txt"
 set -e
 cleanup_site
 trap - EXIT
-rm -f "$out/.public-api.log" "$out/.private-api.log" "$out/.web.log"
+rm -f "$out/.api.log" "$out/.web.log"
 
 echo "== tests"
 set +e

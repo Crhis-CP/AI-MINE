@@ -2,11 +2,10 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { buildMonthlyUsage, reconcileMonthlyUsage, monthlyUsageReports, usageMonthPeriod } from "../packages/backend/src/operations/usage-monthly.ts";
 import { recordLocalReuse } from "../packages/backend/src/providers/usage-accounting.ts";
-const sql = dbOf("ai-gateway"),
-  now = new Date("2026-10-09T00:00:00Z");
+const now = new Date("2026-10-09T00:00:00Z");
 after(closeDb);
 async function attempt(input: {
   status?: string;

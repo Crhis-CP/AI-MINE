@@ -1,4 +1,4 @@
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { OpsDataset } from "@amp/contracts/ops-mcp";
 import { sourcesOperationalSnapshot } from "../sources/operational-snapshot.ts";
 import { processingOperationalSnapshot } from "../content/operational-snapshot.ts";
@@ -9,7 +9,7 @@ import { accountsOperationalSnapshot, auditOperationalSnapshot } from "../admin/
 import { feedbackOperationalSnapshot } from "../feedback/operational-snapshot.ts";
 import { storeOperationalSnapshot, recordOperationalSnapshotFailure } from "./read-snapshots.ts";
 import { queueOperationalSnapshot } from "../jobs/operational-snapshot.ts";
-const sql = dbOf("ops");
+
 const health = () =>
   sql.begin(async (db) => {
     await db`SET LOCAL statement_timeout='2s'`;

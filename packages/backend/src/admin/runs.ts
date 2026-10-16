@@ -1,17 +1,19 @@
-import { releaseUnknownReceiptUnbilled } from "@amp/backend/providers/receipts";
-import { recoverUnknownNewsOnce } from "../providers/unknown-recovery.ts";
+import { resumePolicyAfterReceipt } from "../policy/receipt-recovery.ts";
+import { recoverUnknownOnce } from "../providers/unknown-recovery.ts";
+import { releaseUnknownReceiptUnbilled, MANUAL_UNBILLED_NOTE_PREFIX } from "@amp/backend/providers/receipts";
 import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Tx, type Db } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
+import { currentScheduledJobs } from "../jobs/schedule-status.ts";
+import { enqueue, QUEUES } from "../jobs/queue.ts";
+import { EVENT_CONTINUATIONS } from "../events/queues.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
-
-const sql = dbOf("ops");
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 
@@ -29,6 +31,7 @@ export function receiptObservedVersion(input: ReceiptVersionFields): string {
 }
 
 export async function runsOverview() {
+  const currentJobs = await currentScheduledJobs();
   const [heartbeats, latest, timeline, queues, failedJobs, lagging, receipts, receiptIssues, deliveries, errors, ingest] = await Promise.all([
     sql<
       { key: string; value: Record<string, unknown>; updated_at: Date }[]
@@ -36,10 +39,10 @@ export async function runsOverview() {
     sql`
       WITH latest AS (
         SELECT DISTINCT ON (job) job, started_at, finished_at, status, left(error, 400) AS error
-        FROM job_runs ORDER BY job, started_at DESC
+        FROM job_runs WHERE job=ANY(${currentJobs}::text[]) ORDER BY job, started_at DESC,id DESC
       ), counts AS (
         SELECT job, count(*) FILTER (WHERE status = 'failed')::int AS failed_24h, count(*)::int AS runs_24h
-        FROM job_runs WHERE started_at > now() - interval '24 hours' GROUP BY job
+        FROM job_runs WHERE job=ANY(${currentJobs}::text[]) AND started_at > now() - interval '24 hours' GROUP BY job
       )
       SELECT latest.*, coalesce(counts.failed_24h, 0) AS failed_24h, coalesce(counts.runs_24h, 0) AS runs_24h
       FROM latest LEFT JOIN counts USING (job) ORDER BY job`,
@@ -67,7 +70,7 @@ export async function runsOverview() {
       WHERE status IN ('unknown', 'failed') OR (status = 'sending' AND updated_at < now() - interval '15 minutes')
       ORDER BY status = 'unknown' DESC, updated_at DESC LIMIT 40`,
     sql`
-      SELECT ${failureGroupSql} AS error, count(*)::int AS n, max(discovered_at) AS last,
+      SELECT ${failureGroupSql()} AS error, count(*)::int AS n, max(discovered_at) AS last,
              (array_agg(id ORDER BY discovered_at DESC))[1] AS example
       FROM articles WHERE processing_state = 'failed' AND discovered_at > now() - interval '30 days' GROUP BY 1 ORDER BY 2 DESC LIMIT 20`,
     sql`SELECT client, kind, status, left(error, 200) AS error, summary, created_at FROM ingest_events ORDER BY created_at DESC LIMIT 20`,
@@ -104,7 +107,7 @@ export async function runsOverview() {
 }
 
 const ARTICLE_STEPS = new Set([
-  ...(["prefilter", "score", "understand", "summarize", "structure"] as const).flatMap((step) => CAPABILITIES[step].purposes),
+  ...(["prefilter", "score", "understand", "summarize", "wording", "structure"] as const).flatMap((step) => CAPABILITIES[step].purposes),
   "body_fallback",
 ]);
 
@@ -117,11 +120,7 @@ type ReceiptVersion = { attempts: number; version: string };
 async function release(id: number, error: string, actor: string, note: string, billed: false, db: Db, observed: ReceiptVersion) {
   const before = await releaseUnknownReceiptUnbilled(db, id, error, observed);
   if (!before) throw new Conflict("这条回执已被其他操作处理，请刷新后重试");
-  const article = ARTICLE_STEPS.has(before.purpose) ? /^article:([^@:#]+)/.exec(before.subject ?? "")?.[1] : undefined;
-  let requeued = false;
-  if (article) {
-    if (await resetFailedMaterialForRetry(db, article)) requeued = !!(await queueProcessing(article, { db }));
-  }
+  const requeued = await resumeReceiptWork(before, db);
   await audit(
     actor,
     "receipt.release",
@@ -149,30 +148,59 @@ export async function releaseReceipt(id: number, input: unknown, actor: string) 
     throw new Conflict("回执已变化，请重新读取并核对本次尝试的计费依据");
   if (data.billed) throw new Conflict("已计费但结果未取回：须完成金额核销，当前不能放行或重新发起付费调用");
   const note = data.note;
-  const error = `人工核对：供应商未计费。${note}`;
+  const error = `${MANUAL_UNBILLED_NOTE_PREFIX}${note}`;
   return sql.begin((tx) => release(id, error, actor, note, false, tx, row));
 }
 
-/** One news-analysis retry; release is not evidence of non-billing. */
+/** Restore the original stage; grouping and translation never buy scoring again. */
+async function resumeReceiptWork(row: { purpose: string; subject: string | null; request: unknown }, db: Db) {
+  if (await resumePolicyAfterReceipt(row.request, db)) return true;
+  if (["translate_body", "group_article", "group_review", "group_signal"].includes(row.purpose)) {
+    const pattern =
+      row.purpose === "translate_body" ? /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)#[0-9]+$/ : /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)(?::fact:[1-9][0-9]*)?$/;
+    const subject = pattern.exec(row.subject ?? "");
+    const current = subject ? await readCurrentBody(subject[1]!, db) : null;
+    if (!current || current.revision !== Number(subject![2])) return false;
+    const translation = row.purpose === "translate_body";
+    return !!(await enqueue(
+      translation ? QUEUES.translate : QUEUES.group,
+      { articleId: current.id, ...(row.purpose === "group_signal" ? { signalOnly: true } : {}) },
+      { singletonKey: current.id },
+      db,
+    ));
+  }
+  if (["group_story", "group_story_review"].includes(row.purpose)) {
+    const match = /^story:([1-9][0-9]*):([1-9][0-9]*)$/.exec(row.subject ?? "");
+    const ids = match?.slice(1).map(Number);
+    if (!ids?.every(Number.isSafeInteger)) return false;
+    const storyIds = [...new Set(ids)].sort((a, b) => a - b);
+    return !!(await enqueue(EVENT_CONTINUATIONS.consolidate, { storyIds }, { singletonKey: storyIds.join(":") }, db));
+  }
+  if (row.purpose === "story_digest") {
+    const match = /^story:([1-9][0-9]*)@[0-9]+$/.exec(row.subject ?? "");
+    const storyId = Number(match?.[1]);
+    if (!Number.isSafeInteger(storyId)) return false;
+    return !!(await enqueue(QUEUES.digest, { storyId }, { singletonKey: `story:${storyId}` }, db));
+  }
+  const subject = ARTICLE_STEPS.has(row.purpose) ? /^article:([a-zA-Z0-9_-]+)(?:@([1-9][0-9]*))?$/.exec(row.subject ?? "") : null;
+  if (!subject || (!subject[2] && row.purpose !== "body_fallback")) return false;
+  const stale = new Error("The receipt belongs to an older material revision");
+  try {
+    return await (db as Tx).savepoint(async (tx) => {
+      if (!(await resetFailedMaterialForRetry(tx, subject[1]!))) return false;
+      const current = await readCurrentBody(subject[1]!, tx);
+      if (!current || (subject[2] && current.revision !== Number(subject[2]))) throw stale;
+      return !!(await queueProcessing(current.id, { db: tx }));
+    });
+  } catch (error) {
+    if (error === stale) return false;
+    throw error;
+  }
+}
+
+/** One automatic release; the original uncertain charge remains available for reconciliation. */
 export async function autoReleaseUnknownReceipts(now = Date.now()) {
-  return recoverUnknownNewsOnce(now, async (row, db) => {
-    const subject = /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)$/.exec(row.subject ?? "");
-    if (!subject) return false;
-    const stale = new Error("The receipt belongs to an older material revision");
-    try {
-      return await db.savepoint(async (tx) => {
-        if (!(await resetFailedMaterialForRetry(tx, subject[1]!))) return false;
-        // The reset holds the article row lock. The public read sees its committed revision;
-        // a mismatch rolls back only this reset, retaining the unrelated material's failure state.
-        const current = await readCurrentBody(subject[1]!);
-        if (!current || current.revision !== Number(subject[2])) throw stale;
-        return !!(await queueProcessing(current.id, { db: tx }));
-      });
-    } catch (error) {
-      if (error === stale) return false;
-      throw error;
-    }
-  });
+  return recoverUnknownOnce(now, resumeReceiptWork);
 }
 
 /** Failed articles (one failure group, or all of the last 30 days) back into processing. */

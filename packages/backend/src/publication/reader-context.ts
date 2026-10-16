@@ -3,8 +3,8 @@ import { z } from "zod";
 import { ENTITIES } from "@amp/industry/taxonomy";
 import type { SourceAttribution } from "@amp/contracts/http/public";
 import type { ItemDetail } from "@amp/contracts/site";
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("publication");
+import { sql, type Db } from "../db.ts";
+
 const policyLabel = z.object({
   licence_label_zh: z.string(),
   conditions: z.array(z.string()),

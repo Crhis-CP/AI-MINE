@@ -1,11 +1,12 @@
-import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
+import { installTestConnections } from "./direct-db-fixture.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
 import { Policy, PolicyCard } from "@amp/contracts/http/public";
-import { injectDb } from "@amp/backend/db";
-import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
+
+import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { publicRoleFixture, publicServer, type PublicFixture } from "./public-role-fixture.ts";
@@ -97,7 +98,7 @@ function rpc(body: string): Json {
 
 test("all public MCP tools run under public_read; rights, current withdrawal and version bindings never trigger processing", async (t) => {
   const f = await publicRoleFixture(t),
-    restore = injectDb({ ops: f.admin, policy: f.admin, sources: f.admin, publication: f.admin });
+    restore = installTestConnections(f.admin);
   let a: Awaited<ReturnType<typeof seedPolicy>>, b: Awaited<ReturnType<typeof seedPolicy>>;
   try {
     a = await seedPolicy(f, "a");

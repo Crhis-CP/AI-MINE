@@ -1,7 +1,7 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { test, after } from "node:test";
-import { dbOf, initializeDb, closeDb } from "@amp/backend/db";
+import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { upsertMaterial, readCurrentBody } from "@amp/backend/content/materials";
 import { loadAnalyzeInput } from "@amp/backend/editorial/analyze";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
@@ -9,8 +9,7 @@ import { sha256 } from "@amp/backend/lib/ids";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { reportFallbackInput } from "../packages/backend/src/reports/fallback-input.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("content"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 after(closeDb);
 const target = { modelKey: "registered:synthetic-backup", configurationHash: sha256("synthetic-config") };
 async function material() {

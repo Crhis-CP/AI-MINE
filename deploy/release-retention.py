@@ -14,6 +14,7 @@ import urllib.request
 from release_changelog import retry_pending
 
 APP_NAMES = {"/amp-web-1", "/amp-public-api-1", "/amp-private-api-1", "/amp-worker-1"}
+UNIFIED_APP_NAMES = {"/amp-web-1", "/amp-api-1", "/amp-worker-1"}
 REPOS = {"amp-app", "amp-release", "amp-rollback", "amp-retained"}
 IMAGE_ID = re.compile(r"sha256:[0-9a-f]{64}\Z")
 SOCKET = "unix:///var/run/docker.sock"
@@ -47,10 +48,17 @@ def inventory():
 
 
 def current_release(containers, now):
-    apps = [x for x in containers if x["name"] in APP_NAMES]
-    if {x["name"] for x in apps} != APP_NAMES or len({x["image"] for x in apps}) != 1:
+    running = {x["name"] for x in containers if x["running"] and x["name"] in APP_NAMES | UNIFIED_APP_NAMES}
+    if running == UNIFIED_APP_NAMES:
+        expected = UNIFIED_APP_NAMES
+    elif running == APP_NAMES:
+        expected = APP_NAMES
+    else:
+        raise RuntimeError("Application topology incomplete or mixed; keep everything")
+    apps = [x for x in containers if x["name"] in expected]
+    if len({x["image"] for x in apps}) != 1:
         raise RuntimeError("Application services missing or on mixed images; keep everything")
-    for service in [*APP_NAMES, "/amp-db-1", "/amp-caddy-1"]:
+    for service in [*expected, "/amp-db-1", "/amp-caddy-1"]:
         item = next((x for x in containers if x["name"] == service), None)
         if not item or not item["running"] or now - stamp(item["started"]) < 600:
             raise RuntimeError("Services have not been running steadily for ten minutes; keep everything")

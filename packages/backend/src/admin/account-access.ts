@@ -1,6 +1,6 @@
-import { dbOf, type Db } from "../db.ts";
+import { identitySql as sql, type Db } from "../db.ts";
 import type { AdminPrincipal } from "./auth.ts";
-const sql = dbOf("identity");
+
 export class AccountPermissionDenied extends Error {
   readonly statusCode = 403;
   readonly code = "forbidden";

@@ -5,7 +5,7 @@ import { Link, useLocation } from "react-router";
 import { Collapse } from "@amp/ui/Presence";
 import type { Development, GroupInfo, GroupReport, TimelineFilters } from "@amp/contracts/site";
 import { IconArrowUpRight, IconChevronDown } from "../../components/icons";
-import { shortSourceName, sourceMonthDayTime } from "../../lib/format";
+import { shortSourceName, sourceMonthDayTime, newsSourceDate } from "../../lib/format";
 import { isReload } from "./restore";
 import { sessionCache } from "./session-cache";
 
@@ -279,7 +279,8 @@ export function GroupDevelopments({
                 {d.title}
               </Link>
               <div className="mt-0.5 text-[11.5px] text-ink-4">
-                {shortSourceName(d.representative.source.name)} · <span className="num">{sourceMonthDayTime(d.representative.timelineAt)}</span>
+                {shortSourceName(d.representative.source.name)} ·{" "}
+                <span className="num">{newsSourceDate(d.representative.sourceTime, d.representative.publishedAt)?.text ?? "原文时间尚未确认"}</span>
                 {d.reportCount > 1 ? ` · ${d.reportCount} 篇报道` : ""}
               </div>
             </li>

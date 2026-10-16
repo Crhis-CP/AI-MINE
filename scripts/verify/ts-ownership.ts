@@ -16,7 +16,10 @@ export function ownershipFiles(root: string): string[] {
       if (entry.name.startsWith(".") || ["node_modules", "dist", "build"].includes(entry.name)) return [];
       return entry.isDirectory() ? walk(file) : /\.[cm]?[jt]sx?$/.test(file) && !file.endsWith(".d.ts") ? [file] : [];
     });
-  return ["apps", "packages", "scripts", "tests"].flatMap(walk).sort();
+  return ["apps", "packages", "scripts", "tests", "site", "modules"]
+    .filter((dir) => existsSync(path.join(root, dir)))
+    .flatMap(walk)
+    .sort();
 }
 function declaration(checker: Checker, node: ts.Node) {
   let symbol = checker.getSymbolAtLocation(node);
@@ -249,6 +252,29 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
               return value;
             }
           }
+          // A fixed, zero-argument factory can supply a whole SQL clause. Expand only a native
+          // tagged template body; do not evaluate functions, parameters, statements or mutable bindings.
+          if (ts.isCallExpression(item) && !item.arguments.length) {
+            const declared = declaration(checker, item.expression);
+            const factory = declared && ts.isVariableDeclaration(declared) && declared.parent.flags & ts.NodeFlags.Const ? declared.initializer : null;
+            if (
+              factory &&
+              ts.isArrowFunction(factory) &&
+              !factory.parameters.length &&
+              !factory.typeParameters?.length &&
+              !factory.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword) &&
+              ts.isTaggedTemplateExpression(factory.body) &&
+              postgresTag(checker, factory.body.tag)
+            ) {
+              if (seen.has(factory)) return [hole({ kind: "sql" })];
+              seen.add(factory);
+              if (item === input && kind === "unresolved-call") reasons.shift();
+              remember(factory);
+              const value = render(factory.body);
+              seen.delete(factory);
+              return value;
+            }
+          }
           if (ts.isCallExpression(item) && postgresTag(checker, item.expression))
             return [hole({ kind: "identifier", value: item.arguments[0] && constant(item.arguments[0]) })];
           const fragments =
@@ -360,7 +386,7 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
         node.forEachChild(walk);
       };
       walk(source);
-      return { file, scope: /^(apps|packages)\//.test(file) ? "runtime" : file.split("/")[0], modules, sites, ignoredTags };
+      return { file, scope: /^(apps|packages|site|modules)\//.test(file) ? "runtime" : file.split("/")[0], modules, sites, ignoredTags };
     });
     snapshot.dispose();
     return result;

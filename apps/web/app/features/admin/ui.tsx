@@ -28,15 +28,17 @@ export function Card({
   children,
   className = "",
   pad = true,
+  scrollable = false,
 }: {
   title?: ReactNode;
   right?: ReactNode;
   children: ReactNode;
   className?: string;
   pad?: boolean;
+  scrollable?: boolean;
 }) {
   return (
-    <section className={`rounded-panel bg-surface ring-1 ring-line ${className}`}>
+    <section className={`min-w-0 rounded-panel bg-surface ring-1 ring-line ${scrollable ? "overflow-hidden" : ""} ${className}`}>
       {(title || right) && (
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
@@ -87,6 +89,7 @@ export function DataTable<T>({
   empty = "暂无数据",
   onRowClick,
   dense,
+  scrollable = false,
 }: {
   rows: T[];
   columns: Column<T>[];
@@ -94,10 +97,11 @@ export function DataTable<T>({
   empty?: ReactNode;
   onRowClick?: (r: T) => void;
   dense?: boolean;
+  scrollable?: boolean;
 }) {
   if (!rows.length) return <Empty>{empty}</Empty>;
   return (
-    <div className="overflow-x-auto">
+    <section className="overflow-x-auto" aria-label="数据表" tabIndex={scrollable ? 0 : undefined}>
       <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
         <thead>
           <tr className="border-b border-line text-[12px] text-ink-3">
@@ -127,7 +131,7 @@ export function DataTable<T>({
           ))}
         </tbody>
       </table>
-    </div>
+    </section>
   );
 }
 
@@ -185,16 +189,14 @@ export function ButtonLink({ to, children, tone = "secondary", size = "md" }: { 
 }
 
 const INPUT =
-  "w-full rounded-control bg-surface px-3 py-2 text-[13.5px] text-ink ring-1 ring-line-strong outline-none transition-shadow placeholder:text-ink-4 focus:ring-2 focus:ring-accent";
+  "w-full rounded-control bg-surface px-3 py-2 text-[16px] text-ink ring-1 ring-line-strong outline-none transition-shadow placeholder:text-ink-4 focus:ring-2 focus:ring-accent sm:text-[13.5px]";
 
 export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
-  const id = useId();
   return (
-    <label htmlFor={id} className="block">
+    // biome-ignore lint/a11y/noLabelWithoutControl: Field wraps the input supplied by its caller as children.
+    <label className="block">
       <span className="mb-1 block text-[12.5px] font-medium text-ink-2">{label}</span>
-      <span className="[&>*]:w-full" id={id}>
-        {children}
-      </span>
+      <span className="[&>*]:w-full">{children}</span>
       {hint && <span className="mt-1 block text-[12px] text-ink-4">{hint}</span>}
     </label>
   );
@@ -320,20 +322,53 @@ export function ReasonDialog({
 }) {
   const [reason, setReason] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
+  const dialog = useRef<HTMLFormElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  const titleId = useId();
   useEffect(() => {
     if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
     setReason("");
     const t = setTimeout(() => {
+      // A reader may already have clicked or autofilled a field before the opening animation settles.
+      if (dialog.current?.contains(document.activeElement)) return;
       if (focusReason) ref.current?.focus();
-      else ref.current?.form?.querySelector<HTMLElement>("input,select,textarea")?.focus();
+      else dialog.current?.querySelector<HTMLElement>("input,select,textarea,button")?.focus();
     }, 60);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close.current();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const controls = [
+        ...(dialog.current?.querySelectorAll<HTMLElement>(
+          'button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]',
+        ) ?? []),
+      ].filter((el) => el.getClientRects().length > 0);
+      const first = controls[0],
+        last = controls.at(-1);
+      if (!first || !last) {
+        e.preventDefault();
+        return;
+      }
+      if (e.shiftKey && (document.activeElement === first || !dialog.current?.contains(document.activeElement))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !dialog.current?.contains(document.activeElement))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
       window.removeEventListener("keydown", onKey);
+      if (previous?.isConnected) previous.focus();
     };
-  }, [open, onClose, focusReason]);
+  }, [open, focusReason]);
   return (
     <AnimatePresence>
       {open && (
@@ -345,7 +380,9 @@ export function ReasonDialog({
         >
           <div className="absolute inset-0 bg-ink/30 backdrop-blur-[2px]" onClick={onClose} />
           <motion.form
+            ref={dialog}
             role="dialog"
+            aria-labelledby={titleId}
             aria-modal="true"
             initial={{ y: 16, scale: 0.98, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
@@ -359,7 +396,9 @@ export function ReasonDialog({
               if (closed !== false) onClose();
             }}
           >
-            <h2 className="text-[16px] font-semibold text-ink">{title}</h2>
+            <h2 id={titleId} className="text-[16px] font-semibold text-ink">
+              {title}
+            </h2>
             {description && <div className="mt-1.5 text-[13px] leading-relaxed text-ink-3">{description}</div>}
             {children && <div className="mt-4 space-y-3">{children}</div>}
             {reasonField && (

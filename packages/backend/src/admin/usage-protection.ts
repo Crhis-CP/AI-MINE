@@ -2,11 +2,11 @@ import { pricingModelChoices } from "./models.ts";
 import { registeredModelId, connectionRow, modelConfigurationHash, modelRegistryLock } from "../providers/model-registry.ts";
 import { rateMicros, unitRate } from "../providers/usage-pricing.ts";
 import { UsageConfigChange, UsagePriceChange, UsagePriceRecord, UsageBreakerRecovery } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { audit, actorOf, requireOwner, currentCapability, type AdminPrincipal } from "./auth.ts";
 import { usageLock, usageConfiguration, usageEvent, usageBreakerRecord, readUsageProtection } from "../providers/usage-protection.ts";
 import { usagePriceId } from "../providers/usage-pricing.ts";
-const sql = dbOf("ai-gateway");
+
 export type UsageOwnerGuard = (principal: AdminPrincipal, db: Db) => Promise<void>;
 const deny: UsageOwnerGuard = requireOwner;
 const conflict = () => {

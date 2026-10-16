@@ -1,5 +1,5 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("acquisition");
+import { sql } from "../db.ts";
+
 export async function sourceTargetFetchEvidence(ids: string[]) {
   if (!ids.length) return [];
   return sql.begin(async (db) => {

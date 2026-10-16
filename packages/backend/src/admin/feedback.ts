@@ -5,11 +5,9 @@ import { sendAlert } from "../notify/deliver.ts";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { feedbackSql as sql } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
-
-const sql = dbOf("feedback");
 
 export const FEEDBACK_STATUSES = ["new", "triaged", "replied", "resolved", "spam", "archived"] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];

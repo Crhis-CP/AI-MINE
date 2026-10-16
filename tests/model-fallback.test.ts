@@ -1,15 +1,15 @@
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
-import { createPolicyGateway } from "../packages/backend/src/providers/policy.ts";
-import { installPolicyQualityRelease, revokePolicyQualityRelease } from "../packages/backend/src/policy/quality.ts";
-import { currentInterpretationQualification } from "../packages/backend/src/policy/fallback-quality.ts";
-import { policyModelQualificationKey } from "../packages/backend/src/policy/model-evidence.ts";
+import { createPolicyGateway } from "../modules/policy/backend/provider.ts";
+import { installPolicyQualityRelease, revokePolicyQualityRelease } from "../modules/policy/backend/domain/quality.ts";
+import { currentInterpretationQualification } from "../modules/policy/backend/domain/fallback-quality.ts";
+import { policyModelQualificationKey } from "../modules/policy/backend/domain/model-evidence.ts";
 import { promptVersion } from "../packages/backend/src/editorial/prompts.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
-import { dbOf, initializeDb, closeDb } from "@amp/backend/db";
+import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { upsertMaterial, readCurrentBody, newsMaterialBindings } from "@amp/backend/content/materials";
 import { config } from "@amp/backend/config";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
@@ -30,8 +30,7 @@ import { ModelFallbackBlocked, ModelContentFiltered } from "../packages/backend/
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "../packages/backend/src/admin/sources.ts";
-const sql = dbOf("ai-gateway"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 process.env.MODEL_REGISTRY_ENCRYPTION_KEY = Buffer.alloc(32, 28).toString("base64");
 config.modelCallsEnabled = true;
 after(closeDb);
@@ -396,7 +395,7 @@ test("filtered output remains reusable after rejection and route waits do not co
   const article = `fallback-wait-${tag()}`;
   await sql`INSERT INTO articles(id,source_id,identity_key,url,title,discovered_at,timeline_at) VALUES(${article},${f.source},${article},${`https://fixture.invalid/${article}`},'synthetic',now(),now())`;
   const { afterFailure } = await import("../packages/backend/src/jobs/content.ts");
-  assert.equal((await afterFailure(article, known)).state, "waiting");
+  assert.equal((await afterFailure(article, known, 1)).state, "waiting");
   assert.equal((await sql`SELECT processing_attempts FROM articles WHERE id=${article}`)[0]!.processing_attempts, 0);
 });
 test("pause after primary failure prevents a backup claim and resumes the same one-shot decision later", async () => {

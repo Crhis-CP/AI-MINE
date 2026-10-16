@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildPolicyFulltextPlan, POLICY_PLAN_LIMITS } from "../packages/backend/src/policy/processing-plan.ts";
-import type { PolicyExtraction } from "../packages/backend/src/policy/extraction.ts";
+import { buildPolicyFulltextPlan, POLICY_PLAN_LIMITS } from "../modules/policy/backend/domain/processing-plan.ts";
+import type { PolicyExtraction } from "../modules/policy/backend/domain/extraction.ts";
 
 const context = { sourceId: "policy-fixture", expressionId: "expression-fixture", language: "es", identityHash: "1".repeat(64), recipeVersion: "test-1" };
 const extraction = (texts: string[]): PolicyExtraction => ({

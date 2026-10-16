@@ -1,18 +1,19 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { injectDb } from "@amp/backend/db";
+
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
-import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
-import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import { Policy, PolicyCard, PolicyCursorResponse } from "@amp/contracts/http/public";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
-import { policyPublicVersions } from "../packages/backend/src/publication/policies.ts";
-import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
-import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
+import { policyPublicVersions } from "../modules/policy/backend/read.ts";
+import { planPolicyReport } from "../modules/policy/backend/publication/policy-report-plan.ts";
+import { savePolicyReport } from "../modules/policy/backend/publication/policy-report-store.ts";
 import { previewWithdrawal, actWithdrawal } from "../packages/backend/src/editorial/withdrawals.ts";
 const originalFixture = () => JSON.parse(readFileSync("tests/fixtures/policy-public/complete.json", "utf8"));
 const basicFixture = () => JSON.parse(readFileSync("tests/fixtures/policy-public/basic-facts.json", "utf8"));
@@ -20,7 +21,7 @@ const card = (dto: Policy) => PolicyCard.parse(Object.fromEntries(Object.keys(Po
 
 test("stable preferred languages and current qualified Chinese full text share the real public read gates", async (t) => {
   const f = await publicRoleFixture(t);
-  const reset = injectDb({ acquisition: f.admin, ops: f.admin, sources: f.admin, content: f.admin, policy: f.admin, publication: f.admin, editorial: f.admin });
+  const reset = installTestConnections(f.admin);
   t.after(reset);
   const app = await publicServer(t, f);
   const published = normalizeSourceTime(

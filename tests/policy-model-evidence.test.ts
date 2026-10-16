@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
-import { createPolicyGateway, type PreparedPolicyInput } from "../packages/backend/src/providers/policy.ts";
+import { closeDb, sql as db, initializeDb } from "@amp/backend/db";
+import { createPolicyGateway, type PreparedPolicyInput } from "../modules/policy/backend/provider.ts";
 import { readPolicyResponse } from "../packages/backend/src/providers/receipts.ts";
 import { markReceiptsCompleted } from "../packages/backend/src/providers/llm.ts";
 import {
@@ -13,13 +13,12 @@ import {
   policyModelQualification,
   policyModelQualificationKey,
   policyVisionContentHash,
-} from "../packages/backend/src/policy/model-evidence.ts";
-import { installPolicyQualityRelease, matchingPolicyQuality } from "../packages/backend/src/policy/quality.ts";
-import { policyInterpretationQualityRecipe } from "../packages/backend/src/policy/references.ts";
+} from "../modules/policy/backend/domain/model-evidence.ts";
+import { installPolicyQualityRelease, matchingPolicyQuality } from "../modules/policy/backend/domain/quality.ts";
+import { policyInterpretationQualityRecipe } from "../modules/policy/backend/domain/references.ts";
 import { sha256, stableJson } from "../packages/backend/src/lib/ids.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const db = dbOf("ai-gateway"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 const response = () => ({
   model: "same-reported-model",
   choices: [{ message: { content: '{"ok":true}' }, finish_reason: "stop" }],

@@ -2,6 +2,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { gate } from "./setup.ts";
+import { shutdownSignal } from "@amp/backend/jobs/queue";
 import { foreignFixture } from "./foreign-automatic-fixture.ts";
 
 const mixed = [
@@ -37,7 +38,6 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   const markers = ["FOREIGN_LOW", "FOREIGN_SELECTED", "FOREIGN_WITHDRAWN"];
   const f = await foreignFixture(t, {
     name: "foreign-complete-fixture",
-    reuseWorker: true,
     language: "EN-us",
     samples: markers.map((marker, i) => ({
       marker,
@@ -81,60 +81,75 @@ test("foreign material is public once it has a Chinese title and guide; a full t
     payload: { visibility: "withdrawn", reason: "synthetic manual withdrawal", version: 0 },
   });
   assert.equal(withdrawal.statusCode, 200, withdrawal.body);
-  const before = f.calls.length;
+  const before = f.calls.filter((call) => call.step === "translate").length;
   await f.reader.inject("/api/site/pool");
   await f.reader.inject("/api/v1/items?mode=selected");
   await f.reader.inject("/feed.xml");
-  assert.equal(f.calls.length, before, "reader requests never progress the held worker");
+  assert.equal(f.calls.filter((call) => call.step === "translate").length, before, "reader requests never progress the held translation");
   release.open();
-  await f.until("both complete translations shown", async () => {
-    const open = (await f.rows()).filter((row) => row.id !== withdrawn.id);
-    if (open.length !== 2) return false;
-    for (const row of open) {
-      const res = await f.reader.inject(`/api/site/items/${row.id}`);
-      if (res.statusCode !== 200 || res.json().body?.complete !== true) return false;
-    }
-    return true;
+  await f.until("selected translation complete", async () => {
+    const selected = (await f.rows()).find((row) => row.selected);
+    if (!selected) return false;
+    const res = await f.reader.inject(`/api/site/items/${selected.id}`);
+    return res.statusCode === 200 && res.json().body?.complete === true;
   });
   for (const row of (await f.rows()).filter((row) => row.id !== withdrawn.id)) {
     const res = await f.reader.inject(`/api/site/items/${row.id}`);
     assert.equal(res.statusCode, 200, res.body);
     const body = res.json().body;
-    assert.equal(body.complete, true);
-    assert.match(body.zh, /末段条件与例外/);
+    assert.equal(body.complete, row.selected);
+    if (row.selected) assert.match(body.zh, /末段条件与例外/);
+    else assert.equal(body.zh, null);
     assert.equal(body.original, null);
     assert.equal(row.selected, row.title.includes("FOREIGN_SELECTED"));
   }
+  assert.ok(!f.calls.some((call) => call.marker === "FOREIGN_LOW" && call.step === "translate"));
   assert.equal((await f.reader.inject(`/api/site/items/${withdrawn.id}`)).statusCode, 404);
   assert.ok(!f.calls.some((call) => call.marker === "FOREIGN_WITHDRAWN" && call.step === "translate"));
   const calls = f.calls.filter((call) => call.step === "translate");
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 2);
   const [receipts] =
     await f.sql`SELECT count(*)::int AS n FROM receipts WHERE purpose='translate_body' AND status='completed' AND response_attempt_id IS NOT NULL`;
-  assert.equal(receipts.n, 4);
+  assert.equal(receipts.n, 2);
+  // Drain current work while leaving future jobs intact; gateway configuration and the provider stay enabled.
+  await f.stopWorkers();
+  assert.equal(shutdownSignal.signal.aborted, false, "reader observation does not disable the model gateway");
+  const readerEffects = async () =>
+    (
+      await f.sql`SELECT
+    (SELECT count(*)::int FROM receipts) AS receipts,
+    (SELECT count(*)::int FROM receipt_attempts) AS attempts,
+    (SELECT count(*)::int FROM pgboss.job) AS jobs`
+    )[0];
+  const beforeReads = await readerEffects();
   const snapshot = f.calls.length;
-  for (const row of rows) await f.reader.inject(`/api/site/items/${row.id}`);
-  assert.equal(f.calls.length, snapshot);
+  for (const row of rows) {
+    const response = await f.reader.inject(`/api/site/items/${row.id}`);
+    assert.equal(response.statusCode, row.id === withdrawn.id ? 404 : 200, response.body);
+  }
+  assert.equal(f.calls.length, snapshot, JSON.stringify(f.calls.slice(snapshot)));
+  assert.deepEqual(await readerEffects(), beforeReads, "reading neither pays directly nor enqueues later paid work");
   await f.closeSurfaces();
   const bad = await foreignFixture(t, {
     name: "foreign-bad-fixture",
-    reuseWorker: true,
     language: "es",
     samples: [
       {
         marker: "BAD_TRANSLATION",
+        score: 80,
         title: "Ensayo de cobre",
         label: "PASS",
         body: "BAD_TRANSLATION: El proyecto de cobre tiene condiciones pendientes. ".repeat(8),
       },
       {
         marker: "SCOPE_UNKNOWN",
+        score: 80,
         title: "Datos pendientes",
         label: "UNKNOWN",
         body: "SCOPE_UNKNOWN: Los datos del proyecto requieren comprobación. ".repeat(8),
       },
     ],
-    // UNKNOWN goes on like PASS: it is translated and published once its Chinese is complete.
+    // A selected UNKNOWN case follows the same publication and permitted background translation flow.
     translate: async (marker) => (marker === "SCOPE_UNKNOWN" ? { text: `合成中文全文 ${marker}，只用于工程验证。` } : { text: "Only untranslated English" }),
   });
   await bad.until(
@@ -171,7 +186,6 @@ test("foreign material is public once it has a Chinese title and guide; a full t
   await bad.closeSurfaces();
   const restricted = await foreignFixture(t, {
     name: "foreign-restricted-fixture",
-    reuseWorker: true,
     language: "en",
     siteFulltext: false,
     samples: [

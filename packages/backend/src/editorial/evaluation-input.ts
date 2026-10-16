@@ -15,6 +15,7 @@ export function evaluationInputFingerprint(a: AnalyzeInputArticle) {
       url: a.url,
       author: a.author,
       publishedAt: instant(a.publishedAt),
+      sourceTime: a.sourceTime ?? null,
       discoveredAt: instant(a.discoveredAt),
       bodyText: a.bodyText,
       excerpt: a.excerpt,

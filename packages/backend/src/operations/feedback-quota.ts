@@ -1,7 +1,5 @@
-import { dbOf, type Tx } from "../db.ts";
+import { feedbackSql as sql, type Tx } from "../db.ts";
 import { FeedbackRejected } from "./feedback-validation.ts";
-
-const sql = dbOf("feedback");
 
 /** Claims share the submission transaction: rejecting either bucket rolls back both claims. */
 export async function claimFeedbackQuota(tx: Tx, sourceHash: string) {

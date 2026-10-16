@@ -1,8 +1,8 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { requireOwner, audit, type AdminPrincipal } from "./auth.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { SelectionToolRequest, SelectionToolState } from "@amp/contracts/http/private";
-const sql = dbOf("ai-gateway");
+
 export class SelectionConflict extends Error {
   readonly code = "conflict";
 }

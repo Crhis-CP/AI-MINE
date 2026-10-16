@@ -6,11 +6,10 @@ import { POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources"
 import { createSource, readCurrentSourcePolicy } from "@amp/backend/admin/sources";
 import { config } from "@amp/backend/config";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { seedPolicySources } from "../scripts/seed.ts";
 import { enablePolicySources, listPolicySources, parsePolicySourceArgs, selectPolicySources } from "../scripts/policy-sources.ts";
 
-const sql = dbOf("sources");
 let requests = 0;
 const server = http.createServer((req, res) => {
   requests++;

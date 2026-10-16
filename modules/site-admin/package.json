@@ -1,0 +1,29 @@
+{
+  "name": "@amp/site-admin",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./module": "./module.ts",
+    "./web": "./web.ts",
+    "./server": "./server.ts",
+    "./information": "./backend/information.ts",
+    "./targets": "./backend/target-catalogue.ts",
+    "./coverage": "./backend/coverage.ts",
+    "./export": "./backend/source-export.ts"
+  },
+  "dependencies": {
+    "@amp/contracts": "workspace:*",
+    "@amp/web": "workspace:*",
+    "@amp/api-client": "workspace:*",
+    "@amp/industry": "workspace:*",
+    "react": "19.3.0",
+    "react-router": "8.4.0",
+    "zod": "4.6.5",
+    "@amp/backend": "workspace:*",
+    "fastify": "5.12.5",
+    "@amp/metals": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  }
+}

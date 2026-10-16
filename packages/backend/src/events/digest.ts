@@ -7,14 +7,12 @@ import { shutdownSignal } from "../jobs/queue.ts";
 import { z } from "zod";
 import { modelFor } from "../editorial/models.ts";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { chatJson } from "../providers/llm.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot } from "../operations/lane-controls.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
-
-const sql = dbOf("events");
 
 export const DIGEST_PROMPT_VERSION = promptVersion("story-digest");
 

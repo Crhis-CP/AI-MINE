@@ -1,6 +1,6 @@
 // Tag normalization over the industry pack's vocabulary (industry/taxonomy.ts), which the topics
 // (industry/topics.json) are built on.
-import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
+import { CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
 
 export { CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, TOPIC_TAGS } from "@amp/industry/taxonomy";
 
@@ -29,3 +29,12 @@ export function normalizeTags(v: unknown, opts: { max?: number } = {}): string[]
 
 /** The category guide the structure step reads: one line per category. */
 export { MINING_CATEGORY_GUIDE as CATEGORY_GUIDE } from "@amp/industry/mining-taxonomy";
+
+const identityKey = (value: string) => value.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, "");
+/** Exact known identity or alias. A name mentioned in prose does not prove publisher ownership. */
+export function entityIdentity(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  const normalized = identityKey(value);
+  const matches = Object.entries(ENTITIES).filter(([id, entity]) => [id, entity.name, ...entity.aliases].some((alias) => identityKey(alias) === normalized));
+  return matches.length === 1 ? matches[0]![0] : null;
+}

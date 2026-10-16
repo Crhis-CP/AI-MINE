@@ -76,7 +76,20 @@
     "./sources/json-list": "./src/sources/json-list.ts",
     "./sources/mp": "./src/sources/mp.ts",
     "./sources/rss": "./src/sources/rss.ts",
-    "./sources/web-list": "./src/sources/web-list.ts"
+    "./sources/web-list": "./src/sources/web-list.ts",
+    "./modules": "./src/modules.ts",
+    "./http": "./src/http.ts",
+    "./admin/http": "./src/admin/http.ts",
+    "./sources/evidence": "./src/sources/evidence.ts",
+    "./jobs/module-queues": "./src/jobs/module-queues.ts",
+    "./acquisition/crawl": "./src/acquisition/crawl.ts",
+    "./editorial/translation-readiness": "./src/editorial/translation-readiness.ts",
+    "./operations/lane-controls": "./src/operations/lane-controls.ts",
+    "./providers/model-fallback": "./src/providers/model-fallback.ts",
+    "./providers/model-fallback-permit": "./src/providers/model-fallback-permit.ts",
+    "./providers/permissions": "./src/providers/permissions.ts",
+    "./sources/permissions": "./src/sources/permissions.ts",
+    "./publication/news-links": "./src/publication/news-links.ts"
   },
   "dependencies": {
     "@amp/config": "workspace:*",
@@ -94,6 +107,11 @@
     "sanitize-html": "2.17.7",
     "sharp": "0.35.5",
     "undici": "8.11.2",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@amp/site": "workspace:*",
+    "@amp/metals": "workspace:*",
+    "fastify": "5.12.5",
+    "@amp/site-admin": "workspace:*",
+    "@amp/policy": "workspace:*"
   }
 }

@@ -1,10 +1,9 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { sourceHealthWeekly } from "@amp/backend/operations/reports";
 
-const sql = dbOf("reports");
 after(closeDb);
 
 test("weekly source errors preserve English letters and normalize real whitespace without sending a message", async (t) => {

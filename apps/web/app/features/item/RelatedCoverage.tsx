@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { ItemDetail } from "@amp/contracts/site";
-import { sourceDateTime, fullDateTime } from "../../lib/format";
+import { newsSourceDate, fullDateTime } from "../../lib/format";
 
 export function RelatedCoverage({ value, currentId }: { value: ItemDetail["eventCoverage"]; currentId: string }) {
   if (!value || value.reportCount < 2) return null;
@@ -22,7 +22,7 @@ export function RelatedCoverage({ value, currentId }: { value: ItemDetail["event
               {item.title}
             </Link>
             <p className="mt-1 text-[12px] text-ink-4">
-              {item.source.name} · {item.publishedAt ? sourceDateTime(item.publishedAt) : `收录 ${fullDateTime(item.discoveredAt)}`}
+              {item.source.name} · {newsSourceDate(item.sourceTime, item.publishedAt)?.text ?? `收录 ${fullDateTime(item.discoveredAt)}`}
             </p>
             {item.summary && <p className="mt-1 text-[13px] leading-relaxed text-ink-3">{item.summary}</p>}
           </div>

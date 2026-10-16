@@ -1,12 +1,12 @@
 import { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { selectionMaterialSnapshot } from "@amp/backend/content/materials";
 import { buildScoreInput, loadAnalyzeInput, evaluationInputFingerprint, type AnalyzeInputArticle } from "@amp/backend/editorial/analyze";
 import { audit, type AdminPrincipal } from "./auth.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { SelectionLabel, SelectionLabelRequest, SelectionSamples } from "@amp/contracts/http/private";
 import { requireSelectionTool, selectionCommand, SelectionConflict } from "./selectbench-state.ts";
-const sql = dbOf("ai-gateway");
+
 const DatasetInput = z.strictObject({
   id: z.string().min(1),
   label: z.string().min(1),

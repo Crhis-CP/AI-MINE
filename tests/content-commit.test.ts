@@ -4,7 +4,7 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf, type Tx } from "@amp/backend/db";
+import { closeDb, sql, type Tx } from "@amp/backend/db";
 import { commitBodyResult, readCurrentBody, commitProcessingResult, upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle } from "@amp/backend/editorial/analyze";
 import { failureGroupSql, requeueFailed } from "@amp/backend/jobs/content";
@@ -12,7 +12,6 @@ import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { runsOverview } from "@amp/backend/admin/runs";
 import { completeReceipt, paidRequest } from "@amp/backend/providers/receipts";
 
-const sql = dbOf("enrichment");
 const T = tag();
 const SOURCE = `test-content-commit-${T}`;
 let paused: { asked: ReturnType<typeof gate<void>>; release: ReturnType<typeof gate<void>> } | undefined;
@@ -69,7 +68,7 @@ test("content modules and the fixed failure fragment import without a database o
 test("fixed failure grouping keeps masking, truncation, aggregation and targeted requeue semantics", async () => {
   const messages = [null, "trace abcdef123456 request 123456", "其他错误".repeat(40), "HTTP 503"];
   for (const message of messages) {
-    const [row] = await sql`SELECT ${failureGroupSql} AS grouped FROM (SELECT ${message}::text AS processing_error) input`;
+    const [row] = await sql`SELECT ${failureGroupSql()} AS grouped FROM (SELECT ${message}::text AS processing_error) input`;
     assert.equal(row!.grouped, (message ?? "(no message)").slice(0, 120).replace(/[0-9a-f]{8,}|[0-9]{4,}/g, "…"));
   }
   const ids = await Promise.all(["one", "two", "old", "other"].map(async (name) => (await material(name)).articleId));
@@ -79,7 +78,7 @@ test("fixed failure grouping keeps masking, truncation, aggregation and targeted
       processing_error=${i === 3 ? `${prefix}unrelated` : `${prefix}request ${123456 + i}`},
       discovered_at=${new Date(Date.now() - (i === 2 ? 31 : 0) * 86400_000)} WHERE id=${id}`;
   }
-  const [group] = await sql`SELECT ${failureGroupSql} AS label FROM articles WHERE id=${ids[0]!}`;
+  const [group] = await sql`SELECT ${failureGroupSql()} AS label FROM articles WHERE id=${ids[0]!}`;
   const overview = await runsOverview();
   assert.equal(overview.errors.find((row) => row.error === group!.label)?.n, 2);
   assert.equal((await requeueFailed(group!.label)).requeued, 2);

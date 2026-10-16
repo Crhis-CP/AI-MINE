@@ -3,20 +3,9 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { feedbackPath } from "../lib/feedback-origin";
 import { pageMeta } from "../lib/seo";
+import { MODULE_NAVIGATION } from "../components/shell/nav";
 import { ThemeSwitch } from "../components/shell/ThemeSwitch";
-import {
-  IconBookmark,
-  IconDoc,
-  IconChevronRight,
-  IconFlame,
-  IconGrid,
-  IconHeart,
-  IconHistory,
-  IconMessage,
-  IconMoon,
-  IconPlug,
-  IconTrendUp,
-} from "../components/icons";
+import { IconBookmark, IconChevronRight, IconFlame, IconGrid, IconHeart, IconHistory, IconMessage, IconMoon, IconPlug } from "../components/icons";
 
 /** Shared caches may keep this page for five minutes. */
 export function headers() {
@@ -33,7 +22,7 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
   {
     title: "内容",
     rows: [
-      { to: "/policies", label: "法规政策动态", icon: <IconDoc size={18} /> },
+      ...MODULE_NAVIGATION.filter((item) => item.moreSection === "内容").map(({ to, label, icon: Icon }) => ({ to, label, icon: <Icon size={18} /> })),
       { to: "/topics", label: "主题索引", icon: <IconGrid size={18} /> },
       { to: "/agent", label: "Agent 接入", icon: <IconPlug size={18} /> },
     ],
@@ -43,7 +32,7 @@ const GROUPS: Array<{ title: string; rows: Row[] }> = [
     rows: [
       { to: "/hot", label: "热点榜", icon: <IconFlame size={18} /> },
       { to: "/starred", label: "收藏", icon: <IconBookmark size={18} /> },
-      { to: "/metals", label: "金属价格", icon: <IconTrendUp size={18} /> },
+      ...MODULE_NAVIGATION.filter((item) => item.moreSection !== "内容").map(({ to, label, icon: Icon }) => ({ to, label, icon: <Icon size={18} /> })),
     ],
   },
   {

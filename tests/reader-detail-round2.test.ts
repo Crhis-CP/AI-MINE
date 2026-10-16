@@ -1,11 +1,11 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail";
 import { loadStoryFollowups } from "@amp/backend/publication/followups";
 import { v3Item } from "@amp/backend/publication/v1";
-const sql = dbOf("publication");
+
 after(closeDb);
 const source = `reader-r2-${tag()}`;
 const now = new Date("2030-10-12T04:00:00Z");
@@ -14,8 +14,8 @@ const firstPublic = new Date("2026-10-12T04:00:00Z");
 async function seed(id: string, status: string, body: string | null, firstParty = false, publicTime: Date | null = null) {
   await sql`INSERT INTO articles(id,source_id,identity_key,url,title,language,body_status,body_html,body_text,discovered_at,timeline_at,raw)
     VALUES(${id},${source},${id},${`https://example.invalid/${id}`},${id},'zh',${status},${body},${body},${published},${published},'{}')`;
-  await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,body_mode,first_party,first_public_at,first_publication_observed)
-    VALUES(${id},${id},'真实当前导读',${source},'news',${`https://example.invalid/${id}`},${published},${published},${published},${published},'public',true,${body ? "full" : "summary"},${firstParty},${publicTime},${publicTime !== null})`;
+  await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,published_at,discovered_at,timeline_at,sort_at,visibility,eligible,body_mode,first_party,representative_priority,first_public_at,first_publication_observed)
+    VALUES(${id},${id},'真实当前导读',${source},'news',${`https://example.invalid/${id}`},${published},${published},${published},${published},'public',true,${body ? "full" : "summary"},${firstParty},${firstParty ? 0 : 3},${publicTime},${publicTime !== null})`;
 }
 async function detail(id: string) {
   const value = await loadItemDetail(id, now);
@@ -73,6 +73,7 @@ test("event representation prefers the first party, latest means a distinct fact
   const followups = await loadStoryFollowups("6d11ec01-480e-4bb4-8568-238e5dbfd084");
   assert.equal(followups!.items.length, 2, "unselected qualified developments remain visible");
   assert.equal(followups!.items[0]!.representative.summary, "真实当前导读");
+  assert.equal(followups!.items[0]!.representative.sourceTime, null, "a timeline anchor does not establish the source publication time");
   await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id IN (${official},${latest})`;
   assert.equal((await detail(duplicate)).eventCoverage, null, "one remaining public report has no redundant coverage block");
   assert.ok(!(await loadStoryFollowups("6d11ec01-480e-4bb4-8568-238e5dbfd084"))!.items.some((f) => f.representative.id === latest));

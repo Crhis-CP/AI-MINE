@@ -7,9 +7,9 @@ import { tmpdir } from "node:os";
 import { after, test } from "node:test";
 import sharp from "sharp";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, feedbackSql as sql } from "@amp/backend/db";
 import { submitFeedback } from "@amp/backend/operations/feedback";
-const sql = dbOf("feedback");
+
 const dir = await mkdtemp(path.join(tmpdir(), "feedback-validation-"));
 config.dataDir = dir;
 config.siteUrl = "https://trusted.example.test";

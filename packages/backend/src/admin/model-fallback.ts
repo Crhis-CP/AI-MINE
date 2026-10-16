@@ -1,12 +1,12 @@
 import { ModelFallbackChange, ModelFallbackOverview, ModelFallbackRoute } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { CAPABILITIES, modelSources } from "../editorial/models.ts";
 import { modelConfigurationIdentity } from "./models.ts";
 import { modelFallbackSources } from "./sources.ts";
 import { actorOf, audit, requireCapability, type AdminPrincipal } from "./auth.ts";
 import { modelRegistryLock, connectionRow } from "../providers/model-registry.ts";
 import { backupAdmission } from "../providers/model-fallback-admission.ts";
-const sql = dbOf("ai-gateway");
+
 export type StoredBackup = {
   capability: string;
   revision: number;

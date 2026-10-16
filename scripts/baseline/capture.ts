@@ -24,15 +24,18 @@ const write = (name: string, text: string) => writeFileSync(path.join(out, name)
 
 await initializeDb("test");
 const { buildApp } = await import("../../apps/api/src/app.ts");
+const { SERVER_MODULES } = await import("../../site/modules/server.ts");
+const { installModules, scheduledTasks } = await import("@amp/backend/modules");
+installModules(SERVER_MODULES);
 const combined = new Set<string>();
-for (const role of ["public-api", "private-api"] as const) {
+for (const role of ["api"] as const) {
   const app = await buildApp(role);
   try {
     await app.ready();
     const tree = app.printRoutes({ commonPrefix: false });
     write(`routes-${role}.txt`, tree);
     // These two fixed fallback registrations are the prefixes the router printer omits.
-    const wildcards: Readonly<Record<string, string>> = role === "public-api" ? { "": "/api/public/*", "/api/v1": "/api/v1/*" } : {};
+    const wildcards: Readonly<Record<string, string>> = { "": "/api/public/*", "/api/v1": "/api/v1/*" };
     for (const entry of normalizeRouteTree(tree, wildcards)) {
       const separator = entry.indexOf(" ");
       if (!app.hasRoute({ method: entry.slice(0, separator) as HTTPMethods, url: entry.slice(separator + 1) }))
@@ -52,7 +55,7 @@ const { SCHEDULES } = await import("../../apps/worker/src/schedules.ts");
 write(
   "schedules.json",
   JSON.stringify(
-    SCHEDULES.map(({ name, cron, missed }) => ({ name, cron, missed: missed ?? null })),
+    scheduledTasks(SCHEDULES).map(({ name, cron, missed }) => ({ name, cron, missed: missed ?? null })),
     null,
     2,
   ),

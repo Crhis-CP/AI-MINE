@@ -1,6 +1,5 @@
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import type { TextMatchValues, ReadMatcherValues, SearchScoreValues } from "./mentions.ts";
-const sql = dbOf("publication");
 
 /** Custom plans fold the bound guard flag, preserving direct trigram scans when no guarded character exists. */
 export function publicationTextMatches(values: TextMatchValues) {

@@ -4,10 +4,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { checkPeriod } from "../packages/backend/src/publication/metal-prices/check.ts";
-import { NBS_LIST_URL, nbsFetcher, tenDayPeriod } from "../packages/backend/src/publication/metal-prices/nbs.ts";
-import { loadMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
-import type { FetchedPeriod, PageGetter, PeriodCheckInput, PriceRow } from "../packages/backend/src/publication/metal-prices/types.ts";
+import { checkPeriod } from "../modules/metals/backend/check.ts";
+import { NBS_LIST_URL, nbsFetcher, tenDayPeriod } from "../modules/metals/backend/nbs.ts";
+import { loadMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
+import type { FetchedPeriod, PageGetter, PeriodCheckInput, PriceRow } from "../modules/metals/backend/types.ts";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/nbs/${name}.html`, import.meta.url), "utf8");
 const [list, early, mid] = ["list", "release-previous", "release-latest"].map(fixture);

@@ -1,5 +1,6 @@
+import { materialGroupingDiagnostic } from "../content/grouping.ts";
 import { manualMaterialSnapshot } from "@amp/backend/content/materials";
-import { detachArticleFromFactTx, factArticleIds } from "@amp/backend/events/group";
+import { detachArticleFromFactTx, factArticleIds, requestArticleRegroup } from "@amp/backend/events/group";
 import { invalidateReportCorrections } from "@amp/backend/reports/compose";
 export { previewWithdrawal, actWithdrawal } from "../editorial/withdrawals.ts";
 import { manualRevisionHistory } from "../editorial/manual-revisions.ts";
@@ -10,7 +11,7 @@ import { GeographyCandidate } from "../editorial/geography.ts";
 // overrides with a version check, are re-projected to every public exit, and are audited.
 import { z } from "zod";
 import { ARTICLE_ID_PATTERN, CATEGORY_KEYS } from "@amp/contracts/taxonomy";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { normalizeUrl } from "../lib/url.ts";
@@ -19,10 +20,8 @@ import { publishArticle, publishArticleTx, publishedStoryId } from "../publicati
 import { computeHotRanking } from "../events/hot.ts";
 import { mergeStoryInto } from "../events/merge.ts";
 import { latestHotRanking } from "../events/hot-read.ts";
-import { audit } from "./auth.ts";
+import { audit, previousAuditedCommand } from "./auth.ts";
 import { Conflict } from "./sources.ts";
-
-const sql = dbOf("editorial");
 
 export async function searchContent(q: string) {
   const term = q.trim();
@@ -43,7 +42,7 @@ export async function contentChain(id: string) {
   const [article] = await sql`
     SELECT a.id, a.source_id, a.url, a.identity_key, a.title, a.author, a.language, a.published_at, a.published_at_claim, a.discovered_at,
            a.timeline_at, a.backfill, a.body_status, a.revision, a.processing_state, a.processing_error, a.grouped_at, length(a.body_text) AS body_chars,
-           s.name AS source_name, s.kind AS source_kind, s.tier, s.participation_mode, s.site_fulltext, s.syndicate_fulltext
+           s.name AS source_name, s.kind AS source_kind, s.tier, s.participation_mode, s.site_fulltext, s.syndicate_fulltext, s.lane
     FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${id}`;
   if (!article) return null;
   const [discoveries, revisions, analyses, publication, override, ledger, membership, decisions, deliveries, history] = await Promise.all([
@@ -54,7 +53,7 @@ export async function contentChain(id: string) {
              an.created_at,
              (SELECT coalesce(jsonb_agg(jsonb_build_object('id', r.id, 'status', r.status, 'service', r.service, 'model', r.model, 'cost', r.cost, 'at', r.created_at) ORDER BY r.id), '[]'::jsonb)
                 FROM receipts r WHERE r.id = ANY(an.receipt_ids)) AS receipts
-      FROM analyses an WHERE an.article_id = ${id} ORDER BY an.created_at DESC LIMIT 10`,
+      FROM analyses an WHERE an.article_id = ${id} ORDER BY an.created_at DESC,an.id DESC LIMIT 10`,
     sql`SELECT * FROM publications WHERE article_id = ${id}`,
     sql`SELECT fields, visibility, reason, version, updated_by, updated_at FROM editorial_overrides WHERE article_id = ${id}`,
     sql`SELECT seq, op, visible_at, changed_at FROM selected_ledger WHERE article_id = ${id} ORDER BY seq DESC LIMIT 10`,
@@ -65,8 +64,17 @@ export async function contentChain(id: string) {
     sql`SELECT target_key, dedupe_key, status, attempts, response, created_at, sent_at FROM deliveries WHERE subject_id = ${id} ORDER BY created_at DESC`,
     sql`SELECT created_at, actor, action, reason, before, after FROM audit_log WHERE subject = ${`content:${id}`} ORDER BY created_at DESC LIMIT 20`,
   ]);
+  const judged = analyses.find((analysis) => analysis.input_revision === article.revision);
+  const grouping =
+    article.lane === "news"
+      ? await materialGroupingDiagnostic(id, {
+          revision: Number(article.revision),
+          candidate: judged?.score != null && typeof judged.selected === "boolean" ? judged.selected : null,
+        })
+      : null;
   return {
     article,
+    grouping,
     discoveries,
     revisions,
     analyses,
@@ -110,6 +118,7 @@ export async function setVisibility(
 ) {
   if (!input.reason?.trim()) throw new Error("reason is required");
   const published = await sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     await manualMaterialSnapshot(id, tx);
     const before = await overrideRow(id, tx);
     if (before.version !== input.version) throw new Conflict(STALE);
@@ -191,6 +200,7 @@ export async function overrideFields(
   if (!input.reason?.trim()) throw new Error("reason is required");
   const fields = FieldsSchema.parse(input.fields ?? {});
   return sql.begin(async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
     const material = await manualMaterialSnapshot(id, tx);
     if (!material) return null;
     const before = await overrideRow(id, tx);
@@ -262,11 +272,18 @@ export async function rerun(id: string, step: "extract" | "analyze" | "group", r
   const [a] = await sql`SELECT id FROM articles WHERE id = ${id}`;
   if (!a) return null;
   let jobId: string | null;
-  if (step === "group") {
-    // An explicit regroup replaces an earlier manual "keep standalone" decision and the automatic membership.
-    await sql`DELETE FROM grouping_overrides WHERE article_id = ${id}`;
-    jobId = await enqueue(QUEUES.group, { articleId: id, force: true }, { singletonKey: `manual:group:${id}:${requestId}` });
-  } else {
+  if (step === "group")
+    return sql.begin(async (tx) => {
+      await tx`SELECT pg_advisory_xact_lock(hashtext(${`regroup-command:${id}`}))`;
+      const previous = await previousAuditedCommand(actor, "content.rerun.group", `content:${id}`, requestId, tx);
+      if (previous) return z.object({ jobId: z.string().nullable() }).parse(previous.result);
+      if (!(await requestArticleRegroup(id, tx))) return null;
+      const queued = await enqueue(QUEUES.group, { articleId: id, force: true }, { singletonKey: `manual:group:${actor}:${id}:${requestId}` }, tx);
+      const result = { jobId: queued };
+      await audit(actor, "content.rerun.group", `content:${id}`, null, null, { ...result, requestId }, requestId, tx);
+      return result;
+    });
+  else {
     await sql`UPDATE articles SET processing_state = 'new', processing_error = NULL, processing_attempts = 0, processing_retry_at = NULL,
                 body_status = CASE WHEN ${step === "extract"} THEN 'pending' ELSE body_status END WHERE id = ${id}`;
     jobId =

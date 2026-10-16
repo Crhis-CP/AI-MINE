@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { getGlobalDispatcher, MockAgent, setGlobalDispatcher } from "undici";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { registerContentJobs } from "@amp/backend/jobs/content";
@@ -17,7 +17,7 @@ import { scheduleDueSources } from "@amp/backend/sources/collect";
 import { automaticFeedFixture, authoredSummary, authoredTitle, FEED_CASES } from "./automatic-feed-fixture.ts";
 
 test("INV-01: real source/content workers collect, book model receipts and publish Chinese material unless the prefilter blocks it", async (t) => {
-  const sql = dbOf("ops");
+  const sql = runtimeSql;
   const fixture = await automaticFeedFixture();
   const savedConfig = { ...config };
   const dispatcher = getGlobalDispatcher(),

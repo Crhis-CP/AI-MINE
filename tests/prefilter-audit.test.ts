@@ -2,13 +2,12 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import type { AdminPrincipal } from "@amp/backend/admin/auth";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { drawPrefilterAudit, labelPrefilterAudit, prefilterAuditTake, prefilterAuditView } from "@amp/backend/admin/selectbench";
 
-const sql = dbOf("ai-gateway");
 after(closeDb);
 
 test("batch size stays near 20 and keeps both pools when both exist", () => {

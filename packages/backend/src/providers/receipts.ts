@@ -1,3 +1,4 @@
+import { prepareModelQuota, type ModelQuotaAlias } from "./model-budget.ts";
 import {
   admitUsage,
   reserveUsageAttempt,
@@ -7,6 +8,7 @@ import {
   type UsageReservation,
   type TaskBudget,
 } from "./usage-protection.ts";
+import { UNKNOWN_AUTO_RELEASE_NOTE } from "./unknown-recovery.ts";
 import { rateYuan, type UsageBounds } from "./usage-pricing.ts";
 
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
@@ -16,13 +18,11 @@ import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapsho
 // 2. Before calling, a placeholder row and an attempt row are persisted; budgets count attempts.
 // 3. The raw response is saved before any business write; recovery reuses a received response.
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
-//    caller. News analysis recovery may release it once after 30 minutes, retaining unknown charges.
+//    caller. Recovery may release it once after 30 minutes, preserving the unknown charge.
 //    A billed answer that failed validation may be bought again at most twice; the saved response is reused after that.
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { recordLocalReuse } from "./usage-accounting.ts";
-
-const sql = dbOf("ai-gateway");
 
 export class BudgetExceededError extends Error {
   readonly service: string;
@@ -129,6 +129,9 @@ export interface ReceiptRequest {
   taskBudget?: TaskBudget;
   modelSnapshot?: ModelAttemptSnapshot;
   service: string;
+  /** Shared service quota; does not alter billing identity or the paid-result cache key. */
+  budgetService?: string;
+  budgetAliases?: ModelQuotaAlias[];
   lane?: "news" | "policy";
   runtimeControl?: RuntimeControlSnapshot;
   model?: string | null;
@@ -177,21 +180,28 @@ async function translationBlocker(db: Db, stage: string | null, logicalKey: stri
       known_unbilled: boolean;
       has_response: boolean;
       receipt_version: number;
+      attempt_error: string | null;
+      recovery_bound: boolean;
     }[]
   >`
     SELECT r.id,r.id::text AS id_text,CASE WHEN a.id IS NULL AND r.attempts<>o.receipt_version THEN 'unknown' ELSE coalesce(a.status,r.status) END AS status,
-      a.usage,o.attempt_id,o.known_unbilled,r.response IS NOT NULL AS has_response,o.receipt_version
+      a.usage,o.attempt_id,o.known_unbilled,r.response IS NOT NULL AS has_response,o.receipt_version,a.error AS attempt_error,
+      (r.status='completed' AND recovered.response IS NOT NULL AND recovered.response=r.response) AS recovery_bound
     FROM ai.translation_receipt_observations o JOIN receipts r ON r.id=o.receipt_id
       LEFT JOIN receipt_attempts a ON a.id::text=o.attempt_id AND a.receipt_id=r.id AND a.attempt=o.receipt_version
+      LEFT JOIN receipt_attempts recovered ON recovered.id=r.response_attempt_id AND recovered.receipt_id=r.id
+        AND recovered.attempt=r.attempts AND recovered.attempt>o.receipt_version AND recovered.status='received' AND recovered.output_rejected_at IS NULL
     WHERE o.scope=${stage} AND r.logical_key<>${logicalKey} ORDER BY r.id`;
   for (const row of rows) {
     if (row.known_unbilled) continue;
+    // Automatic release is recorded atomically with its audit. A later accepted response restores progress, not the old bill.
+    if (row.attempt_id !== null && row.status === "unknown" && row.attempt_error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE) && row.recovery_bound) continue;
     if (row.status === "failed" && row.attempt_id === null && !row.has_response) {
       await db`UPDATE ai.translation_receipt_observations SET known_unbilled=true
         WHERE scope=${stage} AND receipt_id=${row.id_text} AND receipt_version=${row.receipt_version} AND attempt_id IS NULL`;
       continue;
     }
-    if (row.attempt_id !== null && (row.status === "failed" || (row.status === "received" && knownTranslationUsage(row.usage)))) continue;
+    if (row.attempt_id !== null && (row.status === "failed" || row.status === "received")) continue;
     if (row.attempt_id !== null && row.status === "pending") return { kind: "busy" as const, row };
     return { kind: "unknown" as const, row };
   }
@@ -207,9 +217,7 @@ async function newsReceiptBlocker(db: Db, scope: string | null, req: ReceiptRequ
     WHERE r.logical_key<>${logicalKey} AND r.purpose=${req.purpose}
       AND CASE WHEN ${scope.startsWith("report:")} THEN r.subject ELSE substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') END=${scope}
       AND coalesce(r.request->>'lane','news')='news'
-      AND (r.status IN ('pending','unknown') OR
-        (r.response IS NOT NULL AND NOT coalesce(a.usage->>'prompt_tokens' ~ '^[0-9]+$'
-          AND a.usage->>'completion_tokens' ~ '^[0-9]+$',false)))
+      AND r.status IN ('pending','unknown')
     ORDER BY r.id LIMIT 1`;
   if (!row) return null;
   if (row.status === "pending") return { kind: "busy" as const, row };
@@ -277,17 +285,18 @@ interface ReceiptRow {
 export class PolicyPartLimitError extends Error {
   readonly partIds: string[];
   constructor(partIds: string[]) {
-    super("Policy parts already have two confirmed paid attempts");
+    super("Policy parts already have two provider attempts");
     this.partIds = partIds;
   }
 }
 async function checkPolicyPartLimit(tx: Db, req: ReceiptRequest) {
   const ids = req.purpose === "policy_fulltext" ? req.policy?.partIds : null;
   if (!ids?.length) return;
-  const rows = await tx<{ parts: string[]; usage: Record<string, unknown> | null }[]>`SELECT r.request->'partIds' AS parts,a.usage
+  const rows = await tx<{ parts: string[] }[]>`SELECT r.request->'partIds' AS parts
     FROM receipts r JOIN receipt_attempts a ON a.receipt_id=r.id WHERE r.purpose='policy_fulltext'
-      AND r.request->'partIds' ?| ${ids}::text[] AND a.status='received'`;
-  const blocked = ids.filter((id) => rows.filter((row) => row.parts.includes(id) && knownTranslationUsage(row.usage)).length >= 2);
+      AND r.request->'partIds' ?| ${ids}::text[] AND a.origin='live'
+      AND (a.failure_kind IS NULL OR a.failure_kind NOT IN ('usage_blocked','input_changed','configuration_changed','connect_before_send'))`;
+  const blocked = ids.filter((id) => rows.filter((row) => row.parts.includes(id)).length >= 2);
   if (blocked.length) throw new PolicyPartLimitError(blocked);
 }
 
@@ -336,6 +345,12 @@ export async function readPolicyResponse(receipt: { receiptId: number; attemptId
   return row ? { ...row, knownUsage: knownTranslationUsage(row.usage) } : null;
 }
 
+/** Recovery never resets an in-flight or unknown paid attempt. The receipt recovery flow owns its release. */
+export async function receiptWaitingForRecovery(receiptId: number, db: Db = sql): Promise<boolean> {
+  const [row] = await db<{ status: string }[]>`SELECT status FROM receipts WHERE id=${receiptId}`;
+  return !row || row.status === "pending" || row.status === "unknown";
+}
+
 /** Recover a just-failed JSON parse from the real response pointer; callers still verify the exact input hashes. */
 export async function readPolicyResponseForReceipt(receiptId: number) {
   const [row] = await sql<{ attemptId: string | null }[]>`SELECT response_attempt_id::text AS "attemptId" FROM receipts WHERE id=${receiptId}`;
@@ -356,24 +371,39 @@ export async function settlePolicyResponse(db: Db, receipt: { receiptId: number;
       AND r.purpose IN ('policy_fulltext','policy_group','policy_interpret','policy_verify','policy_vision') AND a.status='received' AND a.response=r.response FOR UPDATE OF r,a`;
   if (!row) return null;
   if (accepted) await completeReceipt(db, receipt.receiptId);
-  else if (accepted === false && knownTranslationUsage(row.usage))
-    await db`UPDATE receipts SET status='failed',error='policy candidate rejected',updated_at=now() WHERE id=${receipt.receiptId}`;
+  else if (accepted === false) await db`UPDATE receipts SET status='failed',error='policy candidate rejected',updated_at=now() WHERE id=${receipt.receiptId}`;
   return { knownUsage: knownTranslationUsage(row.usage) };
 }
 
 async function checkPolicyReceipts(tx: Db, context?: PolicyReceiptContext) {
   if (!context) return;
   const rows = await tx<
-    { id: number; status: string; attempt_id: string | null; attempt_status: string | null; usage: Record<string, unknown> | null; response: unknown }[]
+    {
+      id: number;
+      status: string;
+      error: string | null;
+      attempt_error: string | null;
+      attempt_id: string | null;
+      attempt_status: string | null;
+      usage: Record<string, unknown> | null;
+      response: unknown;
+    }[]
   >`
-    SELECT r.id,r.status,a.id::text AS attempt_id,a.status AS attempt_status,a.usage,a.response
+    SELECT r.id,r.status,r.error,a.error AS attempt_error,a.id::text AS attempt_id,a.status AS attempt_status,a.usage,a.response
     FROM receipts r LEFT JOIN receipt_attempts a ON a.receipt_id=r.id AND a.attempt=r.attempts
     WHERE r.request->>'lane'='policy' AND r.request->'sourceIds' ?| ${context.sourceIds}::text[]
       AND (r.status IN ('pending','unknown') OR a.status IN ('pending','unknown','received')) ORDER BY r.id`;
   for (const row of rows) {
+    if (
+      row.status === "failed" &&
+      row.attempt_status === "unknown" &&
+      row.error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE) &&
+      row.attempt_error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE)
+    )
+      continue;
     if (row.status === "pending" || row.attempt_status === "pending") throw new ReceiptBusyError(`Policy source receipt ${row.id} is in flight`);
-    if (row.status === "unknown" || row.attempt_status === "unknown" || (row.attempt_status === "received" && !knownTranslationUsage(row.usage)))
-      throw new ReceiptUnknownError(row.id, "Policy source has unresolved request or usage; regrouping cannot permit another payment", row.attempt_id);
+    if (row.status === "unknown" || row.attempt_status === "unknown")
+      throw new ReceiptUnknownError(row.id, "Policy source has an unresolved request outcome; regrouping cannot permit another payment", row.attempt_id);
   }
 }
 
@@ -388,7 +418,7 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
       count(*) FILTER (WHERE started_at > now() - interval '1 hour') AS hour,
       count(*) AS day
     FROM receipt_attempts
-    WHERE service = ${service} AND origin = 'live' AND started_at > now() - interval '1 day'`;
+    WHERE coalesce(quota_service,service) = ${service} AND origin = 'live' AND started_at > now() - interval '1 day'`;
   const c = counts!;
   if (budget.per_minute <= 0 || budget.per_hour <= 0 || budget.per_day <= 0) {
     throw new BudgetExceededError(service, "stopped", 3600);
@@ -449,7 +479,10 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     ...summary,
     ...(req.policy ?? {}),
     ...(knownLane ? { lane: knownLane } : {}),
+    ...(req.budgetService ? { quota_service: req.budgetService } : {}),
   };
+  const quotaService = req.budgetService ?? req.service;
+  if (!quotaService.trim()) throw new Error("A request service is required");
   const logicalKey = logicalKeyFor(req);
   const usageInputKey = sha256(stableJson([req.service, req.model ?? null, req.purpose, req.identity]));
   const article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(req.subject ?? "");
@@ -484,6 +517,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
+  if (req.budgetService) await prepareModelQuota(req.budgetService, req.service, req.modelSnapshot, req.budgetAliases);
   const claimed = await sql.begin(async (tx) => {
     if (newsScope) await tx`SELECT pg_advisory_xact_lock(hashtext(${`news-receipt:${req.purpose}:${newsScope}`}))`;
     for (const sourceId of [...new Set(req.policy?.sourceIds ?? [])].sort()) await tx`SELECT pg_advisory_xact_lock(hashtext(${`policy-source:${sourceId}`}))`;
@@ -491,7 +525,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     if (stage) await tx`SELECT pg_advisory_xact_lock(hashtext(${"translation:" + stage}))`;
     for (const receipt of req.translationObservations ?? []) await observeTranslation(tx, stage, receipt);
     // Serialise budget checks per service so concurrent workers cannot overshoot.
-    await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + req.service}))`;
+    await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + quotaService}))`;
     await observeOriginalTranslation(tx, stage);
     const [existing] = await tx<ReceiptRow[]>`
       SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
@@ -565,18 +599,11 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
         return { kind: "reuse" as const, row: existing };
       }
-      // BR-COST-04: invalid output with proven usage may be bought again at most twice (three billed
-      // answers). A stored answer without usage proof is not bought again either. Translation keeps its own limit above.
+      // Count real returned attempts, including missing usage, before another bounded output retry.
       if (req.maxRejectedOutputs === undefined && existing.has_response) {
-        const [counts] = await tx<{ proven: number; stored: number }[]>`
-          SELECT count(*) FILTER (
-                   WHERE status='received' AND response IS NOT NULL
-                     AND usage->>'prompt_tokens' ~ '^[0-9]+$'
-                     AND usage->>'completion_tokens' ~ '^[0-9]+$'
-                 )::int AS proven,
-                 count(*) FILTER (WHERE status='received' AND response IS NOT NULL)::int AS stored
-          FROM receipt_attempts WHERE receipt_id=${existing.id}`;
-        if (counts && counts.stored > 0 && (counts.proven !== counts.stored || counts.proven >= 3)) {
+        const [counts] = await tx<{ stored: number }[]>`SELECT count(*)::int AS stored FROM receipt_attempts
+          WHERE receipt_id=${existing.id} AND status='received' AND response IS NOT NULL`;
+        if (counts && counts.stored >= 3) {
           await recordLocalReuse(tx, { service: req.service, model: req.model, purpose: req.purpose, lane: knownLane ?? "unknown" });
           return { kind: "reuse" as const, row: existing };
         }
@@ -594,7 +621,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (legacy) return legacy;
       await checkPolicyReceipts(tx, req.policy);
       await checkPolicyPartLimit(tx, req);
-      await checkBudget(tx, req.service);
+      await checkBudget(tx, quotaService);
+      // Preserve a deliberately stopped legacy connection without splitting new service counters.
+      if (quotaService !== req.service) {
+        const [held] = await tx`SELECT 1 FROM budgets WHERE service=${req.service} AND (per_minute=0 OR per_hour=0 OR per_day=0)`;
+        if (held) throw new BudgetExceededError(req.service, "stopped", 3600);
+      }
       const control = await requireRuntimeRunning(
         knownLane ?? "news",
         [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
@@ -623,7 +655,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     if (legacy) return legacy;
     await checkPolicyReceipts(tx, req.policy);
     await checkPolicyPartLimit(tx, req);
-    await checkBudget(tx, req.service);
+    await checkBudget(tx, quotaService);
+    // Preserve a deliberately stopped legacy connection without splitting new service counters.
+    if (quotaService !== req.service) {
+      const [held] = await tx`SELECT 1 FROM budgets WHERE service=${req.service} AND (per_minute=0 OR per_hour=0 OR per_day=0)`;
+      if (held) throw new BudgetExceededError(req.service, "stopped", 3600);
+    }
     const control = await requireRuntimeRunning(
       knownLane ?? "news",
       [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
@@ -655,7 +692,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   if (claimed.kind === "unknown") {
     throw new ReceiptUnknownError(
       claimed.row.id,
-      `Receipt ${claimed.row.id} has an unknown outcome; confirmation that it was not billed is required before retry`,
+      `Receipt ${claimed.row.id} has an unknown outcome; authorized recovery is required before retry`,
       claimed.row.attempt_id,
     );
   }
@@ -717,16 +754,21 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
 
 async function startAttempt(tx: Db, receiptId: number, attempt: number, req: ReceiptRequest, usage: UsageReservation): Promise<string> {
   const [row] = await tx<{ id: string }[]>`
-    INSERT INTO receipt_attempts (receipt_id, attempt, service, model, status) VALUES (${receiptId}, ${attempt}, ${req.service}, ${req.model ?? null}, 'pending')
+    INSERT INTO receipt_attempts (receipt_id, attempt, service, quota_service, model, status) VALUES (${receiptId}, ${attempt}, ${req.service}, ${req.budgetService ?? req.service}, ${req.model ?? null}, 'pending')
     RETURNING id::text AS id`;
   if (req.modelSnapshot) {
     const snapshot = req.modelSnapshot;
-    const pricing = snapshot.pricing ?? {
-      input: rateYuan(usage.quote.price.input_per_million_micros!),
-      output: rateYuan(usage.quote.price.output_per_million_micros!),
-      currency: "CNY",
-      basis: usage.quote.price.basis_url,
-    };
+    const price = usage.quote.price;
+    const pricing =
+      snapshot.pricing ??
+      (price && price.input_per_million_micros !== null && price.output_per_million_micros !== null
+        ? {
+            input: rateYuan(price.input_per_million_micros),
+            output: rateYuan(price.output_per_million_micros),
+            currency: "CNY",
+            basis: price.basis_url,
+          }
+        : { unknown: true });
     await tx`INSERT INTO ai.model_attempt_snapshots(attempt_id,connection_id,connection_revision,configuration_hash,key_fingerprint,pricing)
       VALUES(${row!.id},${snapshot.connection_id},${snapshot.connection_revision},${snapshot.configuration_hash},${snapshot.key_fingerprint},${tx.json(pricing)})`;
   }
@@ -741,7 +783,7 @@ async function markUnknown(tx: Db, receiptId: number, reason: string) {
 
 /**
  * Placeholders left behind by a process that stopped mid-request (crash, kill) become "unknown", so
- * the unresolved attempt stays visible even when no caller retries it; elapsed time never releases it.
+ * the unresolved attempt stays visible; a separate recovery pass may release it once after its grace period.
  */
 export async function markStalePendingReceipts(): Promise<number> {
   return sql.begin(async (tx) => {
@@ -780,9 +822,8 @@ export async function settleTranslationResponse(
     if (row.status !== "completed") await completeReceipt(db, receipt.receiptId);
   } else {
     await db`UPDATE receipt_attempts SET output_rejected_at=coalesce(output_rejected_at,now()) WHERE id=${receipt.attemptId}`;
-    const knownUsage = knownTranslationUsage(row.usage);
-    // Missing usage preserves received/completed: validation cannot silently authorize another payment.
-    if (knownUsage && row.status !== "failed")
+    // A returned bad answer may consume a bounded retry; missing usage remains a cost-reconciliation issue.
+    if (row.status !== "failed")
       await db`UPDATE receipts SET status='failed',error=${verdict.reason.slice(0, 2000)},updated_at=now() WHERE id=${receipt.receiptId}`;
   }
   const [count] = await db<
@@ -800,16 +841,43 @@ export async function canReplaceTranslationResponse(db: Db, receipt: Pick<Receip
       AND r.purpose='translate_body' AND r.status='received' AND a.status='received' AND a.response=r.response
       AND NOT EXISTS (SELECT 1 FROM receipt_attempts old WHERE old.receipt_id=r.id AND old.output_rejected_at IS NOT NULL)
     FOR UPDATE OF r,a`;
-  return row?.finish === "length" && knownTranslationUsage(row.usage);
+  return row?.finish === "length";
 }
 
 /** Called only after an operator's documented non-billing confirmation; CAS and settlement share its transaction. */
+export const MANUAL_UNBILLED_NOTE_PREFIX = "人工核对：供应商未计费。";
+
 export async function releaseUnknownReceiptUnbilled(db: Db, receiptId: number, error: string, observed: { attempts: number; version: string }) {
-  const [before] = await db<{ subject: string | null; purpose: string }[]>`UPDATE receipts SET status='failed',error=${error},updated_at=now()
-    WHERE id=${receiptId} AND status='unknown' AND attempts=${observed.attempts} AND updated_at::text=${observed.version} RETURNING subject,purpose`;
+  const [before] = await db<{ subject: string | null; purpose: string; request: unknown }[]>`UPDATE receipts SET status='failed',error=${error},updated_at=now()
+    WHERE id=${receiptId} AND status='unknown' AND attempts=${observed.attempts} AND updated_at::text=${observed.version} RETURNING subject,purpose,request`;
   if (!before) return null;
   const attempts = await db<{ id: string }[]>`UPDATE receipt_attempts SET status='failed',error=${error}
     WHERE receipt_id=${receiptId} AND attempt=${observed.attempts} AND status='unknown' RETURNING id::text`;
   for (const attempt of attempts) await settleUsageAttempt(db, attempt.id, "failed");
   return before;
+}
+
+/** Current-revision recovery permissions; retained unknown bills are never rewritten as unbilled. */
+export async function releasedTranslationScopes(scopes: string[]): Promise<Set<string>> {
+  if (!scopes.length) return new Set();
+  const rows = await sql<{ scope: string; status: string; error: string | null; attempts: number; released_attempt: number; response_bound: boolean }[]>`
+    SELECT substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') AS scope,
+      r.status,r.error,r.attempts,old.attempt AS released_attempt,
+      (current.response IS NOT NULL AND current.response=r.response) AS response_bound
+    FROM receipts r JOIN receipt_attempts old ON old.receipt_id=r.id AND ((old.status='unknown' AND old.error LIKE ${UNKNOWN_AUTO_RELEASE_NOTE + "%"})
+      OR (old.status='failed' AND old.error LIKE ${MANUAL_UNBILLED_NOTE_PREFIX + "%"}))
+    LEFT JOIN receipt_attempts current ON current.id=r.response_attempt_id AND current.receipt_id=r.id
+      AND current.attempt=r.attempts AND current.attempt>old.attempt AND current.status='received' AND current.output_rejected_at IS NULL
+    WHERE r.purpose='translate_body' AND substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)')=ANY(${scopes}::text[])`;
+  return new Set(
+    rows
+      .filter(
+        (row) =>
+          (row.status === "failed" &&
+            (row.error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE) || row.error?.startsWith(MANUAL_UNBILLED_NOTE_PREFIX)) &&
+            row.attempts === row.released_attempt) ||
+          (["received", "completed"].includes(row.status) && row.response_bound),
+      )
+      .map((row) => row.scope),
+  );
 }

@@ -1,3 +1,5 @@
+import { useOpenSearch } from "../search/SearchOverlay";
+import { addRecentSearch } from "../../lib/local-state";
 // Feed filters: the channel and category row, and search.
 import { useEffect, useRef, useState } from "react";
 import { Form, Link, useNavigation, useSearchParams } from "react-router";
@@ -164,7 +166,15 @@ export function SearchField({
 
   if (variant === "bar") {
     return (
-      <Form method="get" action={action} role="search" className="flex gap-2">
+      <Form
+        onSubmit={() => {
+          if (action === "/all") addRecentSearch(value);
+        }}
+        method="get"
+        action={action}
+        role="search"
+        className="flex gap-2"
+      >
         {hidden}
         <label className="relative flex-1">
           <span className="sr-only">搜索标题、摘要与正文</span>
@@ -178,7 +188,7 @@ export function SearchField({
             maxLength={200}
             autoComplete="off"
             enterKeyHint="search"
-            className="h-11 w-full rounded-full border border-line-strong bg-surface pl-10 pr-9 text-[15px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-4 focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+            className="h-11 w-full rounded-full border border-line-strong bg-surface pl-10 pr-9 text-[16px] lg:text-[15px] text-ink outline-none transition-[border-color,box-shadow] placeholder:text-ink-4 focus:border-accent focus:shadow-[0_0_0_3px_var(--accent-soft)]"
           />
           {value && (
             <button
@@ -205,7 +215,15 @@ export function SearchField({
   }
 
   return (
-    <Form method="get" action={action} role="search" className="group relative w-full shrink-0 lg:w-60">
+    <Form
+      onSubmit={() => {
+        if (action === "/all") addRecentSearch(value);
+      }}
+      method="get"
+      action={action}
+      role="search"
+      className="group relative w-full shrink-0 lg:w-60"
+    >
       {hidden}
       <label htmlFor="site-search" className="sr-only">
         搜索标题、摘要与正文
@@ -249,9 +267,16 @@ export function SearchField({
 /** Mobile home: the search icon at the end of the category row opens search on 全部动态. */
 export function SearchIconLink() {
   const [params] = useSearchParams();
+  const openSearch = useOpenSearch();
   return (
     <Link
       to={hrefWith("/all", params, { search: "1" })}
+      onClick={(event) => {
+        if (openSearch && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+          event.preventDefault();
+          openSearch(params.get("q") ?? "", event.currentTarget);
+        }
+      }}
       aria-label="搜索"
       className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-bg-sunk hover:text-ink"
     >
@@ -298,6 +323,9 @@ export function SourceDateFilters({
           矿种
           <select name="mineral" defaultValue={params.get("mineral") ?? ""} className={field}>
             <option value="">全部矿种</option>
+            {params.get("mineral") && !facets?.minerals.includes(params.get("mineral")!) && (
+              <option value={params.get("mineral")!}>{params.get("mineral")}</option>
+            )}
             {facets?.minerals.map((mineral) => (
               <option key={mineral} value={mineral}>
                 {mineral}

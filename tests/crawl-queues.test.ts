@@ -3,13 +3,12 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { enqueueSourceFetch } from "../packages/backend/src/jobs/source-queues.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("acquisition"),
-  requests: { path: string; at: number }[] = [];
+const requests: { path: string; at: number }[] = [];
 const server = http.createServer((req, res) => {
   const path = req.url!;
   requests.push({ path, at: Date.now() });

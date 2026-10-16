@@ -1,3 +1,4 @@
+import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 // A source that gave only the date is kept at the start of that Beijing day, and pages show the date alone
 // (Owner 2026-10-05: 只显示日期; TASK-0040): the time column shows a dash, never 00:00, and the article page
 // shows the stated date with no time and no "几天前". Run after `pnpm --filter @amp/web build`.
@@ -31,8 +32,37 @@ const item = (id: string, title: string, publishedAt: string | null, timelineAt:
   channel: "news",
 });
 const statedDay = new Date("2026-09-24T00:00:00+08:00").toISOString();
+const dayProof = normalizeSourceTime(
+  {
+    meaning: "published",
+    raw: "2026-09-24",
+    local_date: "2026-09-24",
+    local_time: null,
+    timezone: null,
+    utc: null,
+    precision: "date",
+    basis: "原文日期",
+    condition_text: null,
+  },
+  { instantBasis: null, timezoneEvidence: null },
+);
+const midnightProof = normalizeSourceTime(
+  {
+    meaning: "published",
+    raw: "2026-09-24T00:00:00+08:00",
+    local_date: "2026-09-24",
+    local_time: "00:00:00",
+    timezone: "Asia/Shanghai",
+    utc: statedDay,
+    precision: "second",
+    basis: "原文明确时刻",
+    condition_text: null,
+  },
+  { instantBasis: "explicit", timezoneEvidence: "原文时区" },
+);
 const detail = {
   ...item("day-only", "只写日期的合成稿", statedDay, statedDay),
+  sourceTime: dayProof,
   revision: 1,
   originalTitle: null,
   source: { id: "synthetic", name: "合成来源", kind: "web_list", firstParty: true },
@@ -87,8 +117,19 @@ const api = createServer((req, res) => {
   if (url.pathname === "/api/site/meta") return res.end(JSON.stringify({ changelogVersion: "2026-10-06T00:00" }));
   if (url.pathname === "/api/site/hot") return res.end(JSON.stringify({ entries: [] }));
   if (url.pathname === "/api/site/items/day-only") return res.end(JSON.stringify(detail));
+  if (url.pathname === "/api/site/items/precise-midnight") return res.end(JSON.stringify({ ...detail, id: "precise-midnight", sourceTime: midnightProof }));
+  if (url.pathname === "/api/site/items/unconfirmed-legacy") return res.end(JSON.stringify({ ...detail, id: "unconfirmed-legacy", sourceTime: null }));
   if (url.pathname === "/api/site/items/undated")
-    return res.end(JSON.stringify({ ...detail, id: "undated", title: "读不到发布日期的合成稿", publishedAt: null, discoveredAt: "2026-10-10T02:57:07.420Z" }));
+    return res.end(
+      JSON.stringify({
+        ...detail,
+        id: "undated",
+        title: "读不到发布日期的合成稿",
+        sourceTime: null,
+        publishedAt: null,
+        discoveredAt: "2026-10-10T02:57:07.420Z",
+      }),
+    );
   if (url.pathname === "/api/site/stories/s-day") return res.end(JSON.stringify(story));
   if (url.pathname === "/api/site/pool")
     return res.end(
@@ -195,4 +236,16 @@ test("a story page shows a date-only report and update by date, not as hours ago
   assert.doesNotMatch(visible, /小时前更新|天前更新/, "no hours counted from the day's start");
   assert.match(visible, /<time[^>]*datetime="2026-09-24"[^>]*>—<\/time>/i, "the report's time column shows a dash");
   assert.doesNotMatch(visible, />\s*00:00\s*</, "never the day's start as a time");
+});
+
+test("a proved midnight stays a real clock time and an explicit unknown overrides the legacy timestamp", async () => {
+  const precise = await fetch(`${origin}/items/precise-midnight`);
+  assert.equal(precise.status, 200);
+  const html = (await precise.text()).replace(/<script[\s\S]*?<\/script>/g, "");
+  assert.match(html, /2026-09-24 00:00/);
+  assert.match(html, /datetime="2026-09-23T16:00:00.000Z"/i);
+  const unknown = await fetch(`${origin}/items/unconfirmed-legacy`);
+  const hidden = (await unknown.text()).replace(/<script[\s\S]*?<\/script>/g, "");
+  assert.match(hidden, /尚未确认/);
+  assert.doesNotMatch(hidden, /2026-09-24/);
 });

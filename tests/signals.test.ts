@@ -9,14 +9,12 @@ import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { groupArticle } from "@amp/backend/events/group";
+import { groupArticle, detachArticleFromFactTx } from "@amp/backend/events/group";
 import { queueProcessing, settleNonEditorial } from "@amp/backend/jobs/content";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
-
-const sql = dbOf("events");
 
 const T = tag();
 const EDITORIAL = `test-sig-ed-${T}`;
@@ -27,7 +25,9 @@ process.env.EMBEDDINGS_ENABLED = "false";
 
 // Embeddings: texts about the topic point one way, everything else another. The judge calls the first
 // candidate the same occurrence.
-const provider = await stub((_hit, req) => {
+let beforeAnswer: (() => Promise<void>) | null = null;
+const provider = await stub(async (_hit, req) => {
+  await beforeAnswer?.();
   const body = JSON.parse(req.body) as { input?: string[]; messages?: Array<{ content: string }> };
   if (body.input) {
     // The topic's axis is this run's own, so stored vectors of earlier runs never match it.
@@ -41,6 +41,8 @@ const provider = await stub((_hit, req) => {
   }
   const answer = {
     query: "收购",
+    queryScope: "single",
+    selection: { addsValue: true, reason: "合成夹具的新信息" },
     decisions: [
       {
         id: "C1",
@@ -60,6 +62,8 @@ const provider = await stub((_hit, req) => {
       },
     ],
   };
+  const labels = [...(body.messages?.at(-1)?.content ?? "").matchAll(/【候选 (C\d+)】/g)].map((match) => match[1]);
+  answer.decisions = labels.map((id) => ({ ...answer.decisions[0]!, id: id! }));
   return { id: "stub", choices: [{ message: { content: JSON.stringify(answer) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } };
 });
 for (const name of ["DASHSCOPE_BASE_URL", "DEEPSEEK_BASE_URL"]) process.env[name] = `${provider.url}/v1`;
@@ -150,4 +154,25 @@ test("history waits behind live work and founds no event; a new source's post fr
   assert.equal((await job(fresh))?.priority, 0);
   assert.notEqual((await groupArticle(fresh)).verdict, "historical");
   assert.equal((await sql`SELECT 1 FROM fact_articles WHERE article_id = ${fresh}`).length, 1);
+});
+
+test("a human standalone decision made while a signal response is pending wins over the late answer", async () => {
+  const { articleId } = await upsertMaterial({
+    sourceId: SIGNAL,
+    language: "en",
+    url: `https://example.com/sig-${T}-manual`,
+    title: `甲矿业公司公布项目收购 ${TOPIC}`,
+    bodyText: ORIGINAL,
+    via: "fetch",
+    publishedAt: new Date(),
+  });
+  await settleNonEditorial(articleId);
+  beforeAnswer = () => sql.begin((tx) => detachArticleFromFactTx(tx, articleId, "合成编辑确认单独保留", "synthetic-owner")).then(() => undefined);
+  try {
+    assert.equal((await groupArticle(articleId, { signalOnly: true })).verdict, "manual");
+    assert.equal((await sql`SELECT 1 FROM story_signals WHERE article_id=${articleId}`).length, 0);
+    assert.equal((await sql`SELECT 1 FROM grouping_overrides WHERE article_id=${articleId}`).length, 1);
+  } finally {
+    beforeAnswer = null;
+  }
 });

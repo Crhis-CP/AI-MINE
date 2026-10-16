@@ -2,10 +2,9 @@
 import { readdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 
 import { anonymizeExpiredFeedback } from "../admin/feedback.ts";
-const sql = dbOf("ops");
 
 /** Derived caches (proxied images and share cards) are rebuilt on demand; drop ones older than a month. */
 async function pruneCache(dir: string, maxAgeMs: number, now: number): Promise<number> {

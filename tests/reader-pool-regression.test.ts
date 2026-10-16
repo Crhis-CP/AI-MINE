@@ -1,9 +1,9 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
-import { loadPool } from "@amp/backend/publication/pool";
-const sql = dbOf("publication");
+import { closeDb, sql } from "@amp/backend/db";
+import { loadPool, withSearchCapacity } from "@amp/backend/publication/pool";
+
 const source = `reader-pool-${tag()}`;
 const now = new Date("2026-10-12T12:00:00+08:00");
 after(closeDb);
@@ -60,4 +60,39 @@ test("unfiltered all folds reports into event cards while filtered results stay 
   const filtered = await loadPool(base);
   assert.equal(filtered.cards, undefined);
   assert.equal(filtered.total, 1005);
+});
+
+test("overlapping searches keep source, mineral, date, selection and page scopes separate and never reuse settled content", async () => {
+  await sql`UPDATE publications SET search_text=title WHERE source_id=${source}`;
+  await sql`INSERT INTO pool_search(article_id,direct,body) SELECT article_id,title,'' FROM publications WHERE source_id=${source} ON CONFLICT(article_id) DO NOTHING`;
+  const query = { channel: "all" as const, category: null, tag: null, source, q: "铜矿", mineral: "铜", on: "2026-10-12" };
+  const first = loadPool(query),
+    same = loadPool({ ...query }),
+    second = loadPool({ ...query, page: 2 }),
+    nickel = loadPool({ ...query, mineral: "镍" }),
+    otherDay = loadPool({ ...query, on: "2026-10-13" }),
+    selected = loadPool({ ...query, selected: true }),
+    otherSource = loadPool({ ...query, source: "missing-source" });
+  const values = await Promise.all([first, same, second, nickel, otherDay, selected, otherSource]);
+  assert.equal(values[0]!.total, 1005);
+  assert.deepEqual(values[0]!.items, values[1]!.items);
+  assert.ok(values[2]!.items.every((item) => !values[0]!.items.some((first) => first.id === item.id)));
+  for (const empty of values.slice(3)) assert.equal(empty.total, 0);
+  const removed = values[0]!.items[0]!.id;
+  await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id=${removed}`;
+  const fresh = await loadPool(query);
+  assert.equal(fresh.total, 1004);
+  assert.ok(!fresh.items.some((item) => item.id === removed));
+  // Occupy all search workers. Duplicate readers must use one waiting slot, not exhaust the queue.
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const holders = Array.from({ length: Number(process.env.SEARCH_MAX_CONCURRENCY || 4) }, () => withSearchCapacity(async () => hold));
+  const readers = Array.from({ length: Number(process.env.SEARCH_MAX_QUEUE || 8) + 2 }, () => loadPool(query));
+  const joined = Promise.all(readers);
+  release();
+  await Promise.all(holders);
+  const results = await joined;
+  assert.ok(results.every((result) => result.total === fresh.total));
 });

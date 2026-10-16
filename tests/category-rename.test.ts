@@ -11,12 +11,11 @@ import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { setVisibility } from "@amp/backend/admin/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { loadPool } from "@amp/backend/publication/pool";
 import { publishArticle } from "@amp/backend/publication/publish";
 
-const sql = dbOf("publication");
 const T = tag();
 const SOURCE = `test-category-rename-${T}`;
 const BODY = "合成的矿业稿件正文，用于检验两个分类改名以后，已收录稿件的标签在网站上显示新名字，内容足够长。".repeat(3);

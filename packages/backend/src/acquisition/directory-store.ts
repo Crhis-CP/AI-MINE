@@ -1,6 +1,6 @@
 import { assertRuntimeControl } from "../operations/lane-controls.ts";
 import { randomUUID } from "node:crypto";
-import { dbOf, type Tx } from "../db.ts";
+import { sql, type Tx } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "@amp/backend/lib/url";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies, lockPolicySourceConfiguration } from "@amp/backend/admin/sources";
@@ -10,7 +10,7 @@ import { CrawlDeferred } from "./crawl.ts";
 import type { SourceRow, Candidate } from "../sources/types.ts";
 import type { DirectoryProfile } from "../sources/directory-profile.ts";
 import type { DirectoryPage, DirectoryEntry, DirectoryFailureEvidence } from "../sources/directory-page.ts";
-const sql = dbOf("acquisition");
+
 export type DirectoryScan = {
   id: string;
   source_id: string;

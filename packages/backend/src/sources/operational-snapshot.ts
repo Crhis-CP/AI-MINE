@@ -1,5 +1,5 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("sources");
+import { sql } from "../db.ts";
+
 export const sourcesOperationalSnapshot = () =>
   sql.begin(async (db) => {
     await db`SET LOCAL statement_timeout='2s'`;

@@ -2,7 +2,7 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { createServer } from "node:http";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import {
   saveSourcePolicy,
   readSourceDateContext,
@@ -21,7 +21,6 @@ import { stopBoss, ensureQueue } from "@amp/backend/jobs/queue";
 import { fetchDetail } from "@amp/backend/sources/web-list";
 import { fetchRss } from "@amp/backend/sources/rss";
 
-const sql = dbOf("content");
 after(async () => {
   await stopBoss();
   await closeDb();
@@ -227,7 +226,7 @@ test("real material transaction adds date-only evidence without changing the bod
   assert.deepEqual([dated.created, dated.revised, dated.revision, dated.sourceDateVersion, dated.sourceTimeChanged], [false, false, 1, 2, true]);
   const [stored] = await sql`SELECT a.published_at, a.source_date_state, o.result FROM articles a
     JOIN content.source_date_observations o ON o.id=a.source_date_observation_id WHERE a.id=${first.articleId}`;
-  assert.equal(stored!.published_at, null);
+  assert.equal(stored!.published_at.toISOString(), "2026-09-30T16:00:00.000Z", "private day anchor preserves the source calendar date");
   assert.equal(stored!.source_date_state, "reliable");
   assert.deepEqual(
     [stored!.result.evidence.time.raw, stored!.result.evidence.time.local_date, stored!.result.evidence.time.utc],

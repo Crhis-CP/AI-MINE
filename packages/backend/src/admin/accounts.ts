@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { dbOf, type Db } from "../db.ts";
+import { identitySql as sql, type Db } from "../db.ts";
 import { config } from "../config.ts";
 import {
   AccountCreateRequest,
@@ -16,7 +16,7 @@ import { requireOwner, readAccountAccess, lockAccountAccess, AccountPermissionDe
 import { audit, createAccountSession, LoginRejected, safeReturn, type AdminPrincipal } from "./auth.ts";
 import { accountCommand } from "./account-commands.ts";
 import { accountNotice } from "./account-notices.ts";
-const sql = dbOf("identity");
+
 const INVALID = "账号或密码不正确，请检查后重试。";
 export class AccountInputError extends Error {
   readonly statusCode = 400;

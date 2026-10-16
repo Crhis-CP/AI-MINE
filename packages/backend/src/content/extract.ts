@@ -4,7 +4,7 @@ import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapsho
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import {
   crawlFetch as guardedFetch,
   crawlStep,
@@ -20,8 +20,6 @@ import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
 import { contentHash, readCurrentBody } from "./materials.ts";
-
-const sql = dbOf("content");
 
 export interface ExtractedBody {
   html: string;
@@ -130,10 +128,14 @@ export function pageFetchable(url: string, sourceKind: string): boolean {
 }
 
 /** Fetches and stores the body of one article. Unconfirmed bodies are recorded as such. */
-async function extractArticleBody(articleId: string, allowJina = process.env.JINA_BODY_FALLBACK !== "false"): Promise<"ok" | "unconfirmed" | "skipped"> {
+async function extractArticleBody(
+  articleId: string,
+  allowJina = process.env.JINA_BODY_FALLBACK !== "false",
+  expectedRevision?: number,
+): Promise<"ok" | "unconfirmed" | "skipped"> {
   const [a] = await sql<{ id: string; source_id: string; url: string; body_status: string; revision: number }[]>`
     SELECT id, source_id, url, body_status, revision FROM articles WHERE id = ${articleId}`;
-  if (!a || a.body_status === "ok") return "skipped";
+  if (!a || a.body_status === "ok" || (expectedRevision !== undefined && a.revision !== expectedRevision)) return "skipped";
   const source = await readSourceDateContext(a.source_id);
   if (!source) return "skipped";
   const control = await requireRuntimeRunning(source.lane, ["collection"]);
@@ -154,33 +156,38 @@ async function extractArticleBody(articleId: string, allowJina = process.env.JIN
   }
   const body = z.object({ html: z.string(), text: z.string() }).parse(got);
   // The body is new content: a new revision, so an analysis of the body-less input counts as stale.
-  await sql.begin(async (tx) => {
+  const stored = await sql.begin(async (tx) => {
     await assertRuntimeControl(tx, control);
     const [row] = await tx<
       { title: string; excerpt: string | null }[]
     >`SELECT title, excerpt FROM articles WHERE id = ${articleId} AND revision=${a.revision} FOR UPDATE`;
-    if (!row) return;
+    if (!row) return false;
     const hash = contentHash({ title: row.title, bodyText: got.text, excerpt: row.excerpt });
     const [r] = await tx<{ revision: number }[]>`
       UPDATE articles SET body_html = ${body.html}, body_text = ${body.text}, body_status = 'ok',
         media = CASE WHEN jsonb_array_length(media) = 0 THEN ${tx.json(got.images as never)}::jsonb ELSE media END,
-        revision = revision + 1, content_hash = ${hash}, processing_state = 'new', updated_at = now()
+        grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
+      selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
+      revision = revision + 1, content_hash = ${hash}, processing_state = 'new', processing_attempts=0, processing_error=NULL, processing_retry_at=NULL, processing_queued_at=NULL, updated_at = now()
       WHERE id = ${articleId} RETURNING revision`;
     await tx`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
              VALUES (${articleId}, ${r!.revision}, ${hash}, ${row.title}, ${body.text})`;
+    return true;
   });
-  return "ok";
+  return stored ? "ok" : "skipped";
 }
 
 export { collapseWhitespace };
 
-async function pacedExtractArticleBody(articleId: string, allowJina?: boolean, expectedSessionId?: string) {
+async function pacedExtractArticleBody(articleId: string, allowJina?: boolean, expectedSessionId?: string, expectedRevision?: number) {
   const material = await readCurrentBody(articleId),
     source = material ? await readSourceDateContext(material.source_id) : null;
-  if (!source) return "skipped" as const;
+  if (!source || (expectedRevision !== undefined && material?.revision !== expectedRevision)) return "skipped" as const;
   if (!source.enabled || !sourceCollectionEnabled(source.lane))
     throw new CrawlDeferred(new Date(Date.now() + 60_000), `body:${articleId}`, "collection_paused");
-  return withSourceCrawl(source, `body:${articleId}:${material!.revision}`, () => extractArticleBody(articleId, allowJina), { expectedSessionId });
+  return withSourceCrawl(source, `body:${articleId}:${material!.revision}`, () => extractArticleBody(articleId, allowJina, material!.revision), {
+    expectedSessionId,
+  });
 }
 export { pacedExtractArticleBody as extractArticleBody };
 

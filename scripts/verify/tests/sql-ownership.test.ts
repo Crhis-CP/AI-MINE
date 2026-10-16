@@ -217,3 +217,21 @@ test("ALL is a comparison quantifier, not an approved same-name function", () =>
   assert.ok(sqlOwnership("SELECT 1 <> ALL(custom_mutator())").unknown.includes("opaque SQL function custom_mutator"));
   assert.ok(sqlOwnership("SELECT 1 <> ALL(§0§)", [{ kind: "sql" }]).unknown.includes("unexpanded SQL fragment"));
 });
+
+test("explicit catalogue JSON recordsets are data relations while nested SQL and shadowed functions remain checked", () => {
+  const query =
+    "UPDATE story_signals ss SET kind=p.kind FROM pg_catalog.jsonb_to_recordset(§0§) AS p(article_id text,kind text) WHERE ss.article_id=p.article_id";
+  assert.deepEqual(sqlOwnership(query, [{ kind: "value" }]).unknown, []);
+  assert.deepEqual(relations(query), ["write:public.story_signals"]);
+  for (const name of [
+    "jsonb_to_recordset",
+    "public.jsonb_to_recordset",
+    'pg_catalog."jsonb_to_recordset"',
+    '"pg_catalog".jsonb_to_recordset',
+    "other.pg_catalog.jsonb_to_recordset",
+  ])
+    assert.ok(sqlOwnership(query.replace("pg_catalog.jsonb_to_recordset", name), [{ kind: "value" }]).unknown.length, name);
+  const nested = "SELECT * FROM pg_catalog.jsonb_to_recordset((SELECT request FROM receipts)) AS p(id text)";
+  assert.deepEqual(relations(nested), ["read:public.receipts"]);
+  assert.ok(sqlOwnership("SELECT * FROM pg_catalog.jsonb_to_recordset(custom_mutator()) AS p(id text)").unknown.includes("opaque SQL function custom_mutator"));
+});

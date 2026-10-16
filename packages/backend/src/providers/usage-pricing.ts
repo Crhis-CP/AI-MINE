@@ -1,8 +1,8 @@
 import { beijingDate } from "@amp/contracts/time";
 import { UsagePrice } from "@amp/contracts/http/private";
 import type { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("ai-gateway");
+import { sql, type Db } from "../db.ts";
+
 import { sha256, stableJson } from "../lib/ids.ts";
 export const MICRO = 1000000n;
 export const ratioMicros = (value: string) => BigInt(value.split(".")[0]!) * MICRO + BigInt((value.split(".")[1] ?? "").padEnd(6, "0"));
@@ -30,7 +30,7 @@ export const ceilDivide = (a: bigint, b: bigint) => (a + b - 1n) / b;
 export type UsageBounds = { input_tokens: number; output_tokens: number; images?: number };
 export type Price = z.infer<typeof UsagePrice>;
 export const usagePriceId = (service: string, model: string, configurationHash: string | null) => sha256(stableJson([service, model, configurationHash]));
-export type UsageQuote = { price_id: string; price_version: number; price: Price; reserved_micros: string; bounds: UsageBounds | null };
+export type UsageQuote = { price_id: string | null; price_version: number; price: Price | null; reserved_micros: string; bounds: UsageBounds | null };
 export async function priceQuote(
   db: Db = sql,
   input: {
@@ -87,6 +87,7 @@ export function settleQuotedCost(
     return exact === null ? null : { micros: exact, basis: "actual" as const };
   }
   const p = quote.price;
+  if (!p) return null;
   let amount = p.per_request_micros === null ? 0n : BigInt(p.per_request_micros);
   if (quote.bounds || (p.input_per_million_micros !== null && p.output_per_million_micros !== null)) {
     const input = usage?.prompt_tokens ?? usage?.input_tokens ?? usage?.tokens ?? usage?.total_tokens,

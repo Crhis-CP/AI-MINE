@@ -4,13 +4,11 @@
 // back-filled. FEISHU_CONTENT_PUSH_ENABLED is the safety valve: off, deliveries are recorded as
 // skipped and nothing leaves the process.
 import { config, credential } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { postWebhook } from "./feishu.ts";
 
 // For scripts/feishu-check.ts: the backend's entry points are frozen, so the check reaches Feishu through this one.
 export { feishuInternalEnabled, feishuSettingsSummary, listBotChats, sendAlert } from "./feishu.ts";
-
-const sql = dbOf("ops");
 
 export interface DeliveryRequest {
   subjectKind: "selected";

@@ -30,9 +30,23 @@ test("init-env creates an independent public secret only in fresh temporary dire
     assert.ok(typeof key === "string" && /^[0-9a-f]{64}$/.test(key), "PUBLIC_RATE_LIMIT_SECRET must contain 32 random bytes");
     assert.ok(key !== env.SESSION_SECRET && key !== env.IMG_PROXY_SIGN_SECRET, "public and private secrets must be independent");
     assert.ok(!first.stdout.includes(key) && !first.stderr.includes(key), "the public key must not be logged");
+    const vault = env.MODEL_REGISTRY_ENCRYPTION_KEY;
+    assert.ok(
+      typeof vault === "string" && /^[A-Za-z0-9+/]{43}=$/.test(vault) && Buffer.from(vault, "base64").length === 32,
+      "model storage receives a separate 32-byte key",
+    );
+    assert.ok(!Buffer.from(vault, "base64").equals(Buffer.from(key, "hex")), "model and public secrets are independent");
+    assert.ok(!first.stdout.includes(vault) && !first.stderr.includes(vault), "the model key must not be logged");
     assert.equal(statSync(target).mode & 0o777, 0o600);
     const template = parseEnv(readFileSync(path.join(dir, ".env.example"), "utf8"));
-    const generatedKeys = new Set(["ADMIN_PASSWORD", "SESSION_SECRET", "IMG_PROXY_SIGN_SECRET", "POSTGRES_PASSWORD", "PUBLIC_RATE_LIMIT_SECRET"]);
+    const generatedKeys = new Set([
+      "ADMIN_PASSWORD",
+      "SESSION_SECRET",
+      "IMG_PROXY_SIGN_SECRET",
+      "POSTGRES_PASSWORD",
+      "PUBLIC_RATE_LIMIT_SECRET",
+      "MODEL_REGISTRY_ENCRYPTION_KEY",
+    ]);
     for (const [name, value] of Object.entries(template)) if (!generatedKeys.has(name)) assert.equal(env[name], value, name);
     keys.push(key);
     const second = run();

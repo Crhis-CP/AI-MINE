@@ -1,5 +1,5 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("content");
+import { sql } from "../db.ts";
+
 export async function sourceTargetMaterialEvidence(ids: string[]) {
   if (!ids.length) return [];
   return sql.begin(async (db) => {

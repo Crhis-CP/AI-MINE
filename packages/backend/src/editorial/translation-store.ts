@@ -1,6 +1,6 @@
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { commitBodyResult, type CurrentBody } from "../content/materials.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -8,6 +8,7 @@ import { canReplaceTranslationResponse, settleTranslationResponse, type Translat
 import type { ChatJsonResult } from "../providers/llm.ts";
 import {
   assembleTranslation,
+  assemblePartialTranslation,
   restoreTranslationText,
   translationSourceManifest,
   translationLeaves,
@@ -17,7 +18,6 @@ import {
   type TranslationCheckpoint,
 } from "./translation-readiness.ts";
 
-const sql = dbOf("enrichment");
 export interface TranslationSession {
   runtimeControl?: RuntimeControlSnapshot;
   body: CurrentBody & { body_html: string };
@@ -79,7 +79,7 @@ export async function beginTranslation(body: CurrentBody, recipe: string): Promi
     recipe,
     source: translationSourceManifest(body.body_html),
   };
-  if (!session.source.segments.length || session.source.capacity.length) return null;
+  if (!session.source.segments.length) return null;
   const claimed = await commitBodyResult(body, async (tx) => {
     await assertRuntimeControl(tx, runtimeControl);
     const [current] = await tx`SELECT revision,recipe,source_hash,origin FROM translations WHERE article_id=${body.id} AND lang='zh' FOR UPDATE`;
@@ -210,20 +210,18 @@ export async function finishTranslation(run: TranslationSession): Promise<boolea
       const leaves = translationLeaves(run.source, replacements);
       if (!leaves) return false;
       const ordered = leaves.map((part) => checkpoints.find((checkpoint) => checkpoint.index === part.index));
-      if (ordered.some((part) => !part)) return false;
-      const assembled = assembleTranslation(
-        run.body.body_html,
-        { revision: run.body.revision, recipe: run.recipe },
-        ordered as TranslationCheckpoint[],
-        replacements,
-      );
+      const complete =
+        ordered.every((part) => !!part) &&
+        assembleTranslation(run.body.body_html, { revision: run.body.revision, recipe: run.recipe }, ordered as TranslationCheckpoint[], replacements);
+      const assembled =
+        complete || assemblePartialTranslation(run.body.body_html, { revision: run.body.revision, recipe: run.recipe }, checkpoints, replacements);
       if (!assembled) return false;
       const html = sanitizeBody(assembled.html),
         tree = cheerio.load(html, null, false);
       if (tree.html() !== assembled.html) return false; // Sanitisation must not silently remove source structure.
-      await tx`UPDATE translations SET body_html=${html},body_text=${tree.root().text().trim()},complete=true,
+      await tx`UPDATE translations SET body_html=${html},body_text=${tree.root().text().trim()},complete=${!!complete},
       manifest=${tx.json(assembled.manifest)},created_at=now() WHERE article_id=${run.body.id} AND lang='zh'`;
-      return true;
+      return !!complete;
     })) ?? false
   );
 }

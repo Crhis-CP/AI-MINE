@@ -1,12 +1,12 @@
 // Stage `tasks` (docs/06-agents/01-parallel-development-rules.md §6.3; tasks/_template.md): every task card
 // has the required fields, in the allowed shapes, and points at things that exist (its lane in lanes.yaml,
 // its work package in the roadmap, its spec IDs in docs/). tasks/INDEX.md is generated from the cards on
-// main by the integrator after a merge, never edited by hand and never part of a feature PR:
+// the integration branch and included with task changes; never edited by hand:
 //   node scripts/verify/tasks.ts --write-index
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
-import { tryGit, ROOT } from "./lib.ts";
+import { ROOT } from "./lib.ts";
 import { parseCard } from "./path-guard.ts";
 
 const STATUSES = ["specified", "implemented", "locally_verified", "integrated", "live_verified", "quality_accepted"];
@@ -16,6 +16,7 @@ const SPEC_ID =
   /(?<![A-Za-z0-9_\-旧])(?:F-[A-Z]{2,4}-\d{2}|PG-\d{2}|OP-\d{2}|OUT-\d{2}|DR-\d{2,3}|BR-[A-Z]{2,4}-\d{2}|AI-\d{2}|ENT-\d{2}|INV-\d{2}|PIT-\d{3}|AC-[A-Z0-9]{2,4}-\d{2}|Q-\d{2}|DEC-\d{2}|ADR-\d{4})(?![A-Za-z0-9])/g;
 
 export interface Known {
+  root?: string;
   lanes: Set<string>;
   wbs: Set<string>;
   specs: Set<string>;
@@ -37,7 +38,7 @@ export function known(root = ROOT): Known {
   const roadmap = readFileSync(path.join(root, "docs/06-agents/02-roadmap-and-wbs.md"), "utf8");
   const specs = new Set<string>();
   for (const f of markdownUnder(path.join(root, "docs"))) for (const m of readFileSync(f, "utf8").matchAll(SPEC_ID)) specs.add(m[0]);
-  return { lanes: new Set(Object.keys(lanes)), wbs: new Set(roadmap.match(/\bT-\d{4}\b/g) ?? []), specs };
+  return { root, lanes: new Set(Object.keys(lanes)), wbs: new Set(roadmap.match(/\bT-\d{4}\b/g) ?? []), specs };
 }
 
 const isStringList = (v: unknown, min = 1) => Array.isArray(v) && v.length >= min && v.every((x) => typeof x === "string" && x.trim() !== "");
@@ -82,6 +83,25 @@ export function checkCard(file: string, text: string, k: Known): string[] {
   ]) {
     if (c[key] !== undefined && !Array.isArray(c[key])) bad(`${key} must be a list`);
   }
+  if (["live_verified", "quality_accepted"].includes(String(c.status))) {
+    if (!isStringList(c.evidence)) bad("live or accepted status requires evidence references");
+    else
+      for (const ref of c.evidence as string[]) {
+        if (ref.startsWith("https://")) {
+          try {
+            const url = new URL(ref);
+            if (!url.hostname || url.username || url.password) throw new Error("invalid evidence URL");
+          } catch {
+            bad(`invalid evidence URL: ${ref}`);
+          }
+        } else {
+          const root = path.resolve(k.root ?? ROOT);
+          const file = path.resolve(root, ref.split("#")[0]);
+          if (!file.startsWith(`${root}${path.sep}`) || !existsSync(file) || !statSync(file).isFile())
+            bad(`evidence must reference a repository file or HTTPS URL: ${ref}`);
+        }
+      }
+  }
   return p;
 }
 
@@ -96,6 +116,9 @@ export function checkTasks(root = ROOT): { cards: number; problems: string[] } {
   const k = known(root);
   const files = cardFiles(root);
   const problems = files.flatMap((f) => checkCard(f, readFileSync(path.join(root, "tasks", f), "utf8"), k));
+  const index = path.join(root, "tasks/INDEX.md");
+  if (!existsSync(index) || readFileSync(index, "utf8") !== renderIndex(root))
+    problems.push("tasks/INDEX.md is stale; run node scripts/verify/tasks.ts --write-index");
   return { cards: files.length, problems };
 }
 
@@ -103,21 +126,20 @@ export function checkTasks(root = ROOT): { cards: number; problems: string[] } {
 export function renderIndex(root = ROOT): string {
   const rows = cardFiles(root).map((f) => {
     const c = parseCard(readFileSync(path.join(root, "tasks", f), "utf8"));
-    const last = tryGit(["log", "-1", "--format=%h", "--", `tasks/${f}`], root) || "—";
     const deps = Array.isArray(c.depends_on) && c.depends_on.length ? c.depends_on.join("、") : "—";
     return {
       lane: String(c.lane),
-      line: `| [${c.id}](${f}) | ${c.wbs} | ${c.milestone} | ${c.lane} | ${c.status ?? "specified"} | ${c.title} | ${deps} | ${last} |`,
+      line: `| [${c.id}](${f}) | ${c.wbs} | ${c.milestone} | ${c.lane} | ${c.status ?? "specified"} | ${c.title} | ${deps} |`,
     };
   });
   rows.sort((a, b) => a.lane.localeCompare(b.lane) || a.line.localeCompare(b.line));
   return [
     "# 任务卡索引",
     "",
-    "> 生成文件，不要手改：`node scripts/verify/tasks.ts --write-index`（集成人在合并后的 main 上生成并提交；规则文件第 6.3 节）。",
+    "> 生成文件，不要手改：`node scripts/verify/tasks.ts --write-index`（随任务卡在整合分支生成并提交；规则文件第 6.3 节）。",
     "",
-    "| 卡 | 任务包 | 关 | 泳道 | 状态 | 标题 | 依赖 | 最后更新 |",
-    "|---|---|---|---|---|---|---|---|",
+    "| 卡 | 任务包 | 关 | 泳道 | 状态 | 标题 | 依赖 |",
+    "|---|---|---|---|---|---|---|",
     ...rows.map((r) => r.line),
     "",
   ].join("\n");

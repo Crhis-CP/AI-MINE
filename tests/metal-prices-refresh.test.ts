@@ -1,3 +1,5 @@
+import { installModules, scheduledTasks } from "@amp/backend/modules";
+import { SERVER_MODULES } from "../site/modules/server.ts";
 // Metal prices, refresh and store (TASK-0069): the bureau's pages come from the cropped fixtures by address (no network,
 // no model, a fixed clock) into a temporary database. A period is stored as published or held back whole on the fetcher's
 // reasons or the check's, a held new period keeps later ones waiting, a failing source fails alone, and the return value
@@ -6,18 +8,17 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { refreshMetalPrices } from "@amp/backend/jobs/publication";
 import { SCHEDULES } from "../apps/worker/src/schedules.ts";
-import { NBS_LIST_URL, nbsFetcher } from "../packages/backend/src/publication/metal-prices/nbs.ts";
-import type { MetalPricePeriodRun } from "../packages/backend/src/publication/metal-prices/refresh.ts";
-import { parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
-import { storePeriod } from "../packages/backend/src/publication/metal-prices/store.ts";
-import type { PageGetter } from "../packages/backend/src/publication/metal-prices/types.ts";
-import type { MetalPriceSourceKey } from "../packages/backend/src/publication/metal-prices/registry.ts";
-import type { FetchContext, FetchedPeriod } from "../packages/backend/src/publication/metal-prices/types.ts";
+import { NBS_LIST_URL, nbsFetcher } from "../modules/metals/backend/nbs.ts";
+import type { MetalPricePeriodRun } from "../modules/metals/backend/refresh.ts";
+import { parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
+import { storePeriod } from "../modules/metals/backend/store.ts";
+import type { PageGetter } from "../modules/metals/backend/types.ts";
+import type { MetalPriceSourceKey } from "../modules/metals/backend/registry.ts";
+import type { FetchContext, FetchedPeriod } from "../modules/metals/backend/types.ts";
 
-const sql = dbOf("publication");
 after(() => closeDb());
 beforeEach(async () => {
   await sql`TRUNCATE publication.metal_prices`;
@@ -227,9 +228,10 @@ test("two runs at the same moment: the second adds no rows and changes no values
   const once = await table();
   assert.deepEqual(await run(), record(true, [period(SEP2, { touched: 11 })]));
   assert.deepEqual(await table(), once);
-  // Three times a day after the bureau's 09:30 release, a missed slot run once; with the collectors (no lane).
-  const schedule = SCHEDULES.find((candidate) => candidate.name === "metals.prices");
-  assert.deepEqual([schedule?.cron, schedule?.missed], ["45 9,15,21 * * *", "once"]);
+  // Poll official sources every half hour, recovering one missed slot without duplicate rows.
+  installModules(SERVER_MODULES);
+  const schedule = scheduledTasks(SCHEDULES).find((candidate) => candidate.name === "metals.prices");
+  assert.deepEqual([schedule?.cron, schedule?.missed], ["*/30 * * * *", "once"]);
 });
 
 test("with collection off the price schedule is not registered, like source collection", async () => {
@@ -238,7 +240,7 @@ test("with collection off the price schedule is not registered, like source coll
   try {
     const { SCHEDULES: off } = await import(`../apps/worker/src/schedules.ts?${"collect-off"}`);
     assert.deepEqual(
-      ["sources.schedule", "metals.prices"].map((name) => off.some((s: { name: string }) => s.name === name)),
+      ["sources.schedule", "metals.prices"].map((name) => scheduledTasks(off).some((s: { name: string }) => s.name === name)),
       [false, false],
     );
   } finally {

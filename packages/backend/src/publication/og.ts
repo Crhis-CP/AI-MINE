@@ -1,10 +1,8 @@
 // Share images only need public title/summary metadata. Keep the same page visibility rule without
 // loading bodies, translations, related stories or signed media that never appear on these cards.
 import { toPublicApiCategory, type CategoryKey } from "@amp/contracts/taxonomy";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { hasItemPage } from "./rules.ts";
-
-const sql = dbOf("publication");
 
 export async function loadItemShare(id: string) {
   const [row] = await sql<

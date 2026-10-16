@@ -37,7 +37,7 @@ const RANK_COLOR = ["text-rank-1", "text-rank-2", "text-rank-3"];
 const rankColor = (rank: number) => RANK_COLOR[rank - 1] ?? "text-rank-rest";
 const pad = (rank: number) => String(rank).padStart(2, "0");
 
-/** "TechCrunch、The Verge 等 4 个来源 · 7 位参与者". */
+/** "两家来源名称等 4 个来源 · 7 个独立参与方". */
 function Voices({ e }: { e: HotEntryView }) {
   const names = e.sourceNames.slice(0, 2).map(shortSourceName);
   return (
@@ -49,7 +49,7 @@ function Voices({ e }: { e: HotEntryView }) {
       </span>
       <span className="mx-1.5 text-line-strong">·</span>
       <span className="whitespace-nowrap">
-        <span className="num">{e.participantCount}</span> 位参与者
+        <span className="num">{e.participantCount}</span> 个独立参与方
       </span>
     </span>
   );
@@ -164,7 +164,7 @@ function Runner({ e }: { e: HotEntryView }) {
             </span>{" "}
             ·{" "}
             <span className="whitespace-nowrap">
-              <span className="num">{e.participantCount}</span> 位参与者
+              <span className="num">{e.participantCount}</span> 个独立参与方
             </span>
           </span>
         </div>

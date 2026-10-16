@@ -1,3 +1,4 @@
+import { participationHash } from "../packages/backend/src/events/participation-read.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { TestContext } from "node:test";
@@ -24,6 +25,13 @@ export async function publicRoleFixture(t: TestContext) {
     `${TRANSLATION_MANIFEST_FORMAT}:${TRANSLATE_PROMPT_VERSION}`,
   );
   await f.admin.begin(async (tx) => tx.unsafe(data));
+  await f.admin`UPDATE story_signals ss SET qualified_at=now(),qualified_fact_id=p.fact_id,material_revision=a.revision,source_date_version=a.source_date_version,
+    publication_revision=CASE WHEN ss.kind='editorial' THEN p.revision ELSE NULL END,source_since=now()-interval '2 years'
+    FROM publications p JOIN articles a ON a.id=p.article_id WHERE ss.article_id=p.article_id`;
+  const proof = await f.admin<
+    { article_id: string; participant_key: string; kind: "editorial" | "signal"; observed_at: Date }[]
+  >`SELECT article_id,participant_key,kind,observed_at FROM story_signals WHERE story_id=9101`;
+  await f.admin`UPDATE hot_rankings SET entries=jsonb_set(entries,'{0,evidenceHash}',to_jsonb(${participationHash(proof)}::text))`;
   const reports = await f.admin`SELECT kind,key FROM reports ORDER BY kind,key DESC`;
   const keys = Object.fromEntries(["daily", "weekly", "monthly"].map((kind) => [kind, reports.filter((r) => r.kind === kind).map((r) => r.key as string)]));
   return { ...f, keys };
@@ -38,7 +46,7 @@ export async function publicServer(t: TestContext, f: PublicFixture) {
     const {initializeDb,closeDb}=await import('@amp/backend/db');
     const {buildApp}=await import('./apps/api/src/app.ts');
     const {normalizeRouteTree}=await import('./scripts/baseline/routes.ts');
-    await initializeDb('public-api');const app=await buildApp('public-api');
+    const {installModules}=await import('@amp/backend/modules');const {SERVER_MODULES}=await import('./site/modules/server.ts');installModules(SERVER_MODULES);await initializeDb('public-api');const app=await buildApp('public-api');
     await app.listen({host:'127.0.0.1',port:Number(process.env.API_PORT)});
     const routes=normalizeRouteTree(app.printRoutes({commonPrefix:false}),{'':'/api/public/*','/api/v1':'/api/v1/*'}).filter(x=>x.startsWith('GET '));
     console.log('PR9_ROUTES='+JSON.stringify(routes));console.log('PR9_READY');

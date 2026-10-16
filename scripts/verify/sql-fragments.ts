@@ -381,7 +381,16 @@ function proveSqlExpression(
       if (ts.isCallExpression(node)) {
         return invoke(node);
       }
-      if (!ts.isTaggedTemplateExpression(node) || !ts.isIdentifier(node.tag) || !fixed(resolve(node.tag)) || !nativeTag(node.tag)) return undefined;
+      if (!ts.isTaggedTemplateExpression(node) || !ts.isIdentifier(node.tag) || !nativeTag(node.tag)) return undefined;
+      const tagBinding = resolve(node.tag);
+      // The composition root owns these live driver exports. Other mutable SQL variables remain opaque.
+      const rootDriver =
+        tagBinding &&
+        ts.isVariableDeclaration(tagBinding) &&
+        ts.isIdentifier(tagBinding.name) &&
+        ["sql", "identitySql", "feedbackSql"].includes(tagBinding.name.text) &&
+        tagBinding.getSourceFile().fileName.endsWith("/packages/backend/src/db-connections.ts");
+      if (!fixed(tagBinding) && !rootDriver) return undefined;
       let texts = [ts.isNoSubstitutionTemplateLiteral(node.template) ? node.template.text : node.template.head.text];
       if (ts.isTemplateExpression(node.template))
         for (const span of node.template.templateSpans) {

@@ -221,17 +221,6 @@ test("database drivers stay in stores or config/queue, model SDKs stay in the ga
   assert.ok(problems.some((p) => p.includes("policy/src/index.ts: imports the model SDK")));
 });
 
-test("fetcher can use only acquisition's fetch-runtime entry", () => {
-  const common = {
-    "packages/domains/acquisition/package.json": pkg("@amp/acquisition", [], { ".": "./src/index.ts", "./fetch-runtime": "./src/fetch-runtime.ts" }),
-    "apps/fetcher/package.json": pkg("@amp/fetcher", ["@amp/acquisition"]),
-  };
-  const good = workspace({ ...common, "apps/fetcher/src/main.ts": 'import "@amp/acquisition/fetch-runtime";' });
-  assert.deepEqual(checkBoundaries(good.dir, good.files), []);
-  const bad = workspace({ ...common, "apps/fetcher/src/main.ts": 'import "@amp/acquisition";' });
-  assert.ok(checkBoundaries(bad.dir, bad.files).some((p) => p.includes("fetcher may only import")));
-});
-
 test("fetch-runtime cannot reach a store directly or through a helper and workspace re-export", () => {
   const common = {
     "packages/domains/acquisition/package.json": pkg("@amp/acquisition", ["@amp/content"], { "./fetch-runtime": "./src/fetch-runtime.ts" }),
@@ -278,4 +267,67 @@ test("shared UI uses explicit entries and cannot depend back on web or private c
     const bad = workspace({ "packages/ui/package.json": pkg("@amp/ui", [dependency]) });
     assert.ok(checkBoundaries(bad.dir, bad.files).includes(`packages/ui/package.json: @amp/ui may not depend on ${dependency}`));
   }
+});
+
+test("the site configuration workspace is explicit and stays free of backend handlers", () => {
+  const fixture = workspace({
+    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - site\n",
+    "site/package.json": pkg("@amp/site", [], { ".": "./site.ts", "./models": "./models.ts" }),
+    "site/site.ts": "export const SITE = {};",
+    "site/models.ts": "export const DEFAULTS = {};",
+    "industry/package.json": pkg("@amp/industry", ["@amp/site"], { "./site": "./site.ts" }),
+    "industry/site.ts": 'export * from "@amp/site";',
+  });
+  assert.deepEqual(checkBoundaries(fixture.dir, fixture.files), []);
+  write(fixture.dir, { "site/package.json": pkg("@amp/site", ["@amp/backend"], { ".": "./site.ts" }) });
+  assert.ok(checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("@amp/site may not depend on @amp/backend")));
+});
+
+test("the named extension registry can be introduced without reopening arbitrary backend exports", () => {
+  const fixture = workspace({
+    "packages/backend/package.json": pkg("@amp/backend", [], { "./db": "./src/db.ts", "./modules": "./src/modules.ts", "./http": "./src/http.ts" }),
+    "scripts/verify/backend-exports.json": JSON.stringify({ "./db": "./src/db.ts", "./modules": "./src/modules.ts", "./http": "./src/http.ts" }),
+    "packages/backend/src/modules.ts": "export interface ServerModule {name:string}",
+  });
+  assert.deepEqual(checkBoundaries(fixture.dir, fixture.files, { snapshot: { "./db": "./src/db.ts" }, exports: { "./db": "./src/db.ts" } }), []);
+});
+
+test("a site helper cannot carry backend code into a reader import closure", () => {
+  const fixture = workspace({
+    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - site\n  - modules/*\n",
+    "site/package.json": pkg("@amp/site", ["@amp/metals"], { ".": "./site.ts", "./modules/server": "./modules/server.ts" }),
+    "site/site.ts": "export const SITE={};",
+    "site/modules/server.ts": 'export { run } from "@amp/metals/server";',
+    "modules/metals/package.json": pkg("@amp/metals", ["@amp/backend"], { "./server": "./server.ts" }),
+    "modules/metals/server.ts": 'export { dbOf as run } from "@amp/backend/db";',
+    "apps/web/package.json": pkg("@amp/web", ["@amp/site"]),
+    "apps/web/app/unsafe.ts": 'import "@amp/site/modules/server";',
+  });
+  assert.ok(
+    checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("web import closure reaches server-only dependency @amp/backend/db")),
+  );
+});
+
+test("module route files are reader roots even when route registration uses only a filename", () => {
+  const base = {
+    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - modules/*\n",
+    "modules/metals/package.json": pkg("@amp/metals", ["@amp/backend", "@amp/contracts"]),
+    "modules/metals/module.ts": 'export default {name:"metals",pages:[{path:"metals",file:"web/prices.tsx"}]};',
+  };
+  for (const entry of ["web/prices.tsx", "web.ts"]) {
+    const fixture = workspace({
+      ...base,
+      [`modules/metals/${entry}`]: 'import { read } from "../backend/read.ts";',
+      "modules/metals/backend/read.ts": 'import { dbOf } from "@amp/backend/db"; export const read = dbOf;',
+      // The web.ts entry has a different relative path from files inside web/.
+      ...(entry === "web.ts" ? { "modules/metals/web.ts": 'import { read } from "./backend/read.ts";' } : {}),
+    });
+    assert.ok(
+      checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("web import closure reaches server-only dependency @amp/backend/db")),
+    );
+  }
+  const safe = workspace({ ...base, "modules/metals/web/prices.tsx": 'import type { ModulePage } from "@amp/contracts/modules";' });
+  // The synthetic contract package must export the entry as real workspaces do.
+  write(safe.dir, { "packages/contracts/package.json": pkg("@amp/contracts", [], { "./modules": "./src/modules.ts" }) });
+  assert.deepEqual(checkBoundaries(safe.dir, safe.files), []);
 });

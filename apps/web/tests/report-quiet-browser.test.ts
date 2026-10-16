@@ -11,7 +11,8 @@ import { webEnvironment } from "../runtime-env.ts";
 let browser: Browser,
   web: ChildProcess,
   origin = "";
-let pending = false;
+let pending = false,
+  rich = false;
 const key = "2026-10-13",
   title = "今日无大事发生";
 const report = {
@@ -35,6 +36,43 @@ const report = {
   next: null,
 };
 const index = [{ key, title, generatedAt: report.generatedAt, count: 0 }];
+const leadCitation = {
+  itemId: "synthetic-lead",
+  title: "合成矿山扩建获批",
+  summary: "合成材料用于检查同一事件的报告展示。",
+  sourceName: "合成官方来源",
+  sourceUrl: "https://example.invalid/original",
+  sourceId: "official",
+  firstParty: true,
+  role: "官方",
+  storyPublicId: null,
+  publishedAt: null,
+  available: true,
+  sources: 4,
+  followUp: "2026-10-12",
+  related: [
+    {
+      itemId: "synthetic-related",
+      title: "合成矿山启动施工",
+      sourceName: "合成报道来源",
+      sourceUrl: "https://example.invalid/related",
+      sourceId: "press",
+      storyPublicId: null,
+      available: true,
+    },
+    { itemId: "synthetic-withdrawn", title: "已撤回的报道", sourceName: "", sourceUrl: "", sourceId: null, storyPublicId: null, available: false },
+  ],
+};
+const richReport = {
+  ...report,
+  generationStatus: "ready",
+  lead: { title: leadCitation.title, leadParagraph: leadCitation.summary },
+  leadItemId: leadCitation.itemId,
+  sections: [{ label: "企业与项目", summary: null, items: [leadCitation] }],
+  stories: [{ ...leadCitation, label: "企业与项目" }],
+  metrics: { totalEvents: 1, sourcesCount: 4, firstPartyEvents: 1 },
+};
+
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
   res.setHeader("content-type", "application/json");
@@ -42,9 +80,9 @@ const api = createServer((req, res) => {
   const send = (value: unknown) => res.end(JSON.stringify(value));
   if (url.pathname === "/api/site/meta") return send({ changelogVersion: null });
   if (url.pathname === "/api/site/content-version") return send({ version: "1", withdrawalVersion: "1" });
-  if (url.pathname === "/api/site/reports/daily/latest-page") return send({ index: pending ? [] : index, report: pending ? null : report });
+  if (url.pathname === "/api/site/reports/daily/latest-page") return send({ index: pending ? [] : index, report: pending ? null : rich ? richReport : report });
   if (url.pathname === "/api/site/reports/daily" || url.pathname.includes("/navigation/")) return send({ items: index });
-  if (url.pathname === `/api/site/reports/daily/${key}`) return send(report);
+  if (url.pathname === `/api/site/reports/daily/${key}`) return send(rich ? richReport : report);
   res.statusCode = 404;
   send({ code: "not_found" });
 });
@@ -107,6 +145,9 @@ for (const width of [390, 1440])
     t.after(() => context.close());
     const blocked = await isolateBrowser(context, [origin]);
     const page = await context.newPage();
+    const navigationErrors: string[] = [];
+    page.on("pageerror", (error) => navigationErrors.push(error.message));
+    page.on("requestfailed", (request) => navigationErrors.push(`${request.url()}: ${request.failure()?.errorText}`));
     for (const path of ["/daily", `/daily/${key}`]) {
       const response = await page.goto(origin + path);
       assert.equal(response!.status(), 200);
@@ -121,14 +162,73 @@ for (const width of [390, 1440])
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     }
     if (process.env.QUIET_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.QUIET_SCREENSHOT_DIR}/daily-quiet-${width}.png`, fullPage: true });
-    await page.goto(origin + "/daily/archive");
+    let releaseVersion!: () => void;
+    let versionRequested!: () => void;
+    const versionGate = new Promise<void>((resolve) => {
+      releaseVersion = resolve;
+    });
+    const requested = new Promise<void>((resolve) => {
+      versionRequested = resolve;
+    });
+    await page.route(
+      `${origin}/api/site/content-version`,
+      async (route) => {
+        versionRequested();
+        await versionGate;
+        await route.continue();
+      },
+      { times: 1 },
+    );
     const issue = page.getByRole("link").filter({ hasText: title }).last();
-    await expect(issue).toHaveAttribute("href", `/daily/${key}`);
+    try {
+      await page.goto(origin + "/daily/archive");
+      await requested;
+      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "true");
+      await expect(issue).toHaveAttribute("href", `/daily/${key}`);
+      const originalLink = await issue.elementHandle();
+      const beforeCheck = await issue.boundingBox();
+      releaseVersion();
+      await expect(page.getByRole("region", { name: "阅读内容", exact: true })).toHaveAttribute("aria-busy", "false");
+      assert.equal(await originalLink!.evaluate((node) => node.isConnected), true, "initial freshness check must preserve the link a reader can already click");
+      assert.ok(Math.abs((await issue.boundingBox())!.y - beforeCheck!.y) < 1, "routine checks do not shift the clickable row");
+      await originalLink!.dispose();
+    } finally {
+      releaseVersion();
+    }
     await issue.click();
-    await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    try {
+      await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    } catch (error) {
+      t.diagnostic(JSON.stringify({ url: page.url(), navigationErrors, body: (await page.locator("main").innerText()).slice(0, 2000) }));
+      throw error;
+    }
     pending = true;
     await page.goto(origin + "/daily");
     await expect(page.getByText("第一期发布后会出现在这里。", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
     assert.deepEqual(blocked, []);
+  });
+
+for (const width of [390, 1440])
+  test(`rule report keeps one lead and independently readable related reports at ${width}px`, async () => {
+    pending = false;
+    rich = true;
+    const context = await browser.newContext({ viewport: { width, height: 1000 } });
+    const blocked = await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    try {
+      await page.goto(`${origin}/daily/${key}`);
+      await expect(page.getByRole("heading", { name: leadCitation.title, exact: true })).toHaveCount(1);
+      await expect(page.getByText("4 家来源报道", { exact: true })).toBeVisible();
+      await expect(page.getByRole("link", { name: "此前报道 · 2026-10-12" })).toHaveAttribute("href", "/daily/2026-10-12");
+      await page.getByText("相关进展与报道（2）", { exact: true }).click();
+      await expect(page.getByRole("link", { name: "合成矿山启动施工", exact: true })).toHaveAttribute("href", "/items/synthetic-related");
+      await expect(page.getByText("该报道暂不可读", { exact: true })).toBeVisible();
+      await expect(page.locator('a[href="/items/synthetic-withdrawn"]')).toHaveCount(0);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      assert.deepEqual(blocked, []);
+    } finally {
+      rich = false;
+      await context.close();
+    }
   });

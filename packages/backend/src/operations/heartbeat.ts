@@ -1,8 +1,6 @@
 // Process heartbeats for the runs view and the watchdog: one settings row per process role.
 import { hostname } from "node:os";
-import { dbOf } from "../db.ts";
-
-const sql = dbOf("ops");
+import { sql } from "../db.ts";
 
 const startedAt = new Date().toISOString();
 

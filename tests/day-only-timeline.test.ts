@@ -1,5 +1,5 @@
 // Sources that print a date alone, through collection, publication and the public list (TASK-0040): the
-// date is kept as the published time, the start of that day in Beijing whatever its spelling (ISO included),
+// date keeps an internal Beijing day anchor, while public time keeps date precision with no invented instant,
 // so the upstream's timeline rule works on it and pages can show the date alone: a new source's first
 // import and an item found more than 48 hours late go on their own day and stay out of "today". The
 // correction script dry-runs without writing, corrects and republishes once, and keeps a manual withdrawal.
@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource } from "./crawl-fixture.ts";
 import { publishArticle } from "@amp/backend/publication/publish";
@@ -19,7 +19,6 @@ import { setVisibility } from "@amp/backend/admin/content";
 import { beijingDate } from "@amp/contracts/time";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("content");
 const T = tag();
 const LIST = `test-dayonly-${T}`;
 const DETAIL = `test-dayonly-detail-${T}`;
@@ -99,8 +98,14 @@ test("a date alone is kept as the start of that day; old ones go on their day, n
   assert.deepEqual([old.timeline_at.toISOString(), old.backfill_reason], [beijingMidnight(daysAgo(60)), "first-import"]);
   assert.equal((await row(`存量昨天 ${T}`)).timeline_at.toISOString(), beijingMidnight(daysAgo(1)));
   let listed = await pool();
-  assert.equal(listed.items.find((i) => i.title === `存量两个月前 ${T}`)?.publishedAt, beijingMidnight(daysAgo(60)), "the public list shows that day");
+  const originalDay = listed.items.find((i) => i.title === `存量两个月前 ${T}`)!;
+  assert.equal(originalDay.publishedAt, null, "a source day is not a precise midnight instant");
+  assert.equal(originalDay.sourceTime!.local_date, daysAgo(60));
+  assert.equal(originalDay.sourceTime!.precision, "date");
+  assert.equal(originalDay.sourceTime!.utc, null);
 
+  // This source has been running a week: recent-onboarding archive filtering still admits both examples.
+  await sql`UPDATE sources SET cursor=jsonb_set(cursor,'{initializedAt}',${sql.json(new Date(Date.now() - 7 * 86400000).toISOString())}) WHERE id=${LIST}`;
   // Later runs: found within 48 hours of its date it is news; found later it goes on its own day.
   entries.push({ slug: "new-yesterday", title: `新稿昨天 ${T}`, day: daysAgo(1) }, { slug: "new-old", title: `新稿三天前 ${T}`, day: daysAgo(3) });
   await collect(LIST);
@@ -124,13 +129,13 @@ test("a date found only on the detail page is read the same way, in Beijing time
   assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [beijingMidnight(daysAgo(3)), "first-import"]);
 });
 
-test("a time of day without a declared zone keeps that time, read in Beijing, through collection and the date commit", async () => {
+test("a time of day without a declared zone retains only its calendar day through collection", async () => {
   entries = [{ slug: "timed-old", title: `有时分五天前 ${T}`, day: daysAgo(5) }];
   await collect(TIMED);
   const r = await row(`有时分五天前 ${T}`);
-  const tenThirty = new Date(`${daysAgo(5)}T10:30:00+08:00`).toISOString();
-  assert.equal(r.published_at?.toISOString(), tenThirty, "10:30 in Beijing, not the day's start");
-  assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [tenThirty, "first-import"]);
+  const dayAnchor = beijingMidnight(daysAgo(5));
+  assert.equal(r.published_at?.toISOString(), dayAnchor);
+  assert.deepEqual([r.timeline_at.toISOString(), r.backfill_reason], [dayAnchor, "first-import"]);
 });
 
 test("a list that writes 2026/8/5, without leading zeros or a declared format, is read the same way (TASK-0055)", async () => {

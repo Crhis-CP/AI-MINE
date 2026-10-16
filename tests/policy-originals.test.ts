@@ -1,16 +1,15 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
-import { recordPolicyOriginal, readPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
-import type { PolicyOriginalInput } from "../packages/backend/src/policy/types.ts";
+import { recordPolicyOriginal, readPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import type { PolicyOriginalInput } from "../modules/policy/backend/domain/types.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { roleFixture, denied } from "./role-db-fixture.ts";
 import { provisionRoles } from "../scripts/db-roles.ts";
 
-const sql = dbOf("policy"),
-  url = "https://source.invalid/original";
+const url = "https://source.invalid/original";
 let serial = 0,
   sourceId: string;
 after(closeDb);

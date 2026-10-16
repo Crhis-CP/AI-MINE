@@ -9,7 +9,7 @@ import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { test } from "node:test";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
-import { checkNames, checkOutputs, checkOutputTree, exemption, fetchSiteOutputs, loadRules, mcpRequests, SITE_OUTPUTS } from "../names.ts";
+import { type NameRules, checkNames, checkOutputs, checkOutputTree, exemption, fetchSiteOutputs, loadRules, mcpRequests, SITE_OUTPUTS } from "../names.ts";
 import { trackedFiles } from "../toolchain.ts";
 import { repo, scratch, write } from "./helpers.ts";
 
@@ -158,7 +158,8 @@ test("the build output and the site's outputs have no exceptions, references to 
   );
 });
 
-const ALLOWED = rules.allowedPhrases ?? { phrases: {}, files: [], outputs: [] };
+const ALLOWED = { phrases: { [`感谢 ${N}`]: 2, [`由 ${N} 提供`]: 1 }, files: ["industry/changelog.json"], outputs: ["/changelog", "/api/site/changelog"] };
+const phraseRules: NameRules = { ...rules, exceptions: { ...rules.exceptions, "synthetic exact phrases": ALLOWED.files }, allowedPhrases: ALLOWED };
 const PHRASES = Object.keys(ALLOWED.phrases);
 
 test("the changelog's thanks phrases pass verbatim in the outputs names.json lists; anywhere else they are hits", () => {
@@ -167,36 +168,36 @@ test("the changelog's thanks phrases pass verbatim in the outputs names.json lis
   assert.deepEqual(ALLOWED.outputs, ["/changelog", "/api/site/changelog"]);
   assert.ok(SITE_OUTPUTS.some(([url]) => url === "/api/site/changelog"));
   const page = `<h3>${phrases.join("</h3>\n<p>")}</p>`;
-  for (const output of ALLOWED.outputs) assert.deepEqual(checkOutputs([{ label: `${output} (HTTP 200)`, text: page }], rules), []);
-  assert.equal(checkOutputs([{ label: "/about (HTTP 200)", text: page }], rules).length, phrases.length);
-  assert.equal(checkOutputs([{ label: "/changelog-feed (HTTP 200)", text: page }], rules).length, phrases.length);
-  assert.equal(checkOutputs([{ label: "/api/v1/items (HTTP 200)", text: page }], rules).length, phrases.length);
+  for (const output of ALLOWED.outputs) assert.deepEqual(checkOutputs([{ label: `${output} (HTTP 200)`, text: page }], phraseRules), []);
+  assert.equal(checkOutputs([{ label: "/about (HTTP 200)", text: page }], phraseRules).length, phrases.length);
+  assert.equal(checkOutputs([{ label: "/changelog-feed (HTTP 200)", text: page }], phraseRules).length, phrases.length);
+  assert.equal(checkOutputs([{ label: "/api/v1/items (HTTP 200)", text: page }], phraseRules).length, phrases.length);
   // One character changed outside the name, or the name once more on the page: hits again.
   const changed = phrases.map((p) => `某${p.slice(1)}`);
   assert.ok(changed.every((p) => !phrases.includes(p) && p.toLowerCase().includes(N)));
-  assert.equal(checkOutputs([{ label: "/changelog (HTTP 200)", text: changed.join("\n") }], rules).length, phrases.length);
-  assert.deepEqual(checkOutputs([{ label: "/changelog (HTTP 200)", text: `${page}\n${N}` }], rules), [
+  assert.equal(checkOutputs([{ label: "/changelog (HTTP 200)", text: changed.join("\n") }], phraseRules).length, phrases.length);
+  assert.deepEqual(checkOutputs([{ label: "/changelog (HTTP 200)", text: `${page}\n${N}` }], phraseRules), [
     `/changelog (HTTP 200), line ${phrases.length + 1}: "${N}"`,
   ]);
 });
 
 test("in the changelog data file (exception 7) the thanks phrases, each as many times as names.json says, are the only hits allowed", () => {
   const [file] = ALLOWED.files as [string];
-  assert.equal(exemption(scratch(), file, rules), "7 thanks in the changelog");
+  assert.equal(exemption(scratch(), file, phraseRules), "synthetic exact phrases");
   const entries = (lines: string[]) => JSON.stringify({ releases: lines.map((l) => ({ body: [l] })) }, null, 2);
   const counted = Object.entries(ALLOWED.phrases).flatMap(([p, n]) => Array<string>(n).fill(p));
   const ok = tree({ [file]: entries(counted) });
-  assert.deepEqual(checkNames(ok.dir, ok.files, rules), []);
+  assert.deepEqual(checkNames(ok.dir, ok.files, phraseRules), []);
   const BEYOND = "outside the allowed phrases of scripts/verify/names.json";
   const more = tree({ [file]: entries([...counted, `${N} again`, `某${PHRASES[0]!.slice(1)}`]) });
-  const problems = checkNames(more.dir, more.files, rules);
+  const problems = checkNames(more.dir, more.files, phraseRules);
   assert.equal(problems.length, 2);
   assert.ok(problems.every((p) => p.startsWith(`${file}:`) && p.endsWith(BEYOND)));
   // A phrase written once more in another entry, or one left out: the counts no longer match.
   const [first] = PHRASES as [string];
   for (const lines of [[...counted, first], counted.filter((l) => l !== first)]) {
     const changed = tree({ [file]: entries(lines) });
-    const found = checkNames(changed.dir, changed.files, rules);
+    const found = checkNames(changed.dir, changed.files, phraseRules);
     assert.equal(found.length, 1);
     assert.match(
       found[0]!,
@@ -219,10 +220,10 @@ test("in the changelog data file a phrase is counted with its escapes decoded (r
     tree({ [file]: JSON.stringify({ releases: [...lines, "@"].map((l) => ({ body: [l] })) }, null, 2).replace('"@"', `"${raw}"`) });
   // The first phrase once more, its name's first letter escaped: counted.
   const more = changelog(counted, escapeFirst(first));
-  assert.deepEqual(checkNames(more.dir, more.files, rules), [`${file}: "${first}" appears ${n + 1} times, scripts/verify/names.json allows ${n}`]);
+  assert.deepEqual(checkNames(more.dir, more.files, phraseRules), [`${file}: "${first}" appears ${n + 1} times, scripts/verify/names.json allows ${n}`]);
   // One of its copies with the space written as an escaped line break: not the phrase, so the count drops and the name is a hit.
   const broken = changelog(counted.toSpliced(counted.indexOf(first), 1), first.replace(" ", "\\u000a"));
-  const found = checkNames(broken.dir, broken.files, rules);
+  const found = checkNames(broken.dir, broken.files, phraseRules);
   assert.equal(found.length, 2, found.join("\n"));
   assert.equal(found[0], `${file}: "${first}" appears ${n - 1} times, scripts/verify/names.json allows ${n}`);
   assert.ok(found[1]!.startsWith(`${file}:`) && found[1]!.endsWith("outside the allowed phrases of scripts/verify/names.json"), found[1]);
@@ -239,10 +240,10 @@ test("any other JSON file is read with its \\uXXXX escapes decoded; an escaped b
 
 test("exception 7 and allowedPhrases.files must list the same files", () => {
   const [file] = ALLOWED.files as [string];
-  const seven = Object.keys(rules.exceptions).find((name) => rules.exceptions[name]!.includes(file))!;
+  const seven = Object.keys(phraseRules.exceptions).find((name) => phraseRules.exceptions[name]!.includes(file))!;
   const { dir, files } = tree({});
   const lists = (excepted: string[], counted: string[]) =>
-    checkNames(dir, files, { ...rules, exceptions: { ...rules.exceptions, [seven]: excepted }, allowedPhrases: { ...ALLOWED, files: counted } });
+    checkNames(dir, files, { ...phraseRules, exceptions: { ...phraseRules.exceptions, [seven]: excepted }, allowedPhrases: { ...ALLOWED, files: counted } });
   const differ = `scripts/verify/names.json: exception "${seven}" and allowedPhrases.files must list the same files`;
   assert.deepEqual(lists([file, "industry/more.json"], [file]), [`${differ} (only in the exception: industry/more.json; only in allowedPhrases.files: none)`]);
   assert.deepEqual(lists([file], [file, "industry/more.json"]), [`${differ} (only in the exception: none; only in allowedPhrases.files: industry/more.json)`]);
@@ -313,4 +314,10 @@ test("the site's outputs are fetched whole with their statuses checked, the chan
     server.close();
     server.closeAllConnections();
   }
+});
+
+test("reader changelog has no attribution exception while licensing stays registered", () => {
+  assert.equal(rules.allowedPhrases, undefined);
+  assert.equal(exemption(scratch(), "industry/changelog.json", rules), null);
+  for (const output of ["/changelog", "/api/site/changelog"]) assert.equal(checkOutputs([{ label: `${output} (HTTP 200)`, text: N }], rules).length, 1);
 });

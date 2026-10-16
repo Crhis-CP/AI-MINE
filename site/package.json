@@ -1,0 +1,21 @@
+{
+  "name": "@amp/site",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./site.ts",
+    "./models": "./models.ts",
+    "./modules": "./modules/index.ts",
+    "./modules/server": "./modules/server.ts",
+    "./modules/web": "./modules/web.ts",
+    "./modules/admin": "./modules/admin.ts"
+  },
+  "dependencies": {
+    "@amp/contracts": "workspace:*",
+    "@amp/metals": "workspace:*",
+    "@amp/web": "workspace:*",
+    "@amp/site-admin": "workspace:*",
+    "@amp/policy": "workspace:*"
+  }
+}

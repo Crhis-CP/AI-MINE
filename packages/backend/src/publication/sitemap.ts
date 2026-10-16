@@ -1,12 +1,10 @@
 // Read current qualified metadata on every request. Withdrawals must not survive in a disk fallback.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
 import { siteUrl } from "./links.ts";
 import { topicPageCounts } from "./topics.ts";
 import { PolicyReadError, policyDiscoveryEntries } from "./policies.ts";
 import { policyReport } from "./policies-reports.ts";
-
-const sql = dbOf("publication");
 
 const MAX_URLS = 45_000;
 interface Entry {

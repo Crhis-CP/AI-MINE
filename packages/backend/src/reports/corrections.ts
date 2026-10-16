@@ -1,5 +1,4 @@
-import { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { stableJson } from "../lib/ids.ts";
 import { enqueue, ensureQueue } from "../jobs/queue.ts";
 import { currentReportPublications, lockReportPublications } from "@amp/backend/publication/publish";
@@ -9,7 +8,7 @@ import { completeReceipt } from "../providers/receipts.ts";
 import { requireRuntimeRunning, assertRuntimeControl } from "../operations/lane-controls.ts";
 import { reportMemberIds, type StoredReportContent } from "./references.ts";
 import { generateReportCorrection } from "./correction-compose.ts";
-const sql = dbOf("reports");
+
 export const REPORT_CORRECTION_QUEUE = "reports.correct";
 export async function ensureReportCorrectionQueue() {
   await ensureQueue(REPORT_CORRECTION_QUEUE, { policy: "exclusive", retryLimit: 0, expireInSeconds: 900 });
@@ -44,6 +43,18 @@ export async function invalidateReportCorrections(db: Db, itemIds: string[], rea
     const content = {
       ...report.content,
       sourceMemberIds: reportMemberIds(report.content),
+      ...(report.kind === "daily"
+        ? {
+            sourceStructure: report.content.sourceStructure ?? {
+              sections: report.content.sections ?? [],
+              flashes: report.content.flashes ?? [],
+              ...(typeof report.content.leadItemId === "string" ? { leadItemId: report.content.leadItemId } : {}),
+              ...(Array.isArray(report.content.highlights)
+                ? { highlights: report.content.highlights.filter((id): id is string => typeof id === "string") }
+                : {}),
+            },
+          }
+        : {}),
       correctionPending: true,
       generationStatus: "pending",
       corrections: [...corrections(report.content), { revision, reason: publicReason[reason], at: new Date().toISOString() }],
@@ -70,7 +81,7 @@ export async function correctNewsReport(reportId: string) {
   const entries = await currentReportPublications(ids);
   const expected = stableJson(entries);
   try {
-    const control = await requireRuntimeRunning("news", ["publication", "processing"]);
+    const control = await requireRuntimeRunning("news", report.kind === "daily" ? ["publication"] : ["publication", "processing"]);
     const permissions = await Promise.all(
       [...new Set(entries.map((e) => e.sourceId))].sort().map(async (sourceId) => {
         const policy = await readCurrentSourcePolicy(sourceId);
@@ -80,7 +91,7 @@ export async function correctNewsReport(reportId: string) {
     );
     await sql`UPDATE reports.correction_jobs SET state='running',updated_at=now() WHERE report_id=${report.id} AND requested_revision=${report.revision}`;
     const generated = await generateReportCorrection(report, entries);
-    const generatedModel = z.string().min(1).parse(generated.model);
+    const generatedModel = generated.model;
     const saved = await sql.begin(async (tx) => {
       await assertRuntimeControl(tx, control);
       await lockCurrentSourcePolicies(tx, permissions);
@@ -95,7 +106,7 @@ export async function correctNewsReport(reportId: string) {
         corrections: [...corrections(report.content), { revision, reason: "已依据当前公开报道完成本期更正。", at: new Date().toISOString() }],
       };
       await tx`INSERT INTO report_revisions(report_id,revision,content,generated_at,reason) VALUES(${report.id},${report.revision},${tx.json(report.content as never)},${report.generated_at},'更正后的报告已生成') ON CONFLICT DO NOTHING`;
-      await tx`UPDATE reports SET content=${tx.json(content as never)},revision=${revision},model=${generatedModel},generated_at=now(),updated_at=now() WHERE id=${report.id}`;
+      await tx`UPDATE reports SET content=${tx.json(content as never)},revision=${revision},model=${generatedModel},origin=${generatedModel ? "model" : "rule"},generated_at=now(),updated_at=now() WHERE id=${report.id}`;
       await tx`UPDATE reports.correction_jobs SET state='done',last_error=NULL,updated_at=now() WHERE report_id=${report.id} AND requested_revision=${report.revision}`;
       if (generated.receiptId) await completeReceipt(tx, generated.receiptId);
       return true;

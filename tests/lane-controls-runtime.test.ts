@@ -1,5 +1,5 @@
 import { installUsageFixtureForService, installUsageFixtureForEmbedding } from "./usage-protection-fixture.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { sha256 } from "@amp/backend/lib/ids";
@@ -7,7 +7,7 @@ import { stub } from "./setup.ts";
 import { ensureEmbeddings } from "@amp/backend/providers/embeddings";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { paidRequest } from "@amp/backend/providers/receipts";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle, republishSource } from "@amp/backend/publication/publish";
@@ -20,8 +20,7 @@ import {
   RuntimeControlPaused,
   RuntimeControlStale,
 } from "../packages/backend/src/operations/lane-controls.ts";
-const sql = dbOf("ops"),
-  expires = () => new Date(Date.now() + 3600_000).toISOString();
+const expires = () => new Date(Date.now() + 3600_000).toISOString();
 after(async () => {
   await stopBoss();
   await closeDb();
@@ -115,6 +114,7 @@ test("collection CAS rejects stale stored material while publication pause prese
   await sql`INSERT INTO sources(id,name,kind,lane,participation_mode,tier,site_fulltext) VALUES('control-source','Synthetic control','external','news','editorial','T1',true)`;
   const material = {
     sourceId: "control-source",
+    publishedAt: new Date(),
     url: "https://source.invalid/mining/control",
     title: "合成矿业资讯",
     language: "zh-CN",

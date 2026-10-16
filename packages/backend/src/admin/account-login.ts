@@ -1,8 +1,8 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
-import { dbOf, type Db } from "../db.ts";
+import { identitySql as sql, type Db } from "../db.ts";
 import { sha256, newShortId } from "../lib/ids.ts";
 import { accountNotice } from "./account-notices.ts";
-const sql = dbOf("identity");
+
 export class AccountRateLimited extends Error {
   readonly statusCode = 429;
   readonly retryAfterSeconds = 900;

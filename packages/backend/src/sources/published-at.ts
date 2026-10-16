@@ -51,38 +51,29 @@ function dayInOffset(at: Date, utcOffset: string): string | null {
 }
 
 /**
- * The published time kept for a parsed source date, read as the upstream reads it (Owner 2026-10-05:
- * where the handoff's way differs from the upstream's, the upstream's): the instant when the source gives
- * one; otherwise the text as printed, by parseLooseDate in the source's offset. One difference: a date
- * alone is the start of that day in the source's offset whatever its spelling (the upstream reads an ISO
- * date alone as UTC midnight, Beijing 08:00), so pages can tell it from a real time and show the date
- * only (Owner 2026-10-05: 只显示日期).
+ * Use a confirmed instant when available. Otherwise retain the calendar day as an internal sorting
+ * anchor; the source evidence still has utc=null and the reader sees only its date. An unzoned clock
+ * is never interpreted in an assumed source zone. A configured legacy offset may resolve that clock.
  */
 export function sourcePublishedAt(
   time: { raw: string; utc: string | null; local_date?: string | null; local_time?: string | null } | null | undefined,
-  utcOffset = "+08:00",
+  utcOffset?: string,
 ): Date | null {
   if (!time) return null;
   if (time.utc) return new Date(time.utc);
   const day = time.local_date && /^\d{4}-\d{2}-\d{2}$/.test(time.local_date) ? time.local_date : null;
-  // A time of day the date evidence could not place in a zone, so it kept the date alone: read in the
-  // source's offset, as the upstream reads it, as long as it still falls on that day.
-  if (/\d{1,2}:\d{2}/.test(time.raw)) {
+  if (utcOffset && /\d{1,2}:\d{2}/.test(time.raw)) {
     const read = parseLooseDate(time.raw, utcOffset);
     if (read && (!day || dayInOffset(read, utcOffset) === day)) return read;
   }
   if (day) {
-    const start = Date.parse(`${day}T00:00:00${utcOffset}`);
+    const start = Date.parse(`${day}T00:00:00${utcOffset ?? "+08:00"}`);
     if (Number.isFinite(start)) return new Date(start);
   }
-  return parseLooseDate(time.raw, utcOffset);
+  return null;
 }
 
-/**
- * RSS and JSON lists have no setting for the source's offset: an exact instant as given, and a date printed
- * alone as the start of that day in Beijing, as for web lists (TASK-0055); a time of day without a zone stays unknown.
- */
-export function feedPublishedAt(time: Parameters<typeof sourcePublishedAt>[0], raw: string): Date | null {
-  if (time?.utc) return new Date(time.utc);
-  return time && !/\d{1,2}:\d{2}/.test(raw) ? sourcePublishedAt(time) : null;
+/** RSS and JSON use the same confirmed instant or calendar-day anchor as HTML lists. */
+export function feedPublishedAt(time: Parameters<typeof sourcePublishedAt>[0], _raw: string): Date | null {
+  return sourcePublishedAt(time);
 }

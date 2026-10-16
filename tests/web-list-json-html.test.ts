@@ -66,12 +66,11 @@ test("htmlJsonPath: the list HTML inside JSON parses with the usual selectors, l
       ["https://cd.mofcom.gov.cn/jmxw/art/2026/art_0002.html", "某国收回未使用的钴出口配额"],
     ],
   );
-  // The list writes a day and time (kept, read in Beijing, the default offset) or a day alone (the start of
-  // that day in Beijing), as the collectors read dates.
+  // A calendar day is retained even when the source clock has no confirmed zone.
   assert.deepEqual(
     items.map((c) => [c.sourceDateObservation?.raw, c.publishedAt?.toISOString() ?? null]),
     [
-      ["2026-08-06 18:42:37", "2026-08-06T10:42:37.000Z"],
+      ["2026-08-06 18:42:37", "2026-08-05T16:00:00.000Z"],
       ["2026-07-02", "2026-07-01T16:00:00.000Z"],
     ],
   );
@@ -112,7 +111,7 @@ test("a detail page with no configured date keeps the labeled publication date, 
     summary: false,
   });
   assert.equal(missed.sourceDateObservation?.raw, "2026-06-29 18:29");
-  assert.equal(missed.publishedAt?.toISOString(), "2026-06-29T10:29:00.000Z");
+  assert.equal(missed.publishedAt?.toISOString(), "2026-06-28T16:00:00.000Z", "a labeled date does not establish its missing timezone");
   const none = await fetchDetail(`${base}/effective-only`, source({ url: `${base}/list`, detail: { publishedAtSelector: ".missing" } }), {
     date: true,
     title: false,

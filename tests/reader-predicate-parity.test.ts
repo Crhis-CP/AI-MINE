@@ -2,14 +2,13 @@ import { legacyText, legacyPublicMatch } from "./fixtures/reader-legacy-predicat
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf, withCustomPlans, type Db } from "@amp/backend/db";
+import { closeDb, sql, withCustomPlans, type Db } from "@amp/backend/db";
 import { loadPool, searchTerms } from "@amp/backend/publication/pool";
 import { v1Items } from "@amp/backend/publication/v1";
 import { listedCondition, readPublicApiItems, readPublicNewsLinkCandidates } from "../packages/backend/src/publication/items.ts";
 import { readMatcherValues } from "../packages/backend/src/publication/mentions.ts";
 import { publicationTextMatches } from "../packages/backend/src/publication/read-predicates.ts";
-const sql = dbOf("publication"),
-  source = `predicate-${tag()}`;
+const source = `predicate-${tag()}`;
 after(closeDb);
 const texts = [
   "刚果（金）公布铜矿项目 DRC copper mine",

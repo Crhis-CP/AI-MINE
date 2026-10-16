@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { runBodyTranslation } from "../packages/backend/src/editorial/translation-runtime.ts";
 import {
@@ -18,8 +18,7 @@ import {
   rejectReceivedResponse,
 } from "@amp/backend/providers/receipts";
 import { receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
-const sql = dbOf("enrichment"),
-  T = tag(),
+const T = tag(),
   source = `attempt-probe-${T}`;
 const recipe = { id: T, model: "deepseek-flash", promptVersion: T, system: "SELF_AUTHORED attempt identity probe" };
 let hits = 0;

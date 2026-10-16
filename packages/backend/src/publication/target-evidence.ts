@@ -1,5 +1,5 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("publication");
+import { sql } from "../db.ts";
+
 export async function sourceTargetPublicationEvidence(ids: string[]) {
   if (!ids.length) return [];
   return sql.begin(async (db) => {

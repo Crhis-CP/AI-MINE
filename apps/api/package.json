@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "API_ROLE=public-api node --watch --env-file-if-exists=../../.env src/main.ts",
+    "dev": "API_ROLE=api node --watch --env-file-if-exists=../../.env src/main.ts",
     "dev:private": "API_ROLE=private-api API_PORT=3002 node --watch --env-file-if-exists=../../.env src/main.ts",
-    "start": "API_ROLE=public-api node src/main.ts",
+    "start": "API_ROLE=api node src/main.ts",
     "start:private": "API_ROLE=private-api API_PORT=3002 node src/main.ts"
   },
   "dependencies": {
@@ -20,6 +20,7 @@
     "sharp": "0.35.5",
     "zod": "4.6.5",
     "fastify-type-provider-zod": "7.0.0",
-    "@fastify/swagger": "9.9.1"
+    "@fastify/swagger": "9.9.1",
+    "@amp/site": "workspace:*"
   }
 }

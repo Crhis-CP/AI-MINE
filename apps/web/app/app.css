@@ -208,6 +208,13 @@
 }
 
 @layer components {
+  .feed-title:focus-visible {
+    outline: none;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+
   .num {
     font-variant-numeric: tabular-nums;
   }

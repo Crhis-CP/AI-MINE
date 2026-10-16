@@ -2,12 +2,7 @@
 // that is waiting for the next official release, not a rise or a fall, and it does not alert.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  metalChangeIssue,
-  metalPriceChangeIssues,
-  percentVersusPrevious,
-  type ComparedQuote,
-} from "../packages/backend/src/publication/metal-prices/change.ts";
+import { metalChangeIssue, metalPriceChangeIssues, percentVersusPrevious, type ComparedQuote } from "../modules/metals/backend/change.ts";
 
 const row = (change: Partial<ComparedQuote> & Pick<ComparedQuote, "tag" | "value" | "period">): ComparedQuote => ({
   metal: "金",

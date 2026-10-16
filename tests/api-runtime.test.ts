@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { apiChildEnvironment } from "../scripts/verify/api-harness.ts";
 import { apiProcess } from "./api-process.ts";
 
 const ENTRY_ARGS = ["--input-type=module", "-e", "import { startApi } from './apps/api/src/runtime.ts'; await startApi(process.env);"];
-const sql = dbOf("ops");
+
 after(closeDb);
 const marker = `api-entrypoint-${process.pid}`;
 const address = new URL(process.env.DATABASE_URL!);
@@ -18,7 +18,7 @@ const secrets = {
   SESSION_SECRET: randomBytes(24).toString("hex"),
   ADMIN_PASSWORD: randomBytes(24).toString("hex"),
 };
-const environment = (role: "public-api" | "private-api") =>
+const environment = (role: "api" | "public-api" | "private-api") =>
   apiChildEnvironment(role, {
     ...process.env,
     ...secrets,
@@ -49,8 +49,9 @@ test("API runtime rejects a different environment source before backend configur
 test("the explicit API runtime rejects missing roles and credentials before database access", () => {
   const publicEnv = environment("public-api");
   const privateEnv = environment("private-api");
+  const unifiedEnv = environment("api");
   const cases: [NodeJS.ProcessEnv, string][] = [
-    ...[undefined, "", "api", "PRIVATE_MARKER"].map((API_ROLE): [NodeJS.ProcessEnv, string] => [{ ...publicEnv, API_ROLE }, "API_ROLE must be"]),
+    ...[undefined, "", "PRIVATE_MARKER"].map((API_ROLE): [NodeJS.ProcessEnv, string] => [{ ...publicEnv, API_ROLE }, "API_ROLE must be"]),
     ...[
       "SESSION_SECRET",
       "ADMIN_PASSWORD",
@@ -67,6 +68,9 @@ test("the explicit API runtime rejects missing roles and credentials before data
     ].map((key): [NodeJS.ProcessEnv, string] => [{ ...publicEnv, [key]: "" }, `public-api must not hold ${key}`]),
     [{ ...publicEnv, PUBLIC_RATE_LIMIT_SECRET: undefined }, "PUBLIC_RATE_LIMIT_SECRET"],
     [{ ...publicEnv, PUBLIC_RATE_LIMIT_SECRET: "" }, "PUBLIC_RATE_LIMIT_SECRET"],
+    [{ ...unifiedEnv, PUBLIC_RATE_LIMIT_SECRET: undefined }, "PUBLIC_RATE_LIMIT_SECRET"],
+    [{ ...unifiedEnv, SESSION_SECRET: undefined }, "SESSION_SECRET"],
+    [{ ...unifiedEnv, ADMIN_PASSWORD: undefined }, "set ADMIN_PASSWORD"],
     [{ ...privateEnv, SESSION_SECRET: undefined }, "SESSION_SECRET"],
     [{ ...privateEnv, ADMIN_PASSWORD: undefined }, "set ADMIN_PASSWORD"],
   ];
@@ -111,38 +115,44 @@ test("a public production process serves readers and feedback without private se
   await noConnections();
 });
 
-test("a private production process logs in without public/image secrets and closes its connections", async (t) => {
-  const env = environment("private-api");
-  assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, undefined);
-  assert.equal(env.IMG_PROXY_SIGN_SECRET, undefined);
-  const app = await apiProcess(t, env, ENTRY_ARGS);
-  await app.ready();
-  assert.deepEqual(await (await fetch(`${app.url}/api/auth/options`)).json(), { password: true, feishu: false });
-  assert.equal((await fetch(`${app.url}/api/site/meta`)).status, 404);
-  const nonce = await fetch(`${app.url}/api/auth/password-nonce`);
-  const login_nonce = ((await nonce.json()) as { token: string }).token;
-  const login = await fetch(`${app.url}/api/auth/password`, {
-    method: "POST",
-    redirect: "manual",
-    headers: { "content-type": "application/json", cookie: nonce.headers.get("set-cookie")!.split(";")[0]! },
-    body: JSON.stringify({ login_name: "admin@local", login_nonce, password: secrets.ADMIN_PASSWORD, return: "/admin" }),
+for (const role of ["private-api", "api"] as const)
+  test(`${role} production process authenticates, retains CSRF and closes its connections`, async (t) => {
+    const env = environment(role);
+    assert.equal(!!env.PUBLIC_RATE_LIMIT_SECRET, role === "api");
+    assert.equal(env.IMG_PROXY_SIGN_SECRET, undefined);
+    const app = await apiProcess(t, env, ENTRY_ARGS);
+    await app.ready();
+    assert.deepEqual(await (await fetch(`${app.url}/api/auth/options`)).json(), { password: true, feishu: false });
+    assert.equal((await fetch(`${app.url}/api/site/meta`)).status, role === "api" ? 200 : 404);
+    assert.equal((await fetch(`${app.url}/api/admin/me`)).status, 401);
+    const nonce = await fetch(`${app.url}/api/auth/password-nonce`);
+    const login_nonce = ((await nonce.json()) as { token: string }).token;
+    const login = await fetch(`${app.url}/api/auth/password`, {
+      method: "POST",
+      redirect: "manual",
+      headers: { "content-type": "application/json", cookie: nonce.headers.get("set-cookie")!.split(";")[0]! },
+      body: JSON.stringify({ login_name: "admin@local", login_nonce, password: secrets.ADMIN_PASSWORD, return: "/admin" }),
+    });
+    assert.equal(login.status, 303);
+    const cookie = login.headers.get("set-cookie")?.split(";")[0];
+    assert.ok(cookie);
+    const me = await fetch(`${app.url}/api/admin/me`, { headers: { cookie } });
+    assert.equal(me.status, 200);
+    const principal = (await me.json()) as { dev: boolean; csrf: string };
+    assert.equal(principal.dev, false);
+    const missingCsrf = await fetch(`${app.url}/api/auth/logout`, { method: "POST", redirect: "manual", headers: { cookie } });
+    assert.equal(missingCsrf.status, 403);
+    assert.equal((await fetch(`${app.url}/api/admin/me`, { headers: { cookie } })).status, 200);
+    assert.equal((await sql`SELECT count(*)::int AS n FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`)[0].n, 1);
+    assert.equal(
+      (await fetch(`${app.url}/api/auth/logout`, { method: "POST", redirect: "manual", headers: { cookie, "x-csrf-token": principal.csrf } })).status,
+      303,
+    );
+    assert.equal((await fetch(`${app.url}/api/admin/me`, { headers: { cookie } })).status, 401);
+    assert.equal(await app.stop(), 0, app.output());
+    await noConnections();
+    await sql`DELETE FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`;
   });
-  assert.equal(login.status, 303);
-  const cookie = login.headers.get("set-cookie")?.split(";")[0];
-  assert.ok(cookie);
-  const me = await fetch(`${app.url}/api/admin/me`, { headers: { cookie } });
-  assert.equal(me.status, 200);
-  const principal = (await me.json()) as { dev: boolean; csrf: string };
-  assert.equal(principal.dev, false);
-  assert.equal((await sql`SELECT count(*)::int AS n FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`)[0].n, 1);
-  assert.equal(
-    (await fetch(`${app.url}/api/auth/logout`, { method: "POST", redirect: "manual", headers: { cookie, "x-csrf-token": principal.csrf } })).status,
-    303,
-  );
-  assert.equal(await app.stop(), 0, app.output());
-  await noConnections();
-  await sql`DELETE FROM settings WHERE key=${`heartbeat.private-api:${app.port}`}`;
-});
 
 test("development public startup warns using names while accepting shared synthetic configuration", async (t) => {
   const app = await apiProcess(

@@ -4,7 +4,7 @@ import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { enqueueSourceFetch } from "../jobs/source-queues.ts";
 import { republishKey, queueSourceRepublication } from "../jobs/publication.ts";
@@ -16,7 +16,6 @@ import type { SourceRow } from "../sources/types.ts";
 import { directoryContract } from "../sources/directory-profile.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit } from "./auth.ts";
-const sql = dbOf("sources");
 
 export class Conflict extends Error {
   code = "conflict";
@@ -207,7 +206,16 @@ export async function updateSource(
 }
 
 /** Source fields the public projection reads (publication/rules.ts and the v1 payload). */
-const PUBLICATION_FIELDS: string[] = ["participation_mode", "site_fulltext", "syndicate_fulltext", "tier", "name", "first_party"];
+const PUBLICATION_FIELDS: string[] = [
+  "participation_mode",
+  "site_fulltext",
+  "syndicate_fulltext",
+  "tier",
+  "name",
+  "first_party",
+  "owner_entity_id",
+  "publisher_role",
+];
 
 /** The address a source collects from, used to find duplicates before creating one. */
 export function sourceIdentity(config: Record<string, unknown>): string | null {
@@ -303,6 +311,11 @@ export async function fetchNow(id: string, actor: string) {
 /** The sources on one business line (ADR-0016), for checks of one line that must not count the other line's material. */
 export async function sourceIdsOnLane(lane: SourceRow["lane"]): Promise<string[]> {
   return (await sql<{ id: string }[]>`SELECT id FROM sources WHERE lane = ${lane}`).map((r) => r.id);
+}
+
+/** Scheduled processing recovery respects sources explicitly paused or archived by an editor. */
+export async function activeNewsSourceIds(db: Db = sql): Promise<string[]> {
+  return (await db<{ id: string }[]>`SELECT id FROM sources WHERE lane='news' AND enabled AND archived_at IS NULL`).map((r) => r.id);
 }
 
 /** A current acquisition snapshot; it does not itself grant permission or hold a network-time lock. */
@@ -425,7 +438,11 @@ export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
   const [row] = await db<{ lane: "news" | "policy"; kind: SourceRow["kind"]; config: SourceRow["config"]; source_date_config_hash: string | null }[]>`
     SELECT lane,kind,config,source_date_config_hash FROM sources WHERE id=${sourceId}`;
   return row
-    ? { lane: row.lane, configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null }
+    ? {
+        lane: row.lane,
+        storedConfigHash: row.source_date_config_hash,
+        configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null,
+      }
     : null;
 }
 
@@ -433,3 +450,6 @@ export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
 export async function newsAuditSourceNames(db: Db) {
   return db<{ id: string; name: string }[]>`SELECT id,name FROM sources WHERE lane='news'`;
 }
+
+export { SourcePolicyConflict } from "../sources/permission-store.ts";
+export type { SourceRow } from "../sources/types.ts";

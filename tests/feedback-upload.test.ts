@@ -7,10 +7,8 @@ import path from "node:path";
 import sharp from "sharp";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
-import { buildApp } from "../apps/api/src/app.ts";
-
-const sql = dbOf("feedback");
+import { closeDb, feedbackSql as sql } from "@amp/backend/db";
+import { buildApp } from "./site-app.ts";
 
 config.dataDir = await mkdtemp(path.join(tmpdir(), "amp-upload-"));
 const app = await buildApp("public-api");

@@ -1,24 +1,23 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 // Full-text translations follow the text: an article corrected while the model was translating the old
 // wording is translated again, and a translation of an older revision is never shown as the current one.
 // Links and images inside a paragraph survive the model.
-import { gate, stub, tag } from "./setup.ts";
+import { gate, stub, tag, Reply } from "./setup.ts";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { promptText } from "@amp/backend/editorial/prompts";
 import { TRANSLATE_PROMPT_VERSION, translateArticle, translatePending } from "@amp/backend/editorial/translate";
-import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
+import { latestSuccessfulRunResult, autoReleaseUnknownReceipts, releaseReceipt, receiptObservedVersion } from "@amp/backend/admin/runs";
 import { getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
-import { buildApp } from "../apps/api/src/app.ts";
-
-const sql = dbOf("enrichment");
+import { buildApp } from "./site-app.ts";
 
 const T = tag();
 const SOURCE = `test-translate-${T}`;
@@ -26,9 +25,11 @@ const URL_ = `https://example.com/translate-${T}`;
 
 // The model: one Chinese sentence per segment. `hold` keeps an answer back while the test revises the text.
 let hold: ReturnType<typeof gate<void>> | null = null;
+let unknownReply = false;
 const asked = gate();
 const asks = new Map<string, number>();
 const provider = await stub(async (_hit, req) => {
+  if (unknownReply) return new Reply(503, { error: "synthetic ambiguous response" });
   const { text: s } = JSON.parse(JSON.parse(req.body).messages[1].content) as { text: string };
   if (hold) {
     asked.open();
@@ -88,6 +89,7 @@ async function currentJudgement(id: string) {
   const [{ revision }] = await sql`SELECT revision FROM articles WHERE id=${id}`;
   await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
     VALUES(${id},${revision},'rule','pass','company_project',${`价格更新-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
+  await confirmGroupingFixture(id);
 }
 
 before(async () => {
@@ -117,6 +119,7 @@ test("the translation prompt gives a closed list of Chinese names, and its versi
 test("a text corrected while its translation was running is translated again, and the old translation is not shown", async () => {
   const { articleId: id } = await material("five");
   await currentJudgement(id);
+  await confirmGroupingFixture(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   assert.equal((await translateOne(id)).status, "translated", "this item was genuinely complete and publicly readable before reprocessing");
   await material("ten");
@@ -147,7 +150,7 @@ test("a text corrected while its translation was running is translated again, an
   assert.ok(current.body.zh?.includes("二十美元") && current.body.complete, "the page shows the translation of the corrected text");
 });
 
-test("links and images survive in checkpoints, while a bad paragraph prevents whole-body assembly and the same bad answer is not bought a third time", async () => {
+test("links and images survive partial translation while failed blocks keep their original text", async () => {
   // Google's fly-brain post lost its link to the Neuroglancer docs; a GPU price post lost two charts.
   const html =
     `<p>Explaining <a href="https://neuroglancer.dev/docs">Neuroglancer</a> in text ${T} <img src="https://example.com/chart-${T}.png" alt="B200 prices"></p>` +
@@ -166,6 +169,7 @@ test("links and images survive in checkpoints, while a bad paragraph prevents wh
   });
   await sql`INSERT INTO analyses (article_id, input_revision, origin, relevance, category, title_zh, summary_zh, reason_zh, score, selected, prompt_version, receipt_ids, output)
             VALUES (${id}, 1, 'rule', 'pass', 'ai-models', ${`链接-${T}`}, '摘要', '理由', 90, true, ${scopeVersion}, ${[await scopeReceipt(id)]}, ${sql.json(scopeOutput)})`;
+  await confirmGroupingFixture(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   for (let n = 0; n < 4; n++) {
     await sql`UPDATE receipt_attempts SET finished_at=now()-interval '6 minutes'
@@ -173,7 +177,8 @@ test("links and images survive in checkpoints, while a bad paragraph prevents wh
     await translateOne(id);
   }
   const [tr] = await sql<{ body_html: string | null; complete: boolean }[]>`SELECT body_html, complete FROM translations WHERE article_id = ${id}`;
-  assert.equal(tr!.body_html, null, "bad segments and original English are never assembled into a partial translation");
+  assert.match(tr!.body_html!, /解释/);
+  assert.match(tr!.body_html!, /never keeps/, "untranslated blocks keep their original text");
   assert.equal(tr!.complete, false);
   const parts = await sql`SELECT state,restored_html,failed_attempts FROM enrichment.translation_segments WHERE article_id=${id} ORDER BY segment_index`;
   assert.equal(parts[0]!.state, "complete");
@@ -187,11 +192,22 @@ test("links and images survive in checkpoints, while a bad paragraph prevents wh
   assert.equal(incomplete.statusCode, 200, "a Chinese title and guide stay public while the body is incomplete");
   const shown = incomplete.json();
   assert.equal(shown.summary, "摘要");
-  assert.equal(shown.body?.zh ?? null, null, "a failed segment is not assembled into a Chinese body");
+  assert.match(shown.body.zh, /解释/);
+  assert.match(shown.body.zh, /never keeps/);
   assert.equal(shown.body?.complete ?? false, false);
+  await sql`UPDATE sources SET syndicate_fulltext=true WHERE id=${SOURCE}`;
+  await publishArticle(id);
+  try {
+    const rss = await app.inject("/feed/full.xml");
+    assert.equal(rss.statusCode, 200);
+    assert.match(rss.body, /中文译文尚不完整/);
+    assert.match(rss.body, /never keeps/);
+  } finally {
+    await sql`UPDATE sources SET syndicate_fulltext=false WHERE id=${SOURCE}`;
+  }
 });
 
-test("the active adapter covers a body beyond the old cap and then makes no repeat model request", async () => {
+test("translation stops at the 60000 character boundary and preserves the untranslated tail", async () => {
   const html = Array.from({ length: 30 }, (_, i) => `<p>${i === 29 ? "FINAL_PARAGRAPH" : i} ${T} ${"Copper production update. ".repeat(95)}</p>`).join("");
   assert.ok(html.length > 60_000);
   const { articleId: id } = await upsertMaterial({
@@ -208,18 +224,22 @@ test("the active adapter covers a body beyond the old cap and then makes no repe
   });
   await sql`INSERT INTO analyses (article_id,input_revision,origin,relevance,category,title_zh,summary_zh,reason_zh,score,selected,prompt_version,receipt_ids,output)
     VALUES (${id},1,'rule','pass','ai-models',${`完整长文-${T}`},'摘要','理由',90,true,${scopeVersion},${[await scopeReceipt(id)]},${sql.json(scopeOutput)})`;
+  await confirmGroupingFixture(id);
   await publishArticle(id, { releasedAt: new Date(Date.now() - 60_000) });
   const start = provider.hits();
   const result = await translateOne(id);
-  assert.equal(result.status, "translated");
-  assert.equal(provider.hits() - start, 30);
+  assert.equal(result.status, "partial");
+  const calls = provider.hits() - start;
+  assert.ok(calls > 0 && calls < 30);
   const [tr] = await sql`SELECT complete,body_html,manifest FROM translations WHERE article_id=${id}`;
-  assert.equal(tr!.complete, true);
-  assert.equal(tr!.manifest.segments.length, 30);
-  assert.ok(tr!.body_html.endsWith("最后一段完整译文。</p>"), "the final source paragraph is included");
-  assert.equal((await sql`SELECT count(*)::int AS n FROM enrichment.translation_segments WHERE article_id=${id} AND state='complete'`)[0]!.n, 30);
+  assert.equal(tr!.complete, false);
+  assert.ok(tr!.body_html.includes("FINAL_PARAGRAPH"), "the tail remains original text");
+  assert.equal(tr!.manifest.translatedSegments, calls);
+  const incomplete = await detail(id);
+  assert.equal(incomplete.body.complete, false);
+  assert.match(incomplete.body.zh!, /FINAL_PARAGRAPH/);
   await translateOne(id);
-  assert.equal(provider.hits() - start, 30, "a complete current result and older exhausted bad segments cause no new request");
+  assert.equal(provider.hits() - start, calls, "a partial current result reuses its paid prefix");
 });
 
 test("repair rotates past a full blocked batch, includes old material and resumes from successful runs across processes", async () => {
@@ -313,3 +333,72 @@ test("a body translation that already failed three times is not bought again", a
   assert.deepEqual({ status: result.status, reason: result.reason }, { status: "skipped", reason: "attempts_exhausted" });
   assert.equal(provider.hits(), before, "the spent body is not bought again");
 });
+
+test("unselected foreign articles are public without entering the translation queue", async () => {
+  const { articleId } = await upsertMaterial({
+    sourceId: SOURCE,
+    url: `${URL_}-unselected`,
+    title: `Copper note ${T}`,
+    language: "en",
+    bodyHtml: `<p>Copper note ${T}.</p>`,
+    bodyText: `Copper note ${T}.`,
+    bodyStatus: "ok",
+    via: "fetch",
+    publishedAt: new Date(),
+  });
+  await currentJudgement(articleId);
+  await sql`UPDATE analyses SET selected=false,score=40 WHERE article_id=${articleId}`;
+  const published = await publishArticle(articleId);
+  assert.equal(published?.visibility, "public");
+  assert.equal(published?.selected, false);
+  assert.equal(await prepareTranslation(articleId), null);
+  await translatePending();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`)[0].n, 0);
+});
+
+for (const recovery of ["automatic", "manual"] as const)
+  test(`${recovery} translation recovery passes both repair and worker gates without resetting prior attempts`, async () => {
+    const { articleId } = await upsertMaterial({
+      sourceId: SOURCE,
+      url: `${URL_}-recovery-${recovery}`,
+      title: `Recovery ${recovery} ${T}`,
+      language: "en",
+      bodyHtml: `<p>Recover ${recovery} first copper note ${T}.</p><p>Recover ${recovery} second copper note ${T}.</p>`,
+      bodyText: `Recovery ${recovery} copper text ${T}`,
+      bodyStatus: "ok",
+      via: "fetch",
+      publishedAt: new Date(),
+    });
+    await currentJudgement(articleId);
+    await publishArticle(articleId);
+    const before = provider.hits();
+    unknownReply = true;
+    try {
+      await assert.rejects(translateArticle(articleId, 1), /尚未确认|unknown/);
+    } finally {
+      unknownReply = false;
+    }
+    await sql`INSERT INTO translation_attempts(article_id,revision,attempts,outcome,reason) VALUES(${articleId},1,3,'failed','previous attempts retained')`;
+    assert.equal((await translateArticle(articleId, 1)).reason, "attempts_exhausted");
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject LIKE ${`article:${articleId}@1#%`}`;
+    if (recovery === "automatic") await autoReleaseUnknownReceipts();
+    else {
+      const [row] = await sql<{ receiptId: string; attempts: number; updatedAtUtc: string }[]>`SELECT id::text AS "receiptId",attempts,
+      pg_catalog.to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAtUtc"
+      FROM receipts WHERE subject LIKE ${`article:${articleId}@1#%`} ORDER BY id DESC LIMIT 1`;
+      await releaseReceipt(
+        Number(row.receiptId),
+        { billed: false, note: "fixture provider confirmed not charged", version: receiptObservedVersion(row) },
+        "test",
+      );
+    }
+    assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
+    // Simulate a lost dispatcher job; the repair scan must recognize the same durable recovery permission.
+    await sql`DELETE FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId}`;
+    for (let i = 0; i < 2; i++) await recordRun("content.translate", () => translatePending({ limit: 1000 }));
+    assert.ok((await sql`SELECT id FROM pgboss.job WHERE name=${QUEUES.translate} AND data->>'articleId'=${articleId} AND state='created'`).length > 0);
+    assert.equal((await translateArticle(articleId, 1)).status, "translated");
+    assert.equal(provider.hits() - before, 3);
+    const [history] = await sql`SELECT attempts,outcome FROM translation_attempts WHERE article_id=${articleId}`;
+    assert.deepEqual({ ...history }, { attempts: 4, outcome: "translated" });
+  });

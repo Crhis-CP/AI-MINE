@@ -2,11 +2,11 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { requestSourcePreview, runSourcePreview, recoverSourcePreviews, SOURCE_PREVIEW_QUEUE, archiveSource } from "@amp/backend/admin/sources";
 import { ensureQueue, stopBoss } from "@amp/backend/jobs/queue";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("sources");
+
 after(async () => {
   await stopBoss();
   await closeDb();

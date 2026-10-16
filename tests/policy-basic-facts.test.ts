@@ -1,13 +1,13 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
-import { publishPolicyPublication } from "../packages/backend/src/publication/policies-publish.ts";
-import { policyDetail } from "../packages/backend/src/publication/policies.ts";
+import { capturePolicyMaterial } from "../modules/policy/backend/domain/capture.ts";
+import { publishPolicyPublication } from "../modules/policy/backend/publication/policies-publish.ts";
+import { policyDetail } from "../modules/policy/backend/read.ts";
 import { fixture } from "./policy-automation-fixture.ts";
-const sql = dbOf("policy");
+
 after(closeDb);
 
 test("verified source publication date survives independently of model qualification and authority names are searchable", async () => {
@@ -15,7 +15,7 @@ test("verified source publication date survives independently of model qualifica
   const { readSourceDateContext } = await import("@amp/backend/admin/sources");
   const { observeSourceDate } = await import("../packages/backend/src/sources/date-extraction.ts");
   const { updateMaterialSourceDate } = await import("../packages/backend/src/content/date-evidence.ts");
-  const { listPolicies } = await import("../packages/backend/src/publication/policies.ts");
+  const { listPolicies } = await import("../modules/policy/backend/read.ts");
   const source = (await readSourceDateContext(f.sourceId))!;
   const observation = observeSourceDate(source, f.url, "2026-01-01", "official.date", { format: "iso8601" });
   observation.meaning = "published";
@@ -118,7 +118,7 @@ test("coverage counts distinct sources and incomplete-only sources still lack a 
 });
 
 test("quality reminders are bounded to seven days and a genuine broader renewal suppresses the old reminder", async () => {
-  const { installPolicyQualityRelease, expiringPolicyQualityReleases } = await import("../packages/backend/src/policy/quality.ts");
+  const { installPolicyQualityRelease, expiringPolicyQualityReleases } = await import("../modules/policy/backend/domain/quality.ts");
   const now = new Date();
   const value = {
     sourceIds: ["synthetic-quality"],
@@ -149,7 +149,7 @@ test("a changed official material identity retires only its superseded current e
   const second = await capturePolicyMaterial(f.sourceId, f.materialId, changed);
   if (second.status !== "captured") return assert.fail("second capture");
   assert.notEqual(first.expressionId, second.expressionId);
-  const { currentPolicyHeads } = await import("../packages/backend/src/policy/public-state.ts");
+  const { currentPolicyHeads } = await import("../modules/policy/backend/domain/public-state.ts");
   const heads = await currentPolicyHeads([first.expressionId, second.expressionId]);
   assert.equal(heads.get(first.expressionId), null);
   assert.equal(heads.get(second.expressionId), second.revisionId);

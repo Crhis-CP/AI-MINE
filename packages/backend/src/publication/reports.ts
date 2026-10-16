@@ -1,14 +1,14 @@
+import { publicSourceTime, sourceInstant } from "./source-time.ts";
 // Reports through the public read layer: website DTOs and the v1 shapes. Only real reports are
 // listed; a missing date is a 404, never another day. Withdrawn citations are marked, not shown.
 import type { ReportCitation, ReportDetail, ReportIndexEntry, ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { isValidDate, isoWeekRange } from "@amp/contracts/time";
 import { fetchItemsByIds, fetchMachineReportItems } from "./items.ts";
 export { isReportWithdrawn, storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 
-const sql = dbOf("publication");
 const PUBLIC_CORRECTION_REASONS = new Set([
   "引用报道已更正，本期内容随之更新。",
   "部分引用已撤回，本期仅保留仍可公开的内容。",
@@ -92,6 +92,7 @@ interface Availability {
   sourceId: string | null;
   storyPublicId: string | null;
   publishedAt: Date | null;
+  sourceTime: ReturnType<typeof publicSourceTime>;
   revision: number;
   title: string;
   summary: string | null;
@@ -110,7 +111,8 @@ async function availability(ids: string[], machine = false): Promise<Map<string,
       firstParty: r.first_party,
       sourceId: r.source_id,
       storyPublicId: r.story_public_id,
-      publishedAt: r.published_at,
+      publishedAt: sourceInstant(r.source_time),
+      sourceTime: publicSourceTime(r.source_time),
       revision: r.revision,
       title: r.title,
       summary: r.summary,
@@ -178,13 +180,18 @@ function periodicHeadline(content: Record<string, any>): string | null {
   return text && !/^.+ [周月]报 · \d{4}-/.test(text) ? text : null;
 }
 
-type CitationRef = { itemId?: string | null };
+type CitationRef = { itemId?: string | null; related?: CitationRef[] };
 function reportCitations(content: {
   sections?: Array<{ items?: CitationRef[] }>;
   themes?: Array<{ storyRefs?: CitationRef[] }>;
   flashes?: CitationRef[];
 }): CitationRef[] {
-  return [...(content.sections ?? []).flatMap((s) => s.items ?? []), ...(content.themes ?? []).flatMap((t) => t.storyRefs ?? []), ...(content.flashes ?? [])];
+  const entries = [
+    ...(content.sections ?? []).flatMap((s) => s.items ?? []),
+    ...(content.themes ?? []).flatMap((t) => t.storyRefs ?? []),
+    ...(content.flashes ?? []),
+  ];
+  return [...entries, ...entries.flatMap((entry) => entry.related ?? [])];
 }
 
 /** Every source of synthesized prose must still be public, including flashes and later citations. */
@@ -234,11 +241,32 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
       role: raw.role ?? null,
       storyPublicId: null,
       publishedAt: null,
+      sourceTime: null,
       available: false,
     };
   }
   return {
     itemId: id,
+    ...(typeof raw.sources === "number" && Number.isSafeInteger(raw.sources) && raw.sources > 0 ? { sources: raw.sources } : {}),
+    ...(typeof raw.followUp === "string" && isValidDate(raw.followUp) ? { followUp: raw.followUp } : {}),
+    ...(raw.fillIn === true ? { fillIn: true } : {}),
+    ...(Array.isArray(raw.related)
+      ? {
+          related: raw.related.map((entry: Record<string, any>) => {
+            const citation = citationFrom({ ...entry, related: undefined }, avail, machine);
+            return {
+              itemId: citation.itemId,
+              sourceTime: citation.sourceTime ?? null,
+              title: citation.title,
+              sourceName: citation.sourceName,
+              sourceUrl: citation.sourceUrl,
+              sourceId: citation.sourceId,
+              storyPublicId: citation.storyPublicId,
+              available: citation.available,
+            };
+          }),
+        }
+      : {}),
     title: a?.title ?? String(raw.title ?? ""),
     summary: a ? a.summary : (raw.summary ?? null),
     sourceName: a?.sourceName ?? String(raw.sourceName ?? raw.source?.name ?? ""),
@@ -248,6 +276,7 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
     role: raw.role ?? null,
     storyPublicId: machine ? (a?.storyPublicId ?? null) : (raw.storyPublicId ?? a?.storyPublicId ?? null),
     publishedAt: a?.publishedAt?.toISOString() ?? null,
+    sourceTime: a?.sourceTime ?? null,
     available,
   };
 }
@@ -269,14 +298,10 @@ export async function loadReport(kind: ReportKind, key: string, machine = false)
   >`SELECT kind, key, window_start, window_end, content, generated_at, revision FROM reports r WHERE kind = ${kind} AND key = ${key} AND NOT EXISTS(SELECT 1 FROM publication.withdrawal_targets w WHERE w.active AND w.lane='news' AND w.target_type='report' AND w.target_key=r.kind||':'||r.key)`;
   if (!r) return null;
   const c = r.content;
-  const rawItems: Array<Record<string, any>> = [
-    ...(c.sections ?? []).flatMap((s: any) => s.items ?? []),
-    ...(c.flashes ?? []),
-    ...(c.themes ?? []).flatMap((t: any) => t.storyRefs ?? []),
-  ];
-  const avail = await availability([...new Set(rawItems.map((i) => i.itemId).filter(Boolean))], machine);
+  const allCitations = reportCitations(c);
+  const avail = await availability([...new Set(allCitations.flatMap((i) => (i.itemId ? [i.itemId] : [])))], machine);
   const cite = (raw: Record<string, any>) => citationFrom(raw, avail, machine);
-  const removed = !!c.correctionPending || rawItems.some((raw) => !cite(raw).available || staleCitation(raw, avail));
+  const removed = !!c.correctionPending || allCitations.some((raw) => !cite(raw).available || staleCitation(raw, avail));
 
   const sections =
     kind === "daily"
@@ -303,6 +328,17 @@ export async function loadReport(kind: ReportKind, key: string, machine = false)
   const text = [c.lead?.leadParagraph ?? "", c.overview ?? "", ...all.map((i: ReportCitation) => `${i.title}${i.summary ?? ""}`)].join("");
   const { prev, next } = await neighbors(kind, key);
   const headline = kind === "daily" ? null : periodicHeadline(c);
+  const overview =
+    kind === "daily" || removed
+      ? null
+      : typeof c.overview === "string" && c.overview.trim()
+        ? c.overview
+        : stories.length
+          ? `${kind === "weekly" ? "本周" : "本月"}汇集 ${stories.length} 件矿业动态，包括：${stories
+              .slice(0, 3)
+              .map((entry) => entry.title)
+              .join("；")}。`
+          : null;
   const title =
     kind === "daily" ? `${withSubject("日报")} · ${key}` : String(c.title ?? (kind === "weekly" ? `${SITE.name} 周报 · ${key}` : `${SITE.name} 月报 · ${key}`));
   return {
@@ -323,8 +359,9 @@ export async function loadReport(kind: ReportKind, key: string, machine = false)
     generatedAt: r.generated_at.toISOString(),
     revision: r.revision,
     corrections: publicCorrections(c.corrections),
-    lead: removed ? null : (c.lead ?? (headline ? { title: headline, leadParagraph: String(c.overview ?? "") } : null)),
-    overview: removed ? null : (c.overview ?? null),
+    lead: removed ? null : (c.lead ?? (headline ? { title: headline, leadParagraph: overview ?? "" } : null)),
+    overview: kind === "daily" ? (removed ? null : (c.overview ?? null)) : overview,
+    ...(typeof c.leadItemId === "string" && avail.get(c.leadItemId)?.available ? { leadItemId: c.leadItemId } : {}),
     highlights,
     sections,
     stories,
@@ -420,7 +457,7 @@ export async function v1Daily(date: string | "latest") {
           title: i.title,
           source: { name: i.sourceName },
           links: { original: i.sourceUrl },
-          publishedAt: i.publishedAt ?? report.generatedAt,
+          publishedAt: i.publishedAt,
           attribution: attribution(i.itemId ? itemUrl(i.itemId) : url),
         })),
     },

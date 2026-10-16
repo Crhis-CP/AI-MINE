@@ -1,12 +1,15 @@
+import { requireRuntimeRunning, assertRuntimeControl } from "../operations/lane-controls.ts";
+import { projectParticipation, participationHash } from "./participation-read.ts";
+import { reportEventEvidence, currentFactMembers } from "./report-context.ts";
+import { reportFactEvidence } from "../publication/groups.ts";
+import { pickRepresentative } from "../publication/representative.ts";
 // Hot ranking: attention over the last 48 hours from independent participants.
 // Each participant counts once per window (repeat collection does not add heat), decays with a
 // 24-hour half-life, and the source time (not collection time) places evidence in the window.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { tierRank, type HotEntry } from "./hot-read.ts";
 
-const sql = dbOf("events");
-
-export const HOT_RULE_VERSION = "heat-v1-48h-halflife24h";
+export const HOT_RULE_VERSION = "heat-v2-current-48h-halflife24h";
 const WINDOW_HOURS = 48;
 const HALF_LIFE_HOURS = 24;
 const MIN_PARTICIPANTS = 2;
@@ -25,6 +28,7 @@ interface HeatRow {
   heat_prev_obs: number;
   /** Participants with a source whose collection was behind: their newest evidence may be missing. */
   behind_participants: number;
+  uncomparable: number;
   recent6h: number;
   editorial_participants: number;
   signal_participants: number;
@@ -52,38 +56,63 @@ export function behindSources(clocks: SourceClock[], at: number, grace: boolean)
   return clocks.filter((c) => c.lastOk === null || c.lastOk < at - (grace ? c.graceMs : 0)).map((c) => c.id);
 }
 
-/** Heat of every story at `at` (defaults to now), from story_signals alone; `behind` marks sources not fully observed. */
-async function heatRows(at: Date, behind: string[] = []): Promise<HeatRow[]> {
-  const prev = new Date(at.getTime() - 6 * 3600 * 1000);
+type HeatEvidence = Awaited<ReturnType<typeof reportEventEvidence>>["signals"];
+async function currentHeatEvidence(at: Date, storyIds?: number[], includeHistory = false): Promise<HeatEvidence> {
+  const from = new Date(at.getTime() - 54 * 3600000);
+  const ids =
+    storyIds ??
+    (await sql<{ story_id: number }[]>`SELECT DISTINCT story_id FROM story_signals WHERE observed_at>${from} AND observed_at<=${at}`).map(
+      (row) => row.story_id,
+    );
+  return (await reportEventEvidence(ids, [], new Date(at.getTime() + 1), includeHistory ? undefined : from)).signals;
+}
+
+/** Compare two complete 48-hour windows using currently valid independent participants. */
+async function heatRows(at: Date, behind: string[] = [], storyIds?: number[], supplied?: HeatEvidence): Promise<HeatRow[]> {
+  const evidence = supplied ?? (await currentHeatEvidence(at, storyIds));
+  if (!evidence.length) return [];
+  const input = evidence.map((row) => ({
+    story_id: row.story_id,
+    participant_key: row.participant_key,
+    source_id: row.source_id,
+    kind: row.kind,
+    observed_at: row.observed_at.toISOString(),
+    source_since: row.source_since.toISOString(),
+  }));
+  const prev = new Date(at.getTime() - 6 * 3600000);
+  const nowFrom = new Date(at.getTime() - WINDOW_HOURS * 3600000),
+    prevFrom = new Date(prev.getTime() - WINDOW_HOURS * 3600000);
   const decayNow = sql`power(0.5, extract(epoch FROM (${at}::timestamptz - last_at)) / 3600.0 / ${HALF_LIFE_HOURS})`;
   const decayPrev = sql`power(0.5, extract(epoch FROM (${prev}::timestamptz - last_prev)) / 3600.0 / ${HALF_LIFE_HOURS})`;
-  const inPrevWindow = sql`last_prev IS NOT NULL AND last_prev > ${prev}::timestamptz - make_interval(hours => ${WINDOW_HOURS})`;
+  const comparable = sql`NOT behind AND NOT late`;
   return sql<HeatRow[]>`
     WITH obs AS (
-      SELECT story_id, participant_key, max(observed_at) AS last_at, min(observed_at) AS first_at,
-             bool_or(kind = 'editorial') AS editorial,
-             max(observed_at) FILTER (WHERE observed_at <= ${prev}) AS last_prev,
-             bool_or(source_id = ANY(${behind}::text[])) AS behind
-      FROM story_signals
-      WHERE observed_at > ${at}::timestamptz - make_interval(hours => ${WINDOW_HOURS}) AND observed_at <= ${at}
-      GROUP BY story_id, participant_key
+      SELECT story_id, participant_key,
+        max(observed_at) FILTER(WHERE observed_at>${nowFrom}) AS last_at,
+        min(observed_at) FILTER(WHERE observed_at>${nowFrom}) AS first_at,
+        coalesce(bool_or(kind='editorial') FILTER(WHERE observed_at>${nowFrom}),false) AS editorial,
+        max(observed_at) FILTER(WHERE observed_at<=${prev}) AS last_prev,
+        bool_or(source_id=ANY(${behind}::text[])) AS behind,
+        bool_or(source_since>${prevFrom}) AS late
+      FROM pg_catalog.jsonb_to_recordset(${sql.json(input)}) AS cs(story_id bigint,participant_key text,source_id text,kind text,observed_at timestamptz,source_since timestamptz)
+      WHERE observed_at>${prevFrom} AND observed_at<=${at}
+      GROUP BY story_id,participant_key
     ), agg AS (
       SELECT story_id,
-        count(*) AS participants,
-        sum(${decayNow}) AS heat,
-        coalesce(sum(${decayPrev}) FILTER (WHERE ${inPrevWindow}), 0) AS heat_prev,
-        coalesce(sum(${decayNow}) FILTER (WHERE NOT behind), 0) AS heat_obs,
-        coalesce(sum(${decayPrev}) FILTER (WHERE ${inPrevWindow} AND NOT behind), 0) AS heat_prev_obs,
-        count(*) FILTER (WHERE behind) AS behind_participants,
-        count(*) FILTER (WHERE first_at > ${prev}) AS recent6h,
-        count(*) FILTER (WHERE editorial) AS editorial_participants,
-        count(*) FILTER (WHERE NOT editorial) AS signal_participants
-      FROM obs GROUP BY story_id
-    )
-    SELECT a.story_id, st.public_id::text AS public_id, st.title, st.first_report_at, st.latest_at,
-           a.participants, a.heat, a.heat_prev, a.heat_obs, a.heat_prev_obs, a.behind_participants, a.recent6h, a.editorial_participants, a.signal_participants
-    FROM agg a JOIN stories st ON st.id = a.story_id
-    WHERE st.merged_into IS NULL`;
+        count(*) FILTER(WHERE last_at IS NOT NULL) AS participants,
+        coalesce(sum(${decayNow}) FILTER(WHERE last_at IS NOT NULL),0) AS heat,
+        coalesce(sum(${decayPrev}) FILTER(WHERE last_prev IS NOT NULL),0) AS heat_prev,
+        coalesce(sum(${decayNow}) FILTER(WHERE last_at IS NOT NULL AND ${comparable}),0) AS heat_obs,
+        coalesce(sum(${decayPrev}) FILTER(WHERE last_prev IS NOT NULL AND ${comparable}),0) AS heat_prev_obs,
+        count(*) FILTER(WHERE last_at IS NOT NULL AND behind) AS behind_participants,
+        count(*) FILTER(WHERE behind OR late) AS uncomparable,
+        count(*) FILTER(WHERE first_at>${prev}) AS recent6h,
+        count(*) FILTER(WHERE last_at IS NOT NULL AND editorial) AS editorial_participants,
+        count(*) FILTER(WHERE last_at IS NOT NULL AND NOT editorial) AS signal_participants
+      FROM obs GROUP BY story_id HAVING count(*) FILTER(WHERE last_at IS NOT NULL)>0
+    ) SELECT a.story_id,st.public_id::text AS public_id,st.title,st.first_report_at,st.latest_at,
+      a.participants,a.heat,a.heat_prev,a.heat_obs,a.heat_prev_obs,a.behind_participants,a.uncomparable,a.recent6h,a.editorial_participants,a.signal_participants
+      FROM agg a JOIN stories st ON st.id=a.story_id WHERE st.merged_into IS NULL`;
 }
 
 export function heatIndex(heat: number): number {
@@ -91,40 +120,51 @@ export function heatIndex(heat: number): number {
 }
 
 export async function computeHotRanking(at = new Date()): Promise<{ id: number; entries: number }> {
+  const control = await requireRuntimeRunning("news", ["publication"]);
+  const observedStories = (
+    await sql<
+      { story_id: number }[]
+    >`SELECT DISTINCT story_id FROM story_signals WHERE observed_at>${new Date(at.getTime() - 54 * 3600000)} AND observed_at<=${at}`
+  ).map((row) => row.story_id);
+  const qualified = await currentHeatEvidence(at, observedStories, true);
+  const evidence = [...new Map(qualified.map((row) => [`${row.story_id}:${row.article_id}`, row])).values()];
   const behind = behindSources(await sourceClocks(), at.getTime(), true);
-  const rows = (await heatRows(at, behind)).filter((r) => Number(r.participants) >= MIN_PARTICIPANTS && Number(r.editorial_participants) >= 1);
+  const allRows = await heatRows(at, behind, undefined, evidence);
+  const rows = allRows.filter((r) => Number(r.participants) >= MIN_PARTICIPANTS && Number(r.editorial_participants) >= 1);
   rows.sort((a, b) => Number(b.heat) - Number(a.heat) || (b.latest_at?.getTime() ?? 0) - (a.latest_at?.getTime() ?? 0));
 
   const entries: HotEntry[] = [];
   for (const r of rows) {
     if (entries.length >= 10) break;
-    const reports = await sql<
-      { id: string; url: string; title: string; source_name: string; first_party: boolean; selected: boolean; score: number | null; at: Date }[]
-    >`
-      SELECT DISTINCT ON (p.article_id) p.article_id AS id, p.url, p.title, s.name AS source_name, p.first_party, p.selected, p.score,
-             coalesce(p.published_at, p.discovered_at) AS at
-      FROM facts f JOIN fact_articles fa ON fa.fact_id = f.id JOIN publications p ON p.article_id = fa.article_id
-      JOIN sources s ON s.id = p.source_id
-      WHERE f.story_id = ${r.story_id} AND p.visibility = 'public' AND p.eligible AND (NOT p.selected OR p.visible_after <= ${at})
-      ORDER BY p.article_id`;
-    if (reports.length === 0) continue;
-    const rep = [...reports].sort(
-      (x, y) => Number(y.first_party) - Number(x.first_party) || Number(y.selected) - Number(x.selected) || Number(y.score ?? 0) - Number(x.score ?? 0),
-    )[0]!;
-    const participants = await sql<{ name: string; kind: "editorial" | "signal"; tier: string; at: Date }[]>`
-      SELECT DISTINCT ON (ss.participant_key) s.name, ss.kind, s.tier, ss.observed_at AS at
-      FROM story_signals ss JOIN sources s ON s.id = ss.source_id
-      WHERE ss.story_id = ${r.story_id} AND ss.observed_at > ${at}::timestamptz - make_interval(hours => ${WINDOW_HOURS}) AND ss.observed_at <= ${at}
-      ORDER BY ss.participant_key, (ss.kind = 'editorial') DESC, ss.observed_at DESC`;
+    const facts = (await sql<{ id: number }[]>`SELECT id FROM facts WHERE story_id=${r.story_id}`).map((row) => row.id);
+    const members = await currentFactMembers(facts),
+      qualified = new Set(members.map((row) => `${row.fact_id}:${row.article_id}`));
+    const reports = (await reportFactEvidence(facts, new Date(at.getTime() + 1))).filter((row) => qualified.has(`${row.fact_id}:${row.id}`));
+    if (!reports.length) continue;
+    const byFact = new Map<number, typeof reports>();
+    for (const report of reports) byFact.set(report.fact_id!, [...(byFact.get(report.fact_id!) ?? []), report]);
+    const sourceCount = (list: typeof reports) => new Set(list.map((report) => report.source_id)).size;
+    const firstSeen = (list: typeof reports) => Math.min(...list.map((report) => report.timeline_at.getTime()));
+    const leading = [...byFact.values()].sort((a, b) => sourceCount(b) - sourceCount(a) || firstSeen(a) - firstSeen(b) || a[0]!.fact_id! - b[0]!.fact_id!)[0]!;
+    const selected = leading.filter((report) => report.selected),
+      rep = pickRepresentative(selected.length ? selected : leading);
+    const participantsByKey = new Map<string, { name: string; kind: "editorial" | "signal"; tier: string; at: Date }>();
+    for (const signal of evidence
+      .filter((signal) => Number(signal.story_id) === Number(r.story_id) && signal.observed_at.getTime() > at.getTime() - WINDOW_HOURS * 3600000)
+      .sort((a, b) => Number(b.kind === "editorial") - Number(a.kind === "editorial") || b.observed_at.getTime() - a.observed_at.getTime())) {
+      if (!participantsByKey.has(signal.participant_key))
+        participantsByKey.set(signal.participant_key, { name: signal.source_name, kind: signal.kind, tier: signal.source_tier, at: signal.observed_at });
+    }
+    const participants = [...participantsByKey.values()];
     // The reporting sources of the window, latest first (signal participants are counted separately).
     const reporting = participants.filter((p) => p.kind === "editorial").sort((x, y) => y.at.getTime() - x.at.getTime());
     const heat = heatIndex(Number(r.heat));
     // The change against six hours before compares only participants whose sources were observed
     // throughout; with none of the earlier ones observed there is no comparison.
     const prevAll = heatIndex(Number(r.heat_prev));
-    const [cur, prev] = Number(r.behind_participants) > 0 ? [heatIndex(Number(r.heat_obs)), heatIndex(Number(r.heat_prev_obs))] : [heat, prevAll];
+    const [cur, prev] = Number(r.uncomparable) > 0 ? [heatIndex(Number(r.heat_obs)), heatIndex(Number(r.heat_prev_obs))] : [heat, prevAll];
     const pct = prev > 0 ? (cur - prev) / prev : null;
-    const firstAt = r.first_report_at ?? reports[0]!.at;
+    const firstAt = r.first_report_at ?? reports[0]!.timeline_at;
     const isNew = at.getTime() - firstAt.getTime() < 6 * 3600 * 1000;
     const surge = Number(r.recent6h) >= 3 && Number(r.recent6h) / Number(r.participants) >= 0.5;
     const badges: HotEntry["badges"] = [];
@@ -136,11 +176,14 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
       rank: entries.length + 1,
       storyId: r.story_id,
       storyPublicId: r.public_id,
-      title: r.title,
+      title: rep.title,
       heat,
       trend: prevAll <= 0 ? "new" : pct === null ? "unknown" : pct > 0.1 ? "up" : pct < -0.1 ? "down" : "flat",
       trendPct: pct === null ? null : Math.round(pct * 1000) / 10,
       badges,
+      evidenceHash: participationHash(
+        evidence.filter((signal) => signal.story_id === r.story_id && signal.observed_at.getTime() > at.getTime() - 48 * 3600000),
+      ),
       participantCount: Number(r.participants),
       sourceCount: Number(r.editorial_participants),
       signalCount: Number(r.signal_participants),
@@ -160,11 +203,13 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
         .map(({ name, kind, tier }) => ({ name, kind, tier })),
     });
   }
-  const [row] = await sql<{ id: number }[]>`
-    INSERT INTO hot_rankings (computed_at, rule_version, entries, evidence, published)
-    VALUES (${at}, ${HOT_RULE_VERSION}, ${sql.json(entries as never)},
-            ${sql.json({ windowHours: WINDOW_HOURS, halfLifeHours: HALF_LIFE_HOURS, minParticipants: MIN_PARTICIPANTS, candidates: rows.length } as never)}, true)
-    RETURNING id`;
+  const row = await sql.begin(async (tx) => {
+    await assertRuntimeControl(tx, control);
+    await projectParticipation(tx, observedStories, evidence, at);
+    const [saved] = await tx<{ id: number }[]>`INSERT INTO hot_rankings(computed_at,rule_version,entries,evidence,published)
+      VALUES(${at},${HOT_RULE_VERSION},${tx.json(entries as never)},${tx.json({ windowHours: WINDOW_HOURS, halfLifeHours: HALF_LIFE_HOURS, minParticipants: MIN_PARTICIPANTS, candidates: rows.length })},true) RETURNING id`;
+    return saved!;
+  });
   // Keep a bounded history of rankings.
   await sql`DELETE FROM hot_rankings WHERE computed_at < now() - interval '30 days'`;
   return { id: row!.id, entries: entries.length };
@@ -177,6 +222,16 @@ export async function computeHotRanking(at = new Date()): Promise<{ id: number; 
  */
 export async function snapshotHeat(at = new Date()): Promise<{ stories: number; repaired: number }> {
   const hour = new Date(Math.floor(at.getTime() / 3600000) * 3600000);
+  const historyStories = (
+    await sql<
+      { story_id: number }[]
+    >`SELECT DISTINCT story_id FROM story_signals WHERE observed_at>${new Date(at.getTime() - 9 * 86400000)} AND observed_at<=${at}`
+  ).map((row) => row.story_id);
+  for (let i = 0; i < historyStories.length; i += 50) {
+    const ids = historyStories.slice(i, i + 50),
+      evidence = await currentHeatEvidence(at, ids, true);
+    await sql.begin((tx) => projectParticipation(tx, ids, evidence, at));
+  }
   const clocks = await sourceClocks();
   const rows = await heatRows(hour, behindSources(clocks, hour.getTime(), true));
   for (const r of rows) {
@@ -191,7 +246,7 @@ export async function snapshotHeat(at = new Date()): Promise<{ stories: number; 
     WHERE NOT complete AND hour < ${hour} AND hour > ${new Date(hour.getTime() - WINDOW_HOURS * 3600000)} GROUP BY hour ORDER BY hour`;
   for (const s of stale) {
     const wanted = new Set(s.stories.map(Number));
-    for (const r of await heatRows(s.hour, behindSources(clocks, s.hour.getTime(), false))) {
+    for (const r of await heatRows(s.hour, behindSources(clocks, s.hour.getTime(), false), s.stories.map(Number))) {
       if (!wanted.has(Number(r.story_id)) || Number(r.behind_participants) > 0) continue;
       await sql`UPDATE story_heat_hourly SET heat = ${heatIndex(Number(r.heat))}, participants = ${Number(r.participants)}, cohort = ${Number(r.editorial_participants)}, complete = true
                 WHERE story_id = ${r.story_id} AND hour = ${s.hour}`;
@@ -212,11 +267,11 @@ export async function backfillStoryHeat(storyId: number, hours = 7 * 24): Promis
   const clocks = await sourceClocks();
   let n = 0;
   for (let t = start; t <= end; t += 3600000) {
-    const rows = (await heatRows(new Date(t), behindSources(clocks, t, false))).filter((r) => Number(r.story_id) === storyId);
+    const rows = (await heatRows(new Date(t), behindSources(clocks, t, false), [storyId])).filter((r) => Number(r.story_id) === storyId);
     for (const r of rows) {
       await sql`INSERT INTO story_heat_hourly (story_id, hour, heat, participants, cohort, complete)
                 VALUES (${storyId}, ${new Date(t)}, ${heatIndex(Number(r.heat))}, ${Number(r.participants)}, ${Number(r.editorial_participants)}, ${Number(r.behind_participants) === 0})
-                ON CONFLICT (story_id, hour) DO UPDATE SET heat = EXCLUDED.heat, participants = EXCLUDED.participants, complete = EXCLUDED.complete`;
+                ON CONFLICT (story_id, hour) DO UPDATE SET heat = EXCLUDED.heat, participants = EXCLUDED.participants, cohort=EXCLUDED.cohort, complete = EXCLUDED.complete`;
       n += 1;
     }
   }

@@ -1,13 +1,13 @@
 import type { z } from "zod";
 import { MonthlyUsageReport, MonthlyUsageEntry, UsageMonth, type UsageTotals } from "@amp/contracts/http/private";
 import { beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { config } from "../config.ts";
 import { usageConfiguration } from "../providers/usage-protection.ts";
-const sql = dbOf("ai-gateway");
+
 type Totals = z.infer<typeof UsageTotals>;
 type Attempt = {
   service: string;

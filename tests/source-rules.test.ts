@@ -7,14 +7,12 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { extractArticleBody, readable } from "@amp/backend/content/extract";
 import { collectSource } from "./crawl-fixture.ts";
 import { updateSource } from "@amp/backend/admin/sources";
 import { grantDateFixture } from "./source-date-fixture.ts";
-
-const sql = dbOf("acquisition");
 
 const T = tag();
 const LONG = `${"A card label that swallowed the summary of the article it links to, ".repeat(2)}${T}`;

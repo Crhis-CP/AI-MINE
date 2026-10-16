@@ -9,18 +9,17 @@
 | 接口 | 调用者与含义 |
 |---|---|
 | `environmentProblems(role, env)`、`assertProcessEnvironment(role, env)` | 进程启动检查；前者只返回违规变量名，后者拒绝不合格环境；`databaseConfig` 自动执行 |
-| `fetcherConfig(env)` | 检查 fetcher 凭据边界并读取监听配置；默认 127.0.0.1:3003，端口 1–65535，主机为 IP 或 localhost，不创建数据库访问 |
-| `apiRoleFromEnv(env)` | 显式解析必填 API_ROLE，只接受 public-api/private-api；错误不输出输入值 |
+| `apiRoleFromEnv(env)` | 显式解析必填 API_ROLE，接受统一 api 和过渡 public-api/private-api；错误不输出输入值 |
 | `publicApiCredentialNames(env)` | 按 TASK-0004 D7 返回公共 API 不应持有的凭据变量名，空值也算存在 |
 | `assertPublicApiCredentials(env, warn)` | 显式调用时，NODE_ENV=production 拒绝上述凭据；其他环境只警告变量名，不检查必需密钥 |
 | `databaseConfig(processRole, env)` | 组合根读取并校验配置；`urlFor` 拒绝越权角色 |
 | `createDatabaseAccess(processRole, env, warn)` | 每个组合根创建一次；模块只取得其 `dbFor(role)` 返回的连接 |
 | `processRole`、`split` | 当前访问对象已校验的进程角色及是否采用按角色地址 |
-| `queueUrl()` | worker/test 取得 worker 地址，private-api 取得 private_ops 地址；其他进程拒绝使用队列 |
+| `queueUrl()` | worker/test 取得 worker 地址，api/private-api 取得 private_ops 地址；其他进程拒绝使用队列 |
 | `backupUrl()` | 仅 worker 可以取得 backup 地址，交给 pg_dump；不可通过 dbFor 取得备份连接 |
 | `close()` | 关闭本对象创建的全部连接池；关闭后拒绝继续取得连接 |
 
-进程角色和地址权限见 `PROCESS_DATABASE_ROLES`。公开 API 只取得 public_read/feedback_write；私有 API 只取得 private_ops/auth；worker 取得 worker，另有 backup；迁移取得 migrate；web/fetcher 不持有数据库地址。`api` 过渡角色已删除；`test` 只允许一次性 `_test`/`_ci` 数据库。
+进程角色和地址权限见 `PROCESS_DATABASE_ROLES`。公开 API 只取得 public_read/feedback_write；私有 API 只取得 private_ops/auth；worker 取得 worker，另有 backup；迁移取得 migrate；web 不持有数据库地址。`api` 过渡角色已删除；`test` 只允许一次性 `_test`/`_ci` 数据库。
 
 反馈来源哈希已改用独立 PUBLIC_RATE_LIMIT_SECRET：生产缺失拒绝启动，开发缺失警告并使用既有开发常量；SESSION_SECRET 仅用于私有认证，不再决定反馈哈希。
 
@@ -28,9 +27,9 @@ apps/api/src/runtime.ts 的 startApi(env) 只接受当前进程的实际环境�
 
 所有按角色地址都未提供时才使用单一 DATABASE_URL，并输出不含地址的过渡提示；只提供一部分角色地址则拒绝启动，不退回单一地址。创建配置与连接句柄均不执行 SQL；收到查询后驱动才连接。
 
-队列和备份地址从初始化时的配置取得，不重新读取环境。组合根给 private-api 的 pg-boss 连接固定关闭建 schema、迁移、维护与定时处理，只检查既有队列；队列未就绪不影响启动或登录，发任务返回可重试的暂不可用结果。worker/test 行为保持。暖缓存队列删除或物理表形态改变时，私有投递根据 pg-boss 实际 INSERT 目标复核当前元数据（包括启动时预载但尚未投递的队列），只淘汰生产者客户端。新客户端等待清理屏障；通过 tx 或 options.db 传入的事务请求先返回暂不可用让调用方回滚，不等待自己持有的锁。不自动重发任务。正常单例去重仍返回空任务编号。关闭访问对象后，`dbFor`、`queueUrl` 和 `backupUrl` 均拒绝调用。
+队列和备份地址从初始化时的配置取得，不重新读取环境。组合根给 api/private-api 的 pg-boss 连接固定关闭建 schema、迁移、维护与定时处理，只检查既有队列；队列未就绪不影响启动或登录，发任务返回可重试的暂不可用结果。worker/test 行为保持。暖缓存队列删除或物理表形态改变时，私有投递根据 pg-boss 实际 INSERT 目标复核当前元数据（包括启动时预载但尚未投递的队列），只淘汰生产者客户端。新客户端等待清理屏障；通过 tx 或 options.db 传入的事务请求先返回暂不可用让调用方回滚，不等待自己持有的锁。不自动重发任务。正常单例去重仍返回空任务编号。关闭访问对象后，`dbFor`、`queueUrl` 和 `backupUrl` 均拒绝调用。
 
-web/fetcher 在任何环境都拒绝数据库与凭据变量（包括空值）；仅 `NODE_ENV=production` 启用生产检查，拒绝出网代理、`DEV_AUTH_*` 和已启用的 `ALLOW_PRIVATE_NETWORK_FETCH`。`AMP_ENVIRONMENT` 不影响判断；worker 的模型和备份凭据在 M0 过渡期仍允许。诊断不包含变量值。
+web 在任何环境都拒绝数据库与凭据变量（包括空值）；仅 `NODE_ENV=production` 启用生产检查，拒绝出网代理、`DEV_AUTH_*` 和已启用的 `ALLOW_PRIVATE_NETWORK_FETCH`。`AMP_ENVIRONMENT` 不影响判断；worker 的模型和备份凭据在 M0 过渡期仍允许。诊断不包含变量值。
 
 URL 查询参数只接受 sslmode、target_session_attrs、application_name；禁止通过 database、user 等启动参数覆盖连接身份。驱动构造期异常统一脱敏，不附原始异常或 cause。
 
@@ -40,4 +39,8 @@ URL 查询参数只接受 sslmode、target_session_attrs、application_name；�
 
 依赖仅为仓库已经使用的 postgres 3.4.9。角色地址和诊断不得包含在日志、异常或仓库中。修改角色矩阵须与任务卡、公开接口和正反例同步；真正的数据库权限由后续建角色步骤与真实登录矩阵验证，配置检查不能替代它。
 
-TASK-0143增加专用`ops_read`数据库身份。仅private-api可选持有`DATABASE_URL_OPS_READ`，该地址只允许进入private-api进程；worker/public-api/web/fetcher仍不能取得。未配置时原后台保持可用，只有私网运维读取报不可用；不使用单一DATABASE_URL回退该身份。读取池最多2连接，角色仅SELECT固定脱敏快照表。test进程仍仅使用隔离测试库过渡地址，真实只读权限另以角色登录验证。
+TASK-0143增加专用`ops_read`数据库身份。api和过渡private-api可选持有`DATABASE_URL_OPS_READ`，该地址只允许进入这两类API进程；worker/public-api/web仍不能取得。未配置时原后台保持可用，只有私网运维读取报不可用；不使用单一DATABASE_URL回退该身份。读取池最多2连接，角色仅SELECT固定脱敏快照表。test进程仍仅使用隔离测试库过渡地址，真实只读权限另以角色登录验证。
+
+统一api启动同时检查PUBLIC_RATE_LIMIT_SECRET与SESSION_SECRET/登录配置，并注册公开和鉴权接口；使用既有private_ops/auth权限，不创建数据库角色或扩大GRANT。旧分离模式保留供迁移兼容。仓库Compose及整站冒烟已使用统一api；正式发布脚本按现役服务备份，并可从新api回退旧双服务。生产尚待统一发布。
+
+合成HTTP回放夹具位于tests/fixtures/recorded-fetch.ts，无生产启动入口；应用运行角色不再包含fetcher。

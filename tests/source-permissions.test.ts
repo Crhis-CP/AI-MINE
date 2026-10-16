@@ -3,7 +3,7 @@ import { randomUUID, verify as verifySignature } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import type { z } from "zod";
 import { SourcePolicySchema, type IssueProcessingPermitInputSchema, type SignedProcessingPermit } from "@amp/contracts/source-policy";
-import { initializeDb, closeDb, dbOf } from "@amp/backend/db";
+import { initializeDb, closeDb, sql as runtimeSql } from "@amp/backend/db";
 import path from "node:path";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -199,7 +199,7 @@ test("root lifetime is stable for reentry, refuses reconfiguration and cannot su
     assert.equal(root.aborted, true, "revocation starts before pool cleanup settles");
     await closing;
     await assert.rejects(initializeDb("test", {}), /Missing/);
-    assert.throws(() => dbOf("sources").options, /not injected/);
+    assert.throws(() => runtimeSql`SELECT 1`, /not initialized/);
     const next = await initializeDb("test", env);
     assert.notEqual(next, root);
     assert.equal(next.aborted, false);
@@ -219,7 +219,7 @@ test("private creation confirms an explicit scope atomically and the real evalua
   await initializeDb("private-api", { DATABASE_URL_PRIVATE_OPS: f.urlFor("private_ops"), DATABASE_URL_AUTH: f.urlFor("auth"), DATABASE_POOL_MAX: "4" });
   await f.admin.unsafe("ALTER TABLE public.sources ADD COLUMN IF NOT EXISTS source_date_config_hash text");
   const { config } = await import("@amp/backend/config");
-  const { buildApp } = await import("../apps/api/src/app.ts");
+  const { buildApp } = await import("./site-app.ts");
   const { evaluateSourcePolicy, saveSourcePolicy } = await import("@amp/backend/admin/sources");
   const { stopBoss } = await import("@amp/backend/jobs/queue");
   const original = { adminPassword: config.adminPassword, devAdmin: config.devAdmin, privateHost: config.privateHost };
@@ -433,8 +433,9 @@ test("private creation confirms an explicit scope atomically and the real evalua
 
 test("abort listeners observe revoked capabilities and share the already registered close operation", async () => {
   const root = await initializeDb("test", env);
-  const sql = dbOf("sources");
+  const sql = runtimeSql;
   let nested: Promise<void> | undefined, reentry: Promise<AbortSignal> | undefined;
+  let retainedRead: Promise<unknown> | undefined;
   let queueReadable = true,
     databaseReadable = true;
   root.addEventListener(
@@ -446,10 +447,14 @@ test("abort listeners observe revoked capabilities and share the already registe
         queueReadable = false;
       }
       try {
-        void sql.options;
+        runtimeSql`SELECT 1`;
       } catch {
         databaseReadable = false;
       }
+      retainedRead = sql`SELECT 1`.execute().then(
+        () => "unexpected query",
+        (error: { code?: string }) => error.code,
+      );
       reentry = initializeDb("test", env);
       void reentry.catch(() => {});
       nested = closeDb();
@@ -463,6 +468,7 @@ test("abort listeners observe revoked capabilities and share the already registe
     () => false,
     () => true,
   );
+  assert.equal(await retainedRead, "CONNECTION_ENDED", "captured drivers cannot start queries from an abort listener");
   assert.deepEqual(
     { sharedClosing: nested === closing, reentryRejected, queueReadable, databaseReadable },
     { sharedClosing: true, reentryRejected: true, queueReadable: false, databaseReadable: false },

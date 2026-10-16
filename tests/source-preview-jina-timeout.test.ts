@@ -3,14 +3,14 @@ import http from "node:http";
 import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { requestSourcePreview, runSourcePreview, recoverSourcePreviews, SOURCE_PREVIEW_QUEUE } from "@amp/backend/admin/sources";
 import { ensureQueue, stopBoss } from "@amp/backend/jobs/queue";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
-const sql = dbOf("sources");
+
 await closeDb();
 await initializeDb("test", { ...process.env, DATABASE_POOL_MAX: "1" });
 config.allowPrivateNetworkFetch = true;

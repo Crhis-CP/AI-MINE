@@ -2,13 +2,13 @@ import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { readSourceDateContext, readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { crawlExternal, crawlFetch, crawlStep, withSourceCrawl, CrawlDeferred, CrawlBlocked } from "../packages/backend/src/acquisition/crawl.ts";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import type { GuardedResponse } from "../packages/backend/src/lib/http-fetch.ts";
-const sql = dbOf("acquisition");
+
 let serial = 0,
   clock = Date.now();
 after(closeDb);
@@ -227,8 +227,8 @@ test("official acquisition resumes cached main/annex bytes and retains blocked a
     f = await fixture();
   const sourceRow = (await readSourceDateContext(f.sourceId))!,
     calls: string[] = [];
-  const { capturePolicyMaterial } = await import("../packages/backend/src/policy/capture.ts"),
-    { readPolicyOriginal } = await import("../packages/backend/src/policy/originals.ts");
+  const { capturePolicyMaterial } = await import("../modules/policy/backend/domain/capture.ts"),
+    { readPolicyOriginal } = await import("../modules/policy/backend/domain/originals.ts");
   const get = async (url: string) => {
     calls.push(url);
     if (url.endsWith("/robots.txt")) return reply(url, "", 404);
@@ -251,7 +251,7 @@ test("official acquisition resumes cached main/annex bytes and retains blocked a
   assert.equal(result.status, "captured");
   if (result.status !== "captured") return;
   assert.equal(result.state, "incomplete");
-  const { readPolicyMetadataObservation } = await import("../packages/backend/src/policy/metadata.ts");
+  const { readPolicyMetadataObservation } = await import("../modules/policy/backend/domain/metadata.ts");
   const observed = await readPolicyMetadataObservation(result.expressionId);
   assert.ok(observed);
   assert.ok(Date.parse(observed.observedAt) < clock, "cached main page keeps the actual earlier acquisition time");
@@ -367,15 +367,15 @@ test("a deferred extraction keeps its reason without using an attempt", async ()
     language: "en",
     bodyStatus: "pending",
   });
-  await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "transport_unavailable"));
+  await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "transport_unavailable"), 1);
   const [row] = await sql<{ processing_error: string; processing_attempts: number; processing_state: string }[]>`
     SELECT processing_error, processing_attempts, processing_state FROM articles WHERE id = ${m.articleId}`;
   assert.equal(row!.processing_error, "extract: crawl_deferred: transport_unavailable");
   assert.equal(row!.processing_attempts, 0);
   assert.equal(row!.processing_state, "new");
-  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "source_reader_pending")), "waiting");
-  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 120_000), "reservation", "source_reader_pending")), "waiting");
-  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 180_000), "reservation", "source_reader_pending")), "unconfirmed");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 60_000), "reservation", "source_reader_pending"), 1), "waiting");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 120_000), "reservation", "source_reader_pending"), 1), "waiting");
+  assert.equal(await recordExtractDeferral(m.articleId, new Deferred(new Date(clock + 180_000), "reservation", "source_reader_pending"), 1), "unconfirmed");
   const [done] = await sql<{ processing_attempts: number; body_status: string; processing_error: string }[]>`
     SELECT processing_attempts, body_status, processing_error FROM articles WHERE id = ${m.articleId}`;
   assert.equal(done!.processing_attempts, 0);

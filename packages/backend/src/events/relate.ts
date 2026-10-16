@@ -10,16 +10,22 @@
 // "prefer no" refused half of the true merges (measured 2026-09-28 on 370 labelled pairs).
 import { z } from "zod";
 import { beijingDate, beijingTime } from "@amp/contracts/time";
+import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 
+export const GROUP_BODY_CHARS = 10_000;
+export const BATCH_PROMPT_VERSION = promptVersion("group-batch", "group-value");
 export const RELATE_PROMPT_VERSION = promptVersion("group-batch", "group-pair", "group-signal");
 
 export const RELATIONS = ["SAME_OCCURRENCE", "SAME_STORY", "UNRELATED", "ROUNDUP"] as const;
 export type Relation = (typeof RELATIONS)[number];
 
 export interface ReportView {
+  scope?: "single" | "composite" | "unknown";
   articleId?: string;
   revision?: number;
+  publicationRevision?: number;
+  dateVersion?: number;
   originalText?: string;
   jurisdiction?: string | null;
   title: string;
@@ -41,7 +47,16 @@ export interface CandidateView {
   /** Recall similarity with the query (cosine, or the lexical fallback's overlap). */
   score: number;
   report: ReportView;
+  selected?: boolean;
+  selectedReport?: ReportView | null;
 }
+
+export interface ReadingContext {
+  report: ReportView;
+}
+export const SelectionValueSchema = z.object({ addsValue: z.boolean(), reason: z.string().trim().min(1).max(400) });
+export type SelectionValue = z.infer<typeof SelectionValueSchema>;
+export const NO_SELECTED_COVERAGE: SelectionValue = { addsValue: true, reason: "没有已公开精选的相关报道" };
 
 export interface Verdict {
   relation: Relation;
@@ -51,11 +66,11 @@ export interface Verdict {
 }
 
 /** The relation prompts (industry/prompts/group-*.md): a new report against candidate facts, a pair, a signal post. */
-export const BATCH_SYSTEM = promptText("group-batch");
+export const BATCH_SYSTEM = `${promptText("group-batch")}\n\n${promptText("group-value")}`;
 export const PAIR_SYSTEM = promptText("group-pair");
 export const SIGNAL_SYSTEM = promptText("group-signal");
 
-const RelationSchema = z.enum(RELATIONS).catch("UNRELATED");
+const RelationSchema = z.enum(RELATIONS);
 
 const RelationEvidenceSchema = z.object({
   queryQuote: z.string().min(12).max(600),
@@ -70,60 +85,79 @@ const RelationEvidenceSchema = z.object({
 export type RelationEvidence = z.infer<typeof RelationEvidenceSchema>;
 const evidence = RelationEvidenceSchema.nullable().catch(null);
 
-function statedStage(quote: string): string | null {
-  if (/(?:尚未|未获|拟议|计划|propos|planned|not approved|previst|proyectad)/i.test(quote)) return "proposed";
-  if (/(?:批准|获批|approved|autorizad|aprob[óoa])/i.test(quote)) return "approved";
-  if (/(?:停产|停工|suspend|halted|stopped)/i.test(quote)) return "stopped";
-  if (/(?:复产|复工|resum|restart)/i.test(quote)) return "resumed";
-  return null;
+const jurisdictionById = new Map(JURISDICTIONS.map((row) => [row.id, row]));
+
+function countryOf(row: (typeof JURISDICTIONS)[number]): string {
+  let current = row;
+  const seen = new Set<string>();
+  while (current.parent && !seen.has(current.id)) {
+    seen.add(current.id);
+    const parent = jurisdictionById.get(current.parent);
+    if (!parent) break;
+    current = parent;
+    if (current.kind === "country") return current.id;
+  }
+  return current.kind === "country" ? current.id : current.id;
 }
 
-/** Raw quotations and material identity outrank confidence and lexical recall. */
-export function validatedRelation(a: ReportView, b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
-  if (verdict.relation !== "SAME_OCCURRENCE" && verdict.relation !== "SAME_STORY") return verdict.relation;
-  const e = verdict.evidence;
-  if (verdict.confidence < 0.8 || !e || !a.originalText || !b.originalText || !a.jurisdiction || a.jurisdiction !== b.jurisdiction) return "UNRELATED";
-  if (!a.originalText.includes(e.queryQuote) || !b.originalText.includes(e.candidateQuote)) return "UNRELATED";
-  if (
-    ![e.queryQuote, e.candidateQuote].every((q) => q.includes(e.anchor)) ||
-    !e.queryQuote.includes(e.queryAction) ||
-    !e.candidateQuote.includes(e.candidateAction)
-  )
-    return "UNRELATED";
-  const aStage = statedStage(e.queryQuote),
-    bStage = statedStage(e.candidateQuote);
-  if ((aStage && aStage !== e.queryStage) || (bStage && bStage !== e.candidateStage)) return "UNRELATED";
-  if (a.frame?.object && b.frame?.object && a.frame.object !== b.frame.object) return "UNRELATED";
-  if (a.frame?.subject && b.frame?.subject && a.frame.subject !== b.frame.subject) return "UNRELATED";
-  if (verdict.relation === "SAME_OCCURRENCE" && (e.queryStage !== e.candidateStage || e.queryAction !== e.candidateAction)) return "UNRELATED";
-  if (
-    verdict.relation === "SAME_STORY" &&
-    (!a.at ||
-      !b.at ||
-      a.at <= b.at ||
-      !e.change.trim() ||
-      (e.queryStage === e.candidateStage &&
-        e.queryAction === e.candidateAction &&
-        JSON.stringify(e.queryQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? []) === JSON.stringify(e.candidateQuote.match(/-?\d+(?:[.,]\d+)?/g) ?? [])))
-  )
-    return "UNRELATED";
+const countryByName = new Map<string, string>();
+for (const row of JURISDICTIONS) {
+  const country = countryOf(row);
+  for (const name of [row.id, row.name_zh, row.name_en]) countryByName.set(name.toLocaleLowerCase(), country);
+}
+for (const [name, country] of [
+  ["中国", "CN"],
+  ["中华人民共和国", "CN"],
+  ["china", "CN"],
+] as const)
+  countryByName.set(name.toLocaleLowerCase(), country);
+
+/** Country of a stored code or a plain name. A province and its country are the same country. */
+export function countryKey(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  return countryByName.get(raw.toLocaleLowerCase()) ?? countryByName.get(raw.toUpperCase().toLocaleLowerCase()) ?? raw.toUpperCase();
+}
+
+/** Both sides name a country, and those countries differ. A blank side is not a conflict. */
+export function jurisdictionsConflict(left: string | null | undefined, right: string | null | undefined): boolean {
+  const a = countryKey(left),
+    b = countryKey(right);
+  return !!a && !!b && a !== b;
+}
+
+/** Descriptive tags do not overrule a whole-report identity decision or invent a different relation. */
+export function validatedRelation(_a: ReportView, _b: ReportView, verdict: Pick<Verdict, "relation" | "confidence" | "evidence">): Relation {
   return verdict.relation;
 }
 
+/** Stored identity-only answers remain readable without inventing a later value judgement. */
+export const LegacyIdentityAnswerSchema = z.object({
+  decisions: z.array(
+    z.object({
+      id: z.string(),
+      relation: RelationSchema,
+      confidence: z.coerce.number().min(0).max(1),
+      note: z.string().max(400).catch(""),
+      evidence,
+    }),
+  ),
+});
+
 export const BatchSchema = z.object({
   query: z.string().max(400).catch(""),
-  decisions: z
-    .array(
-      z.object({
-        id: z.string(),
-        relation: RelationSchema,
-        confidence: z.coerce.number().min(0).max(1).catch(0.5),
-        note: z.string().max(400).catch(""),
-        evidence,
-      }),
-    )
-    .catch([]),
+  decisions: z.array(
+    z.object({
+      id: z.string().regex(/^C[1-9]\d*$/),
+      relation: RelationSchema,
+      confidence: z.number().min(0).max(1),
+      note: z.string().max(400).catch(""),
+      evidence,
+    }),
+  ),
 });
+
+export const ValueBatchSchema = BatchSchema.extend({ selection: SelectionValueSchema, queryScope: z.enum(["single", "composite", "unknown"]).optional() });
 
 export const PairSchema = z.object({
   a: z.string().max(400).catch(""),
@@ -131,15 +165,16 @@ export const PairSchema = z.object({
   relation: RelationSchema,
   difference: z.string().max(400).catch(""),
   evidence,
-  confidence: z.coerce.number().min(0).max(1).catch(0.5),
+  confidence: z.number().min(0).max(1),
 });
 
 export const SignalSchema = z.object({
-  decisions: z.array(z.object({ id: z.string(), relation: RelationSchema, confidence: z.coerce.number().min(0).max(1).catch(0.5), evidence })).catch([]),
+  decisions: z.array(z.object({ id: z.string().regex(/^C[1-9]\d*$/), relation: RelationSchema, confidence: z.number().min(0).max(1), evidence })),
 });
 
 function when(at: Date | null): string {
-  return at ? `${beijingDate(at)} ${beijingTime(at)}` : "未知";
+  if (!at) return "未知";
+  return (at.getTime() + 8 * 3600_000) % 86400_000 === 0 ? beijingDate(at) : `${beijingDate(at)} ${beijingTime(at)}`;
 }
 
 export function describeReport(r: ReportView, label: string, extra = ""): string {
@@ -147,6 +182,7 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
   return [
     `【${label}】${extra}`,
     `标题：${r.title}`,
+    r.scope ? `稿件范围：${r.scope === "single" ? "单一报道" : r.scope === "composite" ? "综合稿" : "未确认"}` : null,
     `来源：${r.source}${r.firstParty ? "（当事方/官方）" : ""}｜发布时间：${when(r.at)}`,
     `原文证据：${r.originalText ?? "（无）"}`,
     `法域：${r.jurisdiction ?? "未知"}`,
@@ -161,23 +197,44 @@ export function describeReport(r: ReportView, label: string, extra = ""): string
 
 export const candidateKey = (index: number) => `C${index + 1}`;
 
-export function batchUser(query: ReportView, cands: CandidateView[], queryLabel = "新报道"): string {
+export function batchUser(query: ReportView, cands: CandidateView[], queryLabel = "新报道", reading: ReadingContext[] = []): string {
   const list = cands
-    .map((c, i) => describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`))
+    .map((c, i) =>
+      [
+        describeReport(c.report, `候选 ${candidateKey(i)}`, `（该事实已有 ${c.members} 篇报道；事实标题：${c.factTitle}）`),
+        queryLabel !== "新报道"
+          ? null
+          : c.selected && c.selectedReport
+            ? c.selectedReport.articleId && c.selectedReport.articleId === c.report.articleId
+              ? "【已公开精选】以上代表报道已向读者展示，增量与该报道比较。"
+              : describeReport(c.selectedReport, "已公开精选", "（增量只与这篇已展示的内容比较）")
+            : "【尚无公开精选】此候选仅用于身份判断，不代表读者已经看过。",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
     .join("\n\n");
-  return `${describeReport(query, queryLabel)}\n\n${list}\n\n${queryLabel}与每个候选的关系是什么？`;
+  const background = reading.map(({ report }, i) => describeReport(report, `已公开精选阅读背景 R${i + 1}`, "（只比较信息覆盖，不是事实候选）")).join("\n\n");
+  return `${describeReport(query, queryLabel)}\n\n${list}${background ? `\n\n${background}` : ""}\n\n${queryLabel}与每个候选的关系是什么？${reading.length ? "同时比较已公开精选的覆盖；无事实候选时 decisions=[]。" : ""}`;
 }
 
 export function pairUser(a: ReportView, b: ReportView): string {
   return `${describeReport(a, "报道 A")}\n\n${describeReport(b, "报道 B")}\n\n这两篇报道是什么关系？`;
 }
 
-/** Verdicts by fact id; a candidate the model skipped counts as UNRELATED. */
+/** Missing, duplicate and unknown candidate IDs are incomplete answers, never unrelatedness. */
+export function completeDecisions(decisions: Array<{ id: string }>, count: number): boolean {
+  const ids = new Set(decisions.map((d) => d.id));
+  return decisions.length === count && ids.size === count && Array.from({ length: count }, (_, i) => `C${i + 1}`).every((id) => ids.has(id));
+}
+
+/** Only complete identity decisions become event relationships. */
 export function verdictsByFact(
   decisions: Array<{ id: string; relation: Relation; confidence: number; note?: string; evidence?: RelationEvidence | null }>,
   cands: CandidateView[],
   query?: ReportView,
 ): Map<number, Verdict> {
+  if (!completeDecisions(decisions, cands.length)) throw new Error("Identity answer must cover every candidate exactly once");
   const out = new Map<number, Verdict>();
   for (const d of decisions) {
     const n = Number(String(d.id).trim().replace(/^C/i, ""));
@@ -190,24 +247,19 @@ export function verdictsByFact(
         evidence: d.evidence,
       });
   }
-  for (const c of cands) if (!out.has(c.factId)) out.set(c.factId, { relation: "UNRELATED", confidence: 0, note: "" });
   return out;
 }
 
 /** Candidates the model calls the same occurrence, most confident first (recall similarity breaks ties). */
 export function sameOccurrence(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView[] {
   return cands
-    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE" && verdicts.get(c.factId)!.confidence >= 0.8)
+    .filter((c) => verdicts.get(c.factId)?.relation === "SAME_OCCURRENCE")
     .sort((a, b) => verdicts.get(b.factId)!.confidence - verdicts.get(a.factId)!.confidence || b.score - a.score);
 }
 
 /** The story a development joins: the most similar candidate that is its story's root occurrence. */
 export function storyForDevelopment(cands: CandidateView[], verdicts: Map<number, Verdict>): CandidateView | null {
-  return (
-    cands
-      .filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY" && verdicts.get(c.factId)!.confidence >= 0.8)
-      .sort((a, b) => b.score - a.score)[0] ?? null
-  );
+  return cands.filter((c) => c.storyRoot && verdicts.get(c.factId)?.relation === "SAME_STORY").sort((a, b) => b.score - a.score)[0] ?? null;
 }
 
 export function looksLikeRoundup(cands: CandidateView[], verdicts: Map<number, Verdict>): boolean {

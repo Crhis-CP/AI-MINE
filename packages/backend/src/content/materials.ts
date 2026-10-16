@@ -1,16 +1,16 @@
+import { decideTimeline } from "./timeline.ts";
+export { decideTimeline, isHistorical, STALE_ON_DISCOVERY_MS, FUTURE_TOLERANCE_MS, type TimelineDecision } from "./timeline.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived, lockSourceCollectionActive } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { newArticleId, sha256 } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult, SourceDateEvidence } from "@amp/contracts/time-assertion";
 import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
 export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
-
-const sql = dbOf("content");
 
 export interface MediaItem {
   kind: "image" | "video";
@@ -36,6 +36,7 @@ export interface MaterialInput extends MaterialSourceDateInput {
   bodyStatus?: "pending" | "ok" | "unconfirmed" | "none";
   media?: MediaItem[];
   raw?: unknown;
+  collectionDetail?: { rules: string; checkedAt: string };
   via: "fetch" | "ingest" | "import";
   discoveredAt?: Date;
   /** Explicit backfill: first import of a new source, or a report flagged as backfill. */
@@ -51,41 +52,6 @@ interface BaseMaterialResult {
   backfill: boolean;
 }
 export type MaterialResult = MaterialUpdateResult;
-
-// Material first discovered more than this long after its source time is archived by source time,
-// stays out of "today" and is never pushed. Must not be wider than the 72 h the v1 contract states.
-export const STALE_ON_DISCOVERY_MS = 48 * 3600 * 1000;
-// Source times more than an hour in the future are not trusted.
-export const FUTURE_TOLERANCE_MS = 3600 * 1000;
-
-export interface TimelineDecision {
-  publishedAt: Date | null;
-  timelineAt: Date;
-  backfill: boolean;
-  backfillReason: string | null;
-}
-
-/** The one timeline rule shared by every entrance. */
-export function decideTimeline(claimed: Date | null | undefined, discoveredAt: Date, explicitBackfill?: string | null): TimelineDecision {
-  let publishedAt: Date | null = claimed && Number.isFinite(claimed.getTime()) ? claimed : null;
-  if (publishedAt && publishedAt.getTime() > discoveredAt.getTime() + FUTURE_TOLERANCE_MS) publishedAt = null;
-  let backfillReason: string | null = null;
-  if (explicitBackfill) backfillReason = explicitBackfill;
-  else if (publishedAt && discoveredAt.getTime() - publishedAt.getTime() > STALE_ON_DISCOVERY_MS) backfillReason = "stale-on-discovery";
-  const backfill = backfillReason !== null;
-  const timelineAt = backfill && publishedAt ? publishedAt : discoveredAt;
-  return { publishedAt, timelineAt, backfill, backfillReason };
-}
-
-/**
- * History rather than news: a backfill (a new source's first import, stale on discovery, flagged by
- * a report) whose source time is unknown or was already past the stale threshold when found. It is
- * archived and analysed like anything else, but waits behind live work and founds no event and adds
- * no heat (it stays out of the event graph). A new source's post from this morning is news.
- */
-export function isHistorical(a: { backfill: boolean; published_at: Date | null; discovered_at: Date }): boolean {
-  return a.backfill && (!a.published_at || a.discovered_at.getTime() - a.published_at.getTime() > STALE_ON_DISCOVERY_MS);
-}
 
 /** Identity of stored content: the revision changes exactly when this does. */
 export function contentHash(c: { title: string; bodyText?: string | null; excerpt?: string | null }): string {
@@ -134,9 +100,13 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
     await prepareDateMutation(tx, m.sourceId, date);
     if (!collectionControl) await lockSourceNotArchived(tx, m.sourceId);
     const result = await upsertIn(tx, m);
-    // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
-    const listed = decideTimeline(m.publishedAt, m.discoveredAt ?? new Date()).publishedAt;
-    return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now(), undefined, listed)) });
+    if (m.collectionDetail)
+      await tx`UPDATE articles SET raw=jsonb_set(
+      CASE WHEN raw IS NULL THEN '{}'::jsonb WHEN jsonb_typeof(raw)='object' THEN raw ELSE jsonb_build_object('original',raw) END,
+      '{collectionDetail}',${tx.json(m.collectionDetail)}) WHERE id=${result.articleId} AND source_id=${m.sourceId}`;
+    const metadata = await commitDateObservation(tx, result.articleId, date, Date.now());
+    const [head] = metadata.metadataChanged ? await tx<{ backfill: boolean }[]>`SELECT backfill FROM articles WHERE id=${result.articleId}` : [];
+    return MaterialUpdateResult.parse({ ...result, ...metadata, backfill: head?.backfill ?? result.backfill });
   };
   return typeof (db as typeof sql).begin === "function" ? (db as typeof sql).begin(run) : run(db as Tx);
 }
@@ -224,7 +194,9 @@ async function upsertIn(db: Db, m: MaterialInput): Promise<BaseMaterialResult> {
       body_text = coalesce(${m.bodyText ?? null}, body_text), body_html = coalesce(${m.bodyHtml ?? null}, body_html),
       body_status = CASE WHEN ${m.bodyText ?? null}::text IS NULL THEN body_status ELSE ${m.bodyStatus ?? "ok"} END,
       media = CASE WHEN ${m.media ? db.json(m.media as never) : null}::jsonb IS NULL THEN media ELSE ${m.media ? db.json(m.media as never) : null}::jsonb END,
-      revision = revision + 1, content_hash = ${next}, processing_state = 'new', updated_at = now()
+      grouping_status='pending',grouping_input_revision=NULL,grouping_receipt_id=NULL,grouping_error=NULL,
+      selection_adds_value=NULL,selection_value_reason=NULL,grouped_at=NULL,
+      revision = revision + 1, content_hash = ${next}, processing_state = 'new', processing_attempts=0, processing_error=NULL, processing_retry_at=NULL, processing_queued_at=NULL, updated_at = now()
     WHERE id = ${existing!.id}
     RETURNING revision`;
   await db`INSERT INTO article_revisions (article_id, revision, content_hash, title, body_text)
@@ -264,8 +236,8 @@ export interface CurrentBody {
 }
 
 /** Snapshot for derived body work; the network operation must happen after this read returns. */
-export async function readCurrentBody(articleId: string): Promise<CurrentBody | null> {
-  const [row] = await sql<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
+export async function readCurrentBody(articleId: string, db: Db = sql): Promise<CurrentBody | null> {
+  const [row] = await db<CurrentBody[]>`SELECT id,source_id,revision,title,language,body_status,body_html,body_text FROM articles WHERE id=${articleId}`;
   return row ?? null;
 }
 
@@ -373,9 +345,10 @@ export async function manualMaterialSnapshot(articleId: string, db: Db = sql) {
   return row ?? null;
 }
 export async function newsRelationMaterials(ids: string[], db: Db = sql) {
-  return db<
-    { id: string; revision: number; original_text: string; published_at: Date | null }[]
-  >`SELECT id,revision,published_at,title || E'\n' || coalesce(body_text,excerpt,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+  const rows = await db<
+    { id: string; revision: number; source_date_version: number; original_text: string; published_at: Date | null }[]
+  >`SELECT id,revision,source_date_version,published_at,title || E'\n' || coalesce(CASE WHEN body_text<>'' THEN body_text ELSE excerpt END,'') AS original_text FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id`;
+  return rows.map((row) => ({ ...row, source_date_version: Number(row.source_date_version) }));
 }
 export async function lockNewsModelMaterials(ids: string[], db: Db) {
   return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[]) ORDER BY id FOR SHARE`;
@@ -407,4 +380,23 @@ export async function prefilterAuditMaterialCopies(articleIds: string[], db: Db)
   if (!articleIds.length) return [];
   return db<{ id: string; title: string; excerpt: string | null; body_text: string | null; discovered_at: Date | null }[]>`
     SELECT id,title,excerpt,body_text,discovered_at FROM articles WHERE id=ANY(${articleIds}::text[])`;
+}
+
+export interface CollectionDetail {
+  identity_key: string;
+  title: string;
+  published_at: Date | null;
+  excerpt: string | null;
+  body_status: string;
+  rules: string | null;
+  checked_at: string | null;
+}
+
+/** The owning source's stored fields and successful detail checkpoint, never another source's rendering. */
+export async function collectionDetails(sourceId: string, identities: string[]): Promise<Map<string, CollectionDetail>> {
+  if (!identities.length) return new Map();
+  const rows = await sql<CollectionDetail[]>`SELECT identity_key,title,published_at,excerpt,body_status,
+    raw->'collectionDetail'->>'rules' AS rules,raw->'collectionDetail'->>'checkedAt' AS checked_at
+    FROM articles WHERE source_id=${sourceId} AND identity_key=ANY(${identities}::text[])`;
+  return new Map(rows.map((row) => [row.identity_key, row]));
 }

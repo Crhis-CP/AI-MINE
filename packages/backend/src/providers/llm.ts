@@ -1,3 +1,5 @@
+import { PRESETS } from "@amp/site/models";
+import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
 import { modelOutputContract } from "./model-fallback-contract.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
@@ -25,9 +27,7 @@ import {
   type ModelAttemptSnapshot,
   type ReceiptRequest,
 } from "./receipts.ts";
-import { dbOf } from "../db.ts";
-
-const sql = dbOf("ai-gateway");
+import { sql } from "../db.ts";
 
 export interface ModelSpec {
   key: string;
@@ -50,36 +50,7 @@ function extraFromEnv(value: string | undefined): Record<string, unknown> | unde
   }
 }
 
-/**
- * 上游基础方案's four built-in providers. Presets stay in this list; a later key does not change the admin page.
- * `duty` is the mining job of that seat. Until the other three keys exist, every seat still calls `default`.
- */
-export const BUILTIN_MODEL_FAMILIES = [
-  {
-    id: "deepseek",
-    label: "DeepSeek",
-    duty: "其余稿的中文标题和摘要；几篇报道是不是同一件矿业上的事；事件综述；日报、周报、月报。全文翻译也归这一家。",
-    presets: ["deepseek-flash", "deepseek-flash-think"],
-  },
-  {
-    id: "glm",
-    label: "智谱 GLM",
-    duty: "精选评分：同一标准独立打两次分。入选或接近入选的稿，写中文标题、导读和推荐理由。",
-    presets: ["glm-5.3-flash", "glm-5.3-flash-selection"],
-  },
-  {
-    id: "qwen",
-    label: "通义千问",
-    duty: "预筛：是不是金属矿业的事，宽进，只拦明显无关。结构抽取：分类、主体和事件事实，不写给读者看的文字。能看图的预设留给法规附件，现在不单独接。",
-    presets: ["qwen3.8-flash", "qwen3.7-flash", "qwen3-vl-flash"],
-  },
-  {
-    id: "mimo",
-    label: "小米 MiMo",
-    duty: "归组拿不准时再读一遍：两篇要不要并成一件事。设计上最好和归组不是同一家；测试阶段先共用已经接入的那一个模型。",
-    presets: ["mimo-v2.6-flash"],
-  },
-] as const;
+export { MODEL_FAMILIES as BUILTIN_MODEL_FAMILIES } from "@amp/site/models";
 
 /** True only when this preset has an address, a model name and a key. The key itself is not returned. */
 export function modelPresetReady(key: string): boolean {
@@ -112,82 +83,7 @@ export const MODELS: Record<string, ModelSpec> = {
       return process.env.LLM_VISION === "true";
     },
   },
-  // Named presets (the models the upstream project itself runs on); each needs its own key.
-  // GLM 5.3 Flash always reasons; the lowest effort keeps short structured tasks fast.
-  "glm-5.3-flash": {
-    key: "glm-5.3-flash",
-    service: "zhipu",
-    model: "glm-5.3-flash",
-    baseUrlEnv: "ZHIPU_BASE_URL",
-    apiKeyEnv: "ZHIPU_API_KEY",
-    extra: { thinking: { type: "enabled" }, reasoning_effort: "low" },
-    jsonMode: true,
-  },
-  // The scorer's parameters for glm-5.3-flash (score calls; temperature 1 is set per call).
-  "glm-5.3-flash-selection": {
-    key: "glm-5.3-flash-selection",
-    service: "zhipu",
-    model: "glm-5.3-flash",
-    baseUrlEnv: "ZHIPU_BASE_URL",
-    apiKeyEnv: "ZHIPU_API_KEY",
-    extra: { thinking: { type: "enabled", clear_thinking: false }, reasoning_effort: "high", top_p: 0.95 },
-    jsonMode: true,
-  },
-  // DeepSeek Flash reasons by default; structured tasks switch it off unless the -think variant is used.
-  "deepseek-flash": {
-    key: "deepseek-flash",
-    service: "deepseek",
-    model: "deepseek-flash",
-    baseUrlEnv: "DEEPSEEK_BASE_URL",
-    apiKeyEnv: "DEEPSEEK_API_KEY",
-    extra: { thinking: { type: "disabled" } },
-    jsonMode: true,
-  },
-  "deepseek-flash-think": {
-    key: "deepseek-flash-think",
-    service: "deepseek",
-    model: "deepseek-flash",
-    baseUrlEnv: "DEEPSEEK_BASE_URL",
-    apiKeyEnv: "DEEPSEEK_API_KEY",
-    jsonMode: true,
-  },
-  "qwen3.7-flash": {
-    key: "qwen3.7-flash",
-    service: "dashscope",
-    model: "qwen3.7-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL",
-    apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false },
-    jsonMode: true,
-  },
-  "qwen3.8-flash": {
-    key: "qwen3.8-flash",
-    service: "dashscope",
-    model: "qwen3.8-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL",
-    apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false },
-    jsonMode: true,
-  },
-  "mimo-v2.6-flash": {
-    key: "mimo-v2.6-flash",
-    service: "mimo",
-    model: "mimo-v2.6-flash",
-    baseUrlEnv: "XIAOMI_MIMO_BASE_URL",
-    apiKeyEnv: "XIAOMI_MIMO_API_KEY",
-    extra: { thinking: { type: "disabled" } },
-    jsonMode: true,
-  },
-  "qwen3-vl-flash": {
-    key: "qwen3-vl-flash",
-    service: "dashscope",
-    model: "qwen3-vl-flash",
-    baseUrlEnv: "DASHSCOPE_BASE_URL",
-    apiKeyEnv: "DASHSCOPE_API_KEY",
-    extra: { enable_thinking: false },
-    jsonMode: false,
-    vision: true,
-  },
+  ...Object.fromEntries(Object.entries(PRESETS).map(([key, spec]) => [key, { key, ...spec }])),
 };
 
 function environmentConfiguration(spec: ModelSpec, baseUrl: string) {
@@ -206,6 +102,7 @@ export function environmentModelMetadata(key: string) {
       service: spec.service,
       model: spec.model,
       vision: !!spec.vision,
+      budgetService: base ? modelBudgetService(base, spec.service) : spec.service,
       ...(base && spec.model ? environmentConfiguration(spec, base) : { configuration_hash: null }),
     };
   } catch {
@@ -388,10 +285,22 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
   const { withModelFallback, ModelContentFiltered } = await import("./model-fallback.ts");
   const contractHash = modelOutputContract(opts.schema, opts.parse);
+  const budgetService = modelBudgetService(baseUrl, registered ? (registered.config.interface === "deepseek" ? "deepseek" : undefined) : spec.service);
+  const budgetAliases = [
+    ...Object.keys(MODELS).flatMap((key) => {
+      const value = environmentModelMetadata(key);
+      return value?.configuration_hash && "budgetService" in value && value.budgetService === budgetService
+        ? [{ service: value.service, connection_id: null, configuration_hash: value.configuration_hash }]
+        : [];
+    }),
+    ...(await registeredQuotaAliases(budgetService)),
+  ];
   const request: ReceiptRequest = {
     maxPhysicalAttempts: opts.maxPhysicalAttempts,
     taskBudget: opts.taskBudget,
     modelSnapshot: registeredSummary,
+    budgetService,
+    budgetAliases,
     usageContext: costLane
       ? {
           lane: costLane,
@@ -535,14 +444,16 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
         };
       };
       if (!registered) return send();
-      return sql.begin(async (tx) => {
+      // Claim the current configuration before sending; do not hold the registry/database lock
+      // across a provider's network response. Already-started work retains its frozen request.
+      await sql.begin(async (tx) => {
         try {
           await registered.assertCurrent(tx);
         } catch {
           throw new ProviderRejectedError("模型配置或密钥已在发送前变更", null, false, "configuration_changed");
         }
-        return send();
       });
+      return send();
     });
 
     const response = receipt.response as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }>; usage?: Record<string, unknown> };

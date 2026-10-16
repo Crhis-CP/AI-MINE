@@ -1,8 +1,9 @@
 import { SITE, withSubject } from "@amp/industry/site";
-import { Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
+import { data as withStatus, Link, useLoaderData, useNavigation, useSearchParams } from "react-router";
 import type { Route } from "./+types/all";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import { apiBaseFor } from "../../api-target.ts";
+import { isValidDate } from "@amp/contracts/time";
 import { isCategoryKey, isChannelKey } from "@amp/contracts/taxonomy";
 import { contractResult, loadOr404, queryString } from "../lib/api.server";
 import { listPath, pageMeta } from "../lib/seo";
@@ -38,6 +39,32 @@ export async function loader({ request }: Route.LoaderArgs) {
     from: url.searchParams.get("from") || undefined,
     to: url.searchParams.get("to") || undefined,
   } as const;
+  const invalidDate = ["on", "from", "to"].some((name) => {
+    const value = url.searchParams.get(name);
+    return !!value && !isValidDate(value);
+  });
+  const invalidRange = query.from && query.to && query.from > query.to;
+  if (invalidDate || invalidRange)
+    return withStatus(
+      {
+        data: null,
+        policyMatches: null,
+        policySearchFailed: false,
+        filterError: invalidDate ? "日期无效，请使用有效的年、月、日。" : "开始日期不能晚于结束日期，请调整后再筛选。",
+      },
+      { status: 400 },
+    );
+  // The optional policy search starts alongside news and has its own short deadline.
+  const policyRequest = q
+    ? createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") })
+        .GET("/api/site/policies", {
+          params: { query: { q, page: 1, page_size: 5 } },
+          headers: { accept: "application/json", "x-amp-ssr": "1" },
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(3000)]),
+        })
+        .then((result) => contractResult(result, publicSchemas.PolicyListResponse))
+        .catch(() => null)
+    : null;
   const data = await loadOr404(
     () =>
       createPublicClient({ baseUrl: apiBaseFor("/api/site/pool") })
@@ -50,23 +77,14 @@ export async function loader({ request }: Route.LoaderArgs) {
         .then((result) => contractResult(result, publicSchemas.PoolResponse)),
     { signal: request.signal },
   );
-  const policyMatches = q
-    ? await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") })
-        .GET("/api/site/policies", {
-          params: { query: { q, page: 1, page_size: 5 } },
-          headers: { accept: "application/json", "x-amp-ssr": "1" },
-          signal: request.signal,
-        })
-        .then((result) => contractResult(result, publicSchemas.PolicyListResponse))
-        .catch(() => null)
-    : null;
-  return { data, policyMatches, policySearchFailed: !!q && policyMatches === null };
+  const policyMatches = await policyRequest;
+  return { data, policyMatches, policySearchFailed: !!q && policyMatches === null, filterError: null };
 }
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  const f = loaderData?.data.filters;
+  const f = loaderData?.data?.filters;
   const q = f?.q;
-  const page = loaderData?.data.page ?? 1;
+  const page = loaderData?.data?.page ?? 1;
   return pageMeta({
     title: q ? `搜索：${q}` : `全部${withSubject("动态")}`,
     description: `${SITE.name} 收录的全部${withSubject("动态")}，可按国家、地区、类别与标签筛选，支持中英文搜索。`,
@@ -104,9 +122,19 @@ function pageHref(params: URLSearchParams, page: number) {
 }
 
 export default function AllPage() {
-  const { data, policyMatches, policySearchFailed } = useLoaderData<typeof loader>();
+  const { data, policyMatches, policySearchFailed, filterError } = useLoaderData<typeof loader>();
   const [params] = useSearchParams();
   const navigation = useNavigation();
+  if (!data)
+    return (
+      <div className="pb-12">
+        <h1 className="pt-5 text-[24px] font-semibold text-ink">全部矿业动态</h1>
+        <p role="alert" className="mt-3 text-[14px] text-hot">
+          {filterError}
+        </p>
+        <SourceDateFilters base="/all" />
+      </div>
+    );
   const f = data.filters;
   const busy = navigation.state === "loading" && navigation.location?.pathname === "/all";
   const keep = Object.fromEntries([...params].filter(([key]) => !["q", "page", "cursor", "search"].includes(key)));

@@ -7,10 +7,9 @@ import {
   type SourcePolicyEvaluationSchema,
   type SourcePolicy,
 } from "@amp/contracts/source-policy";
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
-const sql = dbOf("sources");
 const publicPurposes = ["public_excerpt", "public_summary", "public_original_fulltext", "public_translation"] as const;
 // Public evidence links cannot carry URL userinfo; keep this predicate aligned with migration 202610120500.
 const publicLinkPattern = /^https?:\/\/[^/?#\s@\\]+(?:[/?#][^\s\\]*)?$/i;

@@ -1,10 +1,11 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { composeDaily, composeMonthly } from "@amp/backend/reports/compose";
 import { composeStoryDigest } from "@amp/backend/events/digest";
@@ -18,7 +19,6 @@ import {
   RuntimeControlPaused,
 } from "../packages/backend/src/operations/lane-controls.ts";
 
-const sql = dbOf("reports");
 let duringResponse: (() => Promise<void>) | null = null;
 const provider = await stub(async () => {
   if (duringResponse) await duringResponse();
@@ -80,21 +80,17 @@ async function seed() {
   await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visible_after,selected,eligible,category)
     VALUES(${articleId},'合成矿业报告材料','只用于隔离测试','runtime-report-source','news','https://example.invalid/runtime-report',${at},${at},${at},${at},${at},true,true,'company_project')`;
   await sql`UPDATE publications SET analysis_id=${analysis!.id} WHERE article_id=${articleId}`;
+  await confirmGroupingFixture(articleId);
   return articleId;
 }
 
-test("daily report and story digest keep paid receipts but reject stale control generations before public writes", async () => {
+test("daily is independent of model processing; story digest rejects stale control generations", async () => {
   const articleId = await seed();
-  duringResponse = async () => {
-    await owner("pause", "news");
-    await owner("resume", "news");
-  };
-  await assert.rejects(composeDaily("2020-02-02"), RuntimeControlStale);
-  duringResponse = null;
-  assert.equal((await sql`SELECT id FROM reports WHERE key='2020-02-02'`).length, 0);
-  assert.equal(provider.hits(), 1);
+  await owner("pause", "news");
   await composeDaily("2020-02-02");
-  assert.equal(provider.hits(), 1);
+  await owner("resume", "news");
+  assert.equal(provider.hits(), 0, "daily arrangement needs no paid processing even while the model lane is paused");
+  assert.equal((await sql`SELECT id FROM reports WHERE key='2020-02-02'`).length, 1);
   const [story] = await sql`INSERT INTO stories(public_id,title,first_report_at,latest_at) VALUES(${randomUUID()},'Synthetic story',now(),now()) RETURNING id`;
   const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${randomUUID()},${story.id},'Synthetic fact') RETURNING id`;
   await sql`INSERT INTO fact_articles(fact_id,article_id,role) VALUES(${fact.id},${articleId},'report')`;
@@ -105,9 +101,9 @@ test("daily report and story digest keep paid receipts but reject stale control 
   await assert.rejects(composeStoryDigest(Number(story.id)), RuntimeControlStale);
   duringResponse = null;
   assert.equal((await sql`SELECT version FROM story_digests WHERE story_id=${story.id}`).length, 0);
-  assert.equal(provider.hits(), 2);
+  assert.equal(provider.hits(), 1);
   assert.equal((await composeStoryDigest(Number(story.id))).updated, true);
-  assert.equal(provider.hits(), 2);
+  assert.equal(provider.hits(), 1);
 });
 
 test("empty deterministic reports do not use models; processing and publication holds stay independent across lanes", async () => {
@@ -153,11 +149,17 @@ test("paused event jobs defer into durable future work without consuming ordinar
   for (const [queue, data] of [
     [QUEUES.group, group],
     [QUEUES.digest, digest],
+    ["events.hot-refresh", { lane: "news" }],
   ] as const) {
     assert.deepEqual(await handlers.get(queue)!([{ data }]), { state: "waiting", reason: "runtime_control" });
     assert.deepEqual(await handlers.get(queue)!([{ data }]), { state: "waiting", reason: "runtime_control" });
-    const rows = await sql`SELECT data,state,retry_count,start_after>now() AS deferred FROM pgboss.job WHERE name=${queue} AND singleton_key LIKE 'control:%'`;
-    assert.equal(rows.length, 1);
+    const rows =
+      await sql`SELECT data,state,retry_count,singleton_on,start_after>now() AS deferred FROM pgboss.job WHERE name=${queue} AND singleton_key LIKE 'control:%'`;
+    if (queue === "events.hot-refresh") {
+      assert.ok(rows.length >= 1 && rows.length <= 2);
+      assert.ok(rows.every((row) => row.singleton_on instanceof Date));
+      assert.equal(new Set(rows.map((row) => row.singleton_on.toISOString())).size, rows.length, "one deferred refresh per scheduling slot");
+    } else assert.equal(rows.length, 1);
     assert.deepEqual(rows[0].data, data);
     assert.equal(rows[0].state, "created");
     assert.equal(rows[0].retry_count, 0);

@@ -1,14 +1,15 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { denied } from "./role-db-fixture.ts";
-import { injectDb, initializeDb, closeDb, DB_MODULES } from "@amp/backend/db";
+import { initializeDb, closeDb } from "@amp/backend/db";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { sha256 } from "@amp/backend/lib/ids";
 import { config } from "@amp/backend/config";
 import { refreshOperationalSnapshots } from "../packages/backend/src/operations/operational-snapshots.ts";
 import { storeOperationalSnapshot, recordOperationalSnapshotFailure } from "../packages/backend/src/operations/read-snapshots.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { webHostPolicy } from "../apps/web/host-policy.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 function rpc(text: string) {
@@ -30,7 +31,7 @@ test("worker snapshots and real observer login expose bounded metadata only; Own
     ],
     { DATABASE_URL_WORKER: f.urlFor("worker"), DATABASE_URL_BACKUP: f.urlFor("backup") },
   );
-  const restore = injectDb(Object.fromEntries(DB_MODULES.map((name) => [name, sessions.worker])));
+  const restore = installTestConnections(sessions.worker);
   const states = await refreshOperationalSnapshots();
   assert.ok(
     states.every((x) => x.state === "sampled"),

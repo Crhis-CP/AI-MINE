@@ -1,3 +1,4 @@
+import { CURRENT_SOURCE_TIME } from "./source-time.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import { geographyRecipe } from "../editorial/geography.ts";
 import { publicCompanyContext, readerAttribution } from "./reader-context.ts";
@@ -5,14 +6,19 @@ import { publicCompanyContext, readerAttribution } from "./reader-context.ts";
 import { relatedPoliciesForNews } from "./news-policy-links.ts";
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
 import { linkBodyImages } from "../content/sanitize.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
-import { pickRepresentative } from "./timeline.ts";
+import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
-import { isChineseOriginal, readableTranslation, TRANSLATION_MANIFEST_FORMAT, type StoredTranslation } from "../editorial/translation-readiness.ts";
+import {
+  isChineseOriginal,
+  readableTranslation,
+  readablePartialTranslation,
+  TRANSLATION_MANIFEST_FORMAT,
+  type StoredTranslation,
+} from "../editorial/translation-readiness.ts";
 import { promptVersion } from "../editorial/prompts.ts";
 
-const sql = dbOf("publication");
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
 interface DetailRow extends ItemRow {
@@ -53,11 +59,11 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS}, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
+    SELECT ${ITEM_COLUMNS()}, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
       s.syndicate_fulltext AS source_syndicate_fulltext,p.summary AS machine_summary,
       jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
         'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
-    ${ITEM_FROM}
+    ${ITEM_FROM()}
     WHERE p.article_id = ${id}`;
   if (row) await attachSourcePolicies([row]);
   return row ?? null;
@@ -104,12 +110,16 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
     const isZh = isChineseOriginal(row.language, row.body_text ?? "");
     const original = linkBodyImages(row.body_html ?? "");
     const verified = isZh || !row.body_html ? null : readableTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
+    const partial =
+      isZh || !row.body_html || verified
+        ? null
+        : readablePartialTranslation(row.body_html, { revision: row.content_revision, recipe: RECIPE }, row.translation);
     const zh = row.manual_body_html
       ? `<p>AI 辅助整理，经人工修订</p>${linkBodyImages(row.manual_body_html)}`
       : isZh
         ? original
-        : verified
-          ? linkBodyImages(verified)
+        : verified || partial
+          ? linkBodyImages((verified ?? partial)!)
           : null;
     const primary = withOutline(zh ?? original);
     outline = primary.outline;
@@ -173,11 +183,12 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
 
 /** Current public event members: first-party representation and the latest distinct fact stay separate. */
 async function eventCoverage(storyId: number, now: Date, machine: boolean): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
-  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS},p.summary AS machine_summary ${ITEM_FROM}
+  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary ${ITEM_FROM()}
     WHERE p.story_id=${storyId} AND p.visibility='public' AND p.eligible AND s.participation_mode='editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.timeline_at ASC,p.article_id ASC`;
   if (rows.length < 2) return null;
+  await attachRepresentativePriority(rows);
   const facts = new Map<string, (typeof rows)[number][]>();
   for (const row of rows) {
     const key = row.fact_id === null ? row.id : String(row.fact_id);
@@ -233,7 +244,7 @@ export async function machineItemDetail(id: string, language: "zh" | "original" 
 /** Current source-time and geography evidence, projected without raw source metadata. */
 export async function publicItemMetadata(id: string) {
   const [meta] = await sql<{ source_time: unknown; jurisdictions: string[] | null }[]>`
-    SELECT CASE WHEN p.source_date_version=a.source_date_version AND p.source_date_config_hash=s.source_date_config_hash THEN p.source_time ELSE NULL END AS source_time,
+    SELECT ${CURRENT_SOURCE_TIME()} AS source_time,
       g.jurisdictions FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}
       WHERE p.article_id=${id}`;

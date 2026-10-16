@@ -31,7 +31,7 @@ const input = {
   DEV_AUTH_ROLE: "PRIVATE_MARKER",
 };
 test("API child environments retain explicit test identity and only their own secrets", () => {
-  for (const role of ["public-api", "private-api"] as const) {
+  for (const role of ["api", "public-api", "private-api"] as const) {
     const env = apiChildEnvironment(role, input);
     assert.equal(env.API_ROLE, role);
     assert.equal(env.API_PORT, "0");
@@ -46,23 +46,23 @@ test("API child environments retain explicit test identity and only their own se
     } else {
       assert.equal(env.SESSION_SECRET, input.SESSION_SECRET);
       assert.equal(env.ADMIN_PASSWORD, input.ADMIN_PASSWORD);
-      assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, undefined);
+      assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, role === "api" ? input.PUBLIC_RATE_LIMIT_SECRET : undefined);
     }
   }
   assert.equal(apiChildEnvironment("public-api", { DATABASE_URL: input.DATABASE_URL }).PUBLIC_RATE_LIMIT_SECRET, undefined);
   assert.equal(apiChildEnvironment("public-api", { ...input, NODE_ENV: "development" }).NODE_ENV, "development");
   assert.throws(() => apiChildEnvironment("public-api", { DATABASE_URL: "postgres://fixture@localhost/production" }), /DATABASE_URL/);
 });
-test("the three-process fixture uses distinct local endpoints and never adopts caller auth material", () => {
+test("the unified API and web fixture uses distinct local endpoints and never adopts caller auth material", () => {
   const envs = siteChildEnvironments({ ...input, API_BASE_URL: "http://127.0.0.1:3101", PRIVATE_API_BASE_URL: "http://127.0.0.1:3102" });
-  assert.equal(envs["public-api"].API_PORT, "3101");
-  assert.equal(envs["private-api"].API_PORT, "3102");
+  assert.equal(envs.api.API_PORT, "3101");
+  assert.equal(envs.api.API_ROLE, "api");
   assert.equal(envs.web.WEB_PORT, "3100");
   assert.equal(envs.web.PRIVATE_HOST, "private.localhost");
-  assert.equal(envs["private-api"].PRIVATE_HOST, envs.web.PRIVATE_HOST);
-  assert.equal(envs.web.PRIVATE_API_BASE_URL, "http://127.0.0.1:3102");
-  assert.notEqual(envs["private-api"].SESSION_SECRET, input.SESSION_SECRET);
-  assert.notEqual(envs["public-api"].PUBLIC_RATE_LIMIT_SECRET, input.PUBLIC_RATE_LIMIT_SECRET);
+  assert.equal(envs.api.PRIVATE_HOST, envs.web.PRIVATE_HOST);
+  assert.equal(envs.web.PRIVATE_API_BASE_URL, undefined);
+  assert.notEqual(envs.api.SESSION_SECRET, input.SESSION_SECRET);
+  assert.notEqual(envs.api.PUBLIC_RATE_LIMIT_SECRET, input.PUBLIC_RATE_LIMIT_SECRET);
   assert.deepEqual(webEnvironmentProblems(envs.web), []);
   const validate = spawnSync(process.execPath, [`${ROOT}/scripts/verify/site-process.ts`, "validate"], {
     env: { DATABASE_URL: input.DATABASE_URL },
@@ -70,7 +70,7 @@ test("the three-process fixture uses distinct local endpoints and never adopts c
   });
   assert.equal(validate.error, undefined);
   assert.equal(validate.status, 0);
-  assert.throws(() => siteChildEnvironments({ ...input, PRIVATE_API_BASE_URL: input.SITE_URL }), /distinct/);
+  assert.throws(() => siteChildEnvironments({ ...input, API_BASE_URL: input.SITE_URL }), /distinct/);
   const credentialed = new URL("http://localhost:3001");
   credentialed.username = "user";
   credentialed.password = "PRIVATE_MARKER";
@@ -97,10 +97,10 @@ test("public Compose validation is explicit, expands inherited configuration, an
   for (const text of ["services: {}", "services: {public-api: {}}", "services: {public-api: {environment: [API_ROLE=private-api, PUBLIC_RATE_LIMIT_SECRET]}}"])
     assert.ok(inspect(text).length);
 });
-test("the full Compose check can require both services before activation changes its default", () => {
+test("Compose requires the unified API and can still inspect an explicit legacy configuration", () => {
   const dir = scratch();
   write(dir, { "docker-compose.yml": "services: {web: {image: web}}" });
-  assert.ok(checkRoleConfig(dir).some((p) => p.includes("public-api service is missing")));
+  assert.ok(checkRoleConfig(dir).some((p) => p.includes("api service is missing")));
   assert.ok(checkRoleConfig(dir, ["web", "public-api"]).some((p) => p.includes("public-api service is missing")));
   write(dir, { "docker-compose.yml": "services: {web: {image: web}, public-api: {environment: {API_ROLE: public-api, PUBLIC_RATE_LIMIT_SECRET: fixture}}}" });
   assert.deepEqual(checkRoleConfig(dir, ["web", "public-api"]), []);

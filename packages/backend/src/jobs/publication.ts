@@ -1,6 +1,6 @@
 // Publication jobs: re-deriving a whole source after an admin change.
 import type { PgBoss } from "pg-boss";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 
 import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
@@ -8,8 +8,6 @@ import { ensureQueue, enqueue, QUEUES } from "./queue.ts";
 
 // The metal price refresh, run by the schedule metals.prices (TASK-0069).
 export { refreshMetalPrices } from "../publication/metal-prices/refresh.ts";
-
-const sql = dbOf("publication");
 
 export const republishKey = (sourceId: string) => `republish.source:${sourceId}`;
 
@@ -34,14 +32,16 @@ export async function registerPublicationJobs(boss: PgBoss) {
     const startedAt = new Date().toISOString();
     await progress(sourceId, { status: "running", done: 0, total: null, startedAt });
     const result = await republishSource(sourceId, (done, total) => progress(sourceId, { status: "running", done, total, startedAt }));
-    // The hot board may show one of the source's articles: re-rank now rather than within five minutes.
-    if (result.reduced > 0) await computeHotRanking();
     if (result.deferred) {
       await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: `runtime:${sourceId}`, startAfter: new Date(Date.now() + 60_000) });
       await progress(sourceId, { status: "running", ...result, startedAt, reason: "公开暂停，等待恢复" });
       return result;
     }
+    // Ownership and publisher changes can alter heat without reducing public content.
+    await computeHotRanking();
     await progress(sourceId, { status: "done", ...result, startedAt, finishedAt: new Date().toISOString() });
     return result;
   });
 }
+
+export { repairPublicationTimes } from "../publication/publish.ts";

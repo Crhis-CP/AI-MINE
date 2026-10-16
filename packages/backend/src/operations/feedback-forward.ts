@@ -2,11 +2,9 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { config, credential, environmentValue } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { feedbackSql as sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { FeedbackDeliveryUncertain, sendAlert, sendFeedbackToChat, uploadFeedbackImage } from "../notify/feishu.ts";
-
-const sql = dbOf("feedback");
 
 interface PendingFeedback {
   id: number;

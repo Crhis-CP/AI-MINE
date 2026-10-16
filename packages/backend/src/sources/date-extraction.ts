@@ -10,7 +10,7 @@ import {
 } from "@amp/contracts/time-assertion";
 import { sourceDateConfigHash, sourceDateProfile } from "./config-keys.ts";
 import type { SourceRow } from "./types.ts";
-import { newUuid } from "../lib/ids.ts";
+import { newUuid, stableJson } from "../lib/ids.ts";
 
 /** Unbound source bytes: content assigns the real article/revision under its own transaction. */
 export function observeSourceDate(
@@ -70,6 +70,7 @@ const DECLARED: Record<string, [string, "ymd" | "dmy" | "mdy"]> = {
   YYYY年M月D日: ["(\\d{4})年(\\d{1,2})月(\\d{1,2})日", "ymd"],
   "DD/MM/YYYY": ["(\\d{1,2})/(\\d{1,2})/(\\d{4})", "dmy"],
   "DD.MM.YYYY": ["(\\d{1,2})\\.(\\d{1,2})\\.(\\d{4})", "dmy"],
+  "DD.MM.YY": ["(\\d{1,2})\\.(\\d{1,2})\\.(\\d{2})", "dmy"],
   "DD-MM-YYYY": ["(\\d{1,2})-(\\d{1,2})-(\\d{4})", "dmy"],
   "MM/DD/YYYY": ["(\\d{2})/(\\d{2})/(\\d{4})", "mdy"],
 };
@@ -85,7 +86,7 @@ const NAMED_MONTHS: Record<string, string> = {
   de: "januar/jan februar/feb märz/mär/mrz april/apr mai juni/jun juli/jul august/aug september/sep/sept oktober/okt november/nov dezember/dez",
 };
 const monthWord = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\.$/, "");
-const NAMED_FORMATS = new Set(["D MMMM YYYY", "MMMM D, YYYY", "D MMM YYYY", "DD-MMM-YYYY"]);
+const NAMED_FORMATS = new Set(["D MMMM YYYY", "MMMM D, YYYY", "MMM D, YYYY", "MMMM D YYYY", "MMM D YYYY", "D MMM YYYY", "DD-MMM-YYYY"]);
 const dayOf = (year: string, month: string, day: string) => `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 const fraction = (clock: string) => clock.split(".")[1] ?? "";
 function at(wholeSecond: number, subsecond: string): string {
@@ -166,12 +167,11 @@ function declared(raw: string, pattern: string | null, language: string | null):
     const word = "([\\p{L}\\p{M}]+\\.?)",
       glue = locale === "es" || locale === "pt" ? "\\s+(?:de\\s+)?" : "\\s+";
     const tail = locale === "ru" ? "(?:\\s+г\\.?)?" : "";
-    entry =
-      format === "MMMM D, YYYY"
-        ? [`${word}\\s+(\\d{1,2}),\\s+(\\d{4})${tail}`, "mdy"]
-        : format === "DD-MMM-YYYY"
-          ? [`(\\d{2})-${word}-(\\d{4})${tail}`, "dmy"]
-          : [`(\\d{1,2})${glue}${word}${glue}(\\d{4})${tail}`, "dmy"];
+    entry = /^MMMM? D,? YYYY$/.test(format)
+      ? [`${word}\\s+(\\d{1,2})${format.includes(",") ? "," : ""}\\s+(\\d{4})${tail}`, "mdy"]
+      : format === "DD-MMM-YYYY"
+        ? [`(\\d{2})-${word}-(\\d{4})${tail}`, "dmy"]
+        : [`(\\d{1,2})${glue}${word}${glue}(\\d{4})${tail}`, "dmy"];
   } else if (!language?.trim()) reject("missing_format_language");
   if (!entry) reject("unsupported_format");
   const clockPattern = time ? (time[1] === "HH:mm" ? " (\\d{2}:\\d{2})" : " (\\d{2}:\\d{2}:\\d{2})") : "";
@@ -181,7 +181,9 @@ function declared(raw: string, pattern: string | null, language: string | null):
   const [, a, b, c, clock, offset] = match;
   const month = months ? String(months.findIndex((aliases) => aliases.split("/").includes(monthWord(entry[1] === "mdy" ? a : b))) + 1) : null;
   if (month === "0") reject("unrecognized_format");
-  return { day: entry[1] === "ymd" ? dayOf(a, b, c) : entry[1] === "dmy" ? dayOf(c, month ?? b, a) : dayOf(c, month ?? a, b), clock: clock ?? null, offset };
+  // A source that declares DD.MM.YY means 00–99 are 2000–2099. Undeclared text never grows a century.
+  const year = format === "DD.MM.YY" ? String(2000 + Number(c)) : c;
+  return { day: entry[1] === "ymd" ? dayOf(a, b, c) : entry[1] === "dmy" ? dayOf(year, month ?? b, a) : dayOf(c, month ?? a, b), clock: clock ?? null, offset };
 }
 
 // No declared format, neither ISO nor RFC: the first year-month-day in the text, as the upstream reads it
@@ -295,19 +297,19 @@ function parseRawDate(source: UnboundInput, validate: (value: UnboundResult) => 
 /** A display/window hint only, never material identity or publication admission. */
 export function previewSourceDate(observation: SourceDateObservationInput) {
   const { sourceId: _source, configHash: _config, alternatives, ...input } = SourceDateObservationInput.parse(observation);
-  if (
-    alternatives?.length ||
-    input.origin !== "source" ||
-    input.meaning !== "published" ||
-    input.publicationBasis !== "source_published" ||
-    input.condition_text
-  )
-    return null;
-  const parsed = parseRawDate(input, (value) => {
+  if (input.origin !== "source" || input.meaning !== "published" || input.publicationBasis !== "source_published" || input.condition_text) return null;
+  const validate = (value: UnboundResult) => {
     if (value.evidence.interpretation === "parsed" && !value.evidence.excerpt.includes(value.evidence.time.raw)) reject("invalid_time");
     return value;
+  };
+  const parsed = parseRawDate(input, validate);
+  if (parsed.reason) return null;
+  const conflict = alternatives?.some((candidate) => {
+    if (candidate.meaning !== input.meaning) return false;
+    const alternative = { ...input, ...candidate };
+    return !sourceDateReadingsAgree(parsed, parseRawDate(alternative, validate), input, alternative);
   });
-  return parsed.reason ? null : parsed.evidence.time;
+  return conflict ? null : parsed.evidence.time;
 }
 
 /** Only content supplies the actual article/revision; lexical parsing never invents a binding. */
@@ -319,4 +321,31 @@ export function parseSourceDate(input: SourceDateParseInput): SourceDateParseRes
     return { reason: bound.reason, evidence };
   });
   return { reason: parsed.reason, evidence: { ...parsed.evidence, binding } };
+}
+
+/** Same civil day can agree; two different clocks on that day stay a conflict. */
+export function sourceDateReadingsAgree(
+  primary: UnboundResult | SourceDateParseResult,
+  alternative: UnboundResult | SourceDateParseResult,
+  primaryInput: Pick<SourceDateParseInput, "raw" | "format" | "formatPattern" | "language" | "timezone" | "timezoneEvidence">,
+  alternativeInput: Pick<SourceDateParseInput, "raw" | "format" | "formatPattern" | "language" | "timezone" | "timezoneEvidence">,
+): boolean {
+  const a = primary.evidence,
+    b = alternative.evidence;
+  if (alternative.reason || a.origin !== b.origin || a.publicationBasis !== b.publicationBasis) return false;
+  const canonical = (utc: string) => utc.replace(/(\.\d*?[1-9])0+Z$/, "$1Z").replace(/\.0+Z$/, "Z");
+  if (a.time.utc && b.time.utc && canonical(a.time.utc) === canonical(b.time.utc)) return true;
+  if (a.time.utc && b.time.utc && a.time.precision !== "date" && b.time.precision !== "date") return false;
+  const declaration = (value: typeof primaryInput) => [
+    value.raw.trim(),
+    value.format,
+    value.formatPattern,
+    value.language,
+    value.timezone,
+    value.timezoneEvidence,
+  ];
+  if (stableJson(declaration(primaryInput)) === stableJson(declaration(alternativeInput))) return true;
+  const literalDay = (value: typeof a) =>
+    value.format === "iso8601" ? /^\d{4}-\d{2}-\d{2}$/.test(value.time.raw.trim()) : value.format === "declared" && !value.formatPattern?.includes("HH");
+  return !!(literalDay(a) || a.time.utc) && !!(literalDay(b) || b.time.utc) && a.time.local_date === b.time.local_date;
 }

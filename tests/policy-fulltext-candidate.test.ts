@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sha256, stableJson } from "../packages/backend/src/lib/ids.ts";
-import { buildPolicyFulltextPlan, type PolicyFulltextPlan } from "../packages/backend/src/policy/processing-plan.ts";
-import { validatePolicyFulltextCandidate as validate, type PolicyPartCandidate } from "../packages/backend/src/policy/fulltext-candidate.ts";
+import { buildPolicyFulltextPlan, type PolicyFulltextPlan } from "../modules/policy/backend/domain/processing-plan.ts";
+import { validatePolicyFulltextCandidate as validate, type PolicyPartCandidate } from "../modules/policy/backend/domain/fulltext-candidate.ts";
 
 const source = "Article IV. Limit 10 mg; fee USD 20; date January 1, 2026; paragraph (a).";
 const zh = "第IV条。限值10 mg；费用USD 20；日期January 1, 2026；第(a)项。";

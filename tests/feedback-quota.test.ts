@@ -4,9 +4,9 @@ import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { after, test } from "node:test";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, feedbackSql as sql, initializeDb } from "@amp/backend/db";
 import { submitFeedback, feedbackSourceHash } from "@amp/backend/operations/feedback";
-const sql = dbOf("feedback");
+
 after(closeDb);
 const request = (ip: string) => ({ idempotencyKey: randomUUID(), content: "用于验证并行实例和未知回执重试的合成反馈", ip, userAgent: "quota-fixture" });
 const execute = promisify(execFile);

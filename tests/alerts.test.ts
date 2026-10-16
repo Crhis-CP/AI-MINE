@@ -3,16 +3,17 @@
 // close without a message. Metal prices not fetched for over a day wait for the 09:00 digest (TASK-0071).
 // The request meter's automatic stops (hourly and daily) are announced as such, not as a used-up quota, and
 // the days they happened are counted for the weekly usage report (TASK-0063).
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { autoStopsBetween, checkAlerts, collectFindings, dueReports, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
 
-const sql = dbOf("ops");
+const sql = runtimeSql;
 
 const T = tag();
 const SOURCE = `test-alerts-${T}`;
@@ -433,7 +434,7 @@ test("metal prices: a source's periods held back come from its latest run that r
 
 // ---- Automatic stops (TASK-0063) -------------------------------------------------------------------------------------
 // Each test meters its own service (a budgets row and live attempts in database time) and removes it afterwards.
-const gateway = dbOf("ai-gateway");
+const gateway = runtimeSql;
 
 /** A service of this file's own with these limits and `calls` live attempts `minutesAgo` minutes ago. */
 async function meter(service: string, limits: { perMinute: number; perHour: number; perDay: number }, calls: number, minutesAgo = 10) {
@@ -729,13 +730,17 @@ test("a missing, empty or unreadable report is alerted, and a real issue is not"
       bodyStatus: "none",
       via: "fetch",
     } as never);
-    await sql`INSERT INTO publications (article_id, title, summary, source_id, channel, url, discovered_at, timeline_at, sort_at, visible_after, selected, visibility)
-      VALUES (${articleId}, '够格的新精选', '只用于告警测试', ${SOURCE}, 'news', ${`https://example.com/${T}-qualified`}, ${at}, ${at}, ${at}, ${at}, true, 'public')`;
+    await sql`INSERT INTO publications (article_id, title, summary, source_id, channel, url, discovered_at, timeline_at, sort_at, visible_after, selected, eligible, visibility)
+      VALUES (${articleId}, '够格的新精选', '只用于告警测试', ${SOURCE}, 'news', ${`https://example.com/${T}-qualified`}, ${at}, ${at}, ${at}, ${at}, true, true, 'public')`;
     const [wrote] = await sql<{ id: number }[]>`
       INSERT INTO job_runs (job, started_at, finished_at, status)
       VALUES ('reports.catch-up', ${new Date(PRODUCT_AT - 60_000)}, ${new Date(PRODUCT_AT - 60_000)}, 'ok')
       RETURNING id`;
     jobs.push(wrote!.id);
+    const pending = await finding("report.daily");
+    assert.equal(pending?.title, "今天的日报仍在等待资讯处理");
+    assert.match(pending?.impact ?? "", /未确认归组/);
+    await confirmGroupingFixture(articleId);
     const dropped = await finding("report.daily");
     assert.equal(dropped?.level, "now");
     assert.equal(dropped?.title, "今天的日报该有内容，但没有这一期");

@@ -6,7 +6,7 @@ import { attachSourcePolicies } from "./reader-context.ts";
 // never moves it; the representative is the first-party pick of the story's initiating fact.
 import type { GroupInfo, TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
   ITEM_COLUMNS,
@@ -20,8 +20,6 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
-
-const sql = dbOf("publication");
 
 export interface TimelineQuery extends TimelineFilters {
   scope?: "all" | "selected";
@@ -56,18 +54,8 @@ function binding(q: TimelineQuery): string {
   });
 }
 
-/** Representative preference: first-party, full text, higher score, earliest. */
-type RepresentativeRow = Pick<ItemRow, "first_party" | "body_mode" | "score" | "timeline_at">;
-export function pickRepresentative<T extends RepresentativeRow>(rows: T[]): T {
-  return [...rows].sort((a, b) => {
-    if (a.first_party !== b.first_party) return a.first_party ? -1 : 1;
-    if (a.body_mode !== b.body_mode) return a.body_mode === "full" ? -1 : 1;
-    const sa = a.score ?? 0;
-    const sb = b.score ?? 0;
-    if (sa !== sb) return sb - sa;
-    return a.timeline_at.getTime() - b.timeline_at.getTime();
-  })[0]!;
-}
+import { attachRepresentativePriority, pickRepresentative, type RepresentativeRow } from "./representative.ts";
+export { pickRepresentative } from "./representative.ts";
 
 /**
  * Public pool reports linked to the facts of the given stories and standalone facts, under the same
@@ -151,16 +139,17 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
   const factIds = page.filter((g) => g.gk.startsWith("f")).map((g) => Number(g.gk.slice(1)));
 
   // Read only ranking fields for the whole group; bodies, media and translations are hydrated for this page's representatives.
-  type Member = RepresentativeRow & Pick<ItemRow, "id" | "sort_at"> & { story_id: number | null; fact_id: number };
+  type Member = RepresentativeRow & Pick<ItemRow, "id" | "sort_at" | "source_id"> & { story_id: number | null; fact_id: number };
   const [members, pool] = await Promise.all([
     storyIds.length || factIds.length
       ? sql<Member[]>`
-        SELECT p.story_id, p.fact_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
+        SELECT p.story_id, p.fact_id, p.source_id, p.article_id AS id, p.first_party, p.body_mode, p.score, p.timeline_at, p.sort_at FROM publications p
         WHERE (p.story_id IN ${sql(storyIds.length ? storyIds : [0])} OR (p.story_id IS NULL AND p.fact_id IN ${sql(factIds.length ? factIds : [0])}))
           AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
       : Promise.resolve([] as Member[]),
     groupPool(q, now, storyIds, factIds),
   ]);
+  await attachRepresentativePriority(members);
   const groupFactIds = [...new Set([...members.map((m) => m.fact_id), ...pool.map((r) => r.fact_id)])];
   const factInfo = new Map(
     groupFactIds.length
@@ -215,7 +204,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
     planned.length
       ? (
           await sql<ItemRow[]>`
-    SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(planned.map((p) => p.id))}
+    SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${sql(planned.map((p) => p.id))}
       AND ${entryCondition(q, now)} ${channelCondition(q.channel)} ${categoryCondition(q.category)} ${tagCondition(matchers)} ${topicCondition(matchers)} ${jurisdictionCondition(q.jurisdiction ?? null, q.jurisdictionCodes, q.jurisdictionRecipe ?? "", matchers)}`
         ).map((row) => [row.id, row])
       : [],

@@ -149,3 +149,16 @@ test("role catalogue identities accept explicit module schemas without public pr
   );
   assert.match(checkCatalogue(scoped, { tables: { "unknown.reservations": own } }, ["ai.reservations"]).join(), /Unclassified schema/);
 });
+
+test("direct driver files keep explicit source ownership and cannot erase cross-module writes", () => {
+  const direct = fixture("packages/direct.ts", "publication", "public.articles", "write");
+  direct[0].modules = [];
+  const registered = { ...map, fileModules: { "packages/direct.ts": "publication" } };
+  const current = ownershipReport(direct, registered);
+  assert.equal(current.totals["runtime.cross-debt"], 1);
+  assert.deepEqual(current.baseline.debt, ownershipReport(fixture("packages/direct.ts", "publication", "public.articles", "write"), map).baseline.debt);
+  assert.equal(ownershipReport(direct, map).totals["runtime.unknownSites"], 1);
+  const conflict = ownershipReport(fixture("packages/direct.ts", "content"), registered);
+  assert.match(conflict.errors.join("\n"), /disagrees with registered source ownership/);
+  assert.throws(() => ownershipReport(direct, { ...map, fileModules: { "packages/direct.ts": "" } }), /invalid JSON/);
+});

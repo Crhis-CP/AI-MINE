@@ -1,11 +1,9 @@
 // Operator settings: notification targets (switching a group on records enabled_at so older content is
 // never back-filled) and per-service request budgets (the circuit breaker paid calls check before sending).
 import { config } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { audit } from "./auth.ts";
 export { monthlyUsageReports } from "../operations/usage-monthly.ts";
-
-const sql = dbOf("ai-gateway");
 
 export async function listTargets() {
   return sql`
@@ -29,9 +27,9 @@ export async function setTargetEnabled(key: string, enabled: boolean, reason: st
 export async function listBudgets() {
   return sql`
     SELECT b.service, b.per_minute, b.per_hour, b.per_day, b.note, b.updated_at,
-           (SELECT count(*)::int FROM receipt_attempts a WHERE a.service = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day') AS used_day,
-           (SELECT count(*)::int FROM receipt_attempts a WHERE a.service = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 hour') AS used_hour
-    FROM budgets b ORDER BY b.service`;
+           (SELECT count(*)::int FROM receipt_attempts a WHERE coalesce(a.quota_service,a.service) = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day') AS used_day,
+           (SELECT count(*)::int FROM receipt_attempts a WHERE coalesce(a.quota_service,a.service) = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 hour') AS used_hour
+    FROM budgets b WHERE b.service NOT LIKE 'registered:%' OR b.per_minute=0 OR b.per_hour=0 OR b.per_day=0 ORDER BY b.service`;
 }
 
 export async function updateBudget(service: string, input: { perMinute: number; perHour: number; perDay: number; reason: string }, actor: string) {

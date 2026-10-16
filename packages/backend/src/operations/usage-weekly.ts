@@ -4,12 +4,10 @@
 // and no registered price is said to be unpriced, never 0. Sent once per week: the week sent is kept in this job's run.
 import { addDays, beijingDate, beijingMidnight, isoWeekLabel, isoWeekRange } from "@amp/contracts/time";
 import { latestSuccessfulRunResult } from "../admin/runs.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { beijingDay, sendAlert } from "../notify/feishu.ts";
 import { autoStopsBetween, providerName } from "./alerts.ts";
-
-const sql = dbOf("ai-gateway");
 
 interface Row {
   service: string;

@@ -70,7 +70,7 @@ test("an empty egress proxy leaves collection direct, and a set one carries fetc
 });
 
 test("production startup accepts EGRESS_PROXY_URL and still refuses a process-wide proxy", () => {
-  for (const role of ["web", "fetcher", "worker", "public-api", "private-api"] as const) {
+  for (const role of ["web", "api", "worker", "public-api", "private-api"] as const) {
     assert.deepEqual(environmentProblems(role, { NODE_ENV: "production", EGRESS_PROXY_URL: "http://127.0.0.1:7890" }), []);
     assert.deepEqual(environmentProblems(role, { NODE_ENV: "production", EGRESS_PROXY_URL: "" }), []);
     assert.deepEqual(environmentProblems(role, { NODE_ENV: "production", HTTP_PROXY: "http://127.0.0.1:7890" }), ["HTTP_PROXY"]);

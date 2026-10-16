@@ -1,3 +1,6 @@
+import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
+import { modelSourceDate, modelSourceDateLabel } from "./source-time.ts";
+import { beginMaterialGrouping } from "../content/grouping.ts";
 export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "../enrichment/records.ts";
 import { ModelContentFiltered } from "../providers/model-fallback.ts";
 import { evaluateSourcePolicy } from "../admin/sources.ts";
@@ -16,9 +19,10 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { wordingProblems } from "./wording.ts";
 import { SELECTION } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { collapseWhitespace, normalizedUppercase } from "../lib/text.ts";
@@ -47,8 +51,6 @@ import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } 
 import { GEOGRAPHY_DICTIONARY, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
 import { stableJson } from "../lib/ids.ts";
 
-const sql = dbOf("enrichment");
-
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 
 const ZH_COUNT = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
@@ -72,6 +74,7 @@ export const PROMPT_VERSIONS = {
   score: promptVersion("selection-score"),
   understand: configuredPromptVersion("understand", UNDERSTAND_CONFIG),
   summarize: promptVersion("summarize-article", "summarize-article-empty", "identity-context"),
+  wording: promptVersion("mend-wording"),
   structure: configuredPromptVersion("structure", STRUCTURE_CONFIG),
 } as const;
 /** Every step's prompt, as stored on each judgement. */
@@ -141,16 +144,15 @@ export function scoreInputTime(at: Date): string {
 }
 
 /**
- * The score input: no source facts (the prompt forbids guessing them), the publication time, the
+ * The score input: no publisher hints, the confirmed original date with its actual precision, the
  * original title (items are scored before any Chinese copy exists) and the whole body.
  */
 export function buildScoreInput(a: AnalyzeInputArticle): string {
   let body = (a.bodyText ?? a.excerpt ?? "").trim();
   if (!body) body = a.title;
-  const at = a.publishedAt ?? a.discoveredAt ?? null;
   return [
     "请按系统规则评估以下单篇材料所代表的事件。只输出 attentionScore。",
-    `【发布时间（北京时间）】\n${at ? scoreInputTime(at) : ""}`,
+    `【原文时间】\n${modelSourceDateLabel(a)}`,
     `【标题】\n${a.title.trim()}`,
     `【完整正文】\n${body.length > MAX_BODY_CHARS ? body.slice(0, MAX_BODY_CHARS) : body}`,
   ].join("\n\n");
@@ -174,7 +176,8 @@ const FactSchema = z
   .nullable()
   .catch(null);
 
-const StructureSchema = z.object({
+export const StructureSchema = z.object({
+  scope: z.enum(["single", "composite", "unknown"]).catch("unknown"),
   category: z.enum(CATEGORY_KEYS).nullable().catch(null),
   tags: z.array(z.string()).max(12).catch([]),
   subjects: z.array(z.string()).max(6).catch([]),
@@ -228,6 +231,7 @@ export interface AnalysisRun {
     reused: boolean;
   } | null;
   structure: {
+    scope?: "single" | "composite" | "unknown";
     model: string;
     category: string | null;
     tags: string[];
@@ -249,6 +253,7 @@ export function waitsForPage(a: AnalyzeInputArticle): boolean {
 }
 
 type StepOpts = {
+  expectedRevision?: number;
   usagePurpose?: "production" | "evaluation";
   attemptTag?: string;
   scoreModel?: string;
@@ -374,7 +379,7 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     stableJson({
       source: { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty },
       url: a.url,
-      publishedAt: a.publishedAt?.toISOString() ?? null,
+      sourceTime: modelSourceDate(a),
       segments: material.segments,
       complete_material: material.complete,
     });
@@ -410,7 +415,8 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     category: res.data.category,
     tags: normalizeTags(res.data.tags),
     subjects,
-    fact: res.data.fact,
+    scope: res.data.scope,
+    fact: res.data.scope === "composite" ? null : res.data.fact,
     geography: validateGeography(res.data.geography, a, material.bodyBudget),
     company_context: res.data.company_context,
     receiptId: res.receiptId,
@@ -488,6 +494,65 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
   };
 }
 
+export const MEND_SYSTEM = promptText("mend-wording", { reasonLabel: "推荐理由" });
+const MendSchema = z.object({ titleZh: z.string().trim().min(1), summaryZh: z.string().trim().min(1), reasonZh: z.string().trim().nullable().catch(null) });
+
+/**
+ * Written copy that uses a word the site keeps from its readers (industry/wording.ts) goes back once, those words
+ * named, to change only them: a site's writing prompts can ask the same, but a model keeps drifting back to the
+ * words it uses most. The mended copy keeps the
+ * identity guard and is used only when it leaves fewer such words and the same numbers.
+ */
+async function mendWording(a: AnalyzeInputArticle, w: NonNullable<AnalysisRun["writing"]>, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
+  // A copy missing its title or summary waits for a whole one (normalizeAnalysis): nothing to mend, and no text to
+  // let a model without the material fill in.
+  if ((w.kind !== "understand" && w.kind !== "summarize") || !w.titleZh || !w.summaryZh) return w;
+  const problems = wordingProblems(w);
+  if (!problems.length) return w;
+  const t = translateInputOf(a);
+  const user = [
+    `来源：${t.sourceName ?? "（未注明）"}`,
+    `原题：${t.title}`,
+    `中文稿：\n${JSON.stringify({ titleZh: w.titleZh, summaryZh: w.summaryZh, reasonZh: w.reasonZh })}`,
+    `问题：\n${problems.map((p) => `- ${p}`).join("\n")}`,
+  ].join("\n\n");
+  checkAnalysisRunning();
+  let res: Awaited<ReturnType<typeof chatJson<typeof MendSchema>>>;
+  try {
+    res = await chatJson({
+      sourceIds: a.sourceId ? [a.sourceId] : [],
+      usagePurpose: opts.usagePurpose,
+      runtimeControl: opts.runtimeControl,
+      model: await modelFor("wording"),
+      purpose: "mend_wording",
+      subject: subjectOf(a),
+      promptVersion: PROMPT_VERSIONS.wording,
+      system: MEND_SYSTEM,
+      user,
+      fallbackPermit: opts.fallbackInput?.({ system: MEND_SYSTEM, user }),
+      schema: MendSchema,
+      temperature: 0.1,
+      maxTokens: 2048,
+      attemptTag: tagged(opts.attemptTag, "wording"),
+    });
+  } catch (error) {
+    // An answer that is not the copy asked for, or a refusal the same request would meet again (each provider words
+    // its own), leaves the first copy: a mend that cannot be had must not hold the item back. Its receipt stays failed
+    // (seen on the runs page, and asked again the next time the item is analysed); a busy provider is tried again later.
+    if (isContentFilter(error) || error instanceof ModelOutputError || (error instanceof ProviderRejectedError && !error.retryable)) return w;
+    throw error;
+  }
+  const copy = finalizeCopy(t, { titleZh: res.data.titleZh, summaryZh: res.data.summaryZh });
+  const mended = { titleZh: copy.titleZh, summaryZh: copy.summaryZh, reasonZh: w.reasonZh === null ? null : res.data.reasonZh || w.reasonZh };
+  const paid = { receiptIds: [...w.receiptIds, res.receiptId], reused: w.reused && res.reused };
+  // A guard that emptied the title or summary (a company the input does not name), a number changed or dropped, or
+  // no fewer such words: the first copy stands.
+  const numbers = (c: { titleZh: string; summaryZh: string; reasonZh: string | null }) =>
+    (`${c.titleZh} ${c.summaryZh} ${c.reasonZh ?? ""}`.match(/\d+(?:[.,]\d+)*/g) ?? []).sort().join(" ");
+  if (!mended.titleZh || !mended.summaryZh || numbers(mended) !== numbers(w) || wordingProblems(mended).length >= problems.length) return { ...w, ...paid };
+  return { ...w, ...mended, identityGuard: copy.identityGuard ?? w.identityGuard, ...paid };
+}
+
 /** The title/summary prompt for the items the content understanding does not write. */
 async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
   const t = translateInputOf(a);
@@ -546,6 +611,8 @@ async function finishAnalysis(
 ): Promise<AnalysisRun> {
   // UNKNOWN goes on like PASS; BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
+  // A title cannot support a paid score, fact extraction or invented summary. A later material revision resumes.
+  if (missingEvidence(a)) return { prefilter, scores: null, writing: null, structure: null };
   if (opts.stages === "selection") {
     const scores = await runSelectionScores(a, opts);
     return { prefilter, scores, writing: null, structure: null };
@@ -559,9 +626,9 @@ async function finishAnalysis(
     const scores = await runSelectionScores(a, opts);
     const sum = scores && !scores.refused && scores.values.length === SCORE_CALLS ? scores.values.reduce((total, v) => total + v, 0) : null;
     const near = sum !== null && (sum >= scores!.threshold * SCORE_CALLS || sum > UNDERSTAND_FLOOR * SCORE_CALLS);
-    const writing = (near ? await runUnderstand(a, opts) : null) ?? (await runSummarize(a, opts));
     const s = await structure;
     if ("error" in s) throw s.error;
+    const writing = await mendWording(a, (near ? await runUnderstand(a, opts) : null) ?? (await runSummarize(a, opts)), opts);
     return { prefilter, scores, writing, structure: s.value };
   } finally {
     // A score/writing error or deploy must not let the job finish while a paid structure request
@@ -578,7 +645,7 @@ export function normalizeAnalysis(run: AnalysisRun) {
   // Past the prefilter (PASS or UNKNOWN) an item is relevant. Writing that gives no usable Chinese title and
   // summary leaves it without copy of its own ("unknown", waiting for material); a Chinese original from a
   // full-text source still shows its source excerpt, since publication only keeps a BLOCK out.
-  const relevance = label === "BLOCK" ? "block" : run.writing && (!titleZh || !summaryZh) ? "unknown" : "pass";
+  const relevance = label === "BLOCK" ? "block" : (run.writing ? !titleZh || !summaryZh : !run.scores) ? "unknown" : "pass";
   // Selected when the two scores add up to twice the tier threshold; the mean, floored,
   // is the score shown (it never decides a half point on its own).
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
@@ -608,7 +675,8 @@ export function normalizeAnalysis(run: AnalysisRun) {
     titleZh,
     summaryZh,
     reasonZh: run.writing?.reasonZh ?? null,
-    fact: run.structure?.fact ?? null,
+    scope: run.structure?.scope ?? "unknown",
+    fact: run.structure?.scope === "composite" ? null : (run.structure?.fact ?? null),
     geography: run.structure?.geography ?? null,
     company_context: run.structure?.company_context ?? [],
   };
@@ -636,6 +704,8 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
   opts = { ...opts, runtimeControl };
   const input = await loadAnalyzeInput(articleId);
   if (!input) return null;
+  if (opts.expectedRevision !== undefined && input.revision !== opts.expectedRevision)
+    return { analysisId: null, stale: true, output: null, receiptIds: [], reused: true };
   // Its page first; extraction queues the analysis again (normally the queue already routed it there).
   if (waitsForPage(input)) return { analysisId: null, stale: false, needsBody: true, output: null, receiptIds: [], reused: true };
   checkAnalysisRunning();
@@ -687,6 +757,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       ...(out.scoreRefused ? { scoreRefused: true } : {}),
       ...(w ? { writer: w.kind, writerModel: w.model, itemType: w.itemType ?? null, authorRole: w.authorRole ?? null } : {}),
       ...(w?.identityGuard?.outcome === "fallback" ? { identityGuard: w.identityGuard } : {}),
+      scope: out.scope,
       fact: out.fact,
       geography: out.geography,
       company_context: out.company_context,
@@ -697,6 +768,7 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
       out.relevance === "block" ? "blocked" : "analyzed",
       async (tx) => {
         await assertRuntimeControl(tx, runtimeControl);
+        const previousGroupingInput = await readGroupingAnalysis(articleId, input.revision, tx);
         // Enrichment owns the statement; content owns the locked transaction executing it.
         const insert = sql`
       INSERT INTO analyses (article_id, input_revision, origin, model, prompt_version, receipt_ids, relevance, category, tags,
@@ -706,6 +778,11 @@ export async function analyzeArticle(articleId: string, opts: StepOpts = {}, aft
         ${out.score}, ${out.selected}, ${sql.json(detail as never)})
       RETURNING id`;
         const [row] = await tx<{ id: number }[]>`${insert}`;
+        if (
+          groupingAnalysisHash(previousGroupingInput) !==
+          groupingAnalysisHash({ selected: out.selected, relevance: out.relevance, title_zh: out.titleZh, summary_zh: out.summaryZh, output: detail })
+        )
+          await beginMaterialGrouping(articleId, input.revision, true, tx);
         for (const id of receiptIds) await completeReceipt(tx, id);
         return row!.id;
       },

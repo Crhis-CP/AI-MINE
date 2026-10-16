@@ -164,6 +164,7 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
       if (!["select", "with", "values"].some((word) => wordAt(n + 1, word))) unknown.push("unsupported parenthesized relation");
       return;
     }
+    const relationStart = n;
     const t = tokens[n];
     let name: string;
     let qualified = false;
@@ -185,7 +186,12 @@ export function sqlOwnership(text: string, holes: Hole[] = []) {
         n += 2;
       }
       if (mode === "read" && allowFunction && punctuation(n, "(")) {
-        if (t.kind === "quoted" || !["jsonb_array_elements", "jsonb_each", "unnest", "generate_series"].includes(name))
+        const catalogRecordset =
+          name === "pg_catalog.jsonb_to_recordset" &&
+          n === relationStart + 3 &&
+          tokens[relationStart]?.kind === "word" &&
+          tokens[relationStart + 2]?.kind === "word";
+        if (t.kind === "quoted" || (!catalogRecordset && !["jsonb_array_elements", "jsonb_each", "unnest", "generate_series"].includes(name)))
           unknown.push(`opaque relation function ${name}`);
         return;
       }

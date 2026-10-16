@@ -1,13 +1,13 @@
 // Historical names and SQL order stay unchanged; every file and its hash record commit together.
 import { REPO_ROOT } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql, initializeDb } from "@amp/backend/db";
 import { loadMigrationInventory, validateAppliedMigrations } from "./migrations/inventory.ts";
 
 export async function migrate(root = REPO_ROOT): Promise<void> {
   const inventory = loadMigrationInventory(root);
   try {
     await initializeDb("migrate");
-    const reserved = await dbOf("config").reserve();
+    const reserved = await runtimeSql.reserve();
     const transaction = async <T>(run: (tx: typeof reserved) => Promise<T>): Promise<T> => {
       await reserved`BEGIN`;
       try {

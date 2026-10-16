@@ -10,6 +10,7 @@
     "@amp/backend": "workspace:*",
     "@amp/contracts": "workspace:*",
     "@amp/industry": "workspace:*",
-    "pg-boss": "12.34.0"
+    "pg-boss": "12.34.0",
+    "@amp/site": "workspace:*"
   }
 }

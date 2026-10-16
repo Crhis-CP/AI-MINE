@@ -4,7 +4,7 @@ import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, ANALYZE_PROMPT_VERSION } from "@amp/backend/editorial/analyze";
@@ -16,11 +16,10 @@ import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { currentNewsJurisdictionCounts } from "../packages/backend/src/publication/news-geography.ts";
 import { validateGeography, geographyMaterial, geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 
-const sql = dbOf("enrichment"),
-  app = await buildApp("public-api"),
+const app = await buildApp("public-api"),
   requests: { system: string; user: string }[] = [];
 const provider = await stub((_hit, req) => {
   const body = JSON.parse(req.body),
@@ -84,6 +83,7 @@ async function fixture(body: string, geo: unknown = undefined) {
     bodyHtml: `<p>${body}</p>`,
     bodyStatus: "ok" as const,
     via: "ingest" as const,
+    publishedAt: new Date(),
   };
   const result = await upsertMaterial(input),
     articleId = result.articleId;

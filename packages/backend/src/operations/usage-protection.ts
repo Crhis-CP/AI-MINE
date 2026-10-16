@@ -1,11 +1,11 @@
 import { config } from "../config.ts";
 import { UsageBreaker, UsageConfigRecord } from "@amp/contracts/http/private";
 import { sweepModelConnectionProbes } from "../providers/model-probe.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { newUuid } from "../lib/ids.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { evaluateUsageProtection, installInitialUsageControl, usageLock } from "../providers/usage-protection.ts";
-const sql = dbOf("ai-gateway");
+
 type EventRow = { id: string; kind: string; lane: string | null; capability: string | null; payload: Record<string, unknown>; created_at: Date };
 type Sender = (title: string, lines: string[]) => Promise<"sent" | "disabled" | "failed">;
 /** Alert groups use the existing transport. A delivery with an unknown outcome is retained, never blindly resent. */

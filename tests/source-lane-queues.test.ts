@@ -5,7 +5,7 @@ import { after, beforeEach, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { getBoss, stopBoss, enqueue, ensureQueue, QUEUES } from "@amp/backend/jobs/queue";
 import { SOURCE_QUEUES, ensureSourceQueues, sourceFetchQueue, type CollectionLane } from "../packages/backend/src/jobs/source-queues.ts";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
@@ -14,8 +14,7 @@ import { fetchNow } from "@amp/backend/admin/sources";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("sources"),
-  hits = new Map<string, number>();
+const hits = new Map<string, number>();
 let unblock = () => {};
 let slow = Promise.resolve();
 const server = http.createServer(async (req, res) => {

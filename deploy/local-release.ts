@@ -188,21 +188,12 @@ export async function localRelease(input: LocalRelease, signal?: AbortSignal) {
             await readLocalHealth(() => compose(image, ["port", "web", "3000"]), input.sha, { signal });
           },
           async checks(image) {
-            const ids = (await compose(image, ["ps", "--status", "running", "-q", "public-api", "private-api", "worker", "web"])).split(/\s+/);
-            if (ids.length !== 4) throw new Error("Not all application roles are running");
+            const ids = (await compose(image, ["ps", "--status", "running", "-q", "api", "worker", "web"])).split(/\s+/);
+            if (ids.length !== 3) throw new Error("Not all application roles are running");
             const images = (await docker(["inspect", "--format", "{{.Config.Image}}", ...ids])).split(/\s+/);
-            if (images.length !== 4 || images.some((actual) => actual !== image)) throw new Error("Running image identity mismatch");
-            await compose(image, ["exec", "-T", "public-api", "node", "scripts/smoke.ts", "--base", "http://web:3000"]);
-            await compose(image, [
-              "exec",
-              "-T",
-              "public-api",
-              "node",
-              "scripts/verify/api-split.ts",
-              "http://web:3000",
-              "http://public-api:3001",
-              "http://private-api:3002",
-            ]);
+            if (images.length !== 3 || images.some((actual) => actual !== image)) throw new Error("Running image identity mismatch");
+            await compose(image, ["exec", "-T", "api", "node", "scripts/smoke.ts", "--base", "http://web:3000"]);
+            await compose(image, ["exec", "-T", "api", "node", "scripts/verify/api-topology.ts", "http://web:3000", "http://api:3001"]);
           },
           cleanup: dispose,
         },

@@ -122,19 +122,21 @@ export function DayHeader({
  */
 export function TimelineSlot({
   at,
+  sourceTime,
   children,
   fresh = false,
   delay = 0,
   dataKey,
 }: {
   at: string;
+  sourceTime?: import("@amp/contracts/time-assertion").TimeAssertion | null;
   children: React.ReactNode;
   fresh?: boolean;
   delay?: number;
   dataKey?: string;
 }) {
-  // A source that gave only the date gets a dash, never the day's 00:00 (Owner 2026-10-05: 只显示日期).
-  const dateOnly = isDateOnlyInstant(at);
+  // The anchor orders the site timeline. An explicit source instant can prove that midnight is a real clock time.
+  const dateOnly = isDateOnlyInstant(at) && !(sourceTime?.utc && Date.parse(sourceTime.utc) === Date.parse(at) && sourceTime.precision !== "date");
   return (
     <li
       data-card-key={dataKey}
@@ -143,7 +145,7 @@ export function TimelineSlot({
     >
       <time
         dateTime={dateOnly ? beijingDate(at) : at}
-        title={dateOnly ? "来源只写了日期" : undefined}
+        title={dateOnly ? "按日期归档" : "本站时间线"}
         className="mono pt-[2px] text-[13px] leading-[18px] text-ink-4 lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6 lg:text-ink-3"
       >
         {dateOnly ? NO_TIME : beijingTime(at)}
@@ -202,7 +204,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       const snap = readSnapshot<ListState>(historyKey);
       if (snap) {
         setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
-        restoreAnchor(snap.anchor, snap.scrollY);
+        restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
       } else {
         setState(fromResponse(initial));
       }
@@ -219,11 +221,11 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
       // that reloaded the document, it restores the saved list and position.
       if (snap && !isReload()) {
         setState({ ...fromResponse(initial), collapsed: snap.data.collapsed ?? [] });
-        requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY));
+        requestAnimationFrame(() => restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus));
       }
       return;
     }
-    if (snap) restoreAnchor(snap.anchor, snap.scrollY);
+    if (snap) restoreAnchor(snap.anchor, snap.scrollY, snap.keyboardFocus);
   }, [historyKey, initial]);
 
   // Save the snapshot whenever we leave this history entry.
@@ -363,7 +365,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
                   const fresh = freshKeys.has(c.key);
                   const delay = fresh ? Math.min(order++, 10) * 40 : 0;
                   return (
-                    <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} fresh={fresh} delay={delay}>
+                    <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} sourceTime={c.item.sourceTime} fresh={fresh} delay={delay}>
                       <FeedItem item={c.item} group={c.group} filters={filters} />
                     </TimelineSlot>
                   );

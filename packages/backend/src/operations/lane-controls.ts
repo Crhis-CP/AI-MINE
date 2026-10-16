@@ -1,8 +1,8 @@
 import { LaneControlActionRequest, LaneControlsResponse } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-import { audit } from "../admin/auth.ts";
-const sql = dbOf("ops");
+import { audit, auditActionExists } from "../admin/auth.ts";
+
 export type RuntimeLane = "news" | "policy";
 export type RuntimeSwitch = "collection" | "processing" | "publication";
 export type ControlHolder = "owner" | "deploy" | "system";
@@ -205,4 +205,31 @@ export async function laneControlFindings(now = Date.now()) {
       since: r.occurred_at,
     })),
   ];
+}
+
+/** One named Owner decision, applied by the locked release before starting the new worker. */
+export async function applyOwnerPolicySuspension(decision: { id: string; reason: string }, now = Date.now()) {
+  if (!/^[a-z0-9-]{1,80}$/.test(decision.id) || !decision.reason.trim()) throw new RuntimeControlInputError("暂停决定缺少编号或说明");
+  const actor = `owner-decision:${decision.id}`;
+  if ((await auditActionExists(actor, "lane_control.pause")) || (await auditActionExists(actor, "release.policy_pause")))
+    return { status: "already_applied" as const };
+  const controls = (await rows()).filter((r) => r.lane === "policy" && r.holder === "owner" && r.switch !== "publication");
+  const missing = controls.filter((r) => !r.paused);
+  if (!missing.length) {
+    await audit(actor, "release.policy_pause", "policy", decision.reason, null, { status: "existing_holds_preserved" });
+    return { status: "already_paused" as const };
+  }
+  // This is a review date, not automatic resumption. Existing manual holds and publication stay intact.
+  const reviewAt = new Date(now + 30 * 86400_000).toISOString();
+  await change({
+    lane: "policy",
+    switches: missing.map((r) => r.switch),
+    holder: "owner",
+    action: "pause",
+    expected: Object.fromEntries(missing.map((r) => [r.switch, r.revision])),
+    reason: decision.reason,
+    actor,
+    expiresAt: reviewAt,
+  });
+  return { status: "paused" as const, reviewAt };
 }

@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
@@ -8,7 +9,7 @@ import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORIES, CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
 import { configuredPromptVersion, promptVersion } from "@amp/backend/editorial/prompts";
@@ -17,10 +18,9 @@ import { normalizeTags } from "../packages/backend/src/editorial/vocabulary.ts";
 import { publishArticle } from "@amp/backend/publication/publish";
 
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
-const sql = dbOf("enrichment"),
-  source = `mining-category-${tag()}`;
+const source = `mining-category-${tag()}`;
 const app = await buildApp("public-api");
 const provider = await stub((_hit, req) => {
   const { messages } = JSON.parse(req.body);
@@ -110,6 +110,7 @@ test("actual classification, publication and public exits agree on nine keys and
     const analysed = await analyzeArticle(id);
     assert.equal(analysed!.output!.category, category);
     assert.deepEqual(analysed!.output!.tags, category ? [CATEGORY_LABELS[category]] : [], "writing tags cannot overwrite structure");
+    await confirmGroupingFixture(id);
     await publishArticle(id, { releasedAt: new Date(Date.now() - 1000) });
     assert.equal((await get(`/api/site/items/${id}`)).json().category, category);
     assert.equal((await get("/api/v1/items?mode=all&limit=100")).json().items.find((item: { id: string }) => item.id === id).category, category);

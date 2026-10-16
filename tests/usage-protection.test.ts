@@ -7,7 +7,7 @@ import { chatJson, environmentModelMetadata } from "../packages/backend/src/prov
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import defaults from "../industry/usage-controls.json" with { type: "json" };
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { sessionPrincipal, SESSION_COOKIE, type AdminPrincipal } from "@amp/backend/admin/auth";
 import { paidRequest, logicalKeyFor, ReceiptUnknownError, UsageProtectionError } from "@amp/backend/providers/receipts";
@@ -32,7 +32,7 @@ import { runModelConnectionProbe, sweepModelConnectionProbes, registerModelConne
 import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { config } from "@amp/backend/config";
-const sql = dbOf("ai-gateway");
+
 let owner: AdminPrincipal,
   manager: AdminPrincipal,
   calls = 0,
@@ -136,9 +136,13 @@ test("an empty protection table receives the controlled initial version once and
   assert.equal(await installInitialUsageControl(), "present");
   assert.equal((await usageConfiguration())?.config.usage_report.push_time, "10:15");
 });
-test("missing protection rejects new payment, while an existing paid response remains reusable; only real Owner can configure", async () => {
-  await assert.rejects(paidRequest(request("missing"), send), UsageProtectionError);
-  assert.equal(calls, 0);
+test("missing cost configuration remains visible without stopping requests; only Owner can configure", async () => {
+  await paidRequest(request("missing"), send);
+  assert.equal(calls, 1);
+  const [unpriced] = await sql`SELECT state,settled_micros,quote FROM ai.usage_attempts`;
+  assert.equal(unpriced.state, "unknown");
+  assert.equal(unpriced.settled_micros, null);
+  assert.equal(unpriced.quote.price, null);
   await assert.rejects(changeUsageProtection({ expected_version: 0, config: defaults, reason: "not Owner", high_risk_confirmed: true }, manager));
   await install();
   assert.equal((await usageProtectionOverview(manager)).can_manage, false);
@@ -147,12 +151,13 @@ test("missing protection rejects new payment, while an existing paid response re
   const original = await paidRequest(request("cached"), send);
   await sql`DELETE FROM ai.usage_control_versions`;
   assert.equal((await paidRequest(request("cached"), send)).receiptId, original.receiptId);
-  assert.equal(calls, 1);
-  await assert.rejects(paidRequest(request("uncached"), send), UsageProtectionError);
+  assert.equal(calls, 2);
+  await paidRequest(request("uncached"), send);
+  assert.equal(calls, 3);
 });
 test("price evidence, CNY, <=45-day validity, visual upper bound and exact micro arithmetic are enforced", async () => {
   await install();
-  await assert.rejects(paidRequest(request("no-price"), send), UsageProtectionError);
+  await paidRequest(request("no-price"), send);
   const p = await price("1");
   await assert.rejects(
     changeUsagePrice({ expected_version: p.version, price: { ...p.price, currency: "USD" }, reason: "invalid", high_risk_confirmed: true }, owner),
@@ -171,7 +176,7 @@ test("price evidence, CNY, <=45-day validity, visual upper bound and exact micro
     owner,
   );
   assert.equal((await paidRequest(request("expiry-cache"), send)).receiptId, received.receiptId);
-  await assert.rejects(paidRequest(request("expired-new"), send), UsageProtectionError);
+  await paidRequest(request("expired-new"), send);
   await price("0", "usage-fixture", "vision");
   assert.match(
     (await priceQuote(sql, { service: "usage-fixture", model: "vision", bounds: { input_tokens: 20, output_tokens: 20, images: 1 } })).missing!,
@@ -182,7 +187,7 @@ test("price evidence, CNY, <=45-day validity, visual upper bound and exact micro
   for (let i = 0; i < 100000; i++) sum += BigInt(quote.reserved_micros);
   assert.equal(sum, BigInt(quote.reserved_micros) * 100000n);
 });
-test("third paid repetition opens only capability/source on its lane; warning does not stop and cache bypasses the gate", async () => {
+test("repetition is observable but service request limits govern admission", async () => {
   await install();
   await price();
   const first = await paidRequest(request("same", { source: "source-a", tag: "0" }), send);
@@ -190,15 +195,14 @@ test("third paid repetition opens only capability/source on its lane; warning do
   await paidRequest(request("same", { source: "source-a", tag: "2" }), send);
   assert.equal((await readUsageProtection()).breakers.find((b) => b.trigger === "repeated_input")!.state, "warning");
   await paidRequest(request("same", { source: "source-a", tag: "3" }), send);
-  const open = (await readUsageProtection()).breakers.find((b) => b.state === "open")!;
-  assert.equal(open.scope.source_id, "source-a");
-  await assert.rejects(paidRequest(request("different", { source: "source-a" }), send), UsageProtectionError);
+  assert.equal((await readUsageProtection()).breakers.filter((b) => b.state === "open").length, 0);
+  await paidRequest(request("different", { source: "source-a" }), send);
   await paidRequest(request("different-source", { source: "source-b" }), send);
   await paidRequest(request("policy-free", { lane: "policy", source: "source-a" }), send);
   assert.equal((await paidRequest(request("same", { source: "source-a", tag: "0" }), send)).receiptId, first.receiptId);
-  assert.equal(calls, 6);
+  assert.equal(calls, 7);
 });
-test("object costs distinguish equality from > threshold and do not stop a different material", async () => {
+test("object costs remain visible above the threshold without stopping payment", async () => {
   await install();
   await charge("object-1", "2500000", { object: "article-a" });
   await charge("object-2", "2500000", { object: "article-a" });
@@ -206,11 +210,11 @@ test("object costs distinguish equality from > threshold and do not stop a diffe
   assert.equal(rows.find((b) => b.trigger === "object_cost")!.state, "warning");
   await charge("object-3", "1", { object: "article-a" });
   rows = (await readUsageProtection()).breakers;
-  assert.equal(rows.find((b) => b.trigger === "object_cost")!.state, "open");
-  await assert.rejects(paidRequest(request("object-4", { object: "article-a" }), send), UsageProtectionError);
+  assert.equal(rows.find((b) => b.trigger === "object_cost")!.state, "warning");
+  await paidRequest(request("object-4", { object: "article-a" }), send);
   await paidRequest(request("other-object", { object: "article-b" }), send);
 });
-test("daily no-history warning and > threshold pause only top capabilities covering at least half", async () => {
+test("daily cost increases notify without pausing either business lane", async () => {
   await install();
   await charge("a", "140000000", { capability: "cap-a" });
   assert.equal((await readUsageProtection()).breakers.find((b) => b.trigger === "daily_total")!.state, "warning");
@@ -218,11 +222,8 @@ test("daily no-history warning and > threshold pause only top capabilities cover
   assert.equal((await readUsageProtection()).breakers.filter((b) => b.state === "open").length, 0);
   await charge("c", "1000000", { capability: "cap-c", lane: "policy" });
   const open = (await readUsageProtection()).breakers.filter((b) => b.state === "open");
-  assert.deepEqual(
-    open.map((b) => b.scope.capability),
-    ["cap-a"],
-  );
-  await assert.rejects(paidRequest(request("a-again", { capability: "cap-a" }), send), UsageProtectionError);
+  assert.deepEqual(open, []);
+  await paidRequest(request("a-again", { capability: "cap-a" }), send);
   await paidRequest(request("policy-still-open", { capability: "cap-c", lane: "policy" }), send);
 });
 test("unknown keeps its reservation; known unbilled release adjusts only its amount, and monthly notices never impose a cap", async () => {
@@ -258,6 +259,7 @@ test("unknown keeps its reservation; known unbilled release adjusts only its amo
 test("Owner recovery has version CAS and never releases a system/deployment/Owner pause", async () => {
   await install();
   await charge("obj", "6000000", { object: "a" });
+  await sql`UPDATE ai.usage_breakers SET state='open',opened_at=now() WHERE trigger='object_cost'`;
   const open = (await readUsageProtection()).breakers.find((b) => b.state === "open")!;
   const controls = await listLaneControls(),
     revision = controls.owner_revisions.find((r) => r.lane === "news" && r.switch === "processing")!.revision;
@@ -282,6 +284,36 @@ test("Owner recovery has version CAS and never releases a system/deployment/Owne
   );
 });
 
+test("retiring prior amount breakers is audited and keeps the Owner processing pause", async () => {
+  await install();
+  await charge("legacy-amount", "6000000", { object: "old-material" });
+  await sql`UPDATE ai.usage_breakers SET state='open',opened_at=now() WHERE trigger='object_cost'`;
+  const controls = await listLaneControls();
+  const revision = controls.owner_revisions.find((r) => r.lane === "news" && r.switch === "processing")!.revision;
+  await changeOwnerLaneControls(
+    {
+      lane: "news",
+      mode: "processing",
+      action: "pause",
+      expected_revisions: { processing: revision },
+      reason: "independent manual pause",
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+    },
+    "synthetic",
+  );
+  await evaluateUsageProtection();
+  const record = (await readUsageProtection()).breakers.find((b) => b.trigger === "object_cost" && b.state === "recovered")!;
+  assert.equal(record.recovered_by, "system:usage-alignment");
+  assert.equal((await sql`SELECT count(*)::int AS n FROM audit_log WHERE action='usage.breaker.recover' AND subject=${record.id}`)[0].n, 1);
+  await evaluateUsageProtection();
+  assert.equal((await sql`SELECT count(*)::int AS n FROM audit_log WHERE action='usage.breaker.recover' AND subject=${record.id}`)[0].n, 1);
+  assert.equal((await listLaneControls()).controls.filter((c) => c.lane === "news" && c.holder === "owner").length, 1);
+  await changeOwnerLaneControls(
+    { lane: "news", mode: "processing", action: "resume", expected_revisions: { processing: revision + 1 }, reason: "fixture cleanup" },
+    "synthetic",
+  );
+});
+
 test("daily history includes complete zero-spend days and keeps comparisons exact", async () => {
   await install();
   for (const offset of [-3, -1]) {
@@ -296,7 +328,7 @@ test("daily history includes complete zero-spend days and keeps comparisons exac
   await charge("history-equality", "200000000", { capability: "today_capability" });
   assert.equal((await readUsageProtection()).breakers.filter((b) => b.state === "open").length, 0);
   await charge("history-above", "1", { capability: "today_capability" });
-  const daily = (await readUsageProtection()).breakers.find((b) => b.trigger === "daily_total" && b.state === "open")!;
+  const daily = (await readUsageProtection()).breakers.find((b) => b.trigger === "daily_total" && b.state === "warning")!;
   assert.equal(daily.current.history_days, "3");
   assert.equal(daily.current.history_micros, "200000000");
 });
@@ -317,7 +349,7 @@ test("notification batching is idempotent; unknown delivery is retained and pric
   });
   assert.equal(messages, sent);
   assert.equal(calls, before);
-  await paidRequest(request("notify", { source: "source-a", tag: "3" }), send);
+  await charge("notify-object", "4000000", { object: "notice-target" });
   await deliverUsageProtectionEvents(new Date(), async () => {
     throw new Error("synthetic delivery unknown");
   });
@@ -556,7 +588,7 @@ test("legacy unhashed unknown cannot be bypassed by a new config identity; an ex
   }
 });
 
-test("a news historical gap does not stop a priced policy request; truly unassigned gaps never become a site-wide switch", async () => {
+test("historical accounting gaps remain visible without pausing fresh requests on either lane", async () => {
   await install();
   await price("1000000");
   for (const lane of ["news", null]) {
@@ -565,10 +597,10 @@ test("a news historical gap does not stop a priced policy request; truly unassig
       await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts) VALUES(${key},'old','old-model','fixture_capability',${key},'unknown',${sql.json(lane ? { lane, sourceIds: ["old-news-source"] } : {})},1) RETURNING id`;
     await sql`INSERT INTO receipt_attempts(receipt_id,attempt,service,model,status) VALUES(${r!.id},1,'old','old-model','unknown')`;
   }
-  await assert.rejects(paidRequest(request("same-news-scope", { source: "old-news-source" }), send), UsageProtectionError);
+  await paidRequest(request("same-news-scope", { source: "old-news-source" }), send);
   await paidRequest(request("qualified-policy", { lane: "policy", source: "old-news-source", object: "policy-document" }), send);
   await paidRequest(request("different-news", { source: "different-source", object: "fresh-material" }), send);
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
   const overview = await readUsageProtection();
   assert.ok(overview.missing.length);
   assert.equal(overview.breakers.filter((b) => b.trigger === "daily_total" && b.state === "open").length, 0);
@@ -619,7 +651,8 @@ test("eight-decimal unit price is preserved exactly; rounding happens only on th
     bounds: { input_tokens: 1000000, output_tokens: 0 },
   });
   assert.equal(quoted.quote!.reserved_micros, "123457");
-  assert.equal(quoted.quote!.price.input_per_million_micros, "123456.78");
+  assert.ok(quoted.quote?.price);
+  assert.equal(quoted.quote.price.input_per_million_micros, "123456.78");
 });
 test("optional research task cap atomically retains in-flight and unknown usage, while free reuse adds no reservation", async () => {
   await install();
@@ -730,4 +763,32 @@ test("two registered prices for one model do not invent a charge for a token-onl
   const [attempt] = await sql`SELECT cost,currency FROM receipt_attempts WHERE id=${row!.id}`;
   assert.equal(attempt!.cost, null);
   assert.equal(attempt!.currency, null);
+});
+
+test("a received unpriced attempt is visible as a gap and reconciles once when its matching price arrives", async () => {
+  await install();
+  const req = { ...request("late-price", { capability: "score_article" }), model: "fixture-model" };
+  const received = await paidRequest(req, async () => {
+    calls++;
+    return { response: { ok: true }, usage: { prompt_tokens: 1000, completion_tokens: 10 } };
+  });
+  const [original] = await sql`SELECT state,quote,occurred_at FROM ai.usage_attempts WHERE receipt_id=${received.receiptId}`;
+  assert.equal(original.state, "unknown");
+  assert.equal(original.quote.price, null);
+  assert.equal((await evaluateUsageProtection()).missing.length, 1);
+  await price("0", "usage-fixture", "other-model");
+  assert.equal((await evaluateUsageProtection()).missing.length, 1);
+  await price("0", "usage-fixture", "fixture-model");
+  const reconciled = await evaluateUsageProtection();
+  assert.deepEqual(reconciled.missing, []);
+  const [settled] = await sql`SELECT state,settled_micros::text,quote,occurred_at FROM ai.usage_attempts WHERE receipt_id=${received.receiptId}`;
+  assert.equal(settled.state, "settled");
+  assert.equal(settled.settled_micros, "2040");
+  assert.deepEqual(settled.quote, original.quote);
+  assert.deepEqual(settled.occurred_at, original.occurred_at);
+  const sums = await sql`SELECT kind,key,settled_micros::text,unknown_micros::text,reserved_micros::text FROM ai.usage_sums ORDER BY kind,key`;
+  await evaluateUsageProtection();
+  assert.deepEqual(await sql`SELECT kind,key,settled_micros::text,unknown_micros::text,reserved_micros::text FROM ai.usage_sums ORDER BY kind,key`, sums);
+  assert.equal((await paidRequest(req, send)).receiptId, received.receiptId);
+  assert.equal(calls, 1);
 });

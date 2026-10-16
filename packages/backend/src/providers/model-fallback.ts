@@ -1,4 +1,4 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { currentModelConfiguration } from "../admin/models.ts";
 import { readStoredBackup, type StoredBackup } from "../admin/model-fallback.ts";
@@ -8,7 +8,7 @@ import { logicalKeyFor, ProviderRejectedError, ReceiptUnknownError, ReceiptPhysi
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import type { ChatJsonResult } from "./llm.ts";
-const sql = dbOf("ai-gateway");
+
 export class ModelFallbackBlocked extends Error {}
 export class ModelContentFiltered extends Error {
   readonly receiptId: number;
