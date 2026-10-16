@@ -3,12 +3,10 @@ import { evaluateSourcePolicy, sourceDateConfiguration } from "../admin/sources.
 import type { TimeAssertion } from "@amp/contracts/time-assertion";
 import { materialSourceTime } from "../content/date-evidence.ts";
 import { modelSourceDateLabel } from "./source-time.ts";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { collapseWhitespace, truncate } from "../lib/text.ts";
 import { produceImage } from "../media/images.ts";
 import type { ContentPart } from "../providers/llm.ts";
-
-const sql = dbOf("enrichment");
 
 export interface AnalyzeInputArticle {
   sourceId?: string;

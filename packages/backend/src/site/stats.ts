@@ -2,11 +2,9 @@
 // ten minutes per process (the page itself is cached for five); an older copy is served while the
 // counts are read again, so no reader waits for the full-table counts.
 import type { SiteStats } from "@amp/contracts/site";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { cached } from "../lib/cache.ts";
 import { selectedCondition } from "../publication/items.ts";
-
-const sql = dbOf("publication");
 
 export type { SiteStats };
 export { loadMetalPrices } from "../publication/metal-prices/read.ts";

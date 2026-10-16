@@ -2,9 +2,7 @@
 // read for the daily digest (alerts.ts) and TASK-0076's check script. A record is the refresh's return value as TASK-0069
 // shaped it, one entry per source key; later cards only add fields, read here when present (TASK-0046's note and
 // heldSeries). Read-only, and from job_runs alone: no publication code, price table or registry.
-import { dbOf } from "../db.ts";
-
-const sql = dbOf("ops");
+import { sql } from "../db.ts";
 
 /** One period of a source's entry. */
 export interface MetalPricePeriodRecord {

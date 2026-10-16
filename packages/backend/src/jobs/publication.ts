@@ -1,6 +1,6 @@
 // Publication jobs: re-deriving a whole source after an admin change.
 import type { PgBoss } from "pg-boss";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 
 import { republishSource } from "../publication/publish.ts";
 import { computeHotRanking } from "../events/hot.ts";
@@ -8,8 +8,6 @@ import { ensureQueue, enqueue, QUEUES } from "./queue.ts";
 
 // The metal price refresh, run by the schedule metals.prices (TASK-0069).
 export { refreshMetalPrices } from "../publication/metal-prices/refresh.ts";
-
-const sql = dbOf("publication");
 
 export const republishKey = (sourceId: string) => `republish.source:${sourceId}`;
 

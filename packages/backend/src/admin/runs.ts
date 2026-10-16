@@ -4,7 +4,7 @@ import { releaseUnknownReceiptUnbilled, MANUAL_UNBILLED_NOTE_PREFIX } from "@amp
 import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
-import { dbOf, type Tx, type Db } from "../db.ts";
+import { sql, type Tx, type Db } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
@@ -14,8 +14,6 @@ import { EVENT_CONTINUATIONS } from "../events/queues.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { ReceiptReleaseRequest, ReceiptVersionInput, type ReceiptVersionFields } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
-
-const sql = dbOf("ops");
 
 const STALE_HEARTBEAT_MS = 3 * 60_000;
 

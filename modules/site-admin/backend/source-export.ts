@@ -1,7 +1,7 @@
-import { dbOf } from "@amp/backend/db";
+import { identitySql as sql } from "@amp/backend/db";
 import { actorOf, audit, requireOwner, type AdminPrincipal } from "@amp/backend/admin/auth";
 import { sourceTargetExportData } from "./coverage.ts";
-const sql = dbOf("identity");
+
 export async function exportSourceTargets(principal: AdminPrincipal) {
   return sql.begin(async (db) => {
     await requireOwner(principal, db);

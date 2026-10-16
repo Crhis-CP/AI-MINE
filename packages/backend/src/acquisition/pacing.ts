@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
-import { dbOf, type Tx } from "../db.ts";
+import { sql, type Tx } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
-const sql = dbOf("acquisition");
+
 export type CrawlProof = {
   sourceId: string;
   lane: "news" | "policy";

@@ -1,8 +1,8 @@
 import { POLICY_MODEL_BINDING_VERSION } from "../domain/model-evidence.ts";
 import { runtimeControlSnapshot, assertRuntimeControl } from "@amp/backend/operations/lane-controls";
-import { dbOf, type Db } from "@amp/backend/db";
+import { sql, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";
-const sql = dbOf("publication");
+
 export async function recordPolicyQualityWindow(id: string, validUntil: string, revoked: boolean, db: Db = sql, bindingVersion: string | null = null) {
   await db`INSERT INTO publication.policy_quality_windows(id,valid_until,revoked,binding_version) VALUES(${id},${validUntil},${revoked},${bindingVersion})
  ON CONFLICT(id) DO UPDATE SET valid_until=EXCLUDED.valid_until,revoked=EXCLUDED.revoked`;

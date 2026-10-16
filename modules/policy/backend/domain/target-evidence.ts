@@ -1,5 +1,5 @@
-import { dbOf } from "@amp/backend/db";
-const sql = dbOf("policy");
+import { sql } from "@amp/backend/db";
+
 export async function sourceTargetOriginalEvidence(ids: string[]) {
   if (!ids.length) return [];
   return sql.begin(async (db) => {

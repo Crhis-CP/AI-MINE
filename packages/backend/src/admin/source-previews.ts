@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { addAbortListener } from "node:events";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { enqueue } from "../jobs/queue.ts";
 import { Conflict, readCurrentSourcePolicy, evaluateSourcePolicy, previewSource } from "./sources.ts";
 import { audit } from "./auth.ts";
 import type { SourceRow } from "../sources/types.ts";
-const sql = dbOf("sources");
+
 type SourceDraft = { id: number; kind: SourceRow["kind"]; config: Record<string, unknown>; config_hash: string };
 type SourcePreview = {
   id: number;

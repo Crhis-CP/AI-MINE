@@ -9,7 +9,7 @@ import {
 } from "../operations/lane-controls.ts";
 // Collection run for one source: fetch listing → filter → store material → enqueue processing.
 // A failed fetch never advances the success cursor; the source's health reflects consecutive failures.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { identityKeyFor, upsertMaterial, materialDateHeads, collectionDetails, STALE_ON_DISCOVERY_MS } from "@amp/backend/content/materials";
 import {
   SourceCollectionPaused,
@@ -34,7 +34,6 @@ import { beijingDate } from "@amp/contracts/time";
 
 import { collectPolicyDirectory, DirectoryRoundFailed } from "../acquisition/directory-runtime.ts";
 import { directoryContract } from "./directory-profile.ts";
-const sql = dbOf("acquisition");
 
 export interface CollectResult {
   sourceId: string;

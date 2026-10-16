@@ -1,5 +1,5 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("acquisition");
+import { sql } from "../db.ts";
+
 /** Only completed applied heads decide current catalogue membership. No permissions, config or source bytes are read. */
 export async function currentDirectoryMaterialMembership(refs: { sourceId: string; materialId: string }[]) {
   const result = new Map<string, boolean>();

@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { OAUTH_PROBE_PATHS, resolveRedirect } from "@amp/contracts/http-policy";
 import { config, credential } from "@amp/backend/config";
 import { publicReadLimiter } from "./http/public-limits.ts";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { registerSite } from "./routes/site.ts";
 import { registerOg } from "./routes/og.ts";
 import { registerAdminAuth } from "./routes/admin-auth.ts";
@@ -22,8 +22,6 @@ import { registerFeeds } from "./routes/feeds.ts";
 import { registerStatic } from "./routes/static.ts";
 import { registerMcp } from "./routes/mcp.ts";
 import { applyPublicHeaders, sendProblem } from "./http/respond.ts";
-
-const sql = dbOf("publication");
 
 export type ApiRole = "api" | "public-api" | "private-api";
 

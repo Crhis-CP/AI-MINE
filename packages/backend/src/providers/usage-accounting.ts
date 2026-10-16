@@ -1,7 +1,5 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { beijingDate } from "@amp/contracts/time";
-
-const sql = dbOf("ai-gateway");
 
 /** A database receipt reuse is not a provider prompt-cache hit. Called inside the existing claim transaction. */
 export async function recordLocalReuse(

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { getDocument, OPS, version } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { policySemanticHtml } from "./semantic-html.ts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { assertOriginalPermissions, readPolicyOriginal } from "./originals.ts";
 
 export interface ExtractionProfile {
@@ -45,8 +45,7 @@ export type PolicyExtraction = {
   visualProof?: { runId: string; contentHash: string; recipe: string };
 };
 export const EXTRACTION_RECIPE = `html-policy-2/xml-policy-2/decode-strict-1/pdfjs-${version}`;
-const sql = dbOf("policy"),
-  normalized = (value: string) => value.replace(/\s+/g, " ").trim();
+const normalized = (value: string) => value.replace(/\s+/g, " ").trim();
 export function validateProfile(profile: ExtractionProfile) {
   for (const key of ["maxBytes", "maxResources", "maxPages", "maxTextBytes"] as const)
     if (!Number.isSafeInteger(profile[key]) || profile[key] <= 0) throw new Error(`Invalid policy extraction ${key}`);

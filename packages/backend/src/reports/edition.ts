@@ -10,11 +10,11 @@ import {
   type ReportInputRow,
 } from "../publication/groups.ts";
 import { pickRepresentative } from "../publication/representative.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { relatedReport, reportImportance, type EditionEntry } from "./arrangement.ts";
 import { storedReportEntries, type StoredReportContent } from "./references.ts";
 import type { Candidate, ReportEntry } from "./compose.ts";
-const sql = dbOf("reports");
+
 const factKey = (row: ReportInputRow) => row.fact_public_id ?? `a:${row.id}`;
 function groupBy<T>(rows: T[], key: (row: T) => string) {
   const groups = new Map<string, T[]>();

@@ -4,15 +4,13 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived, lockSourceCollectionActive } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
 // It owns identity, revisions and the timeline rule, so no entrance can bypass them.
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { newArticleId, sha256 } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { collapseWhitespace } from "../lib/text.ts";
 import { MaterialSourceDateInput, MaterialUpdateResult, SourceDateEvidence } from "@amp/contracts/time-assertion";
 import { prepareDateMutation, commitDateObservation } from "./date-evidence.ts";
 export { updateMaterialSourceDate, materialDateHeads, compactDateObservations } from "./date-evidence.ts";
-
-const sql = dbOf("content");
 
 export interface MediaItem {
   kind: "image" | "video";

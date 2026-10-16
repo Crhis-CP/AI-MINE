@@ -1,9 +1,9 @@
 import type { z } from "zod";
 import { type OpsDataset, OpsRows, OpsReadInput, OPS_COVERAGE, OPS_EXCLUSIONS } from "@amp/contracts/ops-mcp";
-import { dbOf, operationsReadDatabase, type Db } from "../db.ts";
+import { sql, operationsReadDatabase, type Db } from "../db.ts";
 import type { AdminPrincipal } from "../admin/auth.ts";
 import { withOwnerOperationalRead } from "../admin/operational-snapshot.ts";
-const sql = dbOf("ops");
+
 type Dataset = z.infer<typeof OpsDataset>;
 export class OperationsReadUnavailable extends Error {
   readonly statusCode = 503;

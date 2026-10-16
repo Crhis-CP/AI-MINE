@@ -1,9 +1,7 @@
 // Job queue on PostgreSQL (pg-boss). Business code enqueues by name; the worker process owns handlers.
 import { PgBoss, type SendOptions } from "pg-boss";
 import { queueConnection } from "../db-bootstrap.ts";
-import { dbOf, type Db } from "../db.ts";
-
-const sql = dbOf("queue");
+import { sql, type Db } from "../db.ts";
 
 interface QueueInstance {
   raw: PgBoss;

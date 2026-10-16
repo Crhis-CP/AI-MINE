@@ -1,10 +1,10 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { publicParticipationBindings } from "../publication/groups.ts";
 import { publicParticipationSources } from "../sources/participants.ts";
 import { publicMaterialVersions } from "../content/grouping.ts";
 import type { reportEventEvidence } from "./report-context.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
-const sql = dbOf("events");
+
 export type QualifiedSignal = {
   story_id: number;
   article_id: string;

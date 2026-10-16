@@ -1,5 +1,4 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("queue");
+import { sql } from "../db.ts";
 
 /** Read worker-owned timer definitions without starting queue producers or handlers. */
 export async function currentScheduledJobs() {

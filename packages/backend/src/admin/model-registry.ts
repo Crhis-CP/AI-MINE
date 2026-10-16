@@ -12,7 +12,7 @@ import {
   ModelProbeRecord,
   ModelRouteChange,
 } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { audit, actorOf, requireCapability, requireOwner, type AdminPrincipal } from "./auth.ts";
 import { CAPABILITIES, invalidateModelCache, type Capability } from "../editorial/models.ts";
 import {
@@ -27,7 +27,7 @@ import {
 } from "../providers/model-registry.ts";
 import { sealModelSecret, modelStorageReady } from "../providers/model-vault.ts";
 import { requireRuntimeRunning } from "../operations/lane-controls.ts";
-const sql = dbOf("ai-gateway");
+
 export type ModelRegistryGuards = { manage(principal: AdminPrincipal, db: Db): Promise<void>; owner(principal: AdminPrincipal, db: Db): Promise<void> };
 const defaultGuards: ModelRegistryGuards = { manage: (principal, db) => requireCapability(principal, "models.manage", db), owner: requireOwner };
 const parse = <S extends z.ZodType>(schema: S, value: unknown): z.infer<S> => {

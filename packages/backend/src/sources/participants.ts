@@ -1,6 +1,6 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { entityIdentity } from "../editorial/vocabulary.ts";
-const sql = dbOf("sources");
+
 export interface SourceParticipant {
   id: string;
   owner_entity_id?: string | null;

@@ -1,5 +1,5 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("queue");
+import { sql } from "../db.ts";
+
 export const queueOperationalSnapshot = () =>
   sql.begin(async (db) => {
     await db`SET LOCAL statement_timeout='2s'`;

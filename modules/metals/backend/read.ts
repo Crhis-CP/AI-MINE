@@ -2,10 +2,9 @@ import { loadSiteInformation } from "@amp/backend/site/stats";
 // Site-only price projection: registry presentation and stored decimal values, without acquisition or writes.
 import { MetalPrices } from "@amp/contracts/http/public";
 import { beijingDate } from "@amp/contracts/time";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { loadMetalPriceRegistry, parseMetalPriceRegistry, type MetalPriceItem } from "./registry.ts";
 
-const sql = dbOf("publication");
 type Item = MetalPriceItem;
 interface Price {
   start: string;

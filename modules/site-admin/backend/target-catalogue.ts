@@ -1,9 +1,9 @@
 import { SOURCE_TARGETS, SOURCE_RECORDS } from "@amp/industry/source-targets";
 import { SourceTargetsQuery, SourceTargetsResponse } from "@amp/contracts/http/private";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { normalizeUrl } from "@amp/backend/lib/url";
 import { readSourceTargetEvidence } from "@amp/backend/sources/evidence";
-const sql = dbOf("sources");
+
 type Source = { id: string; name: string; lane: "news" | "policy"; kind: string; enabled: boolean; health: string; config: Record<string, unknown> };
 const publicUrl = (value: unknown) => {
   if (typeof value !== "string") return null;

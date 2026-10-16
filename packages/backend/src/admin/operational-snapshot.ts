@@ -1,6 +1,6 @@
 import { requireOwner, audit, actorOf, type AdminPrincipal } from "./auth.ts";
-import { dbOf } from "../db.ts";
-const sql = dbOf("identity");
+import { identitySql as sql } from "../db.ts";
+
 export const accountsOperationalSnapshot = () =>
   sql.begin(async (db) => {
     await db`SET LOCAL statement_timeout='2s'`;

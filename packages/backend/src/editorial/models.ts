@@ -3,10 +3,8 @@ import { environmentValue } from "../config.ts";
 // Model per capability: the code default (`default`, the deployment's own model), an environment
 // override, and an admin switch kept in settings (every switch is audited). Read for new work,
 // without a cross-process cache; a changed model does not re-judge historical results.
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { MODELS, modelSpecFor } from "../providers/llm.ts";
-
-const sql = dbOf("ai-gateway");
 
 export interface Capability {
   label: string;

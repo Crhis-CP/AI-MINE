@@ -9,13 +9,12 @@ import {
   lockSourceDateConfiguration,
   parseSourceDate,
 } from "@amp/backend/admin/sources";
-import { dbOf, type Db, type Tx, type Sql } from "../db.ts";
+import { sql, type Db, type Tx, type Sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { sourceDateVerdict } from "./source-time.ts";
 import { sourceDateReadingsAgree } from "../sources/date-extraction.ts";
 
-const sql = dbOf("content");
 type DateResult = Pick<MaterialUpdateResult, "revision" | "sourceTimeChanged" | "metadataChanged" | "sourceDateVersion" | "sourceDateOutcome">;
 
 /** Permission → source configuration → material: the same lock order as source editing. */

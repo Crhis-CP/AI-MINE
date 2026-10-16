@@ -4,7 +4,7 @@ import { requireRuntimeRunning, assertRuntimeControl, type RuntimeControlSnapsho
 // Jina Reader is the budgeted fallback for pages that only render in a browser.
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import {
   crawlFetch as guardedFetch,
   crawlStep,
@@ -20,8 +20,6 @@ import { jinaRead } from "../providers/jina.ts";
 import { BudgetExceededError } from "../providers/receipts.ts";
 import { sanitizeBody, trimTrailingChrome } from "./sanitize.ts";
 import { contentHash, readCurrentBody } from "./materials.ts";
-
-const sql = dbOf("content");
 
 export interface ExtractedBody {
   html: string;

@@ -1,9 +1,9 @@
 import { PolicyModelQualificationKey, POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
 import { z } from "zod";
-import { dbOf, type Db } from "@amp/backend/db";
+import { sql, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";
 import { recordPolicyQualityWindow } from "../publication/policies-publish.ts";
-const sql = dbOf("policy");
+
 const Release = z
   .strictObject({
     sourceIds: z.array(z.string().min(1)).min(1),

@@ -1,6 +1,6 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import type { ReportEntry } from "./compose.ts";
-const sql = dbOf("reports");
+
 export type StoredEntry = Partial<ReportEntry> & { itemId: string; publicationRevision?: number; sources?: number; related?: StoredEntry[] };
 export type StoredReportContent = Record<string, unknown> & {
   sections?: Array<{ label: string; items: StoredEntry[] }>;

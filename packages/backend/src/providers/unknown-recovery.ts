@@ -1,9 +1,8 @@
 // One automatic retry after an unknown outcome; uncertainty remains in the cost ledger.
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { audit } from "../admin/auth.ts";
 import { requireRuntimeRunning, RuntimeControlPaused } from "../operations/lane-controls.ts";
 
-const sql = dbOf("ai-gateway");
 export const UNKNOWN_AUTO_RELEASE_NOTE = "自动放行：结果未知超过 30 分钟，未核对是否计费";
 type Released = { id: number; subject: string | null; purpose: string; request: unknown; attempts: number; error: string | null };
 

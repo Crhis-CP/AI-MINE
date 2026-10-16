@@ -1,6 +1,5 @@
 import type { NewsGroupingDiagnostic } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("content");
+import { sql, type Db } from "../db.ts";
 
 export interface MaterialGroupingState {
   id: string;

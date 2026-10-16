@@ -1,11 +1,11 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { connectionRow, registeredModelId, modelConfigurationHash } from "./model-registry.ts";
 import { modelConfigurationIdentity } from "../admin/models.ts";
 import { readModelRouteApproval } from "./model-fallback-quality.ts";
 import { policyFallbackQuality, type PolicyFallbackContext } from "../policy/fallback-quality.ts";
 import { policyModelQualificationKey } from "../policy/model-evidence.ts";
-const sql = dbOf("ai-gateway");
+
 export type BackupAdmission = {
   kind: "selection" | "policy" | "capability";
   id: string;

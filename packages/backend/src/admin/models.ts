@@ -4,13 +4,11 @@ import { audit, modelSwitchHistory } from "./auth.ts";
 // the prompt versions in use, quality / latency / cost of the last days per model, the switch history
 // and the SelectBench runs that compare models on the same batch. A switch is audited and applies to
 // new work only.
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { CAPABILITIES, invalidateModelCache, modelSources, type Capability, type CapabilityKey } from "../editorial/models.ts";
 import { BUILTIN_MODEL_FAMILIES, MODELS, environmentModelMetadata, modelPresetReady } from "../providers/llm.ts";
 
 import { modelRouteRevisions } from "./model-registry.ts";
-
-const sql = dbOf("ai-gateway");
 
 interface UsageRow {
   service: string;

@@ -20,11 +20,9 @@ import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapsho
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
 //    caller. Recovery may release it once after 30 minutes, preserving the unknown charge.
 //    A billed answer that failed validation may be bought again at most twice; the saved response is reused after that.
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { recordLocalReuse } from "./usage-accounting.ts";
-
-const sql = dbOf("ai-gateway");
 
 export class BudgetExceededError extends Error {
   readonly service: string;

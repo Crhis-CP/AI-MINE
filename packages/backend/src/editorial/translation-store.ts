@@ -1,6 +1,6 @@
 import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import * as cheerio from "cheerio";
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { commitBodyResult, type CurrentBody } from "../content/materials.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -18,7 +18,6 @@ import {
   type TranslationCheckpoint,
 } from "./translation-readiness.ts";
 
-const sql = dbOf("enrichment");
 export interface TranslationSession {
   runtimeControl?: RuntimeControlSnapshot;
   body: CurrentBody & { body_html: string };

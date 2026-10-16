@@ -9,7 +9,7 @@ import { expiringPolicyQualityReleases } from "../policy/quality.ts";
 import { laneControlFindings, runtimeControlSnapshot } from "./lane-controls.ts";
 import { addDays, beijingDate, beijingMidnight, beijingTime, isoWeekLabel } from "@amp/contracts/time";
 import { sourceIdsOnLane } from "../admin/sources.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { beijingDay, beijingStamp, duration, formatAlert, formatRecovery, sendAlert, type Finding, type Level } from "../notify/feishu.ts";
 import { metalPriceChangeIssues } from "../publication/metal-prices/change.ts";
 import { loadMetalPrices } from "../publication/metal-prices/read.ts";
@@ -21,8 +21,6 @@ import { readMetalPriceRuns, type MetalPriceSourceRecord } from "./metal-price-r
 
 // The metal price runs, for TASK-0076's check script: the backend's entries are frozen, so they go out through this one.
 export { readMetalPriceRuns, type MetalPriceRuns, type MetalPriceSourceRecord } from "./metal-price-runs.ts";
-
-const sql = dbOf("ops");
 
 const REPEAT_MS: Record<Exclude<Level, "digest">, number> = { now: 3600_000, today: 24 * 3600_000 };
 

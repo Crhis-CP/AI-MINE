@@ -7,7 +7,7 @@ import {
 } from "../operations/lane-controls.ts";
 // WeChat official accounts. Dajiala (极致了, a paid service) supplies each account's latest posts and
 // article bodies; every enabled account is checked once per source interval.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { identityKeyFor, upsertMaterial, updateMaterialSourceDate, updateMaterialBodyRetry } from "@amp/backend/content/materials";
 import {
   SourceCollectionPaused,
@@ -25,8 +25,6 @@ import { sanitizeBody } from "../content/sanitize.ts";
 import { identityKeyForUrl } from "../lib/url.ts";
 import { mpArticle, mpHistory, type MpArticle } from "../providers/dajiala.ts";
 import { BudgetExceededError, ProviderRejectedError } from "../providers/receipts.ts";
-
-const sql = dbOf("acquisition");
 
 const MAX_NEW_PER_CHECK = 8;
 /** Posts older than this on the first check of an account are history, not news. */

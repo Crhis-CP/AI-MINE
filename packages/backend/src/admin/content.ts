@@ -11,7 +11,7 @@ import { GeographyCandidate } from "../editorial/geography.ts";
 // overrides with a version check, are re-projected to every public exit, and are audited.
 import { z } from "zod";
 import { ARTICLE_ID_PATTERN, CATEGORY_KEYS } from "@amp/contracts/taxonomy";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { queueProcessing } from "../jobs/content.ts";
 import { normalizeUrl } from "../lib/url.ts";
@@ -22,8 +22,6 @@ import { mergeStoryInto } from "../events/merge.ts";
 import { latestHotRanking } from "../events/hot-read.ts";
 import { audit, previousAuditedCommand } from "./auth.ts";
 import { Conflict } from "./sources.ts";
-
-const sql = dbOf("editorial");
 
 export async function searchContent(q: string) {
   const term = q.trim();

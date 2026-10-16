@@ -1,10 +1,8 @@
 import { PolicyReport, PolicyReportCard } from "@amp/contracts/http/public";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { newUuid, sha256, stableJson } from "@amp/backend/lib/ids";
 import type { PolicyReportDraft, PolicyReportKind } from "./policy-report-plan.ts";
 import { policyPublicationControl } from "./policies-publish.ts";
-
-const sql = dbOf("publication");
 
 /** Only the worker writes report heads. Immutable revisions contain references, never cached member titles or bodies. */
 export async function savePolicyReport(value: PolicyReportDraft) {

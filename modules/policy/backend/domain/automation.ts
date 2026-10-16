@@ -5,7 +5,7 @@ import { readSourceDateContext, sourceIdsOnLane } from "@amp/backend/admin/sourc
 import { policyMaterialReference, policyMaterialReferences } from "@amp/backend/content/materials";
 import { latestSuccessfulRunResult } from "@amp/backend/admin/runs";
 import { config } from "@amp/backend/config";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { currentPolicyProcessingRecipe } from "./recipe.ts";
 import { policyProfile } from "./automation-profile.ts";
 import { capturePolicyMaterial } from "./capture.ts";
@@ -16,7 +16,6 @@ import { policyRelationshipCandidates } from "../relations.ts";
 import { runPolicyInterpretation } from "./interpretation-runtime.ts";
 import type { ExtractionProfile } from "./extraction.ts";
 
-const sql = dbOf("policy");
 export const POLICY_STAGES = ["acquire", "fulltext", "vision", "interpret", "publish"] as const;
 export type PolicyStage = (typeof POLICY_STAGES)[number];
 export type PolicyJob = { lane: "policy"; sourceId: string; materialId: string; crawlSessionId?: string; directoryHash?: string };

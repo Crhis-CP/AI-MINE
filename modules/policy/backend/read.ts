@@ -6,12 +6,12 @@ import type { z } from "zod";
 import { createHash } from "node:crypto";
 import { Policy, PolicyCard, PolicyReadingBlock, PolicyReadingPage, type PolicyHistoryPage, PolicyJurisdiction } from "@amp/contracts/http/public";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { readCurrentPublicPolicy, evaluateSourcePolicy, publicProcessingAllowed } from "@amp/backend/admin/sources";
 import { stableJson, sha256 } from "@amp/backend/lib/ids";
 import { encodeCursor, decodeCursor, queryBinding } from "@amp/backend/lib/cursor";
 import { decoratePolicyNavigation, decoratePolicyRelationships, readPolicyThread } from "./relations.ts";
-const sql = dbOf("publication");
+
 export class PolicyReadError extends Error {
   readonly status: number;
   readonly code: string;

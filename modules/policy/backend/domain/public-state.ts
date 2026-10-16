@@ -1,6 +1,6 @@
 import { currentDirectoryMaterialMembership } from "@amp/backend/sources/collect";
-import { dbOf, type Db } from "@amp/backend/db";
-const sql = dbOf("policy");
+import { sql, type Db } from "@amp/backend/db";
+
 /** Minimal read-only head check. Processing/collection pauses never decide the visibility of existing publications. */
 export async function currentPolicyHeads(expressionIds: string[]) {
   if (!expressionIds.length) return new Map<string, string | null>();

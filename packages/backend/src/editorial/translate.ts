@@ -1,5 +1,5 @@
 // Per-item worker translation and an enqueue-only cron repair, using durable strict segment checkpoints.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { z } from "zod";
 import { latestSuccessfulRunResult } from "../admin/runs.ts";
 import { modelFor } from "./models.ts";
@@ -10,7 +10,6 @@ import { releasedTranslationScopes } from "../providers/receipts.ts";
 import { runBodyTranslation } from "./translation-runtime.ts";
 export { shield, unshield } from "./translation-readiness.ts";
 
-const sql = dbOf("enrichment");
 export const TRANSLATE_PROMPT_VERSION = promptVersion("translate-body");
 const SYSTEM_BODY = promptText("translate-body");
 // Route changes apply to new segments; each receipt retains its exact model/request identity.

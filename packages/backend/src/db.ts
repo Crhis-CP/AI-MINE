@@ -1,6 +1,6 @@
 import type postgres from "postgres";
 import type { Database } from "@amp/config";
-import { dbOf } from "./module-db.ts";
+import { sql } from "./db-connections.ts";
 import { closeProcessDb } from "./db-bootstrap.ts";
 
 export { sql, identitySql, feedbackSql } from "./db-connections.ts";
@@ -17,7 +17,7 @@ export type Db = Sql | Tx;
  * index, so every search goes through here.
  */
 export function withCustomPlans<T>(fn: (db: Tx) => Promise<T>): Promise<T> {
-  return dbOf("publication").begin(async (tx) => {
+  return sql.begin(async (tx) => {
     await tx`SET LOCAL plan_cache_mode = force_custom_plan`;
     return fn(tx);
   }) as Promise<T>;

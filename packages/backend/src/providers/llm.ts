@@ -27,9 +27,7 @@ import {
   type ModelAttemptSnapshot,
   type ReceiptRequest,
 } from "./receipts.ts";
-import { dbOf } from "../db.ts";
-
-const sql = dbOf("ai-gateway");
+import { sql } from "../db.ts";
 
 export interface ModelSpec {
   key: string;

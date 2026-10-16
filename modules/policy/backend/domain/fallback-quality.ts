@@ -1,9 +1,8 @@
-import { dbOf, type Db } from "@amp/backend/db";
+import { sql, type Db } from "@amp/backend/db";
 import { promptVersion } from "@amp/backend/editorial/prompts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { POLICY_MODEL_BINDING_VERSION } from "./model-evidence.ts";
 
-const sql = dbOf("policy");
 export type PolicyFallbackContext = { language: string; fulltextRecipe: string; interpretationRecipe: string };
 export const currentInterpretationRecipe = () =>
   sha256(

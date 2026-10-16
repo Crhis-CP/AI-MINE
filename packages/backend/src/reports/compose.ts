@@ -8,13 +8,11 @@ export { newsReportWithdrawalSnapshot } from "./references.ts";
 import { SITE, EDITION_TIMES } from "@amp/industry/site";
 import { modelFor } from "../editorial/models.ts";
 import { addDays, beijingDate, beijingTime, isoWeekLabel, isoWeekRange } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { completeReceipt } from "../providers/receipts.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 import { assertRuntimeControl, requireRuntimeRunning, runtimeControlSnapshot, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 export { composePolicyReports } from "../publication/policy-report-job.ts";
-
-const sql = dbOf("reports");
 
 import { REPORT_VERSION, reportSection, SECTION_ORDER, periodGroups, writePeriod } from "./period-writing.ts";
 export { REPORT_VERSION, PeriodSchema, periodPrompt, writePeriod } from "./period-writing.ts";

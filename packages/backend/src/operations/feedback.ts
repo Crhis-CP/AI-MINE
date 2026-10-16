@@ -5,14 +5,14 @@ import { createHmac } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config, credential, isProduction } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { feedbackSql as sql } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 
 import { FeedbackRejected, feedbackPageUrl, feedbackImage } from "./feedback-validation.ts";
 import { claimFeedbackQuota } from "./feedback-quota.ts";
 export { FeedbackRejected } from "./feedback-validation.ts";
 export { forwardPendingFeedback } from "./feedback-forward.ts";
-const sql = dbOf("feedback");
+
 let warnedMissingPublicSecret = false;
 
 export function feedbackSourceHash(ip: string, userAgent: string): string {

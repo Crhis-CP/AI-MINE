@@ -1,5 +1,5 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("editorial");
+import { sql } from "../db.ts";
+
 /** Private operator decisions are represented only as excluded IDs, never their reasons. */
 export async function reportSignalExclusions(ids: string[]) {
   if (!ids.length) return new Set<string>();

@@ -10,7 +10,7 @@ import { needsGeographyAnalysis } from "../editorial/geography.ts";
 import type { PgBoss } from "pg-boss";
 import { normalizeSourceLanguage } from "../sources/config-keys.ts";
 import { config } from "../config.ts";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { extractArticleBody, pageFetchable } from "../content/extract.ts";
 import { analyzeArticle, AnalysisInterruptedError } from "../editorial/analyze.ts";
 import { isHistorical } from "../content/materials.ts";
@@ -20,8 +20,6 @@ import { translateArticle } from "../editorial/translate.ts";
 import { isChineseOriginal } from "../editorial/translation-readiness.ts";
 import { ModelOutputError } from "../providers/llm.ts";
 import { ensureQueue, enqueue, QUEUES, shutdownSignal } from "./queue.ts";
-
-const sql = dbOf("content");
 
 /** Minutes to wait after the n-th failed attempt; one more failure after the last ends in "failed". */
 const RETRY_MINUTES = [5, 10, 20, 40, 60, 120, 240, 360];

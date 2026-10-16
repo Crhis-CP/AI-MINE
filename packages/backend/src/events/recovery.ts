@@ -1,10 +1,9 @@
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { claimPendingGrouping } from "../content/grouping.ts";
 import { activeNewsSourceIds } from "../admin/sources.ts";
 import { receiptWaitingForRecovery } from "../providers/receipts.ts";
 import { requireRuntimeRunning, RuntimeControlPaused } from "../operations/lane-controls.ts";
 import { ensureQueue, enqueue, QUEUES } from "../jobs/queue.ts";
-const sql = dbOf("events");
 
 /** Persistent continuation for legacy and interrupted grouping. Existing scores and receipts stay intact. */
 export async function recoverPendingGroupings(limit = 50) {

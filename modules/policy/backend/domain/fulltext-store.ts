@@ -1,5 +1,5 @@
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "@amp/backend/operations/lane-controls";
-import { dbOf, type Tx } from "@amp/backend/db";
+import { sql, type Tx } from "@amp/backend/db";
 import { assertOriginalPermissions, readPolicyOriginal as readCurrentOriginal, type readPolicyOriginal } from "./originals.ts";
 import { evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import { audit } from "@amp/backend/admin/auth";
@@ -7,7 +7,6 @@ import { settlePolicyResponse } from "@amp/backend/providers/receipts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import type { PolicyFulltextPlan } from "./processing-plan.ts";
 
-const sql = dbOf("policy");
 export type PolicyOriginal = NonNullable<Awaited<ReturnType<typeof readPolicyOriginal>>>;
 export type FulltextRun = {
   id: string;

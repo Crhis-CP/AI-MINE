@@ -1,6 +1,6 @@
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
-const sql = dbOf("events");
+
 /** Store one actual provider batch atomically; partial writes would change its paid recovery key. */
 export async function storeEmbeddingBatch(
   kind: "fact" | "article" | "story",

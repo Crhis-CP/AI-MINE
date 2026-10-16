@@ -1,12 +1,11 @@
 import { policyVisionContentHash, type ModelEvidence } from "./model-evidence.ts";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { withCurrentPolicyOriginal, type OriginalRun } from "./fulltext-store.ts";
 import { settlePolicyResponse } from "@amp/backend/providers/receipts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import type { ExtractionProfile } from "./extraction.ts";
 import type { RenderedPdf } from "./vision-render.ts";
 
-const sql = dbOf("policy");
 export type VisionRun = OriginalRun & { id: string; recipe: string; profile: ExtractionProfile; pdfs: RenderedPdf[]; renderHash: string };
 export type VisionCheckpoint = {
   stage_id: string;

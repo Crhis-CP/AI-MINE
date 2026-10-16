@@ -2,8 +2,8 @@ import type { z } from "zod";
 import type { OpsRows } from "@amp/contracts/ops-mcp";
 import { readUsageProtection } from "./usage-protection.ts";
 import { beijingDate } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
-const sql = dbOf("ai-gateway");
+import { sql } from "../db.ts";
+
 export const usageOperationalSnapshot = () =>
   sql.begin(async (db) => {
     await db`SET LOCAL statement_timeout='2s'`;

@@ -1,10 +1,10 @@
 import { ABOUT, SITE } from "@amp/industry/site";
 import { SiteInformation, SiteInformationUpdate } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "@amp/backend/db";
+import { sql, type Db } from "@amp/backend/db";
 import { loadMetalPriceRegistry } from "@amp/metals/registry";
 import { requireOwner, actorOf, audit, type AdminPrincipal } from "@amp/backend/admin/auth";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-const sql = dbOf("publication");
+
 export class SiteInformationConflict extends Error {
   readonly code = "conflict";
   constructor() {

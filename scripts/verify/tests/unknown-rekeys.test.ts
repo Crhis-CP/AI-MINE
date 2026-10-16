@@ -132,3 +132,15 @@ test("empty named imports retain their module effects and type-only identity", (
   assert.equal(importsOnly("import type {} from './old.ts';", "import {} from './old.ts';"), false);
   assert.equal(importsOnly("import {} from './old.ts';", "import {} from './old.ts';"), true);
 });
+
+test("direct driver migration preserves query bytes and dedicated role selection", () => {
+  const original = 'import { dbOf, type Db } from "../db.ts";\nconst sql = dbOf("ops");\nexport const query = () => sql.unsafe(statement);';
+  const direct = 'import { sql, type Db } from "../db.ts";\nexport const query = () => sql.unsafe(statement);';
+  assert.equal(importsOnly(original, direct), true);
+  assert.equal(importsOnly(original, direct.replace("statement", "otherStatement")), false);
+  assert.equal(importsOnly(original.replace('"ops"', '"identity"'), direct), false);
+  assert.equal(importsOnly(original.replace('"ops"', '"identity"'), direct.replace("{ sql,", "{ identitySql as sql,")), true);
+  assert.equal(importsOnly(original.replace('"ops"', '"feedback"'), direct.replace("{ sql,", "{ feedbackSql as sql,")), true);
+  assert.equal(importsOnly(original, direct.replace('"../db.ts"', '"../other.ts"')), false);
+  assert.equal(importsOnly(original, direct.replace("sql.unsafe(statement)", "sql.unsafe(statement + extra)")), false);
+});

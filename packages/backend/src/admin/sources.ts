@@ -4,7 +4,7 @@ import { requireRuntimeRunning } from "../operations/lane-controls.ts";
 // Source administration (F18): list, detail, preview (fetch without storing), edit, create with
 // duplicate checks, pause/resume and manual collection. Every change is audited.
 import { z } from "zod";
-import { dbOf, type Db, type Tx } from "../db.ts";
+import { sql, type Db, type Tx } from "../db.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { enqueueSourceFetch } from "../jobs/source-queues.ts";
 import { republishKey, queueSourceRepublication } from "../jobs/publication.ts";
@@ -16,7 +16,6 @@ import type { SourceRow } from "../sources/types.ts";
 import { directoryContract } from "../sources/directory-profile.ts";
 import { fetchWebList } from "../sources/web-list.ts";
 import { audit } from "./auth.ts";
-const sql = dbOf("sources");
 
 export class Conflict extends Error {
   code = "conflict";

@@ -3,10 +3,10 @@ import { readPolicyMetadataObservation } from "./domain/metadata.ts";
 import type { Candidate, RelatedPolicy } from "./domain/interpretation-schema.ts";
 import { explicitPolicyReference } from "./domain/references.ts";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
-import { dbOf, type Db } from "@amp/backend/db";
+import { sql, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";
 import { policyCurrentPublicRecords, PolicyReadError } from "./read.ts";
-const sql = dbOf("publication");
+
 type PublicRecord = Awaited<ReturnType<typeof policyCurrentPublicRecords>>[number];
 type Target = PublicRecord & { citation: string; url: string; jurisdiction: string };
 async function targets(run: FulltextRun) {

@@ -1,7 +1,7 @@
 import { readSourceDateContext, readCurrentSourcePolicy, evaluateSourcePolicy } from "@amp/backend/admin/sources";
 import type { SourceDateEvidence } from "@amp/contracts/time-assertion";
 import { policyMaterialReference, readPolicyMaterialDate } from "@amp/backend/content/materials";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { stableJson } from "@amp/backend/lib/ids";
 import { policyProfile } from "./automation-profile.ts";
 
@@ -39,7 +39,7 @@ export interface PolicyMetadataObservation {
     };
   };
 }
-const sql = dbOf("policy");
+
 /** Trusted private getter; only program-captured observations tied to real material rows are returned. */
 export async function readPolicyMetadataObservation(expressionId: string): Promise<PolicyMetadataObservation | null> {
   const [row] = await sql<

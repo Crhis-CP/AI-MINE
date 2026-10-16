@@ -1,12 +1,12 @@
 import { isReportWithdrawn } from "@amp/backend/publication/reports";
 import { PolicyReport, PolicyReportCard, type PolicyCard } from "@amp/contracts/http/public";
 import { SITE } from "@amp/industry/site";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { encodeCursor, decodeCursor, queryBinding } from "@amp/backend/lib/cursor";
 import { policyPublicMembers, PolicyReadError } from "./read.ts";
-const sql = dbOf("publication");
+
 type Query = { edition?: number; jurisdiction?: string; theme?: string; cursor?: string; limit: number };
 const matches = (p: PolicyCard, q: Query) =>
   (!q.jurisdiction || p.jurisdictions.some((j) => j.code === q.jurisdiction || j.parent === q.jurisdiction)) &&

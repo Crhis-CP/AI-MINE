@@ -74,11 +74,10 @@ import {
   sourceDetail,
   updateSource,
 } from "@amp/backend/admin/sources";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
 
-const sql = dbOf("sources");
 const AuditQuery = z.object({ subject: z.string().optional(), action: z.string().optional(), page: z.coerce.number().int().positive().default(1) });
 
 type Q = Record<string, string | undefined>;

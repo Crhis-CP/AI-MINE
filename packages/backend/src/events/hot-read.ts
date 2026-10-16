@@ -2,10 +2,8 @@ import { reportPublicInputs } from "../publication/groups.ts";
 import { publicParticipation, participationHash } from "./participation-read.ts";
 // Reading the latest published hot ranking. The web shows heat values; machine exits only ranks.
 import type { HotStripEntry } from "@amp/contracts/site";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "@amp/backend/publication/reports";
-
-const sql = dbOf("events");
 
 export interface HotEntry {
   evidenceHash?: string;

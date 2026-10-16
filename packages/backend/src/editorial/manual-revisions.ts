@@ -1,6 +1,6 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sanitizeBody } from "../content/sanitize.ts";
-const sql = dbOf("editorial");
+
 export type ManualState = "draft" | "active" | "needs_review" | "conflict" | "superseded" | "withdrawn";
 
 /** The source revision and evidence belong to the immutable human revision, never an automatic output. */

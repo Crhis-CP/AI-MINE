@@ -2,11 +2,10 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 // Private acquisition snapshots. They never confer identity, extraction or publication approval.
 import { createHash } from "node:crypto";
 import { evaluateSourcePolicy, lockCurrentSourcePolicies } from "@amp/backend/admin/sources";
-import { dbOf, type Tx } from "@amp/backend/db";
+import { sql, type Tx } from "@amp/backend/db";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 import { acquisitionState, PolicyOriginalInput } from "./types.ts";
 
-const sql = dbOf("policy");
 const digest = (body: Uint8Array) => createHash("sha256").update(body).digest("hex");
 type Resource = Omit<PolicyOriginalInput["resources"][number], "body"> & { sha256: string | null; bytes: number };
 type Manifest = { officialTitle: string; identity: PolicyOriginalInput["identity"]; catalogueClosed: boolean; state: string; resources: Resource[] };

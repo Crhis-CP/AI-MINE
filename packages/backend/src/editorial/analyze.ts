@@ -22,7 +22,7 @@ import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { wordingProblems } from "./wording.ts";
 import { SELECTION } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { chatJson, modelSpecFor, ModelOutputError, ModelPostReceiptGuardError, type ContentPart } from "../providers/llm.ts";
 import { completeReceipt, ProviderRejectedError, ReceiptUnknownError } from "../providers/receipts.ts";
 import { collapseWhitespace, normalizedUppercase } from "../lib/text.ts";
@@ -50,8 +50,6 @@ import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITIES, ENTITY_TAGS, ITEM_TYPES, norma
 import { configuredPromptVersion, currentPrefilter, promptText, promptVersion } from "./prompts.ts";
 import { GEOGRAPHY_DICTIONARY, geographyMaterial, validateGeography, type NewsGeography } from "./geography.ts";
 import { stableJson } from "../lib/ids.ts";
-
-const sql = dbOf("enrichment");
 
 export { buildMaterial, loadAnalyzeInput, type AnalyzeInputArticle };
 

@@ -1,4 +1,4 @@
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { stableJson } from "../lib/ids.ts";
 import { enqueue, ensureQueue } from "../jobs/queue.ts";
 import { currentReportPublications, lockReportPublications } from "@amp/backend/publication/publish";
@@ -8,7 +8,7 @@ import { completeReceipt } from "../providers/receipts.ts";
 import { requireRuntimeRunning, assertRuntimeControl } from "../operations/lane-controls.ts";
 import { reportMemberIds, type StoredReportContent } from "./references.ts";
 import { generateReportCorrection } from "./correction-compose.ts";
-const sql = dbOf("reports");
+
 export const REPORT_CORRECTION_QUEUE = "reports.correct";
 export async function ensureReportCorrectionQueue() {
   await ensureQueue(REPORT_CORRECTION_QUEUE, { policy: "exclusive", retryLimit: 0, expireInSeconds: 900 });

@@ -31,7 +31,7 @@ export function unknownRekeyKeys(rekey: UnknownRekey): { before: string; after: 
   return { before: key(rekey.before), after: key(rekey.after) };
 }
 
-/** Only the approved label move may change a runtime binding; all non-import statements stay identical. */
+/** Only approved label or direct-driver binding moves may change imports; SQL and other statements stay identical. */
 export function importsOnly(before: string, after: string, extension = ".ts"): boolean {
   const dir = mkdtempSync(path.join(tmpdir(), "amp-import-rekey-"));
   const files = [path.join(dir, "before" + extension), path.join(dir, "after" + extension)];
@@ -45,10 +45,11 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
           source = project?.program.getSourceFile(file);
         if (!project || !source || project.program.getSyntacticDiagnostics(file).length) throw new Error("unparseable rekey source");
         const body: string[] = [],
+          statements: ts.Node[] = [],
           bindings = new Map<string, string[]>();
         source.forEachChild((node) => {
           if (!ts.isImportDeclaration(node)) {
-            body.push(node.getText());
+            statements.push(node);
             return;
           }
           if (!ts.isStringLiteral(node.moduleSpecifier)) throw new Error("nonliteral import");
@@ -76,6 +77,49 @@ export function importsOnly(before: string, after: string, extension = ".ts"): b
             for (const item of named.elements) add(item.name.text, item.propertyName?.text ?? item.name.text, item.isTypeOnly);
           }
         });
+        const accessor = bindings.get("dbOf");
+        let removedAccessor = false;
+        const retained: ts.Node[] = [];
+        for (const statement of statements) {
+          const decl =
+            ts.isVariableStatement(statement) && statement.declarationList.flags & ts.NodeFlags.Const && statement.declarationList.declarations.length === 1
+              ? statement.declarationList.declarations[0]
+              : null;
+          const call = decl?.initializer;
+          if (
+            accessor &&
+            ["../db.ts", "./db.ts", "@amp/backend/db"].includes(accessor[0]!) &&
+            accessor[1] === "dbOf" &&
+            accessor[2] === "false" &&
+            decl &&
+            ts.isIdentifier(decl.name) &&
+            call &&
+            ts.isCallExpression(call) &&
+            ts.isIdentifier(call.expression) &&
+            call.expression.text === "dbOf" &&
+            call.arguments.length === 1 &&
+            ts.isStringLiteral(call.arguments[0]!)
+          ) {
+            const owner = call.arguments[0]!.text;
+            const driver = owner === "identity" ? "identitySql" : owner === "feedback" ? "feedbackSql" : "sql";
+            if (bindings.has(decl.name.text)) throw new Error("ambiguous direct driver binding");
+            bindings.set(decl.name.text, [accessor[0]!, driver, ...accessor.slice(2)]);
+            removedAccessor = true;
+          } else {
+            retained.push(statement);
+            body.push(statement.getText());
+          }
+        }
+        if (removedAccessor) {
+          let used = false;
+          const walk = (node: ts.Node) => {
+            if (ts.isIdentifier(node) && node.text === "dbOf") used = true;
+            node.forEachChild(walk);
+          };
+          retained.forEach(walk);
+          if (used) throw new Error("remaining database accessor use");
+          bindings.delete("dbOf");
+        }
         return { body: JSON.stringify(body), bindings };
       });
       const [left, right] = bodies;

@@ -1,15 +1,13 @@
 // Selected-item pushes to the content groups. One card per new fact: a short same-title lease holds
 // back concurrent duplicates until grouping settles the fact, and the fact (or the article when it
 // has none) is the dedupe identity per target. Old, backfilled or silenced items are never pushed.
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { itemUrl } from "../publication/links.ts";
 import type { CategoryKey } from "@amp/contracts/taxonomy";
 import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { deliverContent } from "./deliver.ts";
 import { SITE } from "@amp/industry/site";
-
-const sql = dbOf("ops");
 
 const MAX_AGE_MS = 12 * 3600_000;
 const LEASE_MS = 10 * 60_000;

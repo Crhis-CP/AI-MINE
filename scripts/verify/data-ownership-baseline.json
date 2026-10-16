@@ -106,12 +106,12 @@
     "[\"apps/api/src/routes/admin.ts\",\"registerAdmin/<route:GET:/api/admin/audit>/rows\",\"sources\",\"public.audit_log\",\"read\",\"split-debt\"]": 1
   },
   "unknown": {
-    "packages/backend/src/jobs/queue.ts:bindQueue/bindDb/db/executeSql:a173e2357a77a8f14b56e415567ed96eb3ef2d965ee83a2d437d718d03bea7b2": 1,
-    "packages/backend/src/jobs/queue.ts:enqueue/callerDb/executeSql/rows:9efe9de1aae76f8290ca1c0fd416f32b4e976e953445f034a5f84cd4244ced35": 1,
-    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:2d8377a13868a412c9a27fd99cfc79ac3095e33d1d61b7b29f9659ff92e9b831": 1,
-    "packages/backend/src/operations/watch.ts:readSetting/[row]:8e80a1cc2d770b1ba1dad5a02dcb4d759023d48b27f7d6a11d6ae673f5155532": 1,
-    "packages/backend/src/operations/watch.ts:writeSetting:419783821353008d1f1209471e54b8b751c0927221323ef3c7c106b31df64e28": 1,
-    "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1
+    "migration:0034_lz4_toast.sql:c8d50799c2f64a2ff20a642b1ee27069fb9a1ffe4ea6373380ea51536510bfee": 1,
+    "packages/backend/src/jobs/queue.ts:bindQueue/bindDb/db/executeSql:63fc330a7a448e3af142788f366684ec35b10c14d8b101b07d8a50debf274f2b": 1,
+    "packages/backend/src/jobs/queue.ts:enqueue/callerDb/executeSql/rows:d00f7d4b44b9896000dc5463bffce8712ac1d628ed3016d4d3d16bc4b52de2af": 1,
+    "packages/backend/src/jobs/queue.ts:enqueue/db/executeSql:2c56799a00c5ce7c0661ca3aa8e43f1e7d120a1baa92c2ebf848d9bcd7470409": 1,
+    "packages/backend/src/operations/watch.ts:readSetting/[row]:f030846870404a90e01cffd48684ad2be4da89ad5ab9929cbdd0334a3ed683ca": 1,
+    "packages/backend/src/operations/watch.ts:writeSetting:27423428d527f057ad060463a135585b5d2192456600bb35f388536521d82f6a": 1
   },
   "extractors": {
     "sql": "2479d891d78d004f23a2d10fcb7ef62f0520a319d69f011d0a48da8833b54f53",
@@ -219,6 +219,76 @@
       },
       "after": {
         "packages/backend/src/publication/feeds.ts": "e6096c21f92547570f2201312f9ff11385f187b326cc52db4c855c1e970bdf53",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      }
+    },
+    {
+      "file": "packages/backend/src/jobs/queue.ts",
+      "scopeName": "bindQueue/bindDb/db/executeSql",
+      "sourceHash": "ff6e7d36ba6d4b1eba36df3e5538b56d10b3ecc3cf85f106f5c31959ce87204b",
+      "reasons": ["dynamic raw SQL"],
+      "before": {
+        "packages/backend/src/jobs/queue.ts": "0f3e97fd4753a2212ff88e883406da7b2ed655249f1bb18e356a330a1c50990c",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      },
+      "after": {
+        "packages/backend/src/jobs/queue.ts": "a393042183a1a870833d8d0af454951c9ab6d52c89e4407e0fa6b27b458511c6",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      }
+    },
+    {
+      "file": "packages/backend/src/jobs/queue.ts",
+      "scopeName": "enqueue/callerDb/executeSql/rows",
+      "sourceHash": "3c12b2cc60abbb37e0a50e0ff166fb9e964797dab471b0856a6425780f48b83e",
+      "reasons": ["dynamic raw SQL"],
+      "before": {
+        "packages/backend/src/jobs/queue.ts": "0f3e97fd4753a2212ff88e883406da7b2ed655249f1bb18e356a330a1c50990c",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      },
+      "after": {
+        "packages/backend/src/jobs/queue.ts": "a393042183a1a870833d8d0af454951c9ab6d52c89e4407e0fa6b27b458511c6",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      }
+    },
+    {
+      "file": "packages/backend/src/jobs/queue.ts",
+      "scopeName": "enqueue/db/executeSql",
+      "sourceHash": "331036442c13a9513a715000b02e463f8f05e706998941b033d6b101a8ba2645",
+      "reasons": ["dynamic raw SQL"],
+      "before": {
+        "packages/backend/src/jobs/queue.ts": "0f3e97fd4753a2212ff88e883406da7b2ed655249f1bb18e356a330a1c50990c",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      },
+      "after": {
+        "packages/backend/src/jobs/queue.ts": "a393042183a1a870833d8d0af454951c9ab6d52c89e4407e0fa6b27b458511c6",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      }
+    },
+    {
+      "file": "packages/backend/src/operations/watch.ts",
+      "scopeName": "readSetting/[row]",
+      "sourceHash": "e2174de93384ca78f06e43f4366e4fa0e0dcb79fadf220e29d43e2182ec25109",
+      "reasons": ["settings key expression unresolved", "settings key ownership unresolved"],
+      "before": {
+        "packages/backend/src/operations/watch.ts": "f354c4961c5b7a5d460b43b666f68b5aa4abe9a921e0dee52fbf17488b9c09f4",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      },
+      "after": {
+        "packages/backend/src/operations/watch.ts": "8c0a7fa477ab1e84cb9484a5a2fa818b348ae4dd1e64c19593d4d72cd3a96c60",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      }
+    },
+    {
+      "file": "packages/backend/src/operations/watch.ts",
+      "scopeName": "writeSetting",
+      "sourceHash": "a1927370eb254f57a36455926d813fdc55a289f39c467a72d3330c59411e0b49",
+      "reasons": ["settings key expression unresolved", "settings key ownership unresolved"],
+      "before": {
+        "packages/backend/src/operations/watch.ts": "f354c4961c5b7a5d460b43b666f68b5aa4abe9a921e0dee52fbf17488b9c09f4",
+        "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
+      },
+      "after": {
+        "packages/backend/src/operations/watch.ts": "8c0a7fa477ab1e84cb9484a5a2fa818b348ae4dd1e64c19593d4d72cd3a96c60",
         "sql/parser-locked-subgraph": "35d3f9422abaf0f80f558f97a2ee48d6f0e1ea0f5dffd13927698e268f5b6028"
       }
     }

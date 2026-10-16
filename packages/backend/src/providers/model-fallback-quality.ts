@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
 import { modelConfigurationIdentity } from "../admin/models.ts";
 import { requireOwner, audit, actorOf, type AdminPrincipal } from "../admin/auth.ts";
-const sql = dbOf("ai-gateway");
+
 const hash = z.string().regex(/^[a-f0-9]{64}$/u);
 const Approval = z.strictObject({
   id: z.string(),

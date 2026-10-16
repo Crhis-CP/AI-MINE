@@ -1,8 +1,8 @@
 import { beijingDate } from "@amp/contracts/time";
 import { UsagePrice } from "@amp/contracts/http/private";
 import type { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("ai-gateway");
+import { sql, type Db } from "../db.ts";
+
 import { sha256, stableJson } from "../lib/ids.ts";
 export const MICRO = 1000000n;
 export const ratioMicros = (value: string) => BigInt(value.split(".")[0]!) * MICRO + BigInt((value.split(".")[1] ?? "").padEnd(6, "0"));

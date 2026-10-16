@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { prefilterUser } from "@amp/backend/editorial/writing";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { requireOwner, type AdminPrincipal } from "./auth.ts";
 import { SelectionRunEvidence } from "@amp/contracts/http/private";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { selectionDatasetManifest } from "./selectbench-samples.ts";
 import { selectionStandardSnapshot, currentSelectionModel, selectionModelIdentity, type ModelIdentityPort } from "./selectbench-runtime.ts";
 import { SelectionConflict } from "./selectbench-state.ts";
-const sql = dbOf("ai-gateway");
+
 export type SelectionEvaluationMetadata = {
   datasetId: string;
   datasetVersion: string;

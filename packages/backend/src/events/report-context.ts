@@ -1,10 +1,9 @@
 import { confirmedGroupingMaterials } from "../content/grouping.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { participantIdentity, sourceParticipants } from "../sources/participants.ts";
 import { newsMaterialBindings } from "../content/materials.ts";
 import { reportPublicInputs, heldReportSignals } from "../publication/groups.ts";
 import { reportSignalExclusions } from "../editorial/report-exclusions.ts";
-const sql = dbOf("events");
 
 /** Current graph evidence, qualified by the source, content, editorial and publication owners. */
 export async function reportEventEvidence(storyIds: number[], articleIds: string[], end: Date, from?: Date) {

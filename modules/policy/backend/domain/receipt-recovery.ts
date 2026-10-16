@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { dbOf, type Db } from "@amp/backend/db";
+import { sql, type Db } from "@amp/backend/db";
 
-const sql = dbOf("policy");
 const Request = z.object({
   lane: z.literal("policy"),
   manifest: z.object({

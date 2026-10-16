@@ -1,5 +1,5 @@
-import { dbOf } from "@amp/backend/db";
-const sql = dbOf("policy");
+import { sql } from "@amp/backend/db";
+
 /** Public wording is selected from status codes; private errors and model/receipt details never enter a DTO. */
 export async function policyProcessingNotice(expressionId: string) {
   const [row] = await sql<

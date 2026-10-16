@@ -1,6 +1,6 @@
 import { sha256, stableJson } from "../lib/ids.ts";
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("enrichment");
+import { sql, type Db } from "../db.ts";
+
 /** The latest recorded prefilter judgment; an audit never re-runs analysis or publishes it. */
 export async function latestPrefilterAuditJudgments(db: Db = sql) {
   return db<{ article_id: string; analysis_id: number; relevance: string | null }[]>`SELECT DISTINCT ON(article_id)

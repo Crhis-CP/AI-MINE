@@ -1,8 +1,8 @@
 import { LaneControlActionRequest, LaneControlsResponse } from "@amp/contracts/http/private";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { audit, auditActionExists } from "../admin/auth.ts";
-const sql = dbOf("ops");
+
 export type RuntimeLane = "news" | "policy";
 export type RuntimeSwitch = "collection" | "processing" | "publication";
 export type ControlHolder = "owner" | "deploy" | "system";

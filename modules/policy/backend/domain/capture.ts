@@ -8,7 +8,7 @@ import {
   readSourceDateContext,
 } from "@amp/backend/admin/sources";
 import { policyMaterialReference, lockPolicyMaterial, readPolicyMaterialDate } from "@amp/backend/content/materials";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { createHash } from "node:crypto";
 import { guardedFetch, type GuardedResponse, type GuardedFetchOptions } from "@amp/backend/lib/http-fetch";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
@@ -18,7 +18,6 @@ import { decodeOriginal } from "./extraction.ts";
 import type { PolicyMetadataObservation } from "./metadata.ts";
 import { lookupPolicyOriginalHead, recordPolicyOriginal } from "./originals.ts";
 
-const sql = dbOf("policy");
 type Get = (url: string, options: GuardedFetchOptions) => Promise<GuardedResponse>;
 /** Captures field locations from the configured official single-document page, never a news classifier. */
 async function capturePolicyMaterial(sourceId: string, materialId: string, get: Get = guardedFetch) {

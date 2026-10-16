@@ -1,9 +1,9 @@
-import { dbOf, type Db } from "../db.ts";
+import { identitySql as sql, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { hashAccountPassword, verifyAccountPassword } from "./account-crypto.ts";
 import { requireOwner } from "./account-access.ts";
 import type { AdminPrincipal } from "./auth.ts";
-const sql = dbOf("identity");
+
 class AccountCommandConflict extends Error {
   readonly code = "conflict";
   constructor() {

@@ -1,5 +1,5 @@
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("sources");
+import { sql, type Db } from "../db.ts";
+
 /** Source identity is metadata, not a claim that every report speaks for its subject. */
 export async function representativeSourceIdentities(ids: string[], db: Db = sql) {
   if (!ids.length) return [];

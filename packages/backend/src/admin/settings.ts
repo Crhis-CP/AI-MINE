@@ -1,11 +1,9 @@
 // Operator settings: notification targets (switching a group on records enabled_at so older content is
 // never back-filled) and per-service request budgets (the circuit breaker paid calls check before sending).
 import { config } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { audit } from "./auth.ts";
 export { monthlyUsageReports } from "../operations/usage-monthly.ts";
-
-const sql = dbOf("ai-gateway");
 
 export async function listTargets() {
   return sql`

@@ -13,11 +13,11 @@ import {
 } from "@amp/contracts/http/private";
 import { z } from "zod";
 import { beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { sha256, stableJson, newUuid } from "../lib/ids.ts";
 import { audit } from "../admin/auth.ts";
 import { priceQuote, settleQuotedCost, amountMicros, centsText, MICRO, ratioMicros, type UsageBounds, type UsageQuote } from "./usage-pricing.ts";
-const sql = dbOf("ai-gateway");
+
 export type UsageConfig = z.infer<typeof UsageProtectionConfig>;
 export type Scope = z.infer<typeof UsageScope>;
 export type UsageContext = { lane: "news" | "policy"; capability: string; sourceIds: string[]; object: { kind: "article" | "policy"; id: string } | null };

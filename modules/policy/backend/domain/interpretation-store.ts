@@ -1,10 +1,9 @@
 import { runtimeControlSnapshot } from "@amp/backend/operations/lane-controls";
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { settlePolicyResponse } from "@amp/backend/providers/receipts";
 import { withCurrentPolicyRun, type FulltextRun } from "./fulltext-store.ts";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 
-const sql = dbOf("policy");
 export type InterpretationRun = { id: string; fulltext: FulltextRun; recipeVersion: string };
 export type StageCheckpoint = {
   stage_id: string;

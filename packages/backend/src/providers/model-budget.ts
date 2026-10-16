@@ -1,6 +1,6 @@
 import { modelConfigurationHash, type ConnectionConfig } from "./model-registry.ts";
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("ai-gateway");
+import { sql, type Db } from "../db.ts";
+
 /** Connections share the service behind their API origin; model name, key and URL path do not split its quota. */
 export function modelBudgetService(endpoint: string, environmentService?: string): string {
   const url = new URL(endpoint),

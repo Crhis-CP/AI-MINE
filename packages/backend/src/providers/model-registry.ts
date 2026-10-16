@@ -1,9 +1,9 @@
 import { sha256, stableJson } from "../lib/ids.ts";
 import { ModelConnectionConfig, ModelConnectionRecord } from "@amp/contracts/http/private";
 import type { z } from "zod";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { openModelSecret, type SealedModelSecret } from "./model-vault.ts";
-const sql = dbOf("ai-gateway");
+
 export const modelConfigurationHash = (config: z.infer<typeof ModelConnectionConfig>) =>
   sha256(stableJson([config.interface, config.endpoint, config.model, config.vision, config.json_mode]));
 export type ConnectionConfig = z.infer<typeof ModelConnectionConfig>;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { PgBoss } from "pg-boss";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { chatJson, type RegisteredModelTransport } from "./llm.ts";
 import { BudgetExceededError, ProviderRejectedError, ReceiptBusyError, completeReceipt } from "./receipts.ts";
 import { modelRegistryLock, connectionRow, registeredModelKey } from "./model-registry.ts";
@@ -16,7 +16,7 @@ import {
 } from "../operations/lane-controls.ts";
 import { config } from "../config.ts";
 import { enqueue, ensureQueue } from "../jobs/queue.ts";
-const sql = dbOf("ai-gateway");
+
 const queues = { news: "news.model-test", policy: "policy.model-test" } as const;
 const knownUsage = (usage: Record<string, unknown> | null) =>
   [usage?.prompt_tokens, usage?.completion_tokens].every((n) => typeof n === "number" && Number.isSafeInteger(n) && n >= 0);

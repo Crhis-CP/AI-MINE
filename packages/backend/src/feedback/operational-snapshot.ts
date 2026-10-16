@@ -1,5 +1,4 @@
-import { dbOf } from "../db.ts";
-const sql = dbOf("feedback");
+import { feedbackSql as sql } from "../db.ts";
 
 /** Fixed aggregate for the private observer; no feedback text or personal data. */
 export const feedbackOperationalSnapshot = () =>

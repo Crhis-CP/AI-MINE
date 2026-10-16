@@ -4,11 +4,9 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { config, credential, isProduction } from "../config.ts";
-import { dbOf, type Db } from "../db.ts";
+import { identitySql as sql, type Db } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { lockAccountAccess, readAccountAccess } from "./account-access.ts";
-
-const sql = dbOf("identity");
 
 export const SESSION_COOKIE = isProduction ? "__Host-amp_admin" : "amp_admin";
 export const LOGIN_NONCE_COOKIE = isProduction ? "__Host-amp_login_nonce" : "amp_login_nonce";
