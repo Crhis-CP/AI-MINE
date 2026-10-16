@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -196,6 +196,12 @@ if (process.argv.includes("--routes")) {
     await Promise.all([app.close(), privateApp.close()]);
   }
 } else {
+  // Contract regressions are part of both quick and full verification, including new files.
+  const contractTests = new URL("../../packages/contracts/tests/", import.meta.url);
+  for (const file of readdirSync(contractTests)
+    .filter((file) => file.endsWith(".test.ts"))
+    .sort())
+    await import(new URL(file, contractTests).href);
   test("existing stats, pool, timeline and private options routes retain wire, query, ETag and host behavior", () => {
     execFileSync(process.execPath, [fileURLToPath(import.meta.url), "--routes"], {
       env: {
