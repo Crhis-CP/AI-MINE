@@ -18,7 +18,7 @@ import { normalizeTags } from "../packages/backend/src/editorial/vocabulary.ts";
 import { publishArticle } from "@amp/backend/publication/publish";
 
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const sql = dbOf("enrichment"),
   source = `mining-category-${tag()}`;

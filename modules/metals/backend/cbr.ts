@@ -1,7 +1,7 @@
 // Bank of Russia daily accounting prices: source RUB figures and same-effective-day USD rate, never converted here.
 import { beijingDate } from "@amp/contracts/time";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { guardedFetch } from "../../lib/http-fetch.ts";
+import { guardedFetch } from "@amp/backend/lib/http-fetch";
 import { type MetalPriceRegistry, onSourceHost } from "./registry.ts";
 import { compareCbrWithNbu } from "./nbu.ts";
 import type { FetchedPeriod, Fetcher, PageGetter } from "./types.ts";

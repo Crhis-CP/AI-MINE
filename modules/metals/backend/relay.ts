@@ -1,8 +1,8 @@
 import { createHash, createPrivateKey, sign } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { COCHILCO_ORIGIN, PRICE_RELAY_HEADERS as H, priceRelaySigningText, priceRelayByteLimit, priceRelaySourceUrl } from "@amp/contracts/metal-price-relay";
-import { config } from "../../config.ts";
-import { guardedFetch, type GuardedFetchOptions, type GuardedResponse } from "../../lib/http-fetch.ts";
+import { config } from "@amp/backend/config";
+import { guardedFetch, type GuardedFetchOptions, type GuardedResponse } from "@amp/backend/lib/http-fetch";
 
 export async function fetchCochilco(url: string, options: GuardedFetchOptions = {}): Promise<GuardedResponse> {
   if (!config.metalPriceRelayUrl) return guardedFetch(url, options);

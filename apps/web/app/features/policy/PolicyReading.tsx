@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import type { Policy } from "@amp/contracts/http/public";
 import { actionClass, EvidenceLinks } from "./PolicyUI";
@@ -15,6 +15,14 @@ function label(expression: Expression) {
       : expression.language.startsWith("zh")
         ? "正文"
         : `原文 · ${expression.language}`;
+}
+/** A focused wide table scrolls predictably; keys inside links or controls retain their native meaning. */
+function scrollTable(event: KeyboardEvent<HTMLElement>) {
+  if (event.target !== event.currentTarget || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const delta = event.key === "ArrowRight" ? 80 : event.key === "ArrowLeft" ? -80 : 0;
+  if (!delta || event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return;
+  event.preventDefault();
+  event.currentTarget.scrollBy({ left: delta, behavior: "instant" });
 }
 function Block({ block, language }: { block: Page["blocks"][number]; language: string }) {
   const semanticTable = !!block.semantic_html && /<table(?:\s|>)/i.test(block.semantic_html);
@@ -33,6 +41,7 @@ function Block({ block, language }: { block: Page["blocks"][number]; language: s
           aria-label={tableLabel}
           // biome-ignore lint/a11y/noNoninteractiveTabindex: Table scroll regions need keyboard access.
           tabIndex={0}
+          onKeyDown={scrollTable}
           className="overflow-x-auto rounded-control border border-line"
         >
           {semantic}
@@ -49,6 +58,7 @@ function Block({ block, language }: { block: Page["blocks"][number]; language: s
           aria-label={tableLabel}
           // biome-ignore lint/a11y/noNoninteractiveTabindex: Table scroll regions need keyboard access.
           tabIndex={0}
+          onKeyDown={scrollTable}
           className="mt-2 overflow-x-auto rounded-control border border-line"
         >
           <table className="min-w-full text-[13px]">

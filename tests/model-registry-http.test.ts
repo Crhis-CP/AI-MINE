@@ -5,7 +5,7 @@ import { injectDb } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { config } from "@amp/backend/config";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { ModelConnectionRecord, ModelRegistryResponse } from "@amp/contracts/http/private";
 

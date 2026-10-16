@@ -1,7 +1,7 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { dbOf, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";

@@ -7,7 +7,7 @@ import { config } from "@amp/backend/config";
 import { SITE } from "@amp/industry/site";
 import { SiteInformation, MetalPrices } from "@amp/contracts/http/public";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { denied } from "./role-db-fixture.ts";
 
 test("Owner saves public site fields with session CSRF CAS idempotency and atomic audit; public_read observes fields without private commands", async (t) => {

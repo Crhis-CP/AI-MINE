@@ -5,7 +5,7 @@ import { SOURCE_TARGETS, SOURCE_RECORDS } from "@amp/industry/source-targets";
 import { sourceTargets } from "../packages/backend/src/sources/target-catalogue.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { injectDb } from "@amp/backend/db";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { sha256 } from "@amp/backend/lib/ids";
 import { config } from "@amp/backend/config";

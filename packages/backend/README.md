@@ -283,3 +283,5 @@ worker每分钟有界补齐100条旧时间投影，只更新日期及同步记�
 相同搜索只在执行中共享查询，先复用再申请搜索容量；完成或失败后即移除，不缓存文章响应。键包含来源、矿种、国家、主题、日期、精选条件、排序和页码。明确传入时钟或专用匹配器时独立执行，普通列表的原有总数缓存规则不变。
 
 扩展注册通过@amp/backend/modules的具名入口完成，由API和worker启动入口安装site/modules/server清单；引擎不导入安装清单。当前通用插口是Scheduled，注册前按when筛选并检查重名，退役沿用cron队列生命周期。新增实际插口按消费者需要维护，不能用空注册表宣称矿业功能迁移完成。
+
+金属价格的解析、校验、存储和读模型已迁入modules/metals/backend，旧publication/metal-prices下仅四个兼容转发入口。共享HTTP处理位于@amp/backend/http，apps/api/http/respond仅兼容转发；公开组合根调用已安装模块的http挂口。数据库归属扫描显式涵盖site/modules运行代码，迁移不改变表名、授权或历史数据。

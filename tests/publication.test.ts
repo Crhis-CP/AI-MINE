@@ -31,7 +31,7 @@ import { computeHotRanking } from "@amp/backend/events/hot";
 import { latestHotRanking } from "@amp/backend/events/hot-read";
 import { effectiveWatermark } from "@amp/backend/publication/v1";
 import { SITE } from "@amp/industry/site";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const sql = dbOf("publication");
 

@@ -1,3 +1,4 @@
+import { serverModules } from "@amp/backend/modules";
 import { registerSourceTargets } from "./routes/admin-source-targets.ts";
 import { registerAdminSite } from "./routes/admin-site.ts";
 import { registerSiteInformation } from "./routes/site-information.ts";
@@ -145,6 +146,7 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     registerMcp(app);
     registerOg(app);
     registerSite(app);
+    for (const module of serverModules()) await module.http?.(app);
     registerSiteInformation(app);
     registerPolicies(app);
     registerStatic(app);

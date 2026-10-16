@@ -77,7 +77,8 @@
     "./sources/mp": "./src/sources/mp.ts",
     "./sources/rss": "./src/sources/rss.ts",
     "./sources/web-list": "./src/sources/web-list.ts",
-    "./modules": "./src/modules.ts"
+    "./modules": "./src/modules.ts",
+    "./http": "./src/http.ts"
   },
   "dependencies": {
     "@amp/config": "workspace:*",
@@ -96,6 +97,8 @@
     "sharp": "0.35.5",
     "undici": "8.11.2",
     "zod": "4.6.5",
-    "@amp/site": "workspace:*"
+    "@amp/site": "workspace:*",
+    "@amp/metals": "workspace:*",
+    "fastify": "5.12.5"
   }
 }

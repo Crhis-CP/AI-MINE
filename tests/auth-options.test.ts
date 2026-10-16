@@ -6,7 +6,7 @@ import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { completeLogin, loginRedirect } from "@amp/backend/admin/auth";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 delete process.env.FEISHU_LOGIN_APP_ID;
 delete process.env.FEISHU_LOGIN_APP_SECRET;

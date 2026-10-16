@@ -4,7 +4,7 @@ import { previewSourceFixture } from "./source-preview-fixture.ts";
 import type { TestContext } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";

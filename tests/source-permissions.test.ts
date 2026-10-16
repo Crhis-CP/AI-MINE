@@ -219,7 +219,7 @@ test("private creation confirms an explicit scope atomically and the real evalua
   await initializeDb("private-api", { DATABASE_URL_PRIVATE_OPS: f.urlFor("private_ops"), DATABASE_URL_AUTH: f.urlFor("auth"), DATABASE_POOL_MAX: "4" });
   await f.admin.unsafe("ALTER TABLE public.sources ADD COLUMN IF NOT EXISTS source_date_config_hash text");
   const { config } = await import("@amp/backend/config");
-  const { buildApp } = await import("../apps/api/src/app.ts");
+  const { buildApp } = await import("./site-app.ts");
   const { evaluateSourcePolicy, saveSourcePolicy } = await import("@amp/backend/admin/sources");
   const { stopBoss } = await import("@amp/backend/jobs/queue");
   const original = { adminPassword: config.adminPassword, devAdmin: config.devAdmin, privateHost: config.privateHost };

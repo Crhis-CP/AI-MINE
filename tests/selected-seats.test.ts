@@ -8,7 +8,7 @@ import { pushSelected } from "../packages/backend/src/notify/selected.ts";
 import { setVisibility, detachFromFact } from "@amp/backend/admin/content";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { stopBoss } from "@amp/backend/jobs/queue";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";

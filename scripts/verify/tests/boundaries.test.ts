@@ -296,8 +296,8 @@ test("the site configuration workspace is explicit and stays free of backend han
 
 test("the named extension registry can be introduced without reopening arbitrary backend exports", () => {
   const fixture = workspace({
-    "packages/backend/package.json": pkg("@amp/backend", [], { "./db": "./src/db.ts", "./modules": "./src/modules.ts" }),
-    "scripts/verify/backend-exports.json": JSON.stringify({ "./db": "./src/db.ts", "./modules": "./src/modules.ts" }),
+    "packages/backend/package.json": pkg("@amp/backend", [], { "./db": "./src/db.ts", "./modules": "./src/modules.ts", "./http": "./src/http.ts" }),
+    "scripts/verify/backend-exports.json": JSON.stringify({ "./db": "./src/db.ts", "./modules": "./src/modules.ts", "./http": "./src/http.ts" }),
     "packages/backend/src/modules.ts": "export interface ServerModule {name:string}",
   });
   assert.deepEqual(checkBoundaries(fixture.dir, fixture.files, { snapshot: { "./db": "./src/db.ts" }, exports: { "./db": "./src/db.ts" } }), []);

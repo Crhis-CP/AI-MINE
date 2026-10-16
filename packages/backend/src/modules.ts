@@ -1,3 +1,4 @@
+import type { FastifyInstance } from "fastify";
 /** Extension hooks installed by process entry points; the engine does not import site extensions. */
 export interface Scheduled {
   name: string;
@@ -8,6 +9,7 @@ export interface Scheduled {
 }
 export interface ServerModule {
   name: string;
+  http?: (app: FastifyInstance) => void | Promise<void>;
   schedules?: readonly Scheduled[];
 }
 export function defineServerModule(module: ServerModule): ServerModule {

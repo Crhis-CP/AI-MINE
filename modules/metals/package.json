@@ -4,10 +4,18 @@
   "type": "module",
   "exports": {
     "./module": "./module.ts",
-    "./server": "./server.ts"
+    "./server": "./server.ts",
+    "./read": "./backend/read.ts",
+    "./refresh": "./backend/refresh.ts",
+    "./diagnostics": "./backend/change.ts",
+    "./registry": "./backend/registry.ts"
   },
   "dependencies": {
     "@amp/backend": "workspace:*",
-    "@amp/contracts": "workspace:*"
+    "@amp/contracts": "workspace:*",
+    "cheerio": "1.2.0",
+    "fast-xml-parser": "5.11.1",
+    "pdfjs-dist": "6.4.299",
+    "zod": "4.6.5"
   }
 }

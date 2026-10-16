@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 const sql = dbOf("publication");
 const app = await buildApp("public-api");
 after(async () => {

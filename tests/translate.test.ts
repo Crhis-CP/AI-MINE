@@ -17,7 +17,7 @@ import { TRANSLATE_PROMPT_VERSION, translateArticle, translatePending } from "@a
 import { latestSuccessfulRunResult, autoReleaseUnknownReceipts, releaseReceipt, receiptObservedVersion } from "@amp/backend/admin/runs";
 import { getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const sql = dbOf("enrichment");
 

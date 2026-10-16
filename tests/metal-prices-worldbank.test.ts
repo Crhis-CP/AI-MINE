@@ -1,13 +1,13 @@
 import "./setup.ts";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { refreshMetalPrices } from "../packages/backend/src/publication/metal-prices/refresh.ts";
-import { worldbankFetcher, worldbankPeriods, WORLDBANK_LIST_URL } from "../packages/backend/src/publication/metal-prices/worldbank.ts";
-import { openWorkbook, type Sheet } from "../packages/backend/src/publication/metal-prices/xlsx.ts";
-import type { FetchedPeriod, PageGetter } from "../packages/backend/src/publication/metal-prices/types.ts";
+import { refreshMetalPrices } from "../modules/metals/backend/refresh.ts";
+import { worldbankFetcher, worldbankPeriods, WORLDBANK_LIST_URL } from "../modules/metals/backend/worldbank.ts";
+import { openWorkbook, type Sheet } from "../modules/metals/backend/xlsx.ts";
+import type { FetchedPeriod, PageGetter } from "../modules/metals/backend/types.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
+import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
 
 const raw = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"));
 const registry = loadMetalPriceRegistry();

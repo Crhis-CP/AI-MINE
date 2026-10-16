@@ -4,7 +4,7 @@ import { after, before, test } from "node:test";
 import { readFileSync } from "node:fs";
 import { dbOf, closeDb } from "@amp/backend/db";
 import { v3Envelope, v3Items, effectiveWatermark } from "@amp/backend/publication/v1";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 const sql = dbOf("publication"),
   source = `v3-${tag()}`,
   id = `${source}-a`,

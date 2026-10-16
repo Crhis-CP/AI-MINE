@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { closeDb } from "@amp/backend/db";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const HOST = "private.example.test";
 const savedHost = config.privateHost;

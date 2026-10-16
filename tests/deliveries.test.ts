@@ -6,7 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { resendDelivery } from "@amp/backend/notify/deliver";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const sql = dbOf("ops");
 

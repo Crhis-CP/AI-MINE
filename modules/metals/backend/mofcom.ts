@@ -1,5 +1,5 @@
 // TASK-0082: three recorded weekly indices; preserve raw values and the source's single calendar date.
-import { guardedFetch } from "../../lib/http-fetch.ts";
+import { guardedFetch } from "@amp/backend/lib/http-fetch";
 import { type MetalPriceRegistry, normalizeSourceName, onSourceHost } from "./registry.ts";
 import type { FetchedPeriod, Fetcher, PageGetter } from "./types.ts";
 

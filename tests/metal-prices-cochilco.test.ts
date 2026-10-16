@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { COCHILCO_URL, cochilcoFetcher, cochilcoLines, cochilcoPeriod } from "../packages/backend/src/publication/metal-prices/cochilco.ts";
-import { loadMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
-import { checkPeriod } from "../packages/backend/src/publication/metal-prices/check.ts";
-import { refreshMetalPrices } from "../packages/backend/src/publication/metal-prices/refresh.ts";
-import { loadMetalPrices } from "../packages/backend/src/publication/metal-prices/read.ts";
+import { COCHILCO_URL, cochilcoFetcher, cochilcoLines, cochilcoPeriod } from "../modules/metals/backend/cochilco.ts";
+import { loadMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
+import { checkPeriod } from "../modules/metals/backend/check.ts";
+import { refreshMetalPrices } from "../modules/metals/backend/refresh.ts";
+import { loadMetalPrices } from "../modules/metals/backend/read.ts";
 
 const sql = dbOf("publication"),
   registry = loadMetalPriceRegistry(),

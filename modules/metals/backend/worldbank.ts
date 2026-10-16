@@ -1,6 +1,6 @@
 // World Bank Pink Sheet (TASK-0088): monthly workbook, raw numeric text, registered series only.
 import { load } from "cheerio";
-import { guardedFetch } from "../../lib/http-fetch.ts";
+import { guardedFetch } from "@amp/backend/lib/http-fetch";
 import { type MetalPriceRegistry, normalizeSourceName, onSourceHost } from "./registry.ts";
 import type { FetchedPeriod, Fetcher, PageGetter, Period } from "./types.ts";
 import { openWorkbook } from "./xlsx.ts";

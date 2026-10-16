@@ -46,7 +46,7 @@ export async function publicServer(t: TestContext, f: PublicFixture) {
     const {initializeDb,closeDb}=await import('@amp/backend/db');
     const {buildApp}=await import('./apps/api/src/app.ts');
     const {normalizeRouteTree}=await import('./scripts/baseline/routes.ts');
-    await initializeDb('public-api');const app=await buildApp('public-api');
+    const {installModules}=await import('@amp/backend/modules');const {SERVER_MODULES}=await import('./site/modules/server.ts');installModules(SERVER_MODULES);await initializeDb('public-api');const app=await buildApp('public-api');
     await app.listen({host:'127.0.0.1',port:Number(process.env.API_PORT)});
     const routes=normalizeRouteTree(app.printRoutes({commonPrefix:false}),{'':'/api/public/*','/api/v1':'/api/v1/*'}).filter(x=>x.startsWith('GET '));
     console.log('PR9_ROUTES='+JSON.stringify(routes));console.log('PR9_READY');

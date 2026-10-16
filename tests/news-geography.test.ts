@@ -16,7 +16,7 @@ import { loadPool } from "@amp/backend/publication/pool";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 import { currentNewsJurisdictionCounts } from "../packages/backend/src/publication/news-geography.ts";
 import { validateGeography, geographyMaterial, geographyRecipe } from "../packages/backend/src/editorial/geography.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 
 const sql = dbOf("enrichment"),

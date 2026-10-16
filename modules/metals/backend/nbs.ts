@@ -2,7 +2,7 @@
 // list names each release and so its period; the release page carries the price table, found by its header and read by
 // registered name. "本期价格" is not said to be a ten-day average, so nothing here calls it one: a value is its period's.
 import { type CheerioAPI, load } from "cheerio";
-import { guardedFetch } from "../../lib/http-fetch.ts";
+import { guardedFetch } from "@amp/backend/lib/http-fetch";
 import { type MetalPriceRegistry, normalizeSourceName, onSourceHost } from "./registry.ts";
 import type { FetchedPeriod, Fetcher, PageGetter, Period, PriceRow } from "./types.ts";
 

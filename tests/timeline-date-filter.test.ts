@@ -7,7 +7,7 @@ import { loadPool } from "@amp/backend/publication/pool";
 import { v1Items, v3Events } from "@amp/backend/publication/v1";
 import { publicStoryDirectory } from "@amp/backend/publication/stories";
 import { encodeCursor, InvalidCursorError, queryBinding } from "@amp/backend/lib/cursor";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const sql = dbOf("publication"),
   source = `timeline-date-${tag()}`;

@@ -4,15 +4,15 @@ import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { MetalPrices } from "@amp/contracts/http/public";
-import { loadMetalPrices } from "../packages/backend/src/publication/metal-prices/read.ts";
-import { parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
-import { nbsFetcher, NBS_LIST_URL } from "../packages/backend/src/publication/metal-prices/nbs.ts";
-import { worldbankFetcher, WORLDBANK_LIST_URL } from "../packages/backend/src/publication/metal-prices/worldbank.ts";
-import { cbrFetcher } from "../packages/backend/src/publication/metal-prices/cbr.ts";
-import { mofcomFetcher } from "../packages/backend/src/publication/metal-prices/mofcom.ts";
-import { storePeriod } from "../packages/backend/src/publication/metal-prices/store.ts";
-import { buildApp } from "../apps/api/src/app.ts";
-import type { FetchedPeriod } from "../packages/backend/src/publication/metal-prices/types.ts";
+import { loadMetalPrices } from "../modules/metals/backend/read.ts";
+import { parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
+import { nbsFetcher, NBS_LIST_URL } from "../modules/metals/backend/nbs.ts";
+import { worldbankFetcher, WORLDBANK_LIST_URL } from "../modules/metals/backend/worldbank.ts";
+import { cbrFetcher } from "../modules/metals/backend/cbr.ts";
+import { mofcomFetcher } from "../modules/metals/backend/mofcom.ts";
+import { storePeriod } from "../modules/metals/backend/store.ts";
+import { buildApp } from "./site-app.ts";
+import type { FetchedPeriod } from "../modules/metals/backend/types.ts";
 
 const sql = dbOf("publication"),
   NOW = new Date("2026-10-06T04:00:00Z");

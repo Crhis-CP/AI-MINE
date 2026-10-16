@@ -16,7 +16,10 @@ export function ownershipFiles(root: string): string[] {
       if (entry.name.startsWith(".") || ["node_modules", "dist", "build"].includes(entry.name)) return [];
       return entry.isDirectory() ? walk(file) : /\.[cm]?[jt]sx?$/.test(file) && !file.endsWith(".d.ts") ? [file] : [];
     });
-  return ["apps", "packages", "scripts", "tests"].flatMap(walk).sort();
+  return ["apps", "packages", "scripts", "tests", "site", "modules"]
+    .filter((dir) => existsSync(path.join(root, dir)))
+    .flatMap(walk)
+    .sort();
 }
 function declaration(checker: Checker, node: ts.Node) {
   let symbol = checker.getSymbolAtLocation(node);
@@ -360,7 +363,7 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
         node.forEachChild(walk);
       };
       walk(source);
-      return { file, scope: /^(apps|packages)\//.test(file) ? "runtime" : file.split("/")[0], modules, sites, ignoredTags };
+      return { file, scope: /^(apps|packages|site|modules)\//.test(file) ? "runtime" : file.split("/")[0], modules, sites, ignoredTags };
     });
     snapshot.dispose();
     return result;

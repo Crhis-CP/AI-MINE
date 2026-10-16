@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { injectDb } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { denied } from "./role-db-fixture.ts";
 test("real private API requires current model capability and CSRF, preserves CAS and keeps backup configuration private", async (t) => {

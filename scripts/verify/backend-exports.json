@@ -73,5 +73,6 @@
   "./sources/mp": "./src/sources/mp.ts",
   "./sources/rss": "./src/sources/rss.ts",
   "./sources/web-list": "./src/sources/web-list.ts",
-  "./modules": "./src/modules.ts"
+  "./modules": "./src/modules.ts",
+  "./http": "./src/http.ts"
 }

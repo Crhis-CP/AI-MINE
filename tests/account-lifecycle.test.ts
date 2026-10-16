@@ -159,7 +159,7 @@ test("single-use login nonce and per-account/source rate controls are persistent
 });
 
 test("private HTTP binds one-use login nonce, forced-change scope, Owner account routes and CSRF; outage retains cookie", async (t) => {
-  const { buildApp } = await import("../apps/api/src/app.ts"),
+  const { buildApp } = await import("./site-app.ts"),
     { config } = await import("@amp/backend/config");
   const f = await publicRoleFixture(t),
     dbs = await f.login(),

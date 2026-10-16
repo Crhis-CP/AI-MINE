@@ -170,9 +170,11 @@ const protectedSiteFixture = {
 
 const apiCookies: Array<string | undefined> = [];
 const privateCookies: Array<string | undefined> = [];
+const privateAgents: Array<string | undefined> = [];
 const privateCalls: Array<{ path: string; forwarded: string | undefined }> = [];
 const privateApi = createServer(async (req, res) => {
   privateCookies.push(req.headers.cookie);
+  privateAgents.push(req.headers["user-agent"]);
   privateCalls.push({ path: req.url!, forwarded: req.headers["x-forwarded-host"] as string | undefined });
   res.setHeader("Content-Type", "application/json");
   if (req.url!.split("?", 1)[0] === "/api/auth/options") return res.end(JSON.stringify({ password: false, feishu: true }));
@@ -1600,15 +1602,18 @@ test("runtime dashboard exposes operational fields but never serializes unused r
     for (const suffix of ["", ".data"]) {
       const path = "/admin/runs" + suffix;
       const before = privateCalls.length;
-      const denied = await fetch(origin + path);
+      const deniedMarker = `fixture-denied-runs-${suffix || "html"}`;
+      const allowedMarker = `fixture-allowed-runs-${suffix || "html"}`;
+      const denied = await fetch(origin + path, { headers: { "User-Agent": deniedMarker } });
       assert.equal(denied.status, 404);
       assert.equal(denied.headers.get("Set-Cookie"), null);
       await denied.text();
-      assert.equal(privateCalls.length, before);
-      const response = await fetchWithHost(origin + path, PRIVATE_HOST);
+      assert.ok(!privateAgents.includes(deniedMarker), "this denied request must never reach the private API");
+      const response = await fetchWithHost(origin + path, PRIVATE_HOST, { headers: { "User-Agent": allowedMarker } });
       assert.equal(response.status, 200);
       assert.equal(response.headers.get("Cache-Control"), "private, no-store");
       const body = await response.text();
+      assert.ok(privateAgents.includes(allowedMarker), "the probe can observe a forwarded authorized request");
       assert.match(body, /合成通知目的地/);
       assert.match(body, /结果待核实/);
       assert.doesNotMatch(body, /NEVER_SERIALIZE/);

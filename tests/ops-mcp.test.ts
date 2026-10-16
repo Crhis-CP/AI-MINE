@@ -8,7 +8,7 @@ import { sha256 } from "@amp/backend/lib/ids";
 import { config } from "@amp/backend/config";
 import { refreshOperationalSnapshots } from "../packages/backend/src/operations/operational-snapshots.ts";
 import { storeOperationalSnapshot, recordOperationalSnapshotFailure } from "../packages/backend/src/operations/read-snapshots.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { webHostPolicy } from "../apps/web/host-policy.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 function rpc(text: string) {

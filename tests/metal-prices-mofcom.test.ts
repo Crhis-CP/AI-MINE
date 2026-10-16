@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { mofcomFetcher, MOFCOM_URL } from "../packages/backend/src/publication/metal-prices/mofcom.ts";
-import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../packages/backend/src/publication/metal-prices/registry.ts";
-import { refreshMetalPrices } from "../packages/backend/src/publication/metal-prices/refresh.ts";
-import type { PageGetter } from "../packages/backend/src/publication/metal-prices/types.ts";
+import { mofcomFetcher, MOFCOM_URL } from "../modules/metals/backend/mofcom.ts";
+import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
+import { refreshMetalPrices } from "../modules/metals/backend/refresh.ts";
+import type { PageGetter } from "../modules/metals/backend/types.ts";
 
 const raw = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"));
 const registry = loadMetalPriceRegistry(),

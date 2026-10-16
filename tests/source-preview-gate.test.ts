@@ -58,7 +58,7 @@ test("first enable and configuration switches require successful preview bound t
 });
 
 test("private HTTP reports missing current preview or nonexistent draft as actionable 409 conflicts", async (t) => {
-  const { buildApp } = await import("../apps/api/src/app.ts");
+  const { buildApp } = await import("./site-app.ts");
   const { config } = await import("@amp/backend/config");
   const prior = config.devAdmin;
   config.devAdmin = { displayName: "Synthetic source preview operator" };

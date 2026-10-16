@@ -7,7 +7,7 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { computeHotRanking } from "@amp/backend/events/hot";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { SearchSuggestions } from "@amp/contracts/http/public";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 const sql = dbOf("publication");
 const app = await buildApp("public-api");

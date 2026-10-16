@@ -1,7 +1,7 @@
 // Metal price rows (TASK-0069): a checked period is added or brought up to date in one transaction, and nothing is ever
 // deleted. Values go in and come out as text (value::text): the driver reads numeric as a JS number, which would lose
 // the figure as the source wrote it (packages/platform/config/src/index.ts). Only enabled series are written.
-import { dbOf } from "../../db.ts";
+import { dbOf } from "@amp/backend/db";
 import type { MetalPriceItem, MetalPriceSource } from "./registry.ts";
 import type { FetchedPeriod } from "./types.ts";
 

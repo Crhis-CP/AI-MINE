@@ -18,7 +18,7 @@ export async function privateProducerFixture(t: TestContext) {
   const { config } = await import("@amp/backend/config");
   const { closeDb, dbOf, initializeDb } = await import("@amp/backend/db");
   const { enqueue, stopBoss } = await import("@amp/backend/jobs/queue");
-  const { buildApp } = await import("../apps/api/src/app.ts");
+  const { buildApp } = await import("./site-app.ts");
   const { adminHandler } = await import("../apps/api/src/routes/admin-auth.ts");
   assert.equal(config.credentialsDir, "/nonexistent-test-credentials");
   const password = "test-private-password-012345";

@@ -8,7 +8,7 @@ import sharp from "sharp";
 import { after, test } from "node:test";
 import { config } from "@amp/backend/config";
 import { closeDb, dbOf } from "@amp/backend/db";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 
 const sql = dbOf("feedback");
 

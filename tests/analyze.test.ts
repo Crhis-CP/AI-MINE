@@ -22,7 +22,7 @@ import { config } from "@amp/backend/config";
 import { BudgetExceededError } from "@amp/backend/providers/receipts";
 import { publishArticle, republishSource } from "@amp/backend/publication/publish";
 import { setVisibility } from "@amp/backend/admin/content";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { SITE } from "@amp/industry/site";
 import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
 

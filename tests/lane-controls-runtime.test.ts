@@ -1,5 +1,5 @@
 import { installUsageFixtureForService, installUsageFixtureForEmbedding } from "./usage-protection-fixture.ts";
-import { buildApp } from "../apps/api/src/app.ts";
+import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { sha256 } from "@amp/backend/lib/ids";
