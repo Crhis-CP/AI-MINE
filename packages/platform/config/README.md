@@ -42,4 +42,4 @@ URL 查询参数只接受 sslmode、target_session_attrs、application_name；�
 
 TASK-0143增加专用`ops_read`数据库身份。api和过渡private-api可选持有`DATABASE_URL_OPS_READ`，该地址只允许进入这两类API进程；worker/public-api/web/fetcher仍不能取得。未配置时原后台保持可用，只有私网运维读取报不可用；不使用单一DATABASE_URL回退该身份。读取池最多2连接，角色仅SELECT固定脱敏快照表。test进程仍仅使用隔离测试库过渡地址，真实只读权限另以角色登录验证。
 
-统一api启动同时检查PUBLIC_RATE_LIMIT_SECRET与SESSION_SECRET/登录配置，并注册公开和鉴权接口；使用既有private_ops/auth权限，不创建数据库角色或扩大GRANT。旧分离模式保留供部署拓扑迁移，Compose和正式发布脚本切换完成后再收敛兼容入口。
+统一api启动同时检查PUBLIC_RATE_LIMIT_SECRET与SESSION_SECRET/登录配置，并注册公开和鉴权接口；使用既有private_ops/auth权限，不创建数据库角色或扩大GRANT。旧分离模式保留供迁移兼容。仓库Compose及整站冒烟已使用统一api；正式发布脚本按现役服务备份，并可从新api回退旧双服务。生产尚待统一发布。

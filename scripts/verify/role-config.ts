@@ -26,7 +26,7 @@ const CREDENTIALS = [
 const PROXIES = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"].flatMap((key) => [key, key.toLowerCase()]);
 
 /** D8 parity and Compose checks. Diagnostics contain variable names, never configuration values. */
-export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public-api")[] = ["web", "public-api"]): string[] {
+export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public-api" | "api")[] = ["web", "api"]): string[] {
   const problems: string[] = [];
   const check = (role: ProcessRole, env: Record<string, string | undefined>, expected: string[]) => {
     const results = [environmentProblems(role, env), ...(role === "web" ? [webEnvironmentProblems(env)] : [])];

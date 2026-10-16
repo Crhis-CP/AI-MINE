@@ -17,6 +17,8 @@ RELEASE_OLD_VERSION=
 RELEASE_STOPPED=0
 RELEASE_SWITCHED=0
 RELEASE_CADDY_CHANGED=0
+RELEASE_CURRENT_APIS=()
+RELEASE_OLD_APIS=()
 RELEASE_PHASE=preflight
 [[ -f $RELEASE_ROOT/.ops/release.lock && ! -L $RELEASE_ROOT/.ops/release.lock ]]
 exec 9>>"$RELEASE_ROOT/.ops/release.lock"
@@ -37,6 +39,35 @@ print(json.dumps(x),flush=True)
 PYJ
 }
 dc() { docker compose --project-name amp --env-file "$RELEASE_ROOT/.env" -f "$RELEASE_ROOT/docker-compose.yml" "$@"; }
+# Read names only; never render interpolated Compose configuration or secrets.
+read_api_topology() {
+  local configured service single=0 public=0 private=0
+  configured=$(dc config --services) || return 1
+  while IFS= read -r service; do
+    case "$service" in
+      api) single=1 ;;
+      public-api) public=1 ;;
+      private-api) private=1 ;;
+    esac
+  done <<< "$configured"
+  if [[ $single == 1 && $public == 0 && $private == 0 ]]; then
+    RELEASE_CURRENT_APIS=(api)
+  elif [[ $single == 0 && $public == 1 && $private == 1 ]]; then
+    RELEASE_CURRENT_APIS=(public-api private-api)
+  else
+    printf '%s\n' 'Incomplete or mixed API topology; release stopped' >&2
+    return 1
+  fi
+}
+stop_api_containers() {
+  local role containers
+  containers=$(docker ps -a --format '{{.Names}}') || return 1
+  for role in api public-api private-api web; do
+    if [[ $'\n'"$containers"$'\n' == *$'\n'"amp-$role-1"$'\n'* ]]; then
+      docker stop -t 15 "amp-$role-1" >/dev/null || return 1
+    fi
+  done
+}
 set_value() {
   python3 - "$RELEASE_ROOT/.env" "$1" "$2" <<'PYE'
 import os,sys
@@ -65,7 +96,7 @@ PYH
 restore() {
   phase rollback
   dc stop -t 210 worker || return 1
-  dc stop public-api private-api web || return 1
+  stop_api_containers || return 1
   cp -p "$RELEASE_BACKUP/environment" "$RELEASE_ROOT/.env" || return 1
   mkdir -p "$RELEASE_BACKUP/restore-source"
   tar -xzf "$RELEASE_BACKUP/host-program.tar.gz" -C "$RELEASE_BACKUP/restore-source" || return 1
@@ -73,11 +104,11 @@ restore() {
   set_value APP_IMAGE "$RELEASE_OLD_TAG"
   set_value AMP_RELEASE "$RELEASE_OLD_VERSION"
   export APP_IMAGE=$RELEASE_OLD_TAG AMP_RELEASE=$RELEASE_OLD_VERSION
-  dc up --no-start --no-deps --no-build --pull never --force-recreate public-api private-api web worker || return 1
-  for role in public-api private-api web worker; do
+  dc up --no-start --no-deps --no-build --pull never --force-recreate "${RELEASE_OLD_APIS[@]}" web worker || return 1
+  for role in "${RELEASE_OLD_APIS[@]}" web worker; do
     gzip -dc "$RELEASE_BACKUP/$role-program.tar.gz" | docker cp -a - "amp-$role-1:/app/" || return 1
   done
-  docker start amp-public-api-1 amp-private-api-1 amp-web-1 || return 1
+  for role in "${RELEASE_OLD_APIS[@]}" web; do docker start "amp-$role-1" || return 1; done
   health "$RELEASE_OLD_VERSION" || return 1
   docker start amp-worker-1 || return 1
   if [[ $RELEASE_CADDY_CHANGED == 1 ]]; then dc --profile https up -d --no-deps --no-build --pull never --force-recreate caddy || return 1; fi
@@ -99,6 +130,9 @@ on_exit() {
 }
 trap on_exit EXIT
 phase backup
+read_api_topology
+RELEASE_OLD_APIS=("${RELEASE_CURRENT_APIS[@]}")
+printf '%s\n' "${RELEASE_OLD_APIS[@]}" > "$RELEASE_BACKUP/previous-api-services.txt"
 curl -fsS --max-time 5 -H 'Host: aiminingpolicy.com' http://127.0.0.1:3000/api/health > "$RELEASE_BACKUP/previous-health.json"
 RELEASE_OLD_VERSION=$(python3 - "$RELEASE_BACKUP/previous-health.json" <<'PYP'
 import json,sys,re
@@ -106,7 +140,7 @@ x=json.load(open(sys.argv[1]));assert x.get('ok') is True and x.get('db')=='ok' 
 PYP
 )
 RELEASE_OLD_IMAGE=$(docker inspect --format '{{.Image}}' amp-web-1)
-for role in public-api private-api web worker; do
+for role in "${RELEASE_OLD_APIS[@]}" web worker; do
   [[ $(docker inspect --format '{{.Image}} {{.State.Running}}' "amp-$role-1") == "$RELEASE_OLD_IMAGE true" ]]
   docker exec "amp-$role-1" sh -c '
     set -- apps packages industry scripts assets reference database deploy node_modules package.json pnpm-lock.yaml pnpm-workspace.yaml
@@ -148,6 +182,7 @@ phase prepare_switch
 RELEASE_SWITCHED=1
 cmp -s "$RELEASE_ROOT/deploy/Caddyfile" "$RELEASE_STAGE/deploy/Caddyfile" || RELEASE_CADDY_CHANGED=1
 rsync -a --delete --exclude='.env*' --exclude=.ops --exclude=.data --exclude=.git --exclude=.credentials --exclude=node_modules "$RELEASE_STAGE/" "$RELEASE_ROOT/"
+read_api_topology
 set_value APP_IMAGE "$RELEASE_IMAGE"
 set_value AMP_RELEASE "$RELEASE_ID"
 export APP_IMAGE=$RELEASE_IMAGE AMP_RELEASE=$RELEASE_ID
@@ -155,15 +190,15 @@ phase migrate
 # Existing source settings and permissions are retained; this run never executes seed or source repair.
 dc run --rm --no-deps setup node scripts/migrate.ts
 phase model_storage
-# Stop the only remaining credential writer before checking for existing encrypted connections.
-dc stop -t 15 private-api
+# Stop previous API processes before changing credential storage or activating the new topology.
+for role in "${RELEASE_OLD_APIS[@]}"; do docker stop -t 15 "amp-$role-1"; done
 RELEASE_MODEL_CONNECTIONS=$(docker exec amp-db-1 psql -X -q -A -t -v ON_ERROR_STOP=1 -U amp -d amp -c 'SELECT count(*) FROM ai.model_connections')
 cp -p "$RELEASE_BACKUP/environment" "$RELEASE_BACKUP/environment-before-model-vault"
 AMP_RELEASE_LOCK_HELD=1 python3 deploy/ensure_model_vault.py "$RELEASE_ROOT/.env" "$RELEASE_BACKUP/environment" "$RELEASE_MODEL_CONNECTIONS"
 # Apply the named Owner decision before any new worker can collect or call a model.
 dc run --rm --no-deps -e AMP_RELEASE_LOCK_HELD=1 setup node scripts/apply-release-controls.ts
 phase activate
-dc up -d --no-deps --no-build --pull never --force-recreate public-api private-api web
+dc up -d --no-deps --no-build --pull never --force-recreate "${RELEASE_CURRENT_APIS[@]}" web
 health "$RELEASE_ID"
 for page in / /all /policies /metals /feedback /privacy /api/site/content-version; do
   code=$(curl -sS -o /dev/null --max-time 15 -H 'Host: aiminingpolicy.com' -w '%{http_code}' "http://127.0.0.1:3000$page")
@@ -171,7 +206,7 @@ for page in / /all /policies /metals /feedback /privacy /api/site/content-versio
 done
 if [[ $RELEASE_CADDY_CHANGED == 1 ]]; then dc --profile https up -d --no-deps --no-build --pull never --force-recreate caddy; fi
 dc up -d --no-deps --no-build --pull never --force-recreate worker
-for role in public-api private-api web worker; do
+for role in "${RELEASE_CURRENT_APIS[@]}" web worker; do
   [[ $(docker inspect --format '{{.State.Running}}' "amp-$role-1") == true ]]
 done
 health "$RELEASE_ID"

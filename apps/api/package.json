@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "API_ROLE=public-api node --watch --env-file-if-exists=../../.env src/main.ts",
+    "dev": "API_ROLE=api node --watch --env-file-if-exists=../../.env src/main.ts",
     "dev:private": "API_ROLE=private-api API_PORT=3002 node --watch --env-file-if-exists=../../.env src/main.ts",
-    "start": "API_ROLE=public-api node src/main.ts",
+    "start": "API_ROLE=api node src/main.ts",
     "start:private": "API_ROLE=private-api API_PORT=3002 node src/main.ts"
   },
   "dependencies": {

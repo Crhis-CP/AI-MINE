@@ -22,7 +22,7 @@
 
 ```text
 apps/web              读者站（SSR）+ 登录后的 /admin 后台；经 API 客户端读取后端
-apps/api              HTTP 组合根；同一镜像以 public-api / private-api 两个角色运行
+apps/api              HTTP 组合根；默认统一 api 进程，公开与后台路由共存，后台逐请求鉴权；旧角色仅作迁移兼容
 apps/worker           任务组合根：各模块 jobs；队列按 <lane>.<stage> 划分
 apps/fetcher          隔离验证用抓取夹具服务（不是现行生产采集服务）
 packages/backend     采集、内容、事件、发布、法规、报告、模型与运行管理

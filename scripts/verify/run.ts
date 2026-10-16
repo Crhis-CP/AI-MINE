@@ -15,7 +15,7 @@ import { checkWebSplit } from "./web-split.ts";
 //   VERIFY_EXECUTOR_ID   a name for this executor in the receipt (never the host name)
 //   VERIFY_SKIP          stages to skip, comma-separated (e.g. compose-smoke where Docker cannot pull images)
 //   VERIFY_PASS_ENV      extra variable names the checks may see, comma-separated
-//   VERIFY_WEB_PORT / VERIFY_API_PORT / VERIFY_PRIVATE_API_PORT   smoke ports (default 3000 / 3001 / 3002)
+//   VERIFY_WEB_PORT / VERIFY_API_PORT   smoke ports (default 3000 / 3001 / 3002)
 // A stage that is skipped, for any reason, makes the receipt `scope: focused`: it records what ran and cannot
 // be used to merge.
 import { randomBytes } from "node:crypto";
@@ -35,7 +35,7 @@ import { checkTasks } from "./tasks.ts";
 import { checkRoleConfig } from "./role-config.ts";
 import { backendTestGroups, runRoleTests } from "./role-tests.ts";
 import { siteChildEnvironments } from "./api-harness.ts";
-import { checkApiSplit } from "./api-split.ts";
+import { checkApiTopology } from "./api-topology.ts";
 import { stopSiteProcesses } from "./site-processes.ts";
 import { webEnvironment } from "../../apps/web/runtime-env.ts";
 import { checkRuntime, checkToolchain, trackedFiles } from "./toolchain.ts";
@@ -127,7 +127,6 @@ const skip = [...list(option("--skip")), ...list(process.env.VERIFY_SKIP)];
 const passEnv = [...PASS_ENV, ...list(process.env.VERIFY_PASS_ENV)];
 const webPort = Number(process.env.VERIFY_WEB_PORT || 3000);
 const apiPort = Number(process.env.VERIFY_API_PORT || 3001);
-const privateApiPort = Number(process.env.VERIFY_PRIVATE_API_PORT || 3002);
 
 /** The environment the checks run with: an allowlist of the caller's variables plus what the stage sets. */
 function childEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
@@ -220,7 +219,6 @@ function siteEnv(db: Db): Record<string, string> {
     DATABASE_URL: db.url,
     SITE_URL: `http://127.0.0.1:${webPort}`,
     API_BASE_URL: `http://127.0.0.1:${apiPort}`,
-    PRIVATE_API_BASE_URL: `http://127.0.0.1:${privateApiPort}`,
     WEB_PORT: String(webPort),
     API_PORT: String(apiPort),
     SESSION_SECRET: randomBytes(24).toString("hex"),
@@ -487,26 +485,23 @@ const STAGES: Stage[] = [
     after: ["build-web", "migrations"],
     needsDb: true,
     run: async ({ log, env, db }) => {
-      for (const port of [webPort, apiPort, privateApiPort])
-        if (!(await portFree(port))) return fail(`port ${port} is in use (set VERIFY_WEB_PORT / VERIFY_API_PORT / VERIFY_PRIVATE_API_PORT)`);
+      for (const port of [webPort, apiPort]) if (!(await portFree(port))) return fail(`port ${port} is in use (set VERIFY_WEB_PORT / VERIFY_API_PORT)`);
       // The site runs with collection and model calls off, as in the upstream workflow.
       const e = env({ ...siteEnv(db!), COLLECT_ENABLED: "false", MODEL_CALLS_ENABLED: "false" });
       const childEnvs = siteChildEnvironments(e);
       const children: ReturnType<typeof start>[] = [];
       const base = `http://127.0.0.1:${webPort}`;
       try {
-        children.push(start("node", ["apps/api/src/main.ts"], { log, env: childEnvs["public-api"] }));
-        children.push(start("node", ["apps/api/src/main.ts"], { log, env: childEnvs["private-api"] }));
+        children.push(start("node", ["apps/api/src/main.ts"], { log, env: childEnvs.api }));
         children.push(start("node", ["server.ts"], { log, env: childEnvs.web, cwd: path.join(ROOT, "apps/web") }));
-        for (const origin of [base, e.API_BASE_URL!, e.PRIVATE_API_BASE_URL!])
+        for (const origin of [base, e.API_BASE_URL!])
           if (!(await waitFor(`${origin}/api/health`, 60))) return fail("an API did not answer /api/health within 60 s");
-        const splitProblems = await checkApiSplit({
+        const topologyProblems = await checkApiTopology({
           webUrl: base,
-          publicUrl: e.API_BASE_URL!,
-          privateUrl: e.PRIVATE_API_BASE_URL!,
+          apiUrl: e.API_BASE_URL!,
           privateHost: childEnvs.web.PRIVATE_HOST,
         });
-        if (splitProblems.length) return problems(splitProblems, log, "API split");
+        if (topologyProblems.length) return problems(topologyProblems, log, "API topology");
         if ((await run("node", ["scripts/smoke.ts", "--base", base], { log, env: e })) !== 0) return fail("smoke check failed");
         // The official MCP client (it calls get_story only when the hot list has a story, so not on this empty
         // database), then the name check on what readers and machines get: whole answers, every MCP tool
@@ -599,13 +594,12 @@ const STAGES: Stage[] = [
             "--entrypoint",
             "node",
             "setup",
-            "scripts/verify/api-split.ts",
+            "scripts/verify/api-topology.ts",
             "http://web:3000",
-            "http://public-api:3001",
-            "http://private-api:3002",
+            "http://api:3001",
           )) !== 0
         )
-          return fail("compose API split check failed");
+          return fail("compose API topology check failed");
         const seeded = await capture(
           "docker",
           [

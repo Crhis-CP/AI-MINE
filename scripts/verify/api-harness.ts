@@ -70,10 +70,9 @@ function localOrigin(value: string): URL {
 /** Local smoke/baseline fixtures never borrow the caller's authentication keys. */
 export function siteChildEnvironments(input: Environment) {
   const site = localOrigin(input.SITE_URL || "http://127.0.0.1:3000");
-  const publicApi = localOrigin(input.API_BASE_URL || "http://127.0.0.1:3001");
-  const privateApi = localOrigin(input.PRIVATE_API_BASE_URL || "http://127.0.0.1:3002");
+  const apiOrigin = localOrigin(input.API_BASE_URL || "http://127.0.0.1:3001");
   const port = (url: URL) => url.port || "80";
-  if (new Set([site, publicApi, privateApi].map(port)).size !== 3) throw new Error("Harness ports must be distinct");
+  if (new Set([site, apiOrigin].map(port)).size !== 2) throw new Error("Harness ports must be distinct");
   const base = {
     ...pick(input, RUNTIME),
     NODE_ENV: "production",
@@ -85,12 +84,10 @@ export function siteChildEnvironments(input: Environment) {
   };
   const api = (role: ApiRole, url: URL) => apiChildEnvironment(role, { ...base, API_HOST: url.hostname.replace(/^\[|\]$/g, ""), API_PORT: port(url) });
   return {
-    "public-api": api("public-api", publicApi),
-    "private-api": api("private-api", privateApi),
+    api: api("api", apiOrigin),
     web: webEnvironment({
       ...base,
-      API_BASE_URL: publicApi.origin,
-      PRIVATE_API_BASE_URL: privateApi.origin,
+      API_BASE_URL: apiOrigin.origin,
       WEB_HOST: site.hostname.replace(/^\[|\]$/g, ""),
       WEB_PORT: port(site),
       TRUST_PROXY: "false",
