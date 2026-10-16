@@ -17,6 +17,7 @@ import { BudgetExceededError, markStalePendingReceipts, paidRequest, ReceiptUnkn
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
+import { changeOwnerLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 
 const sql = dbOf("ai-gateway");
 async function versionFor(id: number) {
@@ -233,18 +234,13 @@ async function stoppedArticle(purpose: string, needsBody = false) {
   return { articleId, receiptId: receipt!.id, request };
 }
 
-test("only documented non-billing requeues the failed articles of all five analysis steps", async () => {
+test("unknown news analysis recovers all five steps once after 30 minutes", async () => {
   const ids: string[] = [];
   for (const purpose of ["prefilter_article", "score_article", "understand_article", "summarize_article", "structure_article"]) {
     const { articleId, receiptId } = await stoppedArticle(purpose);
     ids.push(articleId);
     await sql`UPDATE receipts SET updated_at = now() - interval '31 minutes' WHERE id = ${receiptId}`;
-    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
-    assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${articleId}`)[0].processing_state, "failed");
-    assert.equal(
-      (await releaseReceipt(receiptId, { billed: false, note: "provider console confirms no charge", version: await versionFor(receiptId) }, "test"))?.requeued,
-      true,
-    );
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
   }
   const rows = await sql<{ state: string; attempts: number; retry: Date | null; error: string | null }[]>`
     SELECT processing_state AS state, processing_attempts AS attempts, processing_retry_at AS retry, processing_error AS error
@@ -254,6 +250,91 @@ test("only documented non-billing requeues the failed articles of all five analy
   const jobs = await sql`SELECT id FROM pgboss.job WHERE name = 'content.analyze' AND data->>'articleId' = ANY(${ids}::text[])`;
   assert.equal(jobs.length, ids.length, "each article has a real processing job");
   assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 }, "a released receipt is not queued twice");
+});
+
+test("news recovery retains unknown charges, releases once concurrently, and manual resolution affects only the latest attempt", async () => {
+  const stopped = await stoppedArticle("score_article");
+  const lost = async () => {
+    throw new Error("synthetic timeout");
+  };
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+  // Production receipts predating explicit lane metadata still belong to their news-analysis purpose.
+  await sql`UPDATE receipts SET request=request-'lane',updated_at=now()-interval '31 minutes' WHERE id=${stopped.receiptId}`;
+  const result = await Promise.all([autoReleaseUnknownReceipts(), autoReleaseUnknownReceipts()]);
+  assert.equal(
+    result.reduce((n, r) => n + r.released, 0),
+    1,
+  );
+  assert.equal(
+    result.reduce((n, r) => n + r.requeued, 0),
+    1,
+  );
+  const [first] = await sql`SELECT a.status,a.error,u.state FROM receipt_attempts a JOIN ai.usage_attempts u ON u.attempt_id=a.id
+    WHERE a.receipt_id=${stopped.receiptId} AND a.attempt=1`;
+  assert.equal(first.status, "unknown");
+  assert.equal(first.state, "unknown");
+  assert.match(first.error, /socket hang up after sending/);
+  await assert.rejects(paidRequest(stopped.request, lost), ReceiptUnknownError);
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${stopped.receiptId}`;
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+  await assert.rejects(paidRequest(stopped.request, lost), ReceiptUnknownError);
+  assert.equal((await sql`SELECT attempts FROM receipts WHERE id=${stopped.receiptId}`)[0].attempts, 2);
+  await releaseReceipt(stopped.receiptId, { billed: false, note: "second attempt confirmed unbilled", version: await versionFor(stopped.receiptId) }, "test");
+  const attempts = await sql`SELECT a.status,u.state FROM receipt_attempts a JOIN ai.usage_attempts u ON u.attempt_id=a.id
+    WHERE a.receipt_id=${stopped.receiptId} ORDER BY a.attempt`;
+  assert.deepEqual(
+    attempts.map((r) => ({ ...r })),
+    [
+      { status: "unknown", state: "unknown" },
+      { status: "failed", state: "failed" },
+    ],
+  );
+});
+
+test("news recovery does not reset a later material revision or release policy and translation receipts", async () => {
+  const old = await stoppedArticle("structure_article");
+  await sql`UPDATE articles SET revision=2 WHERE id=${old.articleId}`;
+  const policy = await stoppedArticle("score_article");
+  await sql`UPDATE receipts SET request=jsonb_set(request,'{lane}','"policy"') WHERE id=${policy.receiptId}`;
+  const translation = await stoppedArticle("translate_body");
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id IN ${sql([old.receiptId, policy.receiptId, translation.receiptId])}`;
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 0 });
+  assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${old.articleId}`)[0].processing_state, "failed");
+  const retained = await sql`SELECT status FROM receipts WHERE id IN ${sql([policy.receiptId, translation.receiptId])}`;
+  assert.ok(retained.every((r) => r.status === "unknown"));
+});
+
+test("a news processing pause and an audit failure retain the automatic recovery opportunity", async () => {
+  const stopped = await stoppedArticle("summarize_article");
+  await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE id=${stopped.receiptId}`;
+  await changeOwnerLaneControls(
+    {
+      lane: "news",
+      mode: "processing",
+      action: "pause",
+      reason: "test recovery pause",
+      expires_at: new Date(Date.now() + 3600_000).toISOString(),
+      expected_revisions: { processing: 0 },
+    },
+    "test",
+  );
+  try {
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+    assert.equal((await sql`SELECT status FROM receipts WHERE id=${stopped.receiptId}`)[0].status, "unknown");
+  } finally {
+    await changeOwnerLaneControls({ lane: "news", mode: "processing", action: "resume", reason: "test resume", expected_revisions: { processing: 1 } }, "test");
+  }
+  await sql.unsafe(`CREATE FUNCTION fail_auto_recovery_audit() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic audit failure'; END$$;
+    CREATE TRIGGER fail_auto_recovery_audit BEFORE INSERT ON audit_log FOR EACH ROW WHEN (NEW.action='receipt.release') EXECUTE FUNCTION fail_auto_recovery_audit()`);
+  try {
+    await assert.rejects(autoReleaseUnknownReceipts(), /synthetic audit failure/);
+    assert.equal((await sql`SELECT status FROM receipts WHERE id=${stopped.receiptId}`)[0].status, "unknown");
+    assert.equal((await sql`SELECT processing_state FROM articles WHERE id=${stopped.articleId}`)[0].processing_state, "failed");
+    assert.equal((await sql`SELECT count(*)::int AS n FROM pgboss.job WHERE data->>'articleId'=${stopped.articleId}`)[0].n, 0);
+  } finally {
+    await sql.unsafe("DROP TRIGGER fail_auto_recovery_audit ON audit_log; DROP FUNCTION fail_auto_recovery_audit()");
+  }
+  assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
 });
 
 test("manual release resumes pending body reads and leaves unrelated article work alone", async () => {

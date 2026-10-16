@@ -1,5 +1,6 @@
 import { releaseUnknownReceiptUnbilled } from "@amp/backend/providers/receipts";
-import { resetFailedMaterialForRetry } from "@amp/backend/content/materials";
+import { recoverUnknownNewsOnce } from "../providers/unknown-recovery.ts";
+import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
 import { dbOf, type Db } from "../db.ts";
@@ -152,9 +153,26 @@ export async function releaseReceipt(id: number, input: unknown, actor: string) 
   return sql.begin((tx) => release(id, error, actor, note, false, tx, row));
 }
 
-/** Compatibility hook for ops.recover: elapsed time is not evidence of non-billing. */
-export async function autoReleaseUnknownReceipts(_now = Date.now()) {
-  return { released: 0, requeued: 0 };
+/** One news-analysis retry; release is not evidence of non-billing. */
+export async function autoReleaseUnknownReceipts(now = Date.now()) {
+  return recoverUnknownNewsOnce(now, async (row, db) => {
+    const subject = /^article:([a-zA-Z0-9_-]+)@([1-9][0-9]*)$/.exec(row.subject ?? "");
+    if (!subject) return false;
+    const stale = new Error("The receipt belongs to an older material revision");
+    try {
+      return await db.savepoint(async (tx) => {
+        if (!(await resetFailedMaterialForRetry(tx, subject[1]!))) return false;
+        // The reset holds the article row lock. The public read sees its committed revision;
+        // a mismatch rolls back only this reset, retaining the unrelated material's failure state.
+        const current = await readCurrentBody(subject[1]!);
+        if (!current || current.revision !== Number(subject[2])) throw stale;
+        return !!(await queueProcessing(current.id, { db: tx }));
+      });
+    } catch (error) {
+      if (error === stale) return false;
+      throw error;
+    }
+  });
 }
 
 /** Failed articles (one failure group, or all of the last 30 days) back into processing. */

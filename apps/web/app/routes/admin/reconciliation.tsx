@@ -39,7 +39,7 @@ export const meta: Route.MetaFunction = () => [{ title: `费用与投递核对 �
 export default function Reconciliation({ loaderData }: Route.ComponentProps) {
   const actions = useAdminAction();
   return (
-    <AdminPage title="费用与投递核对" subtitle="记录供应商明确确认未计费的请求，核实未确认的投递；结果未知不会自动重发。">
+    <AdminPage title="费用与投递核对" subtitle="资讯分析请求结果未知满30分钟可自动重试一次，原未知费用保留；再次未知需核对。人工放行仅限供应商确认未计费。">
       <UsageReconciliation data={loaderData} actions={actions} />
     </AdminPage>
   );

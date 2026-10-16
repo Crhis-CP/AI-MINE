@@ -16,7 +16,7 @@ import { assertRuntimeControl, requireRuntimeRunning, type RuntimeControlSnapsho
 // 2. Before calling, a placeholder row and an attempt row are persisted; budgets count attempts.
 // 3. The raw response is saved before any business write; recovery reuses a received response.
 // 4. A request whose outcome is unknown (timeout after sending, crash mid-flight) is not re-sent by the
-//    caller or a timer. Only evidence that it was not billed can permit another paid attempt.
+//    caller. News analysis recovery may release it once after 30 minutes, retaining unknown charges.
 //    A billed answer that failed validation may be bought again at most twice; the saved response is reused after that.
 import { dbOf, type Db } from "../db.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
@@ -809,7 +809,7 @@ export async function releaseUnknownReceiptUnbilled(db: Db, receiptId: number, e
     WHERE id=${receiptId} AND status='unknown' AND attempts=${observed.attempts} AND updated_at::text=${observed.version} RETURNING subject,purpose`;
   if (!before) return null;
   const attempts = await db<{ id: string }[]>`UPDATE receipt_attempts SET status='failed',error=${error}
-    WHERE receipt_id=${receiptId} AND status='unknown' RETURNING id::text`;
+    WHERE receipt_id=${receiptId} AND attempt=${observed.attempts} AND status='unknown' RETURNING id::text`;
   for (const attempt of attempts) await settleUsageAttempt(db, attempt.id, "failed");
   return before;
 }

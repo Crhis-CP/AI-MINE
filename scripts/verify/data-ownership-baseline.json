@@ -87,7 +87,7 @@
     "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/[p]\",\"platform/ops\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/errors\",\"platform/ops\",\"public.articles\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/[r]\",\"platform/ops\",\"public.reports\",\"read\",\"cross-debt\"]": 1,
-    "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/[r]\",\"platform/ops\",\"public.receipts\",\"read\",\"cross-debt\"]": 2,
+    "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/[r]\",\"platform/ops\",\"public.receipts\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/operations/alerts.ts\",\"collectFindings/queues\",\"platform/ops\",\"pgboss.job\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/operations/alerts.ts\",\"providerFindings/refused\",\"platform/ops\",\"public.receipt_attempts\",\"read\",\"cross-debt\"]": 1,
     "[\"packages/backend/src/operations/alerts.ts\",\"providerFindings/capped\",\"platform/ops\",\"public.budgets\",\"read\",\"cross-debt\"]": 1,
