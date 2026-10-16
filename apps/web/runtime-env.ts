@@ -36,6 +36,7 @@ export function webEnvironment(env: Environment): Record<string, string> {
     "TZ",
     "NO_COLOR",
     "NODE_ENV",
+    "AMP_RELEASE",
     "PORT",
     "WEB_HOST",
     "WEB_PORT",

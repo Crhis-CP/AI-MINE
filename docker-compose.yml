@@ -78,6 +78,7 @@ services:
     command: ["node", "apps/web/server.ts"]
     environment:
       NODE_ENV: production
+      AMP_RELEASE: ${AMP_RELEASE:-dev}
       SITE_URL: ${SITE_URL:-http://localhost:3000}
       API_BASE_URL: http://api:3001
       PRIVATE_HOST: ${PRIVATE_HOST:-private.localhost}

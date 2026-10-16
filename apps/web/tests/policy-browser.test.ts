@@ -114,6 +114,7 @@ before(async () => {
     env: webEnvironment({
       PATH: process.env.PATH,
       NODE_ENV: "production",
+      AMP_RELEASE: "fixture-policy-release",
       WEB_PORT: "0",
       WEB_HOST: "127.0.0.1",
       PRIVATE_HOST: "private.localhost",
@@ -226,6 +227,7 @@ test("the first policy page is server-rendered, reused after hydration and paged
     const response = await page.goto(`${origin}/policies/${complete.id}`);
     const html = await response!.text();
     assert.ok(html.includes("现行义务二十万元"));
+    assert.match(html, /name="amp-release" content="fixture-policy-release"/);
     assert.ok(!html.includes("第二页合成正文"));
     await expect(page.getByRole("button", { name: "继续读取正文", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "继续读取正文", exact: true }).click();
