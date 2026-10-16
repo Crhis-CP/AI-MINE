@@ -13,7 +13,7 @@ const sql = dbOf("identity");
 export const SESSION_COOKIE = isProduction ? "__Host-amp_admin" : "amp_admin";
 export const LOGIN_NONCE_COOKIE = isProduction ? "__Host-amp_login_nonce" : "amp_login_nonce";
 export const STATE_COOKIE = "amp_oauth_state";
-/** 上游基础方案 keeps an administrator signed in for 30 days. The cookie lifetime uses the same number. */
+/** Administrator sessions and their cookies last 30 days. */
 export const SESSION_DAYS = 30;
 /** Register this callback in the Feishu open platform when Feishu sign-in is used. */
 export const CALLBACK_URL = `${config.siteUrl}/api/auth/callback`;
@@ -242,4 +242,11 @@ export async function previousAuditedCommand(actor: string, action: string, subj
   const [row] = await db<{ after: unknown }[]>`SELECT after FROM audit_log
     WHERE actor=${actor} AND action=${action} AND subject=${subject} AND request_id=${requestId} ORDER BY id DESC LIMIT 1`;
   return row ? { result: row.after } : null;
+}
+
+/** Model settings read their own switch history through the audit owner. */
+export async function modelSwitchHistory() {
+  return sql<{ at: Date; actor: string; subject: string; reason: string | null; before: unknown; after: unknown }[]>`
+    SELECT created_at AS at,actor,subject,reason,before,after FROM audit_log
+    WHERE action='models.switch' ORDER BY created_at DESC LIMIT 30`;
 }

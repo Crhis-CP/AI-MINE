@@ -13,7 +13,15 @@ import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { bj, money, num } from "../../features/admin/format";
 import { AdminPage, Badge, Button, Card, DataTable, Empty, Field, FilterChips, ReasonDialog, Select } from "../../features/admin/ui";
 
+const usageMoney = (amount: number, currency: string | null) =>
+  currency === "CNY" || currency === "USD"
+    ? money(amount, currency)
+    : `${amount.toLocaleString("zh-CN", { maximumFractionDigits: 6 })} ${currency ?? "（币种待核对）"}`;
+
 interface Usage {
+  service?: string;
+  serviceName?: string;
+  unpricedCalls?: number;
   purpose: string;
   model: string | null;
   promptVersion: string | null;
@@ -240,9 +248,18 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                 <DataTable
                   dense
                   rows={c.usage}
-                  rowKey={(u) => `${u.purpose}|${u.model}|${u.promptVersion}`}
+                  rowKey={(u) => `${u.service}|${u.currency}|${u.purpose}|${u.model}|${u.promptVersion}`}
                   columns={[
-                    { key: "m", label: "模型", render: (u) => <span className="whitespace-nowrap font-mono text-[12px]">{u.model}</span> },
+                    {
+                      key: "m",
+                      label: "模型",
+                      render: (u) => (
+                        <div>
+                          <span className="whitespace-nowrap font-mono text-[12px]">{u.model}</span>
+                          {u.serviceName && <div className="text-[11.5px] text-ink-3">{u.serviceName}</div>}
+                        </div>
+                      ),
+                    },
                     {
                       key: "v",
                       label: "提示版本",
@@ -280,19 +297,18 @@ export default function ModelsAdmin({ loaderData: m }: Route.ComponentProps) {
                       key: "$",
                       label: "费用",
                       align: "right",
-                      render: (u) =>
-                        u.actualCost !== null ? (
-                          `${money(u.actualCost)}${u.currency && u.currency !== "CNY" ? ` ${u.currency}` : ""}`
-                        ) : u.estimate ? (
-                          <span title="按用量 × 单价推算">
-                            ≈ {money(u.estimate.amount)}
-                            {u.estimate.currency !== "CNY" ? ` ${u.estimate.currency}` : ""}
-                          </span>
-                        ) : (
-                          <span className="whitespace-nowrap text-ink-4" title="服务商没有返回费用，按 token 数和你的模型单价自己估算">
-                            未定价
-                          </span>
-                        ),
+                      render: (u) => (
+                        <div className="whitespace-nowrap">
+                          {u.actualCost !== null && <div>实际 {usageMoney(u.actualCost, u.currency)}</div>}
+                          {u.estimate && (
+                            <div title="优先采用调用时的估算记录；缺项按已登记单价和已知用量推算">
+                              估算 ≈ {usageMoney(u.estimate.amount, u.estimate.currency)}
+                            </div>
+                          )}
+                          {u.actualCost === null && !u.estimate && <span className="text-ink-4">费用待核对</span>}
+                          {!!u.unpricedCalls && <div className="text-[11.5px] text-ink-3">{num(u.unpricedCalls)} 次未取得费用记录</div>}
+                        </div>
+                      ),
                     },
                   ]}
                 />
