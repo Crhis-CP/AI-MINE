@@ -35,3 +35,31 @@ test("price HTTP belongs to the installed extension and remains a read-only publ
     await site.close();
   }
 });
+
+test("site management routes follow installation and stay absent from the legacy public API", async () => {
+  for (const role of ["api", "private-api"] as const) {
+    installModules([]);
+    const core = await buildApp(role);
+    try {
+      assert.equal(core.hasRoute({ method: "GET", url: "/api/admin/site" }), false);
+      assert.equal(core.hasRoute({ method: "GET", url: "/api/admin/source-targets" }), false);
+    } finally {
+      await core.close();
+    }
+    installModules(SERVER_MODULES);
+    const site = await buildApp(role);
+    try {
+      assert.equal(site.hasRoute({ method: "GET", url: "/api/admin/site" }), true);
+      assert.equal(site.hasRoute({ method: "GET", url: "/api/admin/source-targets" }), true);
+    } finally {
+      await site.close();
+    }
+  }
+  const reader = await buildApp("public-api");
+  try {
+    assert.equal(reader.hasRoute({ method: "GET", url: "/api/admin/site" }), false);
+    assert.equal(reader.hasRoute({ method: "GET", url: "/api/admin/source-targets" }), false);
+  } finally {
+    await reader.close();
+  }
+});

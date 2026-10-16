@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { routes, AdminSiteInformation, SiteInformation } from "@amp/contracts/http/private";
-import { readManagedSiteInformation, saveSiteInformation, protectedSiteInformation } from "@amp/backend/admin/settings";
-import { adminHandler } from "./admin-auth.ts";
-import { sendProblem } from "../http/respond.ts";
+import { protectedSiteInformation } from "@amp/backend/admin/settings";
+import { readManagedSiteInformation, saveSiteInformation } from "./information.ts";
+import { adminHandler } from "@amp/backend/admin/http";
+import { sendProblem } from "@amp/backend/http";
 export function registerAdminSite(app: FastifyInstance) {
   app.get(
     routes.adminSiteInformation.url,

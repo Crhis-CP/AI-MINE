@@ -419,15 +419,24 @@ importers:
       '@amp/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@amp/backend':
+        specifier: workspace:*
+        version: link:../../packages/backend
       '@amp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
       '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
+      '@amp/metals':
+        specifier: workspace:*
+        version: link:../metals
       '@amp/web':
         specifier: workspace:*
         version: link:../../apps/web
+      fastify:
+        specifier: 5.12.5
+        version: 5.12.5
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -468,6 +477,9 @@ importers:
       '@amp/site':
         specifier: workspace:*
         version: link:../../site
+      '@amp/site-admin':
+        specifier: workspace:*
+        version: link:../../modules/site-admin
       '@mozilla/readability':
         specifier: 0.6.0
         version: 0.6.0

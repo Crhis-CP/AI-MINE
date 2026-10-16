@@ -11,6 +11,8 @@ export interface ServerModule {
   name: string;
   http?: (app: FastifyInstance) => void | Promise<void>;
   schedules?: readonly Scheduled[];
+  /** Protected administrative extensions; never registered on the legacy reader-only API. */
+  admin?: { http?: (app: FastifyInstance) => void | Promise<void> };
 }
 export function defineServerModule(module: ServerModule): ServerModule {
   return module;

@@ -25,16 +25,16 @@ const DOMAIN_EDGES: Record<string, readonly string[]> = {
 };
 const DOMAINS = amp(Object.keys(DOMAIN_EDGES));
 // The extension registry is a named engine interface; arbitrary legacy export expansion remains rejected.
-const ENGINE_ENTRIES: Record<string, string> = { "./modules": "./src/modules.ts", "./http": "./src/http.ts" };
+const ENGINE_ENTRIES: Record<string, string> = { "./modules": "./src/modules.ts", "./http": "./src/http.ts", "./admin/http": "./src/admin/http.ts" };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": ["@amp/site"],
   "@amp/site": ["@amp/contracts", "@amp/metals", "@amp/site-admin", "@amp/web"],
-  "@amp/site-admin": ["@amp/contracts", "@amp/web", "@amp/api-client", "@amp/industry"],
+  "@amp/site-admin": ["@amp/metals", "@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client", "@amp/industry"],
   "@amp/metals": ["@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client"],
   "@amp/contracts": [],
-  "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals"],
+  "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals", "@amp/site-admin"],
   "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),
@@ -188,6 +188,9 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
           !/^packages\/backend\/src\/publication\/metal-prices\/(read|refresh|change|registry)\.ts$/.test(f)
         )
           problems.push(`${f}: metals implementation is only reachable through the temporary compatibility entries`);
+
+        if (w.name === "@amp/backend" && pkg === "@amp/site-admin" && f !== "packages/backend/src/publication/site-information.ts")
+          problems.push(`${f}: site information is only reachable through its temporary compatibility entry`);
 
         if (w.name === "@amp/backend" && pkg === "@amp/site" && ![".", "./models"].includes(entry))
           problems.push(`${f}: engine code cannot import the site's extension installation list`);

@@ -1,6 +1,4 @@
 import { serverModules } from "@amp/backend/modules";
-import { registerSourceTargets } from "./routes/admin-source-targets.ts";
-import { registerAdminSite } from "./routes/admin-site.ts";
 import { registerSiteInformation } from "./routes/site-information.ts";
 import { registerAdminModelFallback } from "./routes/admin-model-fallback.ts";
 
@@ -135,14 +133,13 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
 
   if (privateRoutes) {
     registerAdmin(app);
-    registerSourceTargets(app);
+    for (const module of serverModules()) await module.admin?.http?.(app);
     registerAdminModelFallback(app);
 
     registerOperationsMcp(app);
     registerUsageProtection(app);
 
     registerAdminAuth(app);
-    registerAdminSite(app);
   }
   if (publicRoutes) {
     registerFeeds(app);

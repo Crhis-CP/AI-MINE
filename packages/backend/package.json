@@ -78,7 +78,8 @@
     "./sources/rss": "./src/sources/rss.ts",
     "./sources/web-list": "./src/sources/web-list.ts",
     "./modules": "./src/modules.ts",
-    "./http": "./src/http.ts"
+    "./http": "./src/http.ts",
+    "./admin/http": "./src/admin/http.ts"
   },
   "dependencies": {
     "@amp/config": "workspace:*",
@@ -99,6 +100,7 @@
     "zod": "4.6.5",
     "@amp/site": "workspace:*",
     "@amp/metals": "workspace:*",
-    "fastify": "5.12.5"
+    "fastify": "5.12.5",
+    "@amp/site-admin": "workspace:*"
   }
 }

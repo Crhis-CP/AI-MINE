@@ -285,3 +285,5 @@ worker每分钟有界补齐100条旧时间投影，只更新日期及同步记�
 扩展注册通过@amp/backend/modules的具名入口完成，由API和worker启动入口安装site/modules/server清单；引擎不导入安装清单。当前通用插口是Scheduled，注册前按when筛选并检查重名，退役沿用cron队列生命周期。新增实际插口按消费者需要维护，不能用空注册表宣称矿业功能迁移完成。
 
 金属价格的解析、校验、存储和读模型已迁入modules/metals/backend，旧publication/metal-prices下仅四个兼容转发入口。共享HTTP处理位于@amp/backend/http，apps/api/http/respond仅兼容转发；公开组合根调用已安装模块的http挂口。数据库归属扫描显式涵盖site/modules运行代码，迁移不改变表名、授权或历史数据。
+
+admin/http为扩展提供统一的登录、CSRF、强制改密和错误映射包装；接口业务仍须调用requireOwner等能力检查。ServerModule.admin.http只注册到允许管理接口的组合根，不让旧公开API加载站点管理路由。
