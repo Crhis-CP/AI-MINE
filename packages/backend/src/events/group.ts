@@ -1445,7 +1445,7 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
 const REMATCH_HOURS = 6;
 
 /** Discussion posts not yet attached to any story (a post a person placed or detached is left alone). */
-const unattachedSignal = sql`
+const unattachedSignal = () => sql`
   s.participation_mode = 'hot_signal' AND a.processing_state = 'skipped'
   AND (NOT a.backfill OR a.discovered_at - a.published_at <= make_interval(secs => ${STALE_ON_DISCOVERY_MS / 1000}))
   AND NOT EXISTS (SELECT 1 FROM story_signals ss WHERE ss.article_id = a.id)
@@ -1473,7 +1473,7 @@ async function rematchSignals(articleId: string, queryText: string): Promise<num
   if (useVectors && !mine) return 0;
   const posts = await sql<{ id: string; title: string; body_text: string | null }[]>`
     SELECT a.id, a.title, a.body_text FROM articles a JOIN sources s ON s.id = a.source_id
-    WHERE a.discovered_at > now() - make_interval(hours => ${REMATCH_HOURS}) AND ${unattachedSignal}`;
+    WHERE a.discovered_at > now() - make_interval(hours => ${REMATCH_HOURS}) AND ${unattachedSignal()}`;
   const vectors = useVectors ? await vectorsFor(posts.map((p) => ({ id: p.id, text: signalText(p) }))) : new Map<string, Float32Array>();
   let close = 0;
   for (const p of posts) {

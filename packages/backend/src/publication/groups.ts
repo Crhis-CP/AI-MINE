@@ -179,7 +179,7 @@ export async function loadDevelopments(q: DevelopmentsQuery, now = new Date()): 
     page.length
       ? (
           await sql<ItemRow[]>`
-    SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN ${sql(page.map((d) => d.representativeId))}
+    SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN ${sql(page.map((d) => d.representativeId))}
       AND p.story_id = ${story.id} AND ${scope} ${filters}`
         ).map((row) => [row.id, row])
       : [],
@@ -201,7 +201,7 @@ export async function reportCandidateRows(start: Date, end: Date) {
     // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
     // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
     await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    const rows = await tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+    const rows = await tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
       LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
       WHERE p.visibility='public' AND p.eligible AND p.selected AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
         AND p.timeline_at>=${new Date(start.getTime() - 86400000)} AND greatest(p.timeline_at,p.visible_after)>=${start}
@@ -256,7 +256,8 @@ export interface ReportInputRow {
   selection_candidate: boolean;
   visible_after: Date | null;
 }
-const REPORT_INPUT_COLUMNS = sql`p.article_id AS id,p.revision,p.title,p.summary,p.url,p.category,p.tags,p.score,p.first_party,p.body_mode,p.representative_priority,
+const REPORT_INPUT_COLUMNS =
+  () => sql`p.article_id AS id,p.revision,p.title,p.summary,p.url,p.category,p.tags,p.score,p.first_party,p.body_mode,p.representative_priority,
   p.source_id,s.name AS source_name,s.kind AS source_kind,p.fact_id,f.public_id AS fact_public_id,f.story_id,st.public_id::text AS story_public_id,
   p.timeline_at,p.selected,p.selection_candidate,p.visible_after`;
 
@@ -264,7 +265,7 @@ const REPORT_INPUT_COLUMNS = sql`p.article_id AS id,p.revision,p.title,p.summary
 export async function reportWindowEvidence(start: Date, end: Date) {
   return sql.begin("isolation level read committed", async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    return tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+    return tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
       LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
       WHERE p.visibility='public' AND p.eligible AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
         AND p.timeline_at>=${new Date(start.getTime() - 86400000)} AND p.timeline_at<${end}
@@ -274,7 +275,7 @@ export async function reportWindowEvidence(start: Date, end: Date) {
 
 export async function reportFactEvidence(factIds: number[], end: Date) {
   if (!factIds.length) return [];
-  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
     JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
     WHERE p.fact_id=ANY(${factIds}::bigint[]) AND p.visibility='public' AND p.eligible
       AND s.lane='news' AND s.participation_mode='editorial' AND p.timeline_at<${end}
@@ -291,7 +292,7 @@ export async function reportCurrentIdentities(ids: string[]) {
 /** Weekly/monthly compilation reads only the current public reports named by published dailies. */
 export async function reportPublicInputs(ids: string[]) {
   if (!ids.length) return [];
-  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS()} FROM publications p JOIN sources s ON s.id=p.source_id
     LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
     WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible
       AND s.lane='news' AND s.participation_mode='editorial' ORDER BY p.article_id`;

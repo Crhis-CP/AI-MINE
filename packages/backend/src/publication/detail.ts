@@ -60,11 +60,11 @@ function withOutline(html: string): { html: string; outline: OutlineEntry[] } {
 
 async function loadRow(id: string): Promise<DetailRow | null> {
   const [row] = await sql<DetailRow[]>`
-    SELECT ${ITEM_COLUMNS}, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
+    SELECT ${ITEM_COLUMNS()}, p.first_public_at, (SELECT label FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_revision_label, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.body_text, a.body_status, a.revision AS content_revision, s.site_fulltext AS source_site_fulltext,
       s.syndicate_fulltext AS source_syndicate_fulltext,p.summary AS machine_summary,
       jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
         'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
-    ${ITEM_FROM}
+    ${ITEM_FROM()}
     WHERE p.article_id = ${id}`;
   if (row) await attachSourcePolicies([row]);
   return row ?? null;
@@ -184,7 +184,7 @@ export async function loadItemDetail(id: string, now = new Date(), machine = fal
 
 /** Current public event members: first-party representation and the latest distinct fact stay separate. */
 async function eventCoverage(storyId: number, now: Date, machine: boolean): Promise<NonNullable<ItemDetail["eventCoverage"]> | null> {
-  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS},p.summary AS machine_summary ${ITEM_FROM}
+  const rows = await sql<(ItemRow & { machine_summary: string | null })[]>`SELECT ${ITEM_COLUMNS()},p.summary AS machine_summary ${ITEM_FROM()}
     WHERE p.story_id=${storyId} AND p.visibility='public' AND p.eligible AND s.participation_mode='editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.timeline_at ASC,p.article_id ASC`;
@@ -245,7 +245,7 @@ export async function machineItemDetail(id: string, language: "zh" | "original" 
 /** Current source-time and geography evidence, projected without raw source metadata. */
 export async function publicItemMetadata(id: string) {
   const [meta] = await sql<{ source_time: unknown; jurisdictions: string[] | null }[]>`
-    SELECT ${CURRENT_SOURCE_TIME} AS source_time,
+    SELECT ${CURRENT_SOURCE_TIME()} AS source_time,
       g.jurisdictions FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}
       WHERE p.article_id=${id}`;

@@ -252,6 +252,29 @@ export function extractOwnership(root: string, files = ownershipFiles(root)) {
               return value;
             }
           }
+          // A fixed, zero-argument factory can supply a whole SQL clause. Expand only a native
+          // tagged template body; do not evaluate functions, parameters, statements or mutable bindings.
+          if (ts.isCallExpression(item) && !item.arguments.length) {
+            const declared = declaration(checker, item.expression);
+            const factory = declared && ts.isVariableDeclaration(declared) && declared.parent.flags & ts.NodeFlags.Const ? declared.initializer : null;
+            if (
+              factory &&
+              ts.isArrowFunction(factory) &&
+              !factory.parameters.length &&
+              !factory.typeParameters?.length &&
+              !factory.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.AsyncKeyword) &&
+              ts.isTaggedTemplateExpression(factory.body) &&
+              postgresTag(checker, factory.body.tag)
+            ) {
+              if (seen.has(factory)) return [hole({ kind: "sql" })];
+              seen.add(factory);
+              if (item === input && kind === "unresolved-call") reasons.shift();
+              remember(factory);
+              const value = render(factory.body);
+              seen.delete(factory);
+              return value;
+            }
+          }
           if (ts.isCallExpression(item) && postgresTag(checker, item.expression))
             return [hole({ kind: "identifier", value: item.arguments[0] && constant(item.arguments[0]) })];
           const fragments =

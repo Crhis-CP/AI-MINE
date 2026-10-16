@@ -190,7 +190,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
         SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
         EXISTS(SELECT 1 FROM publication.manual_copies m JOIN articles current_article ON current_article.id=m.article_id
           WHERE m.article_id=p.article_id AND m.material_revision=current_article.revision AND m.state IN ('active','needs_review')) AS human_edited,
         (p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS syndicate, a.language, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review') AND p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS manual_body_html, CASE WHEN p.syndicate AND s.site_fulltext AND s.syndicate_fulltext THEN a.body_html END AS body_html, a.revision AS content_revision,
@@ -205,7 +205,7 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
         SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME()} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
         EXISTS(SELECT 1 FROM publication.manual_copies m JOIN articles current_article ON current_article.id=m.article_id
           WHERE m.article_id=p.article_id AND m.material_revision=current_article.revision AND m.state IN ('active','needs_review')) AS human_edited
       FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id

@@ -194,7 +194,7 @@ async function queryPool(
         WITH page AS (
           SELECT p.article_id FROM publications p WHERE ${listedCondition(now)} AND p.eligible ${filters} ${jurisdictionCondition(query.jurisdiction ?? null, query.jurisdictionCodes, query.jurisdictionRecipe ?? "", names)}
           ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
-        SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
+        SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
         ORDER BY p.timeline_at DESC, p.article_id DESC`;
       return {
         rows,
@@ -243,7 +243,7 @@ async function queryPool(
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
-          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id
+          SELECT ${ITEM_COLUMNS()}, page.rel ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
         ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`
         : await db<RankedRow[]>`
         WITH matches AS NOT MATERIALIZED (SELECT ps.article_id,(${partScore}) AS part FROM pool_search ps WHERE ${anyMatch}), scored AS MATERIALIZED (
@@ -255,7 +255,7 @@ async function queryPool(
           LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset}
         ), total AS (SELECT count(*) AS n FROM (SELECT 1 FROM scored) capped)
         SELECT hydrated.*, total.n AS total FROM total LEFT JOIN LATERAL (
-          SELECT ${ITEM_COLUMNS}, page.rel ${ITEM_FROM} JOIN page ON page.article_id = p.article_id
+          SELECT ${ITEM_COLUMNS()}, page.rel ${ITEM_FROM()} JOIN page ON page.article_id = p.article_id
         ) hydrated ON true ORDER BY hydrated.rel DESC, hydrated.timeline_at DESC, hydrated.id DESC`;
       const rows = result.filter((r): r is ItemRow & { rel: number; total: number } => r.id !== null);
       return { rows, total: Number(result[0]!.total) };
@@ -271,7 +271,7 @@ async function queryPool(
           AND (${!textMatchers.term4.active} OR ${publicationTextMatches(textMatchers.term4)})
           AND (${!textMatchers.term5.active} OR ${publicationTextMatches(textMatchers.term5)})
         ORDER BY p.timeline_at DESC, p.article_id DESC LIMIT ${POOL_PAGE_SIZE} OFFSET ${offset})
-      SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
+      SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
       ORDER BY p.timeline_at DESC, p.article_id DESC`;
     const direct = sql`(${!textMatchers.term0.active} OR ${poolDirectTextMatches(textMatchers.term0)})
       AND (${!textMatchers.term1.active} OR ${poolDirectTextMatches(textMatchers.term1)})

@@ -23,7 +23,8 @@ export function publicSourceTime(value: unknown): TimeAssertion | null {
   return result.utc ? { ...result, label: `${result.label}（北京时间）` } : result;
 }
 /** p/a/s are the shared publication, current material and public source aliases. */
-export const CURRENT_SOURCE_TIME = sql`CASE WHEN p.source_date_version>0 AND p.source_time_material_revision=a.revision AND p.source_date_version=a.source_date_version
+export const CURRENT_SOURCE_TIME =
+  () => sql`CASE WHEN p.source_date_version>0 AND p.source_time_material_revision=a.revision AND p.source_date_version=a.source_date_version
   AND p.source_date_config_hash=s.source_date_config_hash THEN p.source_time ELSE NULL END`;
 export function sourceInstant(value: unknown): Date | null {
   const time = publicSourceTime(value);

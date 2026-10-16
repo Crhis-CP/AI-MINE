@@ -51,9 +51,10 @@ type Edition = {
   discovered_at: Date | null;
 };
 type View = { row: Edition; card: PolicyCard; complete: boolean; readable: Record<"original" | "official_translation" | "ai_translation", boolean> };
-const columns = sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id,e.source_id,e.permission_version,e.policy_version_id,e.original_content_key,e.source_language,e.preferred_source_language,e.expression_ids,e.revision_ids,
+const columns =
+  () => sql`e.id,e.policy_id,e.native_expression_id,e.native_revision_id,e.source_id,e.permission_version,e.policy_version_id,e.original_content_key,e.source_language,e.preferred_source_language,e.expression_ids,e.revision_ids,
  e.public_resources,e.basic_card,e.complete_card,e.quality_id,q.binding_version,q.valid_until,q.revoked,d.withdrawn,d.automatic_excluded,e.released_at,e.discovered_at`;
-const join = sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
+const join = () => sql`FROM publication.policy_editions e JOIN publication.policy_documents d ON d.id=e.policy_id
  LEFT JOIN publication.policy_quality_windows q ON q.id=e.quality_id`;
 function context() {
   return { now: Date.now(), permissions: new Map<string, ReturnType<typeof readCurrentPublicPolicy>>(), languageViews: new Map<string, Promise<View[]>>() };
@@ -262,8 +263,8 @@ export async function policyScope(jurisdictions = false) {
 async function editions(id: string, details = false) {
   return sql<
     Edition[]
-  >`SELECT ${columns},${details ? sql`e.basic_detail,e.complete_detail,e.reading` : sql`NULL AS basic_detail,NULL AS complete_detail,NULL AS reading`}
- ${join} WHERE e.policy_id=${id} ORDER BY e.released_at DESC,e.id DESC`;
+  >`SELECT ${columns()},${details ? sql`e.basic_detail,e.complete_detail,e.reading` : sql`NULL AS basic_detail,NULL AS complete_detail,NULL AS reading`}
+ ${join()} WHERE e.policy_id=${id} ORDER BY e.released_at DESC,e.id DESC`;
 }
 async function ensureDocument(id: string) {
   const [row] = await sql`SELECT id,withdrawn FROM publication.policy_documents WHERE id=${id}`;
@@ -450,7 +451,9 @@ export async function policyHistory(id: string, q: { cursor?: string; limit: num
 /** Internal report references: include eligible historical editions; callers keep exact edition IDs. */
 export async function policyPublicMembers(editionIds: string[]) {
   if (!editionIds.length) return [];
-  const rows = await sql<Edition[]>`SELECT ${columns},e.basic_detail,e.complete_detail,NULL AS reading ${join} WHERE e.id IN ${sql([...new Set(editionIds)])}`;
+  const rows = await sql<
+    Edition[]
+  >`SELECT ${columns()},e.basic_detail,e.complete_detail,NULL AS reading ${join()} WHERE e.id IN ${sql([...new Set(editionIds)])}`;
   const out = [];
   const ctx = context();
   for (const row of rows) {

@@ -177,7 +177,7 @@ export async function loadTopicPage(slug: string, page: number, now = new Date()
       WHERE ${listedCondition(now)} AND p.eligible AND ${topicTextMatches(match)}
       ORDER BY p.timeline_at DESC, p.article_id DESC
       LIMIT ${TOPIC_PAGE_SIZE} OFFSET ${offset})
-    SELECT ${ITEM_COLUMNS} ${ITEM_FROM} WHERE p.article_id IN (SELECT article_id FROM page)
+    SELECT ${ITEM_COLUMNS()} ${ITEM_FROM()} WHERE p.article_id IN (SELECT article_id FROM page)
     ORDER BY p.timeline_at DESC, p.article_id DESC`;
   const related = row.related
     .map((r) => topics.find((t) => t.slug === r))
