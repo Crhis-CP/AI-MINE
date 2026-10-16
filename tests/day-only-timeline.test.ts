@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource } from "./crawl-fixture.ts";
 import { publishArticle } from "@amp/backend/publication/publish";
@@ -19,7 +19,6 @@ import { setVisibility } from "@amp/backend/admin/content";
 import { beijingDate } from "@amp/contracts/time";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("content");
 const T = tag();
 const LIST = `test-dayonly-${T}`;
 const DETAIL = `test-dayonly-detail-${T}`;

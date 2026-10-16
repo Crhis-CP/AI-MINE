@@ -9,7 +9,7 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
-import { dbOf, initializeDb, closeDb } from "@amp/backend/db";
+import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { upsertMaterial, readCurrentBody, newsMaterialBindings } from "@amp/backend/content/materials";
 import { config } from "@amp/backend/config";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
@@ -30,8 +30,7 @@ import { ModelFallbackBlocked, ModelContentFiltered } from "../packages/backend/
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "../packages/backend/src/admin/sources.ts";
-const sql = dbOf("ai-gateway"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 process.env.MODEL_REGISTRY_ENCRYPTION_KEY = Buffer.alloc(32, 28).toString("base64");
 config.modelCallsEnabled = true;
 after(closeDb);

@@ -8,7 +8,7 @@ import { z } from "zod";
 import { createDatabaseAccess } from "@amp/config";
 import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { chatJson, ModelOutputError } from "@amp/backend/providers/llm";
 import { installUsageFixtureForModel, installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
@@ -27,7 +27,6 @@ import { prepareNewsFallback } from "../packages/backend/src/providers/news-fall
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { changeOwnerLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 
-const sql = dbOf("ai-gateway");
 async function versionFor(id: number) {
   const [row] = await sql<{ receiptId: string; attempts: number; updatedAtUtc: string }[]>`SELECT id::text AS "receiptId", attempts,
     pg_catalog.to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAtUtc" FROM receipts WHERE id=${id}`;

@@ -1,7 +1,7 @@
 import { tag } from "./setup.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { pushSelected } from "../packages/backend/src/notify/selected.ts";
@@ -12,7 +12,7 @@ import { buildApp } from "./site-app.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
-const sql = dbOf("publication");
+
 const app = await buildApp("public-api");
 after(async () => {
   await app.close();

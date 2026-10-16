@@ -16,7 +16,8 @@ export async function privateProducerFixture(t: TestContext) {
   process.env.SESSION_SECRET = "test-session-secret-0123456789";
   const { createDatabaseAccess } = await import("@amp/config");
   const { config } = await import("@amp/backend/config");
-  const { closeDb, dbOf, initializeDb } = await import("@amp/backend/db");
+  const databaseModule = await import("@amp/backend/db");
+  const { closeDb, initializeDb } = databaseModule;
   const { enqueue, stopBoss } = await import("@amp/backend/jobs/queue");
   const { buildApp } = await import("./site-app.ts");
   const { adminHandler } = await import("../apps/api/src/routes/admin-auth.ts");
@@ -83,7 +84,7 @@ export async function privateProducerFixture(t: TestContext) {
               : undefined;
           return enqueue(name, { fixture: true }, { ...(key ? { singletonKey: key } : {}), ...(db ? { db } : {}) }, db ? undefined : tx);
         };
-        return { id: transaction ? await dbOf("queue").begin(send) : await send() };
+        return { id: transaction ? await databaseModule.sql.begin(send) : await send() };
       } catch (error) {
         lastError = error;
         throw error;
@@ -192,7 +193,7 @@ export function pauseQueueRead(producer: Awaited<ReturnType<typeof import("@amp/
 
 /** Invoke the original HTTP handler inside a caller transaction that blocks one producer connection. */
 export async function prepareLockedTransaction(f: Awaited<ReturnType<typeof privateProducerFixture>>, run: (tx: Db) => Promise<unknown>) {
-  const { dbOf } = await import("@amp/backend/db");
+  const databaseModule = await import("@amp/backend/db");
   const { getBoss } = await import("@amp/backend/jobs/queue");
   const { adminHandler } = await import("../apps/api/src/routes/admin-auth.ts");
   const producer = await getBoss();
@@ -201,7 +202,7 @@ export async function prepareLockedTransaction(f: Awaited<ReturnType<typeof priv
   f.app.post(
     "/api/admin/locked-transaction-fixture",
     adminHandler(async () =>
-      dbOf("queue").begin(async (tx) => {
+      databaseModule.sql.begin(async (tx) => {
         await tx`SELECT pg_advisory_xact_lock(${key})`;
         blocked = producer
           .getDb()

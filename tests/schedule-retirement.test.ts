@@ -4,11 +4,11 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql as runtimeSql, closeDb } from "@amp/backend/db";
 import { getBoss, ensureQueue, stopBoss } from "@amp/backend/jobs/queue";
 import { registerSchedules } from "../apps/worker/src/schedules.ts";
-const queueDb = dbOf("queue"),
-  opsDb = dbOf("ops");
+const queueDb = runtimeSql,
+  opsDb = runtimeSql;
 after(async () => {
   installModules([]);
   await stopBoss();

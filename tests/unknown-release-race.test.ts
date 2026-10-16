@@ -1,9 +1,10 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
 import { roleFixture } from "./role-db-fixture.ts";
@@ -35,7 +36,7 @@ test("an old non-billing confirmation cannot release a new unknown attempt or a 
       return query;
     },
   });
-  const revoke = injectDb({ "ai-gateway": sql, ops });
+  const revoke = installTestConnections(ops);
   await installUsageFixtureForService("fixture-aba", sql);
   const req = { lane: "news" as const, service: "fixture-aba", purpose: "invariant_test", subject: f.prefix, identity: { prefix: f.prefix } };
   let hits = 0,

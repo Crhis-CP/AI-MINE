@@ -5,10 +5,10 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { after, test } from "node:test";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql, initializeDb } from "@amp/backend/db";
 import { ensureQueue, getBoss, stopBoss } from "@amp/backend/jobs/queue";
 
-const sql = dbOf("queue");
+const sql = runtimeSql;
 const run = promisify(execFile);
 after(closeDb);
 
@@ -39,10 +39,10 @@ test("epoch migration inserts once, preserves an existing value and permits the 
       "-e",
       `
     import assert from 'node:assert/strict';
-    import { initializeDb, dbOf, closeDb } from '@amp/backend/db';
+    import { initializeDb, sql as runtimeSql, closeDb } from '@amp/backend/db';
     import { ledgerEpoch } from '@amp/backend/publication/v1';
     await initializeDb('test');
-    await dbOf('publication')\`SET default_transaction_read_only = on\`;
+    await runtimeSql\`SET default_transaction_read_only = on\`;
     assert.ok(await ledgerEpoch());
     await closeDb();
   `,

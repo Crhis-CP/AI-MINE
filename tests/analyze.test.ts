@@ -12,7 +12,7 @@ import { gate, Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { after, before, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, SCORE_SYSTEM, tierThreshold, StructureSchema, normalizeAnalysis } from "@amp/backend/editorial/analyze";
 import { afterFailure, processArticle, queueProcessing } from "@amp/backend/jobs/content";
@@ -26,8 +26,6 @@ import { setVisibility } from "@amp/backend/admin/content";
 import { buildApp } from "./site-app.ts";
 import { SITE } from "@amp/industry/site";
 import { CATEGORY_TAGS, ENTITY_TAGS, TAG_SYNONYMS, TOPIC_TAGS } from "@amp/industry/taxonomy";
-
-const sql = dbOf("enrichment");
 
 const publicApp = await buildApp("public-api");
 const T = tag();

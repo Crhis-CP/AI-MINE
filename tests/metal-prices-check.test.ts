@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { refreshMetalPrices } from "@amp/backend/jobs/publication";
 import { recordRun } from "@amp/backend/jobs/queue";
 import { readMetalPriceRuns } from "@amp/backend/operations/alerts";
@@ -11,7 +11,6 @@ import { NBS_LIST_URL, nbsFetcher } from "../modules/metals/backend/nbs.ts";
 import { parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
 import type { FetchedPeriod } from "../modules/metals/backend/types.ts";
 
-const sql = dbOf("publication");
 const NOW = new Date("2026-10-06T04:00:00Z");
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/metal-prices/nbs/${name}.html`, import.meta.url), "utf8");
 const [list, early, mid] = ["list", "release-previous", "release-latest"].map(fixture);

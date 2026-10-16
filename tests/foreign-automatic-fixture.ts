@@ -8,7 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { MockAgent, getGlobalDispatcher, setGlobalDispatcher } from "undici";
 import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql, initializeDb } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { registerSourceJobs } from "@amp/backend/jobs/sources";
 import { registerEventJobs } from "@amp/backend/jobs/events";
@@ -123,7 +123,7 @@ export async function foreignFixture(
     registeredWorkers.add(boss);
   }
   assert.equal((await scheduleDueSources()).enqueued, 1);
-  const sql = dbOf("ops");
+  const sql = runtimeSql;
   const until = async (label: string, check: () => Promise<boolean>) => {
     for (let n = 0; n < 600; n++) {
       if (await check()) return;

@@ -5,12 +5,10 @@ import { Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { checkMpAccount } from "@amp/backend/sources/mp";
 import { grantDateFixture } from "./source-date-fixture.ts";
-
-const sql = dbOf("acquisition");
 
 const T = tag();
 const MP_SOURCE = `test-mp-${T}`;

@@ -1,11 +1,11 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { switchModel } from "@amp/backend/admin/models";
 import { modelFor, modelSources } from "@amp/backend/editorial/models";
 import { modelPresetReady } from "@amp/backend/providers/llm";
-const sql = dbOf("ai-gateway");
+
 after(closeDb);
 
 test("model switching validates capability and keeps one route revision clock", async () => {

@@ -2,7 +2,7 @@ import { gate, Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { afterFailure, recordExtractDeferral, queueProcessing, registerContentJobs } from "@amp/backend/jobs/content";
 import { getBoss, stopBoss, QUEUES } from "@amp/backend/jobs/queue";
@@ -12,8 +12,7 @@ import { CrawlDeferred } from "../packages/backend/src/acquisition/crawl.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 
-const sql = dbOf("content"),
-  source = `revision-${tag()}`;
+const source = `revision-${tag()}`;
 let held: { asked: ReturnType<typeof gate<void>>; release: ReturnType<typeof gate<void>>; unknown: boolean } | undefined;
 const provider = await stub(async () => {
   const current = held;

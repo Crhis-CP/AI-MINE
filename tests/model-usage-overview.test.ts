@@ -1,9 +1,9 @@
 import { tag } from "./setup.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { modelsOverview } from "@amp/backend/admin/models";
-const sql = dbOf("ai-gateway");
+
 after(closeDb);
 const key = tag(),
   model = `custom-model-${key}`,

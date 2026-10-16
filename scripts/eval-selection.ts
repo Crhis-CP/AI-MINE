@@ -11,7 +11,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { REPO_ROOT } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import {
   SELECTION_PROMPT_VERSION,
   buildScoreInput,
@@ -32,8 +32,6 @@ import {
 } from "@amp/backend/admin/selectbench";
 
 await initializeDb("worker");
-
-const sql = dbOf("ai-gateway");
 
 const { values } = parseArgs({
   options: {

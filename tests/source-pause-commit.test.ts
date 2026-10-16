@@ -2,7 +2,7 @@ import { tag } from "./setup.ts";
 import http from "node:http";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { updateSource } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
@@ -11,7 +11,7 @@ import { runtimeControlSnapshot } from "../packages/backend/src/operations/lane-
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { collectSource } from "./crawl-fixture.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("sources");
+
 config.allowPrivateNetworkFetch = true;
 after(async () => {
   await stopBoss();

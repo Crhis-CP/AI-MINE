@@ -3,13 +3,13 @@ import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { stub } from "./setup.ts";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { composeDaily } from "@amp/backend/reports/compose";
 import { loadReport } from "@amp/backend/publication/reports";
 import { dailyMemory, periodEntries } from "../packages/backend/src/reports/edition.ts";
-const sql = dbOf("reports");
+
 const provider = await stub(() => {
   throw new Error("Rule daily must not call a model");
 });

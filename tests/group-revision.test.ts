@@ -3,11 +3,11 @@ import { tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle, GroupingSupersededError } from "@amp/backend/events/group";
 import { stopBoss } from "@amp/backend/jobs/queue";
-const sql = dbOf("events");
+
 after(async () => {
   await stopBoss();
   await closeDb();

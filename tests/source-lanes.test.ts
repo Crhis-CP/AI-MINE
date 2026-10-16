@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, test } from "node:test";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { queueProcessing, sweepUnprocessed } from "@amp/backend/jobs/content";
 import { upsertMaterial } from "@amp/backend/content/materials";
@@ -18,7 +18,6 @@ import { collectSource } from "./crawl-fixture.ts";
 import { sourceClocks } from "@amp/backend/events/hot";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("content");
 const T = tag();
 const NEWS = `test-lane-news-${T}`;
 const POLICY = `test-lane-policy-${T}`;

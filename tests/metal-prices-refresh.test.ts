@@ -8,7 +8,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { refreshMetalPrices } from "@amp/backend/jobs/publication";
 import { SCHEDULES } from "../apps/worker/src/schedules.ts";
 import { NBS_LIST_URL, nbsFetcher } from "../modules/metals/backend/nbs.ts";
@@ -19,7 +19,6 @@ import type { PageGetter } from "../modules/metals/backend/types.ts";
 import type { MetalPriceSourceKey } from "../modules/metals/backend/registry.ts";
 import type { FetchContext, FetchedPeriod } from "../modules/metals/backend/types.ts";
 
-const sql = dbOf("publication");
 after(() => closeDb());
 beforeEach(async () => {
   await sql`TRUNCATE publication.metal_prices`;

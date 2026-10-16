@@ -2,11 +2,10 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { readFileSync } from "node:fs";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { v3Envelope, v3Items, effectiveWatermark } from "@amp/backend/publication/v1";
 import { buildApp } from "./site-app.ts";
-const sql = dbOf("publication"),
-  source = `v3-${tag()}`,
+const source = `v3-${tag()}`,
   id = `${source}-a`,
   second = `${source}-b`;
 const app = await buildApp("public-api");

@@ -6,15 +6,14 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { sanitizeBody } from "@amp/backend/content/sanitize";
 import { readCurrentBody, upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { runBodyTranslation, type TranslationRecipe } from "../packages/backend/src/editorial/translation-runtime.ts";
 import { beginTranslation } from "../packages/backend/src/editorial/translation-store.ts";
 
-const sql = dbOf("enrichment"),
-  T = tag(),
+const T = tag(),
   SOURCE = `checkpoints-${T}`;
 const recipe: TranslationRecipe = { id: `strict-${T}`, model: "deepseek-flash", promptVersion: `fixture-${T}`, system: "SELF_AUTHORED strict text fixture" };
 let mode = "stop",

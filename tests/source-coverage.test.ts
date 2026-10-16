@@ -1,10 +1,11 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SOURCE_TARGETS } from "@amp/industry/source-targets";
 import { POLICY_SOURCES } from "@amp/industry/policy-sources";
 import { SourceCoverage, SourceTargetExport } from "@amp/contracts/http/private";
 import { publicRoleFixture } from "./public-role-fixture.ts";
-import { injectDb } from "@amp/backend/db";
+
 import { sourceCoverage, sourceTargetExportData } from "../modules/site-admin/backend/coverage.ts";
 import { sourceTargets } from "../modules/site-admin/backend/target-catalogue.ts";
 import { buildApp } from "./site-app.ts";
@@ -15,14 +16,7 @@ import { config } from "@amp/backend/config";
 test("three matrices preserve exact original exceptions, unresolved gaps and independent configuration evidence", async (t) => {
   const f = await publicRoleFixture(t),
     roles = await f.login();
-  const restore = injectDb({
-    sources: roles.private_ops,
-    acquisition: roles.private_ops,
-    content: roles.private_ops,
-    publication: roles.private_ops,
-    policy: roles.private_ops,
-    identity: roles.auth,
-  });
+  const restore = installTestConnections(roles.private_ops, roles.auth);
   t.after(restore);
   let result = await sourceCoverage();
   const china = result.matrices.find((m) => m.id === "china")!;

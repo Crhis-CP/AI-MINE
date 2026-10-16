@@ -3,7 +3,7 @@ import { gate } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { publicApiCredentialNames, environmentProblems } from "@amp/config";
 import {
@@ -23,7 +23,7 @@ import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/s
 import { resolveRegisteredModel } from "../packages/backend/src/providers/model-registry.ts";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { readModelConnectionProbe } from "../packages/backend/src/admin/model-registry.ts";
-const sql = dbOf("ai-gateway");
+
 process.env.MODEL_REGISTRY_ENCRYPTION_KEY = Buffer.alloc(32, 87).toString("base64");
 config.modelCallsEnabled = true;
 const owner = { userId: 123, name: "test-owner", csrf: "fake", dev: false },

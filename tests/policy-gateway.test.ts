@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { z } from "zod";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { createPolicyGateway, PolicyInputChangedError, type PreparedPolicyInput, type PolicyPurpose } from "../modules/policy/backend/provider.ts";
 import { ReceiptBusyError, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { markReceiptsCompleted, chatJson } from "@amp/backend/providers/llm";
@@ -14,8 +14,7 @@ import { sha256 } from "../packages/backend/src/lib/ids.ts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("ai-gateway"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 type ProviderInput = { model: string; messages: { role: string; content: string }[] };
 let respond: (body: ProviderInput) => Promise<Record<string, unknown>> = async () => ({});
 const seen: ProviderInput[] = [];

@@ -1,7 +1,8 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomUUID } from "node:crypto";
-import { injectDb } from "@amp/backend/db";
+
 import { sha256 } from "@amp/backend/lib/ids";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { buildApp } from "./site-app.ts";
@@ -11,7 +12,7 @@ import { denied } from "./role-db-fixture.ts";
 test("real auth/private_ops/worker/public roles enforce Owner-only, closed-by-default, CSRF and immutable confirmation boundaries", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ identity: dbs.auth, "ai-gateway": dbs.private_ops, content: dbs.private_ops, enrichment: dbs.private_ops, sources: dbs.private_ops });
+    dispose = installTestConnections(dbs.private_ops, dbs.auth);
   t.after(dispose);
   async function account(name: string, role: "owner" | "admin") {
     const [user] = await dbs.auth`INSERT INTO admin_users(email,display_name) VALUES(${`${name}@synthetic.test`},${name}) RETURNING id`;

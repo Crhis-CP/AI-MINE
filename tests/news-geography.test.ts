@@ -4,7 +4,7 @@ import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, ANALYZE_PROMPT_VERSION } from "@amp/backend/editorial/analyze";
@@ -19,8 +19,7 @@ import { validateGeography, geographyMaterial, geographyRecipe } from "../packag
 import { buildApp } from "./site-app.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 
-const sql = dbOf("enrichment"),
-  app = await buildApp("public-api"),
+const app = await buildApp("public-api"),
   requests: { system: string; user: string }[] = [];
 const provider = await stub((_hit, req) => {
   const body = JSON.parse(req.body),

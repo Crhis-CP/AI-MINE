@@ -1,38 +1,36 @@
-# backend 过渡期数据库接口
+# backend 核心服务与数据库入口
 
 TASK-0367统一升级保留主线故障修复：同一业务线、材料修订及处理环节最多自动放行一次，换模型地址不会重置机会；原未知错误与费用保留，人工确认只结算当前尝试。暂停保留机会、旧修订不重置新修订；释放、审计及对应任务入队同事务。归组、翻译和法规继续使用统一升级的原环节恢复，不收窄为主线应急版本的资讯五环节范围。
 
-本包仍承载待迁往领域模块的现有实现，迁出顺序以 TASK-0004 和模块地图为准。本页说明数据库注入接口，不将过渡期后端视作新架构的长期边界。
+本包负责通用采集、内容评判、事件、发布、报告、模型和运行管理。法规、金属价格、站点资料与来源对账在 modules 对应扩展中；少量旧路径仅用于兼容转发。实际依赖方向见模块地图。
 
-金属价格的 Cochilco 日报适配器经既有 `jobs/publication` 刷新口运行；按官方日期读取六种基础金属美元/吨现金报价，PDF内容hash区分版本，读者请求仍只读publication。来源事实与Owner风险接受决定分开登记，未伪称单独取得自动抽取或历史保存许可；广期所访问未通过，未接入。来源登记可单独停用。
+金属价格的 Cochilco 日报适配器由 `modules/metals` 定时入口运行；按官方日期读取六种基础金属美元/吨现金报价，PDF内容hash区分版本，读者请求仍只读publication。来源事实与Owner风险接受决定分开登记，未伪称单独取得自动抽取或历史保存许可；广期所访问未通过，未接入。来源登记可单独停用。
 
 ## 公开入口
 
-通过 `@amp/backend/db` 使用 `dbOf(module)` 与 `injectDb(bindings)`。包的显式导出清单不变；不要直接导入 module-db.ts。
+通过 `@amp/backend/db` 使用原生 `sql`、`identitySql`、`feedbackSql` 和显式事务。身份查询与公开反馈分别使用专用连接；其余业务使用sql。三个导入均为随组合根初始化更新的ES绑定，不是查询代理。
 
-组合根也可以显式 `await initializeDb(processRole)`，按任务卡 D2 将 `DB_MODULES` 分配到正确角色：public-api 的反馈单独写入，统一api及过渡private-api的身份模块单独使用auth；worker、migrate 和 test 各用自己的连接。它不会在 import 时运行，web不能调用；相同role及同一env引用的重入返回现有根，不同声明仍须先关闭。closeDb 同时撤销这些注册并关闭连接池。该辅助入口属于过渡后端，随模块迁出由相应组合根接收。
+应用/CLI入口先 `await initializeDb(processRole)`，退出时 `await closeDb()`。import不会创建连接，web不持有数据库；相同URL共用连接池，公开读取、反馈写入、账号和运维的实际角色由配置选择。相同角色和同一env引用允许重入，不同根须先关闭；并发关闭共享一次清理。工作进程先结束消费和在途工作，再关闭数据库。
 
-- `dbOf(module)` 返回稳定句柄；加载模块时可以声明 SQL 片段、标识符或 JSON 辅助对象。
-- 只有组合根调用 `injectDb`，给每个模块分配 `@amp/config` 的 dbFor(role) 连接。未注入时执行查询或事务会失败，没有默认连接回退。
-- 注册是原子的；重复模块名即拒绝，不允许静默替换。返回的注销函数仅解除本次注册，不关闭连接；组合根退出时再关闭其拥有的连接池。
-- 注销后，预先创建但未执行的查询及保存的方法也被拒；换入另一个连接后须重新创建查询，不能把旧查询静默转交另一个身份执行。
-- 只用作插值的 SQL 片段、标识符、JSON/array/unsafe 辅助对象在每个新查询中按当前注册重建，因此 closeDb 后重新 initializeDb 可继续使用模块常量；片段本身不执行查询。访问查询方法或直接执行会固定原生命周期，旧查询不能跨代复用。保存的工厂方法在调用时核对原注册。
-- file 查询、reserve 返回的连接与 cursor 返回的迭代器同样受原注册约束，保存的方法也不能绕过；release 会使保留连接失效。已构造查询的 cancel、迭代器 return、保留连接 release 在注销后仍可清理资源，重复 release 安全；尚未完成的 reserve 在注销后返回时会自行释放。
-- largeObject 保留原有查询与流功能：返回的方法、待执行查询及读写流的后续数据库操作绑定原注册，close 仍可在注销后结束其原生事务且可重复调用。迟到的创建结果先关闭再拒绝，不泄漏事务；已启动 I/O 可结束，新的流块被拒绝并按流的错误通道报告。
-- 事务和 savepoint 的回调也收到包装句柄，能够复用模块加载时声明的片段。事务提交与回滚仍由 postgres 驱动执行。
+- 不在模块加载时保存驱动或创建待执行查询；字段、联接等片段用函数在查询时生成。
+- `sql.begin`和事务内`savepoint`使用postgres原生对象；所有应原子提交的写入使用同一个tx。
+- 关闭后旧待执行查询留在已关闭的驱动，不转发到新根；重开后重新创建查询。取消、游标和保留连接遵循驱动自身接口，不再包一层通用代理。
+- 真实表权限继续由数据库角色控制；静态文件归属登记只用于检查跨表写入，不能授予权限。保留的UNKNOWN位置仍是未静态证明，不当成安全或完整验收。
 
 内容处理通过现有 `@amp/backend/content/materials` 入口的 `commitProcessingResult` 提交结果：content 开启事务并锁定材料修订，调用方在传入的同一个 tx 中写本模块结果和完成回执，content 最后更新当前修订的处理状态。过期修订仍保留结果与回执，但不覆盖新材料状态；回调或状态更新失败会一起回滚。
 
 ```ts
-const publicationDb = dbOf("publication"); // 模块初始化，可先于组合根注入
-const columns = publicationDb`42 AS answer`;
-const dispose = injectDb({ publication: access.dbFor("public_read") });
-const rows = await publicationDb`SELECT ${columns}`;
-dispose();
-await access.close();
+import { initializeDb, sql, closeDb } from "@amp/backend/db";
+await initializeDb("worker");
+try {
+  const columns = () => sql`42 AS answer`;
+  const rows = await sql`SELECT ${columns()}`;
+} finally {
+  await closeDb();
+}
 ```
 
-全局 sql 已删除；API/worker、CLI 与测试公共夹具显式初始化。withCustomPlans 使用 publication 的注入连接，closeDb 关闭本组合根拥有的池。85 处归属及机械改写见 scripts/db-injection/mapping.json 与 rewrite.py，可在记录的基点重放。本阶段不建立 PostgreSQL 登录或授予权限；真实登录矩阵仍归 PR8/PR9。
+withCustomPlans在直接连接的事务中设置计划策略，搜索不会继承其他请求的设置。历史注入阶段的机械改写和输入指纹仍保留于scripts/db-injection，仅用于核对历史记录，不再运行它重建已删除的代理。
 
 队列接口仍经 `@amp/backend/jobs/queue` 使用。getBoss 返回绑定当前根的句柄，保存的方法和 getDb 的公开数据库操作同样受约束，不暴露原生接收者或连接池。队列存在缓存归属实例，旧异步结果不能写入新实例。停机先 stopBoss、后 closeDb；同根 graceful drain 允许在途 handler 结算和后续投递，内部原始资源负责最终关闭。事务 rollback 和监听 close 保留失效后的清理能力。
 
@@ -299,10 +297,10 @@ jobs/module-queues按安装清单注册有类型的模块队列，保留每个�
 新闻评判在预筛后检查有效原文：仅标题或标点不发双评分、结构化或写作请求，保留预筛回执，后续材料修订正常续接。结构化与评分仍并行，结构化失败先等待恢复，不再继续支付写作。wording独立环节只对industry/wording的明确规则命中修订一次，空规则零调用；来源许可、当前修订、请求额度与回执复用沿用普通资讯处理。数字变化、主体越界、未改善或坏输出保留原稿；未知结果仍交现有恢复流程，不能当成已知拒绝吞掉。
 
 资讯任务在开始时绑定材料revision。分析、未知结果、失败退避、成功清理及抽取延后均按该修订写回；afterFailure和recordExtractDeferral要求显式传入领取时修订。新材料/正文修订清理旧处理计数与排队标记，但不删除历史回执或费用。queueProcessing仅在取得真实任务ID后登记排队，未入队的最新材料仍可被安全网发现；队列载荷保持兼容。
-直接连接契约（TASK-0368）：`sql`、`identitySql`、`feedbackSql`是随初始化更新的ES模块绑定，取值为postgres驱动本身。查询时使用导入绑定，不在模块加载阶段捕获连接或构造SQL片段；片段应在调用时生成。initializeDb保留现行角色与相同URL共用连接池的行为；closeDb关闭原连接，重新初始化不会转移旧待发查询。现有dbOf消费者暂不改动，后续统一迁移后删除代理层；本契约本身不代表架构迁移完成。
+直接连接契约（TASK-0368）：`sql`、`identitySql`、`feedbackSql`是随初始化更新的ES模块绑定，取值为postgres驱动本身。查询时使用导入绑定，不在模块加载阶段捕获连接或构造SQL片段；片段应在调用时生成。initializeDb保留现行角色与相同URL共用连接池的行为；closeDb关闭原连接，重新初始化不会转移旧待发查询。直接连接契约已合并，运行代码、CLI和测试消费者已迁移；旧代理已删除。
 
-内部SQL字段/联接片段使用零参数工厂，在具体查询时生成；导入模块不捕获某一数据库连接，也不构造待执行查询。当前调用方仍逐步从dbOf迁往直接驱动，片段变化不修改表归属、事务或公开筛选条件。
+内部SQL字段/联接片段使用零参数工厂，在具体查询时生成；导入模块不捕获某一数据库连接，也不构造待执行查询。片段变化不修改表归属、事务或公开筛选条件。
 
-公开内容层已通过sql实时导入直接使用当前驱动，旧dbOf入口仅供其余待迁移调用方。数据库连接角色仍在组合根选择；静态文件归属登记位于验证配置，不再通过为每个业务目录创建查询代理来表达归属，跨表约束与权限未放宽。
+公开内容层已通过sql实时导入直接使用当前驱动，已移除旧查询代理入口。数据库连接角色仍在组合根选择；静态文件归属登记位于验证配置，不再通过为每个业务目录创建查询代理来表达归属，跨表约束与权限未放宽。
 
-运行代码均已使用直接驱动导入：身份查询使用identitySql，公开反馈入口使用feedbackSql，其余使用sql，连接角色仍由进程根配置。旧dbOf/injectDb暂为脚本和测试保留；下一步删除兼容入口和代理实现。SQL静态台账继续保留队列和监控五处不透明查询，连接迁移不等于这些SQL已被静态证明。
+运行代码均已使用直接驱动导入：身份查询使用identitySql，公开反馈入口使用feedbackSql，其余使用sql，连接角色仍由进程根配置。脚本和测试亦使用相同的原生入口；已删除旧dbOf/injectDb及18个虚拟连接标签。SQL静态台账继续保留队列和监控五处不透明查询，连接迁移不等于这些SQL已被静态证明。

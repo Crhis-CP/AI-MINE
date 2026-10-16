@@ -1,9 +1,9 @@
 import "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { paidRequest, rejectReceivedResponse, ReceiptUnknownError, ReceiptBusyError } from "@amp/backend/providers/receipts";
-const sql = dbOf("ai-gateway");
+
 after(closeDb);
 test("model and attempt tag changes cannot bypass unresolved news material cost", async () => {
   await sql`INSERT INTO receipts(logical_key,service,model,purpose,subject,status,request,attempts)

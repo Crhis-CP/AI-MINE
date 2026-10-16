@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { promptText } from "@amp/backend/editorial/prompts";
 import { TRANSLATE_PROMPT_VERSION, translateArticle, translatePending } from "@amp/backend/editorial/translate";
@@ -18,8 +18,6 @@ import { latestSuccessfulRunResult, autoReleaseUnknownReceipts, releaseReceipt, 
 import { getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle, prepareTranslation } from "@amp/backend/publication/publish";
 import { buildApp } from "./site-app.ts";
-
-const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-translate-${T}`;

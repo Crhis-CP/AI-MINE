@@ -2,14 +2,14 @@ import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { BudgetExceededError, paidRequest } from "@amp/backend/providers/receipts";
 import { ensureQueue, getBoss, stopBoss } from "@amp/backend/jobs/queue";
 
 /** Two real files deliberately share logical keys, budget rows and queue names. */
 export function isolatedFile(label: string) {
   test(`${label}: paid budgets and queue data belong only to this file`, async (t) => {
-    const sql = dbOf("ai-gateway"),
+    const sql = runtimeSql,
       provider = await stub(() => ({ label }));
     t.after(async () => {
       await provider.close();

@@ -3,10 +3,10 @@ import { representativeFactSubjects } from "../packages/backend/src/events/repre
 import { tag } from "./setup.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { entityIdentity } from "../packages/backend/src/editorial/vocabulary.ts";
 import { pickRepresentative, representativePriority } from "../packages/backend/src/publication/representative.ts";
-const sql = dbOf("publication");
+
 after(closeDb);
 
 test("publisher identity uses exact unambiguous mining names, not mentions or a first-party flag", () => {

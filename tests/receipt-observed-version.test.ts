@@ -7,13 +7,13 @@ import { once } from "node:events";
 import { test } from "node:test";
 import { buildApp } from "./site-app.ts";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { createPrivateClient, privateSchemas } from "../packages/api-client/src/private.ts";
 
 test("observed receipt versions preserve guard order and reject an old UI form before any second release", async () => {
-  const sql = dbOf("ai-gateway"),
+  const sql = runtimeSql,
     saved = { host: config.privateHost, admin: config.devAdmin };
   config.privateHost = "private.receipt.test";
   config.devAdmin = { displayName: "Receipt contract fixture" };

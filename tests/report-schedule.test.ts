@@ -2,11 +2,11 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import "./setup.ts";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { catchUpReports, dueDaily, dueWeekly, dueMonthly, editionTime } from "@amp/backend/reports/compose";
 import { expectedReportKey } from "../apps/web/app/features/report/report-period.ts";
-const sql = dbOf("reports");
+
 after(async () => {
   await stopBoss();
   await closeDb();

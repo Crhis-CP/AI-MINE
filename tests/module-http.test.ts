@@ -1,12 +1,12 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { installModules } from "@amp/backend/modules";
 import { SERVER_MODULES } from "../site/modules/server.ts";
 import { buildApp } from "../apps/api/src/app.ts";
 import { MetalPrices } from "@amp/contracts/http/public";
-const sql = dbOf("publication");
+
 after(async () => {
   installModules([]);
   await closeDb();

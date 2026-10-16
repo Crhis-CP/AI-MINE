@@ -1,11 +1,11 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadItemDetail, siteItemDetail } from "@amp/backend/publication/detail";
 import { loadStoryFollowups } from "@amp/backend/publication/followups";
 import { v3Item } from "@amp/backend/publication/v1";
-const sql = dbOf("publication");
+
 after(closeDb);
 const source = `reader-r2-${tag()}`;
 const now = new Date("2030-10-12T04:00:00Z");

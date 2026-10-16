@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { readFileSync } from "node:fs";
 import { PolicyCard } from "@amp/contracts/http/public";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import {
   latestClosedPolicyPeriods,
   planPolicyReport,
@@ -15,7 +15,6 @@ import { policySourceCoverage } from "../packages/backend/src/sources/policy-cov
 import { setPolicyPublicationPaused } from "../modules/policy/backend/publication/policies-publish.ts";
 import { reconcilePolicyReportPeriods } from "../modules/policy/backend/publication/policy-report-job.ts";
 
-const sql = dbOf("publication");
 after(closeDb);
 const full = JSON.parse(readFileSync(new URL("./fixtures/policy-public/basic-facts.json", import.meta.url), "utf8"));
 const base = PolicyCard.parse(Object.fromEntries(Object.keys(PolicyCard.shape).map((key) => [key, full[key]])));

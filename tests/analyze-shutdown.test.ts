@@ -7,11 +7,9 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { after, before, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
-
-const sql = dbOf("enrichment");
 
 const T = tag();
 const SOURCE = `test-analyze-stop-${T}`;

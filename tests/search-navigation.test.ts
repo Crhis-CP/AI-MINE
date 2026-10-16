@@ -2,14 +2,14 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { computeHotRanking } from "@amp/backend/events/hot";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { SearchSuggestions } from "@amp/contracts/http/public";
 import { buildApp } from "./site-app.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
-const sql = dbOf("publication");
+
 const app = await buildApp("public-api");
 after(async () => {
   await app.close();

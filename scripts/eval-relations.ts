@@ -11,7 +11,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { REPO_ROOT } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { modelFor } from "@amp/backend/editorial/models";
 import { PAIR_SYSTEM, PairSchema, RELATE_PROMPT_VERSION, pairUser } from "@amp/backend/events/relate";
 import { MODELS, ModelOutputError, chatJson } from "@amp/backend/providers/llm";
@@ -68,8 +68,6 @@ async function authorizedPair(row: RelationGoldRow) {
 }
 
 await initializeDb("worker");
-
-const sql = dbOf("ai-gateway");
 
 const { values } = parseArgs({
   options: {

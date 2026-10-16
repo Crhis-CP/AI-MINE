@@ -1,14 +1,14 @@
 import { tag } from "./setup.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial, updateMaterialSourceDate, decideTimeline } from "@amp/backend/content/materials";
 import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { saveSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { observeSourceDate } from "../packages/backend/src/sources/date-extraction.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { beijingDate, beijingMidnight, addDays } from "@amp/contracts/time";
-const sql = dbOf("content");
+
 after(closeDb);
 async function fixture(backfill?: string) {
   const sourceId = `archive-date-${tag()}`,

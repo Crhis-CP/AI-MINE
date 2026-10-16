@@ -1,7 +1,7 @@
 import { tag } from "./setup.ts";
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { computeHotRanking } from "@amp/backend/events/hot";
@@ -10,7 +10,7 @@ import { grantDateFixture } from "./source-date-fixture.ts";
 import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
-const sql = dbOf("events");
+
 after(async () => {
   await stopBoss();
   await closeDb();

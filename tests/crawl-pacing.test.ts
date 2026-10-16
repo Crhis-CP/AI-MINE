@@ -2,13 +2,13 @@ import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { readSourceDateContext, readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { crawlExternal, crawlFetch, crawlStep, withSourceCrawl, CrawlDeferred, CrawlBlocked } from "../packages/backend/src/acquisition/crawl.ts";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import type { GuardedResponse } from "../packages/backend/src/lib/http-fetch.ts";
-const sql = dbOf("acquisition");
+
 let serial = 0,
   clock = Date.now();
 after(closeDb);

@@ -7,7 +7,7 @@ import { chatJson, environmentModelMetadata } from "../packages/backend/src/prov
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import defaults from "../industry/usage-controls.json" with { type: "json" };
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { sha256 } from "@amp/backend/lib/ids";
 import { sessionPrincipal, SESSION_COOKIE, type AdminPrincipal } from "@amp/backend/admin/auth";
 import { paidRequest, logicalKeyFor, ReceiptUnknownError, UsageProtectionError } from "@amp/backend/providers/receipts";
@@ -32,7 +32,7 @@ import { runModelConnectionProbe, sweepModelConnectionProbes, registerModelConne
 import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { config } from "@amp/backend/config";
-const sql = dbOf("ai-gateway");
+
 let owner: AdminPrincipal,
   manager: AdminPrincipal,
   calls = 0,

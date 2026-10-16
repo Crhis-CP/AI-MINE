@@ -4,11 +4,10 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadPool } from "@amp/backend/publication/pool";
 import { listTopicSummaries, loadTopicPage, seedTopics, topicPageCounts } from "@amp/backend/publication/topics";
 
-const sql = dbOf("publication");
 const SOURCE = `test-topics-${tag()}`;
 
 after(async () => {

@@ -4,13 +4,11 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { seedTopics } from "@amp/backend/publication/topics";
 import { POLICY_SOURCES, type PolicySource } from "@amp/industry/policy-sources";
 import { createSource, validateSourceCreate } from "@amp/backend/admin/sources";
 import { assertSupportedConfig } from "@amp/backend/sources/config-keys";
-
-const sql = dbOf("sources");
 
 interface SeedSource {
   id: string;

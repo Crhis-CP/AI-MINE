@@ -1,13 +1,12 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { test, after } from "node:test";
-import { dbOf, initializeDb, closeDb } from "@amp/backend/db";
+import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { sha256 } from "@amp/backend/lib/ids";
 import { createFallbackPermitPort, type FallbackMaterialSnapshot } from "../packages/backend/src/providers/model-fallback-permit.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("sources"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 after(closeDb);
 test("each fallback target gets a fresh supplier-bound permit that cannot survive input or permission changes", async () => {
   const id = `fallback-permit-${tag()}`,

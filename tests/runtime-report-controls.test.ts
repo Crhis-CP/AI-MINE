@@ -5,7 +5,7 @@ import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { composeDaily, composeMonthly } from "@amp/backend/reports/compose";
 import { composeStoryDigest } from "@amp/backend/events/digest";
@@ -19,7 +19,6 @@ import {
   RuntimeControlPaused,
 } from "../packages/backend/src/operations/lane-controls.ts";
 
-const sql = dbOf("reports");
 let duringResponse: (() => Promise<void>) | null = null;
 const provider = await stub(async () => {
   if (duringResponse) await duringResponse();

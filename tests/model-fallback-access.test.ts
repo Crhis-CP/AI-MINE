@@ -1,6 +1,7 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { sha256 } from "@amp/backend/lib/ids";
 import { SESSION_COOKIE } from "@amp/backend/admin/auth";
 import { buildApp } from "./site-app.ts";
@@ -9,7 +10,7 @@ import { denied } from "./role-db-fixture.ts";
 test("real private API requires current model capability and CSRF, preserves CAS and keeps backup configuration private", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login(),
-    dispose = injectDb({ identity: dbs.auth, "ai-gateway": dbs.private_ops, sources: dbs.private_ops, policy: dbs.private_ops });
+    dispose = installTestConnections(dbs.private_ops, dbs.auth);
   t.after(dispose);
   async function account(name: string, manage: boolean) {
     const [u] = await dbs.auth`INSERT INTO admin_users(email,display_name) VALUES(${`${name}@fixture.invalid`},${name}) RETURNING id`;

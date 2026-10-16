@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { apiChildEnvironment } from "../scripts/verify/api-harness.ts";
 import { apiProcess } from "./api-process.ts";
 
 const ENTRY_ARGS = ["--input-type=module", "-e", "import { startApi } from './apps/api/src/runtime.ts'; await startApi(process.env);"];
-const sql = dbOf("ops");
+
 after(closeDb);
 const marker = `api-entrypoint-${process.pid}`;
 const address = new URL(process.env.DATABASE_URL!);

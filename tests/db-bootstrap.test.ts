@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { closeDb, dbOf, DB_MODULES, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, identitySql, feedbackSql, initializeDb } from "@amp/backend/db";
 import { backupDatabaseUrl, queueConnection } from "../packages/backend/src/db-bootstrap.ts";
 
 const address = (user: string) => `postgres://${user}@127.0.0.1:1/bootstrap_test`;
@@ -8,21 +8,27 @@ const address = (user: string) => `postgres://${user}@127.0.0.1:1/bootstrap_test
 test("the public root assigns feedback a separate role and all other modules the read role", async () => {
   await initializeDb("public-api", { DATABASE_URL_PUBLIC_READ: address("reader"), DATABASE_URL_FEEDBACK_WRITE: address("feedback") });
   try {
-    for (const module of DB_MODULES) assert.equal(dbOf(module).options.user, module === "feedback" ? "feedback" : "reader");
+    assert.deepEqual(
+      [sql, identitySql, feedbackSql].map((db) => db.options.user),
+      ["reader", "reader", "feedback"],
+    );
     assert.throws(() => queueConnection(), /cannot use the job queue/);
     assert.throws(() => backupDatabaseUrl(), /cannot use database role backup/);
     await assert.rejects(initializeDb("test", { DATABASE_URL: address("other") }), /already initialized/);
   } finally {
     await Promise.all([closeDb(), closeDb()]);
   }
-  await assert.rejects(Promise.resolve(dbOf("publication")`SELECT 1`), /not injected/);
+  assert.throws(() => sql`SELECT 1`, /not initialized/);
 });
 
 for (const role of ["private-api", "api"] as const)
   test(`${role} keeps identity separate and only produces jobs in existing queues`, async () => {
     await initializeDb(role, { DATABASE_URL_PRIVATE_OPS: address("operations"), DATABASE_URL_AUTH: address("identity") });
     try {
-      for (const module of DB_MODULES) assert.equal(dbOf(module).options.user, module === "identity" ? "identity" : "operations");
+      assert.deepEqual(
+        [sql, identitySql, feedbackSql].map((db) => db.options.user),
+        ["operations", "identity", "operations"],
+      );
       assert.deepEqual(queueConnection(), { connectionString: address("operations"), createSchema: false, migrate: false, supervise: false, schedule: false });
       assert.throws(() => backupDatabaseUrl(), /cannot use database role backup/);
     } finally {
@@ -60,7 +66,10 @@ test("worker, migration and test roots use their declared roles; invalid setup c
   ] as const) {
     await initializeDb(role, env);
     try {
-      for (const module of DB_MODULES) assert.equal(dbOf(module).options.user, user);
+      assert.deepEqual(
+        [sql, identitySql, feedbackSql].map((db) => db.options.user),
+        [user, user, user],
+      );
       if (role === "migrate") assert.throws(() => queueConnection(), /cannot use the job queue/);
       if (role === "test") assert.deepEqual(queueConnection(), { connectionString: address(user) });
     } finally {

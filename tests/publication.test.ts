@@ -20,7 +20,7 @@ import { promptVersion, promptText } from "@amp/backend/editorial/prompts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { setVisibility } from "@amp/backend/admin/content";
 import { updateSource } from "@amp/backend/admin/sources";
 import { upsertMaterial } from "@amp/backend/content/materials";
@@ -32,8 +32,6 @@ import { latestHotRanking } from "@amp/backend/events/hot-read";
 import { effectiveWatermark } from "@amp/backend/publication/v1";
 import { SITE } from "@amp/industry/site";
 import { buildApp } from "./site-app.ts";
-
-const sql = dbOf("publication");
 
 const T = tag();
 const SOURCE = `test-publication-${T}`;

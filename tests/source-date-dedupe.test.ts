@@ -2,13 +2,12 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { createHash } from "node:crypto";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { saveSourcePolicy, readSourceDateContext } from "@amp/backend/admin/sources";
 import { upsertMaterial, updateMaterialSourceDate, compactDateObservations } from "@amp/backend/content/materials";
 import { observeSourceDate } from "../packages/backend/src/sources/date-extraction.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 
-const sql = dbOf("content");
 const at = (n: number) => new Date(Date.parse("2026-10-07T10:00:00Z") + n * 1000);
 after(() => closeDb());
 

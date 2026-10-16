@@ -2,7 +2,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { mofcomFetcher, MOFCOM_URL } from "../modules/metals/backend/mofcom.ts";
 import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
 import { refreshMetalPrices } from "../modules/metals/backend/refresh.ts";
@@ -17,8 +17,7 @@ const narrowed = {
   items: raw.items.filter((i: { source: string }) => i.source === "mofcom"),
 };
 const fixture = (id: string) => readFileSync(new URL(`./fixtures/metal-prices/mofcom/week-${id}.json`, import.meta.url), "utf8");
-const NOW = new Date("2026-10-09T00:00:00Z"),
-  sql = dbOf("publication");
+const NOW = new Date("2026-10-09T00:00:00Z");
 after(() => closeDb());
 beforeEach(async () => {
   await sql`TRUNCATE publication.metal_prices`;

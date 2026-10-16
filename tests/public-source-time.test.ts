@@ -2,7 +2,7 @@ import "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial, updateMaterialSourceDate } from "@amp/backend/content/materials";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { loadItemDetail, publicItemMetadata } from "@amp/backend/publication/detail";
@@ -12,7 +12,7 @@ import { readSourceDateContext } from "@amp/backend/admin/sources";
 import { observeSourceDate } from "../packages/backend/src/sources/date-extraction.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { beijingDate } from "@amp/contracts/time";
-const sql = dbOf("publication");
+
 after(async () => {
   await stopBoss();
   await closeDb();

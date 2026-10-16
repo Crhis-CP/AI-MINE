@@ -2,12 +2,12 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { randomUUID } from "node:crypto";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { contentChain } from "@amp/backend/admin/content";
 import { beginMaterialGrouping, completeMaterialGrouping, failMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { NewsGroupingDiagnostic } from "@amp/contracts/http/private";
-const sql = dbOf("content");
+
 after(closeDb);
 
 test("admin diagnostics distinguish scoring nomination, current grouping, no new value and material revision", async () => {

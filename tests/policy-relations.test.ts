@@ -1,8 +1,9 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { dbOf, injectDb } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
@@ -18,8 +19,7 @@ import { publishPolicyPublication } from "../modules/policy/backend/publication/
 import { preparePolicyRelationships, savePolicyRelationships, policyRelationshipCandidates } from "../modules/policy/backend/relations.ts";
 import { Policy, PolicyCard, PolicyThread } from "@amp/contracts/http/public";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
-const sql = dbOf("policy"),
-  discovered = new Date("2026-01-02T03:04:05Z");
+const discovered = new Date("2026-01-02T03:04:05Z");
 let serial = 0;
 async function fixture(number: string, content = "Mining rule.", jurisdiction = "AR", overrideUrl?: string) {
   const sourceId = `relation-${++serial}`,
@@ -86,7 +86,7 @@ test("exact reference needs genuine visible URI or its own href; neighbouring/pr
 });
 test("current qualified relations produce stable navigation and every public outlet removes a withdrawn or changed endpoint", async (t) => {
   const roles = await publicRoleFixture(t),
-    reset = injectDb({ acquisition: roles.admin, ops: roles.admin, policy: roles.admin, sources: roles.admin, content: roles.admin, publication: roles.admin });
+    reset = installTestConnections(roles.admin);
   t.after(reset);
   const app = await publicServer(t, roles);
   t.after(app.stop);

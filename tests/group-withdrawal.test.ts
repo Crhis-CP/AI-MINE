@@ -4,7 +4,7 @@ import { tag } from "./setup.ts";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle, type WithdrawalTarget } from "@amp/backend/publication/publish";
 import { previewWithdrawal, actWithdrawal, setVisibility, detachFromFact } from "@amp/backend/admin/content";
@@ -14,7 +14,7 @@ import { loadReport, listReports, v1Daily, publicReportKeys } from "@amp/backend
 import { loadStoryDetail, loadHot } from "@amp/backend/publication/stories";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("editorial");
+
 after(async () => {
   await stopBoss();
   await closeDb();

@@ -1,7 +1,7 @@
 import "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import {
   applyOwnerPolicySuspension,
   changeOwnerLaneControls,
@@ -11,7 +11,7 @@ import {
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { paidRequest } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts } from "@amp/backend/admin/runs";
-const sql = dbOf("ops");
+
 after(closeDb);
 test("planned policy suspension keeps publication and news running, preserves holds, and never reapplies after a manual resume", async () => {
   await installUsageFixtureForService("policy-pause-fixture");

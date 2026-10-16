@@ -9,10 +9,8 @@ import sharp from "sharp";
 import { after, test } from "node:test";
 import { feedbackScreenshot } from "@amp/backend/admin/feedback";
 import { config } from "@amp/backend/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, feedbackSql as sql, initializeDb } from "@amp/backend/db";
 import { submitFeedback } from "@amp/backend/operations/feedback";
-
-const sql = dbOf("feedback");
 
 const T = tag();
 config.dataDir = mkdtempSync(path.join(tmpdir(), "amp-feedback-"));

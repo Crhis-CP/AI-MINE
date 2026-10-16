@@ -2,7 +2,7 @@ import { beginMaterialGrouping, completeMaterialGrouping } from "../packages/bac
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle, GroupingSupersededError } from "@amp/backend/events/group";
@@ -14,7 +14,7 @@ import { rerun, detachFromFact } from "@amp/backend/admin/content";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
-const sql = dbOf("events");
+
 let addsValue = true;
 let missingValue = false;
 let scopeAnswer: "single" | "composite" | "unknown" = "single";

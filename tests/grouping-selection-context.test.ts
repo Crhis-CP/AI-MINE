@@ -1,11 +1,11 @@
 import { tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { readGroupingSelectionSnapshot } from "@amp/backend/publication/publish";
-const sql = dbOf("publication");
+
 after(closeDb);
 test("only already-visible current confirmed picks count as reader coverage", async () => {
   const sourceId = `reading-${tag()}`;

@@ -2,15 +2,14 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadPool } from "@amp/backend/publication/pool";
 import { v1Items, v3Events } from "@amp/backend/publication/v1";
 import { publicStoryDirectory } from "@amp/backend/publication/stories";
 import { encodeCursor, InvalidCursorError, queryBinding } from "@amp/backend/lib/cursor";
 import { buildApp } from "./site-app.ts";
 
-const sql = dbOf("publication"),
-  source = `timeline-date-${tag()}`;
+const source = `timeline-date-${tag()}`;
 const day = "2026-10-11",
   now = new Date("2026-10-12T12:00:00+08:00");
 const fixture = [

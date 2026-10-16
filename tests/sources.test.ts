@@ -13,7 +13,7 @@ import { fetchRss } from "@amp/backend/sources/rss";
 import { fetchJsonList } from "@amp/backend/sources/json-list";
 import { noiseFiltered } from "@amp/backend/sources/collect";
 import { normalizeSourceLanguage, unsupportedConfig } from "@amp/backend/sources/config-keys";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 
 const source = (config: Record<string, unknown>) => ({ id: "test-list", config }) as never;
@@ -286,7 +286,7 @@ test("RSS offset colons preserve the instant and relative link/guid addresses re
     ],
   );
   assert.equal(candidates[0]!.sourceDateObservation?.raw, "Thu, 08 Oct 2026 10:00:00 +03:00");
-  const sql = dbOf("content"),
+  const sql = runtimeSql,
     sourceId = "test-relative-feed";
   await sql`INSERT INTO sources(id,name,kind) VALUES(${sourceId},'Synthetic relative feed','rss')`;
   try {

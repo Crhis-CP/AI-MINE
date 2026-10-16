@@ -3,14 +3,14 @@ import { tag, stub } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle } from "@amp/backend/events/group";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
-const sql = dbOf("events");
+
 const provider = await stub(() => ({ error: "identical URL should not need a model" }));
 process.env.DEEPSEEK_API_KEY = "synthetic-test";
 process.env.DEEPSEEK_BASE_URL = provider.url;

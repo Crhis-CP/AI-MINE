@@ -1,9 +1,9 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { loadPool, withSearchCapacity } from "@amp/backend/publication/pool";
-const sql = dbOf("publication");
+
 const source = `reader-pool-${tag()}`;
 const now = new Date("2026-10-12T12:00:00+08:00");
 after(closeDb);

@@ -1,7 +1,7 @@
 // Frozen query-shape reference for TASK-0326, derived from the pre-change reader SQL.
-import { dbOf } from "@amp/backend/db";
+import { sql } from "@amp/backend/db";
 import type { TextMatchValues, ReadMatcherValues } from "../../packages/backend/src/publication/mentions.ts";
-const sql = dbOf("publication");
+
 type Fragment = ReturnType<typeof sql>;
 export function legacyText(column: Fragment, values: TextMatchValues) {
   const parts = [

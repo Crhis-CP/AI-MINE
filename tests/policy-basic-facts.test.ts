@@ -1,13 +1,13 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { capturePolicyMaterial } from "../modules/policy/backend/domain/capture.ts";
 import { publishPolicyPublication } from "../modules/policy/backend/publication/policies-publish.ts";
 import { policyDetail } from "../modules/policy/backend/read.ts";
 import { fixture } from "./policy-automation-fixture.ts";
-const sql = dbOf("policy");
+
 after(closeDb);
 
 test("verified source publication date survives independently of model qualification and authority names are searchable", async () => {

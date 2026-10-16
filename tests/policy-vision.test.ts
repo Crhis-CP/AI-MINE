@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { deflateSync } from "node:zlib";
 import { after, beforeEach, test } from "node:test";
 import sharp from "sharp";
-import { dbOf, initializeDb, closeDb } from "@amp/backend/db";
+import { sql, initializeDb, closeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { invalidateModelCache } from "../packages/backend/src/editorial/models.ts";
 import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
@@ -18,8 +18,7 @@ import { renderPolicyPdf } from "../modules/policy/backend/domain/vision-render.
 import { sha256, stableJson } from "../packages/backend/src/lib/ids.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("policy"),
-  root = await initializeDb("test"),
+const root = await initializeDb("test"),
   profile = { bodySelector: null, attachmentSelector: null, maxBytes: 2_000_000, maxResources: 8, maxPages: 20, maxTextBytes: 2_000_000 };
 type Json = ReturnType<typeof JSON.parse>;
 const sent: { input: Json; body: Json; raw: string }[] = [];

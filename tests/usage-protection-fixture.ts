@@ -1,10 +1,10 @@
 // Explicit synthetic setup only. No production fallback, price discovery, or provider request.
 import defaults from "../industry/usage-controls.json" with { type: "json" };
-import { dbOf, type Db } from "@amp/backend/db";
+import { sql, type Db } from "@amp/backend/db";
 import { environmentModelMetadata } from "../packages/backend/src/providers/llm.ts";
 import { registeredModelId, connectionRow, modelConfigurationHash } from "../packages/backend/src/providers/model-registry.ts";
 import { usagePriceId, rateMicros } from "../packages/backend/src/providers/usage-pricing.ts";
-const sql = dbOf("ai-gateway");
+
 function isolated() {
   if (!/_(test|ci)$/.test(new URL(process.env.DATABASE_URL ?? "postgres://unset/unset").pathname))
     throw new Error("Synthetic pricing requires an isolated test database");

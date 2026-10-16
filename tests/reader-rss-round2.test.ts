@@ -1,10 +1,10 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { buildApp } from "./site-app.ts";
-const sql = dbOf("publication");
+
 const app = await buildApp("public-api");
 after(async () => {
   await app.close();

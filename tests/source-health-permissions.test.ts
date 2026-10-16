@@ -1,13 +1,12 @@
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { evaluateSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { SourcePolicySchema } from "@amp/contracts/source-policy";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { metadataRepairs, repairedMetadataPolicy } from "../scripts/source-health-repair.ts";
 
-const sql = dbOf("sources");
 after(closeDb);
 test("the three official cross-host repairs grant only scoped metadata uses and retain existing denies", async () => {
   for (const repair of metadataRepairs) {

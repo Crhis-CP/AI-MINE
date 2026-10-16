@@ -1,7 +1,8 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { injectDb } from "@amp/backend/db";
+
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
@@ -20,7 +21,7 @@ const card = (dto: Policy) => PolicyCard.parse(Object.fromEntries(Object.keys(Po
 
 test("stable preferred languages and current qualified Chinese full text share the real public read gates", async (t) => {
   const f = await publicRoleFixture(t);
-  const reset = injectDb({ acquisition: f.admin, ops: f.admin, sources: f.admin, content: f.admin, policy: f.admin, publication: f.admin, editorial: f.admin });
+  const reset = installTestConnections(f.admin);
   t.after(reset);
   const app = await publicServer(t, f);
   const published = normalizeSourceTime(

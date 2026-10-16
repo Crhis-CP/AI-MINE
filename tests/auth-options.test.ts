@@ -3,7 +3,7 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, identitySql as runtimeSql } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { completeLogin, loginRedirect } from "@amp/backend/admin/auth";
 import { buildApp } from "./site-app.ts";
@@ -50,7 +50,7 @@ test("Feishu identity JSON is validated before allowlist lookup or SQL writes", 
     const value = loginRedirect("/admin");
     return [new URL(value.url).searchParams.get("state")!, value.stateCookie] as const;
   };
-  const sql = dbOf("identity");
+  const sql = runtimeSql;
   const count = async () => (await sql`SELECT count(*)::int n FROM admin_users`)[0]!.n;
   const baseline = await count();
   for (const bad of [{ union_id: { untrusted: true } }, { union_id: "synthetic-union", name: ["bad"] }, { union_id: "synthetic-union", email: 5 }]) {

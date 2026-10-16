@@ -3,7 +3,7 @@ import { tag, stub } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { groupArticle } from "@amp/backend/events/group";
@@ -12,8 +12,7 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { scopeVersion, scopeOutput, scopeReceipt } from "./scope-fixture.ts";
-const sql = dbOf("events"),
-  quote = "甲矿业项目获得批准，将启动锂矿建设。正式来源发布明确建设范围。";
+const quote = "甲矿业项目获得批准，将启动锂矿建设。正式来源发布明确建设范围。";
 let beforeAnswer: (() => Promise<void>) | null = null;
 const provider = await stub(async () => {
   await beforeAnswer?.();

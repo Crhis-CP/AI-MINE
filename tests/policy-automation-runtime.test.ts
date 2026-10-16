@@ -5,7 +5,7 @@ import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { getBoss, stopBoss, recordRun } from "@amp/backend/jobs/queue";
 import { publishPolicyPublication } from "../modules/policy/backend/publication/policies-publish.ts";
@@ -18,8 +18,7 @@ import { loadPolicyInterpretation } from "../modules/policy/backend/domain/inter
 import { registerPolicyJobs, sweepPolicyMaterials } from "../modules/policy/backend/jobs.ts";
 import { fixture } from "./policy-automation-fixture.ts";
 import { answer } from "./policy-automation-provider.ts";
-const sql = dbOf("policy"),
-  requests: unknown[] = [];
+const requests: unknown[] = [];
 const provider = await stub(async (_hit, req) => {
   const input = JSON.parse(JSON.parse(req.body).messages.at(-1).content);
   requests.push(input);

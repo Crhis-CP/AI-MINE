@@ -8,12 +8,12 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { getBoss, stopBoss } from "@amp/backend/jobs/queue";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { autoStopsBetween, checkAlerts, collectFindings, dueReports, readMetalPriceRuns, sendDigest } from "@amp/backend/operations/alerts";
 
-const sql = dbOf("ops");
+const sql = runtimeSql;
 
 const T = tag();
 const SOURCE = `test-alerts-${T}`;
@@ -434,7 +434,7 @@ test("metal prices: a source's periods held back come from its latest run that r
 
 // ---- Automatic stops (TASK-0063) -------------------------------------------------------------------------------------
 // Each test meters its own service (a budgets row and live attempts in database time) and removes it afterwards.
-const gateway = dbOf("ai-gateway");
+const gateway = runtimeSql;
 
 /** A service of this file's own with these limits and `calls` live attempts `minutesAgo` minutes ago. */
 async function meter(service: string, limits: { perMinute: number; perHour: number; perDay: number }, calls: number, minutesAgo = 10) {

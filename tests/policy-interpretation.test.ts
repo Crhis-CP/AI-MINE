@@ -3,7 +3,7 @@ import { policyModelQualification } from "../modules/policy/backend/domain/model
 import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
-import { dbOf, closeDb, initializeDb } from "@amp/backend/db";
+import { sql, closeDb, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 import { runPolicyFulltext } from "../modules/policy/backend/domain/fulltext-runtime.ts";
@@ -15,8 +15,7 @@ import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { sha256 } from "../packages/backend/src/lib/ids.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("policy"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 type Payload = ReturnType<typeof JSON.parse>;
 const requests: Payload[] = [],
   groupReplies: Payload[] = [];

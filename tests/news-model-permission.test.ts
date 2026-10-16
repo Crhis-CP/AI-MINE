@@ -2,15 +2,14 @@ import { stub, tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { chatJson } from "@amp/backend/providers/llm";
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { saveSourcePolicy } from "@amp/backend/admin/sources";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
-const sql = dbOf("sources"),
-  provider = await stub(() => ({ choices: [{ message: { content: '{"ok":true}' } }], usage: { prompt_tokens: 10, completion_tokens: 2 } }));
+const provider = await stub(() => ({ choices: [{ message: { content: '{"ok":true}' } }], usage: { prompt_tokens: 10, completion_tokens: 2 } }));
 process.env.DEEPSEEK_BASE_URL = provider.url;
 process.env.DEEPSEEK_API_KEY = "synthetic";
 after(async () => {

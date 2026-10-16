@@ -1,12 +1,12 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import "./setup.ts";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { paidRequest, BudgetExceededError, ProviderRejectedError } from "@amp/backend/providers/receipts";
 import { installUsageFixtureForService } from "./usage-protection-fixture.ts";
 import { modelBudgetService, ensureModelBudget } from "../packages/backend/src/providers/model-budget.ts";
-const sql = dbOf("ai-gateway");
+
 const services = ["quota-connection-a", "quota-connection-b"];
 before(async () => {
   for (const service of services) await installUsageFixtureForService(service);

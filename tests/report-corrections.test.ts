@@ -1,7 +1,7 @@
 import { tag, stub, Reply } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle, currentReportPublications } from "@amp/backend/publication/publish";
 import { correctNewsReport, writePeriod } from "@amp/backend/reports/compose";
@@ -14,7 +14,7 @@ import { reportFallbackInput } from "../packages/backend/src/reports/fallback-in
 import { confirmedManualEdit } from "./confirmed-manual-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
-const sql = dbOf("reports");
+
 let mode = "ok",
   afterSend: (() => Promise<void>) | null = null,
   index = 0;

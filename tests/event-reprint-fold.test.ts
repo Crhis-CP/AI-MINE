@@ -7,7 +7,7 @@ import { scopeOutput, scopeReceipt, scopeVersion } from "./scope-fixture.ts";
 import { stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { groupArticle } from "@amp/backend/events/group";
 import { loadHotStrip } from "@amp/backend/events/hot-read";
@@ -16,7 +16,6 @@ import { stopBoss } from "@amp/backend/jobs/queue";
 import { publishArticle } from "@amp/backend/publication/publish";
 import { loadTimeline } from "@amp/backend/publication/timeline";
 
-const sql = dbOf("events");
 const T = tag();
 process.env.EMBEDDINGS_ENABLED = "false";
 

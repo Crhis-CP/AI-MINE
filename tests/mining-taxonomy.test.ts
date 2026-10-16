@@ -9,7 +9,7 @@ import { after, test } from "node:test";
 import { CATEGORY_KEYS } from "@amp/contracts/taxonomy";
 import { MCP_TOOL_NAMES } from "@amp/contracts/mcp";
 import { CATEGORIES, CATEGORY_LABELS, ITEM_TYPES } from "@amp/industry/taxonomy";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle, PROMPT_VERSIONS } from "@amp/backend/editorial/analyze";
 import { configuredPromptVersion, promptVersion } from "@amp/backend/editorial/prompts";
@@ -20,8 +20,7 @@ import { publishArticle } from "@amp/backend/publication/publish";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { buildApp } from "./site-app.ts";
 
-const sql = dbOf("enrichment"),
-  source = `mining-category-${tag()}`;
+const source = `mining-category-${tag()}`;
 const app = await buildApp("public-api");
 const provider = await stub((_hit, req) => {
   const { messages } = JSON.parse(req.body);

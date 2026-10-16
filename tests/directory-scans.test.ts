@@ -1,7 +1,7 @@
 import "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { readPolicyMaterialDate } from "@amp/backend/content/materials";
 import { readSourceDateContext, readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -13,7 +13,7 @@ import { policySourceCoverage } from "../packages/backend/src/sources/policy-cov
 import { wakeDirectoryMaterial, readPolicyWorkflow, advancePolicyMaterial } from "../modules/policy/backend/domain/automation.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import type { GuardedResponse } from "../packages/backend/src/lib/http-fetch.ts";
-const sql = dbOf("acquisition");
+
 let serial = 0,
   clock = Date.now();
 Object.assign(process.env, { COLLECT_ENABLED: "true", COLLECT_POLICY_ENABLED: "true" });

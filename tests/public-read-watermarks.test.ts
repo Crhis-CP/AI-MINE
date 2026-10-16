@@ -1,13 +1,14 @@
+import { installTestConnections } from "./direct-db-fixture.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { injectDb } from "@amp/backend/db";
+
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { contentVersion, savedItems, publicFreshness, recordScheduledCheck } from "../packages/backend/src/publication/availability.ts";
 
 test("public references and version watermarks change atomically on withdrawal; reader login only reads", async (t) => {
   const f = await publicRoleFixture(t),
     logins = await f.login();
-  const dispose = injectDb({ publication: logins.public_read });
+  const dispose = installTestConnections(logins.public_read);
   t.after(dispose);
   const [row] = await f.admin`SELECT article_id FROM publications WHERE visibility='public' AND eligible LIMIT 1`;
   assert.ok(row);

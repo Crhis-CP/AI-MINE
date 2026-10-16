@@ -1,10 +1,10 @@
 import { tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { loadReport, listReports, v1Dailies } from "@amp/backend/publication/reports";
-const sql = dbOf("publication");
+
 after(closeDb);
 test("withdrawn report citations invalidate all synthesized prose and directory metadata", async () => {
   const sourceId = `reports-${tag()}`;

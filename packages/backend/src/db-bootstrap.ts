@@ -1,28 +1,7 @@
-// Transitional composition-root helper (TASK-0004 D1/D2). It does nothing until explicitly called.
+// Explicit process root: shared query pool plus dedicated identity and feedback handles.
 import { createDatabaseAccess, type ProcessRole, type QueryRole } from "@amp/config";
 import { installConnections } from "./db-connections.ts";
-import { injectDb } from "./module-db.ts";
 
-export const DB_MODULES = Object.freeze([
-  "sources",
-  "acquisition",
-  "content",
-  "enrichment",
-  "entities",
-  "events",
-  "policy",
-  "editorial",
-  "publication",
-  "reports",
-  "ai-gateway",
-  "feedback",
-  "identity",
-  "ops",
-  "queue",
-  "storage",
-  "config",
-  "telemetry",
-] as const);
 export type DatabaseProcess = Exclude<ProcessRole, "web">;
 type Access = ReturnType<typeof createDatabaseAccess>;
 type QueueConnection = Readonly<{ connectionString: string; createSchema?: false; migrate?: false; supervise?: false; schedule?: false }>;
@@ -37,13 +16,13 @@ let active:
     }
   | undefined;
 
-function roleFor(process: DatabaseProcess, module: string): QueryRole {
+function roleFor(process: DatabaseProcess, use: "main" | "identity" | "feedback"): QueryRole {
   switch (process) {
     case "public-api":
-      return module === "feedback" ? "feedback_write" : "public_read";
+      return use === "feedback" ? "feedback_write" : "public_read";
     case "api":
     case "private-api":
-      return module === "identity" ? "auth" : "private_ops";
+      return use === "identity" ? "auth" : "private_ops";
     case "worker":
       return "worker";
     case "migrate":
@@ -51,7 +30,7 @@ function roleFor(process: DatabaseProcess, module: string): QueryRole {
     case "test":
       return "worker";
     default:
-      throw new Error("This process cannot initialize module databases");
+      throw new Error("This process cannot initialize databases");
   }
 }
 
@@ -59,31 +38,20 @@ function roleFor(process: DatabaseProcess, module: string): QueryRole {
 export async function initializeDb(process: DatabaseProcess, env?: Readonly<Record<string, string | undefined>>): Promise<AbortSignal> {
   if (active) {
     if (!active.closing && active.access.processRole === process && active.environment === env) return active.lifetime.signal;
-    throw new Error("Module databases already initialized or closing");
+    throw new Error("Database connections already initialized or closing");
   }
   const lifetime = new AbortController();
   let access: Access | undefined;
   try {
-    roleFor(process, "publication");
+    roleFor(process, "main");
     const created = createDatabaseAccess(process, env);
     access = created;
-    const bindings = Object.fromEntries(DB_MODULES.map((module) => [module, created.dbFor(roleFor(process, module))]));
-    const disposeLegacy = injectDb(bindings);
-    try {
-      const disposeDirect = installConnections({ sql: bindings.publication!, identity: bindings.identity!, feedback: bindings.feedback! });
-      active = {
-        access,
-        dispose: () => {
-          disposeDirect();
-          disposeLegacy();
-        },
-        lifetime,
-        environment: env,
-      };
-    } catch (error) {
-      disposeLegacy();
-      throw error;
-    }
+    const dispose = installConnections({
+      sql: created.dbFor(roleFor(process, "main")),
+      identity: created.dbFor(roleFor(process, "identity")),
+      feedback: created.dbFor(roleFor(process, "feedback")),
+    });
+    active = { access, dispose, lifetime, environment: env };
     return lifetime.signal;
   } catch (error) {
     lifetime.abort();
@@ -93,7 +61,7 @@ export async function initializeDb(process: DatabaseProcess, env?: Readonly<Reco
 }
 
 function currentAccess(): Access {
-  if (!active || active.closing) throw new Error("Module databases not initialized or closing");
+  if (!active || active.closing) throw new Error("Database connections not initialized or closing");
   return active.access;
 }
 
@@ -137,10 +105,11 @@ export function closeProcessDb(): Promise<void> {
       try {
         current.dispose();
       } finally {
+        const closingPools = current.access.close();
         try {
           current.lifetime.abort();
         } finally {
-          await current.access.close();
+          await closingPools;
         }
       }
     };

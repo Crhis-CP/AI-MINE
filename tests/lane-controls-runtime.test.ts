@@ -7,7 +7,7 @@ import { stub } from "./setup.ts";
 import { ensureEmbeddings } from "@amp/backend/providers/embeddings";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { paidRequest } from "@amp/backend/providers/receipts";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { publishArticle, republishSource } from "@amp/backend/publication/publish";
@@ -20,8 +20,7 @@ import {
   RuntimeControlPaused,
   RuntimeControlStale,
 } from "../packages/backend/src/operations/lane-controls.ts";
-const sql = dbOf("ops"),
-  expires = () => new Date(Date.now() + 3600_000).toISOString();
+const expires = () => new Date(Date.now() + 3600_000).toISOString();
 after(async () => {
   await stopBoss();
   await closeDb();

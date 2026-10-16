@@ -3,7 +3,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { compareCbrWithNbu } from "../modules/metals/backend/nbu.ts";
 import { cbrFetcher } from "../modules/metals/backend/cbr.ts";
 import type { PageGetter } from "../modules/metals/backend/types.ts";
@@ -11,7 +11,6 @@ import { refreshMetalPrices } from "../modules/metals/backend/refresh.ts";
 import { loadMetalPriceRegistry, parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
 import type { FetchedPeriod } from "../modules/metals/backend/types.ts";
 
-const sql = dbOf("publication");
 after(() => closeDb());
 beforeEach(async () => {
   await sql`TRUNCATE publication.metal_prices`;

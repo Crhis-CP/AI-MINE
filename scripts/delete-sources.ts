@@ -4,12 +4,10 @@
 // the deleted items (a report cites ids it cannot find as published).
 import { audit } from "@amp/backend/admin/auth";
 import { setVisibility } from "@amp/backend/admin/content";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { stopBoss } from "@amp/backend/jobs/queue";
 
 await initializeDb("worker");
-
-const sql = dbOf("sources");
 
 const ACTOR = "ops-script";
 const [reason, ...ids] = process.argv.slice(2);

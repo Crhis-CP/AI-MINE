@@ -3,7 +3,7 @@ import { stub, gate, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { stripTags } from "@amp/backend/lib/text";
 import { after, test } from "node:test";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { readPolicyResponse } from "@amp/backend/providers/receipts";
 import { recordPolicyOriginal, readPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
@@ -12,8 +12,7 @@ import { setPolicyProcessingPaused, readPolicyFulltextRun } from "../modules/pol
 import type { PolicyOriginalInput } from "../modules/policy/backend/domain/types.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
-const sql = dbOf("policy"),
-  root = await initializeDb("test");
+const root = await initializeDb("test");
 type Part = { partId: string; sourceHash: string; source: string; format: string };
 let transform = (part: Part) => ({
   partId: part.partId,

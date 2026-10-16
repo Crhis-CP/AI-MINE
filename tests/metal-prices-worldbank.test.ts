@@ -1,5 +1,5 @@
 import "./setup.ts";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { refreshMetalPrices } from "../modules/metals/backend/refresh.ts";
 import { worldbankFetcher, worldbankPeriods, WORLDBANK_LIST_URL } from "../modules/metals/backend/worldbank.ts";
 import { openWorkbook, type Sheet } from "../modules/metals/backend/xlsx.ts";
@@ -80,7 +80,6 @@ test("monthly-average wording occurs only at the explicitly supported locations"
   visit(raw);
 });
 
-const sql = dbOf("publication");
 after(() => closeDb());
 beforeEach(async () => {
   await sql`TRUNCATE publication.metal_prices`;

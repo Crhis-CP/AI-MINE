@@ -6,12 +6,12 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql } from "@amp/backend/db";
 import { recordRun, stopBoss } from "@amp/backend/jobs/queue";
 import { usageWeekly } from "@amp/backend/operations/reports";
 
-const sql = dbOf("ai-gateway");
-const ops = dbOf("ops");
+const sql = runtimeSql;
+const ops = runtimeSql;
 const T = tag();
 const [ACTUAL, ESTIMATED, PRICED, UNPRICED] = ["actual", "estimated", "priced", "unpriced"].map((s) => `test-weekly-${s}-${T}`) as [
   string,

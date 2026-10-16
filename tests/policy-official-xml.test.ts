@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { after, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { acquirePolicyOriginal } from "../modules/policy/backend/domain/acquire.ts";
 import { extractPolicyOriginal } from "../modules/policy/backend/domain/extraction.ts";
 import { buildPolicyFulltextPlan } from "../modules/policy/backend/domain/processing-plan.ts";
 import { readingBlock } from "../modules/policy/backend/publication/policies-project.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
-const sql = dbOf("policy");
+
 after(closeDb);
 const manifest = JSON.parse(readFileSync("tests/fixtures/policy/official-xml/manifest.json", "utf8"));
 const profile = { bodySelector: "Regulation", attachmentSelector: "Attachment", maxBytes: 100000, maxResources: 2, maxPages: 1, maxTextBytes: 100000 };

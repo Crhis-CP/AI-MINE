@@ -6,7 +6,7 @@ import http from "node:http";
 import { z } from "zod";
 import { chatJson } from "@amp/backend/providers/llm";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { sanitizeBody } from "@amp/backend/content/sanitize";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { stopBoss } from "@amp/backend/jobs/queue";
@@ -14,8 +14,7 @@ import { receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs"
 import { runBodyTranslation, type TranslationRecipe } from "../packages/backend/src/editorial/translation-runtime.ts";
 import { readableTranslation, translationSourceManifest } from "../packages/backend/src/editorial/translation-readiness.ts";
 
-const sql = dbOf("enrichment"),
-  T = tag(),
+const T = tag(),
   SOURCE = `long-${T}`;
 const recipe: TranslationRecipe = {
   id: `long-${T}`,

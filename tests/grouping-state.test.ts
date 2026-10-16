@@ -1,10 +1,10 @@
 import { tag } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { dbOf, closeDb } from "@amp/backend/db";
+import { sql, closeDb } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { readMaterialGrouping, beginMaterialGrouping, completeMaterialGrouping, failMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
-const sql = dbOf("content");
+
 after(closeDb);
 test("legacy grouping timestamps never confirm a current decision and stale writes cannot finish it", async () => {
   const sourceId = `group-state-${tag()}`;

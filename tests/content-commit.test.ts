@@ -4,7 +4,7 @@ import { gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
-import { closeDb, dbOf, type Tx } from "@amp/backend/db";
+import { closeDb, sql, type Tx } from "@amp/backend/db";
 import { commitBodyResult, readCurrentBody, commitProcessingResult, upsertMaterial } from "@amp/backend/content/materials";
 import { analyzeArticle } from "@amp/backend/editorial/analyze";
 import { failureGroupSql, requeueFailed } from "@amp/backend/jobs/content";
@@ -12,7 +12,6 @@ import { getBoss, QUEUES, stopBoss } from "@amp/backend/jobs/queue";
 import { runsOverview } from "@amp/backend/admin/runs";
 import { completeReceipt, paidRequest } from "@amp/backend/providers/receipts";
 
-const sql = dbOf("enrichment");
 const T = tag();
 const SOURCE = `test-content-commit-${T}`;
 let paused: { asked: ReturnType<typeof gate<void>>; release: ReturnType<typeof gate<void>> } | undefined;

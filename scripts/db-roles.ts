@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 import type { Database } from "@amp/config";
-import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
+import { closeDb, sql as runtimeSql, initializeDb } from "@amp/backend/db";
 import { readRoleCatalog } from "./db-roles/catalog.ts";
 import { GrantPlanError, planRoleGrants, roleNames } from "./db-roles/grants.ts";
 
@@ -27,7 +27,7 @@ if (import.meta.main) {
     });
     roleNames(values.prefix);
     await initializeDb("migrate");
-    const plan = await provisionRoles(dbOf("config"), {
+    const plan = await provisionRoles(runtimeSql, {
       prefix: values.prefix,
       publicConnections: Number(values["public-connections"]),
       apply: values.apply,

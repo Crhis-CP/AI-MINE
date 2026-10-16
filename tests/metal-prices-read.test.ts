@@ -2,7 +2,7 @@ import "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { after, beforeEach, test } from "node:test";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import { MetalPrices } from "@amp/contracts/http/public";
 import { loadMetalPrices } from "../modules/metals/backend/read.ts";
 import { parseMetalPriceRegistry } from "../modules/metals/backend/registry.ts";
@@ -14,8 +14,7 @@ import { storePeriod } from "../modules/metals/backend/store.ts";
 import { buildApp } from "./site-app.ts";
 import type { FetchedPeriod } from "../modules/metals/backend/types.ts";
 
-const sql = dbOf("publication"),
-  NOW = new Date("2026-10-06T04:00:00Z");
+const NOW = new Date("2026-10-06T04:00:00Z");
 const raw = JSON.parse(readFileSync(new URL("../industry/metal-prices.json", import.meta.url), "utf8"));
 const registry = parseMetalPriceRegistry(raw);
 const fixture = (file: string) => readFileSync(new URL(`./fixtures/metal-prices/${file}`, import.meta.url));

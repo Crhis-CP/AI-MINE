@@ -2,7 +2,7 @@ import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { createServer } from "node:http";
-import { closeDb, dbOf } from "@amp/backend/db";
+import { closeDb, sql } from "@amp/backend/db";
 import {
   saveSourcePolicy,
   readSourceDateContext,
@@ -21,7 +21,6 @@ import { stopBoss, ensureQueue } from "@amp/backend/jobs/queue";
 import { fetchDetail } from "@amp/backend/sources/web-list";
 import { fetchRss } from "@amp/backend/sources/rss";
 
-const sql = dbOf("content");
 after(async () => {
   await stopBoss();
   await closeDb();
