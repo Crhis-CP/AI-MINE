@@ -11,6 +11,7 @@
 3. 任务卡引用的规格：`docs/01-product/`（F-/PG-/OP-/OUT-/DR-）、`docs/02-rules/`（BR-/AI-）、`docs/05-quality/`（INV-/AC-/PIT-）；拿不准的决定看 `docs/00-decision-ledger.md`。
 4. 跨模块协作：只读对方 README 的“公开接口”与 `packages/contracts`。
 5. 模板：任务卡、Q 卡片、审查结论、验收记录、坑点条目、PR 与产品更新片段都在 `docs/06-agents/templates/`；任务卡实例放 `tasks/`。
+6. 排查或修复前按模块/问题ID查询 `docs/05-quality/08-audit-ledger.md` 与其问题台账，复用已有任务、回归和历史坑点；记录中的版本与验证范围不能省略。
 
 不需要、也不应该通读整个仓库；**旧仓库不是工程参考**，需要核对旧行为时找行为审计 Agent（`docs/appendix/A-legacy-evidence-index.md`）。
 
