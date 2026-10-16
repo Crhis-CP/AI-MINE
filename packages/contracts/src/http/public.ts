@@ -54,7 +54,7 @@ export const SiteFilters = z.strictObject({
   selected: z.boolean().optional(),
   scope: z.enum(["all", "selected"]).optional(),
 });
-/** ADR-0025 future shapes only; current aliases/registry remain unchanged until atomic activation. */
+/** Strict evidence shapes for fully migrated consumers; existing responses accept optional evidence without guessing legacy times. */
 export const SourceDatedItemTime = SourceTimeProjection.extend({ firstPublicAt: z.iso.datetime({ offset: true }).nullable() });
 const FeedItemSummaryCore = z.strictObject({
   id: z.string(),
@@ -72,12 +72,12 @@ const FeedItemSummaryCore = z.strictObject({
   attribution: SourceAttribution.nullable().optional(),
 });
 export const SourceDatedFeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.shape);
-export const FeedItemSummary = FeedItemSummaryCore;
+export const FeedItemSummary = FeedItemSummaryCore.extend(SourceDatedItemTime.partial().shape);
 export const SavedItems = z.strictObject({ items: z.array(FeedItemSummary), unavailableIds: z.array(z.string()) });
 
 const PoolResponseCore = z.strictObject({
   filters: SiteFilters.extend({ q: z.string().nullable(), tab: z.enum(["time", "relevance"]) }),
-  items: z.array(FeedItemSummaryCore),
+  items: z.array(FeedItemSummary),
   cards: z.lazy(() => z.array(TimelineCardCore)).optional(),
   hot: z.lazy(() => z.array(HotStripEntry)).optional(),
   reportTotal: z.int().nonnegative().optional(),
@@ -134,7 +134,7 @@ export const GroupInfo = z.strictObject({
 const TimelineCardCore = z.strictObject({
   key: z.string(),
   anchorAt: z.iso.datetime({ offset: true }),
-  item: FeedItemSummaryCore,
+  item: FeedItemSummary,
   group: GroupInfo.nullable(),
 });
 export const SourceDatedTimelineCard = TimelineCardCore.extend({

@@ -71,6 +71,18 @@
             "const": "news",
             "type": "string"
           },
+          "firstPublicAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -112,6 +124,131 @@
               "name"
             ],
             "type": "object"
+          },
+          "sourceTime": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "basis": {
+                    "maxLength": 500,
+                    "type": "string"
+                  },
+                  "beijing_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "condition_text": {
+                    "anyOf": [
+                      {
+                        "maxLength": 2000,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "local_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "local_time": {
+                    "anyOf": [
+                      {
+                        "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "meaning": {
+                    "enum": [
+                      "published",
+                      "updated",
+                      "registered",
+                      "public_inspection",
+                      "formally_published",
+                      "signed",
+                      "effective",
+                      "applicable",
+                      "deadline",
+                      "compiled",
+                      "expires",
+                      "event",
+                      "discovered",
+                      "site_public",
+                      "uploaded",
+                      "checked",
+                      "repealed"
+                    ],
+                    "type": "string"
+                  },
+                  "meaning_label": {
+                    "type": "string"
+                  },
+                  "precision": {
+                    "default": "date",
+                    "enum": [
+                      "unknown",
+                      "date",
+                      "minute",
+                      "second"
+                    ],
+                    "type": "string"
+                  },
+                  "raw": {
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "utc": {
+                    "anyOf": [
+                      {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "meaning",
+                  "raw",
+                  "local_date",
+                  "local_time",
+                  "timezone",
+                  "utc",
+                  "precision",
+                  "basis",
+                  "condition_text",
+                  "meaning_label",
+                  "label",
+                  "beijing_date"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "summary": {
             "type": [
@@ -188,6 +325,18 @@
             "const": "news",
             "type": "string"
           },
+          "firstPublicAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "type": "string"
           },
@@ -229,6 +378,130 @@
               "name"
             ],
             "type": "object"
+          },
+          "sourceTime": {
+            "anyOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "basis": {
+                    "maxLength": 500,
+                    "type": "string"
+                  },
+                  "beijing_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "condition_text": {
+                    "anyOf": [
+                      {
+                        "maxLength": 2000,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "local_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "local_time": {
+                    "anyOf": [
+                      {
+                        "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "meaning": {
+                    "enum": [
+                      "published",
+                      "updated",
+                      "registered",
+                      "public_inspection",
+                      "formally_published",
+                      "signed",
+                      "effective",
+                      "applicable",
+                      "deadline",
+                      "compiled",
+                      "expires",
+                      "event",
+                      "discovered",
+                      "site_public",
+                      "uploaded",
+                      "checked",
+                      "repealed"
+                    ],
+                    "type": "string"
+                  },
+                  "meaning_label": {
+                    "type": "string"
+                  },
+                  "precision": {
+                    "default": "date",
+                    "enum": [
+                      "unknown",
+                      "date",
+                      "minute",
+                      "second"
+                    ],
+                    "type": "string"
+                  },
+                  "raw": {
+                    "maxLength": 300,
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "utc": {
+                    "anyOf": [
+                      {
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "meaning",
+                  "raw",
+                  "local_date",
+                  "local_time",
+                  "timezone",
+                  "utc",
+                  "basis",
+                  "condition_text",
+                  "meaning_label",
+                  "label",
+                  "beijing_date"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "summary": {
             "type": [
