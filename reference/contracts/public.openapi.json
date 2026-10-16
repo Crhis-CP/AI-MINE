@@ -13493,6 +13493,144 @@
         ],
         "type": "object"
       },
+      "SearchSuggestions": {
+        "additionalProperties": false,
+        "properties": {
+          "hot": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "rank": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                },
+                "title": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "to": {
+                  "pattern": "^\\/story\\/[a-zA-Z0-9_-]{1,100}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rank",
+                "title",
+                "to"
+              ],
+              "type": "object"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "topics": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "group": {
+                  "enum": [
+                    "company",
+                    "field",
+                    "genre",
+                    "project"
+                  ],
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "slug": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slug",
+                "name",
+                "group"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "topics",
+          "hot"
+        ],
+        "type": "object"
+      },
+      "SearchSuggestionsInput": {
+        "additionalProperties": false,
+        "properties": {
+          "hot": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "rank": {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991,
+                  "type": "integer"
+                },
+                "title": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "to": {
+                  "pattern": "^\\/story\\/[a-zA-Z0-9_-]{1,100}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "rank",
+                "title",
+                "to"
+              ],
+              "type": "object"
+            },
+            "maxItems": 5,
+            "type": "array"
+          },
+          "topics": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "group": {
+                  "enum": [
+                    "company",
+                    "field",
+                    "genre",
+                    "project"
+                  ],
+                  "type": "string"
+                },
+                "name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "slug": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "slug",
+                "name",
+                "group"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "topics",
+          "hot"
+        ],
+        "type": "object"
+      },
       "SiteFilters": {
         "additionalProperties": false,
         "properties": {
@@ -23147,6 +23285,36 @@
               }
             },
             "description": "Problem response"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Problem response"
+          }
+        }
+      }
+    },
+    "/api/site/search/suggestions": {
+      "get": {
+        "operationId": "siteSearchSuggestions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchSuggestions"
+                }
+              }
+            },
+            "description": "Default Response"
+          },
+          "304": {
+            "description": "Default Response"
           },
           "503": {
             "content": {
