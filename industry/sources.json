@@ -11352,6 +11352,242 @@
       "enabled": false,
       "owner_entity_id": "sec",
       "tags": ["SQM"]
+    },
+    {
+      "id": "research-20261016-gold-hunter",
+      "name": "Gold Hunter Resources · 官方新闻",
+      "kind": "rss",
+      "lane": "news",
+      "config": {
+        "feedUrl": "https://goldhunterresources.com/feed/",
+        "language": "en",
+        "publishedAtField": "pubDate",
+        "sourceDate": {
+          "format": "rfc2822",
+          "language": "en"
+        },
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "gold-hunter"
+    },
+    {
+      "id": "research-20261016-banyan",
+      "name": "Banyan Gold · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://banyangold.com/news-releases/",
+        "itemSelector": "li.wp-block-post",
+        "linkSelector": ".wp-block-post-title a",
+        "titleSelector": ".wp-block-post-title a",
+        "publishedAtSelector": ".wp-block-post-date time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "banyan"
+    },
+    {
+      "id": "research-20261016-onyx",
+      "name": "Onyx Gold · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://onyxgold.com/news/",
+        "itemSelector": "li.wp-block-post",
+        "linkSelector": ".wp-block-post-title a",
+        "titleSelector": ".wp-block-post-title a",
+        "publishedAtSelector": ".wp-block-post-date time",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "onyx"
+    },
+    {
+      "id": "research-20261016-omai",
+      "name": "Omai Gold Mines · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://omaigoldmines.com/news/",
+        "itemSelector": "li.py-4.border-b",
+        "linkSelector": "div[class~=\"w-3/4\"] a",
+        "titleSelector": "div[class~=\"w-3/4\"] a",
+        "publishedAtSelector": "div.font-semibold",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMM D, YYYY",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "omai"
+    },
+    {
+      "id": "research-20261016-founders",
+      "name": "Founders Metals · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.fdrmetals.com/news-media/news-releases/",
+        "itemSelector": "div.item:has(span.date):has(span.title)",
+        "linkSelector": "span.link a",
+        "titleSelector": "span.title",
+        "publishedAtSelector": "span.date",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "founders"
+    },
+    {
+      "id": "research-20261016-westhaven",
+      "name": "Westhaven Gold · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://westhavengold.com/news-media/news-releases/",
+        "itemSelector": "div.list-item",
+        "linkSelector": ".title a:not(.pdf)",
+        "titleSelector": ".title a:not(.pdf)",
+        "publishedAtSelectors": [".date .month", ".date .day", ".date .year"],
+        "publishedAtPartSeparator": " ",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMM D YYYY",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "westhaven"
+    },
+    {
+      "id": "research-20261016-blackrock",
+      "name": "Blackrock Silver · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.blackrocksilver.com/news",
+        "itemSelector": "a.news_box",
+        "linkSelector": "a.news_box",
+        "titleSelector": ".news_name",
+        "publishedAtSelector": ".news_date_text",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMMM D, YYYY",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "blackrock"
+    },
+    {
+      "id": "research-20261016-kincora",
+      "name": "Kincora Copper · 官方新闻",
+      "kind": "web_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.kincoracopper.com/news",
+        "itemSelector": "div.news_content-box",
+        "linkSelector": "a[href^=\"/news-releases/\"]",
+        "titleSelector": ".news_title",
+        "publishedAtSelectors": [".news_date-block .is_orange", ".news_date-block > div:last-child"],
+        "publishedAtPartSeparator": " ",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "MMM D YYYY",
+          "language": "en"
+        },
+        "language": "en",
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "enabled": false,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "owner_entity_id": "kincora"
     }
   ]
 }

@@ -1,0 +1,399 @@
+{
+  "method": "Actual native previews; final configs only; metadata and identity review, no production changes or model requests",
+  "entries": [
+    {
+      "id": "research-20261016-gold-hunter",
+      "name": "Gold Hunter Resources · 官方新闻",
+      "publisher_host": "goldhunterresources.com",
+      "checked_at": "2026-10-16T18:15:50.295Z",
+      "configuration_sha256": "bfb5031998ca817dd649ae84f00bf79a9c1ed7f02bcaf8efe2d2e92e72560c6f",
+      "native_preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Gold Hunter Concludes 2026 Drill Program at the Great Northern Project",
+        "url": "https://goldhunterresources.com/gold-hunter-concludes-2026-drill-program-at-the-great-northern-project/?utm_source=rss&utm_medium=rss&utm_campaign=gold-hunter-concludes-2026-drill-program-at-the-great-northern-project"
+      },
+      "identity_aliases_checked": [
+        "gold hunter",
+        "goldhunter"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-gold-hunter",
+        "name": "Gold Hunter Resources · 官方新闻",
+        "kind": "rss",
+        "lane": "news",
+        "config": {
+          "feedUrl": "https://goldhunterresources.com/feed/",
+          "language": "en",
+          "publishedAtField": "pubDate",
+          "sourceDate": {
+            "format": "rfc2822",
+            "language": "en"
+          },
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "gold-hunter"
+      },
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "research-20261016-banyan",
+      "name": "Banyan Gold · 官方新闻",
+      "publisher_host": "banyangold.com",
+      "checked_at": "2026-10-16T18:25:48.875Z",
+      "configuration_sha256": "3bfb6d35ac809ac67a57ef32d8d1f139f103b5b30a6470ec1e5e3dbb06425eac",
+      "native_preview_count": 16,
+      "sampled_valid_items": 16,
+      "sample": {
+        "title": "Banyan Gold Intersects 1.88 g/t Gold over 17.9 Metres in the Gap Between Airstrip and Powerline, and Identifies High-Grade Gold in Airstrip Footwall at AurMac, Yukon, Canada",
+        "url": "https://banyangold.com/news-releases/banyan-gold-intersects-1-88-g-t-gold-over-17-9-metres-in-the-gap-between-airstrip-and-powerline-and-identifies-high-grade-gold-in-airstrip-footwall-at-aurmac-yukon-canada/"
+      },
+      "identity_aliases_checked": [
+        "banyan"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-banyan",
+        "name": "Banyan Gold · 官方新闻",
+        "kind": "web_list",
+        "lane": "news",
+        "config": {
+          "url": "https://banyangold.com/news-releases/",
+          "itemSelector": "li.wp-block-post",
+          "linkSelector": ".wp-block-post-title a",
+          "titleSelector": ".wp-block-post-title a",
+          "publishedAtSelector": ".wp-block-post-date time",
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "en"
+          },
+          "language": "en",
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "banyan"
+      },
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "research-20261016-onyx",
+      "name": "Onyx Gold · 官方新闻",
+      "publisher_host": "onyxgold.com",
+      "checked_at": "2026-10-16T18:25:49.898Z",
+      "configuration_sha256": "24d54c6a48e0c8308bd93482a0ced8193997b1be9af0557bbb58944b29be4590",
+      "native_preview_count": 20,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Onyx Gold Confirms New Sediment-Hosted Gold Zone 3 km South of Argus; Drills 0.7 g/t Gold Over 46.7 Meters at Flipper",
+        "url": "https://onyxgold.com/onyx-gold-confirms-new-sediment-hosted-gold-zone-3-km-south-of-argus-drills-0-7-g-t-gold-over-46-7-meters-at-flipper/"
+      },
+      "identity_aliases_checked": [
+        "onyx gold",
+        "onyxgold"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-onyx",
+        "name": "Onyx Gold · 官方新闻",
+        "kind": "web_list",
+        "lane": "news",
+        "config": {
+          "url": "https://onyxgold.com/news/",
+          "itemSelector": "li.wp-block-post",
+          "linkSelector": ".wp-block-post-title a",
+          "titleSelector": ".wp-block-post-title a",
+          "publishedAtSelector": ".wp-block-post-date time",
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "en"
+          },
+          "language": "en",
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "onyx"
+      },
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "research-20261016-omai",
+      "name": "Omai Gold Mines · 官方新闻",
+      "publisher_host": "omaigoldmines.com",
+      "checked_at": "2026-10-16T18:25:51.541Z",
+      "configuration_sha256": "079ff4b5ecfa294d3114e31f44372fe34a29bff3e64760f4f1b13297021cf5c6",
+      "native_preview_count": 10,
+      "sampled_valid_items": 10,
+      "sample": {
+        "title": "Omai Gold Mobilizes Sixth Drill to Advance Exploration Targets",
+        "url": "https://omaigoldmines.com/site/assets/files/6241/2026-10-08_nr_omai_bbh_drilling_commencing_final-1.pdf"
+      },
+      "identity_aliases_checked": [
+        "omai gold",
+        "omaigold"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-omai",
+        "name": "Omai Gold Mines · 官方新闻",
+        "kind": "web_list",
+        "lane": "news",
+        "config": {
+          "url": "https://omaigoldmines.com/news/",
+          "itemSelector": "li.py-4.border-b",
+          "linkSelector": "div[class~=\"w-3/4\"] a",
+          "titleSelector": "div[class~=\"w-3/4\"] a",
+          "publishedAtSelector": "div.font-semibold",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMM D, YYYY",
+            "language": "en"
+          },
+          "language": "en",
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "omai"
+      },
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "research-20261016-founders",
+      "name": "Founders Metals · 官方新闻",
+      "publisher_host": "fdrmetals.com",
+      "checked_at": "2026-10-16T18:23:32.947Z",
+      "configuration_sha256": "47cea4d31dbaad895a7b1ef42f709318b6a9e6c4370057a17114bcd673ead2b9",
+      "native_preview_count": 120,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Froyo Zone Keeps Growing: Founders Metals Hits 54.0 m of 8.45 g/t Gold",
+        "url": "https://www.fdrmetals.com/news-media/news-releases/froyo-zone-keeps-growing-founders-metals-hits-540-m-of-845-gt-gold"
+      },
+      "identity_aliases_checked": [
+        "founders metals",
+        "fdrmetals",
+        "avalon works"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-founders",
+        "name": "Founders Metals · 官方新闻",
+        "kind": "web_list",
+        "lane": "news",
+        "config": {
+          "url": "https://www.fdrmetals.com/news-media/news-releases/",
+          "itemSelector": "div.item:has(span.date):has(span.title)",
+          "linkSelector": "span.link a",
+          "titleSelector": "span.title",
+          "publishedAtSelector": "span.date",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMMM D, YYYY",
+            "language": "en"
+          },
+          "language": "en",
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "founders"
+      },
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "research-20261016-westhaven",
+      "name": "Westhaven Gold · 官方新闻",
+      "publisher_host": "westhavengold.com",
+      "checked_at": "2026-10-16T18:25:49.377Z",
+      "configuration_sha256": "3345324cb8d278de628c8103784d8fb012e98eae7ac6299389eb2439f5fceeda",
+      "native_preview_count": 275,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Westhaven Reports New High Grade South Zone Results as Resource Drilling Program Approaches Completion at Shovelnose Gold Project, Southern British Columbia",
+        "url": "https://westhavengold.com/news-media/news-releases/westhaven-reports-new-high-grade-south-zone-results-as-resource-drilling-program-approaches-completion-at-shovelnose-gold-project-southern-british-columbia"
+      },
+      "identity_aliases_checked": [
+        "westhaven"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-westhaven",
+        "name": "Westhaven Gold · 官方新闻",
+        "kind": "web_list",
+        "lane": "news",
+        "config": {
+          "url": "https://westhavengold.com/news-media/news-releases/",
+          "itemSelector": "div.list-item",
+          "linkSelector": ".title a:not(.pdf)",
+          "titleSelector": ".title a:not(.pdf)",
+          "publishedAtSelectors": [
+            ".date .month",
+            ".date .day",
+            ".date .year"
+          ],
+          "publishedAtPartSeparator": " ",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMM D YYYY",
+            "language": "en"
+          },
+          "language": "en",
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "westhaven"
+      },
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "research-20261016-blackrock",
+      "name": "Blackrock Silver · 官方新闻",
+      "publisher_host": "blackrocksilver.com",
+      "checked_at": "2026-10-16T18:23:39.028Z",
+      "configuration_sha256": "df75dea67cc1b7db3b5456ea630709e45f3784d6be48967dcf58dd5d0de93dcb",
+      "native_preview_count": 208,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "BLACKROCK SILVER ANNOUNCES GRADUATION TO THE TORONTO STOCK EXCHANGE",
+        "url": "https://www.blackrocksilver.com/news-releases/blackrock-silver-announces-graduation-to-the-toronto-stock-exchange"
+      },
+      "identity_aliases_checked": [
+        "blackrock silver",
+        "blackrock gold",
+        "blackrocksilver"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-blackrock",
+        "name": "Blackrock Silver · 官方新闻",
+        "kind": "web_list",
+        "lane": "news",
+        "config": {
+          "url": "https://www.blackrocksilver.com/news",
+          "itemSelector": "a.news_box",
+          "linkSelector": "a.news_box",
+          "titleSelector": ".news_name",
+          "publishedAtSelector": ".news_date_text",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMMM D, YYYY",
+            "language": "en"
+          },
+          "language": "en",
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "blackrock"
+      },
+      "production_enabled_by_task": false
+    },
+    {
+      "id": "research-20261016-kincora",
+      "name": "Kincora Copper · 官方新闻",
+      "publisher_host": "kincoracopper.com",
+      "checked_at": "2026-10-16T18:25:52.523Z",
+      "configuration_sha256": "92a5598c24fa0cf0bd138675209287f52f43bb2cedff7b0105673cfe39fef2bb",
+      "native_preview_count": 132,
+      "sampled_valid_items": 20,
+      "sample": {
+        "title": "Kincora Provides Drilling Update Supporting New Province-Scale Potential",
+        "url": "https://www.kincoracopper.com/news-releases/kincora-provides-drilling-update-supporting-new-province-scale-potential"
+      },
+      "identity_aliases_checked": [
+        "kincora"
+      ],
+      "dedupe_baseline": "440 safe runtime identities observed 2026-10-16 plus the original 320 planned targets; no host or listed identity alias match",
+      "source": {
+        "id": "research-20261016-kincora",
+        "name": "Kincora Copper · 官方新闻",
+        "kind": "web_list",
+        "lane": "news",
+        "config": {
+          "url": "https://www.kincoracopper.com/news",
+          "itemSelector": "div.news_content-box",
+          "linkSelector": "a[href^=\"/news-releases/\"]",
+          "titleSelector": ".news_title",
+          "publishedAtSelectors": [
+            ".news_date-block .is_orange",
+            ".news_date-block > div:last-child"
+          ],
+          "publishedAtPartSeparator": " ",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "MMM D YYYY",
+            "language": "en"
+          },
+          "language": "en",
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "enabled": false,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "owner_entity_id": "kincora"
+      },
+      "production_enabled_by_task": false
+    }
+  ]
+}

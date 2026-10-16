@@ -251,6 +251,9 @@ test("declared month names use only the stated language, including accents, abbr
   for (const [raw, language, formatPattern, expected] of [
     ["02 October 2026", "en-GB", "D MMMM YYYY", "2026-10-02"],
     ["September 30, 2026", "en", "MMMM D, YYYY", "2026-09-30"],
+    ["Oct 8, 2026", "en", "MMM D, YYYY", "2026-10-08"],
+    ["Sep 22 2026", "en", "MMM D YYYY", "2026-09-22"],
+    ["September 22 2026", "en", "MMMM D YYYY", "2026-09-22"],
     ["8 Oct 2026", "en", "D MMM YYYY", "2026-10-08"],
     ["05-OCT-2026", "es", "DD-MMM-YYYY", "2026-10-05"],
     ["6 de octubre de 2026", "es-AR", "D MMMM YYYY", "2026-10-06"],

@@ -86,7 +86,7 @@ const NAMED_MONTHS: Record<string, string> = {
   de: "januar/jan februar/feb märz/mär/mrz april/apr mai juni/jun juli/jul august/aug september/sep/sept oktober/okt november/nov dezember/dez",
 };
 const monthWord = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\.$/, "");
-const NAMED_FORMATS = new Set(["D MMMM YYYY", "MMMM D, YYYY", "D MMM YYYY", "DD-MMM-YYYY"]);
+const NAMED_FORMATS = new Set(["D MMMM YYYY", "MMMM D, YYYY", "MMM D, YYYY", "MMMM D YYYY", "MMM D YYYY", "D MMM YYYY", "DD-MMM-YYYY"]);
 const dayOf = (year: string, month: string, day: string) => `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 const fraction = (clock: string) => clock.split(".")[1] ?? "";
 function at(wholeSecond: number, subsecond: string): string {
@@ -167,12 +167,11 @@ function declared(raw: string, pattern: string | null, language: string | null):
     const word = "([\\p{L}\\p{M}]+\\.?)",
       glue = locale === "es" || locale === "pt" ? "\\s+(?:de\\s+)?" : "\\s+";
     const tail = locale === "ru" ? "(?:\\s+г\\.?)?" : "";
-    entry =
-      format === "MMMM D, YYYY"
-        ? [`${word}\\s+(\\d{1,2}),\\s+(\\d{4})${tail}`, "mdy"]
-        : format === "DD-MMM-YYYY"
-          ? [`(\\d{2})-${word}-(\\d{4})${tail}`, "dmy"]
-          : [`(\\d{1,2})${glue}${word}${glue}(\\d{4})${tail}`, "dmy"];
+    entry = /^MMMM? D,? YYYY$/.test(format)
+      ? [`${word}\\s+(\\d{1,2})${format.includes(",") ? "," : ""}\\s+(\\d{4})${tail}`, "mdy"]
+      : format === "DD-MMM-YYYY"
+        ? [`(\\d{2})-${word}-(\\d{4})${tail}`, "dmy"]
+        : [`(\\d{1,2})${glue}${word}${glue}(\\d{4})${tail}`, "dmy"];
   } else if (!language?.trim()) reject("missing_format_language");
   if (!entry) reject("unsupported_format");
   const clockPattern = time ? (time[1] === "HH:mm" ? " (\\d{2}:\\d{2})" : " (\\d{2}:\\d{2}:\\d{2})") : "";
