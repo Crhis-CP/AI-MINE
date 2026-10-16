@@ -5,7 +5,7 @@ import { closeDb, dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
 import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
 import { publishPolicyPublication } from "../packages/backend/src/publication/policies-publish.ts";
-import { policyDetail } from "../packages/backend/src/publication/policies.ts";
+import { policyDetail } from "../modules/policy/backend/read.ts";
 import { fixture } from "./policy-automation-fixture.ts";
 const sql = dbOf("policy");
 after(closeDb);
@@ -15,7 +15,7 @@ test("verified source publication date survives independently of model qualifica
   const { readSourceDateContext } = await import("@amp/backend/admin/sources");
   const { observeSourceDate } = await import("../packages/backend/src/sources/date-extraction.ts");
   const { updateMaterialSourceDate } = await import("../packages/backend/src/content/date-evidence.ts");
-  const { listPolicies } = await import("../packages/backend/src/publication/policies.ts");
+  const { listPolicies } = await import("../modules/policy/backend/read.ts");
   const source = (await readSourceDateContext(f.sourceId))!;
   const observation = observeSourceDate(source, f.url, "2026-01-01", "official.date", { format: "iso8601" });
   observation.meaning = "published";

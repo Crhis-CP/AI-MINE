@@ -5,7 +5,11 @@
   "exports": {
     "./module": "./module.ts",
     "./web": "./web.ts",
-    "./server": "./server.ts"
+    "./server": "./server.ts",
+    "./read": "./backend/read.ts",
+    "./reports": "./backend/reports.ts",
+    "./language": "./backend/language.ts",
+    "./relations": "./backend/relations.ts"
   },
   "dependencies": {
     "@amp/contracts": "workspace:*",
@@ -14,7 +18,9 @@
     "react": "19.3.0",
     "react-router": "8.4.0",
     "@amp/backend": "workspace:*",
-    "fastify": "5.12.5"
+    "fastify": "5.12.5",
+    "zod": "4.6.5",
+    "@amp/industry": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "19.3.0"

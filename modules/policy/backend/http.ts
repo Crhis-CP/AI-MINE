@@ -9,8 +9,8 @@ import {
   PolicyReportQuery,
   PolicyReportDetailQuery,
 } from "@amp/contracts/http/public";
-import { listPolicies, policyScope, policyDetail, policyReading, policyHistory, policyThread, PolicyReadError } from "@amp/backend/publication/timeline";
-import { listPolicyReports, policyReport } from "@amp/backend/publication/timeline";
+import { listPolicies, policyScope, policyDetail, policyReading, policyHistory, policyThread, PolicyReadError } from "./read.ts";
+import { listPolicyReports, policyReport } from "./reports.ts";
 import { InvalidCursorError } from "@amp/backend/lib/cursor";
 import { applyPublicHeaders, sendJsonWithEtag, sendProblem } from "@amp/backend/http";
 

@@ -77,5 +77,6 @@
   "./http": "./src/http.ts",
   "./admin/http": "./src/admin/http.ts",
   "./sources/evidence": "./src/sources/evidence.ts",
-  "./jobs/module-queues": "./src/jobs/module-queues.ts"
+  "./jobs/module-queues": "./src/jobs/module-queues.ts",
+  "./policy/public-ports": "./src/policy/public-ports.ts"
 }

@@ -10,7 +10,7 @@ import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.t
 import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
 import { Policy, PolicyCard, PolicyCursorResponse } from "@amp/contracts/http/public";
 import { normalizeSourceTime } from "@amp/contracts/time-assertion";
-import { policyPublicVersions } from "../packages/backend/src/publication/policies.ts";
+import { policyPublicVersions } from "../modules/policy/backend/read.ts";
 import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
 import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
 import { previewWithdrawal, actWithdrawal } from "../packages/backend/src/editorial/withdrawals.ts";

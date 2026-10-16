@@ -15,7 +15,7 @@ import type { Candidate } from "../packages/backend/src/policy/interpretation-sc
 import type { PolicyAutomationProfile } from "../packages/backend/src/policy/automation-profile.ts";
 import { explicitPolicyReference } from "../packages/backend/src/policy/references.ts";
 import { publishPolicyPublication } from "../packages/backend/src/publication/policies-publish.ts";
-import { preparePolicyRelationships, savePolicyRelationships, policyRelationshipCandidates } from "../packages/backend/src/publication/policy-relations.ts";
+import { preparePolicyRelationships, savePolicyRelationships, policyRelationshipCandidates } from "../modules/policy/backend/relations.ts";
 import { Policy, PolicyCard, PolicyThread } from "@amp/contracts/http/public";
 import { sha256, stableJson } from "@amp/backend/lib/ids";
 const sql = dbOf("policy"),

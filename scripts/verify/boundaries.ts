@@ -31,17 +31,18 @@ const ENGINE_ENTRIES: Record<string, string> = {
   "./admin/http": "./src/admin/http.ts",
   "./sources/evidence": "./src/sources/evidence.ts",
   "./jobs/module-queues": "./src/jobs/module-queues.ts",
+  "./policy/public-ports": "./src/policy/public-ports.ts",
 };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": ["@amp/site"],
   "@amp/site": ["@amp/policy", "@amp/contracts", "@amp/metals", "@amp/site-admin", "@amp/web"],
-  "@amp/policy": [...L0, ...amp(DOMAIN_EDGES.policy!), "@amp/backend", "@amp/web", "@amp/api-client"],
+  "@amp/policy": [...L0, ...amp(DOMAIN_EDGES.policy!), "@amp/backend", "@amp/web", "@amp/api-client", "@amp/industry"],
   "@amp/site-admin": ["@amp/metals", "@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client", "@amp/industry"],
   "@amp/metals": ["@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client"],
   "@amp/contracts": [],
-  "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals", "@amp/site-admin"],
+  "@amp/backend": ["@amp/policy", "@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals", "@amp/site-admin"],
   "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/web": amp(["contracts", "industry", "api-client", "ui", "site"]),
@@ -201,6 +202,13 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
           !/^packages\/backend\/src\/(publication\/site-information|sources\/target-catalogue|sources\/coverage-matrix|admin\/source-exports)\.ts$/.test(f)
         )
           problems.push(`${f}: site management is only reachable through its temporary compatibility entries`);
+
+        if (
+          w.name === "@amp/backend" &&
+          pkg === "@amp/policy" &&
+          !/^packages\/backend\/src\/publication\/(policies|policies-reports|policy-language|policy-relations)\.ts$/.test(f)
+        )
+          problems.push(`${f}: policy projection is only reachable through its temporary compatibility entries`);
 
         if (w.name === "@amp/backend" && pkg === "@amp/site" && ![".", "./models"].includes(entry))
           problems.push(`${f}: engine code cannot import the site's extension installation list`);

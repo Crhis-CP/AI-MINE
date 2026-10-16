@@ -9,7 +9,7 @@ import { closeDb, dbOf } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { getBoss, stopBoss, recordRun } from "@amp/backend/jobs/queue";
 import { publishPolicyPublication } from "../packages/backend/src/publication/policies-publish.ts";
-import { listPolicies, policyDetail, policyReading } from "../packages/backend/src/publication/policies.ts";
+import { listPolicies, policyDetail, policyReading } from "../modules/policy/backend/read.ts";
 import { installPolicyQualityRelease } from "../packages/backend/src/policy/quality.ts";
 import { sha256 } from "../packages/backend/src/lib/ids.ts";
 import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
@@ -131,10 +131,10 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
     originalPage.blocks.map((b) => b.block_id),
     "actual publisher aligns both reading streams by the source part",
   );
-  const { policyPublicVersions } = await import("../packages/backend/src/publication/policies.ts");
+  const { policyPublicVersions } = await import("../modules/policy/backend/read.ts");
   const { planPolicyReport } = await import("../packages/backend/src/publication/policy-report-plan.ts");
   const { savePolicyReport } = await import("../packages/backend/src/publication/policy-report-store.ts");
-  const { policyReport } = await import("../packages/backend/src/publication/policies-reports.ts");
+  const { policyReport } = await import("../modules/policy/backend/reports.ts");
   const draft = planPolicyReport(
     "weekly",
     "2026-W01",

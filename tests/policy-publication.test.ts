@@ -6,14 +6,14 @@ import { upsertMaterial } from "@amp/backend/content/materials";
 import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
 import type { PolicyAutomationProfile } from "../packages/backend/src/policy/automation-profile.ts";
 import { publishPolicyPublication, setPolicyPublicationPaused, setPolicyPublicationState } from "../packages/backend/src/publication/policies-publish.ts";
-import { policyDetail, policyPublicVersions } from "../packages/backend/src/publication/policies.ts";
+import { policyDetail, policyPublicVersions } from "../modules/policy/backend/read.ts";
 import { publicRoleFixture } from "./public-role-fixture.ts";
 import { matchingPolicyQuality } from "../packages/backend/src/policy/quality.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
 import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
 import { composePolicyReports } from "../packages/backend/src/publication/policy-report-job.ts";
-import { policyReport } from "../packages/backend/src/publication/policies-reports.ts";
+import { policyReport } from "../modules/policy/backend/reports.ts";
 const sql = dbOf("policy"),
   discovered = new Date("2026-01-02T03:04:05Z");
 after(closeDb);
