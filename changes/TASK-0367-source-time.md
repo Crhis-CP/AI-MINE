@@ -1,5 +1,5 @@
 ---
-type: 修复
+type: 优化
 audience: 读者和运营
 title: 原文日期与本站收录时间分开显示
 highlights:

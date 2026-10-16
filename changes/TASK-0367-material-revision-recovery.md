@@ -1,6 +1,6 @@
 ---
-type: 修复
-audience: 读者与运营
+type: 优化
+audience: 读者和运营
 title: 新内容更新不再受旧任务异常影响
 highlights:
   - 原文更新后，旧版本处理的迟到失败不会再阻断新版本。

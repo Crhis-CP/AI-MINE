@@ -1,6 +1,6 @@
 ---
 type: 优化
-audience: 读者与运营
+audience: 读者和运营
 title: 资料不足时等待补齐，减少无效处理
 highlights:
   - 只有标题的资讯等待内容补齐，不再据此评分或编写摘要。

@@ -1,6 +1,6 @@
 ---
 type: 优化
-audience: 读者与运营
+audience: 读者和运营
 title: 补充金银铜矿企信息入口并完善英文日期读取
 highlights:
   - 补充八家金银铜矿企的官方信息来源配置。

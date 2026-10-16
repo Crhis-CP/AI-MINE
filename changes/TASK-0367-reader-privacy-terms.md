@@ -1,5 +1,5 @@
 ---
-type: 改进
+type: 优化
 audience: 读者
 title: 补充隐私说明与使用规则
 highlights:

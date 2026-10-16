@@ -1,5 +1,5 @@
 ---
-type: 修复
+type: 优化
 audience: 运营
 title: 旧定时任务不再留下无用积压
 highlights:

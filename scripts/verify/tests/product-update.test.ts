@@ -22,6 +22,11 @@ test("a changed product fragment cannot silently reuse the previous release's di
     manifest.note.body = ["新的筛选条件已可用。"];
     writeFileSync(path.join(root, "industry/release-note.json"), JSON.stringify(manifest));
     assert.deepEqual(checkProductUpdate(root, [...changed, "industry/release-note.json"], previous), []);
+    const unlisted = "changes/TASK-0343-operations.md";
+    writeFileSync(path.join(root, unlisted), "---\ntype: invalid\naudience: 运营\ntitle: 后台操作更新\nhighlights:\n  - 配置保存更清楚。\n---\n");
+    assert.ok(checkProductUpdate(root, [...changed, unlisted, "industry/release-note.json"], previous).length);
+    writeFileSync(path.join(root, unlisted), "---\ntype: 优化\naudience: 运营\ntitle: 后台操作更新\nhighlights:\n  - 配置保存更清楚。\n---\n");
+    assert.deepEqual(checkProductUpdate(root, [...changed, unlisted, "industry/release-note.json"], previous), []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

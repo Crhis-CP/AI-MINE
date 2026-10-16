@@ -1,5 +1,5 @@
 ---
-type: 修复
+type: 优化
 audience: 读者
 title: 已有法规正文打开即可阅读
 highlights:

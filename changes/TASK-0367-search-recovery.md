@@ -1,5 +1,5 @@
 ---
-type: 修复
+type: 优化
 audience: 读者
 title: 搜索与日期筛选更容易恢复
 highlights:

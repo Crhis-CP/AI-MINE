@@ -1,6 +1,6 @@
 ---
 type: 优化
-audience: 读者与运营
+audience: 读者和运营
 title: 补齐重点矿企官方信息入口
 highlights:
   - 完善嘉能可官方新闻及南方铜业、纽蒙特、巴里克、SQM的官方披露读取配置。
