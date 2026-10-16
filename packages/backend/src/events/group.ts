@@ -1,3 +1,4 @@
+import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
 import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
 import { readMaterialGrouping, beginMaterialGrouping, completeMaterialGrouping, failMaterialGrouping } from "../content/grouping.ts";
@@ -198,8 +199,8 @@ interface Recalled {
   score: number;
 }
 
-export function participantKey(source: { id: string }): string {
-  return `source:${source.id}`;
+export function participantKey(source: SourceParticipant): string {
+  return participantIdentity(source);
 }
 
 // ---------------------------------------------------------------------------
@@ -684,10 +685,13 @@ async function createFact(db: Db, storyId: number, title: string, frame: z.infer
 }
 
 async function recordSignal(db: Db, storyId: number, articleId: string, source: { id: string }, kind: "editorial" | "signal", observedAt: Date) {
+  const [identity] = await sourceParticipants([source.id], db);
+  const participant = participantKey(identity ?? source);
   await db`
     INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
-    VALUES (${storyId}, ${articleId}, ${participantKey(source)}, ${source.id}, ${kind}, ${observedAt})
-    ON CONFLICT (story_id, article_id) DO NOTHING`;
+    VALUES (${storyId}, ${articleId}, ${participant}, ${source.id}, ${kind}, ${observedAt})
+    ON CONFLICT (story_id, article_id) DO UPDATE SET participant_key=EXCLUDED.participant_key
+    WHERE story_signals.participant_key<>EXCLUDED.participant_key`;
   await captureEventWithdrawal(db, articleId);
   await db`UPDATE stories SET latest_at = GREATEST(coalesce(latest_at, ${observedAt}), ${observedAt}),
               first_report_at = LEAST(coalesce(first_report_at, ${observedAt}), ${observedAt}), updated_at = now()

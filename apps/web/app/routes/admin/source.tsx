@@ -336,7 +336,7 @@ export default function SourceDetail({ loaderData }: Route.ComponentProps) {
                   ))}
                 </Select>
               </Field>
-              <Field label="运营主体 ID">
+              <Field label="所属机构标识" hint="同一机构的不同入口使用同一个标识，热点只计一次；不清楚时留空。">
                 <Input value={draft.owner_entity_id ?? ""} onChange={(e) => setDraft({ ...draft, owner_entity_id: e.target.value })} />
               </Field>
               <Field label="标签（逗号分隔）">

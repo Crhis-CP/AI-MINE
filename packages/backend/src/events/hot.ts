@@ -1,3 +1,4 @@
+import { participantIdentity, sourceParticipants } from "../sources/participants.ts";
 import { attachRepresentativePriority, pickRepresentative } from "../publication/representative.ts";
 // Hot ranking: attention over the last 48 hours from independent participants.
 // Each participant counts once per window (repeat collection does not add heat), decays with a
@@ -91,7 +92,18 @@ export function heatIndex(heat: number): number {
   return Math.round(heat * 100) / 10; // one decimal on the 10× scale shown to readers
 }
 
+/** Source ownership edits also correct stored participation; observation times and scores stay unchanged. */
+async function refreshParticipantIdentities(at: Date) {
+  const ids = await sql<{ source_id: string }[]>`SELECT DISTINCT source_id FROM story_signals
+    WHERE observed_at>${at}::timestamptz-interval '48 hours' AND observed_at<=${at}`;
+  for (const source of await sourceParticipants(ids.map((r) => r.source_id))) {
+    const key = participantIdentity(source);
+    await sql`UPDATE story_signals SET participant_key=${key} WHERE source_id=${source.id} AND participant_key<>${key}`;
+  }
+}
+
 export async function computeHotRanking(at = new Date()): Promise<{ id: number; entries: number }> {
+  await refreshParticipantIdentities(at);
   const behind = behindSources(await sourceClocks(), at.getTime(), true);
   const rows = (await heatRows(at, behind)).filter((r) => Number(r.participants) >= MIN_PARTICIPANTS && Number(r.editorial_participants) >= 1);
   rows.sort((a, b) => Number(b.heat) - Number(a.heat) || (b.latest_at?.getTime() ?? 0) - (a.latest_at?.getTime() ?? 0));
