@@ -73,7 +73,6 @@ test("environment reads are warned only in the approved backend scope", () => {
     ["packages/backend/src/config.ts", true],
     ["apps/api/src/main.ts", true],
     ["apps/worker/src/main.ts", true],
-    ["apps/fetcher/src/main.ts", true],
     ["packages/platform/config/src/index.ts", false],
     ["apps/web/server.ts", false],
     ["scripts/migrate.ts", false],

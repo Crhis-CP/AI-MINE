@@ -94,7 +94,6 @@ test("vault is authenticated and bound to the connection; protected key cannot e
   assert.throws(() => openModelSecret({ ...sealed, ciphertext: Buffer.alloc(32).toString("base64") }, "connection:secret-version"));
   assert.deepEqual(publicApiCredentialNames({ MODEL_REGISTRY_ENCRYPTION_KEY: "fake" }), ["MODEL_REGISTRY_ENCRYPTION_KEY"]);
   assert.ok(environmentProblems("web", { MODEL_REGISTRY_ENCRYPTION_KEY: "fake" }).length);
-  assert.ok(environmentProblems("fetcher", { MODEL_REGISTRY_ENCRYPTION_KEY: "fake" }).length);
 });
 test("missing guard/key and missing prices fail closed; manager cannot create or replace secrets", async () => {
   await assert.rejects(createModelConnection({}, owner));

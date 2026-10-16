@@ -22,7 +22,7 @@ export const DB_MODULES = Object.freeze([
   "config",
   "telemetry",
 ] as const);
-export type DatabaseProcess = Exclude<ProcessRole, "web" | "fetcher">;
+export type DatabaseProcess = Exclude<ProcessRole, "web">;
 type Access = ReturnType<typeof createDatabaseAccess>;
 type QueueConnection = Readonly<{ connectionString: string; createSchema?: false; migrate?: false; supervise?: false; schedule?: false }>;
 let active:

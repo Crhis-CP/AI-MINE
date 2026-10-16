@@ -42,7 +42,6 @@ export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals", "@amp/site-admin"],
   "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
-  "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),
   "@amp/web": amp(["contracts", "industry", "api-client", "ui", "site"]),
   "@amp/api-client": ["@amp/contracts"],
   "@amp/ui": ["@amp/contracts"],
@@ -206,8 +205,6 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
 
         if (privatePath(entry)) problems.push(`${f}: imports ${spec}, a private internal/ or store/ path`);
         else if (!target || !strings(publicEntries(target.exports)[entry]).length) problems.push(`${f}: ${spec} is not an explicit public export`);
-        if (w.name === "@amp/fetcher" && pkg === "@amp/acquisition" && entry !== "./fetch-runtime")
-          problems.push(`${f}: fetcher may only import @amp/acquisition/fetch-runtime`);
       }
       if (w.name === "@amp/web" && (DRIVERS.some((re) => re.test(pkg)) || pkg === "pg-boss"))
         problems.push(`${f}: the web app may not import ${pkg} (no database or job queue in the front end)`);

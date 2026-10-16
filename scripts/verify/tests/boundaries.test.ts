@@ -221,17 +221,6 @@ test("database drivers stay in stores or config/queue, model SDKs stay in the ga
   assert.ok(problems.some((p) => p.includes("policy/src/index.ts: imports the model SDK")));
 });
 
-test("fetcher can use only acquisition's fetch-runtime entry", () => {
-  const common = {
-    "packages/domains/acquisition/package.json": pkg("@amp/acquisition", [], { ".": "./src/index.ts", "./fetch-runtime": "./src/fetch-runtime.ts" }),
-    "apps/fetcher/package.json": pkg("@amp/fetcher", ["@amp/acquisition"]),
-  };
-  const good = workspace({ ...common, "apps/fetcher/src/main.ts": 'import "@amp/acquisition/fetch-runtime";' });
-  assert.deepEqual(checkBoundaries(good.dir, good.files), []);
-  const bad = workspace({ ...common, "apps/fetcher/src/main.ts": 'import "@amp/acquisition";' });
-  assert.ok(checkBoundaries(bad.dir, bad.files).some((p) => p.includes("fetcher may only import")));
-});
-
 test("fetch-runtime cannot reach a store directly or through a helper and workspace re-export", () => {
   const common = {
     "packages/domains/acquisition/package.json": pkg("@amp/acquisition", ["@amp/content"], { "./fetch-runtime": "./src/fetch-runtime.ts" }),

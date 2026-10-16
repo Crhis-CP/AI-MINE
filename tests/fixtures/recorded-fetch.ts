@@ -7,7 +7,7 @@ export interface Recording {
   body: string;
 }
 
-export function createFetcher(recordings: ReadonlyMap<string, Recording> = new Map()) {
+export function createRecordedFetchServer(recordings: ReadonlyMap<string, Recording> = new Map()) {
   return createServer({ requestTimeout: 10_000, headersTimeout: 5_000 }, (req, res) => {
     const error = (status: number, code: string) => {
       if (res.writableEnded || res.destroyed) return;

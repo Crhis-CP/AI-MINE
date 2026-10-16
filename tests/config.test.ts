@@ -54,7 +54,7 @@ test("invalid or empty role URLs never silently fall back, and diagnostics do no
     assert.throws(() => databaseConfig("migrate", { DATABASE_URL_MIGRATE: value, DATABASE_URL: url }));
   }
   assert.throws(() => databaseConfig("migrate", { DATABASE_URL_TYPO: url, DATABASE_URL: url }), /Unknown database role variable/);
-  for (const name of ["web", "fetcher"] as const) {
+  for (const name of ["web"] as const) {
     assert.throws(() => databaseConfig(name, { DATABASE_URL: url }), /must not hold/);
     assert.throws(() => databaseConfig(name, { DATABASE_URL_WORKER: url }), /must not hold/);
   }
@@ -142,10 +142,10 @@ test("queue access follows the process role and keeps the validated addresses un
   }
 });
 
-test("web and fetcher reject credential names even with empty values, without disclosing values", () => {
+test("web rejects credential names even with empty values, without disclosing values", () => {
   const names = ["DATABASE_URL", "DATABASE_URL_FUTURE", "PGHOST", "POSTGRES_PASSWORD", "AMP_CREDENTIALS_DIR"];
   names.push(...["KEY", "API_KEY", "SECRET", "SECRET_ID", "TOKEN", "PASSWORD", "WEBHOOK_URL"].map((suffix) => `NEW_SERVICE_${suffix}`));
-  for (const role of ["web", "fetcher"] as const)
+  for (const role of ["web"] as const)
     for (const NODE_ENV of ["development", "production"])
       for (const name of names) {
         for (const value of ["", "PRIVATE_MARKER"]) {

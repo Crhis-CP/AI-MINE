@@ -33,7 +33,7 @@ export function checkRoleConfig(root = ROOT, services: readonly ("web" | "public
     if (results.some((result) => [...result].sort().join() !== [...expected].sort().join()))
       problems.push(`${role}: environment rejection matrix differs for ${Object.keys(env).join(", ")}`);
   };
-  for (const role of ["web", "fetcher"] as const)
+  for (const role of ["web"] as const)
     for (const mode of [undefined, "development", "production"])
       for (const key of CREDENTIALS) for (const value of ["", "fixture-value"]) check(role, { NODE_ENV: mode, [key]: value }, [key]);
   for (const role of Object.keys(PROCESS_DATABASE_ROLES) as ProcessRole[]) {
