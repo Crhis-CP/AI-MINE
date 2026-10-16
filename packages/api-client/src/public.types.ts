@@ -223,6 +223,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/site/search/suggestions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["siteSearchSuggestions"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/site/stats": {
     parameters: {
       query?: never;
@@ -3835,6 +3851,32 @@ export interface components {
       items: components["schemas"]["FeedItemSummaryInput"][];
       unavailableIds: string[];
     };
+    SearchSuggestions: {
+      hot: {
+        rank: number;
+        title: string;
+        to: string;
+      }[];
+      topics: {
+        /** @enum {string} */
+        group: "company" | "field" | "genre" | "project";
+        name: string;
+        slug: string;
+      }[];
+    };
+    SearchSuggestionsInput: {
+      hot: {
+        rank: number;
+        title: string;
+        to: string;
+      }[];
+      topics: {
+        /** @enum {string} */
+        group: "company" | "field" | "genre" | "project";
+        name: string;
+        slug: string;
+      }[];
+    };
     SiteFilters: {
       category:
         | (
@@ -6761,6 +6803,42 @@ export interface operations {
         content: {
           "application/problem+json": components["schemas"]["Problem"];
         };
+      };
+      /** @description Problem response */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["Problem"];
+        };
+      };
+    };
+  };
+  siteSearchSuggestions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Default Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SearchSuggestions"];
+        };
+      };
+      /** @description Default Response */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Problem response */
       503: {

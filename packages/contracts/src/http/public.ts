@@ -311,7 +311,14 @@ export const StoryFollowupsResponse = z.strictObject({
   more: z.boolean(),
 });
 
+/** Lightweight navigation only: opening search never requests article bodies or starts processing. */
+export const SearchSuggestions = z.strictObject({
+  topics: z.array(z.strictObject({ slug: z.string().min(1), name: z.string().min(1), group: z.enum(["company", "field", "genre", "project"]) })),
+  hot: z.array(z.strictObject({ rank: z.number().int().positive(), title: z.string().min(1), to: z.string().regex(/^\/story\/[a-zA-Z0-9_-]{1,100}$/) })).max(5),
+});
+
 export const schemas = {
+  SearchSuggestions,
   ...v3Schemas,
   ...siteInformationSchemas,
   ...policySchemas,
@@ -337,6 +344,11 @@ export const routes = {
   ...v3Routes,
   ...siteInformationRoutes,
   ...policyRoutes,
+  siteSearchSuggestions: {
+    method: "GET" as const,
+    url: "/api/site/search/suggestions",
+    schema: { operationId: "siteSearchSuggestions", response: { 200: SearchSuggestions, 304: z.undefined(), 503: ProblemResponse } },
+  },
   siteStoryFollowups: {
     method: "GET" as const,
     url: "/api/site/stories/:publicId/followups",
