@@ -304,6 +304,7 @@ export const StoryFollowupsResponse = z.strictObject({
         summary: z.string().nullable().optional(),
         source: z.strictObject({ name: z.string() }),
         timelineAt: z.string(),
+        sourceTime: SourceTimeProjection.shape.sourceTime.optional(),
       }),
     }),
   ),
