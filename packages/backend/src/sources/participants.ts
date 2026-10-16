@@ -4,6 +4,8 @@ const sql = dbOf("sources");
 export interface SourceParticipant {
   id: string;
   owner_entity_id?: string | null;
+  lane?: string;
+  participation_mode?: string;
 }
 /** Explicit source ownership groups multiple entry points; an unknown owner is never guessed from a headline. */
 export function participantIdentity(source: SourceParticipant): string {
@@ -12,5 +14,5 @@ export function participantIdentity(source: SourceParticipant): string {
 }
 export async function sourceParticipants(ids: string[], db: Db = sql) {
   if (!ids.length) return [];
-  return db<SourceParticipant[]>`SELECT id,owner_entity_id FROM sources WHERE id=ANY(${ids}::text[])`;
+  return db<SourceParticipant[]>`SELECT id,owner_entity_id,lane,participation_mode FROM sources WHERE id=ANY(${ids}::text[])`;
 }

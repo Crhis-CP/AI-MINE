@@ -83,18 +83,13 @@ async function seed() {
   return articleId;
 }
 
-test("daily report and story digest keep paid receipts but reject stale control generations before public writes", async () => {
+test("daily is independent of model processing; story digest rejects stale control generations", async () => {
   const articleId = await seed();
-  duringResponse = async () => {
-    await owner("pause", "news");
-    await owner("resume", "news");
-  };
-  await assert.rejects(composeDaily("2020-02-02"), RuntimeControlStale);
-  duringResponse = null;
-  assert.equal((await sql`SELECT id FROM reports WHERE key='2020-02-02'`).length, 0);
-  assert.equal(provider.hits(), 1);
+  await owner("pause", "news");
   await composeDaily("2020-02-02");
-  assert.equal(provider.hits(), 1);
+  await owner("resume", "news");
+  assert.equal(provider.hits(), 0, "daily arrangement needs no paid processing even while the model lane is paused");
+  assert.equal((await sql`SELECT id FROM reports WHERE key='2020-02-02'`).length, 1);
   const [story] = await sql`INSERT INTO stories(public_id,title,first_report_at,latest_at) VALUES(${randomUUID()},'Synthetic story',now(),now()) RETURNING id`;
   const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${randomUUID()},${story.id},'Synthetic fact') RETURNING id`;
   await sql`INSERT INTO fact_articles(fact_id,article_id,role) VALUES(${fact.id},${articleId},'report')`;
@@ -105,9 +100,9 @@ test("daily report and story digest keep paid receipts but reject stale control 
   await assert.rejects(composeStoryDigest(Number(story.id)), RuntimeControlStale);
   duringResponse = null;
   assert.equal((await sql`SELECT version FROM story_digests WHERE story_id=${story.id}`).length, 0);
-  assert.equal(provider.hits(), 2);
+  assert.equal(provider.hits(), 1);
   assert.equal((await composeStoryDigest(Number(story.id))).updated, true);
-  assert.equal(provider.hits(), 2);
+  assert.equal(provider.hits(), 1);
 });
 
 test("empty deterministic reports do not use models; processing and publication holds stay independent across lanes", async () => {

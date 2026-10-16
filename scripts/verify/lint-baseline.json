@@ -186,13 +186,10 @@
     "lint/style/noProcessEnv": 2
   },
   "packages/backend/src/publication/reports.ts": {
-    "lint/suspicious/noExplicitAny": 21
+    "lint/suspicious/noExplicitAny": 19
   },
   "packages/backend/src/publication/v1.ts": {
     "lint/suspicious/noAssignInExpressions": 1
-  },
-  "packages/backend/src/reports/compose.ts": {
-    "lint/suspicious/noExplicitAny": 1
   },
   "packages/backend/src/site/meta.ts": {
     "lint/style/noProcessEnv": 1
@@ -205,6 +202,9 @@
   },
   "packages/backend/src/sources/types.ts": {
     "lint/suspicious/noExplicitAny": 2
+  },
+  "packages/ui/src/Score.tsx": {
+    "lint/a11y/useAriaPropsSupportedByRole": 1
   },
   "scripts/eval-relations-core.ts": {
     "lint/suspicious/noAssignInExpressions": 1
@@ -230,8 +230,5 @@
   },
   "tests/translate-shutdown.test.ts": {
     "lint/suspicious/noExplicitAny": 3
-  },
-  "packages/ui/src/Score.tsx": {
-    "lint/a11y/useAriaPropsSupportedByRole": 1
   }
 }

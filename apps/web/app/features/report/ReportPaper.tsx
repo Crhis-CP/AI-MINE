@@ -116,6 +116,45 @@ function Original({ c, className = "" }: { c: ReportCitation; className?: string
   );
 }
 
+/** Extra developments stay with their event; every link has its own current availability. */
+function RelatedReading({ c }: { c: ReportCitation }) {
+  return (
+    <div className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-ink-3">
+      {((c.sources && c.sources > 1) || c.followUp) && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {c.sources && c.sources > 1 ? <span>{c.sources} 家来源报道</span> : null}
+          {c.followUp && (
+            <Link className="underline underline-offset-4 hover:text-accent" to={`/daily/${c.followUp}`}>
+              此前报道 · {c.followUp}
+            </Link>
+          )}
+        </div>
+      )}
+      {!!c.related?.length && (
+        <details>
+          <summary className="cursor-pointer py-1 hover:text-accent">相关进展与报道（{c.related.length}）</summary>
+          <ul className="mt-1 space-y-2 border-l border-line pl-3">
+            {c.related.map((entry, index) => (
+              <li key={entry.itemId ?? index} className="[overflow-wrap:anywhere]">
+                {entry.available && entry.itemId ? (
+                  <>
+                    <Link className="hover:text-accent" to={`/items/${entry.itemId}`}>
+                      {entry.title}
+                    </Link>
+                    <span className="ml-2 text-ink-4">{shortSourceName(entry.sourceName)}</span>
+                  </>
+                ) : (
+                  <span>该报道暂不可读</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 /** One story: source, headline, at most four lines of summary, and the original at the foot. */
 function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean; className?: string }) {
   return (
@@ -136,6 +175,7 @@ function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean
             )}
           </h3>
           {c.summary && <p className="mt-2 line-clamp-4 text-[15px] leading-[1.85] text-ink-2 [overflow-wrap:anywhere] @[560px]:text-justify">{c.summary}</p>}
+          <RelatedReading c={c} />
           <div className="mt-auto pt-3">
             <Original c={c} />
           </div>
@@ -181,6 +221,7 @@ interface Page {
 
 /** A daily without an editors' lead leads with its first highlight (else its first story). */
 function leadStoryOf(report: ReportDetail): ReportCitation | null {
+  if (report.leadItemId) return report.stories.find((entry) => entry.itemId === report.leadItemId && entry.available) ?? null;
   if (report.lead || report.kind !== "daily") return null;
   return report.highlights[0] ?? report.sections.find((s) => s.items.length > 0)?.items[0] ?? null;
 }
@@ -236,6 +277,7 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
           )}
         </h2>
         {dek && <p className="mt-6 text-[16.5px] leading-[1.9] text-ink-2 @[560px]:text-justify @[880px]:mt-7 @[880px]:text-[17.5px]">{dek}</p>}
+        {leadStory && <RelatedReading c={leadStory} />}
         {leadStory && (
           <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-3">
             <Source c={leadStory} size={18} />

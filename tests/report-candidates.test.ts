@@ -91,9 +91,13 @@ test("reports assign delayed and boundary releases to the period readers first s
   assert.equal(next.has(groupedBefore), false);
   for (const id of [delayed, atBoundary, groupedLate]) assert.equal(next.has(id), true);
   await composeDaily("2020-01-03");
-  const reports = await sql<{ key: string; content: { sections: Array<{ items: Array<{ itemId: string }> }> } }[]>`
+  const reports = await sql<{ key: string; content: { sections: Array<{ items: Array<{ itemId: string }> }>; flashes: Array<{ itemId: string }> } }[]>`
     SELECT key, content FROM reports WHERE kind = 'daily' AND key IN ('2020-01-02', '2020-01-03')`;
-  const items = (key: string) => new Set(reports.find((r) => r.key === key)!.content.sections.flatMap((s) => s.items.map((i) => i.itemId)));
+  const items = (key: string) =>
+    new Set([
+      ...reports.find((r) => r.key === key)!.content.sections.flatMap((s) => s.items.map((i) => i.itemId)),
+      ...reports.find((r) => r.key === key)!.content.flashes.map((i) => i.itemId),
+    ]);
   assert.equal(items("2020-01-02").has(onTime), true);
   assert.equal(items("2020-01-02").has(groupedBefore), true);
   assert.equal(items("2020-01-02").has(delayed), false);

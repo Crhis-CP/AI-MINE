@@ -1,3 +1,6 @@
+/** Shared Beijing edition times for the scheduler, report windows and reader explanations. */
+export const EDITION_TIMES = { daily: "08:00", weekly: "10:00", monthly: "10:30" } as const;
+
 // 站点身份和读者看得到的文案。换成你的行业时，先改这个文件。
 // 网页和后端都读它；改完重新构建（docker compose up --build）即可生效。
 // 域名不在这里：部署时用环境变量 SITE_URL 设置。
@@ -55,7 +58,7 @@ export const ABOUT = {
     collect: "从已启用的官方、企业和媒体信源取得内容，按各来源配置的频率更新。",
     store: "保留来源信息，把同一事件的报道归到一起；热度信号与正文展示按各来源的配置处理。",
     select: "关注有实质金属矿业信息的材料，整理中文标题、导读与关键事实，再按内容标准筛选。",
-    publish: "按北京时间每天 08:00 出日报，周一出周报，每月 1 日出月报；启用推送后可将精选内容发到飞书群。",
+    publish: `按北京时间每天 ${EDITION_TIMES.daily} 出日报，周一 ${EDITION_TIMES.weekly} 出周报，每月 1 日 ${EDITION_TIMES.monthly} 出月报；启用推送后可将精选内容发到飞书群。`,
   },
   /** 页面底部的版权与下架说明（结尾会接“反馈页”的链接）。 */
   copyright: `${SITE.name} 是聚合摘要和阅读索引，原文版权归各来源所有。如果你是来源方，希望更正、下架或调整展示方式，可以通过`,

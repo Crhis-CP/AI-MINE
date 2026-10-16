@@ -198,45 +198,21 @@ export async function reportCandidateRows(start: Date, end: Date) {
     // Wait for in-flight releases and keep later ones outside this snapshot. The following SELECT
     // gets a fresh READ COMMITTED snapshot; model calls and report writes happen after the lock ends.
     await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
-    const rows = await tx<
-      {
-        id: string;
-        revision: number;
-        fact_id: number | null;
-        timeline_at: Date;
-        body_mode: string;
-        title: string;
-        summary: string | null;
-        url: string;
-        category: string | null;
-        score: number | null;
-        first_party: boolean;
-        source_id: string;
-        source_name: string;
-        source_kind: string;
-        fact_public_id: string | null;
-        story_public_id: string | null;
-        at: Date;
-        backfill: boolean;
-      }[]
-    >`
-      SELECT p.article_id AS id,p.revision,p.fact_id,p.timeline_at,p.body_mode, p.title, p.summary, p.url, p.category, p.score, p.first_party, s.id AS source_id, s.name AS source_name,
-             s.kind AS source_kind, f.public_id AS fact_public_id, st.public_id::text AS story_public_id, p.timeline_at AS at, p.backfill
-      FROM publications p JOIN sources s ON s.id = p.source_id
-      LEFT JOIN facts f ON f.id = p.fact_id LEFT JOIN stories st ON st.id = f.story_id
-      -- Attribute each item by the later of arrival and release; either range can use its index.
-      WHERE p.visibility = 'public' AND p.selected AND NOT p.backfill
-        AND (
-          (p.visible_after <= p.timeline_at AND p.timeline_at >= ${start} AND p.timeline_at < ${end})
-          OR (p.visible_after > p.timeline_at AND p.visible_after >= ${start} AND p.visible_after < ${end})
-        )`;
+    const rows = await tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+      LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
+      WHERE p.visibility='public' AND p.eligible AND p.selected AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
+        AND p.timeline_at>=${new Date(start.getTime() - 86400000)} AND greatest(p.timeline_at,p.visible_after)>=${start}
+        AND greatest(p.timeline_at,p.visible_after)<${end}`;
     const identified = await attachRepresentativePriority(rows, tx);
     const facts = new Map<string, typeof identified>();
     for (const row of identified) {
       const key = row.fact_public_id ?? `article:${row.id}`;
       facts.set(key, [...(facts.get(key) ?? []), row]);
     }
-    return [...facts.values()].map((members) => pickRepresentative(members));
+    return [...facts.values()].map((members) => {
+      const representative = pickRepresentative(members);
+      return { ...representative, at: representative.timeline_at };
+    });
   });
 }
 
@@ -245,9 +221,106 @@ export async function dailyJudgedReportCount(start: Date, end: Date): Promise<nu
   const [row] = await sql<{ n: number }[]>`
     SELECT count(*)::int AS n FROM publications p JOIN sources s ON s.id=p.source_id
     WHERE p.visibility='public' AND p.eligible AND p.channel='news' AND s.lane='news'
-      AND s.participation_mode='editorial' AND p.score IS NOT NULL AND NOT p.backfill
+      AND s.lane='news' AND s.participation_mode='editorial' AND p.score IS NOT NULL AND NOT p.backfill
       AND (NOT p.selected OR p.visible_after <= ${end})
       AND p.timeline_at >= ${start} AND p.timeline_at < ${end}
       AND (p.first_public_at IS NULL OR p.first_public_at < ${end})`;
   return row!.n;
+}
+
+/** Thin, current published inputs for deterministic report arrangement; never loads article bodies. */
+export interface ReportInputRow {
+  id: string;
+  revision: number;
+  title: string;
+  summary: string | null;
+  url: string;
+  category: string | null;
+  tags: string[];
+  score: number | null;
+  first_party: boolean;
+  body_mode: string;
+  representative_priority: number;
+  source_id: string;
+  source_name: string;
+  source_kind: string;
+  fact_id: number | null;
+  fact_public_id: string | null;
+  story_id: number | null;
+  story_public_id: string | null;
+  timeline_at: Date;
+  selected: boolean;
+  visible_after: Date | null;
+}
+const REPORT_INPUT_COLUMNS = sql`p.article_id AS id,p.revision,p.title,p.summary,p.url,p.category,p.tags,p.score,p.first_party,p.body_mode,p.representative_priority,
+  p.source_id,s.name AS source_name,s.kind AS source_kind,p.fact_id,f.public_id AS fact_public_id,f.story_id,st.public_id::text AS story_public_id,
+  p.timeline_at,p.selected,p.visible_after`;
+
+/** Selected arrivals and ordinary reports of active facts, within one day before the issue's window. */
+export async function reportWindowEvidence(start: Date, end: Date) {
+  return sql.begin("isolation level read committed", async (tx) => {
+    await tx`SELECT pg_advisory_xact_lock(hashtext('report_candidates'))`;
+    return tx<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+      LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
+      WHERE p.visibility='public' AND p.eligible AND NOT p.backfill AND s.lane='news' AND s.participation_mode='editorial'
+        AND p.timeline_at>=${new Date(start.getTime() - 86400000)} AND p.timeline_at<${end}
+        AND (NOT p.selected OR p.visible_after<=${end}) ORDER BY p.timeline_at,p.article_id`;
+  });
+}
+
+export async function reportFactEvidence(factIds: number[], end: Date) {
+  if (!factIds.length) return [];
+  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+    JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
+    WHERE p.fact_id=ANY(${factIds}::bigint[]) AND p.visibility='public' AND p.eligible
+      AND s.lane='news' AND s.participation_mode='editorial' AND p.timeline_at<${end}
+      AND (NOT p.selected OR p.visible_after<=${end}) ORDER BY p.timeline_at,p.article_id`;
+}
+
+/** Previously cited reports are resolved through today's graph, so a corrected split cannot be reported anew. */
+export async function reportCurrentIdentities(ids: string[]) {
+  if (!ids.length) return [];
+  return sql<{ id: string; fact_public_id: string | null; story_id: number | null }[]>`SELECT p.article_id AS id,f.public_id AS fact_public_id,f.story_id
+    FROM publications p LEFT JOIN facts f ON f.id=p.fact_id WHERE p.article_id=ANY(${ids}::text[])`;
+}
+
+/** Weekly/monthly compilation reads only the current public reports named by published dailies. */
+export async function reportPublicInputs(ids: string[]) {
+  if (!ids.length) return [];
+  return sql<ReportInputRow[]>`SELECT ${REPORT_INPUT_COLUMNS} FROM publications p JOIN sources s ON s.id=p.source_id
+    LEFT JOIN facts f ON f.id=p.fact_id LEFT JOIN stories st ON st.id=f.story_id
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible
+      AND s.lane='news' AND s.participation_mode='editorial' ORDER BY p.article_id`;
+}
+
+/** Explicit story/event holds also cover non-page signal posts. Automatic absence of a page is not a manual withdrawal. */
+export async function heldReportSignals(rows: Array<{ article_id: string; story_public_id: string; fact_public_id: string | null }>) {
+  if (!rows.length) return new Set<string>();
+  const ids = [...new Set(rows.map((row) => row.article_id))];
+  const [members, targets] = await Promise.all([
+    sql<
+      { article_id: string }[]
+    >`SELECT m.article_id FROM publication.withdrawal_members m JOIN publication.withdrawal_targets t ON t.withdrawal_id=m.withdrawal_id
+      WHERE t.active AND t.lane='news' AND m.article_id=ANY(${ids}::text[])`,
+    sql<{ target_type: string; target_key: string }[]>`SELECT target_type,target_key FROM publication.withdrawal_targets WHERE active AND lane='news'
+      AND ((target_type='story' AND target_key=ANY(${rows.map((row) => row.story_public_id)}::text[])) OR (target_type='event' AND target_key=ANY(${rows.map((row) => row.fact_public_id)}::text[])))`,
+  ]);
+  return new Set([
+    ...members.map((row) => row.article_id),
+    ...rows
+      .filter((row) =>
+        targets.some((target) => (target.target_type === "story" ? target.target_key === row.story_public_id : target.target_key === row.fact_public_id)),
+      )
+      .map((row) => row.article_id),
+  ]);
+}
+
+/** A selected fact waiting for a later cutoff must not enter this issue through the ordinary-report fallback. */
+export async function reportSelectedFacts(factIds: number[]) {
+  if (!factIds.length) return new Set<number>();
+  return new Set(
+    (
+      await sql<{ fact_id: number }[]>`SELECT DISTINCT fact_id FROM publications WHERE fact_id=ANY(${factIds}::bigint[]) AND selected AND visibility='public'`
+    ).map((row) => row.fact_id),
+  );
 }

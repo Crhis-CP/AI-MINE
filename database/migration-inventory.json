@@ -411,6 +411,10 @@
     {
       "name": "publication/202610152230_representative_priority.sql",
       "dependsOn": ["publication/202610151732_selection_seats.sql"]
+    },
+    {
+      "name": "reports/202610160230_rule_origin.sql",
+      "dependsOn": ["reports/202610120430_report_corrections.sql"]
     }
   ]
 }

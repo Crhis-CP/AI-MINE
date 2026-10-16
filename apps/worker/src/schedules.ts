@@ -11,15 +11,7 @@ import { scheduleMpReconcile } from "@amp/backend/sources/mp";
 import { computeHotRanking, snapshotHeat } from "@amp/backend/events/hot";
 import { refreshStoryStatuses } from "@amp/backend/events/digest";
 import { linkRelatedStories, recoverPendingGroupings } from "@amp/backend/events/group";
-import {
-  enqueuePendingReportCorrections,
-  catchUpReports,
-  composeDaily,
-  composeMonthly,
-  composeWeekly,
-  composePolicyReports,
-} from "@amp/backend/reports/compose";
-import { addDays, beijingDate, isoWeekLabel } from "@amp/contracts/time";
+import { enqueuePendingReportCorrections, catchUpReports, composePolicyReports } from "@amp/backend/reports/compose";
 import { dailyRetention } from "@amp/backend/operations/retention";
 import { submitIndexNow } from "@amp/backend/operations/indexnow";
 import { checkAlerts, sendDigest } from "@amp/backend/operations/alerts";
@@ -51,19 +43,8 @@ export const SCHEDULES: Scheduled[] = [
   { name: "stories.status", cron: "7 * * * *", run: refreshStoryStatuses },
   { name: "events.membership-repair", cron: "*/2 * * * *", run: () => recoverPendingGroupings() },
   { name: "stories.links", cron: "12 * * * *", run: linkRelatedStories },
-  { name: "reports.daily", cron: "0 8 * * *", missed: "once", run: () => composeDaily(beijingDate(Date.now())) },
-  { name: "reports.weekly", cron: "0 10 * * 1", missed: "once", run: () => composeWeekly(isoWeekLabel(addDays(beijingDate(Date.now()), -7))) },
-  {
-    name: "reports.monthly",
-    cron: "30 10 1 * *",
-    missed: "once",
-    run: () => {
-      const [y, m] = beijingDate(Date.now()).split("-").map(Number) as [number, number];
-      return composeMonthly(m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`);
-    },
-  },
   { name: "reports.correction-sweep", cron: "*/5 * * * *", run: () => enqueuePendingReportCorrections(20) },
-  { name: "reports.catch-up", cron: "15 * * * *", run: () => catchUpReports() },
+  { name: "reports.catch-up", cron: "*/30 * * * *", missed: "once", run: () => catchUpReports() },
   // The policy composer checks natural period closure and the Beijing 08:00 first-issue time.
   { name: "policy.reports", cron: "0 * * * *", missed: "once", run: () => composePolicyReports() },
   { name: "ops.retention", cron: "30 3 * * *", missed: "once", run: () => dailyRetention() },
