@@ -4792,10 +4792,10 @@
       "config": {
         "url": "https://www.mineralresources.com.au/news/company-updates/",
         "language": "en",
-        "itemSelector": "div[class*=\"__tile\"]",
-        "linkSelector": "div[class*=\"__info\"] a[href^=\"/news/company-updates/\"]",
-        "titleSelector": "div[class*=\"__info\"] a[href^=\"/news/company-updates/\"]",
-        "publishedAtSelector": "p[class*=\"__publishDate\"]",
+        "itemSelector": "div[class*=\"_tile\"]",
+        "linkSelector": "div[class*=\"_info\"] a[href^=\"/news/company-updates/\"]",
+        "titleSelector": "div[class*=\"_info\"] a[href^=\"/news/company-updates/\"]",
+        "publishedAtSelector": "p[class*=\"_publishDate\"]",
         "sourceDate": {
           "format": "declared",
           "formatPattern": "D MMMM YYYY",
