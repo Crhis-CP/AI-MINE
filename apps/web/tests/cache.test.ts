@@ -26,6 +26,7 @@ let refreshAt: string;
 let metaDelayMs = 0;
 let metaCalls = 0;
 let privatePageFixtures = false;
+let coverageUnavailable = false;
 let groupingView: "pending" | "complete" | "failed" | "legacy" = "pending";
 let modelJourney: {
   connection: ReturnType<typeof privateSchemas.ModelConnectionRecord.parse> | null;
@@ -345,6 +346,45 @@ const privateApi = createServer(async (req, res) => {
           deliveries: [],
           history: [],
           manualRevisions: [],
+        }),
+      );
+    }
+    if (req.url?.startsWith("/api/admin/source-targets?"))
+      return res.end(
+        JSON.stringify({
+          page: 1,
+          page_size: 50,
+          total: 0,
+          total_targets: 2,
+          total_original_records: 3,
+          counts: { unmatched: 1, configured: 1, observed: 0, needs_address: 0 },
+          countries: [{ id: "CN", name: "中国" }],
+          coverage: [],
+          items: [],
+          as_of: "2026-10-16T08:00:00Z",
+          limitations: [],
+        }),
+      );
+    if (req.url === "/api/admin/source-coverage") {
+      if (coverageUnavailable) {
+        res.statusCode = 503;
+        return res.end(JSON.stringify({ code: "temporarily_unavailable" }));
+      }
+      return res.end(
+        JSON.stringify({
+          asOf: "2026-10-16T08:00:00Z",
+          matrices: [
+            {
+              id: "news",
+              title: "矿业资讯覆盖",
+              explanation: "合成目录与实际采集分开",
+              rows: [{ id: "copper", label: "铜" }],
+              columns: [{ id: "official", label: "官方" }],
+              cells: [{ row: "copper", column: "official", entries: [], configured: 0, observed: 0 }],
+            },
+          ],
+          supplemental: [],
+          limitations: [],
         }),
       );
     }
@@ -1815,6 +1855,41 @@ test("content diagnostics distinguish current grouping from nomination and keep 
   } finally {
     privatePageFixtures = false;
     groupingView = "pending";
+    await browser.close();
+  }
+});
+
+test("source coverage view survives refresh and back navigation without losing target filters", { timeout: 30000 }, async () => {
+  const { browserExecutable } = await import("./browser.ts");
+  const browser = await chromium.launch({
+    executablePath: browserExecutable(),
+    args: ["--disable-background-networking", "--disable-component-update", "--host-resolver-rules=MAP private.localhost 127.0.0.1"],
+  });
+  privatePageFixtures = true;
+  const privateOrigin = origin.replace("127.0.0.1", "private.localhost");
+  try {
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block", reducedMotion: "reduce" });
+    await context.route("**/*", (route) => (new URL(route.request().url()).origin === privateOrigin ? route.continue() : route.abort("blockedbyclient")));
+    const page = await context.newPage();
+    await page.goto(`${privateOrigin}/admin/sources/targets?country=CN&q=${encodeURIComponent("矿山")}&view=coverage`);
+    await expect(page.getByRole("button", { name: "覆盖与缺口", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toBeVisible();
+    await page.getByRole("button", { name: "原表明细", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "搜索原表目标" })).toHaveValue("矿山");
+    await expect(page.getByRole("combobox", { name: "国家筛选" })).toHaveValue("CN");
+    await page.goBack();
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toBeVisible();
+    coverageUnavailable = true;
+    await page.reload();
+    await expect(page.getByText("覆盖记录暂时无法读取，请稍后刷新。", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "矿业资讯覆盖" })).toHaveCount(0);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    await context.close();
+  } finally {
+    coverageUnavailable = false;
+    privatePageFixtures = false;
     await browser.close();
   }
 });

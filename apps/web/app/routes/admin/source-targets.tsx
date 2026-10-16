@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { SourceCoverage, type CoverageData } from "../../features/admin/SourceCoverage";
 import { useAdminAction, useAdminMe } from "../../features/admin/action";
 import { createPrivateClient, privateSchemas } from "@amp/api-client/private";
@@ -41,7 +40,6 @@ export const meta: Route.MetaFunction = () => [{ title: `原表对账 · ${SITE.
 export default function SourceTargetPage({ loaderData }: Route.ComponentProps) {
   const me = useAdminMe(),
     { run, pending } = useAdminAction();
-  const [view, setView] = useState<"targets" | "coverage">("targets");
   const exportTargets = async () => {
     const client = createPrivateClient({ baseUrl: window.location.origin });
     const result = await run(
@@ -64,10 +62,11 @@ export default function SourceTargetPage({ loaderData }: Route.ComponentProps) {
   };
   const [search] = useSearchParams(),
     navigate = useNavigate();
+  const view = search.get("view") === "coverage" ? "coverage" : "targets";
   const change = (key: string, value: string) => {
     const next = new URLSearchParams(search);
     value ? next.set(key, value) : next.delete(key);
-    next.delete("page");
+    if (key !== "view") next.delete("page");
     navigate(`?${next}`, { preventScrollReset: true });
   };
   return (
@@ -88,10 +87,10 @@ export default function SourceTargetPage({ loaderData }: Route.ComponentProps) {
       }
     >
       <fieldset aria-label="对账视图" className="mb-5 flex gap-2">
-        <Button tone={view === "targets" ? "primary" : "ghost"} aria-pressed={view === "targets"} onClick={() => setView("targets")}>
+        <Button tone={view === "targets" ? "primary" : "ghost"} aria-pressed={view === "targets"} onClick={() => change("view", "")}>
           原表明细
         </Button>
-        <Button tone={view === "coverage" ? "primary" : "ghost"} aria-pressed={view === "coverage"} onClick={() => setView("coverage")}>
+        <Button tone={view === "coverage" ? "primary" : "ghost"} aria-pressed={view === "coverage"} onClick={() => change("view", "coverage")}>
           覆盖与缺口
         </Button>
       </fieldset>
