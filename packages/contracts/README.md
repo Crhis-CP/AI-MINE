@@ -59,3 +59,5 @@ TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public reg
 
 
 公开日期兼容补充（TASK-0360，2026-10-16）：当前Feed/Pool/Timeline别名接受可选sourceTime和firstPublicAt；站点详情、报道和报告引用也可携带sourceTime。旧响应不补默认值，unknown不等于日期精度，date不产生utc。这里只提供兼容输入输出，不自动启用旧ADR0025的来源日分组/游标切换；当前升级保留既定到达、确认和报告窗口语义，消费者在统一版本接通。
+
+事件进展的轻量引用同样可选携带sourceTime；timelineAt继续表示既有时间线锚点，不用它推断原文发布时间或精度。旧响应仍可省略该字段，明确null表示未确认。
