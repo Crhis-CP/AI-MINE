@@ -37,6 +37,7 @@ export const CAPABILITIES = {
     default: DEFAULTS.summarize ?? "default",
     purposes: ["summarize_article"],
   },
+  wording: { label: "读者用词修订（仅命中已配置规则时修改一次）", env: "WORDING_MODEL", default: DEFAULTS.wording ?? "default", purposes: ["mend_wording"] },
   structure: {
     label: "结构抽取（分类、标签、主体公司、事件事实，不写读者文字）",
     env: "STRUCTURE_MODEL",

@@ -27,7 +27,7 @@ const Approval = z.strictObject({
 });
 export type ModelRouteApproval = z.infer<typeof Approval>;
 export async function capabilityPrompt(capability: string): Promise<string | null> {
-  if (["prefilter", "score", "understand", "summarize", "structure"].includes(capability)) {
+  if (["prefilter", "score", "understand", "summarize", "wording", "structure"].includes(capability)) {
     const { PROMPT_VERSIONS } = await import("../editorial/analyze.ts");
     return PROMPT_VERSIONS[capability as keyof typeof PROMPT_VERSIONS];
   }

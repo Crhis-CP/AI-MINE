@@ -241,9 +241,9 @@ async function stoppedArticle(purpose: string, needsBody = false) {
   return { articleId, receiptId: receipt!.id, request };
 }
 
-test("automatic unknown recovery requeues all five analysis steps exactly once", async () => {
+test("automatic unknown recovery requeues all analysis steps including wording exactly once", async () => {
   const ids: string[] = [];
-  for (const purpose of ["prefilter_article", "score_article", "understand_article", "summarize_article", "structure_article"]) {
+  for (const purpose of ["prefilter_article", "score_article", "understand_article", "summarize_article", "mend_wording", "structure_article"]) {
     const { articleId, receiptId } = await stoppedArticle(purpose);
     ids.push(articleId);
     await sql`UPDATE receipts SET updated_at = now() - interval '31 minutes' WHERE id = ${receiptId}`;

@@ -359,6 +359,7 @@ const NEWS_PURPOSES = [
   "score_article",
   "understand_article",
   "summarize_article",
+  "mend_wording",
   "structure_article",
   "group_article",
   "group_signal",

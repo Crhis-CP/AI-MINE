@@ -19,6 +19,7 @@ import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapsh
 import { z } from "zod";
 import { CATEGORY_KEYS, toPublicApiCategory } from "@amp/contracts/taxonomy";
 import { CATEGORIES, CATEGORY_LABELS } from "@amp/industry/taxonomy";
+import { wordingProblems } from "./wording.ts";
 import { SELECTION } from "@amp/industry/selection";
 import { config, isProduction } from "../config.ts";
 import { dbOf } from "../db.ts";
@@ -75,6 +76,7 @@ export const PROMPT_VERSIONS = {
   score: promptVersion("selection-score"),
   understand: configuredPromptVersion("understand", UNDERSTAND_CONFIG),
   summarize: promptVersion("summarize-article", "summarize-article-empty", "identity-context"),
+  wording: promptVersion("mend-wording"),
   structure: configuredPromptVersion("structure", STRUCTURE_CONFIG),
 } as const;
 /** Every step's prompt, as stored on each judgement. */
@@ -493,6 +495,65 @@ async function runUnderstand(a: AnalyzeInputArticle, opts: StepOpts): Promise<An
   };
 }
 
+export const MEND_SYSTEM = promptText("mend-wording", { reasonLabel: "推荐理由" });
+const MendSchema = z.object({ titleZh: z.string().trim().min(1), summaryZh: z.string().trim().min(1), reasonZh: z.string().trim().nullable().catch(null) });
+
+/**
+ * Written copy that uses a word the site keeps from its readers (industry/wording.ts) goes back once, those words
+ * named, to change only them: a site's writing prompts can ask the same, but a model keeps drifting back to the
+ * words it uses most. The mended copy keeps the
+ * identity guard and is used only when it leaves fewer such words and the same numbers.
+ */
+async function mendWording(a: AnalyzeInputArticle, w: NonNullable<AnalysisRun["writing"]>, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
+  // A copy missing its title or summary waits for a whole one (normalizeAnalysis): nothing to mend, and no text to
+  // let a model without the material fill in.
+  if ((w.kind !== "understand" && w.kind !== "summarize") || !w.titleZh || !w.summaryZh) return w;
+  const problems = wordingProblems(w);
+  if (!problems.length) return w;
+  const t = translateInputOf(a);
+  const user = [
+    `来源：${t.sourceName ?? "（未注明）"}`,
+    `原题：${t.title}`,
+    `中文稿：\n${JSON.stringify({ titleZh: w.titleZh, summaryZh: w.summaryZh, reasonZh: w.reasonZh })}`,
+    `问题：\n${problems.map((p) => `- ${p}`).join("\n")}`,
+  ].join("\n\n");
+  checkAnalysisRunning();
+  let res: Awaited<ReturnType<typeof chatJson<typeof MendSchema>>>;
+  try {
+    res = await chatJson({
+      sourceIds: a.sourceId ? [a.sourceId] : [],
+      usagePurpose: opts.usagePurpose,
+      runtimeControl: opts.runtimeControl,
+      model: await modelFor("wording"),
+      purpose: "mend_wording",
+      subject: subjectOf(a),
+      promptVersion: PROMPT_VERSIONS.wording,
+      system: MEND_SYSTEM,
+      user,
+      fallbackPermit: opts.fallbackInput?.({ system: MEND_SYSTEM, user }),
+      schema: MendSchema,
+      temperature: 0.1,
+      maxTokens: 2048,
+      attemptTag: tagged(opts.attemptTag, "wording"),
+    });
+  } catch (error) {
+    // An answer that is not the copy asked for, or a refusal the same request would meet again (each provider words
+    // its own), leaves the first copy: a mend that cannot be had must not hold the item back. Its receipt stays failed
+    // (seen on the runs page, and asked again the next time the item is analysed); a busy provider is tried again later.
+    if (isContentFilter(error) || error instanceof ModelOutputError || (error instanceof ProviderRejectedError && !error.retryable)) return w;
+    throw error;
+  }
+  const copy = finalizeCopy(t, { titleZh: res.data.titleZh, summaryZh: res.data.summaryZh });
+  const mended = { titleZh: copy.titleZh, summaryZh: copy.summaryZh, reasonZh: w.reasonZh === null ? null : res.data.reasonZh || w.reasonZh };
+  const paid = { receiptIds: [...w.receiptIds, res.receiptId], reused: w.reused && res.reused };
+  // A guard that emptied the title or summary (a company the input does not name), a number changed or dropped, or
+  // no fewer such words: the first copy stands.
+  const numbers = (c: { titleZh: string; summaryZh: string; reasonZh: string | null }) =>
+    (`${c.titleZh} ${c.summaryZh} ${c.reasonZh ?? ""}`.match(/\d+(?:[.,]\d+)*/g) ?? []).sort().join(" ");
+  if (!mended.titleZh || !mended.summaryZh || numbers(mended) !== numbers(w) || wordingProblems(mended).length >= problems.length) return { ...w, ...paid };
+  return { ...w, ...mended, identityGuard: copy.identityGuard ?? w.identityGuard, ...paid };
+}
+
 /** The title/summary prompt for the items the content understanding does not write. */
 async function runSummarize(a: AnalyzeInputArticle, opts: StepOpts): Promise<NonNullable<AnalysisRun["writing"]>> {
   const t = translateInputOf(a);
@@ -551,6 +612,8 @@ async function finishAnalysis(
 ): Promise<AnalysisRun> {
   // UNKNOWN goes on like PASS; BLOCK stops here.
   if (prefilter.label === "BLOCK") return { prefilter, scores: null, writing: null, structure: null };
+  // A title cannot support a paid score, fact extraction or invented summary. A later material revision resumes.
+  if (missingEvidence(a)) return { prefilter, scores: null, writing: null, structure: null };
   if (opts.stages === "selection") {
     const scores = await runSelectionScores(a, opts);
     return { prefilter, scores, writing: null, structure: null };
@@ -564,9 +627,9 @@ async function finishAnalysis(
     const scores = await runSelectionScores(a, opts);
     const sum = scores && !scores.refused && scores.values.length === SCORE_CALLS ? scores.values.reduce((total, v) => total + v, 0) : null;
     const near = sum !== null && (sum >= scores!.threshold * SCORE_CALLS || sum > UNDERSTAND_FLOOR * SCORE_CALLS);
-    const writing = (near ? await runUnderstand(a, opts) : null) ?? (await runSummarize(a, opts));
     const s = await structure;
     if ("error" in s) throw s.error;
+    const writing = await mendWording(a, (near ? await runUnderstand(a, opts) : null) ?? (await runSummarize(a, opts)), opts);
     return { prefilter, scores, writing, structure: s.value };
   } finally {
     // A score/writing error or deploy must not let the job finish while a paid structure request
@@ -583,7 +646,7 @@ export function normalizeAnalysis(run: AnalysisRun) {
   // Past the prefilter (PASS or UNKNOWN) an item is relevant. Writing that gives no usable Chinese title and
   // summary leaves it without copy of its own ("unknown", waiting for material); a Chinese original from a
   // full-text source still shows its source excerpt, since publication only keeps a BLOCK out.
-  const relevance = label === "BLOCK" ? "block" : run.writing && (!titleZh || !summaryZh) ? "unknown" : "pass";
+  const relevance = label === "BLOCK" ? "block" : (run.writing ? !titleZh || !summaryZh : !run.scores) ? "unknown" : "pass";
   // Selected when the two scores add up to twice the tier threshold; the mean, floored,
   // is the score shown (it never decides a half point on its own).
   const values = run.scores && !run.scores.refused ? run.scores.values : null;
