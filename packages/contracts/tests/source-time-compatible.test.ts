@@ -28,7 +28,7 @@ const day = normalizeSourceTime(
     basis: "来源标注日期",
     condition_text: null,
   },
-  { instantBasis: "none", timezoneEvidence: null },
+  { instantBasis: null, timezoneEvidence: null },
 );
 test("legacy feed fields remain valid and absent time evidence stays absent", () => {
   const parsed = FeedItemSummary.parse(legacy);
