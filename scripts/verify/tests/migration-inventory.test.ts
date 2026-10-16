@@ -476,6 +476,12 @@ test("all 30 frozen originals keep their identities and hashes; applied history 
         schemas: ["reports"],
         dependsOn: ["0038_publication_source_excerpt.sql", "reports/202610120430_report_corrections.sql"],
       },
+      {
+        name: "ai-gateway/202610160400_service_request_quota.sql",
+        module: "ai-gateway",
+        schemas: ["ai"],
+        dependsOn: ["0038_publication_source_excerpt.sql", "ai-gateway/202610091210_model_attempt_snapshot.sql"],
+      },
     ],
   );
   assert.equal(entries.length, 30);

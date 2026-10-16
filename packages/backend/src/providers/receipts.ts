@@ -1,3 +1,4 @@
+import { prepareModelQuota, type ModelQuotaAlias } from "./model-budget.ts";
 import {
   admitUsage,
   reserveUsageAttempt,
@@ -130,6 +131,9 @@ export interface ReceiptRequest {
   taskBudget?: TaskBudget;
   modelSnapshot?: ModelAttemptSnapshot;
   service: string;
+  /** Shared service quota; does not alter billing identity or the paid-result cache key. */
+  budgetService?: string;
+  budgetAliases?: ModelQuotaAlias[];
   lane?: "news" | "policy";
   runtimeControl?: RuntimeControlSnapshot;
   model?: string | null;
@@ -416,7 +420,7 @@ async function checkBudget(tx: Db, service: string): Promise<void> {
       count(*) FILTER (WHERE started_at > now() - interval '1 hour') AS hour,
       count(*) AS day
     FROM receipt_attempts
-    WHERE service = ${service} AND origin = 'live' AND started_at > now() - interval '1 day'`;
+    WHERE coalesce(quota_service,service) = ${service} AND origin = 'live' AND started_at > now() - interval '1 day'`;
   const c = counts!;
   if (budget.per_minute <= 0 || budget.per_hour <= 0 || budget.per_day <= 0) {
     throw new BudgetExceededError(service, "stopped", 3600);
@@ -477,7 +481,10 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     ...summary,
     ...(req.policy ?? {}),
     ...(knownLane ? { lane: knownLane } : {}),
+    ...(req.budgetService ? { quota_service: req.budgetService } : {}),
   };
+  const quotaService = req.budgetService ?? req.service;
+  if (!quotaService.trim()) throw new Error("A request service is required");
   const logicalKey = logicalKeyFor(req);
   const usageInputKey = sha256(stableJson([req.service, req.model ?? null, req.purpose, req.identity]));
   const article = /^article:([a-zA-Z0-9_-]+@[1-9][0-9]*)/.exec(req.subject ?? "");
@@ -512,6 +519,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   const stage = req.maxRejectedOutputs === undefined ? null : (req.subject?.match(/^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)#[0-9]+$/)?.[1] ?? null);
   if (req.translationObservations?.length && !stage) throw new Error("Translation observations require an actual material stage");
 
+  if (req.budgetService) await prepareModelQuota(req.budgetService, req.service, req.modelSnapshot, req.budgetAliases);
   const claimed = await sql.begin(async (tx) => {
     if (newsScope) await tx`SELECT pg_advisory_xact_lock(hashtext(${`news-receipt:${req.purpose}:${newsScope}`}))`;
     for (const sourceId of [...new Set(req.policy?.sourceIds ?? [])].sort()) await tx`SELECT pg_advisory_xact_lock(hashtext(${`policy-source:${sourceId}`}))`;
@@ -519,7 +527,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     if (stage) await tx`SELECT pg_advisory_xact_lock(hashtext(${"translation:" + stage}))`;
     for (const receipt of req.translationObservations ?? []) await observeTranslation(tx, stage, receipt);
     // Serialise budget checks per service so concurrent workers cannot overshoot.
-    await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + req.service}))`;
+    await tx`SELECT pg_advisory_xact_lock(hashtext(${"budget:" + quotaService}))`;
     await observeOriginalTranslation(tx, stage);
     const [existing] = await tx<ReceiptRow[]>`
       SELECT r.id,r.id::text AS id_text,r.status,r.response,r.created_at,r.updated_at,r.response IS NOT NULL AS has_response,ca.id::text AS current_attempt_id,
@@ -615,7 +623,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       if (legacy) return legacy;
       await checkPolicyReceipts(tx, req.policy);
       await checkPolicyPartLimit(tx, req);
-      await checkBudget(tx, req.service);
+      await checkBudget(tx, quotaService);
+      // Preserve a deliberately stopped legacy connection without splitting new service counters.
+      if (quotaService !== req.service) {
+        const [held] = await tx`SELECT 1 FROM budgets WHERE service=${req.service} AND (per_minute=0 OR per_hour=0 OR per_day=0)`;
+        if (held) throw new BudgetExceededError(req.service, "stopped", 3600);
+      }
       const control = await requireRuntimeRunning(
         knownLane ?? "news",
         [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
@@ -644,7 +657,12 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     if (legacy) return legacy;
     await checkPolicyReceipts(tx, req.policy);
     await checkPolicyPartLimit(tx, req);
-    await checkBudget(tx, req.service);
+    await checkBudget(tx, quotaService);
+    // Preserve a deliberately stopped legacy connection without splitting new service counters.
+    if (quotaService !== req.service) {
+      const [held] = await tx`SELECT 1 FROM budgets WHERE service=${req.service} AND (per_minute=0 OR per_hour=0 OR per_day=0)`;
+      if (held) throw new BudgetExceededError(req.service, "stopped", 3600);
+    }
     const control = await requireRuntimeRunning(
       knownLane ?? "news",
       [!req.model && (req.service === "jina" || req.service === "dajiala") ? "collection" : "processing"],
@@ -738,7 +756,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
 
 async function startAttempt(tx: Db, receiptId: number, attempt: number, req: ReceiptRequest, usage: UsageReservation): Promise<string> {
   const [row] = await tx<{ id: string }[]>`
-    INSERT INTO receipt_attempts (receipt_id, attempt, service, model, status) VALUES (${receiptId}, ${attempt}, ${req.service}, ${req.model ?? null}, 'pending')
+    INSERT INTO receipt_attempts (receipt_id, attempt, service, quota_service, model, status) VALUES (${receiptId}, ${attempt}, ${req.service}, ${req.budgetService ?? req.service}, ${req.model ?? null}, 'pending')
     RETURNING id::text AS id`;
   if (req.modelSnapshot) {
     const snapshot = req.modelSnapshot;

@@ -415,6 +415,10 @@
     {
       "name": "reports/202610160230_rule_origin.sql",
       "dependsOn": ["reports/202610120430_report_corrections.sql"]
+    },
+    {
+      "name": "ai-gateway/202610160400_service_request_quota.sql",
+      "dependsOn": ["ai-gateway/202610091210_model_attempt_snapshot.sql"]
     }
   ]
 }

@@ -635,7 +635,7 @@ async function providerFindings(): Promise<Finding[]> {
     SELECT b.service, b.per_hour, b.per_day, bool_or(a.model IS NOT NULL) AS models,
            (count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour'))::int AS hour, count(a.id)::int AS day
     FROM budgets b
-    JOIN receipt_attempts a ON a.service = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day'
+    JOIN receipt_attempts a ON coalesce(a.quota_service,a.service) = b.service AND a.origin = 'live' AND a.started_at > now() - interval '1 day'
     WHERE b.per_minute > 0 AND b.per_hour > 0 AND b.per_day > 0
     GROUP BY 1, 2, 3
     HAVING count(a.id) FILTER (WHERE a.started_at > now() - interval '1 hour') >= b.per_hour * 0.8 OR count(a.id) >= b.per_day * 0.8`;

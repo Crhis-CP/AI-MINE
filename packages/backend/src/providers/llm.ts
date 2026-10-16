@@ -1,3 +1,4 @@
+import { modelBudgetService, registeredQuotaAliases } from "./model-budget.ts";
 import { modelOutputContract } from "./model-fallback-contract.ts";
 import type { FallbackPermitPort } from "./model-fallback-permit.ts";
 import type { PolicyFallbackContext } from "../policy/fallback-quality.ts";
@@ -51,14 +52,14 @@ function extraFromEnv(value: string | undefined): Record<string, unknown> | unde
 }
 
 /**
- * 上游基础方案's four built-in providers. Presets stay in this list; a later key does not change the admin page.
+ * Optional built-in model presets. Presets stay in this list; a later key does not change the admin page.
  * `duty` is the mining job of that seat. Until the other three keys exist, every seat still calls `default`.
  */
 export const BUILTIN_MODEL_FAMILIES = [
   {
     id: "deepseek",
     label: "DeepSeek",
-    duty: "其余稿的中文标题和摘要；几篇报道是不是同一件矿业上的事；事件综述；日报、周报、月报。全文翻译也归这一家。",
+    duty: "其余稿的中文标题和摘要；几篇报道是不是同一件矿业上的事；事件综述；周报和月报的导读。全文翻译也归这一家。",
     presets: ["deepseek-flash", "deepseek-flash-think"],
   },
   {
@@ -206,6 +207,7 @@ export function environmentModelMetadata(key: string) {
       service: spec.service,
       model: spec.model,
       vision: !!spec.vision,
+      budgetService: base ? modelBudgetService(base, spec.service) : spec.service,
       ...(base && spec.model ? environmentConfiguration(spec, base) : { configuration_hash: null }),
     };
   } catch {
@@ -388,10 +390,22 @@ export async function chatJson<S extends z.ZodType>(opts: ChatJsonOptions<S>): P
     (Object.entries(CAPABILITIES).some(([key, c]) => !key.startsWith("policy_") && (c.purposes as string[]).includes(opts.purpose)) ? "news" : undefined);
   const { withModelFallback, ModelContentFiltered } = await import("./model-fallback.ts");
   const contractHash = modelOutputContract(opts.schema, opts.parse);
+  const budgetService = modelBudgetService(baseUrl, registered ? (registered.config.interface === "deepseek" ? "deepseek" : undefined) : spec.service);
+  const budgetAliases = [
+    ...Object.keys(MODELS).flatMap((key) => {
+      const value = environmentModelMetadata(key);
+      return value?.configuration_hash && "budgetService" in value && value.budgetService === budgetService
+        ? [{ service: value.service, connection_id: null, configuration_hash: value.configuration_hash }]
+        : [];
+    }),
+    ...(await registeredQuotaAliases(budgetService)),
+  ];
   const request: ReceiptRequest = {
     maxPhysicalAttempts: opts.maxPhysicalAttempts,
     taskBudget: opts.taskBudget,
     modelSnapshot: registeredSummary,
+    budgetService,
+    budgetAliases,
     usageContext: costLane
       ? {
           lane: costLane,

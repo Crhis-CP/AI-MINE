@@ -1,3 +1,4 @@
+import { modelBudgetService, ensureModelBudget } from "../providers/model-budget.ts";
 import { hasAssignedBackup } from "./model-fallback.ts";
 import { environmentValue } from "../config.ts";
 import { randomUUID } from "node:crypto";
@@ -55,6 +56,7 @@ export async function createModelConnection(input: unknown, principal: AdminPrin
     const sealed = sealModelSecret(value.secret, `${id}:${secretId}`),
       config = ModelConnectionConfig.strip().parse(value);
     await tx`INSERT INTO ai.model_connections(id,config,secret_id,sealed_secret,fingerprint) VALUES(${id},${tx.json(config)},${secretId},${tx.json(sealed)},${sealed.fingerprint})`;
+    await ensureModelBudget(modelBudgetService(config.endpoint, config.interface === "deepseek" ? "deepseek" : undefined), tx);
     const record = await connectionRecord(await connectionRow(id, tx), tx);
     await audit(actorOf(principal), "models.connection.create", id, value.reason, null, { ...record, supplier_basis: value.supplier_basis }, undefined, tx);
     return record;
@@ -94,6 +96,7 @@ export async function updateModelConnection(id: string, input: unknown, principa
       modelConfigurationHash(config) === modelConfigurationHash(before.config);
     await tx`UPDATE ai.model_connections SET revision=revision+1,enabled=${value.enabled ?? before.enabled},config=${tx.json(config)},secret_id=${secretId},sealed_secret=${tx.json(sealed)},fingerprint=${sealed.fingerprint},
       passed_revision=${keepTest ? before.revision + 1 : null},tested_at=${keepTest ? before.tested_at : null},updated_at=now() WHERE id=${id} AND revision=${before.revision}`;
+    await ensureModelBudget(modelBudgetService(config.endpoint, config.interface === "deepseek" ? "deepseek" : undefined), tx);
     const record = await connectionRecord(await connectionRow(id, tx), tx);
     await audit(
       actorOf(principal),
