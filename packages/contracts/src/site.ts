@@ -292,10 +292,7 @@ export interface SiteItemDetail extends ItemDetail {
 }
 
 export type StoryFollowup = StoryFollowupCore;
-interface StoryFollowupCore {
-  factId: string;
-  representative: { id: string; title: string; summary?: string | null; source: { name: string }; timelineAt: string };
-}
+type StoryFollowupCore = StoryFollowupsResponse["items"][number];
 export type StoryFollowupsResponse = import("zod").infer<typeof import("./http/public.ts").StoryFollowupsResponse>;
 
 /** All issue keys keep numbering and calendars stable; closed daily months omit their titles. */
