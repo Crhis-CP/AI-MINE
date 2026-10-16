@@ -3,7 +3,7 @@ import { attachSourcePolicies } from "./reader-context.ts";
 // Public pool (/all) with numeric pages, and search in its two orderings.
 import type { PoolResponse, TimelineFilters } from "@amp/contracts/site";
 import { addDays, isValidDate, beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { one, dbOf, withCustomPlans, type Db } from "../db.ts";
+import { one, sql, withCustomPlans, type Db } from "../db.ts";
 import {
   categoryCondition,
   publicationDateCondition,
@@ -23,8 +23,6 @@ import { publicationTextMatches, poolDirectTextMatches, bodyTextMatches, searchP
 import { termExpands, readMatcherValues, searchScoreValues, type ReadMatcherValues } from "./mentions.ts";
 import { loadTimeline } from "./timeline.ts";
 import { MINERAL_TAGS } from "@amp/industry/taxonomy";
-
-const sql = dbOf("publication");
 
 export const POOL_PAGE_SIZE = 20;
 

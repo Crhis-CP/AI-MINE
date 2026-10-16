@@ -4,7 +4,7 @@ import { TimeAssertion, normalizeSourceTime } from "@amp/contracts/time-assertio
 import { CATEGORY_LABELS, MINERAL_TAGS } from "@amp/industry/taxonomy";
 import { JURISDICTIONS } from "@amp/industry/jurisdictions";
 import { SITE } from "@amp/industry/site";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { sha256 } from "../lib/ids.ts";
 import { loadItemDetail, publicItemMetadata } from "./detail.ts";
 import { loadPool } from "./pool.ts";
@@ -12,7 +12,7 @@ import { loadTopicTags } from "./topics.ts";
 import { v1Items, selectedSnapshot, selectedChanges, effectiveWatermark, pendingReleaseCount } from "./v1.ts";
 import { readingFor, readingPage } from "./v3-reading.ts";
 export * from "./v3-collections.ts";
-const sql = dbOf("publication");
+
 export class V3ReadError extends Error {
   readonly status: number;
   readonly code: string;

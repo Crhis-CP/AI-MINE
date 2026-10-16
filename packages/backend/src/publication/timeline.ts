@@ -6,7 +6,7 @@ import { attachSourcePolicies } from "./reader-context.ts";
 // never moves it; the representative is the first-party pick of the story's initiating fact.
 import type { GroupInfo, TimelineCard, TimelineFilters, TimelineResponse } from "@amp/contracts/site";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import {
   ITEM_COLUMNS,
@@ -20,8 +20,6 @@ import {
   topicCondition,
   type ItemRow,
 } from "./items.ts";
-
-const sql = dbOf("publication");
 
 export interface TimelineQuery extends TimelineFilters {
   scope?: "all" | "selected";

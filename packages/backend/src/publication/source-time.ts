@@ -1,6 +1,6 @@
 import { TimeAssertion, normalizeSourceTime } from "@amp/contracts/time-assertion";
-import { dbOf } from "../db.ts";
-const sql = dbOf("publication");
+import { sql } from "../db.ts";
+
 /** Public assertions contain source facts and reader wording, never parsing/debug instructions. */
 export function publicSourceTime(value: unknown): TimeAssertion | null {
   const parsed = TimeAssertion.safeParse(value);

@@ -1,6 +1,5 @@
 import { entityIdentity } from "../editorial/vocabulary.ts";
-import { dbOf, type Db } from "../db.ts";
-const sql = dbOf("publication");
+import { sql, type Db } from "../db.ts";
 
 export interface RepresentativeIdentity {
   source_tier: string;

@@ -15,14 +15,13 @@ import { CATEGORY_LABELS } from "@amp/industry/taxonomy";
 import { SITE, withSubject } from "@amp/industry/site";
 import { config } from "../config.ts";
 import { linkBodyImages } from "../content/sanitize.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { escapeXml } from "../lib/text.ts";
 import { reportHeadline, reportIndex, reportLeadParagraph } from "./reports.ts";
 import type { ItemRow } from "./items.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { listPolicies } from "./policies.ts";
 
-const sql = dbOf("publication");
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
 interface FeedMeta {

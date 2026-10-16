@@ -296,3 +296,27 @@ export const unsafeRecursive = sql\`SELECT 1 \${recursive()}\`;
       );
   });
 });
+
+test("registered live driver exports support expression proofs without accepting arbitrary mutable tags", () => {
+  fixture((root, files) => {
+    const driver = "packages/backend/src/db-connections.ts";
+    mkdirSync(path.dirname(path.join(root, driver)), { recursive: true });
+    writeFileSync(path.join(root, driver), 'import type postgres from "postgres"; export let sql: postgres.Sql;');
+    const file = "packages/example/live-driver.ts";
+    writeFileSync(
+      path.join(root, file),
+      `
+import type postgres from "postgres";
+import { sql } from "../backend/src/db-connections.ts";
+let other: postgres.Sql;
+function live(value: string) { return sql\`p.title = \${value}\`; }
+function mutable(value: string) { return other\`p.title = \${value}\`; }
+export const good = sql\`SELECT * FROM publications p WHERE \${live("title")}\`;
+export const bad = sql\`SELECT * FROM publications p WHERE \${mutable("title")}\`;
+`,
+    );
+    const result = extractOwnership(root, [...files, driver, file]).find((entry) => entry.file === file)!;
+    assert.ok(result.sites.filter((site) => site.scopeName === "good").every((site) => !site.unknown.length));
+    assert.ok(result.sites.filter((site) => site.scopeName === "bad").some((site) => site.unknown.length));
+  });
+});

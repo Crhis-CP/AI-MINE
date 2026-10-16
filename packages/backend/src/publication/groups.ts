@@ -3,7 +3,7 @@ import { readMatcherValues } from "./mentions.ts";
 // "展开 N 条进展". Members must pass the same visibility, pool eligibility and parent-page filters.
 import type { CategoryKey, ChannelKey } from "@amp/contracts/taxonomy";
 import type { DevelopmentsResponse, GroupReportsResponse } from "@amp/contracts/site";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
 import {
@@ -20,8 +20,6 @@ import {
   type ItemRow,
 } from "./items.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
-
-const sql = dbOf("publication");
 
 export interface GroupReportsQuery {
   factPublicId: string;

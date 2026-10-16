@@ -9,11 +9,9 @@ import { jurisdictionCodesInText, type ReadMatcherValues } from "./mentions.ts";
 import { toPublicApiCategory, type CategoryKey, type ChannelKey } from "@amp/contracts/taxonomy";
 import { addCalendarMonths, beijingDate, beijingMidnight } from "@amp/contracts/time";
 import type { FeedItemSummary, ItemSummary, SourceKind } from "@amp/contracts/site";
-import { dbOf, type Db } from "../db.ts";
+import { sql, type Db } from "../db.ts";
 import { publicationTextMatches, bodyTextMatches } from "./read-predicates.ts";
 import { displayTags } from "./rules.ts";
-
-const sql = dbOf("publication");
 
 export interface ItemRow {
   id: string;

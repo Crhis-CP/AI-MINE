@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { dbOf, type Tx } from "../db.ts";
+import { sql, type Tx } from "../db.ts";
 import { readAnalyzedGeography, validateGeography } from "../editorial/geography.ts";
 
-const sql = dbOf("publication");
 export async function projectNewsGeography(
   tx: Tx,
   article: { id: string; revision: number; title: string; body_text: string | null; excerpt: string | null; body_status: string },

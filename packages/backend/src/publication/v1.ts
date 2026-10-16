@@ -2,15 +2,13 @@ import { sourceInstant } from "./source-time.ts";
 import { z } from "zod";
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
 import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
-import { dbOf, withCustomPlans, type Db } from "../db.ts";
+import { sql, withCustomPlans, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
 import { newsJurisdictionScope, readPublicApiItems, currentSyncItems, type ApiItemRow } from "./items.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { searchTerms, withSearchCapacity } from "./pool.ts";
 import { v1Payload, type V1ItemPayload } from "./publish.ts";
-
-const sql = dbOf("publication");
 
 export interface V1ItemsQuery {
   mode: "selected" | "all";

@@ -4,12 +4,10 @@ import type { FeedItemSummary } from "@amp/contracts/site";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { REPO_ROOT } from "../config.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { cached } from "../lib/cache.ts";
 import { ITEM_COLUMNS, ITEM_FROM, listedCondition, toFeedItemSummary, type ItemRow } from "./items.ts";
 import { matchesTopicTags, readMatcherValues } from "./mentions.ts";
-
-const sql = dbOf("publication");
 
 export interface TopicRow {
   slug: string;

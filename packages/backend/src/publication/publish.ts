@@ -25,7 +25,7 @@ import { requireRuntimeRunning, assertRuntimeControl, RuntimeControlPaused, Runt
 import { renameCategoryTags } from "@amp/industry/mining-taxonomy";
 import { SITE } from "@amp/industry/site";
 import { toPublicApiCategory } from "@amp/contracts/taxonomy";
-import { one, dbOf, type Tx, type Db } from "../db.ts";
+import { one, sql, type Tx, type Db } from "../db.ts";
 import { fetchItemsByIds } from "./items.ts";
 import { sha256, stableJson } from "../lib/ids.ts";
 import { collapseWhitespace, usableSourceText } from "../lib/text.ts";
@@ -38,8 +38,6 @@ import { itemUrl } from "./links.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
 import { bodyModeOf, displayTags, isIndexable, isPoolEligible, isSelectable, mayRedistribute, type SourceFacts } from "./rules.ts";
 import { projectNewsGeography } from "./news-geography.ts";
-
-const sql = dbOf("publication");
 
 async function sourceTimeForMaterial(material: { id: string; source_id: string; revision: number; source_date_version: string | number }, now: Date, db: Db) {
   const context = await sourceDateConfiguration(material.source_id, db);

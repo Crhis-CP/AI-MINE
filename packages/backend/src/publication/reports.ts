@@ -2,14 +2,13 @@ import { publicSourceTime, sourceInstant } from "./source-time.ts";
 // Reports through the public read layer: website DTOs and the v1 shapes. Only real reports are
 // listed; a missing date is a 404, never another day. Withdrawn citations are marked, not shown.
 import type { ReportCitation, ReportDetail, ReportIndexEntry, ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { dailyUrl, itemUrl, siteUrl } from "./links.ts";
 import { SITE, withSubject } from "@amp/industry/site";
 import { isValidDate, isoWeekRange } from "@amp/contracts/time";
 import { fetchItemsByIds, fetchMachineReportItems } from "./items.ts";
 export { isReportWithdrawn, storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
 
-const sql = dbOf("publication");
 const PUBLIC_CORRECTION_REASONS = new Set([
   "引用报道已更正，本期内容随之更新。",
   "部分引用已撤回，本期仅保留仍可公开的内容。",

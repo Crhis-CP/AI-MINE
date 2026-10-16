@@ -6,7 +6,7 @@ import { publicCompanyContext, readerAttribution } from "./reader-context.ts";
 import { relatedPoliciesForNews } from "./news-policy-links.ts";
 import type { ItemDetail, SiteItemDetail, OutlineEntry, StoryRef } from "@amp/contracts/site";
 import { linkBodyImages } from "../content/sanitize.ts";
-import { dbOf } from "../db.ts";
+import { sql } from "../db.ts";
 import { ITEM_COLUMNS, ITEM_FROM, selectedCondition, toItemSummary, type ItemRow } from "./items.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import { hasItemPage } from "./rules.ts";
@@ -19,7 +19,6 @@ import {
 } from "../editorial/translation-readiness.ts";
 import { promptVersion } from "../editorial/prompts.ts";
 
-const sql = dbOf("publication");
 const RECIPE = `${TRANSLATION_MANIFEST_FORMAT}:${promptVersion("translate-body")}`;
 
 interface DetailRow extends ItemRow {
