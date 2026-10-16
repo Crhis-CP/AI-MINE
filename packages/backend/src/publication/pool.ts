@@ -1,3 +1,4 @@
+import { sharedSearch } from "../lib/cache.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 // Public pool (/all) with numeric pages, and search in its two orderings.
 import type { PoolResponse, TimelineFilters } from "@amp/contracts/site";
@@ -119,7 +120,34 @@ export interface PoolQuery extends TimelineFilters {
   rangeEnd?: Date | null;
 }
 
-export async function loadPool(
+// Sharing happens before search capacity admission, and retains every site-specific filter in the key.
+const searchPool = sharedSearch(
+  ({ query }: { query: PoolQuery; matchers?: ReadMatcherValues }) =>
+    JSON.stringify([
+      query.channel ?? "all",
+      query.category ?? null,
+      query.tag ?? null,
+      query.topic ?? null,
+      query.topicTags ?? null,
+      query.jurisdiction ?? null,
+      query.source ?? null,
+      query.mineral ?? null,
+      query.on ?? null,
+      query.from ?? null,
+      query.to ?? null,
+      query.selected ?? false,
+      query.q?.trim() ?? null,
+      query.tab ?? "time",
+      query.page ?? 1,
+    ]),
+  ({ query, matchers }, now) => queryPool(query, matchers, now),
+  ({ query, matchers }) => !!query.q?.trim() && matchers === undefined,
+);
+export function loadPool(query: PoolQuery, matchers?: ReadMatcherValues): Promise<PoolResponse> {
+  return searchPool({ query, matchers }, query.now);
+}
+
+async function queryPool(
   query: PoolQuery,
   matchers: ReadMatcherValues = readMatcherValues(
     query.mineral,
@@ -127,9 +155,9 @@ export async function loadPool(
     newsJurisdictionScope(query.jurisdiction).jurisdictionCodes,
     query.q ? searchTerms(query.q.trim()) : [],
   ),
+  now = query.now ?? new Date(),
 ): Promise<PoolResponse> {
   query = { ...query, ...newsJurisdictionScope(query.jurisdiction) };
-  const now = query.now ?? new Date();
   const page = Number.isSafeInteger(query.page) ? Math.max(query.page!, 1) : 1;
   const q = query.q?.trim() || null;
   const tab = q && query.tab === "relevance" ? "relevance" : "time";
