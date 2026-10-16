@@ -230,7 +230,7 @@ export default function FeedbackPage() {
                 value={draft.content}
                 onChange={(e) => setDraft({ ...draft, content: e.target.value })}
                 placeholder="例如：我在搜索“紫金矿业”时遇到……我原本想……"
-                className={`${field} block resize-y px-4 pb-8 pt-3.5 text-[14.5px] leading-relaxed`}
+                className={`${field} block resize-y px-4 pb-8 pt-3.5 text-[16px] sm:text-[14.5px] leading-relaxed`}
               />
               <span className="mono pointer-events-none absolute bottom-3 right-4 text-[11px] text-ink-4">
                 {draft.content.length} / {MAX_TEXT}
@@ -252,7 +252,7 @@ export default function FeedbackPage() {
               value={draft.email}
               onChange={(e) => setDraft({ ...draft, email: e.target.value })}
               placeholder="邮箱、电话或其他方便联系你的方式"
-              className={`${field} h-11 px-4 text-[14.5px]`}
+              className={`${field} h-11 px-4 text-[16px] sm:text-[14.5px]`}
             />
           </div>
 

@@ -24,7 +24,8 @@ export const natures = {
   unknown: "尚未确认",
 };
 export const stages = { proposed: "拟议", consultation: "征求意见", adopted: "已通过", published: "已公布", unknown: "尚未确认" };
-export const fieldClass = "min-w-0 w-full rounded-control border border-line-strong bg-surface px-3 py-2 text-[13px] text-ink focus:outline-accent";
+export const fieldClass =
+  "min-w-0 w-full rounded-control border border-line-strong bg-surface px-3 py-2 text-[16px] sm:text-[13px] text-ink focus:outline-accent";
 export const actionClass =
   "shrink-0 whitespace-nowrap rounded-control border border-line-strong bg-surface px-3 py-2 text-[13px] font-medium text-accent hover:bg-bg-sunk";
 const returnKey = "amp-policy-list-return-v1";

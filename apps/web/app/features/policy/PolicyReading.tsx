@@ -5,8 +5,8 @@ import { actionClass, EvidenceLinks } from "./PolicyUI";
 
 type Page = ReturnType<typeof publicSchemas.PolicyReadingPage.parse>;
 type Expression = Policy["expressions"][number];
-type Stream = { rows: Page["blocks"]; total: number; next: string | null; loaded: boolean; busy: boolean; error: boolean };
-const blank = (): Stream => ({ rows: [], total: 0, next: null, loaded: false, busy: false, error: false });
+type Stream = { rows: Page["blocks"]; total: number; next: string | null; loaded: boolean; busy: boolean; error: boolean; complete: boolean };
+const blank = (): Stream => ({ rows: [], total: 0, next: null, loaded: false, busy: false, error: false, complete: false });
 function label(expression: Expression) {
   return expression.kind === "ai_translation"
     ? "AI 翻译（非官方译文）"
@@ -17,15 +17,28 @@ function label(expression: Expression) {
         : `原文 · ${expression.language}`;
 }
 function Block({ block, language }: { block: Page["blocks"][number]; language: string }) {
+  const semanticTable = !!block.semantic_html && /<table(?:\s|>)/i.test(block.semantic_html);
+  const tableLabel = `正文表格（${language.startsWith("zh") ? "中文" : language}）`;
+  const semantic = block.semantic_html ? (
+    <div
+      className="min-w-0 break-words [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6 [&_table]:min-w-full [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: The publisher sanitizes every block; scripts, handlers, styles and media are removed.
+      dangerouslySetInnerHTML={{ __html: block.semantic_html }}
+    />
+  ) : null;
   return (
     <div className="min-w-0 py-3 text-[15px] leading-7 text-ink-2" lang={language}>
-      {block.semantic_html ? (
-        // Server projection accepts only static legal markup and strips scripts, event attributes, styles and embedded media.
-        <div
-          className="break-words [&_ol]:list-decimal [&_ol]:pl-6 [&_ul]:list-disc [&_ul]:pl-6 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: The publisher applies policySemanticHtml to every block; scripts, handlers, styles and media are removed.
-          dangerouslySetInnerHTML={{ __html: block.semantic_html }}
-        />
+      {semanticTable ? (
+        <section
+          aria-label={tableLabel}
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: Table scroll regions need keyboard access.
+          tabIndex={0}
+          className="overflow-x-auto rounded-control border border-line"
+        >
+          {semantic}
+        </section>
+      ) : semantic ? (
+        semantic
       ) : block.kind === "heading" ? (
         <h3 className="font-semibold text-ink">{block.text}</h3>
       ) : (
@@ -33,13 +46,13 @@ function Block({ block, language }: { block: Page["blocks"][number]; language: s
       )}
       {!block.semantic_html && block.table_rows && (
         <section
-          aria-label={`${block.block_id} ${language}表格`}
+          aria-label={tableLabel}
           // biome-ignore lint/a11y/noNoninteractiveTabindex: Table scroll regions need keyboard access.
           tabIndex={0}
           className="mt-2 overflow-x-auto rounded-control border border-line"
         >
           <table className="min-w-full text-[13px]">
-            <caption className="sr-only">{block.block_id} 表格</caption>
+            <caption className="sr-only">原文表格</caption>
             <tbody>
               {block.table_rows.map((row, i) => (
                 <tr key={JSON.stringify(block.table_rows!.slice(0, i + 1))}>
@@ -80,7 +93,19 @@ function Block({ block, language }: { block: Page["blocks"][number]; language: s
     </div>
   );
 }
-export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; history: boolean; onInvalid: () => void }) {
+export function PolicyReading({
+  policy,
+  history,
+  onInvalid,
+  initialPage,
+  initialFailed = false,
+}: {
+  policy: Policy;
+  history: boolean;
+  onInvalid: () => void;
+  initialPage?: Page | null;
+  initialFailed?: boolean;
+}) {
   const selected = policy.expressions.find((e) => e.id === policy.selected_expression_id);
   const original =
     selected?.kind !== "original"
@@ -88,7 +113,27 @@ export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; 
       : undefined;
   const [compare, setCompare] = useState(false),
     [originalOnPhone, setOriginalOnPhone] = useState(false);
-  const [streams, setStreams] = useState<Record<string, Stream>>({});
+  const [streams, setStreams] = useState<Record<string, Stream>>(() => {
+    if (!selected) return {};
+    if (
+      initialPage &&
+      initialPage.subject_id === policy.id &&
+      initialPage.expression_id === selected.id &&
+      initialPage.document_revision_id === selected.document_revision_id
+    )
+      return {
+        [selected.id]: {
+          rows: initialPage.blocks,
+          total: initialPage.total_blocks,
+          next: initialPage.next_cursor,
+          loaded: true,
+          busy: false,
+          error: false,
+          complete: initialPage.resource_completeness === "complete",
+        },
+      };
+    return initialFailed ? { [selected.id]: { ...blank(), error: true } } : {};
+  });
   const streamsRef = useRef(streams);
   streamsRef.current = streams;
   const requests = useRef(new Map<string, AbortController>()),
@@ -161,6 +206,7 @@ export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; 
           loaded: true,
           busy: false,
           error: false,
+          complete: next.resource_completeness === "complete" && (!old.loaded || old.complete),
         });
     } catch {
       if (!controller.signal.aborted && mounted.current) update(expression.id, { ...old, busy: false, error: true });
@@ -171,7 +217,7 @@ export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; 
   // biome-ignore lint/correctness/useExhaustiveDependencies: The parent keys each reader by immutable expression and revision.
   useEffect(() => {
     mounted.current = true;
-    if (selected && ["complete", "partial"].includes(selected.reading_state)) void load(selected);
+    if (selected && !initialFailed && !streamsRef.current[selected.id]?.loaded && ["complete", "partial"].includes(selected.reading_state)) void load(selected);
     return () => {
       mounted.current = false;
       for (const request of requests.current.values()) request.abort();
@@ -185,7 +231,7 @@ export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; 
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 text-[12px] text-ink-3">
         <p>
-          {label(selected)} · 已载入 {current.rows.length} / {current.loaded ? current.total : (policy.reading?.total_blocks ?? 0)} 个原文节点
+          {label(selected)} · 已载入 {current.rows.length} / {current.loaded ? current.total : (policy.reading?.total_blocks ?? 0)} 段内容
         </p>
         {original && (
           <button
@@ -222,7 +268,7 @@ export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; 
                 {other?.rows.find((row) => row.block_id === block.block_id) ? (
                   <Block block={other.rows.find((row) => row.block_id === block.block_id)!} language={original!.language} />
                 ) : (
-                  <p className="py-3 text-[12px] text-ink-4">对应原文节点尚未载入。</p>
+                  <p className="py-3 text-[12px] text-ink-4">对应原文尚未载入。</p>
                 )}
               </div>
             )}
@@ -231,7 +277,7 @@ export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; 
       </div>
       {(current.error || other?.error) && (
         <p role="status" className="mt-3 text-[13px] text-amber-ink">
-          暂时无法继续读取，已载入的内容仍保留。请重试。
+          {current.rows.length || other?.rows.length ? "暂时无法继续读取，已载入的内容仍保留。请重试。" : "正文暂时无法读取，请重试或查看官方原文。"}
         </p>
       )}
       {(current.busy || other?.busy) && (
@@ -253,9 +299,9 @@ export function PolicyReading({ policy, history, onInvalid }: { policy: Policy; 
         </button>
       ) : (
         <p className="mt-3 text-[12px] text-ink-4">
-          {policy.reading?.completeness === "complete" && current.rows.length === current.total
-            ? "已载入全部正文节点。"
-            : "已载入当前可读节点；不能视为完整正文。"}
+          {policy.reading?.completeness === "complete" && current.complete && current.rows.length === current.total
+            ? "正文已全部载入。"
+            : "当前可读内容已载入，尚不能视为完整正文。"}
         </p>
       )}
     </div>

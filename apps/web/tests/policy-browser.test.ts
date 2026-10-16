@@ -11,6 +11,8 @@ import { Policy, PolicyReadingPage, PolicyReport, PolicyReportList, PolicyScopeL
 import { browserExecutable, isolateBrowser } from "./browser.ts";
 import { webEnvironment } from "../runtime-env.ts";
 
+let readingStatus: "ok" | "temporary" | "changed" | "mismatch" | "partial" = "ok";
+let paginateReading = false;
 let origin = "",
   web: ChildProcess,
   browser: Browser;
@@ -30,6 +32,7 @@ const report = PolicyReport.parse({
 });
 const zh = '<p><del>旧义务十万元</del>现行义务二十万元，面积 m<sup>2</sup>。</p><ol start="3"><li>采矿义务</li><li>法定例外</li></ol>';
 const en = '<p><del>Old duty 10</del>Current duty 20, area m<sup>2</sup>.</p><ol start="3"><li>Mining obligation</li><li>Legal exception</li></ol>';
+const legalTable = `<table><caption>法定费用对照</caption><tbody><tr><th colspan="12">费用条款</th></tr><tr><td rowspan="2">采矿许可</td>${Array.from({ length: 11 }, (_, i) => `<td>Fee${i}LongUnbrokenLegalTableValue</td>`).join("")}</tr><tr>${Array.from({ length: 11 }, () => "<td>法定金额</td>").join("")}</tr></tbody></table>`;
 const calls: string[] = [];
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
@@ -62,35 +65,41 @@ const api = createServer((req, res) => {
           language: selected.language,
           mode: selected.kind,
           next_cursor: "fixture-first",
-          total_blocks: 1,
-          completed_blocks: 1,
+          total_blocks: paginateReading ? 2 : 1,
+          completed_blocks: paginateReading ? 2 : 1,
         },
       }),
     );
   }
   if (url.pathname === `/api/site/policies/${complete.id}/reading`) {
+    if (readingStatus === "temporary" || readingStatus === "changed") {
+      res.statusCode = readingStatus === "changed" ? 409 : 503;
+      return answer({ code: "synthetic_reading_failure" });
+    }
     const expression = complete.expressions.find((e) => e.id === url.searchParams.get("expression_id"))!;
     return answer(
       PolicyReadingPage.parse({
         ...fixture("reading"),
         subject_id: complete.id,
         expression_id: expression.id,
-        document_revision_id: expression.document_revision_id,
+        document_revision_id: readingStatus === "mismatch" ? "wrong-revision" : expression.document_revision_id,
         language: expression.language,
         mode: expression.kind,
-        total_blocks: 1,
+        resource_completeness: readingStatus === "partial" ? "partial" : "complete",
+        total_blocks: paginateReading ? 2 : 1,
         blocks: [
           {
-            block_id: "same-source-part",
+            block_id: url.searchParams.get("cursor") === "fixture-next" ? "second-source-part" : "same-source-part",
             kind: "paragraph",
             text: "Synthetic legal reading fixture",
-            semantic_html: expression.kind === "ai_translation" ? zh : en,
+            semantic_html:
+              url.searchParams.get("cursor") === "fixture-next" ? "<p>第二页合成正文。</p>" : (expression.kind === "ai_translation" ? zh : en) + legalTable,
             table_rows: null,
             evidence_ids: [],
             links: [],
           },
         ],
-        next_cursor: null,
+        next_cursor: paginateReading && url.searchParams.get("cursor") !== "fixture-next" ? "fixture-next" : null,
       }),
     );
   }
@@ -160,11 +169,21 @@ for (const width of [1440, 390])
     await page.goto(`${origin}/policies/${complete.id}`);
     await expect(page.locator('#node-same-source-part [lang="zh-CN"] del')).toHaveText("旧义务十万元");
     await expect(page.locator('#node-same-source-part [lang="zh-CN"] ol')).toHaveAttribute("start", "3");
+    const tableRegion = page.getByRole("region", { name: "正文表格（中文）", exact: true });
+    await expect(tableRegion).toHaveAttribute("tabindex", "0");
+    await expect(tableRegion.locator("td[rowspan]")).toHaveAttribute("rowspan", "2");
+    await expect(tableRegion.locator("th[colspan]")).toHaveAttribute("colspan", "12");
+    await tableRegion.focus();
+    await expect(tableRegion).toBeFocused();
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(() => tableRegion.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+
     await page.getByRole("button", { name: "对照原文", exact: true }).click();
     if (width === 390) await page.getByRole("button", { name: "原文", exact: true }).click();
     await expect(page.locator('#node-same-source-part [lang="en"] del')).toHaveText("Old duty 10");
     await expect(page.locator('#node-same-source-part [lang="en"] del')).toBeVisible();
-    await expect(page.getByText("对应原文节点尚未载入。", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("对应原文尚未载入。", { exact: true })).toHaveCount(0);
     if (width === 390) {
       await page.getByRole("button", { name: "中文", exact: true }).click();
       await expect(page.locator('#node-same-source-part [lang="zh-CN"] del')).toBeVisible();
@@ -194,3 +213,62 @@ for (const width of [1440, 390])
     assert.deepEqual(blocked, []);
     await context.close();
   });
+
+test("the first policy page is server-rendered, reused after hydration and paged without repeating the first cursor", { timeout: 30000 }, async () => {
+  paginateReading = true;
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN", reducedMotion: "reduce" });
+  try {
+    await isolateBrowser(context, [origin]);
+    const before = calls.length;
+    const page = await context.newPage();
+    const response = await page.goto(`${origin}/policies/${complete.id}`);
+    const html = await response!.text();
+    assert.ok(html.includes("现行义务二十万元"));
+    assert.ok(!html.includes("第二页合成正文"));
+    await expect(page.getByRole("button", { name: "继续读取正文", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "继续读取正文", exact: true }).click();
+    await expect(page.getByText("第二页合成正文。", { exact: true })).toBeVisible();
+    const reads = calls.slice(before).filter((path) => path.includes(`/${complete.id}/reading`));
+    assert.equal(reads.filter((path) => path.includes("cursor=fixture-first")).length, 1);
+    assert.equal(reads.filter((path) => path.includes("cursor=fixture-next")).length, 1);
+    const noScript = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 844 } });
+    try {
+      await isolateBrowser(noScript, [origin]);
+      const staticPage = await noScript.newPage();
+      await staticPage.goto(`${origin}/policies/${complete.id}`);
+      await expect(staticPage.locator('#node-same-source-part [lang="zh-CN"] del')).toHaveText("旧义务十万元");
+    } finally {
+      await noScript.close();
+    }
+  } finally {
+    paginateReading = false;
+    await context.close();
+  }
+});
+test("initial policy reading fails closed on revision changes but retains retry for a temporary failure", { timeout: 30000 }, async () => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
+  try {
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    for (const state of ["changed", "mismatch"] as const) {
+      readingStatus = state;
+      const response = await page.goto(`${origin}/policies/${complete.id}`);
+      assert.equal(response!.status(), 409);
+      await expect(page.locator("#node-same-source-part")).toHaveCount(0);
+      assert.ok(!(await response!.text()).includes("现行义务二十万元"));
+    }
+    readingStatus = "partial";
+    await page.goto(`${origin}/policies/${complete.id}`);
+    await expect(page.getByText("当前可读内容已载入，尚不能视为完整正文。", { exact: true })).toBeVisible();
+    await expect(page.getByText("正文已全部载入。", { exact: true })).toHaveCount(0);
+    readingStatus = "temporary";
+    await page.goto(`${origin}/policies/${complete.id}`);
+    await expect(page.getByText("正文暂时无法读取，请重试或查看官方原文。", { exact: true })).toBeVisible();
+    readingStatus = "ok";
+    await page.getByRole("button", { name: "重新读取正文", exact: true }).click();
+    await expect(page.locator('#node-same-source-part [lang="zh-CN"] del')).toHaveText("旧义务十万元");
+  } finally {
+    readingStatus = "ok";
+    await context.close();
+  }
+});

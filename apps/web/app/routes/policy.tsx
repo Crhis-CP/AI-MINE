@@ -35,7 +35,46 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
     });
     if (!result.response.ok) throw withHeaders(null, { status: [400, 404, 409, 410].includes(result.response.status) ? result.response.status : 503 });
-    return { policy: publicSchemas.Policy.parse(result.data), history: !!parsed.data.document_revision_id };
+    const policy = publicSchemas.Policy.parse(result.data);
+    const selected = policy.expressions.find((expression) => expression.id === policy.selected_expression_id);
+    let initialReading: ReturnType<typeof publicSchemas.PolicyReadingPage.parse> | null = null;
+    let initialReadingFailed = false;
+    if (policy.reading && selected && ["complete", "partial"].includes(selected.reading_state)) {
+      if (policy.reading.expression_id !== selected.id || policy.reading.document_revision_id !== selected.document_revision_id)
+        throw withHeaders(null, { status: 409 });
+      try {
+        const page = await createPublicClient({ baseUrl: apiBaseFor("/api/site/policies") }).GET("/api/site/policies/{id}/reading", {
+          params: {
+            path: { id: policy.id },
+            query: {
+              expression_id: selected.id,
+              document_revision_id: selected.document_revision_id,
+              limit: 20,
+              ...(policy.reading.next_cursor ? { cursor: policy.reading.next_cursor } : {}),
+            },
+          },
+          headers: { accept: "application/json", "x-amp-ssr": "1" },
+          cache: "no-cache",
+          signal: AbortSignal.any([request.signal, AbortSignal.timeout(15_000)]),
+        });
+        if ([400, 404, 409, 410].includes(page.response.status)) throw withHeaders(null, { status: page.response.status });
+        if (!page.response.ok) throw new Error("Policy reading temporarily unavailable");
+        const reading = publicSchemas.PolicyReadingPage.parse(page.data);
+        if (
+          reading.subject_id !== policy.id ||
+          reading.expression_id !== selected.id ||
+          reading.document_revision_id !== selected.document_revision_id ||
+          reading.language !== selected.language ||
+          reading.mode !== selected.kind
+        )
+          throw withHeaders(null, { status: 409 });
+        initialReading = reading;
+      } catch (error) {
+        if (request.signal.aborted || (error && typeof error === "object" && "init" in error)) throw error;
+        initialReadingFailed = true;
+      }
+    }
+    return { policy, history: !!parsed.data.document_revision_id, initialReading, initialReadingFailed };
   } catch (error) {
     if (error && typeof error === "object" && "init" in error) throw error;
     throw withHeaders(null, { status: 503 });
@@ -57,7 +96,7 @@ export default function PolicyPage() {
     <PolicyDocument key={`${data.policy.id}:${data.policy.selected_expression_id}:${data.policy.reading?.document_revision_id}:${data.history}`} {...data} />
   );
 }
-function PolicyDocument({ policy, history }: Awaited<ReturnType<typeof loader>>) {
+function PolicyDocument({ policy, history, initialReading, initialReadingFailed }: Awaited<ReturnType<typeof loader>>) {
   const [invalid, setInvalid] = useState(false),
     [copied, setCopied] = useState(false);
   usePolicyRecheck();
@@ -300,11 +339,13 @@ function PolicyDocument({ policy, history }: Awaited<ReturnType<typeof loader>>)
             </ul>
           </Section>
         )}
-        <Section id="reading" title="完整正文">
+        <Section id="reading" title="正文阅读">
           <PolicyReading
             key={`${policy.selected_expression_id}:${policy.reading?.document_revision_id}`}
             policy={policy}
             history={history}
+            initialPage={initialReading}
+            initialFailed={initialReadingFailed}
             onInvalid={() => setInvalid(true)}
           />
         </Section>

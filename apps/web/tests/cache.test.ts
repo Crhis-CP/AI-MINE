@@ -1231,7 +1231,7 @@ test("policy reading retains pages on failure, aligns original nodes and removes
     await expect(page.getByText("【合成预览】第一条", { exact: true })).toBeVisible();
     policyMode = "full";
     await page.getByRole("button", { name: "重新读取正文" }).click();
-    await expect(page.getByText("已载入全部正文节点。", { exact: true })).toBeVisible();
+    await expect(page.getByText("正文已全部载入。", { exact: true })).toBeVisible();
     await page.getByRole("link", { name: "原文 en", exact: true }).click();
     await expect(page.getByText(/原文 · en · 已载入 1 \/ 2/)).toBeVisible();
     policyMode = "withdrawn";
