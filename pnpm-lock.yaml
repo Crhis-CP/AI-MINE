@@ -306,6 +306,9 @@ importers:
       '@amp/industry':
         specifier: workspace:*
         version: link:../../industry
+      '@amp/site':
+        specifier: workspace:*
+        version: link:../../site
       '@amp/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -376,12 +379,18 @@ importers:
 
   modules/metals:
     dependencies:
+      '@amp/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@amp/backend':
         specifier: workspace:*
         version: link:../../packages/backend
       '@amp/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@amp/web':
+        specifier: workspace:*
+        version: link:../../apps/web
       cheerio:
         specifier: 1.2.0
         version: 1.2.0
@@ -391,9 +400,19 @@ importers:
       pdfjs-dist:
         specifier: 6.4.299
         version: 6.4.299
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-router:
+        specifier: 8.4.0
+        version: 8.4.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       zod:
         specifier: 4.6.5
         version: 4.6.5
+    devDependencies:
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
 
   packages/api-client:
     dependencies:
@@ -494,6 +513,9 @@ importers:
       '@amp/metals':
         specifier: workspace:*
         version: link:../modules/metals
+      '@amp/web':
+        specifier: workspace:*
+        version: link:../apps/web
 
   tooling:
     devDependencies:

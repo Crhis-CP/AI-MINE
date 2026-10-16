@@ -7,10 +7,12 @@
     ".": "./site.ts",
     "./models": "./models.ts",
     "./modules": "./modules/index.ts",
-    "./modules/server": "./modules/server.ts"
+    "./modules/server": "./modules/server.ts",
+    "./modules/web": "./modules/web.ts"
   },
   "dependencies": {
     "@amp/contracts": "workspace:*",
-    "@amp/metals": "workspace:*"
+    "@amp/metals": "workspace:*",
+    "@amp/web": "workspace:*"
   }
 }

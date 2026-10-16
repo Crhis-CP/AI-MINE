@@ -30,14 +30,14 @@ export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": ["@amp/site"],
-  "@amp/site": ["@amp/contracts", "@amp/metals"],
-  "@amp/metals": ["@amp/backend", "@amp/contracts"],
+  "@amp/site": ["@amp/contracts", "@amp/metals", "@amp/web"],
+  "@amp/metals": ["@amp/backend", "@amp/contracts", "@amp/web", "@amp/api-client"],
   "@amp/contracts": [],
   "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config", "@amp/site", "@amp/metals"],
   "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),
-  "@amp/web": amp(["contracts", "industry", "api-client", "ui"]),
+  "@amp/web": amp(["contracts", "industry", "api-client", "ui", "site"]),
   "@amp/api-client": ["@amp/contracts"],
   "@amp/ui": ["@amp/contracts"],
   "@amp/testkit": L0,
@@ -221,7 +221,7 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
   };
   const web = spaces.find((space) => space.name === "@amp/web");
   if (web) {
-    const pending = [...sourceFiles].filter((file) => file.startsWith(`${web.dir}/`));
+    const pending = [...sourceFiles].filter((file) => file.startsWith(`${web.dir}/`) || /^modules\/[^/]+\/web(?:\/|\.[cm]?[jt]sx?$)/.test(file));
     const visited = new Set<string>();
     while (pending.length) {
       const file = pending.pop()!;

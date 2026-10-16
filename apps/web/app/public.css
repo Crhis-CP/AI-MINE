@@ -17,3 +17,5 @@
 @source "../../../packages/ui/src/Presence.tsx";
 @source "../../../packages/ui/src/Score.tsx";
 @source "../../../packages/ui/src/Menu.tsx";
+
+@source "../../../modules/*/web";

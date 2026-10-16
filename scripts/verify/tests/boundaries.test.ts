@@ -318,3 +318,27 @@ test("a site helper cannot carry backend code into a reader import closure", () 
     checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("web import closure reaches server-only dependency @amp/backend/db")),
   );
 });
+
+test("module route files are reader roots even when route registration uses only a filename", () => {
+  const base = {
+    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - modules/*\n",
+    "modules/metals/package.json": pkg("@amp/metals", ["@amp/backend", "@amp/contracts"]),
+    "modules/metals/module.ts": 'export default {name:"metals",pages:[{path:"metals",file:"web/prices.tsx"}]};',
+  };
+  for (const entry of ["web/prices.tsx", "web.ts"]) {
+    const fixture = workspace({
+      ...base,
+      [`modules/metals/${entry}`]: 'import { read } from "../backend/read.ts";',
+      "modules/metals/backend/read.ts": 'import { dbOf } from "@amp/backend/db"; export const read = dbOf;',
+      // The web.ts entry has a different relative path from files inside web/.
+      ...(entry === "web.ts" ? { "modules/metals/web.ts": 'import { read } from "./backend/read.ts";' } : {}),
+    });
+    assert.ok(
+      checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("web import closure reaches server-only dependency @amp/backend/db")),
+    );
+  }
+  const safe = workspace({ ...base, "modules/metals/web/prices.tsx": 'import type { ModulePage } from "@amp/contracts/modules";' });
+  // The synthetic contract package must export the entry as real workspaces do.
+  write(safe.dir, { "packages/contracts/package.json": pkg("@amp/contracts", [], { "./modules": "./src/modules.ts" }) });
+  assert.deepEqual(checkBoundaries(safe.dir, safe.files), []);
+});

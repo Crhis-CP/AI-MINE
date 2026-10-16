@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, data as withHeaders, useLoaderData } from "react-router";
-import type { Route } from "./+types/metals";
+import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
-import { apiBaseFor } from "../../api-target";
-import { contractResult } from "../lib/api.server";
-import { pageMeta } from "../lib/seo";
-import { IconExternal } from "../components/icons";
+import { apiBaseFor, contractResult } from "@amp/web/extension.server";
+import { pageMeta, IconExternal } from "@amp/web/extension";
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: LoaderFunctionArgs) {
   try {
     const prices = await createPublicClient({ baseUrl: apiBaseFor("/api/site/metal-prices") })
       .GET("/api/site/metal-prices", {
@@ -21,9 +19,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     return withHeaders({ prices: null }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
-export function headers({ loaderHeaders }: Route.HeadersArgs) {
-  return loaderHeaders;
-}
+export const headers: HeadersFunction = ({ loaderHeaders }) => loaderHeaders;
 export function meta() {
   return pageMeta({ title: "金属价格", description: "官方机构定期发布的金属价格，注明出处。", path: "/metals" });
 }

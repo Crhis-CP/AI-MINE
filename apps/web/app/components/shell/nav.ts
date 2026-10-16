@@ -1,15 +1,11 @@
 // Site navigation, one place for the desktop sidebar, the mobile tab bar and the mobile "更多" page.
 import { withSubject } from "@amp/industry/site";
-import type { ReactNode } from "react";
-import { IconApps, IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconHistory, IconList, IconMessage, IconPlug, IconTrendUp } from "../icons";
+import { WEB_MODULES } from "@amp/site/modules/web";
+import type { ModuleNavigation } from "../../../modules";
+import { IconApps, IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconHistory, IconList, IconMessage, IconPlug } from "../icons";
 
-export interface NavItem {
-  to: string;
-  label: string;
-  icon: (p: { size?: number }) => ReactNode;
-  /** Match the path exactly (the home page). */
-  end?: boolean;
-}
+export type NavItem = ModuleNavigation;
+export const MODULE_NAVIGATION = WEB_MODULES.flatMap((module) => module.navigation ?? []);
 
 export const SIDEBAR: Array<{ title: string; items: NavItem[] }> = [
   {
@@ -22,7 +18,7 @@ export const SIDEBAR: Array<{ title: string; items: NavItem[] }> = [
       { to: "/policies", label: "法规政策动态", icon: IconDoc },
       { to: "/topics", label: "主题", icon: IconGrid },
       { to: "/starred", label: "收藏", icon: IconBookmark },
-      { to: "/metals", label: "金属价格", icon: IconTrendUp },
+      ...MODULE_NAVIGATION,
     ],
   },
   {
@@ -45,7 +41,19 @@ export const TABBAR: NavItem[] = [
 ];
 
 /** Pages reached from the mobile "更多" tab keep that tab highlighted. */
-export const MORE_PATHS = ["/more", "/policies", "/topics", "/starred", "/metals", "/agent", "/about", "/changelog", "/feedback", "/terms", "/privacy"];
+export const MORE_PATHS = [
+  "/more",
+  "/policies",
+  "/topics",
+  "/starred",
+  ...MODULE_NAVIGATION.map((item) => item.to),
+  "/agent",
+  "/about",
+  "/changelog",
+  "/feedback",
+  "/terms",
+  "/privacy",
+];
 
 export function tabIsActive(item: NavItem, pathname: string): boolean {
   if (item.end) return pathname === item.to;

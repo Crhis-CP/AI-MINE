@@ -1,4 +1,22 @@
-import { type RouteConfig, index, layout, route } from "@react-router/dev/routes";
+import { type RouteConfig, type RouteConfigEntry, index, layout, route } from "@react-router/dev/routes";
+
+import type { ModulePage } from "@amp/contracts/modules";
+import { MODULES } from "@amp/site/modules";
+
+const file = (module: string, path: string) => `../../../modules/${module}/${path}`;
+const page = (module: string, p: ModulePage) => route(p.path, file(module, p.file), p.id ? { id: p.id } : {});
+const modulePages: RouteConfigEntry[] = MODULES.flatMap((m) =>
+  (m.pages ?? []).map((p) =>
+    "layout" in p
+      ? layout(
+          file(m.name, p.layout),
+          p.id ? { id: p.id } : {},
+          p.pages.map((c) => page(m.name, c)),
+        )
+      : page(m.name, p),
+  ),
+);
+const moduleAdminPages: RouteConfigEntry[] = MODULES.flatMap((m) => (m.adminPages ?? []).map((p) => page(m.name, p)));
 
 const publicRoutes = [
   index("routes/home.tsx"),
@@ -25,7 +43,7 @@ const publicRoutes = [
   route("more", "routes/more.tsx"),
   route("starred", "routes/starred.tsx"),
   route("agent", "routes/agent.tsx"),
-  route("metals", "routes/metals.tsx"),
+  ...modulePages,
   route("policy-threads/:id", "routes/policy-thread.tsx"),
   route("policies", "routes/policies.tsx"),
   route("policies/reports", "routes/policy-reports.tsx"),
@@ -58,6 +76,7 @@ const privateRoutes = [
     route("admin/selectbench", "routes/admin/selectbench.tsx"),
     route("admin/selectbench/:runId", "routes/admin/selectbench-run.tsx"),
     route("admin/site", "routes/admin/site.tsx"),
+    ...moduleAdminPages,
   ]),
 ] satisfies RouteConfig;
 
