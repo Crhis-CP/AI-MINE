@@ -34,13 +34,13 @@ export async function registerPublicationJobs(boss: PgBoss) {
     const startedAt = new Date().toISOString();
     await progress(sourceId, { status: "running", done: 0, total: null, startedAt });
     const result = await republishSource(sourceId, (done, total) => progress(sourceId, { status: "running", done, total, startedAt }));
-    // The hot board may show one of the source's articles: re-rank now rather than within five minutes.
-    if (result.reduced > 0) await computeHotRanking();
     if (result.deferred) {
       await enqueue(QUEUES.republishSource, { sourceId }, { singletonKey: `runtime:${sourceId}`, startAfter: new Date(Date.now() + 60_000) });
       await progress(sourceId, { status: "running", ...result, startedAt, reason: "公开暂停，等待恢复" });
       return result;
     }
+    // Ownership and publisher changes can alter heat without reducing public content.
+    await computeHotRanking();
     await progress(sourceId, { status: "done", ...result, startedAt, finishedAt: new Date().toISOString() });
     return result;
   });

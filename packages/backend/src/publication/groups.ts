@@ -324,3 +324,24 @@ export async function reportSelectedFacts(factIds: number[]) {
     ).map((row) => row.fact_id),
   );
 }
+
+/** Thin public bindings for participation validation; no article body or private source configuration. */
+export async function publicParticipationBindings(ids: string[]) {
+  if (!ids.length) return [];
+  return sql<
+    {
+      id: string;
+      revision: number;
+      source_id: string;
+      fact_id: number | null;
+      story_id: number | null;
+      visibility: string;
+      eligible: boolean;
+      operator_withdrawn: boolean;
+      selected: boolean;
+      visible_after: Date | null;
+    }[]
+  >`
+    SELECT p.article_id AS id,p.revision,p.source_id,p.fact_id,f.story_id,p.visibility,p.eligible,p.operator_withdrawn,p.selected,p.visible_after
+    FROM publications p LEFT JOIN facts f ON f.id=p.fact_id WHERE p.article_id=ANY(${ids}::text[])`;
+}

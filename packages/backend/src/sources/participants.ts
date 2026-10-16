@@ -14,5 +14,15 @@ export function participantIdentity(source: SourceParticipant): string {
 }
 export async function sourceParticipants(ids: string[], db: Db = sql) {
   if (!ids.length) return [];
-  return db<SourceParticipant[]>`SELECT id,owner_entity_id,lane,participation_mode FROM sources WHERE id=ANY(${ids}::text[])`;
+  return db<
+    (SourceParticipant & { name: string; tier: string; created_at: Date })[]
+  >`SELECT id,name,tier,created_at,owner_entity_id,lane,participation_mode FROM sources WHERE id=ANY(${ids}::text[])`;
+}
+
+/** Safe source projection for public participation checks; never reads owners, tiers, configuration or keys. */
+export async function publicParticipationSources(ids: string[]) {
+  if (!ids.length) return [];
+  return sql<
+    { id: string; lane: string; participation_mode: string; enabled: boolean; kind: string; last_ok_at: Date | null; interval_minutes: number }[]
+  >`SELECT id,lane,participation_mode,enabled,kind,last_ok_at,interval_minutes FROM sources WHERE id=ANY(${ids}::text[])`;
 }

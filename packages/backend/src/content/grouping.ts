@@ -72,3 +72,11 @@ export async function confirmedGroupingMaterials(ids: string[], db: Db = sql) {
   return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[])
     AND grouping_status='complete' AND grouping_input_revision=revision`;
 }
+
+/** Reader-safe versions only; private processing state, text and receipts are never loaded here. */
+export async function publicMaterialVersions(ids: string[]) {
+  if (!ids.length) return [];
+  return sql<
+    { id: string; revision: number; source_date_version: string }[]
+  >`SELECT id,revision,source_date_version::text FROM articles WHERE id=ANY(${ids}::text[])`;
+}

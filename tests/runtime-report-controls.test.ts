@@ -148,11 +148,17 @@ test("paused event jobs defer into durable future work without consuming ordinar
   for (const [queue, data] of [
     [QUEUES.group, group],
     [QUEUES.digest, digest],
+    ["events.hot-refresh", { lane: "news" }],
   ] as const) {
     assert.deepEqual(await handlers.get(queue)!([{ data }]), { state: "waiting", reason: "runtime_control" });
     assert.deepEqual(await handlers.get(queue)!([{ data }]), { state: "waiting", reason: "runtime_control" });
-    const rows = await sql`SELECT data,state,retry_count,start_after>now() AS deferred FROM pgboss.job WHERE name=${queue} AND singleton_key LIKE 'control:%'`;
-    assert.equal(rows.length, 1);
+    const rows =
+      await sql`SELECT data,state,retry_count,singleton_on,start_after>now() AS deferred FROM pgboss.job WHERE name=${queue} AND singleton_key LIKE 'control:%'`;
+    if (queue === "events.hot-refresh") {
+      assert.ok(rows.length >= 1 && rows.length <= 2);
+      assert.ok(rows.every((row) => row.singleton_on instanceof Date));
+      assert.equal(new Set(rows.map((row) => row.singleton_on.toISOString())).size, rows.length, "one deferred refresh per scheduling slot");
+    } else assert.equal(rows.length, 1);
     assert.deepEqual(rows[0].data, data);
     assert.equal(rows[0].state, "created");
     assert.equal(rows[0].retry_count, 0);

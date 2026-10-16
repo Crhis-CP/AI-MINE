@@ -207,7 +207,16 @@ export async function updateSource(
 }
 
 /** Source fields the public projection reads (publication/rules.ts and the v1 payload). */
-const PUBLICATION_FIELDS: string[] = ["participation_mode", "site_fulltext", "syndicate_fulltext", "tier", "name", "first_party"];
+const PUBLICATION_FIELDS: string[] = [
+  "participation_mode",
+  "site_fulltext",
+  "syndicate_fulltext",
+  "tier",
+  "name",
+  "first_party",
+  "owner_entity_id",
+  "publisher_role",
+];
 
 /** The address a source collects from, used to find duplicates before creating one. */
 export function sourceIdentity(config: Record<string, unknown>): string | null {

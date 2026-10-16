@@ -1,3 +1,4 @@
+import { publicHeatSeries, publicHeatSeriesMany } from "../events/participation-read.ts";
 import { attachRepresentativePriority, pickRepresentative } from "./representative.ts";
 import type { z } from "zod";
 import type { V3EventsQuery } from "@amp/contracts/http/v3";
@@ -10,9 +11,8 @@ import { loadTopicTags } from "./topics.ts";
 // v1 / MCP / Skill only see ranks and counts.
 import type { HeatPoint, HotResponse, StoryDetail, StoryReportView } from "@amp/contracts/site";
 import { dbOf, withCustomPlans } from "../db.ts";
-import { latestHotRanking, rankingExtras } from "../events/hot-read.ts";
+import { latestHotRanking, rankingExtras, storyParticipation } from "../events/hot-read.ts";
 import { storyTextNeedsRefresh, storyWithdrawalAffected } from "./withdrawals.ts";
-import { behindSources, sourceClocks } from "../events/hot.ts";
 import { storyStatusFor } from "../events/digest.ts";
 import { storyApiUrl, storyUrl } from "./links.ts";
 import { SITE } from "@amp/industry/site";
@@ -174,23 +174,11 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
   const content = await storyContent(storyId, now);
   if (!content) return null;
   const { s, reports, developments } = content;
-  const [why] = await sql<{ p48: number; p6: number; r24: number }[]>`
-    SELECT count(DISTINCT participant_key) FILTER (WHERE observed_at > ${now}::timestamptz - interval '48 hours') AS p48,
-           count(DISTINCT participant_key) FILTER (WHERE observed_at > ${now}::timestamptz - interval '6 hours'
-             AND participant_key NOT IN (SELECT participant_key FROM story_signals x WHERE x.story_id = ${storyId} AND x.observed_at <= ${now}::timestamptz - interval '6 hours')) AS p6,
-           count(*) FILTER (WHERE kind = 'editorial' AND observed_at > ${now}::timestamptz - interval '24 hours') AS r24
-    FROM story_signals WHERE story_id = ${storyId} AND observed_at <= ${now}`;
   const ranking = await latestHotRanking();
-  const entry = ranking?.entries.find((e) => e.storyId === storyId) ?? null;
+  const why = await storyParticipation(storyId, now);
+  const entry = ranking?.entries.find((e) => e.storyId === storyId && e.evidenceHash === why?.evidenceHash) ?? null;
   // Only hours observed in full are drawn (the chart leaves a gap otherwise).
-  const heat = await sql<{ hour: Date; heat: number; participants: number }[]>`
-    SELECT hour, heat, participants FROM story_heat_hourly WHERE story_id = ${storyId} AND complete AND hour > ${now}::timestamptz - interval '7 days' ORDER BY hour`;
-  // Complete when none of the sources behind the last 48 hours' participants is behind on collection.
-  const behind = behindSources(await sourceClocks(), now.getTime(), true);
-  const [partial] = behind.length
-    ? await sql<{ n: number }[]>`SELECT count(*)::int AS n FROM story_signals WHERE story_id = ${storyId} AND source_id = ANY(${behind}::text[])
-                                  AND observed_at > ${now}::timestamptz - interval '48 hours' AND observed_at <= ${now}`
-    : [{ n: 0 }];
+  const heat = await publicHeatSeries(storyId, now);
   const related = await relatedStories(storyId);
   const latestAt = s.latest_at ?? reports[0]!.at;
   // Without a digest or a summary of its own, the story opens with its first development's representative report.
@@ -210,10 +198,10 @@ export async function loadStoryDetail(storyId: number, now = new Date()): Promis
     excerpt: !s.digest && !s.summary && originSummary ? { text: originSummary, sourceName: origin!.source_name } : null,
     latest: s.latest,
     whyHot: {
-      participants48h: Number(why?.p48 ?? 0),
-      newParticipants6h: Number(why?.p6 ?? 0),
-      recentReports24h: Number(why?.r24 ?? 0),
-      observationComplete: !partial?.n,
+      participants48h: why?.participants48h ?? 0,
+      newParticipants6h: why?.newParticipants6h ?? 0,
+      recentReports24h: why?.recentReports24h ?? 0,
+      observationComplete: why?.complete ?? false,
       rank: entry?.rank ?? null,
       heat: entry?.heat ?? null,
     },
@@ -234,11 +222,8 @@ const SPARK_HOURS = 24;
 async function sparklines(storyIds: number[], at: Date): Promise<Map<number, Array<number | null>>> {
   const end = Math.floor(at.getTime() / 3600000) * 3600000;
   const start = end - SPARK_HOURS * 3600000;
-  const rows = storyIds.length
-    ? await sql<{ story_id: number; hour: Date; heat: string }[]>`
-        SELECT story_id, hour, heat FROM story_heat_hourly
-        WHERE story_id = ANY(${storyIds}::bigint[]) AND complete AND hour >= ${new Date(start)} AND hour <= ${new Date(end)}`
-    : [];
+  const series = await publicHeatSeriesMany(storyIds, at, 1);
+  const rows = [...series].flatMap(([story_id, points]) => points.map((point) => ({ story_id, ...point })));
   const out = new Map<number, Array<number | null>>(storyIds.map((id) => [id, Array.from({ length: SPARK_HOURS + 1 }, () => null)]));
   for (const r of rows) {
     const slot = Math.round((r.hour.getTime() - start) / 3600000);

@@ -85,6 +85,7 @@ interface PublicationRow {
   company_context?: ReturnType<typeof verifiedCompanyContext>;
   revision: number;
   visibility: string;
+  operator_withdrawn: boolean;
   eligible: boolean;
   selected: boolean;
   title: string;
@@ -304,8 +305,9 @@ export async function publishArticleTx(
   // 不要把 DEC-35「必须先有完整中文正文」加回这个门槛。
   const readingReady = !!language && (nativeChinese || chineseCopy);
   const withdrawnByGroup = await articleWithdrawalHeld(tx, articleId, membership?.fact_public_id ?? null, membership?.story_public_id ?? null);
+  const operatorWithdrawn = withdrawnByGroup || override?.visibility === "withdrawn" || override?.fields.relevance === "block";
   const visibility =
-    withdrawnByGroup || source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady
+    operatorWithdrawn || source.participation_mode === "isolated" || !admitted || !hasMaterial || !chineseCopy || !readingReady
       ? "withdrawn"
       : (override?.visibility ?? "public");
   const eligible =
@@ -382,6 +384,7 @@ export async function publishArticleTx(
 
   const next = {
     visibility,
+    operator_withdrawn: operatorWithdrawn,
     eligible,
     selected,
     selection_candidate: selectionCandidate,
@@ -406,6 +409,7 @@ export async function publishArticleTx(
     stableJson({ ...next, tags: [...next.tags].sort() }) !==
       stableJson({
         visibility: previous.visibility,
+        operator_withdrawn: previous.operator_withdrawn,
         eligible: previous.eligible,
         selected: previous.selected,
         selection_candidate: previous.selection_candidate,
@@ -437,15 +441,15 @@ export async function publishArticleTx(
   const firstPublicAt = previous?.first_public_at ?? (firstPublicationObserved && visibility === "public" && eligible ? now : null);
 
   await tx`
-    INSERT INTO publications (article_id, analysis_id, revision, visibility, eligible, selected, selection_candidate, representative_priority, title, original_title, summary, source_excerpt,
+    INSERT INTO publications (article_id, analysis_id, revision, visibility, operator_withdrawn, eligible, selected, selection_candidate, representative_priority, title, original_title, summary, source_excerpt,
       reason, category, tags, score, source_id, channel, first_party, url, published_at, discovered_at, timeline_at, backfill,
       selected_ready_at, first_selected_at, visible_after, body_mode, syndicate, indexable, story_id, fact_id, search_text, sort_at, updated_at,first_public_at,first_publication_observed)
-    VALUES (${articleId}, ${analysis?.id ?? null}, ${revision}, ${visibility}, ${eligible}, ${selected}, ${selectionCandidate}, ${priority}, ${next.title},
+    VALUES (${articleId}, ${analysis?.id ?? null}, ${revision}, ${visibility}, ${operatorWithdrawn}, ${eligible}, ${selected}, ${selectionCandidate}, ${priority}, ${next.title},
       ${originalTitle}, ${summary}, ${sourceExcerpt}, ${reason}, ${category}, ${tags}, ${next.score}, ${source.id}, 'news', ${source.first_party},
       ${article.url}, ${article.published_at}, ${article.discovered_at}, ${article.timeline_at}, ${article.backfill},
       ${selectedReadyAt}, ${firstSelectedAt}, ${visibleAfter}, ${bodyMode}, ${syndicate}, ${indexable}, ${next.story_id}, ${next.fact_id}, ${searchText}, ${sortAt}, now(),${firstPublicAt},${firstPublicationObserved})
     ON CONFLICT (article_id) DO UPDATE SET
-      analysis_id = EXCLUDED.analysis_id, revision = EXCLUDED.revision, visibility = EXCLUDED.visibility,
+      analysis_id = EXCLUDED.analysis_id, revision = EXCLUDED.revision, visibility = EXCLUDED.visibility, operator_withdrawn=EXCLUDED.operator_withdrawn,
       eligible = EXCLUDED.eligible, selected = EXCLUDED.selected, selection_candidate = EXCLUDED.selection_candidate, representative_priority=EXCLUDED.representative_priority, title = EXCLUDED.title, original_title = EXCLUDED.original_title,
       summary = EXCLUDED.summary, source_excerpt = EXCLUDED.source_excerpt, reason = EXCLUDED.reason, category = EXCLUDED.category, tags = EXCLUDED.tags,
       score = EXCLUDED.score, source_id = EXCLUDED.source_id, channel = EXCLUDED.channel, first_party = EXCLUDED.first_party,
@@ -454,7 +458,7 @@ export async function publishArticleTx(
       visible_after = EXCLUDED.visible_after, body_mode = EXCLUDED.body_mode, syndicate = EXCLUDED.syndicate,
       indexable = EXCLUDED.indexable, story_id = EXCLUDED.story_id, fact_id = EXCLUDED.fact_id,
       search_text = EXCLUDED.search_text, sort_at = EXCLUDED.sort_at, updated_at = now(),first_public_at=coalesce(publications.first_public_at,EXCLUDED.first_public_at)
-    WHERE (publications.analysis_id, publications.revision, publications.visibility, publications.eligible,
+    WHERE (publications.analysis_id, publications.revision, publications.visibility, publications.operator_withdrawn, publications.eligible,
         publications.selected, publications.selection_candidate, publications.representative_priority, publications.title, publications.original_title, publications.summary, publications.source_excerpt,
         publications.reason, publications.category, publications.tags, publications.score,
         publications.source_id, publications.channel, publications.first_party, publications.url,
@@ -462,7 +466,7 @@ export async function publishArticleTx(
         publications.selected_ready_at, publications.first_selected_at, publications.visible_after, publications.body_mode, publications.syndicate,
         publications.indexable, publications.story_id, publications.fact_id, publications.search_text,
         publications.sort_at,publications.first_public_at)
-      IS DISTINCT FROM (EXCLUDED.analysis_id, EXCLUDED.revision, EXCLUDED.visibility, EXCLUDED.eligible,
+      IS DISTINCT FROM (EXCLUDED.analysis_id, EXCLUDED.revision, EXCLUDED.visibility, EXCLUDED.operator_withdrawn, EXCLUDED.eligible,
         EXCLUDED.selected, EXCLUDED.selection_candidate, EXCLUDED.representative_priority, EXCLUDED.title, EXCLUDED.original_title, EXCLUDED.summary, EXCLUDED.source_excerpt,
         EXCLUDED.reason, EXCLUDED.category, EXCLUDED.tags, EXCLUDED.score,
         EXCLUDED.source_id, EXCLUDED.channel, EXCLUDED.first_party, EXCLUDED.url,

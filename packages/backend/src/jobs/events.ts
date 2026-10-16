@@ -22,7 +22,13 @@ const isWaiting = (error: unknown) =>
 export async function registerEventJobs(boss: PgBoss) {
   await ensureQueue("events.hot-refresh");
   await boss.work("events.hot-refresh", { localConcurrency: 1, pollingIntervalSeconds: 2 }, async () => {
-    return computeHotRanking();
+    try {
+      return await computeHotRanking();
+    } catch (error) {
+      if (!(error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale)) throw error;
+      await enqueue("events.hot-refresh", { lane: "news" }, { singletonKey: "control:hot-ranking", startAfter: 60, singletonSeconds: 60 });
+      return { state: "waiting", reason: "runtime_control" };
+    }
   });
   await ensureQueue(QUEUES.group);
   // Serial on purpose: two reports of the same new fact must not both create it.

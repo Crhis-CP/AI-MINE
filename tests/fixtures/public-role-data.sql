@@ -79,7 +79,7 @@ VALUES (9101,date_trunc('hour',now())-interval '1 hour',5,2,true),(9101,date_tru
 INSERT INTO hot_rankings(computed_at,rule_version,entries,evidence,published)
 VALUES (now(),'pr9-synthetic-rule',jsonb_build_array(jsonb_build_object(
  'rank',1,'storyId',9101,'storyPublicId','11111111-1111-4111-8111-111111111111','title','PR9 主线事件','heat',8,
- 'trend','up','trendPct',10,'badges',jsonb_build_array('rising'),'participantCount',3,'sourceCount',3,'signalCount',1,'reportCount',2,
+ 'trend','up','trendPct',10,'badges',jsonb_build_array('rising'),'participantCount',3,'sourceCount',2,'signalCount',1,'reportCount',2,
  'sourceNames',jsonb_build_array('PR9 source pr9-editorial','PR9 source pr9-editorial-2'),'latestAt',now()-interval '15 minutes','firstReportAt',now()-interval '3 hours',
  'representativeItemId','pr9-editorial-public-full','representativeUrl','https://source.example.test/pr9-editorial-public-full','representativeSource','PR9 source pr9-editorial',
  'participants',jsonb_build_array(jsonb_build_object('name','PR9 source pr9-editorial','kind','editorial','tier','T1'))
