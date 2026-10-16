@@ -1,3 +1,4 @@
+import { beginMaterialGrouping, completeMaterialGrouping } from "../packages/backend/src/content/grouping.ts";
 import { tag, stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, beforeEach, test } from "node:test";
@@ -234,6 +235,21 @@ test("a new nomination invalidates value input even if the article copy did not 
   const base = { relevance: "pass", selected: false, title_zh: "项目进展", summary_zh: "项目首次披露", output: { scope: "single", score: 50 } };
   assert.notEqual(groupingAnalysisHash(base), groupingAnalysisHash({ ...base, selected: true }));
   assert.equal(groupingAnalysisHash(base), groupingAnalysisHash({ ...base, output: { ...base.output, score: 55 } }));
+});
+
+test("a preferred member waiting for a new date judgement cannot hide another confirmed member of its fact", async () => {
+  const primary = await article("甲矿项目原始公告主稿"),
+    secondary = await article("甲矿项目第二来源的确认报道");
+  await groupArticle(primary);
+  const [member] = await sql`SELECT fact_id FROM fact_articles WHERE article_id=${primary}`;
+  await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${member!.fact_id},${secondary},'report',1)`;
+  await completeMaterialGrouping(secondary, 1, { addsValue: true, reason: "合成同事实确认" }, null);
+  await publishArticle(secondary);
+  await beginMaterialGrouping(primary, 1, true);
+  const next = await article("甲矿项目新阶段继续建设");
+  await groupArticle(next);
+  assert.ok(lastInput.includes("甲矿项目第二来源的确认报道"));
+  assert.ok(!lastInput.includes("甲矿项目原始公告主稿"));
 });
 
 test("scheduled grouping recovery is bounded, durable and respects paused sources, lanes and unknown receipts", async () => {

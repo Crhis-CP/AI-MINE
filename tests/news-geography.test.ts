@@ -84,6 +84,7 @@ async function fixture(body: string, geo: unknown = undefined) {
     bodyHtml: `<p>${body}</p>`,
     bodyStatus: "ok" as const,
     via: "ingest" as const,
+    publishedAt: new Date(),
   };
   const result = await upsertMaterial(input),
     articleId = result.articleId;

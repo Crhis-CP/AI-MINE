@@ -115,6 +115,7 @@ test("collection CAS rejects stale stored material while publication pause prese
   await sql`INSERT INTO sources(id,name,kind,lane,participation_mode,tier,site_fulltext) VALUES('control-source','Synthetic control','external','news','editorial','T1',true)`;
   const material = {
     sourceId: "control-source",
+    publishedAt: new Date(),
     url: "https://source.invalid/mining/control",
     title: "合成矿业资讯",
     language: "zh-CN",

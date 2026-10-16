@@ -1,7 +1,13 @@
 import { participantIdentity, sourceParticipants, type SourceParticipant } from "../sources/participants.ts";
 export { recoverPendingGroupings } from "./recovery.ts";
 import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
-import { readMaterialGrouping, beginMaterialGrouping, completeMaterialGrouping, failMaterialGrouping } from "../content/grouping.ts";
+import {
+  readMaterialGrouping,
+  beginMaterialGrouping,
+  completeMaterialGrouping,
+  failMaterialGrouping,
+  confirmedGroupingMaterials,
+} from "../content/grouping.ts";
 import { isModelRouteWaiting } from "../providers/model-fallback.ts";
 import { z } from "zod";
 import { isValidDate } from "@amp/contracts/time";
@@ -12,7 +18,7 @@ import {
   readConfirmedGroupingItems,
   type GroupingSelectionSnapshot,
 } from "@amp/backend/publication/publish";
-import { newsRelationMaterials, lockNewsModelMaterials, lockMaterialForGrouping } from "@amp/backend/content/materials";
+import { newsRelationMaterials, newsMaterialBindings, lockNewsModelMaterials, lockMaterialForGrouping } from "@amp/backend/content/materials";
 import { prepareNewsFallback, lockNewsProcessingPermissions } from "../providers/news-fallback.ts";
 import { shutdownSignal } from "../jobs/queue.ts";
 // Event grouping. A report attaches to a fact, the same real-world occurrence, and
@@ -422,25 +428,33 @@ async function candidateViews(recalled: Recalled[], db?: Db, excludeArticleId = 
       source: string;
       first_party: boolean;
       at: Date;
-      members: number;
     }[]
   >`
-    SELECT DISTINCT ON (fa.fact_id) fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title, f.subject, f.action, f.object, f.occurred_at,
-           p.title, p.summary, s.name AS source, p.first_party, coalesce(p.published_at, p.discovered_at) AS at,
-           (SELECT count(*) FROM fact_articles x WHERE x.fact_id = fa.fact_id AND x.role IN ('primary', 'report') AND ${trusted("x")}) AS members
+    SELECT fa.article_id, fa.input_revision, fa.manual, fa.fact_id, f.story_id, f.title AS fact_title, f.subject, f.action, f.object, f.occurred_at,
+           p.title, p.summary, s.name AS source, p.first_party, coalesce(p.published_at, p.discovered_at) AS at
     FROM fact_articles fa
     JOIN facts f ON f.id = fa.fact_id
     JOIN publications p ON p.article_id = fa.article_id
     JOIN sources s ON s.id = p.source_id
     WHERE fa.fact_id = ANY(${recalled.map((r) => r.factId)}) AND fa.article_id<>${excludeArticleId} AND fa.role IN ('primary', 'report') AND ${trusted("fa")}
     ORDER BY fa.fact_id, (fa.role = 'primary') DESC, p.timeline_at ASC`;
-  const materials = await newsRelationMaterials(
+  const materials = await newsMaterialBindings(
     rows.map((r) => r.article_id),
     db,
   );
-  const byFact = new Map(
-    rows.filter((r) => materials.some((m) => m.id === r.article_id && (r.manual || m.revision === r.input_revision))).map((r) => [Number(r.fact_id), r]),
+  const confirmed = new Map(
+    (
+      await confirmedGroupingMaterials(
+        rows.map((r) => r.article_id),
+        db,
+      )
+    ).map((r) => [r.id, r.revision]),
   );
+  const qualified = rows.filter((r) =>
+    materials.some((m) => m.id === r.article_id && (r.manual || (m.revision === r.input_revision && confirmed.get(r.article_id) === m.revision))),
+  );
+  const byFact = new Map<number, (typeof rows)[number]>();
+  for (const row of qualified) if (!byFact.has(Number(row.fact_id))) byFact.set(Number(row.fact_id), row);
   const selected = await readGroupingSelectionSnapshot(
     "",
     recalled.map((r) => r.factId),
@@ -456,7 +470,7 @@ async function candidateViews(recalled: Recalled[], db?: Db, excludeArticleId = 
         factId: r.factId,
         storyId: Number(row.story_id),
         factTitle: row.fact_title,
-        members: Number(row.members),
+        members: qualified.filter((member) => Number(member.fact_id) === r.factId).length,
         storyRoot: roots.get(Number(row.story_id)) === r.factId,
         score: r.score,
         selected: selectedReport !== null,
@@ -1334,10 +1348,18 @@ async function decide(articleId: string, opts: GroupOptions, input: GroupRunInpu
       await publishArticleTx(tx, articleId);
       return { manual: late, factId: null, storyId: null };
     }
+    const confirmedCandidates = new Map(
+      (
+        await confirmedGroupingMaterials(
+          cands.map((c) => c.report.articleId!),
+          tx,
+        )
+      ).map((r) => [r.id, r.revision]),
+    );
     for (const candidate of cands) {
       const [current] = await tx`SELECT 1 FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id JOIN stories st ON st.id=f.story_id
         WHERE fa.fact_id=${candidate.factId} AND fa.article_id=${candidate.report.articleId!} AND f.story_id=${candidate.storyId}
-          AND fa.role IN ('primary','report') AND (fa.manual OR fa.input_revision=${candidate.report.revision!}) AND st.merged_into IS NULL AND ${trusted("fa")}`;
+          AND fa.role IN ('primary','report') AND (fa.manual OR (fa.input_revision=${candidate.report.revision!} AND ${confirmedCandidates.get(candidate.report.articleId!) === candidate.report.revision})) AND st.merged_into IS NULL AND ${trusted("fa")}`;
       if (!current) throw new GroupingSupersededError("事件候选归属已经变化");
     }
     if (composite || unresolved) {
@@ -1504,9 +1526,10 @@ async function groupSignal(a: ArticleRow, source: { id: string }, observedAt: Da
     }
     if (target) {
       const candidate = cands.find((c) => c.factId === target.factId)!;
+      const confirmed = (await confirmedGroupingMaterials([candidate.report.articleId!], tx)).some((r) => r.revision === candidate.report.revision);
       const [current] = await tx`SELECT 1 FROM fact_articles fa JOIN facts f ON f.id=fa.fact_id JOIN stories st ON st.id=f.story_id
         WHERE fa.fact_id=${target.factId} AND fa.article_id=${candidate.report.articleId!} AND f.story_id=${target.storyId}
-          AND fa.role IN ('primary','report') AND (fa.manual OR fa.input_revision=${candidate.report.revision!}) AND st.merged_into IS NULL AND ${trusted("fa")}`;
+          AND fa.role IN ('primary','report') AND (fa.manual OR (fa.input_revision=${candidate.report.revision!} AND ${confirmed})) AND st.merged_into IS NULL AND ${trusted("fa")}`;
       if (!current) throw new GroupingSupersededError("讨论线索对应的事件已变化");
     }
     if (target) await recordSignal(tx, target.storyId, a.id, source, "signal", observedAt);

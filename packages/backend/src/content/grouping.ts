@@ -65,3 +65,10 @@ export async function claimPendingGrouping(sourceIds: string[], limit: number, d
     ) UPDATE articles a SET grouping_retry_at=now()+interval '10 minutes' FROM due WHERE a.id=due.id
       RETURNING a.id,a.revision,a.grouping_receipt_id`;
 }
+
+/** Automatic event evidence must already be confirmed for this material revision. */
+export async function confirmedGroupingMaterials(ids: string[], db: Db = sql) {
+  if (!ids.length) return [];
+  return db<{ id: string; revision: number }[]>`SELECT id,revision FROM articles WHERE id=ANY(${ids}::text[])
+    AND grouping_status='complete' AND grouping_input_revision=revision`;
+}

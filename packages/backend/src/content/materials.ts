@@ -1,3 +1,5 @@
+import { decideTimeline } from "./timeline.ts";
+export { decideTimeline, isHistorical, STALE_ON_DISCOVERY_MS, FUTURE_TOLERANCE_MS, type TimelineDecision } from "./timeline.ts";
 import { runtimeControlSnapshot, assertRuntimeControl, type RuntimeControlSnapshot } from "../operations/lane-controls.ts";
 import { readSourceDateContext, sourceDateConfiguration, lockSourceNotArchived, lockSourceCollectionActive } from "@amp/backend/admin/sources";
 // The single entrance for new material from every channel (collectors, external reports, imports).
@@ -53,41 +55,6 @@ interface BaseMaterialResult {
 }
 export type MaterialResult = MaterialUpdateResult;
 
-// Material first discovered more than this long after its source time is archived by source time,
-// stays out of "today" and is never pushed. Must not be wider than the 72 h the v1 contract states.
-export const STALE_ON_DISCOVERY_MS = 48 * 3600 * 1000;
-// Source times more than an hour in the future are not trusted.
-export const FUTURE_TOLERANCE_MS = 3600 * 1000;
-
-export interface TimelineDecision {
-  publishedAt: Date | null;
-  timelineAt: Date;
-  backfill: boolean;
-  backfillReason: string | null;
-}
-
-/** The one timeline rule shared by every entrance. */
-export function decideTimeline(claimed: Date | null | undefined, discoveredAt: Date, explicitBackfill?: string | null): TimelineDecision {
-  let publishedAt: Date | null = claimed && Number.isFinite(claimed.getTime()) ? claimed : null;
-  if (publishedAt && publishedAt.getTime() > discoveredAt.getTime() + FUTURE_TOLERANCE_MS) publishedAt = null;
-  let backfillReason: string | null = null;
-  if (explicitBackfill) backfillReason = explicitBackfill;
-  else if (publishedAt && discoveredAt.getTime() - publishedAt.getTime() > STALE_ON_DISCOVERY_MS) backfillReason = "stale-on-discovery";
-  const backfill = backfillReason !== null;
-  const timelineAt = backfill && publishedAt ? publishedAt : discoveredAt;
-  return { publishedAt, timelineAt, backfill, backfillReason };
-}
-
-/**
- * History rather than news: a backfill (a new source's first import, stale on discovery, flagged by
- * a report) whose source time is unknown or was already past the stale threshold when found. It is
- * archived and analysed like anything else, but waits behind live work and founds no event and adds
- * no heat (it stays out of the event graph). A new source's post from this morning is news.
- */
-export function isHistorical(a: { backfill: boolean; published_at: Date | null; discovered_at: Date }): boolean {
-  return a.backfill && (!a.published_at || a.discovered_at.getTime() - a.published_at.getTime() > STALE_ON_DISCOVERY_MS);
-}
-
 /** Identity of stored content: the revision changes exactly when this does. */
 export function contentHash(c: { title: string; bodyText?: string | null; excerpt?: string | null }): string {
   return sha256([collapseWhitespace(c.title), collapseWhitespace(c.bodyText ?? ""), collapseWhitespace(c.excerpt ?? "")].join("\u0001"));
@@ -139,9 +106,9 @@ export async function upsertMaterial(m: MaterialInput, db: Db = sql, collectionC
       await tx`UPDATE articles SET raw=jsonb_set(
       CASE WHEN raw IS NULL THEN '{}'::jsonb WHEN jsonb_typeof(raw)='object' THEN raw ELSE jsonb_build_object('original',raw) END,
       '{collectionDetail}',${tx.json(m.collectionDetail)}) WHERE id=${result.articleId} AND source_id=${m.sourceId}`;
-    // The collector's reading of the same date text, so a date alone stays the start of that day (the upstream's way).
-    const listed = decideTimeline(m.publishedAt, m.discoveredAt ?? new Date()).publishedAt;
-    return MaterialUpdateResult.parse({ ...result, ...(await commitDateObservation(tx, result.articleId, date, Date.now(), undefined, listed)) });
+    const metadata = await commitDateObservation(tx, result.articleId, date, Date.now());
+    const [head] = metadata.metadataChanged ? await tx<{ backfill: boolean }[]>`SELECT backfill FROM articles WHERE id=${result.articleId}` : [];
+    return MaterialUpdateResult.parse({ ...result, ...metadata, backfill: head?.backfill ?? result.backfill });
   };
   return typeof (db as typeof sql).begin === "function" ? (db as typeof sql).begin(run) : run(db as Tx);
 }

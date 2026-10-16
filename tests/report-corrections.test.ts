@@ -70,6 +70,7 @@ async function fixture() {
       bodyText: "原始公告明确记载，铜矿项目本期产量为10吨，另有环保条件和实施期限。",
       language: "zh",
       via: "fetch",
+      publishedAt: new Date(),
     });
     await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh,category,selected,score,output)
       VALUES(${m.articleId},1,'rule','pass',${`合成${source}项目产量为100吨`},'现有旧摘要错误记载项目本期产量为100吨。','company_project',true,90,'{}')`;
@@ -203,6 +204,7 @@ test("a denied source beyond the thirty-entry prompt limit still blocks the whol
       bodyText: "合成矿业材料用于核对整份报告的来源许可，末尾条目不得绕过许可门。",
       language: "zh",
       via: "fetch",
+      publishedAt: new Date(),
     });
     await sql`INSERT INTO analyses(article_id,input_revision,origin,relevance,title_zh,summary_zh,selected,score,output)
       VALUES(${material.articleId},1,'rule','pass',${`合成许可边界报道${n}`},'合成来源已经确认，报告必须逐一检查每个成员的当前许可。',true,90,'{}')`;

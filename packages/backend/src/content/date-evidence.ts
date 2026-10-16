@@ -1,3 +1,6 @@
+import { beijingMidnight } from "@amp/contracts/time";
+import { decideTimeline } from "./timeline.ts";
+import { beginMaterialGrouping } from "./grouping.ts";
 import { MaterialSourceDateInput, type SourceDateParseResult, type SourceDateParseInput, type MaterialUpdateResult } from "@amp/contracts/time-assertion";
 import {
   readSourceDateContext,
@@ -48,12 +51,23 @@ export async function commitDateObservation(
   input: MaterialSourceDateInput,
   now: number,
   expectedRevision?: number,
-  listedAt?: Date | null,
 ): Promise<DateResult> {
   const [article] = await tx<
-    { source_id: string; url: string; revision: number; source_date_version: string; source_date_state: string; source_date_observation_id: string | null }[]
+    {
+      discovered_at: Date;
+      published_at: Date | null;
+      timeline_at: Date;
+      backfill: boolean;
+      backfill_reason: string | null;
+      source_id: string;
+      url: string;
+      revision: number;
+      source_date_version: string;
+      source_date_state: string;
+      source_date_observation_id: string | null;
+    }[]
   >`
-    SELECT source_id, url, revision, source_date_version, source_date_state, source_date_observation_id FROM articles WHERE id = ${articleId} FOR UPDATE`;
+    SELECT discovered_at,published_at,timeline_at,backfill,backfill_reason,source_id, url, revision, source_date_version, source_date_state, source_date_observation_id FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) throw new Error("Missing material");
   const result: DateResult = {
     revision: article.revision,
@@ -123,21 +137,28 @@ export async function commitDateObservation(
   if (previous?.semantic_hash === semanticHash && article.source_date_state === verdict.status) return result;
   const old = previous && source.lane === "news" ? sourceDateVerdict("news", previous.result.evidence, binding, now) : null;
   const time = verdict.status === "reliable" ? verdict.time : null;
-  // A date without a time keeps the start of that day, as the collector read it from the same text (the upstream's way).
-  const publishedAt = time ? (time.utc ?? listedAt?.toISOString() ?? null) : null;
+  // Midnight is an internal calendar anchor; the source TimeAssertion still has no UTC or clock time for a day-only source.
+  const publishedAt = time?.utc ? new Date(time.utc) : time?.local_date ? beijingMidnight(time.local_date) : null;
+  const automatic = ["unknown-publication-time", "stale-on-discovery"].includes(article.backfill_reason ?? "");
+  const explicit = automatic ? null : (article.backfill_reason ?? (article.backfill ? "existing-backfill" : null));
+  const timeline = decideTimeline(publishedAt, article.discovered_at, explicit);
   const oldTime = article.source_date_state === "reliable" && old?.status === "reliable" ? old.time : null;
   const updated = await tx`UPDATE articles SET source_date_version = source_date_version + 1, source_date_observation_id = ${id},
     source_date_state = ${verdict.status}, source_date_error = ${verdict.status === "pending" ? (parsed.reason ?? verdict.reason) : null},
-    published_at = ${publishedAt}, published_at_claim = ${publishedAt}
+    published_at = ${timeline.publishedAt}, published_at_claim = ${publishedAt},
+    timeline_at=${timeline.timelineAt},backfill=${timeline.backfill},backfill_reason=${timeline.backfillReason}
     WHERE id = ${articleId} AND revision = ${article.revision} AND source_date_version = ${result.sourceDateVersion}
     RETURNING source_date_version`;
   if (updated.length !== 1) throw new Error("Source date version changed during commit");
+  const timeIdentity = (value: typeof time) => stableJson(value ? [value.precision, value.utc, value.local_date, value.local_time, value.timezone] : null);
+  const sourceTimeChanged = timeIdentity(oldTime) !== timeIdentity(time);
+  if (sourceTimeChanged) await beginMaterialGrouping(articleId, article.revision, true, tx);
   return {
     ...result,
     sourceDateVersion: result.sourceDateVersion + 1,
     sourceDateOutcome: "applied",
     metadataChanged: true,
-    sourceTimeChanged: stableJson(oldTime) !== stableJson(time),
+    sourceTimeChanged,
   };
 }
 

@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { ensureModelSourceFixture } from "./model-source-fixture.ts";
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
 import { validateGeography } from "../packages/backend/src/editorial/geography.ts";
@@ -109,6 +110,12 @@ async function report(suffix: string, title = FACT_TITLE, summary = "摘要", pu
   return articleId;
 }
 
+async function confirmedReport(...args: Parameters<typeof report>) {
+  const id = await report(...args);
+  await confirmGroupingFixture(id);
+  return id;
+}
+
 before(async () => {
   await sql`INSERT INTO sources (id, name, kind, tier, participation_mode, next_fetch_at) VALUES (${SOURCE}, 'Test events', 'rss', 'T1', 'editorial', '2100-01-01')`;
   await ensureModelSourceFixture(SOURCE, ["https://example.com/source"]);
@@ -122,6 +129,7 @@ before(async () => {
   factId = fact!.id;
   const first = await report("first");
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${factId}, ${first}, 'report',1)`;
+  await confirmGroupingFixture(first);
   await sql`INSERT INTO story_signals (story_id, article_id, participant_key, source_id, kind, observed_at)
             VALUES (${storyId}, ${first}, ${`source:${SOURCE}`}, ${SOURCE}, 'editorial', now())`;
 });
@@ -208,6 +216,7 @@ test("a report waiting for a regroup is not evidence for others, and its own tur
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`fw-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const oldFact = Number(fact!.id);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${oldFact}, ${waiting}, 'report',1)`;
+  await confirmGroupingFixture(waiting);
   await sql`INSERT INTO regroup_pending (article_id) VALUES (${waiting})`;
 
   // A later report of the same occurrence does not meet the waiting one: nothing to compare with.
@@ -242,6 +251,7 @@ test("a development attaches to the story's earliest fact that still holds repor
   const [fact] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`fr-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const first = await report("root", text, text);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${fact!.id}, ${first}, 'report',1)`;
+  await confirmGroupingFixture(first);
 
   relation = "SAME_STORY";
   try {
@@ -264,6 +274,7 @@ async function storyWithRoot(text: string, suffix: string) {
   >`INSERT INTO facts (public_id, story_id, title) VALUES (${`fs-${suffix}-${T}`}, ${story!.id}, ${text}) RETURNING id`;
   const article = await report(suffix, text, text);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${fact!.id}, ${article}, 'report',1)`;
+  await confirmGroupingFixture(article);
   return { storyId: Number(story!.id), publicId: String(story!.public_id), factId: Number(fact!.id), articleId: article };
 }
 
@@ -278,8 +289,8 @@ test("a story's root is the fact reported first, not the one with the lowest num
   // Created first (lower id), reported later: a fact carried over from a merged or imported story.
   const [later] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`ft-late-${T}`}, ${story!.id}, ${late}) RETURNING id`;
   const [first] = await sql<{ id: number }[]>`INSERT INTO facts (public_id, story_id, title) VALUES (${`ft-early-${T}`}, ${story!.id}, ${early}) RETURNING id`;
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${later!.id}, ${await report("late-fact", late, late)}, 'report',1)`;
-  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${first!.id}, ${await report("early-fact", early, early, new Date(Date.now() - 2 * 3600_000))}, 'report',1)`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${later!.id}, ${await confirmedReport("late-fact", late, late)}, 'report',1)`;
+  await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${first!.id}, ${await confirmedReport("early-fact", early, early, new Date(Date.now() - 2 * 3600_000))}, 'report',1)`;
 
   // PostgreSQL retains microseconds: both times occupy the same JS millisecond, but the higher ID is earlier.
   await sql`UPDATE publications p SET published_at=date_trunc('second',now())+
@@ -359,6 +370,7 @@ test("a story whose reports all moved away keeps its address: it redirects to wh
   const other = randomText();
   const staying = await report("staying", other, other);
   await sql`INSERT INTO fact_articles (fact_id, article_id, role,input_revision) VALUES (${old.factId}, ${staying}, 'report',1)`;
+  await confirmGroupingFixture(staying);
   const target = await storyWithRoot(text, "target");
 
   // The first report moves to the story it belongs to; the old story still has a report and stays.

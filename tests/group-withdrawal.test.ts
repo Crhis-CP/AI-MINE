@@ -38,6 +38,7 @@ test("independent item/event/story holds stack; a later member remains withdrawn
       bodyText: "合成铜矿项目取得建设审批，原始公告列明项目条件与配套要求。",
       language: "zh",
       via: "fetch",
+      publishedAt: new Date(),
     });
     await publishArticle(m.articleId);
     return m.articleId;
@@ -94,6 +95,7 @@ test("report withdrawal is independent of its member articles across report read
     bodyText: "这是一篇用于确认报告下架不会同时撤回成员文章的合成中文报道。",
     language: "zh",
     via: "fetch",
+    publishedAt: new Date(),
   });
   await publishArticle(m.articleId);
   const [p] = await sql`SELECT title,summary,revision FROM publications WHERE article_id=${m.articleId}`;
@@ -130,6 +132,7 @@ test("withdrawing one development removes stale aggregate words while preserving
       bodyText: "合成中文原始材料包含项目条件与审批范围，供独立下架验证使用。",
       language: "zh",
       via: "fetch",
+      publishedAt: new Date(),
     });
     const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${`f${tag()}`},${story!.id},${title}) RETURNING id,public_id`;
     await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${m.articleId},'report',1)`;

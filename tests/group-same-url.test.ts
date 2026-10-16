@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { tag, stub } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -44,6 +45,7 @@ test("two source entrances to the same current document reuse its fact without a
   const [story] = await sql`INSERT INTO stories(public_id,title) VALUES(${randomUUID()},'甲矿业铜矿获批') RETURNING id`;
   const [fact] = await sql`INSERT INTO facts(public_id,story_id,title) VALUES(${tag()},${story!.id},'铜矿获批') RETURNING id`;
   await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${ids[0]!},'report',1)`;
+  await confirmGroupingFixture(ids[0]!);
   const result = await groupArticle(ids[1]!);
   assert.equal(result.verdict, "same-url");
   assert.equal(result.factId, Number(fact!.id));

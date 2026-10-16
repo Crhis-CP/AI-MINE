@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { tag, stub } from "./setup.ts";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -85,6 +86,7 @@ test("current source evidence permits a genuine same-occurrence runtime join", a
   const [fact] =
     await sql`INSERT INTO facts(public_id,story_id,title,subject,object,action) VALUES(${tag()},${story!.id},'甲项目批准','甲矿业','甲项目','批准') RETURNING id`;
   await sql`INSERT INTO fact_articles(fact_id,article_id,role,input_revision) VALUES(${fact!.id},${first},'report',1)`;
+  await confirmGroupingFixture(first);
   const result = await groupArticle(second);
   assert.equal(result.verdict, "same-fact");
   assert.equal(result.factId, Number(fact!.id));
