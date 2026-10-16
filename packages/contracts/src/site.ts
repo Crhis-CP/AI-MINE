@@ -16,6 +16,8 @@ export type StoryRef = import("zod").infer<typeof import("./http/public.ts").Sto
 
 export type ItemSummary = ItemSummaryCore;
 interface ItemSummaryCore {
+  sourceTime?: SourceTimeProjection["sourceTime"];
+  firstPublicAt?: string | null;
   id: string;
   revision: number;
   title: string;
@@ -76,6 +78,7 @@ export interface ItemDetail extends ItemSummary {
 
 export type GroupReport = GroupReportCore;
 interface GroupReportCore {
+  sourceTime?: SourceTimeProjection["sourceTime"];
   id: string;
   title: string;
   summary: string | null;
@@ -151,6 +154,7 @@ export interface HeatPoint {
 
 export type StoryReportView = StoryReportViewCore;
 interface StoryReportViewCore {
+  sourceTime?: SourceTimeProjection["sourceTime"];
   id: string;
   title: string;
   summary: string | null;
@@ -209,6 +213,7 @@ export type ReportKind = "daily" | "weekly" | "monthly";
 
 /** Related reports carry their own current availability; a parent's availability is not inherited. */
 export interface ReportRelatedCitation {
+  sourceTime?: SourceTimeProjection["sourceTime"];
   itemId: string | null;
   title: string;
   sourceName: string;
@@ -220,6 +225,7 @@ export interface ReportRelatedCitation {
 
 export type ReportCitation = ReportCitationCore;
 interface ReportCitationCore {
+  sourceTime?: SourceTimeProjection["sourceTime"];
   factId?: string | null;
   /** Number of distinct reporting sources, when established by the issue's cutoff. */
   sources?: number;

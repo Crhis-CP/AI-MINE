@@ -580,7 +580,7 @@ test("date profile identity excludes polling/body edits and preserves inherited 
   assert.equal(profile.timezone, "Asia/Shanghai");
 });
 
-test("SourceDated contracts are explicit future shapes; current HTTP aliases remain byte-compatible", async () => {
+test("source-time compatibility accepts optional evidence while preserving legacy required fields", async () => {
   const { FeedItemSummary, TimelineResponse, SourceDatedFeedItemSummary, SourceDatedTimelineResponse } = await import(
     "../../../packages/contracts/src/http/public.ts"
   );
@@ -603,7 +603,7 @@ test("SourceDated contracts are explicit future shapes; current HTTP aliases rem
   assert.equal(SourceDatedFeedItemSummary.safeParse(oldItem).success, false);
   const item = { ...oldItem, sourceTime: null, firstPublicAt: null };
   assert.equal(SourceDatedFeedItemSummary.safeParse(item).success, true);
-  assert.equal(FeedItemSummary.safeParse(item).success, false, "the registered alias has not changed");
+  assert.equal(FeedItemSummary.safeParse(item).success, true, "the registered alias accepts compatible time evidence");
   const oldTimeline = {
     filters: { channel: "all", category: null, tag: null },
     cards: [{ key: "a", anchorAt: oldItem.timelineAt, item: oldItem, group: null }],

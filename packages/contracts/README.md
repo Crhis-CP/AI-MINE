@@ -56,3 +56,6 @@ TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public reg
 
 
 报告阅读兼容扩展（TASK-0360）：旧站点报告可省略leadItemId及引用的factId/sources/followUp/fillIn/related；缺失不推断为已确认或0个来源。相关报道的available独立核对。v3报告可选reading描述头条与主条目、相关条目的公开引用，头条须在主条目中且主条目不重复；消费者仍须核对实际公开资格和权限，schema不授予内容使用许可。
+
+
+公开日期兼容补充（TASK-0367，2026-10-16）：当前Feed/Pool/Timeline别名接受可选sourceTime和firstPublicAt；站点详情、报道和报告引用也可携带sourceTime。旧响应不补默认值，unknown不等于日期精度，date不产生utc。这里只提供兼容输入输出，不自动启用旧ADR0025的来源日分组/游标切换；当前升级保留既定到达、确认和报告窗口语义，消费者在统一版本接通。
