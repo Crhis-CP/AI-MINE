@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { normalizeSourceTime } from "@amp/contracts/time-assertion";
 import { after, before, test } from "node:test";
 import { createServer } from "node:http";
 import { once } from "node:events";
@@ -139,6 +140,20 @@ const api = createServer(async (req, res) => {
                   summary: "这是后续的一句独立摘要。",
                   source: { name: source.name },
                   timelineAt: card.timelineAt,
+                  sourceTime: normalizeSourceTime(
+                    {
+                      meaning: "published",
+                      raw: "2020-01-02",
+                      local_date: "2020-01-02",
+                      local_time: null,
+                      timezone: null,
+                      utc: null,
+                      precision: "date",
+                      basis: "原文日期",
+                      condition_text: null,
+                    },
+                    { instantBasis: null, timezoneEvidence: null },
+                  ),
                 },
               },
             ],
@@ -311,6 +326,9 @@ test("followups distinguish errors, retry, empty results and one-sentence summar
   await page.getByRole("button", { name: "重试进展" }).click();
   await expect(page.getByRole("link", { name: "真实后续标题" })).toBeVisible();
   await expect(page.getByText("这是后续的一句独立摘要。", { exact: true })).toBeVisible();
+  const sourceDate = page.getByRole("link", { name: "真实后续标题" }).locator("..").locator("time");
+  await expect(sourceDate).toHaveAttribute("datetime", "2020-01-02");
+  await expect(sourceDate).not.toContainText("00:00");
   await expect(page.getByRole("link", { name: "同一事实重复稿" })).toHaveCount(0);
   followups = "empty";
   await openReadyItem(true);

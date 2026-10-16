@@ -73,6 +73,7 @@ test("event representation prefers the first party, latest means a distinct fact
   const followups = await loadStoryFollowups("6d11ec01-480e-4bb4-8568-238e5dbfd084");
   assert.equal(followups!.items.length, 2, "unselected qualified developments remain visible");
   assert.equal(followups!.items[0]!.representative.summary, "真实当前导读");
+  assert.equal(followups!.items[0]!.representative.sourceTime, null, "a timeline anchor does not establish the source publication time");
   await sql`UPDATE publications SET visibility='withdrawn' WHERE article_id IN (${official},${latest})`;
   assert.equal((await detail(duplicate)).eventCoverage, null, "one remaining public report has no redundant coverage block");
   assert.ok(!(await loadStoryFollowups("6d11ec01-480e-4bb4-8568-238e5dbfd084"))!.items.some((f) => f.representative.id === latest));

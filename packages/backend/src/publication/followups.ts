@@ -18,7 +18,14 @@ export async function loadStoryFollowups(storyPublicId: string): Promise<StoryFo
   return {
     items: result.body.developments.map(({ factId, representative: r }) => ({
       factId,
-      representative: { id: r.id, title: r.title, summary: r.summary, source: { name: r.source.name }, timelineAt: r.timelineAt },
+      representative: {
+        id: r.id,
+        title: r.title,
+        summary: r.summary,
+        source: { name: r.source.name },
+        timelineAt: r.timelineAt,
+        sourceTime: r.sourceTime ?? null,
+      },
     })),
     more: !!result.body.nextCursor,
   };
