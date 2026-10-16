@@ -7,7 +7,7 @@
 | `pnpm check`（= `make check`） | 每次提交前 | 快速子集：toolchain、format-lint、typecheck、boundaries、names、role-config、data-ownership、test（自测；已有前端构建时加前端测试） | 无 |
 | `make verify [TASK=TASK-nnnn] [SHA=<40 位>]` | 合并前，对 PR 的最终提交 | 全部阶段（第 2 节） | `.verify/receipts/<sha12>.json` |
 | `make release-check`、`make nightly` | — | 骨架：目前一律报“未实现”并以 2 退出，不会冒充通过（TASK-0008、TASK-0009、TASK-0012） | 无 |
-| `make tasks-index` | 集成人在合并后的 main 上 | 由任务卡生成 `tasks/INDEX.md` | 无 |
+| `make tasks-index` | 任务卡变更后、提交 PR 前 | 由任务卡生成 `tasks/INDEX.md` | 无 |
 
 ## 1. 怎么跑
 

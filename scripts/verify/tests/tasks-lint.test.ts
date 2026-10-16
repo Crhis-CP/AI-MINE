@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { compareWarnings } from "../lint.ts";
-import { checkCard, known } from "../tasks.ts";
+import { checkCard, checkTasks, known, renderIndex } from "../tasks.ts";
 
 const k = known();
 const card = (fields: string) => `---\n${fields}\n---\n\n## 背景\n`;
@@ -98,5 +98,45 @@ test("environment reads are warned only in the approved backend scope", () => {
     }
   } finally {
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("live and accepted task states require usable evidence references", () => {
+  const credential = new URL("https://example.com/proof");
+  credential.username = "fixture-user";
+  credential.password = "fixture-password";
+  for (const status of ["live_verified", "quality_accepted"]) {
+    const text = `${valid}\nstatus: ${status}`;
+    for (const evidence of ["", "\nevidence: []", "\nevidence: [null]", "\nevidence: ['']"])
+      assert.match(checkCard("TASK-0042.md", card(text + evidence), k).join("\n"), /requires evidence/);
+    for (const ref of ["docs/missing-proof.md", "tasks", "../outside.md", "https://", credential.href])
+      assert.ok(checkCard("TASK-0042.md", card(`${text}\nevidence: [${JSON.stringify(ref)}]`), k).length, ref);
+    for (const ref of ["docs/acceptance/release-polish-20261014/README.md", "https://example.com/release/42"])
+      assert.deepEqual(checkCard("TASK-0042.md", card(`${text}\nevidence: [${JSON.stringify(ref)}]`), k), []);
+  }
+  assert.deepEqual(checkCard("TASK-0042.md", card(`${valid}\nstatus: locally_verified\nevidence: []`), k), []);
+});
+
+test("index detects missing cards and changed states without depending on commit history", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "aimine-task-index-"));
+  try {
+    mkdirSync(path.join(root, "tasks"));
+    mkdirSync(path.join(root, "docs/06-agents"), { recursive: true });
+    writeFileSync(path.join(root, "lanes.yaml"), "lanes: {web: {}}\n");
+    writeFileSync(path.join(root, "docs/06-agents/02-roadmap-and-wbs.md"), "T-0001 AC-M0-08\n");
+    writeFileSync(path.join(root, "tasks/TASK-0042.md"), card(valid));
+    assert.match(checkTasks(root).problems.join("\n"), /INDEX.md is stale/);
+    writeFileSync(path.join(root, "tasks/INDEX.md"), renderIndex(root));
+    assert.deepEqual(checkTasks(root).problems, []);
+    writeFileSync(path.join(root, "tasks/TASK-0042.md"), card(`${valid}\nstatus: locally_verified`));
+    assert.match(checkTasks(root).problems.join("\n"), /INDEX.md is stale/);
+    writeFileSync(path.join(root, "tasks/INDEX.md"), renderIndex(root));
+    writeFileSync(path.join(root, "tasks/TASK-0043.md"), card(valid.replace("TASK-0042", "TASK-0043")));
+    assert.match(checkTasks(root).problems.join("\n"), /INDEX.md is stale/);
+    writeFileSync(path.join(root, "tasks/INDEX.md"), renderIndex(root));
+    assert.deepEqual(checkTasks(root).problems, []);
+    assert.equal(renderIndex(root), renderIndex(root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
