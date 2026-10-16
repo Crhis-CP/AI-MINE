@@ -6,6 +6,7 @@ export const DATABASE_ROLES = ["public_read", "feedback_write", "private_ops", "
 export type DatabaseRole = (typeof DATABASE_ROLES)[number];
 export type QueryRole = Exclude<DatabaseRole, "backup">;
 export const PROCESS_DATABASE_ROLES = {
+  api: ["private_ops", "auth", "ops_read"],
   "public-api": ["public_read", "feedback_write"],
   "private-api": ["private_ops", "auth", "ops_read"],
   worker: ["worker", "backup"],
@@ -18,12 +19,12 @@ export type ProcessRole = keyof typeof PROCESS_DATABASE_ROLES;
 type Environment = Readonly<Record<string, string | undefined>>;
 const variable = (role: DatabaseRole) => `DATABASE_URL_${role.toUpperCase()}`;
 
-export type ApiRole = "public-api" | "private-api";
+export type ApiRole = "api" | "public-api" | "private-api";
 
-/** Explicit preparation for PR7c: existing entry points do not call these helpers yet. */
+/** Unified API and the two legacy process names accepted during topology migration. */
 export function apiRoleFromEnv(env: Environment): ApiRole {
-  if (env.API_ROLE === "public-api" || env.API_ROLE === "private-api") return env.API_ROLE;
-  throw new Error("API_ROLE must be public-api or private-api");
+  if (env.API_ROLE === "api" || env.API_ROLE === "public-api" || env.API_ROLE === "private-api") return env.API_ROLE;
+  throw new Error("API_ROLE must be api, public-api or private-api");
 }
 
 /** Backend configuration still reads the process environment; API startup must use that same source. */
@@ -199,6 +200,7 @@ export function createDatabaseAccess(processRole: ProcessRole, env: Environment 
         case "worker":
         case "test":
           return config.urlFor("worker");
+        case "api":
         case "private-api":
           return config.urlFor("private_ops");
         default:

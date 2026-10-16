@@ -31,7 +31,7 @@ const input = {
   DEV_AUTH_ROLE: "PRIVATE_MARKER",
 };
 test("API child environments retain explicit test identity and only their own secrets", () => {
-  for (const role of ["public-api", "private-api"] as const) {
+  for (const role of ["api", "public-api", "private-api"] as const) {
     const env = apiChildEnvironment(role, input);
     assert.equal(env.API_ROLE, role);
     assert.equal(env.API_PORT, "0");
@@ -46,7 +46,7 @@ test("API child environments retain explicit test identity and only their own se
     } else {
       assert.equal(env.SESSION_SECRET, input.SESSION_SECRET);
       assert.equal(env.ADMIN_PASSWORD, input.ADMIN_PASSWORD);
-      assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, undefined);
+      assert.equal(env.PUBLIC_RATE_LIMIT_SECRET, role === "api" ? input.PUBLIC_RATE_LIMIT_SECRET : undefined);
     }
   }
   assert.equal(apiChildEnvironment("public-api", { DATABASE_URL: input.DATABASE_URL }).PUBLIC_RATE_LIMIT_SECRET, undefined);

@@ -28,7 +28,7 @@ import { applyPublicHeaders, sendProblem } from "./http/respond.ts";
 
 const sql = dbOf("publication");
 
-export type ApiRole = "public-api" | "private-api";
+export type ApiRole = "api" | "public-api" | "private-api";
 
 /** A single Host authority, never a URL, list, userinfo or escaped hostname. Ports are not part of the hostname. */
 function hostname(authority: unknown): string | null {
@@ -41,9 +41,9 @@ function hostname(authority: unknown): string | null {
 }
 
 export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
-  if (role !== "public-api" && role !== "private-api") throw new Error("Invalid API role");
-  const publicRoutes = role === "public-api";
-  const privateRoutes = role === "private-api";
+  if (role !== "api" && role !== "public-api" && role !== "private-api") throw new Error("Invalid API role");
+  const publicRoutes = role !== "private-api";
+  const privateRoutes = role !== "public-api";
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL || "info", redact: ["req.headers.authorization", "req.headers.cookie"] },
     // Access logs never record query strings (tokens, actors).
@@ -86,10 +86,13 @@ export async function buildApp(role: ApiRole): Promise<FastifyInstance> {
     }
   });
 
-  if (role === "private-api" && config.privateHost !== null) {
+  if (privateRoutes && config.privateHost !== null) {
     const expected = hostname(config.privateHost);
     app.addHook("onRequest", async (req, reply) => {
-      if ((req.raw.url ?? "").split("?")[0] === "/api/health") return;
+      const pathname = (req.raw.url ?? "").split("?")[0]!;
+      if (pathname === "/api/health") return;
+      const route = req.routeOptions.url ?? pathname;
+      if (role === "api" && !/^\/api\/(admin|auth)(?:\/|$)/.test(route) && route !== "/mcp-ops") return;
       const forwarded = req.headers["x-forwarded-host"];
       const count = req.raw.rawHeaders.filter((value, index) => index % 2 === 0 && value.toLowerCase() === "x-forwarded-host").length;
       if (expected && count === 1 && hostname(forwarded) === expected) return;

@@ -30,18 +30,21 @@ const pick = (env: Environment, keys: string[]) => Object.fromEntries(keys.filte
 export function apiChildEnvironment(role: ApiRole, input: Environment): Record<string, string> {
   apiRoleFromEnv({ API_ROLE: role });
   databaseConfig("test", { DATABASE_URL: input.DATABASE_URL });
-  const keys = role === "public-api" ? ["PUBLIC_RATE_LIMIT_SECRET", "INDEXNOW_KEY", "MCP_ALLOWED_HOSTS"] : ["SESSION_SECRET", "ADMIN_PASSWORD", "PRIVATE_HOST"];
+  const keys = [
+    ...(role !== "private-api" ? ["PUBLIC_RATE_LIMIT_SECRET", "INDEXNOW_KEY", "MCP_ALLOWED_HOSTS"] : []),
+    ...(role !== "public-api" ? ["SESSION_SECRET", "ADMIN_PASSWORD", "PRIVATE_HOST"] : []),
+  ];
   return {
     ...pick(input, [...RUNTIME, ...keys]),
     NODE_ENV: input.NODE_ENV ?? "production",
     API_ROLE: role,
     API_HOST: input.API_HOST ?? "127.0.0.1",
-    API_PORT: input.API_PORT ?? (role === "public-api" ? "3001" : "3002"),
+    API_PORT: input.API_PORT ?? (role === "private-api" ? "3002" : "3001"),
     COLLECT_ENABLED: "false",
     MODEL_CALLS_ENABLED: "false",
     FEISHU_CONTENT_PUSH_ENABLED: "false",
     INDEXNOW_SUBMIT_ENABLED: "false",
-    ...(role === "private-api" ? { AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials" } : {}),
+    ...(role !== "public-api" ? { AMP_CREDENTIALS_DIR: "/nonexistent-test-credentials" } : {}),
   };
 }
 

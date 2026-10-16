@@ -18,16 +18,17 @@ test("the public root assigns feedback a separate role and all other modules the
   await assert.rejects(Promise.resolve(dbOf("publication")`SELECT 1`), /not injected/);
 });
 
-test("the private root assigns identity its own login and leaves business modules on private_ops", async () => {
-  await initializeDb("private-api", { DATABASE_URL_PRIVATE_OPS: address("operations"), DATABASE_URL_AUTH: address("identity") });
-  try {
-    for (const module of DB_MODULES) assert.equal(dbOf(module).options.user, module === "identity" ? "identity" : "operations");
-    assert.deepEqual(queueConnection(), { connectionString: address("operations"), createSchema: false, migrate: false, supervise: false, schedule: false });
-    assert.throws(() => backupDatabaseUrl(), /cannot use database role backup/);
-  } finally {
-    await closeDb();
-  }
-});
+for (const role of ["private-api", "api"] as const)
+  test(`${role} keeps identity separate and only produces jobs in existing queues`, async () => {
+    await initializeDb(role, { DATABASE_URL_PRIVATE_OPS: address("operations"), DATABASE_URL_AUTH: address("identity") });
+    try {
+      for (const module of DB_MODULES) assert.equal(dbOf(module).options.user, module === "identity" ? "identity" : "operations");
+      assert.deepEqual(queueConnection(), { connectionString: address("operations"), createSchema: false, migrate: false, supervise: false, schedule: false });
+      assert.throws(() => backupDatabaseUrl(), /cannot use database role backup/);
+    } finally {
+      await closeDb();
+    }
+  });
 
 test("queue and backup capabilities use the active root and are revoked when closing starts", async () => {
   assert.throws(() => queueConnection(), /not initialized or closing/);
@@ -50,7 +51,7 @@ test("queue and backup capabilities use the active root and are revoked when clo
 });
 
 test("worker, migration and test roots use their declared roles; invalid setup can be retried", async () => {
-  await assert.rejects(initializeDb("api" as never, {}), /cannot initialize/);
+  await assert.rejects(initializeDb("unknown-api" as never, {}), /cannot initialize/);
   await assert.rejects(initializeDb("public-api", { DATABASE_URL_PUBLIC_READ: address("reader") }), /Missing/);
   for (const [role, env, user] of [
     ["worker", { DATABASE_URL_WORKER: address("worker"), DATABASE_URL_BACKUP: address("backup") }, "worker"],

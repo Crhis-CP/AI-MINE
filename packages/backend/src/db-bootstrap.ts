@@ -40,6 +40,7 @@ function roleFor(process: DatabaseProcess, module: string): QueryRole {
   switch (process) {
     case "public-api":
       return module === "feedback" ? "feedback_write" : "public_read";
+    case "api":
     case "private-api":
       return module === "identity" ? "auth" : "private_ops";
     case "worker":
@@ -92,7 +93,7 @@ export function queueConnection(): QueueConnection {
   active!.queue ??= Object.freeze({
     connectionString: access.queueUrl(),
     ...(access.processRole === "worker" && access.split ? { createSchema: false as const } : {}),
-    ...(access.processRole === "private-api"
+    ...(access.processRole === "private-api" || access.processRole === "api"
       ? { createSchema: false as const, migrate: false as const, supervise: false as const, schedule: false as const }
       : {}),
   });

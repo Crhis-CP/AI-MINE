@@ -9,7 +9,7 @@ import { buildApp } from "./site-app.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { ModelConnectionRecord, ModelRegistryResponse } from "@amp/contracts/http/private";
 
-test("model HTTP routes enforce current identity, CSRF and revision while returning only safe connection metadata", async (t) => {
+test("unified API model HTTP routes enforce current identity, CSRF and revision while returning only safe connection metadata", async (t) => {
   const f = await publicRoleFixture(t),
     dbs = await f.login();
   const restore = injectDb({ identity: dbs.auth, "ai-gateway": dbs.private_ops, ops: dbs.private_ops, sources: dbs.private_ops });
@@ -38,7 +38,7 @@ test("model HTTP routes enforce current identity, CSRF and revision while return
   const owner = await principal("owner", "owner", true),
     manager = await principal("manager", "admin", true),
     basic = await principal("basic", "admin", false);
-  const app = await buildApp("private-api");
+  const app = await buildApp("api");
   t.after(() => app.close());
   const payload = {
     name: "HTTP synthetic",
