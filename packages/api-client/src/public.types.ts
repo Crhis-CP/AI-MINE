@@ -5309,6 +5309,17 @@ export interface components {
       period_key: string;
       /** Format: date-time */
       period_start: string;
+      reading?: {
+        entries: {
+          fact_id: string | null;
+          fill_in?: boolean;
+          follow_up_issue?: string | null;
+          item_id: string;
+          related_item_ids?: string[];
+          source_count?: number;
+        }[];
+        lead_item_id: string | null;
+      };
       sections: {
         paragraphs: {
           item_ids: string[];
@@ -5405,6 +5416,17 @@ export interface components {
       period_key: string;
       /** Format: date-time */
       period_start: string;
+      reading?: {
+        entries: {
+          fact_id: string | null;
+          fill_in?: boolean;
+          follow_up_issue?: string | null;
+          item_id: string;
+          related_item_ids?: string[];
+          source_count?: number;
+        }[];
+        lead_item_id: string | null;
+      };
       sections: {
         paragraphs: {
           item_ids: string[];

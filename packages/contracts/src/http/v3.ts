@@ -1,3 +1,4 @@
+import { ReportReading } from "./report-reading.ts";
 import { z } from "zod";
 import { TimeAssertion } from "../time-assertion.ts";
 import { CATEGORY_KEYS } from "../taxonomy.ts";
@@ -163,6 +164,7 @@ export const V3ReportCard = z.strictObject({
 });
 export const V3Report = V3ReportCard.extend({
   ...envelope,
+  reading: ReportReading.optional(),
   sections: z.array(z.strictObject({ title: text, paragraphs: z.array(z.strictObject({ text, item_ids: z.array(text) })) })),
   items: z.array(V3ItemCard),
   limitation: text.nullable(),

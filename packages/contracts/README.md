@@ -53,3 +53,6 @@ TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public reg
 ## 定向金属日价取件
 
 `@amp/contracts/metal-price-relay`定义海外取件服务的独立协议：仅GET固定Cochilco目录或原始日报PDF，Ed25519签名绑定资源、方法与90秒时效。私钥保留在生产worker的专用只读挂载，海外服务只有公钥。响应保留原件字节并附原始地址和SHA-256；目录上限2MiB、PDF上限4MiB，拒绝任意URL、重定向和额外请求字段。该协议不改变站内价格API，不转发数据库、模型或读者凭据。
+
+
+报告阅读兼容扩展（TASK-0360）：旧站点报告可省略leadItemId及引用的factId/sources/followUp/fillIn/related；缺失不推断为已确认或0个来源。相关报道的available独立核对。v3报告可选reading描述头条与主条目、相关条目的公开引用，头条须在主条目中且主条目不重复；消费者仍须核对实际公开资格和权限，schema不授予内容使用许可。
