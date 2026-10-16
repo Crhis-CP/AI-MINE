@@ -4,11 +4,14 @@ import { beijingDate } from "@amp/contracts/time";
 
 export const KEYS = {
   starred: "amp-starred-items",
+  read: "amp-read-items",
   theme: "amp-theme",
   feedbackDraft: "amp-feedback-draft-v1",
 } as const;
 
-export const STARRED_LIMIT = 100;
+export const STARRED_LIMIT = 500;
+export const READ_LIMIT = 5000;
+export const IMPORT_MAX_CHARS = 2_000_000;
 const POLICY_KEY = "amp-policy-saved-v1";
 const ID_PATTERN = /^[a-zA-Z0-9_-]{1,80}$/;
 
@@ -60,7 +63,10 @@ function emit(key?: string) {
 function onStorage(event: StorageEvent) {
   if (event.storageArea && event.storageArea !== storage("local")) return;
   if (event.key === null) cache.clear();
-  else cache.delete(event.key);
+  else {
+    cache.delete(event.key);
+    if (event.key === KEYS.read) cache.delete(KEYS.read + ":set");
+  }
   // Clear the snapshot once, before notifying all cards. Each key is parsed at most once.
   emit(event.key ?? undefined);
 }
@@ -79,6 +85,7 @@ function subscribeKey(key: string) {
 }
 const subscribeStarred = subscribeKey(KEYS.starred);
 const subscribeTheme = subscribeKey(KEYS.theme);
+const subscribeRead = subscribeKey(KEYS.read);
 
 // Snapshot cache so useSyncExternalStore gets stable references between changes.
 const cache = new Map<string, unknown>();
@@ -87,6 +94,7 @@ function cached<T>(key: string, compute: () => T): T {
   return cache.get(key) as T;
 }
 function invalidate(key: string) {
+  if (key === KEYS.read) cache.delete(KEYS.read + ":set");
   cache.delete(key);
   emit(key);
 }
@@ -108,8 +116,19 @@ function normalizeStarred(value: unknown): LocalStarredItem | null {
   return { type: v.type === "policy" || v.type === "story" ? v.type : "item", id: v.id, savedAt };
 }
 
+function unreadableList(key: string): boolean {
+  const raw = readRaw(key);
+  if (!raw) return false;
+  try {
+    return !Array.isArray(JSON.parse(raw));
+  } catch {
+    return true;
+  }
+}
+
 export function getStarred(): LocalStarredItem[] {
   return cached(KEYS.starred, () => {
+    if (unreadableList(KEYS.starred)) return [];
     const raw = readRaw(KEYS.starred);
     let refs: LocalStarredItem[] = [];
     try {
@@ -150,10 +169,12 @@ export function isStarred(id: string, type: LocalStarredItem["type"] = "item"): 
 }
 
 export function toggleStar(item: { id: string; type?: LocalStarredItem["type"] }): SaveResult {
+  if (!ID_PATTERN.test(item.id)) return { ok: false, message: "这条收藏的地址无效。" };
+  if (unreadableList(KEYS.starred)) return { ok: false, message: "已有收藏数据无法读取，暂不覆盖。" };
   const list = getStarred(),
     type = item.type ?? "item";
   const exists = list.some((s) => s.id === item.id && s.type === type);
-  if (!exists && list.length >= STARRED_LIMIT) return { ok: false, message: "最多收藏100条，请先移除一些收藏。" };
+  if (!exists && list.length >= STARRED_LIMIT) return { ok: false, message: `最多收藏${STARRED_LIMIT}条，请先移除一些收藏。` };
   const next = exists ? list.filter((s) => s.id !== item.id || s.type !== type) : [{ type, id: item.id, savedAt: new Date().toISOString() }, ...list];
   if (!writeRaw(KEYS.starred, JSON.stringify(next))) return { ok: false, message: STORAGE_ERROR };
   invalidate(KEYS.starred);
@@ -161,6 +182,7 @@ export function toggleStar(item: { id: string; type?: LocalStarredItem["type"] }
 }
 
 export function removeStar(id: string, type: LocalStarredItem["type"] = "item"): SaveResult {
+  if (unreadableList(KEYS.starred)) return { ok: false, message: "已有收藏数据无法读取，暂不覆盖。" };
   if (!writeRaw(KEYS.starred, JSON.stringify(getStarred().filter((s) => s.id !== id || s.type !== type)))) return { ok: false, message: STORAGE_ERROR };
   invalidate(KEYS.starred);
   return { ok: true, added: false };
@@ -211,4 +233,114 @@ export function useIsStarred(id: string, type: LocalStarredItem["type"] = "item"
 
 export function useThemePreference(): ThemePreference {
   return useSyncExternalStore(subscribeTheme, getThemePreference, () => null);
+}
+
+// Read marks retain IDs only, newest first. Removing a mark never affects public content.
+export function getReadIds(): string[] {
+  return cached(KEYS.read, () => {
+    try {
+      const value: unknown = JSON.parse(readRaw(KEYS.read) ?? "[]");
+      return Array.isArray(value) ? [...new Set(value.filter((id): id is string => typeof id === "string" && ID_PATTERN.test(id)))].slice(0, READ_LIMIT) : [];
+    } catch {
+      return [];
+    }
+  });
+}
+export function markRead(id: string): boolean {
+  if (!ID_PATTERN.test(id) || unreadableList(KEYS.read)) return false;
+  const ids = getReadIds();
+  if (ids[0] === id) return true;
+  if (!writeRaw(KEYS.read, JSON.stringify([id, ...ids.filter((v) => v !== id)].slice(0, READ_LIMIT)))) return false;
+  invalidate(KEYS.read);
+  return true;
+}
+export function useIsRead(id: string): boolean {
+  return useSyncExternalStore(
+    subscribeRead,
+    () => cached<Set<string>>(KEYS.read + ":set", () => new Set(getReadIds())).has(id),
+    () => false,
+  );
+}
+
+export interface ExportBundle {
+  version: 1;
+  starred: LocalStarredItem[];
+  read: string[];
+  theme: "light" | "dark" | "auto";
+}
+export function exportBundle(): ExportBundle {
+  if (unreadableList(KEYS.starred)) throw new Error("已有收藏数据无法读取，暂不能导出。");
+  return { version: 1, starred: getStarred(), read: getReadIds(), theme: getThemePreference() ?? "auto" };
+}
+export interface ImportReport {
+  starredAdded: number;
+  starredSkipped: number;
+  readAdded: number;
+  readSkipped: number;
+  readFailed: boolean;
+  themeApplied: boolean;
+}
+/** Merge references only; existing choices and unavailable content cannot be restored by imported copy. */
+export function importBundle(text: string): ImportReport {
+  if (text.length > IMPORT_MAX_CHARS) throw new Error("文件过大（上限 2,000,000 字符）");
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error("不是有效的 JSON 文件");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("文件格式不对（需要 version: 1）");
+  const data = value as Record<string, unknown>;
+  if (data.version !== 1 || !Array.isArray(data.starred) || !Array.isArray(data.read)) throw new Error("文件格式不对（需要 version: 1 的收藏与已读记录）");
+  if (unreadableList(KEYS.starred)) throw new Error("已有收藏数据无法读取，为避免覆盖，这次没有导入。");
+  const current = getStarred();
+  const seen = new Set(current.map((ref) => `${ref.type}:${ref.id}`));
+  const additions: LocalStarredItem[] = [];
+  let starredSkipped = 0;
+  for (const entry of data.starred) {
+    const record = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : null;
+    const ref = normalizeStarred(record);
+    if (
+      !ref ||
+      !record ||
+      (record.type !== undefined && !["item", "policy", "story"].includes(String(record.type))) ||
+      typeof record.savedAt !== "string" ||
+      !Number.isFinite(Date.parse(record.savedAt))
+    ) {
+      starredSkipped++;
+      continue;
+    }
+    const key = `${ref.type}:${ref.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (current.length + additions.length >= STARRED_LIMIT) {
+      starredSkipped++;
+      continue;
+    }
+    additions.push(ref);
+  }
+  const merged = [...current, ...additions].sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt));
+  if (!writeRaw(KEYS.starred, JSON.stringify(merged))) throw new Error("浏览器存储已满或不可用，这次没有导入任何内容。");
+  const reads = getReadIds(),
+    readSeen = new Set(reads),
+    readAdditions: string[] = [];
+  let readSkipped = 0;
+  for (const id of data.read) {
+    if (typeof id !== "string" || !ID_PATTERN.test(id)) {
+      readSkipped++;
+      continue;
+    }
+    if (readSeen.has(id)) continue;
+    readSeen.add(id);
+    if (reads.length + readAdditions.length >= READ_LIMIT) {
+      readSkipped++;
+      continue;
+    }
+    readAdditions.push(id);
+  }
+  const readFailed = unreadableList(KEYS.read) || !writeRaw(KEYS.read, JSON.stringify([...reads, ...readAdditions]));
+  const themeApplied = !getThemePreference() && (data.theme === "light" || data.theme === "dark") && writeRaw(KEYS.theme, data.theme);
+  cache.clear();
+  emit();
+  return { starredAdded: additions.length, starredSkipped, readAdded: readFailed ? 0 : readAdditions.length, readSkipped, readFailed, themeApplied };
 }

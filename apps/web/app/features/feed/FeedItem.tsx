@@ -1,5 +1,6 @@
 // One report in a feed. Desktop (≥ 961px): a white card beside the time rail. Mobile: a compact row
 // with a divider, the reason in a grey box. One markup, two presentations, as on the original site.
+import { markRead, useIsRead } from "../../lib/local-state";
 import { memo } from "react";
 import { Link } from "react-router";
 import { IntentLink } from "../../components/ui/IntentLink";
@@ -19,6 +20,7 @@ export interface FeedItemProps {
 }
 
 export const FeedItem = memo(function FeedItem({ item, group, filters, showTags = false }: FeedItemProps) {
+  const read = useIsRead(item.id);
   const showSources = !!group && (group.additionalSourceCount > 0 || (group.developmentCount <= 1 && group.reportCount > 1));
   const showDevelopments = !!group?.story && group.developmentCount > 1;
   const tags = showTags ? item.tags.slice(0, 3) : [];
@@ -27,6 +29,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
     <article className="relative min-w-0 lg:card lg:card-hover lg:px-[18px] lg:pb-[14px] lg:pt-[15px]" data-item-id={item.id}>
       <header className="flex min-h-[18px] items-center gap-2 text-[12.5px] leading-[18px] text-ink-4">
         <SourceLine item={item} className="text-ink-4" />
+        {read && <span className="shrink-0 text-[11px] text-ink-4">已读</span>}
         {item.selected && (
           <span className="inline-flex">
             <SelectedBadge />
@@ -45,8 +48,8 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, showTags 
         </span>
       </header>
 
-      <h3 className="mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] text-ink">
-        <IntentLink to={`/items/${item.id}`} className="feed-title after:absolute after:inset-0 after:content-['']">
+      <h3 className={`mt-2 line-clamp-2 text-[17px] font-bold leading-[1.55] lg:line-clamp-none lg:font-[650] ${read ? "text-ink-3" : "text-ink"}`}>
+        <IntentLink onClick={() => markRead(item.id)} to={`/items/${item.id}`} className="feed-title after:absolute after:inset-0 after:content-['']">
           {item.title}
         </IntentLink>
       </h3>

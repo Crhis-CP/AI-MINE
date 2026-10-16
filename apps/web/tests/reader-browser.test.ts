@@ -1,5 +1,6 @@
 // Real production browser/router, synthetic read-only API; no external network or accounts.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, before, test } from "node:test";
 import { createServer } from "node:http";
 import { once } from "node:events";
@@ -267,9 +268,12 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await page.getByRole("button", { name: "加载最新" }).click();
   await expect(page.getByRole("heading", { name: "新到的矿业动态" })).toBeVisible();
   await openQualifiedReader(page, "/starred", "2");
+  await expect(page.getByText("已读", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
   await page.route("**/api/site/items/saved?**", (route) => route.fulfill({ status: 503, contentType: "application/json", body: "{}" }));
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(page.getByText("收藏暂时无法读取", { exact: false })).toBeVisible();
+  await expect(page.getByText("部分收藏暂时无法更新", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
   await page.unroute("**/api/site/items/saved?**");
   await page.getByRole("button", { name: "重试", exact: true }).click();
   await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
@@ -347,3 +351,74 @@ for (const width of [390, 1440]) {
     assert.equal(await title.evaluate((el) => el === document.activeElement), false, "reader can continue keyboard navigation");
   });
 }
+
+test("saved references import/export and partial refresh preserve usable content without resurrecting withdrawals", { timeout: 60000 }, async () => {
+  withdrawn = false;
+  added = false;
+  for (const width of [390, 1440]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 }, locale: "zh-CN", timezoneId: "Asia/Shanghai", reducedMotion: "reduce" });
+    try {
+      const blocked = await isolateBrowser(context, [origin]);
+      await context.addInitScript(() =>
+        localStorage.setItem(
+          "amp-starred-items",
+          JSON.stringify(Array.from({ length: 101 }, (_, i) => ({ type: "item", id: i === 0 ? "fixture-a" : `saved${i}`, savedAt: "2026-01-01" }))),
+        ),
+      );
+      const page = await context.newPage();
+      let mode: "ok" | "partial" | "failed" = "ok";
+      await page.route("**/api/site/items/saved?**", (route) => {
+        const ids = new URL(route.request().url()).searchParams.get("ids")!.split(",");
+        if (mode === "failed" || (mode === "partial" && !ids.includes("fixture-a")))
+          return route.fulfill({ status: 503, contentType: "application/json", body: "{}" });
+        const missing = mode === "partial" ? ["fixture-a"] : [];
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: ids.filter((id) => !missing.includes(id)).map((id) => ({ ...card(), id, title: id === "fixture-a" ? "可核对的矿业动态" : `收藏 ${id}` })),
+            unavailableIds: missing,
+          }),
+        });
+      });
+      await page.goto(`${origin}/starred`);
+      await expect(page.getByRole("heading", { name: "可核对的矿业动态", exact: true })).toBeVisible();
+      await page.getByLabel("导入收藏文件").setInputFiles({
+        name: "saved.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(
+          JSON.stringify({
+            version: 1,
+            starred: [{ type: "item", id: "imported", savedAt: "2026-02-01", title: "不能导入正文副本" }],
+            read: ["fixture-a"],
+            theme: "auto",
+          }),
+        ),
+      });
+      await expect(page.getByRole("status").filter({ hasText: "新增收藏 1 条、已读记录 1 条" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "收藏 imported", exact: true })).toBeVisible();
+      await expect(page.getByText("已读", { exact: true })).toBeVisible();
+      const downloadPromise = page.waitForEvent("download");
+      await page.getByRole("button", { name: "导出收藏与已读记录" }).click();
+      const download = await downloadPromise;
+      const bundle = JSON.parse(readFileSync((await download.path())!, "utf8"));
+      assert.equal(bundle.starred.length, 102);
+      assert.deepEqual(bundle.read, ["fixture-a"]);
+      assert.ok(!JSON.stringify(bundle).includes("不能导入正文副本"));
+      assert.deepEqual(Object.keys(bundle.starred[0]).sort(), ["id", "savedAt", "type"]);
+      mode = "partial";
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect(page.getByText("部分收藏暂时无法更新", { exact: false })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "可核对的矿业动态", exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "收藏 saved100", exact: true })).toBeVisible();
+      mode = "failed";
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect(page.getByText("部分收藏暂时无法更新", { exact: false })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "可核对的矿业动态", exact: true })).toHaveCount(0);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+      assert.deepEqual(blocked, []);
+    } finally {
+      await context.close();
+    }
+  }
+});

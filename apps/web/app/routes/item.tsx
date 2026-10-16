@@ -1,3 +1,4 @@
+import { markRead } from "../lib/local-state";
 import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLoaderData, useNavigate, useLocation } from "react-router";
@@ -100,6 +101,9 @@ async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">): Promise<
 
 export default function ItemPage() {
   const { item } = useLoaderData<typeof loader>();
+  useEffect(() => {
+    markRead(item.id);
+  }, [item.id]);
   const currentLocation = useLocation();
   const navigate = useNavigate();
   const hasTranslation = item.hasTranslation;

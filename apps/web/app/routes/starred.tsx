@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { createPublicClient, publicSchemas } from "@amp/api-client/public";
 import type { FeedItemSummary } from "@amp/contracts/site";
 import { pageMeta } from "../lib/seo";
-import { removeStar, useStarred } from "../lib/local-state";
+import { removeStar, useStarred, exportBundle, importBundle, STARRED_LIMIT, IMPORT_MAX_CHARS } from "../lib/local-state";
 import { fullDateTime } from "../lib/format";
 import { FeedItem } from "../features/feed/FeedItem";
 import { StorySavedList } from "../features/story/StorySaved";
@@ -26,20 +26,50 @@ export default function StarredPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const retry = useRef<() => void>(() => {});
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const doExport = () => {
+    try {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(exportBundle(), null, 2)], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `aimine-local-data-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "导出失败");
+    }
+  };
+  const doImport = async (file?: File) => {
+    if (!file) return;
+    try {
+      if (file.size > IMPORT_MAX_CHARS * 4) throw new Error("文件过大，请选择本站导出的收藏文件。");
+      const result = importBundle(await file.text());
+      setNotice(
+        `新增收藏 ${result.starredAdded} 条、已读记录 ${result.readAdded} 条${result.starredSkipped + result.readSkipped ? `；格式无效或超过上限，跳过 ${result.starredSkipped + result.readSkipped} 条` : ""}${result.themeApplied ? "；已沿用文件中的外观设置" : ""}。`,
+      );
+      setError(result.readFailed ? "收藏已导入，但已读记录未能保存，请检查浏览器存储。" : null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "导入失败");
+    } finally {
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
   useEffect(() => {
     const controller = new AbortController();
     let pending = false;
     const read = async () => {
       if (pending || document.visibilityState !== "visible") return;
       pending = true;
-      setState({ items: [], unavailable: [], loading: true, failed: false });
+      setState((previous) => ({ ...previous, loading: true, failed: false }));
       try {
         const client = createPublicClient({ baseUrl: location.origin });
         // Existing over-limit references are preserved, and resolved in bounded batches.
         const refs = ids ? ids.split(",") : [];
         const batches = [];
         for (let i = 0; i < refs.length; i += 100) batches.push(refs.slice(i, i + 100));
-        const values = await Promise.all(
+        const values = await Promise.allSettled(
           batches.map(async (batch) => {
             const response = await client.GET("/api/site/items/saved", {
               params: { query: { ids: batch.join(",") } },
@@ -47,18 +77,30 @@ export default function StarredPage() {
               signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]),
             });
             if (!response.response.ok) throw new Error("saved content unavailable");
-            return publicSchemas.SavedItems.parse(response.data);
+            return { batch, value: publicSchemas.SavedItems.parse(response.data) };
           }),
         );
         if (!controller.signal.aborted)
-          setState({
-            items: values.flatMap((value) => value.items),
-            unavailable: values.flatMap((value) => value.unavailableIds),
-            loading: false,
-            failed: false,
+          setState((previous) => {
+            const wanted = new Set(refs);
+            const items = new Map(previous.items.filter((item) => wanted.has(item.id)).map((item) => [item.id, item]));
+            const unavailable = new Set(previous.unavailable.filter((id) => wanted.has(id)));
+            for (const result of values) {
+              if (result.status !== "fulfilled") continue;
+              for (const id of result.value.batch) {
+                items.delete(id);
+                unavailable.delete(id);
+              }
+              for (const item of result.value.value.items) items.set(item.id, item);
+              for (const id of result.value.value.unavailableIds) {
+                items.delete(id);
+                unavailable.add(id);
+              }
+            }
+            return { items: [...items.values()], unavailable: [...unavailable], loading: false, failed: values.some((result) => result.status === "rejected") };
           });
       } catch {
-        if (!controller.signal.aborted) setState({ items: [], unavailable: [], loading: false, failed: true });
+        if (!controller.signal.aborted) setState((previous) => ({ ...previous, loading: false, failed: true }));
       } finally {
         pending = false;
       }
@@ -85,8 +127,29 @@ export default function StarredPage() {
     <div className="pb-12">
       <header className="pb-4 pt-5 lg:pt-1">
         <h1 className="text-[24px] font-semibold text-ink">收藏</h1>
-        <p className="mt-2 text-[13px] text-ink-3">保存在当前浏览器中的阅读清单，最多100条。更换设备后不会自动同步。</p>
+        <p className="mt-2 text-[13px] text-ink-3">保存在当前浏览器中的阅读清单，最多{STARRED_LIMIT}条。可导出文件带到另一台设备，内容不会自动同步。</p>
+        <div className="mt-3 flex gap-4 text-[13px] text-accent">
+          <button type="button" onClick={() => fileRef.current?.click()}>
+            导入文件
+          </button>
+          <button type="button" onClick={doExport}>
+            导出收藏与已读记录
+          </button>
+          <input
+            aria-label="导入收藏文件"
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            onChange={(event) => void doImport(event.target.files?.[0])}
+          />
+        </div>
       </header>
+      {notice && (
+        <p role="status" className="mb-3 text-[13px] text-ink-3">
+          {notice}
+        </p>
+      )}
       <p className="text-[12px] text-ink-4">已收藏 {references.length} 条；仅保存引用，内容以当前公开版本为准。</p>
       {error && (
         <p role="alert" className="mt-3 text-[13px] text-hot">
@@ -100,7 +163,7 @@ export default function StarredPage() {
       )}
       {state.failed && (
         <p role="alert" className="mt-3 text-[13px]">
-          收藏暂时无法读取 — 请稍后重试。
+          部分收藏暂时无法更新，保留上次成功读取的内容。
           <button type="button" onClick={() => retry.current()} className="ml-2 text-accent">
             重试
           </button>
