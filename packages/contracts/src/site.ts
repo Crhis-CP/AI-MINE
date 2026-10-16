@@ -318,3 +318,5 @@ export type SourceDatedStoryFactView = Omit<StoryFactViewCore, "firstReportAt" |
 export type SourceDatedStoryFollowup = Omit<StoryFollowupCore, "representative"> & {
   representative: StoryFollowupCore["representative"] & SourceDatedItemTime;
 };
+
+export type SearchSuggestions = import("zod").infer<typeof import("./http/public.ts").SearchSuggestions>;
