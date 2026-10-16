@@ -18,7 +18,8 @@
     "./source-policy": "./src/source-policy.ts",
     "./time-assertion": "./src/time-assertion.ts",
     "./ops-mcp": "./src/ops-mcp.ts",
-    "./http/v3": "./src/http/v3.ts"
+    "./http/v3": "./src/http/v3.ts",
+    "./modules": "./src/modules.ts"
   },
   "dependencies": {
     "zod": "4.6.5"
