@@ -6,10 +6,10 @@ import { after, test } from "node:test";
 import { closeDb, dbOf, initializeDb } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { readPolicyResponse } from "@amp/backend/providers/receipts";
-import { recordPolicyOriginal, readPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
-import { runPolicyFulltext } from "../packages/backend/src/policy/fulltext-runtime.ts";
-import { setPolicyProcessingPaused, readPolicyFulltextRun } from "../packages/backend/src/policy/fulltext-store.ts";
-import type { PolicyOriginalInput } from "../packages/backend/src/policy/types.ts";
+import { recordPolicyOriginal, readPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
+import { runPolicyFulltext } from "../modules/policy/backend/domain/fulltext-runtime.ts";
+import { setPolicyProcessingPaused, readPolicyFulltextRun } from "../modules/policy/backend/domain/fulltext-store.ts";
+import type { PolicyOriginalInput } from "../modules/policy/backend/domain/types.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 
 const sql = dbOf("policy"),

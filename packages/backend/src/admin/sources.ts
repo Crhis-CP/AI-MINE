@@ -451,3 +451,6 @@ export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
 export async function newsAuditSourceNames(db: Db) {
   return db<{ id: string; name: string }[]>`SELECT id,name FROM sources WHERE lane='news'`;
 }
+
+export { SourcePolicyConflict } from "../sources/permission-store.ts";
+export type { SourceRow } from "../sources/types.ts";

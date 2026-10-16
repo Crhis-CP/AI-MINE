@@ -1,11 +1,11 @@
-import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { MCP_TOOL_NAMES as T } from "@amp/contracts/mcp";
 import { Policy, PolicyCard } from "@amp/contracts/http/public";
 import { injectDb } from "@amp/backend/db";
-import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import { publicRoleFixture, publicServer, type PublicFixture } from "./public-role-fixture.ts";

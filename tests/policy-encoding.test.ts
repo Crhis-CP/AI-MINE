@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decodePolicyOriginal, PolicyEncodingError } from "../packages/backend/src/policy/encoding.ts";
+import { decodePolicyOriginal, PolicyEncodingError } from "../modules/policy/backend/domain/encoding.ts";
 const gbk = Buffer.from("b2c9bff3b7a8b9e6d5fdcec4", "hex");
 const page = (declaration: string, body = gbk) =>
   Buffer.concat([Buffer.from(`<html><head>${declaration}</head><body><p>`), body, Buffer.from("</p></body></html>")]);

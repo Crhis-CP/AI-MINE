@@ -9,7 +9,14 @@
     "./read": "./backend/read.ts",
     "./reports": "./backend/reports.ts",
     "./language": "./backend/language.ts",
-    "./relations": "./backend/relations.ts"
+    "./relations": "./backend/relations.ts",
+    "./jobs": "./backend/jobs.ts",
+    "./fallback-quality": "./backend/domain/fallback-quality.ts",
+    "./model-evidence": "./backend/domain/model-evidence.ts",
+    "./quality": "./backend/domain/quality.ts",
+    "./receipt-recovery": "./backend/domain/receipt-recovery.ts",
+    "./source-evidence": "./backend/domain/target-evidence.ts",
+    "./report-job": "./backend/publication/policy-report-job.ts"
   },
   "dependencies": {
     "@amp/contracts": "workspace:*",
@@ -20,7 +27,12 @@
     "@amp/backend": "workspace:*",
     "fastify": "5.12.5",
     "zod": "4.6.5",
-    "@amp/industry": "workspace:*"
+    "@amp/industry": "workspace:*",
+    "cheerio": "1.2.0",
+    "domhandler": "5.0.3",
+    "pdfjs-dist": "6.4.299",
+    "pg-boss": "12.34.0",
+    "sanitize-html": "2.17.7"
   },
   "devDependencies": {
     "@types/react": "19.3.0"

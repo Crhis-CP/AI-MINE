@@ -30,7 +30,7 @@ function anchoredCanvasMetadata(root: string, file: string, spec: string, source
   const anchor = "pdfjs-dist/legacy/build/pdf.mjs";
   const expression = `createRequire(import.meta.resolve("${anchor}"))("@napi-rs/canvas/package.json")`;
   if (
-    file !== "packages/backend/src/policy/vision-render.ts" ||
+    file !== "modules/policy/backend/domain/vision-render.ts" ||
     spec !== "@napi-rs/canvas/package.json" ||
     !allowed.has("pdfjs-dist") ||
     !source.includes(expression)
@@ -184,7 +184,7 @@ test("a whole type-only import, Node's own modules, root dependencies and data f
 });
 
 test("canvas metadata requires its exact production renderer anchor and installed optional dependency", () => {
-  const file = "packages/backend/src/policy/vision-render.ts",
+  const file = "modules/policy/backend/domain/vision-render.ts",
     spec = "@napi-rs/canvas/package.json";
   const source = readFileSync(path.join(ROOT, file), "utf8"),
     allowed = new Set(["pdfjs-dist"]);

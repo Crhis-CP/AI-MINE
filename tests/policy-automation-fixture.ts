@@ -1,6 +1,6 @@
 import { dbOf } from "@amp/backend/db";
 import { upsertMaterial } from "@amp/backend/content/materials";
-import type { PolicyAutomationProfile } from "../packages/backend/src/policy/automation-profile.ts";
+import type { PolicyAutomationProfile } from "../modules/policy/backend/domain/automation-profile.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 const sql = dbOf("policy"),
   discovered = new Date("2026-01-02T03:04:05Z");

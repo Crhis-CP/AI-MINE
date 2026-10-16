@@ -10,7 +10,7 @@ import { withSourceCrawl, CrawlDeferred } from "../packages/backend/src/acquisit
 import { collectPolicyDirectory, DirectoryRoundFailed } from "../packages/backend/src/acquisition/directory-runtime.ts";
 import { saveRobots } from "../packages/backend/src/acquisition/pacing.ts";
 import { policySourceCoverage } from "../packages/backend/src/sources/policy-coverage.ts";
-import { wakeDirectoryMaterial, readPolicyWorkflow, advancePolicyMaterial } from "../packages/backend/src/policy/automation.ts";
+import { wakeDirectoryMaterial, readPolicyWorkflow, advancePolicyMaterial } from "../modules/policy/backend/domain/automation.ts";
 import { grantDateFixture } from "./source-date-fixture.ts";
 import type { GuardedResponse } from "../packages/backend/src/lib/http-fetch.ts";
 const sql = dbOf("acquisition");

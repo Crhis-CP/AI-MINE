@@ -1,11 +1,7 @@
-import {
-  readPolicyFulltextRun,
-  readPolicyMetadataObservation,
-  explicitPolicyReference,
-  type FulltextRun,
-  type Candidate,
-  type RelatedPolicy,
-} from "@amp/backend/policy/public-ports";
+import { readPolicyFulltextRun, type FulltextRun } from "./domain/fulltext-store.ts";
+import { readPolicyMetadataObservation } from "./domain/metadata.ts";
+import type { Candidate, RelatedPolicy } from "./domain/interpretation-schema.ts";
+import { explicitPolicyReference } from "./domain/references.ts";
 import type { Policy, PolicyCard } from "@amp/contracts/http/public";
 import { dbOf, type Db } from "@amp/backend/db";
 import { newShortId } from "@amp/backend/lib/ids";

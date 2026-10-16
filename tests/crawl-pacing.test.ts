@@ -227,8 +227,8 @@ test("official acquisition resumes cached main/annex bytes and retains blocked a
     f = await fixture();
   const sourceRow = (await readSourceDateContext(f.sourceId))!,
     calls: string[] = [];
-  const { capturePolicyMaterial } = await import("../packages/backend/src/policy/capture.ts"),
-    { readPolicyOriginal } = await import("../packages/backend/src/policy/originals.ts");
+  const { capturePolicyMaterial } = await import("../modules/policy/backend/domain/capture.ts"),
+    { readPolicyOriginal } = await import("../modules/policy/backend/domain/originals.ts");
   const get = async (url: string) => {
     calls.push(url);
     if (url.endsWith("/robots.txt")) return reply(url, "", 404);
@@ -251,7 +251,7 @@ test("official acquisition resumes cached main/annex bytes and retains blocked a
   assert.equal(result.status, "captured");
   if (result.status !== "captured") return;
   assert.equal(result.state, "incomplete");
-  const { readPolicyMetadataObservation } = await import("../packages/backend/src/policy/metadata.ts");
+  const { readPolicyMetadataObservation } = await import("../modules/policy/backend/domain/metadata.ts");
   const observed = await readPolicyMetadataObservation(result.expressionId);
   assert.ok(observed);
   assert.ok(Date.parse(observed.observedAt) < clock, "cached main page keeps the actual earlier acquisition time");

@@ -4,9 +4,9 @@ import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { readCurrentSourcePolicy, saveSourcePolicy } from "@amp/backend/admin/sources";
 import { policyMaterialReferences, upsertMaterial } from "@amp/backend/content/materials";
-import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
-import { readPolicyMetadataObservation } from "../packages/backend/src/policy/metadata.ts";
-import { readPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
+import { capturePolicyMaterial } from "../modules/policy/backend/domain/capture.ts";
+import { readPolicyMetadataObservation } from "../modules/policy/backend/domain/metadata.ts";
+import { readPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 const sql = dbOf("policy"),
   discovered = new Date("2026-01-02T03:04:05Z");
 after(closeDb);

@@ -31,7 +31,14 @@ const ENGINE_ENTRIES: Record<string, string> = {
   "./admin/http": "./src/admin/http.ts",
   "./sources/evidence": "./src/sources/evidence.ts",
   "./jobs/module-queues": "./src/jobs/module-queues.ts",
-  "./policy/public-ports": "./src/policy/public-ports.ts",
+  "./acquisition/crawl": "./src/acquisition/crawl.ts",
+  "./editorial/translation-readiness": "./src/editorial/translation-readiness.ts",
+  "./operations/lane-controls": "./src/operations/lane-controls.ts",
+  "./providers/model-fallback": "./src/providers/model-fallback.ts",
+  "./providers/model-fallback-permit": "./src/providers/model-fallback-permit.ts",
+  "./providers/permissions": "./src/providers/permissions.ts",
+  "./sources/permissions": "./src/sources/permissions.ts",
+  "./publication/news-links": "./src/publication/news-links.ts",
 };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
@@ -206,9 +213,11 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
         if (
           w.name === "@amp/backend" &&
           pkg === "@amp/policy" &&
-          !/^packages\/backend\/src\/publication\/(policies|policies-reports|policy-language|policy-relations)\.ts$/.test(f)
+          !/^packages\/backend\/src\/(publication\/(policies|policies-reports|policy-language|policy-relations|policy-report-job)|policy\/(fallback-quality|model-evidence|quality|receipt-recovery|target-evidence)|jobs\/policy)\.ts$/.test(
+            f,
+          )
         )
-          problems.push(`${f}: policy projection is only reachable through its temporary compatibility entries`);
+          problems.push(`${f}: policy implementation is only reachable through its temporary compatibility entries`);
 
         if (w.name === "@amp/backend" && pkg === "@amp/site" && ![".", "./models"].includes(entry))
           problems.push(`${f}: engine code cannot import the site's extension installation list`);

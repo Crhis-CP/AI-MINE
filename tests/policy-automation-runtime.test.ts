@@ -1,6 +1,6 @@
 import { installUsageFixtureForModel } from "./usage-protection-fixture.ts";
-import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
-import { policyInterpretationQualityRecipe } from "../packages/backend/src/policy/references.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
+import { policyInterpretationQualityRecipe } from "../modules/policy/backend/domain/references.ts";
 import { stub } from "./setup.ts";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -8,14 +8,14 @@ import { after, test } from "node:test";
 import { closeDb, dbOf } from "@amp/backend/db";
 import { config } from "@amp/backend/config";
 import { getBoss, stopBoss, recordRun } from "@amp/backend/jobs/queue";
-import { publishPolicyPublication } from "../packages/backend/src/publication/policies-publish.ts";
+import { publishPolicyPublication } from "../modules/policy/backend/publication/policies-publish.ts";
 import { listPolicies, policyDetail, policyReading } from "../modules/policy/backend/read.ts";
-import { installPolicyQualityRelease } from "../packages/backend/src/policy/quality.ts";
+import { installPolicyQualityRelease } from "../modules/policy/backend/domain/quality.ts";
 import { sha256 } from "../packages/backend/src/lib/ids.ts";
-import { capturePolicyMaterial } from "../packages/backend/src/policy/capture.ts";
-import { readPolicyWorkflow, advancePolicyMaterial, discoverPolicyWorkflows, type PolicyAutomationPorts } from "../packages/backend/src/policy/automation.ts";
-import { loadPolicyInterpretation } from "../packages/backend/src/policy/interpretation-runtime.ts";
-import { registerPolicyJobs, sweepPolicyMaterials } from "../packages/backend/src/jobs/policy.ts";
+import { capturePolicyMaterial } from "../modules/policy/backend/domain/capture.ts";
+import { readPolicyWorkflow, advancePolicyMaterial, discoverPolicyWorkflows, type PolicyAutomationPorts } from "../modules/policy/backend/domain/automation.ts";
+import { loadPolicyInterpretation } from "../modules/policy/backend/domain/interpretation-runtime.ts";
+import { registerPolicyJobs, sweepPolicyMaterials } from "../modules/policy/backend/jobs.ts";
 import { fixture } from "./policy-automation-fixture.ts";
 import { answer } from "./policy-automation-provider.ts";
 const sql = dbOf("policy"),
@@ -132,8 +132,8 @@ test("pg-boss lane jobs progress acquired HTML through actual fulltext receipts 
     "actual publisher aligns both reading streams by the source part",
   );
   const { policyPublicVersions } = await import("../modules/policy/backend/read.ts");
-  const { planPolicyReport } = await import("../packages/backend/src/publication/policy-report-plan.ts");
-  const { savePolicyReport } = await import("../packages/backend/src/publication/policy-report-store.ts");
+  const { planPolicyReport } = await import("../modules/policy/backend/publication/policy-report-plan.ts");
+  const { savePolicyReport } = await import("../modules/policy/backend/publication/policy-report-store.ts");
   const { policyReport } = await import("../modules/policy/backend/reports.ts");
   const draft = planPolicyReport(
     "weekly",

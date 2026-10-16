@@ -1,7 +1,7 @@
 import { defineServerModule } from "@amp/backend/modules";
-import { policyQueues, sweepPolicyMaterials } from "@amp/backend/jobs/content";
+import { policyQueues, sweepPolicyMaterials } from "./backend/jobs.ts";
 import { scheduleDueSources } from "@amp/backend/sources/collect";
-import { composePolicyReports } from "@amp/backend/reports/compose";
+import { composePolicyReports } from "./backend/publication/policy-report-job.ts";
 import { registerPolicies } from "./backend/http.ts";
 
 export default defineServerModule({

@@ -1,11 +1,11 @@
-import { POLICY_MODEL_BINDING_VERSION } from "../packages/backend/src/policy/model-evidence.ts";
+import { POLICY_MODEL_BINDING_VERSION } from "../modules/policy/backend/domain/model-evidence.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
 import { publicRoleFixture, publicServer } from "./public-role-fixture.ts";
 import { denied } from "./role-db-fixture.ts";
 import { injectDb } from "@amp/backend/db";
-import { recordPolicyOriginal } from "../packages/backend/src/policy/originals.ts";
+import { recordPolicyOriginal } from "../modules/policy/backend/domain/originals.ts";
 import { appendSourcePolicy } from "../packages/backend/src/sources/permission-store.ts";
 import { sourcePolicyExample } from "./permission-fixture.ts";
 import {
@@ -18,8 +18,8 @@ import {
   PolicyReport,
   PolicyJurisdictionList,
 } from "@amp/contracts/http/public";
-import { planPolicyReport } from "../packages/backend/src/publication/policy-report-plan.ts";
-import { savePolicyReport } from "../packages/backend/src/publication/policy-report-store.ts";
+import { planPolicyReport } from "../modules/policy/backend/publication/policy-report-plan.ts";
+import { savePolicyReport } from "../modules/policy/backend/publication/policy-report-store.ts";
 import { newShortId } from "@amp/backend/lib/ids";
 import { createRequire } from "node:module";
 const { XMLParser } = createRequire(new URL("../packages/backend/package.json", import.meta.url))("fast-xml-parser");

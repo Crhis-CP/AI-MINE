@@ -1,9 +1,9 @@
 import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { changeOwnerLaneControls, listLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
-import { createPolicyGateway } from "../packages/backend/src/providers/policy.ts";
-import { installPolicyQualityRelease, revokePolicyQualityRelease } from "../packages/backend/src/policy/quality.ts";
-import { currentInterpretationQualification } from "../packages/backend/src/policy/fallback-quality.ts";
-import { policyModelQualificationKey } from "../packages/backend/src/policy/model-evidence.ts";
+import { createPolicyGateway } from "../modules/policy/backend/provider.ts";
+import { installPolicyQualityRelease, revokePolicyQualityRelease } from "../modules/policy/backend/domain/quality.ts";
+import { currentInterpretationQualification } from "../modules/policy/backend/domain/fallback-quality.ts";
+import { policyModelQualificationKey } from "../modules/policy/backend/domain/model-evidence.ts";
 import { promptVersion } from "../packages/backend/src/editorial/prompts.ts";
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";

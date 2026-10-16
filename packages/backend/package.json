@@ -82,7 +82,14 @@
     "./admin/http": "./src/admin/http.ts",
     "./sources/evidence": "./src/sources/evidence.ts",
     "./jobs/module-queues": "./src/jobs/module-queues.ts",
-    "./policy/public-ports": "./src/policy/public-ports.ts"
+    "./acquisition/crawl": "./src/acquisition/crawl.ts",
+    "./editorial/translation-readiness": "./src/editorial/translation-readiness.ts",
+    "./operations/lane-controls": "./src/operations/lane-controls.ts",
+    "./providers/model-fallback": "./src/providers/model-fallback.ts",
+    "./providers/model-fallback-permit": "./src/providers/model-fallback-permit.ts",
+    "./providers/permissions": "./src/providers/permissions.ts",
+    "./sources/permissions": "./src/sources/permissions.ts",
+    "./publication/news-links": "./src/publication/news-links.ts"
   },
   "dependencies": {
     "@amp/config": "workspace:*",
