@@ -1,3 +1,8 @@
+import { newsMaterialBindings } from "../content/materials.ts";
+import { pendingSourceTimeProjectionIds } from "./items.ts";
+import { materialSourceTime } from "../content/date-evidence.ts";
+import { sourceDateConfiguration } from "../admin/sources.ts";
+import { publicSourceTime, sourceInstant } from "./source-time.ts";
 import { representativeFactSubjects } from "../events/representative-input.ts";
 import { representativePriority, pickRepresentative } from "./representative.ts";
 import { representativeSourceIdentities } from "../sources/representative-input.ts";
@@ -13,7 +18,7 @@ export {
 } from "./withdrawals.ts";
 export type { WithdrawalTarget } from "./withdrawals.ts";
 import { manualRevisionState } from "../editorial/manual-revisions.ts";
-import { requireRuntimeRunning, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
+import { requireRuntimeRunning, assertRuntimeControl, RuntimeControlPaused, RuntimeControlStale } from "../operations/lane-controls.ts";
 // Publishing: derive the public projection of one article from its material, the latest judgement,
 // manual overrides and grouping, then record selected-set changes in the sync ledger.
 // Rebuilding only re-reads stored results; it never calls a model.
@@ -36,10 +41,27 @@ import { projectNewsGeography } from "./news-geography.ts";
 
 const sql = dbOf("publication");
 
+async function sourceTimeForMaterial(material: { id: string; source_id: string; revision: number; source_date_version: string | number }, now: Date, db: Db) {
+  const context = await sourceDateConfiguration(material.source_id, db);
+  if (context?.lane !== "news") return null;
+  const time = publicSourceTime(
+    context.configHash
+      ? await materialSourceTime(
+          { articleId: material.id, sourceId: material.source_id, revision: material.revision, configHash: context.configHash },
+          Number(material.source_date_version),
+          now.getTime(),
+          db,
+        )
+      : null,
+  );
+  return { time, configHash: (time ? context.configHash : context.storedConfigHash) ?? null };
+}
+
 interface ArticleRow {
   id: string;
   revision: number;
   source_id: string;
+  source_date_version: string;
   url: string;
   title: string;
   language: string | null;
@@ -86,6 +108,10 @@ interface PublicationRow {
   revision: number;
   visibility: string;
   operator_withdrawn: boolean;
+  source_time: unknown;
+  source_time_material_revision: number | null;
+  source_date_version: number | null;
+  source_date_config_hash: string | null;
   eligible: boolean;
   selected: boolean;
   title: string;
@@ -215,7 +241,7 @@ export async function publishArticleTx(
   // Settling a representative may update a peer publication, but never locks the peer's material.
   await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
   const [article] = await tx<ArticleRow[]>`
-    SELECT id, revision, source_id, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
+    SELECT id, revision, source_id, source_date_version, url, title, language, published_at, discovered_at, timeline_at, backfill, body_status,
            body_text, body_html, excerpt, grouped_at, grouping_status, grouping_input_revision, selection_adds_value, processing_state
     FROM articles WHERE id = ${articleId} FOR UPDATE`;
   if (!article) return null;
@@ -226,6 +252,9 @@ export async function publishArticleTx(
   const [source] = await tx<SourceFacts[]>`
     SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
+  const dateProjection = await sourceTimeForMaterial(article, now, tx);
+  if (!dateProjection) return null;
+  const { time: sourceTime, configHash: timeConfigHash } = dateProjection;
   const [storedAnalysis] = await tx<AnalysisRow[]>`
     SELECT id, input_revision, relevance, output, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
     FROM analyses WHERE article_id = ${articleId} ORDER BY input_revision DESC, id DESC LIMIT 1`;
@@ -405,6 +434,10 @@ export async function publishArticleTx(
   const changed =
     !previous ||
     manualChanged ||
+    stableJson(previous.source_time) !== stableJson(sourceTime) ||
+    previous.source_time_material_revision !== article.revision ||
+    Number(previous.source_date_version) !== Number(article.source_date_version) ||
+    previous.source_date_config_hash !== timeConfigHash ||
     stableJson(previous.company_context ?? []) !== stableJson(companyContext) ||
     stableJson({ ...next, tags: [...next.tags].sort() }) !==
       stableJson({
@@ -475,6 +508,9 @@ export async function publishArticleTx(
         EXCLUDED.indexable, EXCLUDED.story_id, EXCLUDED.fact_id, EXCLUDED.search_text,
         EXCLUDED.sort_at,EXCLUDED.first_public_at)`;
 
+  await tx`UPDATE publications SET source_time=${sourceTime ? tx.json(sourceTime) : null},source_time_material_revision=${article.revision},source_date_version=${Number(article.source_date_version)},source_date_config_hash=${timeConfigHash}
+    WHERE article_id=${articleId} AND (source_time,source_time_material_revision,source_date_version,source_date_config_hash)
+    IS DISTINCT FROM (${sourceTime ? tx.json(sourceTime) : null},${article.revision},${Number(article.source_date_version)},${timeConfigHash})`;
   await tx`UPDATE publications SET company_context=${tx.json(companyContext as never)} WHERE article_id=${articleId} AND company_context IS DISTINCT FROM ${tx.json(companyContext as never)}`;
   await projectNewsGeography(tx, article, analysis?.id ?? null, f.geography);
   // The pool search row follows eligibility; its body part only covers full text the site may show.
@@ -518,6 +554,7 @@ interface SeatRow {
   summary: string | null;
   url: string;
   published_at: Date | null;
+  source_time: unknown;
   discovered_at: Date;
   category: string | null;
   reason: string | null;
@@ -535,7 +572,7 @@ async function syncSelectedLedger(tx: Tx, row: SeatRow, sourceName: string, now:
       summary: row.summary,
       sourceName,
       url: row.url,
-      publishedAt: row.published_at,
+      publishedAt: sourceInstant(row.source_time),
       discoveredAt: row.discovered_at,
       category: row.category,
       score: row.score,
@@ -563,7 +600,7 @@ async function settleSelectedSeats(tx: Tx, articleId: string, previousFact: numb
   const [self] = await tx<{ fact_id: number | null }[]>`SELECT fact_id FROM publications WHERE article_id=${articleId}`;
   const facts = [...new Set([previousFact, self?.fact_id].filter((id): id is number => id !== null && id !== undefined))];
   const rows = await tx<SeatRow[]>`SELECT article_id,source_id,fact_id,selected,seat,representative_priority,eligible,visibility,body_mode,score,
-    timeline_at,visible_after,title,original_title,summary,url,published_at,discovered_at,category,reason
+    timeline_at,visible_after,title,original_title,summary,url,published_at,source_time,discovered_at,category,reason
     FROM publications WHERE article_id=${articleId} OR fact_id=ANY(${facts}::bigint[]) ORDER BY article_id`;
   const sources = new Map((await representativeSourceIdentities([...new Set(rows.map((r) => r.source_id))], tx)).map((s) => [s.id, s.name]));
   const chosen = new Set<string>();
@@ -710,3 +747,51 @@ export async function publishedStoryId(articleId: string, tx: Tx): Promise<numbe
 }
 
 export { readEventPublicationTimes } from "./items.ts";
+
+/** Bounded server maintenance for existing records. Only time fields and their sync projection change; no model call or re-scoring. */
+export async function repairPublicationTimes(limit = 100) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new Error("Invalid time repair bound");
+  let control;
+  try {
+    control = await requireRuntimeRunning("news", ["publication"]);
+  } catch (error) {
+    if (error instanceof RuntimeControlPaused) return { checked: 0, changed: 0, waiting: true };
+    throw error;
+  }
+  const ids = await pendingSourceTimeProjectionIds(limit);
+  let changed = 0,
+    checked = 0;
+  const failures: unknown[] = [];
+  for (const id of ids) {
+    try {
+      const updated = await sql.begin(async (tx) => {
+        await tx`SELECT pg_advisory_xact_lock(hashtext('withdrawal-membership'))`;
+        await assertRuntimeControl(tx, control);
+        const [previous] = await tx<(PublicationRow & SeatRow)[]>`SELECT * FROM publications WHERE article_id=${id} FOR UPDATE`;
+        const [material] = await newsMaterialBindings([id], tx);
+        if (!previous || !material || previous.source_id !== material.source_id) return false;
+        const now = new Date(),
+          projection = await sourceTimeForMaterial(material, now, tx);
+        if (!projection) return false;
+        if (
+          stableJson(previous.source_time) === stableJson(projection.time) &&
+          previous.source_time_material_revision === material.revision &&
+          Number(previous.source_date_version) === Number(material.source_date_version) &&
+          previous.source_date_config_hash === projection.configHash
+        )
+          return false;
+        await tx`UPDATE publications SET source_time=${projection.time ? tx.json(projection.time) : null},source_time_material_revision=${material.revision},source_date_version=${Number(material.source_date_version)},source_date_config_hash=${projection.configHash},revision=revision+1,updated_at=now() WHERE article_id=${id}`;
+        const [source] = await representativeSourceIdentities([material.source_id], tx);
+        await syncSelectedLedger(tx, { ...previous, source_time: projection.time }, source?.name ?? "", now);
+        return true;
+      });
+      checked++;
+      if (updated) changed++;
+    } catch (error) {
+      if (error instanceof RuntimeControlPaused || error instanceof RuntimeControlStale) return { checked, changed, waiting: true };
+      failures.push(error);
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, "Some source time projections could not be refreshed");
+  return { checked, changed, waiting: false };
+}

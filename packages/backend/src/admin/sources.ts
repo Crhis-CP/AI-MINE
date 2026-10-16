@@ -439,7 +439,11 @@ export async function sourceDateConfiguration(sourceId: string, db: Db = sql) {
   const [row] = await db<{ lane: "news" | "policy"; kind: SourceRow["kind"]; config: SourceRow["config"]; source_date_config_hash: string | null }[]>`
     SELECT lane,kind,config,source_date_config_hash FROM sources WHERE id=${sourceId}`;
   return row
-    ? { lane: row.lane, configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null }
+    ? {
+        lane: row.lane,
+        storedConfigHash: row.source_date_config_hash,
+        configHash: row.source_date_config_hash === sourceDateConfigHash(row.kind, row.config) ? row.source_date_config_hash : null,
+      }
     : null;
 }
 

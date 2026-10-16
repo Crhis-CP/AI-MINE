@@ -3,6 +3,8 @@
 // wording lives in the industry pack (industry/prompts/); a failed guard falls back without a repair call.
 import { IDENTITY_CONTEXT_ALIASES, IDENTITY_LEXICON, PUBLISHER_DOMAINS } from "@amp/industry/taxonomy";
 import { usableSourceText } from "../lib/text.ts";
+import type { TimeAssertion } from "@amp/contracts/time-assertion";
+import { modelSourceDateLabel } from "./source-time.ts";
 import type { AnalyzeInputArticle } from "./input.ts";
 import { promptText } from "./prompts.ts";
 import { CATEGORY_GUIDE, CATEGORY_TAGS, ENTITY_TAGS, TOPIC_TAGS } from "./vocabulary.ts";
@@ -68,7 +70,7 @@ export function renderContext(a: AnalyzeInputArticle): string {
   lines.push(`【来源】${a.source.name}（${a.source.kind}，tier=${a.source.tier || "未分级"}）`);
   if (a.source.tags?.length) lines.push(`【来源标签】${a.source.tags.join(", ")}`);
   if (a.author) lines.push(`【作者】${a.author}`);
-  if (a.publishedAt) lines.push(`【发布时间】${a.publishedAt.toISOString()}`);
+  lines.push(`【原文时间】${modelSourceDateLabel(a)}`);
   const media = (a.media ?? []) as Array<{ kind?: string }>;
   const images = media.filter((m) => m.kind === "image").length;
   const videos = media.filter((m) => m.kind === "video").length;
@@ -128,6 +130,7 @@ export interface TranslateInput {
   documentUrl?: string;
   sourceOwnerEntityId?: string | null;
   publishedAt?: Date;
+  sourceTime?: TimeAssertion | null;
 }
 
 export function translateInputOf(a: AnalyzeInputArticle): TranslateInput {
@@ -139,6 +142,7 @@ export function translateInputOf(a: AnalyzeInputArticle): TranslateInput {
     documentUrl: a.url,
     sourceOwnerEntityId: a.source.ownerEntityId ?? null,
     publishedAt: a.publishedAt ?? undefined,
+    sourceTime: a.sourceTime,
   };
 }
 
@@ -240,7 +244,7 @@ function anchorDate(d: Date | undefined): string {
 
 export function buildArticlePrompt(input: TranslateInput): string {
   return promptText("summarize-article", {
-    publishedDate: anchorDate(input.publishedAt),
+    publishedDate: input.sourceTime === undefined ? anchorDate(input.publishedAt) : (input.sourceTime?.local_date ?? "未注明"),
     today: anchorDate(new Date()),
     sourceName: sourceName(input.sourceName),
     identity: identityPrompt(input),
@@ -286,7 +290,6 @@ export function parseTranslateOutput(text: string): { titleZh: string; summaryZh
     if (body) {
       bodyZh = body[1]!.trim();
       bodyLine = i;
-      continue;
     }
   }
   // A title without a labelled summary or body: the lines after it are the summary.

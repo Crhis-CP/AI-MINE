@@ -9,7 +9,7 @@ import { SITE, withSubject } from "@amp/industry/site";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { ReportCitation, ReportDetail, ReportNavigationEntry } from "@amp/contracts/site";
-import { shortSourceName, fullDateTime } from "../../lib/format";
+import { shortSourceName, fullDateTime, newsSourceDate } from "../../lib/format";
 import { Badge } from "@amp/ui/Badge";
 import { IconArrowLeft, IconArrowRight, IconArrowUpRight } from "../../components/icons";
 import { Kicker } from "@amp/ui/Kicker";
@@ -157,11 +157,16 @@ function RelatedReading({ c }: { c: ReportCitation }) {
 
 /** One story: source, headline, at most four lines of summary, and the original at the foot. */
 function Story({ c, dated, className = "" }: { c: ReportCitation; dated: boolean; className?: string }) {
+  const sourceDate = newsSourceDate(c.sourceTime, c.publishedAt);
   return (
     <article id={anchorOf(c) ?? undefined} className={`flex min-w-0 scroll-mt-6 flex-col py-6 ${className}`}>
       <div className="flex items-center gap-2 text-[12px] text-ink-3">
         <Source c={c} />
-        {dated && c.publishedAt && <span className="num ml-auto shrink-0 text-ink-4">{shortDay(c.publishedAt)}</span>}
+        {dated && sourceDate && (
+          <time dateTime={sourceDate.dateTime} className="num ml-auto shrink-0 text-ink-4">
+            {sourceDate.dateOnly ? `${Number(sourceDate.dateTime.slice(5, 7))}月${Number(sourceDate.dateTime.slice(8, 10))}日` : shortDay(sourceDate.dateTime)}
+          </time>
+        )}
       </div>
       {c.available ? (
         <>

@@ -1,3 +1,4 @@
+import { confirmGroupingFixture } from "./grouping-fixture.ts";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -47,6 +48,7 @@ async function report(source: string, date: string, title: string, fact?: { id: 
   await sql`INSERT INTO publications(article_id,title,summary,source_id,channel,url,discovered_at,published_at,timeline_at,sort_at,visible_after,selected,eligible,category,score,first_party,representative_priority,fact_id,story_id)
     VALUES(${articleId},${title},${`${title}的已核实摘要`},${source},'news',${url},${at},${at},${at},${at},${at},${selected},true,'company_project',80,${source === "official"},${source === "official" ? 0 : 3},${fact?.id ?? null},${storyId ?? null})`;
   if (fact) await sql`INSERT INTO fact_articles(article_id,fact_id,role) VALUES(${articleId},${fact.id},'report')`;
+  if (selected) await confirmGroupingFixture(articleId);
   return articleId;
 }
 test("daily folds new facts of one event, chooses authority and publishes a rule lead without any model", async () => {
@@ -149,4 +151,16 @@ test("confirmed discussion signals contribute attention without becoming report 
   assert.equal(value.signals[0]!.kind, "signal");
   await sql`INSERT INTO editorial_overrides(article_id,visibility,fields) VALUES(${articleId},'withdrawn','{}')`;
   assert.equal((await read()).signals.length, 0);
+});
+
+test("a quiet report waits when a nominated public article is still awaiting grouping", async () => {
+  const id = await report("official", "2020-12-10", "合成待确认的高分候选");
+  await sql`UPDATE articles SET grouping_status='pending' WHERE id=${id}`;
+  await sql`UPDATE publications SET selected=false,selection_candidate=true WHERE article_id=${id}`;
+  await composeDaily("2020-12-11");
+  assert.equal(await loadReport("daily", "2020-12-11"), null);
+  await confirmGroupingFixture(id);
+  await sql`UPDATE articles SET selection_adds_value=false WHERE id=${id}`;
+  await composeDaily("2020-12-11");
+  assert.equal((await loadReport("daily", "2020-12-11"))!.lead!.title, "今日无大事发生");
 });

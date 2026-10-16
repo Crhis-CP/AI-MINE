@@ -129,7 +129,7 @@ export async function composeDaily(date: string, reason = "scheduled"): Promise<
   const main = arranged.main.map((entry) => entry.entry),
     flashes = arranged.flashes.map((entry) => entry.entry);
   const quiet = !main.length && !flashes.length;
-  if (quiet && (await dailyJudgedReportCount(start, end)) === 0) return { key: date, entries: 0 };
+  if (quiet && (edition.stats.pendingSelections > 0 || (await dailyJudgedReportCount(start, end)) === 0)) return { key: date, entries: 0 };
   const lead = main[0];
   const content = {
     date,

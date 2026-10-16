@@ -1,3 +1,4 @@
+import { publicSourceTime, sourceInstant } from "./source-time.ts";
 // Reports through the public read layer: website DTOs and the v1 shapes. Only real reports are
 // listed; a missing date is a 404, never another day. Withdrawn citations are marked, not shown.
 import type { ReportCitation, ReportDetail, ReportIndexEntry, ReportNavigationEntry, ReportKind } from "@amp/contracts/site";
@@ -92,6 +93,7 @@ interface Availability {
   sourceId: string | null;
   storyPublicId: string | null;
   publishedAt: Date | null;
+  sourceTime: ReturnType<typeof publicSourceTime>;
   revision: number;
   title: string;
   summary: string | null;
@@ -110,7 +112,8 @@ async function availability(ids: string[], machine = false): Promise<Map<string,
       firstParty: r.first_party,
       sourceId: r.source_id,
       storyPublicId: r.story_public_id,
-      publishedAt: r.published_at,
+      publishedAt: sourceInstant(r.source_time),
+      sourceTime: publicSourceTime(r.source_time),
       revision: r.revision,
       title: r.title,
       summary: r.summary,
@@ -239,6 +242,7 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
       role: raw.role ?? null,
       storyPublicId: null,
       publishedAt: null,
+      sourceTime: null,
       available: false,
     };
   }
@@ -253,6 +257,7 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
             const citation = citationFrom({ ...entry, related: undefined }, avail, machine);
             return {
               itemId: citation.itemId,
+              sourceTime: citation.sourceTime ?? null,
               title: citation.title,
               sourceName: citation.sourceName,
               sourceUrl: citation.sourceUrl,
@@ -272,6 +277,7 @@ function citationFrom(raw: Record<string, any>, avail: Map<string, Availability>
     role: raw.role ?? null,
     storyPublicId: machine ? (a?.storyPublicId ?? null) : (raw.storyPublicId ?? a?.storyPublicId ?? null),
     publishedAt: a?.publishedAt?.toISOString() ?? null,
+    sourceTime: a?.sourceTime ?? null,
     available,
   };
 }
@@ -452,7 +458,7 @@ export async function v1Daily(date: string | "latest") {
           title: i.title,
           source: { name: i.sourceName },
           links: { original: i.sourceUrl },
-          publishedAt: i.publishedAt ?? report.generatedAt,
+          publishedAt: i.publishedAt,
           attribution: attribution(i.itemId ? itemUrl(i.itemId) : url),
         })),
     },

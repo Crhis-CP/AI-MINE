@@ -32,7 +32,7 @@ export const unknownTime = (meaning: "published" | "site_public" | "event" = "pu
       timezone: null,
       utc: null,
       precision: "unknown",
-      basis: "现有公开资料尚未提供可核验的时间断言",
+      basis: "本站尚未确认这个时间",
       condition_text: null,
     },
     { instantBasis: null, timezoneEvidence: null },

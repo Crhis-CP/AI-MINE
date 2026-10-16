@@ -1,10 +1,11 @@
+import { sourceInstant } from "./source-time.ts";
 import { z } from "zod";
 // v1 items and the selected sync (snapshot + changes), read from the same public read layer.
 import { toPublicApiCategory, type PublicApiCategoryKey } from "@amp/contracts/taxonomy";
 import { dbOf, withCustomPlans, type Db } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
-import { newsJurisdictionScope, readPublicApiItems, type ApiItemRow } from "./items.ts";
+import { newsJurisdictionScope, readPublicApiItems, currentSyncItems, type ApiItemRow } from "./items.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { searchTerms, withSearchCapacity } from "./pool.ts";
 import { v1Payload, type V1ItemPayload } from "./publish.ts";
@@ -45,7 +46,7 @@ export function rowToV1(row: ApiItemRow): V1ItemPayload {
     summary: row.summary,
     sourceName: row.source_name,
     url: row.url,
-    publishedAt: row.published_at,
+    publishedAt: sourceInstant(row.source_time),
     discoveredAt: row.discovered_at,
     category: row.category,
     score: row.score === null ? null : Number(row.score),
@@ -173,14 +174,6 @@ function minimalOf(item: V1ItemPayload) {
   };
 }
 
-// Drop unused wide fields before crossing the database connection; minimalOf remains the output
-// whitelist, preserving its omission of absent keys and all existing null values.
-function ledgerPayload(minimal: boolean) {
-  return minimal ? sql`payload - ARRAY['originalTitle', 'summary', 'reason', 'attribution', 'links']::text[]` : sql`payload`;
-}
-function latestLedgerPayload(minimal: boolean) {
-  return minimal ? sql`latest.payload - ARRAY['originalTitle', 'summary', 'reason', 'attribution', 'links']::text[]` : sql`latest.payload`;
-}
 const SnapshotToken = z.object({
   k: z.literal("page"),
   e: z.string(),
@@ -220,9 +213,9 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
   // The set as of the watermark, less anything taken out of the selected set since: a withdrawal waiting
   // behind a not-yet-released entry must not reach new snapshots. Its remove still follows in changes,
   // which the client applies as a no-op.
-  const rows = await sql<{ article_id: string; payload: V1ItemPayload }[]>`
-    SELECT latest.article_id, ${latestLedgerPayload(fields === "minimal")} AS payload FROM (
-      SELECT DISTINCT ON (article_id) article_id, op, payload FROM selected_ledger
+  const rows = await sql<{ article_id: string }[]>`
+    SELECT latest.article_id FROM (
+      SELECT DISTINCT ON (article_id) article_id, op FROM selected_ledger
       WHERE seq <= ${w} AND article_id > ${afterId}
       ORDER BY article_id, seq DESC
     ) latest
@@ -231,6 +224,15 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
     ORDER BY latest.article_id
     LIMIT ${q.limit + 1}`;
   const page = rows.slice(0, q.limit);
+  const current = new Map(
+    (
+      await currentSyncItems(
+        page.map((row) => row.article_id),
+        now,
+      )
+    ).map((row) => [row.id, rowToV1(row)]),
+  );
+  const visible = page.flatMap((row) => (current.has(row.article_id) ? [current.get(row.article_id)!] : []));
   const hasMore = rows.length > q.limit;
   const last = page[page.length - 1];
   return {
@@ -238,10 +240,10 @@ export async function selectedSnapshot(q: SnapshotQuery, now = new Date()) {
     asOf,
     fields,
     cursor: encodeCursor(SYNC_PREFIX, { k: "sync", e: epoch, w, f: fields }),
-    count: page.length,
+    count: visible.length,
     hasMore,
     nextPage: hasMore && last ? encodeCursor(SYNC_PREFIX, { k: "page", e: epoch, w, f: fields, a: last.article_id, t: asOf }) : null,
-    items: page.map((r) => (fields === "minimal" ? minimalOf(r.payload) : { ...r.payload, category: toPublicApiCategory(r.payload.category) })),
+    items: visible.map((item) => (fields === "minimal" ? minimalOf(item) : item)),
   };
 }
 
@@ -261,11 +263,19 @@ export async function selectedChanges(q: { cursor: string; limit: number }, now 
     const [max] = await sql<{ m: number }[]>`SELECT coalesce(max(seq), 0) AS m FROM selected_ledger`;
     if (c.w > Number(max?.m ?? 0)) throw new SnapshotRequiredError("watermark is ahead of this ledger");
   }
-  const rows = await sql<{ seq: number; article_id: string; op: "upsert" | "remove"; changed_at: Date; payload: V1ItemPayload | null }[]>`
-    SELECT seq, article_id, op, changed_at, ${ledgerPayload(c.f === "minimal")} AS payload FROM selected_ledger
+  const rows = await sql<{ seq: number; article_id: string; op: "upsert" | "remove"; changed_at: Date }[]>`
+    SELECT seq, article_id, op, changed_at FROM selected_ledger
     WHERE seq > ${c.w} AND seq <= ${w}
     ORDER BY seq LIMIT ${q.limit + 1}`;
   const page = rows.slice(0, q.limit);
+  const current = new Map(
+    (
+      await currentSyncItems(
+        page.filter((row) => row.op === "upsert").map((row) => row.article_id),
+        now,
+      )
+    ).map((row) => [row.id, rowToV1(row)]),
+  );
   const hasMore = rows.length > q.limit;
   const nextW = page.length ? page[page.length - 1]!.seq : Math.max(c.w, 0);
   return {
@@ -275,12 +285,12 @@ export async function selectedChanges(q: { cursor: string; limit: number }, now 
     count: page.length,
     hasMore,
     changes: page.map((r) =>
-      r.op === "remove"
+      r.op === "remove" || !current.has(r.article_id)
         ? { op: "remove" as const, changedAt: r.changed_at.toISOString(), id: r.article_id }
         : {
             op: "upsert" as const,
             changedAt: r.changed_at.toISOString(),
-            item: c.f === "minimal" ? minimalOf(r.payload!) : { ...r.payload!, category: toPublicApiCategory(r.payload!.category) },
+            item: c.f === "minimal" ? minimalOf(current.get(r.article_id)!) : current.get(r.article_id)!,
           },
     ),
   };

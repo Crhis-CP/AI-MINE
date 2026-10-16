@@ -103,19 +103,19 @@ test("unverified local timezone reduces precision, while explicit absolute time 
   assert.throws(() => normalizeSourceTime({ ...input, timezone: "Asia/Not_A_Zone" }, noZone));
 });
 
-test("absolute timestamps allow exactly five minutes, including original sub-millisecond precision", () => {
+test("absolute timestamps allow exactly one hour, including original sub-millisecond precision", () => {
   for (const [delta, expected] of [
-    [299_999, "reliable"],
-    [300_000, "reliable"],
-    [300_001, "pending"],
+    [3_599_999, "reliable"],
+    [3_600_000, "reliable"],
+    [3_600_001, "pending"],
   ] as const) {
     const result = verdict(instant(new Date(now + delta).toISOString()));
     assert.equal(result.status, expected);
     if (result.status === "pending") assert.equal(result.reason, "future");
   }
-  assert.equal(verdict(instant("2026-10-04T09:05:00.000001Z")).status, "pending");
-  assert.equal(verdict(instant("2026-10-04T09:05:00.000000Z")).status, "reliable");
-  assert.equal(verdict(instant("2026-10-04T09:04:59.999999Z")).status, "reliable");
+  assert.equal(verdict(instant("2026-10-04T10:00:00.000001Z")).status, "pending");
+  assert.equal(verdict(instant("2026-10-04T10:00:00.000000Z")).status, "reliable");
+  assert.equal(verdict(instant("2026-10-04T09:59:59.999999Z")).status, "reliable");
   const valid = instant("2026-10-04T09:00:00.001Z");
   for (const change of [{ utc: "invalid" }, { timezone: "invalid/zone" }, { local_time: "09:00:00.002" }])
     assert.equal(verdict({ ...valid, time: { ...valid.time, ...change } }).status, "pending");
@@ -326,8 +326,8 @@ test("ISO absolute offsets and decimal seconds retain raw evidence and do not be
   assert.equal(result.evidence.locator, input.locator);
   assert.deepEqual(result.evidence.binding, input.binding);
   assert.equal(result.evidence.observationId, input.observationId);
-  assert.equal(verdict(parseSourceDate(request("2026-10-04T09:05:00.000001Z")).evidence).status, "pending");
-  assert.equal(verdict(parseSourceDate(request("2026-10-04T09:05:00.000000Z")).evidence).status, "reliable");
+  assert.equal(verdict(parseSourceDate(request("2026-10-04T10:00:00.000001Z")).evidence).status, "pending");
+  assert.equal(verdict(parseSourceDate(request("2026-10-04T10:00:00.000000Z")).evidence).status, "reliable");
   assert.equal(parseSourceDate(request("2026-10-04T00:30+0800")).evidence.time.utc, "2026-10-03T16:30:00Z");
   assert.equal(parseSourceDate(request("2026-10-04t00:30z")).evidence.time.utc, "2026-10-04T00:30:00Z");
 });

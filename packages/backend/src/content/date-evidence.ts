@@ -221,3 +221,20 @@ export async function materialDateHeads(sourceId: string, urls: string[], db: Db
   return db<{ id: string; url: string; revision: number; source_date_version: string }[]>`
     SELECT id, url, revision, source_date_version FROM articles WHERE source_id = ${sourceId} AND url IN ${db(urls)}`;
 }
+
+/** Selected source date evidence only. Publication receives no locator, excerpt, permission record or parser state. */
+export async function materialSourceTime(
+  binding: { articleId: string; sourceId: string; revision: number; configHash: string },
+  dateVersion: number,
+  now: number,
+  db: Db = sql,
+) {
+  if (!Number.isSafeInteger(dateVersion) || dateVersion <= 0) return null;
+  const [row] = await db<
+    { result: SourceDateParseResult }[]
+  >`SELECT o.result FROM articles a JOIN content.source_date_observations o ON o.id=a.source_date_observation_id
+    WHERE a.id=${binding.articleId} AND a.source_id=${binding.sourceId} AND a.revision=${binding.revision} AND a.source_date_version=${dateVersion}
+      AND a.source_date_state='reliable' AND o.article_id=a.id AND o.source_id=a.source_id AND o.revision=a.revision AND o.config_hash=${binding.configHash}`;
+  const verdict = sourceDateVerdict("news", row?.result?.evidence, binding, now);
+  return verdict.status === "reliable" ? verdict.time : null;
+}

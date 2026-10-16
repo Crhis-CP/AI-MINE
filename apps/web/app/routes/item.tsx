@@ -5,7 +5,7 @@ import type { Route } from "./+types/item";
 import type { SiteItemDetail } from "@amp/contracts/site";
 import { loadOr404 } from "../lib/api.server";
 import { breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
-import { beijingDate, isDateOnlyInstant, relativeTime, sourceDateTime, fullDateTime } from "../lib/format";
+import { relativeTime, fullDateTime, newsSourceDate } from "../lib/format";
 import { SelectedBadge } from "@amp/ui/Badge";
 import { ScoreLabel } from "@amp/ui/Score";
 import { PillTabs } from "../components/ui/Tabs";
@@ -124,9 +124,10 @@ export default function ItemPage() {
         ? "正文 · 原文"
         : "正文";
   // The source's own date. Finding the page is not a publication date (收录时间 stays labeled as such).
-  const publishedIso = item.publishedAt;
-  const dateOnly = publishedIso !== null && isDateOnlyInstant(publishedIso);
-  const publishedAttr = publishedIso === null ? null : dateOnly ? beijingDate(publishedIso) : publishedIso;
+  const sourceDate = newsSourceDate(item.sourceTime, item.publishedAt);
+  const publishedIso = sourceDate && !sourceDate.dateOnly ? sourceDate.dateTime : null;
+  const dateOnly = sourceDate?.dateOnly ?? false;
+  const publishedAttr = sourceDate?.dateTime ?? null;
   const summaryOnly = item.readingMode === "summary-only";
   const showOutline = item.outline.length >= 3;
   const originalLabel = "打开原文";
@@ -205,15 +206,18 @@ export default function ItemPage() {
     <RailSection title="来源">
       <div className="text-[14px] font-semibold leading-snug text-ink">{item.source.name}</div>
       <div className="mt-1 text-[12.5px] leading-relaxed text-ink-3">{item.author ?? hostOf(item.links.original)}</div>
-      <div className="mt-3 text-[12px] text-ink-4">发布时间</div>
-      {publishedIso && publishedAttr ? (
+      <div className="mt-3 text-[12px] text-ink-4">
+        {sourceDate?.label ?? "发布时间"}
+        {sourceDate && !sourceDate.dateOnly ? " · 北京时间" : ""}
+      </div>
+      {sourceDate && publishedAttr ? (
         <>
           <time dateTime={publishedAttr} className="mono mt-0.5 block text-[12.5px] text-ink-2">
-            {sourceDateTime(publishedIso)}
+            {sourceDate.text}
           </time>
-          {!dateOnly && (
+          {!dateOnly && publishedIso && (
             <div className="mt-0.5 text-[12px] text-ink-4" suppressHydrationWarning>
-              {relativeTime(publishedIso)}
+              {Date.parse(publishedIso) <= Date.now() ? relativeTime(publishedIso) : "原文标注"}
             </div>
           )}
         </>
@@ -222,7 +226,7 @@ export default function ItemPage() {
           <div className="mt-0.5 text-[12.5px] text-ink-2">尚未确认</div>
           <div className="mt-3 text-[12px] text-ink-4">收录时间</div>
           <time dateTime={item.discoveredAt} className="mono mt-0.5 block text-[12.5px] text-ink-2">
-            {sourceDateTime(item.discoveredAt)}
+            {fullDateTime(item.discoveredAt)}
           </time>
         </>
       )}
@@ -317,19 +321,21 @@ export default function ItemPage() {
             <span className="font-semibold text-ink-2">{item.source.name}</span>
             {item.author && <span>· {item.author}</span>}
             <span>·</span>
-            {publishedIso && publishedAttr ? (
+            {sourceDate && publishedAttr ? (
               <>
                 <time dateTime={publishedAttr} className="mono">
-                  {sourceDateTime(publishedIso)}
+                  {sourceDate.text}
                 </time>
-                {!dateOnly && <span suppressHydrationWarning>· {relativeTime(publishedIso)}</span>}
+                {!dateOnly && publishedIso && (
+                  <span suppressHydrationWarning>· {Date.parse(publishedIso) <= Date.now() ? relativeTime(publishedIso) : "原文标注"}</span>
+                )}
               </>
             ) : (
               <>
                 <span>尚未确认</span>
                 <span>· 收录时间</span>
                 <time dateTime={item.discoveredAt} className="mono">
-                  {sourceDateTime(item.discoveredAt)}
+                  {fullDateTime(item.discoveredAt)}
                 </time>
               </>
             )}

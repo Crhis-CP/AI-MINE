@@ -1,4 +1,5 @@
 import { readGroupingAnalysis, groupingAnalysisHash } from "../enrichment/records.ts";
+import { modelSourceDate, modelSourceDateLabel } from "./source-time.ts";
 import { beginMaterialGrouping } from "../content/grouping.ts";
 export { latestPrefilterAuditJudgments, prefilterAuditAnalysisCopies } from "../enrichment/records.ts";
 import { ModelContentFiltered } from "../providers/model-fallback.ts";
@@ -143,16 +144,15 @@ export function scoreInputTime(at: Date): string {
 }
 
 /**
- * The score input: no source facts (the prompt forbids guessing them), the publication time, the
+ * The score input: no publisher hints, the confirmed original date with its actual precision, the
  * original title (items are scored before any Chinese copy exists) and the whole body.
  */
 export function buildScoreInput(a: AnalyzeInputArticle): string {
   let body = (a.bodyText ?? a.excerpt ?? "").trim();
   if (!body) body = a.title;
-  const at = a.publishedAt ?? a.discoveredAt ?? null;
   return [
     "请按系统规则评估以下单篇材料所代表的事件。只输出 attentionScore。",
-    `【发布时间（北京时间）】\n${at ? scoreInputTime(at) : ""}`,
+    `【原文时间】\n${modelSourceDateLabel(a)}`,
     `【标题】\n${a.title.trim()}`,
     `【完整正文】\n${body.length > MAX_BODY_CHARS ? body.slice(0, MAX_BODY_CHARS) : body}`,
   ].join("\n\n");
@@ -378,7 +378,7 @@ async function runStructure(a: AnalyzeInputArticle, opts: StepOpts): Promise<Non
     stableJson({
       source: { name: a.source.name, kind: a.source.kind, firstParty: a.source.firstParty },
       url: a.url,
-      publishedAt: a.publishedAt?.toISOString() ?? null,
+      sourceTime: modelSourceDate(a),
       segments: material.segments,
       complete_material: material.complete,
     });

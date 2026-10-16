@@ -1,3 +1,4 @@
+import { CURRENT_SOURCE_TIME } from "./source-time.ts";
 import { attachSourcePolicies } from "./reader-context.ts";
 import { geographyRecipe } from "../editorial/geography.ts";
 import { publicCompanyContext, readerAttribution } from "./reader-context.ts";
@@ -244,7 +245,7 @@ export async function machineItemDetail(id: string, language: "zh" | "original" 
 /** Current source-time and geography evidence, projected without raw source metadata. */
 export async function publicItemMetadata(id: string) {
   const [meta] = await sql<{ source_time: unknown; jurisdictions: string[] | null }[]>`
-    SELECT CASE WHEN p.source_date_version=a.source_date_version AND p.source_date_config_hash=s.source_date_config_hash THEN p.source_time ELSE NULL END AS source_time,
+    SELECT ${CURRENT_SOURCE_TIME} AS source_time,
       g.jurisdictions FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
       LEFT JOIN publication.news_geography g ON g.article_id=p.article_id AND g.article_revision=a.revision AND g.analysis_id IS NOT DISTINCT FROM p.analysis_id AND g.recipe=${geographyRecipe()}
       WHERE p.article_id=${id}`;

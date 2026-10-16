@@ -1,3 +1,4 @@
+import { confirmedGroupingMaterials } from "../content/grouping.ts";
 import { reportEventEvidence } from "../events/report-context.ts";
 import { addDays } from "@amp/contracts/time";
 import {
@@ -63,9 +64,13 @@ export async function dailyMemory(date: string) {
 /** One entry per event; the most-covered new fact leads and its other developments remain related reading. */
 export async function dailyEdition(date: string, start: Date, end: Date) {
   const [memory, rows] = await Promise.all([dailyMemory(date), reportWindowEvidence(start, end)]);
+  const nominations = rows.filter((row) => row.selected || row.selection_candidate);
+  const confirmed = new Set((await confirmedGroupingMaterials(nominations.map((row) => row.id))).map((row) => row.id));
+  const pendingSelections = nominations.filter((row) => !confirmed.has(row.id) && row.timeline_at >= start).length;
   const selected = rows.filter(
     (row) =>
       row.selected &&
+      confirmed.has(row.id) &&
       row.visible_after !== null &&
       Math.max(row.timeline_at.getTime(), row.visible_after.getTime()) >= start.getTime() &&
       Math.max(row.timeline_at.getTime(), row.visible_after.getTime()) < end.getTime(),
@@ -153,6 +158,7 @@ export async function dailyEdition(date: string, start: Date, end: Date) {
     entries,
     stats: {
       selectedReports: selected.length,
+      pendingSelections,
       facts: raw.length,
       repeatsSuppressed: raw.length - kept.length,
       events: entries.length,

@@ -1,3 +1,4 @@
+import { CURRENT_SOURCE_TIME, publicSourceTime, sourceInstant } from "./source-time.ts";
 import { attachRepresentativePriority, type RepresentativeIdentity } from "./representative.ts";
 import { readerAttribution, attachSourcePolicies } from "./reader-context.ts";
 import { JURISDICTIONS, jurisdictionDescendants } from "@amp/industry/jurisdictions";
@@ -29,6 +30,8 @@ export interface ItemRow {
   channel: "news";
   url: string;
   published_at: Date | null;
+  source_time?: unknown;
+  first_public_at?: Date | null;
   discovered_at: Date;
   timeline_at: Date;
   /** Reading-group anchor for a selected item (timeline_at otherwise). */
@@ -58,7 +61,7 @@ export interface ItemRow {
 export const ITEM_COLUMNS = sql`
   p.article_id AS id, p.revision, p.title, p.original_title,
   coalesce(p.summary, CASE WHEN s.site_fulltext AND p.visibility = 'public' THEN p.source_excerpt END) AS summary, p.reason, p.category, p.tags, p.score,
-  p.selected, p.eligible, p.channel, p.url, p.published_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
+  p.selected, p.eligible, p.channel, p.url, p.published_at, ${CURRENT_SOURCE_TIME} AS source_time,p.first_public_at, p.discovered_at, p.timeline_at, p.sort_at, p.first_party, p.visibility,
   p.body_mode, p.syndicate, p.indexable, p.visible_after, p.backfill, p.fact_id, p.story_id,
   s.id AS source_id, s.name AS source_name, s.kind AS source_kind, s.participation_mode AS source_mode,
   a.author, a.language,
@@ -67,12 +70,24 @@ export const ITEM_COLUMNS = sql`
 /** Public API listings never render article bodies or story metadata. */
 export type ApiItemRow = Pick<
   ItemRow,
-  "id" | "title" | "original_title" | "summary" | "source_name" | "url" | "published_at" | "discovered_at" | "category" | "score" | "selected" | "reason"
+  | "id"
+  | "title"
+  | "original_title"
+  | "summary"
+  | "source_name"
+  | "url"
+  | "published_at"
+  | "discovered_at"
+  | "category"
+  | "score"
+  | "selected"
+  | "reason"
+  | "source_time"
 >;
 export const API_ITEM_COLUMNS = sql`
   p.article_id AS id, p.title, p.original_title, p.summary, s.name AS source_name, p.url,
-  p.published_at, p.discovered_at, p.category, p.score, p.selected, p.reason`;
-export const API_ITEM_FROM = sql`FROM publications p JOIN sources s ON s.id = p.source_id`;
+  p.published_at,${CURRENT_SOURCE_TIME} AS source_time,p.discovered_at, p.category, p.score, p.selected, p.reason`;
+export const API_ITEM_FROM = sql`FROM publications p JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id`;
 
 /** A translation of an older revision is left out: the original changed after it (the worker translates it again). */
 export const ITEM_FROM = sql`
@@ -130,7 +145,9 @@ export function toItemSummary(row: ItemRow): ItemSummary {
       firstParty: row.first_party,
     },
     links: { original: row.url },
-    publishedAt: row.published_at?.toISOString() ?? null,
+    publishedAt: sourceInstant(row.source_time)?.toISOString() ?? null,
+    sourceTime: publicSourceTime(row.source_time),
+    firstPublicAt: row.first_public_at?.toISOString() ?? null,
     discoveredAt: row.discovered_at.toISOString(),
     timelineAt: row.timeline_at.toISOString(),
     category: toPublicApiCategory(row.category),
@@ -153,6 +170,8 @@ export function toFeedItemSummary(row: ItemRow): FeedItemSummary {
     source: { name: item.source.name },
     attribution: readerAttribution(row.source_name, row.url, row.source_policy),
     publishedAt: item.publishedAt,
+    sourceTime: item.sourceTime,
+    firstPublicAt: item.firstPublicAt,
     timelineAt: item.timelineAt,
     category: item.category,
     tags: item.tags,
@@ -374,4 +393,41 @@ export async function readGroupingSelectionSnapshot(excludeArticleId: string, fa
 
 export function readConfirmedGroupingItems(ids: string[], db: Db = sql) {
   return readGroupingSelectionSnapshot("", [], db, ids);
+}
+
+/** Historical sync cursors carry only today's publishable selected seats and current corrections. */
+export async function currentSyncItems(ids: string[], now: Date, db: Db = sql): Promise<ApiItemRow[]> {
+  if (!ids.length) return [];
+  return db<ApiItemRow[]>`SELECT ${API_ITEM_COLUMNS} ${API_ITEM_FROM}
+    WHERE p.article_id=ANY(${ids}::text[]) AND p.visibility='public' AND p.eligible AND p.selected AND p.seat
+      AND p.visible_after<=${now} AND s.participation_mode='editorial' AND s.lane='news'`;
+}
+
+/** Small source-time projection for story/report/group references, with no body reads or private date observations. */
+export async function publicTimeMetadata(ids: string[], db: Db = sql) {
+  if (!ids.length) return new Map<string, { sourceTime: ReturnType<typeof publicSourceTime>; publishedAt: string | null; firstPublicAt: string | null }>();
+  const rows = await db<
+    { id: string; source_time: unknown; first_public_at: Date | null }[]
+  >`SELECT p.article_id AS id,${CURRENT_SOURCE_TIME} AS source_time,p.first_public_at
+    FROM publications p JOIN sources s ON s.id=p.source_id JOIN articles a ON a.id=p.article_id WHERE p.article_id=ANY(${ids}::text[])`;
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        sourceTime: publicSourceTime(row.source_time),
+        publishedAt: sourceInstant(row.source_time)?.toISOString() ?? null,
+        firstPublicAt: row.first_public_at?.toISOString() ?? null,
+      },
+    ]),
+  );
+}
+
+/** Current material/configuration mismatches, newest first; an acknowledged unknown date is not retried forever. */
+export async function pendingSourceTimeProjectionIds(limit: number) {
+  const rows = await sql<
+    { article_id: string }[]
+  >`SELECT p.article_id FROM publications p JOIN articles a ON a.id=p.article_id JOIN sources s ON s.id=p.source_id
+    WHERE s.lane='news' AND (p.source_time_material_revision IS DISTINCT FROM a.revision OR p.source_date_version IS DISTINCT FROM a.source_date_version OR p.source_date_config_hash IS DISTINCT FROM s.source_date_config_hash)
+    ORDER BY p.timeline_at DESC,p.article_id LIMIT ${limit}`;
+  return rows.map((row) => row.article_id);
 }

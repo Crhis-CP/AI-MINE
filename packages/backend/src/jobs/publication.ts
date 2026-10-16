@@ -45,3 +45,5 @@ export async function registerPublicationJobs(boss: PgBoss) {
     return result;
   });
 }
+
+export { repairPublicationTimes } from "../publication/publish.ts";

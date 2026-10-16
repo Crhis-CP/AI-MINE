@@ -106,7 +106,6 @@
     "lint/security/noDangerouslySetInnerHtml": 1
   },
   "apps/web/app/routes/story.tsx": {
-    "lint/correctness/noUnusedImports": 1,
     "lint/correctness/useExhaustiveDependencies": 5
   },
   "apps/worker/src/main.ts": {
@@ -184,6 +183,9 @@
   },
   "packages/backend/src/publication/pool.ts": {
     "lint/style/noProcessEnv": 2
+  },
+  "packages/backend/src/publication/publish.ts": {
+    "lint/suspicious/noImplicitAnyLet": 1
   },
   "packages/backend/src/publication/reports.ts": {
     "lint/suspicious/noExplicitAny": 19

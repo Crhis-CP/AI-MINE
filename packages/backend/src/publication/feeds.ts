@@ -1,3 +1,4 @@
+import { CURRENT_SOURCE_TIME, publicSourceTime, sourceInstant } from "./source-time.ts";
 import {
   isChineseOriginal,
   readableTranslation,
@@ -96,7 +97,10 @@ ${items.join("\n")}
 `;
 }
 
-type FeedRow = Pick<ItemRow, "id" | "title" | "summary" | "url" | "category" | "published_at" | "discovered_at" | "source_name"> &
+type FeedRow = Pick<
+  ItemRow,
+  "id" | "title" | "summary" | "url" | "category" | "published_at" | "discovered_at" | "source_name" | "source_time" | "first_public_at"
+> &
   Partial<
     Pick<ItemRow, "language" | "syndicate"> & {
       human_edited: boolean;
@@ -139,7 +143,8 @@ function fullContent(r: FeedRow, pageUrl: string): string | null {
 function itemXml(r: FeedRow, includeContent: boolean): string {
   const pageUrl = itemUrl(r.id);
   const summary = r.summary ?? "";
-  const description = `<p>${attributionHtml(r)}${escapeXml(summary)}</p><p>${aiNotice(r)}</p>\n<p>🔗 <a href="${escapeXml(r.url)}">阅读原文</a></p>\n<p>via ${escapeXml(SITE.name)} · <a href="${pageUrl}">${pageUrl}</a></p>`;
+  const sourceTime = publicSourceTime(r.source_time);
+  const description = `<p>${attributionHtml(r)}${escapeXml(summary)}</p><p>${escapeXml(sourceTime?.label ?? "原文发布时间尚未确认")}</p><p>${aiNotice(r)}</p>\n<p>🔗 <a href="${escapeXml(r.url)}">阅读原文</a></p>\n<p>via ${escapeXml(SITE.name)} · <a href="${pageUrl}">${pageUrl}</a></p>`;
   const label = r.category ? CATEGORY_LABELS[r.category as PublicApiCategoryKey] : undefined;
   const category = label ? `\n      <category>${escapeXml(label)}</category>` : "";
   let content = "";
@@ -147,12 +152,14 @@ function itemXml(r: FeedRow, includeContent: boolean): string {
     const html = fullContent(r, pageUrl);
     if (html) content = `\n      <content:encoded>${cdata(html)}</content:encoded>`;
   }
-  const pub = r.published_at ?? r.discovered_at;
+  const pub = sourceInstant(sourceTime);
+  const date = pub ? `<pubDate>${rfc822(pub)}</pubDate>` : sourceTime?.local_date ? `<dc:date>${escapeXml(sourceTime.local_date)}</dc:date>` : "";
   return `    <item>
       <title>${cdata(r.title)}</title>
       <link>${pageUrl}</link>
       <description>${cdata(description)}</description>${content}${category}
-      <pubDate>${rfc822(pub)}</pubDate>
+      ${date}
+      ${r.first_public_at ? `<amp:first-public-at>${r.first_public_at.toISOString()}</amp:first-public-at>` : ""}
       <guid isPermaLink="false">${escapeXml(r.id)}</guid>
       <author>${AUTHOR} (${escapeXml(r.source_name)})</author>
       <source url="${escapeXml(r.url)}">${escapeXml(r.source_name)}</source>
@@ -183,25 +190,25 @@ export async function itemFeed(kind: ItemFeedKind, category: PublicApiCategoryKe
         SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name,
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
         EXISTS(SELECT 1 FROM publication.manual_copies m JOIN articles current_article ON current_article.id=m.article_id
           WHERE m.article_id=p.article_id AND m.material_revision=current_article.revision AND m.state IN ('active','needs_review')) AS human_edited,
-        (p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS syndicate, a.language, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review')) AS manual_body_html, a.body_html, a.revision AS content_revision,
+        (p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS syndicate, a.language, (SELECT body_html FROM publication.manual_copies m WHERE m.article_id=a.id AND m.material_revision=a.revision AND m.state IN ('active','needs_review') AND p.syndicate AND s.site_fulltext AND s.syndicate_fulltext) AS manual_body_html, CASE WHEN p.syndicate AND s.site_fulltext AND s.syndicate_fulltext THEN a.body_html END AS body_html, a.revision AS content_revision,
         jsonb_build_object('revision',tr.revision,'body_html',tr.body_html,'complete',tr.complete,'origin',tr.origin,
           'recipe',tr.recipe,'source_hash',tr.source_hash,'manifest',tr.manifest) AS translation
       FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id
-      LEFT JOIN articles a ON a.id = p.article_id AND p.syndicate
-      LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision
+      JOIN articles a ON a.id = p.article_id
+      LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh' AND tr.revision >= a.revision AND p.syndicate AND s.site_fulltext AND s.syndicate_fulltext
       ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`
     : await sql<FeedRow[]>`
       WITH page AS MATERIALIZED (
         SELECT p.article_id FROM publications p WHERE ${feedScope(kind, category, now)}
         ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC LIMIT 50
       )
-      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, p.discovered_at, s.name AS source_name,
+      SELECT p.article_id AS id, p.title, p.summary, p.url, p.category, p.published_at, ${CURRENT_SOURCE_TIME} AS source_time,p.first_public_at, p.discovered_at, s.name AS source_name,
         EXISTS(SELECT 1 FROM publication.manual_copies m JOIN articles current_article ON current_article.id=m.article_id
           WHERE m.article_id=p.article_id AND m.material_revision=current_article.revision AND m.state IN ('active','needs_review')) AS human_edited
-      FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id
+      FROM page JOIN publications p ON p.article_id = page.article_id JOIN sources s ON s.id = p.source_id JOIN articles a ON a.id=p.article_id
       ORDER BY coalesce(p.published_at, p.discovered_at) DESC, p.article_id DESC`;
   let meta: { title: string; description: string; homePath: string; selfPath: string; ttl: number };
   if (category) {

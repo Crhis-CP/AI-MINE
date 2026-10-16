@@ -3,7 +3,7 @@ import { attachRepresentativePriority, pickRepresentative } from "./representati
 import type { z } from "zod";
 import type { V3EventsQuery } from "@amp/contracts/http/v3";
 import { addDays, beijingMidnight } from "@amp/contracts/time";
-import { newsJurisdictionScope, readPublicStoryDirectory } from "./items.ts";
+import { newsJurisdictionScope, readPublicStoryDirectory, publicTimeMetadata } from "./items.ts";
 import { readMatcherValues } from "./mentions.ts";
 import { searchTerms } from "./pool.ts";
 import { loadTopicTags } from "./topics.ts";
@@ -46,6 +46,7 @@ export async function resolveStory(publicId: string): Promise<StoryLookup> {
 }
 
 interface ReportRow {
+  sourceTime?: import("@amp/contracts/time-assertion").TimeAssertion | null;
   id: string;
   title: string;
   summary: string | null;
@@ -81,6 +82,8 @@ async function storyReports(storyId: number, now: Date): Promise<ReportRow[]> {
     WHERE f.story_id = ${storyId} AND p.visibility = 'public' AND s.participation_mode = 'editorial'
       AND (NOT p.selected OR p.visible_after <= ${now})
     ORDER BY p.article_id, (fa.role = 'primary') DESC`;
+  const dates = await publicTimeMetadata(rows.map((row) => row.id));
+  for (const row of rows) row.sourceTime = dates.get(row.id)?.sourceTime ?? null;
   return attachRepresentativePriority(rows);
 }
 
@@ -91,6 +94,7 @@ function reportView(r: ReportRow): StoryReportView {
     summary: r.summary ?? r.source_excerpt,
     source: { id: r.source_id, name: r.source_name, kind: r.source_kind as never, firstParty: r.first_party },
     publishedAt: r.at.toISOString(),
+    sourceTime: r.sourceTime ?? null,
     originalUrl: r.url,
     selected: r.selected,
     factId: r.fact_public_id,

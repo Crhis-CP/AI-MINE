@@ -7,6 +7,7 @@ import { dbOf } from "../db.ts";
 import { decodeCursor, encodeCursor, InvalidCursorError, queryBinding } from "../lib/cursor.ts";
 import { shortHash } from "../lib/ids.ts";
 import {
+  publicTimeMetadata,
   ITEM_COLUMNS,
   ITEM_FROM,
   categoryCondition,
@@ -75,6 +76,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
     return { kind: "changed" };
   }
   const page = members.slice(offset, offset + q.take);
+  const dates = await publicTimeMetadata(page.map((member) => member.id));
   const next = offset + q.take < members.length ? encodeCursor("gr1", { o: offset + q.take, r: revision, b: binding }) : null;
   return {
     kind: "ok",
@@ -87,6 +89,7 @@ export async function loadGroupReports(q: GroupReportsQuery, now = new Date()): 
         summary: m.summary,
         source: { id: m.source_id, name: m.source_name, kind: m.source_kind as never, firstParty: m.first_party },
         timelineAt: m.timeline_at.toISOString(),
+        sourceTime: dates.get(m.id)?.sourceTime ?? null,
         originalUrl: m.url,
         selected: m.selected,
       })),
@@ -250,11 +253,12 @@ export interface ReportInputRow {
   story_public_id: string | null;
   timeline_at: Date;
   selected: boolean;
+  selection_candidate: boolean;
   visible_after: Date | null;
 }
 const REPORT_INPUT_COLUMNS = sql`p.article_id AS id,p.revision,p.title,p.summary,p.url,p.category,p.tags,p.score,p.first_party,p.body_mode,p.representative_priority,
   p.source_id,s.name AS source_name,s.kind AS source_kind,p.fact_id,f.public_id AS fact_public_id,f.story_id,st.public_id::text AS story_public_id,
-  p.timeline_at,p.selected,p.visible_after`;
+  p.timeline_at,p.selected,p.selection_candidate,p.visible_after`;
 
 /** Selected arrivals and ordinary reports of active facts, within one day before the issue's window. */
 export async function reportWindowEvidence(start: Date, end: Date) {

@@ -427,6 +427,10 @@
     {
       "name": "events/202610160610_public_participation.sql",
       "dependsOn": ["events/202610151731_grouping_evidence.sql", "publication/202610120200_public_read_watermarks.sql"]
+    },
+    {
+      "name": "publication/202610160700_source_time_binding.sql",
+      "dependsOn": ["publication/202610042021_public_source_time.sql"]
     }
   ]
 }
