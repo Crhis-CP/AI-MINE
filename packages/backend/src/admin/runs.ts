@@ -4,7 +4,7 @@ import { releaseUnknownReceiptUnbilled, MANUAL_UNBILLED_NOTE_PREFIX } from "@amp
 import { readCurrentBody, resetFailedMaterialForRetry } from "@amp/backend/content/materials";
 // Runs view: task timeline, queue backlog, source lag, error classes, process
 // heartbeats, and the receipts and deliveries whose outcome needs an operator.
-import { dbOf, type Db } from "../db.ts";
+import { dbOf, type Tx, type Db } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
@@ -184,8 +184,20 @@ async function resumeReceiptWork(row: { purpose: string; subject: string | null;
     if (!Number.isSafeInteger(storyId)) return false;
     return !!(await enqueue(QUEUES.digest, { storyId }, { singletonKey: `story:${storyId}` }, db));
   }
-  const article = ARTICLE_STEPS.has(row.purpose) ? /^article:([^@:#]+)/.exec(row.subject ?? "")?.[1] : undefined;
-  return !!article && (await resetFailedMaterialForRetry(db, article)) && !!(await queueProcessing(article, { db }));
+  const subject = ARTICLE_STEPS.has(row.purpose) ? /^article:([a-zA-Z0-9_-]+)(?:@([1-9][0-9]*))?$/.exec(row.subject ?? "") : null;
+  if (!subject || (!subject[2] && row.purpose !== "body_fallback")) return false;
+  const stale = new Error("The receipt belongs to an older material revision");
+  try {
+    return await (db as Tx).savepoint(async (tx) => {
+      if (!(await resetFailedMaterialForRetry(tx, subject[1]!))) return false;
+      const current = await readCurrentBody(subject[1]!, tx);
+      if (!current || (subject[2] && current.revision !== Number(subject[2]))) throw stale;
+      return !!(await queueProcessing(current.id, { db: tx }));
+    });
+  } catch (error) {
+    if (error === stale) return false;
+    throw error;
+  }
 }
 
 /** One automatic release; the original uncertain charge remains available for reconciliation. */

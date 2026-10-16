@@ -197,7 +197,7 @@ async function translationBlocker(db: Db, stage: string | null, logicalKey: stri
   for (const row of rows) {
     if (row.known_unbilled) continue;
     // Automatic release is recorded atomically with its audit. A later accepted response restores progress, not the old bill.
-    if (row.attempt_id !== null && row.status === "unknown" && row.attempt_error === UNKNOWN_AUTO_RELEASE_NOTE && row.recovery_bound) continue;
+    if (row.attempt_id !== null && row.status === "unknown" && row.attempt_error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE) && row.recovery_bound) continue;
     if (row.status === "failed" && row.attempt_id === null && !row.has_response) {
       await db`UPDATE ai.translation_receipt_observations SET known_unbilled=true
         WHERE scope=${stage} AND receipt_id=${row.id_text} AND receipt_version=${row.receipt_version} AND attempt_id IS NULL`;
@@ -399,8 +399,8 @@ async function checkPolicyReceipts(tx: Db, context?: PolicyReceiptContext) {
     if (
       row.status === "failed" &&
       row.attempt_status === "unknown" &&
-      row.error === UNKNOWN_AUTO_RELEASE_NOTE &&
-      row.attempt_error === UNKNOWN_AUTO_RELEASE_NOTE
+      row.error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE) &&
+      row.attempt_error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE)
     )
       continue;
     if (row.status === "pending" || row.attempt_status === "pending") throw new ReceiptBusyError(`Policy source receipt ${row.id} is in flight`);
@@ -866,7 +866,7 @@ export async function releasedTranslationScopes(scopes: string[]): Promise<Set<s
     SELECT substring(r.subject from '^(article:[a-zA-Z0-9_-]+@[1-9][0-9]*)') AS scope,
       r.status,r.error,r.attempts,old.attempt AS released_attempt,
       (current.response IS NOT NULL AND current.response=r.response) AS response_bound
-    FROM receipts r JOIN receipt_attempts old ON old.receipt_id=r.id AND ((old.status='unknown' AND old.error=${UNKNOWN_AUTO_RELEASE_NOTE})
+    FROM receipts r JOIN receipt_attempts old ON old.receipt_id=r.id AND ((old.status='unknown' AND old.error LIKE ${UNKNOWN_AUTO_RELEASE_NOTE + "%"})
       OR (old.status='failed' AND old.error LIKE ${MANUAL_UNBILLED_NOTE_PREFIX + "%"}))
     LEFT JOIN receipt_attempts current ON current.id=r.response_attempt_id AND current.receipt_id=r.id
       AND current.attempt=r.attempts AND current.attempt>old.attempt AND current.status='received' AND current.output_rejected_at IS NULL
@@ -876,7 +876,7 @@ export async function releasedTranslationScopes(scopes: string[]): Promise<Set<s
       .filter(
         (row) =>
           (row.status === "failed" &&
-            (row.error === UNKNOWN_AUTO_RELEASE_NOTE || row.error?.startsWith(MANUAL_UNBILLED_NOTE_PREFIX)) &&
+            (row.error?.startsWith(UNKNOWN_AUTO_RELEASE_NOTE) || row.error?.startsWith(MANUAL_UNBILLED_NOTE_PREFIX)) &&
             row.attempts === row.released_attempt) ||
           (["received", "completed"].includes(row.status) && row.response_bound),
       )
