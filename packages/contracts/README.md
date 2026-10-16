@@ -34,9 +34,9 @@ TASK-0021私有HTTP 0.3.0（建设期breaking，ADR-0024）：POST sources必需
 `source-policy`补充未激活的ProcessingInputManifest与独立CapabilityInputAuthorization：来源分支必须非空、保持材料revision/hash/资源和完整上游artifact四元组；同一材料同一revision不能自称不同来源/hash；历史摘要与当前输入可各自携带该稿不同revision，是否实际可用仍须核验，重复artifact不可伪装另一manifest。非来源分支只声明待核对的登记artifact/hash/caller/lane/model_capability/external_model用途，schema本身不登记、不签发或认可SELF_AUTHORED。请求不能指定签发时刻/有效期；实际工厂核对服务端清单、真实渲染输入与当前根后签发Ed25519封装。权限版本与业务用途记录在每次使用审计，不写入付费缓存身份。此差量不注册HTTP或改变任何生成物，实际消费随后与存储/全部调用方原子接通。
 
 
-ADR-0025 / TASK-0022 的 `SourceDated*` 是未注册的下一版公开形状，复用现有 schema 的 `extend`：TimeAssertion 仍是来源事实，`firstPublicAt` 是实际公开资格成立时的本站记录，旧历史未知保留 null；TimelineCard.day 是来源日/组内最新来源日，不能用回退时刻分组。现有 Feed/Pool/Timeline 及私有 runs 别名和 HTTP 注册继续保持原形状，生成 public 0.2.0 / private 0.3.0 字节不变。本片不把 nullable 来源日期或新必填字段提前放到旧处理器上。
+来源时间当前边界（TASK-0360，2026-10-16）：public 0.2.0 的 Feed/Pool/Timeline 别名已兼容增加可选 sourceTime 和 firstPublicAt，并重新生成客户端和 OpenAPI；旧响应仍可省略，既有字段类型、排序和游标不变。TimeAssertion 只表达原文来源时间，firstPublicAt 是本站实际公开时间；旧历史没有证据时保持未知，不为只有日期的原文补造时分。
 
-消费者联合激活时一次切换相应别名、旧手写 DTO 引用、全部读者/机器出口与生成 public 0.3.0；详情报道的 publishedAt 允许 null，日历日不制造 instant。tl2（日+原锚点）和 by=published 的 it4 文本日期游标拒绝旧版本并沿用 Problem/重载语义，其他游标协议保留。`SourceDatedReceiptReconciliationResponse` 同时预告私有待补列表；未配置告警天数时是 null，不暗设期限。具体兼容边界、实际 first-public 时机与联动顺序见 ADR-0025；本片没有日期公开门、任务、数据库或模型调用。
+ADR-0025 / TASK-0022 的 SourceDated* 仍是未注册的历史候选形状。此前“当前别名及生成物字节不变、以后统一切换 public 0.3.0”的准备说明已被本次兼容扩展取代；来源日分组、tl2/it4 游标切换和新增必填字段没有启用，也不作为本轮消费者的前置条件。现行升级按到达、确认与报告窗口安排内容，来源时间的生产与消费在统一版本接通。这里的契约声明不等于生产功能已经启用。
 
 公众号增量只预定义WechatSourceDeclaration/AccountScope/AccountResource/ContentResource，暂未并入SourcePolicy或ProcessingPermit的现行URL分支。加入时明确参考长文章URL，解析唯一规范__biz；ghid可选，不要求填写未知原始ID，不从微信号/昵称或供应商域名推导归属。账号列表无伪造URL，短文链接与附件必须由运行端口核验已取得的账号关系，schema解析不授信。实际启用需SourcePolicy/私有创建读回/生成客户端/两页/采集者联合，私有版本计划升0.4.0（MP建档新增明确身份前提）；原URL wire与公共0.2.0保持，旧配置不自动升级。
 
@@ -56,3 +56,6 @@ TASK-0098 法规公开读取契约位于 `http/policy.ts`，经既有 public reg
 
 
 报告阅读兼容扩展（TASK-0360）：旧站点报告可省略leadItemId及引用的factId/sources/followUp/fillIn/related；缺失不推断为已确认或0个来源。相关报道的available独立核对。v3报告可选reading描述头条与主条目、相关条目的公开引用，头条须在主条目中且主条目不重复；消费者仍须核对实际公开资格和权限，schema不授予内容使用许可。
+
+
+公开日期兼容补充（TASK-0360，2026-10-16）：当前Feed/Pool/Timeline别名接受可选sourceTime和firstPublicAt；站点详情、报道和报告引用也可携带sourceTime。旧响应不补默认值，unknown不等于日期精度，date不产生utc。这里只提供兼容输入输出，不自动启用旧ADR0025的来源日分组/游标切换；当前升级保留既定到达、确认和报告窗口语义，消费者在统一版本接通。

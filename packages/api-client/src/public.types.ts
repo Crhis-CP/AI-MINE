@@ -776,6 +776,7 @@ export interface components {
         | null;
       /** @constant */
       channel: "news";
+      firstPublicAt?: string | null;
       id: string;
       publishedAt: string | null;
       reason: string | null;
@@ -784,6 +785,42 @@ export interface components {
       source: {
         name: string;
       };
+      sourceTime?: {
+        basis: string;
+        beijing_date: string | null;
+        condition_text: string | null;
+        label: string;
+        local_date: string | null;
+        local_time: string | null;
+        /** @enum {string} */
+        meaning:
+          | "published"
+          | "updated"
+          | "registered"
+          | "public_inspection"
+          | "formally_published"
+          | "signed"
+          | "effective"
+          | "applicable"
+          | "deadline"
+          | "compiled"
+          | "expires"
+          | "event"
+          | "discovered"
+          | "site_public"
+          | "uploaded"
+          | "checked"
+          | "repealed";
+        meaning_label: string;
+        /**
+         * @default date
+         * @enum {string}
+         */
+        precision: "unknown" | "date" | "minute" | "second";
+        raw: string;
+        timezone: string | null;
+        utc: string | null;
+      } | null;
       summary: string | null;
       tags: string[];
       /** Format: date-time */
@@ -807,6 +844,7 @@ export interface components {
         | null;
       /** @constant */
       channel: "news";
+      firstPublicAt?: string | null;
       id: string;
       publishedAt: string | null;
       reason: string | null;
@@ -815,6 +853,42 @@ export interface components {
       source: {
         name: string;
       };
+      sourceTime?: {
+        basis: string;
+        beijing_date: string | null;
+        condition_text: string | null;
+        label: string;
+        local_date: string | null;
+        local_time: string | null;
+        /** @enum {string} */
+        meaning:
+          | "published"
+          | "updated"
+          | "registered"
+          | "public_inspection"
+          | "formally_published"
+          | "signed"
+          | "effective"
+          | "applicable"
+          | "deadline"
+          | "compiled"
+          | "expires"
+          | "event"
+          | "discovered"
+          | "site_public"
+          | "uploaded"
+          | "checked"
+          | "repealed";
+        meaning_label: string;
+        /**
+         * @default date
+         * @enum {string}
+         */
+        precision: "unknown" | "date" | "minute" | "second";
+        raw: string;
+        timezone: string | null;
+        utc: string | null;
+      } | null;
       summary: string | null;
       tags: string[];
       /** Format: date-time */
