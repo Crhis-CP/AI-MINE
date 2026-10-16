@@ -8,6 +8,7 @@ import { dbOf, type Db } from "../db.ts";
 import { audit } from "./auth.ts";
 import { Conflict } from "./sources.ts";
 import { failureGroupSql, queueProcessing, requeueFailed } from "../jobs/content.ts";
+import { currentScheduledJobs } from "../jobs/schedule-status.ts";
 import { enqueue, QUEUES } from "../jobs/queue.ts";
 import { EVENT_CONTINUATIONS } from "../events/queues.ts";
 import { CAPABILITIES } from "../editorial/models.ts";
@@ -32,6 +33,7 @@ export function receiptObservedVersion(input: ReceiptVersionFields): string {
 }
 
 export async function runsOverview() {
+  const currentJobs = await currentScheduledJobs();
   const [heartbeats, latest, timeline, queues, failedJobs, lagging, receipts, receiptIssues, deliveries, errors, ingest] = await Promise.all([
     sql<
       { key: string; value: Record<string, unknown>; updated_at: Date }[]
@@ -39,10 +41,10 @@ export async function runsOverview() {
     sql`
       WITH latest AS (
         SELECT DISTINCT ON (job) job, started_at, finished_at, status, left(error, 400) AS error
-        FROM job_runs ORDER BY job, started_at DESC
+        FROM job_runs WHERE job=ANY(${currentJobs}::text[]) ORDER BY job, started_at DESC,id DESC
       ), counts AS (
         SELECT job, count(*) FILTER (WHERE status = 'failed')::int AS failed_24h, count(*)::int AS runs_24h
-        FROM job_runs WHERE started_at > now() - interval '24 hours' GROUP BY job
+        FROM job_runs WHERE job=ANY(${currentJobs}::text[]) AND started_at > now() - interval '24 hours' GROUP BY job
       )
       SELECT latest.*, coalesce(counts.failed_24h, 0) AS failed_24h, coalesce(counts.runs_24h, 0) AS runs_24h
       FROM latest LEFT JOIN counts USING (job) ORDER BY job`,

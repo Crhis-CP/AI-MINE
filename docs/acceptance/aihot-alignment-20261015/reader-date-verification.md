@@ -9,3 +9,5 @@
 后续检查点：`892a78dd0b2ff6d11bcd6378bcf24cf8ec18be9f` 取得 [运行38880170612](https://github.com/Crhis-CP/AI-MINE/actions/runs/38880170612) 完整scope full通过，涵盖搜索并行与独立超时、日期输入恢复、最近搜索及手机搜索层。此后的后台诊断与来源视图不由这份回执覆盖，仍未部署。
 
 后台与搜索导航检查点：`9c183a611db2f328df3f21f350cf004cd2e21377` 通过 [运行38884457493](https://github.com/Crhis-CP/AI-MINE/actions/runs/38884457493) 完整scope full验证；包括当前归组诊断、来源视图URL状态和轻量搜索导航。后续搜索结果共享仍须新回执，生产未部署。
+
+搜索并发检查点：`57deb164156626fbb2d99f15b770a4013d9038ba` 通过 [运行38886199898](https://github.com/Crhis-CP/AI-MINE/actions/runs/38886199898) 完整scope full验证，覆盖进行中搜索复用。其后的法规首屏读取、表格键盘访问和定时生命周期需新回执，未执行生产发布。

@@ -1,8 +1,7 @@
 import { environmentValue } from "../config.ts";
 // Model per capability: the code default (`default`, the deployment's own model), an environment
-// override, and an admin switch kept in settings (every switch is audited). Read at call time and
-// cached for a minute, so a switch applies to the next call without a restart; a changed model only
-// affects work done from then on (history is not re-judged).
+// override, and an admin switch kept in settings (every switch is audited). Read for new work,
+// without a cross-process cache; a changed model does not re-judge historical results.
 import { dbOf, type Db } from "../db.ts";
 import { MODELS, modelSpecFor } from "../providers/llm.ts";
 
@@ -41,7 +40,12 @@ export const CAPABILITIES = {
     purposes: ["group_review", "group_story_review"],
   },
   digest: { label: "事件综述", env: "DIGEST_MODEL", default: "default", purposes: ["story_digest"] },
-  report: { label: "日报、周报、月报", env: "REPORT_MODEL", default: "default", purposes: ["report_lead", "report_daily", "report_weekly", "report_monthly"] },
+  report: {
+    label: "周报、月报总述与栏目导读（日报按规则编排）",
+    env: "REPORT_MODEL",
+    default: "default",
+    purposes: ["report_lead", "report_daily", "report_weekly", "report_monthly"],
+  },
   translate: { label: "精选全文翻译", env: "TRANSLATE_MODEL", default: "default", purposes: ["translate_body"] },
   policy_fulltext: { label: "法规全文事实与完整中文", env: "POLICY_FULLTEXT_MODEL", default: "default", purposes: ["policy_fulltext"] },
   policy_group: { label: "法规分组核对与归并", env: "POLICY_GROUP_MODEL", default: "default", purposes: ["policy_group"] },

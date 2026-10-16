@@ -90,9 +90,10 @@ export async function registerSchedules(boss: PgBoss) {
     // Schedules fire at minute boundaries; a 15 s pickup keeps them on time with a third of the polling.
     await boss.work(queue, { pollingIntervalSeconds: 15 }, async () => recordRun(s.name, s.run));
   }
-  // A schedule removed from the table (a module switched off) must not keep firing from an earlier run.
+  // Retired timers must leave no queued work, including timers a prior release already unscheduled.
+  // Only the worker-owned cron namespace is retired; job_runs retains the independent audit.
   const names = new Set(SCHEDULES.map((s) => `cron.${s.name}`));
-  for (const existing of await boss.getSchedules()) {
-    if (existing.name.startsWith("cron.") && !names.has(existing.name)) await boss.unschedule(existing.name);
+  for (const existing of await boss.getQueues()) {
+    if (existing.name.startsWith("cron.") && !names.has(existing.name)) await boss.deleteQueue(existing.name);
   }
 }
