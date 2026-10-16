@@ -1,0 +1,359 @@
+{
+  "scope": "Local production-code previews of public lists; no production activation, model calls, or full-text permission grants.",
+  "entries": [
+    {
+      "company": "glencore",
+      "source": {
+        "id": "glencore-news",
+        "name": "嘉能可 · 官方新闻",
+        "kind": "json_list",
+        "lane": "news",
+        "config": {
+          "url": "https://www.glencore.com/media-and-insights/news",
+          "mode": "html_attribute",
+          "attributeSelector": "[\\:articles]",
+          "attributeName": ":articles",
+          "literalFormat": "static",
+          "titlePaths": [
+            "title"
+          ],
+          "urlTemplate": "https://www.glencore.com{raw:link}",
+          "publishedAtPath": "date",
+          "requireBoolean": {
+            "path": "published",
+            "equals": true
+          },
+          "language": "en",
+          "sourceDate": {
+            "format": "declared",
+            "formatPattern": "DD/MM/YYYY",
+            "language": "en"
+          },
+          "allowUrlPrefixes": [
+            "https://www.glencore.com/media-and-insights/news/"
+          ],
+          "sortByPublishedAt": true,
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": true,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "enabled": false,
+        "owner_entity_id": "glencore",
+        "tags": [
+          "嘉能可"
+        ]
+      },
+      "checked_at": "2026-10-16T18:04:33.504Z",
+      "configuration_sha256": "db71001e296f6c01eeeb8946efcec0bab489e94899e2492dd3623d191e383af2",
+      "preview_count": 24,
+      "sample": {
+        "title": "Glencore begins trading on Australian Securities Exchange",
+        "url": "https://www.glencore.com/media-and-insights/news/glencore-begins-trading-on-asx"
+      },
+      "status": "configuration_preview_passed",
+      "production_enabled": false
+    },
+    {
+      "company": "southern-copper",
+      "source": {
+        "id": "southern-copper-sec",
+        "name": "南方铜业 · SEC官方披露",
+        "kind": "json_list",
+        "lane": "news",
+        "config": {
+          "url": "https://data.sec.gov/submissions/CIK0001001838.json",
+          "itemsPath": "filings.recent",
+          "itemsShape": "columns",
+          "titleTemplate": "Southern Copper — {form} — {filingDate}",
+          "publishedAtPath": "filingDate",
+          "externalIdPath": "accessionNumber",
+          "includeValues": {
+            "path": "form",
+            "values": [
+              "8-K",
+              "8-K/A",
+              "10-K",
+              "10-K/A",
+              "10-Q",
+              "10-Q/A",
+              "6-K",
+              "6-K/A",
+              "20-F",
+              "20-F/A",
+              "40-F",
+              "SD"
+            ]
+          },
+          "urlTemplate": "https://www.sec.gov/Archives/edgar/data/1001838/{compact:accessionNumber}/{raw:primaryDocument}",
+          "language": "en",
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "en"
+          },
+          "allowUrlPrefixes": [
+            "https://www.sec.gov/Archives/edgar/data/1001838/"
+          ],
+          "sortByPublishedAt": true,
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": false,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "enabled": false,
+        "owner_entity_id": "sec",
+        "tags": [
+          "南方铜业"
+        ]
+      },
+      "checked_at": "2026-10-16T18:04:40.573Z",
+      "configuration_sha256": "815ff0c585964bb93341907763a3a961fea3a7cb1dbaea07a1bdd2e1f1dfbc26",
+      "preview_count": 286,
+      "sample": {
+        "title": "Southern Copper — SD — 2026-09-16",
+        "url": "https://www.sec.gov/Archives/edgar/data/1001838/000110465926108308/scco-20251231xsd.htm"
+      },
+      "status": "configuration_preview_passed",
+      "production_enabled": false
+    },
+    {
+      "company": "newmont",
+      "source": {
+        "id": "newmont-sec",
+        "name": "纽蒙特 · SEC官方披露",
+        "kind": "json_list",
+        "lane": "news",
+        "config": {
+          "url": "https://data.sec.gov/submissions/CIK0001164727.json",
+          "itemsPath": "filings.recent",
+          "itemsShape": "columns",
+          "titleTemplate": "Newmont — {form} — {filingDate}",
+          "publishedAtPath": "filingDate",
+          "externalIdPath": "accessionNumber",
+          "includeValues": {
+            "path": "form",
+            "values": [
+              "8-K",
+              "8-K/A",
+              "10-K",
+              "10-K/A",
+              "10-Q",
+              "10-Q/A",
+              "6-K",
+              "6-K/A",
+              "20-F",
+              "20-F/A",
+              "40-F",
+              "SD"
+            ]
+          },
+          "urlTemplate": "https://www.sec.gov/Archives/edgar/data/1164727/{compact:accessionNumber}/{raw:primaryDocument}",
+          "language": "en",
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "en"
+          },
+          "allowUrlPrefixes": [
+            "https://www.sec.gov/Archives/edgar/data/1164727/"
+          ],
+          "sortByPublishedAt": true,
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": false,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "enabled": false,
+        "owner_entity_id": "sec",
+        "tags": [
+          "纽蒙特"
+        ]
+      },
+      "checked_at": "2026-10-16T18:04:49.918Z",
+      "configuration_sha256": "380be640bb6562cdb05c3560ad1a62e3bbdbe7789a81bd875521b0bd932bb865",
+      "preview_count": 148,
+      "sample": {
+        "title": "Newmont — 8-K — 2026-08-20",
+        "url": "https://www.sec.gov/Archives/edgar/data/1164727/000110465926099237/tm2623668d1_8k.htm"
+      },
+      "status": "configuration_preview_passed",
+      "production_enabled": false
+    },
+    {
+      "company": "barrick",
+      "source": {
+        "id": "barrick-sec",
+        "name": "巴里克 · SEC官方披露",
+        "kind": "json_list",
+        "lane": "news",
+        "config": {
+          "url": "https://data.sec.gov/submissions/CIK0000756894.json",
+          "itemsPath": "filings.recent",
+          "itemsShape": "columns",
+          "titleTemplate": "Barrick — {form} — {filingDate}",
+          "publishedAtPath": "filingDate",
+          "externalIdPath": "accessionNumber",
+          "includeValues": {
+            "path": "form",
+            "values": [
+              "8-K",
+              "8-K/A",
+              "10-K",
+              "10-K/A",
+              "10-Q",
+              "10-Q/A",
+              "6-K",
+              "6-K/A",
+              "20-F",
+              "20-F/A",
+              "40-F",
+              "SD"
+            ]
+          },
+          "urlTemplate": "https://www.sec.gov/Archives/edgar/data/756894/{compact:accessionNumber}/{raw:primaryDocument}",
+          "language": "en",
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "en"
+          },
+          "allowUrlPrefixes": [
+            "https://www.sec.gov/Archives/edgar/data/756894/"
+          ],
+          "sortByPublishedAt": true,
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": false,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "enabled": false,
+        "owner_entity_id": "sec",
+        "tags": [
+          "巴里克"
+        ]
+      },
+      "checked_at": "2026-10-16T18:04:56.995Z",
+      "configuration_sha256": "b6f661400ba11f9a4c5ab0184b7384c53d08c7cb6a368d43a8f3437252075df0",
+      "preview_count": 315,
+      "sample": {
+        "title": "Barrick — 6-K — 2026-08-17",
+        "url": "https://www.sec.gov/Archives/edgar/data/756894/000119312526353144/d182096d6k.htm"
+      },
+      "status": "configuration_preview_passed",
+      "production_enabled": false
+    },
+    {
+      "company": "sqm",
+      "source": {
+        "id": "sqm-sec",
+        "name": "SQM · SEC官方披露",
+        "kind": "json_list",
+        "lane": "news",
+        "config": {
+          "url": "https://data.sec.gov/submissions/CIK0000909037.json",
+          "itemsPath": "filings.recent",
+          "itemsShape": "columns",
+          "titleTemplate": "SQM — {form} — {filingDate}",
+          "publishedAtPath": "filingDate",
+          "externalIdPath": "accessionNumber",
+          "includeValues": {
+            "path": "form",
+            "values": [
+              "8-K",
+              "8-K/A",
+              "10-K",
+              "10-K/A",
+              "10-Q",
+              "10-Q/A",
+              "6-K",
+              "6-K/A",
+              "20-F",
+              "20-F/A",
+              "40-F",
+              "SD"
+            ]
+          },
+          "urlTemplate": "https://www.sec.gov/Archives/edgar/data/909037/{compact:accessionNumber}/{raw:primaryDocument}",
+          "language": "en",
+          "sourceDate": {
+            "format": "iso8601",
+            "language": "en"
+          },
+          "allowUrlPrefixes": [
+            "https://www.sec.gov/Archives/edgar/data/909037/"
+          ],
+          "sortByPublishedAt": true,
+          "crawlProfile": {
+            "minimumIntervalSeconds": 5
+          }
+        },
+        "tier": "T1",
+        "first_party": false,
+        "participation_mode": "editorial",
+        "interval_minutes": 180,
+        "site_fulltext": false,
+        "syndicate_fulltext": false,
+        "enabled": false,
+        "owner_entity_id": "sec",
+        "tags": [
+          "SQM"
+        ]
+      },
+      "checked_at": "2026-10-16T18:05:03.825Z",
+      "configuration_sha256": "77640fa89feaade9918f01a95d8ab2b7ca3c448ed2c5723b4aafd0ddd5d7f454",
+      "preview_count": 653,
+      "sample": {
+        "title": "SQM — SD — 2026-09-28",
+        "url": "https://www.sec.gov/Archives/edgar/data/909037/000090903726000039/sqmformsdresourceextractio.htm"
+      },
+      "status": "configuration_preview_passed",
+      "production_enabled": false
+    },
+    {
+      "company": "tianqi",
+      "checked_at": "2026-10-16T18:05:09.966Z",
+      "status": "blocked",
+      "reason": "robots_unavailable",
+      "configuration_sha256": "36c3d1ea9a3a3f64f0baf7390925f44b9018f9f14119f2e6c5238be7daefa974",
+      "production_enabled": false
+    },
+    {
+      "company": "bhp",
+      "checked_at": "2026-10-16T18:05:45.050462+00:00",
+      "status": "blocked",
+      "url": "https://www.bhp.com/robots.txt",
+      "http_status": 403,
+      "body_sha256": "86e72d5a08b3897aaaf80bf5d21bee7d090691f7f3ad71181ebdd30749094095",
+      "reason": "robots_access_denied",
+      "production_enabled": false
+    },
+    {
+      "company": "anglo",
+      "checked_at": "2026-10-16T18:05:53.940016+00:00",
+      "status": "blocked",
+      "url": "https://www.angloamerican.com/robots.txt",
+      "http_status": 403,
+      "body_sha256": "5efec3c0bc91b7c4a758cede4154dfeefe6b934e59091225900547c1f712430b",
+      "reason": "robots_access_denied",
+      "production_enabled": false
+    }
+  ]
+}

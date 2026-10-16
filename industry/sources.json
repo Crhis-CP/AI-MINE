@@ -11160,6 +11160,198 @@
       "syndicate_fulltext": false,
       "enabled": false,
       "owner_entity_id": null
+    },
+    {
+      "id": "glencore-news",
+      "name": "嘉能可 · 官方新闻",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "url": "https://www.glencore.com/media-and-insights/news",
+        "mode": "html_attribute",
+        "attributeSelector": "[\\:articles]",
+        "attributeName": ":articles",
+        "literalFormat": "static",
+        "titlePaths": ["title"],
+        "urlTemplate": "https://www.glencore.com{raw:link}",
+        "publishedAtPath": "date",
+        "requireBoolean": {
+          "path": "published",
+          "equals": true
+        },
+        "language": "en",
+        "sourceDate": {
+          "format": "declared",
+          "formatPattern": "DD/MM/YYYY",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.glencore.com/media-and-insights/news/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": true,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false,
+      "owner_entity_id": "glencore",
+      "tags": ["嘉能可"]
+    },
+    {
+      "id": "southern-copper-sec",
+      "name": "南方铜业 · SEC官方披露",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "url": "https://data.sec.gov/submissions/CIK0001001838.json",
+        "itemsPath": "filings.recent",
+        "itemsShape": "columns",
+        "titleTemplate": "Southern Copper — {form} — {filingDate}",
+        "publishedAtPath": "filingDate",
+        "externalIdPath": "accessionNumber",
+        "includeValues": {
+          "path": "form",
+          "values": ["8-K", "8-K/A", "10-K", "10-K/A", "10-Q", "10-Q/A", "6-K", "6-K/A", "20-F", "20-F/A", "40-F", "SD"]
+        },
+        "urlTemplate": "https://www.sec.gov/Archives/edgar/data/1001838/{compact:accessionNumber}/{raw:primaryDocument}",
+        "language": "en",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.sec.gov/Archives/edgar/data/1001838/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": false,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false,
+      "owner_entity_id": "sec",
+      "tags": ["南方铜业"]
+    },
+    {
+      "id": "newmont-sec",
+      "name": "纽蒙特 · SEC官方披露",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "url": "https://data.sec.gov/submissions/CIK0001164727.json",
+        "itemsPath": "filings.recent",
+        "itemsShape": "columns",
+        "titleTemplate": "Newmont — {form} — {filingDate}",
+        "publishedAtPath": "filingDate",
+        "externalIdPath": "accessionNumber",
+        "includeValues": {
+          "path": "form",
+          "values": ["8-K", "8-K/A", "10-K", "10-K/A", "10-Q", "10-Q/A", "6-K", "6-K/A", "20-F", "20-F/A", "40-F", "SD"]
+        },
+        "urlTemplate": "https://www.sec.gov/Archives/edgar/data/1164727/{compact:accessionNumber}/{raw:primaryDocument}",
+        "language": "en",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.sec.gov/Archives/edgar/data/1164727/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": false,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false,
+      "owner_entity_id": "sec",
+      "tags": ["纽蒙特"]
+    },
+    {
+      "id": "barrick-sec",
+      "name": "巴里克 · SEC官方披露",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "url": "https://data.sec.gov/submissions/CIK0000756894.json",
+        "itemsPath": "filings.recent",
+        "itemsShape": "columns",
+        "titleTemplate": "Barrick — {form} — {filingDate}",
+        "publishedAtPath": "filingDate",
+        "externalIdPath": "accessionNumber",
+        "includeValues": {
+          "path": "form",
+          "values": ["8-K", "8-K/A", "10-K", "10-K/A", "10-Q", "10-Q/A", "6-K", "6-K/A", "20-F", "20-F/A", "40-F", "SD"]
+        },
+        "urlTemplate": "https://www.sec.gov/Archives/edgar/data/756894/{compact:accessionNumber}/{raw:primaryDocument}",
+        "language": "en",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.sec.gov/Archives/edgar/data/756894/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": false,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false,
+      "owner_entity_id": "sec",
+      "tags": ["巴里克"]
+    },
+    {
+      "id": "sqm-sec",
+      "name": "SQM · SEC官方披露",
+      "kind": "json_list",
+      "lane": "news",
+      "config": {
+        "url": "https://data.sec.gov/submissions/CIK0000909037.json",
+        "itemsPath": "filings.recent",
+        "itemsShape": "columns",
+        "titleTemplate": "SQM — {form} — {filingDate}",
+        "publishedAtPath": "filingDate",
+        "externalIdPath": "accessionNumber",
+        "includeValues": {
+          "path": "form",
+          "values": ["8-K", "8-K/A", "10-K", "10-K/A", "10-Q", "10-Q/A", "6-K", "6-K/A", "20-F", "20-F/A", "40-F", "SD"]
+        },
+        "urlTemplate": "https://www.sec.gov/Archives/edgar/data/909037/{compact:accessionNumber}/{raw:primaryDocument}",
+        "language": "en",
+        "sourceDate": {
+          "format": "iso8601",
+          "language": "en"
+        },
+        "allowUrlPrefixes": ["https://www.sec.gov/Archives/edgar/data/909037/"],
+        "sortByPublishedAt": true,
+        "crawlProfile": {
+          "minimumIntervalSeconds": 5
+        }
+      },
+      "tier": "T1",
+      "first_party": false,
+      "participation_mode": "editorial",
+      "interval_minutes": 180,
+      "site_fulltext": false,
+      "syndicate_fulltext": false,
+      "enabled": false,
+      "owner_entity_id": "sec",
+      "tags": ["SQM"]
     }
   ]
 }
