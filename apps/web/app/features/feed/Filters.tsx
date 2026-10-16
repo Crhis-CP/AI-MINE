@@ -298,6 +298,9 @@ export function SourceDateFilters({
           矿种
           <select name="mineral" defaultValue={params.get("mineral") ?? ""} className={field}>
             <option value="">全部矿种</option>
+            {params.get("mineral") && !facets?.minerals.includes(params.get("mineral")!) && (
+              <option value={params.get("mineral")!}>{params.get("mineral")}</option>
+            )}
             {facets?.minerals.map((mineral) => (
               <option key={mineral} value={mineral}>
                 {mineral}

@@ -69,12 +69,29 @@ const detail = {
   relatedPolicies: [{ id: "policy-fixture", title: "合成相关法规", jurisdiction: "AR", documentNumber: "法令 123" }],
 };
 const calls: string[] = [];
+const searchTimes = { newsStart: 0, newsEnd: 0, policyStart: 0, policyEnd: 0 };
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://fixture");
   calls.push(req.url!);
   res.setHeader("content-type", "application/json");
   res.setHeader("cache-control", "no-store");
-  const answer = (value: unknown) => res.end(JSON.stringify(value));
+  const answer = (value: unknown) => {
+    if (url.searchParams.get("q") === "并行测试" && ["/api/site/pool", "/api/site/policies"].includes(url.pathname)) {
+      const news = url.pathname === "/api/site/pool";
+      searchTimes[news ? "newsStart" : "policyStart"] = Date.now();
+      setTimeout(() => {
+        searchTimes[news ? "newsEnd" : "policyEnd"] = Date.now();
+        res.end(JSON.stringify(value));
+      }, 400);
+      return;
+    }
+    return res.end(JSON.stringify(value));
+  };
+  if (url.pathname === "/api/site/policies") {
+    if (url.searchParams.get("q") === "超时测试") return;
+    res.statusCode = 503;
+    return answer({ code: "temporarily_unavailable" });
+  }
   if (url.pathname === "/api/site/meta") return answer({ changelogVersion: null });
   if (url.pathname === "/api/site/content-version") return answer({ version: added ? "2" : "1", withdrawalVersion: withdrawn ? "2" : "1" });
   if (url.pathname === "/api/site/jurisdictions") return answer([]);
@@ -98,7 +115,7 @@ const api = createServer((req, res) => {
   }
   if (url.pathname === "/api/site/pool")
     return answer({
-      filters: { channel: "all", category: null, tag: null, q: null, tab: "time" },
+      filters: { channel: "all", category: null, tag: null, q: url.searchParams.get("q"), tab: "time" },
       items: withdrawn ? (added ? [card("fixture-new")] : []) : added ? [card("fixture-new"), card()] : [card()],
       page: Number(url.searchParams.get("page") || 1),
       pageCount: 51,
@@ -420,5 +437,34 @@ test("saved references import/export and partial refresh preserve usable content
     } finally {
       await context.close();
     }
+  }
+});
+
+test("news search runs alongside its optional policy search, and invalid dates retain editable filters", { timeout: 20000 }, async () => {
+  withdrawn = false;
+  added = false;
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "zh-CN" });
+  try {
+    await isolateBrowser(context, [origin]);
+    const page = await context.newPage();
+    await page.goto(`${origin}/all?q=${encodeURIComponent("并行测试")}`);
+    await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+    assert.ok(Math.max(searchTimes.newsStart, searchTimes.policyStart) < Math.min(searchTimes.newsEnd, searchTimes.policyEnd), JSON.stringify(searchTimes));
+    const started = Date.now();
+    await page.goto(`${origin}/all?q=${encodeURIComponent("超时测试")}`, { timeout: 9000 });
+    await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+    assert.ok(Date.now() - started < 8000, "an optional stalled search must have a bounded deadline");
+    const response = await page.goto(`${origin}/all?from=2026-10-16&to=2026-10-15&mineral=${encodeURIComponent("铜")}`);
+    assert.equal(response!.status(), 400);
+    await expect(page.getByRole("alert")).toContainText("开始日期不能晚于结束日期");
+    await expect(page.getByLabel("开始日期")).toHaveValue("2026-10-16");
+    await expect(page.getByLabel("结束日期")).toHaveValue("2026-10-15");
+    await expect(page.getByRole("combobox", { name: "矿种", exact: true })).toHaveValue("铜");
+    await page.getByLabel("结束日期").fill("2026-10-17");
+    await page.getByRole("button", { name: "应用筛选" }).click();
+    await expect(page.getByRole("heading", { name: "可核对的矿业动态" })).toBeVisible();
+    assert.ok(calls.some((url) => url.includes("mineral=%E9%93%9C") && url.includes("to=2026-10-17")));
+  } finally {
+    await context.close();
   }
 });
