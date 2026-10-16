@@ -173,9 +173,11 @@ for (const width of [1440, 390])
     await expect(tableRegion).toHaveAttribute("tabindex", "0");
     await expect(tableRegion.locator("td[rowspan]")).toHaveAttribute("rowspan", "2");
     await expect(tableRegion.locator("th[colspan]")).toHaveAttribute("colspan", "12");
+    await page.bringToFront();
+    await expect.poll(() => tableRegion.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
     await tableRegion.focus();
     await expect(tableRegion).toBeFocused();
-    await page.keyboard.press("ArrowRight");
+    await tableRegion.press("ArrowRight");
     await expect.poll(() => tableRegion.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
 

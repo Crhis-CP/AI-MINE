@@ -279,3 +279,17 @@ test("shared UI uses explicit entries and cannot depend back on web or private c
     assert.ok(checkBoundaries(bad.dir, bad.files).includes(`packages/ui/package.json: @amp/ui may not depend on ${dependency}`));
   }
 });
+
+test("the site configuration workspace is explicit and stays free of backend handlers", () => {
+  const fixture = workspace({
+    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - site\n",
+    "site/package.json": pkg("@amp/site", [], { ".": "./site.ts", "./models": "./models.ts" }),
+    "site/site.ts": "export const SITE = {};",
+    "site/models.ts": "export const DEFAULTS = {};",
+    "industry/package.json": pkg("@amp/industry", ["@amp/site"], { "./site": "./site.ts" }),
+    "industry/site.ts": 'export * from "@amp/site";',
+  });
+  assert.deepEqual(checkBoundaries(fixture.dir, fixture.files), []);
+  write(fixture.dir, { "site/package.json": pkg("@amp/site", ["@amp/backend"], { ".": "./site.ts" }) });
+  assert.ok(checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("@amp/site may not depend on @amp/backend")));
+});

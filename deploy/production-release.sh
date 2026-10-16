@@ -108,7 +108,13 @@ PYP
 RELEASE_OLD_IMAGE=$(docker inspect --format '{{.Image}}' amp-web-1)
 for role in public-api private-api web worker; do
   [[ $(docker inspect --format '{{.Image}} {{.State.Running}}' "amp-$role-1") == "$RELEASE_OLD_IMAGE true" ]]
-  docker exec "amp-$role-1" tar -czf - -C /app apps packages industry scripts assets reference database deploy node_modules package.json pnpm-lock.yaml pnpm-workspace.yaml > "$RELEASE_BACKUP/$role-program.tar.gz"
+  docker exec "amp-$role-1" sh -c '
+    set -- apps packages industry scripts assets reference database deploy node_modules package.json pnpm-lock.yaml pnpm-workspace.yaml
+    for extra in site modules; do
+      if [ -d "/app/$extra" ]; then set -- "$@" "$extra"; fi
+    done
+    exec tar -czf - -C /app "$@"
+  ' > "$RELEASE_BACKUP/$role-program.tar.gz"
   tar -tzf "$RELEASE_BACKUP/$role-program.tar.gz" >/dev/null
  done
 RELEASE_OLD_TAG=amp-retained:${RELEASE_OLD_IMAGE:7:12}

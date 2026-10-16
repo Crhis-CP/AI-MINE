@@ -1,0 +1,10 @@
+{
+  "name": "@amp/site",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./site.ts",
+    "./models": "./models.ts"
+  }
+}

@@ -27,9 +27,10 @@ const DOMAINS = amp(Object.keys(DOMAIN_EDGES));
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
-  "@amp/industry": [],
+  "@amp/industry": ["@amp/site"],
+  "@amp/site": [],
   "@amp/contracts": [],
-  "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config"],
+  "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config", "@amp/site"],
   "@amp/api": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
   "@amp/worker": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
   "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),

@@ -22,5 +22,8 @@
     "./policy-sources": "./policy-sources.ts",
     "./mining-taxonomy": "./mining-taxonomy.ts",
     "./source-targets": "./source-targets.ts"
+  },
+  "dependencies": {
+    "@amp/site": "workspace:*"
   }
 }

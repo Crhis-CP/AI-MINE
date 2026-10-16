@@ -30,7 +30,8 @@ packages/platform/config  运行环境配置
 packages/contracts    契约（Zod → OpenAPI）：HTTP、任务与事件载荷（带 lane）、端口接口
 packages/{api-client,ui,testkit}  生成的客户端（不要手改）、设计系统、测试工具
 tooling/              契约生成等依赖旧编译器 API 的工具（固定 TypeScript 5.9.x）
-industry/             行业包：文案、分类、36 个法域字典、矿种、提示词、门槛、品牌、种子
+site/                 站点品牌、出刊时刻和模型配置（扩展注册继续接入）
+industry/             行业分类、法域、矿种、提示词、门槛和种子；旧site入口只作兼容转发
 database/migrations/<module>/   按模块分目录、时间戳命名的迁移
 evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile scripts/
 ```
@@ -57,7 +58,7 @@ evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile s
 ## 4. 常用命令
 
 ```bash
-pnpm install --frozen-lockfile     # 任何时候不改锁文件
+pnpm install --frozen-lockfile     # 常规安装冻结锁；工作区迁移只同步本地链接，核对外部依赖不变
 pnpm check                         # 快速子集：类型、Biome、边界、契约漂移、受影响工作区测试（提交前必跑）
 pnpm test --filter @amp/<module>   # 只测你的模块（node:test，自动使用临时库）
 pnpm e2e                           # Playwright + axe（桌面 + 手机）

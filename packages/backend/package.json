@@ -94,6 +94,7 @@
     "sanitize-html": "2.17.7",
     "sharp": "0.35.5",
     "undici": "8.11.2",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@amp/site": "workspace:*"
   }
 }
