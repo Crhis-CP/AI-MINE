@@ -30,7 +30,8 @@ packages/platform/config  运行环境配置
 packages/contracts    契约（Zod → OpenAPI）：HTTP、任务与事件载荷（带 lane）、端口接口
 packages/{api-client,ui,testkit}  生成的客户端（不要手改）、设计系统、测试工具
 tooling/              契约生成等依赖旧编译器 API 的工具（固定 TypeScript 5.9.x）
-site/                 站点品牌、出刊时刻和模型配置（扩展注册继续接入）
+site/                 站点品牌、出刊时刻、模型配置和扩展安装清单
+modules/              矿业扩展；metals已接管定时入口，其余实现继续迁移
 industry/             行业分类、法域、矿种、提示词、门槛和种子；旧site入口只作兼容转发
 database/migrations/<module>/   按模块分目录、时间戳命名的迁移
 evals/ e2e/ infra/ deploy/ docs/ changes/ tasks/ upstream/ lanes.yaml Makefile scripts/

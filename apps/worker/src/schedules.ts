@@ -1,3 +1,4 @@
+import { scheduledTasks, type Scheduled } from "@amp/backend/modules";
 // Cron-style schedules (Asia/Shanghai). Each run is recorded in job_runs; missed slots run once.
 import { sendWeeklyFeedbackSummary } from "@amp/backend/admin/feedback";
 import { forwardPendingFeedback } from "@amp/backend/operations/feedback";
@@ -20,14 +21,7 @@ import { backupConfigured, runBackup } from "@amp/backend/operations/backup";
 import { sourceHealthWeekly, usageWeekly, usageMonthly, refreshOperationalSnapshots, usageProtectionTick } from "@amp/backend/operations/reports";
 import { markStalePendingReceipts } from "@amp/backend/providers/receipts";
 import { markStaleDeliveries } from "@amp/backend/notify/deliver";
-import { refreshMetalPrices, repairPublicationTimes } from "@amp/backend/jobs/publication";
-
-interface Scheduled {
-  name: string;
-  cron: string;
-  run: () => Promise<unknown>;
-  missed?: "skip" | "once";
-}
+import { repairPublicationTimes } from "@amp/backend/jobs/publication";
 
 const collecting = process.env.COLLECT_ENABLED !== "false";
 
@@ -76,14 +70,13 @@ export const SCHEDULES: Scheduled[] = [
         { name: "sources.adapt-intervals", cron: "20 4 * * *", run: adaptIntervals },
         // WeChat official accounts (paid), each once per its interval.
         { name: "sources.mp-reconcile", cron: "*/15 * * * *", run: () => scheduleMpReconcile() },
-        // Source publication times differ; poll every half hour and retain their own dates.
-        { name: "metals.prices", cron: "*/30 * * * *", missed: "once" as const, run: () => refreshMetalPrices() },
       ]
     : []),
 ];
 
 export async function registerSchedules(boss: PgBoss) {
-  for (const s of SCHEDULES) {
+  const schedules = scheduledTasks(SCHEDULES);
+  for (const s of schedules) {
     const queue = `cron.${s.name}`;
     await ensureQueue(queue, { policy: "singleton", retryLimit: 1, expireInSeconds: 3600 });
     await boss.schedule(queue, s.cron, {}, { tz: "Asia/Shanghai", missed: s.missed ?? "skip" });
@@ -92,7 +85,7 @@ export async function registerSchedules(boss: PgBoss) {
   }
   // Retired timers must leave no queued work, including timers a prior release already unscheduled.
   // Only the worker-owned cron namespace is retired; job_runs retains the independent audit.
-  const names = new Set(SCHEDULES.map((s) => `cron.${s.name}`));
+  const names = new Set(schedules.map((s) => `cron.${s.name}`));
   for (const existing of await boss.getQueues()) {
     if (existing.name.startsWith("cron.") && !names.has(existing.name)) await boss.deleteQueue(existing.name);
   }

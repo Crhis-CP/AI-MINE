@@ -21,6 +21,9 @@ export async function startApi(env: Readonly<Record<string, string | undefined>>
   const { startHeartbeat } = await import("@amp/backend/operations/heartbeat");
   const { startWorkerWatchdog } = await import("@amp/backend/operations/watch");
   const { buildApp } = await import("./app.ts");
+  const { SERVER_MODULES } = await import("@amp/site/modules/server");
+  const { installModules } = await import("@amp/backend/modules");
+  installModules(SERVER_MODULES);
   await initializeDb(role, env);
   let app: Awaited<ReturnType<typeof buildApp>> | undefined;
   try {

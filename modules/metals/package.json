@@ -1,0 +1,13 @@
+{
+  "name": "@amp/metals",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./module": "./module.ts",
+    "./server": "./server.ts"
+  },
+  "dependencies": {
+    "@amp/backend": "workspace:*",
+    "@amp/contracts": "workspace:*"
+  }
+}

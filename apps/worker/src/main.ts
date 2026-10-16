@@ -1,3 +1,5 @@
+import { SERVER_MODULES } from "@amp/site/modules/server";
+import { installModules } from "@amp/backend/modules";
 // Worker process: queues and schedules for collection, processing, events, reports and ops.
 import { closeDb, initializeDb } from "@amp/backend/db";
 import { ensureQueue, getBoss, QUEUES, recordRun, stopBoss } from "@amp/backend/jobs/queue";
@@ -11,6 +13,7 @@ import { registerSchedules } from "./schedules.ts";
 import { ensureContentTargets } from "@amp/backend/notify/deliver";
 import { startHeartbeat } from "@amp/backend/operations/heartbeat";
 
+installModules(SERVER_MODULES);
 await initializeDb("worker");
 
 await ensureContentTargets();

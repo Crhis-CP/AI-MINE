@@ -1,3 +1,4 @@
+import { installModules } from "@amp/backend/modules";
 import { runsOverview } from "@amp/backend/admin/runs";
 import "./setup.ts";
 import assert from "node:assert/strict";
@@ -9,6 +10,7 @@ import { registerSchedules } from "../apps/worker/src/schedules.ts";
 const queueDb = dbOf("queue"),
   opsDb = dbOf("ops");
 after(async () => {
+  installModules([]);
   await stopBoss();
   await closeDb();
 });
@@ -34,12 +36,34 @@ test("retired timers remove schedules and waiting jobs while ordinary work and r
       return typeof value === "function" ? value.bind(target) : value;
     },
   });
+  let extensionEnabled = true;
+  const extensionName = `module-${suffix}.refresh`;
+  installModules([
+    {
+      name: "synthetic-extension",
+      schedules: [
+        {
+          name: extensionName,
+          cron: "0 0 1 1 *",
+          when: () => extensionEnabled,
+          run: async () => {
+            throw new Error("Business handlers must not start in this test");
+          },
+        },
+      ],
+    },
+  ]);
   await registerSchedules(registration);
   const names = new Set((await boss.getQueues()).map((queue) => queue.name));
   assert.equal(names.has(old), false);
   assert.equal(names.has(orphan), false, "previously unscheduled queues must also retire");
   assert.ok(names.has(current));
   assert.ok(names.has(ordinary));
+  assert.ok(names.has(`cron.${extensionName}`), "installed extensions contribute actual schedules");
+  extensionEnabled = false;
+  await registerSchedules(registration);
+  assert.ok(!(await boss.getQueues()).some((queue) => queue.name === `cron.${extensionName}`), "disabled extension timers retire through the same lifecycle");
+
   assert.ok(!(await boss.getSchedules()).some((schedule) => schedule.name === old));
   const [removed] = await queueDb`SELECT count(*)::int AS n FROM pgboss.job WHERE name IN (${old},${orphan})`;
   assert.equal(removed!.n, 0);

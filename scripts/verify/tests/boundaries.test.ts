@@ -293,3 +293,28 @@ test("the site configuration workspace is explicit and stays free of backend han
   write(fixture.dir, { "site/package.json": pkg("@amp/site", ["@amp/backend"], { ".": "./site.ts" }) });
   assert.ok(checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("@amp/site may not depend on @amp/backend")));
 });
+
+test("the named extension registry can be introduced without reopening arbitrary backend exports", () => {
+  const fixture = workspace({
+    "packages/backend/package.json": pkg("@amp/backend", [], { "./db": "./src/db.ts", "./modules": "./src/modules.ts" }),
+    "scripts/verify/backend-exports.json": JSON.stringify({ "./db": "./src/db.ts", "./modules": "./src/modules.ts" }),
+    "packages/backend/src/modules.ts": "export interface ServerModule {name:string}",
+  });
+  assert.deepEqual(checkBoundaries(fixture.dir, fixture.files, { snapshot: { "./db": "./src/db.ts" }, exports: { "./db": "./src/db.ts" } }), []);
+});
+
+test("a site helper cannot carry backend code into a reader import closure", () => {
+  const fixture = workspace({
+    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n  - industry\n  - site\n  - modules/*\n",
+    "site/package.json": pkg("@amp/site", ["@amp/metals"], { ".": "./site.ts", "./modules/server": "./modules/server.ts" }),
+    "site/site.ts": "export const SITE={};",
+    "site/modules/server.ts": 'export { run } from "@amp/metals/server";',
+    "modules/metals/package.json": pkg("@amp/metals", ["@amp/backend"], { "./server": "./server.ts" }),
+    "modules/metals/server.ts": 'export { dbOf as run } from "@amp/backend/db";',
+    "apps/web/package.json": pkg("@amp/web", ["@amp/site"]),
+    "apps/web/app/unsafe.ts": 'import "@amp/site/modules/server";',
+  });
+  assert.ok(
+    checkBoundaries(fixture.dir, fixture.files).some((problem) => problem.includes("web import closure reaches server-only dependency @amp/backend/db")),
+  );
+});

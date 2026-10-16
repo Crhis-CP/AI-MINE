@@ -2,11 +2,11 @@
 packages:
   - apps/*
   - packages/*
-  - packages/domains/*
   - packages/platform/*
   - tooling
   - industry
   - site
+  - modules/*
 
 # A new release must have been public for a day before it can be installed (supply-chain delay, minutes).
 minimumReleaseAge: 1440

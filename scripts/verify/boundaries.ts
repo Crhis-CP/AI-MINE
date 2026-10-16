@@ -24,15 +24,18 @@ const DOMAIN_EDGES: Record<string, readonly string[]> = {
   feedback: ["publication"],
 };
 const DOMAINS = amp(Object.keys(DOMAIN_EDGES));
+// The extension registry is a named engine interface; arbitrary legacy export expansion remains rejected.
+const ENGINE_ENTRIES: Record<string, string> = { "./modules": "./src/modules.ts" };
 export const ALLOWED_EDGES: Record<string, readonly string[]> = {
   ...Object.fromEntries(PLATFORM.map((name) => [name, L0.filter((other) => other !== name)])),
   ...Object.fromEntries(Object.entries(DOMAIN_EDGES).map(([name, deps]) => [`@amp/${name}`, [...L0, ...amp(deps)]])),
   "@amp/industry": ["@amp/site"],
-  "@amp/site": [],
+  "@amp/site": ["@amp/contracts", "@amp/metals"],
+  "@amp/metals": ["@amp/backend", "@amp/contracts"],
   "@amp/contracts": [],
   "@amp/backend": ["@amp/contracts", "@amp/industry", "@amp/config", "@amp/site"],
-  "@amp/api": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
-  "@amp/worker": ["@amp/backend", "@amp/industry", ...L0, ...DOMAINS],
+  "@amp/api": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
+  "@amp/worker": ["@amp/backend", "@amp/industry", "@amp/site", ...L0, ...DOMAINS],
   "@amp/fetcher": amp(["acquisition", "storage", "config", "telemetry", "contracts"]),
   "@amp/web": amp(["contracts", "industry", "api-client", "ui"]),
   "@amp/api-client": ["@amp/contracts"],
@@ -145,11 +148,12 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
       const snapshot = JSON.parse(readFileSync(path.join(root, "scripts/verify/backend-exports.json"), "utf8")) as Record<string, string>;
       if (backendBaseline) {
         for (const [entry, target] of Object.entries(snapshot)) {
-          if (backendBaseline.snapshot[entry] !== target) problems.push(`scripts/verify/backend-exports.json: ${entry} expands or retargets the base snapshot`);
+          if (backendBaseline.snapshot[entry] !== target && ENGINE_ENTRIES[entry] !== target)
+            problems.push(`scripts/verify/backend-exports.json: ${entry} expands or retargets the base snapshot`);
         }
       }
       for (const [entry, target] of Object.entries(entries)) {
-        if (snapshot[entry] !== target || (backendBaseline && backendBaseline.exports[entry] !== target))
+        if (snapshot[entry] !== target || (backendBaseline && backendBaseline.exports[entry] !== target && ENGINE_ENTRIES[entry] !== target))
           problems.push(`${w.dir}/package.json: ${entry} is not an unchanged backend export; new code belongs in a module`);
       }
     }
@@ -177,6 +181,9 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
       if (pkg.startsWith("@amp/") && pkg !== w.name) {
         const target = spaces.find((s) => s.name === pkg);
         const entry = spec === pkg ? "." : `.${spec.slice(pkg.length)}`;
+        if (w.name === "@amp/backend" && pkg === "@amp/site" && ![".", "./models"].includes(entry))
+          problems.push(`${f}: engine code cannot import the site's extension installation list`);
+
         if (privatePath(entry)) problems.push(`${f}: imports ${spec}, a private internal/ or store/ path`);
         else if (!target || !strings(publicEntries(target.exports)[entry]).length) problems.push(`${f}: ${spec} is not an explicit public export`);
         if (w.name === "@amp/fetcher" && pkg === "@amp/acquisition" && entry !== "./fetch-runtime")
@@ -205,6 +212,23 @@ export function checkBoundaries(root: string, files: readonly string[], backendB
     const entry = spec === target.name ? "." : `.${spec.slice(target.name.length)}`;
     return strings(publicEntries(target.exports)[entry]).flatMap((file) => resolveFile(path.posix.join(target.dir, exportPath(file))));
   };
+  const web = spaces.find((space) => space.name === "@amp/web");
+  if (web) {
+    const pending = [...sourceFiles].filter((file) => file.startsWith(`${web.dir}/`));
+    const visited = new Set<string>();
+    while (pending.length) {
+      const file = pending.pop()!;
+      if (visited.has(file)) continue;
+      visited.add(file);
+      for (const spec of syntax.get(file)?.imports ?? []) {
+        const name = packageOf(spec);
+        // Direct reader imports already have a precise diagnostic above; this adds the transitive cases.
+        if (!file.startsWith(`${web.dir}/`) && (name === "@amp/backend" || name === "pg-boss" || [...DRIVERS, ...MODEL_SDKS].some((rule) => rule.test(name))))
+          problems.push(`${file}: web import closure reaches server-only dependency ${spec}`);
+        pending.push(...resolveImport(file, spec));
+      }
+    }
+  }
   const acquisition = spaces.find((space) => space.name === "@amp/acquisition");
   if (acquisition) {
     const pending = strings(publicEntries(acquisition.exports)["./fetch-runtime"]).flatMap((file) =>

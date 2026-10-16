@@ -5,6 +5,12 @@
   "sideEffects": false,
   "exports": {
     ".": "./site.ts",
-    "./models": "./models.ts"
+    "./models": "./models.ts",
+    "./modules": "./modules/index.ts",
+    "./modules/server": "./modules/server.ts"
+  },
+  "dependencies": {
+    "@amp/contracts": "workspace:*",
+    "@amp/metals": "workspace:*"
   }
 }
