@@ -5,6 +5,7 @@ import { beijingDate } from "@amp/contracts/time";
 export const KEYS = {
   starred: "amp-starred-items",
   read: "amp-read-items",
+  recentSearches: "amp-recent-searches",
   theme: "amp-theme",
   feedbackDraft: "amp-feedback-draft-v1",
 } as const;
@@ -86,6 +87,7 @@ function subscribeKey(key: string) {
 const subscribeStarred = subscribeKey(KEYS.starred);
 const subscribeTheme = subscribeKey(KEYS.theme);
 const subscribeRead = subscribeKey(KEYS.read);
+const subscribeRecentSearches = subscribeKey(KEYS.recentSearches);
 
 // Snapshot cache so useSyncExternalStore gets stable references between changes.
 const cache = new Map<string, unknown>();
@@ -343,4 +345,43 @@ export function importBundle(text: string): ImportReport {
   cache.clear();
   emit();
   return { starredAdded: additions.length, starredSkipped, readAdded: readFailed ? 0 : readAdditions.length, readSkipped, readFailed, themeApplied };
+}
+
+const EMPTY_SEARCHES: string[] = [];
+export function getRecentSearches(): string[] {
+  return cached(KEYS.recentSearches, () => {
+    try {
+      const values: unknown = JSON.parse(readRaw(KEYS.recentSearches) ?? "[]");
+      if (!Array.isArray(values)) return [];
+      const seen = new Set<string>();
+      return values
+        .flatMap((value) => {
+          if (typeof value !== "string") return [];
+          const query = value.trim().slice(0, 200),
+            identity = query.toLowerCase();
+          if (!query || seen.has(identity)) return [];
+          seen.add(identity);
+          return [query];
+        })
+        .slice(0, 10);
+    } catch {
+      return [];
+    }
+  });
+}
+export function addRecentSearch(value: string): boolean {
+  const query = value.trim().slice(0, 200);
+  if (!query) return false;
+  const rest = getRecentSearches().filter((old) => old.toLowerCase() !== query.toLowerCase());
+  if (!writeRaw(KEYS.recentSearches, JSON.stringify([query, ...rest].slice(0, 10)))) return false;
+  invalidate(KEYS.recentSearches);
+  return true;
+}
+export function clearRecentSearches(): boolean {
+  if (!writeRaw(KEYS.recentSearches, null)) return false;
+  invalidate(KEYS.recentSearches);
+  return true;
+}
+export function useRecentSearches(): string[] {
+  return useSyncExternalStore(subscribeRecentSearches, getRecentSearches, () => EMPTY_SEARCHES);
 }

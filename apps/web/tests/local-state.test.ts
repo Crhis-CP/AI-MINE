@@ -168,3 +168,26 @@ test("an import reports a failed read write without claiming it saved read marks
   assert.equal(result.readAdded, 0);
   assert.equal(values.get(state.KEYS.read), undefined);
 });
+
+test("recent search is bounded, case-insensitive, local only and clears only after storage succeeds", async () => {
+  const { state, values, deny } = await reader();
+  for (let i = 0; i < 12; i++) state.addRecentSearch(`Copper ${i}`);
+  assert.equal(state.getRecentSearches().length, 10);
+  assert.equal(state.getRecentSearches()[0], "Copper 11");
+  state.addRecentSearch(" copper 5 ");
+  assert.equal(state.getRecentSearches()[0], "copper 5");
+  assert.equal(state.getRecentSearches().filter((q) => q.toLowerCase() === "copper 5").length, 1);
+  state.addRecentSearch("中".repeat(250));
+  assert.equal(state.getRecentSearches()[0]!.length, 200);
+  assert.equal(state.addRecentSearch("  "), false);
+  assert.ok(!("recentSearches" in state.exportBundle()));
+  assert.equal(state.clearRecentSearches(), true);
+  assert.deepEqual(state.getRecentSearches(), []);
+  state.addRecentSearch("保留");
+  const previous = values.get(state.KEYS.recentSearches);
+  deny();
+  assert.equal(state.clearRecentSearches(), false);
+  assert.equal(state.addRecentSearch("失败"), false);
+  assert.equal(values.get(state.KEYS.recentSearches), previous);
+  assert.deepEqual(state.getRecentSearches(), ["保留"]);
+});
