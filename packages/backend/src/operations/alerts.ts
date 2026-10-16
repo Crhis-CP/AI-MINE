@@ -494,16 +494,19 @@ export async function collectFindings(now = Date.now(), observeIntake?: (lastDis
   }
 
   // ---- Follow-ups for the daily digest ------------------------------------------------------------
-  const [r] = await sql<{ receipts: number; services: string | null; deliveries: number }[]>`
-    SELECT (SELECT count(*)::int FROM receipts WHERE status = 'unknown') AS receipts,
-           (SELECT string_agg(DISTINCT service || '/' || purpose, '、') FROM receipts WHERE status = 'unknown') AS services,
-           (SELECT count(*)::int FROM deliveries WHERE status = 'unknown') AS deliveries`;
+  const [r] = await sql<{ receipts: number; first_attempts: number; repeated_attempts: number; services: string | null; deliveries: number }[]>`
+    SELECT count(*)::int AS receipts,
+           count(*) FILTER (WHERE attempts = 1)::int AS first_attempts,
+           count(*) FILTER (WHERE attempts > 1)::int AS repeated_attempts,
+           string_agg(DISTINCT service || '/' || purpose, '、') AS services,
+           (SELECT count(*)::int FROM deliveries WHERE status = 'unknown') AS deliveries
+      FROM receipts WHERE status = 'unknown'`;
   if (r!.receipts > 0) {
     out.push({
       key: "receipts.unknown",
       level: "digest",
-      title: `${r!.receipts} 个付费请求自动重试过一次，结果仍未知`,
-      detail: `${r!.services}；在后台“用量与模型密钥”里的“费用与投递核对”核对后放行`,
+      title: `${r!.receipts} 个付费请求结果未知，需核对`,
+      detail: `${r!.services}；仅尝试1次：${r!.first_attempts}；已尝试多次：${r!.repeated_attempts}。可能阻塞对应的新内容处理；在后台“费用核对”查看记录，仅在供应商确认未计费后人工放行，仍未知的费用保留。`,
     });
   }
   if (r!.deliveries > 0)
@@ -751,11 +754,14 @@ export async function autoStopsBetween(from: Date, to: Date): Promise<{ days: nu
   return { days: allDays.size, byService, coveredFrom };
 }
 
-/** 09:00: one message with the follow-ups that do not touch readers; nothing when there are none. */
+/** 09:00: one message with follow-ups; unresolved requests can still block new processing. */
 export async function sendDigest(now = Date.now()) {
   const items = (await collectFindings(now)).filter((f) => f.level === "digest");
   const lines = items.map((f, i) => `${i + 1}. ${f.title}${f.detail ? `\n   ${f.detail}` : ""}`);
   if (!lines.length) return { items: 0 };
-  await sendAlert(`📋 系统日报 · ${beijingDay(now)}`, ["以下事项不影响读者，你不用处理；需要的话把整条转给 AI。", ...lines]);
+  const introduction = items.some((item) => item.key === "receipts.unknown")
+    ? "以下事项需要核对。付费请求结果未知可能阻塞新内容处理；请保留费用记录，可把整条转给 AI 排查。"
+    : "以下是系统运行的待跟进事项，可把整条转给 AI 排查。";
+  await sendAlert(`📋 系统日报 · ${beijingDay(now)}`, [introduction, ...lines]);
   return { items: lines.length };
 }
