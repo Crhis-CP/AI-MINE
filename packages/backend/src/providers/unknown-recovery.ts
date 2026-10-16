@@ -10,15 +10,20 @@ type Released = { id: number; subject: string | null; purpose: string; attempts:
 /** Incident scope: one recovery for news analysis, retaining every uncertain attempt and charge. */
 export async function recoverUnknownNewsOnce(now: number, resume: (row: Released, db: Tx) => Promise<boolean>) {
   const cutoff = new Date(now - 30 * 60_000);
-  const candidates = await sql<{ id: number }[]>`SELECT r.id FROM receipts r
+  const candidates = await sql<Pick<Released, "id" | "purpose" | "subject">[]>`SELECT r.id,r.purpose,r.subject FROM receipts r
     WHERE r.status='unknown' AND r.updated_at<${cutoff} AND r.purpose=ANY(${PURPOSES}::text[])
       AND coalesce(r.request->>'lane','news')='news'
-      AND NOT EXISTS (SELECT 1 FROM receipt_attempts a WHERE a.receipt_id=r.id AND a.error LIKE ${`${NOTE}%`})
+      AND r.subject ~ '^article:[a-zA-Z0-9_-]+@[1-9][0-9]*$'
+      AND NOT EXISTS (SELECT 1 FROM receipt_attempts a JOIN receipts prior ON prior.id=a.receipt_id
+        WHERE prior.subject=r.subject AND prior.purpose=r.purpose AND coalesce(prior.request->>'lane','news')='news'
+          AND a.error LIKE ${`${NOTE}%`})
     ORDER BY r.id LIMIT 200`;
   let released = 0;
   let requeued = 0;
   for (const candidate of candidates) {
     const result = await sql.begin(async (tx) => {
+      // The model identity may change the receipt key; the recovery allowance belongs to the material stage.
+      await tx`SELECT pg_advisory_xact_lock(hashtext(${`news-receipt:${candidate.purpose}:${candidate.subject}`}))`;
       const [row] = await tx<Released[]>`SELECT id,subject,purpose,attempts,error FROM receipts
         WHERE id=${candidate.id} AND status='unknown' AND updated_at<${cutoff} FOR UPDATE`;
       if (!row) return null;
@@ -29,7 +34,9 @@ export async function recoverUnknownNewsOnce(now: number, resume: (row: Released
         if (error instanceof RuntimeControlPaused) return null;
         throw error;
       }
-      const [prior] = await tx`SELECT 1 FROM receipt_attempts WHERE receipt_id=${row.id} AND error LIKE ${`${NOTE}%`} LIMIT 1`;
+      const [prior] = await tx`SELECT 1 FROM receipt_attempts a JOIN receipts r ON r.id=a.receipt_id
+        WHERE r.subject=${row.subject} AND r.purpose=${row.purpose} AND coalesce(r.request->>'lane','news')='news'
+          AND a.error LIKE ${`${NOTE}%`} LIMIT 1`;
       if (prior) return null;
       const note = `${NOTE}；原错误：${row.error ?? "未记录"}`;
       const marked = await tx`UPDATE receipt_attempts SET error=${note}

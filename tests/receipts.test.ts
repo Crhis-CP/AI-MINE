@@ -15,7 +15,9 @@ import { installUsageFixtureForModel, installUsageFixtureForService } from "./us
 import { embeddingsAvailable } from "@amp/backend/providers/embeddings";
 import { BudgetExceededError, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@amp/backend/providers/receipts";
 import { autoReleaseUnknownReceipts, receiptObservedVersion, releaseReceipt } from "@amp/backend/admin/runs";
-import { upsertMaterial } from "@amp/backend/content/materials";
+import { upsertMaterial, readCurrentBody } from "@amp/backend/content/materials";
+import { boundEvaluationFixture } from "./bound-eval-fixture.ts";
+import { prepareNewsFallback } from "../packages/backend/src/providers/news-fallback.ts";
 import { stopBoss } from "@amp/backend/jobs/queue";
 import { changeOwnerLaneControls } from "../packages/backend/src/operations/lane-controls.ts";
 
@@ -335,6 +337,65 @@ test("a news processing pause and an audit failure retain the automatic recovery
     await sql.unsafe("DROP TRIGGER fail_auto_recovery_audit ON audit_log; DROP FUNCTION fail_auto_recovery_audit()");
   }
   assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 1 });
+});
+
+test("real chat identity changes cannot grant another automatic retry to the same news revision and purpose", async () => {
+  const previous = process.env.DEEPSEEK_BASE_URL;
+  const [budget] = await sql`SELECT per_minute,per_hour,per_day FROM budgets WHERE service='deepseek'`;
+  await sql`UPDATE budgets SET per_minute=100,per_hour=2000,per_day=20000 WHERE service='deepseek'`;
+  const remote = await stub(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return { choices: [{ message: { content: '{"ok":true}' } }], usage };
+  });
+  const binding = await boundEvaluationFixture({
+    title: `identity${tag()}`,
+    body: "same original input",
+    source: "Identity recovery test",
+    kind: "rss",
+    tier: "T2",
+    firstParty: false,
+    publishedAt: null,
+  });
+  const current = (await readCurrentBody(binding.analysisInput.id))!;
+  const prepare = await prepareNewsFallback({
+    root: new AbortController().signal,
+    expected: current,
+    current: () => readCurrentBody(current.id),
+    articles: [current],
+  });
+  assert.ok(prepare);
+  const subject = `article:${current.id}@${current.revision}`;
+  const request = {
+    model: "deepseek-flash",
+    lane: "news" as const,
+    purpose: "score_article",
+    subject,
+    promptVersion: "identity-recovery",
+    fallbackPermit: prepare({ system: "s", user: "same original input" }),
+    system: "s",
+    user: "same original input",
+    schema: z.object({ ok: z.boolean() }),
+    timeoutMs: 75,
+  };
+  try {
+    process.env.DEEPSEEK_BASE_URL = `${remote.url}/original/v1`;
+    await installUsageFixtureForModel("deepseek-flash");
+    await assert.rejects(chatJson(request), ReceiptUnknownError);
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject}`;
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 1, requeued: 0 });
+    process.env.DEEPSEEK_BASE_URL = `${remote.url}/changed/v1`;
+    await installUsageFixtureForModel("deepseek-flash");
+    await assert.rejects(chatJson(request), ReceiptUnknownError);
+    assert.equal((await sql`SELECT count(*)::int AS n FROM receipts WHERE subject=${subject}`)[0].n, 2, "the real transport identity changed the logical key");
+    await sql`UPDATE receipts SET updated_at=now()-interval '31 minutes' WHERE subject=${subject}`;
+    assert.deepEqual(await autoReleaseUnknownReceipts(), { released: 0, requeued: 0 });
+    await assert.rejects(chatJson(request), ReceiptUnknownError);
+    assert.equal(remote.hits(), 2, "original request plus only one recovery send");
+  } finally {
+    process.env.DEEPSEEK_BASE_URL = previous;
+    await remote.close();
+    await sql`UPDATE budgets SET per_minute=${budget.per_minute},per_hour=${budget.per_hour},per_day=${budget.per_day} WHERE service='deepseek'`;
+  }
 });
 
 test("manual release resumes pending body reads and leaves unrelated article work alone", async () => {
