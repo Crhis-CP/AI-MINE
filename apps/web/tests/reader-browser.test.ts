@@ -44,10 +44,16 @@ const detail = {
   readingMode: "full",
   author: null,
   language: "zh",
-  body: { zh: '<h2 id="section-one">正文第一节</h2><p>合成正文</p><h2 id="section-two">正文第二节</h2>', original: null, zhKind: "original", complete: true },
+  body: {
+    zh: '<h2 id="section-one">正文第一节</h2><p>合成正文</p><h2 id="section-two">正文第二节</h2><h2 id="section-three">正文第三节</h2>',
+    original: null,
+    zhKind: "original",
+    complete: true,
+  },
   outline: [
     { id: "section-one", text: "正文第一节", level: 2 },
     { id: "section-two", text: "正文第二节", level: 2 },
+    { id: "section-three", text: "正文第三节", level: 2 },
   ],
   relatedStories: [],
   indexable: false,
@@ -295,8 +301,24 @@ test("mobile controls, content refresh, saved withdrawal and system theme work i
   await expect(page.getByRole("link", { name: "公司资料原始依据" })).toHaveAttribute("href", "https://example.invalid/company");
   await expect(page.getByRole("link", { name: "合成许可说明" })).toHaveAttribute("href", "https://example.invalid/license");
   await expect(page.getByRole("link", { name: "合成相关法规" })).toHaveAttribute("href", "/policies/policy-fixture");
-  await page.getByText("文章目录", { exact: true }).click();
-  await expect(page.getByRole("navigation", { name: "手机文章目录" }).getByRole("link", { name: "正文第一节" })).toBeVisible();
+  const readingTools = page.getByRole("navigation", { name: "阅读工具" });
+  await expect(readingTools.getByRole("link", { name: "打开原文" })).toHaveAttribute("href", "https://example.invalid/source");
+  const historyPosition = await page.evaluate(() => history.state.idx);
+  await readingTools.getByRole("button", { name: "目录", exact: true }).click();
+  const outlineDialog = page.getByRole("dialog", { name: "文章目录" });
+  await expect(outlineDialog.getByRole("button", { name: "关闭", exact: true })).toBeFocused();
+  const grip = await outlineDialog.getByRole("heading", { name: "文章目录" }).boundingBox();
+  assert.ok(grip);
+  await page.mouse.move(grip.x + 12, grip.y + 8);
+  await page.mouse.down();
+  await page.mouse.move(grip.x + 12, grip.y + 140, { steps: 5 });
+  await page.mouse.up();
+  await expect(outlineDialog).toHaveCount(0);
+  await readingTools.getByRole("button", { name: "目录", exact: true }).click();
+  await page.getByRole("navigation", { name: "手机文章目录" }).getByRole("link", { name: "正文第一节" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page).toHaveURL(/#section-one$/);
+  assert.equal(await page.evaluate(() => history.state.idx), historyPosition, "outline navigation does not insert a back-history entry");
   await openQualifiedReader(page);
   added = true;
   await checkVersionOnFocus(page, "1");

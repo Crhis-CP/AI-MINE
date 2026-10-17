@@ -1,3 +1,5 @@
+import { Sheet } from "../components/ui/Sheet";
+import { ReaderToolbar, scrollToReadingAnchor } from "../features/item/ReaderTools";
 import { markRead } from "../lib/local-state";
 import { SITE, withSubject } from "@amp/industry/site";
 import { useEffect, useRef, useState } from "react";
@@ -109,6 +111,11 @@ export default function ItemPage() {
   const hasTranslation = item.hasTranslation;
   const lang = item.bodyLanguage;
   const [toast, setToast] = useState<string | null>(null);
+  const itemKey = `${item.id}:${item.revision}`;
+  const [sheetState, setSheetState] = useState<{ key: string; view: "outline" | "actions" } | null>(null);
+  const sheet = sheetState?.key === itemKey ? sheetState.view : null;
+  const setSheet = (view: "outline" | "actions" | null) => setSheetState(view ? { key: itemKey, view } : null);
+  const [readingAnchor, setReadingAnchor] = useState<string | null>(null);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 1600);
@@ -282,23 +289,12 @@ export default function ItemPage() {
     <div className="mx-auto max-w-[var(--page-max-reading)] pb-8">
       {item.body && <ReadingProgress />}
 
-      {/* Phones: a sticky bar with back, 收藏, the original, share and more. Desktop puts these in the rails. */}
       <div className="sticky top-0 z-30 -mx-4 flex h-12 items-center gap-1.5 border-b border-line-soft bg-bg/95 px-4 backdrop-blur lg:hidden">
         {backButton}
         <span className="flex-1" />
-        <StarButton item={item} size={32} />
-        <a href={item.links.original} target="_blank" rel="noopener noreferrer" className="inline-flex h-8 items-center gap-1 px-1.5 text-[14px] text-ink-2">
-          <IconExternal size={15} /> 原文
-        </a>
-        <button
-          type="button"
-          aria-label="分享"
-          onClick={share}
-          className="inline-flex size-8 items-center justify-center rounded-full text-ink-3 hover:text-ink"
-        >
-          <IconShare size={17} />
+        <button type="button" aria-label="更多操作" onClick={() => setSheet("actions")} className="grid size-10 place-items-center rounded-full text-ink-3">
+          <IconMenu size={20} />
         </button>
-        {moreMenu}
       </div>
 
       {/* The text on the page in one column; back and the facts in the left rail, actions and notes in the right. */}
@@ -369,20 +365,6 @@ export default function ItemPage() {
               <p className="text-[18px] leading-[1.7] text-ink xl:text-[20px] xl:leading-[1.7]">{item.summary}</p>
             </section>
           )}
-
-          <details className="mt-5 rounded-control border border-line px-4 py-3 lg:hidden">
-            <summary className="cursor-pointer text-[13px] font-semibold">文章目录</summary>
-            <nav aria-label="手机文章目录" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[13px] text-accent">
-              {bodyHtml && <a href="#article-body">正文</a>}
-              {item.outline.map((entry) => (
-                <a key={entry.id} href={`#${entry.id}`}>
-                  {entry.text}
-                </a>
-              ))}
-              <a href="#article-source">来源与依据</a>
-              {item.story && <a href="#article-developments">事件进展</a>}
-            </nav>
-          </details>
 
           {item.reason && !summaryOnly && (
             <section className="mt-6 border-t border-line pt-4 lg:hidden">
@@ -529,6 +511,76 @@ export default function ItemPage() {
           )}
         </article>
       </ArticleLayout>
+      <ReaderToolbar
+        id={item.id}
+        originalUrl={item.links.original}
+        onShare={() => void share()}
+        onOutline={
+          showOutline
+            ? () => {
+                setReadingAnchor(
+                  item.outline.filter((entry) => (document.getElementById(entry.id)?.getBoundingClientRect().top ?? Infinity) <= 72).at(-1)?.id ?? null,
+                );
+                setSheet("outline");
+              }
+            : undefined
+        }
+      />
+      <Sheet open={sheet !== null} onClose={() => setSheet(null)} title={sheet === "outline" ? "文章目录" : "更多操作"}>
+        {sheet === "outline" ? (
+          <nav aria-label="手机文章目录">
+            <ol>
+              {item.outline.map((entry) => (
+                <li key={entry.id}>
+                  <a
+                    href={`#${entry.id}`}
+                    aria-current={readingAnchor === entry.id ? "location" : undefined}
+                    className={`flex min-h-12 items-center gap-3 rounded-control py-2 text-[16px] hover:bg-bg-sunk ${entry.level > 2 ? "pl-6" : "px-2"}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setSheet(null);
+                      requestAnimationFrame(() => scrollToReadingAnchor(entry.id));
+                    }}
+                  >
+                    <span className="flex-1">{entry.text}</span>
+                    {readingAnchor === entry.id && <span className="text-[12px] text-accent">正在读</span>}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        ) : (
+          <div className="space-y-1">
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-[16px] hover:bg-bg-sunk"
+              onClick={() => {
+                setSheet(null);
+                void share();
+              }}
+            >
+              <IconShare size={20} />
+              分享链接
+            </button>
+            <button
+              type="button"
+              className="flex min-h-12 w-full items-center gap-3 rounded-control px-2 text-[16px] hover:bg-bg-sunk"
+              onClick={async () => {
+                setSheet(null);
+                try {
+                  await navigator.clipboard.writeText(`${siteUrl()}/items/${item.id}`);
+                  setToast("链接已复制");
+                } catch {
+                  setToast("暂时无法复制，请使用浏览器分享。");
+                }
+              }}
+            >
+              <IconCopy size={20} />
+              复制链接
+            </button>
+          </div>
+        )}
+      </Sheet>
       {toast && (
         <div
           role="status"
